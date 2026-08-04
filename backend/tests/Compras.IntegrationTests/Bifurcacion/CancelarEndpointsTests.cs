@@ -82,11 +82,23 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
     // Ver doc 01 §13 Rev. 21 hallazgo lateral C (patrón sistémico en
     // Bifurcación; la causa raíz técnica está documentada en B).
     [Fact]
-    public async Task Cancelar_DesdeCerrada_Retorna_422()
+    public async Task Cancelar_DesdeCerradaSinSurtir_Retorna_422()
     {
         var client = await CreateSuperAdminClientAsync();
-        // Stock total → autorizar lleva a Cerrada (terminal).
+        // ADR-0043: aun con stock total, autorizar deja la RQ EnSurtido;
+        // el cierre ocurre por entrega o explícitamente. Cerramos de forma
+        // manual para construir un estado terminal real y validar que desde
+        // ahí la cancelación sigue rechazada.
         var rqId = await CrearTransmitirAutorizarAsync(client, articuloId: ArticuloSeedId, cantidad: 10m);
+
+        var cerrar = await client.PostAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{rqId}/cerrar-manual",
+            new
+            {
+                MotivoId = Guid.Parse("00000003-0002-0000-0000-000000000007"),
+                MotivoTexto = (string?)null,
+            });
+        cerrar.EnsureSuccessStatusCode();
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{rqId}/cancelar",
@@ -213,7 +225,7 @@ public class CancelarEndpointsTests : IClassFixture<StubsWebApplicationFactory>
             PrecioEstimadoMonto = 15m,
             PrecioEstimadoMoneda = "MXN",
             CuentaContableId = (Guid?)null,
-            CentroCostoId = (Guid?)null,
+            CentroCostoId = (Guid?)TestComprasFixtures.CentroCostoMaquinaSeed,
             Proyecto = (string?)null,
             FechaRequerida = (DateOnly?)null,
             Notas = (string?)null,

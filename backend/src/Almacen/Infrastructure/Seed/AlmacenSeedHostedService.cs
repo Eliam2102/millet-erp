@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure.Persistence;
 using AlmacenAggregate = Millet.Almacen.Domain.Catalogo.Almacen;
 
 namespace Millet.Almacen.Infrastructure.Seed;
@@ -37,6 +38,8 @@ namespace Millet.Almacen.Infrastructure.Seed;
 /// </summary>
 public sealed class AlmacenSeedHostedService : IHostedService
 {
+    private const long SeedLockId = 6_672_000_002;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHostEnvironment _environment;
     private readonly ILogger<AlmacenSeedHostedService> _logger;
@@ -67,8 +70,16 @@ public sealed class AlmacenSeedHostedService : IHostedService
 
         using var bypass = empresaContext.Bypass();
 
-        await SeedAlmacenesAsync(db, cancellationToken);
-        await SeedSubAlmacenesAsync(db, cancellationToken);
+        await PostgresAdvisoryLock.ExecuteAsync(
+            db,
+            SeedLockId,
+            async ct =>
+            {
+                await SeedAlmacenesAsync(db, ct);
+                await SeedSubAlmacenesAsync(db, ct);
+                await SeedUbicacionesDefaultAsync(db, ct);
+            },
+            cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -113,6 +124,29 @@ public sealed class AlmacenSeedHostedService : IHostedService
         _logger.LogInformation("AlmacenSeed sub-almacenes: insertados {N} nuevos.", faltantes.Count);
     }
 
+    private async Task SeedUbicacionesDefaultAsync(AlmacenDbContext db, CancellationToken ct)
+    {
+        var ids = SeedUbicacionesDefault.Select(u => u.Id).ToArray();
+        var existentes = await db.Ubicaciones.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => u.Id)
+            .ToListAsync(ct);
+        var faltantes = SeedUbicacionesDefault.Where(u => !existentes.Contains(u.Id)).ToList();
+        if (faltantes.Count == 0)
+        {
+            _logger.LogDebug(
+                "AlmacenSeed ubicaciones default: ya existían las {N} del seed.",
+                SeedUbicacionesDefault.Length);
+            return;
+        }
+
+        db.Ubicaciones.AddRange(faltantes);
+        await db.SaveChangesAsync(ct);
+        _logger.LogInformation(
+            "AlmacenSeed ubicaciones default: insertadas {N} nuevas.",
+            faltantes.Count);
+    }
+
     // ─── Datos del seed ────────────────────────────────────────────────────────
     //
     // IDs deterministas:
@@ -128,7 +162,7 @@ public sealed class AlmacenSeedHostedService : IHostedService
     //   - MAT-REV  (A15 — destino de devolución interna por daño)
 
     public static readonly Guid AlmMidGeneralId = Guid.Parse("00000005-0005-0000-0000-000000000001");
-    public static readonly Guid AlmMidMpId      = Guid.Parse("00000005-0005-0000-0000-000000000002");
+    public static readonly Guid AlmMidMpId = Guid.Parse("00000005-0005-0000-0000-000000000002");
     public static readonly Guid AlmMtyGeneralId = Guid.Parse("00000005-0005-0000-0000-000000000003");
     public static readonly Guid AlmQroGeneralId = Guid.Parse("00000005-0005-0000-0000-000000000004");
 
@@ -238,4 +272,14 @@ public sealed class AlmacenSeedHostedService : IHostedService
             nombre: "Material en revisión QRO",
             tipo: TipoSubAlmacen.MaterialEnRevision),
     ];
+
+    public static readonly Ubicacion[] SeedUbicacionesDefault =
+        SeedSubAlmacenes
+            .Select((subAlmacen, index) => new Ubicacion(
+                id: Guid.Parse($"00000008-0002-0000-0000-{index + 1:X12}"),
+                subAlmacenId: subAlmacen.Id,
+                clave: "ÚNICA",
+                nombre: "Ubicación única (default del sub-almacén)",
+                esDefault: true))
+            .ToArray();
 }

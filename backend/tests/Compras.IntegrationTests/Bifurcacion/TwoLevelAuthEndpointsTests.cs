@@ -133,7 +133,7 @@ public class TwoLevelAuthEndpointsTests : IClassFixture<StubsWebApplicationFacto
             PrecioEstimadoMonto = 15m,
             PrecioEstimadoMoneda = "MXN",
             CuentaContableId = (Guid?)null,
-            CentroCostoId = (Guid?)null,
+            CentroCostoId = (Guid?)TestComprasFixtures.CentroCostoMaquinaSeed,
             Proyecto = (string?)null,
             FechaRequerida = (DateOnly?)null,
             Notas = (string?)null,

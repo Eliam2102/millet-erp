@@ -46,6 +46,8 @@ namespace Millet.Identidad.Infrastructure;
 /// </summary>
 public sealed class BootstrapSuperAdminHostedService : IHostedService
 {
+    internal const long BootstrapLockId = 6_672_000_010;
+
     // IDs deterministas: idempotencia robusta y trazables en logs/audit_log.
     private static readonly Guid SuperAdminRolId = Guid.Parse("00000002-0003-0000-0000-000000000001");
     private static readonly Guid EmpresaInicialId = Guid.Parse("00000003-0000-0000-0000-000000000001");
@@ -82,10 +84,17 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
 
         using var bypass = empresaContext.Bypass();
 
-        var rol = await EnsureSuperAdminRolAsync(identidad, cancellationToken);
-        await EnsureRolesMvpAsync(identidad, cancellationToken);
-        var usuario = await EnsureSuperAdminUsuarioAsync(identidad, oid, cancellationToken);
-        await EnsureEmpresaAndAssignmentAsync(identidad, compartido, usuario, rol, cancellationToken);
+        await PostgresAdvisoryLock.ExecuteAsync(
+            identidad,
+            BootstrapLockId,
+            async ct =>
+            {
+                var rol = await EnsureSuperAdminRolAsync(identidad, ct);
+                await EnsureRolesMvpAsync(identidad, ct);
+                var usuario = await EnsureSuperAdminUsuarioAsync(identidad, oid, ct);
+                await EnsureEmpresaAndAssignmentAsync(identidad, compartido, usuario, rol, ct);
+            },
+            cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Infrastructure;
+using Millet.Compras.Infrastructure.Stubs;
 using Millet.SharedKernel.Application;
 
 namespace Millet.Compras.IntegrationTests;
@@ -36,6 +40,9 @@ namespace Millet.Compras.IntegrationTests;
 /// </summary>
 public sealed class StubsWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private static readonly Guid EmpresaBootstrapId =
+        Guid.Parse("00000003-0000-0000-0000-000000000001");
+
     static StubsWebApplicationFactory()
     {
         Environment.SetEnvironmentVariable("Compras__UseStubs", "true");
@@ -49,6 +56,16 @@ public sealed class StubsWebApplicationFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.ConfigureTestServices(services =>
+        {
+            // Program registra el adapter real después de AddComprasStubs.
+            // La factory de integración debe restaurar explícitamente el
+            // puerto fake para que los ratios deterministas del escenario
+            // gobiernen la bifurcación de stock.
+            services.RemoveAll<IConsultarStockPort>();
+            services.AddSingleton<IConsultarStockPort>(sp =>
+                sp.GetRequiredService<InMemoryConsultarStockPort>());
+        });
     }
 
     /// <summary>
@@ -79,6 +96,15 @@ public sealed class StubsWebApplicationFactory : WebApplicationFactory<Program>
         using var bypass = empresaContext.Bypass();
 
         var settings = db.ComprasSettings.ToList();
+        if (settings.Count == 0)
+        {
+            var row = Millet.Compras.Domain.ComprasSettings.CrearDefault(EmpresaBootstrapId);
+            row.EstablecerAutoGenerarOcAlAutorizar(true);
+            db.ComprasSettings.Add(row);
+            db.SaveChanges();
+            return;
+        }
+
         foreach (var s in settings)
         {
             s.EstablecerAutoGenerarOcAlAutorizar(true);

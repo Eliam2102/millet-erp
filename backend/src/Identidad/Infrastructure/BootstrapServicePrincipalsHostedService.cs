@@ -14,6 +14,7 @@ using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure.Telemetry;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Domain;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Identidad.Infrastructure;
 
@@ -103,49 +104,56 @@ public sealed class BootstrapServicePrincipalsHostedService : IHostedService
 
         using var bypass = empresaContext.Bypass();
 
-        // Detectar duplicados de AppId en config (D-BOOTSTRAP). Skip la
-        // duplicada Y la original — no podemos elegir cuál es "la buena".
-        var duplicateAppIds = entries
-            .GroupBy(e => e.AppId)
-            .Where(g => g.Count() > 1)
-            .Select(g => g.Key)
-            .ToHashSet();
-
-        if (duplicateAppIds.Count > 0)
-        {
-            foreach (var dupId in duplicateAppIds)
+        await PostgresAdvisoryLock.ExecuteAsync(
+            db,
+            BootstrapSuperAdminHostedService.BootstrapLockId,
+            async ct =>
             {
-                _logger.LogError(
-                    "AppId {AppId} aparece en {Count} entradas de Auth:ServicePrincipalsJson. Todas las entradas con ese AppId quedan SKIPPED. Resolver duplicado en config.",
-                    dupId, entries.Count(e => e.AppId == dupId));
-                meter.SpBootstrapSkipped.Add(entries.Count(e => e.AppId == dupId));
-            }
-        }
+                // Detectar duplicados de AppId en config (D-BOOTSTRAP). Skip la
+                // duplicada Y la original — no podemos elegir cuál es "la buena".
+                var duplicateAppIds = entries
+                    .GroupBy(e => e.AppId)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToHashSet();
 
-        var validClavesPermisos = PermisosCanonicos.Todos
-            .Select(p => p.Codigo)
-            .ToHashSet(StringComparer.Ordinal);
+                if (duplicateAppIds.Count > 0)
+                {
+                    foreach (var dupId in duplicateAppIds)
+                    {
+                        _logger.LogError(
+                            "AppId {AppId} aparece en {Count} entradas de Auth:ServicePrincipalsJson. Todas las entradas con ese AppId quedan SKIPPED. Resolver duplicado en config.",
+                            dupId, entries.Count(e => e.AppId == dupId));
+                        meter.SpBootstrapSkipped.Add(entries.Count(e => e.AppId == dupId));
+                    }
+                }
 
-        foreach (var entry in entries)
-        {
-            if (duplicateAppIds.Contains(entry.AppId))
-            {
-                continue; // ya logueado arriba
-            }
+                var validClavesPermisos = PermisosCanonicos.Todos
+                    .Select(p => p.Codigo)
+                    .ToHashSet(StringComparer.Ordinal);
 
-            try
-            {
-                await ProcessEntryAsync(
-                    entry, db, empresaResolver, clock, meter, validClavesPermisos, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Excepción no esperada persistiendo SP '{Nombre}' (AppId={AppId}). Skipped, las demás entradas continúan.",
-                    entry.Name, entry.AppId);
-                meter.SpBootstrapSkipped.Add(1);
-            }
-        }
+                foreach (var entry in entries)
+                {
+                    if (duplicateAppIds.Contains(entry.AppId))
+                    {
+                        continue; // ya logueado arriba
+                    }
+
+                    try
+                    {
+                        await ProcessEntryAsync(
+                            entry, db, empresaResolver, clock, meter, validClavesPermisos, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "Excepción no esperada persistiendo SP '{Nombre}' (AppId={AppId}). Skipped, las demás entradas continúan.",
+                            entry.Name, entry.AppId);
+                        meter.SpBootstrapSkipped.Add(1);
+                    }
+                }
+            },
+            cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

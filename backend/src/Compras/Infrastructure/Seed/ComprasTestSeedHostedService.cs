@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Compras.Infrastructure.Seed;
 
@@ -52,6 +53,8 @@ namespace Millet.Compras.Infrastructure.Seed;
 /// </summary>
 public sealed class ComprasTestSeedHostedService : IHostedService
 {
+    private const long SeedLockId = 6_672_000_003;
+
     // Mirror de BootstrapSuperAdminHostedService.EmpresaInicialId
     // (private allí; replicado aquí porque Compras.csproj no referencia
     // Identidad — agregar la ref sólo por esta constante sería
@@ -100,7 +103,11 @@ public sealed class ComprasTestSeedHostedService : IHostedService
 
         using var bypass = empresaContext.Bypass();
 
-        await AdelantarFolioSecuenciaAsync(db, cancellationToken);
+        await PostgresAdvisoryLock.ExecuteAsync(
+            db,
+            SeedLockId,
+            ct => AdelantarFolioSecuenciaAsync(db, ct),
+            cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
@@ -106,7 +106,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editando?.id]);
 
-  const nivel = form.watch('nivel');
+  const nivel = useWatch({ control: form.control, name: 'nivel' });
 
   function onSubmit(values: CrearReordenValues) {
     // Idempotency-Key por submit (no por montaje): si el primer intento falla

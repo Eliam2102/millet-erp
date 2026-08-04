@@ -1,6 +1,6 @@
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
@@ -308,7 +308,7 @@ function RegistrarSalidaBody({
     resolver: zodResolver(RegistrarSalidaDevolucionSchema),
     defaultValues: { subAlmacenId: '', fechaMovimiento: hoyIso },
   });
-  const subAlmacenId = form.watch('subAlmacenId');
+  const subAlmacenId = useWatch({ control: form.control, name: 'subAlmacenId' });
   const lineas = detalle.data?.lineas ?? [];
 
   function onSubmit(values: RegistrarSalidaDevolucionValues) {

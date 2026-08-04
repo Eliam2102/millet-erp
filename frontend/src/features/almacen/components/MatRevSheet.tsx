@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/incompatible-library -- react-hook-form watch es intencional en este formulario dinámico; React Compiler omite su memoización de forma segura. */
 import { hoyLocalISO } from '@/lib/datetime';
 import {
   Controller,

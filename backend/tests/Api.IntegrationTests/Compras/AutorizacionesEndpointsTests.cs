@@ -115,34 +115,14 @@ public class AutorizacionesEndpointsTests : IClassFixture<WebApplicationFactory<
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    // REGRESIÓN PRE-EXISTENTE: este test asume que IConsultarStockPort
-    // devuelve Disponible >= Cantidad (lo que TestAssemblyInit intentaba
-    // forzar via Compras__Stubs__Stock__DefaultRatio=1.0), y bajo ese
-    // supuesto la RQ transiciona a Cerrada (estado=4). Pero desde
-    // PR #293/#301 el stub config-driven se reemplazó por
-    // AlmacenStockReadAdapter (consulta real a almacen.saldos_inventario),
-    // que ignora el env var. Sin saldos sembrados para el (ArticuloSeedId,
-    // AlmacenDestinoId) usado aquí, Disponible=0 → la RQ pasa a EnSurtido
-    // (estado=3), no Cerrada. Test queda determinísticamente rojo —
-    // verificado en main pre-PR-A2: 3/3 corridas aisladas fallan.
-    //
-    // Remediaciones (fuera de scope PR-A2):
-    //   1. Seedear almacen.saldos_inventario con stock suficiente para
-    //      ArticuloSeedId en los sub-almacenes de AlmacenMidGeneral, y
-    //      actualizar el comment del test para reflejar el flujo real.
-    //   2. Eliminar el test (la cobertura de "RQ → Cerrada via stock total"
-    //      vive en otra suite que sí controla el saldo).
-    //
-    // Ver doc 01-diseño §13 Rev. 21 (hallazgo lateral B).
     [Fact]
-    public async Task Autorizar_Nivel1_FailOpen_StockTotal_TransicionaA_Cerrada_Retorna_204()
+    public async Task Autorizar_Nivel1_FailOpen_TransicionaA_EnSurtido_Retorna_204()
     {
         // F2-PR3 esperaba transición a Autorizada (estado=2). F4-PR1
         // agregó la bifurcación stock-aware: tras autorizar, el handler
         // consulta IConsultarStockPort por línea y aplica RegistrarCubrimiento.
-        // En dev (Compras:UseStubs=true en appsettings.Development.json), el
-        // stub responde con DefaultRatio=1.0 → OnHand=100 cubre la línea de
-        // cantidad=10 → CantidadDeCompra=0 en todas → Cerrada (estado=4).
+        // Desde ADR-0043, el cubrimiento ya no cierra la RQ: queda EnSurtido
+        // hasta que se complete la entrega al solicitante (estado=3).
         var client = await CreateSuperAdminClientAsync();
         var requisicionId = await CrearYTransmitirAsync(client);
 
@@ -155,7 +135,7 @@ public class AutorizacionesEndpointsTests : IClassFixture<WebApplicationFactory<
         var get = await client.GetAsync($"/api/v1/compras/requisiciones/{requisicionId}");
         get.EnsureSuccessStatusCode();
         var json = await ReadJsonAsync(get);
-        Assert.Equal(4, json.GetProperty("estado").GetInt32()); // Cerrada
+        Assert.Equal(3, json.GetProperty("estado").GetInt32()); // EnSurtido
     }
 
     [Fact]
@@ -170,7 +150,7 @@ public class AutorizacionesEndpointsTests : IClassFixture<WebApplicationFactory<
         first.EnsureSuccessStatusCode();
 
         // Tras la primera autorización (fail-open + bifurcación F4-PR1
-        // con stock total → Cerrada), la RQ ya no está en EnAutorizacion.
+        // con stock total → EnSurtido), la RQ ya no está en EnAutorizacion.
         // El segundo POST debería fallar con AUTORIZAR_SOLO_EN_AUTORIZACION.
         var second = await client.PostAsJsonAsync(
             $"/api/v1/compras/requisiciones/{requisicionId}/autorizaciones",
@@ -192,7 +172,7 @@ public class AutorizacionesEndpointsTests : IClassFixture<WebApplicationFactory<
     }
 
     [Fact]
-    public async Task ListarMotivos_Con_Permiso_Retorna_6_Motivos_Seed()
+    public async Task ListarMotivos_Con_Permiso_Retorna_7_Motivos_Seed()
     {
         var client = await CreateSuperAdminClientAsync();
 
@@ -201,7 +181,7 @@ public class AutorizacionesEndpointsTests : IClassFixture<WebApplicationFactory<
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await ReadJsonAsync(response);
         var motivos = json.EnumerateArray().ToList();
-        Assert.Equal(6, motivos.Count);
+        Assert.Equal(7, motivos.Count);
         // RECH-OTRO debe tener permite_texto_libre = true.
         var otro = motivos.Single(m => m.GetProperty("clave").GetString() == "RECH-OTRO");
         Assert.True(otro.GetProperty("permiteTextoLibre").GetBoolean());

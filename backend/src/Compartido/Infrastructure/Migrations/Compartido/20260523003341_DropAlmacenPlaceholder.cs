@@ -11,9 +11,19 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "almacenes",
-                schema: "compartido");
+            // Los DbContexts se migran por proyecto, no en orden cronologico
+            // global. En una base nueva Compartido llega aqui antes de que
+            // Almacen haya copiado el placeholder. Solo se elimina cuando el
+            // catalogo destino ya existe; de lo contrario Almacen completa la
+            // transferencia y elimina el placeholder en su propia migracion.
+            migrationBuilder.Sql(@"
+                DO $$
+                BEGIN
+                    IF to_regclass('almacen.almacenes') IS NOT NULL THEN
+                        DROP TABLE compartido.almacenes;
+                    END IF;
+                END $$;
+            ");
         }
 
         /// <inheritdoc />

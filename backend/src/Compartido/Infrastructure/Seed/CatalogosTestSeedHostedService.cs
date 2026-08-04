@@ -7,6 +7,7 @@ using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Domain;
+using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 
 // F1-PR3: el seed de almacenes y sub-almacenes se movió a
@@ -39,6 +40,8 @@ namespace Millet.Compartido.Infrastructure.Seed;
 /// </summary>
 public sealed class CatalogosTestSeedHostedService : IHostedService
 {
+    private const long SeedLockId = 6_672_000_001;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHostEnvironment _environment;
     private readonly ILogger<CatalogosTestSeedHostedService> _logger;
@@ -68,13 +71,20 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
 
         using var bypass = empresaContext.Bypass();
 
-        await SeedProveedoresAsync(db, cancellationToken);
-        await SeedArticulosAsync(db, cancellationToken);
-        await SeedSucursalesAsync(db, cancellationToken);
-        await SeedDepartamentosAsync(db, cancellationToken);
-        await SeedAsignacionesSucursalDepartamentoAsync(db, cancellationToken);
-        // F1-PR3: almacenes y sub-almacenes ahora se siembran por
-        // Millet.Almacen.Infrastructure.Seed.AlmacenSeedHostedService.
+        await PostgresAdvisoryLock.ExecuteAsync(
+            db,
+            SeedLockId,
+            async ct =>
+            {
+                await SeedProveedoresAsync(db, ct);
+                await SeedArticulosAsync(db, ct);
+                await SeedSucursalesAsync(db, ct);
+                await SeedDepartamentosAsync(db, ct);
+                await SeedAsignacionesSucursalDepartamentoAsync(db, ct);
+                // F1-PR3: almacenes y sub-almacenes ahora se siembran por
+                // Millet.Almacen.Infrastructure.Seed.AlmacenSeedHostedService.
+            },
+            cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

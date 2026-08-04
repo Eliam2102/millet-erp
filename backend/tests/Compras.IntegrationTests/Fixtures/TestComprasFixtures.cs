@@ -90,6 +90,10 @@ public static class TestComprasFixtures
     public static readonly Guid AlmacenMtyGeneral =
         AlmacenSeedHostedService.AlmMtyGeneralId;
 
+    /// <summary>Centro de costo máquina canónico sembrado para pruebas.</summary>
+    public static readonly Guid CentroCostoMaquinaSeed =
+        Guid.Parse("0000000c-0005-0000-0000-000000000001");
+
     /// <summary>
     /// Código alfanumérico de la sucursal MID (entra al folio:
     /// <c>MID2026-NNNNNN</c>). Validado contra el regex

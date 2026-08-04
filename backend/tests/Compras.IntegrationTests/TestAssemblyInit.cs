@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace Millet.Compras.IntegrationTests;
 
 /// <summary>

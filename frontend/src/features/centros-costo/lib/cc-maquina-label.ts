@@ -30,5 +30,5 @@ export function formatCcMaquinaLabel(
 export function useCcMaquinaLabel(
   item: CcMaquinaLabelInput | null | undefined,
 ): string {
-  return useMemo(() => formatCcMaquinaLabel(item), [item?.clave, item?.nombre]);
+  return useMemo(() => formatCcMaquinaLabel(item), [item]);
 }

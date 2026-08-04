@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/incompatible-library -- react-hook-form watch mantiene sincronizado el modo sandbox; React Compiler omite su memoización de forma segura. */
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -614,4 +615,3 @@ function IdentidadSandboxFields({
     </div>
   );
 }
-

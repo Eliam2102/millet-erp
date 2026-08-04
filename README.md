@@ -117,7 +117,10 @@ $contexts = @(
   @{ Ctx = "IntegracionesFiscalDbContext";Proj = "src/Integraciones.Fiscal/Millet.Integraciones.Fiscal.csproj" },
   @{ Ctx = "AlmacenDbContext";            Proj = "src/Almacen/Millet.Almacen.csproj" },
   @{ Ctx = "CuentasPorPagarDbContext";    Proj = "src/CuentasPorPagar/Millet.CuentasPorPagar.csproj" },
-  @{ Ctx = "FacturacionDbContext";        Proj = "src/Facturacion/Millet.Facturacion.csproj" }
+  @{ Ctx = "FacturacionDbContext";        Proj = "src/Facturacion/Millet.Facturacion.csproj" },
+  @{ Ctx = "CuentasPorCobrarDbContext";   Proj = "src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj" },
+  @{ Ctx = "TesoreriaDbContext";          Proj = "src/Tesoreria/Millet.Tesoreria.csproj" },
+  @{ Ctx = "CentrosCostoDbContext";       Proj = "src/CentrosCosto/Millet.CentrosCosto.csproj" }
 )
 foreach ($c in $contexts) {
   dotnet ef database update --context $c.Ctx --project $c.Proj `

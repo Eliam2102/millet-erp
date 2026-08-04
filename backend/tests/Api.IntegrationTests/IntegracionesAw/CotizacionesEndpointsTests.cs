@@ -171,6 +171,7 @@ public class CotizacionesEndpointsTests : IClassFixture<WebApplicationFactory<Pr
 
         return new SubmitBody(
             QuoteReference: quoteRef,
+            Sucursal: "CIR",
             EdiContent: ediContent,
             CustomerTaxId: "EXT", // literal permitido (cliente sin RFC mexicano)
             CustomerName: "Cliente Test",
@@ -181,6 +182,7 @@ public class CotizacionesEndpointsTests : IClassFixture<WebApplicationFactory<Pr
 
     private sealed record SubmitBody(
         string QuoteReference,
+        string Sucursal,
         string EdiContent,
         string CustomerTaxId,
         string CustomerName,

@@ -287,7 +287,8 @@ public class RequisicionesEndpointsTests : IClassFixture<WebApplicationFactory<P
         Assert.Equal(0m, linea.GetProperty("cantDeCompra").GetDecimal());
         Assert.Equal(0m, linea.GetProperty("cantRecibida").GetDecimal());
         Assert.Equal(10m, linea.GetProperty("cantPendiente").GetDecimal());
-        Assert.Equal(JsonValueKind.Null, linea.GetProperty("reservaId").ValueKind);
+        // ADR-0047 retiró ReservaId del contrato: las RQ ya no reservan stock.
+        Assert.False(linea.TryGetProperty("reservaId", out _));
     }
 
     [Fact]

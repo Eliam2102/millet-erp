@@ -121,15 +121,22 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
             // aplica EF Core idempotent-script en CI, así que un
             // re-deploy no falla.
             migrationBuilder.Sql(@"
-                INSERT INTO almacen.almacenes (
-                    id, clave, nombre, sucursal_id, estatus,
-                    version, created_at, updated_at, created_by, updated_by, deleted_at
-                )
-                SELECT
-                    id, clave, nombre, sucursal_id, estatus,
-                    version, created_at, updated_at, created_by, updated_by, deleted_at
-                FROM compartido.almacenes
-                ON CONFLICT (id) DO NOTHING;
+                DO $$
+                BEGIN
+                    IF to_regclass('compartido.almacenes') IS NOT NULL THEN
+                        INSERT INTO almacen.almacenes (
+                            id, clave, nombre, sucursal_id, estatus,
+                            version, created_at, updated_at, created_by, updated_by, deleted_at
+                        )
+                        SELECT
+                            id, clave, nombre, sucursal_id, estatus,
+                            version, created_at, updated_at, created_by, updated_by, deleted_at
+                        FROM compartido.almacenes
+                        ON CONFLICT (id) DO NOTHING;
+
+                        DROP TABLE compartido.almacenes;
+                    END IF;
+                END $$;
             ");
         }
 
