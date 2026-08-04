@@ -1,0 +1,23 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{cs,csproj}]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+# Migraciones auto-generadas por EF Core: suprimir analyzers ruidosos
+# que disparan en el código generado (no podemos refactorizarlo cómodamente
+# sin que la próxima migración lo regenere igual).
+[**/Migrations/**.cs]
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.CA1707.severity = none
+generated_code = true

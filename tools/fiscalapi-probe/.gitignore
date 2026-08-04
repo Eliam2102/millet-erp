@@ -1,0 +1,17 @@
+# Output de los probes — contienen IDs internos. No commitear.
+fiscalapi-probe-report.json
+fiscalapi-probe-e2e-report.json
+fiscalapi-probe-e2e-state.json
+fiscalapi-probe-prod-report.json
+fiscalapi-probe-prod-state.json
+
+# Certificados de prueba descargados de developers.sw.com.mx. Públicos
+# pero no es nuestro repo lo que debe distribuirlos.
+Certificados_Pruebas.zip
+csd-test/
+
+# Cualquier FIEL real que el owner copie acá para correr el probe prod.
+# CRÍTICO: la FIEL es información fiscal sensible. Jamás commitearla.
+*.cer
+*.key
+fiel/

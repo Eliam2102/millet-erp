@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Facturacion\Millet.Facturacion.csproj" />
+    <!-- PR gemelo TES-PR7: SOLO para el test de contrato — round-trip de
+         tesoreria.pago-cliente.confirmado.v1 (publisher real de Tesorería)
+         contra el espejo PagoClienteConfirmadoPayload de Facturación
+         (patrón TesoreriaContratosCongeladosTests). -->
+    <ProjectReference Include="..\..\src\Tesoreria\Millet.Tesoreria.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- F1-PR1: handler/schema tests usan EF Core InMemory para crear el DbContext sin Postgres real. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+  </ItemGroup>
+
+</Project>

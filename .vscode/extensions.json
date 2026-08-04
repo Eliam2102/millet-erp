@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.csharp",
+    "ms-azuretools.vscode-bicep",
+    "ms-azuretools.vscode-azureresourcegroups",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "github.vscode-github-actions",
+    "redhat.vscode-yaml"
+  ]
+}

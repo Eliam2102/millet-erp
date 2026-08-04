@@ -1,0 +1,26 @@
+# Build / publish artifacts
+bin/
+obj/
+publish/
+out/
+*.user
+*.suo
+
+# IDE
+.vs/
+.vscode/
+*.swp
+
+# Secrets — appsettings.json del entorno de producción puede contener la
+# ApiKey real. Solo se commitea la plantilla (appsettings.json checked-in
+# tiene ApiKey vacío; el operador la rellena post-install).
+# Si en algún momento decides versionar un appsettings.Production.json o
+# similar, recuerda que NO debe contener la key.
+appsettings.Production.json
+appsettings.Local.json
+*.env
+*.env.local
+secrets.json
+
+# Logs locales por si se redirige stdout
+*.log

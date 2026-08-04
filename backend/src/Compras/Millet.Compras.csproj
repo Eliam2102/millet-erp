@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Administracion\Millet.Administracion.csproj" />
+    <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
+    <ProjectReference Include="..\DatosMaestros\Millet.DatosMaestros.csproj" />
+    <ProjectReference Include="..\Almacen\Millet.Almacen.csproj" />
+    <!-- Fase E PR2: read-port público de CentrosCosto (IDim3ReadPort) para el
+         display del CC-Máquina en el detalle de RQ. Arista Compras→CentrosCosto;
+         sin ciclo (CentrosCosto es dependency-free, #620). ADR-0050 §3. -->
+    <ProjectReference Include="..\CentrosCosto\Millet.CentrosCosto.csproj" />
+    <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
+    <!-- ADR-0042: read-port hacia Identidad para resolver nombres de usuario
+         (requisitante) en los DTOs de lectura. El adaptador vive en
+         Compras.Infrastructure (mismo patrón que Almacén/Compartido); no es
+         circular: Identidad no referencia Compras. -->
+    <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="QuestPDF" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Exponer internals a los tests para que puedan ejercitar ctors
+         internal de entidades hijas (LineaOrdenCompra, etc.) que solo
+         se construyen vía el agregado raíz en código de producción. -->
+    <InternalsVisibleTo Include="Millet.Compras.UnitTests" />
+    <!-- El test de integración del job de migración (ADR-0043 #4) invoca su
+         método internal EjecutarAsync(dryRun, rqIdsOverride) para acotar la
+         corrida a las RQ sembradas en la BD compartida. -->
+    <InternalsVisibleTo Include="Millet.Compras.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

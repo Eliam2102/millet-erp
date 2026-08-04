@@ -1,0 +1,327 @@
+# ============================================================================
+# Validate Application
+#
+# Valida el código de aplicación (backend .NET 9 + frontend React/Vite) en
+# cada PR contra `main`. Corre en TODOS los PRs (sin `paths:` filter a nivel
+# workflow); un job inicial `changes` (dorny/paths-filter, ~10s) detecta qué
+# lado cambió y los jobs pesados se saltan con `if:` cuando su lado no fue
+# tocado. GitHub trata un job `skipped` por condición como SUCCESS para
+# required status checks, así que branch protection (4 checks) sigue
+# funcionando sin stub: un PR solo-frontend no paga los ~4 min de backend,
+# un PR solo-backend no paga los jobs de frontend, y un PR de solo docs
+# deja los 4 en skipped (equivale al viejo validate-app-required.yml, que
+# este esquema reemplazó y eliminó).
+#
+# Jobs (los 5 pesados en paralelo tras `changes`, sin `needs:` entre sí):
+#   - changes         : dorny/paths-filter → outputs backend/frontend
+#   - build-backend   : dotnet build Release (warnings as errors via
+#                       Directory.Build.props). Cachea ~/.nuget/packages.
+#   - test-backend    : SOLO unit tests (filter ~UnitTests). Restaura,
+#                       compila y corre los 7 test projects EN PARALELO
+#                       como procesos independientes (bash & + wait). Sin
+#                       code coverage (no se publica a ningún lado). NO
+#                       corre integration tests todavía: requieren
+#                       docker-in-docker para Testcontainers (ADR-0016).
+#                       Pendiente de PR siguiente.
+#   - build-frontend  : tsc -b && vite build
+#   - lint-frontend   : eslint .
+#   - test-frontend      : vitest run repartido en 4 shards paralelos
+#                       (`--shard`), porque la suite completa (1467 tests)
+#                       tarda ~12 min en un solo job (jsdom por archivo es
+#                       CPU-bound). Cada shard corre ~1/4. Nombre de check
+#                       variable ("Test frontend shard (1)"...).
+#   - test-frontend-gate : agregador de nombre FIJO "Test frontend" que reúne
+#                       los shards en UN check (corre siempre; success si los
+#                       shards pasan o se saltan). OJO: aún NO está en los
+#                       required checks (siguen en 4); volverlo el 5º cuando la
+#                       suite quede verde de forma estable.
+#
+# NO incluye:
+#   - Integration tests con Testcontainers (TODO — PR siguiente)
+#   - Validación de tipos OpenAPI sincronizados (TODO — depende de
+#     implementación de ADR-0017; cuando exista npm run codegen, agregarlo
+#     aquí + git diff --exit-code para detectar drift. OJO: ese job deberá
+#     correr cuando cambie CUALQUIERA de los dos lados, no solo uno).
+#   - Tests E2E con Playwright (ADR-0029: solo en nightly cuando exista suite)
+# ============================================================================
+
+name: Validate Application
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      # En eventos pull_request paths-filter usa la API de GitHub para
+      # listar los archivos del PR — no necesita checkout.
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          # Cambios a este workflow cuentan como cambio de AMBOS lados:
+          # cualquier edición al CI debe validarse completa.
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/validate-app.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/validate-app.yml'
+
+  build-backend:
+    name: Build backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore backend/Millet.sln
+
+      - name: Build (Release)
+        run: dotnet build backend/Millet.sln --configuration Release --no-restore
+
+  test-backend:
+    name: Unit tests backend
+    # Sin `needs: build-backend` — corre en paralelo a build-backend para
+    # bajar wall clock. test-backend hace su propio restore+build (con
+    # cache NuGet compartido). Trade-off: build se ejecuta dos veces
+    # (compute), pero CI total termina en max(build, test) en vez de
+    # build + test secuencial.
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore backend/Millet.sln
+
+      - name: Build (Release)
+        run: dotnet build backend/Millet.sln --configuration Release --no-restore
+
+      - name: Run unit tests in parallel
+        # `dotnet test` corre los assemblies de UN solution
+        # SECUENCIALMENTE — con 7 test projects y 1200+ tests eso domina
+        # el wall clock del CI. Paralelizamos lanzando un `dotnet test`
+        # por proyecto en background (`&`) y haciendo `wait` por cada
+        # PID. Outputs van a archivos por proyecto y se imprimen al
+        # final agrupados por nombre (de lo contrario el log es una
+        # ensalada ininteligible).
+        #
+        # Sin `--collect:"XPlat Code Coverage"`: coverlet instrumenta el
+        # IL y aporta ~30-50% de overhead. Nadie publica el resultado
+        # hoy. Cuando se agregue (codecov / sonar / similar) re-evaluar.
+        #
+        # Sin `--logger trx`: nadie consume los TRX hoy. Reincorporar
+        # cuando se conecten a un test reporter.
+        run: |
+          set -u
+          mkdir -p test-logs
+          pids=()
+          names=()
+          for proj in backend/tests/*UnitTests/*.csproj; do
+            name=$(basename "$proj" .csproj)
+            echo "→ launching $name"
+            dotnet test "$proj" \
+              --configuration Release \
+              --no-build \
+              --no-restore \
+              > "test-logs/${name}.log" 2>&1 &
+            pids+=($!)
+            names+=("$name")
+          done
+
+          fail=0
+          for i in "${!pids[@]}"; do
+            if ! wait "${pids[$i]}"; then
+              fail=1
+              echo "❌ ${names[$i]} FAILED"
+            else
+              echo "✅ ${names[$i]} ok"
+            fi
+          done
+
+          for log in test-logs/*.log; do
+            name=$(basename "$log" .log)
+            echo "::group::$name"
+            cat "$log"
+            echo "::endgroup::"
+          done
+
+          exit $fail
+
+  build-frontend:
+    name: Build frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'frontend/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        # `npm install` en lugar de `npm ci` porque el package-lock.json se
+        # genera en Windows y npm no preserva platform variants para Linux
+        # cross-platform. CI resuelve los binarios Linux a partir del package.json.
+        # Trade-off: ligeramente menos reproducible que `npm ci`. Aceptable
+        # para el tamaño del proyecto.
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  lint-frontend:
+    name: Lint frontend
+    # Sin `needs: build-frontend` — lint y build son independientes y
+    # pueden correr en paralelo (mismo trade-off que test-backend vs
+    # build-backend: ahorra wall clock a costa de instalar deps dos
+    # veces; el cache de npm lo amortigua).
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'frontend/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        # `npm install` en lugar de `npm ci` porque el package-lock.json se
+        # genera en Windows y npm no preserva platform variants para Linux
+        # cross-platform. CI resuelve los binarios Linux a partir del package.json.
+        # Trade-off: ligeramente menos reproducible que `npm ci`. Aceptable
+        # para el tamaño del proyecto.
+        run: npm install --no-audit --no-fund
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+  test-frontend:
+    name: Test frontend shard
+    # Sharding: la suite (1467 tests) tarda ~12 min en un solo job porque el
+    # setup de jsdom por archivo es CPU-bound y el runner tiene pocos cores
+    # (Linux NO fue más rápido que local). Se reparte con `vitest --shard` en
+    # 4 jobs paralelos (~1/4 c/u) → cada shard baja a unos pocos min. Corre en
+    # paralelo a build/lint-frontend. `fail-fast: false` para que un shard
+    # rojo no cancele a los demás (se ve el panorama completo).
+    #
+    # OJO: el check required estable NO son estos shards (su nombre varía:
+    # "Test frontend shard (1)"...), sino el job agregador `test-frontend-gate`
+    # de abajo, cuyo nombre fijo es "Test frontend".
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'frontend/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        # `npm install` en lugar de `npm ci` porque el package-lock.json se
+        # genera en Windows y npm no preserva platform variants para Linux
+        # cross-platform. CI resuelve los binarios Linux a partir del package.json.
+        # Trade-off: ligeramente menos reproducible que `npm ci`. Aceptable
+        # para el tamaño del proyecto.
+        run: npm install --no-audit --no-fund
+
+      - name: Test (vitest run, shard ${{ matrix.shard }}/4)
+        working-directory: frontend
+        run: npm test -- --shard=${{ matrix.shard }}/4
+
+  # Agregador: check de nombre FIJO ("Test frontend") que reúne los 4 shards
+  # en un solo status check para branch protection. Corre SIEMPRE (incluso si
+  # los shards se saltan por el paths-filter) y solo falla si algún shard
+  # falló — así un PR sin cambios de frontend lo reporta success (shards
+  # skipped) en vez de quedar "pending" y bloquear el merge. Este es el que se
+  # vuelve el 5º required check cuando la suite quede verde de forma estable.
+  test-frontend-gate:
+    name: Test frontend
+    needs: test-frontend
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verificar resultado de los shards
+        run: |
+          result="${{ needs.test-frontend.result }}"
+          if [ "$result" = "success" ] || [ "$result" = "skipped" ]; then
+            echo "Test frontend ($result) → OK"
+          else
+            echo "Test frontend shards → $result"
+            exit 1
+          fi

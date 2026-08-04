@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Millet.CuentasPorPagar</RootNamespace>
+    <AssemblyName>Millet.CuentasPorPagar</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
+    <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
+    <!--
+      F5-PR1: CxP referencia Compras para implementar `IComprasOcReadPort`
+      real usando `ComprasDbContext`. No es circular — Compras nunca
+      referencia CxP (la comunicación inversa es vía integration events
+      con payloads espejo, ver patrón de Almacén F3-PR1).
+    -->
+    <ProjectReference Include="..\Compras\Millet.Compras.csproj" />
+    <!--
+      PR-6 Integraciones.Fiscal: CxP implementa `ICfdiIngestaPort` (puerto
+      inverso declarado en Fiscal.Domain.Ports) via
+      `CfdiIngestaPortAdapter` para que el `DescargaMasivaSatWorker` del
+      módulo Fiscal pueda despachar CFDIs descargados al pipeline de CxP.
+      No es circular — Fiscal nunca referencia CxP.
+    -->
+    <ProjectReference Include="..\Integraciones.Fiscal\Millet.Integraciones.Fiscal.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      F2-PR1: workers IHostedService + HttpClient (IHttpClientFactory).
+      FrameworkReference para usar Microsoft.Extensions.Hosting +
+      Microsoft.Extensions.Http del shared runtime (mismo patrón que
+      Integraciones.Aw).
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <!-- F2-PR2: cliente Microsoft Graph (mailbox CFDIs) + Azure.Identity (App Reg credentials). -->
+    <PackageReference Include="Microsoft.Graph" />
+    <PackageReference Include="Azure.Identity" />
+    <!-- F7-PR5: parser de estados de cuenta de TC (Excel/xlsx). -->
+    <PackageReference Include="ClosedXML" />
+    <!-- Adapter Azure Blob de XML/PDF de CFDIs (cierra <CfdiBlobStorage>). -->
+    <PackageReference Include="Azure.Storage.Blobs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Millet.CuentasPorPagar.UnitTests" />
+    <InternalsVisibleTo Include="Millet.CuentasPorPagar.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

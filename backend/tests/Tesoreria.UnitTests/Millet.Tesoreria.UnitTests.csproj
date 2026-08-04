@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Tesoreria\Millet.Tesoreria.csproj" />
+    <!-- TES-PR4: SOLO para el test de contrato congelado — round-trip de los
+         eventos publicados contra los records espejo reales de CxP
+         (ContratosEspejo.cs). Acoplamiento test-only deliberado: si CxP
+         cambia su espejo, este proyecto rompe en CI antes de divergir. -->
+    <ProjectReference Include="..\..\src\CuentasPorPagar\Millet.CuentasPorPagar.csproj" />
+    <!-- TES-PR7: mismo criterio para los eventos CONSUMIDOS — round-trip de
+         los publishers reales de CxC y Facturación contra los espejos de
+         Tesorería (TesoreriaContratosConsumidosTests). -->
+    <ProjectReference Include="..\..\src\CuentasPorCobrar\Millet.CuentasPorCobrar.csproj" />
+    <ProjectReference Include="..\..\src\Facturacion\Millet.Facturacion.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- TES-PR3: tests de la proyección de pasivos usan EF Core InMemory
+         para crear DbContext sin Postgres real (mismo criterio que CxC). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+  </ItemGroup>
+
+</Project>

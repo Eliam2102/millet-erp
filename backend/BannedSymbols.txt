@@ -1,0 +1,3 @@
+M:System.DateTime.get_Now;Use IClock.UtcNow instead (ADR-0013)
+M:System.DateTime.get_UtcNow;Use IClock.UtcNow instead (ADR-0013)
+M:System.DateTimeOffset.get_Now;Use IClock.UtcNow instead (ADR-0013)

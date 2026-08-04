@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Drop service A+W on-prem. Standalone — NO hereda Directory.Build.props
+    ni Directory.Packages.props de backend/. Toda la configuración va inline.
+
+    Target framework: net8.0 (LTS). Deliberado: SER-DATA corre Windows
+    Server 2012 R2, y .NET 8 tiene mejor compatibilidad como Windows
+    Service en versiones viejas de Windows Server que .NET 9.
+
+    Publish (ver README.md sección "Compilar" para el comando exacto):
+    dotnet publish con configuración Release, runtime win-x64 y
+    SelfContained=true. Produce un ejecutable autocontenido que no
+    necesita .NET runtime instalado en SER-DATA.
+  -->
+
+  <PropertyGroup>
+    <!--
+      net8.0-windows marca el assembly como Windows-only para el analyzer
+      de plataformas (CA1416). EventLog, sc.exe y AddWindowsService son
+      Windows-only; sin el sufijo -windows el analyzer pediría guard
+      individual en cada llamada. Esto NO trae Windows Forms ni WPF (los
+      flags UseWindowsForms / UseWpf están en false por default con
+      Microsoft.NET.Sdk.Web).
+    -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Millet.AwDropService</RootNamespace>
+    <AssemblyName>MilletAwDropService</AssemblyName>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <Version>1.2.0</Version>
+    <Company>Tiglass / Millet</Company>
+    <Product>Millet A+W Drop Service</Product>
+    <!--
+      El SDK Web hace glob recursivo de **/*.cs por default; como tests/
+      vive dentro de la carpeta del proyecto, sus archivos entrarían al
+      compile del main project. Los excluimos explícitamente. El proyecto
+      de tests sigue compilando normal — referencia este csproj como
+      ProjectReference y tiene su propio glob desde tests/.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;publish/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Hosting como Windows Service. AddWindowsService() registra el
+      IHostLifetime apropiado; cuando se ejecuta en consola (dev) es no-op.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
+    <!--
+      Sink de logs al Event Log de Windows. Solo se wirea cuando
+      OperatingSystem.IsWindows() es true. La source 'MilletAwDropService'
+      se crea con New-EventLog en install-service.ps1.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>

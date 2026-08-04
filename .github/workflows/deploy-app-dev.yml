@@ -1,0 +1,467 @@
+# ============================================================================
+# Deploy Application to Dev
+#
+# Despliegue automático de la aplicación al ambiente `dev` (App Service
+# `app-millet-dev-mxc-01`) en cada push a `main` que toca código de
+# aplicación. También disparable manualmente vía workflow_dispatch.
+#
+# Pipeline:
+#   1. build-and-publish-backend : dotnet publish del API
+#   2. build-frontend            : tsc -b && vite build (paralelo al backend)
+#   3. run-migrations            : dotnet ef database update por cada
+#                                  DbContext (CompartidoDbContext, CoreDbContext,
+#                                  IdentidadDbContext, ComprasDbContext,
+#                                  IntegracionesAwDbContext,
+#                                  IntegracionesFiscalDbContext, AlmacenDbContext,
+#                                  CuentasPorPagarDbContext, FacturacionDbContext,
+#                                  CuentasPorCobrarDbContext, TesoreriaDbContext)
+#                                  con la
+#                                  connection string leída de Key Vault vía OIDC
+#                                  (ADR-0029). Cada módulo nuevo debe agregarse
+#                                  al bucle Y a MigrationsHealthCheckOptions
+#                                  en Program.cs.
+#   4. deploy-backend            : azure/webapps-deploy@v3 al App Service
+#   5. deploy-frontend           : re-build con VITE_* desde KV + deploy a SWA
+#   6. smoke-tests               : curl a /health/live, /health/ready y / con
+#                                  retries (App Service tarda en warm-up tras
+#                                  un deploy)
+#
+# Path filters: solo se dispara con cambios en backend/, frontend/, o este
+# workflow. Cambios solo en docs/ o infra/ no lo disparan.
+#
+# Concurrency: deploy-app-dev no permite ejecuciones paralelas, pero NO
+# cancela un deploy en curso si llega otro push (cancel-in-progress: false).
+# Esto previene quedar a medio aplicar migrations.
+# ============================================================================
+
+name: Deploy Application to Dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy-app-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-app-dev
+  cancel-in-progress: false
+
+env:
+  APP_SERVICE_NAME: app-millet-dev-mxc-01
+  STATIC_WEB_APP_NAME: swa-millet-dev-mxc-01
+  KEY_VAULT_NAME: kv-millet-dev-mxc-01
+  POSTGRES_SECRET_NAME: postgres-connection-string
+
+jobs:
+  build-and-publish-backend:
+    name: Build & publish backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore backend/Millet.sln
+
+      - name: Publish API
+        run: |
+          dotnet publish backend/src/Api/Millet.Api.csproj \
+            --configuration Release \
+            --output ./publish-backend \
+            --no-restore
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-publish
+          path: ./publish-backend
+          retention-days: 7
+
+  build-frontend:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'frontend/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        # `npm install` en lugar de `npm ci` porque el package-lock.json se
+        # genera en Windows y npm no preserva platform variants para Linux
+        # cross-platform. CI resuelve los binarios Linux a partir del package.json.
+        # Trade-off: ligeramente menos reproducible que `npm ci`. Aceptable
+        # para el tamaño del proyecto.
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  run-migrations:
+    name: Apply EF Core migrations
+    needs: build-and-publish-backend
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Postgres connection string from Key Vault
+        id: get-pg-conn
+        run: |
+          PG_CONN=$(az keyvault secret show \
+            --vault-name "$KEY_VAULT_NAME" \
+            --name "$POSTGRES_SECRET_NAME" \
+            --query value \
+            --output tsv)
+          echo "::add-mask::$PG_CONN"
+          echo "pg_conn=$PG_CONN" >> "$GITHUB_OUTPUT"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore project dependencies
+        run: dotnet restore backend/Millet.sln
+
+      - name: Restore .NET local tools (dotnet-ef)
+        working-directory: backend
+        run: dotnet tool restore
+
+      - name: Apply migrations for all DbContexts
+        # Los DbContexts viven en proyectos distintos al API:
+        #   - CompartidoDbContext                → Millet.Compartido.csproj
+        #   - CoreDbContext                      → Millet.SharedKernel.csproj
+        #   - IdentidadDbContext                 → Millet.Identidad.csproj
+        #   - ComprasDbContext                   → Millet.Compras.csproj
+        #   - IntegracionesAwDbContext           → Millet.Integraciones.Aw.csproj
+        #   - AlmacenDbContext                   → Millet.Almacen.csproj
+        #   - CuentasPorPagarDbContext           → Millet.CuentasPorPagar.csproj
+        #   - FacturacionDbContext               → Millet.Facturacion.csproj
+        #   - CuentasPorCobrarDbContext          → Millet.CuentasPorCobrar.csproj
+        #   - TesoreriaDbContext                 → Millet.Tesoreria.csproj
+        #   - CentrosCostoDbContext              → Millet.CentrosCosto.csproj
+        # Cada módulo nuevo que introduzca un DbContext debe agregarse al
+        # bucle de abajo Y a MigrationsHealthCheckOptions.ContextTypes en
+        # Program.cs (de lo contrario /health/ready reportará Unhealthy
+        # cuando la migración nueva quede pendiente en dev).
+        # EF Core CLI requiere:
+        #   --project        apunta al proyecto que CONTIENE el DbContext
+        #                    (donde viven las migrations por default)
+        #   --startup-project apunta a Millet.Api.csproj para resolver DI
+        #                    y configuración al bootstrappear el host
+        # Postgres alcanzable desde runner gracias a la regla de firewall
+        # AllowAllAzureServices (verificado pre-PR). El connection string
+        # vive solo en este step (env), nunca se persiste ni propaga a otros
+        # jobs.
+        working-directory: backend
+        env:
+          PG_CONN: ${{ steps.get-pg-conn.outputs.pg_conn }}
+        run: |
+          set -e
+          for ctx in CompartidoDbContext CoreDbContext IdentidadDbContext ComprasDbContext IntegracionesAwDbContext IntegracionesFiscalDbContext AlmacenDbContext CuentasPorPagarDbContext FacturacionDbContext CuentasPorCobrarDbContext TesoreriaDbContext CentrosCostoDbContext; do
+            case "$ctx" in
+              CompartidoDbContext)
+                proj="src/Compartido/Millet.Compartido.csproj"
+                ;;
+              CoreDbContext)
+                proj="src/SharedKernel/Millet.SharedKernel.csproj"
+                ;;
+              IdentidadDbContext)
+                proj="src/Identidad/Millet.Identidad.csproj"
+                ;;
+              ComprasDbContext)
+                proj="src/Compras/Millet.Compras.csproj"
+                ;;
+              IntegracionesAwDbContext)
+                proj="src/Integraciones.Aw/Millet.Integraciones.Aw.csproj"
+                ;;
+              IntegracionesFiscalDbContext)
+                proj="src/Integraciones.Fiscal/Millet.Integraciones.Fiscal.csproj"
+                ;;
+              AlmacenDbContext)
+                proj="src/Almacen/Millet.Almacen.csproj"
+                ;;
+              CuentasPorPagarDbContext)
+                proj="src/CuentasPorPagar/Millet.CuentasPorPagar.csproj"
+                ;;
+              FacturacionDbContext)
+                proj="src/Facturacion/Millet.Facturacion.csproj"
+                ;;
+              CuentasPorCobrarDbContext)
+                proj="src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj"
+                ;;
+              TesoreriaDbContext)
+                proj="src/Tesoreria/Millet.Tesoreria.csproj"
+                ;;
+              CentrosCostoDbContext)
+                proj="src/CentrosCosto/Millet.CentrosCosto.csproj"
+                ;;
+            esac
+            echo "::group::Applying migrations for $ctx (project: $proj)"
+            dotnet ef database update \
+              --context "$ctx" \
+              --project "$proj" \
+              --startup-project src/Api/Millet.Api.csproj \
+              --connection "$PG_CONN"
+            echo "::endgroup::"
+          done
+
+  deploy-backend:
+    name: Deploy backend to App Service
+    needs: run-migrations
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-publish
+          path: ./publish-backend
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.APP_SERVICE_NAME }}
+          package: ./publish-backend
+
+  deploy-frontend:
+    name: Deploy frontend to Static Web Apps
+    # Solo depende de build-frontend (fail-fast si el build está roto). NO
+    # depende de deploy-backend ni run-migrations: el frontend es estático,
+    # vive en otro hostname, y su deploy es independiente. En caso de fallo
+    # del backend, el frontend deployado mostraría errores en runtime —
+    # aceptable, los smoke tests del workflow detectarán el backend roto.
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'frontend/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Read frontend secrets from Key Vault
+        id: kv
+        # Vite inyecta los VITE_* en build time. El bundle resultante tiene
+        # los valores hardcoded; no hay forma de cambiarlos post-build sin
+        # rebundlear. Por eso re-buildamos aquí con valores reales.
+        # El SPA Client ID y el deployment token los puebla el operador
+        # post-deploy de Bicep (ver infra/README.md).
+        run: |
+          set -e
+          TENANT_ID=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name auth-entra-tenant-id --query value --output tsv)
+          API_CLIENT_ID=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name auth-entra-api-client-id --query value --output tsv)
+          SPA_CLIENT_ID=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name auth-entra-spa-client-id --query value --output tsv)
+          SWA_TOKEN=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name swa-deployment-token --query value --output tsv)
+
+          # Mascarar todos antes de pasarlos a outputs.
+          echo "::add-mask::$TENANT_ID"
+          echo "::add-mask::$API_CLIENT_ID"
+          echo "::add-mask::$SPA_CLIENT_ID"
+          echo "::add-mask::$SWA_TOKEN"
+
+          {
+            echo "tenant_id=$TENANT_ID"
+            echo "api_client_id=$API_CLIENT_ID"
+            echo "spa_client_id=$SPA_CLIENT_ID"
+            echo "swa_token=$SWA_TOKEN"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend with production env vars
+        working-directory: frontend
+        env:
+          VITE_AUTH_MODE: EntraId
+          VITE_API_BASE_URL: https://${{ env.APP_SERVICE_NAME }}.azurewebsites.net
+          VITE_ENTRA_TENANT_ID: ${{ steps.kv.outputs.tenant_id }}
+          VITE_ENTRA_CLIENT_ID: ${{ steps.kv.outputs.spa_client_id }}
+          VITE_API_AUDIENCE: api://${{ steps.kv.outputs.api_client_id }}/access_as_user
+        run: npm run build
+
+      - name: Deploy to Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.kv.outputs.swa_token }}
+          action: upload
+          # Cuando skip_app_build=true, el action SUBE TODO el contenido
+          # de app_location. Por eso debe apuntar directo al directorio
+          # buildado (frontend/dist), NO al source (frontend/) que incluye
+          # node_modules y excedería los 250MB del SKU Free.
+          app_location: '/frontend/dist'
+          skip_app_build: true
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Frontend deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SWA name: \`${STATIC_WEB_APP_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Hostname: configurable post-Bicep, ver portal o az staticwebapp show" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Triggered by: ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+
+  smoke-tests:
+    name: Smoke tests
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wait for App Service warm-up
+        # App Service Linux con linuxFxVersion=DOTNETCORE|9.0 carga el nuevo
+        # paquete y reinicia el container. Tiempo de warmup creció a ~110-120s
+        # con CxP F7-PR3 (más DbSets + hosted workers + seed permisos
+        # adicionales). Reentrenamos el sleep+retries para tolerar 150s reales
+        # antes de declarar fallo (deploy F7-PR3 marcó smoke rojo aunque la
+        # app sí arrancó — el container estaba listo a los 113s y el smoke
+        # se rindió a los 130s). Margen extra para los siguientes módulos
+        # (TC F7-PR4-PR6, Contabilidad, Reportes).
+        run: sleep 60
+
+      - name: Smoke test /health/live
+        run: |
+          set -e
+          URL="https://${APP_SERVICE_NAME}.azurewebsites.net/health/live"
+          attempts=0
+          max=15
+          until curl --fail --max-time 10 "$URL"; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge "$max" ]; then
+              echo "❌ /health/live failed after $attempts attempts (~$((attempts * 10))s)"
+              exit 1
+            fi
+            echo "Attempt $attempts of $max failed; retrying in 10s..."
+            sleep 10
+          done
+          echo ""
+          echo "✅ /health/live OK"
+
+      - name: Smoke test /health/ready
+        # /health/ready agrega checks de Postgres + migrations applied. Si
+        # falla post-deploy, indica que las migraciones no quedaron bien o
+        # que la app no puede llegar a Postgres.
+        run: |
+          set -e
+          URL="https://${APP_SERVICE_NAME}.azurewebsites.net/health/ready"
+          attempts=0
+          max=15
+          until curl --fail --max-time 10 "$URL"; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge "$max" ]; then
+              echo "❌ /health/ready failed after $attempts attempts (~$((attempts * 10))s)"
+              exit 1
+            fi
+            echo "Attempt $attempts of $max failed; retrying in 10s..."
+            sleep 10
+          done
+          echo ""
+          echo "✅ /health/ready OK"
+
+      - name: Smoke test base endpoint
+        run: |
+          set -e
+          URL="https://${APP_SERVICE_NAME}.azurewebsites.net/"
+          RESPONSE=$(curl --fail --max-time 10 "$URL")
+          echo "Response: $RESPONSE"
+          if [ -z "$RESPONSE" ]; then
+            echo "❌ Base endpoint returned empty response"
+            exit 1
+          fi
+          echo "✅ Base endpoint OK"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Smoke tests" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- App Service: \`${APP_SERVICE_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Base URL: https://${APP_SERVICE_NAME}.azurewebsites.net" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Triggered by: ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+
+# Frontend deploy: implementado con Azure Static Web Apps (Free tier). El
+# job `deploy-frontend` re-builda el frontend con VITE_* tomados de KV
+# (porque Vite los inyecta a build time) y sube el artefacto al SWA via
+# Azure/static-web-apps-deploy@v1. Pre-requisitos operacionales:
+#   - SPA app reg en Entra (ver infra/README.md sección Auth)
+#   - KV secret 'auth-entra-spa-client-id' = client ID de la SPA app reg
+#   - KV secret 'swa-deployment-token' = token del SWA (post-Bicep)
+#   - Redirect URI de la SPA app reg debe incluir el hostname del SWA

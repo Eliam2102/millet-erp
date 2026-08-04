@@ -1,0 +1,243 @@
+import { useState } from 'react';
+import { Building2, Pencil, Plus, PowerOff } from 'lucide-react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  EstatusCatalogo,
+  type SucursalResponse,
+} from '@/modules/administracion/api/types';
+import { useDesactivarSucursal } from '@/modules/administracion/api';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { SucursalInlineForm } from '@/modules/administracion/components/SucursalInlineForm';
+import { SheetDepartamentosDeSucursal } from '@/modules/administracion/components/SheetDepartamentosDeSucursal';
+
+/**
+ * Panel "Sucursales" del detalle de empresa. Renderiza:
+ *
+ * <list>
+ *   <item>Lista de sucursales existentes (Clave + Nombre + estatus).</item>
+ *   <item>Botón "Agregar sucursal" que monta el inline form (border
+ *         dashed primary).</item>
+ *   <item>Click en una row inactiva-friendly → expande inline form
+ *         de edición (border amber). Solo una row editable a la vez.</item>
+ *   <item>Botón "Desactivar" por row activa (alertdialog de confirm).
+ *         La fila desactivada queda visible con badge "Inactiva".</item>
+ * </list>
+ */
+export interface SucursalesPanelProps {
+  empresaId: string;
+  sucursales: readonly SucursalResponse[];
+}
+
+export function SucursalesPanel({
+  empresaId,
+  sucursales,
+}: SucursalesPanelProps) {
+  const [agregando, setAgregando] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [confirmDesactivar, setConfirmDesactivar] =
+    useState<SucursalResponse | null>(null);
+  const [gestionandoDeptos, setGestionandoDeptos] =
+    useState<SucursalResponse | null>(null);
+
+  const canGestionar = useHasPermission(
+    PermisosCanonicos.AdminEmpresasSucursalesGestionar,
+  );
+  const canGestionarDeptos = useHasPermission(
+    PermisosCanonicos.AdminSucursalesDepartamentosGestionar,
+  );
+
+  const idempotencyKey = useFormIdempotencyKey();
+  const desactivar = useDesactivarSucursal();
+
+  function handleConfirmarDesactivar() {
+    if (confirmDesactivar == null) return;
+    const target = confirmDesactivar;
+    desactivar.mutate(
+      { empresaId, id: target.id, idempotencyKey },
+      {
+        onSuccess: () => {
+          toast.success(`Sucursal ${target.clave} desactivada`);
+          setConfirmDesactivar(null);
+        },
+        onError: (error) => {
+          if (esApiError(error)) {
+            toast.error(error.problem.title, {
+              description: error.traceId
+                ? `Código: ${error.traceId}`
+                : undefined,
+            });
+          } else {
+            toast.error('Error al desactivar la sucursal.');
+          }
+          setConfirmDesactivar(null);
+        },
+      },
+    );
+  }
+
+  return (
+    <section className="space-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-base font-semibold">Sucursales</h3>
+          <p className="text-xs text-muted-foreground">
+            Catálogo organizacional compartido. Total: {sucursales.length}.
+          </p>
+        </div>
+        {canGestionar && !agregando && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setAgregando(true);
+              setEditandoId(null);
+            }}
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Agregar sucursal
+          </Button>
+        )}
+      </header>
+
+      {agregando && canGestionar && (
+        <SucursalInlineForm
+          empresaId={empresaId}
+          onCancel={() => setAgregando(false)}
+          onSaved={() => setAgregando(false)}
+        />
+      )}
+
+      {sucursales.length === 0 ? (
+        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+          No hay sucursales registradas.
+        </div>
+      ) : (
+        <ul className="divide-y rounded-md border bg-card">
+          {sucursales.map((s) => {
+            const editando = editandoId === s.id;
+            const activa = s.estatus === EstatusCatalogo.Activo;
+            return (
+              <li key={s.id} className="px-3 py-2">
+                {editando && canGestionar ? (
+                  <SucursalInlineForm
+                    empresaId={empresaId}
+                    sucursal={s}
+                    onCancel={() => setEditandoId(null)}
+                    onSaved={() => setEditandoId(null)}
+                  />
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-mono text-sm font-semibold">
+                      {s.clave}
+                    </span>
+                    <span className="flex-1 truncate text-sm">{s.nombre}</span>
+                    {activa ? (
+                      <Badge variant="secondary">Activa</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Inactiva
+                      </Badge>
+                    )}
+                    <div className="flex items-center gap-1">
+                      {activa && canGestionarDeptos && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setGestionandoDeptos(s)}
+                          aria-label={`Gestionar departamentos de ${s.clave}`}
+                          title="Gestionar departamentos"
+                        >
+                          <Building2 className="mr-1 h-3.5 w-3.5" />
+                          Deptos
+                        </Button>
+                      )}
+                      {canGestionar && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditandoId(s.id);
+                              setAgregando(false);
+                            }}
+                            aria-label={`Editar sucursal ${s.clave}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          {activa && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmDesactivar(s)}
+                              aria-label={`Desactivar sucursal ${s.clave}`}
+                            >
+                              <PowerOff className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <AlertDialog
+        open={confirmDesactivar != null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDesactivar(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desactivar sucursal</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Confirmas desactivar la sucursal{' '}
+              <span className="font-mono font-semibold">
+                {confirmDesactivar?.clave}
+              </span>
+              ? Quedará oculta en los selectores pero conservará su
+              histórico. La acción se puede revertir contactando al
+              administrador del sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={desactivar.isPending}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmarDesactivar}
+              disabled={desactivar.isPending}
+            >
+              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <SheetDepartamentosDeSucursal
+        sucursal={gestionandoDeptos}
+        onOpenChange={(open) => {
+          if (!open) setGestionandoDeptos(null);
+        }}
+      />
+    </section>
+  );
+}

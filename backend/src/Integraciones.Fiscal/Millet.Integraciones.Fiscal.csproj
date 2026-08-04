@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Millet.Integraciones.Fiscal</RootNamespace>
+    <AssemblyName>Millet.Integraciones.Fiscal</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Millet.Integraciones.Fiscal.UnitTests" />
+    <InternalsVisibleTo Include="Millet.Integraciones.Fiscal.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      PR-3: IDataProtector + IDataProtectionProvider vienen del shared
+      framework Microsoft.AspNetCore.App. FiscalSecretCipher los usa para
+      cifrar/descifrar el ApiKey de FiscalAPI (ADR-0037).
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <!-- PR-4: CQRS + validación. Mismo stack que CxP / Almacén. -->
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <!-- PR-5: cliente HTTP del PAC con Polly + cache resolver. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <!-- PR-9: SDK NuGet oficial de FiscalAPI. -->
+    <PackageReference Include="Fiscalapi" />
+  </ItemGroup>
+
+</Project>

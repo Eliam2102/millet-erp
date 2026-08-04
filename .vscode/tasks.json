@@ -1,0 +1,116 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "backend: build",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/backend/Millet.sln", "--configuration", "Release"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile",
+      "presentation": { "reveal": "silent", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "backend: test",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/backend/Millet.sln",
+        "--configuration",
+        "Release",
+        "--filter",
+        "FullyQualifiedName~UnitTests"
+      ],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$msCompile",
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "backend: watch (dev)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["watch", "run", "--project", "src/Api/Millet.Api.csproj"],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      },
+      "problemMatcher": [
+        {
+          "owner": "dotnet-watch",
+          "pattern": [{ "regexp": "^.*$" }],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*Building.*$",
+            "endsPattern": "^.*(Now listening on|Application started).*$"
+          }
+        }
+      ]
+    },
+    {
+      "label": "frontend: build",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build"],
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": "$tsc",
+      "presentation": { "reveal": "silent", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "frontend: lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": "$eslint-stylish",
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "frontend: dev",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      },
+      "problemMatcher": [
+        {
+          "owner": "vite",
+          "pattern": [{ "regexp": "^.*$" }],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".*VITE.*",
+            "endsPattern": ".*ready in.*"
+          }
+        }
+      ]
+    },
+    {
+      "label": "dev: start all",
+      "dependsOn": ["backend: watch (dev)", "frontend: dev"],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "validate all (CI mirror)",
+      "dependsOn": ["backend: build", "backend: test", "frontend: build", "frontend: lint"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "infra: bicep build",
+      "type": "shell",
+      "command": "az",
+      "args": ["bicep", "build", "--file", "${workspaceFolder}/infra/main.bicep"],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    }
+  ]
+}

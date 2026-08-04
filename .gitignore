@@ -1,0 +1,71 @@
+# =====================================
+# Bicep / Azure
+# =====================================
+*.bicep.bak
+infra/**/*.json
+
+# =====================================
+# Secretos (NUNCA commitear)
+# =====================================
+*.secret
+*.secret.json
+.env
+.env.local
+.env.*.local
+
+# =====================================
+# Azure CLI
+# =====================================
+.azure/
+
+# =====================================
+# Logs de Kudu / App Service (descargados localmente para debug)
+# =====================================
+_logs/
+
+# =====================================
+# .NET
+# =====================================
+bin/
+obj/
+*.user
+.vs/
+# Artefactos de resultados de test (dotnet test --logger trx)
+TestResults/
+*.trx
+# Output de dotnet publish copiado a mano a SER-DATA (runbook A+W pedidos M1.7)
+on-prem/aw-pedido-notify/publish/
+
+# =====================================
+# Node / Frontend
+# =====================================
+node_modules/
+dist/
+build/
+.next/
+
+# =====================================
+# Logs
+# =====================================
+*.log
+
+# =====================================
+# Editores
+# =====================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+*.swp
+
+# =====================================
+# Sistema operativo
+# =====================================
+.DS_Store
+Thumbs.db
+
+# =====================================
+# Worktrees de sesiones Claude Code
+# =====================================
+.claude/worktrees/

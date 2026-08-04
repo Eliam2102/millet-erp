@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Millet.Tesoreria</RootNamespace>
+    <AssemblyName>Millet.Tesoreria</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
+    <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      TES-PR1: workers IHostedService (OutboxPublisherWorker en PR-4 y los
+      listeners de CxP/CxC/Facturación en PR-3/PR-7). FrameworkReference
+      para usar Microsoft.Extensions.Hosting del shared runtime (mismo
+      patrón que CxP, CxC e Integraciones.Aw).
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- TES-PR8: adapter Azure Blob del XML de REPP recibidos (ADR-0024). -->
+    <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Millet.Tesoreria.UnitTests" />
+    <InternalsVisibleTo Include="Millet.Tesoreria.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

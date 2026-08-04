@@ -1,0 +1,14 @@
+sep=,
+Recurso,Nombre,SKU / Dimensionamiento,Facturado jun-2026 (USD),Precio lista mensual (USD),Nota
+App Service Plan + Web App,plan-millet-dev-mxc-01 / app-millet-dev-mxc-01,B1 Linux x1 instancia,13.46,13.46,API .NET + workers en proceso
+Azure Relay (Hybrid Connections),relay-millet-dev-mxc-01,Standard - 2 listeners (hc-aw-business-sql + hc-aw-drop-service),19.19,19.19,Conectividad on-prem a SER-DATA; facturado bajo categoria Service Bus
+Container Registry,crmilletdevmxc01,Basic,5.00,5.00,
+Log Analytics + App Insights,log-millet-dev-mxc-01 / appi-millet-dev-mxc-01,PerGB2018 - cap 1 GB/dia - retencion 30 dias (~1.6 GB/mes),4.32,4.30,2.76 USD/GB ingerido
+Key Vault,kv-millet-dev-mxc-01,Standard (por operacion),0.00,0.01,
+PostgreSQL Flexible Server,pg-millet-dev-mxc-01,Standard_B1ms Burstable + 32 GB storage - PG16 - backup 7 dias - sin HA,0.00,17.70,Hoy en free tier 12 meses; lista = 13.65 computo + 4.05 storage
+Service Bus,sb-millet-dev-mxc-01,Standard - 5 topics,0.00,10.79,Cargo base no aparece en factura actual (beneficio cuenta gratuita); incluye ~13M operaciones/mes
+Storage Account,stmilletdevmxc01,StandardV2 LRS Hot,0.00,1.00,Uso minimo; hoy en free tier
+SignalR,signalr-millet-dev-mxc-01,Free_F1,0.00,0.00,Tier gratuito permanente (tope 20 conexiones)
+Static Web App,swa-millet-dev-mxc-01,Free,0.00,0.00,Tier gratuito permanente (frontend)
+"VNet, action groups, alertas",vnet-millet-dev-mxc + ag/alerts,2 metric alerts,0.00,0.00,Primeras 10 alertas de metrica gratis
+TOTAL,,,41.98,71.45,Region Mexico Central - suscripcion d820f0b5

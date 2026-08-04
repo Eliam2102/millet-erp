@@ -1,0 +1,61 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-0 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Estandar"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-slate-100 text-slate-700 ring-slate-200"
+    data-naturaleza="Estandar"
+  >
+    Estándar
+  </span>
+</span>
+`;
+
+exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-1 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Servicio"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-sky-100 text-sky-900 ring-sky-200"
+    data-naturaleza="Servicio"
+  >
+    Servicio
+  </span>
+</span>
+`;
+
+exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-2 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Critico"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-100 text-rose-900 ring-rose-200"
+    data-naturaleza="Critico"
+  >
+    Crítico
+  </span>
+</span>
+`;
+
+exports[`<NaturalezaBadge> > snapshot por naturaleza: cubre las 4 > naturaleza-3 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Riesgo"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-orange-100 text-orange-900 ring-orange-200"
+    data-naturaleza="Riesgo"
+  >
+    Riesgo
+  </span>
+</span>
+`;

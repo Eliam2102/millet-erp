@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Administracion\Millet.Administracion.csproj" />
+    <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
+    <ProjectReference Include="..\DatosMaestros\Millet.DatosMaestros.csproj" />
+    <ProjectReference Include="..\Almacen\Millet.Almacen.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Millet.Integraciones.Aw</RootNamespace>
+    <AssemblyName>Millet.Integraciones.Aw</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PR C: tests unit invocan AwDropWorker.ProcessRawMessageAsync
+         (internal) y AwCorrelationWorker.TickAsync (internal) para
+         ejecutar la lógica sin levantar Service Bus / loop temporal. -->
+    <InternalsVisibleTo Include="Millet.Integraciones.Aw.UnitTests" />
+    <InternalsVisibleTo Include="Millet.Integraciones.Aw.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
+    <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
+    <!-- ADR-0048 D4 (flujo 2, sub-área Pedidos): los adapters implementan
+         puertos que DEFINE Facturación (IAwSolicitudesReader/IAwWriteBackPort/
+         IMasterProvisioningPort). Sin ciclo: Facturación no referencia Aw. -->
+    <ProjectReference Include="..\Facturacion\Millet.Facturacion.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      PR C: workers (BackgroundService), HttpClient (IHttpClientFactory), y
+      SignalR (IHubContext) vienen del shared framework Microsoft.AspNetCore.App
+      — mismo patrón que SharedKernel. Evita versionado individual de
+      Microsoft.Extensions.* que ya forman parte del runtime.
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <!-- PR C — adapters reales -->
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+    <!-- PR Soketi — push events a Agent (per channel `private-user-{id}`) -->
+    <PackageReference Include="PusherServer" />
+  </ItemGroup>
+
+</Project>

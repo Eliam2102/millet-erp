@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Millet.Facturacion</RootNamespace>
+    <AssemblyName>Millet.Facturacion</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Millet.Facturacion.UnitTests" />
+    <InternalsVisibleTo Include="Millet.Facturacion.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      F0-PR1: refs mínimas. Los puertos cross-module (DatosMaestros, Fiscal,
+      Contabilidad) los DEFINE Facturación en `Domain.Ports` y arrancan con
+      stubs NoOp en `Infrastructure.Stubs` — el wiring del adapter real vive
+      en `Program.cs` y pasa por la interfaz, evitando la dependencia de
+      proyecto (mismo patrón que Almacén F0-PR1).
+
+      Compartido + Catalogos sí se referencian porque `ICatalogosSatReadPort`
+      tiene un adapter REAL (no stub) que consulta los catálogos SAT seedeados
+      en `compartido.{formas_pago,usos_cfdi,regimenes_fiscales,monedas}` vía
+      `CompartidoDbContext` (cuidados-infra §8: "Millet.Catalogos … adapter
+      real, no recrear"). No es circular — Compartido nunca referencia
+      Facturación.
+    -->
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
+    <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
+    <!--
+      F2-PR1: repo de CFDI común para emitidos. Facturación consume
+      `ICfdiRepositorioPort` (cfdi_archivo) de Integraciones.Fiscal en lugar de
+      su stub local. No es circular — Integraciones.Fiscal nunca referencia
+      Facturación. (El timbrado real `IFiscalApiClient` se cablea en F12.)
+    -->
+    <ProjectReference Include="..\Integraciones.Fiscal\Millet.Integraciones.Fiscal.csproj" />
+    <!--
+      CXC-PR3: Facturación implementa `IFacturacionAnticiposReadPort`
+      (declarado en CuentasPorCobrar.Domain.Ports.Facturacion) vía
+      `FacturacionAnticiposReadAdapter` — puerto inverso cross-módulo,
+      mismo patrón que CxpFacturasTrazabilidadProvider en CxP. No es
+      circular — CxC nunca referencia Facturación (consume sus eventos
+      con contratos espejo).
+    -->
+    <ProjectReference Include="..\CuentasPorCobrar\Millet.CuentasPorCobrar.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Mapster" />
+    <!-- F2-PR2: PDF del CFDI server-side (mismo motor que la OC de Compras). -->
+    <PackageReference Include="QuestPDF" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,45 @@
+# ============================================================================
+# Docker Compose para desarrollo local. Solo levanta dependencias externas
+# (PostgreSQL); el backend (.NET) y frontend (Vite) se corren con `dotnet run`
+# y `npm run dev` para aprovechar hot-reload.
+#
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d        # arrancar
+#   docker compose -f docker-compose.dev.yml ps           # ver estado
+#   docker compose -f docker-compose.dev.yml logs -f      # tail logs
+#   docker compose -f docker-compose.dev.yml down         # parar (preserva data)
+#   docker compose -f docker-compose.dev.yml down -v      # parar + borrar volumen
+#
+# Credenciales coinciden con backend/src/Api/appsettings.Development.json:
+#   Host=localhost  Port=5432  Database=millet_dev  Username=pgadmin  Password=pgadmin
+#
+# El volumen 'millet-dev-pg-data' persiste la data entre reinicios. Para
+# arrancar de cero (re-bootstrap), usa `down -v` y vuelve a aplicar
+# migrations + arrancar el backend.
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: millet-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pgadmin
+      POSTGRES_PASSWORD: pgadmin
+      POSTGRES_DB: millet_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - millet-dev-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      # 'pg_isready' es cheap y rápido. Backend hace su propio check de
+      # conectividad via /health/ready cuando arranca; este healthcheck es
+      # solo para que `docker compose ps` reporte estado útil.
+      test: ["CMD-SHELL", "pg_isready -U pgadmin -d millet_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  millet-dev-pg-data:
+    name: millet-dev-pg-data

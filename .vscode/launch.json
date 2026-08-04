@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend (Millet.Api) - Debug",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "backend: build",
+      "program": "${workspaceFolder}/backend/src/Api/bin/Release/net9.0/Millet.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/backend/src/Api",
+      "stopAtEntry": false,
+      "console": "internalConsole",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5000"
+      }
+    },
+    {
+      "name": "Frontend (Vite) - Chrome",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMaps": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full stack - Debug",
+      "configurations": ["Backend (Millet.Api) - Debug", "Frontend (Vite) - Chrome"],
+      "stopAll": true,
+      "preLaunchTask": "frontend: dev"
+    }
+  ]
+}

@@ -1,0 +1,4663 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Millet ERP API",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/v1/compras/motivos-rechazo": {
+      "get": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Listar catálogo de motivos de rechazo/eliminación/cancelación",
+        "description": "Devuelve los motivos activos con bitmask `aplicaA` (Rechazo, Eliminacion, Cancelacion) y flag `permiteTextoLibre`. Lo consume la UI para poblar selectores en los flujos terminales.",
+        "operationId": "ListarMotivosRechazo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MotivoRechazoResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/pendientes-autorizacion": {
+      "get": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Bandeja de pendientes de autorización (estado=EnAutorización)",
+        "description": "Atajo a la bandeja general con `estado=EnAutorizacion` fijo. Filtros opcionales por `departamentoId` para que un autorizador vea solo las RQs de su área. Paginación offset-based.",
+        "operationId": "ListarPendientesAutorizacion",
+        "parameters": [
+          {
+            "name": "departamentoId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseOfRequisicionListItemResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sesion": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "PostSesion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/cambiar-empresa": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "PostCambiarEmpresa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarEmpresaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "GetMe",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Crear requisición en Borrador",
+        "description": "Crea una nueva requisición de compra en estado Borrador. Requiere permiso `compras.requisiciones.crear`. Si `RequisitanteId` difiere del usuario autenticado, exige adicionalmente `compras.requisiciones.seleccionar-requisitante`. Header `Idempotency-Key` (UUID v4) obligatorio (ADR-0020). Devuelve 201 con la URI del recurso en `Location`.",
+        "operationId": "CrearRequisicion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearRequisicionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrearRequisicionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Bandeja general con filtros opcionales",
+        "description": "Lista paginada (offset-based, default `limit=50`) con filtros opcionales por `estado`, `departamentoId`, `requisitanteId`. Sin filtros, lista todas las RQs de la empresa actual ordenadas por `fecha_solicitud DESC`. Filtrada siempre por `empresa_id` del JWT (multi-tenant, ADR-0011).",
+        "operationId": "ListarRequisiciones",
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "departamentoId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requisitanteId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseOfRequisicionListItemResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}": {
+      "get": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Obtener requisición por id",
+        "description": "Devuelve detalle completo (cabecera + líneas + autorizaciones + estado actual). Header `ETag` se setea con `Version` para concurrencia optimista — el cliente lo manda en `If-Match` al mutar (ADR-0012).",
+        "operationId": "ObtenerRequisicionPorId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Editar cabecera de RQ en Borrador (PATCH parcial, B.4)",
+        "description": "PATCH parcial sobre los campos editables de cabecera: `descripcion`, `fechaEntregaDeseada`, `prioridad`, `proveedorSugeridoId`, `clasificacion`. Solo en estado Borrador → 422 `EDITAR_CABECERA_SOLO_EN_BORRADOR` si la RQ ya transmitió. Inmutables (sucursalId, departamentoId, almacenDestinoId, requisitanteId): requieren recrear la RQ. Para limpiar un nullable a null, mandar el flag `limpiarX = true` (sin él, null se interpreta como \"no tocar\"). Header `Idempotency-Key` obligatorio.",
+        "operationId": "EditarCabeceraRequisicion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarCabeceraRequisicionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/transmitir": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Transmitir Borrador → EnAutorización",
+        "description": "Envía la requisición a la cadena de aprobación. Requiere estado Borrador y al menos una línea (TRANSMITIR_SIN_LINEAS = 422). Devuelve 204 No Content. Header `Idempotency-Key` obligatorio.",
+        "operationId": "TransmitirRequisicion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/autorizaciones": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Registrar autorización Nivel1 / Nivel2",
+        "description": "Registra la firma del autorizador en el nivel indicado. El permiso se valida en el endpoint según `Nivel`: `compras.requisiciones.autorizar.nivel1` o `nivel2`. Si la matriz queda satisfecha, dispara bifurcación stock-aware (reservas + OC borrador) en una sola TX EF (F4-PR2). Header `Idempotency-Key` obligatorio.",
+        "operationId": "AutorizarRequisicion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutorizarRequisicionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/rechazar": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Rechazar EnAutorización → Rechazada",
+        "description": "Marca la requisición como Rechazada con motivo (cross-table validation contra catálogo) y texto libre opcional según `permiteTextoLibre` del motivo. Header `Idempotency-Key` obligatorio.",
+        "operationId": "RechazarRequisicion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminarRequisicionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/eliminar": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Eliminar pre-autorización (Borrador o EnAutorización → Eliminada)",
+        "description": "Cierre lógico antes de la matriz de autorización. NO requiere header `Idempotency-Key` — la operación no tiene impacto fiscal (la RQ nunca llegó a Autorizada). Cambia estado, no toca DeletedAt (registros disponibles para auditoría).",
+        "operationId": "EliminarRequisicion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminarRequisicionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/cancelar": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Cancelar Autorizada/EnSurtido → Cancelada",
+        "description": "Cancela una requisición ya autorizada. Libera reservas en Almacén (idempotente vía port) y aborta OC borrador en la misma TX EF. Si cualquier port falla, rollback completo y error 422 `CANCELAR_FALLO`. Header `Idempotency-Key` obligatorio (impacto fiscal: aborta cadena de OC).",
+        "operationId": "CancelarRequisicion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminarRequisicionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/historico": {
+      "get": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Histórico de auditoría de la requisición",
+        "description": "Trae todas las transiciones de la RQ (root + líneas + autorizaciones) ordenadas por timestamp ascendente. Cada entrada incluye `tipo` (enum legible: Creada, LineaAgregada, Transmitida, AutorizadaN1/N2, Rechazada, Cancelada, etc.) inferido de `(operacion, entidad, cambios)`. El `cambios` raw también se devuelve para que el FE muestre detalle expandible. Tope defensivo de 500 filas.",
+        "operationId": "ObtenerHistoricoRequisicion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoricoEntryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/lineas": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Agregar línea a Borrador",
+        "description": "Solo aplicable en estado Borrador. Validación cross-table verifica que `ArticuloId` exista en `compartido.articulos` y esté `Activo` (404 / 422 si no). Header `Idempotency-Key` obligatorio.",
+        "operationId": "AgregarLinea",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgregarLineaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgregarLineaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/lineas/{lineaId}": {
+      "patch": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Reemplazo estructural de línea (Borrador)",
+        "description": "PATCH equivalente a un replace completo de la línea (excepto notas, que tienen endpoint propio). Solo en estado Borrador — una vez transmitida la RQ, las cantidades quedan congeladas. Mismo shape de validación que AgregarLinea.",
+        "operationId": "ActualizarLinea",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lineaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarLineaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Eliminar línea de Borrador",
+        "description": "Solo en Borrador. La RQ debe quedar con al menos una línea para transmitirse — si eliminás la última línea, ese chequeo lo hará el handler de `Transmitir` (TRANSMITIR_SIN_LINEAS = 422).",
+        "operationId": "EliminarLinea",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lineaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/requisiciones/{id}/lineas/{lineaId}/notas": {
+      "patch": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Actualizar solo `notas` de una línea (cualquier estado no terminal)",
+        "description": "Permite editar notas en RQs ya transmitidas o autorizadas (caso de uso: el comprador agrega una observación al proveedor). NO afecta cantidad ni precio — esos están congelados post-Borrador.",
+        "operationId": "ActualizarNotasLinea",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lineaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarNotasLineaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/aprobadores": {
+      "post": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Designar aprobador (cierra el vigente anterior si existe)",
+        "description": "Asigna a un usuario como aprobador del rol indicado en el departamento. Si ya existe un aprobador vigente para `(empresa, depto, rol)`, su `vigenteHasta` se setea a now() y se inserta la nueva asignación con `vigenteDesde = now()`. Re-designar al mismo usuario es no-op idempotente. Header `Idempotency-Key` obligatorio.",
+        "operationId": "DesignarAprobador",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignarAprobadorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesignarAprobadorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Listar aprobadores vigentes",
+        "description": "Devuelve las asignaciones activas (`vigenteHasta IS NULL`) de la empresa del JWT. Filtros opcionales por `departamentoId`, `rol` (0=JefeDpto, 1=JefeAlmacen, 2=AutorizadorN2) y `usuarioId`. Sin filtros, lista la matriz completa.",
+        "operationId": "ListarAprobadoresVigentes",
+        "parameters": [
+          {
+            "name": "departamentoId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rol",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NullableOfRolAprobador"
+            }
+          },
+          {
+            "name": "usuarioId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AprobadorVigenteResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/aprobadores/{id}": {
+      "delete": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Revocar aprobador (cerrar vigencia)",
+        "description": "Cierra la asignación con `vigenteHasta = now()`. Idempotente: si ya está cerrada, devuelve 204 sin hacer cambios. 404 si el id no existe en la empresa actual. Header `Idempotency-Key` obligatorio.",
+        "operationId": "RevocarAprobador",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compras/aprobadores/historico": {
+      "get": {
+        "tags": [
+          "Compras"
+        ],
+        "summary": "Histórico de aprobadores (auditoría)",
+        "description": "Lista las asignaciones vigentes Y cerradas, ordenadas por `vigenteDesde DESC`. Tope de 500 filas. Requiere AL MENOS UN filtro (`departamentoId`, `rol` o `usuarioId`) para evitar full scan del histórico → 422 `FILTRO_OBLIGATORIO` sin filtros.",
+        "operationId": "ListarAprobadoresHistorico",
+        "parameters": [
+          {
+            "name": "departamentoId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rol",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NullableOfRolAprobador"
+            }
+          },
+          {
+            "name": "usuarioId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AprobadorHistoricoResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/proveedores": {
+      "get": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Listar proveedores cross-empresa",
+        "description": "Lista paginada de proveedores en `compartido.proveedores`. Filtros opcionales: `estatus` (Activo/Inactivo/EnRevisión), `clave` (substring match). Paginación offset-based con tope de `limit=200`. Permiso: `compartido.catalogos.leer`.",
+        "operationId": "ListarProveedores",
+        "parameters": [
+          {
+            "name": "estatus",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NullableOfEstatusCatalogo"
+            }
+          },
+          {
+            "name": "clave",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedCatalogoResponseOfProveedorListItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Crear proveedor (B.5)",
+        "description": "Alta de proveedor. UNIQUE(clave) → 422 `PROVEEDOR_CLAVE_DUPLICADA` si choca. Si llega `monedaPreferidaId`, validación cross-table contra `compartido.monedas` (404 si no existe). Header `Idempotency-Key` obligatorio.",
+        "operationId": "CrearProveedor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearProveedorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrearProveedorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/proveedores/{id}": {
+      "get": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Detalle de proveedor por id",
+        "description": "Devuelve cabecera completa del proveedor (incluye `email`, `telefono`, `claveLegacy` que el list no expone). 404 si el id no existe.",
+        "operationId": "ObtenerProveedorPorId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProveedorDetalle"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Editar proveedor (PATCH parcial, B.5)",
+        "description": "PATCH parcial sobre los campos editables. Convención: nullable `null` = no tocar; flag `limpiarX = true` = setear nullable a null. Inmutables: `id`, `clave`, `claveLegacy`. Header `Idempotency-Key` obligatorio.",
+        "operationId": "ActualizarProveedor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarProveedorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Desactivar proveedor (soft delete, B.5)",
+        "description": "Soft delete: setea `Estatus = Inactivo`. Idempotente: si ya está Inactivo, retorna 204 sin cambios. Las RQs históricas siguen funcionando con el id; las nuevas RQs se bloquean por la validación cross-table de F7-PR1. Para reactivar, usar PATCH (cuando se necesite).",
+        "operationId": "DesactivarProveedor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/articulos": {
+      "get": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Listar artículos cross-empresa",
+        "description": "Lista paginada de artículos en `compartido.articulos`. Filtros opcionales: `naturaleza` (Estandar/Servicio/Critico/Riesgo — alimenta la matriz de aprobación A1 §3.bis), `estatus`, `clave` (substring). Paginación offset-based, tope `limit=200`.",
+        "operationId": "ListarArticulos",
+        "parameters": [
+          {
+            "name": "naturaleza",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "estatus",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NullableOfEstatusCatalogo"
+            }
+          },
+          {
+            "name": "clave",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedCatalogoResponseOfArticuloListItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Crear artículo (B.5)",
+        "description": "Alta de artículo. UNIQUE(clave) → 422 `ARTICULO_CLAVE_DUPLICADA` si choca. Si llega `precioReferenciaMoneda`, validación cross-table contra `compartido.monedas` (422 `ARTICULO_MONEDA_NO_REGISTRADA` si no existe). Header `Idempotency-Key` obligatorio.",
+        "operationId": "CrearArticulo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearArticuloRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrearArticuloResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/articulos/{id}": {
+      "get": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Detalle de artículo por id",
+        "description": "Devuelve cabecera completa del artículo (incluye `descripcionLarga`, `precioReferencia` y `claveLegacy` que el list no expone). 404 si el id no existe.",
+        "operationId": "ObtenerArticuloPorId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticuloDetalle"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Editar artículo (PATCH parcial, B.5)",
+        "description": "PATCH parcial; mismas reglas que ActualizarProveedor. El cambio individual de `naturaleza` aquí es complementario al endpoint bulk `/reclasificar-naturaleza` de F9-PR1: uno-a-uno cuando el admin solo necesita ajustar 1 artículo, vs bulk cuando reclasifica un set grande.",
+        "operationId": "ActualizarArticulo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarArticuloRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Desactivar artículo (soft delete, B.5)",
+        "description": "Mismas reglas que DesactivarProveedor.",
+        "operationId": "DesactivarArticulo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/articulos/reclasificar-naturaleza": {
+      "post": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Reclasificar naturaleza de un batch de artículos",
+        "description": "Cambia la `Naturaleza` de hasta 500 artículos en un solo request. Single SQL via `ExecuteUpdate`. IDs no encontrados se ignoran silenciosamente — el contador devuelto refleja sólo los reclasificados. Tope de batch: 500. Permiso: `compartido.catalogos.administrar`. Header `Idempotency-Key` obligatorio (cambia la matriz de aprobación A1).",
+        "operationId": "ReclasificarNaturalezaArticulos",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReclasificarNaturalezaArticulosRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReclasificarNaturalezaArticulosResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/sucursales": {
+      "get": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Listar sucursales (B.1)",
+        "description": "Catálogo organizacional. Filtros opcionales: `estatus` (0=Activo, 1=Inactivo, 2=EnRevisión), `q` (substring contra `clave` o `nombre`). Paginación offset-based, tope `limit=200`. Permiso: `compartido.catalogos.leer`.",
+        "operationId": "ListarSucursales",
+        "parameters": [
+          {
+            "name": "estatus",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NullableOfEstatusCatalogo"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedCatalogoResponseOfSucursalListItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/departamentos": {
+      "get": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Listar departamentos (B.1)",
+        "description": "Catálogo funcional (Compras, Almacén, Mantenimiento, etc). Filtros: `estatus`, `q`. Paginado.",
+        "operationId": "ListarDepartamentos",
+        "parameters": [
+          {
+            "name": "estatus",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NullableOfEstatusCatalogo"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedCatalogoResponseOfDepartamentoListItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/almacenes": {
+      "get": {
+        "tags": [
+          "Catalogos"
+        ],
+        "summary": "Listar almacenes (B.1)",
+        "description": "Cada almacén pertenece a una sucursal (FK física). Filtros: `estatus`, `sucursalId` (común para poblar dropdown dependiente \"primero sucursal, después almacén\"), `q`.",
+        "operationId": "ListarAlmacenes",
+        "parameters": [
+          {
+            "name": "estatus",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NullableOfEstatusCatalogo"
+            }
+          },
+          {
+            "name": "sucursalId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedCatalogoResponseOfAlmacenListItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/identidad/usuarios": {
+      "get": {
+        "tags": [
+          "Identidad"
+        ],
+        "summary": "Listar usuarios (B.1)",
+        "description": "Catálogo de usuarios para selectores en formularios (asignar requisitante, designar aprobador, etc). NO expone `entraOid` — campo interno. Filtros opcionales: `activo` (true/false), `departamentoId`, `q` (substring contra email o nombre). Paginación offset-based, tope `limit=200`. Permiso: `identidad.usuarios.leer`.",
+        "operationId": "ListarUsuarios",
+        "parameters": [
+          {
+            "name": "activo",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "departamentoId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedCatalogoResponseOfUsuarioListItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActualizarArticuloRequest": {
+        "required": [
+          "nombre",
+          "descripcionLarga",
+          "unidadMedidaId",
+          "naturaleza",
+          "categoria",
+          "precioReferenciaMonto",
+          "precioReferenciaMoneda",
+          "limpiarDescripcionLarga",
+          "limpiarCategoria",
+          "limpiarPrecioReferencia"
+        ],
+        "type": "object",
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "nullable": true
+          },
+          "descripcionLarga": {
+            "type": "string",
+            "nullable": true
+          },
+          "unidadMedidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "naturaleza": {
+            "$ref": "#/components/schemas/NullableOfNaturaleza"
+          },
+          "categoria": {
+            "type": "string",
+            "nullable": true
+          },
+          "precioReferenciaMonto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "precioReferenciaMoneda": {
+            "type": "string",
+            "nullable": true
+          },
+          "limpiarDescripcionLarga": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarCategoria": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarPrecioReferencia": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "ActualizarLineaRequest": {
+        "required": [
+          "articuloId",
+          "cantidad",
+          "unidadMedida",
+          "precioEstimadoMonto",
+          "precioEstimadoMoneda",
+          "cuentaContableId",
+          "centroCostoId",
+          "proyecto",
+          "fechaRequerida"
+        ],
+        "type": "object",
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "unidadMedida": {
+            "type": "string"
+          },
+          "precioEstimadoMonto": {
+            "type": "number",
+            "format": "double"
+          },
+          "precioEstimadoMoneda": {
+            "type": "string"
+          },
+          "cuentaContableId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroCostoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "proyecto": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaRequerida": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        }
+      },
+      "ActualizarNotasLineaRequest": {
+        "required": [
+          "notas"
+        ],
+        "type": "object",
+        "properties": {
+          "notas": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ActualizarProveedorRequest": {
+        "required": [
+          "razonSocial",
+          "nombreComercial",
+          "rfc",
+          "tipoPersona",
+          "condicionesPagoDias",
+          "monedaPreferidaId",
+          "email",
+          "telefono",
+          "limpiarNombreComercial",
+          "limpiarCondicionesPago",
+          "limpiarMonedaPreferida",
+          "limpiarEmail",
+          "limpiarTelefono"
+        ],
+        "type": "object",
+        "properties": {
+          "razonSocial": {
+            "type": "string",
+            "nullable": true
+          },
+          "nombreComercial": {
+            "type": "string",
+            "nullable": true
+          },
+          "rfc": {
+            "type": "string",
+            "nullable": true
+          },
+          "tipoPersona": {
+            "$ref": "#/components/schemas/NullableOfTipoPersonaProveedor"
+          },
+          "condicionesPagoDias": {
+            "type": "integer",
+            "format": "int16",
+            "nullable": true
+          },
+          "monedaPreferidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "limpiarNombreComercial": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarCondicionesPago": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarMonedaPreferida": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarEmail": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarTelefono": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "AgregarLineaRequest": {
+        "required": [
+          "articuloId",
+          "cantidad",
+          "unidadMedida",
+          "precioEstimadoMonto",
+          "precioEstimadoMoneda",
+          "cuentaContableId",
+          "centroCostoId",
+          "proyecto",
+          "fechaRequerida",
+          "notas"
+        ],
+        "type": "object",
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "unidadMedida": {
+            "type": "string"
+          },
+          "precioEstimadoMonto": {
+            "type": "number",
+            "format": "double"
+          },
+          "precioEstimadoMoneda": {
+            "type": "string"
+          },
+          "cuentaContableId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroCostoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "proyecto": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaRequerida": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "notas": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AgregarLineaResponse": {
+        "required": [
+          "id",
+          "requisicionId",
+          "posicion",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requisicionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "posicion": {
+            "type": "integer",
+            "format": "int16"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AlmacenListItem": {
+        "required": [
+          "id",
+          "clave",
+          "nombre",
+          "sucursalId",
+          "estatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "sucursalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estatus": {
+            "$ref": "#/components/schemas/EstatusCatalogo"
+          }
+        }
+      },
+      "AprobadorHistoricoResponse": {
+        "required": [
+          "id",
+          "departamentoId",
+          "rol",
+          "usuarioId",
+          "vigenteDesde",
+          "vigenteHasta",
+          "designadoPor",
+          "motivo"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rol": {
+            "$ref": "#/components/schemas/RolAprobador"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vigenteDesde": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "vigenteHasta": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "designadoPor": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AprobadorVigenteResponse": {
+        "required": [
+          "id",
+          "departamentoId",
+          "rol",
+          "usuarioId",
+          "vigenteDesde",
+          "designadoPor",
+          "motivo"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rol": {
+            "$ref": "#/components/schemas/RolAprobador"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vigenteDesde": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "designadoPor": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ArticuloDetalle": {
+        "required": [
+          "id",
+          "clave",
+          "claveLegacy",
+          "nombre",
+          "descripcionLarga",
+          "unidadMedidaDefault",
+          "unidadMedidaId",
+          "naturaleza",
+          "categoria",
+          "precioReferenciaMonto",
+          "precioReferenciaMoneda",
+          "estatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "claveLegacy": {
+            "type": "string",
+            "nullable": true
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "descripcionLarga": {
+            "type": "string",
+            "nullable": true
+          },
+          "unidadMedidaDefault": {
+            "type": "string"
+          },
+          "unidadMedidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "naturaleza": {
+            "$ref": "#/components/schemas/Naturaleza"
+          },
+          "categoria": {
+            "type": "string",
+            "nullable": true
+          },
+          "precioReferenciaMonto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "precioReferenciaMoneda": {
+            "type": "string",
+            "nullable": true
+          },
+          "estatus": {
+            "$ref": "#/components/schemas/EstatusCatalogo"
+          }
+        }
+      },
+      "ArticuloListItem": {
+        "required": [
+          "id",
+          "clave",
+          "nombre",
+          "unidadMedidaDefault",
+          "unidadMedidaId",
+          "naturaleza",
+          "categoria",
+          "estatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "unidadMedidaDefault": {
+            "type": "string"
+          },
+          "unidadMedidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "naturaleza": {
+            "$ref": "#/components/schemas/Naturaleza"
+          },
+          "categoria": {
+            "type": "string",
+            "nullable": true
+          },
+          "estatus": {
+            "$ref": "#/components/schemas/EstatusCatalogo"
+          }
+        }
+      },
+      "AutorizacionResponse": {
+        "required": [
+          "id",
+          "nivel",
+          "usuarioId",
+          "fechaHora",
+          "notas"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nivel": {
+            "$ref": "#/components/schemas/NivelAutorizacion"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fechaHora": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notas": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AutorizarRequisicionRequest": {
+        "required": [
+          "nivel",
+          "notas"
+        ],
+        "type": "object",
+        "properties": {
+          "nivel": {
+            "$ref": "#/components/schemas/NivelAutorizacion"
+          },
+          "notas": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CambiarEmpresaRequest": {
+        "required": [
+          "empresaId"
+        ],
+        "type": "object",
+        "properties": {
+          "empresaId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Clasificacion": {
+        "type": "integer"
+      },
+      "CrearArticuloRequest": {
+        "required": [
+          "clave",
+          "nombre",
+          "unidadMedidaId",
+          "naturaleza",
+          "descripcionLarga",
+          "categoria",
+          "precioReferenciaMonto",
+          "precioReferenciaMoneda"
+        ],
+        "type": "object",
+        "properties": {
+          "clave": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "unidadMedidaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "naturaleza": {
+            "$ref": "#/components/schemas/Naturaleza"
+          },
+          "descripcionLarga": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoria": {
+            "type": "string",
+            "nullable": true
+          },
+          "precioReferenciaMonto": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "precioReferenciaMoneda": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CrearArticuloResponse": {
+        "required": [
+          "id",
+          "clave"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          }
+        }
+      },
+      "CrearProveedorRequest": {
+        "required": [
+          "clave",
+          "razonSocial",
+          "rfc",
+          "tipoPersona",
+          "nombreComercial",
+          "condicionesPagoDias",
+          "monedaPreferidaId",
+          "email",
+          "telefono"
+        ],
+        "type": "object",
+        "properties": {
+          "clave": {
+            "type": "string"
+          },
+          "razonSocial": {
+            "type": "string"
+          },
+          "rfc": {
+            "type": "string"
+          },
+          "tipoPersona": {
+            "$ref": "#/components/schemas/TipoPersonaProveedor"
+          },
+          "nombreComercial": {
+            "type": "string",
+            "nullable": true
+          },
+          "condicionesPagoDias": {
+            "type": "integer",
+            "format": "int16",
+            "nullable": true
+          },
+          "monedaPreferidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CrearProveedorResponse": {
+        "required": [
+          "id",
+          "clave"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          }
+        }
+      },
+      "CrearRequisicionCommand": {
+        "required": [
+          "sucursalId",
+          "sucursalCodigo",
+          "folioAnio",
+          "departamentoId",
+          "almacenDestinoId",
+          "clasificacion",
+          "prioridad",
+          "fechaSolicitud",
+          "fechaEntregaDeseada",
+          "proveedorSugeridoId",
+          "descripcion"
+        ],
+        "type": "object",
+        "properties": {
+          "sucursalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sucursalCodigo": {
+            "type": "string"
+          },
+          "folioAnio": {
+            "type": "integer",
+            "format": "int16"
+          },
+          "departamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "almacenDestinoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clasificacion": {
+            "$ref": "#/components/schemas/Clasificacion"
+          },
+          "prioridad": {
+            "$ref": "#/components/schemas/Prioridad"
+          },
+          "fechaSolicitud": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fechaEntregaDeseada": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "proveedorSugeridoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "descripcion": {
+            "type": "string",
+            "nullable": true
+          },
+          "requisitanteId": {
+            "type": "string",
+            "format": "uuid",
+            "default": null,
+            "nullable": true
+          }
+        }
+      },
+      "CrearRequisicionResponse": {
+        "required": [
+          "id",
+          "folio",
+          "folioAnio",
+          "estado",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "folio": {
+            "type": "string"
+          },
+          "folioAnio": {
+            "type": "integer",
+            "format": "int16"
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoRequisicion"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DepartamentoListItem": {
+        "required": [
+          "id",
+          "clave",
+          "nombre",
+          "estatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "estatus": {
+            "$ref": "#/components/schemas/EstatusCatalogo"
+          }
+        }
+      },
+      "DesignarAprobadorRequest": {
+        "required": [
+          "departamentoId",
+          "rol",
+          "usuarioId",
+          "motivo"
+        ],
+        "type": "object",
+        "properties": {
+          "departamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rol": {
+            "$ref": "#/components/schemas/RolAprobador"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DesignarAprobadorResponse": {
+        "required": [
+          "id",
+          "vigenteDesde"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vigenteDesde": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EditarCabeceraRequisicionRequest": {
+        "required": [
+          "descripcion",
+          "fechaEntregaDeseada",
+          "prioridad",
+          "proveedorSugeridoId",
+          "clasificacion",
+          "limpiarDescripcion",
+          "limpiarFechaEntregaDeseada",
+          "limpiarProveedorSugeridoId"
+        ],
+        "type": "object",
+        "properties": {
+          "descripcion": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaEntregaDeseada": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "prioridad": {
+            "$ref": "#/components/schemas/NullableOfPrioridad"
+          },
+          "proveedorSugeridoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "clasificacion": {
+            "$ref": "#/components/schemas/NullableOfClasificacion"
+          },
+          "limpiarDescripcion": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarFechaEntregaDeseada": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "limpiarProveedorSugeridoId": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "EstadoRequisicion": {
+        "type": "integer"
+      },
+      "EstatusCatalogo": {
+        "type": "integer"
+      },
+      "FakeLoginRequest": {
+        "required": [
+          "entraOid",
+          "email",
+          "nombre",
+          "empresaId"
+        ],
+        "type": "object",
+        "properties": {
+          "entraOid": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "empresaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "HistoricoEntryResponse": {
+        "required": [
+          "tipo",
+          "operacion",
+          "entidad",
+          "entidadId",
+          "actorId",
+          "timestamp",
+          "cambios",
+          "correlationId"
+        ],
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "$ref": "#/components/schemas/HistoricoTipo"
+          },
+          "operacion": {
+            "type": "string"
+          },
+          "entidad": {
+            "type": "string"
+          },
+          "entidadId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cambios": {
+            "type": "string"
+          },
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "HistoricoTipo": {
+        "type": "integer"
+      },
+      "HttpValidationProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "IdempotentEchoRequest": {
+        "required": [
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "payload": {
+            "type": "string"
+          }
+        }
+      },
+      "LineaResponse": {
+        "required": [
+          "id",
+          "posicion",
+          "articuloId",
+          "cantidad",
+          "unidadMedida",
+          "precioEstimadoMonto",
+          "precioEstimadoMoneda",
+          "cuentaContableId",
+          "centroCostoId",
+          "proyecto",
+          "fechaRequerida",
+          "notas",
+          "cantDeAlmacen",
+          "cantDeCompra",
+          "cantRecibida",
+          "cantPendiente",
+          "reservaId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "posicion": {
+            "type": "integer",
+            "format": "int16"
+          },
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "unidadMedida": {
+            "type": "string"
+          },
+          "precioEstimadoMonto": {
+            "type": "number",
+            "format": "double"
+          },
+          "precioEstimadoMoneda": {
+            "type": "string"
+          },
+          "cuentaContableId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "centroCostoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "proyecto": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaRequerida": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "notas": {
+            "type": "string",
+            "nullable": true
+          },
+          "cantDeAlmacen": {
+            "type": "number",
+            "format": "double"
+          },
+          "cantDeCompra": {
+            "type": "number",
+            "format": "double"
+          },
+          "cantRecibida": {
+            "type": "number",
+            "format": "double"
+          },
+          "cantPendiente": {
+            "type": "number",
+            "format": "double"
+          },
+          "reservaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "LoginRequest": {
+        "required": [
+          "entraToken",
+          "empresaId"
+        ],
+        "type": "object",
+        "properties": {
+          "entraToken": {
+            "type": "string"
+          },
+          "empresaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "MotivoRechazoAplicaA": {
+        "type": "integer"
+      },
+      "MotivoRechazoResponse": {
+        "required": [
+          "id",
+          "clave",
+          "descripcion",
+          "permiteTextoLibre",
+          "aplicaA"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "permiteTextoLibre": {
+            "type": "boolean"
+          },
+          "aplicaA": {
+            "$ref": "#/components/schemas/MotivoRechazoAplicaA"
+          }
+        }
+      },
+      "Naturaleza": {
+        "type": "integer"
+      },
+      "NivelAutorizacion": {
+        "type": "integer"
+      },
+      "NullableOfClasificacion": {
+        "type": "integer",
+        "nullable": true
+      },
+      "NullableOfEstatusCatalogo": {
+        "type": "integer"
+      },
+      "NullableOfNaturaleza": {
+        "type": "integer",
+        "nullable": true
+      },
+      "NullableOfPrioridad": {
+        "type": "integer",
+        "nullable": true
+      },
+      "NullableOfRolAprobador": {
+        "type": "integer"
+      },
+      "NullableOfTipoPersonaProveedor": {
+        "type": "integer",
+        "nullable": true
+      },
+      "PagedCatalogoResponseOfAlmacenListItem": {
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlmacenListItem"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PagedCatalogoResponseOfArticuloListItem": {
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticuloListItem"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PagedCatalogoResponseOfDepartamentoListItem": {
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartamentoListItem"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PagedCatalogoResponseOfProveedorListItem": {
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProveedorListItem"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PagedCatalogoResponseOfSucursalListItem": {
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SucursalListItem"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PagedCatalogoResponseOfUsuarioListItem": {
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsuarioListItem"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PagedResponseOfRequisicionListItemResponse": {
+        "required": [
+          "items",
+          "offset",
+          "limit",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequisicionListItemResponse"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "Prioridad": {
+        "type": "integer"
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ProveedorDetalle": {
+        "required": [
+          "id",
+          "clave",
+          "claveLegacy",
+          "razonSocial",
+          "nombreComercial",
+          "rfc",
+          "tipoPersona",
+          "condicionesPagoDias",
+          "monedaPreferidaId",
+          "email",
+          "telefono",
+          "estatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "claveLegacy": {
+            "type": "string",
+            "nullable": true
+          },
+          "razonSocial": {
+            "type": "string"
+          },
+          "nombreComercial": {
+            "type": "string",
+            "nullable": true
+          },
+          "rfc": {
+            "type": "string"
+          },
+          "tipoPersona": {
+            "$ref": "#/components/schemas/TipoPersonaProveedor"
+          },
+          "condicionesPagoDias": {
+            "type": "integer",
+            "format": "int16",
+            "nullable": true
+          },
+          "monedaPreferidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "estatus": {
+            "$ref": "#/components/schemas/EstatusCatalogo"
+          }
+        }
+      },
+      "ProveedorListItem": {
+        "required": [
+          "id",
+          "clave",
+          "razonSocial",
+          "nombreComercial",
+          "rfc",
+          "tipoPersona",
+          "condicionesPagoDias",
+          "monedaPreferidaId",
+          "estatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "razonSocial": {
+            "type": "string"
+          },
+          "nombreComercial": {
+            "type": "string",
+            "nullable": true
+          },
+          "rfc": {
+            "type": "string"
+          },
+          "tipoPersona": {
+            "$ref": "#/components/schemas/TipoPersonaProveedor"
+          },
+          "condicionesPagoDias": {
+            "type": "integer",
+            "format": "int16",
+            "nullable": true
+          },
+          "monedaPreferidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "estatus": {
+            "$ref": "#/components/schemas/EstatusCatalogo"
+          }
+        }
+      },
+      "ReclasificarNaturalezaArticulosRequest": {
+        "required": [
+          "articuloIds",
+          "naturaleza",
+          "motivo"
+        ],
+        "type": "object",
+        "properties": {
+          "articuloIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "naturaleza": {
+            "$ref": "#/components/schemas/Naturaleza"
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ReclasificarNaturalezaArticulosResponse": {
+        "required": [
+          "reclasificados"
+        ],
+        "type": "object",
+        "properties": {
+          "reclasificados": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RequisicionListItemResponse": {
+        "required": [
+          "id",
+          "folio",
+          "folioAnio",
+          "estado",
+          "clasificacion",
+          "prioridad",
+          "sucursalId",
+          "departamentoId",
+          "requisitanteId",
+          "descripcion",
+          "fechaSolicitud",
+          "fechaEntregaDeseada"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "folio": {
+            "type": "string"
+          },
+          "folioAnio": {
+            "type": "integer",
+            "format": "int16"
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoRequisicion"
+          },
+          "clasificacion": {
+            "$ref": "#/components/schemas/Clasificacion"
+          },
+          "prioridad": {
+            "$ref": "#/components/schemas/Prioridad"
+          },
+          "sucursalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requisitanteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descripcion": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaSolicitud": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fechaEntregaDeseada": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        }
+      },
+      "RequisicionResponse": {
+        "required": [
+          "id",
+          "empresaId",
+          "folio",
+          "folioAnio",
+          "clasificacion",
+          "sucursalId",
+          "departamentoId",
+          "almacenDestinoId",
+          "requisitanteId",
+          "creadorId",
+          "descripcion",
+          "prioridad",
+          "fechaSolicitud",
+          "fechaEntregaDeseada",
+          "proveedorSugeridoId",
+          "estado",
+          "motivoTerminacionId",
+          "motivoTerminacionTexto",
+          "actorTerminacionId",
+          "fechaTerminacion",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "lineas",
+          "autorizaciones"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empresaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "folio": {
+            "type": "string"
+          },
+          "folioAnio": {
+            "type": "integer",
+            "format": "int16"
+          },
+          "clasificacion": {
+            "$ref": "#/components/schemas/Clasificacion"
+          },
+          "sucursalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "almacenDestinoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requisitanteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creadorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descripcion": {
+            "type": "string",
+            "nullable": true
+          },
+          "prioridad": {
+            "$ref": "#/components/schemas/Prioridad"
+          },
+          "fechaSolicitud": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fechaEntregaDeseada": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "proveedorSugeridoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoRequisicion"
+          },
+          "motivoTerminacionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "motivoTerminacionTexto": {
+            "type": "string",
+            "nullable": true
+          },
+          "actorTerminacionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "fechaTerminacion": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lineas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineaResponse"
+            }
+          },
+          "autorizaciones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutorizacionResponse"
+            }
+          }
+        }
+      },
+      "RolAprobador": {
+        "type": "integer"
+      },
+      "SucursalListItem": {
+        "required": [
+          "id",
+          "clave",
+          "nombre",
+          "estatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clave": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "estatus": {
+            "$ref": "#/components/schemas/EstatusCatalogo"
+          }
+        }
+      },
+      "TerminarRequisicionRequest": {
+        "required": [
+          "motivoId",
+          "motivoTexto"
+        ],
+        "type": "object",
+        "properties": {
+          "motivoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "motivoTexto": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "TipoPersonaProveedor": {
+        "type": "integer"
+      },
+      "UsuarioListItem": {
+        "required": [
+          "id",
+          "email",
+          "nombre",
+          "departamentoId",
+          "activo"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "departamentoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activo": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Millet.Api"
+    },
+    {
+      "name": "DevAuth"
+    },
+    {
+      "name": "Compras"
+    },
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "Catalogos"
+    },
+    {
+      "name": "Identidad"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+name: Deploy Infrastructure to Dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - '.github/workflows/deploy-infra-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-infra-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Bicep to Azure dev
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get PostgreSQL admin password from Key Vault
+        id: get-pg-password
+        run: |
+          PG_PASSWORD=$(az keyvault secret show \
+            --vault-name kv-millet-dev-mxc-01 \
+            --name postgres-admin-password \
+            --query value \
+            --output tsv)
+          echo "::add-mask::$PG_PASSWORD"
+          echo "pg_password=$PG_PASSWORD" >> "$GITHUB_OUTPUT"
+
+      - name: Generate deployment name
+        id: deploy-name
+        run: |
+          DEPLOY_NAME="deploy-millet-dev-$(date +%Y%m%d-%H%M%S)-${{ github.run_number }}"
+          echo "deploy_name=$DEPLOY_NAME" >> "$GITHUB_OUTPUT"
+          echo "Deployment name: $DEPLOY_NAME"
+
+      - name: Deploy infrastructure
+        run: |
+          az deployment sub create \
+            --location mexicocentral \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/dev.bicepparam \
+            --parameters postgresAdminPassword="${{ steps.get-pg-password.outputs.pg_password }}" \
+            --name "${{ steps.deploy-name.outputs.deploy_name }}" \
+            --output table
+
+      - name: Show deployment outputs
+        run: |
+          echo "## Deployment Outputs"
+          az deployment sub show \
+            --name "${{ steps.deploy-name.outputs.deploy_name }}" \
+            --query 'properties.outputs' \
+            --output json
+
+      - name: Summary
+        run: |
+          echo "## ✅ Deployment Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Deployment name**: ${{ steps.deploy-name.outputs.deploy_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Resource group**: rg-millet-dev-mxc-01" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Region**: mexicocentral" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by**: ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit**: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

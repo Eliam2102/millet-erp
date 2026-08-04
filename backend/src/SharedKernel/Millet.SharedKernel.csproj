@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      F6-PR2: tests integration de Compras llaman OutboxPublisherWorker.PollOnceAsync
+      (internal) directamente para evitar el loop de Task.Delay y verificar
+      el comportamiento del tick.
+    -->
+    <InternalsVisibleTo Include="Millet.Compras.IntegrationTests" />
+    <InternalsVisibleTo Include="Millet.Api.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Framework reference para acceder a IHttpContextAccessor desde
+      CurrentUserContext / CurrentEmpresaContext, que leen claims del JWT
+      validado por el JwtBearer middleware. Sin esto SharedKernel no puede
+      injectar el accessor sin agregar paquetes individuales y desactualizables.
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+    <!--
+      Application infra (CQRS, validación, mapping). Las extension
+      methods AddMilletApplication(...) en SharedKernel.Application
+      configuran estos tres juntos por assembly. Cada módulo recibe
+      su transitiva al referenciar Millet.SharedKernel.
+    -->
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Mapster" />
+    <PackageReference Include="Mapster.DependencyInjection" />
+    <!-- Outbox publisher worker (F6-PR2, ADR-0009). -->
+    <PackageReference Include="Azure.Messaging.ServiceBus" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,108 @@
+{
+  "Clasificacion": {
+    "Servicio": 0,
+    "OrdenCompra": 1,
+    "MateriaPrima": 2,
+    "Pinturas": 3
+  },
+  "DescuentoTipo": {
+    "Porcentaje": 0,
+    "Monto": 1
+  },
+  "EstadoOrdenCompra": {
+    "Borrador": 0,
+    "EnAutorizacionJefeCompras": 1,
+    "EnAutorizacionDireccion": 2,
+    "Autorizada": 3,
+    "Cerrada": 4,
+    "Cancelada": 5,
+    "Rechazada": 6
+  },
+  "EstadoRequisicion": {
+    "Borrador": 0,
+    "EnAutorizacion": 1,
+    "Autorizada": 2,
+    "EnSurtido": 3,
+    "Cerrada": 4,
+    "Cancelada": 5,
+    "Rechazada": 6,
+    "Eliminada": 7,
+    "CerradaSinSurtir": 8,
+    "CerradaSurtidaParcial": 9
+  },
+  "EstatusCatalogo": {
+    "Activo": 0,
+    "Inactivo": 1,
+    "EnRevision": 2
+  },
+  "HistoricoTipo": {
+    "Cambio": 0,
+    "Creada": 1,
+    "LineaAgregada": 2,
+    "LineaActualizada": 3,
+    "LineaEliminada": 4,
+    "Transmitida": 5,
+    "AutorizadaN1": 6,
+    "AutorizadaN2": 7,
+    "Rechazada": 8,
+    "Eliminada": 9,
+    "Cancelada": 10,
+    "CubrimientoRegistrado": 11,
+    "RecepcionRegistrada": 12,
+    "SaldoNoSurtido": 13,
+    "Cerrada": 14
+  },
+  "MotivoRechazoAplicaA": {
+    "Ninguno": 0,
+    "Rechazo": 1,
+    "Eliminacion": 2,
+    "Cancelacion": 4,
+    "OrdenCompra": 8,
+    "CierreManual": 16,
+    "Todos": 31
+  },
+  "Naturaleza": {
+    "Estandar": 0,
+    "Servicio": 1,
+    "Critico": 2,
+    "Riesgo": 3
+  },
+  "NivelAutorizacion": {
+    "Nivel1": 1,
+    "Nivel2": 2
+  },
+  "Prioridad": {
+    "Baja": 0,
+    "Normal": 1,
+    "Alta": 2
+  },
+  "ResultadoAutorizacionOc": {
+    "Autorizado": 1,
+    "Rechazado": 2
+  },
+  "RolAprobador": {
+    "JefeDpto": 0,
+    "JefeAlmacen": 1,
+    "AutorizadorN2": 2
+  },
+  "SituacionSurtido": {
+    "EsperandoCompra": 0,
+    "ListoParaSurtir": 1,
+    "SurtidoParcial": 2
+  },
+  "SubEstadoFacturacion": {
+    "SinFactura": 0,
+    "Parcial": 1,
+    "Completa": 2
+  },
+  "SubEstadoPago": {
+    "SinPago": 0,
+    "Parcial": 1,
+    "Pagada": 2
+  },
+  "SubEstadoRecepcion": {
+    "SinRecepcion": 0,
+    "Parcial": 1,
+    "Completa": 2
+  }
+}

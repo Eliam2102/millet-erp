@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ADR-0048 PR7 — nudge de la ingesta de pedidos (flujo 2).
+       Consola mínima que la customización de A+W invoca DESPUÉS de insertar
+       una solicitud en MILLET_INTEGRACION.dbo.aw_solicitud_pedido, para que
+       el ERP tickee de inmediato en vez de esperar el polling.
+
+       Publicar (una vez, desde cualquier máquina con SDK .NET 8):
+         dotnet publish -c Release -r win-x64 (SelfContained=false ya en props)
+       Copiar la carpeta publish a SER-DATA (p.ej. C:\Millet\aw-pedido-notify\)
+       y editar appsettings.json ahí (NudgeUrl + ApiKey del ambiente). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>MilletAwPedidoNotify</AssemblyName>
+    <RootNamespace>Millet.OnPrem.AwPedidoNotify</RootNamespace>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

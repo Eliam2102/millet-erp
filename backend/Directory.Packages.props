@@ -1,0 +1,225 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Analyzers -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- EF Core / Npgsql -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.4" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- HTTP / Resiliencia — Polly (F2-PR1 CxP: FiscalAPI client). -->
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="9.0.4" />
+    <!-- Microsoft Graph + Azure.Identity (F2-PR2 CxP: mailbox dedicado CFDIs). -->
+    <PackageVersion Include="Microsoft.Graph" Version="5.61.0" />
+    <PackageVersion Include="Azure.Identity" Version="1.13.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      ASP.NET DataProtection — ADR-0037. Cifra credenciales operativas
+      admin-configurables (ej. ApiKey de FiscalAPI) que viven en columnas
+      Postgres normales como bytea. La DEK (Data Encryption Key) vive en
+      Key Vault; el ring de keys que rota cada 90d vive en Azure Blob
+      Storage. En dev local sin KV configurado, DataProtection cae a
+      filesystem (%LOCALAPPDATA%\ASP.NET\DataProtection-Keys) automáticamente.
+
+      Microsoft.AspNetCore.DataProtection viene en el shared framework
+      Microsoft.AspNetCore.App; estos paquetes solo agregan los providers
+      Azure (Blob para persistencia + KV para protección de la key).
+    -->
+    <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.4.0" />
+    <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Logging (Serilog) y observabilidad (Azure Monitor OTel Distro) — ADR-0006 -->
+    <PackageVersion Include="Serilog" Version="4.2.0" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageVersion Include="Serilog.Enrichers.Process" Version="3.0.0" />
+    <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Service Bus SDK (F6-PR2, ADR-0009). El worker OutboxPublisherWorker
+      lo usa para publicar integration events al broker. La connection
+      string viene de Key Vault en QA/Prod (referenciada en bicep) y de
+      appsettings en dev (vacía → fallback a NoOpIntegrationEventBusSender).
+    -->
+    <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.18.4" />
+    <!--
+      Azure Blob Storage SDK (F10-PR3). Reemplaza LocalFilesystemBlobStub
+      en Production cuando Compras:Oc:BlobStorage:ConnectionString está
+      configurado. La connection string viene de Key Vault.
+    -->
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.22.2" />
+    <!--
+      SQL Server client para el AwSqlReader del módulo Integraciones.Aw
+      (PR C). El reader consulta pool_auftrag en SER-DATA via Hybrid
+      Connection. Microsoft.Data.SqlClient (no System.Data.SqlClient —
+      ese está deprecado y no recibe security patches).
+    -->
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Azure SignalR Service SDK (CollaborationHub Sprint 1, ADR-0001 + ADR-0012
+      Capa 2). Microsoft.AspNetCore.SignalR ya viene en el shared framework
+      Microsoft.AspNetCore.App; este paquete agrega el backplane gestionado
+      contra Azure SignalR Service. La connection string viene de Key Vault
+      (referenciada por App Service via `SignalR__ConnectionString`); en dev
+      local sin la setting el bootstrap cae a in-process backplane.
+    -->
+    <PackageVersion Include="Microsoft.Azure.SignalR" Version="1.27.0" />
+    <!--
+      PusherServer SDK — push events del módulo Integraciones.Aw al Soketi
+      hosteado por Glass Agent (PR Soketi). Compatible con protocolo Pusher
+      (Soketi es un servidor open-source compatible). Usado por
+      SoketiAgentRealtimePublisher para emitir cambios de estado de
+      cotizaciones al canal `private-user-{operator_user_id}`. En dev local
+      sin config → NoOp implementation.
+    -->
+    <PackageVersion Include="PusherServer" Version="4.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      PDF generation (F6-PR3). QuestPDF tiene Community License para uso
+      comercial bajo $1M USD anuales — válido para Tiglass/Millet en MVP.
+      Reemplaza LocalPdfOrdenCompraStub con QuestPdfOrdenCompraImpl que
+      produce layout institucional real.
+    -->
+    <PackageVersion Include="QuestPDF" Version="2024.12.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Excel parsing (F7-PR5 CxP). ClosedXML — MIT license, sin dependencia
+      de Excel COM/Interop, soporta .xlsx OpenXML estándar. Usado por
+      EstadoCuentaTcExcelParser para leer estados de cuenta de TC bancarios
+      (Amex, etc.) y mapearlos a LineaBancoTc según el PerfilParserBanco.
+    -->
+    <PackageVersion Include="ClosedXML" Version="0.105.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      FiscalAPI SDK oficial (PR-9 Integraciones.Fiscal). Cliente .NET para
+      la API CFDI 4.0 de FiscalAPI (PAC). Maneja serialización Newtonsoft
+      con CamelCase + preservación de decimales, modos by-references /
+      by-values, y los catálogos completos de descarga masiva. Wrapper
+      interno en Millet.Integraciones.Fiscal/Infrastructure/SdkAdapter/
+      lo envuelve con resolución multi-empresa de credenciales via
+      IConfiguracionPacResolver. Apunta a https://live.fiscalapi.com en
+      todos los ambientes (ver doc 02 §13.5 — sandbox no soporta el
+      flujo completo de descarga masiva).
+    -->
+    <PackageVersion Include="Fiscalapi" Version="4.0.385" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Health checks — ADR-0019 -->
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Cache in-memory para el CachedServicePrincipalResolver (PR A).
+      El resolver es scoped (depende del DefaultServicePrincipalResolver
+      scoped que usa IdentidadDbContext), pero el cache backing
+      (IMemoryCache) es singleton — el cache persiste entre requests.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      OpenAPI nativo + Scalar UI — ADR-0017. Microsoft.AspNetCore.OpenApi
+      genera la spec /openapi/{documentName}.json a partir de los endpoints
+      minimal API. Scalar.AspNetCore expone la UI interactiva en
+      /scalar/{documentName} (solo en Development/Staging por configuración
+      en Program.cs; en Production no se monta).
+    -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.0.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Application infra: CQRS (MediatR), validación (FluentValidation),
+      mapping (Mapster). Introducidos por F0-PR1 como prerrequisito del
+      módulo Compras y de cualquier módulo posterior. Convenciones del
+      repo (CLAUDE.md): FluentValidation, no Data Annotations; Mapster,
+      no AutoMapper.
+        - MediatR 12.x: licencia MIT (12.x sigue siendo open source).
+        - FluentValidation.DependencyInjectionExtensions: provee
+          AddValidatorsFromAssembly(...) para assembly-scan.
+        - Mapster.DependencyInjection: provee IMapper + ServiceMapper
+          para inyectar el mapper en handlers y endpoints.
+    -->
+    <PackageVersion Include="MediatR" Version="12.4.1" />
+    <PackageVersion Include="FluentValidation" Version="11.11.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageVersion Include="Mapster" Version="7.4.0" />
+    <PackageVersion Include="Mapster.DependencyInjection" Version="1.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Auth — ADR-0003 (Entra ID), ADR-0007 (RBAC), ADR-0015 (FakeForLocalDev).
+      Usamos los paquetes Microsoft.IdentityModel.* directamente en lugar de
+      Microsoft.Identity.Web: esto da control fino sobre el JwtBearer scheme
+      (validamos JWT propio del API, no tokens Entra) y evita CVEs de
+      paquetes wrapper. La validación de tokens Entra en /api/auth/sesion
+      se hace manualmente vía JsonWebTokenHandler + ConfigurationManager
+      para JWKS.
+        - JwtBearer middleware: provisto por el shared framework Microsoft.AspNetCore.App
+        - JsonWebTokenHandler: emite y valida JWTs (HMAC para API, RSA para Entra)
+        - ConfigurationManager + OpenIdConnectConfiguration: OIDC discovery + JWKS
+    -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.2.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test stack -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
+    <!--
+      FluentAssertions pinned to 6.12.x (last MIT-licensed major version).
+      v7+ adoptó XPL (Xceed Pro License); uso comercial requiere licencia
+      paga. Revisar si Tiglass/Millet adquiere licencia, o migrar a
+      Shouldly / AwesomeAssertions si surge necesidad.
+    -->
+    <PackageVersion Include="FluentAssertions" Version="6.12.2" />
+    <!--
+      SignalR client para smoke tests del CollaborationHub. Versión alineada
+      con el shared framework Microsoft.AspNetCore.App 9.x del proyecto Api,
+      para que el cliente del test hable el mismo protocolo que el hub server
+      cuando WebApplicationFactory lo levanta in-memory.
+    -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Millet.Almacen</RootNamespace>
+    <AssemblyName>Millet.Almacen</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Millet.Almacen.UnitTests" />
+    <InternalsVisibleTo Include="Millet.Almacen.IntegrationTests" />
+    <!-- El toggle del ReordenWorker se ejercita end-to-end (advisory lock PG)
+         desde Api.IntegrationTests vía el internal EjecutarBarridoAsync. -->
+    <InternalsVisibleTo Include="Millet.Api.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      F0-PR1: refs mínimas. Identidad / Compartido / DatosMaestros NO se
+      referencian aquí porque esos módulos ya consumen el placeholder
+      `Almacen.cs` (vía `Millet.Almacen.Domain`) y eso crea una dependencia
+      circular. Catalogos es la única dep necesaria por la entidad
+      placeholder (EstatusCatalogo). Los puertos cross-module hacia esos
+      módulos se modelan como contratos en `Almacen.Domain.Ports` con
+      stubs NoOp — el wiring del adapter real vive en `Program.cs` y
+      pasa por una interfaz, evitando la dependencia de proyecto.
+    -->
+    <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
+    <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Mapster" />
+    <!-- F2-PR4: Azure Blob Storage para packing list (Variante B),
+         evidencias de devoluciones y comprobantes de salidas. -->
+    <PackageReference Include="Azure.Storage.Blobs" />
+  </ItemGroup>
+
+</Project>

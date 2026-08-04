@@ -1,0 +1,273 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`<EstadoBadge> — tipo="orden-compra" > snapshot por estado: cubre los 7 estados OC > oc-estado-0 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Borrador"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-slate-100 text-slate-700 ring-slate-200"
+    data-estado="Borrador"
+    data-tipo="orden-compra"
+  >
+    Borrador
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="orden-compra" > snapshot por estado: cubre los 7 estados OC > oc-estado-1 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="EnAutorizacionJefeCompras"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-amber-100 text-amber-900 ring-amber-200"
+    data-estado="EnAutorizacionJefeCompras"
+    data-tipo="orden-compra"
+  >
+    En autorización Jefe de Compras
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="orden-compra" > snapshot por estado: cubre los 7 estados OC > oc-estado-2 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="EnAutorizacionDireccion"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-orange-100 text-orange-900 ring-orange-200"
+    data-estado="EnAutorizacionDireccion"
+    data-tipo="orden-compra"
+  >
+    En autorización Dirección
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="orden-compra" > snapshot por estado: cubre los 7 estados OC > oc-estado-3 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Autorizada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-blue-100 text-blue-900 ring-blue-200"
+    data-estado="Autorizada"
+    data-tipo="orden-compra"
+  >
+    Autorizada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="orden-compra" > snapshot por estado: cubre los 7 estados OC > oc-estado-4 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Cerrada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-emerald-100 text-emerald-900 ring-emerald-200"
+    data-estado="Cerrada"
+    data-tipo="orden-compra"
+  >
+    Cerrada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="orden-compra" > snapshot por estado: cubre los 7 estados OC > oc-estado-5 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Cancelada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-100 text-rose-900 ring-rose-200"
+    data-estado="Cancelada"
+    data-tipo="orden-compra"
+  >
+    Cancelada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="orden-compra" > snapshot por estado: cubre los 7 estados OC > oc-estado-6 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Rechazada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-200 text-rose-950 ring-rose-300"
+    data-estado="Rechazada"
+    data-tipo="orden-compra"
+  >
+    Rechazada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-0 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Borrador"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-slate-100 text-slate-700 ring-slate-200"
+    data-estado="Borrador"
+    data-tipo="requisicion"
+  >
+    Borrador
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-1 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="EnAutorizacion"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-amber-100 text-amber-900 ring-amber-200"
+    data-estado="EnAutorizacion"
+    data-tipo="requisicion"
+  >
+    En autorización
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-2 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Autorizada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-blue-100 text-blue-900 ring-blue-200"
+    data-estado="Autorizada"
+    data-tipo="requisicion"
+  >
+    Autorizada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-3 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="EnSurtido"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-violet-100 text-violet-900 ring-violet-200"
+    data-estado="EnSurtido"
+    data-tipo="requisicion"
+  >
+    En surtido
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-4 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Cerrada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-emerald-100 text-emerald-900 ring-emerald-200"
+    data-estado="Cerrada"
+    data-tipo="requisicion"
+  >
+    Cerrada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-5 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Cancelada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-100 text-rose-900 ring-rose-200"
+    data-estado="Cancelada"
+    data-tipo="requisicion"
+  >
+    Cancelada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-6 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Rechazada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-200 text-rose-950 ring-rose-300"
+    data-estado="Rechazada"
+    data-tipo="requisicion"
+  >
+    Rechazada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-7 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="Eliminada"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-stone-200 text-stone-700 ring-stone-300"
+    data-estado="Eliminada"
+    data-tipo="requisicion"
+  >
+    Eliminada
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-8 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="CerradaSinSurtir"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-zinc-100 text-zinc-800 ring-zinc-300"
+    data-estado="CerradaSinSurtir"
+    data-tipo="requisicion"
+  >
+    Cerrada sin surtir
+  </span>
+</span>
+`;
+
+exports[`<EstadoBadge> — tipo="requisicion" > snapshot por estado: cubre los 10 estados > rq-estado-9 1`] = `
+<span
+  class="inline-flex"
+  data-domain-term="CerradaSurtidaParcial"
+  data-state="closed"
+>
+  <span
+    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset bg-teal-100 text-teal-900 ring-teal-200"
+    data-estado="CerradaSurtidaParcial"
+    data-tipo="requisicion"
+  >
+    Cerrada surtida parcialmente
+  </span>
+</span>
+`;

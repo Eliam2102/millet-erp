@@ -1,0 +1,15 @@
+sep=,
+Recurso,SKU escenario arranque,Arranque (USD/mes),SKU escenario recomendado,Recomendado (USD/mes),Nota
+App Service Plan (Linux),P0v3 (1 vCPU / 4 GB),62.23,P1v3 (2 vCPU / 8 GB),124.47,Premium v3 con SLA; B1 no tiene SLA
+PostgreSQL Flexible - computo,B2ms Burstable (2 vCPU / 8 GB),109.21,D2ds_v5 General Purpose (2 vCPU / 8 GB),142.93,Sin HA; HA zone-redundant duplica el computo (+142.93)
+PostgreSQL Flexible - storage,64 GB x 0.1265,8.10,128 GB x 0.1265,16.19,Backup geo-redundante opcional +2 a 5 USD/mes
+Service Bus,Standard,10.79,Standard,10.79,Incluye ~13M operaciones/mes; Premium innecesario
+Azure Relay (Hybrid Connections),2 listeners a SER-DATA,19.19,2 listeners,19.19,SQL A+W + drop service; 5 GB/listener/mes de transferencia incluidos
+SignalR,Free_F1 (tope 20 conexiones),0.00,Standard S1 (1000 conexiones - 1.61 USD/dia),48.98,Cambio de SKU sin friccion cuando haga falta
+Static Web App (frontend),Standard,9.00,Standard,9.00,SLA + auth custom
+Log Analytics + App Insights,~3 GB/mes x 2.76,8.28,~5 GB/mes x 2.76,13.80,Estimado segun ingesta observada en DEV
+Container Registry,Compartido con DEV (Basic),0.00,Compartido con DEV,0.00,ACR propio de prod seria +5.00 (Basic)
+Storage Account,~20 GB Hot LRS,2.00,~50 GB Hot LRS,4.00,XMLs CFDI y evidencias
+"Key Vault, VNet, action groups, alertas",Standard,0.50,Standard,0.50,
+TOTAL,,229.30,,389.85,Region Mexico Central - precios de lista jul-2026 sin reservas
+OPCION: HA zone-redundant en PostgreSQL,,n/a,D2ds_v5 + standby sincrono,532.78,Total recomendado con HA

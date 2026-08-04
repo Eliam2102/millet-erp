@@ -1,0 +1,205 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Tema base del ERP (shadcn/ui sobre Tailwind v4).
+ *
+ * Estructura:
+ *   :root    → tokens del modo claro
+ *   .dark    → overrides del modo oscuro
+ *   @theme   → expone los tokens como utilities (bg-background, text-foreground, etc.)
+ *
+ * Los tokens `--sidebar-*` describen el shell oscuro estilo Zoho del menú lateral
+ * (siempre dark navy, independiente del tema de la app).
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+
+  /* Sidebar: navy oscuro fijo (no cambia con dark mode), texto slate-200 */
+  --sidebar: oklch(0.21 0.034 264.665);
+  --sidebar-foreground: oklch(0.872 0.01 258.338);
+  --sidebar-muted: oklch(0.704 0.04 256.788);
+  --sidebar-active: oklch(0.279 0.041 260.031);
+  --sidebar-active-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.279 0.041 260.031);
+  --sidebar-accent: oklch(0.6 0.118 184.704);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(1 0 0 / 0.1);
+  --input: oklch(1 0 0 / 0.15);
+  --ring: oklch(0.556 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+/*
+ * Stylesheet de impresión global (UF7-PR3, doc 05 §13.8).
+ *
+ * Cubre Ctrl+P / Cmd+P desde cualquier pantalla del módulo Compras
+ * mientras el endpoint de PDF v1.1 no exista. Estrategia:
+ *
+ *   - Por default, ocultar todo lo que NO sea contenido principal:
+ *     sidebar, topbar, toaster, modales, botones de acción,
+ *     breadcrumbs (la URL ya queda en el header de la página
+ *     impresa).
+ *   - El contenido principal se vuelve full-width y sin padding
+ *     extra para aprovechar A4.
+ *   - Color en B&W: tablas con borde sólido, badges con su texto
+ *     visible (sin fondo de color).
+ *   - Componentes específicos pueden marcar `data-print="hidden"`
+ *     para no aparecer impresos (ej. `<AccionesRequisicion/>`,
+ *     botón de volver).
+ */
+@media print {
+  /* Reseteo de página a A4 con margen razonable. */
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+
+  /* Oculta el shell completo. */
+  aside,
+  header.sticky,
+  [data-radix-toast-viewport],
+  [data-print="hidden"] {
+    display: none !important;
+  }
+
+  /* El main pierde el offset del sidebar y el padding. */
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Tablas ven mejor con bordes sólidos. */
+  table {
+    border-collapse: collapse !important;
+  }
+  table,
+  th,
+  td {
+    border: 1px solid #000 !important;
+  }
+
+  /* Badges (estado, naturaleza, prioridad) muestran solo el texto
+   * con un borde fino — el fondo de color tinta papel. */
+  [data-slot="badge"],
+  .badge {
+    background-color: transparent !important;
+    color: black !important;
+    border: 1px solid black !important;
+  }
+
+  /* Tooltips, popovers y dialogs no deben verse impresos. */
+  [role="tooltip"],
+  [role="dialog"],
+  [data-state="open"][role="dialog"] {
+    display: none !important;
+  }
+
+  /* Links sin subrayado azul — más limpio en papel. */
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}
