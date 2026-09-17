@@ -121,7 +121,7 @@ npm test
 npm run build
 ```
 
-Las pruebas de integración requieren una base local limpia y la variable `ConnectionStrings__Postgres` apuntando al puerto correcto. Un error `28P01 password authentication failed` normalmente indica que se conectó a otra instancia PostgreSQL, no que una prueba funcional haya fallado.
+Las pruebas de integración requieren una base local limpia, con los 12 contextos ya migrados, y la variable `ConnectionStrings__Postgres` apuntando al puerto correcto. Para el gate integral compartido, ejecutar los proyectos en serie (`dotnet test Millet.sln -m:1`): varios proyectos de integración paralelos sobre la misma base pueden contaminar sus datos. Un error `28P01 password authentication failed` normalmente indica que se conectó a otra instancia PostgreSQL, no que una prueba funcional haya fallado.
 
 ## 8. Detener
 
