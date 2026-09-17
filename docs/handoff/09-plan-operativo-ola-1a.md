@@ -8,20 +8,20 @@ Dejar operables las fundaciones que consumen las olas posteriores: empresas y se
 
 - Alcance funcional: 15 funcionalidades, 76 h base.
 - Trabajo transversal previo/asociado: 18 h base.
-- QA específico de funciones existentes: 3 h base como mínimo inicial.
-- Total de referencia: 97 h base. Es una referencia de planeación, no una orden de agotar horas.
+- QA específico de funciones existentes: 8 h internas para cuatro recorridos, evidencia y regresión.
+- Total operativo de referencia: 102 h. Las 5 h adicionales de QA se toman de la reserva interna; no aumentan las 840 h del alcance total.
 - Inicio operativo: 17 de septiembre de 2026.
 - Salida objetivo: 7 de octubre de 2026, condicionada a las entradas externas identificadas.
 
 La preparación de repositorio, ambiente local y seguridad se ejecuta desde el 17 de septiembre como trabajo transversal de la misma Ola 1A. No se trata como una ola funcional separada.
 
-## Asignación nominal propuesta
+## Asignación nominal vigente
 
 Para eliminar `Dev 1/Dev 2` del plan operativo se usa este mapeo:
 
 - **Uzziel = Dev 1:** catálogos, proveedores, centros/dimensiones, configuración fiscal y frente contable.
 - **Geovany = Dev 2:** identidad/permisos, sincronizaciones A+W, contratos de integración y datos maestros externos.
-- **Ambos:** identidad/permisos, segregación por empresa, funcionalidades existentes, catálogo contable, periodos, revisión cruzada y regresión.
+- **Revisión cruzada:** el desarrollador que no sea responsable nominal revisa el PR y participa en la regresión; esto no cambia al responsable de la funcionalidad.
 
 Esta distribución equilibra especialización y revisión cruzada; no cambia el alcance ni convierte una dependencia del cliente en desarrollo interno.
 
@@ -30,13 +30,13 @@ Esta distribución equilibra especialización y revisión cruzada; no cambia el 
 | Orden | ID | Responsable | Resultado requerido | Entrada crítica | Aceptación Millet |
 |---:|---|---|---|---|---|
 | 1 | Transversal | Ambos | Repo privado, arranque reproducible, migraciones, pruebas y reglas de PR operables | Usuarios GitHub | Eliam / responsable técnico VILO |
-| 2 | F1-ADM-01, 03, 10, 11 | Ambos | Levantar lo existente, ejecutar caso, documentar evidencia y regresión | Datos ficticios; matriz de permisos | Guillermo Pantoja / Jorge Toache según caso |
+| 2 | F1-ADM-01, 03, 10, 11 | Geovany | Levantar lo existente, ejecutar caso, documentar evidencia y regresión | Datos ficticios; matriz de permisos | Guillermo Pantoja / Jorge Toache según caso |
 | 3 | F1-ADM-02, 12 | Geovany | Roles, permisos y segregación por empresa verificables | Usuarios/roles vigentes; Entra para cierre real | Guillermo Pantoja + Jorge Toache |
 | 4 | F1-ADM-04, 05, 08 | Uzziel | Catálogos compartidos, proveedor y jerarquías sin duplicados | Catálogos actuales de Millet | Guillermo Pantoja; Fernando Alejos; Laura Cerón según dato |
 | 5 | F1-ADM-06, 07 | Geovany | Contratos y sincronización de clientes/productos A+W conforme a evidencia actual | Contratos, tablas, estados y muestras A+W | Jorge Toache + área consumidora |
 | 6 | F1-ADM-09 | Uzziel | Configuración por empresa sin exponer certificados | Parámetros, series, PAC y certificados por canal seguro | Sorandi Martínez + Jorge Toache |
 | 7 | F1-CON-01, 02, 03 | Uzziel | Catálogo de cuentas, dimensiones y periodos con autorización | Catálogo contable y reglas vigentes | Laura Cerón |
-| 8 | QA-1A | Revisión cruzada | Casos integrales, regresión, defectos y evidencia cerrados | Ambiente y datos de prueba | Responsables anteriores |
+| 8 | QA-1A | Revisión cruzada | Cuatro funciones existentes levantadas, ejecutadas, evidenciadas y sometidas a regresión | Ambiente y datos de prueba | Responsables anteriores |
 
 ## Calendario por puertas
 
@@ -68,9 +68,10 @@ Cada ID debe vincular: commit/PR, archivos modificados, migración o configuraci
 ## Correcciones al borrador anterior
 
 - `F1-CON-02` aparecía del 12 al 13 de noviembre aunque pertenece a Fundaciones; se adelanta al bloque del 28 de septiembre al 2 de octubre.
-- `Dev 1/Dev 2` se sustituye por Geovany/Uzziel según la asignación propuesta anterior.
+- `Dev 1/Dev 2` se sustituye por Geovany/Uzziel según la asignación nominal vigente en Notion.
 - La preparación técnica deja de presentarse como una Ola 0 independiente y pasa a ser una puerta transversal de entrada de Ola 1A.
 - A+W, PAC, Entra y catálogos reales no se consideran validados hasta recibir y probar los insumos de Millet.
+- Las 3 h originales de QA-1A no alcanzan para levantar, ejecutar, documentar y regresar cuatro funciones existentes; se asignan 8 h usando 5 h de reserva interna.
 
 ## Pendientes que impiden cerrar, no comenzar
 

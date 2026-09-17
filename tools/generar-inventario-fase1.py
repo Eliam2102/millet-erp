@@ -57,6 +57,51 @@ EXISTING_PARTIAL_OR_CONDITIONED = {
 
 EXISTING_NOT_LOCATED = {"F1-COM-02", "F1-CXP-06"}
 
+OLA1A_START = {
+    "F1-ADM-01": ("Puede comenzar con datos ficticios", "Estructura vigente de empresas/sucursales/áreas para cierre"),
+    "F1-ADM-02": ("Puede comenzar con datos ficticios", "Usuarios, roles y Entra ID de Millet para cierre real"),
+    "F1-ADM-03": ("Puede comenzar con datos ficticios", "Casos críticos y responsables de auditoría para UAT"),
+    "F1-ADM-04": ("Puede comenzar con datos ficticios", "Catálogos vigentes SAT/Millet y responsables"),
+    "F1-ADM-05": ("Puede comenzar con datos ficticios", "Maestro vigente de proveedores y reglas bancarias"),
+    "F1-ADM-06": ("Puede comenzar con datos ficticios", "Contrato, tablas, muestras y ambiente A+W"),
+    "F1-ADM-07": ("Puede comenzar con datos ficticios", "Productos, unidades, claves fiscales y contrato A+W"),
+    "F1-ADM-08": ("Puede comenzar con datos ficticios", "Jerarquía y centros de costo vigentes"),
+    "F1-ADM-09": ("Puede comenzar con sandbox", "PAC, series, certificados y parámetros por canal seguro"),
+    "F1-ADM-10": ("Puede comenzar con datos ficticios", "Matriz final de permisos para cierre"),
+    "F1-ADM-11": ("Requiere decisión interna", "Definir registros/módulos cubiertos por el servicio de adjuntos"),
+    "F1-ADM-12": ("Puede comenzar con datos ficticios", "Configuración definitiva de ambas empresas"),
+    "F1-CON-01": ("Puede comenzar con datos ficticios", "Catálogo contable canónico por empresa"),
+    "F1-CON-02": ("Puede comenzar con datos ficticios", "Dimensiones y centros de costo definitivos"),
+    "F1-CON-03": ("Puede comenzar con datos ficticios", "Calendario y autorizadores de periodos"),
+}
+
+OLA1A_OWNER = {
+    **{functional_id: "Geovany" for functional_id in (
+        "F1-ADM-01", "F1-ADM-02", "F1-ADM-03", "F1-ADM-06", "F1-ADM-07", "F1-ADM-10", "F1-ADM-11", "F1-ADM-12"
+    )},
+    **{functional_id: "Uzziel" for functional_id in (
+        "F1-ADM-04", "F1-ADM-05", "F1-ADM-08", "F1-ADM-09", "F1-CON-01", "F1-CON-02", "F1-CON-03"
+    )},
+}
+
+OLA1A_DATES = {
+    "F1-ADM-01": ("2026-09-21", "2026-09-22"),
+    "F1-ADM-02": ("2026-09-21", "2026-09-24"),
+    "F1-ADM-03": ("2026-09-21", "2026-09-22"),
+    "F1-ADM-04": ("2026-09-23", "2026-09-29"),
+    "F1-ADM-05": ("2026-09-23", "2026-09-29"),
+    "F1-ADM-06": ("2026-09-23", "2026-09-29"),
+    "F1-ADM-07": ("2026-09-23", "2026-09-29"),
+    "F1-ADM-08": ("2026-09-23", "2026-09-29"),
+    "F1-ADM-09": ("2026-09-28", "2026-10-02"),
+    "F1-ADM-10": ("2026-09-22", "2026-09-23"),
+    "F1-ADM-11": ("2026-09-23", "2026-09-24"),
+    "F1-ADM-12": ("2026-09-21", "2026-09-24"),
+    "F1-CON-01": ("2026-09-28", "2026-10-02"),
+    "F1-CON-02": ("2026-09-28", "2026-10-02"),
+    "F1-CON-03": ("2026-09-28", "2026-10-02"),
+}
+
 
 def value(v):
     if isinstance(v, (datetime, date)):
@@ -93,6 +138,7 @@ def main():
         "Horas base", "Responsable propuesto en plan", "Responsable nominal", "Inicio objetivo", "Fin objetivo",
         "Dependencias", "Criterio de aceptación", "Backend localizado", "Frontend localizado", "Pruebas localizadas",
         "Estado de evidencia técnica", "Estado técnico auditado", "Referencia auditoría",
+        "Estado de arranque Ola 1A", "Bloqueo de cierre Ola 1A",
         "Evidencia requerida para cierre", "Resultado QA/UAT",
     ]
     output_rows = []
@@ -113,7 +159,7 @@ def main():
 
         proposed = task.get("Responsable principal propuesto") or "Por confirmar"
         nominal_map = {"Dev 1": "Uzziel", "Dev 2": "Geovany", "Dev 1 y Dev 2": "Geovany y Uzziel"}
-        nominal = nominal_map.get(proposed, "Por confirmar")
+        nominal = OLA1A_OWNER.get(row["ID"], nominal_map.get(proposed, "Por confirmar"))
         functional_id = row["ID"]
         if functional_id in EXISTING_VERIFIABLE_LOCAL:
             audited_status = "Verificable local; requiere caso con evidencia y UAT"
@@ -127,6 +173,11 @@ def main():
         else:
             audited_status = "No aplica a auditoría de las 35 existentes"
             audit_reference = ""
+        start_status, close_blocker = OLA1A_START.get(functional_id, ("No aplica", ""))
+        start_date, end_date = OLA1A_DATES.get(
+            functional_id,
+            (task.get("Inicio objetivo") or "Por confirmar", task.get("Fin objetivo") or "Por confirmar"),
+        )
         output_rows.append({
             "ID": row["ID"],
             "Ola": task.get("Ola v3") or "Por confirmar",
@@ -137,8 +188,8 @@ def main():
             "Horas base": row.get("Horas totales") or 0,
             "Responsable propuesto en plan": proposed,
             "Responsable nominal": nominal,
-            "Inicio objetivo": task.get("Inicio objetivo") or "Por confirmar",
-            "Fin objetivo": task.get("Fin objetivo") or "Por confirmar",
+            "Inicio objetivo": start_date,
+            "Fin objetivo": end_date,
             "Dependencias": row.get("De qué depende") or "",
             "Criterio de aceptación": row.get("Criterio de aceptación") or "",
             "Backend localizado": "; ".join(backend_found) or "Sin módulo dedicado localizado",
@@ -147,6 +198,8 @@ def main():
             "Estado de evidencia técnica": evidence_state,
             "Estado técnico auditado": audited_status,
             "Referencia auditoría": audit_reference,
+            "Estado de arranque Ola 1A": start_status,
+            "Bloqueo de cierre Ola 1A": close_blocker,
             "Evidencia requerida para cierre": "Caso reproducible; dato usado; captura o log; pruebas automáticas aplicables; resultado de regresión; aprobación UAT del área",
             "Resultado QA/UAT": "Pendiente",
         })

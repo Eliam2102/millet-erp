@@ -80,3 +80,6 @@ Thumbs.db
 # Worktrees de sesiones Claude Code
 # =====================================
 .claude/worktrees/
+# Python helper artifacts
+__pycache__/
+*.py[cod]
