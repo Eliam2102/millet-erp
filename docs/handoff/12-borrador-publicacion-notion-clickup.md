@@ -5,8 +5,8 @@ Este documento deja preparado el cambio externo. No acredita que Notion o ClickU
 ## Corte de evidencia
 
 - Repositorio privado: `https://github.com/Eliam2102/millet-erp`.
-- Línea base técnica anterior comprobada: `26bef08a1e85ca42f6f10cb6eb2008105fdb072b`.
-- Esta conciliación se entregará con la etiqueta `handoff-fase1-v1.2`; el commit exacto se comprueba en Git después de publicarla.
+- Línea base técnica congelada: etiqueta `handoff-fase1-v1.3`, commit `d93e1258d694e9ef7f7e665e3ff750d60209b43d`.
+- Inventario técnico: 139 de 139 funcionalidades con trazabilidad; la ejecución individual, QA, regresión y UAT permanecen pendientes por fila.
 - Backend: 2,768 pruebas aprobadas en la verificación de handoff.
 - Frontend: 1,567 pruebas y compilación de producción aprobadas.
 - Clonación limpia, migraciones de 12 contextos, inicio de sesión y arranque local: comprobados.

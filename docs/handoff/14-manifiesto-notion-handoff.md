@@ -38,8 +38,8 @@ por:
 Agregar un bloque `Estado técnico del handoff`:
 
 - Repositorio: `https://github.com/Eliam2102/millet-erp`.
-- Línea base congelada: etiqueta `handoff-fase1-v1.2`, commit `41b235fc02a290627ea842be24c8a01cc8a36241`.
-- Planeación ejecutable posterior: commit `dabb2d7` o el commit vigente de `main` al momento de publicar.
+- Línea base congelada: etiqueta `handoff-fase1-v1.3`, commit `d93e1258d694e9ef7f7e665e3ff750d60209b43d`.
+- Cobertura de inventario: 139 de 139 funcionalidades con trazabilidad técnica; QA, regresión y UAT permanecen pendientes por fila.
 - Pruebas verificadas: backend 2,768; frontend 1,567; build de producción aprobado.
 - Base limpia: 12 contextos migrados; health live/ready 200; login local comprobado.
 - Pendiente: acceso y repetición independiente por Geovany y Uzziel.
@@ -117,7 +117,7 @@ Usar [13-manifiesto-clickup-ola1a.md](13-manifiesto-clickup-ola1a.md) como tabla
 - `Estado = Bloqueada`: ADM-11 solamente.
 - En ADM-11, cambiar `Base existente` de `Ya existe y funciona` a `Existe a medias`.
 - En ADM-11, registrar: `Bloqueo interno: definir módulos y tipos de registro cubiertos; no depende de una nueva definición funcional del cliente`.
-- `Línea base = handoff-fase1-v1.2 · 41b235f` en las 15 fichas.
+- `Línea base = handoff-fase1-v1.3 · d93e125` en las 15 fichas.
 
 ### Estado técnico de las cuatro marcadas existentes en 1A
 
@@ -138,7 +138,7 @@ Sustituir:
 
 - repositorio histórico `Millet-TI/millet_erp` por `Eliam2102/millet-erp`;
 - `no tiene remoto configurado` por el remoto privado comprobado;
-- commit local histórico por la etiqueta `handoff-fase1-v1.2` y commit `41b235f`;
+- commit local histórico por la etiqueta `handoff-fase1-v1.3` y commit `d93e125`;
 - instrucción genérica de migración por el orden documentado en `docs/handoff/01-arranque-local.md`.
 
 Agregar:
