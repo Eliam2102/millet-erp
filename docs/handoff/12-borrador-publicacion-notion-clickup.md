@@ -7,9 +7,11 @@ Este documento deja preparado el cambio externo. No acredita que Notion o ClickU
 - Repositorio privado: `https://github.com/Eliam2102/millet-erp`.
 - Línea base técnica congelada: etiqueta `handoff-fase1-v1.3`, commit `d93e1258d694e9ef7f7e665e3ff750d60209b43d`.
 - Inventario técnico: 139 de 139 funcionalidades con trazabilidad; la ejecución individual, QA, regresión y UAT permanecen pendientes por fila.
+- Plan de validación de heredados: 35 de 35 con responsable y recorrido definido; distribución 23 verificables, 10 parciales y 2 no localizadas.
 - Backend: 2,768 pruebas aprobadas en la verificación de handoff.
 - Frontend: 1,567 pruebas y compilación de producción aprobadas.
 - Clonación limpia, migraciones de 12 contextos, inicio de sesión y arranque local: comprobados.
+- Gate automatizado renovado en `56a3215`; la línea base funcional congelada permanece en `handoff-fase1-v1.3` / `d93e125`.
 - Acceso individual de Geovany y Uzziel y repetición del arranque por ambos: pendiente.
 - Protección obligatoria de `main`: no disponible mientras el repositorio privado permanezca en el plan actual de GitHub. No se hará público para habilitarla.
 - Riesgos npm pendientes: 6 vulnerabilidades reportadas por `npm audit` (5 moderadas y 1 alta); no se aplicó corrección forzada.
@@ -81,6 +83,18 @@ La base contiene diez frentes `TR-01` a `TR-10` y actividades detalladas `V3-*`.
 - Los diez `TR-*` funcionan como agrupadores; las actividades `V3-*` contienen horas, entradas, dependencias y resultado.
 - `V3-QA-1A` cambia de 3 h a 8 h.
 - `V3-ARCH-01`, `V3-ARCH-02`, `V3-ARCH-03`, `V3-ARCH-06`, `V3-ARCH-07` y `V3-QA-1A` pasan a `En curso`; no pasan a `Con evidencia` mientras falte el arranque independiente de Geovany y Uzziel o algún criterio particular.
+
+### Validación de funcionalidades heredadas
+
+1. Crear bajo `QA, regresión y UAT` la página `Plan de validación · 35 funcionalidades heredadas`.
+2. Reutilizar los 35 registros existentes mediante una vista enlazada; no duplicarlos.
+3. Agregar a la base de funcionalidades:
+   - `Resultado de validación`;
+   - `Evidencia QA/UAT`;
+   - `Fecha de validación`.
+4. Inicializar los 35 resultados en `Pendiente`, sin evidencia ni fecha.
+5. Publicar los cinco bloques por ola y el reparto nominal: 17 Geovany y 18 Uzziel.
+6. No convertir el gate automatizado en aceptación funcional ni UAT.
 
 ### Onboarding técnico
 

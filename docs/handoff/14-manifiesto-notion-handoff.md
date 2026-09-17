@@ -54,6 +54,7 @@ Agregar un bloque `Estado técnico del handoff`:
 - Línea base congelada: etiqueta `handoff-fase1-v1.3`, commit `d93e1258d694e9ef7f7e665e3ff750d60209b43d`.
 - Cobertura de inventario: 139 de 139 funcionalidades con trazabilidad técnica; QA, regresión y UAT permanecen pendientes por fila.
 - Pruebas verificadas: backend 2,768; frontend 1,567; build de producción aprobado.
+- Último gate renovado: commit `56a3215`; la línea base funcional congelada continúa siendo `handoff-fase1-v1.3` en `d93e125`.
 - Base limpia: 12 contextos migrados; health live/ready 200; login local comprobado.
 - Pendiente: acceso y repetición independiente por Geovany y Uzziel.
 - Limitación: GitHub no permite proteger `main` en este repositorio privado con el plan actual; revisión por PR es control de proceso hasta habilitar un plan compatible.
@@ -119,8 +120,13 @@ Agregar únicamente si no existen:
 | Fin objetivo | Fecha | Fecha operativa de fin |
 | Estado técnico auditado | Select | Verificable local; Parcial/condicionada; No localizada; Construcción pendiente |
 | Línea base | Texto | Commit/tag contra el que se ejecuta la ficha |
+| Resultado de validación | Select | Pendiente; Aprobada local; Parcial; No localizada; Bloqueada; Lista para UAT; UAT aprobada |
+| Evidencia QA/UAT | URL | Enlace al expediente, PR, captura o acta que acredita el resultado |
+| Fecha de validación | Fecha | Momento en que se produjo la evidencia individual |
 
 No reemplazar `Estado` ni `Base existente`: las nuevas propiedades distinguen planeación, evidencia técnica y avance.
+
+Las tres propiedades de validación se crean vacías o en `Pendiente`. El gate general no autoriza llenar evidencia ni fecha de manera masiva.
 
 ## Actualización de las 15 funcionalidades de Ola 1A
 
@@ -191,6 +197,29 @@ Razones para no cerrarlas todavía:
 
 Actualizar `V3-QA-1A` de 3 h a 8 h. Las 5 h adicionales salen de la reserva interna; no aumentan el techo de 840 h.
 
+## Validación de las 35 heredadas
+
+Crear dentro de `QA, regresión y UAT` una página anidada llamada `Plan de validación · 35 funcionalidades heredadas`, basada en `docs/handoff/17-plan-validacion-35-existentes.md`.
+
+La página debe contener:
+
+- el significado de `Automatización verde`, `Recorrido local aprobado`, `Lista para UAT`, `UAT aprobada` y `Reclasificada`;
+- la evidencia mínima obligatoria por ID;
+- cinco bloques de ejecución: Ola 1A, 1B-1, 1B-2, 1C y 1D;
+- responsable nominal: 17 Geovany y 18 Uzziel;
+- vista enlazada de Funcionalidades filtrada a los 35 IDs, sin duplicar registros;
+- recordatorio de que 23 son verificables localmente, 10 son parciales/condicionadas y 2 no fueron localizadas;
+- reglas especiales para COM-02, CXP-06, COM-10, ADM-11 y TES-08.
+
+Actualizar en las 35 fichas:
+
+- `Estado técnico auditado` según `10-auditoria-35-existentes.md`;
+- `Resultado de validación = Pendiente`;
+- `Línea base = handoff-fase1-v1.3 · d93e125`;
+- no llenar `Evidencia QA/UAT` ni `Fecha de validación` hasta ejecutar el caso individual.
+
+Para las diez parciales y las dos no localizadas, la descripción debe indicar la brecha exacta. No cambiar su estado a lista para UAT por la publicación.
+
 ## Arquitectura de páginas anidadas
 
 Crear o conservar una página por tema; dentro de cada una usar vistas enlazadas, no copias de registros:
@@ -228,6 +257,8 @@ Crear o conservar una página por tema; dentro de cada una usar vistas enlazadas
 ### QA, regresión y UAT
 
 - Auditoría de las 35 existentes.
+- Plan ejecutable de validación de las 35, agrupado por ola y responsable.
+- Vista enlazada de los 35 registros con resultado, evidencia y fecha.
 - Casos por ola.
 - Regresión.
 - Usuarios de UAT.
@@ -254,6 +285,8 @@ Después de publicar:
 5. Confirmar V3-QA-1A en 8 h y `En curso`.
 6. Abrir el onboarding y comprobar que ya no apunte a `Millet-TI/millet_erp` ni diga que no existe remoto.
 7. Confirmar que ninguna ficha quedó `Aceptada`, `Cerrada` o `Con evidencia` por esta publicación.
+8. Consultar las 35 heredadas y comprobar distribución 23/10/2, responsables 17/18 y `Resultado de validación = Pendiente`.
+9. Confirmar que la página de validación usa una vista enlazada y no creó 35 registros duplicados.
 
 ## Autorización requerida
 
