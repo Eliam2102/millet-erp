@@ -11,6 +11,19 @@ Este documento define el cambio exacto preparado para Notion. No acredita que la
 - Base de funcionalidades: `collection://5f2045f4-08b3-41d8-ab21-907961a9a664`.
 - Base de controles transversales: `collection://e9dc9264-a0dd-46a2-a6ed-68c7d72efc8e`.
 
+## Revalidación previa a publicación · 16 septiembre 2026
+
+Lectura realizada mediante el conector oficial de Notion, sin escrituras:
+
+- La página raíz continúa en `Not started` y todavía afirma que el repositorio remoto no está publicado.
+- La base de olas conserva seis registros: `Ola 0` y `Ola 1A` a `Ola 1D`; `Ola 1E` aún no existe.
+- Las 15 funcionalidades de Ola 1A permanecen en `Por verificar` y sin enlace ClickUp.
+- `F1-ADM-11` todavía aparece como `Ya existe y funciona`, contrario a la auditoría técnica.
+- La base de funcionalidades todavía no contiene `Estado de arranque`, `Bloqueo de cierre`, `Inicio objetivo`, `Fin objetivo`, `Estado técnico auditado` ni `Línea base`.
+- Los controles transversales permanecen en `Por verificar` y `V3-QA-1A` conserva 3 h, no las 8 h conciliadas.
+
+Este corte confirma el cambio necesario, pero no lo ejecuta.
+
 ## Regla de publicación
 
 1. Conservar las fichas existentes y sus relaciones.
