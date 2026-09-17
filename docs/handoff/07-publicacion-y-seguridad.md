@@ -23,9 +23,17 @@
 4. No ejecutar workflows manuales de despliegue sin ambiente, autorización y plan de reversión confirmados.
 5. No usar datos productivos en desarrollo local.
 
-## Accesos pendientes
+## Verificación de accesos
 
-Para invitar a Geovany y Uzziel se requieren sus nombres exactos de usuario en GitHub. No se inferirán por nombre o correo. Después de invitarlos, cada uno debe comprobar MFA, clonación, arranque, login y pruebas con su propia cuenta y equipo.
+ClickUp y Notion fueron confirmados por Eliam como accesibles para Geovany y
+Uzziel. La verificación del repositorio es independiente: la consulta de
+colaboradores del repositorio privado realizada el 16 de septiembre de 2026
+mostró únicamente a `Eliam2102` y ninguna invitación pendiente.
+
+Para cerrar GitHub se requieren los usuarios exactos de Geovany y Uzziel. No
+se inferirán por nombre o correo. Después de invitarlos, cada uno debe comprobar
+MFA, clonación, arranque, login y pruebas con su propia cuenta y equipo, y dejar
+la evidencia en su tarea de Ola 0.
 
 ## Limitación comprobada
 

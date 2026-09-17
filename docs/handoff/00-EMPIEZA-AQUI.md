@@ -35,7 +35,19 @@ Después deben revisar en Notion la ficha de la ola, módulo y funcionalidad asi
 - **Eliam Cauich y Ángel Sánchez:** planeación, alcance y desbloqueo interno.
 - **Jorge Toache (Millet):** coordinación funcional/técnica por parte de Vidrios Millet, especialmente TI y A+W.
 
-Los usuarios exactos de GitHub de Geovany y Uzziel quedan `Por confirmar` hasta que Eliam los proporcione. `main` se publicará protegida y todo cambio deberá entrar mediante pull request.
+El acceso a ClickUp y Notion fue confirmado operativamente por Eliam. El acceso al repositorio debe comprobarse por separado con los usuarios exactos de GitHub de Geovany y Uzziel; no se infieren a partir del correo. Todo cambio debe entrar mediante rama y pull request. La protección automática de `main` continúa limitada por el plan actual del repositorio privado.
+
+## Secuencia de habilitación
+
+1. Completar `O0-01` y confirmar la lectura de este handoff.
+2. Completar `O0-02` y validar accesos, MFA, identidad y herramientas.
+3. Cada desarrollador completa su propio entorno (`O0-03` u `O0-04`).
+4. Ambos completan el recorrido técnico (`O0-05`) y la primera PR cruzada (`O0-06`).
+5. Eliam valida la evidencia en `O0-07`.
+6. Sólo con `O0-07` completada se habilita `O1A-00` y puede iniciar el desarrollo funcional.
+
+- [Lista Ola 0 · Preparación y onboarding](https://app.clickup.com/9017291387/v/l/li/901717118871)
+- [Lista Ola 1A · Fundaciones](https://app.clickup.com/9017291387/v/l/li/901717118872)
 
 ## Reglas que no se negocian
 

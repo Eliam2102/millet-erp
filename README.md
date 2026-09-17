@@ -2,7 +2,9 @@
 
 > **Nuevo integrante:** empieza por [docs/handoff/00-EMPIEZA-AQUI.md](docs/handoff/00-EMPIEZA-AQUI.md). Ese paquete separa el estado real del código, el arranque local, la forma de trabajo y las dependencias que debe entregar Millet.
 
-> **Repositorio privado:** <https://github.com/Eliam2102/millet-erp>. El acceso requiere invitación. La protección automática de `main` está pendiente porque el plan actual de GitHub no habilita branch protection en repositorios privados; mientras tanto, la regla operativa es trabajar por rama y pull request.
+> **Repositorio privado:** <https://github.com/Eliam2102/millet-erp>. El acceso requiere invitación con el usuario exacto de GitHub. La protección automática de `main` está pendiente porque el plan actual de GitHub no habilita branch protection en repositorios privados; mientras tanto, la regla operativa es trabajar por rama y pull request.
+
+> **Gate de arranque:** tener acceso no habilita desarrollo funcional. Geovany y Uzziel deben completar primero la [Ola 0 en ClickUp](https://app.clickup.com/9017291387/v/l/li/901717118871). La [Ola 1A](https://app.clickup.com/9017291387/v/l/li/901717118872) sólo comienza cuando se complete y valide `O0-07 · Gate de salida · habilitación de Ola 1A`.
 
 Sistema ERP back-office para **Millet**, empresa mexicana de vidrio de valor
 agregado. Este repositorio es el monorepo que aloja el código del producto:
@@ -35,7 +37,7 @@ el módulo de compras.
 |---|---|
 | [`infra/`](./infra/) | Infrastructure as Code en Bicep para los ambientes de Azure (dev, qa, prod). |
 | [`backend/`](./backend/) | API en .NET 9 con arquitectura hexagonal y CQRS por módulo. |
-| [`frontend/`](./frontend/) | SPA en React 18 + TypeScript + Vite + shadcn/ui. |
+| [`frontend/`](./frontend/) | SPA en React 19 + TypeScript + Vite + shadcn/ui. |
 | [`docs/`](./docs/) | Documentación del proyecto, decisiones arquitectónicas (ADRs) y levantamientos por módulo. |
 | [`tools/`](./tools/) | Scripts y utilidades del proyecto. |
 
@@ -85,6 +87,24 @@ Según en qué parte vayas a trabajar:
 - Para replicar el Claude Project del equipo en tu cuenta individual de
   `claude.ai/projects`, ve a [`claude-project/`](./claude-project/).
 
+### Secuencia obligatoria del primer arranque
+
+No comenzar una funcionalidad directamente después de clonar. El orden de
+trabajo es:
+
+1. Leer el handoff, la planeación de Fase 1 y la ficha asignada en Notion/ClickUp.
+2. Confirmar acceso, MFA, identidad Git y herramientas.
+3. Clonar el repositorio y preparar una base local exclusiva por desarrollador.
+4. Aplicar los 12 contextos de migración.
+5. Levantar backend y frontend, iniciar sesión y ejecutar el smoke test.
+6. Registrar evidencia del entorno en la tarea individual de Ola 0.
+7. Recorrer los módulos existentes para no reconstruir trabajo ya realizado.
+8. Probar el flujo de rama, pull request y revisión cruzada.
+9. Esperar la validación de `O0-07`; sólo entonces iniciar Ola 1A.
+
+El checklist verificable está en
+[`docs/handoff/06-checklist-primer-dia.md`](./docs/handoff/06-checklist-primer-dia.md).
+
 ---
 
 ## Desarrollo local
@@ -133,7 +153,7 @@ foreach ($c in $contexts) {
 
 # 3. Instalar deps del frontend
 cd ../frontend
-npm install
+npm install --no-audit --no-fund
 ```
 
 ### Cada sesión de desarrollo
@@ -171,5 +191,6 @@ docker compose -f docker-compose.dev.yml down -v
 - Planeación y alcance: Eliam Cauich y Ángel Sánchez.
 - Desarrollo: Geovany y Uzziel; reparto detallado en Notion/ClickUp.
 - Coordinación Millet, TI y A+W: Jorge Toache.
-- Responsable técnico VILO y usuarios exactos de GitHub de los desarrolladores: `Por confirmar`.
+- Administración del repositorio: Eliam Cauich (`Eliam2102`).
+- Usuarios exactos de GitHub de Geovany y Uzziel: deben verificarse antes de emitir las invitaciones; no se infieren a partir del correo.
 - Owner histórico indicado por el repositorio original: Eduardo Paredes; vigencia y participación actual `Por confirmar`.
