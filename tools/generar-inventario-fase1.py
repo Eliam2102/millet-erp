@@ -57,6 +57,113 @@ EXISTING_PARTIAL_OR_CONDITIONED = {
 
 EXISTING_NOT_LOCATED = {"F1-COM-02", "F1-CXP-06"}
 
+AUDITED_PARTIAL_OR_MISSING = {
+    "F1-ADM-02": "Núcleo directo localizado; parcial real",
+    "F1-ADM-04": "Núcleo directo localizado; parcial real",
+    "F1-ADM-05": "Núcleo directo localizado; parcial real",
+    "F1-ADM-06": "Núcleo directo localizado; parcial condicionado",
+    "F1-ADM-07": "Núcleo directo localizado; parcial condicionado",
+    "F1-ADM-08": "Núcleo directo localizado; parcial real",
+    "F1-ADM-09": "Núcleo directo localizado; parcial condicionado",
+    "F1-ADM-12": "Infraestructura directa localizada; parcial transversal",
+    "F1-COM-06": "Núcleo directo localizado; parcial real",
+    "F1-COM-07": "Pieza vecina solamente; parcial débil",
+    "F1-COM-08": "Núcleo directo localizado; parcial real",
+    "F1-COM-09": "No localizado; requiere construcción o fuente adicional",
+    "F1-COM-11": "No localizado; requiere construcción o fuente adicional",
+    "F1-COM-12": "Núcleo directo localizado; parcial condicionado",
+    "F1-COM-13": "Parcial real",
+    "F1-ALM-04": "Parcial real",
+    "F1-ALM-05": "Núcleo directo localizado; parcial real",
+    "F1-ALM-07": "Núcleo directo localizado; parcial real",
+    "F1-ALM-11": "Núcleo directo localizado; parcial real",
+    "F1-ALM-12": "No localizado; requiere construcción o fuente adicional",
+    "F1-ALM-13": "Pieza vecina solamente; parcial débil",
+    "F1-ALM-14": "No localizado; requiere construcción o fuente adicional",
+    "F1-ALM-15": "Núcleo directo localizado; parcial real",
+    "F1-MP-01": "Núcleo directo localizado; parcial condicionado",
+    "F1-MP-02": "No localizado; requiere construcción o fuente adicional",
+    "F1-MP-03": "Pieza vecina solamente; parcial débil",
+    "F1-MP-05": "Núcleo directo localizado; parcial real",
+    "F1-MP-06": "Pieza vecina solamente; parcial débil",
+    "F1-MP-07": "Pieza vecina solamente; parcial débil",
+    "F1-MP-08": "No localizado; requiere construcción o fuente adicional",
+    "F1-MP-09": "Pieza vecina solamente; parcial débil",
+    "F1-CXP-01": "Núcleo directo localizado; parcial real",
+    "F1-CXP-02": "Núcleo directo localizado; parcial real",
+    "F1-CXP-05": "Núcleo directo localizado; parcial condicionado",
+    "F1-CXP-08": "Pieza vecina solamente; parcial débil",
+    "F1-CXP-09": "Pieza vecina solamente; parcial débil",
+    "F1-CXP-10": "No localizado; requiere construcción o fuente adicional",
+    "F1-CXP-11": "Núcleo de reporte localizado; parcial real",
+    "F1-CXP-12": "Pieza vecina solamente; parcial débil",
+    "F1-CXP-13": "No localizado; requiere construcción o fuente adicional",
+    "F1-CE-01": "Pieza vecina solamente; parcial débil",
+    "F1-CE-02": "Pieza vecina solamente; parcial débil",
+    "F1-CE-03": "No localizado; requiere construcción o fuente adicional",
+    "F1-CE-04": "Núcleo directo localizado; parcial real",
+    "F1-CE-05": "No localizado; requiere construcción o fuente adicional",
+    "F1-CE-06": "Núcleo directo localizado; parcial condicionado",
+    "F1-CE-07": "Núcleo directo localizado; parcial condicionado",
+    "F1-FAC-01": "Núcleo directo localizado; parcial condicionado",
+    "F1-FAC-03": "No localizado; requiere construcción o fuente adicional",
+    "F1-FAC-08": "Núcleo directo localizado; parcial condicionado",
+    "F1-FAC-09": "Núcleo directo localizado; parcial real",
+    "F1-FAC-10": "Núcleo técnico localizado; parcial condicionado",
+    "F1-FAC-11": "Pieza vecina solamente; parcial condicionado",
+    "F1-FAC-12": "Núcleo directo localizado; parcial real",
+    "F1-FAC-13": "Núcleo directo localizado; parcial condicionado",
+    "F1-FAC-14": "Pieza vecina solamente; parcial condicionado",
+    "F1-FAC-15": "No localizado; requiere construcción o fuente adicional",
+    "F1-FAC-16": "Núcleo directo localizado; parcial condicionado",
+    "F1-CXC-04": "Núcleo directo localizado; parcial real",
+    "F1-CXC-06": "Núcleo directo localizado; parcial condicionado",
+    "F1-CXC-07": "Núcleo directo localizado; parcial real",
+    "F1-CXC-08": "Pieza vecina solamente; parcial débil",
+    "F1-CXC-09": "Núcleo directo localizado; parcial real",
+    "F1-CXC-10": "Núcleo directo localizado; parcial condicionado",
+    "F1-CXC-11": "Pieza vecina solamente; parcial condicionado",
+    "F1-CXC-12": "No localizado; requiere construcción o fuente adicional",
+    "F1-PT-01": "No localizado; requiere construcción o fuente adicional",
+    "F1-PT-02": "No localizado; requiere construcción o fuente adicional",
+    "F1-PT-03": "Pieza vecina solamente; parcial débil",
+    "F1-PT-04": "Pieza vecina solamente; parcial débil",
+    "F1-PT-05": "No localizado; requiere construcción o fuente adicional",
+    "F1-PT-06": "Pieza vecina solamente; parcial débil",
+    "F1-PT-07": "No localizado; requiere construcción o fuente adicional",
+    "F1-PT-08": "Pieza vecina solamente; parcial condicionado",
+    "F1-PT-09": "Pieza vecina solamente; parcial débil",
+    "F1-TES-04": "Pieza vecina solamente; parcial débil",
+    "F1-TES-05": "No localizado; requiere construcción o fuente adicional",
+    "F1-TES-06": "Pieza vecina solamente; parcial débil",
+    "F1-TES-07": "Núcleo directo localizado; parcial real",
+    "F1-TES-09": "Pieza vecina solamente; parcial débil",
+    "F1-TES-10": "Núcleo directo localizado; parcial condicionado",
+    "F1-TES-11": "Núcleo de reporte localizado; parcial real",
+    "F1-CON-01": "No localizado; requiere construcción o fuente adicional",
+    "F1-CON-02": "Núcleo directo localizado; parcial real",
+    "F1-CON-03": "No localizado; requiere construcción o fuente adicional",
+    "F1-CON-04": "No localizado; requiere construcción o fuente adicional",
+    "F1-CON-05": "Pieza vecina solamente; parcial débil",
+    "F1-CON-06": "No localizado; requiere construcción o fuente adicional",
+    "F1-CON-07": "No localizado; requiere construcción o fuente adicional",
+    "F1-CON-08": "No localizado; requiere construcción o fuente adicional",
+    "F1-CON-09": "Pieza vecina solamente; parcial débil",
+    "F1-CON-10": "Pieza vecina solamente; parcial débil",
+    "F1-CON-11": "Pieza vecina solamente; parcial débil",
+    "F1-CON-12": "Pieza vecina solamente; parcial débil",
+    "F1-CON-13": "No localizado; requiere construcción o fuente adicional",
+    "F1-AF-01": "No localizado; requiere construcción o fuente adicional",
+    "F1-AF-02": "No localizado; requiere construcción o fuente adicional",
+    "F1-AF-03": "No localizado; requiere construcción o fuente adicional",
+    "F1-AF-04": "No localizado; requiere construcción o fuente adicional",
+    "F1-AF-05": "No localizado; requiere construcción o fuente adicional",
+    "F1-AF-06": "Pieza vecina solamente; parcial débil",
+    "F1-AF-07": "Núcleo directo localizado; parcial condicionado",
+    "F1-AF-08": "No localizado; requiere construcción o fuente adicional",
+    "F1-AF-09": "No localizado; requiere construcción o fuente adicional",
+}
+
 OLA1A_START = {
     "F1-ADM-01": ("Puede comenzar con datos ficticios", "Estructura vigente de empresas/sucursales/áreas para cierre"),
     "F1-ADM-02": ("Puede comenzar con datos ficticios", "Usuarios, roles y Entra ID de Millet para cierre real"),
@@ -170,8 +277,11 @@ def main():
         elif functional_id in EXISTING_NOT_LOCATED:
             audited_status = "No localizado; requiere decisión interna y reestimación"
             audit_reference = "docs/handoff/10-auditoria-35-existentes.md"
+        elif functional_id in AUDITED_PARTIAL_OR_MISSING:
+            audited_status = AUDITED_PARTIAL_OR_MISSING[functional_id]
+            audit_reference = "docs/handoff/15-auditoria-104-parciales-no-existentes.md"
         else:
-            audited_status = "No aplica a auditoría de las 35 existentes"
+            audited_status = "Pendiente de auditoría específica de las 104 parciales/no existentes"
             audit_reference = ""
         start_status, close_blocker = OLA1A_START.get(functional_id, ("No aplica", ""))
         start_date, end_date = OLA1A_DATES.get(
@@ -233,6 +343,11 @@ def main():
         f.write("\n## Regla para las 35 existentes\n\n")
         f.write("Cada fila debe pasar por levantamiento local, ejecución del caso, evidencia, regresión y presentación en UAT. ")
         f.write("Hasta entonces su resultado permanece `Pendiente`; no se considera cerrada por tener 0 horas de construcción.\n\n")
+        f.write("## Cobertura de auditoría técnica\n\n")
+        f.write("Las **139 de 139** funcionalidades tienen trazabilidad técnica documentada: las 35 declaradas existentes en ")
+        f.write("[10-auditoria-35-existentes.md](10-auditoria-35-existentes.md) y las 104 parciales/no existentes en ")
+        f.write("[15-auditoria-104-parciales-no-existentes.md](15-auditoria-104-parciales-no-existentes.md). ")
+        f.write("Esta cobertura clasifica el código localizado y las brechas; no acredita que los 139 recorridos hayan sido ejecutados, ni sustituye QA, regresión o UAT.\n\n")
         f.write("## Riesgos detectados por estructura\n\n")
         f.write("- Comercio Exterior y Activos Fijos no tienen módulo dedicado localizado en el repositorio actual.\n")
         f.write("- Contabilidad sólo tiene puntos parciales en Centros de Costo/Compartido; no se localizó un módulo contable dedicado.\n")

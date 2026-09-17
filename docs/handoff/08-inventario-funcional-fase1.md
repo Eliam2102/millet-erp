@@ -23,6 +23,10 @@ Este inventario concilia la matriz definitiva con el plan de olas y con la estru
 
 Cada fila debe pasar por levantamiento local, ejecución del caso, evidencia, regresión y presentación en UAT. Hasta entonces su resultado permanece `Pendiente`; no se considera cerrada por tener 0 horas de construcción.
 
+## Cobertura de auditoría técnica
+
+Las **139 de 139** funcionalidades tienen trazabilidad técnica documentada: las 35 declaradas existentes en [10-auditoria-35-existentes.md](10-auditoria-35-existentes.md) y las 104 parciales/no existentes en [15-auditoria-104-parciales-no-existentes.md](15-auditoria-104-parciales-no-existentes.md). Esta cobertura clasifica el código localizado y las brechas; no acredita que los 139 recorridos hayan sido ejecutados, ni sustituye QA, regresión o UAT.
+
 ## Riesgos detectados por estructura
 
 - Comercio Exterior y Activos Fijos no tienen módulo dedicado localizado en el repositorio actual.

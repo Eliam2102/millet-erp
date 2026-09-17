@@ -22,6 +22,7 @@ Geovany y Uzziel deben poder clonar el repositorio, levantar el stack local, eje
 12. [12-borrador-publicacion-notion-clickup.md](12-borrador-publicacion-notion-clickup.md)
 13. [13-manifiesto-clickup-ola1a.md](13-manifiesto-clickup-ola1a.md)
 14. [14-manifiesto-notion-handoff.md](14-manifiesto-notion-handoff.md)
+15. [15-auditoria-104-parciales-no-existentes.md](15-auditoria-104-parciales-no-existentes.md)
 
 Después deben revisar en Notion la ficha de la ola, módulo y funcionalidad asignada. El código indica lo que existe; Notion indica qué debe construirse y aceptarse en Fase 1.
 
