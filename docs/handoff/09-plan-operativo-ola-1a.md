@@ -13,7 +13,7 @@ Dejar operables las fundaciones que consumen las olas posteriores: empresas y se
 - Inicio operativo: 17 de septiembre de 2026.
 - Salida objetivo: 7 de octubre de 2026, condicionada a las entradas externas identificadas.
 
-La preparación de repositorio, ambiente local y seguridad se ejecuta desde el 17 de septiembre como trabajo transversal de la misma Ola 1A. No se trata como una ola funcional separada.
+La preparación de repositorio, ambiente local y seguridad se administra en la lista separada **Ola 0 · Preparación y onboarding**. Geovany y Uzziel deben completar sus tareas y cargar evidencia; Eliam valida esa evidencia mediante `O0-07 · Gate de salida · habilitación de Ola 1A`. Sólo después se completa `O1A-00 · Control de entrada · Ola 0 aprobada` y comienza el desarrollo funcional de Ola 1A. Las 18 h de preparación siguen formando parte del total operativo de referencia y no amplían el alcance.
 
 ## Asignación nominal vigente
 
@@ -29,7 +29,7 @@ Esta distribución equilibra especialización y revisión cruzada; no cambia el 
 
 | Orden | ID | Responsable | Resultado requerido | Entrada crítica | Aceptación Millet |
 |---:|---|---|---|---|---|
-| 1 | Transversal | Ambos | Repo privado, arranque reproducible, migraciones, pruebas y reglas de PR operables | Usuarios GitHub | Eliam / responsable técnico VILO |
+| 1 | Ola 0 + `O0-07` + `O1A-00` | Ambos; validación de Eliam | Repo privado, arranque reproducible, migraciones, pruebas, evidencia y reglas de PR operables; habilitación explícita de Ola 1A | Acceso efectivo al repositorio y herramientas locales | Eliam / responsable técnico VILO |
 | 2 | F1-ADM-01, 03, 10, 11 | Geovany | Levantar lo existente, ejecutar caso, documentar evidencia y regresión | Datos ficticios; matriz de permisos | Guillermo Pantoja / Jorge Toache según caso |
 | 3 | F1-ADM-02, 12 | Geovany | Roles, permisos y segregación por empresa verificables | Usuarios/roles vigentes; Entra para cierre real | Guillermo Pantoja + Jorge Toache |
 | 4 | F1-ADM-04, 05, 08 | Uzziel | Catálogos compartidos, proveedor y jerarquías sin duplicados | Catálogos actuales de Millet | Guillermo Pantoja; Fernando Alejos; Laura Cerón según dato |
@@ -42,7 +42,7 @@ Esta distribución equilibra especialización y revisión cruzada; no cambia el 
 
 | Periodo objetivo | Trabajo | Puerta de salida |
 |---|---|---|
-| 17–21 sep | Publicación segura, arranque local, pruebas y onboarding | Ambos devs pueden clonar, levantar, iniciar sesión y ejecutar pruebas |
+| 17–21 sep | Ola 0: publicación segura, arranque local, pruebas, onboarding y evidencia | Ambos devs pueden clonar, levantar, iniciar sesión y ejecutar pruebas; Eliam completa `O0-07` y se habilita `O1A-00` |
 | 21–24 sep | Inventario real de funciones existentes y F1-ADM-02/12 | Permisos/segregación reproducibles; diferencias registradas |
 | 23–29 sep | F1-ADM-04/05/08 y contratos F1-ADM-06/07 | Catálogos trazados a la fuente de Millet; contratos A+W versionados o bloqueo nominal |
 | 28 sep–2 oct | F1-ADM-09 y F1-CON-01/02/03 | Parámetros seguros; base contable y periodos operables |
@@ -69,7 +69,7 @@ Cada ID debe vincular: commit/PR, archivos modificados, migración o configuraci
 
 - `F1-CON-02` aparecía del 12 al 13 de noviembre aunque pertenece a Fundaciones; se adelanta al bloque del 28 de septiembre al 2 de octubre.
 - `Dev 1/Dev 2` se sustituye por Geovany/Uzziel según la asignación nominal vigente en Notion.
-- La preparación técnica deja de presentarse como una Ola 0 independiente y pasa a ser una puerta transversal de entrada de Ola 1A.
+- La preparación técnica se administra como **Ola 0 independiente**. Su salida requiere evidencia de ambos desarrolladores, validación de Eliam en `O0-07` y activación de `O1A-00` antes de cualquier desarrollo funcional de Ola 1A.
 - A+W, PAC, Entra y catálogos reales no se consideran validados hasta recibir y probar los insumos de Millet.
 - Las 3 h originales de QA-1A no alcanzan para levantar, ejecutar, documentar y regresar cuatro funciones existentes; se asignan 8 h usando 5 h de reserva interna.
 
