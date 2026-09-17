@@ -2,7 +2,7 @@
 
 > **Nuevo integrante:** empieza por [docs/handoff/00-EMPIEZA-AQUI.md](docs/handoff/00-EMPIEZA-AQUI.md). Ese paquete separa el estado real del código, el arranque local, la forma de trabajo y las dependencias que debe entregar Millet.
 
-> **Estado de publicación:** esta copia local aún no tiene remoto configurado. La URL privada y las reglas definitivas de GitHub se completarán al crear el nuevo repositorio autorizado.
+> **Repositorio privado:** <https://github.com/Eliam2102/millet-erp>. El acceso requiere invitación. La protección automática de `main` está pendiente porque el plan actual de GitHub no habilita branch protection en repositorios privados; mientras tanto, la regla operativa es trabajar por rama y pull request.
 
 Sistema ERP back-office para **Millet**, empresa mexicana de vidrio de valor
 agregado. Este repositorio es el monorepo que aloja el código del producto:
@@ -171,5 +171,5 @@ docker compose -f docker-compose.dev.yml down -v
 - Planeación y alcance: Eliam Cauich y Ángel Sánchez.
 - Desarrollo: Geovany y Uzziel; reparto detallado en Notion/ClickUp.
 - Coordinación Millet, TI y A+W: Jorge Toache.
-- Responsable técnico VILO y usuarios de GitHub: `Por confirmar` al publicar el repositorio privado.
+- Responsable técnico VILO y usuarios exactos de GitHub de los desarrolladores: `Por confirmar`.
 - Owner histórico indicado por el repositorio original: Eduardo Paredes; vigencia y participación actual `Por confirmar`.

@@ -5,7 +5,7 @@
 - Repositorio privado bajo el perfil autorizado de Eliam.
 - Sin secretos, certificados, respaldos, dumps ni datos reales rastreados.
 - Despliegues a Azure exclusivamente manuales hasta autorización expresa.
-- `main` protegida; cambios por pull request y revisión.
+- Cambios por pull request y revisión. La protección automática de `main` queda pendiente por la limitación del plan actual de GitHub para repositorios privados.
 - La versión entregada se identifica con commit y etiqueta inmutables.
 
 ## Revisión realizada antes de publicar
@@ -26,3 +26,7 @@
 ## Accesos pendientes
 
 Para invitar a Geovany y Uzziel se requieren sus nombres exactos de usuario en GitHub. No se inferirán por nombre o correo. Después de invitarlos, cada uno debe comprobar MFA, clonación, arranque, login y pruebas con su propia cuenta y equipo.
+
+## Limitación comprobada
+
+El intento de aplicar branch protection mediante la API devolvió HTTP 403 y solicitó GitHub Pro o hacer público el repositorio. Hacerlo público no es aceptable por la sensibilidad del proyecto. La solución correcta es habilitar un plan compatible o mover el repositorio privado a una organización que permita las reglas; hasta entonces se debe auditar que los cambios entren por PR.

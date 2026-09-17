@@ -1,9 +1,9 @@
 # Estado técnico verificado
 
 **Corte:** 16 de septiembre de 2026  
-**Commit base local:** `f0f50eb549caa304c6161c0896ed70c6a7ad8a69`  
+**Commit original auditado:** `f0f50eb549caa304c6161c0896ed70c6a7ad8a69`  
 **Rama:** `main`  
-**Remoto:** no configurado al momento del corte
+**Remoto:** `https://github.com/Eliam2102/millet-erp` (privado)
 
 ## Evidencia ejecutada
 
@@ -38,3 +38,4 @@ Demuestra que el código unitario verificado y el frontend pueden compilar/proba
 5. Las advertencias de pruebas frontend (`act(...)`, handlers MSW y canvas) no hicieron fallar el gate, pero deben registrarse como deuda técnica y no ocultarse.
 6. `npm audit` reporta 6 hallazgos: 5 moderados y 1 alto. El alto corresponde a `nanoid` transitivo; `vitest` afecta herramientas de prueba y `exceljs/uuid` requiere evaluar compatibilidad antes de cambiar versión. No se aplicó una corrección automática potencialmente disruptiva.
 7. Los workflows de despliegue quedaron en disparo manual para que publicar el repositorio no modifique Azure sin autorización y sin validar OIDC/ambientes.
+8. GitHub rechazó la protección automática de `main` con HTTP 403 porque el plan actual no habilita esa función en repositorios privados. No se hizo público el código. Hasta habilitar el plan o moverlo a una organización con la función disponible, la revisión por PR es un control de proceso, no una restricción técnica.

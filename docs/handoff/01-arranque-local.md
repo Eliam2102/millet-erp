@@ -11,12 +11,12 @@
 ## 1. Clonar y comprobar rama
 
 ```bash
-git clone <URL_PRIVADA_POR_CONFIRMAR>
-cd <CARPETA_DEL_REPO>
+git clone https://github.com/Eliam2102/millet-erp.git
+cd millet-erp
 git status
 ```
 
-La rama base será `main`. La URL se completa después de crear el repositorio privado.
+La rama base es `main`. El repositorio es privado y requiere invitación previa.
 
 ## 2. Levantar PostgreSQL
 

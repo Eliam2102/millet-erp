@@ -16,7 +16,7 @@
 - Incluir migraciones, pruebas y documentación cuando correspondan.
 - No mezclar refactors generales con entrega funcional sin acuerdo.
 
-`main` no se modifica directamente: requiere pull request, al menos una aprobación, conversaciones resueltas y rama actualizada. Los reviewers nominales quedan `Por confirmar` hasta registrar los usuarios de GitHub y el responsable técnico de VILO.
+`main` no se modifica directamente: por procedimiento requiere pull request, al menos una aprobación, conversaciones resueltas y rama actualizada. La restricción automática está pendiente por la limitación del plan de GitHub en repositorios privados. Los reviewers nominales quedan `Por confirmar` hasta registrar los usuarios de GitHub y el responsable técnico de VILO.
 
 ## Pull request
 
