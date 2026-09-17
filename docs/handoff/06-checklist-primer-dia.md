@@ -11,6 +11,7 @@
 - [ ] Ejecuté las pruebas unitarias backend.
 - [ ] Ejecuté pruebas y build frontend.
 - [ ] Registré el resultado de pruebas de integración con una base limpia.
+- [ ] Dejé en mi tarea de Ola 0 evidencia de commit base, migraciones, servicios, login y pruebas.
 - [ ] Leí arquitectura, ADRs y documentación del primer módulo asignado.
 - [ ] Abrí la ola, módulo e ID funcional en Notion/ClickUp.
 - [ ] Confirmé dependencias e insumos externos.
@@ -19,3 +20,5 @@
 
 El onboarding se considera completo cuando ambos devs pueden ejecutar este checklist con evidencia y sin asistencia sobre los pasos documentados.
 
+Completar el checklist no habilita por sí solo Ola 1A: Eliam debe validar la
+evidencia y completar `O0-07 · Gate de salida · habilitación de Ola 1A`.

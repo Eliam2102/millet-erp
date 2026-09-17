@@ -86,7 +86,7 @@ En Windows puede utilizarse `tools/setup-dev.ps1`; antes de confiar en su result
 
 ```bash
 cd ../frontend
-npm ci
+npm install --no-audit --no-fund
 npm run build
 ```
 
@@ -120,6 +120,11 @@ cd ../frontend
 npm test
 npm run build
 ```
+
+La instalación usa `npm install` porque el lockfile contiene variantes de
+plataforma y el CI actual resuelve los binarios del sistema operativo en cada
+ejecución. Si esto cambia, debe actualizarse de forma coordinada aquí, en el
+README y en `.github/workflows/validate-app.yml`.
 
 Las pruebas de integración requieren una base local limpia, con los 12 contextos ya migrados, y la variable `ConnectionStrings__Postgres` apuntando al puerto correcto. Para el gate integral compartido, ejecutar los proyectos en serie (`dotnet test Millet.sln -m:1`): varios proyectos de integración paralelos sobre la misma base pueden contaminar sus datos. Un error `28P01 password authentication failed` normalmente indica que se conectó a otra instancia PostgreSQL, no que una prueba funcional haya fallado.
 
