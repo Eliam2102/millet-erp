@@ -28,7 +28,7 @@ Cada fila debe pasar por levantamiento local, ejecución del caso, evidencia, re
 - Comercio Exterior y Activos Fijos no tienen módulo dedicado localizado en el repositorio actual.
 - Contabilidad sólo tiene puntos parciales en Centros de Costo/Compartido; no se localizó un módulo contable dedicado.
 - Las rutas candidatas deben sustituirse por archivo/endpoint/pantalla exactos durante la toma de cada tarea.
-- La asignación singular sigue expresada como Dev 1/Dev 2; debe mapearse nominalmente antes de publicar en ClickUp/Notion.
+- La asignación singular se concilia con la base vigente de Notion: Dev 1 = Uzziel y Dev 2 = Geovany.
 
 ## Criterio de cierre por fila
 

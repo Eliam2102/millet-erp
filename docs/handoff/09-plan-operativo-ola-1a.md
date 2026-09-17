@@ -19,8 +19,8 @@ La preparación de repositorio, ambiente local y seguridad se ejecuta desde el 1
 
 Para eliminar `Dev 1/Dev 2` del plan operativo se usa este mapeo:
 
-- **Geovany = Dev 1:** catálogos, proveedores, centros/dimensiones, configuración fiscal y frente contable.
-- **Uzziel = Dev 2:** sincronizaciones A+W, contratos de integración y datos maestros externos.
+- **Uzziel = Dev 1:** catálogos, proveedores, centros/dimensiones, configuración fiscal y frente contable.
+- **Geovany = Dev 2:** identidad/permisos, sincronizaciones A+W, contratos de integración y datos maestros externos.
 - **Ambos:** identidad/permisos, segregación por empresa, funcionalidades existentes, catálogo contable, periodos, revisión cruzada y regresión.
 
 Esta distribución equilibra especialización y revisión cruzada; no cambia el alcance ni convierte una dependencia del cliente en desarrollo interno.
@@ -31,11 +31,11 @@ Esta distribución equilibra especialización y revisión cruzada; no cambia el 
 |---:|---|---|---|---|---|
 | 1 | Transversal | Ambos | Repo privado, arranque reproducible, migraciones, pruebas y reglas de PR operables | Usuarios GitHub | Eliam / responsable técnico VILO |
 | 2 | F1-ADM-01, 03, 10, 11 | Ambos | Levantar lo existente, ejecutar caso, documentar evidencia y regresión | Datos ficticios; matriz de permisos | Guillermo Pantoja / Jorge Toache según caso |
-| 3 | F1-ADM-02, 12 | Ambos | Roles, permisos y segregación por empresa verificables | Usuarios/roles vigentes; Entra para cierre real | Guillermo Pantoja + Jorge Toache |
-| 4 | F1-ADM-04, 05, 08 | Geovany | Catálogos compartidos, proveedor y jerarquías sin duplicados | Catálogos actuales de Millet | Guillermo Pantoja; Fernando Alejos; Laura Cerón según dato |
-| 5 | F1-ADM-06, 07 | Uzziel | Contratos y sincronización de clientes/productos A+W conforme a evidencia actual | Contratos, tablas, estados y muestras A+W | Jorge Toache + área consumidora |
-| 6 | F1-ADM-09 | Geovany | Configuración por empresa sin exponer certificados | Parámetros, series, PAC y certificados por canal seguro | Sorandi Martínez + Jorge Toache |
-| 7 | F1-CON-01, 02, 03 | Geovany y ambos | Catálogo de cuentas, dimensiones y periodos con autorización | Catálogo contable y reglas vigentes | Laura Cerón |
+| 3 | F1-ADM-02, 12 | Geovany | Roles, permisos y segregación por empresa verificables | Usuarios/roles vigentes; Entra para cierre real | Guillermo Pantoja + Jorge Toache |
+| 4 | F1-ADM-04, 05, 08 | Uzziel | Catálogos compartidos, proveedor y jerarquías sin duplicados | Catálogos actuales de Millet | Guillermo Pantoja; Fernando Alejos; Laura Cerón según dato |
+| 5 | F1-ADM-06, 07 | Geovany | Contratos y sincronización de clientes/productos A+W conforme a evidencia actual | Contratos, tablas, estados y muestras A+W | Jorge Toache + área consumidora |
+| 6 | F1-ADM-09 | Uzziel | Configuración por empresa sin exponer certificados | Parámetros, series, PAC y certificados por canal seguro | Sorandi Martínez + Jorge Toache |
+| 7 | F1-CON-01, 02, 03 | Uzziel | Catálogo de cuentas, dimensiones y periodos con autorización | Catálogo contable y reglas vigentes | Laura Cerón |
 | 8 | QA-1A | Revisión cruzada | Casos integrales, regresión, defectos y evidencia cerrados | Ambiente y datos de prueba | Responsables anteriores |
 
 ## Calendario por puertas
@@ -79,4 +79,3 @@ Cada ID debe vincular: commit/PR, archivos modificados, migración o configuraci
 - Inventario técnico A+W y documentación de portales satélite.
 - Catálogos, usuarios/roles, catálogo contable, dimensiones y parámetros fiscales vigentes.
 - Casos y usuarios de UAT.
-

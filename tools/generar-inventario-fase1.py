@@ -94,7 +94,8 @@ def main():
             evidence_state = "Construcción pendiente; rutas son puntos de integración, no evidencia de funcionalidad terminada"
 
         proposed = task.get("Responsable principal propuesto") or "Por confirmar"
-        nominal = "Geovany y Uzziel" if proposed == "Dev 1 y Dev 2" else "Por confirmar: mapear Dev 1/Dev 2 a Geovany/Uzziel"
+        nominal_map = {"Dev 1": "Uzziel", "Dev 2": "Geovany", "Dev 1 y Dev 2": "Geovany y Uzziel"}
+        nominal = nominal_map.get(proposed, "Por confirmar")
         output_rows.append({
             "ID": row["ID"],
             "Ola": task.get("Ola v3") or "Por confirmar",
@@ -120,7 +121,7 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = OUT_DIR / "inventario-funcional-fase1.csv"
     with csv_path.open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=headers)
+        writer = csv.DictWriter(f, fieldnames=headers, lineterminator="\n")
         writer.writeheader()
         writer.writerows(output_rows)
 
@@ -150,7 +151,7 @@ def main():
         f.write("- Comercio Exterior y Activos Fijos no tienen módulo dedicado localizado en el repositorio actual.\n")
         f.write("- Contabilidad sólo tiene puntos parciales en Centros de Costo/Compartido; no se localizó un módulo contable dedicado.\n")
         f.write("- Las rutas candidatas deben sustituirse por archivo/endpoint/pantalla exactos durante la toma de cada tarea.\n")
-        f.write("- La asignación singular sigue expresada como Dev 1/Dev 2; debe mapearse nominalmente antes de publicar en ClickUp/Notion.\n\n")
+        f.write("- La asignación singular se concilia con la base vigente de Notion: Dev 1 = Uzziel y Dev 2 = Geovany.\n\n")
         f.write("## Criterio de cierre por fila\n\n")
         f.write("No puede pasar a terminado sin: PR revisado, pruebas aplicables, migración/configuración documentada, recorrido reproducible, evidencia, regresión y aceptación funcional cuando corresponda.\n")
 
