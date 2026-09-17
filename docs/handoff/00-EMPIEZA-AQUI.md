@@ -17,6 +17,7 @@ Geovany y Uzziel deben poder clonar el repositorio, levantar el stack local, eje
 7. [07-publicacion-y-seguridad.md](07-publicacion-y-seguridad.md)
 8. [08-inventario-funcional-fase1.md](08-inventario-funcional-fase1.md)
 9. [09-plan-operativo-ola-1a.md](09-plan-operativo-ola-1a.md)
+10. [10-auditoria-35-existentes.md](10-auditoria-35-existentes.md)
 
 Después deben revisar en Notion la ficha de la ola, módulo y funcionalidad asignada. El código indica lo que existe; Notion indica qué debe construirse y aceptarse en Fase 1.
 

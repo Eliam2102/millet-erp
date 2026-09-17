@@ -40,6 +40,23 @@ MODULE_PATHS = {
     "Activos fijos": ([], [], ["backend/tests/Api.IntegrationTests"]),
 }
 
+EXISTING_VERIFIABLE_LOCAL = {
+    "F1-ADM-01", "F1-ADM-03", "F1-ADM-10",
+    "F1-COM-01", "F1-COM-03", "F1-COM-04", "F1-COM-05",
+    "F1-ALM-01", "F1-ALM-02", "F1-ALM-03", "F1-ALM-06", "F1-ALM-08", "F1-ALM-09", "F1-ALM-10",
+    "F1-CXP-03", "F1-CXP-04", "F1-CXP-07",
+    "F1-FAC-04", "F1-FAC-05", "F1-CXC-01",
+    "F1-TES-01", "F1-TES-02", "F1-TES-03",
+}
+
+EXISTING_PARTIAL_OR_CONDITIONED = {
+    "F1-ADM-11", "F1-COM-10", "F1-MP-04",
+    "F1-FAC-02", "F1-FAC-06", "F1-FAC-07",
+    "F1-CXC-02", "F1-CXC-03", "F1-CXC-05", "F1-TES-08",
+}
+
+EXISTING_NOT_LOCATED = {"F1-COM-02", "F1-CXP-06"}
+
 
 def value(v):
     if isinstance(v, (datetime, date)):
@@ -75,7 +92,8 @@ def main():
         "ID", "Ola", "Módulo", "Funcionalidad", "Estado matriz", "Qué falta según matriz",
         "Horas base", "Responsable propuesto en plan", "Responsable nominal", "Inicio objetivo", "Fin objetivo",
         "Dependencias", "Criterio de aceptación", "Backend localizado", "Frontend localizado", "Pruebas localizadas",
-        "Estado de evidencia técnica", "Evidencia requerida para cierre", "Resultado QA/UAT",
+        "Estado de evidencia técnica", "Estado técnico auditado", "Referencia auditoría",
+        "Evidencia requerida para cierre", "Resultado QA/UAT",
     ]
     output_rows = []
     for row in matrix:
@@ -96,6 +114,19 @@ def main():
         proposed = task.get("Responsable principal propuesto") or "Por confirmar"
         nominal_map = {"Dev 1": "Uzziel", "Dev 2": "Geovany", "Dev 1 y Dev 2": "Geovany y Uzziel"}
         nominal = nominal_map.get(proposed, "Por confirmar")
+        functional_id = row["ID"]
+        if functional_id in EXISTING_VERIFIABLE_LOCAL:
+            audited_status = "Verificable local; requiere caso con evidencia y UAT"
+            audit_reference = "docs/handoff/10-auditoria-35-existentes.md"
+        elif functional_id in EXISTING_PARTIAL_OR_CONDITIONED:
+            audited_status = "Parcial, reutilizado o condicionado; corregir el estado de matriz"
+            audit_reference = "docs/handoff/10-auditoria-35-existentes.md"
+        elif functional_id in EXISTING_NOT_LOCATED:
+            audited_status = "No localizado; requiere decisión interna y reestimación"
+            audit_reference = "docs/handoff/10-auditoria-35-existentes.md"
+        else:
+            audited_status = "No aplica a auditoría de las 35 existentes"
+            audit_reference = ""
         output_rows.append({
             "ID": row["ID"],
             "Ola": task.get("Ola v3") or "Por confirmar",
@@ -114,6 +145,8 @@ def main():
             "Frontend localizado": "; ".join(frontend_found) or "Sin feature dedicado localizado",
             "Pruebas localizadas": "; ".join(tests_found) or "Sin proyecto de pruebas dedicado localizado",
             "Estado de evidencia técnica": evidence_state,
+            "Estado técnico auditado": audited_status,
+            "Referencia auditoría": audit_reference,
             "Evidencia requerida para cierre": "Caso reproducible; dato usado; captura o log; pruebas automáticas aplicables; resultado de regresión; aprobación UAT del área",
             "Resultado QA/UAT": "Pendiente",
         })
