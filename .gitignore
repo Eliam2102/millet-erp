@@ -12,6 +12,17 @@ infra/**/*.json
 .env
 .env.local
 .env.*.local
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+*.bak
+*.dump
+*.sql.gz
+appsettings.Local.json
+appsettings.*.Local.json
 
 # =====================================
 # Azure CLI

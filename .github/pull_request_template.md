@@ -1,36 +1,43 @@
-## Por qué
+## ID, resultado y por qué
 
-<!-- 1-3 frases. El qué se ve en el diff; aquí va el porqué del cambio. -->
+- ID funcional/técnico:
+- Resultado esperado:
+- Motivo del cambio:
 
 ## Cambios principales
 
-- 
+- Qué cambió:
+- Qué no cambió:
+- Dependencias o insumos utilizados:
 
 ## ADRs tocados
 
 <!-- Lista ADRs nuevos, reemplazados o cuya implementación avanza con este PR.
      Si no hay, escribir "ninguno". -->
 
-- 
+-
 
 ## Checklist
 
 - [ ] Branch con prefijo `feature/`, `fix/`, `chore/` o `docs/`.
 - [ ] Commits en español formato convencional (`tipo(scope): descripción`).
-- [ ] `validate all (CI mirror)` (VS Code) o equivalente local pasa
-      (`dotnet build`, `dotnet test`, `npm run build`, `npm run lint`).
-- [ ] Si toca `infra/`: `az deployment sub what-if` revisado y output
-      pegado en este PR o linkeado.
-- [ ] Si toca contratos del API: tipos del frontend regenerados (cuando
-      exista codegen, ver ADR-0017).
-- [ ] Si toca un ADR existente: marcado como `Reemplazado por ADR-XXXX` y
-      ADR nuevo agregado en `docs/decisiones/`.
-- [ ] Sin secretos en commits ni en archivos de configuración.
+- [ ] Compilación, lint y pruebas automatizadas aplicables aprobadas.
+- [ ] Si toca `infra/`: `az deployment sub what-if` revisado y vinculado.
+- [ ] Si toca contratos del API: tipos del frontend regenerados cuando exista codegen.
+- [ ] Si toca un ADR existente: estado y reemplazo documentados.
+- [ ] Migraciones/configuración documentadas.
+- [ ] Evidencia visual o técnica adjunta.
+- [ ] Sin secretos, certificados, dumps ni datos reales.
 
-## Notas de despliegue
+## Notas de despliegue y evidencia
 
-<!-- Migraciones nuevas, app settings nuevos, secretos nuevos en Key Vault,
-     cambios manuales en Entra (app registrations, redirect URIs).
-     Si no aplica, escribir "ninguna". -->
+- Migraciones/app settings/secretos nuevos:
+- Caso y dato de prueba:
+- Evidencia:
+- Resultado de regresión:
 
-- 
+## Riesgo y reversión
+
+- Riesgo:
+- Reversión:
+- Pendientes o bloqueos:

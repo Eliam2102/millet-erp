@@ -1,9 +1,10 @@
 # ============================================================================
 # Deploy Application to Dev
 #
-# Despliegue automático de la aplicación al ambiente `dev` (App Service
-# `app-millet-dev-mxc-01`) en cada push a `main` que toca código de
-# aplicación. También disparable manualmente vía workflow_dispatch.
+# Despliegue manual de la aplicación al ambiente `dev` (App Service
+# `app-millet-dev-mxc-01`). El disparo automático desde `main` permanece
+# deshabilitado hasta que VILO confirme el ambiente, las credenciales OIDC y
+# la autorización de despliegue con Millet.
 #
 # Pipeline:
 #   1. build-and-publish-backend : dotnet publish del API
@@ -37,13 +38,6 @@
 name: Deploy Application to Dev
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/deploy-app-dev.yml'
   workflow_dispatch:
 
 permissions:

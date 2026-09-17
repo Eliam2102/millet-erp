@@ -28,7 +28,7 @@ services:
       POSTGRES_PASSWORD: pgadmin
       POSTGRES_DB: millet_dev
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - millet-dev-pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -42,4 +42,4 @@ services:
 
 volumes:
   millet-dev-pg-data:
-    name: millet-dev-pg-data
+    name: ${POSTGRES_VOLUME_NAME:-millet-dev-pg-data}

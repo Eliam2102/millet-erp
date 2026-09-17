@@ -1,12 +1,9 @@
 name: Deploy Infrastructure to Dev
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'infra/**'
-      - '.github/workflows/deploy-infra-dev.yml'
+  # Sólo manual hasta confirmar suscripción, ambiente, OIDC y autorización de
+  # despliegue con Millet. Publicar este repositorio no debe crear ni cambiar
+  # infraestructura por sí solo.
   workflow_dispatch:
 
 permissions:

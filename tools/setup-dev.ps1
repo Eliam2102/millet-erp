@@ -17,7 +17,9 @@
 [CmdletBinding()]
 param(
     [switch]$SkipMigrations,
-    [switch]$SkipNpmInstall
+    [switch]$SkipNpmInstall,
+    [ValidateRange(1, 65535)]
+    [int]$PostgresPort = 5432
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,17 +98,21 @@ if ($nodeVersion -notmatch '^v22\.') {
 }
 
 # === 4. Postgres reachable ===
-Write-Step "Verificando Postgres en localhost:5432"
-$pgTest = Test-NetConnection -ComputerName localhost -Port 5432 -InformationLevel Quiet -WarningAction SilentlyContinue
+Write-Step "Verificando Postgres en localhost:$PostgresPort"
+$pgTest = Test-NetConnection -ComputerName localhost -Port $PostgresPort -InformationLevel Quiet -WarningAction SilentlyContinue
 if (-not $pgTest) {
     Write-Host ""
-    Write-Host "    Postgres no responde en localhost:5432." -ForegroundColor Red
+    Write-Host "    Postgres no responde en localhost:$PostgresPort." -ForegroundColor Red
     Write-Host "    Opciones:" -ForegroundColor Red
-    Write-Host "      - Docker:  docker compose -f docker-compose.dev.yml up -d" -ForegroundColor Red
+    Write-Host "      - Docker:  `$env:POSTGRES_PORT='$PostgresPort'; docker compose -f docker-compose.dev.yml up -d" -ForegroundColor Red
     Write-Host "      - Nativo:  Inicia el servicio postgresql-x64-17 (Get-Service postgresql*)" -ForegroundColor Red
     Fail "Levanta Postgres y vuelve a correr el script."
 }
-Write-Ok "Postgres responde en :5432"
+Write-Ok "Postgres responde en :$PostgresPort"
+
+# Sobrescribe únicamente la conexión del proceso local. Evita que build,
+# migraciones y pruebas se conecten por accidente a otra instancia en 5432.
+$env:ConnectionStrings__Postgres = "Host=localhost;Port=$PostgresPort;Database=millet_dev;Username=pgadmin;Password=pgadmin;Include Error Detail=true"
 
 # === 5. dotnet tool restore ===
 Write-Step "Restaurando herramientas locales (dotnet-ef)"
@@ -134,11 +140,20 @@ try {
 if ($SkipMigrations) {
     Write-Step "Saltando migraciones (--SkipMigrations)"
 } else {
-    Write-Step "Aplicando migraciones EF (3 contextos)"
+    Write-Step "Aplicando migraciones EF (12 contextos)"
     $contexts = @(
-        @{ Name = 'CompartidoDbContext'; Project = 'src/SharedKernel/Millet.SharedKernel.csproj' },
+        @{ Name = 'CompartidoDbContext'; Project = 'src/Compartido/Millet.Compartido.csproj' },
         @{ Name = 'CoreDbContext';       Project = 'src/SharedKernel/Millet.SharedKernel.csproj' },
-        @{ Name = 'IdentidadDbContext';  Project = 'src/Identidad/Millet.Identidad.csproj' }
+        @{ Name = 'IdentidadDbContext';  Project = 'src/Identidad/Millet.Identidad.csproj' },
+        @{ Name = 'ComprasDbContext'; Project = 'src/Compras/Millet.Compras.csproj' },
+        @{ Name = 'IntegracionesAwDbContext'; Project = 'src/Integraciones.Aw/Millet.Integraciones.Aw.csproj' },
+        @{ Name = 'IntegracionesFiscalDbContext'; Project = 'src/Integraciones.Fiscal/Millet.Integraciones.Fiscal.csproj' },
+        @{ Name = 'AlmacenDbContext'; Project = 'src/Almacen/Millet.Almacen.csproj' },
+        @{ Name = 'CuentasPorPagarDbContext'; Project = 'src/CuentasPorPagar/Millet.CuentasPorPagar.csproj' },
+        @{ Name = 'FacturacionDbContext'; Project = 'src/Facturacion/Millet.Facturacion.csproj' },
+        @{ Name = 'CuentasPorCobrarDbContext'; Project = 'src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj' },
+        @{ Name = 'TesoreriaDbContext'; Project = 'src/Tesoreria/Millet.Tesoreria.csproj' },
+        @{ Name = 'CentrosCostoDbContext'; Project = 'src/CentrosCosto/Millet.CentrosCosto.csproj' }
     )
     Push-Location $Backend
     try {
@@ -150,7 +165,7 @@ if ($SkipMigrations) {
                 --no-build | Out-Host
             if ($LASTEXITCODE -ne 0) { Fail "Migración $($ctx.Name) falló (exit $LASTEXITCODE)" }
         }
-        Write-Ok "3 migraciones aplicadas"
+        Write-Ok "12 contextos de migración aplicados"
     } finally {
         Pop-Location
     }
