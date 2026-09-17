@@ -24,6 +24,7 @@ Geovany y Uzziel deben poder clonar el repositorio, levantar el stack local, eje
 14. [14-manifiesto-notion-handoff.md](14-manifiesto-notion-handoff.md)
 15. [15-auditoria-104-parciales-no-existentes.md](15-auditoria-104-parciales-no-existentes.md)
 16. [16-plan-ejecucion-y-cierre.md](16-plan-ejecucion-y-cierre.md)
+17. [17-plan-validacion-35-existentes.md](17-plan-validacion-35-existentes.md)
 
 Después deben revisar en Notion la ficha de la ola, módulo y funcionalidad asignada. El código indica lo que existe; Notion indica qué debe construirse y aceptarse en Fase 1.
 

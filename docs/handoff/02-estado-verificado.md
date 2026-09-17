@@ -1,15 +1,16 @@
 # Estado técnico verificado
 
-**Corte:** 16 de septiembre de 2026  
-**Commit original auditado:** `f0f50eb549caa304c6161c0896ed70c6a7ad8a69`  
-**Rama:** `main`  
-**Remoto:** `https://github.com/Eliam2102/millet-erp` (privado)
+- **Corte:** 16 de septiembre de 2026
+- **Commit original auditado:** `f0f50eb549caa304c6161c0896ed70c6a7ad8a69`
+- **Última revalidación:** `e6f506210bb1a345d7bde0d575d63df11151ee84`
+- **Rama:** `main`
+- **Remoto:** `https://github.com/Eliam2102/millet-erp` (privado)
 
 ## Evidencia ejecutada
 
-- .NET SDK local disponible: `10.0.401`; el proyecto requiere oficialmente .NET 9. Para esta auditoría se usó `DOTNET_ROLL_FORWARD=Major` sólo como compatibilidad local, no como requisito recomendado de onboarding.
+- .NET SDK global disponible: `10.0.401`; el proyecto requiere oficialmente .NET 9. La revalidación se ejecutó con SDK `9.0.318` aislado en una carpeta temporal, sin modificar la instalación global. El onboarding debe instalar .NET 9 de forma normal.
 - Backend: compilación completa aprobada, **0 advertencias y 0 errores**.
-- Backend: **2,768 pruebas aprobadas y 0 fallidas**: 2,279 unitarias y 489 de integración (A+W 7, Compras 120 y API 362) contra una base local aislada.
+- Backend: **2,768 pruebas aprobadas y 0 fallidas**: 2,279 unitarias y 489 de integración (A+W 7, Compras 120 y API 362). La última revalidación utilizó una base migrada limpia y una copia independiente por proyecto de integración.
 - Frontend: **278 archivos y 1,567 pruebas aprobadas**.
 - Frontend: compilación de producción aprobada; conserva advertencias por chunks mayores a 500 kB.
 - Docker Compose: configuración válida.
@@ -40,4 +41,5 @@ Demuestra que el código unitario verificado y el frontend pueden compilar/proba
 6. `npm audit` reporta 6 hallazgos: 5 moderados y 1 alto. El alto corresponde a `nanoid` transitivo; `vitest` afecta herramientas de prueba y `exceljs/uuid` requiere evaluar compatibilidad antes de cambiar versión. No se aplicó una corrección automática potencialmente disruptiva.
 7. Los workflows de despliegue quedaron en disparo manual para que publicar el repositorio no modifique Azure sin autorización y sin validar OIDC/ambientes.
 8. GitHub rechazó la protección automática de `main` con HTTP 403 porque el plan actual no habilita esa función en repositorios privados. No se hizo público el código. Hasta habilitar el plan o moverlo a una organización con la función disponible, la revisión por PR es un control de proceso, no una restricción técnica.
-9. Un primer pase de integración sobre una base reutilizada falló por eventos residuales; una base nueva sin migraciones también falló por tablas ausentes. El procedimiento correcto y comprobado es base exclusiva + 12 migraciones + ejecución serial. Esto es una condición de aislamiento del gate y debe automatizarse en CI.
+9. Una ejecución sin `ConnectionStrings__Postgres` apuntó por error a otro PostgreSQL que ocupaba `5432` y devolvió `28P01`. Una base clonada con residuos produjo dos falsos negativos por outbox/catálogos. El procedimiento comprobado es: puerto explícito + base limpia + 12 migraciones + una base independiente por proyecto de integración, o ejecución serial con reinicio comprobado. Esto debe automatizarse en CI.
+10. El gate completo acredita la salud automatizada del repositorio, no la ejecución individual de las 35 funciones heredadas. El recorrido y la evidencia exigidos están en `17-plan-validacion-35-existentes.md`.

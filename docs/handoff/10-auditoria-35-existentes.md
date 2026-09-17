@@ -70,4 +70,4 @@ Por lo tanto, las 35 deben conservar resultado operativo `Pendiente`. La matriz 
 
 ## Próximo paso operativo
 
-Convertir estos hallazgos en el estado de cada ficha y tarea: `Lista para comenzar`, `Puede comenzar con datos ficticios`, `Bloqueada por Millet` o `Requiere decisión interna`. Ninguna debe pasar directamente a `Aceptada`.
+Ejecutar `17-plan-validacion-35-existentes.md`, que asigna responsable, recorrido y bloqueo de cierre para cada ID. Los hallazgos deben reflejarse en cada ficha y tarea: `Lista para comenzar`, `Puede comenzar con datos ficticios`, `Bloqueada por Millet` o `Requiere decisión interna`. Ninguna debe pasar directamente a `Aceptada`.

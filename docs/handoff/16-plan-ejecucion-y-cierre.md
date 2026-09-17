@@ -16,7 +16,7 @@ El Word enviado a Millet permanece como solicitud externa de insumos. No forma p
 | Protección técnica de `main` | Limitación confirmada | GitHub devolvió HTTP 403 para el repositorio privado bajo el plan actual | Plan compatible u organización; hasta entonces PR/revisión como control de proceso |
 | Arranque limpio central | Comprobado | clon limpio, 12 migraciones, API/UI/login y gates descritos en `02-estado-verificado.md` | Repetir por cada desarrollador con su cuenta/equipo |
 | Acceso Geovany/Uzziel | Pendiente | No hay usuarios exactos de GitHub confirmados | Recibir usuarios, invitar y comprobar aceptación/MFA |
-| Inventario Fase 1 | Comprobado a nivel de trazabilidad | 139/139: `10-auditoria-35-existentes.md`, `15-auditoria-104-parciales-no-existentes.md` y CSV | Ejecutar recorrido, QA/regresión y UAT según corresponda |
+| Inventario Fase 1 | Comprobado a nivel de trazabilidad | 139/139: `10-auditoria-35-existentes.md`, `15-auditoria-104-parciales-no-existentes.md` y CSV; gate renovado en `e6f5062` | Ejecutar `17-plan-validacion-35-existentes.md`, QA/regresión de las demás y UAT según corresponda |
 | Ola 1A | Planeación preparada | 15 funciones, responsables, fechas, criterios y 102 h en `09`, `11` y `13` | Publicar tareas, iniciar, producir evidencia y cerrar dependencias |
 | Notion | Cambio preparado, no publicado | `14-manifiesto-notion-handoff.md` | Conector MCP disponible, autorización y verificación posterior |
 | ClickUp | Cambio preparado, no publicado | `13-manifiesto-clickup-ola1a.md` | Autorización, creación/actualización y relectura |
