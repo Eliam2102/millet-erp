@@ -177,6 +177,25 @@ public sealed class LoginOrchestrator
         {
             usuario = await AutoProvisionAsync(entraOid, entraEmail, entraName, cancellationToken);
         }
+        else
+        {
+            if (!usuario.Activo)
+            {
+                throw new ForbiddenException(
+                    "USUARIO_INACTIVO",
+                    "El usuario se encuentra inactivo en el sistema. Contacta al administrador.");
+            }
+
+            var nuevoEmail = !string.IsNullOrWhiteSpace(entraEmail) ? entraEmail : null;
+            var nuevoNombre = !string.IsNullOrWhiteSpace(entraName) ? entraName : null;
+
+            if ((nuevoEmail is not null && nuevoEmail != usuario.Email) ||
+                (nuevoNombre is not null && nuevoNombre != usuario.Nombre))
+            {
+                usuario.ActualizarPerfil(nuevoEmail, nuevoNombre, departamentoId: null, limpiarDepartamento: false);
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         var (selectedEmpresaId, empresas) = await SelectEmpresaAsync(
             usuario, requestedEmpresaId, cancellationToken);

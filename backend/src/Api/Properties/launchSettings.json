@@ -10,6 +10,21 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "http://localhost:5000"
       }
+    },
+    "Millet.Api.EntraSandbox": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5000",
+        "Auth__Mode": "EntraId",
+        "Auth__InitialAdminEntraOid": "6a851ba1-7d19-4132-8d2a-8e1fb152df78",
+        "Auth__EntraId__TenantId": "15035a4e-1273-4e15-9859-68fb3fc7b033",
+        "Auth__EntraId__ClientId": "5be93b1d-a0b7-447e-aa87-13e70deabd5d",
+        "Auth__EntraId__Audience": "api://5be93b1d-a0b7-447e-aa87-13e70deabd5d"
+      }
     }
   }
 }
