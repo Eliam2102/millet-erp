@@ -8,18 +8,21 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 import type { AuditLogEntryResponse } from '@/modules/administracion/api';
 
 /**
  * <c>&lt;AuditoriaDetalleDrawer/&gt;</c> — Sheet slide-from-right con
  * el detalle de una entrada del log de auditoría.
  *
- * <para>El campo <c>cambios</c> viene del backend como JSON serializado.
- * Si el shape es <c>{ before, after }</c> (caso típico en updates) lo
- * renderiza side-by-side; si es un objeto plano (creates) en una sola
- * columna; si el parse falla cae al string crudo. Se usa
- * <c>&lt;pre&gt;</c> puro con <c>JSON.stringify(_, null, 2)</c> — el
- * MVP evita meter <c>react-diff-viewer</c> u otra dependencia visual.</para>
+ * <para>El campo <c>cambios</c> viene del backend como JSON serializado
+ * por <c>AuditSaveChangesInterceptor</c>, en una de tres formas según la
+ * operación: <c>{"diff": {"campo": {"antes","despues"}}}</c> (actualizar)
+ * se renderiza como tabla "Campo/Antes/Después"; <c>{"snapshot": {...}}</c>
+ * (crear) y <c>{"snapshot_pre_borrado": {...}}</c> (borrar) como tabla
+ * "Campo/Valor". Los valores se formatean a texto legible (sin llaves ni
+ * comillas de JSON) porque el usuario final del ERP no es
+ * desarrollador.</para>
  */
 export interface AuditoriaDetalleDrawerProps {
   entry: AuditLogEntryResponse | null;
@@ -99,47 +102,25 @@ export function AuditoriaDetalleDrawer({
               <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 Cambios
               </h3>
-              {parsed.kind === 'beforeAfter' && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">
-                      Antes
-                    </p>
-                    <pre
-                      data-testid="auditoria-cambios-before"
-                      className="max-h-96 overflow-auto rounded border bg-muted/30 p-2 text-[11px]"
-                    >
-                      {JSON.stringify(parsed.before, null, 2)}
-                    </pre>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">
-                      Después
-                    </p>
-                    <pre
-                      data-testid="auditoria-cambios-after"
-                      className="max-h-96 overflow-auto rounded border bg-muted/30 p-2 text-[11px]"
-                    >
-                      {JSON.stringify(parsed.after, null, 2)}
-                    </pre>
-                  </div>
-                </div>
+              {parsed.kind === 'diff' && <CamposDiffTable diff={parsed.diff} />}
+              {parsed.kind === 'objeto' && (
+                <CamposValorTable value={parsed.value} titulo={parsed.titulo} />
               )}
-              {parsed.kind === 'object' && (
-                <pre
-                  data-testid="auditoria-cambios-objeto"
-                  className="max-h-96 overflow-auto rounded border bg-muted/30 p-2 text-[11px]"
+              {parsed.kind === 'empty' && (
+                <p
+                  data-testid="auditoria-cambios-vacio"
+                  className="text-sm text-muted-foreground"
                 >
-                  {JSON.stringify(parsed.value, null, 2)}
-                </pre>
+                  Sin cambios registrados.
+                </p>
               )}
               {parsed.kind === 'raw' && (
-                <pre
+                <p
                   data-testid="auditoria-cambios-raw"
-                  className="max-h-96 overflow-auto rounded border bg-muted/30 p-2 text-[11px]"
+                  className="text-sm text-muted-foreground"
                 >
-                  {parsed.value}
-                </pre>
+                  No fue posible interpretar el detalle de este cambio.
+                </p>
               )}
             </section>
           </div>
@@ -160,28 +141,43 @@ export function AuditoriaDetalleDrawer({
 }
 
 type CambiosParsed =
-  | { kind: 'beforeAfter'; before: unknown; after: unknown }
-  | { kind: 'object'; value: unknown }
-  | { kind: 'raw'; value: string };
+  | { kind: 'diff'; diff: Record<string, unknown> }
+  | { kind: 'objeto'; value: Record<string, unknown>; titulo: string }
+  | { kind: 'empty' }
+  | { kind: 'raw' };
 
+/**
+ * Reconoce las tres formas reales que emite
+ * <c>AuditSaveChangesInterceptor</c> — ver comentario de cabecera. Un
+ * objeto plano sin ninguna de esas envolturas cae al mismo render de
+ * tabla "Campo/Valor" como último recurso defensivo.
+ */
 function parsearCambios(json: string | undefined): CambiosParsed {
-  if (json == null || json.length === 0) {
-    return { kind: 'raw', value: '' };
+  if (json == null || json.trim().length === 0 || json.trim() === '{}') {
+    return { kind: 'empty' };
   }
   try {
     const obj = JSON.parse(json) as unknown;
-    if (
-      obj != null &&
-      typeof obj === 'object' &&
-      'before' in obj &&
-      'after' in obj
-    ) {
-      const o = obj as { before: unknown; after: unknown };
-      return { kind: 'beforeAfter', before: o.before, after: o.after };
+    if (obj == null || typeof obj !== 'object') {
+      return { kind: 'raw' };
     }
-    return { kind: 'object', value: obj };
+    const o = obj as Record<string, unknown>;
+    if (esObjetoPlano(o.diff)) {
+      return { kind: 'diff', diff: o.diff };
+    }
+    if (esObjetoPlano(o.snapshot)) {
+      return { kind: 'objeto', value: o.snapshot, titulo: 'Datos' };
+    }
+    if (esObjetoPlano(o.snapshot_pre_borrado)) {
+      return {
+        kind: 'objeto',
+        value: o.snapshot_pre_borrado,
+        titulo: 'Datos antes de eliminar',
+      };
+    }
+    return { kind: 'objeto', value: o, titulo: 'Datos' };
   } catch {
-    return { kind: 'raw', value: json };
+    return { kind: 'raw' };
   }
 }
 
@@ -189,4 +185,184 @@ function formatTimestamp(ts: string): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return ts;
   return d.toLocaleString();
+}
+
+interface CampoDiff {
+  campo: string;
+  label: string;
+  antes: string;
+  despues: string;
+  cambio: boolean;
+}
+
+function CamposDiffTable({ diff }: { diff: Record<string, unknown> }) {
+  const campos = useMemo(() => construirCamposDiff(diff), [diff]);
+
+  if (campos.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">Sin cambios registrados.</p>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-md border">
+      <table data-testid="auditoria-cambios-diff" className="w-full text-sm">
+        <thead className="bg-muted/50">
+          <tr>
+            <th className="px-3 py-2 text-left font-medium">Campo</th>
+            <th className="px-3 py-2 text-left font-medium">Antes</th>
+            <th className="px-3 py-2 text-left font-medium">Después</th>
+          </tr>
+        </thead>
+        <tbody>
+          {campos.map((c, i) => (
+            <tr
+              key={c.campo}
+              className={cn(
+                'border-t',
+                i % 2 === 1 && 'bg-muted/20',
+                c.cambio && 'bg-amber-50 dark:bg-amber-950/20',
+              )}
+            >
+              <td className="px-3 py-2 font-medium">{c.label}</td>
+              <td className="px-3 py-2 text-muted-foreground">{c.antes}</td>
+              <td className={cn('px-3 py-2', c.cambio && 'font-medium')}>
+                {c.despues}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CamposValorTable({
+  value,
+  titulo,
+}: {
+  value: Record<string, unknown>;
+  titulo: string;
+}) {
+  const campos = useMemo(() => construirCamposSimple(value), [value]);
+
+  if (campos.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">Sin cambios registrados.</p>
+    );
+  }
+
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-muted-foreground">
+        {titulo}
+      </p>
+      <div className="overflow-hidden rounded-md border">
+        <table data-testid="auditoria-cambios-objeto" className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium">Campo</th>
+              <th className="px-3 py-2 text-left font-medium">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {campos.map((c, i) => (
+              <tr key={c.campo} className={cn('border-t', i % 2 === 1 && 'bg-muted/20')}>
+                <td className="px-3 py-2 font-medium">{c.label}</td>
+                <td className="px-3 py-2 text-muted-foreground">{c.valor}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * El shape real de <c>diff</c> es <c>{ campo: { antes, despues } }</c>.
+ * Si algún valor no viene en esa forma (defensivo), se trata como
+ * "despues" sin "antes" en vez de fallar.
+ */
+function construirCamposDiff(diff: Record<string, unknown>): CampoDiff[] {
+  return Object.keys(diff)
+    .sort()
+    .map((campo) => {
+      const par = diff[campo];
+      const { antes, despues } =
+        esObjetoPlano(par) && ('antes' in par || 'despues' in par)
+          ? { antes: par.antes, despues: par.despues }
+          : { antes: undefined, despues: par };
+      return {
+        campo,
+        label: humanizarCampo(campo),
+        antes: formatearValorCampo(antes),
+        despues: formatearValorCampo(despues),
+        cambio: !valoresIguales(antes, despues),
+      };
+    });
+}
+
+function construirCamposSimple(
+  value: unknown,
+): { campo: string; label: string; valor: string }[] {
+  if (!esObjetoPlano(value)) return [];
+  return Object.keys(value)
+    .sort()
+    .map((campo) => ({
+      campo,
+      label: humanizarCampo(campo),
+      valor: formatearValorCampo(value[campo]),
+    }));
+}
+
+function esObjetoPlano(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function valoresIguales(a: unknown, b: unknown): boolean {
+  const na = a ?? null;
+  const nb = b ?? null;
+  if (na === nb) return true;
+  try {
+    return JSON.stringify(na) === JSON.stringify(nb);
+  } catch {
+    return false;
+  }
+}
+
+/** "sucursalId" → "Sucursal ID"; "razon_social" → "Razon Social". */
+function humanizarCampo(campo: string): string {
+  const espaciado = campo
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .trim();
+  const capitalizado = espaciado
+    .split(' ')
+    .filter((w) => w.length > 0)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ');
+  return capitalizado.replace(/\bId\b/g, 'ID');
+}
+
+/** Formatea un valor a texto legible — sin llaves ni comillas de JSON. */
+function formatearValorCampo(v: unknown): string {
+  if (v == null) return '—';
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if (typeof v === 'string') return v.length === 0 ? '—' : v;
+  if (typeof v === 'number') return String(v);
+  if (Array.isArray(v)) {
+    return v.length === 0
+      ? '—'
+      : v.map((x) => formatearValorCampo(x)).join(', ');
+  }
+  if (typeof v === 'object') {
+    const entries = Object.entries(v as Record<string, unknown>);
+    return entries.length === 0
+      ? '—'
+      : entries
+          .map(([k, val]) => `${humanizarCampo(k)}: ${formatearValorCampo(val)}`)
+          .join(' · ');
+  }
+  return String(v);
 }

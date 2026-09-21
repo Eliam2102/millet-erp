@@ -10,9 +10,10 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 /**
  * Smoke de la bandeja P2 de Auditoría (UF-Admin-PR7 §1). El componente
  * se monta con default rango de últimos 7 días y dispara la query
- * automáticamente; mockeamos el endpoint con una fila de update
- * (shape <c>{ before, after }</c>) para validar que el drawer renderiza
- * el side-by-side.
+ * automáticamente; mockeamos el endpoint con una fila de update usando
+ * el shape real que emite <c>AuditSaveChangesInterceptor</c> —
+ * <c>{ diff: { campo: { antes, despues } } }</c> — para validar que el
+ * drawer renderiza la tabla de cambios.
  */
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -42,8 +43,7 @@ const ENTRY_UPDATE = {
   entidadId: 'rq-1',
   operacion: 'Actualizar',
   cambios: JSON.stringify({
-    before: { estado: 'Borrador', total: 100 },
-    after: { estado: 'Autorizada', total: 100 },
+    diff: { estado: { antes: 'Borrador', despues: 'Autorizada' } },
   }),
   correlationId: 'cor-1',
 };
@@ -129,7 +129,7 @@ describe('<AuditoriaPage> — smoke', () => {
     expect(screen.getByText('Actualizar')).toBeInTheDocument();
   });
 
-  it('al hacer click en "Ver" abre el drawer con el JSON before/after parseado', async () => {
+  it('al hacer click en "Ver" abre el drawer con la tabla de cambios antes/después', async () => {
     mswServer.use(
       http.get('*/api/v1/admin/auditoria', () =>
         HttpResponse.json({ items: [ENTRY_UPDATE], total: 1 }),
@@ -150,20 +150,18 @@ describe('<AuditoriaPage> — smoke', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
 
-    // Drawer abierto: pre tags con before/after.
+    // Drawer abierto: tabla de campos antes/después (sin JSON crudo).
     await waitFor(() => {
-      expect(screen.getByTestId('auditoria-cambios-before')).toBeInTheDocument();
-      expect(screen.getByTestId('auditoria-cambios-after')).toBeInTheDocument();
+      expect(screen.getByTestId('auditoria-cambios-diff')).toBeInTheDocument();
     });
 
-    // Contenido visible — JSON formateado debe contener "Borrador" y
-    // "Autorizada".
-    expect(screen.getByTestId('auditoria-cambios-before').textContent).toMatch(
-      /Borrador/,
-    );
-    expect(screen.getByTestId('auditoria-cambios-after').textContent).toMatch(
-      /Autorizada/,
-    );
+    const tabla = screen.getByTestId('auditoria-cambios-diff');
+    expect(tabla.textContent).toMatch(/Borrador/);
+    expect(tabla.textContent).toMatch(/Autorizada/);
+    // Etiqueta de campo humanizada, no la clave cruda "estado".
+    expect(tabla.textContent).toMatch(/Estado/);
+    // No debe filtrarse sintaxis JSON al usuario.
+    expect(tabla.textContent).not.toMatch(/[{}"]/);
   });
 
   it('rango > 90 días desactiva el botón "Aplicar" y muestra mensaje', async () => {
