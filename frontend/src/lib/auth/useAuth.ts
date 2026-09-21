@@ -4,6 +4,7 @@ import { InteractionRequiredAuthError, type PublicClientApplication } from '@azu
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { authMode, apiScopes } from '@/lib/auth/config';
 import { apiFetchJson } from '@/lib/auth/api-client';
+import { queryClient } from '@/lib/query-client';
 import type { LoginResponse } from '@/lib/auth/types';
 
 /**
@@ -191,6 +192,13 @@ export function useAuth() {
    * Cambia la empresa activa. Llama POST /api/auth/cambiar-empresa que
    * valida acceso y re-emite el JWT. La respuesta incluye la lista
    * actualizada con la nueva EsLaActual.
+   *
+   * F1-ADM-01 Fase 3: limpia el cache de TanStack Query después de aplicar
+   * la nueva sesión — sin esto, un componente que no vuelve a montar sigue
+   * mostrando datos servidos con el `current_empresa_id` anterior hasta que
+   * su `staleTime` expira, mezclando visualmente información entre empresas.
+   * `clear()` (no solo `invalidateQueries`) también descarta queries en
+   * cache que ningún componente activo está pidiendo en este momento.
    */
   const changeEmpresa = useCallback(
     async (empresaId: string) => {
@@ -202,6 +210,7 @@ export function useAuth() {
         },
       );
       setSession(sessionResponse);
+      queryClient.clear();
       return sessionResponse;
     },
     [setSession],
@@ -211,9 +220,15 @@ export function useAuth() {
    * Cierra sesión: limpia state local y hace MSAL logoutRedirect si aplica.
    * El redirect flow es coherente con loginRedirect — toda la ventana
    * navega a Entra para invalidar la sesión y vuelve al SPA.
+   *
+   * También limpia el cache de TanStack Query: sin esto, un login
+   * subsiguiente (mismo tab, otro usuario/empresa en dev con
+   * DevUserSelector) podría mostrar por un instante datos cacheados de la
+   * sesión anterior antes de que las queries se vuelvan a disparar.
    */
   const logout = useCallback(async () => {
     clearSession();
+    queryClient.clear();
     if (authMode === 'EntraId' && msalInstance.getAllAccounts().length > 0) {
       await msalInstance.logoutRedirect({ postLogoutRedirectUri: '/' });
     }

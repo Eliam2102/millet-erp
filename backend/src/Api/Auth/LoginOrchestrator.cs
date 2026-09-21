@@ -117,7 +117,7 @@ public sealed class LoginOrchestrator
         var empresasAccesibles = await (
             from uer in _db.UsuarioEmpresaRoles
             join e in _db.Set<Empresa>() on uer.EmpresaId equals e.Id
-            where uer.UsuarioId == userId
+            where uer.UsuarioId == userId && e.Activa
             select new { e.Id, e.Rfc, e.RazonSocial })
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -286,7 +286,7 @@ public sealed class LoginOrchestrator
         var empresasAccesibles = await (
             from uer in _db.UsuarioEmpresaRoles
             join e in _db.Set<Empresa>() on uer.EmpresaId equals e.Id
-            where uer.UsuarioId == usuario.Id
+            where uer.UsuarioId == usuario.Id && e.Activa
             select new { e.Id, e.Rfc, e.RazonSocial })
             .Distinct()
             .ToListAsync(cancellationToken);
