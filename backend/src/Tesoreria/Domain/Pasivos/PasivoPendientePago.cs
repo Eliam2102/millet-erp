@@ -19,7 +19,7 @@ namespace Millet.Tesoreria.Domain.Pasivos;
 /// [T-G11], <c>PLATFORM-TODO(&lt;MetodoPagoEnPasivo&gt;)</c>.
 /// </para>
 /// </summary>
-public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa
+public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

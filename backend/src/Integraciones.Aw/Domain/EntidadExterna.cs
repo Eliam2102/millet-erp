@@ -26,7 +26,7 @@ namespace Millet.Integraciones.Aw.Domain;
 /// revisarse, alinear allá.
 /// </para>
 /// </summary>
-public sealed class EntidadExterna : BaseEntity, IPerteneceAEmpresa
+public sealed class EntidadExterna : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public TipoEntidad TipoEntidad { get; private set; }
     public string ReferenciaExterna { get; private set; } = string.Empty;

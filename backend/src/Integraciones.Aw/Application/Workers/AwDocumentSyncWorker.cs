@@ -138,6 +138,8 @@ public sealed class AwDocumentSyncWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(AwDocumentSyncWorker));
         using var _ = empresaContext.Bypass();
 
         var db = sp.GetRequiredService<IntegracionesAwDbContext>();

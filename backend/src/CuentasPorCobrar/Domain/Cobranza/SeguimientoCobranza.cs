@@ -32,7 +32,7 @@ public enum ResultadoCobranza : short
 /// Nunca se edita ni borra: cada contacto con el cliente deja su rastro
 /// tal cual ocurrió (el módulo se optimiza por auditabilidad, §1.3).
 /// </summary>
-public sealed class SeguimientoCobranza : BaseEntity, IPerteneceAEmpresa
+public sealed class SeguimientoCobranza : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

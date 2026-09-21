@@ -15,7 +15,7 @@ namespace Millet.CuentasPorPagar.Domain.Evidencias;
 /// los query filters del BaseDbContext aplican empresa + soft-delete.
 /// </para>
 /// </summary>
-public sealed class EvidenciaAutorizacion : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class EvidenciaAutorizacion : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

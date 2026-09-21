@@ -84,6 +84,8 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
         var clock = sp.GetRequiredService<IClock>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(NotaCreditoEnEsperaMatchWorker));
         using var bypass = empresaContext.Bypass();
 
         var opts = _options.CurrentValue;

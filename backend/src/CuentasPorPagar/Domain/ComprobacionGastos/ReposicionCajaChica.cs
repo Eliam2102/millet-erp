@@ -20,7 +20,7 @@ namespace Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 /// <c>OrigenTipo = ReposicionCajaChica</c>.
 /// </para>
 /// </summary>
-public sealed class ReposicionCajaChica : BaseEntity, IPerteneceAEmpresa
+public sealed class ReposicionCajaChica : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

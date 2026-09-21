@@ -23,7 +23,7 @@ namespace Millet.CuentasPorCobrar.Domain.Cartera;
 /// comprobante origen vía <see cref="MovimientoCartera"/>).
 /// </para>
 /// </summary>
-public sealed class FacturaCartera : BaseEntity, IPerteneceAEmpresa
+public sealed class FacturaCartera : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

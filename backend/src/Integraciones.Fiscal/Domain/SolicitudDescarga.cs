@@ -31,7 +31,7 @@ namespace Millet.Integraciones.Fiscal.Domain;
 ///   <item><c>satRequestStatusId in (4,5,6,-1)</c> (Error/Rechazada/Vencida/Abandonada) → <see cref="EstadoSolicitudDescarga.Error"/></item>
 /// </list>
 /// </summary>
-public sealed class SolicitudDescarga : BaseEntity, IPerteneceAEmpresa
+public sealed class SolicitudDescarga : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid DownloadRuleId { get; private set; }

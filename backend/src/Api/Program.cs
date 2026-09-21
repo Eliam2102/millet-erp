@@ -122,6 +122,7 @@ if (!string.IsNullOrWhiteSpace(appInsightsConn))
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<ICurrentEmpresaContext, CurrentEmpresaContext>();
+builder.Services.AddScoped<IAuditOriginContext, AuditOriginContext>();
 builder.Services.AddSingleton<IPermissionCache, InMemoryPermissionCache>();
 
 // === IIntegrationEventPublisher (F6-PR1, ADR-0009): Outbox real ===

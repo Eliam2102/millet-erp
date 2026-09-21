@@ -16,7 +16,7 @@ namespace Millet.CuentasPorPagar.Domain.NotaCargo;
 /// F6-PR3 cuando el ciclo de devolución con Almacén cierre.
 /// </para>
 /// </summary>
-public sealed class NotaCargo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class NotaCargo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

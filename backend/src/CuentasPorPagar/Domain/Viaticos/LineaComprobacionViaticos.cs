@@ -15,7 +15,7 @@ namespace Millet.CuentasPorPagar.Domain.Viaticos;
 /// líneas son "borradores" con el monto declarado por el empleado.
 /// </para>
 /// </summary>
-public sealed class LineaComprobacionViaticos : BaseEntity, IPerteneceAEmpresa
+public sealed class LineaComprobacionViaticos : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid SolicitudViaticosId { get; private set; }

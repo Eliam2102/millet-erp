@@ -9,7 +9,7 @@ namespace Millet.Almacen.Domain.DevolucionesProveedor;
 /// autorización de Dirección requiere al menos una evidencia (mismo
 /// patrón que <c>NotaCargo</c> en CxP).
 /// </summary>
-public sealed class EvidenciaDevolucionProveedor : BaseEntity
+public sealed class EvidenciaDevolucionProveedor : BaseEntity, IAuditable
 {
     public Guid DevolucionId { get; private set; }
     public string TipoEvidencia { get; private set; } = string.Empty;

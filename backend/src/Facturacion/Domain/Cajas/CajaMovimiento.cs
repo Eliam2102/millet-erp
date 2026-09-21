@@ -31,7 +31,7 @@ public enum TipoCajaMovimiento : short
 /// fondo de apertura y ajustes. <c>Importe</c> lleva signo: entradas
 /// positivas, salidas (retiro, reversa) negativas.
 /// </summary>
-public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa
+public sealed class CajaMovimiento : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid CajaSesionId { get; private set; }

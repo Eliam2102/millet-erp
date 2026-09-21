@@ -8,6 +8,7 @@ using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.Infrastructure.Workers;
 using Millet.Facturacion.UnitTests.TestDoubles;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Facturacion.UnitTests.Timbrado;
 
@@ -39,6 +40,7 @@ public sealed class TimbradoPendienteWorkerTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(empresaId));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         services.AddDbContext<FacturacionDbContext>(o => o.UseInMemoryDatabase(dbName));
         services.AddSingleton<IClock>(new FakeClock(ahora));
         services.AddOptions<TimbradoPendienteOptions>();

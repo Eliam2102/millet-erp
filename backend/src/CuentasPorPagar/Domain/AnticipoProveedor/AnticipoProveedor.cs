@@ -9,7 +9,7 @@ namespace Millet.CuentasPorPagar.Domain.AnticipoProveedor;
 /// proveedor que documenta el anticipo. Se amortiza contra facturas
 /// finales vía <c>AplicarAnticipoAFacturaCommand</c>.
 /// </summary>
-public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     /// <summary>
     /// Serie estándar del CFDI de anticipo del proveedor.

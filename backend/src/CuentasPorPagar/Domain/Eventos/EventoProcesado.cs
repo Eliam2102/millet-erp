@@ -14,8 +14,15 @@ namespace Millet.CuentasPorPagar.Domain.Eventos;
 /// — el segundo intento captura una <c>UniqueConstraintException</c>
 /// y se ignora.
 /// </para>
+///
+/// <para>
+/// Marcada <see cref="INotAudited"/>: es ruido de tabla operativa (ADR-0008,
+/// Capa 4, mismo caso que "eventos procesados" citado explícitamente como
+/// ejemplo de exclusión) — cada fila solo confirma que un mensaje ya se
+/// procesó, sin valor de negocio para auditoría.
+/// </para>
 /// </summary>
-public sealed class EventoProcesado : BaseEntity
+public sealed class EventoProcesado : BaseEntity, INotAudited
 {
     /// <summary>ID único del evento (correlation_id del integration event).</summary>
     public Guid EventoId { get; private set; }

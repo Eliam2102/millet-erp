@@ -24,7 +24,7 @@ namespace Millet.Compras.Domain.Oc;
 /// exige al menos un adjunto de este tipo (regla aplicada en F3-PR1).
 /// En el seed inicial, solo <c>ficha_tecnica</c> tiene este flag.
 /// </summary>
-public sealed class TipoDocumentoOc : BaseEntity
+public sealed class TipoDocumentoOc : BaseEntity, IAuditable
 {
     public string Clave { get; private set; } = string.Empty;
     public string Descripcion { get; private set; } = string.Empty;

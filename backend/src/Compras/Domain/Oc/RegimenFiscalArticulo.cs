@@ -27,7 +27,7 @@ namespace Millet.Compras.Domain.Oc;
 /// <c>AdjuntarDocumento</c>, etc.).
 /// </para>
 /// </summary>
-public sealed class RegimenFiscalArticulo : BaseEntity
+public sealed class RegimenFiscalArticulo : BaseEntity, IAuditable
 {
     /// <summary>Código del régimen fiscal del proveedor (ej. "GENERAL", "RESICO").</summary>
     public string RegimenProveedor { get; private set; } = string.Empty;

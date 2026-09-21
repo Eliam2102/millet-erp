@@ -8,7 +8,7 @@ namespace Millet.Almacen.Domain.DevolucionesProveedor;
 /// <c>almacen.lineas_devolucion_proveedor</c>. Costo unitario es
 /// snapshot del costo de la recepción original (A10 del 01-diseno).
 /// </summary>
-public sealed class LineaDevolucionProveedor : BaseEntity
+public sealed class LineaDevolucionProveedor : BaseEntity, IAuditable
 {
     public Guid DevolucionId { get; private set; }
     public int Posicion { get; private set; }

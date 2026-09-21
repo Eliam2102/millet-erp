@@ -9,7 +9,7 @@ namespace Millet.CuentasPorPagar.Domain.TarjetaCredito;
 /// automática evalúa cada línea contra los <see cref="MovimientoTarjetaCredito"/>
 /// pendientes y asigna un <see cref="ScoreMatch"/> + <see cref="EstadoMatch"/>.
 /// </summary>
-public sealed class LineaBancoTc : BaseEntity, IPerteneceAEmpresa
+public sealed class LineaBancoTc : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid EstadoCuentaTcId { get; private set; }

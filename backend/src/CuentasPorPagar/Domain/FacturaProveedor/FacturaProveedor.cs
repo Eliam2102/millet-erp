@@ -24,7 +24,7 @@ namespace Millet.CuentasPorPagar.Domain.FacturaProveedor;
 /// BaseDbContext aplica empresa + soft-delete automáticamente.
 /// </para>
 /// </summary>
-public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

@@ -19,7 +19,7 @@ namespace Millet.CuentasPorPagar.Domain.NotaCreditoProveedor;
 /// diario contra facturas nuevas del proveedor.
 /// </para>
 /// </summary>
-public sealed class NotaCreditoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class NotaCreditoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

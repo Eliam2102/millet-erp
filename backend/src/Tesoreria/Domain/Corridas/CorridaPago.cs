@@ -15,7 +15,7 @@ namespace Millet.Tesoreria.Domain.Corridas;
 /// los comandos llegan en PR-5 [gate T-G4].
 /// </para>
 /// </summary>
-public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa
+public sealed class CorridaPago : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

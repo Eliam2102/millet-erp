@@ -18,7 +18,7 @@ namespace Millet.Tesoreria.Domain.Movimientos;
 /// (registro, reversa RN-10) llega en PR-4.
 /// </para>
 /// </summary>
-public sealed class AplicacionPagoProveedor : BaseEntity
+public sealed class AplicacionPagoProveedor : BaseEntity, IAuditable
 {
     public Guid MovimientoId { get; private set; }
     public Guid FacturaProveedorId { get; private set; }

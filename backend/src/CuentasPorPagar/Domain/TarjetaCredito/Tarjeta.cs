@@ -15,7 +15,7 @@ namespace Millet.CuentasPorPagar.Domain.TarjetaCredito;
 /// <c>BancoEmisorTC</c> registrado en DatosMaestros.
 /// </para>
 /// </summary>
-public sealed class Tarjeta : BaseEntity, IPerteneceAEmpresa
+public sealed class Tarjeta : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

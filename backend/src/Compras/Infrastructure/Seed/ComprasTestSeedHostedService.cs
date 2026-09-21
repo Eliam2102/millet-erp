@@ -101,6 +101,8 @@ public sealed class ComprasTestSeedHostedService : IHostedService
         var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
         var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = scope.ServiceProvider.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(ComprasTestSeedHostedService));
         using var bypass = empresaContext.Bypass();
 
         await PostgresAdvisoryLock.ExecuteAsync(

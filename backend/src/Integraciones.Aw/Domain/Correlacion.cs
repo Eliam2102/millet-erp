@@ -14,7 +14,7 @@ namespace Millet.Integraciones.Aw.Domain;
 /// volver a A+W. Opcional.
 /// </para>
 /// </summary>
-public sealed class Correlacion : BaseEntity
+public sealed class Correlacion : BaseEntity, IAuditable
 {
     public Guid EntidadExternaId { get; private set; }
     public long AwDocId { get; private set; }

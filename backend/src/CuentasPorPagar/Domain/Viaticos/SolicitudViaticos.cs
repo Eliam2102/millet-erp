@@ -27,7 +27,7 @@ namespace Millet.CuentasPorPagar.Domain.Viaticos;
 /// BaseDbContext aplica empresa + soft-delete automáticamente.
 /// </para>
 /// </summary>
-public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa
+public sealed class SolicitudViaticos : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

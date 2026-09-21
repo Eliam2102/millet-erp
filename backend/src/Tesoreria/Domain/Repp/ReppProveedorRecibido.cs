@@ -16,7 +16,7 @@ namespace Millet.Tesoreria.Domain.Repp;
 /// del UUID post-MVP [T-G10, PLATFORM-TODO(&lt;ValidacionReppRecibido&gt;)].
 /// </para>
 /// </summary>
-public sealed class ReppProveedorRecibido : BaseEntity, IPerteneceAEmpresa
+public sealed class ReppProveedorRecibido : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

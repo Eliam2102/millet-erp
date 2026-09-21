@@ -185,7 +185,7 @@ public sealed class CajaSesion : BaseEntity, IPerteneceAEmpresa, IAuditable
 /// <c>facturacion.caja_sesion_corte</c>, UNIQUE (sesión, forma). Solo el
 /// efectivo (<c>01</c>) lleva declarado/diferencia; el resto es informativo.
 /// </summary>
-public sealed class CajaSesionCorte : BaseEntity
+public sealed class CajaSesionCorte : BaseEntity, IAuditable
 {
     public Guid CajaSesionId { get; private set; }
     public string FormaPago { get; private set; } = string.Empty;

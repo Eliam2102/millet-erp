@@ -12,6 +12,7 @@ using Millet.Integraciones.Aw.Domain;
 using Millet.Integraciones.Aw.Domain.Ports.Blob;
 using Millet.Integraciones.Aw.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Integraciones.Aw.UnitTests.Workers;
 
@@ -255,7 +256,7 @@ public sealed class AwDocumentSyncWorkerTests
         services.AddSingleton<IAgentDocumentoWebhook>(agentWebhook);
         services.AddSingleton<IClock>(clock);
         services.AddSingleton<ICurrentEmpresaContext>(empresaContext);
-
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         var sp = services.BuildServiceProvider();
         var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
 

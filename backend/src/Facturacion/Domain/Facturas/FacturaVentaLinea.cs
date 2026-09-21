@@ -14,7 +14,7 @@ namespace Millet.Facturacion.Domain.Facturas;
 /// + impuestos.
 /// </para>
 /// </summary>
-public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate
+public sealed class FacturaVentaLinea : BaseEntity, IBelongsToAggregate, IAuditable
 {
     public Guid FacturaVentaId { get; private set; }
     public int Posicion { get; private set; }

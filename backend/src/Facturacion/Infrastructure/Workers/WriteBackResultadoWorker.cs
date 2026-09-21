@@ -80,6 +80,8 @@ public sealed class WriteBackResultadoWorker : BackgroundService
         var clock = sp.GetRequiredService<IClock>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(WriteBackResultadoWorker));
         using var bypass = empresaContext.Bypass();
 
         var pendientes = await db.IngestaControles

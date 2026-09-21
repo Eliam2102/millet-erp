@@ -10,6 +10,7 @@ using Millet.Facturacion.Infrastructure.Workers;
 using Millet.Facturacion.UnitTests.TestDoubles;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Facturacion.UnitTests.Facturas;
 
@@ -49,6 +50,7 @@ public sealed class PedimentoWorkerTests
 
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(empresaId));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         services.AddDbContext<FacturacionDbContext>(o => o.UseInMemoryDatabase(dbName));
         services.AddSingleton<IPeriodoContablePort>(new FakePeriodoContablePort());
         services.AddSingleton<ICfdiTimbradoPort>(new FakeFiscalApiClient());

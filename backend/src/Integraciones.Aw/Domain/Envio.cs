@@ -14,7 +14,7 @@ namespace Millet.Integraciones.Aw.Domain;
 /// pueden llamar una vez desde estado <see cref="EstadoEnvio.Started"/>.
 /// </para>
 /// </summary>
-public sealed class Envio : BaseEntity
+public sealed class Envio : BaseEntity, IAuditable
 {
     public Guid EntidadExternaId { get; private set; }
     public short AttemptNumber { get; private set; }

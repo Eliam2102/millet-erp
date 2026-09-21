@@ -15,7 +15,7 @@ namespace Millet.CuentasPorPagar.Domain.FacturaProveedor;
 /// dependencia al enviar a revisión.
 /// </para>
 /// </summary>
-public sealed class MotivoRevision : BaseEntity
+public sealed class MotivoRevision : BaseEntity, IAuditable
 {
     public string Codigo { get; private set; } = default!;
     public string Nombre { get; private set; } = default!;

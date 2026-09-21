@@ -23,7 +23,7 @@ namespace Millet.CuentasPorPagar.Domain.Cfdi;
 /// solo guarda el path.
 /// </para>
 /// </summary>
-public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

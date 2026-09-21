@@ -8,7 +8,7 @@ namespace Millet.Facturacion.Domain.CartaPorte;
 /// autotransporte federal que el complemento exige (placa, configuración
 /// vehicular, permiso SCT, seguro). Catálogo del módulo Facturación.
 /// </summary>
-public sealed class Vehiculo : BaseEntity, IPerteneceAEmpresa
+public sealed class Vehiculo : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

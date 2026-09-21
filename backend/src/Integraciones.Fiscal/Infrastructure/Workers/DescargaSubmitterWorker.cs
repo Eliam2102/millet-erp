@@ -94,6 +94,8 @@ public sealed class DescargaSubmitterWorker : BackgroundService
         using (var snapshot = _scopeFactory.CreateScope())
         {
             var db = snapshot.ServiceProvider.GetRequiredService<IntegracionesFiscalDbContext>();
+            var originContext = snapshot.ServiceProvider.GetRequiredService<IAuditOriginContext>();
+            using var origin = originContext.SetOrigin(nameof(DescargaSubmitterWorker));
             var empresaContext = snapshot.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
             empresasActivas = await db.ConfiguracionesPac
@@ -131,6 +133,8 @@ public sealed class DescargaSubmitterWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<IntegracionesFiscalDbContext>();
         var sdk = scope.ServiceProvider.GetRequiredService<IFiscalApiSdkClient>();
         var clock = scope.ServiceProvider.GetRequiredService<IClock>();
+        var originContext = scope.ServiceProvider.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(DescargaSubmitterWorker));
         var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
         using var bypass = empresaContext.Bypass();
 

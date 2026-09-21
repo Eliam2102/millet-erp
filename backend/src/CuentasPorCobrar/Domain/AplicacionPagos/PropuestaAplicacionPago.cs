@@ -28,7 +28,7 @@ public enum EstadoPropuestaAplicacion : short
 /// el REPP timbrado vía eventos de Facturación.
 /// </para>
 /// </summary>
-public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa
+public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 
@@ -141,7 +141,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa
 }
 
 /// <summary>Detalle por factura de la propuesta (unión §3.1).</summary>
-public sealed class PropuestaAplicacionFactura : BaseEntity, IPerteneceAEmpresa
+public sealed class PropuestaAplicacionFactura : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid PropuestaId { get; private set; }

@@ -102,6 +102,8 @@ public sealed class BootstrapServicePrincipalsHostedService : IHostedService
         var meter = sp.GetRequiredService<IdentidadMeter>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(BootstrapServicePrincipalsHostedService));
         using var bypass = empresaContext.Bypass();
 
         await PostgresAdvisoryLock.ExecuteAsync(

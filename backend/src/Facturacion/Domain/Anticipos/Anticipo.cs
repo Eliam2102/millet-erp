@@ -28,7 +28,7 @@ namespace Millet.Facturacion.Domain.Anticipos;
 /// lo cobrado).
 /// </para>
 /// </summary>
-public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class Anticipo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

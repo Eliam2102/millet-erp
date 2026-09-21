@@ -8,7 +8,7 @@ namespace Millet.CuentasPorPagar.Domain.FacturaProveedor;
 /// 00-levantamiento). Internal por convención del agregado: solo se
 /// crea desde la factory del agregado raíz.
 /// </summary>
-public sealed class LineaFacturaProveedor : BaseEntity, IBelongsToAggregate
+public sealed class LineaFacturaProveedor : BaseEntity, IBelongsToAggregate, IAuditable
 {
     public Guid FacturaProveedorId { get; private set; }
     public int Posicion { get; private set; }

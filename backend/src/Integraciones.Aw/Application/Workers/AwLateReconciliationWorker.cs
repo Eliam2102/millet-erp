@@ -131,6 +131,8 @@ public sealed class AwLateReconciliationWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(AwLateReconciliationWorker));
         using var _ = empresaContext.Bypass();
 
         var db = sp.GetRequiredService<IntegracionesAwDbContext>();

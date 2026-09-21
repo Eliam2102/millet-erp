@@ -24,7 +24,7 @@ namespace Millet.Almacen.Domain.Conteos;
 /// aprobador.
 /// </para>
 /// </summary>
-public sealed class LineaConteo : BaseEntity
+public sealed class LineaConteo : BaseEntity, IAuditable
 {
     public Guid ConteoId { get; private set; }
     public Guid ArticuloId { get; private set; }

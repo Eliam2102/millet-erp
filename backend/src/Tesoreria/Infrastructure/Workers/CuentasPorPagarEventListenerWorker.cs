@@ -132,6 +132,8 @@ public sealed class CuentasPorPagarEventListenerWorker : BackgroundService
             var sp = scope.ServiceProvider;
             var db = sp.GetRequiredService<TesoreriaDbContext>();
             var mediator = sp.GetRequiredService<IMediator>();
+            var originContext = sp.GetRequiredService<IAuditOriginContext>();
+            using var origin = originContext.SetOrigin(nameof(CuentasPorPagarEventListenerWorker));
             var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
 

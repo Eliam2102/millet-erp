@@ -19,7 +19,7 @@ namespace Millet.Almacen.Domain.Movimientos;
 /// A10).
 /// </para>
 /// </summary>
-public sealed class LineaMovimiento : BaseEntity
+public sealed class LineaMovimiento : BaseEntity, IAuditable
 {
     public Guid MovimientoId { get; private set; }
     public int Posicion { get; private set; }

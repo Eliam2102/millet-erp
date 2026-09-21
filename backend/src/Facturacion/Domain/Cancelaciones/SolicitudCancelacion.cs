@@ -9,7 +9,7 @@ namespace Millet.Facturacion.Domain.Cancelaciones;
 /// la FSM de resolución. La transición del comprobante a <c>Cancelado</c> la hace
 /// el handler/worker al resolverse esta solicitud.
 /// </summary>
-public sealed class SolicitudCancelacion : BaseEntity, IPerteneceAEmpresa
+public sealed class SolicitudCancelacion : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

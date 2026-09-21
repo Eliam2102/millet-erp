@@ -82,6 +82,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
         var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = scope.ServiceProvider.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(BootstrapSuperAdminHostedService));
         using var bypass = empresaContext.Bypass();
 
         await PostgresAdvisoryLock.ExecuteAsync(

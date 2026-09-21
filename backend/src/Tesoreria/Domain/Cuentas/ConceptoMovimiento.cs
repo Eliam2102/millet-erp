@@ -10,7 +10,7 @@ namespace Millet.Tesoreria.Domain.Cuentas;
 /// pendiente de validación de Javier contra su plantilla de flujo de
 /// efectivo — corregir es editar filas, no código.
 /// </summary>
-public sealed class ConceptoMovimiento : BaseEntity
+public sealed class ConceptoMovimiento : BaseEntity, IAuditable
 {
     public string Nombre { get; private set; } = default!;
     public ClasificacionFlujo ClasificacionFlujo { get; private set; }

@@ -23,7 +23,7 @@ public enum TipoAlertaCartera : short
 /// PLATFORM-TODO(&lt;Notificaciones&gt;) hasta que exista el motor
 /// transversal (01-diseño §13).
 /// </summary>
-public sealed class AlertaCartera : BaseEntity, IPerteneceAEmpresa
+public sealed class AlertaCartera : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

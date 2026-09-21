@@ -105,6 +105,8 @@ public sealed class ReordenWorker : BackgroundService
         // Bypass de empresa para todo el ciclo (job de fondo sin JWT): cubre tanto
         // la lectura del interruptor como el barrido. Es re-entrante con los bypass
         // internos de los adapters (5.B/5.C).
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(ReordenWorker));
         using var bypass = empresaContext.Bypass();
 
         // Interruptor operativo (AlmacenSettings.ReabastoAutomaticoActivo) de la

@@ -8,7 +8,7 @@ namespace Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 /// una sucursal (doc 12 §D2/Q4). Sucursal sin configuración = mínimo 0
 /// = la reposición se emite en cuanto se aplica cada comprobación.
 /// </summary>
-public sealed class ConfiguracionReposicionCaja : BaseEntity, IPerteneceAEmpresa
+public sealed class ConfiguracionReposicionCaja : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

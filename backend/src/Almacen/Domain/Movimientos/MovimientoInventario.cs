@@ -34,7 +34,7 @@ namespace Millet.Almacen.Domain.Movimientos;
 /// el primero).
 /// </para>
 /// </summary>
-public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa
+public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public string? Folio { get; private set; }
     public TipoMovimiento Tipo { get; private set; }

@@ -23,7 +23,7 @@ namespace Millet.Tesoreria.Domain.Movimientos;
 /// command.
 /// </para>
 /// </summary>
-public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa
+public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

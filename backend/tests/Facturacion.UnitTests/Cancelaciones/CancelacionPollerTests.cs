@@ -12,6 +12,7 @@ using Millet.Facturacion.Infrastructure.Workers;
 using Millet.Facturacion.UnitTests.TestDoubles;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Facturacion.UnitTests.Cancelaciones;
 
@@ -35,6 +36,7 @@ public sealed class CancelacionPollerTests
         var dbName = Guid.NewGuid().ToString();
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(empresaId));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         services.AddDbContext<FacturacionDbContext>(o => o.UseInMemoryDatabase(dbName));
         services.AddSingleton<ICfdiTimbradoPort>(new FakeFiscalNoVigente());
         services.AddSingleton<IClock>(new FakeClock(Ahora));
@@ -92,6 +94,7 @@ public sealed class CancelacionPollerTests
         var dbName = Guid.NewGuid().ToString();
         var services = new ServiceCollection();
         services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(empresaId));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         services.AddDbContext<FacturacionDbContext>(o => o.UseInMemoryDatabase(dbName));
         services.AddSingleton<ICfdiTimbradoPort>(new FakeFiscalApiClient()); // ConsultarEstatus → vigente
         services.AddSingleton<IClock>(new FakeClock(Ahora));

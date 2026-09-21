@@ -10,7 +10,7 @@ namespace Millet.CuentasPorCobrar.Domain.Liberacion;
 /// exactamente estas series (3000/4000/5000/7000/8000) o maneja otras;
 /// el catálogo es tabla compartida y las carteras difieren solo en filas.
 /// </summary>
-public sealed class ReglaLiberacionSerie : BaseEntity
+public sealed class ReglaLiberacionSerie : BaseEntity, IAuditable
 {
     /// <summary>Prefijo del folio del pedido A+W (match por StartsWith).</summary>
     public string Prefijo { get; private set; } = default!;
