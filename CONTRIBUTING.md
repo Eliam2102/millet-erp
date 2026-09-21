@@ -9,8 +9,7 @@ Guía de onboarding compactada. Si trabajas en una subcarpeta específica
 
 Antes de clonar necesitas:
 
-- Estar invitado al repo `TiGlass/millet_erp` con rol `Write` mínimo
-  (Eduardo Paredes — `eduardo.paredes@tiglass.net`).
+- Tener acceso de escritura confirmado al repo `Eliam2102/millet-erp`.
 - Una cuenta de GitHub con `gh` CLI o credenciales SSH/HTTPS configuradas.
 
 Para desarrollar contra la app **no** necesitas Azure ni Entra ID: el modo
@@ -21,14 +20,14 @@ secretos pides acceso adicional.
 
 ## 2. Pre-requisitos en tu máquina
 
-| Herramienta | Versión | Cómo instalar (Windows) |
+| Herramienta | Versión | Observación |
 |---|---|---|
-| .NET SDK | 9.x | `winget install Microsoft.DotNet.SDK.9` |
-| Node.js | 22.x | `winget install OpenJS.NodeJS.LTS` (o `nvm use` con `frontend/.nvmrc`) |
-| PostgreSQL | 16+ | Docker Desktop **o** `winget install PostgreSQL.PostgreSQL.17` |
-| Git | reciente | `winget install Git.Git` |
-| GitHub CLI | opcional | `winget install GitHub.cli` |
-| VS Code | reciente | `winget install Microsoft.VisualStudioCode` |
+| .NET SDK | 9.x | Obligatorio para el backend `net9.0` |
+| Node.js | 22.x | Usar `frontend/.nvmrc` |
+| Docker + Compose | reciente | Provee PostgreSQL local de forma uniforme |
+| Git | reciente | Requerido |
+| GitHub CLI | opcional | Útil para ramas y PR |
+| VS Code | reciente | Opcional; las tareas son portables |
 
 Si usas Postgres nativo, crea el usuario y la base:
 - Usuario: `pgadmin`, password: `pgadmin`
@@ -40,19 +39,20 @@ Si usas Docker, no hay que crear nada — `docker-compose.dev.yml` lo deja listo
 
 ## 3. Setup primer arranque
 
-```powershell
-git clone https://github.com/TiGlass/millet_erp.git
-cd millet_erp
+```bash
+git clone https://github.com/Eliam2102/millet-erp.git
+cd millet-erp
 
-# Opción A: script automatizado (recomendado)
+# macOS, Linux, WSL o Git Bash
+./tools/setup-dev.sh
+
+# Windows PowerShell
 .\tools\setup-dev.ps1
-
-# Opción B: manual — pasos en README.md sección "Setup primer arranque"
 ```
 
-El script verifica prerrequisitos, levanta Postgres si usas Docker, aplica las
-3 migraciones de EF y ejecuta `npm install`. Es idempotente — puedes correrlo
-de nuevo si algo falla.
+Los scripts verifican prerrequisitos, levantan PostgreSQL, aplican los 12
+contextos EF y ejecutan `npm install`. Son idempotentes y consumen el mismo
+manifiesto `tools/migration-contexts.txt`.
 
 **Abre VS Code en la raíz del monorepo**, no en una subcarpeta. Cuando lo
 abras te va a sugerir las extensiones recomendadas — instálalas todas.
@@ -68,7 +68,7 @@ Dos formas:
 - Levanta backend (`:5000`) y frontend (`:5173`) en paralelo con hot-reload.
 
 **Vía dos terminales:**
-```powershell
+```bash
 # Terminal 1
 cd backend/src/Api
 dotnet watch run

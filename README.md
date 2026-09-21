@@ -2,7 +2,10 @@
 
 > **Nuevo integrante:** empieza por [docs/handoff/00-EMPIEZA-AQUI.md](docs/handoff/00-EMPIEZA-AQUI.md). Ese paquete separa el estado real del código, el arranque local, la forma de trabajo y las dependencias que debe entregar Millet.
 
-> **Repositorio privado:** <https://github.com/Eliam2102/millet-erp>. El acceso requiere invitación con el usuario exacto de GitHub. La protección automática de `main` está pendiente porque el plan actual de GitHub no habilita branch protection en repositorios privados; mientras tanto, la regla operativa es trabajar por rama y pull request.
+> **Repositorio:** <https://github.com/Eliam2102/millet-erp>. Al corte del
+> 20/09/2026 GitHub lo reportó público y `main` sin protección. La visibilidad
+> objetivo debe confirmarse con el propietario; mientras tanto, la regla
+> operativa es trabajar por rama y pull request, nunca directo a `main`.
 
 > **Gate de arranque:** tener acceso no habilita desarrollo funcional. Geovany y Uzziel deben completar primero la [Ola 0 en ClickUp](https://app.clickup.com/9017291387/v/l/li/901717118871). La [Ola 1A](https://app.clickup.com/9017291387/v/l/li/901717118872) sólo comienza cuando se complete y valide `O0-07 · Gate de salida · habilitación de Ola 1A`.
 
@@ -120,48 +123,35 @@ Para iterar sin necesidad de Azure ni Entra ID. Ver
 - **Docker** — para PostgreSQL local. Si prefieres Postgres nativo, instálalo
   con usuario `pgadmin`/password `pgadmin` y crea el database `millet_dev`.
 
+La banda de SDK se fija en [`global.json`](./global.json); no se depende del
+SDK más reciente instalado en la máquina.
+
 ### Setup primer arranque
 
-```powershell
-# 1. Levantar PostgreSQL (en el root del repo)
-docker compose -f docker-compose.dev.yml up -d
+macOS, Linux, WSL o Git Bash:
 
-# 2. Aplicar migraciones (TODOS los DbContexts, en orden)
-#    El backend NO auto-migra: el health check /health/ready da 503 si falta
-#    alguna. La lista debe coincidir con MigrationsHealthCheckOptions en
-#    Program.cs y con el job run-migrations de deploy-app-dev.yml. Al entrar un
-#    módulo nuevo, agrégalo aquí también.
-cd backend
-$contexts = @(
-  @{ Ctx = "CompartidoDbContext";         Proj = "src/Compartido/Millet.Compartido.csproj" },
-  @{ Ctx = "CoreDbContext";               Proj = "src/SharedKernel/Millet.SharedKernel.csproj" },
-  @{ Ctx = "IdentidadDbContext";          Proj = "src/Identidad/Millet.Identidad.csproj" },
-  @{ Ctx = "ComprasDbContext";            Proj = "src/Compras/Millet.Compras.csproj" },
-  @{ Ctx = "IntegracionesAwDbContext";    Proj = "src/Integraciones.Aw/Millet.Integraciones.Aw.csproj" },
-  @{ Ctx = "IntegracionesFiscalDbContext";Proj = "src/Integraciones.Fiscal/Millet.Integraciones.Fiscal.csproj" },
-  @{ Ctx = "AlmacenDbContext";            Proj = "src/Almacen/Millet.Almacen.csproj" },
-  @{ Ctx = "CuentasPorPagarDbContext";    Proj = "src/CuentasPorPagar/Millet.CuentasPorPagar.csproj" },
-  @{ Ctx = "FacturacionDbContext";        Proj = "src/Facturacion/Millet.Facturacion.csproj" },
-  @{ Ctx = "CuentasPorCobrarDbContext";   Proj = "src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj" },
-  @{ Ctx = "TesoreriaDbContext";          Proj = "src/Tesoreria/Millet.Tesoreria.csproj" },
-  @{ Ctx = "CentrosCostoDbContext";       Proj = "src/CentrosCosto/Millet.CentrosCosto.csproj" }
-)
-foreach ($c in $contexts) {
-  dotnet ef database update --context $c.Ctx --project $c.Proj `
-    --startup-project src/Api/Millet.Api.csproj
-}
-
-# 3. Instalar deps del frontend
-cd ../frontend
-npm install --no-audit --no-fund
+```bash
+./tools/setup-dev.sh
 ```
+
+Windows PowerShell:
+
+```powershell
+.\tools\setup-dev.ps1
+```
+
+Los dos scripts consumen `tools/migration-contexts.txt`, que es la lista
+canónica de los 12 `DbContext`. Levantan PostgreSQL con Docker Compose,
+restauran y compilan el backend, aplican migraciones e instalan el frontend.
+Las opciones y la ruta manual están documentadas en
+[`docs/handoff/01-arranque-local.md`](./docs/handoff/01-arranque-local.md).
 
 ### Cada sesión de desarrollo
 
-```powershell
+```bash
 # Terminal 1: backend con hot-reload
-cd backend/src/Api
-dotnet watch run
+cd backend
+dotnet watch run --project src/Api/Millet.Api.csproj
 
 # Terminal 2: frontend
 cd frontend
@@ -176,7 +166,7 @@ el primer arranque del backend.
 
 ### Parar el ambiente
 
-```powershell
+```bash
 # Detiene Postgres pero PRESERVA la data
 docker compose -f docker-compose.dev.yml down
 

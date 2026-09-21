@@ -1,5 +1,7 @@
 # ERP - Current State
 
+> **Documento histórico.** Este snapshot corresponde al 15/05/2026 y ya no representa el estado operativo completo del repositorio. Para continuar desarrollo, usar [docs/handoff/18-diagnostico-y-plan-reanudacion-2026-09-20.md](docs/handoff/18-diagnostico-y-plan-reanudacion-2026-09-20.md) y [docs/handoff/00-EMPIEZA-AQUI.md](docs/handoff/00-EMPIEZA-AQUI.md).
+
 > Snapshot del estado del repositorio `Project_Millet_ERP` al 2026-05-15.
 > Documento base para diseñar la integración con el **Glass Agent (PHP)** y
 > con **A+W on-prem**. No prescribe diseño; sólo describe lo que existe hoy.
