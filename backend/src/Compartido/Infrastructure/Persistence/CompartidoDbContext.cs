@@ -783,20 +783,55 @@ public sealed class CompartidoDbContext : BaseDbContext
             DeletedAt = (DateTimeOffset?)null,
         };
 
+    /// <summary>
+    /// Configura <see cref="Empresa"/> (F1-ADM-01: raíz del tenant + jerarquía
+    /// opcional de 2 niveles vía <see cref="Empresa.EmpresaPadreId"/> self-FK
+    /// Restrict, y domicilio fiscal estructurado). <see cref="Empresa"/> NO
+    /// implementa <see cref="IPerteneceAEmpresa"/> — es la raíz, no pertenece
+    /// a un tenant.
+    /// </summary>
     private static void ConfigureEmpresa(ModelBuilder modelBuilder)
     {
         var empresa = modelBuilder.Entity<Empresa>();
         empresa.ToTable("empresas");
         empresa.HasKey(x => x.Id);
         empresa.HasIndex(x => x.Rfc).IsUnique();
+        empresa.HasIndex(x => x.Clave).IsUnique();
+        empresa.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         empresa.Property(x => x.Rfc).HasMaxLength(13).IsRequired();
         empresa.Property(x => x.RazonSocial).HasMaxLength(254).IsRequired();
         empresa.Property(x => x.NombreComercial).HasMaxLength(254);
         empresa.Property(x => x.RegimenFiscal).HasMaxLength(10).IsRequired();
         // Fracción 0–1 (0.16); 4 decimales cubren tasas SAT (0.1067 retención).
         empresa.Property(x => x.TasaIvaDefault).HasPrecision(5, 4);
-        // CP fiscal = LugarExpedicion del CFDI 4.0 (F12-PR1).
+
+        // Domicilio fiscal estructurado (F1-ADM-01). CodigoPostal ya existía
+        // (LugarExpedicion del CFDI, F12-PR1) y se mantiene opcional.
+        empresa.Property(x => x.Calle).HasMaxLength(254).IsRequired();
+        empresa.Property(x => x.NumeroExterior).HasMaxLength(20).IsRequired();
+        empresa.Property(x => x.NumeroInterior).HasMaxLength(20);
+        empresa.Property(x => x.Colonia).HasMaxLength(254).IsRequired();
+        empresa.Property(x => x.Ciudad).HasMaxLength(100).IsRequired();
+        empresa.Property(x => x.Municipio).HasMaxLength(100).IsRequired();
+        empresa.Property(x => x.Estado).HasMaxLength(100).IsRequired();
+        empresa.Property(x => x.Pais).HasMaxLength(100).IsRequired();
         empresa.Property(x => x.CodigoPostal).HasMaxLength(5);
+
+        // Jerarquía opcional de 2 niveles (raíz + hijas). Restrict: no se
+        // permite borrar una empresa padre mientras tenga hijas.
+        empresa.HasIndex(x => x.EmpresaPadreId);
+        empresa.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaPadreId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Moneda operativa default, opcional. Restrict: no se permite borrar
+        // una moneda referenciada por alguna empresa.
+        empresa.HasIndex(x => x.MonedaId);
+        empresa.HasOne<Moneda>()
+            .WithMany()
+            .HasForeignKey(x => x.MonedaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureMoneda(ModelBuilder modelBuilder)
@@ -1036,8 +1071,12 @@ public sealed class CompartidoDbContext : BaseDbContext
     }
 
     /// <summary>
-    /// Configura <see cref="Sucursal"/> (B.1). Catálogo cross-empresa
-    /// para selectores de UI (captura de RQ, designar aprobadores).
+    /// Configura <see cref="Sucursal"/> (B.1). F1-ADM-01: catálogo por
+    /// empresa (<see cref="Sucursal.EmpresaId"/> + <see cref="IPerteneceAEmpresa"/>,
+    /// FK Restrict). <see cref="Sucursal.Clave"/> pasa de única global a
+    /// única por empresa; <see cref="Sucursal.ClaveAw"/> se mantiene única
+    /// global porque identifica la sucursal en A+W (sistema externo
+    /// compartido entre empresas).
     /// </summary>
     private static void ConfigureSucursal(ModelBuilder modelBuilder)
     {
@@ -1045,10 +1084,13 @@ public sealed class CompartidoDbContext : BaseDbContext
         sucursal.ToTable("sucursales", t =>
         {
             t.HasCheckConstraint("ck_sucursales_estatus", "estatus BETWEEN 0 AND 2");
+            t.HasCheckConstraint("ck_sucursales_tipo", "tipo BETWEEN 0 AND 2");
         });
         sucursal.HasKey(x => x.Id);
+        sucursal.Property(x => x.EmpresaId).IsRequired();
         sucursal.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         sucursal.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
+        sucursal.Property(x => x.Tipo).HasConversion<short>().IsRequired();
         sucursal.Property(x => x.Estatus).HasConversion<short>().IsRequired();
         // Relación con A+W (ADR-0048 flujo 2): numero_sucursal del pedido
         // machea contra esta clave. Nullable; única cuando existe.
@@ -1061,9 +1103,27 @@ public sealed class CompartidoDbContext : BaseDbContext
             .IsRequired()
             .HasDefaultValue(Administracion.Domain.Sucursal.ZonaHorariaDefault);
 
-        sucursal.HasIndex(x => x.Clave).IsUnique();
+        // Domicilio operativo estructurado (F1-ADM-01).
+        sucursal.Property(x => x.Calle).HasMaxLength(254).IsRequired();
+        sucursal.Property(x => x.NumeroExterior).HasMaxLength(20).IsRequired();
+        sucursal.Property(x => x.NumeroInterior).HasMaxLength(20);
+        sucursal.Property(x => x.Colonia).HasMaxLength(254).IsRequired();
+        sucursal.Property(x => x.Ciudad).HasMaxLength(100).IsRequired();
+        sucursal.Property(x => x.Municipio).HasMaxLength(100).IsRequired();
+        sucursal.Property(x => x.Estado).HasMaxLength(100).IsRequired();
+        sucursal.Property(x => x.CodigoPostal).HasMaxLength(5).IsRequired();
+        sucursal.Property(x => x.Pais).HasMaxLength(100).IsRequired();
+        sucursal.Property(x => x.Responsable).HasMaxLength(254);
+        sucursal.Property(x => x.InformacionUbicacion).HasMaxLength(1000);
+
+        sucursal.HasIndex(x => new { x.EmpresaId, x.Clave }).IsUnique();
         sucursal.HasIndex(x => x.ClaveAw).IsUnique();
         sucursal.HasIndex(x => x.Estatus);
+
+        sucursal.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     /// <summary>
@@ -1127,6 +1187,22 @@ public sealed class CompartidoDbContext : BaseDbContext
         UpdatedBy = (string?)"seed",
     };
 
+    /// <summary>
+    /// Guid fijo de la empresa raíz de bootstrap (mismo valor que
+    /// <c>BootstrapSuperAdminHostedService.EmpresaInicialId</c> en el módulo
+    /// Identidad — no se referencia directamente para no crear una
+    /// dependencia cross-módulo; Compartido solo necesita el valor literal
+    /// para el backfill/seed de filas que hoy no tienen <c>EmpresaId</c>).
+    /// Ver F1-ADM-01.
+    /// </summary>
+    internal static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+
+    /// <summary>
+    /// Configura <see cref="Departamento"/> (B.1). F1-ADM-01: catálogo por
+    /// empresa (<see cref="Departamento.EmpresaId"/> + <see cref="IPerteneceAEmpresa"/>,
+    /// FK Restrict). <see cref="Departamento.Clave"/> pasa de única global
+    /// a única por empresa.
+    /// </summary>
     private static void ConfigureDepartamento(ModelBuilder modelBuilder)
     {
         var depto = modelBuilder.Entity<Departamento>();
@@ -1135,20 +1211,28 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_departamentos_estatus", "estatus BETWEEN 0 AND 2");
         });
         depto.HasKey(x => x.Id);
+        depto.Property(x => x.EmpresaId).IsRequired();
         depto.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         depto.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         depto.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
-        depto.HasIndex(x => x.Clave).IsUnique();
+        depto.HasIndex(x => new { x.EmpresaId, x.Clave }).IsUnique();
         depto.HasIndex(x => x.Estatus);
+
+        depto.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // ADR-0047 PR5.A: departamento de sistema "Reabastecimiento Automático",
         // usado como DepartamentoId de las RQ del motor de reorden. Guid fijo
         // (DepartamentosSistema.ReabastecimientoAutomatico) para todos los ambientes.
+        // F1-ADM-01: EmpresaId = empresa raíz de bootstrap (única empresa hoy).
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         depto.HasData(new
         {
             Id = DepartamentosSistema.ReabastecimientoAutomatico,
+            EmpresaId = EmpresaBootstrapId,
             Clave = DepartamentosSistema.ReabastecimientoAutomaticoClave,
             Nombre = "Reabastecimiento Automático",
             Estatus = EstatusCatalogo.Activo,
@@ -1167,6 +1251,12 @@ public sealed class CompartidoDbContext : BaseDbContext
     /// <c>NoOpPuestoReadPort</c> de CxP para no romper las
     /// <c>politicas_viaticos</c> capturadas en dev contra ese seed.
     /// </summary>
+    /// <summary>
+    /// F1-ADM-01: catálogo por empresa (<see cref="Administracion.Domain.Puesto.EmpresaId"/>
+    /// + <see cref="IPerteneceAEmpresa"/>, FK Restrict). Clave pasa de única
+    /// global a única por empresa. Seed D6 (EJEC/GER/OPER) conserva sus GUIDs
+    /// fijos; EmpresaId = empresa raíz de bootstrap (única empresa hoy).
+    /// </summary>
     private static void ConfigurePuesto(ModelBuilder modelBuilder)
     {
         var puesto = modelBuilder.Entity<Administracion.Domain.Puesto>();
@@ -1175,12 +1265,19 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_puestos_estatus", "estatus BETWEEN 0 AND 2");
         });
         puesto.HasKey(x => x.Id);
+        puesto.Property(x => x.EmpresaId).IsRequired();
         puesto.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         puesto.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
+        puesto.Property(x => x.Descripcion).HasMaxLength(500);
         puesto.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
-        puesto.HasIndex(x => x.Clave).IsUnique();
+        puesto.HasIndex(x => new { x.EmpresaId, x.Clave }).IsUnique();
         puesto.HasIndex(x => x.Estatus);
+
+        puesto.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         puesto.HasData(
@@ -1193,6 +1290,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     private static object SeedPuesto(Guid id, string clave, string nombre, DateTimeOffset seedTime) => new
     {
         Id = id,
+        EmpresaId = EmpresaBootstrapId,
         Clave = clave,
         Nombre = nombre,
         Estatus = EstatusCatalogo.Activo,
@@ -1253,6 +1351,11 @@ public sealed class CompartidoDbContext : BaseDbContext
     /// FK física a ambas tablas del mismo schema con
     /// <see cref="DeleteBehavior.Restrict"/> — no se permite borrar una
     /// Sucursal o Departamento referenciado por una asignación viva.
+    /// F1-ADM-01: <see cref="SucursalDepartamento.EmpresaId"/> +
+    /// <see cref="IPerteneceAEmpresa"/>, FK Restrict a Empresa. La
+    /// coherencia (mismo EmpresaId que la Sucursal y el Departamento
+    /// vinculados) es invariante de negocio validado en el handler
+    /// (Fase 2), no aquí — ver comentario en el dominio.
     /// </summary>
     private static void ConfigureSucursalDepartamento(ModelBuilder modelBuilder)
     {
@@ -1263,6 +1366,7 @@ public sealed class CompartidoDbContext : BaseDbContext
                 "estatus BETWEEN 0 AND 2");
         });
         asignacion.HasKey(x => x.Id);
+        asignacion.Property(x => x.EmpresaId).IsRequired();
         asignacion.Property(x => x.SucursalId).IsRequired();
         asignacion.Property(x => x.DepartamentoId).IsRequired();
         asignacion.Property(x => x.Estatus).HasConversion<short>().IsRequired();
@@ -1270,6 +1374,11 @@ public sealed class CompartidoDbContext : BaseDbContext
         asignacion.HasIndex(x => new { x.SucursalId, x.DepartamentoId }).IsUnique();
         asignacion.HasIndex(x => x.SucursalId);
         asignacion.HasIndex(x => x.DepartamentoId);
+
+        asignacion.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         asignacion.HasOne<Sucursal>()
             .WithMany()

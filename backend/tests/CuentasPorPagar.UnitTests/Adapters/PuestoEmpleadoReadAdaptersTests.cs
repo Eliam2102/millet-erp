@@ -27,7 +27,7 @@ public class PuestoEmpleadoReadAdaptersTests
     public async Task PuestoAdapter_Obtener_mapea_codigo_y_activo()
     {
         await using var db = NewDb();
-        var puesto = new Puesto(Guid.CreateVersion7(), "GER", "Gerente");
+        var puesto = new Puesto(Guid.CreateVersion7(), Guid.CreateVersion7(), "GER", "Gerente");
         db.Puestos.Add(puesto);
         await db.SaveChangesAsync();
 
@@ -47,11 +47,11 @@ public class PuestoEmpleadoReadAdaptersTests
     public async Task PuestoAdapter_Listar_devuelve_solo_activos_ordenados_por_clave()
     {
         await using var db = NewDb();
-        var inactivo = new Puesto(Guid.CreateVersion7(), "OPER", "Operativo");
+        var inactivo = new Puesto(Guid.CreateVersion7(), Guid.CreateVersion7(), "OPER", "Operativo");
         inactivo.Desactivar();
         db.Puestos.AddRange(
-            new Puesto(Guid.CreateVersion7(), "GER", "Gerente"),
-            new Puesto(Guid.CreateVersion7(), "EJEC", "Ejecutivo"),
+            new Puesto(Guid.CreateVersion7(), Guid.CreateVersion7(), "GER", "Gerente"),
+            new Puesto(Guid.CreateVersion7(), Guid.CreateVersion7(), "EJEC", "Ejecutivo"),
             inactivo);
         await db.SaveChangesAsync();
 

@@ -11,15 +11,24 @@ namespace Millet.Administracion.UnitTests.Domain;
 public class EmpresaTests
 {
     private static Empresa Crear(
+        string clave = "MILLET",
         string rfc = "MIL010101AB1",
         string razonSocial = "Millet S.A. de C.V.",
         string regimenFiscal = "601",
         string? nombreComercial = null) =>
         new(
             id: Guid.CreateVersion7(),
+            clave: clave,
             rfc: rfc,
             razonSocial: razonSocial,
             regimenFiscal: regimenFiscal,
+            calle: "Calle Ficticia 123",
+            numeroExterior: "123",
+            colonia: "Colonia de Prueba",
+            ciudad: "Mérida",
+            municipio: "Mérida",
+            estado: "Yucatán",
+            pais: "México",
             nombreComercial: nombreComercial);
 
     [Fact]
@@ -113,7 +122,10 @@ public class EmpresaTests
     [Fact]
     public void Constructor_Should_Reject_EmptyId()
     {
-        var act = () => new Empresa(Guid.Empty, "MIL010101AB1", "Millet SA", "601");
+        var act = () => new Empresa(
+            Guid.Empty, "MILLET", "MIL010101AB1", "Millet SA", "601",
+            calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
+            ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", pais: "México");
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "EMPRESA_ID_INVALIDO");
     }
@@ -142,5 +154,47 @@ public class EmpresaTests
         var act = () => empresa.ActualizarDatos(tasaIvaDefault: tasa);
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "EMPRESA_TASA_IVA_INVALIDA");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("CLAVE CON ESPACIOS")]
+    [InlineData("CLAVE-DEMASIADO-LARGA-PARA-EL-LIMITE")]
+    public void Should_Reject_InvalidClave(string clave)
+    {
+        var act = () => Crear(clave: clave);
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "EMPRESA_CLAVE_INVALIDA");
+    }
+
+    [Fact]
+    public void AsignarEmpresaPadre_Should_Reject_AutoReferencia()
+    {
+        var empresa = Crear();
+        var act = () => empresa.AsignarEmpresaPadre(empresa.Id);
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "EMPRESA_PADRE_AUTOREFERENCIA");
+    }
+
+    [Fact]
+    public void AsignarEmpresaPadre_Should_Reject_Profundidad_Excedida()
+    {
+        var empresa = Crear();
+        var padreCandidato = Guid.CreateVersion7();
+        // padreEsRaiz=false simula que el caller consultó la empresa padre
+        // candidata y detectó que ella misma ya tiene EmpresaPadreId.
+        var act = () => empresa.AsignarEmpresaPadre(padreCandidato, padreEsRaiz: false);
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "EMPRESA_JERARQUIA_PROFUNDIDAD_EXCEDIDA");
+    }
+
+    [Fact]
+    public void AsignarEmpresaPadre_Should_Accept_PadreRaiz()
+    {
+        var empresa = Crear();
+        var padreRaiz = Guid.CreateVersion7();
+        empresa.AsignarEmpresaPadre(padreRaiz, padreEsRaiz: true);
+        empresa.EmpresaPadreId.Should().Be(padreRaiz);
     }
 }

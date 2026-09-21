@@ -49,6 +49,13 @@ public class RequisicionesEndpointsTests : IClassFixture<WebApplicationFactory<P
     private static readonly Guid AlmacenQafId = Guid.Parse("00000008-0001-0000-0000-0000000000af");
     private const string SucursalCodigoQaf = "QAF";
 
+    // Empresa raíz de bootstrap (BootstrapSuperAdminHostedService.EmpresaInicialId):
+    // el SuperAdmin de dev queda asignado a esta empresa, así que cualquier fila
+    // IPerteneceAEmpresa sembrada directamente por el test (bypass) debe usar
+    // este mismo EmpresaId para que las llamadas HTTP subsecuentes (JWT real,
+    // sin bypass) la vean a través del global query filter (F1-ADM-01).
+    private static readonly Guid EmpresaInicialId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+
     private readonly WebApplicationFactory<Program> _factory;
 
     public RequisicionesEndpointsTests(WebApplicationFactory<Program> factory)
@@ -408,14 +415,17 @@ public class RequisicionesEndpointsTests : IClassFixture<WebApplicationFactory<P
         if (!await compartido.Sucursales.AnyAsync(s => s.Id == SucursalQafId))
         {
             compartido.Sucursales.Add(new Sucursal(
-                SucursalQafId, SucursalCodigoQaf, "QA Folios (sucursal aislada de test)"));
+                SucursalQafId, EmpresaInicialId, SucursalCodigoQaf, "QA Folios (sucursal aislada de test)",
+                TipoSucursal.Sucursal,
+                calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
+                ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México"));
         }
         if (!await compartido.SucursalDepartamentos.AnyAsync(
                 sd => sd.SucursalId == SucursalQafId
                    && sd.DepartamentoId == TestComprasFixtures.DeptoCompras))
         {
             compartido.SucursalDepartamentos.Add(new SucursalDepartamento(
-                Guid.CreateVersion7(), SucursalQafId, TestComprasFixtures.DeptoCompras));
+                Guid.CreateVersion7(), EmpresaInicialId, SucursalQafId, TestComprasFixtures.DeptoCompras));
         }
         await compartido.SaveChangesAsync();
 

@@ -10,12 +10,15 @@ namespace Millet.Administracion.UnitTests.Domain;
 /// </summary>
 public class PuestoTests
 {
+    private static readonly Guid EmpresaId = Guid.CreateVersion7();
+
     private static Puesto Crear(
         string clave = "GER",
         string nombre = "Gerente",
         EstatusCatalogo estatus = EstatusCatalogo.Activo) =>
         new(
             id: Guid.CreateVersion7(),
+            empresaId: EmpresaId,
             clave: clave,
             nombre: nombre,
             estatus: estatus);
@@ -59,9 +62,17 @@ public class PuestoTests
     [Fact]
     public void Constructor_Should_Reject_EmptyId()
     {
-        var act = () => new Puesto(Guid.Empty, "GER", "Gerente");
+        var act = () => new Puesto(Guid.Empty, EmpresaId, "GER", "Gerente");
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "PUESTO_ID_INVALIDO");
+    }
+
+    [Fact]
+    public void Constructor_Should_Reject_EmptyEmpresaId()
+    {
+        var act = () => new Puesto(Guid.CreateVersion7(), Guid.Empty, "GER", "Gerente");
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "PUESTO_EMPRESA_INVALIDA");
     }
 
     [Fact]

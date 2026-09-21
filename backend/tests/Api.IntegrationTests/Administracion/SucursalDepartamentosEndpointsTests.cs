@@ -2,7 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Administracion.Domain;
+using Millet.Compartido.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
@@ -65,6 +70,44 @@ public class SucursalDepartamentosEndpointsTests : IClassFixture<WebApplicationF
             content: null);
 
         Assert.Equal(HttpStatusCode.Conflict, duplicado.StatusCode);
+    }
+
+    [Fact]
+    public async Task Asignar_Departamento_De_OtraEmpresa_Retorna_409()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursalId = await CrearSucursalAsync(client);
+        Guid departamentoId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
+            using var bypass = empresaContext.Bypass();
+            var sucursal = await db.Sucursales
+                .AsNoTracking()
+                .SingleAsync(s => s.Id == sucursalId);
+            var otraEmpresaId = await db.Empresas
+                .Where(empresa => empresa.Id != sucursal.EmpresaId)
+                .Select(empresa => empresa.Id)
+                .FirstAsync();
+
+            departamentoId = Guid.CreateVersion7();
+            db.Departamentos.Add(new Departamento(
+                departamentoId,
+                otraEmpresaId,
+                RandomClave("OTRA"),
+                "Departamento de otra empresa"));
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsync(
+            $"{EmpresasBase}/sucursales/{sucursalId}/departamentos/{departamentoId}",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.Equal("RELACION_INVALIDA", body.GetProperty("code").GetString());
     }
 
     [Fact]

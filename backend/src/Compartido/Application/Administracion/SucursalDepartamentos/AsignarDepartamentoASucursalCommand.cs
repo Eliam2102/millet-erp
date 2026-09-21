@@ -39,17 +39,24 @@ public sealed class AsignarDepartamentoASucursalHandler
     public async Task<SucursalDepartamentoResponse> Handle(
         AsignarDepartamentoASucursalCommand command, CancellationToken cancellationToken)
     {
-        var sucursal = await _db.Sucursales.AsNoTracking()
+        var sucursal = await _db.Sucursales.IgnoreQueryFilters().AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == command.SucursalId, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "SUCURSAL_NO_ENCONTRADA",
                 $"No existe sucursal con id '{command.SucursalId}'.");
 
-        var depto = await _db.Departamentos.AsNoTracking()
+        var depto = await _db.Departamentos.IgnoreQueryFilters().AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == command.DepartamentoId, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "DEPARTAMENTO_NO_ENCONTRADO",
                 $"No existe departamento con id '{command.DepartamentoId}'.");
+
+        if (sucursal.EmpresaId != depto.EmpresaId)
+        {
+            throw new ConflictException(
+                "RELACION_INVALIDA",
+                "La sucursal y el departamento deben pertenecer a la misma empresa.");
+        }
 
         var existe = await _db.SucursalDepartamentos.AsNoTracking()
             .AnyAsync(
@@ -65,6 +72,7 @@ public sealed class AsignarDepartamentoASucursalHandler
 
         var asignacion = new SucursalDepartamento(
             Guid.CreateVersion7(),
+            sucursal.EmpresaId,
             command.SucursalId,
             command.DepartamentoId);
 

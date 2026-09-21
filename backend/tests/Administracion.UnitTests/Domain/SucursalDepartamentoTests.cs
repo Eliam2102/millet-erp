@@ -11,6 +11,7 @@ namespace Millet.Administracion.UnitTests.Domain;
 /// </summary>
 public class SucursalDepartamentoTests
 {
+    private static readonly Guid EmpresaId = Guid.CreateVersion7();
     private static readonly Guid SucursalId = Guid.Parse("00000005-0003-0000-0000-000000000001");
     private static readonly Guid DepartamentoId = Guid.Parse("00000005-0004-0000-0000-000000000001");
 
@@ -20,6 +21,7 @@ public class SucursalDepartamentoTests
         EstatusCatalogo estatus = EstatusCatalogo.Activo) =>
         new(
             id: Guid.CreateVersion7(),
+            empresaId: EmpresaId,
             sucursalId: sucursalId ?? SucursalId,
             departamentoId: departamentoId ?? DepartamentoId,
             estatus: estatus);
@@ -43,9 +45,17 @@ public class SucursalDepartamentoTests
     [Fact]
     public void Constructor_Should_Reject_EmptyId()
     {
-        var act = () => new SucursalDepartamento(Guid.Empty, SucursalId, DepartamentoId);
+        var act = () => new SucursalDepartamento(Guid.Empty, EmpresaId, SucursalId, DepartamentoId);
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "SUCURSAL_DEPARTAMENTO_ID_INVALIDO");
+    }
+
+    [Fact]
+    public void Constructor_Should_Reject_EmptyEmpresaId()
+    {
+        var act = () => new SucursalDepartamento(Guid.CreateVersion7(), Guid.Empty, SucursalId, DepartamentoId);
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "SUCURSAL_DEPARTAMENTO_EMPRESA_INVALIDA");
     }
 
     [Fact]

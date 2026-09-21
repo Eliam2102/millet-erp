@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Administracion.Application.Puestos;
@@ -29,14 +30,26 @@ public sealed class CrearPuestoHandler
     : IRequestHandler<CrearPuestoCommand, PuestoResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly ICurrentEmpresaContext _empresaContext;
 
-    public CrearPuestoHandler(CompartidoDbContext db) => _db = db;
+    public CrearPuestoHandler(CompartidoDbContext db, ICurrentEmpresaContext empresaContext)
+    {
+        _db = db;
+        _empresaContext = empresaContext;
+    }
 
     public async Task<PuestoResponse> Handle(
         CrearPuestoCommand command, CancellationToken cancellationToken)
     {
+        if (_empresaContext.Current is not Guid empresaId)
+        {
+            throw new ForbiddenException(
+                "EMPRESA_NO_SELECCIONADA",
+                "El usuario no tiene una empresa seleccionada en el JWT actual.");
+        }
+
         var claveExiste = await _db.Puestos.AsNoTracking()
-            .AnyAsync(p => p.Clave == command.Clave, cancellationToken);
+            .AnyAsync(p => p.EmpresaId == empresaId && p.Clave == command.Clave, cancellationToken);
         if (claveExiste)
         {
             throw new ConflictException(
@@ -45,7 +58,7 @@ public sealed class CrearPuestoHandler
         }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
-        var puesto = new Puesto(id, command.Clave, command.Nombre);
+        var puesto = new Puesto(id, empresaId, command.Clave, command.Nombre);
 
         _db.Puestos.Add(puesto);
         await _db.SaveChangesAsync(cancellationToken);

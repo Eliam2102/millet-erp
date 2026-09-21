@@ -365,11 +365,13 @@ public class BandejasEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         db.Departamentos.Add(new Departamento(
             id: deptoId,
+            empresaId: EmpresaInicialId,
             clave: clave,
             nombre: $"Depto aislado test {random}"));
 
         db.SucursalDepartamentos.Add(new SucursalDepartamento(
             id: Guid.CreateVersion7(),
+            empresaId: EmpresaInicialId,
             sucursalId: sucursalId,
             departamentoId: deptoId));
 

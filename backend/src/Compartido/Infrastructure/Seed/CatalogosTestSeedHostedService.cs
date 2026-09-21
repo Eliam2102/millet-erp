@@ -197,7 +197,7 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
 
         var faltantes = pares
             .Where(p => !existentesSet.Contains((p.SucursalId, p.DepartamentoId)))
-            .Select(p => new SucursalDepartamento(p.Id, p.SucursalId, p.DepartamentoId))
+            .Select(p => new SucursalDepartamento(p.Id, CompartidoDbContext.EmpresaBootstrapId, p.SucursalId, p.DepartamentoId))
             .ToList();
 
         if (faltantes.Count == 0) return;
@@ -347,50 +347,90 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
 
     /// <summary>
     /// 3 sucursales de prueba (00000005-0003-...). Geográficas tipo
-    /// Millet: México Centro, Monterrey, Querétaro.
+    /// Millet: México Centro, Monterrey, Querétaro. F1-ADM-01: todas
+    /// pertenecen a la empresa raíz de bootstrap
+    /// (<see cref="CompartidoDbContext.EmpresaBootstrapId"/>, única
+    /// empresa hoy); domicilio y demás campos nuevos son datos
+    /// EVIDENTEMENTE FICTICIOS de dev (sin datos reales de Millet en git).
     /// </summary>
     public static readonly Sucursal[] TestSucursales =
     [
         new Sucursal(
             id: Guid.Parse("00000005-0003-0000-0000-000000000001"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "MID",
-            nombre: "Planta México Centro"),
+            nombre: "Planta México Centro",
+            tipo: TipoSucursal.Matriz,
+            calle: "Calle Ficticia 123",
+            numeroExterior: "123",
+            colonia: "Colonia de Prueba",
+            ciudad: "Mérida",
+            municipio: "Mérida",
+            estado: "Yucatán",
+            codigoPostal: "97000",
+            pais: "México"),
         new Sucursal(
             id: Guid.Parse("00000005-0003-0000-0000-000000000002"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "MTY",
-            nombre: "Planta Monterrey"),
+            nombre: "Planta Monterrey",
+            tipo: TipoSucursal.Planta,
+            calle: "Avenida Ficticia 456",
+            numeroExterior: "456",
+            colonia: "Colonia de Prueba Norte",
+            ciudad: "Monterrey",
+            municipio: "Monterrey",
+            estado: "Nuevo León",
+            codigoPostal: "64000",
+            pais: "México"),
         new Sucursal(
             id: Guid.Parse("00000005-0003-0000-0000-000000000003"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "QRO",
-            nombre: "Planta Querétaro"),
+            nombre: "Planta Querétaro",
+            tipo: TipoSucursal.Sucursal,
+            calle: "Boulevard Ficticio 789",
+            numeroExterior: "789",
+            colonia: "Colonia de Prueba Centro",
+            ciudad: "Querétaro",
+            municipio: "Querétaro",
+            estado: "Querétaro",
+            codigoPostal: "76000",
+            pais: "México"),
     ];
 
     /// <summary>
     /// 5 departamentos funcionales seedeados (00000005-0004-...).
     /// COMPRAS = el "depto primario" del dev-superadmin (asignado en
     /// el bootstrap para que /api/auth/me retorne un departamentoId
-    /// no-null en dev/UAT).
+    /// no-null en dev/UAT). F1-ADM-01: todos pertenecen a la empresa
+    /// raíz de bootstrap (única empresa hoy).
     /// </summary>
     public static readonly Departamento[] TestDepartamentos =
     [
         new Departamento(
             id: Guid.Parse("00000005-0004-0000-0000-000000000001"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "COMPRAS",
             nombre: "Compras y Adquisiciones"),
         new Departamento(
             id: Guid.Parse("00000005-0004-0000-0000-000000000002"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "ALMACEN",
             nombre: "Almacén No-Producción"),
         new Departamento(
             id: Guid.Parse("00000005-0004-0000-0000-000000000003"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "MTTO",
             nombre: "Mantenimiento"),
         new Departamento(
             id: Guid.Parse("00000005-0004-0000-0000-000000000004"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "ING",
             nombre: "Ingeniería"),
         new Departamento(
             id: Guid.Parse("00000005-0004-0000-0000-000000000005"),
+            empresaId: CompartidoDbContext.EmpresaBootstrapId,
             clave: "CAL",
             nombre: "Calidad"),
     ];
