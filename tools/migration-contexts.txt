@@ -1,0 +1,14 @@
+# Orden canónico de migraciones locales y de validación.
+# Formato: DbContext|ruta del proyecto relativa a backend/
+CompartidoDbContext|src/Compartido/Millet.Compartido.csproj
+CoreDbContext|src/SharedKernel/Millet.SharedKernel.csproj
+IdentidadDbContext|src/Identidad/Millet.Identidad.csproj
+ComprasDbContext|src/Compras/Millet.Compras.csproj
+IntegracionesAwDbContext|src/Integraciones.Aw/Millet.Integraciones.Aw.csproj
+IntegracionesFiscalDbContext|src/Integraciones.Fiscal/Millet.Integraciones.Fiscal.csproj
+AlmacenDbContext|src/Almacen/Millet.Almacen.csproj
+CuentasPorPagarDbContext|src/CuentasPorPagar/Millet.CuentasPorPagar.csproj
+FacturacionDbContext|src/Facturacion/Millet.Facturacion.csproj
+CuentasPorCobrarDbContext|src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj
+TesoreriaDbContext|src/Tesoreria/Millet.Tesoreria.csproj
+CentrosCostoDbContext|src/CentrosCosto/Millet.CentrosCosto.csproj

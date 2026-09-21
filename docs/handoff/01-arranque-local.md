@@ -6,7 +6,25 @@
 - .NET SDK 9.x.
 - Node.js 22.x y npm.
 - Docker Desktop con Compose.
-- PowerShell 7 recomendado en Windows.
+- Bash en macOS/Linux/WSL/Git Bash o PowerShell 5.1+ en Windows.
+
+## Ruta automatizada recomendada
+
+macOS, Linux, WSL o Git Bash:
+
+```bash
+./tools/setup-dev.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\tools\setup-dev.ps1
+```
+
+Ambas rutas levantan PostgreSQL, restauran y compilan el backend, aplican el
+mismo manifiesto canónico de 12 migraciones e instalan el frontend. Ninguna
+requiere Azure ni Entra ID real para el arranque local.
 
 ## 1. Clonar y comprobar rama
 
@@ -16,9 +34,15 @@ cd millet-erp
 git status
 ```
 
-La rama base es `main`. El repositorio es privado y requiere invitación previa.
+La rama base es `main`. Al corte del 20/09/2026 el repositorio fue observado
+como público; la visibilidad objetivo y los permisos de escritura deben
+confirmarse antes del onboarding. Tener lectura no autoriza commits directos a
+`main`.
 
-## 2. Levantar PostgreSQL
+## 2. Levantar PostgreSQL manualmente
+
+Esta sección se usa cuando no se ejecutó el script automatizado o se requiere
+controlar el puerto manualmente.
 
 El puerto predeterminado es `5432`. Si está ocupado, usa otro sin editar archivos versionados:
 
@@ -126,7 +150,27 @@ plataforma y el CI actual resuelve los binarios del sistema operativo en cada
 ejecución. Si esto cambia, debe actualizarse de forma coordinada aquí, en el
 README y en `.github/workflows/validate-app.yml`.
 
-Las pruebas de integración requieren una base local limpia, con los 12 contextos ya migrados, y la variable `ConnectionStrings__Postgres` apuntando al puerto correcto. Para el gate integral compartido, ejecutar los proyectos en serie (`dotnet test Millet.sln -m:1`): varios proyectos de integración paralelos sobre la misma base pueden contaminar sus datos. Un error `28P01 password authentication failed` normalmente indica que se conectó a otra instancia PostgreSQL, no que una prueba funcional haya fallado.
+Las pruebas de integración requieren una base local limpia, con los 12 contextos ya migrados, y la variable `ConnectionStrings__Postgres` apuntando al puerto correcto. Deben ejecutarse en configuración **Debug**, porque `/api/dev/fake-login` está protegido por `#if DEBUG`; en Release las pruebas que autentican por esa ruta reciben 404. Para el gate integral compartido, ejecutar los proyectos en serie (`dotnet test Millet.sln -m:1`): varios proyectos de integración paralelos sobre la misma base pueden contaminar sus datos. Un error `28P01 password authentication failed` normalmente indica que se conectó a otra instancia PostgreSQL, no que una prueba funcional haya fallado.
+
+Para evitar colisiones de puerto y residuos de una base previa, desde la raíz puede ejecutarse:
+
+```bash
+./tools/validate-integration-isolated.sh
+```
+
+El gate local portable, sin las integraciones de PostgreSQL, es:
+
+```bash
+./tools/validate-local.sh
+```
+
+En Windows PowerShell:
+
+```powershell
+.\tools\validate-local.ps1
+```
+
+El script crea un PostgreSQL temporal en un puerto libre, aplica los 12 contextos, ejecuta las tres suites en serie y elimina el contenedor al terminar.
 
 ## 8. Detener
 
