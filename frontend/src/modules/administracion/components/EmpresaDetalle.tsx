@@ -17,11 +17,17 @@ import {
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useEmpresa, useDesactivarEmpresa } from '@/modules/administracion/api';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { useAuth } from '@/lib/auth/useAuth';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EmpresaDatosForm } from '@/modules/administracion/components/EmpresaDatosForm';
 import { SucursalesPanel } from '@/modules/administracion/components/SucursalesPanel';
 import { DepartamentosPanel } from '@/modules/administracion/components/DepartamentosPanel';
+import type {
+  DepartamentoResponse,
+  EmpresaResponse,
+  SucursalResponse,
+} from '@/modules/administracion/api/types';
 import { cn } from '@/lib/utils';
 
 type Tab = 'datos' | 'sucursales' | 'departamentos';
@@ -71,6 +77,68 @@ export function EmpresaDetalle() {
   }
 
   const { empresa, sucursales, departamentos } = empresaQuery.data;
+
+  return (
+    <EmpresaDetalleContenido
+      empresa={empresa}
+      sucursales={sucursales}
+      departamentos={departamentos}
+      tab={tab}
+      setTab={setTab}
+      confirmDesactivar={confirmDesactivar}
+      setConfirmDesactivar={setConfirmDesactivar}
+      canDesactivar={canDesactivar}
+      desactivar={desactivar}
+      idempotencyKey={idempotencyKey}
+    />
+  );
+}
+
+interface EmpresaDetalleContenidoProps {
+  empresa: EmpresaResponse;
+  sucursales: readonly SucursalResponse[];
+  departamentos: readonly DepartamentoResponse[];
+  tab: Tab;
+  setTab: (tab: Tab) => void;
+  confirmDesactivar: boolean;
+  setConfirmDesactivar: (value: boolean) => void;
+  canDesactivar: boolean;
+  desactivar: ReturnType<typeof useDesactivarEmpresa>;
+  idempotencyKey: string;
+}
+
+function EmpresaDetalleContenido({
+  empresa,
+  sucursales,
+  departamentos,
+  tab,
+  setTab,
+  confirmDesactivar,
+  setConfirmDesactivar,
+  canDesactivar,
+  desactivar,
+  idempotencyKey,
+}: EmpresaDetalleContenidoProps) {
+  const { currentEmpresaId, currentEmpresa, empresas, changeEmpresa } =
+    useAuth();
+  const empresaActivaMismatch =
+    currentEmpresaId != null && currentEmpresaId !== empresa.id;
+  const [cambiandoEmpresa, setCambiandoEmpresa] = useState(false);
+
+  async function handleCambiarEmpresaActiva() {
+    setCambiandoEmpresa(true);
+    try {
+      await changeEmpresa(empresa.id);
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo cambiar la empresa activa.',
+      );
+    } finally {
+      setCambiandoEmpresa(false);
+    }
+  }
 
   function handleConfirmarDesactivar() {
     desactivar.mutate(
@@ -192,6 +260,35 @@ export function EmpresaDetalle() {
         </nav>
 
       <div className="px-4 pt-4 pb-6">
+        {empresaActivaMismatch &&
+          (tab === 'sucursales' || tab === 'departamentos') && (
+            <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              <p>
+                Estás viendo {empresa.razonSocial}, pero tu empresa activa es{' '}
+                {currentEmpresa?.razonSocial ?? 'otra empresa'}. Agregar o
+                editar aquí afectaría a tu empresa activa, no a la que ves.
+              </p>
+              {empresas.some((e) => e.id === empresa.id) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={handleCambiarEmpresaActiva}
+                  disabled={cambiandoEmpresa}
+                >
+                  {cambiandoEmpresa
+                    ? 'Cambiando…'
+                    : `Cambiar empresa activa a ${empresa.razonSocial}`}
+                </Button>
+              ) : (
+                <p className="mt-2 text-amber-800 dark:text-amber-300">
+                  No tienes esta empresa asignada en tu sesión — no puedes
+                  cambiar tu empresa activa a ella.
+                </p>
+              )}
+            </div>
+          )}
         {tab === 'datos' && (
           <div id="tab-panel-datos" role="tabpanel">
             <EmpresaDatosForm empresa={empresa} />
@@ -202,6 +299,7 @@ export function EmpresaDetalle() {
             <SucursalesPanel
               empresaId={empresa.id}
               sucursales={sucursales}
+              bloqueadoPorEmpresaActiva={empresaActivaMismatch}
             />
           </div>
         )}
@@ -210,6 +308,7 @@ export function EmpresaDetalle() {
             <DepartamentosPanel
               empresaId={empresa.id}
               departamentos={departamentos}
+              bloqueadoPorEmpresaActiva={empresaActivaMismatch}
             />
           </div>
         )}

@@ -40,11 +40,19 @@ import { SheetDepartamentosDeSucursal } from '@/modules/administracion/component
 export interface SucursalesPanelProps {
   empresaId: string;
   sucursales: readonly SucursalResponse[];
+  /**
+   * Cuando la empresa que se está viendo no coincide con la empresa
+   * activa de la sesión, la gestión (alta/edición) queda bloqueada
+   * aunque el usuario tenga el permiso — el backend resolvería la
+   * escritura contra la empresa activa, no contra la que se ve.
+   */
+  bloqueadoPorEmpresaActiva?: boolean;
 }
 
 export function SucursalesPanel({
   empresaId,
   sucursales,
+  bloqueadoPorEmpresaActiva = false,
 }: SucursalesPanelProps) {
   const [agregando, setAgregando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -53,9 +61,9 @@ export function SucursalesPanel({
   const [gestionandoDeptos, setGestionandoDeptos] =
     useState<SucursalResponse | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.AdminEmpresasSucursalesGestionar,
-  );
+  const canGestionar =
+    useHasPermission(PermisosCanonicos.AdminEmpresasSucursalesGestionar) &&
+    !bloqueadoPorEmpresaActiva;
   const canGestionarDeptos = useHasPermission(
     PermisosCanonicos.AdminSucursalesDepartamentosGestionar,
   );
