@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Puestos;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.Catalogos.Domain;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Administracion;
@@ -27,8 +28,26 @@ public static class PuestosEndpoints
     {
         var group = app
             .MapGroup("/api/v1/admin/puestos")
-            .WithTags("Administracion")
-            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosGestionar);
+            .WithTags("Administracion");
+
+        group.MapGet("/", async (
+            [FromQuery] int? offset,
+            [FromQuery] int? limit,
+            [FromQuery] string? q,
+            [FromQuery] EstatusCatalogo? estatus,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(
+                new ListarPuestosQuery(offset ?? 0, limit ?? 50, q, estatus), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosLeer)
+        .WithName("ListarPuestosAdmin")
+        .WithSummary("Listar puestos administrativos")
+        .Produces<ListarPuestosResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/", async (
             [FromBody] CrearPuestoCommand command,
@@ -38,6 +57,7 @@ public static class PuestosEndpoints
             var response = await mediator.Send(command, ct);
             return Results.Created($"/api/v1/admin/puestos/{response.Id}", response);
         })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosGestionar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .WithName("CrearPuesto")
         .WithSummary("Crear puesto")
@@ -57,6 +77,7 @@ public static class PuestosEndpoints
                 new ActualizarPuestoCommand(id, payload.Nombre), ct);
             return Results.Ok(response);
         })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosGestionar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .WithName("ActualizarPuesto")
         .WithSummary("PATCH parcial sobre puesto")
@@ -74,6 +95,7 @@ public static class PuestosEndpoints
             var response = await mediator.Send(new DesactivarPuestoCommand(id), ct);
             return Results.Ok(response);
         })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosGestionar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .WithName("DesactivarPuesto")
         .WithSummary("Desactivar puesto (baja lógica, idempotente)")
@@ -90,6 +112,7 @@ public static class PuestosEndpoints
             var response = await mediator.Send(new ReactivarPuestoCommand(id), ct);
             return Results.Ok(response);
         })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosGestionar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .WithName("ReactivarPuesto")
         .WithSummary("Reactivar puesto (idempotente)")

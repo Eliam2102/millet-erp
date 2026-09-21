@@ -138,6 +138,7 @@ public static class PermisosCanonicos
     public const string AdminEmpresasEditar                            = "admin.empresas.editar";
     public const string AdminEmpresasDesactivar                        = "admin.empresas.desactivar";
     public const string AdminEmpresasSucursalesGestionar               = "admin.empresas.sucursales-gestionar";
+    public const string AdminDepartamentosLeer                         = "admin.departamentos.leer";
     public const string AdminDepartamentosGestionar                    = "admin.departamentos.gestionar";
     // PR-A1: asignación N:M Sucursal ↔ Departamento. Gobierna qué deptos
     // operan en qué sucursal; consumido por Compras en PR-A2 para validar
@@ -152,6 +153,7 @@ public static class PermisosCanonicos
     // jefe directo como autorizador N1. Sub-namespaces 00000005-0007-*
     // (puestos) y 00000005-0008-* (empleados).
     public const string AdminPuestosGestionar                          = "admin.puestos.gestionar";
+    public const string AdminPuestosLeer                                = "admin.puestos.leer";
     public const string AdminEmpleadosGestionar                        = "admin.empleados.gestionar";
 
     // ----- Administración — Series y Folios (F-Admin-PR6.1) -----
@@ -493,11 +495,13 @@ public static class PermisosCanonicos
         (Guid.Parse("00000005-0001-0000-0000-000000000005"), AdminEmpresasSucursalesGestionar,             "Crear, editar y desactivar sucursales del catálogo organizacional"),
         (Guid.Parse("00000005-0002-0000-0000-000000000001"), AdminAuditoriaLeer,                           "Consultar la bitácora consolidada de auditoría (mínimo del andamio /admin)"),
         (Guid.Parse("00000005-0003-0000-0000-000000000001"), AdminDepartamentosGestionar,                  "Crear, editar y desactivar departamentos del catálogo organizacional"),
+        (Guid.Parse("00000005-0003-0000-0000-000000000002"), AdminDepartamentosLeer,                       "Consultar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0004-0000-0000-000000000001"), AdminSeriesGestionar,                         "Crear, editar y desactivar series de folios cross-módulo (OC, CFDI, póliza)"),
         (Guid.Parse("00000005-0005-0000-0000-000000000001"), AdminParametrosLeer,                          "Leer parámetros globales del sistema"),
         (Guid.Parse("00000005-0005-0000-0000-000000000002"), AdminParametrosEditar,                        "Editar parámetros globales del sistema (TZ, formato fecha, redondeo)"),
         (Guid.Parse("00000005-0006-0000-0000-000000000001"), AdminSucursalesDepartamentosGestionar,        "Asignar, desactivar y reactivar departamentos por sucursal (N:M)"),
         (Guid.Parse("00000005-0007-0000-0000-000000000001"), AdminPuestosGestionar,                        "Crear, editar y desactivar puestos del catálogo organizacional"),
+        (Guid.Parse("00000005-0007-0000-0000-000000000002"), AdminPuestosLeer,                              "Consultar puestos del catálogo organizacional"),
         (Guid.Parse("00000005-0008-0000-0000-000000000001"), AdminEmpleadosGestionar,                      "Crear, editar y desactivar empleados del catálogo organizacional"),
         // Catálogos granulares (F-Admin-PR5.x). Reusan namespace 00000004-* (Compartido).
         (Guid.Parse("00000004-0003-0000-0000-000000000001"), CatalogosMonedasGestionar,                    "Crear, editar y desactivar monedas del catálogo cross-empresa"),

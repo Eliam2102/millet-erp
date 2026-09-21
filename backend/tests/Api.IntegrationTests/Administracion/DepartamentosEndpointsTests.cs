@@ -65,6 +65,37 @@ public class DepartamentosEndpointsTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task Listar_Desactivar_Reactivar_Departamento_Retorna_Estados_Correctos()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var clave = RandomClave("DEPL");
+        var creado = await client.PostAsJsonAsync(EndpointBase, new
+        {
+            Id = Guid.Empty,
+            Clave = clave,
+            Nombre = "Departamento ciclo completo",
+        });
+        creado.EnsureSuccessStatusCode();
+        var creadoBody = await ReadJsonAsync(creado);
+        var id = creadoBody.GetProperty("id").GetGuid();
+
+        var listado = await client.GetAsync($"{EndpointBase}?q={clave}");
+        Assert.Equal(HttpStatusCode.OK, listado.StatusCode);
+        var listadoBody = await ReadJsonAsync(listado);
+        Assert.Contains(
+            listadoBody.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("id").GetGuid() == id);
+
+        var desactivado = await client.PostAsync($"{EndpointBase}/{id}/desactivar", content: null);
+        Assert.Equal(HttpStatusCode.OK, desactivado.StatusCode);
+        Assert.Equal(1, (await ReadJsonAsync(desactivado)).GetProperty("estatus").GetInt32());
+
+        var reactivado = await client.PostAsync($"{EndpointBase}/{id}/reactivar", content: null);
+        Assert.Equal(HttpStatusCode.OK, reactivado.StatusCode);
+        Assert.Equal(0, (await ReadJsonAsync(reactivado)).GetProperty("estatus").GetInt32());
+    }
+
+    [Fact]
     public async Task Crear_Sin_Token_Retorna_401()
     {
         var client = _factory.CreateClient();
