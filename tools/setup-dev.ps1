@@ -18,6 +18,7 @@
 param(
     [switch]$SkipMigrations,
     [switch]$SkipNpmInstall,
+    [switch]$SkipDatabaseStart,
     [ValidateRange(1, 65535)]
     [int]$PostgresPort = 5432
 )
@@ -27,6 +28,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $Backend = Join-Path $RepoRoot 'backend'
 $Frontend = Join-Path $RepoRoot 'frontend'
+$ContextsFile = Join-Path $PSScriptRoot 'migration-contexts.txt'
 
 function Write-Step {
     param([string]$Message)
@@ -94,12 +96,31 @@ $nodeVersion = & node -v
 if ($nodeVersion -notmatch '^v22\.') {
     Write-Warn "Versión actual: $nodeVersion. El proyecto pinea v22 (frontend/.nvmrc). Puede compilar pero recomendamos v22."
 } else {
-    Write-Ok "Node $nodeVersion"
+Write-Ok "Node $nodeVersion"
 }
 
-# === 4. Postgres reachable ===
+# === 4. PostgreSQL local ===
+if (-not $SkipDatabaseStart) {
+    Write-Step "Levantando PostgreSQL con Docker Compose"
+    $docker = Get-Command docker -ErrorAction SilentlyContinue
+    if (-not $docker) {
+        Fail "docker no está en PATH. Instala Docker Desktop o usa -SkipDatabaseStart con PostgreSQL ya iniciado."
+    }
+    $env:POSTGRES_PORT = "$PostgresPort"
+    if (-not $env:POSTGRES_VOLUME_NAME) {
+        $env:POSTGRES_VOLUME_NAME = "millet-dev-pg-data-$PostgresPort"
+    }
+    & docker compose -f (Join-Path $RepoRoot 'docker-compose.dev.yml') up -d postgres | Out-Host
+    if ($LASTEXITCODE -ne 0) { Fail "docker compose up falló (exit $LASTEXITCODE)" }
+}
+
 Write-Step "Verificando Postgres en localhost:$PostgresPort"
-$pgTest = Test-NetConnection -ComputerName localhost -Port $PostgresPort -InformationLevel Quiet -WarningAction SilentlyContinue
+$pgTest = $false
+for ($attempt = 1; $attempt -le 30; $attempt++) {
+    $pgTest = Test-NetConnection -ComputerName localhost -Port $PostgresPort -InformationLevel Quiet -WarningAction SilentlyContinue
+    if ($pgTest) { break }
+    Start-Sleep -Seconds 1
+}
 if (-not $pgTest) {
     Write-Host ""
     Write-Host "    Postgres no responde en localhost:$PostgresPort." -ForegroundColor Red
@@ -141,20 +162,16 @@ if ($SkipMigrations) {
     Write-Step "Saltando migraciones (--SkipMigrations)"
 } else {
     Write-Step "Aplicando migraciones EF (12 contextos)"
-    $contexts = @(
-        @{ Name = 'CompartidoDbContext'; Project = 'src/Compartido/Millet.Compartido.csproj' },
-        @{ Name = 'CoreDbContext';       Project = 'src/SharedKernel/Millet.SharedKernel.csproj' },
-        @{ Name = 'IdentidadDbContext';  Project = 'src/Identidad/Millet.Identidad.csproj' },
-        @{ Name = 'ComprasDbContext'; Project = 'src/Compras/Millet.Compras.csproj' },
-        @{ Name = 'IntegracionesAwDbContext'; Project = 'src/Integraciones.Aw/Millet.Integraciones.Aw.csproj' },
-        @{ Name = 'IntegracionesFiscalDbContext'; Project = 'src/Integraciones.Fiscal/Millet.Integraciones.Fiscal.csproj' },
-        @{ Name = 'AlmacenDbContext'; Project = 'src/Almacen/Millet.Almacen.csproj' },
-        @{ Name = 'CuentasPorPagarDbContext'; Project = 'src/CuentasPorPagar/Millet.CuentasPorPagar.csproj' },
-        @{ Name = 'FacturacionDbContext'; Project = 'src/Facturacion/Millet.Facturacion.csproj' },
-        @{ Name = 'CuentasPorCobrarDbContext'; Project = 'src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj' },
-        @{ Name = 'TesoreriaDbContext'; Project = 'src/Tesoreria/Millet.Tesoreria.csproj' },
-        @{ Name = 'CentrosCostoDbContext'; Project = 'src/CentrosCosto/Millet.CentrosCosto.csproj' }
-    )
+    if (-not (Test-Path $ContextsFile)) {
+        Fail "No se encontró el manifiesto canónico de migraciones: $ContextsFile"
+    }
+    $contexts = Get-Content $ContextsFile |
+        Where-Object { $_ -and -not $_.TrimStart().StartsWith('#') } |
+        ForEach-Object {
+            $parts = $_ -split '\|', 2
+            if ($parts.Count -ne 2) { Fail "Línea inválida en ${ContextsFile}: $_" }
+            @{ Name = $parts[0]; Project = $parts[1] }
+        }
     Push-Location $Backend
     try {
         foreach ($ctx in $contexts) {

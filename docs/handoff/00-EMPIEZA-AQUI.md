@@ -8,23 +8,25 @@ Geovany y Uzziel deben poder clonar el repositorio, levantar el stack local, eje
 
 ## Orden de lectura
 
-1. [01-arranque-local.md](01-arranque-local.md)
-2. [02-estado-verificado.md](02-estado-verificado.md)
-3. [03-mapa-del-codigo.md](03-mapa-del-codigo.md)
-4. [04-forma-de-trabajo.md](04-forma-de-trabajo.md)
-5. [05-dependencias-externas.md](05-dependencias-externas.md)
-6. [06-checklist-primer-dia.md](06-checklist-primer-dia.md)
-7. [07-publicacion-y-seguridad.md](07-publicacion-y-seguridad.md)
-8. [08-inventario-funcional-fase1.md](08-inventario-funcional-fase1.md)
-9. [09-plan-operativo-ola-1a.md](09-plan-operativo-ola-1a.md)
-10. [10-auditoria-35-existentes.md](10-auditoria-35-existentes.md)
-11. [11-matriz-arranque-ola1a.md](11-matriz-arranque-ola1a.md)
-12. [12-borrador-publicacion-notion-clickup.md](12-borrador-publicacion-notion-clickup.md)
-13. [13-manifiesto-clickup-ola1a.md](13-manifiesto-clickup-ola1a.md)
-14. [14-manifiesto-notion-handoff.md](14-manifiesto-notion-handoff.md)
-15. [15-auditoria-104-parciales-no-existentes.md](15-auditoria-104-parciales-no-existentes.md)
-16. [16-plan-ejecucion-y-cierre.md](16-plan-ejecucion-y-cierre.md)
-17. [17-plan-validacion-35-existentes.md](17-plan-validacion-35-existentes.md)
+1. [18-diagnostico-y-plan-reanudacion-2026-09-20.md](18-diagnostico-y-plan-reanudacion-2026-09-20.md)
+2. [19-plan-control-construccion-al-15-diciembre.md](19-plan-control-construccion-al-15-diciembre.md)
+3. [01-arranque-local.md](01-arranque-local.md)
+4. [02-estado-verificado.md](02-estado-verificado.md)
+5. [03-mapa-del-codigo.md](03-mapa-del-codigo.md)
+6. [04-forma-de-trabajo.md](04-forma-de-trabajo.md)
+7. [05-dependencias-externas.md](05-dependencias-externas.md)
+8. [06-checklist-primer-dia.md](06-checklist-primer-dia.md)
+9. [07-publicacion-y-seguridad.md](07-publicacion-y-seguridad.md)
+10. [08-inventario-funcional-fase1.md](08-inventario-funcional-fase1.md)
+11. [09-plan-operativo-ola-1a.md](09-plan-operativo-ola-1a.md)
+12. [10-auditoria-35-existentes.md](10-auditoria-35-existentes.md)
+13. [11-matriz-arranque-ola1a.md](11-matriz-arranque-ola1a.md)
+14. [12-borrador-publicacion-notion-clickup.md](12-borrador-publicacion-notion-clickup.md)
+15. [13-manifiesto-clickup-ola1a.md](13-manifiesto-clickup-ola1a.md)
+16. [14-manifiesto-notion-handoff.md](14-manifiesto-notion-handoff.md)
+17. [15-auditoria-104-parciales-no-existentes.md](15-auditoria-104-parciales-no-existentes.md)
+18. [16-plan-ejecucion-y-cierre.md](16-plan-ejecucion-y-cierre.md)
+19. [17-plan-validacion-35-existentes.md](17-plan-validacion-35-existentes.md)
 
 Después deben revisar en Notion la ficha de la ola, módulo y funcionalidad asignada. El código indica lo que existe; Notion indica qué debe construirse y aceptarse en Fase 1.
 
@@ -35,7 +37,9 @@ Después deben revisar en Notion la ficha de la ola, módulo y funcionalidad asi
 - **Eliam Cauich y Ángel Sánchez:** planeación, alcance y desbloqueo interno.
 - **Jorge Toache (Millet):** coordinación funcional/técnica por parte de Vidrios Millet, especialmente TI y A+W.
 
-El acceso a ClickUp y Notion fue confirmado operativamente por Eliam. El acceso al repositorio debe comprobarse por separado con los usuarios exactos de GitHub de Geovany y Uzziel; no se infieren a partir del correo. Todo cambio debe entrar mediante rama y pull request. La protección automática de `main` continúa limitada por el plan actual del repositorio privado.
+El acceso a ClickUp y Notion fue confirmado operativamente por Eliam. El acceso al repositorio debe comprobarse por separado con los usuarios exactos de GitHub de Geovany y Uzziel; no se infieren a partir del correo. Todo cambio debe entrar mediante rama y pull request.
+
+> **Corte 20/09/2026:** GitHub reportó el repositorio como público y `main` sin protección. No se localizaron ramas o PRs de ADM-01/ADM-02. Consultar primero el diagnóstico 18; no usar la descripción histórica de repositorio privado como estado actual.
 
 ## Secuencia de habilitación
 
