@@ -60,6 +60,7 @@ resource rootAuthRule 'Microsoft.ServiceBus/namespaces/authorizationRules@2024-0
 //   - cuentas-por-pagar-events (módulo Millet.CuentasPorPagar)
 //   - facturacion-events       (módulo Millet.Facturacion)
 //   - tesoreria-events         (módulo Millet.Tesoreria; publisher en TES-PR4)
+//   - admin-events              (Administración; publisher en F1-ADM-01)
 //
 // Sub-cara por subscription:
 //   compras-events / cuentas-por-pagar-subscription
@@ -172,6 +173,26 @@ resource awEventsDropSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/
       sqlExpression: 'user.EventType = \'integraciones.aw.cotizacion.recibida.v1\''
       compatibilityLevel: 20
     }
+  }
+}
+
+// ============================================================================
+// Topic: admin-events (Administración)
+// Publicado por OutboxPublisherWorker<CompartidoDbContext>. No tiene
+// subscriptions de negocio todavía; los consumidores se agregan cuando cada
+// módulo adopte los contratos admin.*.
+// ============================================================================
+
+resource adminEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
+  parent: serviceBus
+  name: 'admin-events'
+  properties: {
+    defaultMessageTimeToLive: 'P1D'
+    enableBatchedOperations: true
+    enablePartitioning: false
+    maxSizeInMegabytes: 1024
+    requiresDuplicateDetection: false
+    supportOrdering: true
   }
 }
 

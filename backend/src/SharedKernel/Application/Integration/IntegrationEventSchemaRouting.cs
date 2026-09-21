@@ -40,6 +40,7 @@ public static class IntegrationEventSchemaRouting
     private static readonly (string Prefix, string Schema)[] Rutas =
         new (string, string)[]
         {
+            ("admin.", "compartido"),
             ("integraciones.aw.", "integraciones_aw"),
             ("integraciones.fiscal.", "integraciones_fiscal"),
             ("compras.", "compras"),

@@ -3,6 +3,7 @@ using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Infrastructure.Persistence;
+using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.Compartido.Infrastructure.Persistence;
 
 // F1-PR2: el alias `AlmacenEntity` y el DbSet `Almacenes` fueron retirados.
@@ -102,6 +103,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     // FormatoFecha, RedondeoMonetario, etc.) o por módulo (cuando Modulo
     // es no-null). Vive en compartido (PLATFORM-TODO Fase B → admin).
     public DbSet<ParametroGlobal> ParametrosGlobales => Set<ParametroGlobal>();
+    public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -149,6 +151,25 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureSerie(modelBuilder);
         ConfigureSecuenciaFolio(modelBuilder);
         ConfigureParametroGlobal(modelBuilder);
+        ConfigureIntegrationEventOutbox(modelBuilder);
+    }
+
+    private static void ConfigureIntegrationEventOutbox(ModelBuilder modelBuilder)
+    {
+        var outbox = modelBuilder.Entity<IntegrationEventOutboxEntry>();
+        outbox.ToTable("integration_events_outbox");
+        outbox.HasKey(entry => entry.Id);
+        outbox.Property(entry => entry.EventType).HasMaxLength(150).IsRequired();
+        outbox.Property(entry => entry.Payload).HasColumnType("jsonb").IsRequired();
+        outbox.Property(entry => entry.OccurredAt).IsRequired();
+        outbox.Property(entry => entry.IntegrationEmpresaId).IsRequired();
+        outbox.Property(entry => entry.PublishedAt);
+        outbox.Property(entry => entry.Attempts).IsRequired();
+        outbox.Property(entry => entry.LastError);
+        outbox.HasIndex(entry => entry.IntegrationEmpresaId);
+        outbox.HasIndex(entry => entry.PublishedAt)
+            .HasDatabaseName("ix_integration_events_outbox_pending")
+            .HasFilter("published_at IS NULL");
     }
 
     /// <summary>

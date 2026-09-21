@@ -150,6 +150,9 @@ builder.Services
     .AddOptions<OutboxPublisherOptions>(nameof(ComprasDbContext))
     .Bind(builder.Configuration.GetSection("Compras:Outbox"));
 builder.Services
+    .AddOptions<OutboxPublisherOptions>(nameof(CompartidoDbContext))
+    .Bind(builder.Configuration.GetSection("Compartido:Outbox"));
+builder.Services
     .AddOptions<OutboxPublisherOptions>(nameof(Millet.Integraciones.Aw.Infrastructure.Persistence.IntegracionesAwDbContext))
     .Bind(builder.Configuration.GetSection("IntegracionesAw:Outbox"));
 // F0-PR1 Almacén: outbox del módulo Almacén (topic
@@ -185,6 +188,7 @@ builder.Services
 // ServiceBus__ConnectionString (mismo secret usado por Compras).
 var outboxConnString =
     builder.Configuration["Compras:Outbox:ServiceBusConnectionString"]
+    ?? builder.Configuration["Compartido:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["IntegracionesAw:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["Almacen:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["CuentasPorPagar:Outbox:ServiceBusConnectionString"]
@@ -266,6 +270,7 @@ else
 }
 
 builder.Services.AddHostedService<OutboxPublisherWorker<ComprasDbContext>>();
+builder.Services.AddHostedService<OutboxPublisherWorker<CompartidoDbContext>>();
 builder.Services.AddHostedService<OutboxPublisherWorker<Millet.Integraciones.Aw.Infrastructure.Persistence.IntegracionesAwDbContext>>();
 builder.Services.AddHostedService<OutboxPublisherWorker<AlmacenDbContext>>();
 builder.Services.AddHostedService<OutboxPublisherWorker<CuentasPorPagarDbContext>>();
@@ -1008,7 +1013,11 @@ void ConfigureMilletDbContext(DbContextOptionsBuilder opts, IServiceProvider sp)
         sp.GetRequiredService<AuditSaveChangesInterceptor>());
 }
 
-builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
+builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
