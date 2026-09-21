@@ -113,7 +113,7 @@ fi
 if [[ "$skip_npm_install" -eq 0 ]]; then
   step "Instalando dependencias del frontend"
   cd "$frontend_dir"
-  npm install --no-audit --no-fund
+  npm install --ignore-scripts --no-audit --no-fund
 fi
 
 cat <<EOF

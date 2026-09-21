@@ -18,7 +18,7 @@ for project in tests/*UnitTests/*.csproj; do
 done
 
 cd "$repo_root/frontend"
-npm install --no-audit --no-fund
+npm install --ignore-scripts --no-audit --no-fund
 npm run lint
 npm run build
 npm test
