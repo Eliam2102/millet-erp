@@ -325,10 +325,18 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
 
             var segundaEmpresa = new Millet.Administracion.Domain.Empresa(
                 segundaEmpresaId,
+                "EMP2",
                 $"RFC{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
                 "Segunda Empresa Test S.A.",
                 "601",
-                "Segunda Test");
+                "Calle 1",
+                "100",
+                "Centro",
+                "Mérida",
+                "Mérida",
+                "Yucatán",
+                "MEX",
+                nombreComercial: "Segunda Test");
             compartidoDb.Empresas.Add(segundaEmpresa);
             await compartidoDb.SaveChangesAsync();
 

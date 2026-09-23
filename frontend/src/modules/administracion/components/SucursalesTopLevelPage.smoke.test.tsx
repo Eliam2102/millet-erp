@@ -14,6 +14,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * selector: solo existe una empresa (Millet).
  */
 vi.mock('@tanstack/react-router', () => ({
+  // useAuth (AppShell) navega a /login al cerrar sesión.
+  useNavigate: () => vi.fn(),
   Link: ({
     children,
     to,

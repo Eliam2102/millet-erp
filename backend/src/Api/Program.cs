@@ -1199,7 +1199,6 @@ app.MapProvisioningEndpoints();
 #if DEBUG
 // Compilación condicional: en Release este código no existe (ADR-0015).
 app.MapDevAuthEndpoints();
-#if DEBUG
 // Solo el endpoint auxiliar de idempotencia permanece limitado a Debug.
 app.MapDevIdempotencyEndpoints();
 #endif

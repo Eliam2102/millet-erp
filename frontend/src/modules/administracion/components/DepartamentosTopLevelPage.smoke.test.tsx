@@ -13,6 +13,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * contra la empresa activa de la sesión, sin selector.
  */
 vi.mock('@tanstack/react-router', () => ({
+  // useAuth (AppShell) navega a /login al cerrar sesión.
+  useNavigate: () => vi.fn(),
   Link: ({
     children,
     to,
