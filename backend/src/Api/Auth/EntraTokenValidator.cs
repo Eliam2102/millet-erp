@@ -99,7 +99,12 @@ public sealed class EntraTokenValidator : IEntraTokenValidator
                 $"https://sts.windows.net/{opts.TenantId}/",
             },
             ValidateAudience = true,
-            ValidAudience = opts.Audience,
+            ValidAudiences = new[]
+            {
+                opts.Audience,
+                opts.ClientId,
+                $"api://{opts.ClientId}",
+            }.Where(a => !string.IsNullOrWhiteSpace(a)),
             ValidateIssuerSigningKey = true,
             IssuerSigningKeys = oidcConfig.SigningKeys,
             ValidateLifetime = true,
@@ -160,7 +165,12 @@ public sealed class EntraTokenValidator : IEntraTokenValidator
                 $"https://sts.windows.net/{opts.TenantId}/",
             },
             ValidateAudience = true,
-            ValidAudience = opts.Audience,
+            ValidAudiences = new[]
+            {
+                opts.Audience,
+                opts.ClientId,
+                $"api://{opts.ClientId}",
+            }.Where(a => !string.IsNullOrWhiteSpace(a)),
             ValidateIssuerSigningKey = true,
             IssuerSigningKeys = oidcConfig.SigningKeys,
             ValidateLifetime = true,

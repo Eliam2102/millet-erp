@@ -25,11 +25,8 @@ namespace Millet.SharedKernel.Application.Integration;
 /// el primer segmento.
 /// </para>
 /// <para>
-/// Los prefijos <c>admin.</c> e <c>identidad.</c> NO se listan a propósito:
-/// esos módulos no tienen outbox propio (ni worker publisher) todavía. Sus
-/// eventos quedan "sin ruta" y el interceptor los trata con el fallback
-/// legacy (los absorbe el primer SaveChanges de la request). Ver
-/// PLATFORM-TODO(&lt;OutboxRutaAdminIdentidad&gt;) en el interceptor.
+/// <c>admin.</c> se persiste en el outbox de Compartido. <c>identidad.</c>
+/// sigue sin ruta propia y usa el fallback legacy hasta contar con outbox.
 /// </para>
 /// </summary>
 public static class IntegrationEventSchemaRouting
@@ -58,8 +55,8 @@ public static class IntegrationEventSchemaRouting
     /// <summary>
     /// Resuelve el schema del módulo dueño del outbox para
     /// <paramref name="eventType"/>. Devuelve <c>false</c> si el evento no
-    /// mapea a ningún módulo con outbox propio (p. ej. <c>admin.*</c>,
-    /// <c>identidad.*</c>, o eventos de prueba <c>test.*</c>).
+    /// mapea a ningún módulo con outbox propio (p. ej. <c>identidad.*</c>
+    /// o eventos de prueba <c>test.*</c>).
     /// </summary>
     public static bool TryResolveSchema(string eventType, out string schema)
     {

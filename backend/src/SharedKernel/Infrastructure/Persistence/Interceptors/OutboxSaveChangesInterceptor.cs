@@ -85,14 +85,14 @@ public sealed class OutboxSaveChangesInterceptor : SaveChangesInterceptor
         var pending = new List<IntegrationEvent>(_buffer.DrainForSchema(schema));
 
         // Fallback legacy (P9-H7): eventos de módulos sin outbox propio
-        // (admin/identidad) los absorbe el primer SaveChanges de la request,
+        // (identidad) los absorbe el primer SaveChanges de la request,
         // exactamente como antes. Solo el primer contexto que guarda los ve.
         var unrouted = _buffer.DrainUnrouted();
         if (unrouted.Count > 0)
         {
             pending.AddRange(unrouted);
-            // PLATFORM-TODO(<OutboxRutaAdminIdentidad>): admin.* e identidad.*
-            // no tienen outbox/worker propios; se persisten en el schema del
+            // PLATFORM-TODO(<OutboxRutaIdentidad>): identidad.* todavía no
+            // tiene outbox/worker propio; se persiste en el schema del
             // primer SaveChanges (aquí '{Schema}') como best-effort. Cuando esos
             // módulos tengan su outbox, agregar su prefijo a
             // IntegrationEventSchemaRouting y remover este fallback.

@@ -75,11 +75,11 @@ public sealed class InMemoryIntegrationEventBufferTests
     public void DrainUnrouted_SoloLosSinRuta_NoTocaLosRuteados()
     {
         var buffer = new InMemoryIntegrationEventBuffer();
-        buffer.Enqueue(Ev("admin.empresa.creada.v1"));      // sin outbox propio
+        buffer.Enqueue(Ev("identidad.usuario.rol.asignado.v1")); // sin outbox propio
         buffer.Enqueue(Ev("facturacion.factura-venta.timbrada.v1"));
 
         var unrouted = buffer.DrainUnrouted();
-        unrouted.Should().ContainSingle().Which.EventType.Should().Be("admin.empresa.creada.v1");
+        unrouted.Should().ContainSingle().Which.EventType.Should().Be("identidad.usuario.rol.asignado.v1");
 
         // El ruteado sigue disponible para su propio schema.
         buffer.DrainForSchema("facturacion").Should().ContainSingle();

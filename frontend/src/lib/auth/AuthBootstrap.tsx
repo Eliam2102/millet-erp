@@ -3,6 +3,7 @@ import { MsalProvider } from '@azure/msal-react';
 import { type PublicClientApplication } from '@azure/msal-browser';
 import { authMode, buildMsalInstance } from '@/lib/auth/config';
 import { handlePostLoginRedirect, trySilentLogin } from '@/lib/auth/useAuth';
+import { Loader2 } from 'lucide-react';
 
 interface AuthBootstrapProps {
   children: ReactNode;
@@ -62,8 +63,16 @@ export function AuthBootstrap({ children }: AuthBootstrapProps) {
   // arranque y este bloqueo no aplica.
   if (!isReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-500">
-        Inicializando...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100 p-4">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 text-white shadow-md shadow-indigo-500/20">
+            <span className="text-xl font-bold tracking-tight">M</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+            <span>Iniciando Millet ERP...</span>
+          </div>
+        </div>
       </div>
     );
   }

@@ -91,6 +91,8 @@ export interface AuthState {
   permisos: string[];
   /** Settings del módulo Compras de la empresa actual; <c>null</c> si no hay empresa. */
   comprasSettings: ComprasSettings | null;
+  /** True mientras se cambia la empresa activa para mostrar feedback visual en la UI. */
+  isSwitchingEmpresa: boolean;
 }
 
 /** Usuario seed de dev para el DevUserSelector (ADR-0015). */

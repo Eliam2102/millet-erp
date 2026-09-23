@@ -17,6 +17,7 @@ const initialState: AuthState = {
   currentEmpresaId: null,
   permisos: [],
   comprasSettings: null,
+  isSwitchingEmpresa: false,
 };
 
 interface AuthActions {
@@ -25,7 +26,8 @@ interface AuthActions {
   updateEmpresas: (empresas: EmpresaInfo[]) => void;
   updatePermisos: (permisos: string[]) => void;
   updateComprasSettings: (settings: ComprasSettings | null) => void;
-  clearSession: () => void;
+  setIsSwitchingEmpresa: (isSwitching: boolean) => void;
+  clearSession: (status?: AuthStatus) => void;
 }
 
 /**
@@ -52,6 +54,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
       currentEmpresaId: empresaActual?.id ?? null,
       permisos: response.permisos,
       comprasSettings: response.comprasSettings,
+      isSwitchingEmpresa: false,
     });
   },
 
@@ -67,5 +70,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
 
   updateComprasSettings: (settings) => set({ comprasSettings: settings }),
 
-  clearSession: () => set(initialState),
+  setIsSwitchingEmpresa: (isSwitchingEmpresa) => set({ isSwitchingEmpresa }),
+
+  clearSession: (status: AuthStatus = 'idle') => set({ ...initialState, status }),
 }));

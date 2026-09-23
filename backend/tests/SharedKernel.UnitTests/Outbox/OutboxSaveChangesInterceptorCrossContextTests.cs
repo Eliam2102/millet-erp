@@ -104,10 +104,10 @@ public sealed class OutboxSaveChangesInterceptorCrossContextTests
         await using var facturacion = NewFacturacion(interceptor);
         await using var fiscal = NewFiscal(interceptor);
 
-        // admin.* no tiene outbox propio → fallback legacy: lo absorbe el
+        // identidad.* no tiene outbox propio → fallback legacy: lo absorbe el
         // primer SaveChanges (fiscal aquí).
         await publisher.PublishAsync(
-            new TestEvent("admin.empresa.creada.v1", Guid.CreateVersion7(), DateTimeOffset.UtcNow),
+            new TestEvent("identidad.usuario.rol.asignado.v1", Guid.CreateVersion7(), DateTimeOffset.UtcNow),
             CancellationToken.None);
 
         await fiscal.SaveChangesAsync();

@@ -13,6 +13,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
  * contra la empresa activa de la sesión, sin selector.
  */
 vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
   Link: ({
     children,
     to,

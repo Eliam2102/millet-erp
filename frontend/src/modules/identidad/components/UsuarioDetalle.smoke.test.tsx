@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -129,6 +130,74 @@ describe('<UsuarioDetalle> — smoke', () => {
     expect(
       screen.getByRole('button', { name: /^desactivar$/i }),
     ).toBeInTheDocument();
+  });
+
+  it('deshabilita el botón Desactivar cuando es la propia cuenta activa en sesión', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 'u-1',
+        email: 'admin@millet.com.mx',
+        nombre: 'Admin Millet',
+      },
+    });
+
+    mswServer.use(
+      http.get('*/api/v1/identidad/usuarios/u-1', () =>
+        HttpResponse.json(USUARIO_DETALLE),
+      ),
+    );
+
+    render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+    );
+
+    const btnDesactivar = screen.getByRole('button', { name: /^desactivar$/i });
+    expect(btnDesactivar).toBeDisabled();
+    expect(btnDesactivar).toHaveAttribute(
+      'title',
+      'No puedes desactivar tu propia cuenta activa',
+    );
+  });
+
+  it('deshabilita la asignación y revocación de roles cuando es la propia cuenta activa en sesión (SoD)', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 'u-1',
+        email: 'admin@millet.com.mx',
+        nombre: 'Admin Millet',
+      },
+    });
+
+    mswServer.use(
+      http.get('*/api/v1/identidad/usuarios/u-1', () =>
+        HttpResponse.json(USUARIO_DETALLE),
+      ),
+    );
+
+    render(<UsuarioDetalle />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('admin@millet.com.mx')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(
+      screen.getByRole('tab', { name: /roles por empresa\s*\(2\)/i }),
+    );
+
+    expect(
+      screen.getByText(/segregación de funciones \(SoD\)/i),
+    ).toBeInTheDocument();
+
+    const btnAsignar = screen.getByRole('button', { name: /asignar rol/i });
+    expect(btnAsignar).toBeDisabled();
+
+    const btnsRevocar = screen.getAllByRole('button', { name: /^revocar/i });
+    expect(btnsRevocar.length).toBeGreaterThan(0);
+    btnsRevocar.forEach((btn) => {
+      expect(btn).toBeDisabled();
+    });
   });
 
   it('muestra Reactivar (no Desactivar) cuando el usuario está inactivo', async () => {

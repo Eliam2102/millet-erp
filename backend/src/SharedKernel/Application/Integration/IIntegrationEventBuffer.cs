@@ -36,7 +36,7 @@ public interface IIntegrationEventBuffer
 
     /// <summary>
     /// Devuelve y remueve los eventos <b>sin ruta de schema conocida</b>
-    /// (módulos sin outbox propio: <c>admin.*</c>, <c>identidad.*</c>, o
+    /// (módulos sin outbox propio: <c>identidad.*</c>, o
     /// eventos de prueba). Fallback legacy: los absorbe el primer
     /// <c>SaveChanges</c> de la request, igual que antes de P9-H7.
     /// </summary>

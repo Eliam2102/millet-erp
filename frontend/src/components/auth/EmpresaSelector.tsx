@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/useAuth';
 
 /**
@@ -11,13 +12,15 @@ import { useAuth } from '@/lib/auth/useAuth';
  * shell del App muestra el mensaje "sin empresa asignada").
  */
 export function EmpresaSelector() {
-  const { empresas, currentEmpresa, changeEmpresa } = useAuth();
+  const { empresas, currentEmpresa, changeEmpresa, isSwitchingEmpresa } = useAuth();
   const [isChanging, setIsChanging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (empresas.length <= 1) {
     return null;
   }
+
+  const isBusy = isChanging || isSwitchingEmpresa;
 
   const handleChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const empresaId = event.target.value;
@@ -45,7 +48,7 @@ export function EmpresaSelector() {
         <select
           value={currentEmpresa?.id ?? ''}
           onChange={handleChange}
-          disabled={isChanging}
+          disabled={isBusy}
           className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-sm disabled:opacity-50"
         >
           {empresas.map((e) => (
@@ -54,6 +57,9 @@ export function EmpresaSelector() {
             </option>
           ))}
         </select>
+        {isBusy && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </label>
       {error && (
         <span className="text-xs text-red-600 dark:text-red-400 mt-1">

@@ -408,6 +408,25 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Empresa inicial creada: id={EmpresaId}, rfc={Rfc}, razonSocial={RazonSocial}",
                 empresa.Id, empresa.Rfc, empresa.RazonSocial);
         }
+        else if (empresa.Rfc == "TMP010101AAA")
+        {
+            // La migración de Administración crea esta raíz provisional en
+            // instalaciones limpias para que los catálogos con empresa_id
+            // puedan migrarse antes de iniciar el API. Sólo el bootstrap
+            // reemplaza el RFC provisional con la configuración autorizada.
+            await compartido.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                UPDATE compartido.empresas
+                SET rfc = {inicial.Rfc}, clave = {inicial.Rfc.ToUpperInvariant()},
+                    razon_social = {inicial.RazonSocial},
+                    regimen_fiscal = {inicial.RegimenFiscal},
+                    nombre_comercial = {inicial.NombreComercial},
+                    updated_at = now(), updated_by = {nameof(BootstrapSuperAdminHostedService)}
+                WHERE id = {EmpresaInicialId} AND rfc = 'TMP010101AAA'
+                """,
+                cancellationToken);
+            await compartido.Entry(empresa).ReloadAsync(cancellationToken);
+        }
 
         // Asignación SuperAdmin ↔ Empresa ↔ Rol. Idempotente por unique idx.
         var assignment = await identidad.UsuarioEmpresaRoles
