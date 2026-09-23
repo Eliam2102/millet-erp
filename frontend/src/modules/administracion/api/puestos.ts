@@ -33,7 +33,7 @@ export function usePuestosAdmin() {
     queryKey: adminKeys.puestosList(),
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<PagedCatalogoResponse<PuestoListItem>>(
-        '/api/v1/catalogos/puestos?limit=200',
+        `${BASE}?limit=200`,
         { signal },
       );
       return data.items;

@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { Building2, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Building2 } from 'lucide-react';
 import {
   EmptyState,
   ErrorState,
@@ -8,19 +7,18 @@ import {
 } from '@/components/erp';
 import { useEmpresas } from '@/modules/administracion/api';
 import { esApiError } from '@/lib/api';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ListaEmpresasCompacta } from '@/modules/administracion/components/ListaEmpresasCompacta';
-import { useNuevaEmpresa } from '@/modules/administracion/components/nueva-empresa-context';
 import { cn } from '@/lib/utils';
 
 /**
  * Layout master-detail (P3 del patrón cross-módulo) para
- * <c>/admin/empresas</c>:
+ * <c>/admin/empresas</c> — el link "avanzado" (sin card propia en el
+ * nav, ver ADR-0051) para ver/editar los datos de la única empresa
+ * (Millet). No hay alta de empresas desde la UI.
  *
  * <list>
  *   <item><b>Master</b> (320px sticky a la izquierda) — lista compacta
- *   de empresas con highlight del id activo. Botón "Nueva empresa".</item>
+ *   de empresas con highlight del id activo.</item>
  *   <item><b>Panel detalle</b> (resto del ancho) — recibe via
  *   <c>detalle</c> prop el contenido para el id seleccionado, o un
  *   placeholder cuando <c>idActivo</c> es <c>null</c>.</item>
@@ -38,8 +36,6 @@ export interface EmpresasLayoutProps {
 }
 
 export function EmpresasLayout({ idActivo, detalle }: EmpresasLayoutProps) {
-  const nuevaEmpresa = useNuevaEmpresa();
-  const canCrear = useHasPermission(PermisosCanonicos.AdminEmpresasCrear);
   const empresasQuery = useEmpresas({ limit: 200 });
 
   const items = useMemo(
@@ -58,23 +54,13 @@ export function EmpresasLayout({ idActivo, detalle }: EmpresasLayoutProps) {
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Empresas</h1>
-          {canCrear && (
-            <Button size="sm" onClick={() => nuevaEmpresa.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nueva
-            </Button>
-          )}
+          <h1 className="text-xl font-semibold tracking-tight">
+            Datos de la empresa
+          </h1>
         </div>
 
         <div className="flex-1 overflow-y-auto rounded-md border bg-card">
-          <RenderLista
-            query={empresasQuery}
-            items={items}
-            idActivo={idActivo}
-            canCrear={canCrear}
-            onAbrirNueva={() => nuevaEmpresa.abrir()}
-          />
+          <RenderLista query={empresasQuery} items={items} idActivo={idActivo} />
         </div>
       </aside>
 
@@ -99,17 +85,9 @@ interface RenderListaProps {
     ? I
     : never;
   idActivo: string | null;
-  canCrear: boolean;
-  onAbrirNueva: () => void;
 }
 
-function RenderLista({
-  query,
-  items,
-  idActivo,
-  canCrear,
-  onAbrirNueva,
-}: RenderListaProps) {
+function RenderLista({ query, items, idActivo }: RenderListaProps) {
   if (query.isLoading) {
     return (
       <div className="p-3">
@@ -131,19 +109,7 @@ function RenderLista({
       <EmptyState
         icon={<Building2 className="h-10 w-10" />}
         title="Aún no hay empresas."
-        description={
-          canCrear
-            ? 'Crea la primera para empezar.'
-            : 'Cuando se creen, aparecerán aquí.'
-        }
-        action={
-          canCrear ? (
-            <Button size="sm" onClick={onAbrirNueva}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nueva empresa
-            </Button>
-          ) : undefined
-        }
+        description="Contacta al administrador de plataforma."
       />
     );
   }

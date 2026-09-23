@@ -2,6 +2,7 @@ import {
   Briefcase,
   Building2,
   ClipboardList,
+  FolderTree,
   Hash,
   Settings2,
   Share2,
@@ -12,21 +13,40 @@ import type { AdminSection } from '@/lib/admin/registry';
 
 /**
  * Cards del área transversal de Administración (organización) que se
- * exponen en <c>/admin</c>. UF-Admin-PR2 publica la card de Empresas,
- * UF-Admin-PR6 la de Series y folios, y UF-Admin-PR7 cierra el módulo
- * con Parámetros y Auditoría. Todas linkean a UIs dedicadas
- * (<c>displayMode: 'custom'</c>).
+ * exponen en <c>/admin</c>. UF-Admin-PR6 publica la card de Series y
+ * folios, UF-Admin-PR7 cierra el módulo con Parámetros y Auditoría.
+ * Todas linkean a UIs dedicadas (<c>displayMode: 'custom'</c>).
+ *
+ * <para>Millet opera con una sola razón social (ADR-0051) — "Empresas"
+ * ya no es un eje de navegación propio; Sucursales y Departamentos lo
+ * reemplazan como las cards de "Organización". El detalle de la
+ * empresa (RFC, régimen fiscal) sigue existiendo en
+ * <c>/admin/empresas/$id</c> pero solo alcanzable desde el link
+ * "avanzado" de esas dos páginas — no tiene card propia.</para>
  */
 export const administracionAdminCards: readonly AdminSection[] = [
   {
-    id: 'admin-empresas',
+    id: 'admin-sucursales',
     modulo: 'admin',
-    titulo: 'Empresas',
-    descripcion: 'Razones sociales, sucursales y departamentos.',
+    titulo: 'Sucursales',
+    descripcion:
+      'Ubicaciones operativas — alcance de datos por sucursal (ADR-0051).',
     icon: Building2,
-    href: '/admin/empresas',
-    permisoRequerido: PermisosCanonicos.AdminEmpresasLeer,
+    href: '/admin/sucursales',
+    permisoRequerido: PermisosCanonicos.AdminEmpresasSucursalesGestionar,
     orden: 10,
+    grupo: 'organizacion',
+    displayMode: 'custom',
+  },
+  {
+    id: 'admin-departamentos',
+    modulo: 'admin',
+    titulo: 'Departamentos',
+    descripcion: 'Catálogo organizacional — asignación por sucursal.',
+    icon: FolderTree,
+    href: '/admin/departamentos',
+    permisoRequerido: PermisosCanonicos.AdminDepartamentosGestionar,
+    orden: 11,
     grupo: 'organizacion',
     displayMode: 'custom',
   },

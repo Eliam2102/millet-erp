@@ -88,6 +88,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.empresas.sucursales-gestionar',
   'admin.departamentos.gestionar',
   'admin.sucursales.departamentos-gestionar',
+  'admin.sucursales.puestos-gestionar',
+  'admin.sucursales.usuarios-gestionar',
   'admin.auditoria.leer',
   'admin.series.gestionar',
   'admin.parametros.leer',

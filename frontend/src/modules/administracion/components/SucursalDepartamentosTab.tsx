@@ -13,19 +13,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDepartamentos } from '@/features/catalogos/api';
-import {
-  EstatusCatalogo,
-  type SucursalResponse,
-} from '@/modules/administracion/api/types';
+import { EstatusCatalogo } from '@/modules/administracion/api/types';
 import {
   useAsignarDepartamentoASucursal,
   useDepartamentosDeSucursal,
@@ -33,78 +23,36 @@ import {
   useReactivarAsignacionSucursalDepartamento,
 } from '@/modules/administracion/api';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
 
 /**
- * <c>&lt;SheetDepartamentosDeSucursal/&gt;</c> — Sheet slide-from-right
- * que gestiona las asignaciones N:M de una sucursal con el catálogo
- * global de departamentos (PR-A3 frontend / PR-A1 backend).
+ * Tab "Departamentos" de <c>SucursalDetalle</c> (F1-ADM-01 Fase 3).
+ * Cruza el catálogo global de departamentos con las asignaciones de
+ * ESTA sucursal — mismo patrón que <c>SheetDepartamentosDeSucursal</c>
+ * (PR-A3) pero inline (sin Sheet, ya estamos en una página dedicada).
  *
- * <para>Lista TODOS los departamentos del catálogo global, marcando los
- * asignados con su estatus en la sucursal. Acciones por row:
- * <list type="bullet">
- *   <item>No asignado → botón "Asignar" (crea fila en estado Activo).</item>
- *   <item>Activa → badge "Activa" + botón "Desactivar" (alert confirm).</item>
- *   <item>Inactiva → badge "Inactiva" + botón "Reactivar".</item>
- * </list>
- * </para>
- *
- * <para>El caller (SucursalesPanel) controla el ciclo de vida: pasa la
- * <see cref="SucursalResponse"/> activa y un <c>onOpenChange</c>. Cuando
- * <c>sucursal === null</c> el Sheet está cerrado.</para>
+ * <para>Asociar/desasociar un departamento EXISTENTE — no crea uno
+ * nuevo. Fila "no asignado" → botón Asignar; fila Activa → Desactivar;
+ * fila Inactiva → Reactivar.</para>
  */
-export interface SheetDepartamentosDeSucursalProps {
-  /** Sucursal cuyas asignaciones se gestionan. <c>null</c> = cerrado. */
-  sucursal: SucursalResponse | null;
-  onOpenChange: (open: boolean) => void;
+export interface SucursalDepartamentosTabProps {
+  sucursalId: string;
+  canGestionar: boolean;
 }
 
 interface RowData {
   departamentoId: string;
   clave: string;
   nombre: string;
-  /** <c>null</c> = no asignado a la sucursal. */
   estatusEnSucursal: EstatusCatalogo | null;
 }
 
-export function SheetDepartamentosDeSucursal({
-  sucursal,
-  onOpenChange,
-}: SheetDepartamentosDeSucursalProps) {
-  return (
-    <Sheet
-      open={sucursal != null}
-      onOpenChange={(open) => onOpenChange(open)}
-    >
-      <SheetContent
-        side="right"
-        className="w-full overflow-y-auto sm:max-w-2xl"
-      >
-        <SheetHeader>
-          <SheetTitle>
-            Departamentos en {sucursal?.clave ?? '—'}
-          </SheetTitle>
-          <SheetDescription>
-            Asigna o desactiva los departamentos que operan en esta sucursal.
-            Los cambios bloquean nuevas requisiciones con combinaciones
-            inactivas pero no afectan las existentes.
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="px-6 pb-6">
-          {sucursal != null && <ContenidoSheet sucursal={sucursal} />}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-interface ContenidoSheetProps {
-  sucursal: SucursalResponse;
-}
-
-function ContenidoSheet({ sucursal }: ContenidoSheetProps) {
+export function SucursalDepartamentosTab({
+  sucursalId,
+  canGestionar,
+}: SucursalDepartamentosTabProps) {
   const catalogoQuery = useDepartamentos();
-  const asignadosQuery = useDepartamentosDeSucursal(sucursal.id);
+  const asignadosQuery = useDepartamentosDeSucursal(sucursalId);
 
   const rows = useMemo<RowData[]>(() => {
     const catalogo = catalogoQuery.data?.items ?? [];
@@ -112,7 +60,6 @@ function ContenidoSheet({ sucursal }: ContenidoSheetProps) {
     const mapAsig = new Map<string, EstatusCatalogo>(
       asignados.map((a) => [a.departamentoId, a.estatus as EstatusCatalogo]),
     );
-    // Ordena: asignados primero (por clave), luego no asignados (por clave).
     return [...catalogo]
       .sort((a, b) => {
         const aAsignado = mapAsig.has(a.id);
@@ -128,21 +75,27 @@ function ContenidoSheet({ sucursal }: ContenidoSheetProps) {
       }));
   }, [catalogoQuery.data, asignadosQuery.data]);
 
-  const isLoading =
-    catalogoQuery.isLoading || asignadosQuery.isLoading;
-  const isError = catalogoQuery.isError || asignadosQuery.isError;
-
-  if (isError) {
+  if (asignadosQuery.isError) {
     return (
-      <div className="mt-4 rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-        No se pudo cargar el catálogo. Reintenta más tarde.
-      </div>
+      <SucursalTabErrorState
+        error={asignadosQuery.error}
+        onRetry={() => asignadosQuery.refetch()}
+      />
+    );
+  }
+  if (catalogoQuery.isError) {
+    return (
+      <SucursalTabErrorState
+        error={catalogoQuery.error}
+        onRetry={() => catalogoQuery.refetch()}
+      />
     );
   }
 
+  const isLoading = catalogoQuery.isLoading || asignadosQuery.isLoading;
   if (isLoading) {
     return (
-      <div className="mt-4 space-y-2">
+      <div className="space-y-2">
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
@@ -152,14 +105,14 @@ function ContenidoSheet({ sucursal }: ContenidoSheetProps) {
 
   if (rows.length === 0) {
     return (
-      <div className="mt-4 rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+      <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
         El catálogo de departamentos está vacío.
       </div>
     );
   }
 
   return (
-    <div className="mt-4 space-y-3">
+    <div className="space-y-3">
       <div className="text-xs text-muted-foreground">
         Total: {rows.length} · Asignados:{' '}
         {rows.filter((r) => r.estatusEnSucursal != null).length}
@@ -168,9 +121,9 @@ function ContenidoSheet({ sucursal }: ContenidoSheetProps) {
         {rows.map((row) => (
           <FilaDepartamento
             key={row.departamentoId}
-            sucursalId={sucursal.id}
-            sucursalClave={sucursal.clave}
+            sucursalId={sucursalId}
             row={row}
+            canGestionar={canGestionar}
           />
         ))}
       </ul>
@@ -180,14 +133,14 @@ function ContenidoSheet({ sucursal }: ContenidoSheetProps) {
 
 interface FilaDepartamentoProps {
   sucursalId: string;
-  sucursalClave: string;
   row: RowData;
+  canGestionar: boolean;
 }
 
 function FilaDepartamento({
   sucursalId,
-  sucursalClave,
   row,
+  canGestionar,
 }: FilaDepartamentoProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const asignar = useAsignarDepartamentoASucursal();
@@ -201,17 +154,9 @@ function FilaDepartamento({
 
   function handleAsignar() {
     asignar.mutate(
+      { sucursalId, departamentoId: row.departamentoId, idempotencyKey },
       {
-        sucursalId,
-        departamentoId: row.departamentoId,
-        idempotencyKey,
-      },
-      {
-        onSuccess: () => {
-          toast.success(
-            `${row.clave} asignado a ${sucursalClave}`,
-          );
-        },
+        onSuccess: () => toast.success(`${row.clave} asignado`),
         onError: handleError(`asignar ${row.clave}`),
       },
     );
@@ -219,14 +164,10 @@ function FilaDepartamento({
 
   function handleConfirmarDesactivar() {
     desactivar.mutate(
-      {
-        sucursalId,
-        departamentoId: row.departamentoId,
-        idempotencyKey,
-      },
+      { sucursalId, departamentoId: row.departamentoId, idempotencyKey },
       {
         onSuccess: () => {
-          toast.success(`${row.clave} desactivado en ${sucursalClave}`);
+          toast.success(`${row.clave} desactivado`);
           setConfirmDesactivar(false);
         },
         onError: (error) => {
@@ -239,15 +180,9 @@ function FilaDepartamento({
 
   function handleReactivar() {
     reactivar.mutate(
+      { sucursalId, departamentoId: row.departamentoId, idempotencyKey },
       {
-        sucursalId,
-        departamentoId: row.departamentoId,
-        idempotencyKey,
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${row.clave} reactivado en ${sucursalClave}`);
-        },
+        onSuccess: () => toast.success(`${row.clave} reactivado`),
         onError: handleError(`reactivar ${row.clave}`),
       },
     );
@@ -273,7 +208,7 @@ function FilaDepartamento({
           </Badge>
         )}
 
-        {noAsignado && (
+        {canGestionar && noAsignado && (
           <Button
             variant="ghost"
             size="sm"
@@ -284,7 +219,7 @@ function FilaDepartamento({
             <Plus className="mr-1 h-3.5 w-3.5" /> Asignar
           </Button>
         )}
-        {activa && (
+        {canGestionar && activa && (
           <Button
             variant="ghost"
             size="sm"
@@ -295,7 +230,7 @@ function FilaDepartamento({
             <PowerOff className="h-3.5 w-3.5" />
           </Button>
         )}
-        {inactiva && (
+        {canGestionar && inactiva && (
           <Button
             variant="ghost"
             size="sm"
@@ -320,10 +255,8 @@ function FilaDepartamento({
             <AlertDialogDescription>
               ¿Confirmas desactivar{' '}
               <span className="font-mono font-semibold">{row.clave}</span> en
-              la sucursal{' '}
-              <span className="font-mono font-semibold">{sucursalClave}</span>?
-              Bloquea nuevas requisiciones con esta combinación pero NO
-              afecta las existentes.
+              esta sucursal? Bloquea nuevas requisiciones con esta
+              combinación pero NO afecta las existentes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

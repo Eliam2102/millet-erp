@@ -92,4 +92,15 @@ export const adminKeys = {
     [...adminKeys.all, 'sucursal-departamentos'] as const,
   sucursalDepartamentosList: (sucursalId: string) =>
     [...adminKeys.sucursalDepartamentos(), 'list', sucursalId] as const,
+
+  // F1-ADM-01 Fase 2/3: asignaciones N:M Sucursal ↔ Puesto y
+  // Usuario ↔ Sucursal. Mismo criterio que sucursalDepartamentos —
+  // scopeadas por sucursal, invalidadas por cualquier mutación.
+  sucursalPuestos: () => [...adminKeys.all, 'sucursal-puestos'] as const,
+  sucursalPuestosList: (sucursalId: string) =>
+    [...adminKeys.sucursalPuestos(), 'list', sucursalId] as const,
+
+  sucursalUsuarios: () => [...adminKeys.all, 'sucursal-usuarios'] as const,
+  sucursalUsuariosList: (sucursalId: string) =>
+    [...adminKeys.sucursalUsuarios(), 'list', sucursalId] as const,
 } as const;

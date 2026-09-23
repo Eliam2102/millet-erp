@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Building2, Pencil, Plus, PowerOff } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Pencil, Plus, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,13 +23,15 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { SucursalInlineForm } from '@/modules/administracion/components/SucursalInlineForm';
-import { SheetDepartamentosDeSucursal } from '@/modules/administracion/components/SheetDepartamentosDeSucursal';
 
 /**
- * Panel "Sucursales" del detalle de empresa. Renderiza:
+ * Panel "Sucursales" — usado por <c>SucursalesTopLevelPage</c>
+ * (<c>/admin/sucursales</c>). Renderiza:
  *
  * <list>
- *   <item>Lista de sucursales existentes (Clave + Nombre + estatus).</item>
+ *   <item>Lista de sucursales existentes (Clave + Nombre + estatus).
+ *         La clave enlaza al detalle standalone (<c>/admin/sucursales/$id</c>)
+ *         donde se gestionan sus Departamentos/Puestos/Usuarios.</item>
  *   <item>Botón "Agregar sucursal" que monta el inline form (border
  *         dashed primary).</item>
  *   <item>Click en una row inactiva-friendly → expande inline form
@@ -58,15 +61,10 @@ export function SucursalesPanel({
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [confirmDesactivar, setConfirmDesactivar] =
     useState<SucursalResponse | null>(null);
-  const [gestionandoDeptos, setGestionandoDeptos] =
-    useState<SucursalResponse | null>(null);
 
   const canGestionar =
     useHasPermission(PermisosCanonicos.AdminEmpresasSucursalesGestionar) &&
     !bloqueadoPorEmpresaActiva;
-  const canGestionarDeptos = useHasPermission(
-    PermisosCanonicos.AdminSucursalesDepartamentosGestionar,
-  );
 
   const idempotencyKey = useFormIdempotencyKey();
   const desactivar = useDesactivarSucursal();
@@ -149,9 +147,13 @@ export function SucursalesPanel({
                   />
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="font-mono text-sm font-semibold">
+                    <Link
+                      to="/admin/sucursales/$id"
+                      params={{ id: s.id }}
+                      className="font-mono text-sm font-semibold hover:underline"
+                    >
                       {s.clave}
-                    </span>
+                    </Link>
                     <span className="flex-1 truncate text-sm">{s.nombre}</span>
                     {activa ? (
                       <Badge variant="secondary">Activa</Badge>
@@ -161,18 +163,6 @@ export function SucursalesPanel({
                       </Badge>
                     )}
                     <div className="flex items-center gap-1">
-                      {activa && canGestionarDeptos && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setGestionandoDeptos(s)}
-                          aria-label={`Gestionar departamentos de ${s.clave}`}
-                          title="Gestionar departamentos"
-                        >
-                          <Building2 className="mr-1 h-3.5 w-3.5" />
-                          Deptos
-                        </Button>
-                      )}
                       {canGestionar && (
                         <>
                           <Button
@@ -239,13 +229,6 @@ export function SucursalesPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <SheetDepartamentosDeSucursal
-        sucursal={gestionandoDeptos}
-        onOpenChange={(open) => {
-          if (!open) setGestionandoDeptos(null);
-        }}
-      />
     </section>
   );
 }
