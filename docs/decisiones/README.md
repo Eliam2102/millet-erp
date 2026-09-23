@@ -107,6 +107,7 @@ qué un sistema es como es.
 | [0041](./0041-autorizacion-por-operacion-y-lectura-de-catalogos.md) | Autorización por operación + lectura de catálogos cross-empresa (refinamiento de ADR-0007) | Aceptada |
 | [0045](./0045-busqueda-textual-sin-extensiones.md) | Búsqueda textual insensible a acentos sin extensiones (`translate` nativo + primer `HasDbFunction`) | Aceptada |
 | [0046](./0046-catalogo-unidad-medida-y-conversion.md) | Catálogo de unidad de medida, conversión en dos niveles y validación de decimales por unidad (workstream 4 etapas) | Aceptada |
+| [0051](./0051-segmentacion-de-datos-por-sucursal.md) | Segmentación de datos por sucursal como patrón transversal (refinamiento de ADR-0011) | Aceptada |
 
 ## Backlog explícito (decisiones pendientes que NO deben olvidarse)
 

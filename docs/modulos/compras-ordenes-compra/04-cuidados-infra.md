@@ -349,6 +349,10 @@ Ver §7.2 del 04 de RQ.
 
 Ver §7.3 del 04 de RQ.
 
+### 7.4 [Pendiente] Segmentación por sucursal (ADR-0051)
+
+Ver §7.4 del 04 de RQ — mismo gap y mismo mecanismo pendiente para `OrdenCompra`.
+
 ---
 
 ## 8. Permisos y doble autorización (ADR-0007)

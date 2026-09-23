@@ -134,7 +134,9 @@ Auditado contra `c:\Users\UserSP\Desktop\Project_Millet_ERP\backend\` y `fronten
 
 ### Fase 2 — Empresas + Sucursales + Departamentos (M)
 
-**Objetivo:** UI master-detail completa para gestión organizacional. Es la **primera feature funcional** del área y la que Compras OC multi-empresa va a empezar a consumir.
+**Objetivo:** UI master-detail completa para gestión organizacional. Es la **primera feature funcional** del área y la que Compras OC va a empezar a consumir.
+
+> **Actualización (F1-ADM-01, ver [ADR-0051](../../decisiones/0051-segmentacion-de-datos-por-sucursal.md)):** el alcance de esta fase se amplió más allá de lo descrito abajo — ya incluye el scoping N:M Sucursal↔Departamento, Sucursal↔Puesto y Usuario↔Sucursal (`SucursalDepartamento`, `SucursalPuesto`, `UsuarioSucursal` + `SucursalScopeGuard`), que es el mecanismo de segmentación por sucursal que todo módulo de negocio futuro debe reusar. El eje de negocio es la sucursal, no la jerarquía de empresa.
 
 **Reuso:** patrones P3 (master-detail) y P4 (Sheet) ya documentados. `EmpresaSelector` ya carga empresas; ahora hay UI para gestionarlas.
 
@@ -148,7 +150,8 @@ Auditado contra `c:\Users\UserSP\Desktop\Project_Millet_ERP\backend\` y `fronten
 
 **Riesgos:**
 
-- Multi-empresa: la UI debe respetar el contexto activo. Mitigación: tests integration que verifican filtro por `EmpresaId` activo.
+- Multi-empresa (aislamiento técnico): la UI debe respetar el contexto activo. Mitigación: tests integration que verifican filtro por `EmpresaId` activo.
+- Segmentación por sucursal (eje de negocio, ADR-0051): usuarios sin permiso de bypass no deben ver sucursales fuera de sus `UsuarioSucursal` asignadas. Mitigación: tests integration del `SucursalScopeGuard` (ya cubiertos para Departamentos/Puestos/Usuarios).
 - Invariantes (RFC único, no eliminar empresa con sucursales activas). Mitigación: validators + tests unitarios.
 
 **Sizing:** M.
@@ -357,6 +360,7 @@ Fase 5 (Catálogos), Fase 4.5 (Datos Maestros UI) y Fase 6 (Series) son **comple
 | Permisos canónicos se desincronizan entre código y BD. | Migración seedea desde `PermisosCanonicos.cs`. Tests verifican consistencia. |
 | Contrato `SettingsSchema` mal diseñado. | F-Admin-PR1 valida con `ComprasSettings` como exemplar real antes de "blessing" del contrato. |
 | Multi-empresa: contexto activo no respetado en endpoints admin. | Tests integration que cambian contexto y verifican aislamiento. |
+| Segmentación por sucursal (ADR-0051): un módulo de negocio nuevo filtra por sucursal sin pasar por `SucursalScopeGuard`. | Checklist en el PR-breakdown de cada módulo + code review explícito sobre endpoints "listar por sucursal". |
 | Migración serie de folios de Compras rompe OC en flight. | Migración seed que mapea `FolioSecuencia` actual a `Serie`. Compatibility shim hasta deprecación. |
 | Catálogos SAT cambian; migración aditiva con seeds. | `ON CONFLICT DO NOTHING` en seeds. |
 

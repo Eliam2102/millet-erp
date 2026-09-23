@@ -173,9 +173,15 @@ Mismo cuidado que §1.1 del 04 de Compras OC. Aplica a las **~20 migraciones** q
 
 ---
 
-## 6. Multi-empresa (ADR-0011)
+## 6. Multi-empresa (ADR-0011) y segmentación por sucursal (ADR-0051)
 
 > Ref: todos los PRs de Admin.
+
+> **Nota de alcance:** hoy Millet opera con una sola empresa — esta sección
+> documenta el aislamiento técnico por `EmpresaId` (ADR-0011), que se
+> mantiene como base defensiva. El trabajo de negocio activo y las pruebas
+> de aceptación reales son de **segmentación por sucursal** (ADR-0051):
+> `UsuarioSucursal` + `SucursalScopeGuard`, ya cubiertos en §6.4-§6.5 abajo.
 
 ### 6.1 [P0] Endpoints admin respetan `ICurrentEmpresaContext`
 
@@ -197,6 +203,20 @@ Mismo cuidado que §1.1 del 04 de Compras OC. Aplica a las **~20 migraciones** q
 - **Por qué importa**: sin invalidación, el cambio se aplica solo en futuras sesiones; el usuario activo sigue con permisos antiguos.
 - **Cómo lo verificamos**: test integration que cambia permisos a un rol y verifica usuarios activos pierden/ganan acceso en el siguiente request.
 - **Qué pasa si lo ignoramos**: cambios de seguridad no efectivos hasta logout/login.
+
+### 6.4 [P0] Endpoints "por sucursal" pasan por `SucursalScopeGuard` (ADR-0051)
+
+- **Qué**: todo endpoint que lista/consulta datos de una `SucursalId` (Departamentos, Puestos, Usuarios de sucursal hoy; cualquier módulo de negocio futuro) llama a `SucursalScopeGuard.VerificarAsync` — usuario sin el permiso admin de bypass del recurso debe tener una fila `UsuarioSucursal` activa para esa sucursal, o recibe 403 `SUCURSAL_NO_ASOCIADA`.
+- **Por qué importa**: es el mecanismo real de aislamiento de negocio (no el `EmpresaId`, que hoy es trivial con una sola empresa). Sin el guard, un usuario operativo vería datos de sucursales donde no trabaja.
+- **Cómo lo verificamos**: tests integration por recurso (ya existen para Departamentos/Puestos/Usuarios de sucursal) que verifican 403 cuando el usuario no está asociado y 200 cuando sí, o cuando tiene el permiso de bypass.
+- **Qué pasa si lo ignoramos**: leak de datos cross-sucursal — el riesgo real de negocio, a diferencia del cross-empresa (§6.1-6.2) que hoy no tiene superficie porque solo existe una empresa.
+
+### 6.5 [P1] Permiso de bypass "todas-sucursales" existe por recurso, no se hereda
+
+- **Qué**: cada módulo declara su propio permiso `{modulo}.{recurso}.gestionar-todas-sucursales` / `.leer-todas-sucursales` en `PermisosCanonicos` (mismo patrón que `admin.sucursales.*-gestionar`). No existe un permiso global único "ver todas las sucursales" que aplique a todos los recursos a la vez.
+- **Por qué importa**: evita el defecto D2 de ADR-0041 (predicado de rol por prefijo incompleto que no capturaba el permiso nuevo) — el rol "corporativo" (admin general, contador Millet) debe recibir explícitamente cada permiso de bypass que necesite.
+- **Cómo lo verificamos**: al agregar un recurso scoped por sucursal nuevo, test que verifica que el rol corporativo del seed/bootstrap efectivamente tiene el permiso de bypass nuevo (no asumir que lo hereda).
+- **Qué pasa si lo ignoramos**: un administrador/contador legítimo recibe 403 en un recurso nuevo hasta que alguien note el hueco (mismo síntoma que D2 de ADR-0041).
 
 ---
 

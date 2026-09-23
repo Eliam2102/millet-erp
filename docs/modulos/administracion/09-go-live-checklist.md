@@ -84,10 +84,13 @@ Estos checks se ejecutan al cierre de cada `F-Admin-PR*` (parcialmente automatiz
 - [ ] **[P0]** Endpoints `PATCH`/`POST` mutativos requieren `Idempotency-Key` (§5.1 del 04-cuidados).
 - [ ] **[P0]** Si el PR introduce `ReservarFolioCommand`, test integration con 50 reservas paralelas pasa (§13.2 del 04-cuidados).
 
-### 2.7 Multi-empresa
+### 2.7 Multi-empresa y segmentación por sucursal
 
 - [ ] **[P0]** Queries filtran por `EmpresaId` activo (§6.1 del 04-cuidados).
 - [ ] **[P0]** Test de aislamiento cross-tenant pasa.
+- [ ] **[P0]** Si el PR expone un endpoint "por sucursal" (listar/consultar), llama a `SucursalScopeGuard.VerificarAsync` con el permiso de bypass propio del recurso (§6.4-§6.5 del 04-cuidados, ADR-0051).
+- [ ] **[P0]** Test integration: usuario sin `UsuarioSucursal` para la sucursal consultada y sin permiso de bypass recibe 403 `SUCURSAL_NO_ASOCIADA`.
+- [ ] **[P1]** El rol "corporativo" del seed/bootstrap recibe explícitamente el permiso de bypass del recurso nuevo (no asumir herencia por prefijo).
 
 ### 2.8 Concurrencia
 

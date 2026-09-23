@@ -139,6 +139,44 @@ los tres levantamientos como conjunto:
 
 ---
 
+## Segmentación de datos por sucursal (ADR-0051)
+
+Millet opera con **una sola empresa** (razón social) y **varias sucursales**.
+El aislamiento multiempresa de [ADR-0011](docs/decisiones/0011-multi-empresa-empresa-id.md)
+(`empresa_id` + global query filter) sigue vigente como base técnica, pero
+**no es el eje de negocio activo**: las reglas de acceso reales que pide el
+negocio son por sucursal, no por empresa. [ADR-0051](docs/decisiones/0051-segmentacion-de-datos-por-sucursal.md)
+formaliza el patrón — **léelo antes de exponer cualquier endpoint que liste o
+filtre datos "por sucursal"**.
+
+**Patrón obligatorio para todo módulo de negocio con datos scoped por sucursal:**
+
+- La entidad expone `SucursalId` (convive con `EmpresaId` de ADR-0011, no lo
+  reemplaza).
+- El handler de "listar/consultar X de una sucursal" llama a
+  `SucursalScopeGuard.VerificarAsync` (`Compartido/Application/Administracion/Abstractions`),
+  usando `IUsuarioSucursalReadPort.EstaAsociadoAsync` como fuente de "el
+  usuario está asociado a esta sucursal" — ya implementado, no se duplica la
+  consulta por módulo.
+- Cada módulo declara su propio permiso de bypass por recurso
+  (`{modulo}.{recurso}.gestionar-todas-sucursales` /
+  `.leer-todas-sucursales`, granularidad por operación según ADR-0041) en
+  `PermisosCanonicos` — mismo patrón que `admin.sucursales.*-gestionar`.
+- **Dos perfiles de usuario, mismo mecanismo, sin tablas nuevas:**
+  operativo = filas `UsuarioSucursal` activas sin el permiso de bypass ⇒ ve
+  solo esas sucursales; corporativo (admin/contador a nivel Millet) = tiene
+  el permiso de bypass del recurso ⇒ ve todas las sucursales sin necesidad
+  de `UsuarioSucursal` por cada una.
+- `UsuarioEmpresaRol` no cambia (rol único por usuario en la empresa —
+  capacidad); `UsuarioSucursal` + el guard definen el alcance de datos. **No**
+  se crea rol por sucursal. `Empleado.SucursalId` permanece 1:1 (dato de RH);
+  no se modela `EmpleadoSucursal` N:M.
+- Ya implementado como exemplar para Departamentos, Puestos y Usuarios de
+  sucursal (F1-ADM-01) — `SucursalDepartamento`, `SucursalPuesto`,
+  `UsuarioSucursal`. Reusar ese mismo mecanismo, no reinventarlo por módulo.
+
+---
+
 ## Reportería
 
 [ADR-0036](docs/decisiones/0036-estrategia-de-reporteria.md) define la estrategia transversal de reportería del ERP:

@@ -50,7 +50,7 @@ Este documento describe **qué construir y por qué**, no el código. La impleme
 
 1. **Refactor ADR-0035 (F-Admin-PR0).** Re-localización de entidades de `SharedKernel/Domain/` a `Administracion`/`Catalogos`/`DatosMaestros`/`Almacen` (este último con A1=b). Sin cambios de comportamiento.
 2. **Andamio + contrato SettingsSchema (F-Admin-PR1).** Registry `AdminSection`, landing `/admin`, engrane del topbar wireado, schemas creados (DbContexts), permisos canónicos `admin.*` + `identidad.*` (CRUD) + `catalogos.*` + `datos_maestros.*` + `almacen.*` mínimos. **Contrato `ISettingsSchemaProvider` + endpoints `GET /api/v1/<modulo>/settings/schema` y `PATCH /api/v1/<modulo>/settings/{clave}` cableados en SharedKernel** (A7=b). Compras adopta el contrato como exemplar.
-3. **Empresas + Sucursales (F-Admin-PR2).** UI master-detail para gestión completa. Necesario primero — lo consume Compras OC multi-empresa.
+3. **Empresas + Sucursales (F-Admin-PR2).** UI master-detail para gestión completa. Necesario primero — lo consume Compras OC. Nota: Empresa es base técnica de aislamiento (ADR-0011); el trabajo real de segmentación de acceso es por Sucursal (ADR-0051), no por Empresa.
 4. **Roles + permisos (F-Admin-PR3).** UI sobre módulo Identidad. Matriz de permisos por módulo, asignación inline de permisos a rol. **Mapeo manual de grupos Entra ID → rol** (A3=a).
 5. **Usuarios (F-Admin-PR4).** UI de usuarios + asignación rol×empresa.
 6. **Datos Maestros (F-Admin-PR4.5).** UI de administración de Proveedores y Artículos bajo `/admin/datos-maestros/*` (los CRUD ya operados por Compras se reutilizan; UI agrega vistas y filtros admin).
