@@ -1195,6 +1195,9 @@ app.MapGet("/", () => "Hello World!");
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
+app.MapProvisioningEndpoints();
+#if DEBUG
+// Compilación condicional: en Release este código no existe (ADR-0015).
 app.MapDevAuthEndpoints();
 #if DEBUG
 // Solo el endpoint auxiliar de idempotencia permanece limitado a Debug.

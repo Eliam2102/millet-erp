@@ -15,10 +15,16 @@ public sealed class EntraIdOptions
     /// <summary>Client ID del API app registration (GUID en string).</summary>
     public string ClientId { get; set; } = string.Empty;
 
+    /// <summary>Client Secret para usar Graph API como Service Principal (Machine-to-Machine).</summary>
+    public string ClientSecret { get; set; } = string.Empty;
+
     /// <summary>
     /// Audience esperada del access token. Generalmente
     /// <c>api://{ClientId}</c> o el AppIdUri configurado en el app
     /// registration.
     /// </summary>
     public string Audience { get; set; } = string.Empty;
+
+    /// <summary>Correo (UPN) que tiene buzón de Exchange para usarse como remitente de las notificaciones.</summary>
+    public string SenderEmail { get; set; } = string.Empty;
 }

@@ -120,6 +120,7 @@ public static class AuthExtensions
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
         services.AddScoped<LoginOrchestrator>();
+        services.AddScoped<Millet.Api.Auth.Provisioning.IEntraProvisioningService, Millet.Api.Auth.Provisioning.EntraProvisioningService>();
 
         // RBAC granular (ADR-0007). El policy provider construye policies
         // dinámicamente para cualquier nombre con prefijo "permiso:"; el

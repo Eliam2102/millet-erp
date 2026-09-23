@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { Loader2 } from 'lucide-react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
 import { Topbar } from '@/components/layout/Topbar';
@@ -29,7 +30,7 @@ import { useAuth } from '@/lib/auth/useAuth';
  * ENTRAR; este effect reacciona al cambio de status del store.</para>
  */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isSwitchingEmpresa } = useAuth();
   const navigate = useNavigate();
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -56,7 +57,28 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
       <div className="md:pl-60">
         <Topbar onMenuClick={() => setMobileOpen(true)} />
-        <main className="px-4 py-6 md:px-6">{children}</main>
+        <main className="relative min-h-[calc(100vh-4rem)] px-4 py-6 md:px-6">
+          {children}
+          {isSwitchingEmpresa && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm transition-all animate-in fade-in duration-150"
+            >
+              <div className="flex flex-col items-center gap-3 rounded-lg border bg-card/90 p-6 shadow-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-semibold tracking-tight text-foreground">
+                    Cambiando de empresa…
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Actualizando permisos, catálogos y contexto
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
 
       <AppLauncherModal

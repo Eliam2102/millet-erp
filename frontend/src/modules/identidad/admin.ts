@@ -1,4 +1,4 @@
-import { KeyRound, Users } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -12,6 +12,9 @@ import type { AdminSection } from '@/lib/admin/registry';
  * dedicado <c>/admin/usuarios</c> con asignación rol×empresa.</para>
  */
 export const identidadAdminCards: readonly AdminSection[] = [
+  // ELIMINADO/OCULTO: El módulo "Usuarios" ahora se gestionará
+  // 100% mediante el Wizard de Empleados (Aprovisionamiento Identidad).
+  /*
   {
     id: 'identidad-usuarios',
     modulo: 'identidad',
@@ -25,6 +28,7 @@ export const identidadAdminCards: readonly AdminSection[] = [
     grupo: 'identidad',
     displayMode: 'custom',
   },
+  */
   {
     id: 'identidad-roles',
     modulo: 'identidad',
