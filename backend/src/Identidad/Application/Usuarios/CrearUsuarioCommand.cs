@@ -130,7 +130,10 @@ public sealed class CrearUsuarioHandler : IRequestHandler<CrearUsuarioCommand, U
         }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
-        var usuario = new Usuario(id, entraOid, command.Email, nombre);
+        // Alta administrativa: la persona aún no inicia sesión (plan 15).
+        var usuario = new Usuario(
+            id, entraOid, command.Email, nombre,
+            estadoAcceso: EstadoAcceso.PendientePrimerAcceso);
         if (command.DepartamentoId is Guid d)
         {
             usuario.AsignarDepartamento(d);

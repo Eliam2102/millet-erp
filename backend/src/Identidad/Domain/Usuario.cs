@@ -2,6 +2,7 @@ using Millet.Administracion.Domain;
 using Millet.Almacen.Domain;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
+using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain;
 
 namespace Millet.Identidad.Domain;
@@ -32,9 +33,50 @@ public sealed class Usuario : BaseEntity, IAuditable
     /// </summary>
     public Guid? DepartamentoId { get; private set; }
 
+    /// <summary>
+    /// Estado de la cuenta respecto de Entra ID (alta unificada,
+    /// F1-ADM-01 plan 15). Ver <see cref="Domain.EstadoAcceso"/>.
+    /// </summary>
+    public EstadoAcceso EstadoAcceso { get; private set; } = EstadoAcceso.Activo;
+
+    /// <summary>Primer inicio de sesión registrado; null si nunca ha entrado.</summary>
+    public DateTimeOffset? PrimerAccesoEn { get; private set; }
+
+    /// <summary>Motivo del último rechazo de Graph mientras está en <see cref="EstadoAcceso.ErrorProvision"/>.</summary>
+    public string? MotivoErrorProvision { get; private set; }
+
+    /// <summary>
+    /// Cuenta que no corresponde a un empleado (super-admin de bootstrap,
+    /// soporte, QA). Es la única forma legítima de tener Usuario sin
+    /// Empleado vinculado (decisión D4 del plan 15).
+    /// </summary>
+    public bool EsCuentaTecnica { get; private set; }
+
+    /// <summary>
+    /// Prefijo del OID provisional mientras la cuenta de Entra se crea o
+    /// aún no se resuelve (alta unificada).
+    /// </summary>
+    public const string PrefijoOidPendiente = "pending:";
+
+    /// <summary>
+    /// Prefijo del placeholder histórico de <c>CrearUsuarioCommand</c>
+    /// (<c>dev-{email}</c>). Solo cuenta como pendiente si trae '@', para
+    /// no confundirlo con los OIDs sintéticos de ADR-0015 como
+    /// <c>dev-superadmin</c>, que sí son la identidad real en modo fake.
+    /// </summary>
+    public const string PrefijoOidDevPorEmail = "dev-";
+
+    public const int MotivoErrorProvisionMaxLength = 500;
+
     private Usuario() { } // EF Core
 
-    public Usuario(Guid id, string entraOid, string email, string nombre) : base(id)
+    public Usuario(
+        Guid id,
+        string entraOid,
+        string email,
+        string nombre,
+        EstadoAcceso estadoAcceso = EstadoAcceso.Activo,
+        bool esCuentaTecnica = false) : base(id)
     {
         if (string.IsNullOrWhiteSpace(entraOid))
             throw new ArgumentException("EntraOid es requerido.", nameof(entraOid));
@@ -42,11 +84,96 @@ public sealed class Usuario : BaseEntity, IAuditable
             throw new ArgumentException("Email es requerido.", nameof(email));
         if (string.IsNullOrWhiteSpace(nombre))
             throw new ArgumentException("Nombre es requerido.", nameof(nombre));
+        if (estadoAcceso is EstadoAcceso.ProvisionandoCuenta && !EsOidPendiente(entraOid))
+            throw new BusinessRuleException("USUARIO_OID_PROVISION_INVALIDO",
+                "Una cuenta en provisión debe nacer con OID pendiente.");
+        if (estadoAcceso is EstadoAcceso.ErrorProvision)
+            throw new BusinessRuleException("USUARIO_ESTADO_INICIAL_INVALIDO",
+                "Un usuario no puede nacer en error de provisión.");
 
         EntraOid = entraOid;
         Email = email;
         Nombre = nombre;
+        EstadoAcceso = estadoAcceso;
+        EsCuentaTecnica = esCuentaTecnica;
     }
+
+    /// <summary>True si el OID aún no es el definitivo de Entra ID.</summary>
+    public bool TieneOidPendiente => EsOidPendiente(EntraOid);
+
+    public static bool EsOidPendiente(string entraOid) =>
+        entraOid.StartsWith(PrefijoOidPendiente, StringComparison.Ordinal)
+        || (entraOid.StartsWith(PrefijoOidDevPorEmail, StringComparison.Ordinal)
+            && entraOid.Contains('@'));
+
+    /// <summary>
+    /// Sustituye el OID pendiente por el real de Entra ID: lo usa el worker
+    /// de provisión al crear la cuenta vía Graph y el login al vincular
+    /// por email. Idempotente si ya tiene ese mismo OID. Deja la cuenta en
+    /// <see cref="EstadoAcceso.PendientePrimerAcceso"/> salvo que ya
+    /// hubiera entrado.
+    /// </summary>
+    public void VincularEntraOid(string entraOid)
+    {
+        if (string.IsNullOrWhiteSpace(entraOid) || EsOidPendiente(entraOid))
+            throw new BusinessRuleException("USUARIO_OID_INVALIDO",
+                "El OID a vincular debe ser el definitivo de Entra ID.");
+        if (EntraOid == entraOid) return;
+        if (!TieneOidPendiente)
+            throw new BusinessRuleException("USUARIO_OID_YA_VINCULADO",
+                "El usuario ya está vinculado a otra cuenta de Entra ID.");
+
+        EntraOid = entraOid;
+        MotivoErrorProvision = null;
+        if (EstadoAcceso is not EstadoAcceso.Activo)
+            EstadoAcceso = EstadoAcceso.PendientePrimerAcceso;
+    }
+
+    /// <summary>Graph rechazó la creación de la cuenta.</summary>
+    public void MarcarErrorProvision(string motivo)
+    {
+        if (EstadoAcceso is not (EstadoAcceso.ProvisionandoCuenta or EstadoAcceso.ErrorProvision))
+            throw new BusinessRuleException("USUARIO_NO_EN_PROVISION",
+                "Solo una cuenta en provisión puede marcarse con error.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("USUARIO_MOTIVO_ERROR_REQUERIDO",
+                "El motivo del error de provisión es requerido.");
+
+        EstadoAcceso = EstadoAcceso.ErrorProvision;
+        MotivoErrorProvision = motivo.Length > MotivoErrorProvisionMaxLength
+            ? motivo[..MotivoErrorProvisionMaxLength]
+            : motivo;
+    }
+
+    /// <summary>El admin corrigió la causa y vuelve a pedir la cuenta.</summary>
+    public void ReintentarProvision()
+    {
+        if (EstadoAcceso is not EstadoAcceso.ErrorProvision)
+            throw new BusinessRuleException("USUARIO_NO_EN_ERROR_PROVISION",
+                "Solo se puede reintentar una provisión que falló.");
+
+        EstadoAcceso = EstadoAcceso.ProvisionandoCuenta;
+        MotivoErrorProvision = null;
+    }
+
+    /// <summary>
+    /// Registra el inicio de sesión. La primera vez fija
+    /// <see cref="PrimerAccesoEn"/> y pasa a <see cref="EstadoAcceso.Activo"/>;
+    /// después es no-op.
+    /// </summary>
+    public void RegistrarAcceso(DateTimeOffset cuando)
+    {
+        if (TieneOidPendiente)
+            throw new BusinessRuleException("USUARIO_OID_PENDIENTE",
+                "No se puede registrar el acceso de una cuenta sin OID de Entra ID.");
+
+        PrimerAccesoEn ??= cuando;
+        EstadoAcceso = EstadoAcceso.Activo;
+    }
+
+    public void MarcarComoCuentaTecnica() => EsCuentaTecnica = true;
+
+    public void DesmarcarCuentaTecnica() => EsCuentaTecnica = false;
 
     /// <summary>
     /// PATCH parcial sobre los campos editables del perfil

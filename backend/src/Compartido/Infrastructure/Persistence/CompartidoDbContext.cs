@@ -1356,6 +1356,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         empleado.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         empleado.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         empleado.Property(x => x.Email).HasMaxLength(254);
+        empleado.Property(x => x.EmailContacto).HasMaxLength(254);
         empleado.Property(x => x.CodigoNomina).HasMaxLength(20);
         empleado.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
@@ -1377,7 +1378,11 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         empleado.HasIndex(x => new { x.EmpresaId, x.Clave }).IsUnique();
         empleado.HasIndex(x => x.PuestoId);
-        empleado.HasIndex(x => x.UsuarioId);
+        // Empleado → Usuario es 1:0..1 (alta unificada, plan 15): un usuario
+        // no puede estar vinculado a dos empleados.
+        empleado.HasIndex(x => x.UsuarioId)
+            .IsUnique()
+            .HasFilter("usuario_id IS NOT NULL");
         empleado.HasIndex(x => x.Estatus);
     }
 
