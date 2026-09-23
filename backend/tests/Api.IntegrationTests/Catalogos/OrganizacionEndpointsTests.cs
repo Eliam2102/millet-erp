@@ -51,15 +51,20 @@ public class OrganizacionEndpointsTests : IClassFixture<WebApplicationFactory<Pr
     public async Task ListarSucursales_Con_Permiso_Retorna_Las_3_Seedeadas()
     {
         var client = await CreateSuperAdminClientAsync();
-        var response = await client.GetAsync("/api/v1/catalogos/sucursales");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await ReadJsonAsync(response);
-        var items = json.GetProperty("items");
-        var claves = items.EnumerateArray().Select(s => s.GetProperty("clave").GetString()).ToList();
-        Assert.Contains("MID", claves);
-        Assert.Contains("MTY", claves);
-        Assert.Contains("QRO", claves);
+        // Se consulta cada seed por su clave (`q`): la BD de dev compartida
+        // acumula sucursales creadas por otras pruebas y las seedeadas pueden
+        // quedar fuera de la primera página del listado sin filtro.
+        foreach (var clave in new[] { "MID", "MTY", "QRO" })
+        {
+            var response = await client.GetAsync($"/api/v1/catalogos/sucursales?q={clave}");
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await ReadJsonAsync(response);
+            var claves = json.GetProperty("items").EnumerateArray()
+                .Select(s => s.GetProperty("clave").GetString()).ToList();
+            Assert.Contains(clave, claves);
+        }
     }
 
     [Fact]
