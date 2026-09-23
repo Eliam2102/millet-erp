@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
  */
 export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
+  sucursalIdInicial?: string;
   onCancel: () => void;
   onSaved?: () => void;
 }
@@ -61,6 +62,7 @@ const VALORES_INICIALES: EmpleadoValues = {
 
 export function EmpleadoInlineForm({
   empleado,
+  sucursalIdInicial,
   onCancel,
   onSaved,
 }: EmpleadoInlineFormProps) {
@@ -86,7 +88,7 @@ export function EmpleadoInlineForm({
           // PATCH solo lo limpia si el usuario lo teclea y borra).
           codigoNomina: '',
         }
-      : VALORES_INICIALES,
+      : { ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' },
   });
 
   useEffect(() => {
@@ -160,7 +162,7 @@ export function EmpleadoInlineForm({
       {
         onSuccess: (resp) => {
           toast.success(`Empleado "${resp.nombre}" agregado`);
-          form.reset(VALORES_INICIALES);
+          form.reset({ ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' });
           form.setFocus('clave');
           onSaved?.();
         },

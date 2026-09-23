@@ -14,19 +14,21 @@ internal static class ValidacionesEmpleado
 {
     /// <summary>Puesto referenciado debe existir y estar activo.</summary>
     internal static async Task ValidarPuestoAsync(
-        CompartidoDbContext db, Guid puestoId, CancellationToken ct)
+        CompartidoDbContext db, Guid puestoId, Guid empresaId, CancellationToken ct)
     {
-        var estatus = await db.Puestos.AsNoTracking()
+        var puesto = await db.Puestos.AsNoTracking()
             .Where(p => p.Id == puestoId)
-            .Select(p => (EstatusCatalogo?)p.Estatus)
+            .Select(p => new { p.EmpresaId, p.Estatus })
             .FirstOrDefaultAsync(ct);
-        if (estatus is null)
+        if (puesto is null)
         {
             throw new BusinessRuleException(
                 "EMPLEADO_PUESTO_NO_EXISTE",
                 $"No existe el puesto '{puestoId}'.");
         }
-        if (estatus != EstatusCatalogo.Activo)
+        if (puesto.EmpresaId != empresaId)
+            throw new BusinessRuleException("EMPLEADO_PUESTO_OTRA_EMPRESA", "El puesto debe pertenecer a la misma empresa.");
+        if (puesto.Estatus != EstatusCatalogo.Activo)
         {
             throw new BusinessRuleException(
                 "EMPLEADO_PUESTO_INACTIVO",
@@ -57,28 +59,40 @@ internal static class ValidacionesEmpleado
     }
 
     internal static async Task ValidarSucursalAsync(
-        CompartidoDbContext db, Guid sucursalId, CancellationToken ct)
+        CompartidoDbContext db, Guid sucursalId, Guid empresaId, CancellationToken ct)
     {
-        var existe = await db.Sucursales.AsNoTracking()
-            .AnyAsync(s => s.Id == sucursalId, ct);
-        if (!existe)
+        var sucursal = await db.Sucursales.AsNoTracking()
+            .Where(s => s.Id == sucursalId)
+            .Select(s => new { s.EmpresaId, s.Estatus })
+            .FirstOrDefaultAsync(ct);
+        if (sucursal is null)
         {
             throw new BusinessRuleException(
                 "EMPLEADO_SUCURSAL_NO_EXISTE",
                 $"No existe la sucursal '{sucursalId}'.");
         }
+        if (sucursal.EmpresaId != empresaId)
+            throw new BusinessRuleException("EMPLEADO_SUCURSAL_OTRA_EMPRESA", "La sucursal debe pertenecer a la misma empresa.");
+        if (sucursal.Estatus != EstatusCatalogo.Activo)
+            throw new BusinessRuleException("EMPLEADO_SUCURSAL_INACTIVA", "La sucursal no está activa.");
     }
 
     internal static async Task ValidarDepartamentoAsync(
-        CompartidoDbContext db, Guid departamentoId, CancellationToken ct)
+        CompartidoDbContext db, Guid departamentoId, Guid empresaId, CancellationToken ct)
     {
-        var existe = await db.Departamentos.AsNoTracking()
-            .AnyAsync(d => d.Id == departamentoId, ct);
-        if (!existe)
+        var departamento = await db.Departamentos.AsNoTracking()
+            .Where(d => d.Id == departamentoId)
+            .Select(d => new { d.EmpresaId, d.Estatus })
+            .FirstOrDefaultAsync(ct);
+        if (departamento is null)
         {
             throw new BusinessRuleException(
                 "EMPLEADO_DEPARTAMENTO_NO_EXISTE",
                 $"No existe el departamento '{departamentoId}'.");
         }
+        if (departamento.EmpresaId != empresaId)
+            throw new BusinessRuleException("EMPLEADO_DEPARTAMENTO_OTRA_EMPRESA", "El departamento debe pertenecer a la misma empresa.");
+        if (departamento.Estatus != EstatusCatalogo.Activo)
+            throw new BusinessRuleException("EMPLEADO_DEPARTAMENTO_INACTIVO", "El departamento no está activo.");
     }
 }

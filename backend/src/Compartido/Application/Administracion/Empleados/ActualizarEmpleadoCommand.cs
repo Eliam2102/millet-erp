@@ -81,13 +81,13 @@ public sealed class ActualizarEmpleadoHandler
                 $"No existe empleado con id '{command.Id}'.");
 
         if (command.PuestoId is Guid puestoId)
-            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, empleado.EmpresaId, cancellationToken);
         if (command.JefeDirectoId is Guid jefeId)
             await ValidacionesEmpleado.ValidarJefeDirectoAsync(_db, jefeId, empleado.EmpresaId, cancellationToken);
         if (command.SucursalId is Guid sucursalId)
-            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, cancellationToken);
+            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, empleado.EmpresaId, cancellationToken);
         if (command.DepartamentoId is Guid departamentoId)
-            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, empleado.EmpresaId, cancellationToken);
 
         empleado.ActualizarDatos(
             nombre: command.Nombre,
