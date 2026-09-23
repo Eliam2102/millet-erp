@@ -24,4 +24,3 @@ function SucursalDetalleRoute() {
   const { id } = Route.useParams();
   return <SucursalesLayout idActivo={id} detalle={<SucursalDetalle key={id} />} />;
 }
-

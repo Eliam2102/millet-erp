@@ -118,4 +118,3 @@ public sealed class CrearPuestoHandler
             departamentoNombre);
     }
 }
-
