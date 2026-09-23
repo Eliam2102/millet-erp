@@ -36,10 +36,10 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
       const a = (apellido || '').toLowerCase().trim().replace(/\s+/g, '.');
       const prefix = [n, a].filter(Boolean).join('.');
       if (prefix) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUpn(`${prefix}@${entraDomain}`);
       } else {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUpn(`usuario@${entraDomain}`);
       }
     }
