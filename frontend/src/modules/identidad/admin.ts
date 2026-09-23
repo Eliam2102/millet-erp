@@ -1,4 +1,4 @@
-import { KeyRound, Users } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 

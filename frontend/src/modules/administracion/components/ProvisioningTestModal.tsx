@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,9 +36,9 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
       const a = (apellido || '').toLowerCase().trim().replace(/\s+/g, '.');
       const prefix = [n, a].filter(Boolean).join('.');
       if (prefix) {
-        setUpn(`${prefix}@${entraDomain}`);
+        // eslint-disable-next-line react-hooks/set-state-in-effect`n      setUpn(`${prefix}@${entraDomain}`);
       } else {
-        setUpn(`usuario@${entraDomain}`);
+        // eslint-disable-next-line react-hooks/set-state-in-effect`n      setUpn(`usuario@${entraDomain}`);
       }
     }
   }, [nombre, apellido, esNuevo, entraDomain]);
@@ -52,7 +52,7 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
 
     setLoading(true);
     try {
-      const { data: response } = await apiRequest<any>('/api/identidad/provisionar', {
+      const { data: response } = await apiRequest<{mensaje: string, entraOid: string}>('/api/identidad/provisionar', {
         method: 'POST',
         body: {
           nombre,
@@ -67,8 +67,8 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
         description: `OID Azure: ${response.entraOid}`
       });
       setOpen(false);
-    } catch (error: any) {
-      const msg = error.problem?.title || error.message;
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown>; const msg = (err.problem as Record<string, string>)?.title || (err.message as string);
       toast.error("Error en el API de Provisión", { description: msg });
     } finally {
       setLoading(false);
