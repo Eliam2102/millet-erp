@@ -34,6 +34,7 @@ public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
 
     public Guid SucursalId { get; private set; }
     public Guid PuestoId { get; private set; }
+    public Guid DepartamentoId { get; private set; }
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
     private SucursalPuesto() { }
@@ -43,6 +44,7 @@ public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
         Guid empresaId,
         Guid sucursalId,
         Guid puestoId,
+        Guid departamentoId,
         EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
     {
         if (id == Guid.Empty)
@@ -57,10 +59,14 @@ public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
         if (puestoId == Guid.Empty)
             throw new BusinessRuleException("SUCURSAL_PUESTO_PUESTO_INVALIDO",
                 "PuestoId es obligatorio.");
+        if (departamentoId == Guid.Empty)
+            throw new BusinessRuleException("SUCURSAL_PUESTO_DEPARTAMENTO_INVALIDO",
+                "DepartamentoId es obligatorio.");
 
         EmpresaId = empresaId;
         SucursalId = sucursalId;
         PuestoId = puestoId;
+        DepartamentoId = departamentoId;
         Estatus = estatus;
     }
 

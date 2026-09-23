@@ -256,11 +256,26 @@ public class PuestosEndpointsTests : IClassFixture<WebApplicationFactory<Program
         return body.GetProperty("id").GetGuid();
     }
 
-    private static async Task AsignarASucursalAsync(HttpClient client, Guid sucursalId, Guid puestoId)
+    private static async Task<Guid> CrearDepartamentoAsync(HttpClient client, string prefix = "DEP")
     {
-        var response = await client.PostAsync(
+        var clave = RandomClave(prefix);
+        var response = await client.PostAsJsonAsync("/api/v1/admin/departamentos", new
+        {
+            Id = Guid.Empty,
+            Clave = clave,
+            Nombre = $"Departamento {clave}",
+        });
+        response.EnsureSuccessStatusCode();
+        var body = await ReadJsonAsync(response);
+        return body.GetProperty("id").GetGuid();
+    }
+
+    private static async Task AsignarASucursalAsync(HttpClient client, Guid sucursalId, Guid puestoId, Guid? deptoId = null)
+    {
+        deptoId ??= await CrearDepartamentoAsync(client);
+        var response = await client.PostAsJsonAsync(
             $"/api/v1/admin/empresas/sucursales/{sucursalId}/puestos/{puestoId}",
-            content: null);
+            new { DepartamentoId = deptoId.Value });
         response.EnsureSuccessStatusCode();
     }
 

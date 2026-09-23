@@ -13,5 +13,7 @@ public sealed record SucursalPuestoResponse(
     Guid PuestoId,
     string PuestoClave,
     string PuestoNombre,
+    Guid DepartamentoId,
+    string? DepartamentoNombre,
     EstatusCatalogo Estatus,
     int Version);

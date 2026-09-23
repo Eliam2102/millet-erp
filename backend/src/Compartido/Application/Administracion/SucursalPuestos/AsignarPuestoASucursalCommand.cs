@@ -18,7 +18,8 @@ namespace Millet.Administracion.Application.SucursalPuestos;
 /// </summary>
 public sealed record AsignarPuestoASucursalCommand(
     Guid SucursalId,
-    Guid PuestoId) : IRequest<SucursalPuestoResponse>;
+    Guid PuestoId,
+    Guid DepartamentoId) : IRequest<SucursalPuestoResponse>;
 
 public sealed class AsignarPuestoASucursalValidator
     : AbstractValidator<AsignarPuestoASucursalCommand>
@@ -27,6 +28,7 @@ public sealed class AsignarPuestoASucursalValidator
     {
         RuleFor(c => c.SucursalId).NotEmpty().WithErrorCode("SUCURSAL_REQUERIDA");
         RuleFor(c => c.PuestoId).NotEmpty().WithErrorCode("PUESTO_REQUERIDO");
+        RuleFor(c => c.DepartamentoId).NotEmpty().WithErrorCode("DEPARTAMENTO_REQUERIDO");
     }
 }
 
@@ -52,11 +54,31 @@ public sealed class AsignarPuestoASucursalHandler
                 "PUESTO_NO_ENCONTRADO",
                 $"No existe puesto con id '{command.PuestoId}'.");
 
+        var depto = await _db.Departamentos.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == command.DepartamentoId, cancellationToken)
+            ?? throw new EntityNotFoundException(
+                "DEPARTAMENTO_NO_ENCONTRADO",
+                $"No existe departamento con id '{command.DepartamentoId}'.");
+
         if (sucursal.EmpresaId != puesto.EmpresaId)
         {
             throw new ConflictException(
                 "RELACION_INVALIDA",
                 "La sucursal y el puesto deben pertenecer a la misma empresa.");
+        }
+
+        if (sucursal.EmpresaId != depto.EmpresaId)
+        {
+            throw new ConflictException(
+                "DEPARTAMENTO_OTRA_EMPRESA",
+                "El departamento debe pertenecer a la misma empresa.");
+        }
+
+        if (depto.Estatus != EstatusCatalogo.Activo)
+        {
+            throw new ConflictException(
+                "DEPARTAMENTO_INACTIVO",
+                "El departamento no está activo.");
         }
 
         var existe = await _db.SucursalPuestos.AsNoTracking()
@@ -75,7 +97,8 @@ public sealed class AsignarPuestoASucursalHandler
             Guid.CreateVersion7(),
             sucursal.EmpresaId,
             command.SucursalId,
-            command.PuestoId);
+            command.PuestoId,
+            command.DepartamentoId);
 
         _db.SucursalPuestos.Add(asignacion);
         await _db.SaveChangesAsync(cancellationToken);
@@ -85,6 +108,8 @@ public sealed class AsignarPuestoASucursalHandler
             asignacion.PuestoId,
             puesto.Clave,
             puesto.Nombre,
+            asignacion.DepartamentoId,
+            depto.Nombre,
             asignacion.Estatus,
             asignacion.Version);
     }

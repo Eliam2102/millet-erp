@@ -43,16 +43,21 @@ export function usePuestosDeSucursal(sucursalId: string | null) {
 export interface AsignarPuestoASucursalArgs {
   sucursalId: string;
   puestoId: string;
+  departamentoId: string;
   idempotencyKey: string;
 }
 
 export function useAsignarPuestoASucursal() {
   const queryClient = useQueryClient();
   return useMutation<SucursalPuestoResponse, Error, AsignarPuestoASucursalArgs>({
-    mutationFn: async ({ sucursalId, puestoId, idempotencyKey }) => {
+    mutationFn: async ({ sucursalId, puestoId, departamentoId, idempotencyKey }) => {
       const { data } = await apiRequest<SucursalPuestoResponse>(
         `${BASE}/${sucursalId}/puestos/${puestoId}`,
-        { method: 'POST', idempotencyKey },
+        {
+          method: 'POST',
+          idempotencyKey,
+          body: { departamentoId },
+        },
       );
       return data;
     },

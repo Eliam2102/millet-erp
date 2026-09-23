@@ -66,13 +66,27 @@ public sealed class ActualizarPuestoHandler
 
         if (!command.LimpiarDepartamento && command.DepartamentoId.HasValue)
         {
-            var deptoExiste = await _db.Departamentos.AsNoTracking()
-                .AnyAsync(d => d.EmpresaId == puesto.EmpresaId && d.Id == command.DepartamentoId.Value, cancellationToken);
-            if (!deptoExiste)
+            var depto = await _db.Departamentos.AsNoTracking()
+                .Where(d => d.Id == command.DepartamentoId.Value)
+                .Select(d => new { d.EmpresaId, d.Estatus, d.Nombre })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (depto is null)
             {
                 throw new ConflictException(
                     "DEPARTAMENTO_INVALIDO",
-                    $"El departamento '{command.DepartamentoId.Value}' no existe en esta empresa.");
+                    $"El departamento '{command.DepartamentoId.Value}' no existe.");
+            }
+            if (depto.EmpresaId != puesto.EmpresaId)
+            {
+                throw new ConflictException(
+                    "DEPARTAMENTO_OTRA_EMPRESA",
+                    "El departamento debe pertenecer a la misma empresa.");
+            }
+            if (depto.Estatus != Millet.Catalogos.Domain.EstatusCatalogo.Activo)
+            {
+                throw new ConflictException(
+                    "DEPARTAMENTO_INACTIVO",
+                    "El departamento no está activo.");
             }
         }
 

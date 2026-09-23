@@ -44,11 +44,18 @@ public sealed class DesactivarAsignacionSucursalPuestoHandler
         var puesto = await _db.Puestos.AsNoTracking()
             .FirstAsync(p => p.Id == asignacion.PuestoId, cancellationToken);
 
+        var deptoNombre = await _db.Departamentos.AsNoTracking()
+            .Where(d => d.Id == asignacion.DepartamentoId)
+            .Select(d => d.Nombre)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return new SucursalPuestoResponse(
             asignacion.SucursalId,
             asignacion.PuestoId,
             puesto.Clave,
             puesto.Nombre,
+            asignacion.DepartamentoId,
+            deptoNombre,
             asignacion.Estatus,
             asignacion.Version);
     }

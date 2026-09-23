@@ -90,10 +90,16 @@ export function PuestoInlineForm({
         });
         return;
       }
-      if (error.code === 'DEPARTAMENTO_NO_EXISTE') {
+      if (
+        error.code === 'DEPARTAMENTO_NO_EXISTE' ||
+        error.code === 'DEPARTAMENTO_OTRA_EMPRESA' ||
+        error.code === 'DEPARTAMENTO_INACTIVO'
+      ) {
         form.setError('departamentoId', {
           type: error.code,
-          message: 'El departamento seleccionado no es válido o no pertenece a la empresa.',
+          message:
+            error.problem.detail ||
+            'El departamento seleccionado no es válido o no está activo.',
         });
         return;
       }

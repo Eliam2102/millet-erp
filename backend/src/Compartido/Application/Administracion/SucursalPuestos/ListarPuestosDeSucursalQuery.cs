@@ -71,6 +71,9 @@ public sealed class ListarPuestosDeSucursalHandler
             from a in _db.SucursalPuestos.AsNoTracking()
             join p in _db.Puestos.AsNoTracking()
                 on a.PuestoId equals p.Id
+            join d in _db.Departamentos.AsNoTracking()
+                on a.DepartamentoId equals d.Id into deptos
+            from d in deptos.DefaultIfEmpty()
             where a.SucursalId == query.SucursalId
             orderby p.Clave
             select new SucursalPuestoResponse(
@@ -78,6 +81,8 @@ public sealed class ListarPuestosDeSucursalHandler
                 a.PuestoId,
                 p.Clave,
                 p.Nombre,
+                a.DepartamentoId,
+                d != null ? d.Nombre : null,
                 a.Estatus,
                 a.Version)
         ).ToListAsync(cancellationToken);

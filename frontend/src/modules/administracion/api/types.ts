@@ -94,6 +94,8 @@ export interface SucursalPuestoResponse {
   puestoId: string;
   puestoClave: string;
   puestoNombre: string;
+  departamentoId: string;
+  departamentoNombre?: string | null;
   /** <c>EstatusCatalogo</c> (Activo/Inactivo/EnRevision). */
   estatus: number;
   version: number;

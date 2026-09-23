@@ -62,11 +62,12 @@ public static class SucursalPuestosEndpoints
         group.MapPost("/{puestoId:guid}", async (
             Guid sucursalId,
             Guid puestoId,
+            AsignarPuestoASucursalRequest request,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var response = await mediator.Send(
-                new AsignarPuestoASucursalCommand(sucursalId, puestoId), ct);
+                new AsignarPuestoASucursalCommand(sucursalId, puestoId, request.DepartamentoId), ct);
             return Results.Created(
                 $"/api/v1/admin/empresas/sucursales/{sucursalId}/puestos/{puestoId}",
                 response);
@@ -126,3 +127,5 @@ public static class SucursalPuestosEndpoints
         return app;
     }
 }
+
+public sealed record AsignarPuestoASucursalRequest(Guid DepartamentoId);

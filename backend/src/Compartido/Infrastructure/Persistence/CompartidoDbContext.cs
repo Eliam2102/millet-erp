@@ -1452,11 +1452,13 @@ public sealed class CompartidoDbContext : BaseDbContext
         asignacion.Property(x => x.EmpresaId).IsRequired();
         asignacion.Property(x => x.SucursalId).IsRequired();
         asignacion.Property(x => x.PuestoId).IsRequired();
+        asignacion.Property(x => x.DepartamentoId).IsRequired();
         asignacion.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
         asignacion.HasIndex(x => new { x.SucursalId, x.PuestoId }).IsUnique();
         asignacion.HasIndex(x => x.SucursalId);
         asignacion.HasIndex(x => x.PuestoId);
+        asignacion.HasIndex(x => x.DepartamentoId);
 
         asignacion.HasOne<Empresa>()
             .WithMany()
@@ -1471,6 +1473,11 @@ public sealed class CompartidoDbContext : BaseDbContext
         asignacion.HasOne<Puesto>()
             .WithMany()
             .HasForeignKey(x => x.PuestoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        asignacion.HasOne<Departamento>()
+            .WithMany()
+            .HasForeignKey(x => x.DepartamentoId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 
