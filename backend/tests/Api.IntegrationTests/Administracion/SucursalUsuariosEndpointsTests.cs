@@ -55,18 +55,17 @@ public class SucursalUsuariosEndpointsTests : IClassFixture<WebApplicationFactor
     {
         var client = await CreateSuperAdminClientAsync();
         var sucursalId = await CrearSucursalAsync(client); // empresa inicial
-        Guid otraEmpresaId;
-        using (var scope = _factory.Services.CreateScope())
+        // No depender de que otra prueba haya creado una segunda empresa.
+        // Es un tenant ficticio aislado, sólo para probar el guard técnico.
+        var otraEmpresa = await client.PostAsJsonAsync(EmpresasBase, new
         {
-            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
-            var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
-            using var bypass = empresaContext.Bypass();
-            otraEmpresaId = await db.Empresas
-                .AsNoTracking()
-                .Where(empresa => empresa.Id != EmpresaInicialId)
-                .Select(empresa => empresa.Id)
-                .FirstAsync();
-        }
+            Id = Guid.Empty,
+            Rfc = ("TST" + Guid.NewGuid().ToString("N"))[..13].ToUpperInvariant(),
+            RazonSocial = "Otra empresa de prueba",
+            RegimenFiscal = "601",
+        });
+        otraEmpresa.EnsureSuccessStatusCode();
+        var otraEmpresaId = (await ReadJsonAsync(otraEmpresa)).GetProperty("id").GetGuid();
 
         // Usuario con rol SOLO en una empresa distinta a la dueña de la sucursal.
         var usuarioId = await SeedUsuarioConRolEnEmpresaAsync(otraEmpresaId);

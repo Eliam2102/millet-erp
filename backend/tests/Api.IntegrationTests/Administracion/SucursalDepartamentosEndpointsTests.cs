@@ -77,6 +77,15 @@ public class SucursalDepartamentosEndpointsTests : IClassFixture<WebApplicationF
     {
         var client = await CreateSuperAdminClientAsync();
         var sucursalId = await CrearSucursalAsync(client);
+        var otraEmpresa = await client.PostAsJsonAsync(EmpresasBase, new
+        {
+            Id = Guid.Empty,
+            Rfc = ("TST" + Guid.NewGuid().ToString("N"))[..13].ToUpperInvariant(),
+            RazonSocial = "Empresa ficticia para departamento ajeno",
+            RegimenFiscal = "601",
+        });
+        otraEmpresa.EnsureSuccessStatusCode();
+        var otraEmpresaId = (await ReadJsonAsync(otraEmpresa)).GetProperty("id").GetGuid();
         Guid departamentoId;
 
         using (var scope = _factory.Services.CreateScope())
@@ -84,14 +93,6 @@ public class SucursalDepartamentosEndpointsTests : IClassFixture<WebApplicationF
             var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
             var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
-            var sucursal = await db.Sucursales
-                .AsNoTracking()
-                .SingleAsync(s => s.Id == sucursalId);
-            var otraEmpresaId = await db.Empresas
-                .Where(empresa => empresa.Id != sucursal.EmpresaId)
-                .Select(empresa => empresa.Id)
-                .FirstAsync();
-
             departamentoId = Guid.CreateVersion7();
             db.Departamentos.Add(new Departamento(
                 departamentoId,

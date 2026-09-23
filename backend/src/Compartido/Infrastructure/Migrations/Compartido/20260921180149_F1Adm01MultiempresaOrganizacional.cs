@@ -258,13 +258,30 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                 type: "uuid",
                 nullable: true);
 
-            // ── Paso 3: backfill. Verificado (F1-ADM-01): hoy solo existe UNA
-            // fila en compartido.empresas (la raíz de bootstrap sembrada por
-            // BootstrapSuperAdminHostedService). Todo backfill de EmpresaId en
-            // las tablas hijas apunta sin ambigüedad a esa fila. Los valores de
-            // domicilio/clave son PLACEHOLDERS EVIDENTEMENTE FICTICIOS — no son
-            // datos reales de Millet — documentados aquí para que Fase 2/UI los
-            // sustituya por captura real.
+            // ── Paso 3: backfill. En una instalación limpia, las migraciones
+            // corren ANTES del hosted service que crea la empresa inicial. Los
+            // catálogos HasData ya existen y requieren empresa_id no nulo.
+            // Crear la raíz provisional sólo si no hay empresas. El bootstrap
+            // reemplaza sus datos por la configuración real antes de asignar
+            // usuarios. En una actualización se conserva la empresa existente.
+            migrationBuilder.Sql(
+                """
+                INSERT INTO compartido.empresas
+                    (id, rfc, razon_social, regimen_fiscal, activa, version,
+                     created_at, updated_at, created_by, updated_by,
+                     clave, calle, numero_exterior, colonia, ciudad,
+                     municipio, estado, pais)
+                SELECT '00000003-0000-0000-0000-000000000001'::uuid,
+                       'TMP010101AAA', 'Empresa inicial pendiente de configuración',
+                       '601', true, 1, now(), now(), 'migration', 'migration',
+                       'TMP010101AAA', 'Sin especificar', 'S/N',
+                       'Sin especificar', 'Sin especificar', 'Sin especificar',
+                       'Sin especificar', 'México'
+                WHERE NOT EXISTS (SELECT 1 FROM compartido.empresas);
+                """);
+
+            // Los valores de domicilio son ficticios y deben sustituirse
+            // antes de una validación fiscal real.
 
             // 3.a Empresa raíz: Clave = RFC en mayúsculas (ya es business key
             // única, evita colisión con el nuevo UNIQUE(clave)); domicilio con
@@ -325,44 +342,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                 WHERE empresa_id IS NULL;
                 """);
 
-            // 3.c HasData de EF (seeds con GUID fijo): departamento de sistema
-            // ReabastecimientoAutomatico (ADR-0047 PR5.A) y puestos EJEC/GER/OPER
-            // (decisión D6). Esas filas ya existen (las insertó una migración
-            // anterior); el UPDATE 3.b ya les puso EmpresaId por el WHERE IS
-            // NULL, así que este UpdateData es redundante pero se conserva
-            // porque EF lo scaffoldeó a partir del diff de HasData — quitarlo
-            // rompería la sincronía del modelo snapshot con estas filas.
-            migrationBuilder.UpdateData(
-                schema: "compartido",
-                table: "departamentos",
-                keyColumn: "id",
-                keyValue: new Guid("0000000d-0001-0000-0000-000000000001"),
-                column: "empresa_id",
-                value: new Guid("00000003-0000-0000-0000-000000000001"));
-
-            migrationBuilder.UpdateData(
-                schema: "compartido",
-                table: "puestos",
-                keyColumn: "id",
-                keyValue: new Guid("00000000-0000-0000-0000-000000000001"),
-                columns: new[] { "descripcion", "empresa_id" },
-                values: new object[] { null, new Guid("00000003-0000-0000-0000-000000000001") });
-
-            migrationBuilder.UpdateData(
-                schema: "compartido",
-                table: "puestos",
-                keyColumn: "id",
-                keyValue: new Guid("00000000-0000-0000-0000-000000000002"),
-                columns: new[] { "descripcion", "empresa_id" },
-                values: new object[] { null, new Guid("00000003-0000-0000-0000-000000000001") });
-
-            migrationBuilder.UpdateData(
-                schema: "compartido",
-                table: "puestos",
-                keyColumn: "id",
-                keyValue: new Guid("00000000-0000-0000-0000-000000000003"),
-                columns: new[] { "descripcion", "empresa_id" },
-                values: new object[] { null, new Guid("00000003-0000-0000-0000-000000000001") });
+            // 3.c El UPDATE anterior ya cubre los HasData de departamento y
+            // puestos. Un UpdateData con el GUID fijo fallaría si la empresa
+            // preexistente tuviera otro ID.
 
             // ── Paso 4: ahora que todas las filas existentes tienen valor,
             // promover las columnas requeridas de nullable a NOT NULL.
