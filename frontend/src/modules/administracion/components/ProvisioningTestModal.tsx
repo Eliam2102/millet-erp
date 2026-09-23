@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,45 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
   const [upn, setUpn] = useState('');
   const [correo, setCorreo] = useState('uzieltzab8@gmail.com');
   const [loading, setLoading] = useState(false);
+
+  // Estados de validación de UPN
+  const [upnValidando, setUpnValidando] = useState(false);
+  const [upnError, setUpnError] = useState<string | null>(null);
+  const [upnSuccess, setUpnSuccess] = useState<string | null>(null);
+
+  async function verificarUpn(correoValidar: string) {
+    if (!correoValidar || correoValidar.indexOf('@') === -1) {
+      setUpnError(null);
+      setUpnSuccess(null);
+      return;
+    }
+    
+    setUpnValidando(true);
+    setUpnError(null);
+    setUpnSuccess(null);
+    
+    try {
+      const { data } = await apiRequest<{existe: boolean}>(`/api/identidad/provisionar/verificar-upn?upn=${encodeURIComponent(correoValidar)}`);
+      
+      if (esNuevo) {
+        if (data.existe) {
+          setUpnError('Este correo ya está ocupado en Azure Entra ID.');
+        } else {
+          setUpnSuccess('Correo disponible ✅');
+        }
+      } else {
+        if (!data.existe) {
+          setUpnError('Este usuario no existe en Azure. Por favor, selecciona "Crear Nuevo".');
+        } else {
+          setUpnSuccess('Usuario encontrado en Azure ✅');
+        }
+      }
+    } catch {
+      // Ignorar errores silenciosos en la validación
+    } finally {
+      setUpnValidando(false);
+    }
+  }
 
   // Lee el dominio desde el .env del frontend, si no existe usa tu sandbox por defecto
   const entraDomain = import.meta.env.VITE_ENTRA_DOMAIN || 'uzieltzaboutlook.onmicrosoft.com';
@@ -146,7 +185,10 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
 
             <div className="space-y-1 mt-3">
               <Label className="text-xs">Correo Organizacional (UPN)</Label>
-              <Input value={upn} onChange={e => setUpn(e.target.value)} placeholder="usuario@millet.onmicrosoft.com" />
+              <Input value={upn} onChange={e => { setUpn(e.target.value); setUpnError(null); setUpnSuccess(null); }} onBlur={(e) => verificarUpn(e.target.value)} placeholder="usuario@millet.onmicrosoft.com" />
+              {upnValidando && <p className="text-xs text-blue-600 font-medium">Validando en Azure...</p>}
+              {upnError && <p className="text-xs text-red-600 font-medium">{upnError}</p>}
+              {upnSuccess && <p className="text-xs text-emerald-600 font-medium">{upnSuccess}</p>}
             </div>
 
             <div className="space-y-1">
@@ -166,7 +208,7 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
           <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
             Cerrar
           </Button>
-          <Button type="button" onClick={handleTestApi} disabled={loading}>
+          <Button type="button" onClick={handleTestApi} disabled={loading || upnValidando || upnError !== null}>
             {loading ? "Ejecutando API..." : "Simular Llamada al Backend"}
           </Button>
         </DialogFooter>
