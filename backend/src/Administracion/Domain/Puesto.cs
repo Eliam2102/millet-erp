@@ -33,6 +33,17 @@ public sealed class Puesto : BaseEntity, IAuditable, IPerteneceAEmpresa
     /// <summary>Descripción libre opcional del puesto (F1-ADM-01).</summary>
     public string? Descripcion { get; private set; }
 
+    /// <summary>
+    /// Rol sugerido por defecto del ERP para empleados con este puesto (F1-ADM-01.4, ADR-0051).
+    /// Referencia lógica a <c>identidad.roles</c> sin FK cross-módulo.
+    /// </summary>
+    public Guid? RolSugeridoId { get; private set; }
+
+    /// <summary>
+    /// Departamento organizacional al que pertenece este puesto (F1-ADM-01.4, ADR-0051).
+    /// </summary>
+    public Guid? DepartamentoId { get; private set; }
+
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
     private Puesto() { }
@@ -43,6 +54,8 @@ public sealed class Puesto : BaseEntity, IAuditable, IPerteneceAEmpresa
         string clave,
         string nombre,
         string? descripcion = null,
+        Guid? rolSugeridoId = null,
+        Guid? departamentoId = null,
         EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
     {
         if (id == Guid.Empty)
@@ -57,19 +70,27 @@ public sealed class Puesto : BaseEntity, IAuditable, IPerteneceAEmpresa
         Clave = clave;
         Nombre = nombre;
         Descripcion = descripcion?.Trim();
+        RolSugeridoId = rolSugeridoId;
+        DepartamentoId = departamentoId;
         Estatus = estatus;
     }
 
     /// <summary>
     /// PATCH parcial. Convención: parámetro <c>null</c> = no tocar;
     /// <paramref name="limpiarDescripcion"/> = <c>true</c> limpia el
-    /// campo opcional. Inmutables: <see cref="Clave"/> (business key) y
+    /// campo opcional; <paramref name="limpiarRolSugerido"/> = <c>true</c>
+    /// remueve la sugerencia de rol; <paramref name="limpiarDepartamento"/> = <c>true</c>
+    /// remueve la asignación a departamento. Inmutables: <see cref="Clave"/> (business key) y
     /// <see cref="EmpresaId"/>.
     /// </summary>
     public void ActualizarDatos(
         string? nombre = null,
         string? descripcion = null,
-        bool limpiarDescripcion = false)
+        bool limpiarDescripcion = false,
+        Guid? rolSugeridoId = null,
+        bool limpiarRolSugerido = false,
+        Guid? departamentoId = null,
+        bool limpiarDepartamento = false)
     {
         if (nombre is not null)
         {
@@ -86,7 +107,29 @@ public sealed class Puesto : BaseEntity, IAuditable, IPerteneceAEmpresa
             ValidarDescripcion(descripcion);
             Descripcion = descripcion.Trim();
         }
+
+        if (limpiarRolSugerido)
+        {
+            RolSugeridoId = null;
+        }
+        else if (rolSugeridoId.HasValue)
+        {
+            RolSugeridoId = rolSugeridoId.Value;
+        }
+
+        if (limpiarDepartamento)
+        {
+            DepartamentoId = null;
+        }
+        else if (departamentoId.HasValue)
+        {
+            DepartamentoId = departamentoId.Value;
+        }
     }
+
+    /// <summary>Asigna o desasigna el departamento organizacional del puesto.</summary>
+    public void AsignarDepartamento(Guid? departamentoId) => DepartamentoId = departamentoId;
+
 
     /// <summary>Reactiva el puesto. Idempotente.</summary>
     public void Activar() => Estatus = EstatusCatalogo.Activo;

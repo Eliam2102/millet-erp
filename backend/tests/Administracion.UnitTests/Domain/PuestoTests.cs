@@ -92,6 +92,30 @@ public class PuestoTests
     }
 
     [Fact]
+    public void Constructor_Should_Set_RolSugeridoId()
+    {
+        var rolId = Guid.CreateVersion7();
+        var puesto = new Puesto(Guid.CreateVersion7(), EmpresaId, "PST-ROL", "Puesto Rol", rolSugeridoId: rolId);
+        puesto.RolSugeridoId.Should().Be(rolId);
+    }
+
+    [Fact]
+    public void ActualizarDatos_Should_Update_And_Clean_RolSugeridoId()
+    {
+        var rolId1 = Guid.CreateVersion7();
+        var rolId2 = Guid.CreateVersion7();
+        var puesto = new Puesto(Guid.CreateVersion7(), EmpresaId, "PST-ROL", "Puesto Rol", rolSugeridoId: rolId1);
+
+        // Actualizar a rolId2
+        puesto.ActualizarDatos(rolSugeridoId: rolId2);
+        puesto.RolSugeridoId.Should().Be(rolId2);
+
+        // Limpiar rol sugerido
+        puesto.ActualizarDatos(limpiarRolSugerido: true);
+        puesto.RolSugeridoId.Should().BeNull();
+    }
+
+    [Fact]
     public void Desactivar_Then_Activar_Should_BeIdempotent()
     {
         var puesto = Crear();

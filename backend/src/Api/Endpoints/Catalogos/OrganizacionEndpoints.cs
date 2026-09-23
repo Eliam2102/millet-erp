@@ -176,11 +176,20 @@ public static class OrganizacionEndpoints
             }
 
             var total = await query.CountAsync(ct);
-            var items = await query
+            var deptos = await db.Departamentos.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Nombre, ct);
+            var itemsRaw = await query
                 .OrderBy(p => p.Clave)
                 .Skip(off).Take(lim)
-                .Select(p => new PuestoListItem(p.Id, p.Clave, p.Nombre, p.Estatus))
                 .ToListAsync(ct);
+            var items = itemsRaw
+                .Select(p => new PuestoListItem(
+                    p.Id,
+                    p.Clave,
+                    p.Nombre,
+                    p.Estatus,
+                    p.DepartamentoId,
+                    p.DepartamentoId != null && deptos.TryGetValue(p.DepartamentoId.Value, out var dn) ? dn : null))
+                .ToList();
 
             return Results.Ok(new PagedCatalogoResponse<PuestoListItem>(items, off, lim, total));
         })
@@ -199,6 +208,7 @@ public static class OrganizacionEndpoints
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] Guid? empresaId,
             [FromQuery] Guid? puestoId,
+            [FromQuery] Guid? sucursalId,
             [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
@@ -210,6 +220,7 @@ public static class OrganizacionEndpoints
             if (estatus is EstatusCatalogo e) query = query.Where(x => x.Estatus == e);
             if (empresaId is Guid eid) query = query.Where(x => x.EmpresaId == eid);
             if (puestoId is Guid pid) query = query.Where(x => x.PuestoId == pid);
+            if (sucursalId is Guid sid) query = query.Where(x => x.SucursalId == sid);
             if (!string.IsNullOrWhiteSpace(q))
             {
                 query = query.Where(x =>
@@ -218,14 +229,20 @@ public static class OrganizacionEndpoints
             }
 
             var total = await query.CountAsync(ct);
-            var items = await query
+            var puestosDict = await db.Puestos.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nombre, ct);
+            var deptosDict = await db.Departamentos.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Nombre, ct);
+            var itemsRaw = await query
                 .OrderBy(x => x.Nombre)
                 .Skip(off).Take(lim)
+                .ToListAsync(ct);
+            var items = itemsRaw
                 .Select(x => new EmpleadoListItem(
                     x.Id, x.EmpresaId, x.Clave, x.Nombre, x.Email,
                     x.PuestoId, x.JefeDirectoId, x.SucursalId,
-                    x.DepartamentoId, x.UsuarioId, x.Estatus))
-                .ToListAsync(ct);
+                    x.DepartamentoId, x.UsuarioId, x.Estatus,
+                    x.PuestoId != null && puestosDict.TryGetValue(x.PuestoId.Value, out var pn) ? pn : null,
+                    x.DepartamentoId != null && deptosDict.TryGetValue(x.DepartamentoId.Value, out var dn) ? dn : null))
+                .ToList();
 
             return Results.Ok(new PagedCatalogoResponse<EmpleadoListItem>(items, off, lim, total));
         })
@@ -237,7 +254,7 @@ public static class OrganizacionEndpoints
             "list item incluye `puestoId` y `jefeDirectoId` para que la " +
             "solicitud de viáticos prellene tope (política) y autorizador " +
             "N1 sin fetch extra. Filtros: `estatus`, `empresaId`, " +
-            "`puestoId`, `q` (clave, nombre o email). Paginado.")
+            "`puestoId`, `sucursalId`, `q` (clave, nombre o email). Paginado.")
         .Produces<PagedCatalogoResponse<EmpleadoListItem>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -248,7 +265,12 @@ public static class OrganizacionEndpoints
     private static (int off, int lim) NormalizePaging(int? offset, int? limit)
     {
         var off = offset is < 0 ? 0 : offset ?? 0;
-        var lim = limit is null or <= 0 ? 50 : Math.Min(limit.Value, LimitMax);
+        var lim = limit switch
+        {
+            null or <= 0 => 50,
+            > 200 => 200,
+            _ => limit.Value,
+        };
         return (off, lim);
     }
 }
@@ -276,7 +298,9 @@ public sealed record PuestoListItem(
     Guid Id,
     string Clave,
     string Nombre,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    Guid? DepartamentoId = null,
+    string? DepartamentoNombre = null);
 
 public sealed record EmpleadoListItem(
     Guid Id,
@@ -289,4 +313,6 @@ public sealed record EmpleadoListItem(
     Guid? SucursalId,
     Guid? DepartamentoId,
     Guid? UsuarioId,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    string? PuestoNombre = null,
+    string? DepartamentoNombre = null);

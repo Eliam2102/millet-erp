@@ -33,11 +33,12 @@ public static class DepartamentosEndpoints
             [FromQuery] int? limit,
             [FromQuery] string? q,
             [FromQuery] EstatusCatalogo? estatus,
+            [FromQuery] Guid? sucursalId,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var response = await mediator.Send(
-                new ListarDepartamentosQuery(offset ?? 0, limit ?? 50, q, estatus), ct);
+                new ListarDepartamentosQuery(offset ?? 0, limit ?? 50, q, estatus, sucursalId), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminDepartamentosLeer)

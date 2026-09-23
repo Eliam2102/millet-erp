@@ -66,6 +66,9 @@ public sealed class CompartidoDbContext : BaseDbContext
     // (SucursalId, DepartamentoId). Consumido por Compras via puerto
     // ISucursalDepartamentoReadPort en PR-A2.
     public DbSet<SucursalDepartamento> SucursalDepartamentos => Set<SucursalDepartamento>();
+    // F1-ADM-01 Fase 1: asignación N:M entre Sucursal y Puesto, análoga a
+    // SucursalDepartamento. UNIQUE (SucursalId, PuestoId).
+    public DbSet<SucursalPuesto> SucursalPuestos => Set<SucursalPuesto>();
 
     // F9-PR1: catálogos para Órdenes de Compra.
     public DbSet<Incoterm> Incoterms => Set<Incoterm>();
@@ -135,6 +138,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureCanalVenta(modelBuilder);
         ConfigureDepartamento(modelBuilder);
         ConfigureSucursalDepartamento(modelBuilder);
+        ConfigureSucursalPuesto(modelBuilder);
         ConfigurePuesto(modelBuilder);
         ConfigureEmpleado(modelBuilder);
         // F1-PR2: ConfigureAlmacen retirado — el catálogo vive en AlmacenDbContext.
@@ -1290,14 +1294,23 @@ public sealed class CompartidoDbContext : BaseDbContext
         puesto.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         puesto.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         puesto.Property(x => x.Descripcion).HasMaxLength(500);
+        puesto.Property(x => x.RolSugeridoId);
+        puesto.Property(x => x.DepartamentoId);
         puesto.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
         puesto.HasIndex(x => new { x.EmpresaId, x.Clave }).IsUnique();
+        puesto.HasIndex(x => x.RolSugeridoId);
+        puesto.HasIndex(x => x.DepartamentoId);
         puesto.HasIndex(x => x.Estatus);
 
         puesto.HasOne<Empresa>()
             .WithMany()
             .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        puesto.HasOne<Departamento>()
+            .WithMany()
+            .HasForeignKey(x => x.DepartamentoId)
             .OnDelete(DeleteBehavior.Restrict);
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -1314,6 +1327,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         EmpresaId = EmpresaBootstrapId,
         Clave = clave,
         Nombre = nombre,
+        RolSugeridoId = (Guid?)null,
+        DepartamentoId = (Guid?)null,
         Estatus = EstatusCatalogo.Activo,
         Version = 1,
         CreatedAt = seedTime,
@@ -1409,6 +1424,53 @@ public sealed class CompartidoDbContext : BaseDbContext
         asignacion.HasOne<Departamento>()
             .WithMany()
             .HasForeignKey(x => x.DepartamentoId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    /// <summary>
+    /// Configura <see cref="SucursalPuesto"/> (F1-ADM-01 Fase 1). Análogo
+    /// exacto de <see cref="ConfigureSucursalDepartamento"/> pero para
+    /// <see cref="Puesto"/>. UNIQUE en <c>(SucursalId, PuestoId)</c>.
+    ///
+    /// <para>
+    /// F1-ADM-01: <see cref="SucursalPuesto.EmpresaId"/> +
+    /// <see cref="IPerteneceAEmpresa"/>, FK Restrict a Empresa. La
+    /// coherencia (mismo EmpresaId que la Sucursal y el Puesto
+    /// vinculados) es invariante de negocio validado en el handler
+    /// (Fase 2), no aquí — ver comentario en el dominio.
+    /// </para>
+    /// </summary>
+    private static void ConfigureSucursalPuesto(ModelBuilder modelBuilder)
+    {
+        var asignacion = modelBuilder.Entity<SucursalPuesto>();
+        asignacion.ToTable("sucursal_puestos", t =>
+        {
+            t.HasCheckConstraint("ck_sucursal_puestos_estatus",
+                "estatus BETWEEN 0 AND 2");
+        });
+        asignacion.HasKey(x => x.Id);
+        asignacion.Property(x => x.EmpresaId).IsRequired();
+        asignacion.Property(x => x.SucursalId).IsRequired();
+        asignacion.Property(x => x.PuestoId).IsRequired();
+        asignacion.Property(x => x.Estatus).HasConversion<short>().IsRequired();
+
+        asignacion.HasIndex(x => new { x.SucursalId, x.PuestoId }).IsUnique();
+        asignacion.HasIndex(x => x.SucursalId);
+        asignacion.HasIndex(x => x.PuestoId);
+
+        asignacion.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        asignacion.HasOne<Sucursal>()
+            .WithMany()
+            .HasForeignKey(x => x.SucursalId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        asignacion.HasOne<Puesto>()
+            .WithMany()
+            .HasForeignKey(x => x.PuestoId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 

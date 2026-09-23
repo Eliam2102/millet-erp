@@ -146,6 +146,15 @@ public static class PermisosCanonicos
     // "Admin Sucursales" como recurso top-level (la CRUD de Sucursal hoy
     // vive bajo admin.empresas.* por legacy de F-Admin-PR2.3).
     public const string AdminSucursalesDepartamentosGestionar          = "admin.sucursales.departamentos-gestionar";
+    // F1-ADM-01 Fase 2: análogos para las asignaciones N:M Sucursal ↔
+    // Puesto y Usuario ↔ Sucursal. Mismo sub-namespace 00000005-0006-*
+    // (recurso "Admin Sucursales"), secuencias 2 y 3. La lectura del
+    // N:M reusa `compartido.catalogos.leer` (no hay -leer específico),
+    // igual que AdminSucursalesDepartamentosGestionar. Estos mismos
+    // permisos son el "bypass admin" del guard de pertenencia a
+    // sucursal (SucursalScopeGuard, ver Compartido/Administracion/Abstractions).
+    public const string AdminSucursalesPuestosGestionar                = "admin.sucursales.puestos-gestionar";
+    public const string AdminSucursalesUsuariosGestionar               = "admin.sucursales.usuarios-gestionar";
 
     // ----- Administración — Puestos y Empleados (ADM-PR1) -----
     // Master organizacional para reglas de negocio por persona (doc
@@ -500,6 +509,8 @@ public static class PermisosCanonicos
         (Guid.Parse("00000005-0005-0000-0000-000000000001"), AdminParametrosLeer,                          "Leer parámetros globales del sistema"),
         (Guid.Parse("00000005-0005-0000-0000-000000000002"), AdminParametrosEditar,                        "Editar parámetros globales del sistema (TZ, formato fecha, redondeo)"),
         (Guid.Parse("00000005-0006-0000-0000-000000000001"), AdminSucursalesDepartamentosGestionar,        "Asignar, desactivar y reactivar departamentos por sucursal (N:M)"),
+        (Guid.Parse("00000005-0006-0000-0000-000000000002"), AdminSucursalesPuestosGestionar,              "Asignar, desactivar y reactivar puestos por sucursal (N:M)"),
+        (Guid.Parse("00000005-0006-0000-0000-000000000003"), AdminSucursalesUsuariosGestionar,             "Asignar, desactivar y reactivar usuarios por sucursal (N:M)"),
         (Guid.Parse("00000005-0007-0000-0000-000000000001"), AdminPuestosGestionar,                        "Crear, editar y desactivar puestos del catálogo organizacional"),
         (Guid.Parse("00000005-0007-0000-0000-000000000002"), AdminPuestosLeer,                              "Consultar puestos del catálogo organizacional"),
         (Guid.Parse("00000005-0008-0000-0000-000000000001"), AdminEmpleadosGestionar,                      "Crear, editar y desactivar empleados del catálogo organizacional"),

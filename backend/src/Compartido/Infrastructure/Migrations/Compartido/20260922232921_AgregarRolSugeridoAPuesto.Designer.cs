@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Compartido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 {
     [DbContext(typeof(CompartidoDbContext))]
-    partial class CompartidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260922232921_AgregarRolSugeridoAPuesto")]
+    partial class AgregarRolSugeridoAPuesto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -706,10 +709,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
-                    b.Property<Guid?>("DepartamentoId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("departamento_id");
-
                     b.Property<string>("Descripcion")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -748,9 +747,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.HasKey("Id")
                         .HasName("pk_puestos");
-
-                    b.HasIndex("DepartamentoId")
-                        .HasDatabaseName("ix_puestos_departamento_id");
 
                     b.HasIndex("Estatus")
                         .HasDatabaseName("ix_puestos_estatus");
@@ -4399,12 +4395,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
             modelBuilder.Entity("Millet.Administracion.Domain.Puesto", b =>
                 {
-                    b.HasOne("Millet.Administracion.Domain.Departamento", null)
-                        .WithMany()
-                        .HasForeignKey("DepartamentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_puestos_departamentos_departamento_id");
-
                     b.HasOne("Millet.Administracion.Domain.Empresa", null)
                         .WithMany()
                         .HasForeignKey("EmpresaId")

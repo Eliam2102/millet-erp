@@ -34,6 +34,10 @@ public sealed class IdentidadDbContext : BaseDbContext
     public DbSet<UsuarioPreferencia> UsuarioPreferencias => Set<UsuarioPreferencia>();
     public DbSet<UsuarioServicio> UsuariosServicio => Set<UsuarioServicio>();
     public DbSet<UsuarioServicioPermiso> UsuarioServicioPermisos => Set<UsuarioServicioPermiso>();
+    // F1-ADM-01 Fase 1: scoping de usuarios por sucursal. UNIQUE
+    // (UsuarioId, SucursalId). FK física cross-schema a
+    // compartido.sucursales, mismo patrón que UsuarioServicio → Empresa.
+    public DbSet<UsuarioSucursal> UsuarioSucursales => Set<UsuarioSucursal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +45,7 @@ public sealed class IdentidadDbContext : BaseDbContext
         base.OnModelCreating(modelBuilder);
 
         ConfigureEmpresaReference(modelBuilder);
+        ConfigureSucursalReference(modelBuilder);
         ConfigureUsuario(modelBuilder);
         ConfigureRol(modelBuilder);
         ConfigurePermiso(modelBuilder);
@@ -51,6 +56,7 @@ public sealed class IdentidadDbContext : BaseDbContext
         ConfigureUsuarioPreferencia(modelBuilder);
         ConfigureUsuarioServicio(modelBuilder);
         ConfigureUsuarioServicioPermiso(modelBuilder);
+        ConfigureUsuarioSucursal(modelBuilder);
 
         SeedPermisosCanonicos(modelBuilder);
     }
@@ -72,6 +78,23 @@ public sealed class IdentidadDbContext : BaseDbContext
         empresa.Property(x => x.NombreComercial).HasMaxLength(254);
         empresa.Property(x => x.RegimenFiscal).HasMaxLength(10).IsRequired();
         empresa.ToTable(t => t.ExcludeFromMigrations());
+    }
+
+    /// <summary>
+    /// Mapea <see cref="Sucursal"/> a <c>compartido.sucursales</c> sin
+    /// gestionar su migración (CompartidoDbContext la owna). Necesario
+    /// para que la FK cross-schema desde <see cref="UsuarioSucursal"/>
+    /// resuelva correctamente. Mismo patrón que
+    /// <see cref="ConfigureEmpresaReference"/>.
+    /// </summary>
+    private static void ConfigureSucursalReference(ModelBuilder modelBuilder)
+    {
+        var sucursal = modelBuilder.Entity<Sucursal>();
+        sucursal.ToTable("sucursales", "compartido");
+        sucursal.HasKey(x => x.Id);
+        sucursal.Property(x => x.Clave).HasMaxLength(20).IsRequired();
+        sucursal.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
+        sucursal.ToTable(t => t.ExcludeFromMigrations());
     }
 
     private static void ConfigureUsuario(ModelBuilder modelBuilder)
@@ -269,6 +292,43 @@ public sealed class IdentidadDbContext : BaseDbContext
             .WithMany()
             .HasForeignKey(x => x.UsuarioServicioId)
             .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    /// <summary>
+    /// Configura <see cref="UsuarioSucursal"/> (F1-ADM-01 Fase 1 —
+    /// scoping de usuarios por sucursal). FK física cross-schema a
+    /// <c>compartido.sucursales</c> y a <c>compartido.empresas</c>, mismo
+    /// mecanismo que <see cref="ConfigureUsuarioServicio"/>. Índice único
+    /// en <c>(UsuarioId, SucursalId)</c>.
+    /// </summary>
+    private static void ConfigureUsuarioSucursal(ModelBuilder modelBuilder)
+    {
+        var us = modelBuilder.Entity<UsuarioSucursal>();
+        us.ToTable("usuario_sucursales");
+        us.HasKey(x => x.Id);
+        us.Property(x => x.UsuarioId).IsRequired();
+        us.Property(x => x.SucursalId).IsRequired();
+        us.Property(x => x.EmpresaId).IsRequired();
+        us.Property(x => x.Estatus).HasConversion<short>().IsRequired();
+
+        us.HasIndex(x => new { x.UsuarioId, x.SucursalId }).IsUnique();
+        us.HasIndex(x => x.SucursalId);
+        us.HasIndex(x => x.EmpresaId);
+
+        us.HasOne<Usuario>()
+            .WithMany()
+            .HasForeignKey(x => x.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade); // borrar usuario borra sus asignaciones de sucursal
+
+        us.HasOne<Sucursal>()
+            .WithMany()
+            .HasForeignKey(x => x.SucursalId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        us.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     /// <summary>

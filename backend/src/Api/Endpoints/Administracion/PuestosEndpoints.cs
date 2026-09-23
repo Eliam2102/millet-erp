@@ -35,11 +35,12 @@ public static class PuestosEndpoints
             [FromQuery] int? limit,
             [FromQuery] string? q,
             [FromQuery] EstatusCatalogo? estatus,
+            [FromQuery] Guid? sucursalId,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var response = await mediator.Send(
-                new ListarPuestosQuery(offset ?? 0, limit ?? 50, q, estatus), ct);
+                new ListarPuestosQuery(offset ?? 0, limit ?? 50, q, estatus, sucursalId), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosLeer)
@@ -74,7 +75,13 @@ public static class PuestosEndpoints
             CancellationToken ct) =>
         {
             var response = await mediator.Send(
-                new ActualizarPuestoCommand(id, payload.Nombre), ct);
+                new ActualizarPuestoCommand(
+                    id,
+                    payload.Nombre,
+                    payload.RolSugeridoId,
+                    payload.LimpiarRolSugerido ?? false,
+                    payload.DepartamentoId,
+                    payload.LimpiarDepartamento ?? false), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosGestionar)
@@ -85,7 +92,8 @@ public static class PuestosEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
-        .ProducesProblem(StatusCodes.Status404NotFound);
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{id:guid}/desactivar", async (
             Guid id,
@@ -98,7 +106,7 @@ public static class PuestosEndpoints
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminPuestosGestionar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .WithName("DesactivarPuesto")
-        .WithSummary("Desactivar puesto (baja lógica, idempotente)")
+        .WithSummary("Desactivar puesto (baja lógica)")
         .Produces<PuestoResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -124,5 +132,10 @@ public static class PuestosEndpoints
         return app;
     }
 
-    public sealed record ActualizarPuestoPayload(string? Nombre);
+    public sealed record ActualizarPuestoPayload(
+        string? Nombre,
+        Guid? RolSugeridoId = null,
+        bool? LimpiarRolSugerido = null,
+        Guid? DepartamentoId = null,
+        bool? LimpiarDepartamento = null);
 }

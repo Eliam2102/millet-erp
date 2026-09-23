@@ -727,6 +727,21 @@ builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioServicioReadAdapter>();
 
+// IUsuarioSucursalReadPort (F1-ADM-01 Fase 2): guard de pertenencia a
+// sucursal (SucursalScopeGuard) para los handlers "listar X de una
+// sucursal" de Compartido/Administracion. El adapter vive en Identidad
+// (owner de UsuarioSucursal) porque Compartido no puede referenciar
+// Identidad (cerraría ciclo).
+builder.Services.AddScoped<
+    Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter>();
+
+// IRolReadPort (F1-ADM-01.4): lectura cross-módulo de roles para validación
+// de RolSugeridoId en Puesto. Adapter hospedado en Identidad.
+builder.Services.AddScoped<
+    Millet.Administracion.Application.Abstractions.IRolReadPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.RolReadAdapter>();
+
 // === Módulo Cuentas por Pagar (F0-PR1) ===
 // Foundation: registra los 10 puertos cross-module con stubs NoOp* + DbContext
 // (más abajo, junto a los demás contextos). Workers de ingestión (FiscalAPI,
@@ -1272,6 +1287,12 @@ Millet.Api.Endpoints.Administracion.CanalesVentaEndpoints.MapCanalesVentaEndpoin
 // PR-A1: asignación N:M Sucursal ↔ Departamento.
 Millet.Api.Endpoints.Administracion.SucursalDepartamentosEndpoints
     .MapSucursalDepartamentosEndpoints(app);
+// F1-ADM-01 Fase 2: asignación N:M Sucursal ↔ Puesto y Usuario ↔ Sucursal
+// (scoping de catálogos y usuarios por sucursal).
+Millet.Api.Endpoints.Administracion.SucursalPuestosEndpoints
+    .MapSucursalPuestosEndpoints(app);
+Millet.Api.Endpoints.Administracion.SucursalUsuariosEndpoints
+    .MapSucursalUsuariosEndpoints(app);
 
 // === Administración — Series y Folios (F-Admin-PR6.1) ===
 Millet.Api.Endpoints.Administracion.SeriesEndpoints.MapSeriesEndpoints(app);
