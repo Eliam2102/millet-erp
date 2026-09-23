@@ -1,19 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Plus, PowerOff, RotateCcw, Search, UserCheck, Users } from 'lucide-react';
+import { Plus, Search, UserCheck, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUsuarios } from '@/modules/identidad/api';
-import { EstatusCatalogo } from '@/modules/administracion/api/types';
 import type { UsuarioSucursalResponse } from '@/modules/administracion/api/types';
 import {
   useAsignarUsuarioASucursal,
@@ -34,6 +22,7 @@ import {
 } from '@/modules/administracion/api';
 import { esApiError } from '@/lib/api';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
+import { FilaAsignacionSucursal } from '@/modules/administracion/components/FilaAsignacionSucursal';
 
 export interface SucursalUsuariosTabProps {
   sucursalId: string;
@@ -176,38 +165,21 @@ function FilaUsuarioAsignado({
 }: FilaUsuarioAsignadoProps) {
   const desactivar = useDesactivarAsignacionUsuarioSucursal();
   const reactivar = useReactivarAsignacionUsuarioSucursal();
-  const [confirmDesactivar, setConfirmDesactivar] = useState(false);
 
-  const activa = item.estatus === EstatusCatalogo.Activo;
-  const inactiva = item.estatus === EstatusCatalogo.Inactivo;
-
-  function handleConfirmarDesactivar() {
+  function handleConfirmarDesactivar(cerrar: () => void) {
     desactivar.mutate(
+      { sucursalId, usuarioId: item.usuarioId, idempotencyKey: crypto.randomUUID() },
       {
-        sucursalId,
-        usuarioId: item.usuarioId,
-        idempotencyKey: crypto.randomUUID(),
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${item.usuarioEmail} desactivado`);
-          setConfirmDesactivar(false);
-        },
-        onError: (error) => {
-          handleError(`desactivar ${item.usuarioEmail}`)(error);
-          setConfirmDesactivar(false);
-        },
+        onSuccess: () => toast.success(`${item.usuarioEmail} desactivado`),
+        onError: handleError(`desactivar ${item.usuarioEmail}`),
+        onSettled: cerrar,
       },
     );
   }
 
   function handleReactivar() {
     reactivar.mutate(
-      {
-        sucursalId,
-        usuarioId: item.usuarioId,
-        idempotencyKey: crypto.randomUUID(),
-      },
+      { sucursalId, usuarioId: item.usuarioId, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => toast.success(`${item.usuarioEmail} reactivado`),
         onError: handleError(`reactivar ${item.usuarioEmail}`),
@@ -215,85 +187,32 @@ function FilaUsuarioAsignado({
     );
   }
 
-  const pending = desactivar.isPending || reactivar.isPending;
-
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-semibold text-foreground">
-          {item.usuarioNombre}
-        </span>
-        <span className="font-mono text-xs text-muted-foreground">
-          {item.usuarioEmail}
-        </span>
-        {activa && (
-          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-            Activo
-          </Badge>
-        )}
-        {inactiva && (
-          <Badge variant="outline" className="text-muted-foreground">
-            Inactivo
-          </Badge>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        {canGestionar && activa && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={() => setConfirmDesactivar(true)}
-            aria-label={`Desactivar usuario ${item.usuarioEmail}`}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <PowerOff className="h-4 w-4 mr-1" /> Desactivar
-          </Button>
-        )}
-        {canGestionar && inactiva && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={handleReactivar}
-            aria-label={`Reactivar usuario ${item.usuarioEmail}`}
-          >
-            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reactivar
-          </Button>
-        )}
-      </div>
-
-      <AlertDialog
-        open={confirmDesactivar}
-        onOpenChange={(open) => {
-          if (!open) setConfirmDesactivar(false);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar usuario</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmas desactivar al usuario{' '}
-              <span className="font-semibold">{item.usuarioEmail}</span> en esta
-              sucursal? Ya no podrá operar dentro de esta sucursal pero conservará su
-              cuenta global y su acceso a otras sucursales.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
-            >
-              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </li>
+    <FilaAsignacionSucursal
+      estatus={item.estatus}
+      canGestionar={canGestionar}
+      etiquetaAccesible={`usuario ${item.usuarioEmail}`}
+      tituloConfirmacion="Desactivar usuario"
+      descripcionConfirmacion={
+        <>
+          ¿Confirmas desactivar al usuario{' '}
+          <span className="font-semibold">{item.usuarioEmail}</span> en esta
+          sucursal? Ya no podrá operar dentro de esta sucursal pero conservará su
+          cuenta global y su acceso a otras sucursales.
+        </>
+      }
+      desactivando={desactivar.isPending}
+      reactivando={reactivar.isPending}
+      onConfirmarDesactivar={handleConfirmarDesactivar}
+      onReactivar={handleReactivar}
+    >
+      <span className="text-sm font-semibold text-foreground">
+        {item.usuarioNombre}
+      </span>
+      <span className="font-mono text-xs text-muted-foreground">
+        {item.usuarioEmail}
+      </span>
+    </FilaAsignacionSucursal>
   );
 }
 

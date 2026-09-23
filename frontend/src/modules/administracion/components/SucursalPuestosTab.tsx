@@ -1,19 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Briefcase, Plus, PowerOff, RotateCcw, Search } from 'lucide-react';
+import { Briefcase, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +24,7 @@ import {
 } from '@/modules/administracion/api';
 import { esApiError } from '@/lib/api';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
+import { FilaAsignacionSucursal } from '@/modules/administracion/components/FilaAsignacionSucursal';
 
 export interface SucursalPuestosTabProps {
   sucursalId: string;
@@ -198,38 +188,21 @@ function FilaPuestoAsignado({
 }: FilaPuestoAsignadoProps) {
   const desactivar = useDesactivarAsignacionSucursalPuesto();
   const reactivar = useReactivarAsignacionSucursalPuesto();
-  const [confirmDesactivar, setConfirmDesactivar] = useState(false);
 
-  const activa = item.estatus === EstatusCatalogo.Activo;
-  const inactiva = item.estatus === EstatusCatalogo.Inactivo;
-
-  function handleConfirmarDesactivar() {
+  function handleConfirmarDesactivar(cerrar: () => void) {
     desactivar.mutate(
+      { sucursalId, puestoId: item.puestoId, idempotencyKey: crypto.randomUUID() },
       {
-        sucursalId,
-        puestoId: item.puestoId,
-        idempotencyKey: crypto.randomUUID(),
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${item.puestoClave} desactivado`);
-          setConfirmDesactivar(false);
-        },
-        onError: (error) => {
-          handleError(`desactivar ${item.puestoClave}`)(error);
-          setConfirmDesactivar(false);
-        },
+        onSuccess: () => toast.success(`${item.puestoClave} desactivado`),
+        onError: handleError(`desactivar ${item.puestoClave}`),
+        onSettled: cerrar,
       },
     );
   }
 
   function handleReactivar() {
     reactivar.mutate(
-      {
-        sucursalId,
-        puestoId: item.puestoId,
-        idempotencyKey: crypto.randomUUID(),
-      },
+      { sucursalId, puestoId: item.puestoId, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => toast.success(`${item.puestoClave} reactivado`),
         onError: handleError(`reactivar ${item.puestoClave}`),
@@ -237,91 +210,39 @@ function FilaPuestoAsignado({
     );
   }
 
-  const pending = desactivar.isPending || reactivar.isPending;
-
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-mono text-sm font-semibold text-primary">
-          {item.puestoClave}
+    <FilaAsignacionSucursal
+      estatus={item.estatus}
+      canGestionar={canGestionar}
+      etiquetaAccesible={`puesto ${item.puestoClave}`}
+      badgeFemenino
+      tituloConfirmacion="Desactivar puesto"
+      descripcionConfirmacion={
+        <>
+          ¿Confirmas desactivar{' '}
+          <span className="font-mono font-semibold">{item.puestoClave}</span> en
+          esta sucursal? Bloquea nuevas asignaciones con esta combinación pero
+          NO afecta las existentes.
+        </>
+      }
+      desactivando={desactivar.isPending}
+      reactivando={reactivar.isPending}
+      onConfirmarDesactivar={handleConfirmarDesactivar}
+      onReactivar={handleReactivar}
+    >
+      <span className="font-mono text-sm font-semibold text-primary">
+        {item.puestoClave}
+      </span>
+      <span className="text-sm font-medium text-foreground">
+        {item.puestoNombre}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        Depto sucursal:{' '}
+        <span className="font-medium text-foreground">
+          {item.departamentoNombre ?? item.departamentoId}
         </span>
-        <span className="text-sm font-medium text-foreground">
-          {item.puestoNombre}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          Depto sucursal:{' '}
-          <span className="font-medium text-foreground">
-            {item.departamentoNombre ?? item.departamentoId}
-          </span>
-        </span>
-        {activa && (
-          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-            Activa
-          </Badge>
-        )}
-        {inactiva && (
-          <Badge variant="outline" className="text-muted-foreground">
-            Inactiva
-          </Badge>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        {canGestionar && activa && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={() => setConfirmDesactivar(true)}
-            aria-label={`Desactivar puesto ${item.puestoClave}`}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <PowerOff className="h-4 w-4 mr-1" /> Desactivar
-          </Button>
-        )}
-        {canGestionar && inactiva && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={handleReactivar}
-            aria-label={`Reactivar puesto ${item.puestoClave}`}
-          >
-            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reactivar
-          </Button>
-        )}
-      </div>
-
-      <AlertDialog
-        open={confirmDesactivar}
-        onOpenChange={(open) => {
-          if (!open) setConfirmDesactivar(false);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar puesto</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmas desactivar{' '}
-              <span className="font-mono font-semibold">{item.puestoClave}</span> en
-              esta sucursal? Bloquea nuevas asignaciones con esta combinación pero
-              NO afecta las existentes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
-            >
-              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </li>
+      </span>
+    </FilaAsignacionSucursal>
   );
 }
 

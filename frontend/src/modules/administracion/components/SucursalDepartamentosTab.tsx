@@ -1,20 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Building2, Plus, PowerOff, RotateCcw, Search } from 'lucide-react';
+import { Building2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDepartamentos } from '@/features/catalogos/api';
-import { EstatusCatalogo } from '@/modules/administracion/api/types';
 import type { SucursalDepartamentoResponse } from '@/modules/administracion/api/types';
 import {
   useAsignarDepartamentoASucursal,
@@ -35,6 +23,7 @@ import {
 } from '@/modules/administracion/api';
 import { esApiError } from '@/lib/api';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
+import { FilaAsignacionSucursal } from '@/modules/administracion/components/FilaAsignacionSucursal';
 
 export interface SucursalDepartamentosTabProps {
   sucursalId: string;
@@ -176,38 +165,21 @@ function FilaDepartamentoAsignado({
 }: FilaDepartamentoAsignadoProps) {
   const desactivar = useDesactivarAsignacionSucursalDepartamento();
   const reactivar = useReactivarAsignacionSucursalDepartamento();
-  const [confirmDesactivar, setConfirmDesactivar] = useState(false);
 
-  const activa = item.estatus === EstatusCatalogo.Activo;
-  const inactiva = item.estatus === EstatusCatalogo.Inactivo;
-
-  function handleConfirmarDesactivar() {
+  function handleConfirmarDesactivar(cerrar: () => void) {
     desactivar.mutate(
+      { sucursalId, departamentoId: item.departamentoId, idempotencyKey: crypto.randomUUID() },
       {
-        sucursalId,
-        departamentoId: item.departamentoId,
-        idempotencyKey: crypto.randomUUID(),
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${item.departamentoClave} desactivado`);
-          setConfirmDesactivar(false);
-        },
-        onError: (error) => {
-          handleError(`desactivar ${item.departamentoClave}`)(error);
-          setConfirmDesactivar(false);
-        },
+        onSuccess: () => toast.success(`${item.departamentoClave} desactivado`),
+        onError: handleError(`desactivar ${item.departamentoClave}`),
+        onSettled: cerrar,
       },
     );
   }
 
   function handleReactivar() {
     reactivar.mutate(
-      {
-        sucursalId,
-        departamentoId: item.departamentoId,
-        idempotencyKey: crypto.randomUUID(),
-      },
+      { sucursalId, departamentoId: item.departamentoId, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => toast.success(`${item.departamentoClave} reactivado`),
         onError: handleError(`reactivar ${item.departamentoClave}`),
@@ -215,85 +187,32 @@ function FilaDepartamentoAsignado({
     );
   }
 
-  const pending = desactivar.isPending || reactivar.isPending;
-
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-mono text-sm font-semibold text-primary">
-          {item.departamentoClave}
-        </span>
-        <span className="text-sm font-medium text-foreground">
-          {item.departamentoNombre}
-        </span>
-        {activa && (
-          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-            Activo
-          </Badge>
-        )}
-        {inactiva && (
-          <Badge variant="outline" className="text-muted-foreground">
-            Inactivo
-          </Badge>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        {canGestionar && activa && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={() => setConfirmDesactivar(true)}
-            aria-label={`Desactivar departamento ${item.departamentoClave}`}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <PowerOff className="h-4 w-4 mr-1" /> Desactivar
-          </Button>
-        )}
-        {canGestionar && inactiva && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={handleReactivar}
-            aria-label={`Reactivar departamento ${item.departamentoClave}`}
-          >
-            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reactivar
-          </Button>
-        )}
-      </div>
-
-      <AlertDialog
-        open={confirmDesactivar}
-        onOpenChange={(open) => {
-          if (!open) setConfirmDesactivar(false);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar departamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmas desactivar{' '}
-              <span className="font-mono font-semibold">{item.departamentoClave}</span> en
-              esta sucursal? Bloquea nuevas asignaciones de puestos y requisiciones con
-              esta combinación pero NO afecta las existentes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={desactivar.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
-            >
-              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </li>
+    <FilaAsignacionSucursal
+      estatus={item.estatus}
+      canGestionar={canGestionar}
+      etiquetaAccesible={`departamento ${item.departamentoClave}`}
+      tituloConfirmacion="Desactivar departamento"
+      descripcionConfirmacion={
+        <>
+          ¿Confirmas desactivar{' '}
+          <span className="font-mono font-semibold">{item.departamentoClave}</span> en
+          esta sucursal? Bloquea nuevas asignaciones de puestos y requisiciones con
+          esta combinación pero NO afecta las existentes.
+        </>
+      }
+      desactivando={desactivar.isPending}
+      reactivando={reactivar.isPending}
+      onConfirmarDesactivar={handleConfirmarDesactivar}
+      onReactivar={handleReactivar}
+    >
+      <span className="font-mono text-sm font-semibold text-primary">
+        {item.departamentoClave}
+      </span>
+      <span className="text-sm font-medium text-foreground">
+        {item.departamentoNombre}
+      </span>
+    </FilaAsignacionSucursal>
   );
 }
 
