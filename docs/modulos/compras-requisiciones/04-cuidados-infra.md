@@ -471,6 +471,23 @@ trazable).
 - **Qué pasa si lo ignoramos**: usuario de la empresa A ve datos de
   la empresa B.
 
+### 7.4 [Pendiente] Segmentación por sucursal (ADR-0051) — aún no implementada aquí
+
+- **Qué**: hoy `Requisicion` solo aplica el filtro de §7.3
+  (`EmpresaId`, hoy trivial con una sola empresa). No pasa por el
+  patrón `SucursalScopeGuard` que sí protege Departamentos/Puestos/
+  Usuarios de sucursal en Administración (F1-ADM-01). Un usuario
+  operativo de la sucursal CDMX puede hoy ver/operar RQs de Mérida.
+- **Por qué importa**: el eje real de aislamiento de negocio en
+  Millet es la sucursal (ver [ADR-0051](../../decisiones/0051-segmentacion-de-datos-por-sucursal.md) y
+  CLAUDE.md), no la empresa. Este es el gap de negocio real, no el
+  de §7.3.
+- **Qué falta**: cuando se priorice, declarar el permiso de bypass
+  `compras.requisiciones.gestionar-todas-sucursales` (o el nombre que
+  corresponda) y llamar a `SucursalScopeGuard.VerificarAsync` en los
+  handlers de listado/consulta de RQ, reusando `IUsuarioSucursalReadPort`
+  — mismo mecanismo ya construido, no uno nuevo.
+
 ---
 
 ## 8. Permisos (ADR-0007)

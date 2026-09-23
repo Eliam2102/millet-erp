@@ -81,6 +81,8 @@ public sealed class CancelacionSatPollerWorker : BackgroundService
         var eventos = sp.GetRequiredService<IIntegrationEventPublisher>();
         var clock = sp.GetRequiredService<IClock>();
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(CancelacionSatPollerWorker));
         using var bypass = empresaContext.Bypass();
 
         var pendientes = await db.SolicitudesCancelacion

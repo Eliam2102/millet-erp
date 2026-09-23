@@ -46,7 +46,11 @@ function setPermisos(permisos: string[]) {
 
 beforeEach(() => {
   mswServer.use(
+    http.get('*/api/v1/admin/puestos', () => HttpResponse.json(PUESTOS)),
     http.get('*/api/v1/catalogos/puestos', () => HttpResponse.json(PUESTOS)),
+    http.get('*/api/v1/identidad/roles', () =>
+      HttpResponse.json({ items: [], total: 0 }),
+    ),
   );
 });
 
@@ -109,7 +113,7 @@ describe('<PuestosPage> — smoke (ADM-FE-PR1)', () => {
   it('estado error con retry cuando el backend falla', async () => {
     setPermisos([PermisosCanonicos.AdminPuestosGestionar]);
     mswServer.use(
-      http.get('*/api/v1/catalogos/puestos', () =>
+      http.get('*/api/v1/admin/puestos', () =>
         HttpResponse.json(
           { type: 'about:blank', title: 'Error interno', status: 500 },
           {

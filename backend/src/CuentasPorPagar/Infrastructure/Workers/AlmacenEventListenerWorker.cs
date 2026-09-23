@@ -138,6 +138,8 @@ public sealed class AlmacenEventListenerWorker : BackgroundService
             var sp = scope.ServiceProvider;
             var db = sp.GetRequiredService<CuentasPorPagarDbContext>();
             var mediator = sp.GetRequiredService<IMediator>();
+            var originContext = sp.GetRequiredService<IAuditOriginContext>();
+            using var origin = originContext.SetOrigin(nameof(AlmacenEventListenerWorker));
             var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
 

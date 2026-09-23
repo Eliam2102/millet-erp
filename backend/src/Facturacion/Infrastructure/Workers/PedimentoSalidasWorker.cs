@@ -71,6 +71,8 @@ public sealed class PedimentoSalidasWorker : BackgroundService
         var sender = sp.GetRequiredService<ISender>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(PedimentoSalidasWorker));
         using var bypass = empresaContext.Bypass();
 
         var pendientes = await reader.LeerPendientesAsync(opts.BatchSize, cancellationToken);

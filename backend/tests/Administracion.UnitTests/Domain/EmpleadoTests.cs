@@ -158,4 +158,39 @@ public class EmpleadoTests
         empleado.Activar();
         empleado.Estatus.Should().Be(EstatusCatalogo.Activo);
     }
+    [Fact]
+    public void EmailContacto_Se_Normaliza_Al_Crear()
+    {
+        var empleado = new Empleado(
+            Guid.CreateVersion7(), EmpresaId, "EMP-010", "Ana López",
+            emailContacto: "  ana@gmail.com  ");
+
+        empleado.EmailContacto.Should().Be("ana@gmail.com");
+    }
+
+    [Fact]
+    public void Should_Reject_EmailContacto_TooLong()
+    {
+        var act = () => new Empleado(
+            Guid.CreateVersion7(), EmpresaId, "EMP-011", "Ana López",
+            emailContacto: new string('x', 255));
+
+        act.Should().Throw<BusinessRuleException>()
+            .Which.Code.Should().Be("EMPLEADO_EMAIL_CONTACTO_INVALIDO");
+    }
+
+    [Fact]
+    public void ActualizarDatos_EmailContacto_Set_Y_Limpiar()
+    {
+        var empleado = Crear();
+
+        empleado.ActualizarDatos(emailContacto: "ana@gmail.com");
+        empleado.EmailContacto.Should().Be("ana@gmail.com");
+
+        empleado.ActualizarDatos(nombre: "Otro nombre");
+        empleado.EmailContacto.Should().Be("ana@gmail.com");
+
+        empleado.ActualizarDatos(limpiarEmailContacto: true);
+        empleado.EmailContacto.Should().BeNull();
+    }
 }

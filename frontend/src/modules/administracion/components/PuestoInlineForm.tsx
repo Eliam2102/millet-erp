@@ -18,15 +18,16 @@ import {
   useActualizarPuesto,
   useCrearPuesto,
 } from '@/modules/administracion/api';
+import { useRoles } from '@/modules/identidad/api/roles';
 import type { PuestoListItem } from '@/features/catalogos/api';
 import { cn } from '@/lib/utils';
 
 /**
- * Form inline (sin modal) para AGREGAR o EDITAR un puesto (ADM-FE-PR1).
+ * Form inline (sin modal) para AGREGAR o EDITAR un puesto (ADM-FE-PR1, F1-ADM-01.4).
  * Mismo patrón que <c>CanalVentaInlineForm</c>: border dashed primary
  * (agregar) vs solid amber (editar). La clave es business key
  * inmutable — en modo editar el input va disabled y el PATCH solo
- * manda nombre.
+ * manda nombre y rolSugeridoId opcionales.
  */
 export interface PuestoInlineFormProps {
   puesto?: PuestoListItem | null;
@@ -37,6 +38,7 @@ export interface PuestoInlineFormProps {
 const VALORES_INICIALES: PuestoValues = {
   clave: '',
   nombre: '',
+  rolSugeridoId: '',
 };
 
 export function PuestoInlineForm({
@@ -48,11 +50,16 @@ export function PuestoInlineForm({
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearPuesto();
   const actualizar = useActualizarPuesto();
+  const rolesQuery = useRoles({ soloActivos: true });
 
   const form = useForm<PuestoValues>({
     resolver: zodResolver(PuestoSchema),
     defaultValues: esEditar
-      ? { clave: puesto.clave, nombre: puesto.nombre }
+      ? {
+          clave: puesto.clave,
+          nombre: puesto.nombre,
+          rolSugeridoId: puesto.rolSugeridoId ?? '',
+        }
       : VALORES_INICIALES,
   });
 
@@ -69,6 +76,13 @@ export function PuestoInlineForm({
         form.setError('clave', {
           type: error.code,
           message: 'Ya existe un puesto con esa clave.',
+        });
+        return;
+      }
+      if (error.code === 'ROL_SUGERIDO_INVALIDO') {
+        form.setError('rolSugeridoId', {
+          type: error.code,
+          message: 'El rol seleccionado no es válido o está inactivo.',
         });
         return;
       }
@@ -90,10 +104,15 @@ export function PuestoInlineForm({
 
   function onSubmit(values: PuestoValues) {
     if (esEditar && puesto != null) {
+      const limpiarRol = !values.rolSugeridoId;
       actualizar.mutate(
         {
           id: puesto.id,
-          payload: { nombre: values.nombre },
+          payload: {
+            nombre: values.nombre,
+            rolSugeridoId: limpiarRol ? null : values.rolSugeridoId,
+            limpiarRolSugerido: limpiarRol,
+          },
           idempotencyKey,
         },
         {
@@ -112,6 +131,7 @@ export function PuestoInlineForm({
           id: '00000000-0000-0000-0000-000000000000',
           clave: values.clave,
           nombre: values.nombre,
+          rolSugeridoId: values.rolSugeridoId || null,
         },
         idempotencyKey,
       },
@@ -150,7 +170,7 @@ export function PuestoInlineForm({
           label="Clave"
           required
           error={form.formState.errors.clave?.message}
-          className="md:col-span-4"
+          className="md:col-span-3"
         >
           <Input
             maxLength={20}
@@ -170,13 +190,32 @@ export function PuestoInlineForm({
           label="Nombre"
           required
           error={form.formState.errors.nombre?.message}
-          className="md:col-span-8"
+          className="md:col-span-5"
         >
           <Input
             maxLength={254}
             placeholder="Gerente"
             {...form.register('nombre')}
           />
+        </Field>
+
+        <Field
+          label="Rol sugerido en el ERP"
+          error={form.formState.errors.rolSugeridoId?.message}
+          className="md:col-span-4"
+        >
+          <select
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Rol sugerido"
+            {...form.register('rolSugeridoId')}
+          >
+            <option value="">(Sin rol sugerido)</option>
+            {rolesQuery.data?.items.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.nombre} ({r.codigo})
+              </option>
+            ))}
+          </select>
         </Field>
       </div>
 

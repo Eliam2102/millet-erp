@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Compartido.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
@@ -97,6 +101,37 @@ public class EmpresasEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         Assert.NotEqual(Guid.Empty, body.GetProperty("id").GetGuid());
         Assert.Equal(rfc, body.GetProperty("rfc").GetString());
         Assert.True(body.GetProperty("activa").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Crear_Empresa_Persiste_Evento_En_Outbox_Compartido()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var rfc = RandomRfc();
+
+        var response = await client.PostAsJsonAsync(EndpointBase, new
+        {
+            Id = Guid.Empty,
+            Rfc = rfc,
+            RazonSocial = "Empresa Outbox Test",
+            RegimenFiscal = "601",
+            NombreComercial = (string?)null,
+        });
+        response.EnsureSuccessStatusCode();
+        var empresaId = (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
+        using var bypass = empresaContext.Bypass();
+
+        var evento = await db.IntegrationEventsOutbox
+            .AsNoTracking()
+            .SingleAsync(e => e.EventType == "admin.empresa.creada.v1"
+                && e.IntegrationEmpresaId == empresaId);
+
+        Assert.Contains(empresaId.ToString(), evento.Payload, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(evento.PublishedAt);
     }
 
     [Fact]

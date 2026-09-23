@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Administracion.Application.Departamentos;
@@ -29,14 +30,26 @@ public sealed class CrearDepartamentoHandler
     : IRequestHandler<CrearDepartamentoCommand, DepartamentoResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly ICurrentEmpresaContext _empresaContext;
 
-    public CrearDepartamentoHandler(CompartidoDbContext db) => _db = db;
+    public CrearDepartamentoHandler(CompartidoDbContext db, ICurrentEmpresaContext empresaContext)
+    {
+        _db = db;
+        _empresaContext = empresaContext;
+    }
 
     public async Task<DepartamentoResponse> Handle(
         CrearDepartamentoCommand command, CancellationToken cancellationToken)
     {
+        if (_empresaContext.Current is not Guid empresaId)
+        {
+            throw new ForbiddenException(
+                "EMPRESA_NO_SELECCIONADA",
+                "El usuario no tiene una empresa seleccionada en el JWT actual.");
+        }
+
         var claveExiste = await _db.Departamentos.AsNoTracking()
-            .AnyAsync(d => d.Clave == command.Clave, cancellationToken);
+            .AnyAsync(d => d.EmpresaId == empresaId && d.Clave == command.Clave, cancellationToken);
         if (claveExiste)
         {
             throw new ConflictException(
@@ -45,7 +58,7 @@ public sealed class CrearDepartamentoHandler
         }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
-        var depto = new Departamento(id, command.Clave, command.Nombre);
+        var depto = new Departamento(id, empresaId, command.Clave, command.Nombre);
 
         _db.Departamentos.Add(depto);
         await _db.SaveChangesAsync(cancellationToken);

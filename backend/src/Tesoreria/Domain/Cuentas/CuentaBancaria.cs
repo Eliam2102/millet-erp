@@ -21,7 +21,7 @@ namespace Millet.Tesoreria.Domain.Cuentas;
 /// <c>tesoreria.movimientos.ver-cuenta-completa</c>.
 /// </para>
 /// </summary>
-public sealed class CuentaBancaria : BaseEntity, IPerteneceAEmpresa
+public sealed class CuentaBancaria : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

@@ -122,6 +122,8 @@ if (!string.IsNullOrWhiteSpace(appInsightsConn))
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<ICurrentEmpresaContext, CurrentEmpresaContext>();
+builder.Services.AddScoped<IAuditOriginContext, AuditOriginContext>();
+builder.Services.AddScoped<IAuditCorrelationContext, AuditCorrelationContext>();
 builder.Services.AddSingleton<IPermissionCache, InMemoryPermissionCache>();
 
 // === IIntegrationEventPublisher (F6-PR1, ADR-0009): Outbox real ===
@@ -148,6 +150,9 @@ builder.Services.AddScoped<OutboxSaveChangesInterceptor>();
 builder.Services
     .AddOptions<OutboxPublisherOptions>(nameof(ComprasDbContext))
     .Bind(builder.Configuration.GetSection("Compras:Outbox"));
+builder.Services
+    .AddOptions<OutboxPublisherOptions>(nameof(CompartidoDbContext))
+    .Bind(builder.Configuration.GetSection("Compartido:Outbox"));
 builder.Services
     .AddOptions<OutboxPublisherOptions>(nameof(Millet.Integraciones.Aw.Infrastructure.Persistence.IntegracionesAwDbContext))
     .Bind(builder.Configuration.GetSection("IntegracionesAw:Outbox"));
@@ -184,6 +189,7 @@ builder.Services
 // ServiceBus__ConnectionString (mismo secret usado por Compras).
 var outboxConnString =
     builder.Configuration["Compras:Outbox:ServiceBusConnectionString"]
+    ?? builder.Configuration["Compartido:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["IntegracionesAw:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["Almacen:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["CuentasPorPagar:Outbox:ServiceBusConnectionString"]
@@ -265,6 +271,7 @@ else
 }
 
 builder.Services.AddHostedService<OutboxPublisherWorker<ComprasDbContext>>();
+builder.Services.AddHostedService<OutboxPublisherWorker<CompartidoDbContext>>();
 builder.Services.AddHostedService<OutboxPublisherWorker<Millet.Integraciones.Aw.Infrastructure.Persistence.IntegracionesAwDbContext>>();
 builder.Services.AddHostedService<OutboxPublisherWorker<AlmacenDbContext>>();
 builder.Services.AddHostedService<OutboxPublisherWorker<CuentasPorPagarDbContext>>();
@@ -721,6 +728,21 @@ builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IUsuarioServicioReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioServicioReadAdapter>();
 
+// IUsuarioSucursalReadPort (F1-ADM-01 Fase 2): guard de pertenencia a
+// sucursal (SucursalScopeGuard) para los handlers "listar X de una
+// sucursal" de Compartido/Administracion. El adapter vive en Identidad
+// (owner de UsuarioSucursal) porque Compartido no puede referenciar
+// Identidad (cerraría ciclo).
+builder.Services.AddScoped<
+    Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter>();
+
+// IRolReadPort (F1-ADM-01.4): lectura cross-módulo de roles para validación
+// de RolSugeridoId en Puesto. Adapter hospedado en Identidad.
+builder.Services.AddScoped<
+    Millet.Administracion.Application.Abstractions.IRolReadPort,
+    Millet.Identidad.Infrastructure.PublicAdapters.RolReadAdapter>();
+
 // === Módulo Cuentas por Pagar (F0-PR1) ===
 // Foundation: registra los 10 puertos cross-module con stubs NoOp* + DbContext
 // (más abajo, junto a los demás contextos). Workers de ingestión (FiscalAPI,
@@ -848,6 +870,28 @@ builder.Services.AddSingleton<
 builder.Services.AddScoped<
     Millet.Identidad.Application.Ports.IEntraIdResolverPort,
     Millet.Identidad.Infrastructure.Stubs.LocalEntraIdResolverNoOp>();
+
+// === Identidad — directorio Entra para el alta unificada (plan 15, F2) ===
+// Simulado en memoria (singleton: el directorio vive lo que el proceso)
+// hasta que TI entregue los permisos de Graph — ver
+// PLATFORM-TODO(<EntraDirectorio>) en DirectorioEntraSimulado.cs.
+builder.Services
+    .AddOptions<Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions.SectionName));
+builder.Services.AddSingleton<
+    Millet.Identidad.Application.Ports.IEntraDirectorioPort,
+    Millet.Identidad.Infrastructure.Stubs.DirectorioEntraSimulado>();
+// Transacción compartida Identidad + Compartido del alta de colaborador
+// (plan 15, F3; validada en el spike F0).
+builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
+// Camino B "Cuenta Microsoft nueva" (plan 15, F4): correo de acceso simulado
+// hasta que TI entregue Mail.Send — ver PLATFORM-TODO(<CorreoSaliente>) —
+// y worker que crea la cuenta después del commit del alta.
+builder.Services.AddSingleton<
+    Millet.Identidad.Application.Ports.ICorreoSalientePort,
+    Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
+builder.Services.AddHostedService<Millet.Identidad.Infrastructure.Workers.ProvisionCuentaEntraWorker>();
 
 // === OpenAPI / Scalar (ADR-0017, F0-PR2) ===
 // AddOpenApi("v1") registra el generador de Microsoft.AspNetCore.OpenApi
@@ -1007,7 +1051,11 @@ void ConfigureMilletDbContext(DbContextOptionsBuilder opts, IServiceProvider sp)
         sp.GetRequiredService<AuditSaveChangesInterceptor>());
 }
 
-builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
+builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
@@ -1170,9 +1218,11 @@ app.MapGet("/", () => "Hello World!");
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
+app.MapProvisioningEndpoints();
 #if DEBUG
 // Compilación condicional: en Release este código no existe (ADR-0015).
 app.MapDevAuthEndpoints();
+// Solo el endpoint auxiliar de idempotencia permanece limitado a Debug.
 app.MapDevIdempotencyEndpoints();
 #endif
 
@@ -1256,12 +1306,19 @@ Millet.Api.Endpoints.Administracion.DepartamentosEndpoints.MapDepartamentosEndpo
 // ADM-PR1 (doc 10-catalogo-puestos-empleados): master de puestos y empleados.
 Millet.Api.Endpoints.Administracion.PuestosEndpoints.MapPuestosEndpoints(app);
 Millet.Api.Endpoints.Administracion.EmpleadosEndpoints.MapEmpleadosEndpoints(app);
+Millet.Api.Endpoints.Administracion.ColaboradoresEndpoints.MapColaboradoresEndpoints(app);
 // FAC-ING-PR2: catálogo administrable de canales de venta (mismo permiso
 // que sucursales).
 Millet.Api.Endpoints.Administracion.CanalesVentaEndpoints.MapCanalesVentaEndpoints(app);
 // PR-A1: asignación N:M Sucursal ↔ Departamento.
 Millet.Api.Endpoints.Administracion.SucursalDepartamentosEndpoints
     .MapSucursalDepartamentosEndpoints(app);
+// F1-ADM-01 Fase 2: asignación N:M Sucursal ↔ Puesto y Usuario ↔ Sucursal
+// (scoping de catálogos y usuarios por sucursal).
+Millet.Api.Endpoints.Administracion.SucursalPuestosEndpoints
+    .MapSucursalPuestosEndpoints(app);
+Millet.Api.Endpoints.Administracion.SucursalUsuariosEndpoints
+    .MapSucursalUsuariosEndpoints(app);
 
 // === Administración — Series y Folios (F-Admin-PR6.1) ===
 Millet.Api.Endpoints.Administracion.SeriesEndpoints.MapSeriesEndpoints(app);
@@ -1305,6 +1362,7 @@ Millet.Api.Endpoints.Compras.Oc.TiposDocumentoOcEndpoint.MapTiposDocumentoOcEndp
 
 // === Identidad: usuarios catalog para selectores de UI (B.1) ===
 Millet.Api.Endpoints.Identidad.UsuariosEndpoints.MapUsuariosEndpoints(app);
+Millet.Api.Endpoints.Identidad.DirectorioEntraEndpoints.MapDirectorioEntraEndpoints(app);
 
 // === Identidad: CRUD Roles + matriz de permisos + grupos Entra ID (F-Admin-PR3.2) ===
 Millet.Api.Endpoints.Identidad.RolesEndpoints.MapRolesEndpoints(app);

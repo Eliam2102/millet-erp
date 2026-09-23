@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { PowerOff, X } from 'lucide-react';
-import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,30 +19,25 @@ import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EmpresaDatosForm } from '@/modules/administracion/components/EmpresaDatosForm';
-import { SucursalesPanel } from '@/modules/administracion/components/SucursalesPanel';
-import { DepartamentosPanel } from '@/modules/administracion/components/DepartamentosPanel';
-import { cn } from '@/lib/utils';
-
-type Tab = 'datos' | 'sucursales' | 'departamentos';
+import { toast } from 'sonner';
+import type { EmpresaResponse } from '@/modules/administracion/api/types';
 
 /**
- * Detalle de empresa (P3 del patrón cross-módulo). Sub-topbar sticky
- * con identidad (RFC + razón social + badge activa) + acción
- * "Desactivar" + botón cerrar. Tabs: Datos | Sucursales | Departamentos.
+ * Detalle de empresa — link "avanzado" (RFC, régimen fiscal, razón
+ * social). Con el modelo multisucursal confirmado (ADR-0051, una sola
+ * empresa) esta pantalla ya NO es el master-detail con tabs Sucursales
+ * / Departamentos — esos ejes viven en <c>/admin/sucursales</c> y
+ * <c>/admin/departamentos</c> como cards propias. No hay alta de
+ * empresas nuevas desde la UI (única empresa: Millet); esta pantalla
+ * solo visualiza/edita los datos de la que ya existe.
  *
  * <para>Lee <c>$id</c> del path con <c>useParams({ from:
- * '/_app/admin/empresas/$id' })</c> — el componente solo se monta
- * dentro de esa ruta (no comparte URL con otro <c>$id</c>), así que
- * la forma estricta da typing exacto y evita que <c>id</c> se cuele
- * <c>undefined</c> en runtime (lo cual dejaría el query con
- * <c>enabled: false</c> y la UI atascada en el TableSkeleton — bug
- * F-Admin-PR2.4). 403/404 caen al <c>ErrorState</c>; tab "Datos"
- * renderiza el form siempre.</para>
+ * '/_app/admin/empresas/$id' })</c>. 403/404 caen al
+ * <c>ErrorState</c>.</para>
  */
 export function EmpresaDetalle() {
   const { id } = useParams({ from: '/_app/admin/empresas/$id' });
   const empresaQuery = useEmpresa(id);
-  const [tab, setTab] = useState<Tab>('datos');
   const [confirmDesactivar, setConfirmDesactivar] = useState(false);
 
   const canDesactivar = useHasPermission(
@@ -70,8 +64,37 @@ export function EmpresaDetalle() {
     );
   }
 
-  const { empresa, sucursales, departamentos } = empresaQuery.data;
+  const { empresa } = empresaQuery.data;
 
+  return (
+    <EmpresaDetalleContenido
+      empresa={empresa}
+      confirmDesactivar={confirmDesactivar}
+      setConfirmDesactivar={setConfirmDesactivar}
+      canDesactivar={canDesactivar}
+      desactivar={desactivar}
+      idempotencyKey={idempotencyKey}
+    />
+  );
+}
+
+interface EmpresaDetalleContenidoProps {
+  empresa: EmpresaResponse;
+  confirmDesactivar: boolean;
+  setConfirmDesactivar: (value: boolean) => void;
+  canDesactivar: boolean;
+  desactivar: ReturnType<typeof useDesactivarEmpresa>;
+  idempotencyKey: string;
+}
+
+function EmpresaDetalleContenido({
+  empresa,
+  confirmDesactivar,
+  setConfirmDesactivar,
+  canDesactivar,
+  desactivar,
+  idempotencyKey,
+}: EmpresaDetalleContenidoProps) {
   function handleConfirmarDesactivar() {
     desactivar.mutate(
       { id: empresa.id, idempotencyKey },
@@ -103,11 +126,6 @@ export function EmpresaDetalle() {
 
   return (
     <div className="flex flex-col">
-      {/* Header NO sticky: viaja con el scroll. Sólo el <nav> queda
-          pinneado para que los tabs estén siempre visibles sin que el
-          bloque sticky tape la primera fila del form al anclar — el
-          header puede crecer (flex-wrap, acciones extra) sin obstruir
-          el contenido inferior. */}
       <header
         className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
         data-print="hidden"
@@ -141,78 +159,15 @@ export function EmpresaDetalle() {
             </Button>
           )}
           <Button asChild variant="ghost" size="icon">
-            <Link to="/admin/empresas" aria-label="Cerrar">
+            <Link to="/admin/sucursales" aria-label="Cerrar">
               <X className="h-4 w-4" />
             </Link>
           </Button>
         </div>
       </header>
 
-      <nav
-        className="sticky top-14 z-10 flex items-center gap-1 border-b bg-background/95 px-4 backdrop-blur"
-        role="tablist"
-        aria-label="Secciones de la empresa"
-        data-print="hidden"
-      >
-          <TabButton
-            activa={tab === 'datos'}
-            onClick={() => setTab('datos')}
-            ariaControls="tab-panel-datos"
-          >
-            Datos
-          </TabButton>
-          <TabButton
-            activa={tab === 'sucursales'}
-            onClick={() => setTab('sucursales')}
-            ariaControls="tab-panel-sucursales"
-          >
-            Sucursales{' '}
-            <span className="ml-1 text-xs text-muted-foreground">
-              ({sucursales.length})
-            </span>
-          </TabButton>
-          <TabButton
-            activa={tab === 'departamentos'}
-            onClick={() => setTab('departamentos')}
-            ariaControls="tab-panel-departamentos"
-          >
-            Departamentos{' '}
-            <span className="ml-1 text-xs text-muted-foreground">
-              ({departamentos.length})
-            </span>
-          </TabButton>
-          <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-            <Link
-              to="/admin"
-              className="hover:text-foreground hover:underline"
-            >
-              Series y settings →
-            </Link>
-          </span>
-        </nav>
-
       <div className="px-4 pt-4 pb-6">
-        {tab === 'datos' && (
-          <div id="tab-panel-datos" role="tabpanel">
-            <EmpresaDatosForm empresa={empresa} />
-          </div>
-        )}
-        {tab === 'sucursales' && (
-          <div id="tab-panel-sucursales" role="tabpanel">
-            <SucursalesPanel
-              empresaId={empresa.id}
-              sucursales={sucursales}
-            />
-          </div>
-        )}
-        {tab === 'departamentos' && (
-          <div id="tab-panel-departamentos" role="tabpanel">
-            <DepartamentosPanel
-              empresaId={empresa.id}
-              departamentos={departamentos}
-            />
-          </div>
-        )}
+        <EmpresaDatosForm empresa={empresa} />
       </div>
 
       <AlertDialog
@@ -243,32 +198,5 @@ export function EmpresaDetalle() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-interface TabButtonProps {
-  activa: boolean;
-  onClick: () => void;
-  ariaControls: string;
-  children: React.ReactNode;
-}
-
-function TabButton({ activa, onClick, ariaControls, children }: TabButtonProps) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={activa}
-      aria-controls={ariaControls}
-      onClick={onClick}
-      className={cn(
-        'border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-        activa
-          ? 'border-primary text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
   );
 }

@@ -55,6 +55,8 @@ public sealed class AlertaCarteraWorker : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var sp = scope.ServiceProvider;
+                var originContext = sp.GetRequiredService<IAuditOriginContext>();
+                using var origin = originContext.SetOrigin(nameof(AlertaCarteraWorker));
                 var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
                 using var bypass = empresaContext.Bypass();
 

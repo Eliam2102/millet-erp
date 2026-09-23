@@ -17,6 +17,8 @@ export const PuestoSchema = z.object({
     .trim()
     .min(1, 'Nombre requerido')
     .max(254, 'Máximo 254 caracteres'),
+  rolSugeridoId: z.string().nullable().optional(),
+  departamentoId: z.string().nullable().optional(),
 });
 
 export type PuestoValues = z.infer<typeof PuestoSchema>;

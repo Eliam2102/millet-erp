@@ -11,12 +11,15 @@ namespace Millet.Administracion.UnitTests.Domain;
 /// </summary>
 public class DepartamentoTests
 {
+    private static readonly Guid EmpresaId = Guid.CreateVersion7();
+
     private static Departamento Crear(
         string clave = "COMPRAS",
         string nombre = "Compras y Adquisiciones",
         EstatusCatalogo estatus = EstatusCatalogo.Activo) =>
         new(
             id: Guid.CreateVersion7(),
+            empresaId: EmpresaId,
             clave: clave,
             nombre: nombre,
             estatus: estatus);
@@ -60,9 +63,17 @@ public class DepartamentoTests
     [Fact]
     public void Constructor_Should_Reject_EmptyId()
     {
-        var act = () => new Departamento(Guid.Empty, "COMPRAS", "Compras");
+        var act = () => new Departamento(Guid.Empty, EmpresaId, "COMPRAS", "Compras");
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "DEPARTAMENTO_ID_INVALIDO");
+    }
+
+    [Fact]
+    public void Constructor_Should_Reject_EmptyEmpresaId()
+    {
+        var act = () => new Departamento(Guid.CreateVersion7(), Guid.Empty, "COMPRAS", "Compras");
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "DEPARTAMENTO_EMPRESA_INVALIDA");
     }
 
     [Fact]

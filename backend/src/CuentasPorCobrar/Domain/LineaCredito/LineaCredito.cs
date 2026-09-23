@@ -17,7 +17,7 @@ namespace Millet.CuentasPorCobrar.Domain.LineaCredito;
 /// vía read port, nunca join físico.
 /// </para>
 /// </summary>
-public sealed class LineaCredito : BaseEntity, IPerteneceAEmpresa
+public sealed class LineaCredito : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public const string MonedaMxn = "MXN";
     public const string MonedaUsd = "USD";

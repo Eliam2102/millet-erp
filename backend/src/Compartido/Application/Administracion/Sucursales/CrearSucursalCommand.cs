@@ -42,22 +42,32 @@ public sealed class CrearSucursalHandler
     private readonly CompartidoDbContext _db;
     private readonly IIntegrationEventPublisher _events;
     private readonly IClock _clock;
+    private readonly ICurrentEmpresaContext _empresaContext;
 
     public CrearSucursalHandler(
         CompartidoDbContext db,
         IIntegrationEventPublisher events,
-        IClock clock)
+        IClock clock,
+        ICurrentEmpresaContext empresaContext)
     {
         _db = db;
         _events = events;
         _clock = clock;
+        _empresaContext = empresaContext;
     }
 
     public async Task<SucursalResponse> Handle(
         CrearSucursalCommand command, CancellationToken cancellationToken)
     {
+        if (_empresaContext.Current is not Guid empresaId)
+        {
+            throw new ForbiddenException(
+                "EMPRESA_NO_SELECCIONADA",
+                "El usuario no tiene una empresa seleccionada en el JWT actual.");
+        }
+
         var claveExiste = await _db.Sucursales.AsNoTracking()
-            .AnyAsync(s => s.Clave == command.Clave, cancellationToken);
+            .AnyAsync(s => s.EmpresaId == empresaId && s.Clave == command.Clave, cancellationToken);
         if (claveExiste)
         {
             throw new ConflictException(
@@ -78,16 +88,34 @@ public sealed class CrearSucursalHandler
         }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
-        var sucursal = new Sucursal(id, command.Clave, command.Nombre, claveAw: command.ClaveAw);
+        // F1-ADM-01: Tipo/domicilio son campos nuevos del dominio sin captura
+        // todavía en este command (Fase 2 los expondrá en la API). Placeholders
+        // explícitos hasta entonces.
+        var sucursal = new Sucursal(
+            id,
+            empresaId,
+            command.Clave,
+            command.Nombre,
+            tipo: TipoSucursal.Sucursal,
+            calle: "Sin especificar",
+            numeroExterior: "S/N",
+            colonia: "Sin especificar",
+            ciudad: "Sin especificar",
+            municipio: "Sin especificar",
+            estado: "Sin especificar",
+            codigoPostal: "00000",
+            pais: "México",
+            claveAw: command.ClaveAw);
 
         _db.Sucursales.Add(sucursal);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        // PLATFORM-TODO(<AdminOutbox>): ver nota en CrearEmpresaHandler.
+        // Encolar antes de SaveChanges permite que el interceptor Outbox
+        // persista el evento en la misma transacción que el agregado.
         await _events.PublishAsync(
             new SucursalCreadaEvent(
                 sucursal.Id, sucursal.Clave, sucursal.Nombre, _clock.UtcNow),
             cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
 
         return new SucursalResponse(
             sucursal.Id, sucursal.Clave, sucursal.Nombre,

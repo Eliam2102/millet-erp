@@ -131,7 +131,7 @@ public sealed class CobroMostrador : BaseEntity, IPerteneceAEmpresa, IAuditable
 /// Forma de pago aplicada a un cobro (12-cajas.md §7). Suma = total del cobro
 /// (invariante del agregado). Referencia/cuentas para tarjeta/transferencia.
 /// </summary>
-public sealed class CobroMostradorFormaPago : BaseEntity
+public sealed class CobroMostradorFormaPago : BaseEntity, IAuditable
 {
     public Guid CobroMostradorId { get; private set; }
     public string FormaPago { get; private set; } = string.Empty;

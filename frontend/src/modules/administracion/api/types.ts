@@ -84,6 +84,49 @@ export interface ListarDepartamentosDeSucursalResponse {
   total: number;
 }
 
+/**
+ * Una asignación N:M Sucursal ↔ Puesto (F1-ADM-01 Fase 2 backend).
+ * Mirror de <c>SucursalPuestoResponse</c>. Análogo exacto de
+ * <see cref="SucursalDepartamentoResponse"/>.
+ */
+export interface SucursalPuestoResponse {
+  sucursalId: string;
+  puestoId: string;
+  puestoClave: string;
+  puestoNombre: string;
+  departamentoId: string;
+  departamentoNombre?: string | null;
+  /** <c>EstatusCatalogo</c> (Activo/Inactivo/EnRevision). */
+  estatus: number;
+  version: number;
+}
+
+export interface ListarPuestosDeSucursalResponse {
+  items: SucursalPuestoResponse[];
+  total: number;
+}
+
+/**
+ * Una asignación N:M Usuario ↔ Sucursal (F1-ADM-01 Fase 2 backend,
+ * módulo Identidad). Mirror de <c>UsuarioSucursalResponse</c>. Trae
+ * email/nombre del usuario ya joineados, mismo criterio que
+ * <see cref="SucursalDepartamentoResponse"/>.
+ */
+export interface UsuarioSucursalResponse {
+  sucursalId: string;
+  usuarioId: string;
+  usuarioEmail: string;
+  usuarioNombre: string;
+  /** <c>EstatusCatalogo</c> (Activo/Inactivo/EnRevision). */
+  estatus: number;
+  version: number;
+}
+
+export interface ListarUsuariosPorSucursalResponse {
+  items: UsuarioSucursalResponse[];
+  total: number;
+}
+
 // ─── Canales de venta (FAC-ING-PR3) ────────────────────────────────
 
 /**
@@ -320,13 +363,17 @@ export interface ActualizarParametroPayload {
 
 // ── Puestos y Empleados (ADM-FE-PR1, doc 10-catalogo-puestos-empleados) ──
 
-/** Mirror de <c>PuestoResponse</c> backend. */
+/** Mirror de <c>PuestoResponse</c> backend (F1-ADM-01.4). */
 export interface PuestoResponse {
   id: string;
   clave: string;
   nombre: string;
   estatus: EstatusCatalogo;
   version: number;
+  rolSugeridoId?: string | null;
+  rolSugeridoNombre?: string | null;
+  departamentoId?: string | null;
+  departamentoNombre?: string | null;
 }
 
 /** Body del POST /admin/puestos. Id vacío ⇒ lo genera el backend. */
@@ -334,11 +381,17 @@ export interface CrearPuestoCommand {
   id: string;
   clave: string;
   nombre: string;
+  rolSugeridoId?: string | null;
+  departamentoId?: string | null;
 }
 
 /** Body del PATCH /admin/puestos/{id}. <c>null</c> = no tocar. */
 export interface ActualizarPuestoPayload {
   nombre?: string | null;
+  rolSugeridoId?: string | null;
+  limpiarRolSugerido?: boolean;
+  departamentoId?: string | null;
+  limpiarDepartamento?: boolean;
 }
 
 /** Mirror de <c>EmpleadoResponse</c> backend. */

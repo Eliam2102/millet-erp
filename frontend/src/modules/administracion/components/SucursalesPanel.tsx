@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Building2, Pencil, Plus, PowerOff } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Briefcase, FolderTree, Pencil, Plus, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,15 +21,17 @@ import {
 import { useDesactivarSucursal } from '@/modules/administracion/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { SucursalInlineForm } from '@/modules/administracion/components/SucursalInlineForm';
-import { SheetDepartamentosDeSucursal } from '@/modules/administracion/components/SheetDepartamentosDeSucursal';
 
 /**
- * Panel "Sucursales" del detalle de empresa. Renderiza:
+ * Panel "Sucursales" — usado por <c>SucursalesTopLevelPage</c>
+ * (<c>/admin/sucursales</c>). Renderiza:
  *
  * <list>
- *   <item>Lista de sucursales existentes (Clave + Nombre + estatus).</item>
+ *   <item>Lista de sucursales existentes (Clave + Nombre + estatus).
+ *         La clave enlaza al detalle standalone (<c>/admin/sucursales/$id</c>)
+ *         donde se gestionan sus Departamentos/Puestos/Usuarios.</item>
  *   <item>Botón "Agregar sucursal" que monta el inline form (border
  *         dashed primary).</item>
  *   <item>Click en una row inactiva-friendly → expande inline form
@@ -40,34 +43,43 @@ import { SheetDepartamentosDeSucursal } from '@/modules/administracion/component
 export interface SucursalesPanelProps {
   empresaId: string;
   sucursales: readonly SucursalResponse[];
+  /**
+   * Cuando la empresa que se está viendo no coincide con la empresa
+   * activa de la sesión, la gestión (alta/edición) queda bloqueada
+   * aunque el usuario tenga el permiso — el backend resolvería la
+   * escritura contra la empresa activa, no contra la que se ve.
+   */
+  bloqueadoPorEmpresaActiva?: boolean;
 }
 
 export function SucursalesPanel({
   empresaId,
   sucursales,
+  bloqueadoPorEmpresaActiva = false,
 }: SucursalesPanelProps) {
   const [agregando, setAgregando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [confirmDesactivar, setConfirmDesactivar] =
     useState<SucursalResponse | null>(null);
-  const [gestionandoDeptos, setGestionandoDeptos] =
-    useState<SucursalResponse | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.AdminEmpresasSucursalesGestionar,
+  const canGestionar =
+    useHasPermission(PermisosCanonicos.AdminEmpresasSucursalesGestionar) &&
+    !bloqueadoPorEmpresaActiva;
+
+  const canGestionarMasterDeptos = useHasPermission(
+    PermisosCanonicos.AdminDepartamentosGestionar,
   );
-  const canGestionarDeptos = useHasPermission(
-    PermisosCanonicos.AdminSucursalesDepartamentosGestionar,
+  const canGestionarMasterPuestos = useHasPermission(
+    PermisosCanonicos.AdminPuestosGestionar,
   );
 
-  const idempotencyKey = useFormIdempotencyKey();
   const desactivar = useDesactivarSucursal();
 
   function handleConfirmarDesactivar() {
     if (confirmDesactivar == null) return;
     const target = confirmDesactivar;
     desactivar.mutate(
-      { empresaId, id: target.id, idempotencyKey },
+      { empresaId, id: target.id, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
           toast.success(`Sucursal ${target.clave} desactivada`);
@@ -98,19 +110,38 @@ export function SucursalesPanel({
             Catálogo organizacional compartido. Total: {sucursales.length}.
           </p>
         </div>
-        {canGestionar && !agregando && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setAgregando(true);
-              setEditandoId(null);
-            }}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            Agregar sucursal
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canGestionarMasterDeptos && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs" asChild>
+              <Link to="/admin/departamentos">
+                <FolderTree className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                Catálogo Departamentos
+              </Link>
+            </Button>
+          )}
+          {canGestionarMasterPuestos && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs" asChild>
+              <Link to="/admin/puestos">
+                <Briefcase className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                Catálogo Puestos
+              </Link>
+            </Button>
+          )}
+          {canGestionar && !agregando && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => {
+                setAgregando(true);
+                setEditandoId(null);
+              }}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Agregar sucursal
+            </Button>
+          )}
+        </div>
       </header>
 
       {agregando && canGestionar && (
@@ -141,9 +172,13 @@ export function SucursalesPanel({
                   />
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="font-mono text-sm font-semibold">
+                    <Link
+                      to="/admin/sucursales/$id"
+                      params={{ id: s.id }}
+                      className="font-mono text-sm font-semibold hover:underline"
+                    >
                       {s.clave}
-                    </span>
+                    </Link>
                     <span className="flex-1 truncate text-sm">{s.nombre}</span>
                     {activa ? (
                       <Badge variant="secondary">Activa</Badge>
@@ -153,18 +188,6 @@ export function SucursalesPanel({
                       </Badge>
                     )}
                     <div className="flex items-center gap-1">
-                      {activa && canGestionarDeptos && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setGestionandoDeptos(s)}
-                          aria-label={`Gestionar departamentos de ${s.clave}`}
-                          title="Gestionar departamentos"
-                        >
-                          <Building2 className="mr-1 h-3.5 w-3.5" />
-                          Deptos
-                        </Button>
-                      )}
                       {canGestionar && (
                         <>
                           <Button
@@ -231,13 +254,6 @@ export function SucursalesPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <SheetDepartamentosDeSucursal
-        sucursal={gestionandoDeptos}
-        onOpenChange={(open) => {
-          if (!open) setGestionandoDeptos(null);
-        }}
-      />
     </section>
   );
 }

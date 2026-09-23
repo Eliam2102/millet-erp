@@ -8,16 +8,13 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
- * Smoke del detalle de empresa (P3 del patrón cross-módulo).
- *
- * <para>Mockea <c>@tanstack/react-router</c> con <c>useParams</c> que
- * devuelve un id estable y <c>Link</c> reemplazado por un anchor. El
- * test apunta a reproducir el bug reportado por Eduardo: en
- * <c>/admin/empresas/&lt;id&gt;</c> no aparecen las tabs Datos |
- * Sucursales | Departamentos. Si la respuesta del API es correcta y
- * el componente renderiza los tres botones de tab + el contenido del
- * tab activo, el test verde valida que el componente NO tiene un bug
- * estructural en su propio render.</para>
+ * Smoke del detalle de empresa — desde ADR-0051 (multisucursal, una
+ * sola empresa) ya no es un master-detail con tabs Sucursales /
+ * Departamentos; esos ejes viven en <c>/admin/sucursales</c> y
+ * <c>/admin/departamentos</c> (ver sus propios smoke tests para los
+ * escenarios de bloqueo por empresa activa distinta, migrados desde
+ * aquí). Esta pantalla solo muestra/edita los datos generales de la
+ * empresa (RFC, régimen fiscal, razón social).
  */
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -48,20 +45,8 @@ const EMPRESA_DETALLE = {
     activa: true,
     version: 2,
   },
-  sucursales: Array.from({ length: 23 }, (_, i) => ({
-    id: `s-${i + 1}`,
-    clave: `S${String(i + 1).padStart(2, '0')}`,
-    nombre: `Sucursal ${i + 1}`,
-    estatus: 0,
-    version: 1,
-  })),
-  departamentos: Array.from({ length: 25 }, (_, i) => ({
-    id: `d-${i + 1}`,
-    clave: `D${String(i + 1).padStart(2, '0')}`,
-    nombre: `Departamento ${i + 1}`,
-    estatus: 0,
-    version: 1,
-  })),
+  sucursales: [],
+  departamentos: [],
 };
 
 beforeEach(() => {
@@ -94,7 +79,7 @@ afterEach(() => {
 });
 
 describe('<EmpresaDetalle> — smoke', () => {
-  it('renderiza las tabs Datos | Sucursales (23) | Departamentos (25)', async () => {
+  it('renderiza el header con RFC y el form de datos generales, sin tabs', async () => {
     mswServer.use(
       http.get('*/api/v1/admin/empresas/e-1', () =>
         HttpResponse.json(EMPRESA_DETALLE),
@@ -103,24 +88,15 @@ describe('<EmpresaDetalle> — smoke', () => {
 
     render(<EmpresaDetalle />, { wrapper: createQueryWrapper() });
 
-    // Cabecera: el RFC aparece cuando data llegó.
     await waitFor(() =>
       expect(screen.getByText('BLO902640MHI')).toBeInTheDocument(),
     );
 
-    // Las tres tabs deben estar en el DOM como <button role="tab">.
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(3);
-
-    // El texto de cada tab incluye el nombre y, en su caso, el contador.
+    // Ya no hay tabs — la pantalla es solo "Datos".
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
     expect(
-      screen.getByRole('tab', { name: /^datos$/i }),
+      screen.getByDisplayValue('Bloques de Occidente S.A. de C.V.'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: /sucursales\s*\(23\)/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: /departamentos\s*\(25\)/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue('601')).toBeInTheDocument();
   });
 });

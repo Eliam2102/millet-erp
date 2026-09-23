@@ -9,7 +9,7 @@ namespace Millet.Facturacion.Domain.Ingesta;
 /// manuales no tienen snapshot. El cajero ve el snapshot pero puede refrescar
 /// antes de timbrar.
 /// </summary>
-public sealed class PedidoFacturableSnapshot : BaseEntity, IBelongsToAggregate
+public sealed class PedidoFacturableSnapshot : BaseEntity, IBelongsToAggregate, IAuditable
 {
     public Guid PedidoFacturableId { get; private set; }
 

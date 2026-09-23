@@ -41,6 +41,8 @@ export function buildMsalInstance(): PublicClientApplication | null {
       clientId,
       authority: `https://login.microsoftonline.com/${tenantId}`,
       redirectUri: window.location.origin + '/',
+      // Redirige al origin ('/') para coincidir exactamente con la Redirect URI registrada en Entra ID.
+      // El route guard de TanStack Router (_app.tsx) intercepta la llegada sin sesión y redirige a /login.
       postLogoutRedirectUri: window.location.origin + '/',
     },
     cache: {
@@ -72,6 +74,18 @@ export const apiScopes: string[] = [
  * empresa"). Ver ADR-0015.
  */
 export const seedDevUsers: SeedDevUser[] = [
+  {
+    oid: '6a851ba1-7d19-4132-8d2a-8e1fb152df78',
+    email: 'uzieltzab@outlook.com',
+    nombre: 'Uziel Alejandro Tzab Puc (Admin)',
+    descripcion: 'SuperAdmin en Microsoft Entra ID con acceso total.',
+  },
+  {
+    oid: '073fb6fb-c4c6-44be-a37a-8a5277fe37af',
+    email: 'uziel.test@uzieltzaboutlook.onmicrosoft.com',
+    nombre: 'Uziel Test (Azure Sandbox)',
+    descripcion: 'Usuario del Sandbox de Microsoft Entra ID (miembro nuevo sin asignaciones iniciales).',
+  },
   {
     oid: 'dev-superadmin',
     email: 'superadmin@dev.local',

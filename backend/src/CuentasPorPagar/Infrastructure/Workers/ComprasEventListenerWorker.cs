@@ -149,6 +149,8 @@ public sealed class ComprasEventListenerWorker : BackgroundService
             var sp = scope.ServiceProvider;
             var db = sp.GetRequiredService<CuentasPorPagarDbContext>();
             var mediator = sp.GetRequiredService<IMediator>();
+            var originContext = sp.GetRequiredService<IAuditOriginContext>();
+            using var origin = originContext.SetOrigin(nameof(ComprasEventListenerWorker));
             var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
 

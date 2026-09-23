@@ -82,6 +82,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
         var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = scope.ServiceProvider.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(BootstrapSuperAdminHostedService));
         using var bypass = empresaContext.Bypass();
 
         await PostgresAdvisoryLock.ExecuteAsync(
@@ -304,7 +306,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
         var placeholderEmail = $"{oid}@bootstrap.local";
         var placeholderNombre = "SuperAdmin (configurar en primer login)";
 
-        usuario = new Usuario(Guid.CreateVersion7(), oid, placeholderEmail, placeholderNombre);
+        // Nace como cuenta técnica (plan 15, D4): el bootstrap corre con la
+        // BD vacía, sin catálogo de empleados que vincular.
+        usuario = new Usuario(
+            Guid.CreateVersion7(), oid, placeholderEmail, placeholderNombre,
+            esCuentaTecnica: true);
         var preferencia = new UsuarioPreferencia(Guid.CreateVersion7(), usuario.Id);
 
         db.Usuarios.Add(usuario);
@@ -382,12 +388,24 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
 
         if (empresa is null)
         {
+            // F1-ADM-01: Clave/domicilio/moneda son campos nuevos sin captura
+            // en Auth:Bootstrap:EmpresaInicial todavía (Fase 2 los agregará al
+            // schema de configuración si hace falta). Clave = RFC en mayúsculas
+            // (business key ya única); domicilio con placeholders explícitos.
             empresa = new Empresa(
                 EmpresaInicialId,
+                clave: inicial.Rfc.ToUpperInvariant(),
                 inicial.Rfc,
                 inicial.RazonSocial,
                 inicial.RegimenFiscal,
-                inicial.NombreComercial);
+                calle: "Sin especificar",
+                numeroExterior: "S/N",
+                colonia: "Sin especificar",
+                ciudad: "Sin especificar",
+                municipio: "Sin especificar",
+                estado: "Sin especificar",
+                pais: "México",
+                nombreComercial: inicial.NombreComercial);
             compartido.Empresas.Add(empresa);
             await compartido.SaveChangesAsync(cancellationToken);
             _logger.LogInformation(

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -36,7 +38,7 @@ public class MonedasEndpointsTests : IClassFixture<WebApplicationFactory<Program
     public async Task CrearMoneda_Retorna_201_Con_Codigo_Y_Id()
     {
         var client = await CreateSuperAdminClientAsync();
-        var codigo = RandomMonedaCodigo();
+        var codigo = await CodigoMonedaLibreAsync();
 
         var response = await client.PostAsJsonAsync("/api/v1/catalogos/monedas", new
         {
@@ -73,7 +75,7 @@ public class MonedasEndpointsTests : IClassFixture<WebApplicationFactory<Program
     public async Task PatchMoneda_Cambia_Nombre_Y_Get_Lo_Refleja()
     {
         var client = await CreateSuperAdminClientAsync();
-        var codigo = RandomMonedaCodigo();
+        var codigo = await CodigoMonedaLibreAsync();
 
         // Crear
         var created = await client.PostAsJsonAsync("/api/v1/catalogos/monedas", new
@@ -102,7 +104,7 @@ public class MonedasEndpointsTests : IClassFixture<WebApplicationFactory<Program
         var client = await CreateSuperAdminClientAsync();
 
         // Crear moneda primero
-        var codigo = RandomMonedaCodigo();
+        var codigo = await CodigoMonedaLibreAsync();
         var created = await client.PostAsJsonAsync("/api/v1/catalogos/monedas", new
         {
             Codigo = codigo, Nombre = "Test TC", Decimales = 2, Activa = true,
@@ -134,12 +136,28 @@ public class MonedasEndpointsTests : IClassFixture<WebApplicationFactory<Program
 
     // --- Helpers ---
 
-    private static string RandomMonedaCodigo()
+    /// <summary>
+    /// Código ISO de 3 letras que todavía no existe. Con uno al azar la BD de
+    /// dev ya chocaba seguido (409): las pruebas acumulan monedas.
+    /// </summary>
+    private async Task<string> CodigoMonedaLibreAsync()
     {
-        // 3 letras random (evita choque con catalogo SAT seed). Empieza con Z para minimizar.
-        var rnd = new Random();
-        var letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        return $"Z{letras[rnd.Next(letras.Length)]}{letras[rnd.Next(letras.Length)]}";
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider
+            .GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider
+            .GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
+        var existentes = (await db.Monedas.IgnoreQueryFilters().AsNoTracking()
+            .Select(m => m.Codigo).ToListAsync())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        const string letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        while (true)
+        {
+            var codigo = new string(Enumerable.Range(0, 3)
+                .Select(_ => letras[Random.Shared.Next(letras.Length)]).ToArray());
+            if (!existentes.Contains(codigo)) return codigo;
+        }
     }
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()

@@ -16,7 +16,7 @@ namespace Millet.CuentasPorPagar.Domain.Almacen;
 /// en F6+ cuando exista comando de actualización.
 /// </para>
 /// </summary>
-public sealed class RecepcionOcLocal : BaseEntity, IPerteneceAEmpresa
+public sealed class RecepcionOcLocal : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

@@ -198,7 +198,8 @@ Aplica a Administración:
 | [ADR-0005](../../decisiones/0005-migraciones-ef-core-esquema-por-modulo.md) | EF Core esquema por módulo. Admin crea schemas `admin`, `catalogos`, `datos_maestros` (Fase A mantiene `compartido` físico; los DbContexts dueños conviven con el schema legacy). |
 | [ADR-0007](../../decisiones/0007-autorizacion-rbac-granular.md) | RBAC granular. Admin construye la UI de roles/permisos sobre este modelo. |
 | [ADR-0008](../../decisiones/0008-estrategia-auditoria.md) | Auditoría. Admin agrega vista de bitácora. |
-| [ADR-0011](../../decisiones/0011-multi-empresa-empresa-id.md) | Multi-empresa. Empresas y sucursales son aggregates del módulo Admin. |
+| [ADR-0011](../../decisiones/0011-multi-empresa-empresa-id.md) | Multi-empresa (base técnica de aislamiento; hoy una sola empresa operativa). Empresas y sucursales son aggregates del módulo Admin. |
+| [ADR-0051](../../decisiones/0051-segmentacion-de-datos-por-sucursal.md) | Segmentación por sucursal — el eje de negocio activo. Formaliza el patrón de `UsuarioSucursal` + `SucursalScopeGuard` ya implementado para Departamentos/Puestos/Usuarios (F1-ADM-01), a reusar por todo módulo de negocio futuro. |
 | [ADR-0030](../../decisiones/0030-multi-dbcontext-por-modulo.md) | Multi-DbContext. Admin crea 3 DbContexts adicionales. |
 | [ADR-0031](../../decisiones/0031-deuda-de-plataforma-y-stubs-noop.md) | Deuda con `PLATFORM-TODO`. Aplica a cualquier stub que Admin introduzca. |
 | [ADR-0032](../../decisiones/0032-shell-de-navegacion-app-launcher.md) | Shell con app launcher modal. Admin reusa los componentes. |
@@ -236,7 +237,8 @@ Aplica a Administración:
 - **Entra ID para identidad** (ADR-0003). No hay AD on-premises ni federación.
 - **Strangler Fig** (CLAUDE.md). Admin no migra datos de SAP en MVP — los catálogos SAT se cargan vía seeds versionados. La importación de catálogos legacy es deuda separada cuando el cliente lo priorice (consistente con Fase 7 de Compras según memoria `project_fase7_mvp_scope`).
 - **Idioma:** documentación, comentarios de negocio, nombres de módulos en español. Código y nombres técnicos en inglés.
-- **Multi-empresa** (ADR-0011). Empresa es entidad de primera clase.
+- **Multi-empresa** (ADR-0011). Empresa es entidad de primera clase — base técnica de aislamiento, hoy con una sola empresa operativa (Millet).
+- **Segmentación por sucursal** (ADR-0051). El eje de negocio activo: qué usuario ve/opera qué sucursal(es), independiente del rol. Ver también CLAUDE.md.
 - **Tracking de deuda** (ADR-0031). Cualquier stub o NoOp introducido por Admin debe llevar `PLATFORM-TODO(<identificador>):`.
 
 ## 5. Actores y roles

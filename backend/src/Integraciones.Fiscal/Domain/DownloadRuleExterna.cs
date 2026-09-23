@@ -22,8 +22,14 @@ namespace Millet.Integraciones.Fiscal.Domain;
 /// download_type, sat_invoice_status)</c> — una rule por combinación. Si
 /// el operador cambia los flags, se desactiva la vieja y se crea otra.
 /// </para>
+///
+/// <para>
+/// Marcada <see cref="INotAudited"/>: es explícitamente una cache local
+/// (ADR-0008 Capa 4 excluye "cache temporales") — el dato de negocio real
+/// vive en FiscalAPI; esta fila solo evita llamadas repetidas al SDK.
+/// </para>
 /// </summary>
-public sealed class DownloadRuleExterna : BaseEntity, IPerteneceAEmpresa
+public sealed class DownloadRuleExterna : BaseEntity, IPerteneceAEmpresa, INotAudited
 {
     public Guid EmpresaId { get; set; }
     public Guid RfcReceptorId { get; private set; }

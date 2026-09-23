@@ -11,7 +11,7 @@ namespace Millet.Almacen.Domain.Cierre;
 /// rechazados con 422 por todos los handlers de captura (cuidado §6.1
 /// del 04-cuidados-infra).
 /// </summary>
-public sealed class PeriodoCerrado : BaseEntity
+public sealed class PeriodoCerrado : BaseEntity, IAuditable
 {
     public Guid EmpresaId { get; private set; }
     public int Anio { get; private set; }

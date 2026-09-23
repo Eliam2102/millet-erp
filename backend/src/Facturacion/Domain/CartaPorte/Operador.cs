@@ -7,7 +7,7 @@ namespace Millet.Facturacion.Domain.CartaPorte;
 /// Catálogo de operadores (choferes) para Carta Porte 3.1 (§4.6 levantamiento):
 /// RFC, nombre y número de licencia. Catálogo del módulo Facturación.
 /// </summary>
-public sealed class Operador : BaseEntity, IPerteneceAEmpresa
+public sealed class Operador : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

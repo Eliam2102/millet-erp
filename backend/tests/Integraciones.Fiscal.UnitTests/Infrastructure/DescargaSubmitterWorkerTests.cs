@@ -9,6 +9,7 @@ using Millet.Integraciones.Fiscal.Infrastructure.Persistence;
 using Millet.Integraciones.Fiscal.Infrastructure.Workers;
 using Millet.Integraciones.Fiscal.UnitTests.Application;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Integraciones.Fiscal.UnitTests.Infrastructure;
 
@@ -147,6 +148,7 @@ public sealed class DescargaSubmitterWorkerTests
         services.AddSingleton<IFiscalApiSdkClient>(sdk);
         services.AddSingleton<IClock>(new InMemoryFiscalDb.FakeClock(Ahora));
         services.AddScoped<ICurrentEmpresaContext, InMemoryFiscalDb.BypassedEmpresaContext>();
+        services.AddScoped<IAuditOriginContext, AuditOriginContext>();
         services.AddDbContext<IntegracionesFiscalDbContext>(o => o.UseInMemoryDatabase(dbName));
 
         var sp = services.BuildServiceProvider();

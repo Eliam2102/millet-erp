@@ -5,16 +5,23 @@ using Millet.SharedKernel.Domain;
 namespace Millet.Administracion.Domain;
 
 /// <summary>
-/// Departamento del catálogo cross-empresa
-/// <c>compartido.departamentos</c> (B.1). Representa una unidad
-/// funcional (Compras, Almacén, Mantenimiento, Ingeniería, Calidad,
-/// etc.) — NO geográfica. Las requisiciones referencian
-/// <c>DepartamentoId</c> del solicitante; los aprobadores
+/// Departamento del catálogo <c>compartido.departamentos</c> (B.1).
+/// Representa una unidad funcional (Compras, Almacén, Mantenimiento,
+/// Ingeniería, Calidad, etc.) — NO geográfica. Las requisiciones
+/// referencian <c>DepartamentoId</c> del solicitante; los aprobadores
 /// (F9-PR1) están scopeados por departamento via
 /// <c>compras.aprobadores_departamento</c>.
+///
+/// <para>
+/// F1-ADM-01: catálogo por empresa vía <see cref="EmpresaId"/> +
+/// <see cref="IPerteneceAEmpresa"/>. <see cref="Clave"/> pasa de única
+/// global a única por empresa.
+/// </para>
 /// </summary>
-public sealed class Departamento : BaseEntity, IAuditable
+public sealed class Departamento : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
+    public Guid EmpresaId { get; set; } // public set requerido por IPerteneceAEmpresa
+
     public string Clave { get; private set; } = string.Empty;
     public string Nombre { get; private set; } = string.Empty;
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
@@ -23,15 +30,19 @@ public sealed class Departamento : BaseEntity, IAuditable
 
     public Departamento(
         Guid id,
+        Guid empresaId,
         string clave,
         string nombre,
         EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("DEPARTAMENTO_ID_INVALIDO", "El id es obligatorio.");
+        if (empresaId == Guid.Empty)
+            throw new BusinessRuleException("DEPARTAMENTO_EMPRESA_INVALIDA", "La empresa es obligatoria.");
         ValidarClave(clave);
         ValidarNombre(nombre);
 
+        EmpresaId = empresaId;
         Clave = clave;
         Nombre = nombre;
         Estatus = estatus;
@@ -40,7 +51,8 @@ public sealed class Departamento : BaseEntity, IAuditable
     /// <summary>
     /// PATCH parcial sobre los campos editables del departamento
     /// (F-Admin-PR2.2). Convención: parámetro <c>null</c> = no tocar.
-    /// Inmutable: <see cref="Clave"/> (business key).
+    /// Inmutables: <see cref="Clave"/> (business key) y
+    /// <see cref="EmpresaId"/>.
     /// </summary>
     public void ActualizarDatos(string? nombre = null)
     {

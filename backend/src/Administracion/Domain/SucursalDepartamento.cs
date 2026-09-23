@@ -11,10 +11,15 @@ namespace Millet.Administracion.Domain;
 /// operativa de Millet donde una sucursal puede tener Sistemas y otra no.
 ///
 /// <para>
-/// Catálogo cross-empresa (sin <c>EmpresaId</c>), mismo patrón que
-/// <see cref="Sucursal"/> y <see cref="Departamento"/>. La FK por
-/// <see cref="SucursalId"/> y <see cref="DepartamentoId"/> apunta a las
-/// tablas del mismo schema <c>compartido</c>.
+/// F1-ADM-01: catálogo por empresa vía <see cref="EmpresaId"/> +
+/// <see cref="IPerteneceAEmpresa"/> — mismo patrón que <see cref="Sucursal"/>
+/// y <see cref="Departamento"/>. Invariante de negocio: el
+/// <see cref="EmpresaId"/> de esta asignación debe coincidir con el
+/// <c>EmpresaId</c> de la <see cref="Sucursal"/> y del
+/// <see cref="Departamento"/> que vincula. Este constructor NO recibe las
+/// entidades completas (solo Guids), así que esa validación cross-entity
+/// vive en el handler (Fase 2, <c>AsignarDepartamentoASucursalCommand</c>)
+/// donde sí hay acceso a ambas filas vía el DbContext.
 /// </para>
 ///
 /// <para>
@@ -30,8 +35,10 @@ namespace Millet.Administracion.Domain;
 /// <see cref="EstatusCatalogo.Activo"/> habilitan creación de RQs.
 /// </para>
 /// </summary>
-public sealed class SucursalDepartamento : BaseEntity, IAuditable
+public sealed class SucursalDepartamento : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
+    public Guid EmpresaId { get; set; } // public set requerido por IPerteneceAEmpresa
+
     public Guid SucursalId { get; private set; }
     public Guid DepartamentoId { get; private set; }
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
@@ -40,6 +47,7 @@ public sealed class SucursalDepartamento : BaseEntity, IAuditable
 
     public SucursalDepartamento(
         Guid id,
+        Guid empresaId,
         Guid sucursalId,
         Guid departamentoId,
         EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
@@ -47,6 +55,9 @@ public sealed class SucursalDepartamento : BaseEntity, IAuditable
         if (id == Guid.Empty)
             throw new BusinessRuleException("SUCURSAL_DEPARTAMENTO_ID_INVALIDO",
                 "El id es obligatorio.");
+        if (empresaId == Guid.Empty)
+            throw new BusinessRuleException("SUCURSAL_DEPARTAMENTO_EMPRESA_INVALIDA",
+                "La empresa es obligatoria.");
         if (sucursalId == Guid.Empty)
             throw new BusinessRuleException("SUCURSAL_DEPARTAMENTO_SUCURSAL_INVALIDA",
                 "SucursalId es obligatorio.");
@@ -54,6 +65,7 @@ public sealed class SucursalDepartamento : BaseEntity, IAuditable
             throw new BusinessRuleException("SUCURSAL_DEPARTAMENTO_DEPARTAMENTO_INVALIDO",
                 "DepartamentoId es obligatorio.");
 
+        EmpresaId = empresaId;
         SucursalId = sucursalId;
         DepartamentoId = departamentoId;
         Estatus = estatus;

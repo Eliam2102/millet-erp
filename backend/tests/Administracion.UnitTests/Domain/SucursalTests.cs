@@ -11,14 +11,26 @@ namespace Millet.Administracion.UnitTests.Domain;
 /// </summary>
 public class SucursalTests
 {
+    private static readonly Guid EmpresaId = Guid.CreateVersion7();
+
     private static Sucursal Crear(
         string clave = "CDMX",
         string nombre = "Ciudad de México",
         EstatusCatalogo estatus = EstatusCatalogo.Activo) =>
         new(
             id: Guid.CreateVersion7(),
+            empresaId: EmpresaId,
             clave: clave,
             nombre: nombre,
+            tipo: TipoSucursal.Sucursal,
+            calle: "Calle Ficticia 123",
+            numeroExterior: "123",
+            colonia: "Colonia de Prueba",
+            ciudad: "Mérida",
+            municipio: "Mérida",
+            estado: "Yucatán",
+            codigoPostal: "97000",
+            pais: "México",
             estatus: estatus);
 
     [Fact]
@@ -60,10 +72,26 @@ public class SucursalTests
     [Fact]
     public void Constructor_Should_Reject_EmptyId()
     {
-        var act = () => new Sucursal(Guid.Empty, "CDMX", "Ciudad de México");
+        var act = () => CrearConId(Guid.Empty);
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "SUCURSAL_ID_INVALIDO");
     }
+
+    [Fact]
+    public void Constructor_Should_Reject_EmptyEmpresaId()
+    {
+        var act = () => new Sucursal(
+            Guid.CreateVersion7(), Guid.Empty, "CDMX", "Ciudad de México", TipoSucursal.Sucursal,
+            calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
+            ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México");
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "SUCURSAL_EMPRESA_INVALIDA");
+    }
+
+    private static Sucursal CrearConId(Guid id) => new(
+        id, EmpresaId, "CDMX", "Ciudad de México", TipoSucursal.Sucursal,
+        calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
+        ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México");
 
     [Fact]
     public void ActualizarDatos_Should_UpdateOnly_NonNull()
@@ -84,8 +112,7 @@ public class SucursalTests
     [Fact]
     public void Constructor_Should_Trim_ClaveAw()
     {
-        var sucursal = new Sucursal(
-            Guid.CreateVersion7(), "CON", "CONKAL", claveAw: " CONKAL ");
+        var sucursal = CrearConClaveAw(" CONKAL ");
         sucursal.ClaveAw.Should().Be("CONKAL");
     }
 
@@ -94,8 +121,7 @@ public class SucursalTests
     [InlineData("  ")]
     public void Constructor_Should_Reject_ClaveAw_Whitespace(string claveAw)
     {
-        var act = () => new Sucursal(
-            Guid.CreateVersion7(), "CON", "CONKAL", claveAw: claveAw);
+        var act = () => CrearConClaveAw(claveAw);
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "SUCURSAL_CLAVE_AW_INVALIDA");
     }
@@ -103,11 +129,16 @@ public class SucursalTests
     [Fact]
     public void Constructor_Should_Reject_ClaveAw_TooLong()
     {
-        var act = () => new Sucursal(
-            Guid.CreateVersion7(), "CON", "CONKAL", claveAw: new string('x', 41));
+        var act = () => CrearConClaveAw(new string('x', 41));
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "SUCURSAL_CLAVE_AW_INVALIDA");
     }
+
+    private static Sucursal CrearConClaveAw(string claveAw) => new(
+        Guid.CreateVersion7(), EmpresaId, "CON", "CONKAL", TipoSucursal.Sucursal,
+        calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
+        ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México",
+        claveAw: claveAw);
 
     [Fact]
     public void ActualizarDatos_Should_Set_And_Clear_ClaveAw()

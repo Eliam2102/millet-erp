@@ -148,7 +148,7 @@ public sealed class Caja : BaseEntity, IPerteneceAEmpresa, IAuditable
 /// precedente que <c>comprobante.sucursal_id</c>); se valida vía
 /// <c>ISucursalesReadPort</c> en el handler.
 /// </summary>
-public sealed class CajaSucursal : BaseEntity
+public sealed class CajaSucursal : BaseEntity, IAuditable
 {
     public Guid CajaId { get; private set; }
     public Guid SucursalId { get; private set; }
@@ -168,7 +168,7 @@ public sealed class CajaSucursal : BaseEntity
 /// lógica a <c>compartido.canales_venta</c> (FAC-ING-PR2); se valida activo
 /// vía <c>ICanalesVentaReadPort</c> en el handler.
 /// </summary>
-public sealed class CajaCanal : BaseEntity
+public sealed class CajaCanal : BaseEntity, IAuditable
 {
     public Guid CajaId { get; private set; }
     public short CanalVentaId { get; private set; }
@@ -188,7 +188,7 @@ public sealed class CajaCanal : BaseEntity
 /// por UI en Facturación — NO es un rol de I&amp;A (12-cajas.md §8). UsuarioId
 /// opaco (sin FK a Identidad, mismo trato que <c>UsuarioEmisorId</c>).
 /// </summary>
-public sealed class CajaUsuario : BaseEntity
+public sealed class CajaUsuario : BaseEntity, IAuditable
 {
     public Guid CajaId { get; private set; }
     public Guid UsuarioId { get; private set; }

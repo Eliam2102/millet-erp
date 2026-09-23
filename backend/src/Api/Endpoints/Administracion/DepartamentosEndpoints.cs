@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Departamentos;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.Catalogos.Domain;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Administracion;
@@ -25,8 +26,27 @@ public static class DepartamentosEndpoints
     {
         var group = app
             .MapGroup("/api/v1/admin/departamentos")
-            .WithTags("Administracion")
-            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminDepartamentosGestionar);
+            .WithTags("Administracion");
+
+        group.MapGet("/", async (
+            [FromQuery] int? offset,
+            [FromQuery] int? limit,
+            [FromQuery] string? q,
+            [FromQuery] EstatusCatalogo? estatus,
+            [FromQuery] Guid? sucursalId,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(
+                new ListarDepartamentosQuery(offset ?? 0, limit ?? 50, q, estatus, sucursalId), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminDepartamentosLeer)
+        .WithName("ListarDepartamentosAdmin")
+        .WithSummary("Listar departamentos administrativos")
+        .Produces<ListarDepartamentosResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/", async (
             [FromBody] CrearDepartamentoCommand command,
@@ -36,6 +56,7 @@ public static class DepartamentosEndpoints
             var response = await mediator.Send(command, ct);
             return Results.Created($"/api/v1/admin/departamentos/{response.Id}", response);
         })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminDepartamentosGestionar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .WithName("CrearDepartamento")
         .WithSummary("Crear departamento")
@@ -55,11 +76,46 @@ public static class DepartamentosEndpoints
                 new ActualizarDepartamentoCommand(id, payload.Nombre), ct);
             return Results.Ok(response);
         })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminDepartamentosGestionar)
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .WithName("ActualizarDepartamento")
         .WithSummary("PATCH parcial sobre departamento")
         .Produces<DepartamentoResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/desactivar", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(new DesactivarDepartamentoCommand(id), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminDepartamentosGestionar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("DesactivarDepartamento")
+        .WithSummary("Desactivar departamento (baja lógica, idempotente)")
+        .Produces<DepartamentoResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/reactivar", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(new ReactivarDepartamentoCommand(id), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminDepartamentosGestionar)
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("ReactivarDepartamento")
+        .WithSummary("Reactivar departamento")
+        .Produces<DepartamentoResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);

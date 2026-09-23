@@ -29,6 +29,7 @@ import {
 } from '@/components/erp';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { cn } from '@/lib/utils';
+import { ProvisioningTestModal } from './ProvisioningTestModal';
 
 /**
  * Form inline (sin modal) para AGREGAR o EDITAR un empleado
@@ -43,6 +44,8 @@ import { cn } from '@/lib/utils';
  */
 export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
+  sucursalIdInicial?: string;
+  sucursalFija?: boolean;
   onCancel: () => void;
   onSaved?: () => void;
 }
@@ -61,6 +64,8 @@ const VALORES_INICIALES: EmpleadoValues = {
 
 export function EmpleadoInlineForm({
   empleado,
+  sucursalIdInicial,
+  sucursalFija = false,
   onCancel,
   onSaved,
 }: EmpleadoInlineFormProps) {
@@ -86,7 +91,7 @@ export function EmpleadoInlineForm({
           // PATCH solo lo limpia si el usuario lo teclea y borra).
           codigoNomina: '',
         }
-      : VALORES_INICIALES,
+      : { ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' },
   });
 
   useEffect(() => {
@@ -160,7 +165,7 @@ export function EmpleadoInlineForm({
       {
         onSuccess: (resp) => {
           toast.success(`Empleado "${resp.nombre}" agregado`);
-          form.reset(VALORES_INICIALES);
+          form.reset({ ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' });
           form.setFocus('clave');
           onSaved?.();
         },
@@ -236,6 +241,52 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
+        <Field
+          label={sucursalFija ? 'Sucursal (fijada)' : 'Sucursal'}
+          className="md:col-span-4"
+        >
+          <Controller
+            control={form.control}
+            name="sucursalId"
+            render={({ field }) => (
+              <SucursalSelector
+                value={field.value || null}
+                onChange={(id) => {
+                  const nuevo = id ?? '';
+                  if (nuevo !== field.value) {
+                    field.onChange(nuevo);
+                    form.setValue('puestoId', '');
+                    form.setValue('departamentoId', '');
+                  }
+                }}
+                disabled={sucursalFija}
+                className="w-full"
+              />
+            )}
+          />
+        </Field>
+
+        <Field label="Departamento" className="md:col-span-4">
+          <Controller
+            control={form.control}
+            name="departamentoId"
+            render={({ field }) => (
+              <DepartamentoSelector
+                value={field.value || null}
+                onChange={(id) => {
+                  const nuevo = id ?? '';
+                  if (nuevo !== field.value) {
+                    field.onChange(nuevo);
+                    form.setValue('puestoId', '');
+                  }
+                }}
+                sucursalId={form.watch('sucursalId') || undefined}
+                className="w-full"
+              />
+            )}
+          />
+        </Field>
+
         <Field label="Puesto" className="md:col-span-4">
           <Controller
             control={form.control}
@@ -244,6 +295,8 @@ export function EmpleadoInlineForm({
               <PuestoSelector
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
+                sucursalId={form.watch('sucursalId') || undefined}
+                departamentoId={form.watch('departamentoId') || undefined}
                 className="w-full"
               />
             )}
@@ -259,34 +312,6 @@ export function EmpleadoInlineForm({
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
                 excludeId={empleado?.id}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>
-
-        <Field label="Sucursal" className="md:col-span-4">
-          <Controller
-            control={form.control}
-            name="sucursalId"
-            render={({ field }) => (
-              <SucursalSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>
-
-        <Field label="Departamento" className="md:col-span-4">
-          <Controller
-            control={form.control}
-            name="departamentoId"
-            render={({ field }) => (
-              <DepartamentoSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
                 className="w-full"
               />
             )}
@@ -322,30 +347,36 @@ export function EmpleadoInlineForm({
         </Field>
       </div>
 
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
-          <X className="mr-1 h-4 w-4" />
-          Cancelar
-        </Button>
-        <Button type="submit" size="sm" disabled={isPending}>
-          {esEditar ? (
-            <>
-              <Check className="mr-1 h-4 w-4" />
-              {isPending ? 'Guardando…' : 'Guardar cambios'}
-            </>
-          ) : (
-            <>
-              <Plus className="mr-1 h-4 w-4" />
-              {isPending ? 'Agregando…' : 'Agregar empleado'}
-            </>
-          )}
-        </Button>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          {/* BOTÓN TEMPORAL DE PRUEBA API Entra ID */}
+          <ProvisioningTestModal defaultNombre={form.getValues('nombre')} />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            disabled={isPending}
+          >
+            <X className="mr-1 h-4 w-4" />
+            Cancelar
+          </Button>
+          <Button type="submit" size="sm" disabled={isPending}>
+            {esEditar ? (
+              <>
+                <Check className="mr-1 h-4 w-4" />
+                {isPending ? 'Guardando…' : 'Guardar cambios'}
+              </>
+            ) : (
+              <>
+                <Plus className="mr-1 h-4 w-4" />
+                {isPending ? 'Agregando…' : 'Agregar empleado'}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </form>
   );

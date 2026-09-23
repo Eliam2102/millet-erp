@@ -45,11 +45,15 @@ export interface PuestoListItem {
   clave: string;
   nombre: string;
   estatus: EstatusCatalogo;
+  rolSugeridoId?: string | null;
+  rolSugeridoNombre?: string | null;
+  departamentoId?: string | null;
+  departamentoNombre?: string | null;
 }
 
 /**
- * Mirror de <c>EmpleadoListItem</c> (ADM-FE-PR1). Incluye
- * <c>puestoId</c> y <c>jefeDirectoId</c> para que la solicitud de
+ * Mirror de <c>EmpleadoListItem</c> (ADM-FE-PR1). Trae <c>puestoId</c>
+ * y <c>jefeDirectoId</c> desnormalizados para que la solicitud de
  * viáticos prellene tope (política por puesto) y autorizador N1 sin
  * fetch extra.
  */
@@ -65,6 +69,8 @@ export interface EmpleadoListItem {
   departamentoId: string | null;
   usuarioId: string | null;
   estatus: EstatusCatalogo;
+  puestoNombre?: string | null;
+  departamentoNombre?: string | null;
 }
 
 /** Mirror de <c>AlmacenListItem</c>. */

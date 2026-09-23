@@ -35,9 +35,29 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("activa");
 
+                    b.Property<string>("Calle")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("calle");
+
+                    b.Property<string>("Ciudad")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ciudad");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("clave");
+
                     b.Property<string>("CodigoPostal")
                         .HasColumnType("text")
                         .HasColumnName("codigo_postal");
+
+                    b.Property<string>("Colonia")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("colonia");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -51,10 +71,42 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<Guid?>("EmpresaPadreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_padre_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("estado");
+
+                    b.Property<Guid?>("MonedaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moneda_id");
+
+                    b.Property<string>("Municipio")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("municipio");
+
                     b.Property<string>("NombreComercial")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("nombre_comercial");
+
+                    b.Property<string>("NumeroExterior")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("numero_exterior");
+
+                    b.Property<string>("NumeroInterior")
+                        .HasColumnType("text")
+                        .HasColumnName("numero_interior");
+
+                    b.Property<string>("Pais")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("pais");
 
                     b.Property<string>("RazonSocial")
                         .IsRequired()
@@ -94,6 +146,131 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasName("pk_empresas");
 
                     b.ToTable("empresas", "compartido", t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Administracion.Domain.Sucursal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Calle")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("calle");
+
+                    b.Property<string>("Ciudad")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ciudad");
+
+                    b.Property<string>("Clave")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("clave");
+
+                    b.Property<string>("ClaveAw")
+                        .HasColumnType("text")
+                        .HasColumnName("clave_aw");
+
+                    b.Property<string>("CodigoPostal")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("codigo_postal");
+
+                    b.Property<string>("Colonia")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("colonia");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("estado");
+
+                    b.Property<short>("Estatus")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estatus");
+
+                    b.Property<string>("InformacionUbicacion")
+                        .HasColumnType("text")
+                        .HasColumnName("informacion_ubicacion");
+
+                    b.Property<string>("Municipio")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("municipio");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("nombre");
+
+                    b.Property<string>("NumeroExterior")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("numero_exterior");
+
+                    b.Property<string>("NumeroInterior")
+                        .HasColumnType("text")
+                        .HasColumnName("numero_interior");
+
+                    b.Property<string>("Pais")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("pais");
+
+                    b.Property<string>("Responsable")
+                        .HasColumnType("text")
+                        .HasColumnName("responsable");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<string>("ZonaHoraria")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("zona_horaria");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sucursales");
+
+                    b.ToTable("sucursales", "compartido", t =>
                         {
                             t.ExcludeFromMigrations();
                         });
@@ -890,6 +1067,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000005-0003-0000-0000-000000000002"),
+                            Accion = "leer",
+                            Codigo = "admin.departamentos.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar departamentos del catálogo organizacional",
+                            Modulo = "admin",
+                            Recurso = "departamentos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000005-0004-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "admin.series.gestionar",
@@ -946,12 +1137,54 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000005-0006-0000-0000-000000000002"),
+                            Accion = "puestos-gestionar",
+                            Codigo = "admin.sucursales.puestos-gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Asignar, desactivar y reactivar puestos por sucursal (N:M)",
+                            Modulo = "admin",
+                            Recurso = "sucursales",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000005-0006-0000-0000-000000000003"),
+                            Accion = "usuarios-gestionar",
+                            Codigo = "admin.sucursales.usuarios-gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Asignar, desactivar y reactivar usuarios por sucursal (N:M)",
+                            Modulo = "admin",
+                            Recurso = "sucursales",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000005-0007-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "admin.puestos.gestionar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Crear, editar y desactivar puestos del catálogo organizacional",
+                            Modulo = "admin",
+                            Recurso = "puestos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000005-0007-0000-0000-000000000002"),
+                            Accion = "leer",
+                            Codigo = "admin.puestos.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar puestos del catálogo organizacional",
                             Modulo = "admin",
                             Recurso = "puestos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -3448,6 +3681,10 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AccesoEnviadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acceso_enviado_en");
+
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean")
                         .HasColumnName("activo");
@@ -3480,11 +3717,28 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("entra_oid");
 
+                    b.Property<bool>("EsCuentaTecnica")
+                        .HasColumnType("boolean")
+                        .HasColumnName("es_cuenta_tecnica");
+
+                    b.Property<short>("EstadoAcceso")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado_acceso");
+
+                    b.Property<string>("MotivoErrorProvision")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_error_provision");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("nombre");
+
+                    b.Property<DateTimeOffset?>("PrimerAccesoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("primer_acceso_en");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3512,6 +3766,9 @@ namespace Millet.Identidad.Infrastructure.Migrations
                     b.HasIndex("EntraOid")
                         .IsUnique()
                         .HasDatabaseName("ix_usuarios_entra_oid");
+
+                    b.HasIndex("EstadoAcceso")
+                        .HasDatabaseName("ix_usuarios_estado_acceso");
 
                     b.ToTable("usuarios", "identidad");
                 });
@@ -3754,6 +4011,70 @@ namespace Millet.Identidad.Infrastructure.Migrations
                     b.ToTable("usuario_servicio_permiso", "identidad");
                 });
 
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioSucursal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("Estatus")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estatus");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_usuario_sucursales");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_usuario_sucursales_empresa_id");
+
+                    b.HasIndex("SucursalId")
+                        .HasDatabaseName("ix_usuario_sucursales_sucursal_id");
+
+                    b.HasIndex("UsuarioId", "SucursalId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_usuario_sucursales_usuario_id_sucursal_id");
+
+                    b.ToTable("usuario_sucursales", "identidad");
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Audit.AuditLogEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3948,6 +4269,30 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_usuario_servicio_permiso_usuario_servicio_usuario_servicio_");
+                });
+
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioSucursal", b =>
+                {
+                    b.HasOne("Millet.Administracion.Domain.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_sucursales_empresas_empresa_id");
+
+                    b.HasOne("Millet.Administracion.Domain.Sucursal", null)
+                        .WithMany()
+                        .HasForeignKey("SucursalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_sucursales_sucursales_sucursal_id");
+
+                    b.HasOne("Millet.Identidad.Domain.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_sucursales_usuarios_usuario_id");
                 });
 #pragma warning restore 612, 618
         }

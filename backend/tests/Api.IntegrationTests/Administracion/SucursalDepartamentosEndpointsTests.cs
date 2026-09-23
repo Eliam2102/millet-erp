@@ -2,7 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Administracion.Domain;
+using Millet.Compartido.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
@@ -68,6 +73,45 @@ public class SucursalDepartamentosEndpointsTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task Asignar_Departamento_De_OtraEmpresa_Retorna_409()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursalId = await CrearSucursalAsync(client);
+        var otraEmpresa = await client.PostAsJsonAsync(EmpresasBase, new
+        {
+            Id = Guid.Empty,
+            Rfc = ("TST" + Guid.NewGuid().ToString("N"))[..13].ToUpperInvariant(),
+            RazonSocial = "Empresa ficticia para departamento ajeno",
+            RegimenFiscal = "601",
+        });
+        otraEmpresa.EnsureSuccessStatusCode();
+        var otraEmpresaId = (await ReadJsonAsync(otraEmpresa)).GetProperty("id").GetGuid();
+        Guid departamentoId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
+            using var bypass = empresaContext.Bypass();
+            departamentoId = Guid.CreateVersion7();
+            db.Departamentos.Add(new Departamento(
+                departamentoId,
+                otraEmpresaId,
+                RandomClave("OTRA"),
+                "Departamento de otra empresa"));
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsync(
+            $"{EmpresasBase}/sucursales/{sucursalId}/departamentos/{departamentoId}",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.Equal("RELACION_INVALIDA", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Asignar_A_Sucursal_Inexistente_Retorna_404()
     {
         var client = await CreateSuperAdminClientAsync();
@@ -121,6 +165,41 @@ public class SucursalDepartamentosEndpointsTests : IClassFixture<WebApplicationF
             $"{EmpresasBase}/sucursales/{Guid.NewGuid()}/departamentos");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Listar_No_Filtra_Fuga_De_Datos_Entre_Sucursales()
+    {
+        // Aislamiento cross-sucursal: el listado de la sucursal A no debe
+        // incluir departamentos asignados solo a la sucursal B, aunque
+        // ambas pertenezcan a la misma empresa (F1-ADM-01 Fase 4).
+        var client = await CreateSuperAdminClientAsync();
+        var sucursalA = await CrearSucursalAsync(client, "SXD-A");
+        var sucursalB = await CrearSucursalAsync(client, "SXD-B");
+        var deptoA = await CrearDepartamentoAsync(client, "DXS-A");
+        var deptoB = await CrearDepartamentoAsync(client, "DXS-B");
+        await AsignarAsync(client, sucursalA, deptoA);
+        await AsignarAsync(client, sucursalB, deptoB);
+
+        var respuestaA = await client.GetAsync($"{EmpresasBase}/sucursales/{sucursalA}/departamentos");
+        var respuestaB = await client.GetAsync($"{EmpresasBase}/sucursales/{sucursalB}/departamentos");
+
+        Assert.Equal(HttpStatusCode.OK, respuestaA.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, respuestaB.StatusCode);
+        var bodyA = await ReadJsonAsync(respuestaA);
+        var bodyB = await ReadJsonAsync(respuestaB);
+
+        var idsA = bodyA.GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("departamentoId").GetGuid())
+            .ToList();
+        var idsB = bodyB.GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("departamentoId").GetGuid())
+            .ToList();
+
+        Assert.Contains(deptoA, idsA);
+        Assert.DoesNotContain(deptoB, idsA);
+        Assert.Contains(deptoB, idsB);
+        Assert.DoesNotContain(deptoA, idsB);
     }
 
     [Fact]

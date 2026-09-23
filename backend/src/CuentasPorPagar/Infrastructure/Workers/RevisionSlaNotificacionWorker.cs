@@ -97,6 +97,8 @@ public sealed class RevisionSlaNotificacionWorker : BackgroundService
         var clock = sp.GetRequiredService<IClock>();
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(RevisionSlaNotificacionWorker));
         using var bypass = empresaContext.Bypass();
 
         // Cargo facturas en revisión + su motivo (para conocer SlaDias).

@@ -160,7 +160,7 @@ public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var body = await ReadJsonAsync(response);
         Assert.NotEqual(Guid.Empty, body.GetProperty("id").GetGuid());
         Assert.Equal(email, body.GetProperty("email").GetString());
-        Assert.Equal($"dev-{email}", body.GetProperty("entraOid").GetString());
+        Assert.Equal($"pending:{email}", body.GetProperty("entraOid").GetString());
         Assert.True(body.GetProperty("activo").GetBoolean());
     }
 
@@ -256,20 +256,7 @@ public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         // El bootstrap garantiza un super-admin con asignación. Localizarlo
         // por su EntraOid conocido ("dev-superadmin").
-        var adminList = await client.GetAsync($"{UsuariosEndpoint}/admin?limit=200");
-        adminList.EnsureSuccessStatusCode();
-        var body = await ReadJsonAsync(adminList);
-
-        Guid? superAdminId = null;
-        foreach (var item in body.GetProperty("items").EnumerateArray())
-        {
-            if (item.GetProperty("entraOid").GetString() == SuperAdminOid)
-            {
-                superAdminId = item.GetProperty("id").GetGuid();
-                break;
-            }
-        }
-        Assert.NotNull(superAdminId);
+        var superAdminId = await LocalizarUsuarioSuperAdminAsync(client);
 
         var resp = await client.PostAsync(
             $"{UsuariosEndpoint}/{superAdminId}/desactivar", content: null);
@@ -356,19 +343,7 @@ public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var client = await CreateSuperAdminClientAsync();
 
         // Localizar la asignación super-admin del bootstrap.
-        var adminList = await client.GetAsync($"{UsuariosEndpoint}/admin?limit=200");
-        adminList.EnsureSuccessStatusCode();
-        var body = await ReadJsonAsync(adminList);
-        Guid? superAdminUserId = null;
-        foreach (var item in body.GetProperty("items").EnumerateArray())
-        {
-            if (item.GetProperty("entraOid").GetString() == SuperAdminOid)
-            {
-                superAdminUserId = item.GetProperty("id").GetGuid();
-                break;
-            }
-        }
-        Assert.NotNull(superAdminUserId);
+        var superAdminUserId = await LocalizarUsuarioSuperAdminAsync(client);
 
         var detalle = await client.GetAsync($"{UsuariosEndpoint}/{superAdminUserId}");
         detalle.EnsureSuccessStatusCode();
@@ -427,6 +402,42 @@ public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     /// super-admin". Usa la primera empresa del bootstrap y un rol del
     /// catálogo MVP distinto al super-admin.
     /// </summary>
+    private static async Task<Guid> LocalizarUsuarioSuperAdminAsync(HttpClient client)
+    {
+        // Filtrar por el rol super-admin: la BD de dev compartida acumula
+        // usuarios de corridas previas y el listado topa en 200 por página,
+        // así que buscar el EntraOid en la primera página sin filtro deja de
+        // encontrarlo en cuanto hay más de 200 usuarios.
+        var rolesResp = await client.GetAsync("/api/v1/identidad/roles?limit=200");
+        rolesResp.EnsureSuccessStatusCode();
+        var rolesBody = await ReadJsonAsync(rolesResp);
+        Guid? superAdminRolId = null;
+        foreach (var r in rolesBody.GetProperty("items").EnumerateArray())
+        {
+            if (r.GetProperty("codigo").GetString() == "super-admin")
+            {
+                superAdminRolId = r.GetProperty("id").GetGuid();
+                break;
+            }
+        }
+        Assert.NotNull(superAdminRolId);
+
+        var adminList = await client.GetAsync(
+            $"{UsuariosEndpoint}/admin?rolId={superAdminRolId}&limit=200");
+        adminList.EnsureSuccessStatusCode();
+        var body = await ReadJsonAsync(adminList);
+        foreach (var item in body.GetProperty("items").EnumerateArray())
+        {
+            if (item.GetProperty("entraOid").GetString() == SuperAdminOid)
+            {
+                return item.GetProperty("id").GetGuid();
+            }
+        }
+
+        Assert.Fail($"No se encontró el usuario super-admin ({SuperAdminOid}).");
+        return Guid.Empty;
+    }
+
     private static async Task<(Guid EmpresaId, Guid RolId)> LocalizarEmpresaYRolNoSuperAdminAsync(
         HttpClient client)
     {

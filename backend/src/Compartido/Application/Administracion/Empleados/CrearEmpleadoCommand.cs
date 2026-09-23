@@ -25,7 +25,8 @@ public sealed record CrearEmpleadoCommand(
     Guid? SucursalId = null,
     Guid? DepartamentoId = null,
     Guid? UsuarioId = null,
-    string? CodigoNomina = null) : IRequest<EmpleadoResponse>;
+    string? CodigoNomina = null,
+    string? EmailContacto = null) : IRequest<EmpleadoResponse>;
 
 public sealed class CrearEmpleadoValidator : AbstractValidator<CrearEmpleadoCommand>
 {
@@ -71,13 +72,21 @@ public sealed class CrearEmpleadoHandler
         }
 
         if (command.PuestoId is Guid puestoId)
-            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, command.EmpresaId, cancellationToken);
         if (command.JefeDirectoId is Guid jefeId)
             await ValidacionesEmpleado.ValidarJefeDirectoAsync(_db, jefeId, command.EmpresaId, cancellationToken);
         if (command.SucursalId is Guid sucursalId)
-            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, cancellationToken);
+            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, command.EmpresaId, cancellationToken);
         if (command.DepartamentoId is Guid departamentoId)
-            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, command.EmpresaId, cancellationToken);
+
+        if (command.SucursalId is Guid sucursalValida)
+        {
+            if (command.DepartamentoId is Guid deptoValido)
+                await ValidacionesEmpleado.ValidarDepartamentoDeSucursalAsync(_db, sucursalValida, deptoValido, cancellationToken);
+            if (command.PuestoId is Guid puestoValido)
+                await ValidacionesEmpleado.ValidarPuestoDeSucursalAsync(_db, sucursalValida, puestoValido, command.DepartamentoId, cancellationToken);
+        }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
         var empleado = new Empleado(
@@ -91,7 +100,8 @@ public sealed class CrearEmpleadoHandler
             sucursalId: command.SucursalId,
             departamentoId: command.DepartamentoId,
             usuarioId: command.UsuarioId,
-            codigoNomina: command.CodigoNomina);
+            codigoNomina: command.CodigoNomina,
+            emailContacto: command.EmailContacto);
 
         _db.Empleados.Add(empleado);
         await _db.SaveChangesAsync(cancellationToken);

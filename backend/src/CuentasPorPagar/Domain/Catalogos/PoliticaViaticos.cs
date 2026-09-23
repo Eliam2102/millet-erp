@@ -17,7 +17,7 @@ namespace Millet.CuentasPorPagar.Domain.Catalogos;
 /// EF Core.
 /// </para>
 /// </summary>
-public sealed class PoliticaViaticos : BaseEntity, IPerteneceAEmpresa
+public sealed class PoliticaViaticos : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid PuestoId { get; private set; }

@@ -9,6 +9,7 @@ using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Facturacion.Infrastructure.Workers;
 using Millet.Facturacion.UnitTests.TestDoubles;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Facturacion.UnitTests.Ingesta;
 
@@ -91,6 +92,7 @@ public sealed class WriteBackTests
         var services = new ServiceCollection();
         var fake = new FakeAwWriteBackPort();
         services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(EmpresaId));
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         services.AddDbContext<FacturacionDbContext>(o => o.UseInMemoryDatabase(dbName));
         services.AddSingleton<IAwWriteBackPort>(port ?? fake);
         services.AddSingleton<IClock>(new FakeClock(Ahora));

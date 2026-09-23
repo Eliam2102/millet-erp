@@ -25,7 +25,7 @@ namespace Millet.Tesoreria.Domain.Depositos;
 /// cubrió el cobro de caja).
 /// </para>
 /// </summary>
-public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa
+public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

@@ -23,6 +23,7 @@ import {
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { UsuarioDatosForm } from '@/modules/identidad/components/UsuarioDatosForm';
 import { RolesPorEmpresaPanel } from '@/modules/identidad/components/RolesPorEmpresaPanel';
 import { PreferenciasPanel } from '@/modules/identidad/components/PreferenciasPanel';
@@ -69,6 +70,9 @@ export function UsuarioDetalle() {
   const idempotencyKey = useFormIdempotencyKey();
   const desactivar = useDesactivarUsuario();
   const reactivar = useReactivarUsuario();
+  const currentUserId = useAuthStore((s) => s.user?.id);
+  const esUsuarioActual =
+    currentUserId != null && currentUserId === usuarioQuery.data?.usuario.id;
 
   if (usuarioQuery.isError) {
     const problem = esApiError(usuarioQuery.error)
@@ -91,6 +95,12 @@ export function UsuarioDetalle() {
   const { usuario, asignaciones } = usuarioQuery.data;
 
   function handleConfirmarDesactivar() {
+    if (esUsuarioActual) {
+      toast.error('No puedes desactivar tu propia cuenta activa.');
+      setConfirmDesactivar(false);
+      return;
+    }
+
     desactivar.mutate(
       { id: usuario.id, idempotencyKey },
       {
@@ -167,6 +177,12 @@ export function UsuarioDetalle() {
               type="button"
               variant="ghost"
               size="sm"
+              disabled={esUsuarioActual || desactivar.isPending}
+              title={
+                esUsuarioActual
+                  ? 'No puedes desactivar tu propia cuenta activa'
+                  : undefined
+              }
               onClick={() => setConfirmDesactivar(true)}
             >
               <PowerOff className="mr-1.5 h-4 w-4" />
@@ -280,7 +296,7 @@ export function UsuarioDetalle() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmarDesactivar}
-              disabled={desactivar.isPending}
+              disabled={desactivar.isPending || esUsuarioActual}
             >
               {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
             </AlertDialogAction>

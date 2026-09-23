@@ -148,6 +148,8 @@ public sealed class CxpEventListenerWorker : BackgroundService
             var sp = scope.ServiceProvider;
             var db = sp.GetRequiredService<AlmacenDbContext>();
             var mediator = sp.GetRequiredService<IMediator>();
+            var originContext = sp.GetRequiredService<IAuditOriginContext>();
+            using var origin = originContext.SetOrigin(nameof(CxpEventListenerWorker));
             var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
 

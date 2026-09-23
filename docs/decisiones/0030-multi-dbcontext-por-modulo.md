@@ -219,3 +219,13 @@ throughput issue post-launch.
 `EditarCabeceraRequisicionHandler` **no se toca** — su comando no acepta
 `SucursalId`/`DepartamentoId`/`AlmacenDestinoId` (campos inmutables tras
 crear). Si la decisión de inmutabilidad cambia, requiere PR propio.
+
+### 2026-09-23 — Excepción: alta de colaborador (ADR-0052)
+
+El ciclo de vida del colaborador (alta, "dar acceso", baja y reactivación
+de Empleado + Usuario) usa una **transacción compartida** entre
+`IdentidadDbContext` y `CompartidoDbContext`, encapsulada en
+`TransaccionColaborador`. Es una excepción acotada, con condiciones
+(misma cadena de conexión, solo esos dos contextos, nada externo dentro de
+la transacción). Ver [ADR-0052](./0052-transaccion-compartida-alta-colaborador.md).
+La regla general de este ADR no cambia.

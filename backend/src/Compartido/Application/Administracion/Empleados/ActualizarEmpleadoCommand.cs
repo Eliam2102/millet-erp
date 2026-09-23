@@ -81,13 +81,25 @@ public sealed class ActualizarEmpleadoHandler
                 $"No existe empleado con id '{command.Id}'.");
 
         if (command.PuestoId is Guid puestoId)
-            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, empleado.EmpresaId, cancellationToken);
         if (command.JefeDirectoId is Guid jefeId)
             await ValidacionesEmpleado.ValidarJefeDirectoAsync(_db, jefeId, empleado.EmpresaId, cancellationToken);
         if (command.SucursalId is Guid sucursalId)
-            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, cancellationToken);
+            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, empleado.EmpresaId, cancellationToken);
         if (command.DepartamentoId is Guid departamentoId)
-            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, empleado.EmpresaId, cancellationToken);
+
+        var sucursalEfectiva = command.LimpiarSucursal ? null : (command.SucursalId ?? empleado.SucursalId);
+        var deptoEfectivo = command.LimpiarDepartamento ? null : (command.DepartamentoId ?? empleado.DepartamentoId);
+        var puestoEfectivo = command.LimpiarPuesto ? null : (command.PuestoId ?? empleado.PuestoId);
+
+        if (sucursalEfectiva is Guid sucursalValida)
+        {
+            if (deptoEfectivo is Guid deptoValido)
+                await ValidacionesEmpleado.ValidarDepartamentoDeSucursalAsync(_db, sucursalValida, deptoValido, cancellationToken);
+            if (puestoEfectivo is Guid puestoValido)
+                await ValidacionesEmpleado.ValidarPuestoDeSucursalAsync(_db, sucursalValida, puestoValido, deptoEfectivo, cancellationToken);
+        }
 
         empleado.ActualizarDatos(
             nombre: command.Nombre,

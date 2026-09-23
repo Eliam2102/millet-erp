@@ -8,9 +8,32 @@ namespace Millet.Administracion.Domain;
 /// (catálogo global, multi-tenant lógico). Cada fila representa un
 /// tenant lógico al que otras entidades hacen FK vía <c>empresa_id</c>.
 /// Ver ADR-0011 y 01-diseno §4.2 del módulo Administración.
+///
+/// <para>
+/// <see cref="Empresa"/> es la RAÍZ del tenant — no implementa
+/// <see cref="IPerteneceAEmpresa"/> (no pertenece a sí misma). F1-ADM-01
+/// agrega <see cref="EmpresaPadreId"/> para modelar jerarquías simples de
+/// máximo 2 niveles (raíz + hijas): una empresa que ya tiene padre no
+/// puede a su vez ser padre de otra. Ver <see cref="AsignarEmpresaPadre"/>.
+/// </para>
 /// </summary>
 public sealed class Empresa : BaseEntity, IAuditable
 {
+    /// <summary>
+    /// Business key corta, única global (F1-ADM-01). Formato libre
+    /// razonable (sin espacios, máx 20 caracteres) — Millet la validará
+    /// en Fase 2/UI; hoy solo se enforce el shape mínimo.
+    /// </summary>
+    public string Clave { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// FK autorreferencial opcional. <c>null</c> = empresa raíz. Cuando
+    /// tiene valor, la empresa referenciada por <see cref="EmpresaPadreId"/>
+    /// debe ser ella misma una raíz (profundidad máxima 2 niveles) — ver
+    /// <see cref="AsignarEmpresaPadre"/>.
+    /// </summary>
+    public Guid? EmpresaPadreId { get; private set; }
+
     public string Rfc { get; private set; } = string.Empty;
 
     public string RazonSocial { get; private set; } = string.Empty;
@@ -28,6 +51,17 @@ public sealed class Empresa : BaseEntity, IAuditable
     /// </summary>
     public decimal? TasaIvaDefault { get; private set; }
 
+    // --- Domicilio fiscal estructurado (F1-ADM-01) ---
+    // CodigoPostal ya existía (LugarExpedicion del CFDI); el resto es nuevo.
+    public string Calle { get; private set; } = string.Empty;
+    public string NumeroExterior { get; private set; } = string.Empty;
+    public string? NumeroInterior { get; private set; }
+    public string Colonia { get; private set; } = string.Empty;
+    public string Ciudad { get; private set; } = string.Empty;
+    public string Municipio { get; private set; } = string.Empty;
+    public string Estado { get; private set; } = string.Empty;
+    public string Pais { get; private set; } = string.Empty;
+
     /// <summary>
     /// Código postal fiscal de la empresa (domicilio fiscal SAT). Es el
     /// <c>LugarExpedicion</c> del CFDI 4.0 (obligatorio para timbrar,
@@ -36,32 +70,85 @@ public sealed class Empresa : BaseEntity, IAuditable
     /// </summary>
     public string? CodigoPostal { get; private set; }
 
+    /// <summary>
+    /// FK opcional a <see cref="Catalogos.Domain.Moneda"/> (moneda operativa
+    /// default de la empresa). <c>null</c> = sin default configurado
+    /// (F1-ADM-01; sin FK física de navegación, solo el Guid — mismo patrón
+    /// del resto del dominio).
+    /// </summary>
+    public Guid? MonedaId { get; private set; }
+
     public bool Activa { get; private set; } = true;
 
     private Empresa() { } // EF Core
 
-    public Empresa(Guid id, string rfc, string razonSocial, string regimenFiscal, string? nombreComercial = null)
+    public Empresa(
+        Guid id,
+        string clave,
+        string rfc,
+        string razonSocial,
+        string regimenFiscal,
+        string calle,
+        string numeroExterior,
+        string colonia,
+        string ciudad,
+        string municipio,
+        string estado,
+        string pais,
+        string? numeroInterior = null,
+        string? nombreComercial = null,
+        Guid? empresaPadreId = null,
+        bool empresaPadreEsRaiz = true,
+        Guid? monedaId = null,
+        decimal? tasaIvaDefault = null,
+        string? codigoPostal = null)
         : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("EMPRESA_ID_INVALIDO", "El id es obligatorio.");
+        ValidarClave(clave);
         ValidarRfc(rfc);
         ValidarRazonSocial(razonSocial);
         ValidarRegimenFiscal(regimenFiscal);
         ValidarNombreComercial(nombreComercial);
+        ValidarJerarquia(id, empresaPadreId, empresaPadreEsRaiz);
+        ValidarCalle(calle);
+        ValidarNumeroExterior(numeroExterior);
+        ValidarNumeroInterior(numeroInterior);
+        ValidarColonia(colonia);
+        ValidarCiudad(ciudad);
+        ValidarMunicipio(municipio);
+        ValidarEstado(estado);
+        ValidarPais(pais);
+        if (codigoPostal is not null) ValidarCodigoPostal(codigoPostal);
+        if (tasaIvaDefault is not null) ValidarTasaIvaDefault(tasaIvaDefault.Value);
 
+        Clave = clave;
+        EmpresaPadreId = empresaPadreId;
         Rfc = rfc;
         RazonSocial = razonSocial;
         RegimenFiscal = regimenFiscal;
         NombreComercial = nombreComercial;
+        Calle = calle;
+        NumeroExterior = numeroExterior;
+        NumeroInterior = numeroInterior;
+        Colonia = colonia;
+        Ciudad = ciudad;
+        Municipio = municipio;
+        Estado = estado;
+        Pais = pais;
+        CodigoPostal = codigoPostal;
+        MonedaId = monedaId;
+        TasaIvaDefault = tasaIvaDefault;
     }
 
     /// <summary>
     /// PATCH parcial sobre los campos editables de la empresa
     /// (F-Admin-PR2.1). Convención: parámetro <c>null</c> = no tocar;
     /// flag <c>limpiarX = true</c> = setear nullable a null. Inmutables:
-    /// <see cref="BaseEntity.Id"/> y <see cref="Rfc"/> (RFC es business
-    /// key fiscal — cambios reales requieren alta nueva por SAT).
+    /// <see cref="BaseEntity.Id"/>, <see cref="Rfc"/> (RFC es business
+    /// key fiscal — cambios reales requieren alta nueva por SAT) y
+    /// <see cref="Clave"/> (business key interna).
     /// </summary>
     public void ActualizarDatos(
         string? razonSocial = null,
@@ -70,7 +157,18 @@ public sealed class Empresa : BaseEntity, IAuditable
         bool limpiarNombreComercial = false,
         decimal? tasaIvaDefault = null,
         bool limpiarTasaIvaDefault = false,
-        string? codigoPostal = null)
+        string? codigoPostal = null,
+        string? calle = null,
+        string? numeroExterior = null,
+        string? numeroInterior = null,
+        bool limpiarNumeroInterior = false,
+        string? colonia = null,
+        string? ciudad = null,
+        string? municipio = null,
+        string? estado = null,
+        string? pais = null,
+        Guid? monedaId = null,
+        bool limpiarMoneda = false)
     {
         if (razonSocial is not null)
         {
@@ -105,6 +203,80 @@ public sealed class Empresa : BaseEntity, IAuditable
             ValidarCodigoPostal(codigoPostal);
             CodigoPostal = codigoPostal;
         }
+        if (calle is not null)
+        {
+            ValidarCalle(calle);
+            Calle = calle;
+        }
+        if (numeroExterior is not null)
+        {
+            ValidarNumeroExterior(numeroExterior);
+            NumeroExterior = numeroExterior;
+        }
+        if (limpiarNumeroInterior)
+        {
+            NumeroInterior = null;
+        }
+        else if (numeroInterior is not null)
+        {
+            ValidarNumeroInterior(numeroInterior);
+            NumeroInterior = numeroInterior;
+        }
+        if (colonia is not null)
+        {
+            ValidarColonia(colonia);
+            Colonia = colonia;
+        }
+        if (ciudad is not null)
+        {
+            ValidarCiudad(ciudad);
+            Ciudad = ciudad;
+        }
+        if (municipio is not null)
+        {
+            ValidarMunicipio(municipio);
+            Municipio = municipio;
+        }
+        if (estado is not null)
+        {
+            ValidarEstado(estado);
+            Estado = estado;
+        }
+        if (pais is not null)
+        {
+            ValidarPais(pais);
+            Pais = pais;
+        }
+        if (limpiarMoneda)
+        {
+            MonedaId = null;
+        }
+        else if (monedaId is not null)
+        {
+            MonedaId = monedaId;
+        }
+    }
+
+    /// <summary>
+    /// Asigna (o limpia) la empresa padre. Invariantes:
+    /// <list type="bullet">
+    ///   <item>Auto-referencia trivial: <paramref name="empresaPadreId"/>
+    ///         no puede ser el propio <see cref="BaseEntity.Id"/>. Se
+    ///         verifica aquí sin necesidad de I/O.</item>
+    ///   <item>Profundidad máxima 2 niveles (raíz + hijas): la empresa
+    ///         padre candidata NO puede a su vez tener padre. Esto es un
+    ///         dato cross-entity que este método no puede resolver por sí
+    ///         mismo — el caller (handler de Fase 2, p.ej.
+    ///         <c>CrearEmpresaCommand</c> / <c>ActualizarEmpresaCommand</c>)
+    ///         debe consultar la empresa padre candidata y pasar
+    ///         <paramref name="padreEsRaiz"/> = <c>true</c> solo si esa
+    ///         empresa tiene <c>EmpresaPadreId == null</c>.</item>
+    /// </list>
+    /// </summary>
+    public void AsignarEmpresaPadre(Guid? empresaPadreId, bool padreEsRaiz = true)
+    {
+        ValidarJerarquia(Id, empresaPadreId, padreEsRaiz);
+        EmpresaPadreId = empresaPadreId;
     }
 
     /// <summary>
@@ -121,6 +293,30 @@ public sealed class Empresa : BaseEntity, IAuditable
     /// transición de estado idempotente.
     /// </summary>
     public void Desactivar() => Activa = false;
+
+    private static void ValidarClave(string clave)
+    {
+        if (string.IsNullOrWhiteSpace(clave) || clave.Length > 20)
+            throw new BusinessRuleException("EMPRESA_CLAVE_INVALIDA",
+                "La clave es requerida y no puede exceder 20 caracteres.");
+        if (clave.Any(char.IsWhiteSpace))
+            throw new BusinessRuleException("EMPRESA_CLAVE_INVALIDA",
+                "La clave no puede contener espacios.");
+    }
+
+    private static void ValidarJerarquia(Guid id, Guid? empresaPadreId, bool padreEsRaiz)
+    {
+        if (empresaPadreId is null) return;
+
+        if (empresaPadreId == id)
+            throw new BusinessRuleException("EMPRESA_PADRE_AUTOREFERENCIA",
+                "Una empresa no puede ser su propia empresa padre.");
+
+        if (!padreEsRaiz)
+            throw new BusinessRuleException("EMPRESA_JERARQUIA_PROFUNDIDAD_EXCEDIDA",
+                "La empresa padre ya tiene, a su vez, una empresa padre. " +
+                "La jerarquía admite máximo 2 niveles (raíz + hijas).");
+    }
 
     private static void ValidarRfc(string rfc)
     {
@@ -162,5 +358,61 @@ public sealed class Empresa : BaseEntity, IAuditable
         if (nombreComercial is { Length: > 254 })
             throw new BusinessRuleException("EMPRESA_NOMBRE_COMERCIAL_INVALIDO",
                 "El nombre comercial no puede exceder 254 caracteres.");
+    }
+
+    private static void ValidarCalle(string calle)
+    {
+        if (string.IsNullOrWhiteSpace(calle) || calle.Length > 254)
+            throw new BusinessRuleException("EMPRESA_CALLE_INVALIDA",
+                "La calle es requerida y no puede exceder 254 caracteres.");
+    }
+
+    private static void ValidarNumeroExterior(string numeroExterior)
+    {
+        if (string.IsNullOrWhiteSpace(numeroExterior) || numeroExterior.Length > 20)
+            throw new BusinessRuleException("EMPRESA_NUMERO_EXTERIOR_INVALIDO",
+                "El número exterior es requerido y no puede exceder 20 caracteres.");
+    }
+
+    private static void ValidarNumeroInterior(string? numeroInterior)
+    {
+        if (numeroInterior is { Length: > 20 })
+            throw new BusinessRuleException("EMPRESA_NUMERO_INTERIOR_INVALIDO",
+                "El número interior no puede exceder 20 caracteres.");
+    }
+
+    private static void ValidarColonia(string colonia)
+    {
+        if (string.IsNullOrWhiteSpace(colonia) || colonia.Length > 254)
+            throw new BusinessRuleException("EMPRESA_COLONIA_INVALIDA",
+                "La colonia es requerida y no puede exceder 254 caracteres.");
+    }
+
+    private static void ValidarCiudad(string ciudad)
+    {
+        if (string.IsNullOrWhiteSpace(ciudad) || ciudad.Length > 100)
+            throw new BusinessRuleException("EMPRESA_CIUDAD_INVALIDA",
+                "La ciudad es requerida y no puede exceder 100 caracteres.");
+    }
+
+    private static void ValidarMunicipio(string municipio)
+    {
+        if (string.IsNullOrWhiteSpace(municipio) || municipio.Length > 100)
+            throw new BusinessRuleException("EMPRESA_MUNICIPIO_INVALIDO",
+                "El municipio es requerido y no puede exceder 100 caracteres.");
+    }
+
+    private static void ValidarEstado(string estado)
+    {
+        if (string.IsNullOrWhiteSpace(estado) || estado.Length > 100)
+            throw new BusinessRuleException("EMPRESA_ESTADO_INVALIDO",
+                "El estado es requerido y no puede exceder 100 caracteres.");
+    }
+
+    private static void ValidarPais(string pais)
+    {
+        if (string.IsNullOrWhiteSpace(pais) || pais.Length > 100)
+            throw new BusinessRuleException("EMPRESA_PAIS_INVALIDO",
+                "El país es requerido y no puede exceder 100 caracteres.");
     }
 }

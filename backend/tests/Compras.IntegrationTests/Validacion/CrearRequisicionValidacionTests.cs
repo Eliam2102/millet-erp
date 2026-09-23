@@ -49,6 +49,10 @@ public class CrearRequisicionValidacionTests : IClassFixture<WebApplicationFacto
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/compras/requisiciones";
 
+    // Empresa raíz de bootstrap (BootstrapSuperAdminHostedService.EmpresaInicialId):
+    // el SuperAdmin de dev queda asignado a esta empresa (F1-ADM-01).
+    private static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+
     private readonly WebApplicationFactory<Program> _factory;
 
     public CrearRequisicionValidacionTests(WebApplicationFactory<Program> factory)
@@ -121,6 +125,7 @@ public class CrearRequisicionValidacionTests : IClassFixture<WebApplicationFacto
 
         db.Departamentos.Add(new Departamento(
             id: deptoId,
+            empresaId: EmpresaBootstrapId,
             clave: clave,
             nombre: $"Depto sin asignación {random}"));
 

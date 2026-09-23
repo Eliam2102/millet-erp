@@ -128,6 +128,10 @@ export const PermisosCanonicos = {
   // Gobierna el Sheet "Gestionar departamentos" del SucursalesPanel.
   AdminSucursalesDepartamentosGestionar:
     'admin.sucursales.departamentos-gestionar',
+  // F1-ADM-01 Fase 2/3: análogos exactos para Puestos y Usuarios por
+  // sucursal. Gobiernan las tabs Puestos/Usuarios de SucursalDetalle.
+  AdminSucursalesPuestosGestionar: 'admin.sucursales.puestos-gestionar',
+  AdminSucursalesUsuariosGestionar: 'admin.sucursales.usuarios-gestionar',
   AdminAuditoriaLeer: 'admin.auditoria.leer',
   // ADM-FE-PR1 (doc 10-catalogo-puestos-empleados): master de puestos y
   // empleados — habilitador de reglas de viáticos por puesto.

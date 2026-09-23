@@ -1,8 +1,8 @@
 namespace Millet.Api.Auth.Models;
 
 /// <summary>
-/// Body de <c>POST /api/dev/fake-login</c> (compilación condicional
-/// <c>#if DEBUG</c>, ver ADR-0015). Permite simular un login sin Entra real.
+/// Body de <c>POST /api/dev/fake-login</c> (solo entorno Development, ver
+/// ADR-0015). Permite simular un login sin Entra real.
 ///
 /// <para>
 /// <see cref="EntraOid"/> identifica al usuario; si no existe en BD, el

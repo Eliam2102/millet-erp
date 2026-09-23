@@ -9,7 +9,7 @@ namespace Millet.Almacen.Domain.Conteos;
 /// al menos un recuento; la línea no se puede aprobar sin él. Cada
 /// recuento incrementa <see cref="Secuencia"/>.
 /// </summary>
-public sealed class RecuentoConteo : BaseEntity
+public sealed class RecuentoConteo : BaseEntity, IAuditable
 {
     public Guid LineaConteoId { get; private set; }
     public int Secuencia { get; private set; }

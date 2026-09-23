@@ -10,12 +10,15 @@ namespace Millet.Administracion.UnitTests.Domain;
 /// </summary>
 public class PuestoTests
 {
+    private static readonly Guid EmpresaId = Guid.CreateVersion7();
+
     private static Puesto Crear(
         string clave = "GER",
         string nombre = "Gerente",
         EstatusCatalogo estatus = EstatusCatalogo.Activo) =>
         new(
             id: Guid.CreateVersion7(),
+            empresaId: EmpresaId,
             clave: clave,
             nombre: nombre,
             estatus: estatus);
@@ -59,9 +62,17 @@ public class PuestoTests
     [Fact]
     public void Constructor_Should_Reject_EmptyId()
     {
-        var act = () => new Puesto(Guid.Empty, "GER", "Gerente");
+        var act = () => new Puesto(Guid.Empty, EmpresaId, "GER", "Gerente");
         act.Should().Throw<BusinessRuleException>()
             .Where(e => e.Code == "PUESTO_ID_INVALIDO");
+    }
+
+    [Fact]
+    public void Constructor_Should_Reject_EmptyEmpresaId()
+    {
+        var act = () => new Puesto(Guid.CreateVersion7(), Guid.Empty, "GER", "Gerente");
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "PUESTO_EMPRESA_INVALIDA");
     }
 
     [Fact]
@@ -78,6 +89,30 @@ public class PuestoTests
         var puesto = Crear(nombre: "Original");
         puesto.ActualizarDatos(nombre: null);
         puesto.Nombre.Should().Be("Original");
+    }
+
+    [Fact]
+    public void Constructor_Should_Set_RolSugeridoId()
+    {
+        var rolId = Guid.CreateVersion7();
+        var puesto = new Puesto(Guid.CreateVersion7(), EmpresaId, "PST-ROL", "Puesto Rol", rolSugeridoId: rolId);
+        puesto.RolSugeridoId.Should().Be(rolId);
+    }
+
+    [Fact]
+    public void ActualizarDatos_Should_Update_And_Clean_RolSugeridoId()
+    {
+        var rolId1 = Guid.CreateVersion7();
+        var rolId2 = Guid.CreateVersion7();
+        var puesto = new Puesto(Guid.CreateVersion7(), EmpresaId, "PST-ROL", "Puesto Rol", rolSugeridoId: rolId1);
+
+        // Actualizar a rolId2
+        puesto.ActualizarDatos(rolSugeridoId: rolId2);
+        puesto.RolSugeridoId.Should().Be(rolId2);
+
+        // Limpiar rol sugerido
+        puesto.ActualizarDatos(limpiarRolSugerido: true);
+        puesto.RolSugeridoId.Should().BeNull();
     }
 
     [Fact]

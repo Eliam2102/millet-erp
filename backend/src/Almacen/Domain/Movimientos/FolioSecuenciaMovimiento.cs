@@ -15,8 +15,15 @@ namespace Millet.Almacen.Domain.Movimientos;
 /// año siguiente — el handler hace upsert (`ON CONFLICT (prefijo, año)
 /// DO UPDATE SET ultimo_numero = ultimo_numero + 1`).
 /// </para>
+///
+/// <para>
+/// Marcada <see cref="INotAudited"/>: es un contador técnico (ruido de
+/// tabla operativa, ADR-0008 Capa 4) — el número consecutivo en sí no
+/// aporta valor de negocio; el movimiento que lo consume ya queda
+/// auditado como <see cref="MovimientoInventario"/>.
+/// </para>
 /// </summary>
-public sealed class FolioSecuenciaMovimiento : BaseEntity
+public sealed class FolioSecuenciaMovimiento : BaseEntity, INotAudited
 {
     public string Prefijo { get; private set; } = string.Empty;
     public int Anio { get; private set; }

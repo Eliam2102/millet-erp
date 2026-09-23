@@ -51,15 +51,20 @@ public class OrganizacionEndpointsTests : IClassFixture<WebApplicationFactory<Pr
     public async Task ListarSucursales_Con_Permiso_Retorna_Las_3_Seedeadas()
     {
         var client = await CreateSuperAdminClientAsync();
-        var response = await client.GetAsync("/api/v1/catalogos/sucursales");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await ReadJsonAsync(response);
-        var items = json.GetProperty("items");
-        var claves = items.EnumerateArray().Select(s => s.GetProperty("clave").GetString()).ToList();
-        Assert.Contains("MID", claves);
-        Assert.Contains("MTY", claves);
-        Assert.Contains("QRO", claves);
+        // Se consulta cada seed por su clave (`q`): la BD de dev compartida
+        // acumula sucursales creadas por otras pruebas y las seedeadas pueden
+        // quedar fuera de la primera página del listado sin filtro.
+        foreach (var clave in new[] { "MID", "MTY", "QRO" })
+        {
+            var response = await client.GetAsync($"/api/v1/catalogos/sucursales?q={clave}");
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await ReadJsonAsync(response);
+            var claves = json.GetProperty("items").EnumerateArray()
+                .Select(s => s.GetProperty("clave").GetString()).ToList();
+            Assert.Contains(clave, claves);
+        }
     }
 
     [Fact]
@@ -80,17 +85,21 @@ public class OrganizacionEndpointsTests : IClassFixture<WebApplicationFactory<Pr
     public async Task ListarDepartamentos_Con_Permiso_Retorna_Los_5_Seedeados()
     {
         var client = await CreateSuperAdminClientAsync();
-        var response = await client.GetAsync("/api/v1/catalogos/departamentos");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await ReadJsonAsync(response);
-        var items = json.GetProperty("items");
-        var claves = items.EnumerateArray().Select(d => d.GetProperty("clave").GetString()).ToList();
-        Assert.Contains("COMPRAS", claves);
-        Assert.Contains("ALMACEN", claves);
-        Assert.Contains("MTTO", claves);
-        Assert.Contains("ING", claves);
-        Assert.Contains("CAL", claves);
+        // Se busca cada clave sembrada con ?q=: la BD de dev acumula
+        // departamentos de otras pruebas que ordenan antes y sacaban a los
+        // sembrados de la primera página.
+        foreach (var clave in new[] { "COMPRAS", "ALMACEN", "MTTO", "ING", "CAL" })
+        {
+            var response = await client.GetAsync($"/api/v1/catalogos/departamentos?q={clave}&limit=200");
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await ReadJsonAsync(response);
+            var claves = json.GetProperty("items").EnumerateArray()
+                .Select(d => d.GetProperty("clave").GetString())
+                .ToList();
+            Assert.Contains(clave, claves);
+        }
     }
 
     // --- Almacenes ---
@@ -125,22 +134,28 @@ public class OrganizacionEndpointsTests : IClassFixture<WebApplicationFactory<Pr
 
     // --- Helpers ---
 
+    // Empresa donde viven los catálogos sembrados. Sin fijarla, el login cae
+    // en la primera empresa del super-admin, y la BD de dev acumula empresas
+    // de prueba a las que otras suites lo asignan.
+    private static readonly Guid EmpresaSeedId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {
         var client = _factory.CreateClientWithIdempotency();
-        var token = await FakeLoginAsync(client, SuperAdminOid, "superadmin@dev.local", "Super Admin Dev");
+        var token = await FakeLoginAsync(client, SuperAdminOid, "superadmin@dev.local", "Super Admin Dev", EmpresaSeedId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
 
-    private static async Task<string> FakeLoginAsync(HttpClient client, string oid, string email, string nombre)
+    private static async Task<string> FakeLoginAsync(
+        HttpClient client, string oid, string email, string nombre, Guid? empresaId = null)
     {
         var response = await client.PostAsJsonAsync("/api/dev/fake-login", new
         {
             EntraOid = oid,
             Email = email,
             Nombre = nombre,
-            EmpresaId = (Guid?)null,
+            EmpresaId = empresaId,
         });
         response.EnsureSuccessStatusCode();
         var stream = await response.Content.ReadAsStreamAsync();

@@ -12,9 +12,8 @@ public enum AuthMode
 
     /// <summary>
     /// Desarrollo local: el backend acepta JWTs firmados con clave simétrica
-    /// conocida y expone <c>POST /api/dev/fake-login</c>. Compilación
-    /// condicional + validación en arranque garantizan que NUNCA llegue a
-    /// QA o Producción.
+    /// conocida y expone <c>POST /api/dev/fake-login</c>. La validación de entorno
+    /// garantiza que nunca esté disponible en QA o Producción.
     /// </summary>
     FakeForLocalDev = 1,
 }

@@ -21,7 +21,7 @@ namespace Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 /// BaseDbContext aplica empresa + soft-delete automáticamente.
 /// </para>
 /// </summary>
-public sealed class ComprobacionGastos : BaseEntity, IPerteneceAEmpresa
+public sealed class ComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

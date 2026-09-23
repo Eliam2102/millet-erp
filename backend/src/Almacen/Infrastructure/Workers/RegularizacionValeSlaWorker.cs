@@ -90,6 +90,8 @@ public sealed class RegularizacionValeSlaWorker : BackgroundService
         var sp = scope.ServiceProvider;
         var db = sp.GetRequiredService<AlmacenDbContext>();
         var notif = sp.GetRequiredService<INotificacionService>();
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(RegularizacionValeSlaWorker));
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
         using var bypass = empresaContext.Bypass();
 

@@ -13,7 +13,7 @@ namespace Millet.CuentasPorPagar.Domain.TarjetaCredito;
 /// también usa la TC operativamente (D10).
 /// </para>
 /// </summary>
-public sealed class TarjetaUsuarioAutorizado : BaseEntity, IPerteneceAEmpresa
+public sealed class TarjetaUsuarioAutorizado : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid TarjetaId { get; private set; }

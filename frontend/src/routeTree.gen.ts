@@ -74,12 +74,14 @@ import { Route as AppAlmacenRecepcionesIndexRouteImport } from './routes/_app/al
 import { Route as AppAlmacenInventariosIndexRouteImport } from './routes/_app/almacen/inventarios/index';
 import { Route as AppAlmacenDevolucionesIndexRouteImport } from './routes/_app/almacen/devoluciones/index';
 import { Route as AppAdminUsuariosIndexRouteImport } from './routes/_app/admin/usuarios/index';
+import { Route as AppAdminSucursalesIndexRouteImport } from './routes/_app/admin/sucursales/index';
 import { Route as AppAdminSeriesIndexRouteImport } from './routes/_app/admin/series/index';
 import { Route as AppAdminRolesIndexRouteImport } from './routes/_app/admin/roles/index';
 import { Route as AppAdminPuestosIndexRouteImport } from './routes/_app/admin/puestos/index';
 import { Route as AppAdminParametrosIndexRouteImport } from './routes/_app/admin/parametros/index';
 import { Route as AppAdminEmpresasIndexRouteImport } from './routes/_app/admin/empresas/index';
 import { Route as AppAdminEmpleadosIndexRouteImport } from './routes/_app/admin/empleados/index';
+import { Route as AppAdminDepartamentosIndexRouteImport } from './routes/_app/admin/departamentos/index';
 import { Route as AppAdminCartaPorteCatalogosIndexRouteImport } from './routes/_app/admin/carta-porte-catalogos/index';
 import { Route as AppAdminCanalesVentaIndexRouteImport } from './routes/_app/admin/canales-venta/index';
 import { Route as AppAdminAuditoriaIndexRouteImport } from './routes/_app/admin/auditoria/index';
@@ -127,6 +129,7 @@ import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_
 import { Route as AppAlmacenRecepcionesIdRouteImport } from './routes/_app/almacen/recepciones/$id';
 import { Route as AppAlmacenInventariosIdRouteImport } from './routes/_app/almacen/inventarios/$id';
 import { Route as AppAdminUsuariosIdRouteImport } from './routes/_app/admin/usuarios/$id';
+import { Route as AppAdminSucursalesIdRouteImport } from './routes/_app/admin/sucursales/$id';
 import { Route as AppAdminRolesIdRouteImport } from './routes/_app/admin/roles/$id';
 import { Route as AppAdminEmpresasIdRouteImport } from './routes/_app/admin/empresas/$id';
 import { Route as AppAdminModuloSettingsRouteImport } from './routes/_app/admin/$modulo/settings';
@@ -504,6 +507,11 @@ const AppAdminUsuariosIndexRoute = AppAdminUsuariosIndexRouteImport.update({
   path: '/admin/usuarios/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAdminSucursalesIndexRoute = AppAdminSucursalesIndexRouteImport.update({
+  id: '/admin/sucursales/',
+  path: '/admin/sucursales/',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppAdminSeriesIndexRoute = AppAdminSeriesIndexRouteImport.update({
   id: '/admin/series/',
   path: '/admin/series/',
@@ -534,6 +542,12 @@ const AppAdminEmpleadosIndexRoute = AppAdminEmpleadosIndexRouteImport.update({
   path: '/admin/empleados/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAdminDepartamentosIndexRoute =
+  AppAdminDepartamentosIndexRouteImport.update({
+    id: '/admin/departamentos/',
+    path: '/admin/departamentos/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminCartaPorteCatalogosIndexRoute =
   AppAdminCartaPorteCatalogosIndexRouteImport.update({
     id: '/admin/carta-porte-catalogos/',
@@ -791,6 +805,11 @@ const AppAdminUsuariosIdRoute = AppAdminUsuariosIdRouteImport.update({
   path: '/admin/usuarios/$id',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAdminSucursalesIdRoute = AppAdminSucursalesIdRouteImport.update({
+  id: '/admin/sucursales/$id',
+  path: '/admin/sucursales/$id',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppAdminRolesIdRoute = AppAdminRolesIdRouteImport.update({
   id: '/admin/roles/$id',
   path: '/admin/roles/$id',
@@ -999,6 +1018,7 @@ export interface FileRoutesByFullPath {
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
   '/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
   '/admin/roles/$id': typeof AppAdminRolesIdRoute;
+  '/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
   '/admin/usuarios/$id': typeof AppAdminUsuariosIdRoute;
   '/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
@@ -1046,12 +1066,14 @@ export interface FileRoutesByFullPath {
   '/admin/auditoria/': typeof AppAdminAuditoriaIndexRoute;
   '/admin/canales-venta/': typeof AppAdminCanalesVentaIndexRoute;
   '/admin/carta-porte-catalogos/': typeof AppAdminCartaPorteCatalogosIndexRoute;
+  '/admin/departamentos/': typeof AppAdminDepartamentosIndexRoute;
   '/admin/empleados/': typeof AppAdminEmpleadosIndexRoute;
   '/admin/empresas/': typeof AppAdminEmpresasIndexRoute;
   '/admin/parametros/': typeof AppAdminParametrosIndexRoute;
   '/admin/puestos/': typeof AppAdminPuestosIndexRoute;
   '/admin/roles/': typeof AppAdminRolesIndexRoute;
   '/admin/series/': typeof AppAdminSeriesIndexRoute;
+  '/admin/sucursales/': typeof AppAdminSucursalesIndexRoute;
   '/admin/usuarios/': typeof AppAdminUsuariosIndexRoute;
   '/almacen/devoluciones/': typeof AppAlmacenDevolucionesIndexRoute;
   '/almacen/inventarios/': typeof AppAlmacenInventariosIndexRoute;
@@ -1148,6 +1170,7 @@ export interface FileRoutesByTo {
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
   '/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
   '/admin/roles/$id': typeof AppAdminRolesIdRoute;
+  '/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
   '/admin/usuarios/$id': typeof AppAdminUsuariosIdRoute;
   '/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
@@ -1195,12 +1218,14 @@ export interface FileRoutesByTo {
   '/admin/auditoria': typeof AppAdminAuditoriaIndexRoute;
   '/admin/canales-venta': typeof AppAdminCanalesVentaIndexRoute;
   '/admin/carta-porte-catalogos': typeof AppAdminCartaPorteCatalogosIndexRoute;
+  '/admin/departamentos': typeof AppAdminDepartamentosIndexRoute;
   '/admin/empleados': typeof AppAdminEmpleadosIndexRoute;
   '/admin/empresas': typeof AppAdminEmpresasIndexRoute;
   '/admin/parametros': typeof AppAdminParametrosIndexRoute;
   '/admin/puestos': typeof AppAdminPuestosIndexRoute;
   '/admin/roles': typeof AppAdminRolesIndexRoute;
   '/admin/series': typeof AppAdminSeriesIndexRoute;
+  '/admin/sucursales': typeof AppAdminSucursalesIndexRoute;
   '/admin/usuarios': typeof AppAdminUsuariosIndexRoute;
   '/almacen/devoluciones': typeof AppAlmacenDevolucionesIndexRoute;
   '/almacen/inventarios': typeof AppAlmacenInventariosIndexRoute;
@@ -1299,6 +1324,7 @@ export interface FileRoutesById {
   '/_app/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
   '/_app/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
   '/_app/admin/roles/$id': typeof AppAdminRolesIdRoute;
+  '/_app/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
   '/_app/admin/usuarios/$id': typeof AppAdminUsuariosIdRoute;
   '/_app/almacen/inventarios/$id': typeof AppAlmacenInventariosIdRouteWithChildren;
   '/_app/almacen/recepciones/$id': typeof AppAlmacenRecepcionesIdRoute;
@@ -1346,12 +1372,14 @@ export interface FileRoutesById {
   '/_app/admin/auditoria/': typeof AppAdminAuditoriaIndexRoute;
   '/_app/admin/canales-venta/': typeof AppAdminCanalesVentaIndexRoute;
   '/_app/admin/carta-porte-catalogos/': typeof AppAdminCartaPorteCatalogosIndexRoute;
+  '/_app/admin/departamentos/': typeof AppAdminDepartamentosIndexRoute;
   '/_app/admin/empleados/': typeof AppAdminEmpleadosIndexRoute;
   '/_app/admin/empresas/': typeof AppAdminEmpresasIndexRoute;
   '/_app/admin/parametros/': typeof AppAdminParametrosIndexRoute;
   '/_app/admin/puestos/': typeof AppAdminPuestosIndexRoute;
   '/_app/admin/roles/': typeof AppAdminRolesIndexRoute;
   '/_app/admin/series/': typeof AppAdminSeriesIndexRoute;
+  '/_app/admin/sucursales/': typeof AppAdminSucursalesIndexRoute;
   '/_app/admin/usuarios/': typeof AppAdminUsuariosIndexRoute;
   '/_app/almacen/devoluciones/': typeof AppAlmacenDevolucionesIndexRoute;
   '/_app/almacen/inventarios/': typeof AppAlmacenInventariosIndexRoute;
@@ -1450,6 +1478,7 @@ export interface FileRouteTypes {
     | '/admin/$modulo/settings'
     | '/admin/empresas/$id'
     | '/admin/roles/$id'
+    | '/admin/sucursales/$id'
     | '/admin/usuarios/$id'
     | '/almacen/inventarios/$id'
     | '/almacen/recepciones/$id'
@@ -1497,12 +1526,14 @@ export interface FileRouteTypes {
     | '/admin/auditoria/'
     | '/admin/canales-venta/'
     | '/admin/carta-porte-catalogos/'
+    | '/admin/departamentos/'
     | '/admin/empleados/'
     | '/admin/empresas/'
     | '/admin/parametros/'
     | '/admin/puestos/'
     | '/admin/roles/'
     | '/admin/series/'
+    | '/admin/sucursales/'
     | '/admin/usuarios/'
     | '/almacen/devoluciones/'
     | '/almacen/inventarios/'
@@ -1599,6 +1630,7 @@ export interface FileRouteTypes {
     | '/admin/$modulo/settings'
     | '/admin/empresas/$id'
     | '/admin/roles/$id'
+    | '/admin/sucursales/$id'
     | '/admin/usuarios/$id'
     | '/almacen/inventarios/$id'
     | '/almacen/recepciones/$id'
@@ -1646,12 +1678,14 @@ export interface FileRouteTypes {
     | '/admin/auditoria'
     | '/admin/canales-venta'
     | '/admin/carta-porte-catalogos'
+    | '/admin/departamentos'
     | '/admin/empleados'
     | '/admin/empresas'
     | '/admin/parametros'
     | '/admin/puestos'
     | '/admin/roles'
     | '/admin/series'
+    | '/admin/sucursales'
     | '/admin/usuarios'
     | '/almacen/devoluciones'
     | '/almacen/inventarios'
@@ -1749,6 +1783,7 @@ export interface FileRouteTypes {
     | '/_app/admin/$modulo/settings'
     | '/_app/admin/empresas/$id'
     | '/_app/admin/roles/$id'
+    | '/_app/admin/sucursales/$id'
     | '/_app/admin/usuarios/$id'
     | '/_app/almacen/inventarios/$id'
     | '/_app/almacen/recepciones/$id'
@@ -1796,12 +1831,14 @@ export interface FileRouteTypes {
     | '/_app/admin/auditoria/'
     | '/_app/admin/canales-venta/'
     | '/_app/admin/carta-porte-catalogos/'
+    | '/_app/admin/departamentos/'
     | '/_app/admin/empleados/'
     | '/_app/admin/empresas/'
     | '/_app/admin/parametros/'
     | '/_app/admin/puestos/'
     | '/_app/admin/roles/'
     | '/_app/admin/series/'
+    | '/_app/admin/sucursales/'
     | '/_app/admin/usuarios/'
     | '/_app/almacen/devoluciones/'
     | '/_app/almacen/inventarios/'
@@ -2331,6 +2368,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminUsuariosIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/sucursales/': {
+      id: '/_app/admin/sucursales/';
+      path: '/admin/sucursales';
+      fullPath: '/admin/sucursales/';
+      preLoaderRoute: typeof AppAdminSucursalesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/series/': {
       id: '/_app/admin/series/';
       path: '/admin/series';
@@ -2371,6 +2415,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/empleados';
       fullPath: '/admin/empleados/';
       preLoaderRoute: typeof AppAdminEmpleadosIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/admin/departamentos/': {
+      id: '/_app/admin/departamentos/';
+      path: '/admin/departamentos';
+      fullPath: '/admin/departamentos/';
+      preLoaderRoute: typeof AppAdminDepartamentosIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/admin/carta-porte-catalogos/': {
@@ -2702,6 +2753,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminUsuariosIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/sucursales/$id': {
+      id: '/_app/admin/sucursales/$id';
+      path: '/admin/sucursales/$id';
+      fullPath: '/admin/sucursales/$id';
+      preLoaderRoute: typeof AppAdminSucursalesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/roles/$id': {
       id: '/_app/admin/roles/$id';
       path: '/admin/roles/$id';
@@ -2961,6 +3019,7 @@ interface AppRouteChildren {
   AppAdminModuloSettingsRoute: typeof AppAdminModuloSettingsRoute;
   AppAdminEmpresasIdRoute: typeof AppAdminEmpresasIdRoute;
   AppAdminRolesIdRoute: typeof AppAdminRolesIdRoute;
+  AppAdminSucursalesIdRoute: typeof AppAdminSucursalesIdRoute;
   AppAdminUsuariosIdRoute: typeof AppAdminUsuariosIdRoute;
   AppAlmacenInventariosIdRoute: typeof AppAlmacenInventariosIdRouteWithChildren;
   AppAlmacenRecepcionesIdRoute: typeof AppAlmacenRecepcionesIdRoute;
@@ -3008,12 +3067,14 @@ interface AppRouteChildren {
   AppAdminAuditoriaIndexRoute: typeof AppAdminAuditoriaIndexRoute;
   AppAdminCanalesVentaIndexRoute: typeof AppAdminCanalesVentaIndexRoute;
   AppAdminCartaPorteCatalogosIndexRoute: typeof AppAdminCartaPorteCatalogosIndexRoute;
+  AppAdminDepartamentosIndexRoute: typeof AppAdminDepartamentosIndexRoute;
   AppAdminEmpleadosIndexRoute: typeof AppAdminEmpleadosIndexRoute;
   AppAdminEmpresasIndexRoute: typeof AppAdminEmpresasIndexRoute;
   AppAdminParametrosIndexRoute: typeof AppAdminParametrosIndexRoute;
   AppAdminPuestosIndexRoute: typeof AppAdminPuestosIndexRoute;
   AppAdminRolesIndexRoute: typeof AppAdminRolesIndexRoute;
   AppAdminSeriesIndexRoute: typeof AppAdminSeriesIndexRoute;
+  AppAdminSucursalesIndexRoute: typeof AppAdminSucursalesIndexRoute;
   AppAdminUsuariosIndexRoute: typeof AppAdminUsuariosIndexRoute;
   AppAlmacenDevolucionesIndexRoute: typeof AppAlmacenDevolucionesIndexRoute;
   AppAlmacenInventariosIndexRoute: typeof AppAlmacenInventariosIndexRoute;
@@ -3108,6 +3169,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminModuloSettingsRoute: AppAdminModuloSettingsRoute,
   AppAdminEmpresasIdRoute: AppAdminEmpresasIdRoute,
   AppAdminRolesIdRoute: AppAdminRolesIdRoute,
+  AppAdminSucursalesIdRoute: AppAdminSucursalesIdRoute,
   AppAdminUsuariosIdRoute: AppAdminUsuariosIdRoute,
   AppAlmacenInventariosIdRoute: AppAlmacenInventariosIdRouteWithChildren,
   AppAlmacenRecepcionesIdRoute: AppAlmacenRecepcionesIdRoute,
@@ -3162,12 +3224,14 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminAuditoriaIndexRoute: AppAdminAuditoriaIndexRoute,
   AppAdminCanalesVentaIndexRoute: AppAdminCanalesVentaIndexRoute,
   AppAdminCartaPorteCatalogosIndexRoute: AppAdminCartaPorteCatalogosIndexRoute,
+  AppAdminDepartamentosIndexRoute: AppAdminDepartamentosIndexRoute,
   AppAdminEmpleadosIndexRoute: AppAdminEmpleadosIndexRoute,
   AppAdminEmpresasIndexRoute: AppAdminEmpresasIndexRoute,
   AppAdminParametrosIndexRoute: AppAdminParametrosIndexRoute,
   AppAdminPuestosIndexRoute: AppAdminPuestosIndexRoute,
   AppAdminRolesIndexRoute: AppAdminRolesIndexRoute,
   AppAdminSeriesIndexRoute: AppAdminSeriesIndexRoute,
+  AppAdminSucursalesIndexRoute: AppAdminSucursalesIndexRoute,
   AppAdminUsuariosIndexRoute: AppAdminUsuariosIndexRoute,
   AppAlmacenDevolucionesIndexRoute: AppAlmacenDevolucionesIndexRoute,
   AppAlmacenInventariosIndexRoute: AppAlmacenInventariosIndexRoute,

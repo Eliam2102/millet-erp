@@ -25,7 +25,7 @@ namespace Millet.Facturacion.Domain.Comprobantes;
 /// existen en el enum pero no se transicionan aquí.
 /// </para>
 /// </summary>
-public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

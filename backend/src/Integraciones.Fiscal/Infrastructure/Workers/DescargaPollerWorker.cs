@@ -101,6 +101,8 @@ public sealed class DescargaPollerWorker : BackgroundService
         using (var snapshot = _scopeFactory.CreateScope())
         {
             var db = snapshot.ServiceProvider.GetRequiredService<IntegracionesFiscalDbContext>();
+            var originContext = snapshot.ServiceProvider.GetRequiredService<IAuditOriginContext>();
+            using var origin = originContext.SetOrigin(nameof(DescargaPollerWorker));
             var empresaContext = snapshot.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
             using var bypass = empresaContext.Bypass();
             var clock = snapshot.ServiceProvider.GetRequiredService<IClock>();
@@ -148,6 +150,8 @@ public sealed class DescargaPollerWorker : BackgroundService
         var sdk = scope.ServiceProvider.GetRequiredService<IFiscalApiSdkClient>();
         var receiver = scope.ServiceProvider.GetRequiredService<IFiscalCfdiReceiver>();
         var clock = scope.ServiceProvider.GetRequiredService<IClock>();
+        var originContext = scope.ServiceProvider.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(DescargaPollerWorker));
         var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
         using var bypass = empresaContext.Bypass();
 

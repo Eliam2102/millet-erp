@@ -18,8 +18,9 @@ namespace Millet.Identidad.Application.Usuarios;
 ///         un id concreto.</item>
 ///   <item>Si <see cref="EntraIdObjectId"/> es <c>null</c>, el handler
 ///         consulta <see cref="IEntraIdResolverPort.ResolverPorEmailAsync"/>
-///         y, si retorna null (stub MVP), genera placeholder
-///         <c>dev-{email}</c> en línea con ADR-0015.</item>
+///         y, si retorna null (stub MVP), genera el OID pendiente
+///         <c>pending:{email}</c>; el login lo sustituye por el real
+///         (plan 15, F5).</item>
 ///   <item>409 <c>USUARIO_EMAIL_DUPLICADO</c> si <see cref="Email"/> ya
 ///         existe.</item>
 ///   <item>409 <c>USUARIO_OID_DUPLICADO</c> si <see cref="EntraIdObjectId"/>
@@ -90,7 +91,7 @@ public sealed class CrearUsuarioHandler : IRequestHandler<CrearUsuarioCommand, U
                 $"Ya existe un usuario con email '{command.Email}'.");
         }
 
-        // Resolución del EntraOid: explícito > resolver real > placeholder dev.
+        // Resolución del EntraOid: explícito > resolver real > OID pendiente.
         string entraOid;
         string nombre = command.NombreCompleto;
 
@@ -111,10 +112,11 @@ public sealed class CrearUsuarioHandler : IRequestHandler<CrearUsuarioCommand, U
             }
             else
             {
-                // Placeholder dev (ADR-0015): "dev-" + email, prefijo permite
-                // a tests y a humanos distinguir usuarios real-mode vs
-                // bootstrapped-by-admin.
-                entraOid = $"dev-{command.Email}";
+                // OID pendiente (plan 15): "pending:" + email hasta que el
+                // primer login lo vincule con el real. Sustituye al
+                // placeholder histórico "dev-{email}", que sigue contando
+                // como pendiente en Usuario.EsOidPendiente.
+                entraOid = $"{Usuario.PrefijoOidPendiente}{command.Email}";
             }
         }
 
@@ -130,7 +132,10 @@ public sealed class CrearUsuarioHandler : IRequestHandler<CrearUsuarioCommand, U
         }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
-        var usuario = new Usuario(id, entraOid, command.Email, nombre);
+        // Alta administrativa: la persona aún no inicia sesión (plan 15).
+        var usuario = new Usuario(
+            id, entraOid, command.Email, nombre,
+            estadoAcceso: EstadoAcceso.PendientePrimerAcceso);
         if (command.DepartamentoId is Guid d)
         {
             usuario.AsignarDepartamento(d);

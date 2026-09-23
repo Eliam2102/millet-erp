@@ -83,6 +83,8 @@ public sealed class TimbradoPendienteWorker : BackgroundService
         var empresaContext = sp.GetRequiredService<ICurrentEmpresaContext>();
         var clock = sp.GetRequiredService<IClock>();
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(TimbradoPendienteWorker));
         using var bypass = empresaContext.Bypass();
 
         var corte = clock.UtcNow.AddMinutes(-opts.UmbralMinutos);

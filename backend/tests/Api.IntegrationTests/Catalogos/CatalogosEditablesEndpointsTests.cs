@@ -52,8 +52,10 @@ public class CatalogosEditablesEndpointsTests : IClassFixture<WebApplicationFact
     public async Task CrearIncoterm_Y_Desactivar()
     {
         var client = await CreateSuperAdminClientAsync();
-        // Genera código único 3-letras evitando los 11 seeds existentes.
-        var codigo = $"Z{new Random().Next(10, 99)}";
+        // Código único de 4 caracteres (máx. permitido) con prefijo "Z" que
+        // evita los 11 seeds. Con solo 2 dígitos (89 valores) la BD de dev
+        // compartida acumulaba colisiones → 409 entre corridas.
+        var codigo = $"Z{Guid.NewGuid().ToString("N")[..3].ToUpperInvariant()}";
 
         var created = await client.PostAsJsonAsync("/api/v1/catalogos/incoterms", new
         {

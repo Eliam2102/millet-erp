@@ -8,6 +8,7 @@ using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Almacen.Infrastructure.Workers;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Almacen.UnitTests.Reorden;
 
@@ -122,6 +123,7 @@ public class ReordenWorkerToggleTests
         var dbCapturada = db;
         services.AddScoped<IMediator>(_ => mediator);
         services.AddScoped<ICurrentEmpresaContext>(_ => new BypassedEmpresaContext());
+        services.AddScoped<IAuditOriginContext, AuditOriginContext>();
         services.AddScoped(_ => dbCapturada);
         services.AddScoped<IUsuarioServicioReadPort>(_ => new FakeUsuarioServicioPort(usuarioServicio));
 

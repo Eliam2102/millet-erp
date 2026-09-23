@@ -11,6 +11,7 @@ using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Domain;
 using Millet.Integraciones.Aw.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure;
 
 namespace Millet.Integraciones.Aw.UnitTests.Workers;
 
@@ -447,7 +448,7 @@ public sealed class AwDropWorkerTests
         services.AddScoped<IEntidadExternaRepository, RealRepo>();
         services.AddSingleton<IClock>(clock);
         services.AddSingleton<ICurrentEmpresaContext>(empresaContext);
-
+        services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         var sp = services.BuildServiceProvider();
         var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
 

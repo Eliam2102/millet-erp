@@ -71,20 +71,29 @@ public sealed class CrearEmpresaHandler
         }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
+        // F1-ADM-01: Clave/domicilio/moneda son campos nuevos del dominio sin
+        // captura todavía en este command (Fase 2 los expondrá en la API).
+        // Clave = RFC (ya es business key única) evita colisión con
+        // UNIQUE(clave); el domicilio queda con placeholders explícitos
+        // hasta que Fase 2 agregue la captura real.
         var empresa = new Empresa(
             id,
+            clave: command.Rfc.ToUpperInvariant(),
             command.Rfc,
             command.RazonSocial,
             command.RegimenFiscal,
-            command.NombreComercial);
+            calle: "Sin especificar",
+            numeroExterior: "S/N",
+            colonia: "Sin especificar",
+            ciudad: "Sin especificar",
+            municipio: "Sin especificar",
+            estado: "Sin especificar",
+            pais: "México",
+            nombreComercial: command.NombreComercial);
 
         _db.Empresas.Add(empresa);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        // PLATFORM-TODO(<AdminOutbox>): el publisher solo encola al buffer
-        // scoped; CompartidoDbContext no tiene OutboxSaveChangesInterceptor
-        // wireado y el evento se pierde al cerrar el scope. Aceptable en
-        // MVP — ningún consumer activo todavía.
+        // Encolar antes de SaveChanges permite que el interceptor Outbox
+        // persista el evento en la misma transacción que el agregado.
         await _events.PublishAsync(
             new EmpresaCreadaEvent(
                 empresa.Id,
@@ -92,6 +101,8 @@ public sealed class CrearEmpresaHandler
                 empresa.RazonSocial,
                 _clock.UtcNow),
             cancellationToken);
+
+            await _db.SaveChangesAsync(cancellationToken);
 
         return new EmpresaResponse(
             empresa.Id,

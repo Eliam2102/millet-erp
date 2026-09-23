@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, ShieldAlert, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +17,7 @@ import { useRevocarAsignacion } from '@/modules/identidad/api';
 import type { AsignacionDetalleResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { RolesPorEmpresaInlineForm } from '@/modules/identidad/components/RolesPorEmpresaInlineForm';
 import { DateTimeDisplay } from '@/components/erp';
 
@@ -51,10 +52,20 @@ export function RolesPorEmpresaPanel({
     PermisosCanonicos.IdentidadAsignacionesAdministrar,
   );
 
+  const currentUserId = useAuthStore((s) => s.user?.id);
+  const esUsuarioActual =
+    currentUserId != null && currentUserId === usuarioId;
+
   const idempotencyKey = useFormIdempotencyKey();
   const revocar = useRevocarAsignacion();
 
   function handleConfirmarRevocar() {
+    if (esUsuarioActual) {
+      toast.error('No puedes revocar tus propios roles asignados.');
+      setParaRevocar(null);
+      return;
+    }
+
     if (paraRevocar == null) return;
     const target = paraRevocar;
     revocar.mutate(
@@ -100,6 +111,12 @@ export function RolesPorEmpresaPanel({
           <Button
             size="sm"
             variant="outline"
+            disabled={esUsuarioActual}
+            title={
+              esUsuarioActual
+                ? 'Por políticas de segregación de funciones (SoD), no puedes auto-asignarte roles. Solicita el cambio a otro administrador.'
+                : undefined
+            }
             onClick={() => setAgregando(true)}
           >
             <Plus className="mr-1 h-4 w-4" />
@@ -107,6 +124,15 @@ export function RolesPorEmpresaPanel({
           </Button>
         )}
       </header>
+
+      {esUsuarioActual && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>
+            Estás visualizando tu propia cuenta. Por políticas de segregación de funciones (SoD) y prevención de auto-bloqueos, tus roles solo pueden ser modificados por otro administrador.
+          </span>
+        </div>
+      )}
 
       {agregando && canGestionar && (
         <RolesPorEmpresaInlineForm
@@ -141,6 +167,12 @@ export function RolesPorEmpresaPanel({
                   <Button
                     variant="ghost"
                     size="sm"
+                    disabled={esUsuarioActual}
+                    title={
+                      esUsuarioActual
+                        ? 'No puedes revocar tus propios roles asignados'
+                        : undefined
+                    }
                     onClick={() => setParaRevocar(a)}
                     aria-label={`Revocar rol ${a.rolCodigo} en ${a.empresaRfc}`}
                   >
@@ -182,7 +214,7 @@ export function RolesPorEmpresaPanel({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmarRevocar}
-              disabled={revocar.isPending}
+              disabled={revocar.isPending || esUsuarioActual}
             >
               {revocar.isPending ? 'Revocando…' : 'Revocar'}
             </AlertDialogAction>

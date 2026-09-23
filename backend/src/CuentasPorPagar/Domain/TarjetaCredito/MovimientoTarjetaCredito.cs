@@ -25,7 +25,7 @@ namespace Millet.CuentasPorPagar.Domain.TarjetaCredito;
 /// F7-PR6 (D9 del anexo).
 /// </para>
 /// </summary>
-public sealed class MovimientoTarjetaCredito : BaseEntity, IPerteneceAEmpresa
+public sealed class MovimientoTarjetaCredito : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid TarjetaId { get; private set; }

@@ -16,11 +16,16 @@ public sealed class MetadataSaveChangesInterceptor : SaveChangesInterceptor
 {
     private readonly IClock _clock;
     private readonly ICurrentUserContext _userContext;
+    private readonly IAuditOriginContext _originContext;
 
-    public MetadataSaveChangesInterceptor(IClock clock, ICurrentUserContext userContext)
+    public MetadataSaveChangesInterceptor(
+        IClock clock,
+        ICurrentUserContext userContext,
+        IAuditOriginContext originContext)
     {
         _clock = clock;
         _userContext = userContext;
+        _originContext = originContext;
     }
 
     public override InterceptionResult<int> SavingChanges(
@@ -43,7 +48,7 @@ public sealed class MetadataSaveChangesInterceptor : SaveChangesInterceptor
     private void ApplyMetadata(DbContext context)
     {
         var now = _clock.UtcNow;
-        var userName = _userContext.UserName ?? "system";
+        var userName = _userContext.UserName ?? _originContext.Origin ?? "system";
 
         foreach (var entry in context.ChangeTracker.Entries<BaseEntity>())
         {

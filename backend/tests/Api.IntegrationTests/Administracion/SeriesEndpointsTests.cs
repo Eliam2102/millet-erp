@@ -361,8 +361,8 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
     private static string RandomPrefijo()
     {
-        // 4 chars máx 10 — usar 3 hex chars del Guid (uppercase letras).
-        return "T" + Guid.NewGuid().ToString("N").Substring(0, 3).ToUpperInvariant();
+        // Máx 10: "T" + 9 hex. Con 3 hex la BD de dev ya chocaba (409).
+        return "T" + Guid.NewGuid().ToString("N").Substring(0, 9).ToUpperInvariant();
     }
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()

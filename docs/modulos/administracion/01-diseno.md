@@ -50,7 +50,7 @@ Este documento describe **qué construir y por qué**, no el código. La impleme
 
 1. **Refactor ADR-0035 (F-Admin-PR0).** Re-localización de entidades de `SharedKernel/Domain/` a `Administracion`/`Catalogos`/`DatosMaestros`/`Almacen` (este último con A1=b). Sin cambios de comportamiento.
 2. **Andamio + contrato SettingsSchema (F-Admin-PR1).** Registry `AdminSection`, landing `/admin`, engrane del topbar wireado, schemas creados (DbContexts), permisos canónicos `admin.*` + `identidad.*` (CRUD) + `catalogos.*` + `datos_maestros.*` + `almacen.*` mínimos. **Contrato `ISettingsSchemaProvider` + endpoints `GET /api/v1/<modulo>/settings/schema` y `PATCH /api/v1/<modulo>/settings/{clave}` cableados en SharedKernel** (A7=b). Compras adopta el contrato como exemplar.
-3. **Empresas + Sucursales (F-Admin-PR2).** UI master-detail para gestión completa. Necesario primero — lo consume Compras OC multi-empresa.
+3. **Empresas + Sucursales (F-Admin-PR2).** UI master-detail para gestión completa. Necesario primero — lo consume Compras OC. Nota: Empresa es base técnica de aislamiento (ADR-0011); el trabajo real de segmentación de acceso es por Sucursal (ADR-0051), no por Empresa.
 4. **Roles + permisos (F-Admin-PR3).** UI sobre módulo Identidad. Matriz de permisos por módulo, asignación inline de permisos a rol. **Mapeo manual de grupos Entra ID → rol** (A3=a).
 5. **Usuarios (F-Admin-PR4).** UI de usuarios + asignación rol×empresa.
 6. **Datos Maestros (F-Admin-PR4.5).** UI de administración de Proveedores y Artículos bajo `/admin/datos-maestros/*` (los CRUD ya operados por Compras se reutilizan; UI agrega vistas y filtros admin).
@@ -594,6 +594,86 @@ Modelo `AuditLogEntry` (ADR-0008) ya existe. Admin agrega:
 
 Detalle en el campo `Detalle (jsonb)`: antes/después del cambio para entidades marcadas `IAuditable`. Se omite payload sensible (passwords, secrets) — la auditoría ya filtra estos campos en el interceptor.
 
+### 9.1 Cobertura obligatoria de `IAuditable`/`INotAudited` (F1-ADM-03)
+
+ADR-0008 exige que toda entidad de dominio declare explícitamente `IAuditable`
+o `INotAudited` — esto no tenía enforcement automático hasta F1-ADM-03.
+`AuditableCoverageGuardTest` (`Api.IntegrationTests/Persistence/`) recorre
+por reflexión todas las clases que heredan de `BaseEntity` en los ensamblados
+del backend y falla el build si encuentra alguna sin declarar ninguna de las
+dos interfaces. 84 entidades fueron clasificadas al cerrar esta tarea: 78
+`IAuditable`, 6 `INotAudited` con justificación explícita en el propio código
+(contador técnico, cache local o marcador de idempotencia — nunca "se me
+olvidó").
+
+Al agregar una entidad de dominio nueva:
+
+- Si representa un hecho de negocio auditable (alta/cambio/baja relevante
+  para el usuario o el cumplimiento), implementa `IAuditable`. No requiere
+  código adicional — el interceptor la captura automáticamente.
+- Si es infraestructura pura (marcador de idempotencia tipo `EventoProcesado`,
+  contador técnico tipo `FolioSecuenciaMovimiento`, cache de un catálogo
+  externo), implementa `INotAudited` **con un comentario que explique por
+  qué** — el test no exige el comentario, pero el criterio de revisión de PR
+  sí.
+- Omitir ambas interfaces rompe `AuditableCoverageGuardTest` en CI.
+
+### 9.2 Atribución de origen en procesos en background (F1-ADM-03)
+
+Antes de F1-ADM-03, cualquier escritura de un worker/seed/hosted service bajo
+`ICurrentEmpresaContext.Bypass()` quedaba indistinguible en la bitácora:
+`UsuarioId = null` y `CreatedBy/UpdatedBy = "system"` para los 35
+workers/seeds de los 9 módulos que usan `Bypass()`. No había forma de saber,
+desde la bitácora, si un cambio lo hizo el poller de A+W, un listener de
+Service Bus o un seed de arranque.
+
+`IAuditOriginContext` (`Millet.SharedKernel.Application` /
+`Millet.SharedKernel.Infrastructure.AuditOriginContext`) resuelve esto con el
+mismo patrón que `ICurrentEmpresaContext.Bypass()`: un `AsyncLocal<string?>`
+con scope explícito.
+
+**Cómo usarlo en un worker/seed nuevo:**
+
+```csharp
+using (_empresaContext.Bypass())
+using (_auditOriginContext.SetOrigin(nameof(MiWorkerNuevo)))
+{
+    // ... lecturas/escrituras del worker ...
+    await _db.SaveChangesAsync(cancellationToken);
+}
+```
+
+- `SetOrigin` es apilable (nested-safe): al salir del `using` restaura el
+  valor anterior, igual que `Bypass()`.
+- Si el worker **no** llama `SetOrigin`, el `CreatedBy` cae al literal
+  `"system"` igual que antes — `SetOrigin` es obligatorio para que el origen
+  sea distinguible, no automático por estar bajo `Bypass()`.
+- El efecto se ve en dos lugares: `BaseEntity.CreatedBy`/`UpdatedBy` (via
+  `MetadataSaveChangesInterceptor`) toman el string de `SetOrigin` en vez de
+  `"system"`; `AuditLogEntry.Metadatos` (via `AuditSaveChangesInterceptor`)
+  se popula con `{"origen": "<valor de SetOrigin>"}` — en request HTTP
+  normales (sin bypass) `Metadatos` siempre es `null`.
+- Los 35 workers/seeds existentes en los 9 módulos que usaban `Bypass()` ya
+  fueron migrados a este patrón; cualquier worker nuevo que agregue
+  `Bypass()` debe agregar `SetOrigin(nameof(...))` en el mismo cambio.
+
+Cubierto por 4 pruebas unitarias
+(`SharedKernel.UnitTests/Persistence/AuditOriginAttributionTests.cs`, sobre
+EF InMemory con los interceptores reales) y por
+`AuditOriginUsageGuardTest` (`Api.IntegrationTests/Persistence/`), que
+verifica por reflexión que todo call site de `Bypass()` en los 9 módulos
+tiene un `SetOrigin()` correspondiente en el mismo método.
+
+**Límite conocido:** `ConsultarBitacoraQuery`/`AuditLogEntryResponse` (§9,
+`GET /api/v1/admin/auditoria`) todavía no proyecta `Metadatos` — el origen
+del proceso en background queda en la tabla `core.audit_log` pero no es
+visible desde `/admin/auditoria` ni desde `AuditoriaDetalleDrawer` en el
+frontend. Verificable hoy solo por consulta directa a
+`core.audit_log.metadatos`. Pendiente agregar el campo al DTO y a la UI en
+un PR de seguimiento — no bloqueaba F1-ADM-03 porque el criterio de cierre
+(alta/cambio/autorización de usuario dejan antes/después, usuario y fecha)
+no depende de este campo.
+
 ## 10. Multi-tenant (ADR-0011)
 
 - `Empresa` es entidad raíz multi-tenant.
@@ -614,6 +694,7 @@ Estrategia ADR-0016 (xUnit + Testcontainers + Playwright). Mínimos por PR:
 - **F-Admin-PR5** (Catálogos): tests de seeds idempotentes.
 - **F-Admin-PR6** (Series): tests de generación de folio thread-safe + idempotencia.
 - **F-Admin-PR7** (Auditoría/Parámetros): tests de query con filtros.
+- **F1-ADM-03** (atribución de origen + cobertura): `AuditOriginAttributionTests` (4, `SharedKernel.UnitTests`), `AuditableCoverageGuardTest` y `AuditOriginUsageGuardTest` (`Api.IntegrationTests/Persistence/`). Ver §9.1 y §9.2.
 
 ## 12. Dependencias de plataforma pendientes
 
@@ -621,7 +702,8 @@ Sección obligatoria por [ADR-0031](../../decisiones/0031-deuda-de-plataforma-y-
 
 | Pieza | Ticket / Identificador | NoOp en uso hoy | Cómo se wirea |
 |---|---|---|---|
-| Bitácora UI consolidada (`/admin/auditoria`) | `<AuditUI>` | El modelo `AuditLogEntry` y el interceptor están activos. Hoy no hay endpoint de listado consolidado. | F-Admin-PR7 agrega `GET /api/v1/admin/auditoria` + UI. |
+| Bitácora UI consolidada (`/admin/auditoria`) | `<AuditUI>` | ✅ Resuelto — `GET /api/v1/admin/auditoria` (`AuditoriaEndpoints`/`ConsultarBitacoraQuery`) + UI `/admin/auditoria` (`AuditoriaPage` + `AuditoriaDetalleDrawer`) implementados. | — |
+| Origen de background en `ConsultarBitacoraQuery` | `<AuditOriginEnDto>` | `AuditLogEntry.Metadatos` se popula (§9.2) pero `AuditLogEntryResponse` no lo proyecta; no visible en `/admin/auditoria`. | Agregar `Metadatos`/`Origen` a `AuditLogEntryResponse` y a `AuditoriaDetalleDrawer` en un PR de seguimiento. |
 | Mapeo Entra ID → Roles automático | `<EntraIdMapping>` | Mapeo manual via `UsuarioEmpresaRol`. | Post-MVP: hosted service que sincroniza grupos Entra ID → roles definidos. |
 | Sync tipos de cambio (DOF/Banxico) | `<TipoCambioSync>` | Carga manual via UI. | Post-MVP: hosted service NCrontab (ADR-0022) consume DOF/Banxico. |
 | Re-localización física de schemas (Fase B ADR-0035) | `<SchemaRename>` | Schemas físicos siguen siendo `compartido`. Código organizado en 3 módulos. | Cuando exista razón concreta (BI externo, política de seguridad). |
@@ -634,4 +716,5 @@ Cualquier stub adicional introducido durante implementación se agrega aquí con
 ## 13. Rev.
 
 - **2026-05-13** — Rev. 2. Decisiones A1–A7 cerradas (ver §3). Cambios estructurales: §1.1 agrega módulo `Almacen` (A1=b); §1.2 reordena fases y agrega contrato SettingsSchema en F-Admin-PR1 (A7=b); §4.2 separa `Almacen` a §4.2.1; §6.1 incluye `displayMode` en registry; nueva §6.5 con contrato `SettingsSchema` completo; §6.6 (antes §6.5) y §6.7 (antes §6.6) renumeradas. Autor: Claude.
+- **2026-09-20** — Rev. 3. Cierre de F1-ADM-03: nuevas §9.1 (enforcement de cobertura `IAuditable`/`INotAudited`) y §9.2 (`IAuditOriginContext` para atribución de origen en workers/seeds en background); §11 agrega las 3 suites de prueba nuevas; §12 marca `<AuditUI>` resuelto y agrega `<AuditOriginEnDto>` (gap detectado: `Metadatos`/origen no se proyecta aún en `ConsultarBitacoraQuery` ni en la UI). Evidencia de QA en carpeta de tareas externa `VidriosMillet-Tareas/F1-ADM-03-auditoria/07-evidencia-qa-capturas.md` (fuera del repo, no se commitea). Autor: Claude.
 - **2026-05-13** — Rev. 1. Diseño inicial v1. Autor: Claude. Pendiente validación owner. Incluye §12 según ADR-0031.

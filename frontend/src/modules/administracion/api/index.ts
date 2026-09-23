@@ -11,6 +11,8 @@ export * from '@/modules/administracion/api/departamentos';
 export * from '@/modules/administracion/api/puestos';
 export * from '@/modules/administracion/api/empleados';
 export * from '@/modules/administracion/api/sucursal-departamentos';
+export * from '@/modules/administracion/api/sucursal-puestos';
+export * from '@/modules/administracion/api/sucursal-usuarios';
 export * from '@/modules/administracion/api/series';
 export * from '@/modules/administracion/api/auditoria';
 export * from '@/modules/administracion/api/parametros';

@@ -15,7 +15,7 @@ namespace Millet.CuentasPorPagar.Domain.ComprobacionGastos;
 /// de re-traer la factura.
 /// </para>
 /// </summary>
-public sealed class LineaComprobacionGastos : BaseEntity, IPerteneceAEmpresa
+public sealed class LineaComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid ComprobacionGastosId { get; private set; }

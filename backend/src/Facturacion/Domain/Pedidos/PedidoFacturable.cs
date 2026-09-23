@@ -18,7 +18,7 @@ namespace Millet.Facturacion.Domain.Pedidos;
 /// optimista). La ingesta A+W/Planta Pintura + soft-lock entran en F3/F10.
 /// </para>
 /// </summary>
-public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante
+public sealed class PedidoFacturable : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRelevante, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

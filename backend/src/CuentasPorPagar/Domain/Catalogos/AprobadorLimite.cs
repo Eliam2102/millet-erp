@@ -14,7 +14,7 @@ namespace Millet.CuentasPorPagar.Domain.Catalogos;
 /// vigencias para retirar permisos sin perder histórico.
 /// </para>
 /// </summary>
-public sealed class AprobadorLimite : BaseEntity, IPerteneceAEmpresa
+public sealed class AprobadorLimite : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid EmpleadoId { get; private set; }

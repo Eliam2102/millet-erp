@@ -23,7 +23,7 @@ public enum EstadoAutorizacionActivo : short
 /// (snapshot de Activos Fijos) para calcular la utilidad/pérdida del asiento de
 /// baja, que Contabilidad materializa (evento, F10).
 /// </summary>
-public sealed class AutorizacionVentaActivo : BaseEntity, IPerteneceAEmpresa
+public sealed class AutorizacionVentaActivo : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

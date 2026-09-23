@@ -19,18 +19,26 @@ import { DepartamentoInlineForm } from '@/modules/administracion/components/Depa
 export interface DepartamentosPanelProps {
   empresaId: string;
   departamentos: readonly DepartamentoResponse[];
+  /**
+   * Cuando la empresa que se está viendo no coincide con la empresa
+   * activa de la sesión, la gestión (alta/edición) queda bloqueada
+   * aunque el usuario tenga el permiso — el backend resolvería la
+   * escritura contra la empresa activa, no contra la que se ve.
+   */
+  bloqueadoPorEmpresaActiva?: boolean;
 }
 
 export function DepartamentosPanel({
   empresaId,
   departamentos,
+  bloqueadoPorEmpresaActiva = false,
 }: DepartamentosPanelProps) {
   const [agregando, setAgregando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.AdminDepartamentosGestionar,
-  );
+  const canGestionar =
+    useHasPermission(PermisosCanonicos.AdminDepartamentosGestionar) &&
+    !bloqueadoPorEmpresaActiva;
 
   return (
     <section className="space-y-3">

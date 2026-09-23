@@ -32,7 +32,7 @@ namespace Millet.Integraciones.Fiscal.Domain;
 /// configuraciones activas.
 /// </para>
 /// </summary>
-public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa
+public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public ProveedorPac Proveedor { get; private set; }

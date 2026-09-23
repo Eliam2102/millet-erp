@@ -25,7 +25,7 @@ public enum ResultadoIntentoTimbrado : short
 /// FSM, así que un rollback total (p.ej. NC de amortización fallida) tampoco
 /// deja intentos huérfanos.
 /// </summary>
-public sealed class BitacoraIntentoTimbrado : BaseEntity, IPerteneceAEmpresa
+public sealed class BitacoraIntentoTimbrado : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

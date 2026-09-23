@@ -18,10 +18,10 @@ namespace Millet.Administracion.Application.Empresas;
 /// <c>EMPRESA_TIENE_SUCURSALES_ACTIVAS</c>.
 /// </para>
 /// <para>
-/// En MVP single-tenant <see cref="Sucursal"/> no tiene <c>EmpresaId</c>,
-/// así que "sucursales activas" aplica a TODAS las sucursales del
-/// sistema. Cuando se levante multi-empresa, esta validación se filtra
-/// por la empresa indicada.
+/// F1-ADM-01: <see cref="Sucursal"/> ya tiene <c>EmpresaId</c>, así que
+/// "sucursales activas" se filtra por la empresa que se intenta
+/// desactivar (antes del multi-tenant real aplicaba a todas las
+/// sucursales del sistema).
 /// </para>
 /// </summary>
 public sealed record DesactivarEmpresaCommand(Guid Id) : IRequest<EmpresaResponse>;
@@ -45,7 +45,7 @@ public sealed class DesactivarEmpresaHandler
         if (empresa.Activa)
         {
             var tieneSucursalesActivas = await _db.Sucursales.AsNoTracking()
-                .AnyAsync(s => s.Estatus == EstatusCatalogo.Activo, cancellationToken);
+                .AnyAsync(s => s.EmpresaId == command.Id && s.Estatus == EstatusCatalogo.Activo, cancellationToken);
             if (tieneSucursalesActivas)
             {
                 throw new BusinessRuleException(

@@ -135,6 +135,8 @@ public sealed class CfdiMailboxIngestionWorker : BackgroundService
             return;
         }
 
+        var originContext = sp.GetRequiredService<IAuditOriginContext>();
+        using var origin = originContext.SetOrigin(nameof(CfdiMailboxIngestionWorker));
         using var bypass = empresaContext.Bypass();
 
         var ingresados = 0;

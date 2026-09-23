@@ -10,7 +10,7 @@ namespace Millet.Facturacion.Domain.Pedidos;
 /// el operador (la validación contra el master de Producto se hará cuando
 /// DatosMaestros sea real — cerrado por ADR-0048 PR2: ProductosReadAdapter).
 /// </summary>
-public sealed class PedidoFacturableLinea : BaseEntity, IBelongsToAggregate
+public sealed class PedidoFacturableLinea : BaseEntity, IBelongsToAggregate, IAuditable
 {
     public Guid PedidoFacturableId { get; private set; }
     public int Posicion { get; private set; }

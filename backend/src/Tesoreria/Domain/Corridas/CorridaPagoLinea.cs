@@ -8,7 +8,7 @@ namespace Millet.Tesoreria.Domain.Corridas;
 /// el flujo de pago de PR-4) se marca <see cref="Ejecutada"/> y se emite
 /// <c>aplicado.v1</c> por la factura cubierta (RN-4).
 /// </summary>
-public sealed class CorridaPagoLinea : BaseEntity
+public sealed class CorridaPagoLinea : BaseEntity, IAuditable
 {
     public Guid CorridaId { get; private set; }
     public Guid FacturaProveedorId { get; private set; }

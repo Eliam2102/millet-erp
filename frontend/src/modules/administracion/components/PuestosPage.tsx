@@ -128,7 +128,23 @@ export function PuestosPage() {
                     <span className="w-20 truncate font-mono text-xs text-muted-foreground">
                       {p.clave}
                     </span>
-                    <span className="flex-1 truncate text-sm">{p.nombre}</span>
+                    <div className="flex flex-1 flex-col truncate">
+                      <span className="truncate text-sm font-medium">{p.nombre}</span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        {p.rolSugeridoNombre ? (
+                          <span>
+                            Rol sugerido:{' '}
+                            <span className="font-medium text-foreground">
+                              {p.rolSugeridoNombre}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="italic text-muted-foreground/70">
+                            Sin rol sugerido
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     {activo ? (
                       <Badge variant="secondary">Activo</Badge>
                     ) : (

@@ -19,7 +19,7 @@ namespace Millet.Integraciones.Fiscal.Domain;
 /// permiten apagar selectivamente un RFC sin borrarlo (auditoría).
 /// </para>
 /// </summary>
-public sealed class RfcReceptor : BaseEntity, IPerteneceAEmpresa
+public sealed class RfcReceptor : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public string Rfc { get; private set; } = string.Empty;

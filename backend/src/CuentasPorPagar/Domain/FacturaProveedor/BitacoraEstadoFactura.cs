@@ -7,7 +7,7 @@ namespace Millet.CuentasPorPagar.Domain.FacturaProveedor;
 /// <see cref="FacturaProveedor"/> (§4.2 del 00-levantamiento). Persistida
 /// como hija del agregado para trazabilidad fiscal y operativa.
 /// </summary>
-public sealed class BitacoraEstadoFactura : BaseEntity, IBelongsToAggregate
+public sealed class BitacoraEstadoFactura : BaseEntity, IBelongsToAggregate, IAuditable
 {
     public Guid FacturaProveedorId { get; private set; }
     public EstadoPasivo EstadoAnterior { get; private set; }

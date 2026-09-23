@@ -22,7 +22,7 @@ namespace Millet.CuentasPorCobrar.Domain.Liberacion;
 /// <c>DecisionLiberacionEmitidaEvent</c>.
 /// </para>
 /// </summary>
-public sealed class DecisionLiberacion : BaseEntity, IPerteneceAEmpresa
+public sealed class DecisionLiberacion : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 

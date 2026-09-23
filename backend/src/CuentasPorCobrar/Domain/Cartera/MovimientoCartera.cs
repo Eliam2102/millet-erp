@@ -14,7 +14,7 @@ namespace Millet.CuentasPorCobrar.Domain.Cartera;
 /// <para>Append-only: la reversa marca <see cref="Revertido"/>, nunca
 /// borra — auditabilidad del levantamiento §1.</para>
 /// </summary>
-public sealed class MovimientoCartera : BaseEntity, IPerteneceAEmpresa
+public sealed class MovimientoCartera : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 
