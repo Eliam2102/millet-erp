@@ -89,6 +89,18 @@ public sealed class ActualizarEmpleadoHandler
         if (command.DepartamentoId is Guid departamentoId)
             await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, empleado.EmpresaId, cancellationToken);
 
+        var sucursalEfectiva = command.LimpiarSucursal ? null : (command.SucursalId ?? empleado.SucursalId);
+        var deptoEfectivo = command.LimpiarDepartamento ? null : (command.DepartamentoId ?? empleado.DepartamentoId);
+        var puestoEfectivo = command.LimpiarPuesto ? null : (command.PuestoId ?? empleado.PuestoId);
+
+        if (sucursalEfectiva is Guid sucursalValida)
+        {
+            if (deptoEfectivo is Guid deptoValido)
+                await ValidacionesEmpleado.ValidarDepartamentoDeSucursalAsync(_db, sucursalValida, deptoValido, cancellationToken);
+            if (puestoEfectivo is Guid puestoValido)
+                await ValidacionesEmpleado.ValidarPuestoDeSucursalAsync(_db, sucursalValida, puestoValido, deptoEfectivo, cancellationToken);
+        }
+
         empleado.ActualizarDatos(
             nombre: command.Nombre,
             email: command.Email,

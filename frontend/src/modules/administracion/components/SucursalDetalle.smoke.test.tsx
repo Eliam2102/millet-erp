@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -143,24 +143,20 @@ describe('<SucursalDetalle> — smoke', () => {
     await waitFor(() => expect(screen.getByText('S01')).toBeInTheDocument());
 
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(2);
     expect(
-      screen.getByRole('tab', { name: /^departamentos$/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /^puestos$/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: /^colaboradores$/i }),
+      screen.getByRole('tab', { name: /^departamentos y puestos$/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('tab', { name: /^usuarios$/i }),
+      screen.getByRole('tab', { name: /^empleados$/i }),
     ).toBeInTheDocument();
 
-    // Tab activa por default: Departamentos, cruzado contra el
-    // catálogo global (D01/D02), ninguno asignado todavía.
+    // Tab activa por default: Departamentos y Puestos. Al no haber asignados todavía,
+    // muestra el empty state sin listar el catálogo completo.
     await waitFor(() =>
-      expect(screen.getByText('D01')).toBeInTheDocument(),
+      expect(screen.getByText(/no hay departamentos asignados/i)).toBeInTheDocument(),
     );
-    expect(screen.getAllByText(/sin asignar/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /asignar primer departamento/i })).toBeInTheDocument();
   });
 
   it('muestra el estado de bloqueo cuando el backend responde 403 en una tab', async () => {
@@ -239,11 +235,32 @@ describe('<SucursalDetalle> — smoke', () => {
 
     render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
 
-    await waitFor(() => expect(screen.getByText('D01')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no hay departamentos asignados/i)).toBeInTheDocument());
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /asignar departamento d01/i }),
+    // Abrir modal de asignación
+    const botonAbrir = screen.getByRole('button', { name: /asignar primer departamento/i });
+    fireEvent.click(botonAbrir);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          name: /asignar departamento a la sucursal/i,
+        }),
+      ).toBeInTheDocument(),
     );
+
+    // Seleccionar D01 en el dropdown
+    const select = screen.getByLabelText(/departamento a asignar/i);
+    fireEvent.change(select, {
+      target: { value: 'd-1' },
+    });
+
+    // Confirmar en el modal
+    const dialog = screen.getByRole('dialog');
+    const botonConfirmar = within(dialog).getByRole('button', {
+      name: /asignar a sucursal/i,
+    });
+    fireEvent.click(botonConfirmar);
 
     await waitFor(() =>
       expect(
@@ -252,7 +269,7 @@ describe('<SucursalDetalle> — smoke', () => {
     );
   });
 
-  it('permite cambiar a la tab Colaboradores y lista los colaboradores de la sucursal', async () => {
+  it('permite cambiar a la tab Empleados y lista los empleados de la sucursal', async () => {
     mswServer.use(
       http.get('*/api/v1/catalogos/empleados', () =>
         HttpResponse.json({
@@ -293,8 +310,8 @@ describe('<SucursalDetalle> — smoke', () => {
 
     await waitFor(() => expect(screen.getByText('S01')).toBeInTheDocument());
 
-    const colaboradoresTab = screen.getByRole('tab', { name: /^colaboradores$/i });
-    fireEvent.click(colaboradoresTab);
+    const empleadosTab = screen.getByRole('tab', { name: /^empleados$/i });
+    fireEvent.click(empleadosTab);
 
     await waitFor(() =>
       expect(screen.getByText('Carlos López')).toBeInTheDocument(),
@@ -306,7 +323,7 @@ describe('<SucursalDetalle> — smoke', () => {
     expect(screen.queryByText('María Gómez')).not.toBeInTheDocument();
   });
 
-  it('vincula desde la sucursal a un colaborador sin sucursal de la empresa activa', async () => {
+  it('vincula desde la sucursal a un empleado sin sucursal de la empresa activa', async () => {
     setAuth([
       PermisosCanonicos.CompartidoCatalogosLeer,
       PermisosCanonicos.AdminEmpleadosGestionar,
@@ -328,9 +345,9 @@ describe('<SucursalDetalle> — smoke', () => {
     );
 
     render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
-    fireEvent.click(screen.getByRole('tab', { name: /^colaboradores$/i }));
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Colaborador sin sucursal' })).toBeInTheDocument());
-    fireEvent.change(screen.getByRole('combobox', { name: 'Colaborador sin sucursal' }), { target: { value: 'emp-libre' } });
+    fireEvent.click(screen.getByRole('tab', { name: /^empleados$/i }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Empleado sin sucursal' })).toBeInTheDocument());
+    fireEvent.change(screen.getByRole('combobox', { name: 'Empleado sin sucursal' }), { target: { value: 'emp-libre' } });
     fireEvent.click(screen.getByRole('button', { name: /vincular a esta sucursal/i }));
     await waitFor(() => expect(sucursalAsignada).toBe('s-1'));
     await waitFor(() => expect(screen.getByText('Lucía Pérez')).toBeInTheDocument());

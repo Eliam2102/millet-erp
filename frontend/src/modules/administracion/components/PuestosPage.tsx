@@ -131,19 +131,6 @@ export function PuestosPage() {
                     <div className="flex flex-1 flex-col truncate">
                       <span className="truncate text-sm font-medium">{p.nombre}</span>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                        {p.departamentoNombre ? (
-                          <span>
-                            Depto:{' '}
-                            <span className="font-medium text-foreground">
-                              {p.departamentoNombre}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="italic text-muted-foreground/70">
-                            Sin depto
-                          </span>
-                        )}
-                        <span aria-hidden="true">·</span>
                         {p.rolSugeridoNombre ? (
                           <span>
                             Rol sugerido:{' '}

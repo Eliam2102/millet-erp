@@ -36,7 +36,7 @@ public class SucursalPuestosEndpointsTests : IClassFixture<WebApplicationFactory
         var client = await CreateSuperAdminClientAsync();
         var sucursalId = await CrearSucursalAsync(client);
         var puestoId = await CrearPuestoAsync(client);
-        var deptoId = await CrearDepartamentoAsync(client);
+        var deptoId = await CrearYAsignarDepartamentoAsync(client, sucursalId);
 
         var response = await client.PostAsJsonAsync(
             $"{EmpresasBase}/sucursales/{sucursalId}/puestos/{puestoId}",
@@ -56,7 +56,7 @@ public class SucursalPuestosEndpointsTests : IClassFixture<WebApplicationFactory
         var client = await CreateSuperAdminClientAsync();
         var sucursalId = await CrearSucursalAsync(client);
         var puestoId = await CrearPuestoAsync(client);
-        var deptoId = await CrearDepartamentoAsync(client);
+        var deptoId = await CrearYAsignarDepartamentoAsync(client, sucursalId);
 
         var primero = await client.PostAsJsonAsync(
             $"{EmpresasBase}/sucursales/{sucursalId}/puestos/{puestoId}",
@@ -75,7 +75,7 @@ public class SucursalPuestosEndpointsTests : IClassFixture<WebApplicationFactory
     {
         var client = await CreateSuperAdminClientAsync();
         var sucursalId = await CrearSucursalAsync(client);
-        var deptoId = await CrearDepartamentoAsync(client);
+        var deptoId = await CrearYAsignarDepartamentoAsync(client, sucursalId);
         var otraEmpresa = await client.PostAsJsonAsync(EmpresasBase, new
         {
             Id = Guid.Empty,
@@ -157,7 +157,7 @@ public class SucursalPuestosEndpointsTests : IClassFixture<WebApplicationFactory
         var client = await CreateSuperAdminClientAsync();
         var sucursalId = await CrearSucursalAsync(client);
         var puestoId = await CrearPuestoAsync(client);
-        var deptoId = await CrearDepartamentoAsync(client);
+        var deptoId = await CrearYAsignarDepartamentoAsync(client, sucursalId);
 
         var desactResp = await client.PostAsync(
             $"/api/v1/admin/departamentos/{deptoId}/desactivar",
@@ -171,6 +171,45 @@ public class SucursalPuestosEndpointsTests : IClassFixture<WebApplicationFactory
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var body = await ReadJsonAsync(response);
         Assert.Equal("DEPARTAMENTO_INACTIVO", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Asignar_Con_Departamento_No_Asignado_A_Sucursal_Retorna_409()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursalId = await CrearSucursalAsync(client);
+        var puestoId = await CrearPuestoAsync(client);
+        var deptoId = await CrearDepartamentoAsync(client);
+
+        var response = await client.PostAsJsonAsync(
+            $"{EmpresasBase}/sucursales/{sucursalId}/puestos/{puestoId}",
+            new { DepartamentoId = deptoId });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.Equal("DEPARTAMENTO_NO_ASIGNADO_A_SUCURSAL", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Asignar_Con_Departamento_Inactivo_En_Sucursal_Retorna_409()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursalId = await CrearSucursalAsync(client);
+        var puestoId = await CrearPuestoAsync(client);
+        var deptoId = await CrearYAsignarDepartamentoAsync(client, sucursalId);
+
+        var desactResp = await client.PostAsync(
+            $"{EmpresasBase}/sucursales/{sucursalId}/departamentos/{deptoId}/desactivar",
+            content: null);
+        desactResp.EnsureSuccessStatusCode();
+
+        var response = await client.PostAsJsonAsync(
+            $"{EmpresasBase}/sucursales/{sucursalId}/puestos/{puestoId}",
+            new { DepartamentoId = deptoId });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.Equal("DEPARTAMENTO_SUCURSAL_INACTIVO", body.GetProperty("code").GetString());
     }
 
     [Fact]
@@ -192,7 +231,7 @@ public class SucursalPuestosEndpointsTests : IClassFixture<WebApplicationFactory
     {
         var client = await CreateSuperAdminClientAsync();
         var sucursalId = await CrearSucursalAsync(client);
-        var deptoId = await CrearDepartamentoAsync(client);
+        var deptoId = await CrearYAsignarDepartamentoAsync(client, sucursalId);
 
         var response = await client.PostAsJsonAsync(
             $"{EmpresasBase}/sucursales/{sucursalId}/puestos/{Guid.NewGuid()}",
@@ -408,9 +447,17 @@ public class SucursalPuestosEndpointsTests : IClassFixture<WebApplicationFactory
         return body.GetProperty("id").GetGuid();
     }
 
+    private static async Task<Guid> CrearYAsignarDepartamentoAsync(HttpClient client, Guid sucursalId, string prefix = "DXP")
+    {
+        var deptoId = await CrearDepartamentoAsync(client, prefix);
+        var res = await client.PostAsync($"{EmpresasBase}/sucursales/{sucursalId}/departamentos/{deptoId}", null);
+        res.EnsureSuccessStatusCode();
+        return deptoId;
+    }
+
     private static async Task AsignarAsync(HttpClient client, Guid sucursalId, Guid puestoId, Guid? departamentoId = null)
     {
-        departamentoId ??= await CrearDepartamentoAsync(client);
+        departamentoId ??= await CrearYAsignarDepartamentoAsync(client, sucursalId);
         var response = await client.PostAsJsonAsync(
             $"{EmpresasBase}/sucursales/{sucursalId}/puestos/{puestoId}",
             new { DepartamentoId = departamentoId.Value });

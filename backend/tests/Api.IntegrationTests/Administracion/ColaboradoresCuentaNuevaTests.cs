@@ -251,7 +251,7 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
             body.GetProperty("acceso").GetProperty("usuarioId").GetGuid());
     }
 
-    private Task CorrerWorkerAsync() =>
+    private Task<int> CorrerWorkerAsync() =>
         ActivatorUtilities.CreateInstance<ProvisionCuentaEntraWorker>(_host.Factory.Services)
             .ProcesarPendientesAsync(CancellationToken.None);
 
@@ -297,13 +297,19 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
     {
         private readonly ConcurrentQueue<CorreoAccesoColaborador> _enviados = new();
 
-        public volatile bool Fallar;
+        private volatile bool _fallar;
+
+        public bool Fallar
+        {
+            get => _fallar;
+            set => _fallar = value;
+        }
 
         public IReadOnlyCollection<CorreoAccesoColaborador> Enviados => _enviados;
 
         public Task EnviarAccesoColaboradorAsync(CorreoAccesoColaborador correo, CancellationToken ct)
         {
-            if (Fallar) throw new InvalidOperationException("El buzón de servicio rechazó el envío.");
+            if (_fallar) throw new InvalidOperationException("El buzón de servicio rechazó el envío.");
             _enviados.Enqueue(correo);
             return Task.CompletedTask;
         }

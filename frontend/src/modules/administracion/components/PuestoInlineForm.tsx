@@ -19,7 +19,6 @@ import {
   useCrearPuesto,
 } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
-import { useDepartamentos } from '@/features/catalogos/api';
 import type { PuestoListItem } from '@/features/catalogos/api';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +27,7 @@ import { cn } from '@/lib/utils';
  * Mismo patrón que <c>CanalVentaInlineForm</c>: border dashed primary
  * (agregar) vs solid amber (editar). La clave es business key
  * inmutable — en modo editar el input va disabled y el PATCH solo
- * manda nombre, rolSugeridoId y departamentoId opcionales.
+ * manda nombre y rolSugeridoId opcionales.
  */
 export interface PuestoInlineFormProps {
   puesto?: PuestoListItem | null;
@@ -40,7 +39,6 @@ const VALORES_INICIALES: PuestoValues = {
   clave: '',
   nombre: '',
   rolSugeridoId: '',
-  departamentoId: '',
 };
 
 export function PuestoInlineForm({
@@ -53,7 +51,6 @@ export function PuestoInlineForm({
   const crear = useCrearPuesto();
   const actualizar = useActualizarPuesto();
   const rolesQuery = useRoles({ soloActivos: true });
-  const departamentosQuery = useDepartamentos();
 
   const form = useForm<PuestoValues>({
     resolver: zodResolver(PuestoSchema),
@@ -62,7 +59,6 @@ export function PuestoInlineForm({
           clave: puesto.clave,
           nombre: puesto.nombre,
           rolSugeridoId: puesto.rolSugeridoId ?? '',
-          departamentoId: puesto.departamentoId ?? '',
         }
       : VALORES_INICIALES,
   });
@@ -91,19 +87,6 @@ export function PuestoInlineForm({
         return;
       }
       if (
-        error.code === 'DEPARTAMENTO_NO_EXISTE' ||
-        error.code === 'DEPARTAMENTO_OTRA_EMPRESA' ||
-        error.code === 'DEPARTAMENTO_INACTIVO'
-      ) {
-        form.setError('departamentoId', {
-          type: error.code,
-          message:
-            error.problem.detail ||
-            'El departamento seleccionado no es válido o no está activo.',
-        });
-        return;
-      }
-      if (
         applyServerErrors(
           form as unknown as Parameters<typeof applyServerErrors>[0],
           error,
@@ -122,7 +105,6 @@ export function PuestoInlineForm({
   function onSubmit(values: PuestoValues) {
     if (esEditar && puesto != null) {
       const limpiarRol = !values.rolSugeridoId;
-      const limpiarDepto = !values.departamentoId;
       actualizar.mutate(
         {
           id: puesto.id,
@@ -130,8 +112,6 @@ export function PuestoInlineForm({
             nombre: values.nombre,
             rolSugeridoId: limpiarRol ? null : values.rolSugeridoId,
             limpiarRolSugerido: limpiarRol,
-            departamentoId: limpiarDepto ? null : values.departamentoId,
-            limpiarDepartamento: limpiarDepto,
           },
           idempotencyKey,
         },
@@ -152,7 +132,6 @@ export function PuestoInlineForm({
           clave: values.clave,
           nombre: values.nombre,
           rolSugeridoId: values.rolSugeridoId || null,
-          departamentoId: values.departamentoId || null,
         },
         idempotencyKey,
       },
@@ -191,7 +170,7 @@ export function PuestoInlineForm({
           label="Clave"
           required
           error={form.formState.errors.clave?.message}
-          className="md:col-span-4"
+          className="md:col-span-3"
         >
           <Input
             maxLength={20}
@@ -211,7 +190,7 @@ export function PuestoInlineForm({
           label="Nombre"
           required
           error={form.formState.errors.nombre?.message}
-          className="md:col-span-8"
+          className="md:col-span-5"
         >
           <Input
             maxLength={254}
@@ -221,28 +200,9 @@ export function PuestoInlineForm({
         </Field>
 
         <Field
-          label="Departamento"
-          error={form.formState.errors.departamentoId?.message}
-          className="md:col-span-6"
-        >
-          <select
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Departamento"
-            {...form.register('departamentoId')}
-          >
-            <option value="">(Sin departamento)</option>
-            {departamentosQuery.data?.items.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.clave} - {d.nombre}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field
           label="Rol sugerido en el ERP"
           error={form.formState.errors.rolSugeridoId?.message}
-          className="md:col-span-6"
+          className="md:col-span-4"
         >
           <select
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"

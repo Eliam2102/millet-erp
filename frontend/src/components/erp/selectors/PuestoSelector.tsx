@@ -1,4 +1,5 @@
 import { usePuestos } from '@/features/catalogos/api';
+import { usePuestosDeSucursal } from '@/modules/administracion/api';
 import { EstatusCatalogo } from '@/features/compras/api/types';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 
@@ -6,12 +7,17 @@ import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerC
  * <c>&lt;PuestoSelector/&gt;</c> — selector de puesto organizacional
  * (ADM-FE-PR1, doc 10-catalogo-puestos-empleados). Patrón eager
  * (catálogo chico, búsqueda client-side), gemelo de
- * <c>SucursalSelector</c>. Solo lista puestos activos — el universo
- * elegible para asignación y políticas de viáticos.
+ * <c>SucursalSelector</c>.
+ * Si se especifica <c>sucursalId</c>, filtra exclusivamente los
+ * puestos asignados y activos en esa sucursal.
+ * Si se especifica <c>departamentoId</c>, filtra exclusivamente los
+ * puestos pertenecientes a ese departamento.
  */
 export interface PuestoSelectorProps {
   value: string | null | undefined;
   onChange: (id: string | null) => void;
+  sucursalId?: string | null;
+  departamentoId?: string | null;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -20,14 +26,43 @@ export interface PuestoSelectorProps {
 export function PuestoSelector({
   value,
   onChange,
+  sucursalId,
+  departamentoId,
   placeholder = 'Selecciona puesto',
   disabled,
   className,
 }: PuestoSelectorProps) {
-  const query = usePuestos();
-  const items = (query.data?.items ?? []).filter(
-    (p) => p.estatus === EstatusCatalogo.Activo || p.id === value,
-  );
+  const globalQuery = usePuestos();
+  const sucursalQuery = usePuestosDeSucursal(sucursalId ?? null);
+
+  const query = sucursalId ? sucursalQuery : globalQuery;
+
+  const items = sucursalId
+    ? (sucursalQuery.data?.items ?? [])
+        .filter((p) => {
+          const esActivoOSeleccionado =
+            p.estatus === EstatusCatalogo.Activo || p.puestoId === value;
+          const matchDepto =
+            !departamentoId ||
+            p.departamentoId === departamentoId ||
+            p.puestoId === value;
+          return esActivoOSeleccionado && matchDepto;
+        })
+        .map((p) => ({
+          id: p.puestoId,
+          clave: p.puestoClave,
+          nombre: p.puestoNombre,
+          estatus: p.estatus,
+        }))
+    : (globalQuery.data?.items ?? []).filter((p) => {
+        const esActivoOSeleccionado =
+          p.estatus === EstatusCatalogo.Activo || p.id === value;
+        const matchDepto =
+          !departamentoId ||
+          p.departamentoId === departamentoId ||
+          p.id === value;
+        return esActivoOSeleccionado && matchDepto;
+      });
 
   return (
     <CatalogoEagerCombobox
@@ -46,7 +81,13 @@ export function PuestoSelector({
       )}
       placeholder={placeholder}
       searchPlaceholder="Buscar puesto…"
-      emptyListText="No hay puestos en el catálogo."
+      emptyListText={
+        departamentoId
+          ? 'No hay puestos asignados a este departamento.'
+          : sucursalId
+            ? 'No hay puestos asignados a esta sucursal.'
+            : 'No hay puestos en el catálogo.'
+      }
       ariaLabel="Seleccionar puesto"
       disabled={disabled}
       className={className}

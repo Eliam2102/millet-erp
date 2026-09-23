@@ -6,40 +6,19 @@ import { Button } from '@/components/ui/button';
 import { useSucursales } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { SucursalDepartamentosTab } from '@/modules/administracion/components/SucursalDepartamentosTab';
-import { SucursalPuestosTab } from '@/modules/administracion/components/SucursalPuestosTab';
+import { SucursalOrganizacionTab } from '@/modules/administracion/components/SucursalOrganizacionTab';
 import { SucursalColaboradoresTab } from '@/modules/administracion/components/SucursalColaboradoresTab';
-import { SucursalUsuariosTab } from '@/modules/administracion/components/SucursalUsuariosTab';
 import { cn } from '@/lib/utils';
 
-type Tab = 'departamentos' | 'puestos' | 'colaboradores' | 'usuarios';
+type Tab = 'departamentos-puestos' | 'empleados';
 
 /**
- * Detalle standalone de una sucursal (F1-ADM-01 Fase 3 frontend).
- * Espejo del patrón cross-módulo de <c>EmpresaDetalle</c> (P3) pero
- * SIN master-detail: los 3 endpoints de asignación
- * (<c>/admin/empresas/sucursales/{sucursalId}/{departamentos,puestos,usuarios}</c>)
- * cuelgan solo de <c>sucursalId</c>. Tabs: Departamentos | Puestos |
- * Colaboradores | Usuarios.
- *
- * <para>El encabezado (clave + nombre de la sucursal) se resuelve del
- * catálogo eager <c>useSucursales()</c> (mismo que usa
- * <c>SucursalSelector</c>) — no existe un <c>GET</c> de sucursal
- * individual en el backend, así que se cruza por id contra el
- * catálogo ya cacheado. Si el catálogo no trae la sucursal (p.ej.
- * inactiva y el catálogo solo expone activas), el header cae a un
- * fallback y las tabs se renderizan igual — cada una resuelve su
- * propio 403/404 contra el backend.</para>
- *
- * <para>Cada tab maneja su propio 403 (<c>SUCURSAL_NO_ASOCIADA</c>,
- * guard de pertenencia Fase 2 sección C) con
- * <c>SucursalTabErrorState</c> — no hay un guard único a nivel de
- * página porque el usuario puede tener acceso a unas asignaciones y a
- * otras no (permisos granulares por recurso).</para>
+ * Detalle standalone de una sucursal (F1-ADM-01).
+ * Tabs: Departamentos y Puestos | Empleados.
  */
 export function SucursalDetalle() {
   const { id } = useParams({ from: '/_app/admin/sucursales/$id' });
-  const [tab, setTab] = useState<Tab>('departamentos');
+  const [tab, setTab] = useState<Tab>('departamentos-puestos');
 
   const sucursalesQuery = useSucursales();
   const sucursal = sucursalesQuery.data?.items.find((s) => s.id === id);
@@ -53,14 +32,11 @@ export function SucursalDetalle() {
   const canGestionarEmpleados = useHasPermission(
     PermisosCanonicos.AdminEmpleadosGestionar,
   );
-  const canGestionarUsuarios = useHasPermission(
-    PermisosCanonicos.AdminSucursalesUsuariosGestionar,
-  );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       <header
-        className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
+        className="shrink-0 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -93,71 +69,42 @@ export function SucursalDetalle() {
       </header>
 
       <nav
-        className="sticky top-14 z-10 flex items-center gap-1 border-b bg-background/95 px-4 backdrop-blur"
+        className="sticky top-0 z-10 shrink-0 flex items-center gap-1 border-b bg-background/95 px-4 backdrop-blur"
         role="tablist"
         aria-label="Secciones de la sucursal"
         data-print="hidden"
       >
         <TabButton
-          activa={tab === 'departamentos'}
-          onClick={() => setTab('departamentos')}
-          ariaControls="tab-panel-departamentos"
+          activa={tab === 'departamentos-puestos'}
+          onClick={() => setTab('departamentos-puestos')}
+          ariaControls="tab-panel-departamentos-puestos"
         >
-          Departamentos
+          Departamentos y Puestos
         </TabButton>
         <TabButton
-          activa={tab === 'puestos'}
-          onClick={() => setTab('puestos')}
-          ariaControls="tab-panel-puestos"
+          activa={tab === 'empleados'}
+          onClick={() => setTab('empleados')}
+          ariaControls="tab-panel-empleados"
         >
-          Puestos
-        </TabButton>
-        <TabButton
-          activa={tab === 'colaboradores'}
-          onClick={() => setTab('colaboradores')}
-          ariaControls="tab-panel-colaboradores"
-        >
-          Colaboradores
-        </TabButton>
-        <TabButton
-          activa={tab === 'usuarios'}
-          onClick={() => setTab('usuarios')}
-          ariaControls="tab-panel-usuarios"
-        >
-          Usuarios
+          Empleados
         </TabButton>
       </nav>
 
-      <div className="px-4 pt-4 pb-6">
-        {tab === 'departamentos' && (
-          <div id="tab-panel-departamentos" role="tabpanel">
-            <SucursalDepartamentosTab
+      <div className="flex-1 min-h-0 px-4 pt-3 pb-3">
+        {tab === 'departamentos-puestos' && (
+          <div id="tab-panel-departamentos-puestos" role="tabpanel" className="h-full">
+            <SucursalOrganizacionTab
               sucursalId={id}
-              canGestionar={canGestionarDeptos}
+              canGestionarDeptos={canGestionarDeptos}
+              canGestionarPuestos={canGestionarPuestos}
             />
           </div>
         )}
-        {tab === 'puestos' && (
-          <div id="tab-panel-puestos" role="tabpanel">
-            <SucursalPuestosTab
-              sucursalId={id}
-              canGestionar={canGestionarPuestos}
-            />
-          </div>
-        )}
-        {tab === 'colaboradores' && (
-          <div id="tab-panel-colaboradores" role="tabpanel">
+        {tab === 'empleados' && (
+          <div id="tab-panel-empleados" role="tabpanel">
             <SucursalColaboradoresTab
               sucursalId={id}
               canGestionar={canGestionarEmpleados}
-            />
-          </div>
-        )}
-        {tab === 'usuarios' && (
-          <div id="tab-panel-usuarios" role="tabpanel">
-            <SucursalUsuariosTab
-              sucursalId={id}
-              canGestionar={canGestionarUsuarios}
             />
           </div>
         )}
