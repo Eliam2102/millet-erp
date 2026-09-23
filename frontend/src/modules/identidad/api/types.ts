@@ -132,7 +132,7 @@ export interface CrearUsuarioCommand {
   id?: string;
   email: string;
   /** Si <c>null</c>, el backend resuelve con <c>IEntraIdResolverPort</c>
-   *  o genera placeholder <c>dev-{email}</c> (ADR-0015). */
+   *  o genera el OID pendiente <c>pending:{email}</c> (plan 15). */
   entraIdObjectId?: string | null;
   nombreCompleto: string;
   departamentoId?: string | null;

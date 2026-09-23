@@ -160,7 +160,7 @@ public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var body = await ReadJsonAsync(response);
         Assert.NotEqual(Guid.Empty, body.GetProperty("id").GetGuid());
         Assert.Equal(email, body.GetProperty("email").GetString());
-        Assert.Equal($"dev-{email}", body.GetProperty("entraOid").GetString());
+        Assert.Equal($"pending:{email}", body.GetProperty("entraOid").GetString());
         Assert.True(body.GetProperty("activo").GetBoolean());
     }
 

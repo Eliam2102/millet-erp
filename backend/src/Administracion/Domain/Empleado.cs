@@ -29,6 +29,13 @@ public sealed class Empleado : BaseEntity, IAuditable
     public string? Email { get; private set; }
 
     /// <summary>
+    /// Correo personal de contacto (alta unificada, plan 15 D1): destino
+    /// del acceso inicial cuando el ERP crea la cuenta corporativa en
+    /// Entra ID. No es el correo de inicio de sesión.
+    /// </summary>
+    public string? EmailContacto { get; private set; }
+
+    /// <summary>
     /// FK a <see cref="Puesto"/>. Nullable en el alta (empleados sin regla
     /// de viáticos), pero requerido por CxP para validar el tope de la
     /// política al solicitar viáticos.
@@ -71,7 +78,8 @@ public sealed class Empleado : BaseEntity, IAuditable
         Guid? departamentoId = null,
         Guid? usuarioId = null,
         string? codigoNomina = null,
-        EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
+        EstatusCatalogo estatus = EstatusCatalogo.Activo,
+        string? emailContacto = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("EMPLEADO_ID_INVALIDO", "El id es obligatorio.");
@@ -80,6 +88,7 @@ public sealed class Empleado : BaseEntity, IAuditable
         ValidarClave(clave);
         ValidarNombre(nombre);
         ValidarEmail(email);
+        ValidarEmailContacto(emailContacto);
         ValidarCodigoNomina(codigoNomina);
         ValidarJefe(id, jefeDirectoId);
 
@@ -87,6 +96,7 @@ public sealed class Empleado : BaseEntity, IAuditable
         Clave = clave;
         Nombre = nombre;
         Email = Normalizar(email);
+        EmailContacto = Normalizar(emailContacto);
         PuestoId = puestoId;
         JefeDirectoId = jefeDirectoId;
         SucursalId = sucursalId;
@@ -117,7 +127,9 @@ public sealed class Empleado : BaseEntity, IAuditable
         Guid? usuarioId = null,
         bool limpiarUsuario = false,
         string? codigoNomina = null,
-        bool limpiarCodigoNomina = false)
+        bool limpiarCodigoNomina = false,
+        string? emailContacto = null,
+        bool limpiarEmailContacto = false)
     {
         if (nombre is not null)
         {
@@ -157,6 +169,13 @@ public sealed class Empleado : BaseEntity, IAuditable
             ValidarCodigoNomina(codigoNomina);
             CodigoNomina = Normalizar(codigoNomina);
         }
+
+        if (limpiarEmailContacto) EmailContacto = null;
+        else if (emailContacto is not null)
+        {
+            ValidarEmailContacto(emailContacto);
+            EmailContacto = Normalizar(emailContacto);
+        }
     }
 
     /// <summary>Reactiva al empleado (recontratación). Idempotente.</summary>
@@ -188,6 +207,14 @@ public sealed class Empleado : BaseEntity, IAuditable
             && (string.IsNullOrWhiteSpace(email) || email.Trim().Length > 254))
             throw new BusinessRuleException("EMPLEADO_EMAIL_INVALIDO",
                 "El email no puede ser vacío ni exceder 254 caracteres.");
+    }
+
+    private static void ValidarEmailContacto(string? emailContacto)
+    {
+        if (emailContacto is not null
+            && (string.IsNullOrWhiteSpace(emailContacto) || emailContacto.Trim().Length > 254))
+            throw new BusinessRuleException("EMPLEADO_EMAIL_CONTACTO_INVALIDO",
+                "El email de contacto no puede ser vacío ni exceder 254 caracteres.");
     }
 
     private static void ValidarCodigoNomina(string? codigoNomina)

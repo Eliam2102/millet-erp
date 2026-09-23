@@ -52,7 +52,7 @@ public sealed class AuditOriginAttributionTests
         ICurrentUserContext userContext, ICurrentEmpresaContext empresaContext, IAuditOriginContext originContext)
     {
         var metadata = new MetadataSaveChangesInterceptor(new FixedClock(DateTimeOffset.UtcNow), userContext, originContext);
-        var audit = new AuditSaveChangesInterceptor(new FixedClock(DateTimeOffset.UtcNow), userContext, empresaContext, originContext);
+        var audit = new AuditSaveChangesInterceptor(new FixedClock(DateTimeOffset.UtcNow), userContext, empresaContext, originContext, new AuditCorrelationContext());
 
         var options = new DbContextOptionsBuilder<TestDbContext>()
             .UseInMemoryDatabase($"audit-origin-{Guid.NewGuid()}")
@@ -142,5 +142,48 @@ public sealed class AuditOriginAttributionTests
         }
 
         originContext.Origin.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CorrelacionComun_AgrupaVariosSaveChanges_YSinElla_CadaUnoTieneLaSuya()
+    {
+        var userContext = new FakeUserContext(Guid.NewGuid(), "maria@millet.mx");
+        var empresaContext = new FakeEmpresaContext(bypassed: false);
+        await using var db = NewContext(userContext, empresaContext, new AuditOriginContext());
+        var correlacion = Guid.CreateVersion7();
+
+        using (new AuditCorrelationContext().Begin(correlacion))
+        {
+            db.Entidades.Add(new FakeEntity { Nombre = "Primero" });
+            await db.SaveChangesAsync();
+            db.Entidades.Add(new FakeEntity { Nombre = "Segundo" });
+            await db.SaveChangesAsync();
+        }
+        db.Entidades.Add(new FakeEntity { Nombre = "Fuera del scope" });
+        await db.SaveChangesAsync();
+
+        var correlaciones = await db.AuditLog.Select(a => a.CorrelationId).ToListAsync();
+        correlaciones.Count(c => c == correlacion).Should().Be(2);
+        correlaciones.Distinct().Should().HaveCount(2, "la escritura fuera del scope genera su propia correlación");
+    }
+
+    [Fact]
+    public void BeginCorrelacion_RestauraElValorAnteriorAlSalirDelScope()
+    {
+        var context = new AuditCorrelationContext();
+        var externa = Guid.CreateVersion7();
+        var anidada = Guid.CreateVersion7();
+
+        using (context.Begin(externa))
+        {
+            using (context.Begin(anidada))
+            {
+                context.CorrelationId.Should().Be(anidada);
+            }
+
+            context.CorrelationId.Should().Be(externa);
+        }
+
+        context.CorrelationId.Should().BeNull();
     }
 }

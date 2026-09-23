@@ -27,17 +27,20 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     private readonly ICurrentUserContext _userContext;
     private readonly ICurrentEmpresaContext _empresaContext;
     private readonly IAuditOriginContext _originContext;
+    private readonly IAuditCorrelationContext _correlationContext;
 
     public AuditSaveChangesInterceptor(
         IClock clock,
         ICurrentUserContext userContext,
         ICurrentEmpresaContext empresaContext,
-        IAuditOriginContext originContext)
+        IAuditOriginContext originContext,
+        IAuditCorrelationContext correlationContext)
     {
         _clock = clock;
         _userContext = userContext;
         _empresaContext = empresaContext;
         _originContext = originContext;
+        _correlationContext = correlationContext;
     }
 
     public override InterceptionResult<int> SavingChanges(
@@ -61,7 +64,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     {
         var auditEntries = new List<AuditLogEntry>();
         var now = _clock.UtcNow;
-        var correlationId = Guid.CreateVersion7();
+        // Una operación de varios SaveChanges puede fijar correlación común.
+        var correlationId = _correlationContext.CorrelationId ?? Guid.CreateVersion7();
         // Solo se popula Metadatos.origen cuando el bypass de empresa está
         // activo (procesos en background) y el worker declaró su origen con
         // IAuditOriginContext.SetOrigin — en request normales ambos son null.

@@ -49,7 +49,7 @@ import { useEntraIdUsuarioSearch } from '@/lib/identidad/use-entra-id-usuario-se
  * <c>force: true</c>.</para>
  *
  * <para><b>Sin autocomplete contra Entra ID</b>: el backend genera un
- * placeholder <c>dev-{email}</c> con <c>LocalEntraIdResolverNoOp</c>
+ * OID pendiente <c>pending:{email}</c> con <c>LocalEntraIdResolverNoOp</c>
  * cuando el admin no provee ObjectId. Mientras llega el resolver
  * (ver <c>PLATFORM-TODO(&lt;EntraIdResolver&gt;)</c>), hay un campo
  * manual "Entra ID Object ID" para que el admin pegue el GUID desde

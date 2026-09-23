@@ -306,7 +306,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
         var placeholderEmail = $"{oid}@bootstrap.local";
         var placeholderNombre = "SuperAdmin (configurar en primer login)";
 
-        usuario = new Usuario(Guid.CreateVersion7(), oid, placeholderEmail, placeholderNombre);
+        // Nace como cuenta técnica (plan 15, D4): el bootstrap corre con la
+        // BD vacía, sin catálogo de empleados que vincular.
+        usuario = new Usuario(
+            Guid.CreateVersion7(), oid, placeholderEmail, placeholderNombre,
+            esCuentaTecnica: true);
         var preferencia = new UsuarioPreferencia(Guid.CreateVersion7(), usuario.Id);
 
         db.Usuarios.Add(usuario);

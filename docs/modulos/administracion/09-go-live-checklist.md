@@ -310,6 +310,7 @@ Luego corregir secret en Key Vault y re-startear (idempotencia garantiza que el 
 - `<TipoCambioSync>` — sync DOF/Banxico.
 - `<SchemaRename>` — Fase B ADR-0035.
 - `<EntraIdResolver>` — wireup Graph API real.
+- `<EntraDirectorio>` — adaptador Graph del directorio Entra (buscar/crear cuentas) para el alta unificada.
 - `<ServiceBusWireup>` — eventos cross-process.
 - `<CatalogosSapImport>` — migración masiva.
 

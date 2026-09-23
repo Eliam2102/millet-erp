@@ -25,7 +25,8 @@ public sealed record CrearEmpleadoCommand(
     Guid? SucursalId = null,
     Guid? DepartamentoId = null,
     Guid? UsuarioId = null,
-    string? CodigoNomina = null) : IRequest<EmpleadoResponse>;
+    string? CodigoNomina = null,
+    string? EmailContacto = null) : IRequest<EmpleadoResponse>;
 
 public sealed class CrearEmpleadoValidator : AbstractValidator<CrearEmpleadoCommand>
 {
@@ -99,7 +100,8 @@ public sealed class CrearEmpleadoHandler
             sucursalId: command.SucursalId,
             departamentoId: command.DepartamentoId,
             usuarioId: command.UsuarioId,
-            codigoNomina: command.CodigoNomina);
+            codigoNomina: command.CodigoNomina,
+            emailContacto: command.EmailContacto);
 
         _db.Empleados.Add(empleado);
         await _db.SaveChangesAsync(cancellationToken);

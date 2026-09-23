@@ -28,6 +28,13 @@ internal static class TestAssemblyInit
         Environment.SetEnvironmentVariable("Compras__Outbox__Disabled", "true");
         Environment.SetEnvironmentVariable("IntegracionesAw__Outbox__Disabled", "true");
 
+        // Provisión de cuentas Entra (plan 15, F4): el worker procesa
+        // TODOS los usuarios en ProvisionandoCuenta de la BD compartida;
+        // con su ciclo encendido en cualquier host de tests se llevaría
+        // los usuarios de ColaboradoresCuentaNuevaTests a otro directorio
+        // simulado. Esas pruebas corren el ciclo a mano.
+        Environment.SetEnvironmentVariable("Entra__Provision__Disabled", "true");
+
         // Soft locks: TTLs cortos para que los tests de expiración no
         // tengan que dormir 90s (default productivo). Los smoke tests son
         // inocuos a esta config — sus entries se releasean al disconnect.

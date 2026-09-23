@@ -123,6 +123,7 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<ICurrentEmpresaContext, CurrentEmpresaContext>();
 builder.Services.AddScoped<IAuditOriginContext, AuditOriginContext>();
+builder.Services.AddScoped<IAuditCorrelationContext, AuditCorrelationContext>();
 builder.Services.AddSingleton<IPermissionCache, InMemoryPermissionCache>();
 
 // === IIntegrationEventPublisher (F6-PR1, ADR-0009): Outbox real ===
@@ -870,6 +871,28 @@ builder.Services.AddScoped<
     Millet.Identidad.Application.Ports.IEntraIdResolverPort,
     Millet.Identidad.Infrastructure.Stubs.LocalEntraIdResolverNoOp>();
 
+// === Identidad — directorio Entra para el alta unificada (plan 15, F2) ===
+// Simulado en memoria (singleton: el directorio vive lo que el proceso)
+// hasta que TI entregue los permisos de Graph — ver
+// PLATFORM-TODO(<EntraDirectorio>) en DirectorioEntraSimulado.cs.
+builder.Services
+    .AddOptions<Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions.SectionName));
+builder.Services.AddSingleton<
+    Millet.Identidad.Application.Ports.IEntraDirectorioPort,
+    Millet.Identidad.Infrastructure.Stubs.DirectorioEntraSimulado>();
+// Transacción compartida Identidad + Compartido del alta de colaborador
+// (plan 15, F3; validada en el spike F0).
+builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
+// Camino B "Cuenta Microsoft nueva" (plan 15, F4): correo de acceso simulado
+// hasta que TI entregue Mail.Send — ver PLATFORM-TODO(<CorreoSaliente>) —
+// y worker que crea la cuenta después del commit del alta.
+builder.Services.AddSingleton<
+    Millet.Identidad.Application.Ports.ICorreoSalientePort,
+    Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
+builder.Services.AddHostedService<Millet.Identidad.Infrastructure.Workers.ProvisionCuentaEntraWorker>();
+
 // === OpenAPI / Scalar (ADR-0017, F0-PR2) ===
 // AddOpenApi("v1") registra el generador de Microsoft.AspNetCore.OpenApi
 // (sucesor de Swashbuckle en .NET 9). El doc transformer fija Title y
@@ -1283,6 +1306,7 @@ Millet.Api.Endpoints.Administracion.DepartamentosEndpoints.MapDepartamentosEndpo
 // ADM-PR1 (doc 10-catalogo-puestos-empleados): master de puestos y empleados.
 Millet.Api.Endpoints.Administracion.PuestosEndpoints.MapPuestosEndpoints(app);
 Millet.Api.Endpoints.Administracion.EmpleadosEndpoints.MapEmpleadosEndpoints(app);
+Millet.Api.Endpoints.Administracion.ColaboradoresEndpoints.MapColaboradoresEndpoints(app);
 // FAC-ING-PR2: catálogo administrable de canales de venta (mismo permiso
 // que sucursales).
 Millet.Api.Endpoints.Administracion.CanalesVentaEndpoints.MapCanalesVentaEndpoints(app);
@@ -1338,6 +1362,7 @@ Millet.Api.Endpoints.Compras.Oc.TiposDocumentoOcEndpoint.MapTiposDocumentoOcEndp
 
 // === Identidad: usuarios catalog para selectores de UI (B.1) ===
 Millet.Api.Endpoints.Identidad.UsuariosEndpoints.MapUsuariosEndpoints(app);
+Millet.Api.Endpoints.Identidad.DirectorioEntraEndpoints.MapDirectorioEntraEndpoints(app);
 
 // === Identidad: CRUD Roles + matriz de permisos + grupos Entra ID (F-Admin-PR3.2) ===
 Millet.Api.Endpoints.Identidad.RolesEndpoints.MapRolesEndpoints(app);

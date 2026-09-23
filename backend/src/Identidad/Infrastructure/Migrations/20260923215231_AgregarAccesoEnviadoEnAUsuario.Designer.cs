@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Identidad.Infrastructure;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Identidad.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentidadDbContext))]
-    partial class IdentidadDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923215231_AgregarAccesoEnviadoEnAUsuario")]
+    partial class AgregarAccesoEnviadoEnAUsuario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3680,6 +3683,10 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AccesoEnviadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acceso_enviado_en");
 
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean")
