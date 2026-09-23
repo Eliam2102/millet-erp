@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Pencil, Plus, PowerOff } from 'lucide-react';
+import { Briefcase, FolderTree, Pencil, Plus, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
 import { useDesactivarSucursal } from '@/modules/administracion/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { SucursalInlineForm } from '@/modules/administracion/components/SucursalInlineForm';
 
 /**
@@ -66,14 +66,20 @@ export function SucursalesPanel({
     useHasPermission(PermisosCanonicos.AdminEmpresasSucursalesGestionar) &&
     !bloqueadoPorEmpresaActiva;
 
-  const idempotencyKey = useFormIdempotencyKey();
+  const canGestionarMasterDeptos = useHasPermission(
+    PermisosCanonicos.AdminDepartamentosGestionar,
+  );
+  const canGestionarMasterPuestos = useHasPermission(
+    PermisosCanonicos.AdminPuestosGestionar,
+  );
+
   const desactivar = useDesactivarSucursal();
 
   function handleConfirmarDesactivar() {
     if (confirmDesactivar == null) return;
     const target = confirmDesactivar;
     desactivar.mutate(
-      { empresaId, id: target.id, idempotencyKey },
+      { empresaId, id: target.id, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
           toast.success(`Sucursal ${target.clave} desactivada`);
@@ -104,19 +110,38 @@ export function SucursalesPanel({
             Catálogo organizacional compartido. Total: {sucursales.length}.
           </p>
         </div>
-        {canGestionar && !agregando && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setAgregando(true);
-              setEditandoId(null);
-            }}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            Agregar sucursal
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canGestionarMasterDeptos && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs" asChild>
+              <Link to="/admin/departamentos">
+                <FolderTree className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                Catálogo Departamentos
+              </Link>
+            </Button>
+          )}
+          {canGestionarMasterPuestos && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs" asChild>
+              <Link to="/admin/puestos">
+                <Briefcase className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                Catálogo Puestos
+              </Link>
+            </Button>
+          )}
+          {canGestionar && !agregando && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => {
+                setAgregando(true);
+                setEditandoId(null);
+              }}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Agregar sucursal
+            </Button>
+          )}
+        </div>
       </header>
 
       {agregando && canGestionar && (

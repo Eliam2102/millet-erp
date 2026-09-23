@@ -79,6 +79,14 @@ public sealed class CrearEmpleadoHandler
         if (command.DepartamentoId is Guid departamentoId)
             await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, command.EmpresaId, cancellationToken);
 
+        if (command.SucursalId is Guid sucursalValida)
+        {
+            if (command.DepartamentoId is Guid deptoValido)
+                await ValidacionesEmpleado.ValidarDepartamentoDeSucursalAsync(_db, sucursalValida, deptoValido, cancellationToken);
+            if (command.PuestoId is Guid puestoValido)
+                await ValidacionesEmpleado.ValidarPuestoDeSucursalAsync(_db, sucursalValida, puestoValido, command.DepartamentoId, cancellationToken);
+        }
+
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
         var empleado = new Empleado(
             id,

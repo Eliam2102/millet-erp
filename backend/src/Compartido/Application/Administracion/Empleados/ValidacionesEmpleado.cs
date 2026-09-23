@@ -95,4 +95,54 @@ internal static class ValidacionesEmpleado
         if (departamento.Estatus != EstatusCatalogo.Activo)
             throw new BusinessRuleException("EMPLEADO_DEPARTAMENTO_INACTIVO", "El departamento no está activo.");
     }
+
+    /// <summary>Valida que el departamento esté asignado a la sucursal del empleado y activo en ella.</summary>
+    internal static async Task ValidarDepartamentoDeSucursalAsync(
+        CompartidoDbContext db, Guid sucursalId, Guid departamentoId, CancellationToken ct)
+    {
+        var deptoSucursal = await db.SucursalDepartamentos.AsNoTracking()
+            .Where(sd => sd.SucursalId == sucursalId && sd.DepartamentoId == departamentoId)
+            .Select(sd => new { sd.Estatus })
+            .FirstOrDefaultAsync(ct);
+        if (deptoSucursal is null)
+        {
+            throw new BusinessRuleException(
+                "EMPLEADO_DEPARTAMENTO_NO_ASIGNADO_A_SUCURSAL",
+                "El departamento no está asignado a la sucursal del empleado.");
+        }
+        if (deptoSucursal.Estatus != EstatusCatalogo.Activo)
+        {
+            throw new BusinessRuleException(
+                "EMPLEADO_DEPARTAMENTO_SUCURSAL_INACTIVO",
+                "El departamento en la sucursal del empleado no está activo.");
+        }
+    }
+
+    /// <summary>Valida que el puesto esté asignado a la sucursal del empleado, activo en ella y pertenezca al departamento del empleado si se especificó.</summary>
+    internal static async Task ValidarPuestoDeSucursalAsync(
+        CompartidoDbContext db, Guid sucursalId, Guid puestoId, Guid? departamentoId, CancellationToken ct)
+    {
+        var puestoSucursal = await db.SucursalPuestos.AsNoTracking()
+            .Where(sp => sp.SucursalId == sucursalId && sp.PuestoId == puestoId)
+            .Select(sp => new { sp.Estatus, sp.DepartamentoId })
+            .FirstOrDefaultAsync(ct);
+        if (puestoSucursal is null)
+        {
+            throw new BusinessRuleException(
+                "EMPLEADO_PUESTO_NO_ASIGNADO_A_SUCURSAL",
+                "El puesto no está asignado a la sucursal del empleado.");
+        }
+        if (puestoSucursal.Estatus != EstatusCatalogo.Activo)
+        {
+            throw new BusinessRuleException(
+                "EMPLEADO_PUESTO_SUCURSAL_INACTIVO",
+                "El puesto en la sucursal del empleado no está activo.");
+        }
+        if (departamentoId is Guid deptoEsp && puestoSucursal.DepartamentoId != deptoEsp)
+        {
+            throw new BusinessRuleException(
+                "EMPLEADO_PUESTO_NO_CORRESPONDE_A_DEPARTAMENTO",
+                "El puesto no pertenece al departamento asignado en esta sucursal.");
+        }
+    }
 }

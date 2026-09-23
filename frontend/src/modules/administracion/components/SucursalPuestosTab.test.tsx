@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -32,23 +32,25 @@ const CATALOGO_PUESTOS = {
   total: 2,
 };
 
-const DEPARTAMENTOS = {
+const DEPARTAMENTOS_DE_SUCURSAL = {
   items: [
     {
-      id: '00000000-0000-0000-0000-000000000099',
-      clave: 'DIR',
-      nombre: 'Dirección',
+      sucursalId: SUCURSAL_ID,
+      departamentoId: '00000000-0000-0000-0000-000000000099',
+      departamentoClave: 'DIR',
+      departamentoNombre: 'Dirección',
       estatus: 0,
+      version: 1,
     },
     {
-      id: '00000000-0000-0000-0000-000000000088',
-      clave: 'ADM',
-      nombre: 'Administración',
+      sucursalId: SUCURSAL_ID,
+      departamentoId: '00000000-0000-0000-0000-000000000088',
+      departamentoClave: 'ADM',
+      departamentoNombre: 'Administración',
       estatus: 0,
+      version: 1,
     },
   ],
-  offset: 0,
-  limit: 200,
   total: 2,
 };
 
@@ -84,8 +86,9 @@ beforeEach(() => {
     http.get('*/api/v1/catalogos/puestos', () =>
       HttpResponse.json(CATALOGO_PUESTOS),
     ),
-    http.get('*/api/v1/catalogos/departamentos', () =>
-      HttpResponse.json(DEPARTAMENTOS),
+    http.get(
+      '*/api/v1/admin/empresas/sucursales/:sucursalId/departamentos',
+      () => HttpResponse.json(DEPARTAMENTOS_DE_SUCURSAL),
     ),
     http.get(
       '*/api/v1/admin/empresas/sucursales/:sucursalId/puestos',
@@ -108,33 +111,41 @@ afterEach(() => {
 });
 
 describe('<SucursalPuestosTab>', () => {
-  it('renderiza puestos asignados con su departamento y puestos sin asignar', async () => {
+  it('renderiza únicamente los puestos asignados a la sucursal y no los no asignados', async () => {
     render(<SucursalPuestosTab sucursalId={SUCURSAL_ID} canGestionar={true} />, {
       wrapper: createQueryWrapper(),
     });
 
     await waitFor(() => {
       expect(screen.getByText('GER')).toBeInTheDocument();
-      expect(screen.getByText('AUX')).toBeInTheDocument();
+      expect(screen.getByText('Gerente General')).toBeInTheDocument();
     });
 
     expect(screen.getByText('Activa')).toBeInTheDocument();
-    expect(screen.getByText('Sin asignar')).toBeInTheDocument();
     expect(screen.getByText('Depto sucursal:')).toBeInTheDocument();
+    expect(screen.getByText('Dirección')).toBeInTheDocument();
+
+    // El puesto sin asignar no debe aparecer en la lista principal
+    expect(screen.queryByText('Auxiliar Administrativo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin asignar')).not.toBeInTheDocument();
   });
 
-  it('abre modal al pulsar Asignar y envía departamentoId seleccionado', async () => {
+  it('abre modal al pulsar Asignar puesto y envía puestoId y departamentoId con Idempotency-Key fresca', async () => {
     let payloadRecibido: unknown = null;
+    let idempotencyKeyRecibida: string | null = null;
+    let puestoIdEnviado: string | null = null;
 
     mswServer.use(
       http.post(
         '*/api/v1/admin/empresas/sucursales/:sucursalId/puestos/:puestoId',
-        async ({ request }) => {
+        async ({ request, params }) => {
+          puestoIdEnviado = params.puestoId as string;
+          idempotencyKeyRecibida = request.headers.get('Idempotency-Key');
           payloadRecibido = await request.json();
           return HttpResponse.json(
             {
               sucursalId: SUCURSAL_ID,
-              puestoId: '00000000-0000-0000-0000-000000000002',
+              puestoId: params.puestoId,
               puestoClave: 'AUX',
               puestoNombre: 'Auxiliar Administrativo',
               departamentoId: '00000000-0000-0000-0000-000000000088',
@@ -152,12 +163,12 @@ describe('<SucursalPuestosTab>', () => {
       wrapper: createQueryWrapper(),
     });
 
-    await waitFor(() => expect(screen.getByText('AUX')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('GER')).toBeInTheDocument());
 
-    const botonAsignar = screen.getByRole('button', {
-      name: /asignar puesto aux/i,
+    const botonAbrirModal = screen.getByRole('button', {
+      name: /^asignar puesto$/i,
     });
-    fireEvent.click(botonAsignar);
+    fireEvent.click(botonAbrirModal);
 
     await waitFor(() =>
       expect(
@@ -167,19 +178,69 @@ describe('<SucursalPuestosTab>', () => {
       ).toBeInTheDocument(),
     );
 
-    const select = screen.getByLabelText(/departamento asignado \*/i);
-    fireEvent.change(select, {
+    // Seleccionar puesto en el modal
+    const selectPuesto = screen.getByLabelText(/puesto a asignar/i);
+    fireEvent.change(selectPuesto, {
+      target: { value: '00000000-0000-0000-0000-000000000002' },
+    });
+
+    // Seleccionar departamento en el modal
+    const selectDepto = screen.getByLabelText(/departamento asignado \*/i);
+    fireEvent.change(selectDepto, {
       target: { value: '00000000-0000-0000-0000-000000000088' },
     });
 
-    const botonConfirmar = screen.getByRole('button', {
+    // Confirmar en el modal
+    const dialog = screen.getByRole('dialog');
+    const botonConfirmar = within(dialog).getByRole('button', {
       name: /^asignar puesto$/i,
     });
     fireEvent.click(botonConfirmar);
 
     await waitFor(() => expect(payloadRecibido).not.toBeNull());
+    expect(puestoIdEnviado).toBe('00000000-0000-0000-0000-000000000002');
     expect(payloadRecibido).toEqual({
       departamentoId: '00000000-0000-0000-0000-000000000088',
     });
+    expect(idempotencyKeyRecibida).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it('muestra mensaje informativo y deshabilita confirmación cuando la sucursal no tiene departamentos asignados', async () => {
+    mswServer.use(
+      http.get(
+        '*/api/v1/admin/empresas/sucursales/:sucursalId/departamentos',
+        () => HttpResponse.json({ items: [], total: 0 }),
+      ),
+      http.get(
+        '*/api/v1/admin/empresas/sucursales/:sucursalId/puestos',
+        () => HttpResponse.json({ items: [], total: 0 }),
+      ),
+    );
+
+    render(<SucursalPuestosTab sucursalId={SUCURSAL_ID} canGestionar={true} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText(/no hay puestos asignados/i)).toBeInTheDocument(),
+    );
+
+    const botonAsignar = screen.getByRole('button', {
+      name: /asignar primer puesto/i,
+    });
+    fireEvent.click(botonAsignar);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/esta sucursal no tiene departamentos activos asignados/i),
+      ).toBeInTheDocument(),
+    );
+
+    const botonConfirmar = screen.getByRole('button', {
+      name: /^asignar puesto$/i,
+    });
+    expect(botonConfirmar).toBeDisabled();
   });
 });

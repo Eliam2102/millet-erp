@@ -130,7 +130,7 @@ export function SucursalColaboradoresTab({
           className="pl-8 text-sm"
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
-          aria-label="Buscar colaboradores en esta sucursal"
+          aria-label="Buscar empleados en esta sucursal"
         />
       </div>
 
@@ -138,12 +138,12 @@ export function SucursalColaboradoresTab({
         <div className="space-y-3 rounded-md border p-3">
           <div className="flex flex-wrap items-center gap-2">
             <select
-              aria-label="Colaborador sin sucursal"
+              aria-label="Empleado sin sucursal"
               className="h-9 min-w-52 rounded-md border bg-background px-2 text-sm"
               value={empleadoId}
               onChange={(e) => setEmpleadoId(e.target.value)}
             >
-              <option value="">Seleccionar colaborador sin sucursal</option>
+              <option value="">Seleccionar empleado sin sucursal</option>
               {colaboradoresSinSucursal.map((empleado) => (
                 <option key={empleado.id} value={empleado.id}>
                   {empleado.clave} · {empleado.nombre}
@@ -155,12 +155,13 @@ export function SucursalColaboradoresTab({
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => setMostrarAlta((actual) => !actual)}>
               <Plus className="mr-1 h-3.5 w-3.5" />
-              Nuevo colaborador
+              Nuevo empleado
             </Button>
           </div>
           {mostrarAlta && (
             <EmpleadoInlineForm
               sucursalIdInicial={sucursalId}
+              sucursalFija={true}
               onCancel={() => setMostrarAlta(false)}
               onSaved={() => setMostrarAlta(false)}
             />
@@ -172,15 +173,15 @@ export function SucursalColaboradoresTab({
         <div className="rounded-md border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
           <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
           <p className="font-medium text-foreground">
-            No hay colaboradores asignados a esta sucursal
+            No hay empleados asignados a esta sucursal
           </p>
           <p className="mt-1 text-xs">
-            Los colaboradores se asignan desde el catálogo de Empleados indicando esta sucursal en su perfil operativo.
+            Los empleados se asignan desde el catálogo de Empleados indicando esta sucursal en su perfil operativo.
           </p>
         </div>
       ) : empleadosFiltrados.length === 0 ? (
         <div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-          No se encontraron colaboradores que coincidan con &ldquo;{filtro}&rdquo;.
+          No se encontraron empleados que coincidan con &ldquo;{filtro}&rdquo;.
         </div>
       ) : (
         <ul className="divide-y rounded-md border bg-card">

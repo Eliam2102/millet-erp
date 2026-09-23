@@ -45,6 +45,7 @@ import { ProvisioningTestModal } from './ProvisioningTestModal';
 export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
   sucursalIdInicial?: string;
+  sucursalFija?: boolean;
   onCancel: () => void;
   onSaved?: () => void;
 }
@@ -64,6 +65,7 @@ const VALORES_INICIALES: EmpleadoValues = {
 export function EmpleadoInlineForm({
   empleado,
   sucursalIdInicial,
+  sucursalFija = false,
   onCancel,
   onSaved,
 }: EmpleadoInlineFormProps) {
@@ -239,6 +241,52 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
+        <Field
+          label={sucursalFija ? 'Sucursal (fijada)' : 'Sucursal'}
+          className="md:col-span-4"
+        >
+          <Controller
+            control={form.control}
+            name="sucursalId"
+            render={({ field }) => (
+              <SucursalSelector
+                value={field.value || null}
+                onChange={(id) => {
+                  const nuevo = id ?? '';
+                  if (nuevo !== field.value) {
+                    field.onChange(nuevo);
+                    form.setValue('puestoId', '');
+                    form.setValue('departamentoId', '');
+                  }
+                }}
+                disabled={sucursalFija}
+                className="w-full"
+              />
+            )}
+          />
+        </Field>
+
+        <Field label="Departamento" className="md:col-span-4">
+          <Controller
+            control={form.control}
+            name="departamentoId"
+            render={({ field }) => (
+              <DepartamentoSelector
+                value={field.value || null}
+                onChange={(id) => {
+                  const nuevo = id ?? '';
+                  if (nuevo !== field.value) {
+                    field.onChange(nuevo);
+                    form.setValue('puestoId', '');
+                  }
+                }}
+                sucursalId={form.watch('sucursalId') || undefined}
+                className="w-full"
+              />
+            )}
+          />
+        </Field>
+
         <Field label="Puesto" className="md:col-span-4">
           <Controller
             control={form.control}
@@ -247,6 +295,8 @@ export function EmpleadoInlineForm({
               <PuestoSelector
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
+                sucursalId={form.watch('sucursalId') || undefined}
+                departamentoId={form.watch('departamentoId') || undefined}
                 className="w-full"
               />
             )}
@@ -262,34 +312,6 @@ export function EmpleadoInlineForm({
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
                 excludeId={empleado?.id}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>
-
-        <Field label="Sucursal" className="md:col-span-4">
-          <Controller
-            control={form.control}
-            name="sucursalId"
-            render={({ field }) => (
-              <SucursalSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>
-
-        <Field label="Departamento" className="md:col-span-4">
-          <Controller
-            control={form.control}
-            name="departamentoId"
-            render={({ field }) => (
-              <DepartamentoSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
                 className="w-full"
               />
             )}

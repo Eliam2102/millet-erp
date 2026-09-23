@@ -81,6 +81,24 @@ public sealed class AsignarPuestoASucursalHandler
                 "El departamento no está activo.");
         }
 
+        var deptoAsignado = await _db.SucursalDepartamentos.AsNoTracking()
+            .FirstOrDefaultAsync(
+                sd => sd.SucursalId == command.SucursalId && sd.DepartamentoId == command.DepartamentoId,
+                cancellationToken);
+        if (deptoAsignado is null)
+        {
+            throw new ConflictException(
+                "DEPARTAMENTO_NO_ASIGNADO_A_SUCURSAL",
+                $"El departamento '{depto.Nombre}' no está asignado a la sucursal '{sucursal.Nombre}'.");
+        }
+
+        if (deptoAsignado.Estatus != EstatusCatalogo.Activo)
+        {
+            throw new ConflictException(
+                "DEPARTAMENTO_SUCURSAL_INACTIVO",
+                $"La asignación del departamento '{depto.Nombre}' a la sucursal '{sucursal.Nombre}' está inactiva.");
+        }
+
         var existe = await _db.SucursalPuestos.AsNoTracking()
             .AnyAsync(
                 a => a.SucursalId == command.SucursalId
