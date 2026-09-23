@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,9 +36,11 @@ export function ProvisioningTestModal({ defaultNombre = '' }: { defaultNombre?: 
       const a = (apellido || '').toLowerCase().trim().replace(/\s+/g, '.');
       const prefix = [n, a].filter(Boolean).join('.');
       if (prefix) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect`n      setUpn(`${prefix}@${entraDomain}`);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        setUpn(`${prefix}@${entraDomain}`);
       } else {
-        // eslint-disable-next-line react-hooks/set-state-in-effect`n      setUpn(`usuario@${entraDomain}`);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        setUpn(`usuario@${entraDomain}`);
       }
     }
   }, [nombre, apellido, esNuevo, entraDomain]);
