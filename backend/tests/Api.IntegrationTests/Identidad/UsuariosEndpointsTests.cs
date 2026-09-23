@@ -123,6 +123,18 @@ public class UsuariosEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     // ====================================================================
 
     [Fact]
+    public async Task ConsultarEntra_EnModoLocal_NoAfirmaQueExistaCuentaMicrosoft()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var response = await client.GetAsync(UsuariosEndpoint + "/entra?email=alguien%40millet.test");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.False(body.GetProperty("encontrado").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("objectId").ValueKind);
+    }
+
+    [Fact]
     public async Task Admin_List_Con_SuperAdmin_Incluye_SuperAdmin_Y_EntraOid()
     {
         var client = await CreateSuperAdminClientAsync();

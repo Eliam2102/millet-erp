@@ -32,10 +32,18 @@ export function useEmpleadosAdmin() {
   return useQuery<EmpleadoListItem[]>({
     queryKey: adminKeys.empleadosList(),
     queryFn: async ({ signal }) => {
-      const { data } = await apiRequest<
-        PagedCatalogoResponse<EmpleadoListItem>
-      >('/api/v1/catalogos/empleados?limit=200', { signal });
-      return data.items;
+      const items: EmpleadoListItem[] = [];
+      let offset = 0;
+      for (;;) {
+        const { data } = await apiRequest<PagedCatalogoResponse<EmpleadoListItem>>(
+          `/api/v1/catalogos/empleados?limit=200&offset=${offset}`,
+          { signal },
+        );
+        items.push(...data.items);
+        offset += data.items.length;
+        if (data.items.length === 0 || offset >= (data.total ?? items.length)) break;
+      }
+      return items;
     },
   });
 }

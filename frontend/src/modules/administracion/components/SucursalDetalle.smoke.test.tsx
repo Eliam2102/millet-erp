@@ -305,4 +305,34 @@ describe('<SucursalDetalle> — smoke', () => {
     // María Gómez no debe aparecer porque pertenece a s-2
     expect(screen.queryByText('María Gómez')).not.toBeInTheDocument();
   });
+
+  it('vincula desde la sucursal a un colaborador sin sucursal de la empresa activa', async () => {
+    setAuth([
+      PermisosCanonicos.CompartidoCatalogosLeer,
+      PermisosCanonicos.AdminEmpleadosGestionar,
+    ]);
+    let sucursalAsignada: string | null = null;
+    mswServer.use(
+      http.get('*/api/v1/catalogos/empleados', () => HttpResponse.json({
+        items: [{
+          id: 'emp-libre', empresaId: 'e-1', clave: 'EMP003', nombre: 'Lucía Pérez',
+          email: 'lucia@millet.com', puestoId: null, departamentoId: null,
+          sucursalId: sucursalAsignada, usuarioId: null, estatus: 0,
+        }], total: 1,
+      })),
+      http.patch('*/api/v1/admin/empleados/emp-libre', async ({ request }) => {
+        const payload = await request.json() as { sucursalId: string };
+        sucursalAsignada = payload.sucursalId;
+        return HttpResponse.json({ id: 'emp-libre', sucursalId: sucursalAsignada });
+      }),
+    );
+
+    render(<SucursalDetalle />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByRole('tab', { name: /^colaboradores$/i }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Colaborador sin sucursal' })).toBeInTheDocument());
+    fireEvent.change(screen.getByRole('combobox', { name: 'Colaborador sin sucursal' }), { target: { value: 'emp-libre' } });
+    fireEvent.click(screen.getByRole('button', { name: /vincular a esta sucursal/i }));
+    await waitFor(() => expect(sucursalAsignada).toBe('s-1'));
+    await waitFor(() => expect(screen.getByText('Lucía Pérez')).toBeInTheDocument());
+  });
 });

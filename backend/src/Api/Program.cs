@@ -862,13 +862,22 @@ builder.Services.AddSingleton<
     Millet.Api.Hubs.IntegracionesAwHubNotifier>();
 
 // === Identidad — EntraId resolver port (F-Admin-PR4.1) ===
-// Stub NoOp por defecto: retorna null y deja al handler de CrearUsuario
-// caer al placeholder dev-{email} (ADR-0015). Wiring real al Microsoft
-// Graph API es post-MVP — ver PLATFORM-TODO(<EntraIdResolver>) en
-// LocalEntraIdResolverNoOp.cs.
-builder.Services.AddScoped<
-    Millet.Identidad.Application.Ports.IEntraIdResolverPort,
-    Millet.Identidad.Infrastructure.Stubs.LocalEntraIdResolverNoOp>();
+builder.Services.Configure<Millet.Identidad.Infrastructure.Adapters.EntraDirectoryOptions>(
+    builder.Configuration.GetSection(Millet.Identidad.Infrastructure.Adapters.EntraDirectoryOptions.SectionName));
+builder.Services.PostConfigure<Millet.Identidad.Infrastructure.Adapters.EntraDirectoryOptions>(options =>
+{
+    // El placeholder solo se permite explícitamente en modo fake de desarrollo.
+    options.AllowDevPlaceholder =
+        builder.Environment.IsDevelopment() && authMode == AuthMode.FakeForLocalDev;
+});
+builder.Services.AddScoped<Millet.Identidad.Application.Ports.IEntraIdResolverPort>(sp =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Millet.Identidad.Infrastructure.Adapters.EntraDirectoryOptions>>().Value;
+    return options.IsConfigured
+        ? (Millet.Identidad.Application.Ports.IEntraIdResolverPort)new Millet.Identidad.Infrastructure.Adapters.GraphEntraIdResolver(
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Millet.Identidad.Infrastructure.Adapters.EntraDirectoryOptions>>())
+        : new Millet.Identidad.Infrastructure.Stubs.LocalEntraIdResolverNoOp();
+});
 
 // === OpenAPI / Scalar (ADR-0017, F0-PR2) ===
 // AddOpenApi("v1") registra el generador de Microsoft.AspNetCore.OpenApi

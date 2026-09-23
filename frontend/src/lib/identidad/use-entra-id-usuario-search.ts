@@ -1,20 +1,6 @@
-/**
- * Stub del hook que consultará Microsoft Entra ID para autocompletar
- * datos de un usuario por email al darlo de alta en
- * <c>SheetNuevoUsuario</c>.
- *
- * <para>El resolver real vive en el backend
- * (<c>IEntraIdResolverPort</c> — actualmente
- * <c>LocalEntraIdResolverNoOp</c>). Mientras no exista la
- * implementación HTTP, este hook devuelve siempre <c>{ data:
- * undefined, isLoading: false }</c> para que el form no quede
- * bloqueado esperando una respuesta inexistente.</para>
- */
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
 
-// PLATFORM-TODO(<EntraIdResolver>): este hook devuelve no-op hasta que
-// el resolver de Entra ID esté implementado backend-side. Cuando
-// llegue, conectar a GET /api/v1/admin/entra-id/usuarios?email=... y
-// devolver { id, nombre, departamento } para autocompletar el form.
 export interface EntraIdUsuarioSearchResult {
   /** ObjectId del usuario en Microsoft Entra ID. */
   objectId: string;
@@ -27,11 +13,28 @@ export interface EntraIdUsuarioSearchResult {
 export interface UseEntraIdUsuarioSearchResult {
   data: EntraIdUsuarioSearchResult | undefined;
   isLoading: boolean;
+  isError: boolean;
+  isFetched: boolean;
 }
 
 export function useEntraIdUsuarioSearch(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _email: string | null | undefined,
+  email: string | null | undefined,
 ): UseEntraIdUsuarioSearchResult {
-  return { data: undefined, isLoading: false };
+  const normalizado = email?.trim().toLowerCase() ?? '';
+  const query = useQuery({
+    queryKey: ['identidad', 'entra', normalizado],
+    enabled: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizado),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<{
+        encontrado: boolean;
+        objectId: string | null;
+        nombre: string | null;
+      }>(`/api/v1/identidad/usuarios/entra?email=${encodeURIComponent(normalizado)}`, { signal });
+      return data.encontrado && data.objectId
+        ? { objectId: data.objectId, nombre: data.nombre ?? '', email: normalizado }
+        : undefined;
+    },
+    staleTime: 30_000,
+  });
+  return { data: query.data, isLoading: query.isLoading && query.fetchStatus === 'fetching', isError: query.isError, isFetched: query.isFetched };
 }

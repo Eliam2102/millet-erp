@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Identidad.Application.Ports;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
+using Millet.Identidad.Infrastructure.Adapters;
+using Microsoft.Extensions.Options;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Identidad.Application.Usuarios;
@@ -67,13 +69,16 @@ public sealed class CrearUsuarioHandler : IRequestHandler<CrearUsuarioCommand, U
 {
     private readonly IdentidadDbContext _db;
     private readonly IEntraIdResolverPort _entraResolver;
+    private readonly EntraDirectoryOptions _directoryOptions;
 
     public CrearUsuarioHandler(
         IdentidadDbContext db,
-        IEntraIdResolverPort entraResolver)
+        IEntraIdResolverPort entraResolver,
+        IOptions<EntraDirectoryOptions>? directoryOptions = null)
     {
         _db = db;
         _entraResolver = entraResolver;
+        _directoryOptions = directoryOptions?.Value ?? new EntraDirectoryOptions { AllowDevPlaceholder = true };
     }
 
     public async Task<UsuarioResponse> Handle(
@@ -96,6 +101,15 @@ public sealed class CrearUsuarioHandler : IRequestHandler<CrearUsuarioCommand, U
 
         if (!string.IsNullOrWhiteSpace(command.EntraIdObjectId))
         {
+            if (!_directoryOptions.AllowDevPlaceholder)
+            {
+                var verified = await _entraResolver.ResolverPorEmailAsync(command.Email, cancellationToken);
+                if (verified is null || !string.Equals(
+                        verified.ObjectId, command.EntraIdObjectId, StringComparison.OrdinalIgnoreCase))
+                    throw new BusinessRuleException(
+                        "ENTRA_IDENTIDAD_NO_COINCIDE",
+                        "El Object ID no coincide con la cuenta Microsoft del correo indicado.");
+            }
             entraOid = command.EntraIdObjectId;
         }
         else
@@ -111,6 +125,10 @@ public sealed class CrearUsuarioHandler : IRequestHandler<CrearUsuarioCommand, U
             }
             else
             {
+                if (!_directoryOptions.AllowDevPlaceholder)
+                    throw new BusinessRuleException(
+                        "ENTRA_CUENTA_NO_EXISTE",
+                        "La cuenta no existe en Microsoft Entra ID. No se creó un usuario ERP sin identidad real.");
                 // Placeholder dev (ADR-0015): "dev-" + email, prefijo permite
                 // a tests y a humanos distinguir usuarios real-mode vs
                 // bootstrapped-by-admin.

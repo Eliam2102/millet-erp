@@ -8,6 +8,7 @@ using Millet.Api.Web;
 using Millet.Identidad.Application.Usuarios;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
+using Millet.Identidad.Application.Ports;
 
 namespace Millet.Api.Endpoints.Identidad;
 
@@ -37,6 +38,28 @@ public static class UsuariosEndpoints
     public static IEndpointRouteBuilder MapUsuariosEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/identidad/usuarios").WithTags("Identidad");
+
+        group.MapGet("/entra", async (
+            [FromQuery] string email,
+            IEntraIdResolverPort resolver,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(email) || email.Length > 254 || !email.Contains('@'))
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["email"] = ["Se requiere un correo válido."]
+                });
+            var cuenta = await resolver.ResolverPorEmailAsync(email.Trim(), ct);
+            return Results.Ok(new
+            {
+                encontrado = cuenta is not null,
+                objectId = cuenta?.ObjectId,
+                nombre = cuenta?.NombreCompleto,
+            });
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IdentidadUsuariosCrear)
+        .WithName("ConsultarUsuarioEntra")
+        .WithSummary("Consultar si existe una cuenta Microsoft antes de dar acceso ERP");
 
         // --- CATÁLOGO (legacy B.1, sin EntraOid) ---
         group.MapGet("/", async (

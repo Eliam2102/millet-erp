@@ -71,13 +71,13 @@ public sealed class CrearEmpleadoHandler
         }
 
         if (command.PuestoId is Guid puestoId)
-            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarPuestoAsync(_db, puestoId, command.EmpresaId, cancellationToken);
         if (command.JefeDirectoId is Guid jefeId)
             await ValidacionesEmpleado.ValidarJefeDirectoAsync(_db, jefeId, command.EmpresaId, cancellationToken);
         if (command.SucursalId is Guid sucursalId)
-            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, cancellationToken);
+            await ValidacionesEmpleado.ValidarSucursalAsync(_db, sucursalId, command.EmpresaId, cancellationToken);
         if (command.DepartamentoId is Guid departamentoId)
-            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, cancellationToken);
+            await ValidacionesEmpleado.ValidarDepartamentoAsync(_db, departamentoId, command.EmpresaId, cancellationToken);
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
         var empleado = new Empleado(

@@ -157,13 +157,15 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
     onDirtyChange(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  // Stub Entra ID: hoy siempre devuelve <c>undefined</c>. Cuando el
-  // resolver real llegue, podemos auto-completar nombre + objectId al
-  // detectar email válido. La rama de auto-fill no está activa hoy.
-  // <c>useWatch</c> en lugar de <c>form.watch</c> para suscripción
-  // granular y evitar el lint <c>react-hooks/incompatible-library</c>.
   const emailWatch = useWatch({ control: form.control, name: 'email' });
-  useEntraIdUsuarioSearch(emailWatch);
+  const cuentaEntra = useEntraIdUsuarioSearch(emailWatch);
+
+  useEffect(() => {
+    if (!cuentaEntra.data) return;
+    form.setValue('entraIdObjectId', cuentaEntra.data.objectId);
+    if (!form.getValues('nombreCompleto').trim() && cuentaEntra.data.nombre)
+      form.setValue('nombreCompleto', cuentaEntra.data.nombre);
+  }, [cuentaEntra.data, form]);
 
   function onSubmit(values: CrearUsuarioValues) {
     crear.mutate(
@@ -202,6 +204,24 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
                 type: error.code,
                 message:
                   'Ya existe un usuario con el mismo Entra ID Object ID.',
+              });
+              return;
+            }
+            if (error.code === 'ENTRA_CUENTA_NO_EXISTE' || error.code === 'ENTRA_IDENTIDAD_NO_COINCIDE') {
+              form.setError('email', {
+                type: error.code,
+                message: error.code === 'ENTRA_CUENTA_NO_EXISTE'
+                  ? 'No existe una cuenta Microsoft con este correo. Solicita el alta de la cuenta antes de dar acceso ERP.'
+                  : 'La cuenta Microsoft no coincide con el Object ID indicado.',
+              });
+              return;
+            }
+            if (error.code === 'ENTRA_CUENTA_INACTIVA' || error.code === 'ENTRA_CUENTA_AMBIGUA') {
+              form.setError('email', {
+                type: error.code,
+                message: error.code === 'ENTRA_CUENTA_INACTIVA'
+                  ? 'La cuenta Microsoft está deshabilitada; TI debe revisarla antes de asignar acceso.'
+                  : 'Hay varias cuentas Microsoft con este correo; TI debe resolver la coincidencia.',
               });
               return;
             }
@@ -246,6 +266,13 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
         />
       </FormRow>
 
+      {cuentaEntra.isLoading && <p className="text-xs text-muted-foreground">Buscando cuenta Microsoft…</p>}
+      {cuentaEntra.isError && <p role="alert" className="text-xs text-rose-600">No se pudo consultar Microsoft Entra. Intenta de nuevo antes de crear el acceso.</p>}
+      {cuentaEntra.data && <p className="text-xs text-emerald-700">Cuenta Microsoft existente encontrada. Se vinculará por Object ID.</p>}
+      {cuentaEntra.isFetched && !cuentaEntra.data && !cuentaEntra.isError && (
+        <p className="text-xs text-amber-700">No se encontró una cuenta Microsoft. El alta ERP real requiere primero crear la cuenta en el tenant; en modo local se permite una identidad de prueba.</p>
+      )}
+
       <FormRow
         label="Nombre completo"
         required
@@ -260,7 +287,7 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
 
       <FormRow
         label="Entra ID Object ID"
-        hint="Pégalo desde Azure Portal → Entra ID → Users → [usuario] → Object ID. Si lo dejas vacío, el usuario quedará con un placeholder y NO podrá iniciar sesión real hasta que el resolver de Entra ID esté disponible."
+        hint="Se completa al encontrar una cuenta Microsoft. En modo real, el servidor verifica que corresponda al correo; el modo local admite identificadores de prueba."
         error={form.formState.errors.entraIdObjectId?.message}
       >
         <Input
@@ -297,7 +324,7 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={crear.isPending}>
+        <Button type="submit" disabled={crear.isPending || cuentaEntra.isLoading || cuentaEntra.isError}>
           {crear.isPending ? 'Creando…' : 'Crear usuario'}
         </Button>
       </div>

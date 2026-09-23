@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Search, UserCheck, UserX, Users, ExternalLink } from 'lucide-react';
+import { Search, UserCheck, UserX, Users, ExternalLink, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useEmpleadosAdmin } from '@/modules/administracion/api/empleados';
+import { useActualizarEmpleado, useEmpleadosAdmin } from '@/modules/administracion/api/empleados';
+import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { useDepartamentos, usePuestos } from '@/features/catalogos/api';
 import { EstatusCatalogo } from '@/modules/administracion/api/types';
 import { SucursalTabErrorState } from '@/modules/administracion/components/SucursalTabErrorState';
@@ -20,6 +23,10 @@ export function SucursalColaboradoresTab({
   canGestionar = false,
 }: SucursalColaboradoresTabProps) {
   const [filtro, setFiltro] = useState('');
+  const [mostrarAlta, setMostrarAlta] = useState(false);
+  const [empleadoId, setEmpleadoId] = useState('');
+  const currentEmpresaId = useAuthStore((s) => s.currentEmpresaId);
+  const actualizarEmpleado = useActualizarEmpleado();
   const empleadosQuery = useEmpleadosAdmin();
   const puestosQuery = usePuestos();
   const departamentosQuery = useDepartamentos();
@@ -40,6 +47,25 @@ export function SucursalColaboradoresTab({
     const items = empleadosQuery.data ?? [];
     return items.filter((e) => e.sucursalId === sucursalId);
   }, [empleadosQuery.data, sucursalId]);
+
+  const colaboradoresSinSucursal = useMemo(() =>
+    (empleadosQuery.data ?? []).filter((e) =>
+      e.empresaId === currentEmpresaId && !e.sucursalId && e.estatus === EstatusCatalogo.Activo,
+    ), [empleadosQuery.data, currentEmpresaId]);
+
+  function vincularColaborador() {
+    if (!empleadoId) return;
+    actualizarEmpleado.mutate(
+      { id: empleadoId, payload: { sucursalId }, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: () => {
+          toast.success('Colaborador vinculado a la sucursal');
+          setEmpleadoId('');
+        },
+        onError: () => toast.error('No se pudo vincular al colaborador.'),
+      },
+    );
+  }
 
   const empleadosFiltrados = useMemo(() => {
     const q = filtro.trim().toLowerCase();
@@ -107,6 +133,40 @@ export function SucursalColaboradoresTab({
           aria-label="Buscar colaboradores en esta sucursal"
         />
       </div>
+
+      {canGestionar && (
+        <div className="space-y-3 rounded-md border p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Colaborador sin sucursal"
+              className="h-9 min-w-52 rounded-md border bg-background px-2 text-sm"
+              value={empleadoId}
+              onChange={(e) => setEmpleadoId(e.target.value)}
+            >
+              <option value="">Seleccionar colaborador sin sucursal</option>
+              {colaboradoresSinSucursal.map((empleado) => (
+                <option key={empleado.id} value={empleado.id}>
+                  {empleado.clave} · {empleado.nombre}
+                </option>
+              ))}
+            </select>
+            <Button type="button" size="sm" disabled={!empleadoId || actualizarEmpleado.isPending} onClick={vincularColaborador}>
+              Vincular a esta sucursal
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setMostrarAlta((actual) => !actual)}>
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Nuevo colaborador
+            </Button>
+          </div>
+          {mostrarAlta && (
+            <EmpleadoInlineForm
+              sucursalIdInicial={sucursalId}
+              onCancel={() => setMostrarAlta(false)}
+              onSaved={() => setMostrarAlta(false)}
+            />
+          )}
+        </div>
+      )}
 
       {empleadosSucursal.length === 0 ? (
         <div className="rounded-md border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
