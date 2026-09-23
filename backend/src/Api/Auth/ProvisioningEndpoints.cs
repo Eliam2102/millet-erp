@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth.Provisioning;
@@ -54,7 +54,7 @@ public static class ProvisioningEndpoints
         // .RequireAuthorization(policy => policy.RequireClaim("Permission", "identidad.usuarios.crear")) 
         // pero usaremos el require standard.
 
-        return app;
+        group.MapGet("/verificar-upn", async ([FromQuery] string upn, IEntraProvisioningService provisioningService, CancellationToken cancellationToken) => { if (string.IsNullOrWhiteSpace(upn)) { return Results.BadRequest(new { mensaje = "El parámetro upn es requerido." }); } var existe = await provisioningService.ExisteUsuarioAsync(upn, cancellationToken); return Results.Ok(new { existe }); }).RequireAuthorization().WithName("GetVerificarUpn"); return app;
     }
 }
 

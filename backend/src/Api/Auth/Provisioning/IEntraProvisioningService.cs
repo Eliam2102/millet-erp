@@ -22,4 +22,10 @@ public interface IEntraProvisioningService
     /// Envía un correo de invitación informando que tiene acceso al ERP.
     /// </summary>
     Task<ProvisioningResult> VincularUsuarioExistenteAsync(string upn, string correoContacto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Verifica en tiempo real si un UPN ya está registrado en Microsoft Entra ID.
+    /// Útil para validaciones dinámicas en el frontend.
+    /// </summary>
+    Task<bool> ExisteUsuarioAsync(string upn, CancellationToken cancellationToken = default);
 }

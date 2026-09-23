@@ -112,6 +112,26 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
         }
     }
 
+    public async Task<bool> ExisteUsuarioAsync(string upn, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _graphClient.Users.GetAsync(requestConfiguration =>
+            {
+                requestConfiguration.QueryParameters.Filter = $"userPrincipalName eq '{upn}'";
+                requestConfiguration.QueryParameters.Select = SelectColumns;
+            }, cancellationToken);
+
+            var user = result?.Value?.FirstOrDefault();
+            return user?.Id != null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error silencioso al verificar si existe el UPN {Upn}", upn);
+            return false;
+        }
+    }
+
     private async Task EnviarCorreoInvitacionAsync(string userId, string correoContacto, string? tempPassword, bool isNewUser, CancellationToken cancellationToken)
     {
         try
