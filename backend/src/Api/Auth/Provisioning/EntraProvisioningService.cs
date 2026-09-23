@@ -160,6 +160,20 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
             await _graphClient.Users[_senderEmail].SendMail.PostAsync(sendMailBody, cancellationToken: cancellationToken);
             _logger.LogInformation("Correo de invitación enviado a {Correo} para el OID {Oid} desde {Sender}", correoContacto, userId, _senderEmail);
         }
+        catch (Microsoft.Graph.Models.ODataErrors.ODataError odataError)
+        {
+            var code = odataError.Error?.Code;
+            var msg = odataError.Error?.Message;
+
+            if (code == "MailboxNotEnabledForRESTAPI" || code == "ErrorMailboxNotFound" || code == "ErrorNonExistentMailbox")
+            {
+                _logger.LogWarning("⚠️ ATENCIÓN: El remitente '{Sender}' NO tiene un buzón de correo Exchange Online activo o no tiene licencia comprada. El usuario fue creado, pero NO se pudo enviar el correo a {Correo}. Graph Error: {Code} - {Msg}", _senderEmail, correoContacto, code, msg);
+            }
+            else
+            {
+                _logger.LogWarning(odataError, "Ocurrió un error en Graph API al intentar enviar el correo. Code: {Code}, Message: {Msg}", code, msg);
+            }
+        }
         catch (Exception ex)
         {
             // No queremos que falle toda la transacción si falla solo el correo
