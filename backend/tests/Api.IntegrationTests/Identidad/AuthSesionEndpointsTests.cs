@@ -315,6 +315,7 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
 
         // Crear una segunda empresa y asignarle el rol super-admin
         var segundaEmpresaId = Guid.NewGuid();
+        var asignacionId = Guid.CreateVersion7();
         using (var scope = _factory.Services.CreateScope())
         {
             var empresaContext = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>();
@@ -325,7 +326,7 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
 
             var segundaEmpresa = new Millet.Administracion.Domain.Empresa(
                 segundaEmpresaId,
-                "EMP2",
+                $"E2{Guid.NewGuid():N}"[..10].ToUpperInvariant(),
                 $"RFC{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
                 "Segunda Empresa Test S.A.",
                 "601",
@@ -342,7 +343,7 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
 
             var rol = await identidadDb.Roles.FirstAsync(r => r.Codigo == "super-admin");
             var uer = new Millet.Identidad.Domain.UsuarioEmpresaRol(
-                Guid.CreateVersion7(),
+                asignacionId,
                 loginBody.Usuario.Id,
                 segundaEmpresaId,
                 rol.Id,
@@ -351,18 +352,34 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             await identidadDb.SaveChangesAsync();
         }
 
-        // 2. Act: Llamar a /api/auth/cambiar-empresa con el token del superadmin
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", originalToken);
-        var cambiarRes = await client.PostAsJsonAsync("/api/auth/cambiar-empresa", new CambiarEmpresaRequest(segundaEmpresaId));
+        try
+        {
+            // 2. Act: Llamar a /api/auth/cambiar-empresa con el token del superadmin
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", originalToken);
+            var cambiarRes = await client.PostAsJsonAsync("/api/auth/cambiar-empresa", new CambiarEmpresaRequest(segundaEmpresaId));
 
-        // 3. Assert
-        cambiarRes.StatusCode.Should().Be(HttpStatusCode.OK);
-        var cambiarBody = await cambiarRes.Content.ReadFromJsonAsync<LoginResponse>();
-        cambiarBody.Should().NotBeNull();
-        cambiarBody!.AccessToken.Should().NotBeNullOrWhiteSpace();
-        cambiarBody.AccessToken.Should().NotBe(originalToken);
-        cambiarBody.Empresas.First(e => e.EsLaActual).Id.Should().Be(segundaEmpresaId);
-        cambiarBody.Permisos.Should().NotBeEmpty();
+            // 3. Assert
+            cambiarRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var cambiarBody = await cambiarRes.Content.ReadFromJsonAsync<LoginResponse>();
+            cambiarBody.Should().NotBeNull();
+            cambiarBody!.AccessToken.Should().NotBeNullOrWhiteSpace();
+            cambiarBody.AccessToken.Should().NotBe(originalToken);
+            cambiarBody.Empresas.First(e => e.EsLaActual).Id.Should().Be(segundaEmpresaId);
+            cambiarBody.Permisos.Should().NotBeEmpty();
+        }
+        finally
+        {
+            // Sin limpieza, la BD compartida acumula asignaciones super-admin del
+            // usuario de dev: rompe la guarda de "último super-admin" que prueba
+            // UsuariosEndpointsTests y deja al login en empresas de prueba.
+            using var scope = _factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider
+                .GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+            var identidadDb = scope.ServiceProvider.GetRequiredService<Millet.Identidad.Infrastructure.IdentidadDbContext>();
+            await identidadDb.UsuarioEmpresaRoles.IgnoreQueryFilters()
+                .Where(r => r.Id == asignacionId)
+                .ExecuteDeleteAsync();
+        }
     }
 
     // ====================================================================

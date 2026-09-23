@@ -273,6 +273,10 @@ public class PuestosEndpointsTests : IClassFixture<WebApplicationFactory<Program
     private static async Task AsignarASucursalAsync(HttpClient client, Guid sucursalId, Guid puestoId, Guid? deptoId = null)
     {
         deptoId ??= await CrearDepartamentoAsync(client);
+        // El departamento tiene que operar en la sucursal antes de asignarle puestos.
+        var asignarDepto = await client.PostAsync(
+            $"/api/v1/admin/empresas/sucursales/{sucursalId}/departamentos/{deptoId.Value}", null);
+        if (asignarDepto.StatusCode != HttpStatusCode.Conflict) asignarDepto.EnsureSuccessStatusCode();
         var response = await client.PostAsJsonAsync(
             $"/api/v1/admin/empresas/sucursales/{sucursalId}/puestos/{puestoId}",
             new { DepartamentoId = deptoId.Value });

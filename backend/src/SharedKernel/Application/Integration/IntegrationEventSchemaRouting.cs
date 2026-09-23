@@ -25,9 +25,9 @@ namespace Millet.SharedKernel.Application.Integration;
 /// el primer segmento.
 /// </para>
 /// <para>
-/// Los prefijos <c>admin.</c> e <c>identidad.</c> NO se listan a propósito:
-/// esos módulos no tienen outbox propio (ni worker publisher) todavía. Sus
-/// eventos quedan "sin ruta" y el interceptor los trata con el fallback
+/// <c>admin.</c> se rutea a <c>compartido</c> desde que Compartido tiene su
+/// outbox. <c>identidad.</c> NO se lista a propósito: el módulo no tiene
+/// outbox propio (ni worker publisher) todavía. Sus eventos quedan "sin ruta" y el interceptor los trata con el fallback
 /// legacy (los absorbe el primer SaveChanges de la request). Ver
 /// PLATFORM-TODO(&lt;OutboxRutaAdminIdentidad&gt;) en el interceptor.
 /// </para>
