@@ -16,6 +16,7 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
 {
     private readonly GraphServiceClient _graphClient;
     private readonly ILogger<EntraProvisioningService> _logger;
+    private readonly string _senderEmail;
 
     public EntraProvisioningService(
         IOptions<EntraIdOptions> options,
@@ -24,6 +25,7 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
         _logger = logger;
         
         var opts = options.Value;
+        _senderEmail = opts.SenderEmail;
         
         // Si no hay ClientSecret (ej. Dev local sin setup), usamos un fake client para no romper la inyección.
         if (string.IsNullOrWhiteSpace(opts.ClientSecret))
@@ -72,8 +74,9 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
         }
         catch (Exception ex)
         {
+            var detail = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
             _logger.LogError(ex, "Error al crear usuario nuevo en Entra ID para UPN: {Upn}", upn);
-            return new ProvisioningResult(false, null, $"Error interno: {ex.Message}");
+            return new ProvisioningResult(false, null, $"Error interno: {ex.Message} - Detalle: {detail}");
         }
     }
 
@@ -103,8 +106,9 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
         }
         catch (Exception ex)
         {
+            var detail = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
             _logger.LogError(ex, "Error al buscar usuario existente en Entra ID para UPN: {Upn}", upn);
-            return new ProvisioningResult(false, null, $"Error interno: {ex.Message}");
+            return new ProvisioningResult(false, null, $"Error interno: {ex.Message} - Detalle: {detail}");
         }
     }
 
@@ -146,9 +150,15 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
                 SaveToSentItems = false
             };
 
+            if (string.IsNullOrWhiteSpace(_senderEmail))
+            {
+                _logger.LogWarning("No se envió el correo porque 'Auth:EntraId:SenderEmail' no está configurado en appsettings.");
+                return;
+            }
+
             // Requiere permiso de aplicación Mail.Send 
-            await _graphClient.Users[userId].SendMail.PostAsync(sendMailBody, cancellationToken: cancellationToken);
-            _logger.LogInformation("Correo de invitación enviado a {Correo} para el OID {Oid}", correoContacto, userId);
+            await _graphClient.Users[_senderEmail].SendMail.PostAsync(sendMailBody, cancellationToken: cancellationToken);
+            _logger.LogInformation("Correo de invitación enviado a {Correo} para el OID {Oid} desde {Sender}", correoContacto, userId, _senderEmail);
         }
         catch (Exception ex)
         {

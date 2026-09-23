@@ -29,6 +29,7 @@ import {
 } from '@/components/erp';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { cn } from '@/lib/utils';
+import { ProvisioningTestModal } from './ProvisioningTestModal';
 
 /**
  * Form inline (sin modal) para AGREGAR o EDITAR un empleado
@@ -322,30 +323,36 @@ export function EmpleadoInlineForm({
         </Field>
       </div>
 
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={isPending}
-        >
-          <X className="mr-1 h-4 w-4" />
-          Cancelar
-        </Button>
-        <Button type="submit" size="sm" disabled={isPending}>
-          {esEditar ? (
-            <>
-              <Check className="mr-1 h-4 w-4" />
-              {isPending ? 'Guardando…' : 'Guardar cambios'}
-            </>
-          ) : (
-            <>
-              <Plus className="mr-1 h-4 w-4" />
-              {isPending ? 'Agregando…' : 'Agregar empleado'}
-            </>
-          )}
-        </Button>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          {/* BOTÓN TEMPORAL DE PRUEBA API Entra ID */}
+          <ProvisioningTestModal defaultNombre={form.getValues('nombre')} />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            disabled={isPending}
+          >
+            <X className="mr-1 h-4 w-4" />
+            Cancelar
+          </Button>
+          <Button type="submit" size="sm" disabled={isPending}>
+            {esEditar ? (
+              <>
+                <Check className="mr-1 h-4 w-4" />
+                {isPending ? 'Guardando…' : 'Guardar cambios'}
+              </>
+            ) : (
+              <>
+                <Plus className="mr-1 h-4 w-4" />
+                {isPending ? 'Agregando…' : 'Agregar empleado'}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </form>
   );
