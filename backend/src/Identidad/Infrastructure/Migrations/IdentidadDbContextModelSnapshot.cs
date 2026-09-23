@@ -3681,6 +3681,10 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AccesoEnviadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acceso_enviado_en");
+
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean")
                         .HasColumnName("activo");
