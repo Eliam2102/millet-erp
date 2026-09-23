@@ -42,6 +42,12 @@ public sealed class Usuario : BaseEntity, IAuditable
     /// <summary>Primer inicio de sesión registrado; null si nunca ha entrado.</summary>
     public DateTimeOffset? PrimerAccesoEn { get; private set; }
 
+    /// <summary>
+    /// Último envío del correo de acceso con contraseña temporal (camino B y
+    /// "Reenviar acceso", F4). Solo la fecha: la contraseña nunca se guarda.
+    /// </summary>
+    public DateTimeOffset? AccesoEnviadoEn { get; private set; }
+
     /// <summary>Motivo del último rechazo de Graph mientras está en <see cref="EstadoAcceso.ErrorProvision"/>.</summary>
     public string? MotivoErrorProvision { get; private set; }
 
@@ -127,6 +133,34 @@ public sealed class Usuario : BaseEntity, IAuditable
         MotivoErrorProvision = null;
         if (EstadoAcceso is not EstadoAcceso.Activo)
             EstadoAcceso = EstadoAcceso.PendientePrimerAcceso;
+    }
+
+    /// <summary>
+    /// Pide al worker de provisión que cree la cuenta en Entra (camino B
+    /// del alta unificada). Solo para un usuario recién dado de alta con
+    /// OID pendiente que todavía no ha entrado.
+    /// </summary>
+    public void IniciarProvision()
+    {
+        if (!TieneOidPendiente || EstadoAcceso is not EstadoAcceso.PendientePrimerAcceso)
+            throw new BusinessRuleException("USUARIO_NO_PROVISIONABLE",
+                "Solo un usuario con OID pendiente que no ha iniciado sesión puede pedir su cuenta en Entra.");
+
+        EstadoAcceso = EstadoAcceso.ProvisionandoCuenta;
+        MotivoErrorProvision = null;
+    }
+
+    /// <summary>
+    /// Se envió el correo de acceso con una contraseña temporal nueva. Solo
+    /// aplica a una cuenta ya creada en Entra que todavía no ha entrado.
+    /// </summary>
+    public void RegistrarEnvioAcceso(DateTimeOffset cuando)
+    {
+        if (TieneOidPendiente || EstadoAcceso is not EstadoAcceso.PendientePrimerAcceso)
+            throw new BusinessRuleException("USUARIO_ACCESO_NO_REENVIABLE",
+                "Solo se envía el acceso a una cuenta creada en Entra que aún no inicia sesión.");
+
+        AccesoEnviadoEn = cuando;
     }
 
     /// <summary>Graph rechazó la creación de la cuenta.</summary>

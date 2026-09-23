@@ -48,8 +48,8 @@ export const CrearUsuarioSchema = z.object({
   // Workaround manual hasta que <c>EntraIdResolver</c> esté wireado:
   // si el admin pega el ObjectId desde Azure Portal, se manda al
   // backend tal cual y el usuario podrá iniciar sesión con su cuenta
-  // real de Entra ID. Si se deja vacío, el backend genera placeholder
-  // <c>dev-{email}</c> (que NO permite login real).
+  // real de Entra ID. Si se deja vacío, el backend genera el OID
+  // pendiente <c>pending:{email}</c> (que NO permite login real).
   entraIdObjectId: z
     .string()
     .trim()

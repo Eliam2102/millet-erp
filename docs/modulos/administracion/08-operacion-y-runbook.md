@@ -740,6 +740,7 @@ Resumen de los `PLATFORM-TODO` que aplican a Admin (heredados del 01-diseño §1
 | `<SettingsAutoRender>` | Cerrado en F-Admin-PR1.1 (A7=b) | ✅ |
 | `<FolioSecuenciaDeprecate>` | `Compras.FolioSecuencia` deprecada en F-Admin-PR6.2 | Cuando todos los módulos consuman `ReservarFolioCommand` |
 | `<EntraIdResolver>` | `LocalEntraIdResolverNoOp` en F-Admin-PR4.1 | Cuando se wire Graph API real |
+| `<EntraDirectorio>` | `DirectorioEntraSimulado` (en memoria) para el alta unificada, plan F1-ADM-01 F2 | Cuando TI entregue `User.ReadWrite.All` en la App Registration: adaptador Graph de `IEntraDirectorioPort` (`GET /users`, `POST /users`) |
 | `<ServiceBusWireup>` | In-process via MediatR | Cuando Notificaciones/Almacén/CxP existan y requieran cross-process |
 | `<CatalogosSapImport>` | Seeds versionados solo | Post-MVP si el cliente requiere migración masiva |
 
