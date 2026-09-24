@@ -127,6 +127,8 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     expect(
       screen.getByRole('form', { name: /agregar empleado/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Paso 1 de 5:/i)).toBeInTheDocument();
+    expect(screen.getByText('Persona y sucursal')).toBeInTheDocument();
 
     expect(
       screen.getByRole('button', { name: /reactivar empleado EMP-002/i }),

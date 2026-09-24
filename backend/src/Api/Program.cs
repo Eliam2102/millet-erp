@@ -6,6 +6,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Millet.Almacen.Infrastructure;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Api.Auth;
+using Millet.Api.Auth.Provisioning;
 using Millet.Api.Endpoints.Catalogos;
 using Millet.Api.Endpoints.Compras;
 using Millet.Api.Endpoints.Settings;
@@ -872,25 +873,33 @@ builder.Services.AddScoped<
     Millet.Identidad.Infrastructure.Stubs.LocalEntraIdResolverNoOp>();
 
 // === Identidad — directorio Entra para el alta unificada (plan 15, F2) ===
-// Simulado en memoria (singleton: el directorio vive lo que el proceso)
-// hasta que TI entregue los permisos de Graph — ver
-// PLATFORM-TODO(<EntraDirectorio>) en DirectorioEntraSimulado.cs.
+// Simulación por defecto. Graph es opt-in explícito y exige configuración
+// completa; nunca crea usuarios de prueba en un tenant por accidente.
 builder.Services
     .AddOptions<Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions>()
     .Bind(builder.Configuration.GetSection(
         Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions.SectionName));
-builder.Services.AddSingleton<
-    Millet.Identidad.Application.Ports.IEntraDirectorioPort,
-    Millet.Identidad.Infrastructure.Stubs.DirectorioEntraSimulado>();
 // Transacción compartida Identidad + Compartido del alta de colaborador
 // (plan 15, F3; validada en el spike F0).
 builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
 // Camino B "Cuenta Microsoft nueva" (plan 15, F4): sin Mail.Send real,
 // el adaptador rechaza el envío; nunca confirma una notificación ficticia.
 // El worker queda desactivado por defecto hasta instalar adaptadores reales.
-builder.Services.AddSingleton<
-    Millet.Identidad.Application.Ports.ICorreoSalientePort,
-    Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
+var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
+if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddGraphColaboradores(builder.Configuration);
+else if (proveedorColaboradores.Equals("Simulado", StringComparison.OrdinalIgnoreCase))
+{
+    if (!builder.Configuration.GetValue<bool>("Entra:Provision:Disabled"))
+        throw new InvalidOperationException("El worker de cuentas nuevas requiere Entra:Proveedor=Graph.");
+    builder.Services.AddSingleton<
+        Millet.Identidad.Application.Ports.IEntraDirectorioPort,
+        Millet.Identidad.Infrastructure.Stubs.DirectorioEntraSimulado>();
+    builder.Services.AddSingleton<
+        Millet.Identidad.Application.Ports.ICorreoSalientePort,
+        Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
+}
+else throw new InvalidOperationException("Entra:Proveedor debe ser Simulado o Graph.");
 builder.Services.AddHostedService<Millet.Identidad.Infrastructure.Workers.ProvisionCuentaEntraWorker>();
 
 // === OpenAPI / Scalar (ADR-0017, F0-PR2) ===

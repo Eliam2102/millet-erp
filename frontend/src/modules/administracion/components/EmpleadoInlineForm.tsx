@@ -17,8 +17,10 @@ import {
 import {
   useActualizarEmpleado,
   useAltaColaborador,
+  useValidarCorreoCorporativo,
 } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
+import { usePuestos } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { ActualizarEmpleadoPayload } from '@/modules/administracion/api/types';
@@ -28,7 +30,6 @@ import {
   EmpleadoSelector,
   PuestoSelector,
   SucursalSelector,
-  UsuarioSelector,
 } from '@/components/erp';
 import { cn } from '@/lib/utils';
 
@@ -78,9 +79,12 @@ export function EmpleadoInlineForm({
   const canAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const canDarAcceso = canCrearUsuarios && canAsignar;
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
+  const puestos = usePuestos();
+  const [paso, setPaso] = useState(0);
   const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
   const [emailContacto, setEmailContacto] = useState('');
   const [rolId, setRolId] = useState('');
+  const [correoValidable, setCorreoValidable] = useState('');
 
   const form = useForm<EmpleadoValues>({
     resolver: zodResolver(EmpleadoSchema),
@@ -93,7 +97,7 @@ export function EmpleadoInlineForm({
           jefeDirectoId: empleado.jefeDirectoId ?? '',
           sucursalId: empleado.sucursalId ?? '',
           departamentoId: empleado.departamentoId ?? '',
-          usuarioId: empleado.usuarioId ?? '',
+          usuarioId: '',
           // El list item no trae codigoNomina; vacío = no tocar (el
           // PATCH solo lo limpia si el usuario lo teclea y borra).
           codigoNomina: '',
@@ -105,6 +109,21 @@ export function EmpleadoInlineForm({
     form.setFocus(esEditar ? 'nombre' : 'clave');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const puestoSeleccionado = form.watch('puestoId');
+  const correoCorporativo = form.watch('email');
+  useEffect(() => {
+    const timer = setTimeout(() => setCorreoValidable(correoCorporativo?.trim() ?? ''), 350);
+    return () => clearTimeout(timer);
+  }, [correoCorporativo]);
+  const validacion = useValidarCorreoCorporativo(
+    correoValidable, !esEditar && paso === 3 && acceso !== 0 && canDarAcceso,
+  );
+  useEffect(() => {
+    if (esEditar || !puestoSeleccionado || rolId) return;
+    const sugerido = puestos.data?.items.find((p) => p.id === puestoSeleccionado)?.rolSugeridoId;
+    if (sugerido) setRolId(sugerido);
+  }, [esEditar, puestoSeleccionado, puestos.data, rolId]);
 
   const isPending = crear.isPending || actualizar.isPending;
 
@@ -136,7 +155,7 @@ export function EmpleadoInlineForm({
   function onSubmit(values: EmpleadoValues) {
     if (esEditar && empleado != null) {
       actualizar.mutate(
-        { id: empleado.id, payload: payloadPatch(values, empleado), idempotencyKey },
+        { id: empleado.id, payload: payloadPatch(values, empleado, emailContacto), idempotencyKey },
         {
           onSuccess: () => {
             toast.success('Empleado actualizado');
@@ -182,7 +201,7 @@ export function EmpleadoInlineForm({
         onSuccess: (resp) => {
           toast.success(`Colaborador "${resp.empleado.nombre}" agregado`, {
             description: acceso === 2
-              ? 'La cuenta queda pendiente de provisión; no se ha enviado acceso real.'
+              ? 'La cuenta queda en provisión; revisa su estado en Acceso.'
               : undefined,
           });
           form.reset({ ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' });
@@ -192,6 +211,38 @@ export function EmpleadoInlineForm({
         onError,
       },
     );
+  }
+
+  function siguientePaso() {
+    const values = form.getValues();
+    if (paso === 0 && (!values.clave.trim() || !values.nombre.trim() || !values.sucursalId)) {
+      toast.error('Indica clave, nombre y sucursal.');
+      return;
+    }
+    if (paso === 1 && !values.departamentoId) {
+      toast.error('Selecciona el departamento.');
+      return;
+    }
+    if (paso === 2 && !values.puestoId) {
+      toast.error('Selecciona el puesto.');
+      return;
+    }
+    if (paso === 3 && acceso !== 0 && (!values.email || !rolId)) {
+      toast.error('Indica correo corporativo y rol para dar acceso.');
+      return;
+    }
+    if (paso === 3 && acceso !== 0 && (correoValidable !== values.email?.trim() ||
+      validacion.isPending || validacion.isError ||
+      (acceso === 1 ? !validacion.data?.puedeVincularCuentaExistente :
+        !validacion.data?.puedeCrearCuentaNueva))) {
+      toast.error('El correo no está disponible para el modo de acceso elegido.');
+      return;
+    }
+    if (paso === 3 && acceso === 2 && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailContacto.trim())) {
+      toast.error('Indica un correo de contacto válido.');
+      return;
+    }
+    setPaso((p) => Math.min(p + 1, 4));
   }
 
   return (
@@ -214,12 +265,16 @@ export function EmpleadoInlineForm({
         esEditar ? `Editar empleado ${empleado?.clave}` : 'Agregar empleado'
       }
     >
+      {!esEditar && <div className="rounded-md bg-muted/40 px-3 py-2 text-sm" aria-live="polite">
+        <span className="font-medium">Paso {paso + 1} de 5:</span>{' '}
+        {['Persona y sucursal', 'Departamento', 'Puesto', 'Acceso y rol', 'Confirmación'][paso]}
+      </div>}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
         <Field
           label="Clave"
           required
           error={form.formState.errors.clave?.message}
-          className="md:col-span-3"
+          className={cn('md:col-span-3', !esEditar && paso !== 0 && 'hidden')}
         >
           <Input
             maxLength={20}
@@ -239,7 +294,7 @@ export function EmpleadoInlineForm({
           label="Nombre"
           required
           error={form.formState.errors.nombre?.message}
-          className="md:col-span-5"
+          className={cn('md:col-span-5', !esEditar && paso !== 0 && 'hidden')}
         >
           <Input
             maxLength={254}
@@ -251,7 +306,7 @@ export function EmpleadoInlineForm({
         <Field
           label={esEditar ? 'Email' : 'Correo corporativo'}
           error={form.formState.errors.email?.message}
-          className="md:col-span-4"
+          className={cn('md:col-span-4', !esEditar && paso !== 0 && paso !== 3 && 'hidden')}
         >
           <Input
             maxLength={254}
@@ -263,7 +318,7 @@ export function EmpleadoInlineForm({
 
         <Field
           label={sucursalFija ? 'Sucursal (fijada)' : 'Sucursal'}
-          className="md:col-span-4"
+          className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}
         >
           <Controller
             control={form.control}
@@ -286,7 +341,7 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field label="Departamento" className="md:col-span-4">
+        <Field label="Departamento" className={cn('md:col-span-4', !esEditar && paso !== 1 && 'hidden')}>
           <Controller
             control={form.control}
             name="departamentoId"
@@ -307,7 +362,7 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field label="Puesto" className="md:col-span-4">
+        <Field label="Puesto" className={cn('md:col-span-4', !esEditar && paso !== 2 && 'hidden')}>
           <Controller
             control={form.control}
             name="puestoId"
@@ -323,7 +378,7 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field label="Jefe directo (autoriza viáticos N1)" className="md:col-span-4">
+        <Field label="Jefe directo (autoriza viáticos N1)" className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}>
           <Controller
             control={form.control}
             name="jefeDirectoId"
@@ -338,24 +393,11 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        {esEditar && <Field label="Usuario del sistema" className="md:col-span-4">
-          <Controller
-            control={form.control}
-            name="usuarioId"
-            render={({ field }) => (
-              <UsuarioSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                className="w-full"
-              />
-            )}
-          />
-        </Field>}
 
         <Field
           label="Código de nómina"
           error={form.formState.errors.codigoNomina?.message}
-          className="md:col-span-4"
+          className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}
         >
           <Input
             maxLength={20}
@@ -365,9 +407,14 @@ export function EmpleadoInlineForm({
             {...form.register('codigoNomina')}
           />
         </Field>
+        {esEditar && <Field label="Actualizar correo de contacto" className="md:col-span-4">
+          <Input type="email" value={emailContacto}
+            onChange={(e) => setEmailContacto(e.target.value)}
+            placeholder="Vacío: conservar el correo actual" />
+        </Field>}
       </div>
 
-      {!esEditar && (
+      {!esEditar && paso === 3 && (
         <div className="grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-3">
           <Field label="Acceso al ERP">
             <select
@@ -377,8 +424,8 @@ export function EmpleadoInlineForm({
               onChange={(e) => setAcceso(Number(e.target.value) as 0 | 1 | 2)}
             >
               <option value={0}>Sin acceso</option>
-              {canDarAcceso && <option value={1}>Ya tiene cuenta Microsoft (validación local)</option>}
-              {canDarAcceso && <option value={2}>Cuenta Microsoft nueva (pendiente)</option>}
+              {canDarAcceso && <option value={1}>Ya tiene cuenta Microsoft</option>}
+              {canDarAcceso && <option value={2}>Cuenta Microsoft nueva</option>}
             </select>
           </Field>
           {acceso !== 0 && (
@@ -396,6 +443,17 @@ export function EmpleadoInlineForm({
               </select>
             </Field>
           )}
+          {acceso !== 0 && correoValidable && <p className="text-xs md:col-span-3" role="status">
+            {validacion.isPending ? 'Verificando cuenta Microsoft…' : validacion.isError
+              ? 'No se pudo validar el correo.'
+              : acceso === 1
+                ? validacion.data?.puedeVincularCuentaExistente
+                  ? `Cuenta encontrada: ${validacion.data.cuentaEntra?.nombreMostrado}`
+                  : 'No hay una cuenta Microsoft habilitada para vincular.'
+                : validacion.data?.puedeCrearCuentaNueva
+                  ? 'Correo corporativo disponible para crear cuenta.'
+                  : 'El correo ya existe o el dominio no está permitido.'}
+          </p>}
           {acceso === 2 && (
             <Field label="Correo personal de contacto" required>
               <Input
@@ -408,16 +466,25 @@ export function EmpleadoInlineForm({
           )}
           {acceso === 2 && (
             <p className="text-xs text-amber-700 md:col-span-3">
-              El alta quedará pendiente. En este ambiente no se crea una cuenta real ni se envía correo.
+              Se enviará una contraseña temporal al correo de contacto cuando el entorno tenga Graph y correo habilitados.
             </p>
           )}
           {acceso === 1 && (
             <p className="text-xs text-amber-700 md:col-span-3">
-              La cuenta se verifica contra el directorio simulado. Antes de operar con usuarios reales falta conectar Microsoft Graph.
+              El ERP verificará la cuenta Microsoft al guardar; el resultado depende del proveedor configurado en este entorno.
             </p>
           )}
         </div>
       )}
+
+      {!esEditar && paso === 4 && <div className="rounded-md border bg-muted/20 p-3 text-sm">
+        <p className="font-medium">Revisa antes de crear</p>
+        <p>{form.getValues('nombre')} · {form.getValues('clave')}</p>
+        <p>Sucursal, departamento y puesto seleccionados.</p>
+        <p>{acceso === 0 ? 'Sin acceso al ERP' :
+          `${acceso === 1 ? 'Cuenta Microsoft existente' : 'Cuenta Microsoft nueva'} · ${form.getValues('email')}`}</p>
+        {acceso === 2 && <p>La contraseña temporal se solicitará por correo a {emailContacto}.</p>}
+      </div>}
 
       <div className="flex items-center justify-end gap-2">
         <div className="flex items-center gap-2">
@@ -431,7 +498,11 @@ export function EmpleadoInlineForm({
             <X className="mr-1 h-4 w-4" />
             Cancelar
           </Button>
-          <Button type="submit" size="sm" disabled={isPending}>
+          {!esEditar && paso > 0 && <Button type="button" variant="outline" size="sm"
+            disabled={isPending} onClick={() => setPaso((p) => p - 1)}>Anterior</Button>}
+          {!esEditar && paso < 4 && <Button type="button" size="sm" disabled={isPending}
+            onClick={siguientePaso}>Siguiente</Button>}
+          {(esEditar || paso === 4) && <Button type="submit" size="sm" disabled={isPending}>
             {esEditar ? (
               <>
                 <Check className="mr-1 h-4 w-4" />
@@ -443,7 +514,7 @@ export function EmpleadoInlineForm({
                 {isPending ? 'Agregando…' : 'Agregar empleado'}
               </>
             )}
-          </Button>
+          </Button>}
         </div>
       </div>
     </form>
@@ -458,6 +529,7 @@ export function EmpleadoInlineForm({
 function payloadPatch(
   values: EmpleadoValues,
   anterior: EmpleadoListItem,
+  emailContacto: string,
 ): ActualizarEmpleadoPayload {
   const campo = (nuevo: string | undefined, previo: string | null) => {
     const v = nuevo?.trim() ?? '';
@@ -472,7 +544,6 @@ function payloadPatch(
   const jefe = campo(values.jefeDirectoId, anterior.jefeDirectoId);
   const sucursal = campo(values.sucursalId, anterior.sucursalId);
   const departamento = campo(values.departamentoId, anterior.departamentoId);
-  const usuario = campo(values.usuarioId, anterior.usuarioId);
   // codigoNomina no viene en el list item: vacío = no tocar, nunca limpiar.
   const codigoNomina = values.codigoNomina?.trim() || null;
 
@@ -488,9 +559,8 @@ function payloadPatch(
     limpiarSucursal: sucursal.limpiar,
     departamentoId: departamento.valor,
     limpiarDepartamento: departamento.limpiar,
-    usuarioId: usuario.valor,
-    limpiarUsuario: usuario.limpiar,
     codigoNomina,
+    emailContacto: emailContacto.trim() || null,
   };
 }
 

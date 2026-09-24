@@ -72,6 +72,34 @@ public static class ColaboradoresEndpoints
 
         // === Acceso del colaborador (F4) ===
 
+        group.MapPost("/{empleadoId:guid}/acceso", async (
+            Guid empleadoId,
+            [FromBody] DarAccesoColaboradorPayload payload,
+            IMediator mediator,
+            IAuthorizationService authorization,
+            HttpContext httpContext,
+            CancellationToken ct) =>
+        {
+            foreach (var permiso in new[]
+            {
+                PermisosCanonicos.IdentidadUsuariosCrear,
+                PermisosCanonicos.IdentidadAsignacionesAdministrar,
+            })
+                if (!await TienePermisoAsync(authorization, httpContext, permiso))
+                    return Results.Forbid();
+            var result = await mediator.Send(new DarAccesoColaboradorCommand(
+                empleadoId, payload.Acceso, payload.CorreoCorporativo,
+                payload.RolId, payload.EmailContacto), ct);
+            return Results.Ok(result);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .WithName("DarAccesoColaborador")
+        .WithSummary("Dar acceso a un empleado que nació sin usuario")
+        .Produces<AltaColaboradorResponse>()
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         group.MapGet("/{empleadoId:guid}/acceso", async (
             Guid empleadoId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerAccesoColaboradorQuery(empleadoId), ct)))
@@ -120,6 +148,12 @@ public static class ColaboradoresEndpoints
 
         return app;
     }
+
+    public sealed record DarAccesoColaboradorPayload(
+        TipoAccesoColaborador Acceso,
+        string CorreoCorporativo,
+        Guid? RolId = null,
+        string? EmailContacto = null);
 
     private static async Task<bool> TienePermisoAsync(
         IAuthorizationService authorization, HttpContext httpContext, string permiso)
