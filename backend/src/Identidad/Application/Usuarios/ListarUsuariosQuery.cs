@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
 
@@ -31,13 +32,16 @@ public sealed class ListarUsuariosHandler
 {
     private const int LimitMax = 200;
     private readonly IdentidadDbContext _db;
+    private readonly CompartidoDbContext _compartido;
     private readonly ICurrentEmpresaContext _empresaContext;
 
     public ListarUsuariosHandler(
         IdentidadDbContext db,
+        CompartidoDbContext compartido,
         ICurrentEmpresaContext empresaContext)
     {
         _db = db;
+        _compartido = compartido;
         _empresaContext = empresaContext;
     }
 
@@ -90,6 +94,24 @@ public sealed class ListarUsuariosHandler
                 u.Id, u.Email, u.EntraOid, u.Nombre,
                 u.DepartamentoId, u.Activo, u.Version))
             .ToListAsync(cancellationToken);
+
+        // El vínculo vive en compartido.empleados. Resolver únicamente los
+        // usuarios de esta página evita consultas por fila y no exige al
+        // operador un permiso adicional del catálogo de empleados.
+        var usuarioIds = items.Select(u => u.Id).ToArray();
+        var vinculos = await _compartido.Empleados.AsNoTracking()
+            .Where(e => e.UsuarioId.HasValue && usuarioIds.Contains(e.UsuarioId.Value))
+            .Select(e => new { e.UsuarioId, EmpleadoId = e.Id })
+            .ToListAsync(cancellationToken);
+        // Si QA aún contiene vínculos duplicados, la bandeja debe seguir
+        // disponible para diagnosticarlos; el reporte A–G conserva la
+        // responsabilidad de señalar/corregir ese dato histórico.
+        var empleadoPorUsuario = vinculos
+            .GroupBy(e => e.UsuarioId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(e => e.EmpleadoId).First().EmpleadoId);
+        items = items.Select(u => u with {
+            EmpleadoId = empleadoPorUsuario.TryGetValue(u.Id, out var empleadoId) ? empleadoId : null
+        }).ToList();
 
         return new ListarUsuariosResponse(items, total);
     }

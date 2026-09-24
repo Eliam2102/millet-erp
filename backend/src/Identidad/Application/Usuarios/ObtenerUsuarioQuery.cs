@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -21,13 +22,16 @@ public sealed class ObtenerUsuarioHandler
     : IRequestHandler<ObtenerUsuarioQuery, UsuarioDetalleResponse>
 {
     private readonly IdentidadDbContext _db;
+    private readonly CompartidoDbContext _compartido;
     private readonly ICurrentEmpresaContext _empresaContext;
 
     public ObtenerUsuarioHandler(
         IdentidadDbContext db,
+        CompartidoDbContext compartido,
         ICurrentEmpresaContext empresaContext)
     {
         _db = db;
+        _compartido = compartido;
         _empresaContext = empresaContext;
     }
 
@@ -64,6 +68,12 @@ public sealed class ObtenerUsuarioHandler
                 uer.CreatedAt))
             .ToListAsync(cancellationToken);
 
+        var empleadoId = await _compartido.Empleados.AsNoTracking()
+            .Where(e => e.UsuarioId == usuario.Id)
+            .OrderBy(e => e.Id)
+            .Select(e => (Guid?)e.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var dto = new UsuarioResponse(
             usuario.Id,
             usuario.Email,
@@ -71,7 +81,8 @@ public sealed class ObtenerUsuarioHandler
             usuario.Nombre,
             usuario.DepartamentoId,
             usuario.Activo,
-            usuario.Version);
+            usuario.Version,
+            empleadoId);
 
         return new UsuarioDetalleResponse(dto, asignaciones);
     }

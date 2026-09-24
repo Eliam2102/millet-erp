@@ -166,6 +166,9 @@ export function UsuarioDetalle() {
               Inactivo
             </Badge>
           )}
+          <Badge variant={usuario.empleadoId ? 'secondary' : 'outline'}>
+            {usuario.empleadoId ? 'Empleado vinculado' : 'Sin empleado vinculado'}
+          </Badge>
           <span className="hidden truncate text-sm text-muted-foreground md:inline">
             · {usuario.nombre}
           </span>

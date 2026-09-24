@@ -94,6 +94,7 @@ export interface UsuarioResponse {
   departamentoId: string | null;
   activo: boolean;
   version: number;
+  empleadoId?: string | null;
 }
 
 /**
