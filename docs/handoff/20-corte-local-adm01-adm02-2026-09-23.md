@@ -1,5 +1,7 @@
 # ADM-01 / ADM-02 — corte local para validación (borrador interno)
 
+> Este borrador conserva el criterio inicial de integración real. Para el corte **listo para QA de desarrollo**, el criterio vigente está en [21-prueba-local-adm01-adm02-2026-09-23.md](21-prueba-local-adm01-adm02-2026-09-23.md): el correo se captura localmente y **Exchange/SenderEmail no bloquean las pruebas**. La entrega real y la aceptación del cliente se validan después.
+
 Fecha: 2026-09-23. Rama aislada: `fix/cierre-adm01-adm02-seguridad-flujo`.
 No equivale a merge, despliegue, UAT ni cierre de ClickUp.
 

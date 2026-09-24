@@ -16,21 +16,34 @@ namespace Millet.Api.Auth.Provisioning;
 public static class GraphColaboradorRegistration
 {
     public static IServiceCollection AddGraphColaboradores(
-        this IServiceCollection services, IConfiguration configuration)
+        this IServiceCollection services, IConfiguration configuration, bool isDevelopment)
     {
         var auth = configuration.GetSection("Auth:EntraId").Get<EntraIdOptions>() ?? new();
         var entra = configuration.GetSection("Entra").Get<EntraDirectorioOptions>() ?? new();
+        var correoProveedor = configuration["Entra:Correo:Proveedor"] ?? "Graph";
+        var correoSandbox = correoProveedor.Equals("SandboxLocal", StringComparison.OrdinalIgnoreCase);
+        if (!correoSandbox && !correoProveedor.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Entra:Correo:Proveedor debe ser Graph o SandboxLocal.");
+        if (correoSandbox)
+        {
+            var host = entra.Simulacion.CorreoSandbox.Host;
+            var esLoopback = host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                || host == "127.0.0.1" || host == "::1";
+            if (!isDevelopment || !esLoopback || entra.Simulacion.CorreoSandbox.Puerto is < 1 or > 65535)
+                throw new InvalidOperationException(
+                    "Graph con correo SandboxLocal solo se permite en Development y SMTP de captura en loopback.");
+        }
         if (string.IsNullOrWhiteSpace(auth.TenantId) ||
             string.IsNullOrWhiteSpace(auth.ClientId) ||
             string.IsNullOrWhiteSpace(auth.ClientSecret) ||
-            string.IsNullOrWhiteSpace(auth.SenderEmail) ||
+            (!correoSandbox && string.IsNullOrWhiteSpace(auth.SenderEmail)) ||
             entra.DominiosPermitidos.Count == 0 ||
             entra.Provision.Disabled ||
             !Uri.TryCreate(entra.UrlInicioSesion, UriKind.Absolute, out var url) ||
             url.Scheme != Uri.UriSchemeHttps)
         {
             throw new InvalidOperationException(
-                "Graph para colaboradores requiere TenantId, ClientId, ClientSecret, SenderEmail, " +
+                "Graph para colaboradores requiere TenantId, ClientId, ClientSecret, SenderEmail si el correo es Graph, " +
                 "Entra:DominiosPermitidos, Entra:Provision:Disabled=false y UrlInicioSesion HTTPS.");
         }
 
@@ -38,7 +51,10 @@ public static class GraphColaboradorRegistration
             new ClientSecretCredential(auth.TenantId, auth.ClientId, auth.ClientSecret),
             ["https://graph.microsoft.com/.default"]));
         services.AddSingleton<IEntraDirectorioPort, GraphDirectorioColaboradores>();
-        services.AddSingleton<ICorreoSalientePort, GraphCorreoColaboradores>();
+        if (correoSandbox)
+            services.AddSingleton<ICorreoSalientePort, CorreoSandboxLocal>();
+        else
+            services.AddSingleton<ICorreoSalientePort, GraphCorreoColaboradores>();
         return services;
     }
 }
