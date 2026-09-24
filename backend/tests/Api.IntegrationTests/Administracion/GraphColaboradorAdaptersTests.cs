@@ -2,6 +2,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Azure.Core;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Graph;
 using Millet.Api.Auth.Options;
@@ -18,6 +20,75 @@ public sealed class GraphColaboradorAdaptersTests
     private const string Upn = "persona@millet.mx";
     private const string EmpleadoId = "79f2570f-7760-43a5-ac2c-7041ba673724";
     private const string Oid = "b0b0919c-f777-4a19-b513-57d6c35b4acc";
+
+    [Fact]
+    public void Graph_Con_Correo_Local_Permite_Probar_Sin_SenderEmail_Solo_En_Development()
+    {
+        var configuration = ConfiguracionGraph("SandboxLocal");
+        var services = new ServiceCollection();
+
+        services.AddGraphColaboradores(configuration, isDevelopment: true);
+
+        Assert.Contains(services, d => d.ServiceType == typeof(ICorreoSalientePort)
+            && d.ImplementationType == typeof(CorreoSandboxLocal));
+        Assert.Throws<InvalidOperationException>(() =>
+            new ServiceCollection().AddGraphColaboradores(configuration, isDevelopment: false));
+    }
+
+    [Fact]
+    public void Graph_Con_Correo_Real_Sigue_Exigiendo_SenderEmail()
+    {
+        var configuration = ConfiguracionGraph("Graph");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            new ServiceCollection().AddGraphColaboradores(configuration, isDevelopment: true));
+    }
+
+    [Fact]
+    public void Graph_Con_Correo_Real_Usa_El_Adaptador_Graph()
+    {
+        var configuration = ConfiguracionGraph("Graph", senderEmail: "qa@millet.mx");
+        var services = new ServiceCollection();
+
+        services.AddGraphColaboradores(configuration, isDevelopment: false);
+
+        Assert.Contains(services, d => d.ServiceType == typeof(ICorreoSalientePort)
+            && d.ImplementationType == typeof(GraphCorreoColaboradores));
+    }
+
+    [Fact]
+    public void Graph_Rechaza_Proveedor_De_Correo_Desconocido()
+    {
+        var configuration = ConfiguracionGraph("NoOp");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            new ServiceCollection().AddGraphColaboradores(configuration, isDevelopment: true));
+    }
+
+    [Fact]
+    public void Graph_Con_Correo_Local_Rechaza_Smtp_Externo()
+    {
+        var configuration = ConfiguracionGraph("SandboxLocal", host: "smtp.example.com");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            new ServiceCollection().AddGraphColaboradores(configuration, isDevelopment: true));
+    }
+
+    private static IConfiguration ConfiguracionGraph(string correoProveedor, string host = "127.0.0.1",
+        string? senderEmail = null) =>
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Auth:EntraId:TenantId"] = "tenant-test",
+            ["Auth:EntraId:ClientId"] = "client-test",
+            ["Auth:EntraId:ClientSecret"] = "secret-test",
+            ["Auth:EntraId:SenderEmail"] = senderEmail,
+            ["Entra:Correo:Proveedor"] = correoProveedor,
+            ["Entra:Simulacion:CorreoSandbox:Host"] = host,
+            ["Entra:Simulacion:CorreoSandbox:Puerto"] = "1025",
+            ["Entra:DominiosPermitidos:0"] = "millet.mx",
+            ["Entra:Provision:Disabled"] = "false",
+            ["Entra:UrlInicioSesion"] = "https://erp.example.com"
+        }).Build();
 
     [Fact]
     public async Task Crear_Cuenta_Nueva_Exige_Cambio_Y_Usa_Clave_De_Empleado()

@@ -887,7 +887,7 @@ builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborado
 // defecto hasta configurar adaptadores reales.
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
-    builder.Services.AddGraphColaboradores(builder.Configuration);
+    builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
 else if (proveedorColaboradores.Equals("Simulado", StringComparison.OrdinalIgnoreCase))
 {
     var provisionSimuladaActiva = !builder.Configuration.GetValue<bool>("Entra:Provision:Disabled");
