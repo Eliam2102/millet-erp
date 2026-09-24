@@ -68,6 +68,46 @@ export function useCrearEmpleado() {
   });
 }
 
+export interface AltaColaboradorCommand {
+  id: string;
+  clave: string;
+  nombre: string;
+  sucursalId: string;
+  departamentoId: string;
+  puestoId: string;
+  acceso: 0 | 1 | 2;
+  correoCorporativo: string | null;
+  emailContacto: string | null;
+  rolId: string | null;
+  jefeDirectoId: string | null;
+  codigoNomina: string | null;
+}
+
+export function useAltaColaborador() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { empleado: EmpleadoResponse; acceso: { estadoAcceso: number } | null },
+    Error,
+    { command: AltaColaboradorCommand; idempotencyKey: string }
+  >({
+    mutationFn: async ({ command, idempotencyKey }) => {
+      const { data } = await apiRequest<{
+        empleado: EmpleadoResponse;
+        acceso: { estadoAcceso: number } | null;
+      }>('/api/v1/admin/colaboradores', {
+        method: 'POST',
+        body: command,
+        idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      invalidar(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['identidad', 'usuarios'] });
+    },
+  });
+}
+
 export interface ActualizarEmpleadoArgs {
   id: string;
   payload: ActualizarEmpleadoPayload;

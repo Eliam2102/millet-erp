@@ -885,9 +885,9 @@ builder.Services.AddSingleton<
 // Transacción compartida Identidad + Compartido del alta de colaborador
 // (plan 15, F3; validada en el spike F0).
 builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
-// Camino B "Cuenta Microsoft nueva" (plan 15, F4): correo de acceso simulado
-// hasta que TI entregue Mail.Send — ver PLATFORM-TODO(<CorreoSaliente>) —
-// y worker que crea la cuenta después del commit del alta.
+// Camino B "Cuenta Microsoft nueva" (plan 15, F4): sin Mail.Send real,
+// el adaptador rechaza el envío; nunca confirma una notificación ficticia.
+// El worker queda desactivado por defecto hasta instalar adaptadores reales.
 builder.Services.AddSingleton<
     Millet.Identidad.Application.Ports.ICorreoSalientePort,
     Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
@@ -1218,7 +1218,6 @@ app.MapGet("/", () => "Hello World!");
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
-app.MapProvisioningEndpoints();
 #if DEBUG
 // Compilación condicional: en Release este código no existe (ADR-0015).
 app.MapDevAuthEndpoints();

@@ -60,7 +60,7 @@ public static class ColaboradoresEndpoints
         .WithDescription(
             "Caminos de `acceso`: 0 = sin acceso al ERP, 1 = ya tiene cuenta Microsoft, " +
             "2 = cuenta Microsoft nueva (requiere `emailContacto`; el usuario queda en " +
-            "ProvisionandoCuenta y un worker crea la cuenta y envía el acceso). El rol se " +
+            "ProvisionandoCuenta; la creación y el correo requieren adaptadores reales). El rol se " +
             "toma de `rolId` o del rol sugerido del puesto.")
         .Produces<AltaColaboradorResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()

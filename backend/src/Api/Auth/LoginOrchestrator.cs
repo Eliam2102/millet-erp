@@ -39,6 +39,7 @@ public sealed class LoginOrchestrator
     private readonly ICurrentEmpresaContext _empresaContext;
     private readonly IPermissionCache _permissionCache;
     private readonly IPermissionLoader _permissionLoader;
+    private readonly IClock _clock;
     private readonly Millet.Compras.Infrastructure.ComprasDbContext _comprasDb;
 
     public LoginOrchestrator(
@@ -48,6 +49,7 @@ public sealed class LoginOrchestrator
         ICurrentEmpresaContext empresaContext,
         IPermissionCache permissionCache,
         IPermissionLoader permissionLoader,
+        IClock clock,
         Millet.Compras.Infrastructure.ComprasDbContext comprasDb)
     {
         _db = db;
@@ -56,6 +58,7 @@ public sealed class LoginOrchestrator
         _empresaContext = empresaContext;
         _permissionCache = permissionCache;
         _permissionLoader = permissionLoader;
+        _clock = clock;
         _comprasDb = comprasDb;
     }
 
@@ -197,6 +200,9 @@ public sealed class LoginOrchestrator
             }
         }
 
+        usuario.RegistrarAcceso(_clock.UtcNow);
+        await _db.SaveChangesAsync(cancellationToken);
+
         var (selectedEmpresaId, empresas) = await SelectEmpresaAsync(
             usuario, requestedEmpresaId, cancellationToken);
 
@@ -279,6 +285,17 @@ public sealed class LoginOrchestrator
         string? entraName,
         CancellationToken cancellationToken)
     {
+        // Un OID distinto con el mismo correo no debe crear otra identidad
+        // ni apropiarse de las asignaciones de un usuario preexistente.
+        if (!string.IsNullOrWhiteSpace(entraEmail)
+            && await _db.Usuarios.IgnoreQueryFilters().AsNoTracking()
+                .AnyAsync(u => u.Email == entraEmail, cancellationToken))
+        {
+            throw new ForbiddenException(
+                "USUARIO_EMAIL_VINCULADO_OTRO_OID",
+                "El correo ya está asociado a otra identidad. Solicita la conciliación al administrador.");
+        }
+
         var fallbackEmail = !string.IsNullOrWhiteSpace(entraEmail)
             ? entraEmail
             : $"{entraOid}@unknown.local";
