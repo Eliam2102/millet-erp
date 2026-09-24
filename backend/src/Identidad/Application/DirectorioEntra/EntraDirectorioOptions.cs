@@ -65,7 +65,9 @@ public sealed class CuentaSimuladaOptions
 public sealed class ProvisionCuentaEntraOptions
 {
     /// <summary>Apaga el worker (el alta con cuenta nueva queda en espera).</summary>
-    public bool Disabled { get; set; }
+    // Sin adaptadores reales de directorio y correo, no se debe marcar
+    // automáticamente una cuenta simulada como provisionada o notificada.
+    public bool Disabled { get; set; } = true;
 
     public int IntervalSeconds { get; set; } = 15;
 

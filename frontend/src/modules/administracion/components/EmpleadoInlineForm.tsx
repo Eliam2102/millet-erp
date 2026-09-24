@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Plus, X } from 'lucide-react';
@@ -16,8 +16,11 @@ import {
 } from '@/modules/administracion/schemas/empleado';
 import {
   useActualizarEmpleado,
-  useCrearEmpleado,
+  useAltaColaborador,
 } from '@/modules/administracion/api';
+import { useRoles } from '@/modules/identidad/api/roles';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { ActualizarEmpleadoPayload } from '@/modules/administracion/api/types';
 import type { EmpleadoListItem } from '@/features/catalogos/api';
 import {
@@ -27,9 +30,7 @@ import {
   SucursalSelector,
   UsuarioSelector,
 } from '@/components/erp';
-import { useAuthStore } from '@/lib/auth/auth-store';
 import { cn } from '@/lib/utils';
-import { ProvisioningTestModal } from './ProvisioningTestModal';
 
 /**
  * Form inline (sin modal) para AGREGAR o EDITAR un empleado
@@ -71,9 +72,15 @@ export function EmpleadoInlineForm({
 }: EmpleadoInlineFormProps) {
   const esEditar = empleado != null;
   const idempotencyKey = useFormIdempotencyKey();
-  const crear = useCrearEmpleado();
+  const crear = useAltaColaborador();
   const actualizar = useActualizarEmpleado();
-  const currentEmpresaId = useAuthStore((s) => s.currentEmpresaId);
+  const canCrearUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
+  const canAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
+  const canDarAcceso = canCrearUsuarios && canAsignar;
+  const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
+  const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
+  const [emailContacto, setEmailContacto] = useState('');
+  const [rolId, setRolId] = useState('');
 
   const form = useForm<EmpleadoValues>({
     resolver: zodResolver(EmpleadoSchema),
@@ -141,30 +148,43 @@ export function EmpleadoInlineForm({
       return;
     }
 
-    if (!currentEmpresaId) {
-      toast.error('No hay empresa seleccionada en la sesión.');
+    if (!values.sucursalId || !values.departamentoId || !values.puestoId) {
+      toast.error('Selecciona sucursal, departamento y puesto para el alta.');
+      return;
+    }
+    if (acceso !== 0 && (!canDarAcceso || !values.email || !rolId)) {
+      toast.error('Para dar acceso, indica correo corporativo y rol.');
+      return;
+    }
+    if (acceso === 2 && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailContacto.trim())) {
+      toast.error('Indica un correo de contacto válido para una cuenta nueva.');
       return;
     }
     crear.mutate(
       {
         command: {
           id: '00000000-0000-0000-0000-000000000000',
-          empresaId: currentEmpresaId,
           clave: values.clave,
           nombre: values.nombre,
-          email: values.email || null,
-          puestoId: values.puestoId || null,
+          puestoId: values.puestoId,
           jefeDirectoId: values.jefeDirectoId || null,
-          sucursalId: values.sucursalId || null,
-          departamentoId: values.departamentoId || null,
-          usuarioId: values.usuarioId || null,
+          sucursalId: values.sucursalId,
+          departamentoId: values.departamentoId,
+          acceso,
+          correoCorporativo: values.email || null,
+          emailContacto: acceso === 2 ? emailContacto.trim() : null,
+          rolId: acceso === 0 ? null : rolId,
           codigoNomina: values.codigoNomina || null,
         },
         idempotencyKey,
       },
       {
         onSuccess: (resp) => {
-          toast.success(`Empleado "${resp.nombre}" agregado`);
+          toast.success(`Colaborador "${resp.empleado.nombre}" agregado`, {
+            description: acceso === 2
+              ? 'La cuenta queda pendiente de provisión; no se ha enviado acceso real.'
+              : undefined,
+          });
           form.reset({ ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' });
           form.setFocus('clave');
           onSaved?.();
@@ -229,7 +249,7 @@ export function EmpleadoInlineForm({
         </Field>
 
         <Field
-          label="Email"
+          label={esEditar ? 'Email' : 'Correo corporativo'}
           error={form.formState.errors.email?.message}
           className="md:col-span-4"
         >
@@ -318,7 +338,7 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field label="Usuario del sistema" className="md:col-span-4">
+        {esEditar && <Field label="Usuario del sistema" className="md:col-span-4">
           <Controller
             control={form.control}
             name="usuarioId"
@@ -330,7 +350,7 @@ export function EmpleadoInlineForm({
               />
             )}
           />
-        </Field>
+        </Field>}
 
         <Field
           label="Código de nómina"
@@ -347,11 +367,59 @@ export function EmpleadoInlineForm({
         </Field>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          {/* BOTÓN TEMPORAL DE PRUEBA API Entra ID */}
-          <ProvisioningTestModal defaultNombre={form.getValues('nombre')} />
+      {!esEditar && (
+        <div className="grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-3">
+          <Field label="Acceso al ERP">
+            <select
+              aria-label="Acceso al ERP"
+              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              value={acceso}
+              onChange={(e) => setAcceso(Number(e.target.value) as 0 | 1 | 2)}
+            >
+              <option value={0}>Sin acceso</option>
+              {canDarAcceso && <option value={1}>Ya tiene cuenta Microsoft (validación local)</option>}
+              {canDarAcceso && <option value={2}>Cuenta Microsoft nueva (pendiente)</option>}
+            </select>
+          </Field>
+          {acceso !== 0 && (
+            <Field label="Rol en la empresa" required>
+              <select
+                aria-label="Rol en la empresa"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                value={rolId}
+                onChange={(e) => setRolId(e.target.value)}
+              >
+                <option value="">Selecciona un rol</option>
+                {(roles.data?.items ?? []).filter((r) => r.activo).map((r) => (
+                  <option key={r.id} value={r.id}>{r.nombre}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {acceso === 2 && (
+            <Field label="Correo personal de contacto" required>
+              <Input
+                type="email"
+                value={emailContacto}
+                onChange={(e) => setEmailContacto(e.target.value)}
+                placeholder="contacto@ejemplo.com"
+              />
+            </Field>
+          )}
+          {acceso === 2 && (
+            <p className="text-xs text-amber-700 md:col-span-3">
+              El alta quedará pendiente. En este ambiente no se crea una cuenta real ni se envía correo.
+            </p>
+          )}
+          {acceso === 1 && (
+            <p className="text-xs text-amber-700 md:col-span-3">
+              La cuenta se verifica contra el directorio simulado. Antes de operar con usuarios reales falta conectar Microsoft Graph.
+            </p>
+          )}
         </div>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
         <div className="flex items-center gap-2">
           <Button
             type="button"
