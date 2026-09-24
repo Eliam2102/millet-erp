@@ -62,6 +62,33 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
     }
 
     [Fact]
+    public async Task Dar_Acceso_Nuevo_A_Empleado_Sin_Usuario_Activa_El_Worker()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var alta = await PostAltaAsync(client, org, acceso: 0, correo: null, rolId: null);
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var empleadoId = (await ReadJsonAsync(alta)).GetProperty("empleado").GetProperty("id").GetGuid();
+        var upn = NuevoUpn();
+
+        var acceso = await client.PostAsJsonAsync($"{ColaboradoresEndpoint}/{empleadoId}/acceso", new
+        {
+            Acceso = CuentaNueva,
+            CorreoCorporativo = upn,
+            EmailContacto,
+            RolId = org.RolId,
+        });
+        Assert.Equal(HttpStatusCode.OK, acceso.StatusCode);
+        var usuarioId = (await ReadJsonAsync(acceso)).GetProperty("acceso").GetProperty("usuarioId").GetGuid();
+        Assert.Equal(EstadoAcceso.ProvisionandoCuenta, (await LeerUsuarioAsync(usuarioId)).EstadoAcceso);
+
+        await CorrerWorkerAsync();
+
+        Assert.Equal(EstadoAcceso.PendientePrimerAcceso, (await LeerUsuarioAsync(usuarioId)).EstadoAcceso);
+        Assert.Single(_host.Correo.Enviados, c => c.Upn == upn);
+    }
+
+    [Fact]
     public async Task Worker_Crea_La_Cuenta_Vincula_El_Oid_Y_Envia_El_Acceso()
     {
         var client = await CreateSuperAdminClientAsync();

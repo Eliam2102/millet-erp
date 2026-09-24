@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Empleados;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.Identidad.Application.Colaboradores;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Administracion;
@@ -55,7 +56,7 @@ public static class EmpleadosEndpoints
             CancellationToken ct) =>
         {
             var response = await mediator.Send(
-                new ActualizarEmpleadoCommand(
+                new ActualizarColaboradorCommand(new ActualizarEmpleadoCommand(
                     id,
                     payload.Nombre,
                     payload.Email,
@@ -71,7 +72,9 @@ public static class EmpleadosEndpoints
                     payload.UsuarioId,
                     payload.LimpiarUsuario,
                     payload.CodigoNomina,
-                    payload.LimpiarCodigoNomina), ct);
+                    payload.LimpiarCodigoNomina,
+                    payload.EmailContacto,
+                    payload.LimpiarEmailContacto)), ct);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -89,7 +92,7 @@ public static class EmpleadosEndpoints
             IMediator mediator,
             CancellationToken ct) =>
         {
-            var response = await mediator.Send(new DesactivarEmpleadoCommand(id), ct);
+            var response = await mediator.Send(new DesactivarColaboradorCommand(id), ct);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -105,7 +108,7 @@ public static class EmpleadosEndpoints
             IMediator mediator,
             CancellationToken ct) =>
         {
-            var response = await mediator.Send(new ReactivarEmpleadoCommand(id), ct);
+            var response = await mediator.Send(new ReactivarColaboradorCommand(id), ct);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -134,5 +137,7 @@ public static class EmpleadosEndpoints
         Guid? UsuarioId = null,
         bool LimpiarUsuario = false,
         string? CodigoNomina = null,
-        bool LimpiarCodigoNomina = false);
+        bool LimpiarCodigoNomina = false,
+        string? EmailContacto = null,
+        bool LimpiarEmailContacto = false);
 }

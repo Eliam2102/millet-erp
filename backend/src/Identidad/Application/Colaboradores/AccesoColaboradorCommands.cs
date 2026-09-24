@@ -41,7 +41,8 @@ public sealed record EstadoAccesoColaboradorResponse(
     string? MotivoErrorProvision,
     DateTimeOffset? AccesoEnviadoEn,
     DateTimeOffset? PrimerAccesoEn,
-    string? EmailContacto);
+    string? EmailContacto,
+    bool UsuarioActivo);
 
 public sealed class AccesoColaboradorHandlers :
     IRequestHandler<ObtenerAccesoColaboradorQuery, EstadoAccesoColaboradorResponse>,
@@ -158,5 +159,6 @@ public sealed class AccesoColaboradorHandlers :
         usuario.MotivoErrorProvision,
         usuario.AccesoEnviadoEn,
         usuario.PrimerAccesoEn,
-        empleado.EmailContacto);
+        empleado.EmailContacto,
+        usuario.Activo);
 }

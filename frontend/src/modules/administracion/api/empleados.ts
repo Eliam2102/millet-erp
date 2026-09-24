@@ -108,6 +108,100 @@ export function useAltaColaborador() {
   });
 }
 
+export interface AccesoColaboradorEstado {
+  empleadoId: string;
+  usuarioId: string;
+  email: string;
+  estadoAcceso: 0 | 1 | 2 | 3;
+  motivoErrorProvision: string | null;
+  accesoEnviadoEn: string | null;
+  primerAccesoEn: string | null;
+  emailContacto: string | null;
+  usuarioActivo: boolean;
+}
+
+export interface ValidacionCorreoCorporativo {
+  correo: string;
+  dominioPermitido: boolean;
+  cuentaEntra: { objectId: string; nombreMostrado: string; habilitada: boolean } | null;
+  usuarioErp: { id: string; nombre: string; estadoAcceso: number; activo: boolean } | null;
+  puedeVincularCuentaExistente: boolean;
+  puedeCrearCuentaNueva: boolean;
+}
+
+export function useValidarCorreoCorporativo(correo: string, enabled: boolean) {
+  return useQuery<ValidacionCorreoCorporativo>({
+    queryKey: ['identidad', 'directorio-entra', correo],
+    enabled: enabled && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ValidacionCorreoCorporativo>(
+        `/api/v1/identidad/directorio-entra/validar-correo?correo=${encodeURIComponent(correo)}`,
+        { signal },
+      );
+      return data;
+    },
+    staleTime: 10_000,
+  });
+}
+
+export function useAccesoColaborador(empleadoId: string | null) {
+  return useQuery<AccesoColaboradorEstado>({
+    queryKey: ['admin', 'colaboradores', empleadoId, 'acceso'],
+    enabled: empleadoId != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<AccesoColaboradorEstado>(
+        `/api/v1/admin/colaboradores/${empleadoId}/acceso`, { signal },
+      );
+      return data;
+    },
+  });
+}
+
+export function useDarAccesoColaborador() {
+  const queryClient = useQueryClient();
+  return useMutation<AltaColaboradorResponse, Error, {
+    empleadoId: string;
+    acceso: 1 | 2;
+    correoCorporativo: string;
+    emailContacto: string | null;
+    rolId: string;
+    idempotencyKey: string;
+  }>({
+    mutationFn: async ({ empleadoId, idempotencyKey, ...body }) => {
+      const { data } = await apiRequest<AltaColaboradorResponse>(
+        `/api/v1/admin/colaboradores/${empleadoId}/acceso`,
+        { method: 'POST', body, idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      invalidar(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'] });
+    },
+  });
+}
+
+interface AltaColaboradorResponse {
+  empleado: EmpleadoResponse;
+  acceso: { usuarioId: string; estadoAcceso: number } | null;
+}
+
+export function useAccionAccesoColaborador(accion: 'reintentar' | 'reenviar') {
+  const queryClient = useQueryClient();
+  return useMutation<AccesoColaboradorEstado, Error, { empleadoId: string; idempotencyKey: string }>({
+    mutationFn: async ({ empleadoId, idempotencyKey }) => {
+      const { data } = await apiRequest<AccesoColaboradorEstado>(
+        `/api/v1/admin/colaboradores/${empleadoId}/acceso/${accion}`,
+        { method: 'POST', body: {}, idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: (_, vars) => queryClient.invalidateQueries({
+      queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'],
+    }),
+  });
+}
+
 export interface ActualizarEmpleadoArgs {
   id: string;
   payload: ActualizarEmpleadoPayload;

@@ -447,4 +447,6 @@ export interface ActualizarEmpleadoPayload {
   limpiarUsuario?: boolean;
   codigoNomina?: string | null;
   limpiarCodigoNomina?: boolean;
+  emailContacto?: string | null;
+  limpiarEmailContacto?: boolean;
 }

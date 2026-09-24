@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Plus, Power, PowerOff, Users } from 'lucide-react';
+import { KeyRound, Pencil, Plus, Power, PowerOff, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
+import { EmpleadoAccesoPanel } from '@/modules/administracion/components/EmpleadoAccesoPanel';
 
 /**
  * <c>&lt;EmpleadosPage/&gt;</c> — master de empleados (ADM-FE-PR1,
@@ -42,6 +43,7 @@ import { EmpleadoInlineForm } from '@/modules/administracion/components/Empleado
 export function EmpleadosPage() {
   const [agregando, setAgregando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [accesoId, setAccesoId] = useState<string | null>(null);
   const [confirmDesactivar, setConfirmDesactivar] =
     useState<EmpleadoListItem | null>(null);
 
@@ -171,6 +173,15 @@ export function EmpleadosPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setAccesoId(accesoId === e.id ? null : e.id)}
+                          aria-label={`Gestionar acceso de ${e.clave}`}
+                        >
+                          <KeyRound className="mr-1 h-3.5 w-3.5" />
+                          Acceso
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => {
                             setEditandoId(e.id);
                             setAgregando(false);
@@ -214,6 +225,10 @@ export function EmpleadosPage() {
                     )}
                   </div>
                 )}
+                {accesoId === e.id && <div className="mt-2">
+                  <EmpleadoAccesoPanel empleadoId={e.id} usuarioId={e.usuarioId}
+                    email={e.email} empleadoActivo={activo} />
+                </div>}
               </li>
             );
           })}
@@ -233,8 +248,8 @@ export function EmpleadosPage() {
               ¿Confirmas dar de baja a{' '}
               <span className="font-semibold">{confirmDesactivar?.nombre}</span>
               ? Saldrá de los selectores (viáticos, comprobaciones); su
-              histórico se conserva. Se puede reactivar si es
-              recontratación.
+              histórico se conserva. Si tenía acceso, su usuario quedará
+              bloqueado. En una recontratación, el acceso se reactiva por separado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
