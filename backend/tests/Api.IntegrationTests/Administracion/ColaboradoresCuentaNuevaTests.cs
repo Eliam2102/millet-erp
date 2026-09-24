@@ -184,6 +184,45 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
     }
 
     [Fact]
+    public async Task Baja_Impide_Reenvio_Y_Reactivacion_Directa_Del_Usuario()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var upn = NuevoUpn();
+        var (empleadoId, usuarioId) = await AltaCuentaNuevaAsync(client, org, upn);
+        await CorrerWorkerAsync();
+        var correosAntes = _host.Correo.Enviados.Count(c => c.Upn == upn);
+
+        var baja = await client.PostAsync($"/api/v1/admin/empleados/{empleadoId}/desactivar", null);
+        Assert.Equal(HttpStatusCode.OK, baja.StatusCode);
+        await AssertProblemAsync(await client.PostAsync(
+            $"{ColaboradoresEndpoint}/{empleadoId}/acceso/reenviar", null),
+            HttpStatusCode.UnprocessableEntity, "COLABORADOR_INACTIVO");
+        await AssertProblemAsync(await client.PostAsync(
+            $"/api/v1/identidad/usuarios/{usuarioId}/reactivar", null),
+            HttpStatusCode.UnprocessableEntity, "COLABORADOR_INACTIVO");
+        Assert.Equal(correosAntes, _host.Correo.Enviados.Count(c => c.Upn == upn));
+    }
+
+    [Fact]
+    public async Task Baja_Antes_Del_Worker_No_Crea_Cuenta_Ni_Envia_Correo()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var upn = NuevoUpn();
+        var (empleadoId, usuarioId) = await AltaCuentaNuevaAsync(client, org, upn);
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.PostAsync($"/api/v1/admin/empleados/{empleadoId}/desactivar", null)).StatusCode);
+        await CorrerWorkerAsync();
+
+        Assert.Null(await _host.Factory.Services.GetRequiredService<IEntraDirectorioPort>()
+            .BuscarPorCorreoAsync(upn, CancellationToken.None));
+        Assert.DoesNotContain(_host.Correo.Enviados, c => c.Upn == upn);
+        Assert.False((await LeerUsuarioAsync(usuarioId)).Activo);
+    }
+
+    [Fact]
     public async Task Reenviar_Mientras_Se_Provisiona_Retorna_422()
     {
         var client = await CreateSuperAdminClientAsync();

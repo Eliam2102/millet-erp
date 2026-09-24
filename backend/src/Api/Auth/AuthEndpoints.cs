@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Millet.Administracion.Domain;
+using Millet.Catalogos.Domain;
 using Millet.Api.Auth.Models;
 using Millet.Identidad.Application;
 using Millet.SharedKernel.Application;
@@ -60,6 +62,39 @@ public static class AuthEndpoints
         })
         .RequireAuthorization()
         .WithName("PostCambiarEmpresa");
+
+        group.MapGet("/sucursales", async (
+            ICurrentUserContext currentUser,
+            ICurrentEmpresaContext currentEmpresa,
+            ICurrentUserPermissions permisos,
+            Millet.Identidad.Infrastructure.IdentidadDbContext identidadDb,
+            CancellationToken ct) =>
+        {
+            if (currentUser.UserId is not Guid usuarioId || currentEmpresa.Current is null)
+                return Results.Ok(Array.Empty<SucursalSesionResponse>());
+            if (!await identidadDb.Usuarios.AsNoTracking().AnyAsync(u => u.Id == usuarioId && u.Activo, ct))
+                return Results.Forbid();
+
+            IQueryable<Sucursal> query = identidadDb.Set<Sucursal>().AsNoTracking()
+                .Where(s => s.Estatus == EstatusCatalogo.Activo);
+            var puedeVerTodas = await permisos.TieneAsync(
+                Millet.Identidad.Domain.PermisosCanonicos.AdminSucursalesUsuariosGestionar, ct);
+            if (!puedeVerTodas)
+            {
+                query = query.Where(s => identidadDb.UsuarioSucursales.Any(a =>
+                    a.UsuarioId == usuarioId && a.SucursalId == s.Id &&
+                    a.Estatus == EstatusCatalogo.Activo));
+            }
+
+            var items = await query.OrderBy(s => s.Nombre)
+                .Select(s => new SucursalSesionResponse(s.Id, s.Clave, s.Nombre))
+                .ToListAsync(ct);
+            return Results.Ok(items);
+        })
+        .RequireAuthorization()
+        .WithName("GetSucursalesDeSesion")
+        .WithSummary("Sucursales operativas permitidas en la empresa actual")
+        .Produces<IReadOnlyList<SucursalSesionResponse>>(StatusCodes.Status200OK);
 
         group.MapGet("/me", async (
             ICurrentUserContext currentUser,
@@ -132,3 +167,5 @@ public static class AuthEndpoints
         return app;
     }
 }
+
+public sealed record SucursalSesionResponse(Guid Id, string Clave, string Nombre);

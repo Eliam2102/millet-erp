@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ClipboardList, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,8 @@ import {
   TableSkeleton,
 } from '@/components/erp';
 import { esApiError } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { useAuditoria } from '@/modules/administracion/api/auditoria';
 import { useEmpresas } from '@/modules/administracion/api';
 import { useUsuarios } from '@/modules/identidad/api/usuarios';
@@ -81,6 +84,13 @@ export function AuditoriaPage() {
   const [draftAccion, setDraftAccion] = useState<string>('');
   const [draftUsuarioId, setDraftUsuarioId] = useState<string>('');
   const [draftEmpresaId, setDraftEmpresaId] = useState<string>('');
+  const [draftSucursalId, setDraftSucursalId] = useState<string>('');
+  const empresaActualId = useAuthStore((s) => s.currentEmpresaId);
+  const sucursalesQuery = useQuery({
+    queryKey: ['auth', 'sucursales', empresaActualId],
+    enabled: empresaActualId != null,
+    queryFn: async ({ signal }) => (await apiRequest<Array<{ id: string; nombre: string; clave: string }>>('/api/auth/sucursales', { signal })).data,
+  });
 
   const [filtrosAplicados, setFiltrosAplicados] =
     useState<ConsultarBitacoraFiltros>({
@@ -122,6 +132,7 @@ export function AuditoriaPage() {
       accion: draftAccion || undefined,
       usuarioId: draftUsuarioId || undefined,
       empresaId: draftEmpresaId || undefined,
+      sucursalId: draftSucursalId || undefined,
       offset: 0,
       limit: PAGE_LIMIT,
     });
@@ -135,6 +146,7 @@ export function AuditoriaPage() {
     setDraftAccion('');
     setDraftUsuarioId('');
     setDraftEmpresaId('');
+    setDraftSucursalId('');
     setFiltrosAplicados({
       desde: formatYmd(inicioDefault),
       hasta: formatYmd(hoy),
@@ -303,6 +315,19 @@ export function AuditoriaPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="auditoria-sucursal" className="text-xs font-medium text-muted-foreground">Sucursal</label>
+          <select
+            id="auditoria-sucursal"
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            value={draftSucursalId}
+            onChange={(e) => setDraftSucursalId(e.target.value)}
+          >
+            <option value="">Todas, incluyendo eventos globales</option>
+            {(sucursalesQuery.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.clave} · {s.nombre}</option>)}
+          </select>
         </div>
 
         <div className="flex items-end gap-2 md:col-span-3 lg:col-span-4">
@@ -546,4 +571,3 @@ function formatTimestamp(ts: string): string {
   if (Number.isNaN(d.getTime())) return ts;
   return d.toLocaleString();
 }
-

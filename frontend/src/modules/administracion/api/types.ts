@@ -308,6 +308,8 @@ export interface AuditLogEntryResponse {
   usuarioId: string | null;
   usuarioNombre: string | null;
   empresaId: string | null;
+  sucursalId?: string | null;
+  sucursalClave?: string | null;
   modulo: string;
   entidad: string;
   entidadId: string | null;

@@ -22,6 +22,19 @@ import type {
 
 const BASE = '/api/v1/admin/empresas/sucursales';
 
+export function useSucursalesDeUsuario(usuarioId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'usuarios', usuarioId, 'sucursales'],
+    enabled: usuarioId != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<ListarUsuariosPorSucursalResponse>(
+        `/api/v1/admin/usuarios/${usuarioId}/sucursales`, { signal },
+      );
+      return data;
+    },
+  });
+}
+
 /**
  * Lista los usuarios asignados a una sucursal con su estatus en esa
  * sucursal. <c>sucursalId === null</c> deja la query deshabilitada.
@@ -63,6 +76,7 @@ export function useAsignarUsuarioASucursal() {
       queryClient.invalidateQueries({
         queryKey: adminKeys.sucursalUsuariosList(vars.sucursalId),
       });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios', vars.usuarioId, 'sucursales'] });
     },
   });
 }
@@ -91,6 +105,7 @@ export function useDesactivarAsignacionUsuarioSucursal() {
       queryClient.invalidateQueries({
         queryKey: adminKeys.sucursalUsuariosList(vars.sucursalId),
       });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios', vars.usuarioId, 'sucursales'] });
     },
   });
 }
@@ -119,6 +134,7 @@ export function useReactivarAsignacionUsuarioSucursal() {
       queryClient.invalidateQueries({
         queryKey: adminKeys.sucursalUsuariosList(vars.sucursalId),
       });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios', vars.usuarioId, 'sucursales'] });
     },
   });
 }

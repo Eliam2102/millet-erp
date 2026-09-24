@@ -70,9 +70,6 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         // activo (procesos en background) y el worker declaró su origen con
         // IAuditOriginContext.SetOrigin — en request normales ambos son null.
         var origen = _empresaContext.IsBypassed ? _originContext.Origin : null;
-        var metadatos = origen is not null
-            ? JsonSerializer.Serialize(new { origen })
-            : null;
 
         // Snapshot la lista ahora porque la voy a modificar (agrego AuditLogEntry).
         var trackedEntries = context.ChangeTracker.Entries().ToList();
@@ -90,6 +87,24 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             var aggregateRootId = entry.Entity is IBelongsToAggregate aggregate
                 ? aggregate.AggregateRootId
                 : entityId;
+
+            // La sucursal se toma del recurso auditado, no de una selección
+            // visual del navegador: así el log conserva su significado aun
+            // cuando la operación se ejecute desde un worker o una API.
+            var sucursalProperty = entry.Properties.FirstOrDefault(p =>
+                p.Metadata.Name == "SucursalId");
+            var sucursalId = sucursalProperty?.CurrentValue as Guid?
+                ?? sucursalProperty?.OriginalValue as Guid?;
+            if (sucursalId is null && entry.Entity.GetType().Name == "Sucursal")
+                sucursalId = entityId;
+            var metadata = new Dictionary<string, object>();
+            if (origen is not null) metadata["origen"] = origen;
+            if (sucursalId is Guid sid) metadata["sucursalId"] = sid;
+            if (entry.Entity.GetType().Name == "Sucursal")
+            {
+                var clave = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "Clave")?.CurrentValue as string;
+                if (!string.IsNullOrWhiteSpace(clave)) metadata["sucursalClave"] = clave;
+            }
 
             var auditEntry = new AuditLogEntry
             {
@@ -111,7 +126,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 Cambios = SerializeChanges(entry),
                 CorrelationId = correlationId,
                 EsBulk = false,
-                Metadatos = metadatos
+                Metadatos = metadata.Count > 0 ? JsonSerializer.Serialize(metadata) : null
             };
 
             auditEntries.Add(auditEntry);

@@ -4,19 +4,23 @@ Rama: `fix/cierre-adm01-adm02-seguridad-flujo`. Este documento describe el corte
 
 ## Evidencia de construcción local
 
-- Backend: compilación correcta sin errores ni advertencias; 473/473 pruebas de integración API en la base de prueba aislada `millet_adm_cierre_test_20260923`, incluidas la protección del ingreso falso fuera de modo FakeForLocalDev.
-- Frontend: build de producción correcto; 1,589/1,589 pruebas en 288 archivos, repetidas tras el cambio de sesión local.
+- Backend: compilación correcta sin errores ni advertencias; validación en PostgreSQL temporal con migraciones de 12 contextos y suites de A+W **7/7**, Compras **120/120** y API **483/483**. Incluye la protección del ingreso falso fuera de modo FakeForLocalDev y las pruebas nuevas de alcance por sucursal, bitácora y baja/provisión.
+- Frontend: build de producción correcto; **1,589/1,589** pruebas en 288 archivos.
 - La prueba de integración de `Dar_Acceso_A_Empleado_Existente_Vincula_Usuario_Rol_Y_Sucursal` comprueba `empleadoId` en listado y detalle; la prueba de UI distingue cuenta vinculada de cuenta sin vínculo.
 - Se ejecutó una prueba funcional local con datos ficticios: sucursal, departamento y puesto vinculados; alta de empleado con cuenta nueva; worker de provisión; captura del correo en Mailpit; rol y sucursal persistidos; ingreso simulado del mismo usuario. También se comprobó en navegador que **Cuentas de acceso** muestra el vínculo real y que **Simular ingreso** cambia la sesión al colaborador. La contraseña no se muestra en el ERP.
 - La prueba automatizada de recorrido se repitió con otro colaborador ficticio y confirmó correo capturado al destinatario correcto. Ninguna de estas pruebas es aceptación del cliente.
+- Se agregó ficha única de empleado con datos, puesto/departamento, sucursales operativas y roles/acceso; selector de sucursal en sesión y filtrado del catálogo de empleados. El bypass de lectura de todas las sucursales tiene permiso específico `admin.empleados.leer-todas-sucursales`, sembrado por migración de Identidad. Las asignaciones operativas se mantienen independientes de la sucursal base laboral.
+- La bitácora identifica sucursal por ID y clave cuando el recurso la expone; para otros recursos con `SucursalId`, resuelve la clave vigente al consultar. Se filtra por sucursal y conserva eventos globales/históricos en la vista sin filtro. La consulta se acota a la empresa actual o eventos globales.
+- La baja de usuario invalida inmediatamente la caché de permisos; la baja de empleado impide reactivar directamente el usuario, reenviar acceso o continuar una provisión pendiente. La recontratación no reactiva acceso sin decisión explícita.
 
 ## Qué debe poder revisar el equipo mañana
 
 1. En **Empleados**, dar de alta un colaborador sin acceso, con cuenta Microsoft ya existente en el simulador o con cuenta nueva. Comprobar que sucursal, departamento, puesto y rol se guardan y que la cuenta nueva pasa de pendiente a aprovisionada cuando Mailpit está disponible.
 2. En **Cuentas de acceso**, localizar el usuario creado y verificar la marca **Empleado vinculado**. Las cuentas históricas sin vínculo se muestran como **Sin empleado vinculado**; no se clasifican automáticamente como cuentas técnicas.
-3. Abrir la cuenta y comprobar las asignaciones y el estado activo/inactivo. En el empleado, abrir la sección **Acceso** y probar las acciones permitidas (dar acceso, reintentar, reenviar o reactivar según estado y permiso).
+3. Abrir la ficha del empleado y comprobar sus cuatro secciones: datos, puesto/departamento, sucursales operativas y roles/acceso. Cambiar la sucursal seleccionada en el encabezado y verificar que la lista de empleados respeta el alcance. Abrir la cuenta y comprobar asignaciones y estado activo/inactivo. Probar las acciones permitidas (dar acceso, reintentar, reenviar o reactivar según estado y permiso).
 4. Confirmar que una baja laboral bloquea el usuario y que la recontratación no reactiva el acceso automáticamente. Validar que una persona sin permiso no ve ni ejecuta las acciones restringidas.
 5. Abrir el correo en Mailpit y comprobar destinatario y contenido. Desde la cuenta activa, usar **Simular ingreso** y comprobar identidad y permisos del colaborador; esta acción solo existe en Development/FakeForLocalDev. Ejecutar regresión y anotar resultado, entorno, caso fallido y evidencia. El reporte A–G es solo de diagnóstico; cualquier corrección B/E/F/G requiere revisión y decisión humana.
+6. En **Bitácora**, filtrar por sucursal y confirmar ID/clave de la operación; sin filtro, comprobar que permanecen los eventos globales. Probar con un usuario operativo asignado a una sola sucursal que no pueda listar empleados de otra mediante la API.
 
 ## Límite de la simulación
 
