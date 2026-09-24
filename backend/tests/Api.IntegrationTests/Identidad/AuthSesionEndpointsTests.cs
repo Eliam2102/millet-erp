@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Api.Auth;
 using Millet.Api.Auth.Models;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
 using Xunit;
 
 namespace Millet.Api.IntegrationTests.Identidad;
@@ -144,6 +146,111 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         {
             await CleanupUsuarioAsync(nuevoOid);
         }
+    }
+
+    [Fact]
+    public async Task PostSesion_Vincula_Oid_Real_Al_Usuario_Pendiente_Sin_Cambiar_Su_Id()
+    {
+        var email = $"pendiente-{Guid.NewGuid():N}@millet.test";
+        var oid = Guid.NewGuid().ToString();
+        var id = Guid.CreateVersion7();
+        await CrearUsuarioPendienteAsync(id, email, enProvision: false);
+        var client = CrearClienteConClaims(oid, email);
+
+        try
+        {
+            var response = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-valido", null));
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await response.Content.ReadFromJsonAsync<LoginResponse>();
+            body!.Usuario.Id.Should().Be(id);
+
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var usuario = await db.Usuarios.IgnoreQueryFilters().SingleAsync(u => u.Id == id);
+            usuario.EntraOid.Should().Be(oid);
+            usuario.EstadoAcceso.Should().Be(EstadoAcceso.Activo);
+            usuario.PrimerAccesoEn.Should().NotBeNull();
+        }
+        finally
+        {
+            await CleanupUsuarioAsync(oid);
+        }
+    }
+
+    [Fact]
+    public async Task PostSesion_No_Reclama_Usuario_En_Provision_Por_Coincidencia_De_Email()
+    {
+        var email = $"provision-{Guid.NewGuid():N}@millet.test";
+        var oid = Guid.NewGuid().ToString();
+        var id = Guid.CreateVersion7();
+        await CrearUsuarioPendienteAsync(id, email, enProvision: true);
+        var client = CrearClienteConClaims(oid, email);
+
+        try
+        {
+            var response = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-valido", null));
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var usuario = await db.Usuarios.IgnoreQueryFilters().SingleAsync(u => u.Id == id);
+            usuario.EntraOid.Should().Be($"pending:{email}");
+            usuario.EstadoAcceso.Should().Be(EstadoAcceso.ProvisionandoCuenta);
+        }
+        finally
+        {
+            await CleanupUsuarioAsync($"pending:{email}");
+        }
+    }
+
+    [Fact]
+    public async Task FakeLogin_No_Puede_Reclamar_Usuario_Pendiente_Por_Correo()
+    {
+        var email = $"fake-pendiente-{Guid.NewGuid():N}@millet.test";
+        var id = Guid.CreateVersion7();
+        await CrearUsuarioPendienteAsync(id, email, enProvision: false);
+
+        try
+        {
+            var client = _factory.CreateClient();
+            var response = await client.PostAsJsonAsync("/api/dev/fake-login",
+                new FakeLoginRequest("oid-distinto", email, "Suplantador", null));
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var usuario = await db.Usuarios.IgnoreQueryFilters().SingleAsync(u => u.Id == id);
+            usuario.EntraOid.Should().Be($"pending:{email}");
+        }
+        finally
+        {
+            await CleanupUsuarioAsync($"pending:{email}");
+        }
+    }
+
+    private async Task CrearUsuarioPendienteAsync(Guid id, string email, bool enProvision)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        var usuario = new Usuario(id, $"pending:{email}", email, "Usuario Pendiente",
+            EstadoAcceso.PendientePrimerAcceso);
+        if (enProvision) usuario.IniciarProvision();
+        db.Usuarios.Add(usuario);
+        await db.SaveChangesAsync();
+    }
+
+    private HttpClient CrearClienteConClaims(string oid, string email)
+    {
+        var fakeValidator = new FakeEntraTokenValidator(_ =>
+            new EntraTokenClaims(oid, email, "Usuario Pendiente"));
+        return _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IEntraTokenValidator>();
+                services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
+            });
+        }).CreateClient();
     }
 
     [Fact]
