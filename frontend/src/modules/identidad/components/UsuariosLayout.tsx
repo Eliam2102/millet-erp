@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { Plus, Users } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useUsuarios } from '@/modules/identidad/api';
@@ -36,6 +37,7 @@ export interface UsuariosLayoutProps {
 export function UsuariosLayout({ idActivo, detalle }: UsuariosLayoutProps) {
   const nuevoUsuario = useNuevoUsuario();
   const canCrear = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
+  const canGestionarEmpleados = useHasPermission(PermisosCanonicos.AdminEmpleadosGestionar);
   const usuariosQuery = useUsuarios({ limit: 200 });
 
   const items = useMemo(
@@ -50,18 +52,23 @@ export function UsuariosLayout({ idActivo, detalle }: UsuariosLayoutProps) {
           'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
           idActivo != null ? 'hidden md:flex' : 'flex',
         )}
-        aria-label="Lista de usuarios"
+        aria-label="Cuentas de acceso"
         data-print="hidden"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">Usuarios</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Cuentas de acceso</h1>
           {canCrear && (
             <Button size="sm" onClick={() => nuevoUsuario.abrir()}>
               <Plus className="mr-1 h-4 w-4" />
-              Nuevo
+              Cuenta independiente
             </Button>
           )}
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          El acceso de colaboradores se crea desde Empleados. Aquí se consultan y gestionan las cuentas del ERP.
+          {canGestionarEmpleados && <>{' '}<Link className="underline" to="/admin/empleados">Ir a Empleados</Link></>}
+        </p>
 
         <div className="flex-1 overflow-y-auto rounded-md border bg-card">
           <RenderLista
@@ -79,7 +86,7 @@ export function UsuariosLayout({ idActivo, detalle }: UsuariosLayoutProps) {
           'min-w-0 flex-1 md:overflow-y-auto',
           idActivo == null ? 'hidden md:block' : 'block',
         )}
-        aria-label="Detalle de usuario"
+        aria-label="Detalle de cuenta de acceso"
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
@@ -126,17 +133,17 @@ function RenderLista({
     return (
       <EmptyState
         icon={<Users className="h-10 w-10" />}
-        title="Aún no hay usuarios."
+        title="Aún no hay cuentas de acceso."
         description={
           canCrear
-            ? 'Crea el primero para empezar.'
+            ? 'Crea una cuenta independiente o da acceso a un colaborador desde Empleados.'
             : 'Cuando se creen, aparecerán aquí.'
         }
         action={
           canCrear ? (
             <Button size="sm" onClick={onAbrirNuevo}>
               <Plus className="mr-1 h-4 w-4" />
-              Nuevo usuario
+              Cuenta independiente
             </Button>
           ) : undefined
         }
@@ -152,7 +159,7 @@ function PlaceholderSinSeleccion() {
     <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
       <div className="space-y-1 text-muted-foreground">
         <Users className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
-        <p className="text-sm">Selecciona un usuario de la lista</p>
+        <p className="text-sm">Selecciona una cuenta de la lista</p>
         <p className="text-xs">para ver sus datos y asignaciones.</p>
       </div>
     </div>

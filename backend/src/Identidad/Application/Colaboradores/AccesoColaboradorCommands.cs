@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Catalogos.Domain;
 using Millet.Identidad.Application.DirectorioEntra;
 using Millet.Identidad.Application.Ports;
 using Millet.Identidad.Domain;
@@ -41,7 +42,8 @@ public sealed record EstadoAccesoColaboradorResponse(
     string? MotivoErrorProvision,
     DateTimeOffset? AccesoEnviadoEn,
     DateTimeOffset? PrimerAccesoEn,
-    string? EmailContacto);
+    string? EmailContacto,
+    bool UsuarioActivo);
 
 public sealed class AccesoColaboradorHandlers :
     IRequestHandler<ObtenerAccesoColaboradorQuery, EstadoAccesoColaboradorResponse>,
@@ -85,6 +87,7 @@ public sealed class AccesoColaboradorHandlers :
         ReintentarProvisionColaboradorCommand command, CancellationToken cancellationToken)
     {
         var (empleado, usuario) = await CargarAsync(command.EmpleadoId, tracking: true, cancellationToken);
+        ValidarActivos(empleado, usuario);
         usuario.ReintentarProvision();
         await _identidad.SaveChangesAsync(cancellationToken);
         return Respuesta(empleado, usuario);
@@ -94,6 +97,7 @@ public sealed class AccesoColaboradorHandlers :
         ReenviarAccesoColaboradorCommand command, CancellationToken cancellationToken)
     {
         var (empleado, usuario) = await CargarAsync(command.EmpleadoId, tracking: true, cancellationToken);
+        ValidarActivos(empleado, usuario);
         if (usuario.TieneOidPendiente || usuario.EstadoAcceso is not EstadoAcceso.PendientePrimerAcceso)
         {
             throw new BusinessRuleException(
@@ -126,14 +130,22 @@ public sealed class AccesoColaboradorHandlers :
         return Respuesta(empleado, usuario);
     }
 
-    private sealed record EmpleadoAcceso(Guid Id, string Nombre, string? EmailContacto, Guid? UsuarioId);
+    private sealed record EmpleadoAcceso(Guid Id, string Nombre, string? EmailContacto,
+        Guid? UsuarioId, EstatusCatalogo Estatus);
+
+    private static void ValidarActivos(EmpleadoAcceso empleado, Usuario usuario)
+    {
+        if (empleado.Estatus != EstatusCatalogo.Activo || !usuario.Activo)
+            throw new BusinessRuleException("COLABORADOR_INACTIVO",
+                "El empleado y su usuario deben estar activos para gestionar el acceso.");
+    }
 
     private async Task<(EmpleadoAcceso Empleado, Usuario Usuario)> CargarAsync(
         Guid empleadoId, bool tracking, CancellationToken ct)
     {
         var empleado = await _compartido.Empleados.AsNoTracking()
             .Where(e => e.Id == empleadoId)
-            .Select(e => new EmpleadoAcceso(e.Id, e.Nombre, e.EmailContacto, e.UsuarioId))
+            .Select(e => new EmpleadoAcceso(e.Id, e.Nombre, e.EmailContacto, e.UsuarioId, e.Estatus))
             .FirstOrDefaultAsync(ct)
             ?? throw new EntityNotFoundException(
                 "EMPLEADO_NO_ENCONTRADO", $"No existe el empleado '{empleadoId}'.");
@@ -158,5 +170,6 @@ public sealed class AccesoColaboradorHandlers :
         usuario.MotivoErrorProvision,
         usuario.AccesoEnviadoEn,
         usuario.PrimerAccesoEn,
-        empleado.EmailContacto);
+        empleado.EmailContacto,
+        usuario.Activo);
 }

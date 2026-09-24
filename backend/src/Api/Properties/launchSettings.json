@@ -9,7 +9,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "http://localhost:5000",
-        "Auth__Mode": "EntraId",
+        "Auth__Mode": "FakeForLocalDev",
         "Auth__InitialAdminEntraOid": "6a851ba1-7d19-4132-8d2a-8e1fb152df78"
       }
     }

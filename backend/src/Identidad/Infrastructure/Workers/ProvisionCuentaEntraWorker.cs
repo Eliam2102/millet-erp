@@ -26,8 +26,9 @@ namespace Millet.Identidad.Infrastructure.Workers;
 /// viaje por Service Bus hacia el mismo módulo no agrega garantías.
 /// </para>
 ///
-/// <para>Por cada usuario, en su propia transacción y con la fila bloqueada
-/// (<c>FOR UPDATE SKIP LOCKED</c>, para varias instancias):</para>
+/// <para>Por cada usuario, con un candado advisory de PostgreSQL por usuario
+/// (para varias instancias). No mantiene una transacción abierta durante
+/// llamadas externas a Graph o Exchange.</para>
 /// <list type="number">
 ///   <item>Crea la cuenta (<see cref="IEntraDirectorioPort.CrearCuentaAsync"/>),
 ///         idempotente por el id del empleado: un reintento adopta la cuenta
@@ -128,34 +129,59 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
         using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         using var correlacion = sp.GetRequiredService<IAuditCorrelationContext>().Begin(Guid.CreateVersion7());
 
-        await using var tx = await identidad.Database.BeginTransactionAsync(ct);
-
-        // Tabla y columnas según la convención snake_case del repo.
-        var usuario = await identidad.Usuarios
-            .FromSqlRaw(
-                """
-                SELECT * FROM identidad.usuarios
-                WHERE id = {0} AND estado_acceso = {1}
-                FOR UPDATE SKIP LOCKED
-                """,
-                usuarioId, (short)EstadoAcceso.ProvisionandoCuenta)
-            .IgnoreQueryFilters()
-            .SingleOrDefaultAsync(ct);
-        if (usuario is null)
+        await identidad.Database.OpenConnectionAsync(ct);
+        try
         {
-            // Otra instancia lo tiene bloqueado o ya cambió de estado.
-            await tx.CommitAsync(ct);
-            return false;
-        }
+            var lockKey = $"millet:provision:{usuarioId:D}";
+            var acquired = await identidad.Database.SqlQueryRaw<bool>(
+                "SELECT pg_try_advisory_lock(hashtextextended({0}, 0)) AS \"Value\"", lockKey)
+                .SingleAsync(ct);
+            if (!acquired) return false;
 
+            try
+            {
+                var usuario = await identidad.Usuarios.IgnoreQueryFilters()
+                    .SingleOrDefaultAsync(u => u.Id == usuarioId &&
+                        u.EstadoAcceso == EstadoAcceso.ProvisionandoCuenta, ct);
+                if (usuario is null) return false;
+
+                await ProcesarUsuarioAsync(usuario, identidad, compartido, directorio,
+                    correoSaliente, clock, ct);
+                return true;
+            }
+            finally
+            {
+                await identidad.Database.SqlQueryRaw<bool>(
+                    "SELECT pg_advisory_unlock(hashtextextended({0}, 0)) AS \"Value\"", lockKey)
+                    .SingleAsync(CancellationToken.None);
+            }
+        }
+        finally
+        {
+            await identidad.Database.CloseConnectionAsync();
+        }
+    }
+
+    private async Task ProcesarUsuarioAsync(
+        Usuario usuario,
+        IdentidadDbContext identidad,
+        CompartidoDbContext compartido,
+        IEntraDirectorioPort directorio,
+        ICorreoSalientePort correoSaliente,
+        IClock clock,
+        CancellationToken ct)
+    {
         try
         {
             var empleado = await compartido.Empleados.IgnoreQueryFilters().AsNoTracking()
                 .Where(e => e.UsuarioId == usuario.Id)
-                .Select(e => new { e.Id, e.Nombre, e.EmailContacto })
+                .Select(e => new { e.Id, e.Clave, e.Nombre, e.EmailContacto, e.Estatus })
                 .FirstOrDefaultAsync(ct)
                 ?? throw new BusinessRuleException(
                     "PROVISION_SIN_EMPLEADO", "El usuario no tiene un empleado vinculado.");
+            if (empleado.Estatus != Millet.Catalogos.Domain.EstatusCatalogo.Activo || !usuario.Activo)
+                throw new BusinessRuleException("COLABORADOR_INACTIVO",
+                    "No se aprovisiona el acceso de un empleado dado de baja.");
             if (string.IsNullOrWhiteSpace(empleado.EmailContacto))
             {
                 throw new BusinessRuleException(
@@ -165,8 +191,21 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
 
             var creada = await directorio.CrearCuentaAsync(
                 new SolicitudCuentaEntra(
-                    usuario.Email, usuario.Nombre, empleado.EmailContacto, empleado.Id.ToString()),
+                    usuario.Email, usuario.Nombre, empleado.EmailContacto, empleado.Clave),
                 ct);
+
+            var logMessage =
+                "\n========================================================================" +
+                "\n[PROVISIÓN ENTRA ID - CUENTA CREADA]" +
+                $"\n  Usuario (UPN):         {creada.Cuenta.Upn}" +
+                $"\n  Nombre:                 {empleado.Nombre}" +
+                $"\n  Contraseña Temporal:   {creada.ContrasenaTemporal}" +
+                $"\n  Correo Contacto:        {empleado.EmailContacto}" +
+                $"\n  OID en Entra ID:        {creada.Cuenta.ObjectId}" +
+                "\n========================================================================";
+
+            _logger.LogInformation("{LogMessage}", logMessage);
+            Console.WriteLine(logMessage);
 
             await correoSaliente.EnviarAccesoColaboradorAsync(
                 new CorreoAccesoColaborador(
@@ -181,7 +220,7 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
             usuario.RegistrarEnvioAcceso(clock.UtcNow);
 
             _logger.LogInformation(
-                "[ProvisionCuentaEntraWorker] Cuenta {Upn} creada y acceso enviado (usuario {UsuarioId}).",
+                "[ProvisionCuentaEntraWorker] Cuenta {Upn} creada y solicitud de correo aceptada (usuario {UsuarioId}).",
                 creada.Cuenta.Upn, usuario.Id);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
@@ -194,7 +233,5 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
         }
 
         await identidad.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-        return true;
     }
 }

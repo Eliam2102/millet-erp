@@ -87,6 +87,7 @@ export interface AuthState {
   user: UsuarioInfo | null;
   empresas: EmpresaInfo[];
   currentEmpresaId: string | null;
+  currentSucursalId: string | null;
   /** Códigos de permiso del usuario en la empresa actual. */
   permisos: string[];
   /** Settings del módulo Compras de la empresa actual; <c>null</c> si no hay empresa. */

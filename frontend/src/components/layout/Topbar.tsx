@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { Bell, HelpCircle, Menu, Search, Settings } from 'lucide-react';
 import { EmpresaSelector } from '@/components/auth/EmpresaSelector';
+import { SucursalSelector } from '@/components/auth/SucursalSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserMenu } from '@/components/layout/UserMenu';
@@ -182,6 +183,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
 
       <div className="ml-auto flex items-center gap-2">
         <EmpresaSelector />
+        <SucursalSelector />
 
         <QuickCreateMenu />
 

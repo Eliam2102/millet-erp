@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -6,6 +6,15 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { EmpleadosPage } from '@/modules/administracion/components/EmpleadosPage';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@tanstack/react-router')>();
+  return {
+    ...original,
+    Link: ({ children, params, className }: { children: React.ReactNode; params: { id: string }; className?: string }) =>
+      <a href={`/admin/empleados/${params.id}`} className={className}>{children}</a>,
+  };
+});
 
 /**
  * Smoke del master de Empleados (ADM-FE-PR1). Lista con email y clave
@@ -127,6 +136,8 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     expect(
       screen.getByRole('form', { name: /agregar empleado/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Paso 1 de 5:/i)).toBeInTheDocument();
+    expect(screen.getByText('Persona y sucursal')).toBeInTheDocument();
 
     expect(
       screen.getByRole('button', { name: /reactivar empleado EMP-002/i }),

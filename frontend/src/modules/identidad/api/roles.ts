@@ -41,7 +41,7 @@ import type {
 
 // ─── Queries ────────────────────────────────────────────────────────
 
-export function useRoles(filtros: ListarRolesFiltros = {}) {
+export function useRoles(filtros: ListarRolesFiltros = {}, enabled = true) {
   return useQuery({
     queryKey: identidadKeys.rolesList(filtros),
     queryFn: async ({ signal }) => {
@@ -49,6 +49,7 @@ export function useRoles(filtros: ListarRolesFiltros = {}) {
       const { data } = await apiRequest<ListarRolesResponse>(path, { signal });
       return data;
     },
+    enabled,
   });
 }
 

@@ -39,6 +39,7 @@ public sealed class LoginOrchestrator
     private readonly ICurrentEmpresaContext _empresaContext;
     private readonly IPermissionCache _permissionCache;
     private readonly IPermissionLoader _permissionLoader;
+    private readonly IClock _clock;
     private readonly Millet.Compras.Infrastructure.ComprasDbContext _comprasDb;
 
     public LoginOrchestrator(
@@ -48,6 +49,7 @@ public sealed class LoginOrchestrator
         ICurrentEmpresaContext empresaContext,
         IPermissionCache permissionCache,
         IPermissionLoader permissionLoader,
+        IClock clock,
         Millet.Compras.Infrastructure.ComprasDbContext comprasDb)
     {
         _db = db;
@@ -56,6 +58,7 @@ public sealed class LoginOrchestrator
         _empresaContext = empresaContext;
         _permissionCache = permissionCache;
         _permissionLoader = permissionLoader;
+        _clock = clock;
         _comprasDb = comprasDb;
     }
 
@@ -74,6 +77,7 @@ public sealed class LoginOrchestrator
             entraClaims.Email,
             entraClaims.Name,
             requestedEmpresaId,
+            permitirVinculacionPorEmail: true,
             cancellationToken);
     }
 
@@ -89,7 +93,9 @@ public sealed class LoginOrchestrator
         Guid? requestedEmpresaId,
         CancellationToken cancellationToken)
     {
-        return CompleteLoginAsync(entraOid, email, nombre, requestedEmpresaId, cancellationToken);
+        return CompleteLoginAsync(
+            entraOid, email, nombre, requestedEmpresaId,
+            permitirVinculacionPorEmail: false, cancellationToken);
     }
 
     /// <summary>
@@ -164,6 +170,7 @@ public sealed class LoginOrchestrator
         string? entraEmail,
         string? entraName,
         Guid? requestedEmpresaId,
+        bool permitirVinculacionPorEmail,
         CancellationToken cancellationToken)
     {
         // Bypass para que el global query filter por empresa (PR 4) no nos
@@ -175,7 +182,8 @@ public sealed class LoginOrchestrator
 
         if (usuario is null)
         {
-            usuario = await AutoProvisionAsync(entraOid, entraEmail, entraName, cancellationToken);
+            usuario = await AutoProvisionAsync(
+                entraOid, entraEmail, entraName, permitirVinculacionPorEmail, cancellationToken);
         }
         else
         {
@@ -196,6 +204,9 @@ public sealed class LoginOrchestrator
                 await _db.SaveChangesAsync(cancellationToken);
             }
         }
+
+        usuario.RegistrarAcceso(_clock.UtcNow);
+        await _db.SaveChangesAsync(cancellationToken);
 
         var (selectedEmpresaId, empresas) = await SelectEmpresaAsync(
             usuario, requestedEmpresaId, cancellationToken);
@@ -277,8 +288,42 @@ public sealed class LoginOrchestrator
         string entraOid,
         string? entraEmail,
         string? entraName,
+        bool permitirVinculacionPorEmail,
         CancellationToken cancellationToken)
     {
+        // El respaldo por correo solo se permite después de validar un token
+        // real del tenant. El fake login local nunca puede reclamar un usuario
+        // pendiente y heredar sus roles por solo conocer su correo.
+        if (!string.IsNullOrWhiteSpace(entraEmail))
+        {
+            // ILIKE compara sin distinguir mayúsculas; escapar comodines
+            // evita que '_' o '%' del correo hagan match con otra persona.
+            var patronCorreo = entraEmail.Trim()
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("%", "\\%", StringComparison.Ordinal)
+                .Replace("_", "\\_", StringComparison.Ordinal);
+            var coincidencias = await _db.Usuarios.IgnoreQueryFilters()
+                .Where(u => EF.Functions.ILike(u.Email, patronCorreo, "\\"))
+                .ToListAsync(cancellationToken);
+            if (coincidencias.Count > 0)
+            {
+                var existente = coincidencias.Count == 1 ? coincidencias[0] : null;
+                if (permitirVinculacionPorEmail
+                    && existente is { Activo: true, EsCuentaTecnica: false,
+                        EstadoAcceso: EstadoAcceso.PendientePrimerAcceso }
+                    && existente.TieneOidPendiente)
+                {
+                    existente.VincularEntraOid(entraOid);
+                    await _db.SaveChangesAsync(cancellationToken);
+                    return existente;
+                }
+
+                throw new ForbiddenException(
+                    "USUARIO_EMAIL_VINCULADO_OTRO_OID",
+                    "El correo ya está asociado a otra identidad o tiene una provisión pendiente. Solicita la conciliación al administrador.");
+            }
+        }
+
         var fallbackEmail = !string.IsNullOrWhiteSpace(entraEmail)
             ? entraEmail
             : $"{entraOid}@unknown.local";
@@ -327,7 +372,7 @@ public sealed class LoginOrchestrator
             {
                 selected = ultima;
             }
-            else if (empresasAccesibles.Count == 1)
+            else if (empresasAccesibles.Count > 0)
             {
                 selected = empresasAccesibles[0].Id;
             }

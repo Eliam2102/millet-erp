@@ -80,6 +80,56 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task Dar_Acceso_A_Empleado_Existente_Vincula_Usuario_Rol_Y_Sucursal()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var alta = await PostAltaAsync(client, org, SinAcceso, correo: null, rolId: null);
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var empleadoId = (await ReadJsonAsync(alta)).GetProperty("empleado").GetProperty("id").GetGuid();
+        var cuenta = await CrearCuentaEntraSimuladaAsync();
+
+        var response = await client.PostAsJsonAsync(
+            $"{ColaboradoresEndpoint}/{empleadoId}/acceso", new
+            {
+                Acceso = CuentaExistente,
+                CorreoCorporativo = cuenta.Upn,
+                RolId = org.RolId,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        var usuarioId = body.GetProperty("acceso").GetProperty("usuarioId").GetGuid();
+        Assert.Equal(usuarioId, body.GetProperty("empleado").GetProperty("usuarioId").GetGuid());
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        Assert.True(await identidad.UsuarioEmpresaRoles.AnyAsync(r => r.UsuarioId == usuarioId && r.RolId == org.RolId));
+        Assert.True(await identidad.UsuarioSucursales.AnyAsync(r => r.UsuarioId == usuarioId && r.SucursalId == org.SucursalId));
+
+        // La bandeja de Cuentas de acceso y el detalle deben mostrar el
+        // vínculo persistido sin depender del permiso de catálogo Empleados.
+        var listado = await client.GetAsync("/api/v1/identidad/usuarios/admin?limit=200");
+        Assert.Equal(HttpStatusCode.OK, listado.StatusCode);
+        var items = (await ReadJsonAsync(listado)).GetProperty("items").EnumerateArray();
+        var item = items.Single(u => u.GetProperty("id").GetGuid() == usuarioId);
+        Assert.Equal(empleadoId, item.GetProperty("empleadoId").GetGuid());
+        var detalle = await client.GetAsync($"/api/v1/identidad/usuarios/{usuarioId}");
+        Assert.Equal(HttpStatusCode.OK, detalle.StatusCode);
+        Assert.Equal(empleadoId,
+            (await ReadJsonAsync(detalle)).GetProperty("usuario").GetProperty("empleadoId").GetGuid());
+
+        var duplicado = await client.PostAsJsonAsync(
+            $"{ColaboradoresEndpoint}/{empleadoId}/acceso", new
+            {
+                Acceso = CuentaExistente,
+                CorreoCorporativo = cuenta.Upn,
+                RolId = org.RolId,
+            });
+        await AssertProblemAsync(duplicado, HttpStatusCode.Conflict, "COLABORADOR_YA_TIENE_ACCESO");
+    }
+
+    [Fact]
     public async Task Cuenta_Existente_Crea_Usuario_Empleado_Rol_Y_Sucursal_En_Una_Operacion()
     {
         var client = await CreateSuperAdminClientAsync();
@@ -116,6 +166,55 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
             .Distinct()
             .ToListAsync();
         Assert.Single(correlaciones);
+    }
+
+    [Fact]
+    public async Task Baja_De_Empleado_Bloquea_Usuario_Y_Recontratacion_No_Reactiva_Acceso()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var cuenta = await CrearCuentaEntraSimuladaAsync();
+        var alta = await PostAltaAsync(client, org, CuentaExistente, cuenta.Upn, org.RolId);
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var body = await ReadJsonAsync(alta);
+        var empleadoId = body.GetProperty("empleado").GetProperty("id").GetGuid();
+        var usuarioId = body.GetProperty("acceso").GetProperty("usuarioId").GetGuid();
+
+        var baja = await client.PostAsync($"/api/v1/admin/empleados/{empleadoId}/desactivar", null);
+        Assert.Equal(HttpStatusCode.OK, baja.StatusCode);
+        using (var scope = _factory.Services.CreateScope())
+        using (var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            Assert.False((await identidad.Usuarios.IgnoreQueryFilters().AsNoTracking()
+                .SingleAsync(u => u.Id == usuarioId)).Activo);
+        }
+
+        var recontratar = await client.PostAsync($"/api/v1/admin/empleados/{empleadoId}/reactivar", null);
+        Assert.Equal(HttpStatusCode.OK, recontratar.StatusCode);
+        using (var scope = _factory.Services.CreateScope())
+        using (var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
+        {
+            var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            Assert.False((await identidad.Usuarios.IgnoreQueryFilters().AsNoTracking()
+                .SingleAsync(u => u.Id == usuarioId)).Activo);
+        }
+    }
+
+    [Fact]
+    public async Task Patch_Empleado_Protege_El_Vinculo_De_Usuario()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var cuenta = await CrearCuentaEntraSimuladaAsync();
+        var alta = await PostAltaAsync(client, org, CuentaExistente, cuenta.Upn, org.RolId);
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var empleadoId = (await ReadJsonAsync(alta)).GetProperty("empleado").GetProperty("id").GetGuid();
+
+        var patch = await client.PatchAsJsonAsync($"/api/v1/admin/empleados/{empleadoId}",
+            new { LimpiarUsuario = true });
+
+        await AssertProblemAsync(patch, HttpStatusCode.UnprocessableEntity, "COLABORADOR_VINCULO_PROTEGIDO");
     }
 
     [Fact]

@@ -90,3 +90,16 @@ Cuando llegue el PR que necesite (por ejemplo) un `dev-cobrador`:
   Key Vault; no se puede sobrescribir vía env var ni app setting manual.
 - **Frontend**: `<DevUserSelector />` se importa con guard
   `if (import.meta.env.DEV)` y el bundler lo elimina del bundle de prod.
+
+---
+
+## Troubleshooting: Desincronización Frontend/Backend
+
+Si en tu ambiente local el frontend siempre te abre el inicio de sesión real de Microsoft Entra ID pero tú esperabas ver los botones falsos (o viceversa), **tu frontend y tu backend están desincronizados**.
+
+Esto ocurre comúnmente porque Vite prioriza el archivo `.env.local` sobre `.env.development`.
+
+### Escenario: El frontend pide Entra ID pero el backend usa botones falsos
+- **Causa**: Tienes un archivo `frontend/.env.local` con `VITE_AUTH_MODE=EntraId` y tu `backend/src/Api/appsettings.Development.json` tiene `"Mode": "FakeForLocalDev"`.
+- **Solución (para regresar a botones falsos)**: Cambia a `VITE_AUTH_MODE=FakeForLocalDev` en tu `frontend/.env.local` (o elimina el archivo).
+- **Solución (para usar Entra ID end-to-end)**: Cambia `"Mode": "EntraId"` en `backend/src/Api/appsettings.Development.json`.

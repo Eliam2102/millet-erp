@@ -62,6 +62,33 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
     }
 
     [Fact]
+    public async Task Dar_Acceso_Nuevo_A_Empleado_Sin_Usuario_Activa_El_Worker()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var alta = await PostAltaAsync(client, org, acceso: 0, correo: null, rolId: null);
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var empleadoId = (await ReadJsonAsync(alta)).GetProperty("empleado").GetProperty("id").GetGuid();
+        var upn = NuevoUpn();
+
+        var acceso = await client.PostAsJsonAsync($"{ColaboradoresEndpoint}/{empleadoId}/acceso", new
+        {
+            Acceso = CuentaNueva,
+            CorreoCorporativo = upn,
+            EmailContacto,
+            RolId = org.RolId,
+        });
+        Assert.Equal(HttpStatusCode.OK, acceso.StatusCode);
+        var usuarioId = (await ReadJsonAsync(acceso)).GetProperty("acceso").GetProperty("usuarioId").GetGuid();
+        Assert.Equal(EstadoAcceso.ProvisionandoCuenta, (await LeerUsuarioAsync(usuarioId)).EstadoAcceso);
+
+        await CorrerWorkerAsync();
+
+        Assert.Equal(EstadoAcceso.PendientePrimerAcceso, (await LeerUsuarioAsync(usuarioId)).EstadoAcceso);
+        Assert.Single(_host.Correo.Enviados, c => c.Upn == upn);
+    }
+
+    [Fact]
     public async Task Worker_Crea_La_Cuenta_Vincula_El_Oid_Y_Envia_El_Acceso()
     {
         var client = await CreateSuperAdminClientAsync();
@@ -154,6 +181,45 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
         Assert.Equal(2, correos.Count);
         Assert.NotEqual(correos[0].ContrasenaTemporal, correos[1].ContrasenaTemporal);
         Assert.True((await LeerUsuarioAsync(usuarioId)).AccesoEnviadoEn > primerEnvio);
+    }
+
+    [Fact]
+    public async Task Baja_Impide_Reenvio_Y_Reactivacion_Directa_Del_Usuario()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var upn = NuevoUpn();
+        var (empleadoId, usuarioId) = await AltaCuentaNuevaAsync(client, org, upn);
+        await CorrerWorkerAsync();
+        var correosAntes = _host.Correo.Enviados.Count(c => c.Upn == upn);
+
+        var baja = await client.PostAsync($"/api/v1/admin/empleados/{empleadoId}/desactivar", null);
+        Assert.Equal(HttpStatusCode.OK, baja.StatusCode);
+        await AssertProblemAsync(await client.PostAsync(
+            $"{ColaboradoresEndpoint}/{empleadoId}/acceso/reenviar", null),
+            HttpStatusCode.UnprocessableEntity, "COLABORADOR_INACTIVO");
+        await AssertProblemAsync(await client.PostAsync(
+            $"/api/v1/identidad/usuarios/{usuarioId}/reactivar", null),
+            HttpStatusCode.UnprocessableEntity, "COLABORADOR_INACTIVO");
+        Assert.Equal(correosAntes, _host.Correo.Enviados.Count(c => c.Upn == upn));
+    }
+
+    [Fact]
+    public async Task Baja_Antes_Del_Worker_No_Crea_Cuenta_Ni_Envia_Correo()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var upn = NuevoUpn();
+        var (empleadoId, usuarioId) = await AltaCuentaNuevaAsync(client, org, upn);
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.PostAsync($"/api/v1/admin/empleados/{empleadoId}/desactivar", null)).StatusCode);
+        await CorrerWorkerAsync();
+
+        Assert.Null(await _host.Factory.Services.GetRequiredService<IEntraDirectorioPort>()
+            .BuscarPorCorreoAsync(upn, CancellationToken.None));
+        Assert.DoesNotContain(_host.Correo.Enviados, c => c.Upn == upn);
+        Assert.False((await LeerUsuarioAsync(usuarioId)).Activo);
     }
 
     [Fact]
