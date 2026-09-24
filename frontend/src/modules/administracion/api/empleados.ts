@@ -176,6 +176,7 @@ export function useDarAccesoColaborador() {
     },
     onSuccess: (_, vars) => {
       invalidar(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['identidad', 'usuarios'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'] });
     },
   });

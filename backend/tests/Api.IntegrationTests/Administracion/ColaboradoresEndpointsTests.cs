@@ -107,6 +107,18 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
         Assert.True(await identidad.UsuarioEmpresaRoles.AnyAsync(r => r.UsuarioId == usuarioId && r.RolId == org.RolId));
         Assert.True(await identidad.UsuarioSucursales.AnyAsync(r => r.UsuarioId == usuarioId && r.SucursalId == org.SucursalId));
 
+        // La bandeja de Cuentas de acceso y el detalle deben mostrar el
+        // vínculo persistido sin depender del permiso de catálogo Empleados.
+        var listado = await client.GetAsync("/api/v1/identidad/usuarios/admin?limit=200");
+        Assert.Equal(HttpStatusCode.OK, listado.StatusCode);
+        var items = (await ReadJsonAsync(listado)).GetProperty("items").EnumerateArray();
+        var item = items.Single(u => u.GetProperty("id").GetGuid() == usuarioId);
+        Assert.Equal(empleadoId, item.GetProperty("empleadoId").GetGuid());
+        var detalle = await client.GetAsync($"/api/v1/identidad/usuarios/{usuarioId}");
+        Assert.Equal(HttpStatusCode.OK, detalle.StatusCode);
+        Assert.Equal(empleadoId,
+            (await ReadJsonAsync(detalle)).GetProperty("usuario").GetProperty("empleadoId").GetGuid());
+
         var duplicado = await client.PostAsJsonAsync(
             $"{ColaboradoresEndpoint}/{empleadoId}/acceso", new
             {

@@ -20,7 +20,8 @@ public sealed record UsuarioResponse(
     string Nombre,
     Guid? DepartamentoId,
     bool Activo,
-    int Version);
+    int Version,
+    Guid? EmpleadoId = null);
 
 /// <summary>
 /// Página de usuarios (F-Admin-PR4.2). Mismo shape que <c>ListarRolesResponse</c>.
