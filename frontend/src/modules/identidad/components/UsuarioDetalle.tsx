@@ -24,6 +24,8 @@ import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { authMode } from '@/lib/auth/config';
+import { useAuth } from '@/lib/auth/useAuth';
 import { UsuarioDatosForm } from '@/modules/identidad/components/UsuarioDatosForm';
 import { RolesPorEmpresaPanel } from '@/modules/identidad/components/RolesPorEmpresaPanel';
 import { PreferenciasPanel } from '@/modules/identidad/components/PreferenciasPanel';
@@ -71,6 +73,7 @@ export function UsuarioDetalle() {
   const desactivar = useDesactivarUsuario();
   const reactivar = useReactivarUsuario();
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const { loginAsFakeUser, isLoading: cambiandoCuenta } = useAuth();
   const esUsuarioActual =
     currentUserId != null && currentUserId === usuarioQuery.data?.usuario.id;
 
@@ -175,6 +178,14 @@ export function UsuarioDetalle() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
+          {import.meta.env.DEV && authMode === 'FakeForLocalDev'
+            && !usuario.entraOid.startsWith('pending:') && usuario.activo && (
+            <Button type="button" variant="outline" size="sm"
+              disabled={cambiandoCuenta}
+              onClick={() => void loginAsFakeUser(usuario.entraOid, usuario.email, usuario.nombre)}>
+              Simular ingreso
+            </Button>
+          )}
           {canDesactivar && usuario.activo && (
             <Button
               type="button"

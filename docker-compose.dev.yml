@@ -40,6 +40,14 @@ services:
       timeout: 5s
       retries: 5
 
+  # Opt-in para QA de ADM-01/02. Captura correo local sin entregarlo a Internet.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles: ["adm-qa"]
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+
 volumes:
   millet-dev-pg-data:
     name: ${POSTGRES_VOLUME_NAME:-millet-dev-pg-data}

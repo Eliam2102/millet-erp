@@ -882,22 +882,36 @@ builder.Services
 // Transacción compartida Identidad + Compartido del alta de colaborador
 // (plan 15, F3; validada en el spike F0).
 builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
-// Camino B "Cuenta Microsoft nueva" (plan 15, F4): sin Mail.Send real,
-// el adaptador rechaza el envío; nunca confirma una notificación ficticia.
-// El worker queda desactivado por defecto hasta instalar adaptadores reales.
+// Camino B "Cuenta Microsoft nueva" (plan 15, F4): el sandbox de Development
+// captura el correo solo en loopback; fuera de él el worker sigue apagado por
+// defecto hasta configurar adaptadores reales.
 var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
 if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddGraphColaboradores(builder.Configuration);
 else if (proveedorColaboradores.Equals("Simulado", StringComparison.OrdinalIgnoreCase))
 {
-    if (!builder.Configuration.GetValue<bool>("Entra:Provision:Disabled"))
-        throw new InvalidOperationException("El worker de cuentas nuevas requiere Entra:Proveedor=Graph.");
+    var provisionSimuladaActiva = !builder.Configuration.GetValue<bool>("Entra:Provision:Disabled");
+    if (provisionSimuladaActiva)
+    {
+        var sandbox = builder.Configuration.GetSection("Entra:Simulacion:CorreoSandbox")
+            .Get<Millet.Identidad.Application.DirectorioEntra.CorreoSandboxOptions>() ?? new();
+        var esLoopback = sandbox.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || sandbox.Host == "127.0.0.1" || sandbox.Host == "::1";
+        if (!builder.Environment.IsDevelopment() || authMode != AuthMode.FakeForLocalDev
+            || !esLoopback || sandbox.Puerto is < 1 or > 65535)
+            throw new InvalidOperationException(
+                "La provisión simulada solo se permite en Development, con FakeForLocalDev y SMTP de captura en loopback.");
+        builder.Services.AddSingleton<Millet.Identidad.Application.Ports.ICorreoSalientePort,
+            Millet.Api.Auth.Provisioning.CorreoSandboxLocal>();
+    }
+    else
+    {
+        builder.Services.AddSingleton<Millet.Identidad.Application.Ports.ICorreoSalientePort,
+            Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
+    }
     builder.Services.AddSingleton<
         Millet.Identidad.Application.Ports.IEntraDirectorioPort,
         Millet.Identidad.Infrastructure.Stubs.DirectorioEntraSimulado>();
-    builder.Services.AddSingleton<
-        Millet.Identidad.Application.Ports.ICorreoSalientePort,
-        Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
 }
 else throw new InvalidOperationException("Entra:Proveedor debe ser Simulado o Graph.");
 builder.Services.AddHostedService<Millet.Identidad.Infrastructure.Workers.ProvisionCuentaEntraWorker>();

@@ -34,6 +34,7 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
   useParams: () => ({ id: 'u-1' }),
+  useNavigate: () => vi.fn(),
 }));
 
 const USUARIO_DETALLE = {

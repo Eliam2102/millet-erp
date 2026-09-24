@@ -193,12 +193,17 @@ export function useAuth() {
           },
         );
 
+        // El modo dev permite cambiar de usuario sin recargar la pestaña.
+        // Ninguna respuesta cacheada del administrador debe sobrevivir al
+        // cambio hacia el colaborador de prueba.
+        queryClient.clear();
         setSession(sessionResponse);
+        navigate({ to: '/' });
       } catch (err) {
         setStatus('error', err instanceof Error ? err.message : String(err));
       }
     },
-    [setStatus, setSession],
+    [setStatus, setSession, navigate],
   );
 
   /**

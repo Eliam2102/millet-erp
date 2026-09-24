@@ -1,25 +1,35 @@
-# ADM-01/02 — entrega local para pruebas (corte 2026-09-23)
+# ADM-01/02 — entrega local para pruebas (actualizado 2026-09-24)
 
 Rama: `fix/cierre-adm01-adm02-seguridad-flujo`. Este documento describe el corte local; no equivale a QA aprobado, integración con el tenant de Millet, UAT, merge ni despliegue.
 
 ## Evidencia de construcción local
 
-- Backend: compilación correcta sin errores ni advertencias; 472/472 pruebas de integración API en la base de prueba aislada `millet_adm_cierre_test_20260923`.
-- Frontend: build de producción correcto; 1,589/1,589 pruebas en 288 archivos.
+- Backend: compilación correcta sin errores ni advertencias; 472/472 pruebas de integración API en la base de prueba aislada `millet_adm_cierre_test_20260923`, repetidas tras habilitar el sandbox local.
+- Frontend: build de producción correcto; 1,589/1,589 pruebas en 288 archivos, repetidas tras el cambio de sesión local.
 - La prueba de integración de `Dar_Acceso_A_Empleado_Existente_Vincula_Usuario_Rol_Y_Sucursal` comprueba `empleadoId` en listado y detalle; la prueba de UI distingue cuenta vinculada de cuenta sin vínculo.
-- No se ejecutó QA manual en navegador ni prueba de recepción de correo. Estas cifras no son aceptación del cliente.
+- Se ejecutó una prueba funcional local con datos ficticios: sucursal, departamento y puesto vinculados; alta de empleado con cuenta nueva; worker de provisión; captura del correo en Mailpit; rol y sucursal persistidos; ingreso simulado del mismo usuario. También se comprobó en navegador que **Cuentas de acceso** muestra el vínculo real y que **Simular ingreso** cambia la sesión al colaborador. La contraseña no se muestra en el ERP.
+- La prueba automatizada de recorrido se repitió con otro colaborador ficticio y confirmó correo capturado al destinatario correcto. Ninguna de estas pruebas es aceptación del cliente.
 
 ## Qué debe poder revisar el equipo mañana
 
-1. En **Empleados**, dar de alta un colaborador sin acceso, con cuenta Microsoft ya existente en el simulador o con cuenta nueva pendiente de provisión. Comprobar que sucursal, departamento, puesto y rol se guardan en el flujo correspondiente.
+1. En **Empleados**, dar de alta un colaborador sin acceso, con cuenta Microsoft ya existente en el simulador o con cuenta nueva. Comprobar que sucursal, departamento, puesto y rol se guardan y que la cuenta nueva pasa de pendiente a aprovisionada cuando Mailpit está disponible.
 2. En **Cuentas de acceso**, localizar el usuario creado y verificar la marca **Empleado vinculado**. Las cuentas históricas sin vínculo se muestran como **Sin empleado vinculado**; no se clasifican automáticamente como cuentas técnicas.
 3. Abrir la cuenta y comprobar las asignaciones y el estado activo/inactivo. En el empleado, abrir la sección **Acceso** y probar las acciones permitidas (dar acceso, reintentar, reenviar o reactivar según estado y permiso).
 4. Confirmar que una baja laboral bloquea el usuario y que la recontratación no reactiva el acceso automáticamente. Validar que una persona sin permiso no ve ni ejecuta las acciones restringidas.
-5. Ejecutar pruebas de regresión y anotar resultado, entorno, caso fallido y evidencia. El reporte A–G es solo de diagnóstico; cualquier corrección B/E/F/G requiere revisión y decisión humana.
+5. Abrir el correo en Mailpit y comprobar destinatario y contenido. Desde la cuenta activa, usar **Simular ingreso** y comprobar identidad y permisos del colaborador; esta acción solo existe en Development/FakeForLocalDev. Ejecutar regresión y anotar resultado, entorno, caso fallido y evidencia. El reporte A–G es solo de diagnóstico; cualquier corrección B/E/F/G requiere revisión y decisión humana.
 
 ## Límite de la simulación
 
-El proveedor `Simulado` permite comprobar consulta y alta con cuentas existentes. Por diseño, la provisión de una cuenta nueva no informa falsamente que un correo fue entregado: el worker está desactivado por defecto y el correo simulado rechaza el envío. Los tests automatizados cubren el contrato del worker con dobles controlados. La recepción real del correo, el cambio de contraseña en Microsoft y el primer acceso con OID real requieren el tenant y el buzón de prueba del cliente; no son criterio de cierre del **corte local**.
+El proveedor `Simulado` permite comprobar ambos caminos. En Development, con `Auth:Mode=FakeForLocalDev`, la provisión automática solo arranca si SMTP apunta a loopback; el correo se captura en Mailpit, no se entrega al destinatario externo. En otros ambientes, el worker continúa apagado por defecto y la provisión simulada con correo queda prohibida. La cuenta simulada no existe en Microsoft: el ingreso de prueba no exige la contraseña recibida ni ejercita MFA o cambio obligatorio. La recepción real del correo, el cambio de contraseña en Microsoft y el primer acceso con OID real requieren un tenant y buzones de prueba autorizados; **siguen pendientes** y no deben presentarse como validados.
+
+## Repetir la prueba local
+
+1. Levantar PostgreSQL según [arranque local](01-arranque-local.md) y Mailpit con `docker compose -f docker-compose.dev.yml --profile adm-qa up -d mailpit`. Verificar `http://127.0.0.1:8025`. Los puertos SMTP/UI solo se publican en la propia máquina.
+2. Usar una base de datos **aislada de prueba**, con migraciones y bootstrap aplicados, no una base con datos del cliente. Arrancar la API en `Development` y `FakeForLocalDev`; por ejemplo, en el puerto 5005, estableciendo `ConnectionStrings__Postgres` a esa base. El `appsettings.Development.json` habilita el trabajador simulado y Mailpit en `127.0.0.1:1025`.
+3. Arrancar Vite con `VITE_API_BASE_URL=http://127.0.0.1:5005 npm run dev -- --host localhost`. Ingresar como **Super Admin (Dev)**. En **Empleados**, crear el colaborador y revisar la pestaña **Acceso**. En **Cuentas de acceso**, abrir su cuenta y revisar vínculo, rol, sucursal y estado. El correo de prueba estará solo en Mailpit.
+4. Con `curl`, `jq` y `uuidgen` instalados, ejecutar `./tools/smoke-adm-local.sh` desde la raíz. Crea registros ficticios con claves QA nuevas, valida provisión/correo/acceso y muestra IDs para inspección. No imprime la contraseña. No ejecutarlo contra otra API ni entorno.
+
+Si Mailpit no está levantado, el envío falla y el flujo no debe marcarse como notificado; revisar el estado en **Acceso** y reintentar después de levantar el buzón. No usar la contraseña capturada para afirmar que Microsoft autenticó al usuario.
 
 ## Solicitud puntual a TI de Millet, para preparar la siguiente etapa
 
