@@ -26,8 +26,9 @@ public sealed class CorreoSandboxLocal : ICorreoSalientePort
             "[PRUEBA LOCAL] Acceso al ERP Millet",
             $"Hola {correo.NombreColaborador},\n\n" +
             $"Cuenta simulada: {correo.Upn}\n" +
-            $"Contraseña temporal de prueba: {correo.ContrasenaTemporal}\n\n" +
-            "Este mensaje fue capturado localmente. No se creó una cuenta real en Microsoft.\n" +
+            $"Clave temporal simulada: {correo.ContrasenaTemporal}\n\n" +
+            "Esta clave no sirve para iniciar sesión en Microsoft; no se creó una cuenta real.\n" +
+            "Para probar el acceso, un administrador debe usar 'Simular ingreso' en la cuenta del ERP local.\n" +
             $"ERP local: {correo.UrlInicioSesion}\n");
         using var smtp = new SmtpClient(_options.Host, _options.Puerto)
         {

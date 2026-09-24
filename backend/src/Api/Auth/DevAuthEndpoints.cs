@@ -22,13 +22,15 @@ public static class DevAuthEndpoints
             [FromBody] FakeLoginRequest request,
             LoginOrchestrator orchestrator,
             IHostEnvironment environment,
+            IConfiguration configuration,
             CancellationToken cancellationToken) =>
         {
             // Defense in depth: aunque el AuthModeValidator ya falló al
             // arranque si FakeForLocalDev en non-Development, verificamos
             // de nuevo aquí. Si alguien forzó este endpoint en un build
             // accidental, devolvemos 404 para no revelar su existencia.
-            if (!environment.IsDevelopment())
+            if (!environment.IsDevelopment() ||
+                configuration.GetValue<AuthMode?>("Auth:Mode") != AuthMode.FakeForLocalDev)
             {
                 return Results.NotFound();
             }
