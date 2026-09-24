@@ -16,13 +16,16 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
 {
     private readonly GraphServiceClient _graphClient;
     private readonly ILogger<EntraProvisioningService> _logger;
+    private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
     private readonly string _senderEmail;
 
     public EntraProvisioningService(
         IOptions<EntraIdOptions> options,
-        ILogger<EntraProvisioningService> logger)
+        ILogger<EntraProvisioningService> logger,
+        Microsoft.Extensions.Configuration.IConfiguration configuration)
     {
         _logger = logger;
+        _configuration = configuration;
         
         var opts = options.Value;
         _senderEmail = opts.SenderEmail;
@@ -68,7 +71,7 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
                 return new ProvisioningResult(false, null, "Graph API no devolvió el ID del usuario creado.");
             }
 
-            await EnviarCorreoInvitacionAsync(createdUser.Id, correoContacto, temporaryPassword, isNewUser: true, cancellationToken);
+            await EnviarCorreoInvitacionAsync(createdUser.Id, upn, correoContacto, temporaryPassword, true, cancellationToken);
 
             return new ProvisioningResult(true, createdUser.Id, "Usuario creado exitosamente e invitación enviada.");
         }
@@ -100,7 +103,7 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
                 return new ProvisioningResult(false, null, $"El usuario con UPN {upn} no existe en el Directorio Activo.");
             }
 
-            await EnviarCorreoInvitacionAsync(user.Id, correoContacto, null, isNewUser: false, cancellationToken);
+            await EnviarCorreoInvitacionAsync(user.Id, upn, correoContacto, null, false, cancellationToken);
 
             return new ProvisioningResult(true, user.Id, "Usuario vinculado exitosamente e invitación enviada.");
         }
@@ -132,7 +135,7 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
         }
     }
 
-    private async Task EnviarCorreoInvitacionAsync(string userId, string correoContacto, string? tempPassword, bool isNewUser, CancellationToken cancellationToken)
+    private async Task EnviarCorreoInvitacionAsync(string userId, string upn, string correoContacto, string? tempPassword, bool isNewUser, CancellationToken cancellationToken)
     {
         try
         {
@@ -140,9 +143,32 @@ public sealed class EntraProvisioningService : IEntraProvisioningService, IDispo
                 ? "Bienvenido al ERP Millet - Tus credenciales de acceso"
                 : "Bienvenido al ERP Millet - Cuenta vinculada";
 
+            var baseUrl = _configuration.GetValue<string>("Entra:UrlInicioSesion") ?? "http://localhost:5173";
+            var loginUrl = $"{baseUrl}/login?hint={upn}";
+
             var body = isNewUser
-                ? $"<p>Hola,</p><p>Se ha creado tu cuenta corporativa. Tu usuario es tu correo asignado.</p><p><b>Contraseña temporal:</b> {tempPassword}</p><p>Se te pedirá que la cambies en tu primer inicio de sesión.</p>"
-                : $"<p>Hola,</p><p>Tu cuenta corporativa actual ha sido habilitada para acceder al ERP Millet.</p><p>Ya puedes iniciar sesión con tus credenciales de Microsoft de siempre.</p>";
+                ? $@"
+                    <div style='font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;'>
+                        <h2 style='color: #4F46E5; margin-top: 0;'>Bienvenido al ERP Millet</h2>
+                        <p>Se ha creado tu cuenta corporativa. Tu usuario es este mismo correo.</p>
+                        <div style='background-color: #f3f4f6; padding: 12px; border-radius: 6px; margin: 16px 0; text-align: center;'>
+                            <p style='margin: 0; font-size: 14px;'>Contraseña temporal:</p>
+                            <p style='margin: 5px 0 0 0; font-size: 20px; font-weight: bold; letter-spacing: 2px;'>{tempPassword}</p>
+                        </div>
+                        <p>Por seguridad, se te pedirá que la cambies en tu primer inicio de sesión.</p>
+                        <div style='text-align: center; margin-top: 24px;'>
+                            <a href='{loginUrl}' style='background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;'>Iniciar Sesión en el ERP</a>
+                        </div>
+                    </div>"
+                : $@"
+                    <div style='font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;'>
+                        <h2 style='color: #4F46E5; margin-top: 0;'>Bienvenido al ERP Millet</h2>
+                        <p>Tu cuenta corporativa actual ha sido vinculada exitosamente con el sistema.</p>
+                        <p>Ya puedes acceder utilizando tus credenciales de Microsoft de siempre.</p>
+                        <div style='text-align: center; margin-top: 24px;'>
+                            <a href='{loginUrl}' style='background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;'>Acceder al ERP</a>
+                        </div>
+                    </div>";
 
             var message = new Microsoft.Graph.Models.Message
             {
