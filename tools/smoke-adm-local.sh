@@ -18,7 +18,7 @@ adm_unique="$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)"
 adm_empty_id='00000000-0000-0000-0000-000000000000'
 adm_upn="qa-${adm_unique}@millet.mx"
 adm_contact="qa-${adm_unique}@example.test"
-adm_mail_before="$(curl -fsS "$adm_mailpit_url/api/v1/messages" | jq -er '.total')"
+adm_mail_before_ids="$(curl -fsS "$adm_mailpit_url/api/v1/messages" | jq -ce '[.messages[].ID]')"
 
 adm_token="$(curl -fsS "$adm_api_url/api/dev/fake-login" \
   -H 'Content-Type: application/json' \
@@ -76,11 +76,18 @@ if [[ "$adm_estado" != '1' ]]; then
 fi
 
 adm_mailbox="$(curl -fsS "$adm_mailpit_url/api/v1/messages")"
-adm_mail_after="$(jq -er '.total' <<< "$adm_mailbox")"
-if (( adm_mail_after <= adm_mail_before )) || ! jq -e --arg recipient "$adm_contact" \
-  '[.messages[] | select(any(.To[]?; .Address == $recipient))] | length > 0' \
-  <<< "$adm_mailbox" >/dev/null; then
-  printf 'La API indicó envío, pero Mailpit no capturó un correo nuevo.\n' >&2
+adm_nuevo_id="$(jq -er --argjson anteriores "$adm_mail_before_ids" \
+  --arg recipient "$adm_contact" \
+  '[.messages[] | select((.ID as $id | $anteriores | index($id)) == null)
+    | select(.Subject == "[PRUEBA LOCAL] Acceso al ERP Millet")
+    | select(any(.To[]?; .Address == $recipient)) | .ID]
+   | if length == 1 then .[0] else error("se esperaba exactamente un correo nuevo para el colaborador") end' \
+  <<< "$adm_mailbox")"
+adm_mensaje="$(curl -fsS "$adm_mailpit_url/api/v1/message/$adm_nuevo_id")"
+if ! jq -e --arg upn "$adm_upn" --arg name "Colaborador QC-$adm_unique" \
+  '.Text | contains($upn) and contains($name) and contains("Clave temporal simulada")' \
+  <<< "$adm_mensaje" >/dev/null; then
+  printf 'Mailpit capturó el correo, pero su contenido no corresponde al colaborador.\n' >&2
   exit 1
 fi
 

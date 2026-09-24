@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useAuth } from '@/lib/auth/useAuth';
+import { authMode } from '@/lib/auth/config';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +42,10 @@ function HomeComponent() {
             Cuenta activa sin asignaciones de empresa o rol
           </AlertTitle>
           <AlertDescription className="text-xs text-amber-700 dark:text-amber-300/90 mt-1 leading-relaxed">
-            Has iniciado sesión exitosamente mediante Microsoft Entra ID. Sin embargo, tu usuario aún no tiene empresas o roles asignados dentro del ERP. Por favor, solicita a tu administrador que configure tus permisos desde el módulo de <strong>Administración &gt; Usuarios</strong>.
+            {authMode === 'FakeForLocalDev'
+              ? 'Ingresaste en modo de prueba local; Microsoft Entra ID no autenticó esta sesión. '
+              : 'Has iniciado sesión mediante Microsoft Entra ID. '}
+            Tu usuario aún no tiene empresas o roles asignados dentro del ERP. Solicita a tu administrador que configure tus permisos desde <strong>Administración &gt; Usuarios</strong>.
           </AlertDescription>
         </Alert>
       )}
@@ -60,7 +64,9 @@ function HomeComponent() {
             </Badge>
           </div>
           <CardDescription className="text-xs">
-            Credenciales y contexto de la sesión actual validados por el sistema.
+            {authMode === 'FakeForLocalDev'
+              ? 'Sesión local simulada; identidad y permisos resueltos por el ERP, sin validar credenciales Microsoft.'
+              : 'Credenciales y contexto de la sesión actual validados por el sistema.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 pt-0 text-sm">
