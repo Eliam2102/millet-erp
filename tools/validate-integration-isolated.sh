@@ -86,4 +86,4 @@ for project in "${projects[@]}"; do
     --no-restore
 done
 
-echo "Gate de integración aprobado: 489 pruebas."
+echo "Gate de integración aprobado: las tres suites terminaron correctamente (ver conteos arriba)."
