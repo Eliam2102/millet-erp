@@ -27,7 +27,9 @@ public sealed record ActualizarEmpleadoCommand(
     Guid? UsuarioId = null,
     bool LimpiarUsuario = false,
     string? CodigoNomina = null,
-    bool LimpiarCodigoNomina = false) : IRequest<EmpleadoResponse>;
+    bool LimpiarCodigoNomina = false,
+    string? EmailContacto = null,
+    bool LimpiarEmailContacto = false) : IRequest<EmpleadoResponse>;
 
 public sealed class ActualizarEmpleadoValidator : AbstractValidator<ActualizarEmpleadoCommand>
 {
@@ -40,6 +42,11 @@ public sealed class ActualizarEmpleadoValidator : AbstractValidator<ActualizarEm
             .When(c => c.Email is not null);
         RuleFor(c => c.CodigoNomina!).NotEmpty().MaximumLength(20)
             .When(c => c.CodigoNomina is not null);
+        RuleFor(c => c.EmailContacto!).NotEmpty().EmailAddress().MaximumLength(254)
+            .When(c => c.EmailContacto is not null);
+        RuleFor(c => c.EmailContacto).Null()
+            .When(c => c.LimpiarEmailContacto)
+            .WithMessage("No se puede enviar EmailContacto y LimpiarEmailContacto a la vez.");
         RuleFor(c => c.Email).Null()
             .When(c => c.LimpiarEmail)
             .WithMessage("No se puede enviar Email y LimpiarEmail a la vez.");
@@ -116,7 +123,9 @@ public sealed class ActualizarEmpleadoHandler
             usuarioId: command.UsuarioId,
             limpiarUsuario: command.LimpiarUsuario,
             codigoNomina: command.CodigoNomina,
-            limpiarCodigoNomina: command.LimpiarCodigoNomina);
+            limpiarCodigoNomina: command.LimpiarCodigoNomina,
+            emailContacto: command.EmailContacto,
+            limpiarEmailContacto: command.LimpiarEmailContacto);
         await _db.SaveChangesAsync(cancellationToken);
 
         return CrearEmpleadoHandler.Mapear(empleado);

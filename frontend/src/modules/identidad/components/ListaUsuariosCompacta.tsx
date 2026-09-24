@@ -73,6 +73,9 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
         <div className="mt-1 truncate text-xs text-muted-foreground">
           {item.email}
         </div>
+        <Badge variant={item.empleadoId ? 'secondary' : 'outline'} className="mt-1 text-[10px]">
+          {item.empleadoId ? 'Empleado vinculado' : 'Sin empleado vinculado'}
+        </Badge>
       </Link>
     </li>
   );

@@ -42,6 +42,7 @@ export interface ConsultarBitacoraFiltros {
   accion?: string;
   usuarioId?: string;
   empresaId?: string;
+  sucursalId?: string;
   offset?: number;
   limit?: number;
 }
@@ -82,7 +83,7 @@ export const adminKeys = {
   puestos: () => [...adminKeys.all, 'puestos'] as const,
   puestosList: () => [...adminKeys.puestos(), 'list'] as const,
   empleados: () => [...adminKeys.all, 'empleados'] as const,
-  empleadosList: () => [...adminKeys.empleados(), 'list'] as const,
+  empleadosList: (sucursalId?: string | null) => [...adminKeys.empleados(), 'list', sucursalId ?? null] as const,
 
   // PR-A3: asignaciones N:M Sucursal ↔ Departamento. Scopeadas por
   // sucursal porque el endpoint es <c>GET /admin/empresas/sucursales/{id}/departamentos</c>.

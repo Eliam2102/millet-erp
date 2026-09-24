@@ -11,6 +11,9 @@ using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Domain;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Endpoints.Catalogos;
 
@@ -213,10 +216,28 @@ public static class OrganizacionEndpoints
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             CompartidoDbContext db,
+            IdentidadDbContext identidadDb,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
             CancellationToken ct) =>
         {
             var (off, lim) = NormalizePaging(offset, limit);
             IQueryable<Empleado> query = db.Empleados.AsNoTracking();
+            // El catálogo contiene correo y vínculo de acceso: una persona
+            // operativa nunca debe listar empleados de sucursales ajenas.
+            if (!await permisos.TieneAsync(PermisosCanonicos.AdminEmpleadosLeerTodasSucursales, ct))
+            {
+                var sucursalesPermitidas = currentUser.UserId is Guid uid
+                    ? await identidadDb.UsuarioSucursales.AsNoTracking()
+                        .Where(a => a.UsuarioId == uid && a.Estatus == EstatusCatalogo.Activo)
+                        .Select(a => a.SucursalId).ToListAsync(ct)
+                    : [];
+                if (sucursalId is Guid solicitada && !sucursalesPermitidas.Contains(solicitada))
+                    throw new ForbiddenException("SUCURSAL_NO_ASOCIADA",
+                        "No tienes acceso a los empleados de esta sucursal.");
+                query = query.Where(x => x.SucursalId.HasValue &&
+                    sucursalesPermitidas.Contains(x.SucursalId.Value));
+            }
             if (estatus is EstatusCatalogo e) query = query.Where(x => x.Estatus == e);
             if (empresaId is Guid eid) query = query.Where(x => x.EmpresaId == eid);
             if (puestoId is Guid pid) query = query.Where(x => x.PuestoId == pid);

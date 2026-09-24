@@ -15,6 +15,7 @@ const initialState: AuthState = {
   user: null,
   empresas: [],
   currentEmpresaId: null,
+  currentSucursalId: null,
   permisos: [],
   comprasSettings: null,
   isSwitchingEmpresa: false,
@@ -27,6 +28,7 @@ interface AuthActions {
   updatePermisos: (permisos: string[]) => void;
   updateComprasSettings: (settings: ComprasSettings | null) => void;
   setIsSwitchingEmpresa: (isSwitching: boolean) => void;
+  setCurrentSucursalId: (sucursalId: string | null) => void;
   clearSession: (status?: AuthStatus) => void;
 }
 
@@ -52,6 +54,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
       user: response.usuario,
       empresas: response.empresas,
       currentEmpresaId: empresaActual?.id ?? null,
+      currentSucursalId: null,
       permisos: response.permisos,
       comprasSettings: response.comprasSettings,
       isSwitchingEmpresa: false,
@@ -63,6 +66,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
     set({
       empresas,
       currentEmpresaId: empresaActual?.id ?? null,
+      currentSucursalId: null,
     });
   },
 
@@ -71,6 +75,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
   updateComprasSettings: (settings) => set({ comprasSettings: settings }),
 
   setIsSwitchingEmpresa: (isSwitchingEmpresa) => set({ isSwitchingEmpresa }),
+
+  setCurrentSucursalId: (currentSucursalId) => set({ currentSucursalId }),
 
   clearSession: (status: AuthStatus = 'idle') => set({ ...initialState, status }),
 }));

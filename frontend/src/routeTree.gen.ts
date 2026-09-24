@@ -132,6 +132,7 @@ import { Route as AppAdminUsuariosIdRouteImport } from './routes/_app/admin/usua
 import { Route as AppAdminSucursalesIdRouteImport } from './routes/_app/admin/sucursales/$id';
 import { Route as AppAdminRolesIdRouteImport } from './routes/_app/admin/roles/$id';
 import { Route as AppAdminEmpresasIdRouteImport } from './routes/_app/admin/empresas/$id';
+import { Route as AppAdminEmpleadosIdRouteImport } from './routes/_app/admin/empleados/$id';
 import { Route as AppAdminModuloSettingsRouteImport } from './routes/_app/admin/$modulo/settings';
 import { Route as AppFacturacionAnticiposFacturasIndexRouteImport } from './routes/_app/facturacion/anticipos/facturas/index';
 import { Route as AppAdminIntegracionesFiscalIndexRouteImport } from './routes/_app/admin/integraciones/fiscal/index';
@@ -820,6 +821,11 @@ const AppAdminEmpresasIdRoute = AppAdminEmpresasIdRouteImport.update({
   path: '/admin/empresas/$id',
   getParentRoute: () => AppRoute,
 } as any);
+const AppAdminEmpleadosIdRoute = AppAdminEmpleadosIdRouteImport.update({
+  id: '/admin/empleados/$id',
+  path: '/admin/empleados/$id',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppAdminModuloSettingsRoute = AppAdminModuloSettingsRouteImport.update({
   id: '/admin/$modulo/settings',
   path: '/admin/$modulo/settings',
@@ -1016,6 +1022,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/': typeof AppFacturacionIndexRoute;
   '/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
+  '/admin/empleados/$id': typeof AppAdminEmpleadosIdRoute;
   '/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
   '/admin/roles/$id': typeof AppAdminRolesIdRoute;
   '/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
@@ -1168,6 +1175,7 @@ export interface FileRoutesByTo {
   '/facturacion': typeof AppFacturacionIndexRoute;
   '/tesoreria': typeof AppTesoreriaIndexRoute;
   '/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
+  '/admin/empleados/$id': typeof AppAdminEmpleadosIdRoute;
   '/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
   '/admin/roles/$id': typeof AppAdminRolesIdRoute;
   '/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
@@ -1322,6 +1330,7 @@ export interface FileRoutesById {
   '/_app/facturacion/': typeof AppFacturacionIndexRoute;
   '/_app/tesoreria/': typeof AppTesoreriaIndexRoute;
   '/_app/admin/$modulo/settings': typeof AppAdminModuloSettingsRoute;
+  '/_app/admin/empleados/$id': typeof AppAdminEmpleadosIdRoute;
   '/_app/admin/empresas/$id': typeof AppAdminEmpresasIdRoute;
   '/_app/admin/roles/$id': typeof AppAdminRolesIdRoute;
   '/_app/admin/sucursales/$id': typeof AppAdminSucursalesIdRoute;
@@ -1476,6 +1485,7 @@ export interface FileRouteTypes {
     | '/facturacion/'
     | '/tesoreria/'
     | '/admin/$modulo/settings'
+    | '/admin/empleados/$id'
     | '/admin/empresas/$id'
     | '/admin/roles/$id'
     | '/admin/sucursales/$id'
@@ -1628,6 +1638,7 @@ export interface FileRouteTypes {
     | '/facturacion'
     | '/tesoreria'
     | '/admin/$modulo/settings'
+    | '/admin/empleados/$id'
     | '/admin/empresas/$id'
     | '/admin/roles/$id'
     | '/admin/sucursales/$id'
@@ -1781,6 +1792,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/'
     | '/_app/tesoreria/'
     | '/_app/admin/$modulo/settings'
+    | '/_app/admin/empleados/$id'
     | '/_app/admin/empresas/$id'
     | '/_app/admin/roles/$id'
     | '/_app/admin/sucursales/$id'
@@ -2774,6 +2786,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminEmpresasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/empleados/$id': {
+      id: '/_app/admin/empleados/$id';
+      path: '/admin/empleados/$id';
+      fullPath: '/admin/empleados/$id';
+      preLoaderRoute: typeof AppAdminEmpleadosIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/$modulo/settings': {
       id: '/_app/admin/$modulo/settings';
       path: '/admin/$modulo/settings';
@@ -3017,6 +3036,7 @@ interface AppRouteChildren {
   AppFacturacionIndexRoute: typeof AppFacturacionIndexRoute;
   AppTesoreriaIndexRoute: typeof AppTesoreriaIndexRoute;
   AppAdminModuloSettingsRoute: typeof AppAdminModuloSettingsRoute;
+  AppAdminEmpleadosIdRoute: typeof AppAdminEmpleadosIdRoute;
   AppAdminEmpresasIdRoute: typeof AppAdminEmpresasIdRoute;
   AppAdminRolesIdRoute: typeof AppAdminRolesIdRoute;
   AppAdminSucursalesIdRoute: typeof AppAdminSucursalesIdRoute;
@@ -3167,6 +3187,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionIndexRoute: AppFacturacionIndexRoute,
   AppTesoreriaIndexRoute: AppTesoreriaIndexRoute,
   AppAdminModuloSettingsRoute: AppAdminModuloSettingsRoute,
+  AppAdminEmpleadosIdRoute: AppAdminEmpleadosIdRoute,
   AppAdminEmpresasIdRoute: AppAdminEmpresasIdRoute,
   AppAdminRolesIdRoute: AppAdminRolesIdRoute,
   AppAdminSucursalesIdRoute: AppAdminSucursalesIdRoute,

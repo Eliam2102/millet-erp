@@ -6,6 +6,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Millet.Almacen.Infrastructure;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Api.Auth;
+using Millet.Api.Auth.Provisioning;
 using Millet.Api.Endpoints.Catalogos;
 using Millet.Api.Endpoints.Compras;
 using Millet.Api.Endpoints.Settings;
@@ -872,25 +873,47 @@ builder.Services.AddScoped<
     Millet.Identidad.Infrastructure.Stubs.LocalEntraIdResolverNoOp>();
 
 // === Identidad — directorio Entra para el alta unificada (plan 15, F2) ===
-// Simulado en memoria (singleton: el directorio vive lo que el proceso)
-// hasta que TI entregue los permisos de Graph — ver
-// PLATFORM-TODO(<EntraDirectorio>) en DirectorioEntraSimulado.cs.
+// Simulación por defecto. Graph es opt-in explícito y exige configuración
+// completa; nunca crea usuarios de prueba en un tenant por accidente.
 builder.Services
     .AddOptions<Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions>()
     .Bind(builder.Configuration.GetSection(
         Millet.Identidad.Application.DirectorioEntra.EntraDirectorioOptions.SectionName));
-builder.Services.AddSingleton<
-    Millet.Identidad.Application.Ports.IEntraDirectorioPort,
-    Millet.Identidad.Infrastructure.Stubs.DirectorioEntraSimulado>();
 // Transacción compartida Identidad + Compartido del alta de colaborador
 // (plan 15, F3; validada en el spike F0).
 builder.Services.AddScoped<Millet.Identidad.Infrastructure.TransaccionColaborador>();
-// Camino B "Cuenta Microsoft nueva" (plan 15, F4): correo de acceso simulado
-// hasta que TI entregue Mail.Send — ver PLATFORM-TODO(<CorreoSaliente>) —
-// y worker que crea la cuenta después del commit del alta.
-builder.Services.AddSingleton<
-    Millet.Identidad.Application.Ports.ICorreoSalientePort,
-    Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
+// Camino B "Cuenta Microsoft nueva" (plan 15, F4): el sandbox de Development
+// captura el correo solo en loopback; fuera de él el worker sigue apagado por
+// defecto hasta configurar adaptadores reales.
+var proveedorColaboradores = builder.Configuration["Entra:Proveedor"] ?? "Simulado";
+if (proveedorColaboradores.Equals("Graph", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddGraphColaboradores(builder.Configuration, builder.Environment.IsDevelopment());
+else if (proveedorColaboradores.Equals("Simulado", StringComparison.OrdinalIgnoreCase))
+{
+    var provisionSimuladaActiva = !builder.Configuration.GetValue<bool>("Entra:Provision:Disabled");
+    if (provisionSimuladaActiva)
+    {
+        var sandbox = builder.Configuration.GetSection("Entra:Simulacion:CorreoSandbox")
+            .Get<Millet.Identidad.Application.DirectorioEntra.CorreoSandboxOptions>() ?? new();
+        var esLoopback = sandbox.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || sandbox.Host == "127.0.0.1" || sandbox.Host == "::1";
+        if (!builder.Environment.IsDevelopment() || authMode != AuthMode.FakeForLocalDev
+            || !esLoopback || sandbox.Puerto is < 1 or > 65535)
+            throw new InvalidOperationException(
+                "La provisión simulada solo se permite en Development, con FakeForLocalDev y SMTP de captura en loopback.");
+        builder.Services.AddSingleton<Millet.Identidad.Application.Ports.ICorreoSalientePort,
+            Millet.Api.Auth.Provisioning.CorreoSandboxLocal>();
+    }
+    else
+    {
+        builder.Services.AddSingleton<Millet.Identidad.Application.Ports.ICorreoSalientePort,
+            Millet.Identidad.Infrastructure.Stubs.CorreoSalienteSimulado>();
+    }
+    builder.Services.AddSingleton<
+        Millet.Identidad.Application.Ports.IEntraDirectorioPort,
+        Millet.Identidad.Infrastructure.Stubs.DirectorioEntraSimulado>();
+}
+else throw new InvalidOperationException("Entra:Proveedor debe ser Simulado o Graph.");
 builder.Services.AddHostedService<Millet.Identidad.Infrastructure.Workers.ProvisionCuentaEntraWorker>();
 
 // === OpenAPI / Scalar (ADR-0017, F0-PR2) ===
@@ -1218,7 +1241,6 @@ app.MapGet("/", () => "Hello World!");
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
-app.MapProvisioningEndpoints();
 #if DEBUG
 // Compilación condicional: en Release este código no existe (ADR-0015).
 app.MapDevAuthEndpoints();

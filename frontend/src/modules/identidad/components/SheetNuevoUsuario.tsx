@@ -111,10 +111,11 @@ export function NuevoUsuarioProvider({ children }: { children: ReactNode }) {
           className="w-full overflow-y-auto sm:max-w-2xl"
         >
           <SheetHeader>
-            <SheetTitle>Nuevo usuario</SheetTitle>
+            <SheetTitle>Nueva cuenta independiente</SheetTitle>
             <SheetDescription>
-              Alta de usuario. La asignación de roles por empresa se
-              gestiona después en el detalle.
+              Para personas, da acceso desde Empleados para conservar el vínculo.
+              Usa esta alta solo para cuentas que no corresponden a un empleado;
+              los roles se asignan después en el detalle.
             </SheetDescription>
           </SheetHeader>
 
@@ -298,7 +299,7 @@ function NuevoUsuarioForm({ onClose, onDirtyChange }: NuevoUsuarioFormProps) {
           Cancelar
         </Button>
         <Button type="submit" disabled={crear.isPending}>
-          {crear.isPending ? 'Creando…' : 'Crear usuario'}
+          {crear.isPending ? 'Creando…' : 'Crear cuenta independiente'}
         </Button>
       </div>
     </form>
