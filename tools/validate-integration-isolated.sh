@@ -50,6 +50,12 @@ audit_port="${port_mapping##*:}"
 
 export ConnectionStrings__Postgres="Host=127.0.0.1;Port=$audit_port;Database=millet_dev;Username=pgadmin;Password=$audit_password;Include Error Detail=true"
 export ASPNETCORE_ENVIRONMENT="Development"
+# El bootstrap que corre con las migraciones también lee user-secrets: sin
+# esto, un tenant real guardado ahí siembra su OID como SuperAdmin y los
+# tests (que entran como 'dev-superadmin') reciben 403.
+export Auth__Mode="FakeForLocalDev"
+export Auth__InitialAdminEntraOid="dev-superadmin"
+export Entra__Proveedor="Simulado"
 
 projects=(
   'tests/Integraciones.Aw.IntegrationTests/Millet.Integraciones.Aw.IntegrationTests.csproj'

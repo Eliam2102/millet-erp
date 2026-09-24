@@ -2,10 +2,13 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Empleados;
+using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Application.Colaboradores;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.Endpoints.Administracion;
 
@@ -34,8 +37,14 @@ public static class EmpleadosEndpoints
         group.MapPost("/", async (
             [FromBody] CrearEmpleadoCommand command,
             IMediator mediator,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
+            await EmpleadoSucursalScope.VerificarSucursalAsync(
+                command.SucursalId, currentUser, permisos, usuarioSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created($"/api/v1/admin/empleados/{response.Id}", response);
         })
@@ -53,8 +62,21 @@ public static class EmpleadosEndpoints
             Guid id,
             [FromBody] ActualizarEmpleadoPayload payload,
             IMediator mediator,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                id, db, currentUser, permisos, usuarioSucursales, ct);
+            // Transferir o quitar la sucursal laboral exige alcance también sobre el destino.
+            if (payload.SucursalId is not null || payload.LimpiarSucursal)
+            {
+                await EmpleadoSucursalScope.VerificarSucursalAsync(
+                    payload.LimpiarSucursal ? null : payload.SucursalId,
+                    currentUser, permisos, usuarioSucursales, ct);
+            }
             var response = await mediator.Send(
                 new ActualizarColaboradorCommand(new ActualizarEmpleadoCommand(
                     id,
@@ -90,8 +112,14 @@ public static class EmpleadosEndpoints
         group.MapPost("/{id:guid}/desactivar", async (
             Guid id,
             IMediator mediator,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                id, db, currentUser, permisos, usuarioSucursales, ct);
             var response = await mediator.Send(new DesactivarColaboradorCommand(id), ct);
             return Results.Ok(response);
         })
@@ -106,8 +134,14 @@ public static class EmpleadosEndpoints
         group.MapPost("/{id:guid}/reactivar", async (
             Guid id,
             IMediator mediator,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                id, db, currentUser, permisos, usuarioSucursales, ct);
             var response = await mediator.Send(new ReactivarColaboradorCommand(id), ct);
             return Results.Ok(response);
         })

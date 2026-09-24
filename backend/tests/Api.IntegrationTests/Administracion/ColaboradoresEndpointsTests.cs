@@ -217,22 +217,24 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
         await AssertProblemAsync(patch, HttpStatusCode.UnprocessableEntity, "COLABORADOR_VINCULO_PROTEGIDO");
     }
 
+    // Criterio 01-04: el rol sugerido del puesto sólo se precarga en la UI;
+    // sin rol explícito el alta con acceso se rechaza y no deja filas.
     [Fact]
-    public async Task Sin_RolId_Usa_El_Rol_Sugerido_Del_Puesto()
+    public async Task Sin_RolId_Con_Rol_Sugerido_En_El_Puesto_Retorna_400_Sin_Asignarlo()
     {
         var client = await CreateSuperAdminClientAsync();
         var org = await CrearOrganizacionAsync(client, rolSugerido: true);
         var cuenta = await CrearCuentaEntraSimuladaAsync();
+        var clave = RandomClave("CLS");
 
-        var response = await PostAltaAsync(client, org, CuentaExistente, cuenta.Upn, rolId: null);
+        var response = await PostAltaAsync(client, org, CuentaExistente, cuenta.Upn, rolId: null, clave);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var acceso = (await ReadJsonAsync(response)).GetProperty("acceso");
-        Assert.Equal(org.RolId, acceso.GetProperty("rolId").GetGuid());
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertSinFilasParcialesAsync(clave, cuenta.Upn);
     }
 
     [Fact]
-    public async Task Sin_RolId_Ni_Rol_Sugerido_Retorna_422()
+    public async Task Sin_RolId_Ni_Rol_Sugerido_Retorna_400()
     {
         var client = await CreateSuperAdminClientAsync();
         var org = await CrearOrganizacionAsync(client);
@@ -240,7 +242,7 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
 
         var response = await PostAltaAsync(client, org, CuentaExistente, cuenta.Upn, rolId: null);
 
-        await AssertProblemAsync(response, HttpStatusCode.UnprocessableEntity, "ALTA_ROL_REQUERIDO");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -300,6 +302,65 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
         Assert.False(await identidad.Usuarios.AnyAsync(u => u.Email == cuenta.Upn));
+    }
+
+    // Atomicidad del alta (criterio 01-10 / recorrido R6): un rechazo deja
+    // cero filas de empleado, usuario, rol y sucursal.
+    [Fact]
+    public async Task Rol_Inexistente_No_Deja_Filas_Parciales()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var clave = RandomClave("CLR");
+        var cuenta = await CrearCuentaEntraSimuladaAsync();
+
+        var response = await PostAltaAsync(client, org, CuentaExistente, cuenta.Upn, Guid.NewGuid(), clave);
+
+        Assert.False(response.IsSuccessStatusCode, $"Se esperaba rechazo, fue {response.StatusCode}");
+        await AssertSinFilasParcialesAsync(clave, cuenta.Upn);
+    }
+
+    [Fact]
+    public async Task Sucursal_Fuera_De_La_Empresa_No_Deja_Filas_Parciales()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var clave = RandomClave("CLS");
+        var cuenta = await CrearCuentaEntraSimuladaAsync();
+
+        // Una sucursal de otra empresa es invisible para el filtro por
+        // empresa activa: el alta la trata igual que una inexistente.
+        var response = await PostAltaAsync(
+            client, org with { SucursalId = Guid.NewGuid() }, CuentaExistente, cuenta.Upn, org.RolId, clave);
+
+        Assert.False(response.IsSuccessStatusCode, $"Se esperaba rechazo, fue {response.StatusCode}");
+        await AssertSinFilasParcialesAsync(clave, cuenta.Upn);
+    }
+
+    [Fact]
+    public async Task Dato_Invalido_No_Deja_Filas_Parciales()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var clave = RandomClave("CLI");
+
+        // Con acceso pero sin correo corporativo: falla la validación.
+        var response = await PostAltaAsync(client, org, CuentaExistente, correo: null, org.RolId, clave);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertSinFilasParcialesAsync(clave, correo: null);
+    }
+
+    private async Task AssertSinFilasParcialesAsync(string clave, string? correo)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        Assert.False(await compartido.Empleados.AnyAsync(e => e.Clave == clave));
+        if (correo is null) return;
+        var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        var usuarioIds = await identidad.Usuarios.Where(u => u.Email == correo).Select(u => u.Id).ToListAsync();
+        Assert.Empty(usuarioIds);
     }
 
     [Fact]

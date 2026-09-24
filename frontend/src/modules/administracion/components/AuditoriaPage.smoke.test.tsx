@@ -193,4 +193,36 @@ describe('<AuditoriaPage> — smoke', () => {
     const aplicar = screen.getByRole('button', { name: /aplicar/i });
     expect(aplicar).toBeDisabled();
   });
+
+  it('usa la sucursal activa de la sesión como filtro inicial (01-05)', async () => {
+    const SUCURSAL_ACTIVA_ID = 'suc-mty-1';
+    useAuthStore.setState({ currentSucursalId: SUCURSAL_ACTIVA_ID });
+
+    let sucursalIdEnviado: string | null = null;
+    mswServer.use(
+      http.get('*/api/auth/sucursales', () =>
+        HttpResponse.json([
+          { id: SUCURSAL_ACTIVA_ID, clave: 'MTY', nombre: 'Monterrey' },
+          { id: 'suc-cdmx-1', clave: 'CDMX', nombre: 'Ciudad de México' },
+        ]),
+      ),
+      http.get('*/api/v1/admin/auditoria', ({ request }) => {
+        sucursalIdEnviado = new URL(request.url).searchParams.get('sucursalId');
+        return HttpResponse.json({ items: [], total: 0 });
+      }),
+      http.get('*/api/v1/admin/empresas', () =>
+        HttpResponse.json({ items: [EMPRESA_E1], total: 1 }),
+      ),
+      http.get('*/api/v1/identidad/usuarios/admin', () =>
+        HttpResponse.json({ items: [], total: 0 }),
+      ),
+    );
+
+    render(<AuditoriaPage />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() => expect(sucursalIdEnviado).toBe(SUCURSAL_ACTIVA_ID));
+
+    const sucursalSelect = screen.getByLabelText('Sucursal') as HTMLSelectElement;
+    await waitFor(() => expect(sucursalSelect.value).toBe(SUCURSAL_ACTIVA_ID));
+  });
 });

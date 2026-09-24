@@ -1,6 +1,6 @@
 # ADR-0052: Transacción compartida Identidad + Compartido para el alta de colaborador (excepción a ADR-0030)
 
-- **Estado**: Propuesta
+- **Estado**: Aceptada (2026-09-24, Geovany González; pendiente de ratificación de Eduardo Paredes como owner)
 - **Fecha**: 2026-09-23
 - **Decisores**: Eduardo Paredes (owner), Geovany González (backend)
 - **Etiquetas**: persistencia, ef-core, identidad, administración, excepción
@@ -167,6 +167,20 @@ que los que afecta esta excepción.
 - Trazabilidad: plan `15-plan-unificar-usuarios-empleados.md` §5.4 y §7
   (F2½); evidencias `16-evidencia-f0-spike-transaccion.md` y
   `17-evidencia-f1-dominio.md` §4.
+
+**Verificación de aceptación (2026-09-24, cierre ADM-01, criterio 01-10)**
+
+- Alcance: `TransaccionColaborador` sólo se usa en `AltaColaboradorCommand`,
+  `DarAccesoColaboradorCommand` y `GestionColaboradorCommands` (baja /
+  reactivación), dentro de la tabla de alcance permitido.
+- Condición 3: las consultas al directorio (`BuscarPorCorreoAsync`) ocurren
+  antes de abrir la transacción; la creación de cuenta y el correo los hace
+  `ProvisionCuentaEntraWorker` después del commit.
+- Atomicidad de extremo a extremo: `ColaboradoresEndpointsTests`
+  (`Falla_Del_Empleado_No_Deja_Usuario_Creado`, `Rol_Inexistente_No_Deja_Filas_Parciales`,
+  `Sucursal_Fuera_De_La_Empresa_No_Deja_Filas_Parciales`, `Dato_Invalido_No_Deja_Filas_Parciales`)
+  y correlación única de auditoría; suite `Api.IntegrationTests` completa en
+  PostgreSQL aislado.
 
 **Cambios en otros ADRs**
 

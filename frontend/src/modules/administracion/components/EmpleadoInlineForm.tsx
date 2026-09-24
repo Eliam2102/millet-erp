@@ -3,6 +3,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, Loader2, Plus, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -178,11 +179,19 @@ export function EmpleadoInlineForm({
     correoValidable, !esEditar && paso === 3 && acceso !== 0 && canDarAcceso,
   );
 
+  // Rol sugerido por el puesto elegido — solo precarga el select si el
+  // usuario aún no tocó el rol; sigue siendo editable en todo momento
+  // (el hint junto al select avisa que es sugerencia, no asignación).
+  const rolSugeridoId = esEditar
+    ? undefined
+    : puestos.data?.items.find((p) => p.id === puestoSeleccionado)?.rolSugeridoId;
+
   useEffect(() => {
     if (esEditar || !puestoSeleccionado || rolId) return;
-    const sugerido = puestos.data?.items.find((p) => p.id === puestoSeleccionado)?.rolSugeridoId;
-    if (sugerido) setRolId(sugerido);
-  }, [esEditar, puestoSeleccionado, puestos.data, rolId]);
+    if (rolSugeridoId) setRolId(rolSugeridoId);
+  }, [esEditar, puestoSeleccionado, rolSugeridoId, rolId]);
+
+  const rolSeleccionado = roles.data?.items.find((r) => r.id === rolId);
 
   const isPending = crear.isPending || actualizar.isPending;
 
@@ -604,6 +613,14 @@ export function EmpleadoInlineForm({
                   </option>
                 ))}
               </select>
+              {rolSugeridoId && rolId === rolSugeridoId && (
+                <Badge
+                  variant="secondary"
+                  className="mt-1 font-normal text-muted-foreground"
+                >
+                  Sugerido por el puesto — puedes cambiarlo
+                </Badge>
+              )}
             </Field>
           )}
 
@@ -705,6 +722,14 @@ export function EmpleadoInlineForm({
               ? 'Sin acceso al ERP'
               : `${acceso === 1 ? 'Cuenta Microsoft existente' : 'Cuenta Microsoft nueva'} · ${form.getValues('email')}`}
           </p>
+          {acceso !== 0 && (
+            <p className="text-xs text-muted-foreground">
+              Rol a asignar:{' '}
+              <span className="font-medium text-foreground">
+                {rolSeleccionado?.nombre ?? '—'}
+              </span>
+            </p>
+          )}
           {acceso === 2 && <p className="text-xs text-muted-foreground">La contraseña temporal se enviará a {emailContacto}.</p>}
         </div>
       )}

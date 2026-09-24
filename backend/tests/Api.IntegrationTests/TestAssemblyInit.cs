@@ -35,6 +35,15 @@ internal static class TestAssemblyInit
         // simulado. Esas pruebas corren el ciclo a mano.
         Environment.SetEnvironmentVariable("Entra__Provision__Disabled", "true");
 
+        // Identidad de los tests independiente de la configuración local del
+        // desarrollador: quien prueba contra un tenant real guarda Graph y su
+        // OID en user-secrets (que el host de tests también carga en
+        // Development). Las variables de entorno pesan más: los tests siempre
+        // usan el directorio simulado y el SuperAdmin sintético 'dev-superadmin'.
+        Environment.SetEnvironmentVariable("Auth__Mode", "FakeForLocalDev");
+        Environment.SetEnvironmentVariable("Entra__Proveedor", "Simulado");
+        Environment.SetEnvironmentVariable("Auth__InitialAdminEntraOid", "dev-superadmin");
+
         // Soft locks: TTLs cortos para que los tests de expiración no
         // tengan que dormir 90s (default productivo). Los smoke tests son
         // inocuos a esta config — sus entries se releasean al disconnect.

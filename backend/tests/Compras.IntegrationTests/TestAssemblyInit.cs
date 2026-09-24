@@ -28,5 +28,11 @@ internal static class TestAssemblyInit
         Environment.SetEnvironmentVariable("Outbox__Disabled", "true");
         Environment.SetEnvironmentVariable("Compras__Outbox__Disabled", "true");
         Environment.SetEnvironmentVariable("IntegracionesAw__Outbox__Disabled", "true");
+
+        // Identidad de los tests independiente de la configuración local
+        // (user-secrets con tenant real): mismo criterio que Api.IntegrationTests.
+        Environment.SetEnvironmentVariable("Auth__Mode", "FakeForLocalDev");
+        Environment.SetEnvironmentVariable("Entra__Proveedor", "Simulado");
+        Environment.SetEnvironmentVariable("Auth__InitialAdminEntraOid", "dev-superadmin");
     }
 }
