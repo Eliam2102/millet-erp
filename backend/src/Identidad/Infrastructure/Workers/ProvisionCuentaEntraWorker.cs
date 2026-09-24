@@ -194,6 +194,19 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
                     usuario.Email, usuario.Nombre, empleado.EmailContacto, empleado.Clave),
                 ct);
 
+            var logMessage =
+                "\n========================================================================" +
+                "\n[PROVISIÓN ENTRA ID - CUENTA CREADA]" +
+                $"\n  Usuario (UPN):         {creada.Cuenta.Upn}" +
+                $"\n  Nombre:                 {empleado.Nombre}" +
+                $"\n  Contraseña Temporal:   {creada.ContrasenaTemporal}" +
+                $"\n  Correo Contacto:        {empleado.EmailContacto}" +
+                $"\n  OID en Entra ID:        {creada.Cuenta.ObjectId}" +
+                "\n========================================================================";
+
+            _logger.LogInformation("{LogMessage}", logMessage);
+            Console.WriteLine(logMessage);
+
             await correoSaliente.EnviarAccesoColaboradorAsync(
                 new CorreoAccesoColaborador(
                     empleado.EmailContacto,

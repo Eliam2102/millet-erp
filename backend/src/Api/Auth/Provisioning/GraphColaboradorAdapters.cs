@@ -40,7 +40,7 @@ public static class GraphColaboradorRegistration
             entra.DominiosPermitidos.Count == 0 ||
             entra.Provision.Disabled ||
             !Uri.TryCreate(entra.UrlInicioSesion, UriKind.Absolute, out var url) ||
-            url.Scheme != Uri.UriSchemeHttps)
+            (!isDevelopment && url.Scheme != Uri.UriSchemeHttps))
         {
             throw new InvalidOperationException(
                 "Graph para colaboradores requiere TenantId, ClientId, ClientSecret, SenderEmail si el correo es Graph, " +

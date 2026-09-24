@@ -56,14 +56,19 @@ export function buildMsalInstance(): PublicClientApplication | null {
   return new PublicClientApplication(config);
 }
 
-/**
- * Scopes que el frontend pide a MSAL al hacer login. La audience se
- * configura via VITE_API_AUDIENCE (formato `api://<api-client-id>/access_as_user`).
- * El JWT resultante tiene como audience el client ID del API; el
- * EntraTokenValidator del backend lo verifica contra Auth:EntraId:Audience.
- */
+function resolverApiScope(audienceRaw?: string): string {
+  if (!audienceRaw || audienceRaw.trim() === '') return 'openid';
+  const raw = audienceRaw.trim();
+  if (raw === 'openid') return 'openid';
+  if (raw.includes('/', raw.startsWith('api://') ? 7 : 0)) {
+    return raw;
+  }
+  const base = raw.startsWith('api://') ? raw : `api://${raw}`;
+  return `${base.replace(/\/$/, '')}/access_as_user`;
+}
+
 export const apiScopes: string[] = [
-  import.meta.env.VITE_API_AUDIENCE || 'openid',
+  resolverApiScope(import.meta.env.VITE_API_AUDIENCE),
 ];
 
 /**

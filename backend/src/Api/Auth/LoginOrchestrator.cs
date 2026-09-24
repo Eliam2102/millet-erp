@@ -372,7 +372,7 @@ public sealed class LoginOrchestrator
             {
                 selected = ultima;
             }
-            else if (empresasAccesibles.Count == 1)
+            else if (empresasAccesibles.Count > 0)
             {
                 selected = empresasAccesibles[0].Id;
             }
