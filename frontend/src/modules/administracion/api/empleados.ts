@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { adminKeys } from '@/modules/administracion/api/keys';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import type {
   ActualizarEmpleadoPayload,
   CrearEmpleadoCommand,
@@ -29,14 +30,15 @@ const BASE = '/api/v1/admin/empleados';
 const CATALOGOS_EMPLEADOS_KEY = ['catalogos', 'empleados'];
 
 export function useEmpleadosAdmin() {
+  const sucursalId = useAuthStore((s) => s.currentSucursalId);
   return useQuery<EmpleadoListItem[]>({
-    queryKey: adminKeys.empleadosList(),
+    queryKey: adminKeys.empleadosList(sucursalId),
     queryFn: async ({ signal }) => {
       const items: EmpleadoListItem[] = [];
       let offset = 0;
       for (;;) {
         const { data } = await apiRequest<PagedCatalogoResponse<EmpleadoListItem>>(
-          `/api/v1/catalogos/empleados?limit=200&offset=${offset}`,
+          `/api/v1/catalogos/empleados?limit=200&offset=${offset}${sucursalId ? `&sucursalId=${encodeURIComponent(sucursalId)}` : ''}`,
           { signal },
         );
         items.push(...data.items);

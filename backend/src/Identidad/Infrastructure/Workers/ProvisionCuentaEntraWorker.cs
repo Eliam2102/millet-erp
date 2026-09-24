@@ -175,10 +175,13 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
         {
             var empleado = await compartido.Empleados.IgnoreQueryFilters().AsNoTracking()
                 .Where(e => e.UsuarioId == usuario.Id)
-                .Select(e => new { e.Id, e.Clave, e.Nombre, e.EmailContacto })
+                .Select(e => new { e.Id, e.Clave, e.Nombre, e.EmailContacto, e.Estatus })
                 .FirstOrDefaultAsync(ct)
                 ?? throw new BusinessRuleException(
                     "PROVISION_SIN_EMPLEADO", "El usuario no tiene un empleado vinculado.");
+            if (empleado.Estatus != Millet.Catalogos.Domain.EstatusCatalogo.Activo || !usuario.Activo)
+                throw new BusinessRuleException("COLABORADOR_INACTIVO",
+                    "No se aprovisiona el acceso de un empleado dado de baja.");
             if (string.IsNullOrWhiteSpace(empleado.EmailContacto))
             {
                 throw new BusinessRuleException(

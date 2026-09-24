@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { KeyRound, Pencil, Plus, Power, PowerOff, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -144,7 +145,7 @@ export function EmpleadosPage() {
                       {e.clave}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">{e.nombre}</p>
+                      <p className="truncate text-sm"><Link to="/admin/empleados/$id" params={{ id: e.id }} className="font-medium hover:underline">{e.nombre}</Link></p>
                       {e.email && (
                         <p className="truncate text-xs text-muted-foreground">
                           {e.email}

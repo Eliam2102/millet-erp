@@ -148,8 +148,17 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
             empleado.ActualizarDatos(email: correo, usuarioId: usuarioId,
                 emailContacto: request.EmailContacto?.Trim());
             await _compartido.SaveChangesAsync(ct);
-            await _mediator.Send(new AsignarRolAUsuarioCommand(usuarioId, empleado.EmpresaId, rolId), ct);
-            await _mediator.Send(new AsignarUsuarioASucursalCommand(sucursalId, usuarioId), ct);
+            var tieneRol = await _identidad.UsuarioEmpresaRoles.IgnoreQueryFilters().AsNoTracking()
+                .AnyAsync(a => a.UsuarioId == usuarioId && a.EmpresaId == empleado.EmpresaId && a.RolId == rolId, ct);
+            if (!tieneRol)
+                await _mediator.Send(new AsignarRolAUsuarioCommand(usuarioId, empleado.EmpresaId, rolId), ct);
+
+            var asignacionSucursal = await _identidad.UsuarioSucursales.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(a => a.UsuarioId == usuarioId && a.SucursalId == sucursalId, ct);
+            if (asignacionSucursal is null)
+                await _mediator.Send(new AsignarUsuarioASucursalCommand(sucursalId, usuarioId), ct);
+            else if (asignacionSucursal.Estatus != EstatusCatalogo.Activo)
+                await _mediator.Send(new ReactivarAsignacionUsuarioSucursalCommand(sucursalId, usuarioId), ct);
 
             var final = await _identidad.Usuarios.AsNoTracking().SingleAsync(u => u.Id == usuarioId, ct);
             var empleadoResponse = new EmpleadoResponse(

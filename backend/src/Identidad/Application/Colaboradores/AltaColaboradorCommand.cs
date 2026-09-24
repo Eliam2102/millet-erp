@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Millet.Administracion.Application.Empleados;
+using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Application.DirectorioEntra;
 using Millet.Identidad.Application.Ports;
@@ -245,12 +246,18 @@ public sealed class AltaColaboradorHandler
                     new AsignarRolAUsuarioCommand(usuarioId, sucursal.EmpresaId, rolId), cancellationToken);
             }
 
-            var tieneSucursal = await _identidad.UsuarioSucursales.IgnoreQueryFilters().AsNoTracking()
-                .AnyAsync(us => us.UsuarioId == usuarioId && us.SucursalId == sucursal.Id, cancellationToken);
-            if (!tieneSucursal)
+            var asignacionSucursal = await _identidad.UsuarioSucursales.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(us => us.UsuarioId == usuarioId && us.SucursalId == sucursal.Id,
+                    cancellationToken);
+            if (asignacionSucursal is null)
             {
                 await _mediator.Send(
                     new AsignarUsuarioASucursalCommand(sucursal.Id, usuarioId), cancellationToken);
+            }
+            else if (asignacionSucursal.Estatus != EstatusCatalogo.Activo)
+            {
+                await _mediator.Send(
+                    new ReactivarAsignacionUsuarioSucursalCommand(sucursal.Id, usuarioId), cancellationToken);
             }
 
             var usuario = await _identidad.Usuarios.AsNoTracking()

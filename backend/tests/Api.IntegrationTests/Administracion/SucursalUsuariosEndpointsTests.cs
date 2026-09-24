@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Administracion.Domain;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -274,6 +275,52 @@ public class SucursalUsuariosEndpointsTests : IClassFixture<WebApplicationFactor
         var response = await client.GetAsync($"{EmpresasBase}/sucursales/{sucursalId}/usuarios");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sucursales_De_Sesion_Muestran_Solo_Las_Asignadas_Al_Usuario()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var propia = await CrearSucursalAsync(admin, "SESP");
+        var ajena = await CrearSucursalAsync(admin, "SESA");
+        var (client, usuarioId) = await CreateUsuarioConPermisoAsync(
+            "compartido.catalogos.leer");
+        await SeedUsuarioSucursalAsync(usuarioId, propia, EmpresaInicialId);
+
+        var response = await client.GetAsync("/api/auth/sucursales");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var items = await ReadJsonAsync(response);
+        Assert.Contains(items.EnumerateArray(), s => s.GetProperty("id").GetGuid() == propia);
+        Assert.DoesNotContain(items.EnumerateArray(), s => s.GetProperty("id").GetGuid() == ajena);
+    }
+
+    [Fact]
+    public async Task Catalogo_Empleados_No_Expone_Personal_De_Sucursal_Ajena()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var propia = await CrearSucursalAsync(admin, "EMP-P");
+        var ajena = await CrearSucursalAsync(admin, "EMP-A");
+        var (client, usuarioId) = await CreateUsuarioConPermisoAsync(
+            "compartido.catalogos.leer");
+        await SeedUsuarioSucursalAsync(usuarioId, propia, EmpresaInicialId);
+        var clavePropia = $"EP-{Guid.NewGuid():N}"[..12];
+        var claveAjena = $"EA-{Guid.NewGuid():N}"[..12];
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            db.Empleados.Add(new Empleado(Guid.CreateVersion7(), EmpresaInicialId, clavePropia, "Empleado propio", sucursalId: propia));
+            db.Empleados.Add(new Empleado(Guid.CreateVersion7(), EmpresaInicialId, claveAjena, "Empleado ajeno", sucursalId: ajena));
+            await db.SaveChangesAsync();
+        }
+
+        var listado = await client.GetAsync("/api/v1/catalogos/empleados?limit=200");
+        Assert.Equal(HttpStatusCode.OK, listado.StatusCode);
+        var items = (await ReadJsonAsync(listado)).GetProperty("items");
+        Assert.Contains(items.EnumerateArray(), e => e.GetProperty("clave").GetString() == clavePropia);
+        Assert.DoesNotContain(items.EnumerateArray(), e => e.GetProperty("clave").GetString() == claveAjena);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.GetAsync($"/api/v1/catalogos/empleados?sucursalId={ajena}")).StatusCode);
     }
 
     [Fact]

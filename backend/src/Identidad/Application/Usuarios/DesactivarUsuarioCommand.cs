@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Identidad.Application.Usuarios;
@@ -27,8 +28,13 @@ public sealed class DesactivarUsuarioHandler
     public const string SuperAdminCodigo = "super-admin";
 
     private readonly IdentidadDbContext _db;
+    private readonly IPermissionCache _permissionCache;
 
-    public DesactivarUsuarioHandler(IdentidadDbContext db) => _db = db;
+    public DesactivarUsuarioHandler(IdentidadDbContext db, IPermissionCache permissionCache)
+    {
+        _db = db;
+        _permissionCache = permissionCache;
+    }
 
     public async Task<UsuarioResponse> Handle(
         DesactivarUsuarioCommand command, CancellationToken cancellationToken)
@@ -45,6 +51,9 @@ public sealed class DesactivarUsuarioHandler
 
             usuario.Desactivar();
             await _db.SaveChangesAsync(cancellationToken);
+            // El JWT existente conserva identidad, pero ya no debe conservar
+            // permisos cacheados durante el TTL tras una baja.
+            await _permissionCache.InvalidateAllForUserAsync(usuario.Id, cancellationToken);
         }
 
         return new UsuarioResponse(

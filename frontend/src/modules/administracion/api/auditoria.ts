@@ -54,6 +54,7 @@ function buildAuditoriaPath(filtros: ConsultarBitacoraFiltros): string {
   if (filtros.empresaId != null && filtros.empresaId.length > 0) {
     params.set('empresaId', filtros.empresaId);
   }
+  if (filtros.sucursalId) params.set('sucursalId', filtros.sucursalId);
   if (filtros.offset != null) params.set('offset', String(filtros.offset));
   if (filtros.limit != null) params.set('limit', String(filtros.limit));
   return `/api/v1/admin/auditoria?${params.toString()}`;

@@ -66,6 +66,38 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task Get_Filtra_Sucursal_Sin_Ocultar_Eventos_Globales_En_Consulta_Sin_Filtro()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var clave = $"AUD-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var crear = await client.PostAsJsonAsync("/api/v1/admin/empresas/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = clave,
+            Nombre = $"Sucursal {clave}",
+        });
+        crear.EnsureSuccessStatusCode();
+        var sucursalId = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var desde = hoy.AddDays(-1);
+        var url = $"{EndpointBase}?desde={desde:yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}&sucursalId={sucursalId}";
+
+        var response = await client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var items = (await ReadJsonAsync(response)).GetProperty("items");
+        Assert.Contains(items.EnumerateArray(), i =>
+            i.GetProperty("entidad").GetString() == "Sucursal" &&
+            i.GetProperty("sucursalId").GetGuid() == sucursalId &&
+            i.GetProperty("sucursalClave").GetString() == clave);
+        Assert.All(items.EnumerateArray(), i =>
+            Assert.Equal(sucursalId, i.GetProperty("sucursalId").GetGuid()));
+
+        var global = await client.GetAsync(
+            $"{EndpointBase}?desde={desde:yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}");
+        Assert.Equal(HttpStatusCode.OK, global.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_Sin_Token_Retorna_401()
     {
         var client = _factory.CreateClient();
@@ -78,7 +110,7 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateClientWithIdempotency();
         var token = await FakeLoginAsync(client, SuperAdminOid, "superadmin@dev.local", "Super Admin Dev");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;

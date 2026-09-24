@@ -39,6 +39,18 @@ public static class SucursalUsuariosEndpoints
 {
     public static IEndpointRouteBuilder MapSucursalUsuariosEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/v1/admin/usuarios/{usuarioId:guid}/sucursales", async (
+            Guid usuarioId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarSucursalesDeUsuarioQuery(usuarioId), ct)))
+        .RequireAuthorization(
+            PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminSucursalesUsuariosGestionar)
+        .WithTags("Administracion")
+        .WithName("ListarSucursalesDeUsuario")
+        .WithSummary("Asignaciones de sucursal de un usuario en la empresa activa")
+        .Produces<ListarUsuariosPorSucursalResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         var group = app
             .MapGroup("/api/v1/admin/empresas/sucursales/{sucursalId:guid}/usuarios")
             .WithTags("Administracion");

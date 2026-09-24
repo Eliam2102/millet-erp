@@ -29,6 +29,7 @@ public static class AuditoriaEndpoints
             [FromQuery] string? accion,
             [FromQuery] Guid? usuarioId,
             [FromQuery] Guid? empresaId,
+            [FromQuery] Guid? sucursalId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -53,6 +54,7 @@ public static class AuditoriaEndpoints
                 Accion: accion,
                 UsuarioId: usuarioId,
                 EmpresaId: empresaId,
+                SucursalId: sucursalId,
                 Offset: offset ?? 0,
                 Limit: limit ?? 50);
 
