@@ -49,6 +49,15 @@ public sealed class EntraDirectorioOptions
 public sealed class EntraSimulacionOptions
 {
     public List<CuentaSimuladaOptions> CuentasExistentes { get; set; } = [];
+
+    /// <summary>Buzón SMTP de captura exclusivamente local (por ejemplo Mailpit).</summary>
+    public CorreoSandboxOptions CorreoSandbox { get; set; } = new();
+}
+
+public sealed class CorreoSandboxOptions
+{
+    public string Host { get; set; } = string.Empty;
+    public int Puerto { get; set; } = 1025;
 }
 
 public sealed class CuentaSimuladaOptions
@@ -65,8 +74,8 @@ public sealed class CuentaSimuladaOptions
 public sealed class ProvisionCuentaEntraOptions
 {
     /// <summary>Apaga el worker (el alta con cuenta nueva queda en espera).</summary>
-    // Sin adaptadores reales de directorio y correo, no se debe marcar
-    // automáticamente una cuenta simulada como provisionada o notificada.
+    // En Development puede habilitarse con directorio simulado y SMTP local;
+    // el valor seguro por defecto en los demás ambientes sigue siendo true.
     public bool Disabled { get; set; } = true;
 
     public int IntervalSeconds { get; set; } = 15;
