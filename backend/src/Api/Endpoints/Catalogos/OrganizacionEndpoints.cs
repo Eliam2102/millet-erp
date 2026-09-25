@@ -191,7 +191,8 @@ public static class OrganizacionEndpoints
                     p.Nombre,
                     p.Estatus,
                     p.DepartamentoId,
-                    p.DepartamentoId != null && deptos.TryGetValue(p.DepartamentoId.Value, out var dn) ? dn : null))
+                    p.DepartamentoId != null && deptos.TryGetValue(p.DepartamentoId.Value, out var dn) ? dn : null,
+                    p.RolSugeridoId))
                 .ToList();
 
             return Results.Ok(new PagedCatalogoResponse<PuestoListItem>(items, off, lim, total));
@@ -321,7 +322,8 @@ public sealed record PuestoListItem(
     string Nombre,
     EstatusCatalogo Estatus,
     Guid? DepartamentoId = null,
-    string? DepartamentoNombre = null);
+    string? DepartamentoNombre = null,
+    Guid? RolSugeridoId = null);
 
 public sealed record EmpleadoListItem(
     Guid Id,
