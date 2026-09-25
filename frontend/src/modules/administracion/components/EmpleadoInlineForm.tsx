@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, Loader2, Plus, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,10 +18,10 @@ import {
 import {
   useActualizarEmpleado,
   useAltaColaborador,
+  usePuestosDeSucursal,
   useValidarCorreoCorporativo,
 } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
-import { usePuestos } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { ActualizarEmpleadoPayload } from '@/modules/administracion/api/types';
@@ -77,7 +78,6 @@ export function EmpleadoInlineForm({
   const canAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const canDarAcceso = canCrearUsuarios && canAsignar;
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
-  const puestos = usePuestos();
   const [paso, setPaso] = useState(0);
   const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
   const [emailContacto, setEmailContacto] = useState('');
@@ -178,11 +178,34 @@ export function EmpleadoInlineForm({
     correoValidable, !esEditar && paso === 3 && acceso !== 0 && canDarAcceso,
   );
 
+  // Rol sugerido por la asignación puntual (sucursal+puesto+departamento) —
+  // con Parte E (un puesto en varios departamentos) el rol sugerido ya
+  // NO es propiedad del puesto solo: cada asignación puede traer su
+  // propia excepción (rolSugeridoId) y si no, hereda el del puesto
+  // (rolSugeridoEfectivoId = asignación ?? puesto). Solo precarga el
+  // select si el usuario aún no tocó el rol; sigue siendo editable en
+  // todo momento (el hint junto al select avisa que es sugerencia, no
+  // asignación — 01-04).
+  const puestosDeSucursal = usePuestosDeSucursal(
+    !esEditar ? sucursalSeleccionada || null : null,
+    !esEditar ? departamentoSeleccionado || null : null,
+  );
+  const rolSugeridoEfectivoId = esEditar
+    ? undefined
+    : puestosDeSucursal.data?.items.find((p) => p.puestoId === puestoSeleccionado)
+        ?.rolSugeridoEfectivoId;
+
   useEffect(() => {
     if (esEditar || !puestoSeleccionado || rolId) return;
-    const sugerido = puestos.data?.items.find((p) => p.id === puestoSeleccionado)?.rolSugeridoId;
-    if (sugerido) setRolId(sugerido);
-  }, [esEditar, puestoSeleccionado, puestos.data, rolId]);
+    if (rolSugeridoEfectivoId && rolSugeridoEfectivoId !== rolId) {
+      setRolId(rolSugeridoEfectivoId);
+      if (paso >= 2 && rolId) {
+        toast.info('Se actualizó el rol sugerido de acuerdo al puesto seleccionado');
+      }
+    }
+  }, [esEditar, puestoSeleccionado, rolSugeridoEfectivoId, rolId, paso]);
+
+  const rolSeleccionado = roles.data?.items.find((r) => r.id === rolId);
 
   const isPending = crear.isPending || actualizar.isPending;
 
@@ -492,7 +515,11 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field label="Departamento" className={cn('md:col-span-4', !esEditar && paso !== 1 && 'hidden')}>
+        <Field
+          label="Departamento"
+          error={form.formState.errors.departamentoId?.message}
+          className={cn('md:col-span-4', !esEditar && paso !== 1 && 'hidden')}
+        >
           <Controller
             control={form.control}
             name="departamentoId"
@@ -598,14 +625,41 @@ export function EmpleadoInlineForm({
                 onChange={(e) => setRolId(e.target.value)}
               >
                 <option value="">Selecciona un rol</option>
-                {(roles.data?.items ?? []).filter((r) => r.activo).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.nombre}
-                  </option>
-                ))}
+                {(() => {
+                  const rolSugeridoDelPuesto = puestosDeSucursal.data?.items.find(p => p.puestoId === puestoSeleccionado)?.rolSugeridoEfectivoId;
+                  const todosRoles = (roles.data?.items ?? []).filter((r) => r.activo);
+                  const sugerido = todosRoles.find(r => r.id === rolSugeridoDelPuesto);
+                  const otros = todosRoles.filter(r => r.id !== rolSugeridoDelPuesto);
+                  return (
+                    <>
+                      {sugerido && (
+                        <optgroup label="Sugerido para el puesto">
+                          <option value={sugerido.id}>{sugerido.nombre} (Recomendado)</option>
+                        </optgroup>
+                      )}
+                      <optgroup label={sugerido ? "Otros roles disponibles" : "Roles disponibles"}>
+                        {otros.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nombre}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </>
+                  );
+                })()}
               </select>
+              {rolSugeridoEfectivoId && rolId === rolSugeridoEfectivoId && (
+                <Badge
+                  variant="secondary"
+                  className="mt-1 font-normal text-muted-foreground"
+                >
+                  Sugerido por el puesto — puedes cambiarlo
+                </Badge>
+              )}
             </Field>
           )}
+
+          
 
           {acceso !== 0 && correoValidable && (
             <div className="rounded-md border p-2.5 text-xs md:col-span-3" role="status" aria-live="polite">
@@ -705,6 +759,14 @@ export function EmpleadoInlineForm({
               ? 'Sin acceso al ERP'
               : `${acceso === 1 ? 'Cuenta Microsoft existente' : 'Cuenta Microsoft nueva'} · ${form.getValues('email')}`}
           </p>
+          {acceso !== 0 && (
+            <p className="text-xs text-muted-foreground">
+              Rol a asignar:{' '}
+              <span className="font-medium text-foreground">
+                {rolSeleccionado?.nombre ?? '—'}
+              </span>
+            </p>
+          )}
           {acceso === 2 && <p className="text-xs text-muted-foreground">La contraseña temporal se enviará a {emailContacto}.</p>}
         </div>
       )}
