@@ -626,7 +626,7 @@ export function EmpleadoInlineForm({
               >
                 <option value="">Selecciona un rol</option>
                 {(() => {
-                  const rolSugeridoDelPuesto = puestosDeSucursal.data?.items.find((p: any) => p.puestoId === puestoSeleccionado)?.rolSugeridoEfectivoId;
+                  const rolSugeridoDelPuesto = puestosDeSucursal.data?.items.find(p => p.puestoId === puestoSeleccionado)?.rolSugeridoEfectivoId;
                   const todosRoles = (roles.data?.items ?? []).filter((r) => r.activo);
                   const sugerido = todosRoles.find(r => r.id === rolSugeridoDelPuesto);
                   const otros = todosRoles.filter(r => r.id !== rolSugeridoDelPuesto);
