@@ -19,6 +19,20 @@ internal static class TestAssemblyInit
     [ModuleInitializer]
     public static void Init()
     {
+        // F1 (Parte F, base de desarrollo limpia): los tests de integración
+        // usan una BD desechable, nunca `millet_dev`. Sin esta variable el
+        // host caería en el `ConnectionStrings:Postgres` de
+        // appsettings.Development.json (la BD de desarrollo compartida) y
+        // la contaminaría con datos de prueba. Falla rápido y en español
+        // en vez de dejar que el host arranque contra la BD equivocada.
+        if (string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")))
+        {
+            throw new InvalidOperationException(
+                "Los tests de integración usan una BD desechable: corre " +
+                "./tools/validate-integration-isolated.sh [--filter ...]");
+        }
+
         // PR B (Integraciones.Aw) — las options del outbox ahora son named
         // por DbContext (Compras:Outbox, IntegracionesAw:Outbox). El env
         // var raíz "Outbox__Disabled" queda como cinturón histórico
@@ -57,5 +71,13 @@ internal static class TestAssemblyInit
         // visible al desarrollar; los tests dependen del comportamiento
         // legado y se aíslan con este override.
         Environment.SetEnvironmentVariable("Compras__Stubs__Stock__DefaultRatio", "1.0");
+
+        // F2 (Parte F): la fase de datos demo del seed de Compartido solo
+        // corre si `Seed:DatosDemo:Habilitado=true` (dev local). Los tests
+        // fuerzan `false` — dependen únicamente del seed de prueba
+        // existente (TestSucursales/TestDepartamentos/etc.), no de los
+        // datos demo, que no son deterministas frente a los asserts de
+        // conteo de la suite.
+        Environment.SetEnvironmentVariable("Seed__DatosDemo__Habilitado", "false");
     }
 }

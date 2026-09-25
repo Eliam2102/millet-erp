@@ -21,6 +21,17 @@ internal static class TestAssemblyInit
     [ModuleInitializer]
     public static void Init()
     {
+        // F1 (Parte F, base de desarrollo limpia): sin BD desechable no se
+        // arranca — evita caer en `millet_dev` por defecto. Mismo criterio
+        // que Api.IntegrationTests.
+        if (string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")))
+        {
+            throw new InvalidOperationException(
+                "Los tests de integración usan una BD desechable: corre " +
+                "./tools/validate-integration-isolated.sh [--filter ...]");
+        }
+
         // PR B (Integraciones.Aw) — named options por DbContext. Seteamos
         // ambas para que ningún worker tickee mientras tests manipulan
         // outbox o filas relacionadas. El env var raíz queda como
@@ -34,5 +45,9 @@ internal static class TestAssemblyInit
         Environment.SetEnvironmentVariable("Auth__Mode", "FakeForLocalDev");
         Environment.SetEnvironmentVariable("Entra__Proveedor", "Simulado");
         Environment.SetEnvironmentVariable("Auth__InitialAdminEntraOid", "dev-superadmin");
+
+        // F2 (Parte F): idem Api.IntegrationTests — la fase de datos demo
+        // del seed de Compartido no corre en tests.
+        Environment.SetEnvironmentVariable("Seed__DatosDemo__Habilitado", "false");
     }
 }
