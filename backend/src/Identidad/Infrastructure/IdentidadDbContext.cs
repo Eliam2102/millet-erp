@@ -115,6 +115,8 @@ public sealed class IdentidadDbContext : BaseDbContext
         // respecto de Entra ID y marca de cuenta técnica (D4).
         usuario.Property(x => x.EstadoAcceso).HasConversion<short>().IsRequired();
         usuario.Property(x => x.PrimerAccesoEn);
+        usuario.Property(x => x.AccesoEnviadoEn);
+        usuario.Property(x => x.ContrasenaTemporal).HasMaxLength(128);
         usuario.Property(x => x.MotivoErrorProvision)
             .HasMaxLength(Usuario.MotivoErrorProvisionMaxLength);
         usuario.Property(x => x.EsCuentaTecnica).IsRequired();

@@ -208,4 +208,40 @@ public sealed class UsuarioEstadoAccesoTests
         usuario.MarcarComoCuentaTecnica();
         usuario.EsCuentaTecnica.Should().BeTrue();
     }
+
+    [Fact]
+    public void RegistrarEnvioAcceso_Guarda_ContrasenaTemporal()
+    {
+        var usuario = Crear(OidReal, EstadoAcceso.PendientePrimerAcceso);
+        var ahora = DateTimeOffset.UtcNow;
+
+        usuario.RegistrarEnvioAcceso(ahora, "TempPass123!");
+
+        usuario.AccesoEnviadoEn.Should().Be(ahora);
+        usuario.ContrasenaTemporal.Should().Be("TempPass123!");
+    }
+
+    [Fact]
+    public void RegistrarAcceso_Limpia_ContrasenaTemporal()
+    {
+        var usuario = Crear(OidReal, EstadoAcceso.PendientePrimerAcceso);
+        usuario.GuardarContrasenaTemporal("TempPass123!");
+        usuario.ContrasenaTemporal.Should().Be("TempPass123!");
+
+        usuario.RegistrarAcceso(DateTimeOffset.UtcNow);
+
+        usuario.EstadoAcceso.Should().Be(EstadoAcceso.Activo);
+        usuario.ContrasenaTemporal.Should().BeNull();
+    }
+
+    [Fact]
+    public void GuardarContrasenaTemporal_Y_LimpiarContrasenaTemporal_Funcionan()
+    {
+        var usuario = Crear(OidReal, EstadoAcceso.PendientePrimerAcceso);
+        usuario.GuardarContrasenaTemporal("NuevaPass456!");
+        usuario.ContrasenaTemporal.Should().Be("NuevaPass456!");
+
+        usuario.LimpiarContrasenaTemporal();
+        usuario.ContrasenaTemporal.Should().BeNull();
+    }
 }
