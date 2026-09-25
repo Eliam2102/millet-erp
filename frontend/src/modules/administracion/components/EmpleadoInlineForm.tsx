@@ -196,7 +196,7 @@ export function EmpleadoInlineForm({
         ?.rolSugeridoEfectivoId;
 
   useEffect(() => {
-    if (esEditar || !puestoSeleccionado) return;
+    if (esEditar || !puestoSeleccionado || rolId) return;
     if (rolSugeridoEfectivoId && rolSugeridoEfectivoId !== rolId) {
       setRolId(rolSugeridoEfectivoId);
       if (paso >= 2 && rolId) {
@@ -626,7 +626,7 @@ export function EmpleadoInlineForm({
               >
                 <option value="">Selecciona un rol</option>
                 {(() => {
-                  const rolSugeridoDelPuesto = puestos.data?.items.find(p => p.id === puestoSeleccionado)?.rolSugeridoId;
+                  const rolSugeridoDelPuesto = puestosDeSucursal.data?.items.find((p: any) => p.puestoId === puestoSeleccionado)?.rolSugeridoEfectivoId;
                   const todosRoles = (roles.data?.items ?? []).filter((r) => r.activo);
                   const sugerido = todosRoles.find(r => r.id === rolSugeridoDelPuesto);
                   const otros = todosRoles.filter(r => r.id !== rolSugeridoDelPuesto);
@@ -659,18 +659,7 @@ export function EmpleadoInlineForm({
             </Field>
           )}
 
-          {acceso !== 0 && (() => {
-            const rolSugeridoId = puestos.data?.items.find(p => p.id === puestoSeleccionado)?.rolSugeridoId;
-            if (rolSugeridoId && rolId === rolSugeridoId) {
-              const rol = roles.data?.items.find(r => r.id === rolSugeridoId);
-              return (
-                <p className="text-xs text-muted-foreground mt-1 col-span-1 md:col-span-3">
-                  Se ha seleccionado <strong>{rol?.nombre}</strong> porque es el rol configurado como predeterminado (por sus alcances) para el puesto elegido.
-                </p>
-              );
-            }
-            return null;
-          })()}
+          
 
           {acceso !== 0 && correoValidable && (
             <div className="rounded-md border p-2.5 text-xs md:col-span-3" role="status" aria-live="polite">
