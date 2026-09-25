@@ -3,10 +3,13 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { SucursalInlineForm } from '@/modules/administracion/components/SucursalInlineForm';
 
+import { TipoSucursal } from '@/modules/administracion/api/types';
+
 const sucursalExistente = {
   id: 's-1',
   clave: 'MID',
   nombre: 'Mérida',
+  tipo: TipoSucursal.Taller,
   estatus: 0,
   version: 1,
 };
@@ -70,4 +73,18 @@ describe('<SucursalInlineForm> — smoke', () => {
     fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it('renderiza selector de tipo con opciones Taller y Planta', () => {
+    render(
+      <SucursalInlineForm empresaId="e-1" onCancel={() => {}} />,
+      { wrapper: createQueryWrapper() },
+    );
+    const select = screen.getByRole('combobox', { name: /tipo de sucursal/i }) as HTMLSelectElement;
+    expect(select).toBeInTheDocument();
+    expect(select.value).toBe(String(TipoSucursal.Taller));
+
+    expect(screen.getByRole('option', { name: /taller/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /planta/i })).toBeInTheDocument();
+  });
 });
+

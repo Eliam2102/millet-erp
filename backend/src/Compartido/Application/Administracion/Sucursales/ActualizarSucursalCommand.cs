@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -14,6 +15,7 @@ namespace Millet.Administracion.Application.Sucursales;
 public sealed record ActualizarSucursalCommand(
     Guid Id,
     string? Nombre,
+    TipoSucursal? Tipo = null,
     string? ClaveAw = null,
     bool LimpiarClaveAw = false,
     string? ZonaHoraria = null) : IRequest<SucursalResponse>;
@@ -25,6 +27,9 @@ public sealed class ActualizarSucursalValidator : AbstractValidator<ActualizarSu
         RuleFor(c => c.Id).NotEmpty();
         RuleFor(c => c.Nombre!).NotEmpty().MaximumLength(254)
             .When(c => c.Nombre is not null);
+        RuleFor(c => c.Tipo!.Value).IsInEnum()
+            .When(c => c.Tipo.HasValue)
+            .WithMessage("El tipo de sucursal debe ser Taller (1) o Planta (2).");
         RuleFor(c => c.ClaveAw!).NotEmpty().MaximumLength(40)
             .When(c => c.ClaveAw is not null);
         RuleFor(c => c.ClaveAw).Null()
@@ -67,13 +72,14 @@ public sealed class ActualizarSucursalHandler
 
         sucursal.ActualizarDatos(
             nombre: command.Nombre,
+            tipo: command.Tipo,
             claveAw: command.ClaveAw,
             limpiarClaveAw: command.LimpiarClaveAw,
             zonaHoraria: command.ZonaHoraria);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new SucursalResponse(
-            sucursal.Id, sucursal.Clave, sucursal.Nombre,
+            sucursal.Id, sucursal.Clave, sucursal.Nombre, sucursal.Tipo,
             sucursal.Estatus, sucursal.Version, sucursal.ClaveAw, sucursal.ZonaHoraria);
     }
 }

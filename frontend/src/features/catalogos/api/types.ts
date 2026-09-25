@@ -23,11 +23,18 @@ export const TipoPersonaProveedor = {
 export type TipoPersonaProveedor =
   (typeof TipoPersonaProveedor)[keyof typeof TipoPersonaProveedor];
 
+export const TipoSucursal = {
+  Taller: 1,
+  Planta: 2,
+} as const;
+export type TipoSucursal = (typeof TipoSucursal)[keyof typeof TipoSucursal];
+
 /** Mirror de <c>SucursalListItem</c>. */
 export interface SucursalListItem {
   id: string;
   clave: string;
   nombre: string;
+  tipo: TipoSucursal;
   estatus: EstatusCatalogo;
 }
 

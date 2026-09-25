@@ -73,7 +73,7 @@ describe('useEmpresa', () => {
         HttpResponse.json({
           empresa: makeEmpresa(),
           sucursales: [
-            { id: 's-1', clave: 'MID', nombre: 'Mérida', estatus: 0, version: 1 },
+            { id: 's-1', clave: 'MID', nombre: 'Mérida', tipo: 1, estatus: 0, version: 1 },
           ],
           departamentos: [
             { id: 'd-1', clave: 'COMP', nombre: 'Compras', estatus: 0, version: 1 },

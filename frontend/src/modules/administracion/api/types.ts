@@ -35,10 +35,17 @@ export interface ListarEmpresasResponse {
   total: number;
 }
 
+export const TipoSucursal = {
+  Taller: 1,
+  Planta: 2,
+} as const;
+export type TipoSucursal = (typeof TipoSucursal)[keyof typeof TipoSucursal];
+
 export interface SucursalResponse {
   id: string;
   clave: string;
   nombre: string;
+  tipo: TipoSucursal;
   /** Enum <c>EstatusCatalogo</c> serializado como número. */
   estatus: number;
   version: number;
@@ -47,6 +54,7 @@ export interface SucursalResponse {
    * ADR-0048, p.ej. "CONKAL"). null = no recibe pedidos de A+W.
    */
   claveAw?: string | null;
+  zonaHoraria?: string;
 }
 
 export interface DepartamentoResponse {
@@ -189,13 +197,16 @@ export interface CrearSucursalCommand {
   id?: string;
   clave: string;
   nombre: string;
+  tipo?: TipoSucursal;
   claveAw?: string | null;
 }
 
 export interface ActualizarSucursalPayload {
   nombre?: string | null;
+  tipo?: TipoSucursal | null;
   claveAw?: string | null;
   limpiarClaveAw?: boolean | null;
+  zonaHoraria?: string | null;
 }
 
 export interface CrearCanalVentaCommand {

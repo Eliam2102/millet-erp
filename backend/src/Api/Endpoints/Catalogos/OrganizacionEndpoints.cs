@@ -48,6 +48,7 @@ public static class OrganizacionEndpoints
         // --- Sucursales ---
         sucursales.MapGet("/", async (
             [FromQuery] EstatusCatalogo? estatus,
+            [FromQuery] TipoSucursal? tipo,
             [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
@@ -57,6 +58,7 @@ public static class OrganizacionEndpoints
             var (off, lim) = NormalizePaging(offset, limit);
             IQueryable<Sucursal> query = db.Sucursales.AsNoTracking();
             if (estatus is EstatusCatalogo e) query = query.Where(s => s.Estatus == e);
+            if (tipo is TipoSucursal t) query = query.Where(s => s.Tipo == t);
             if (!string.IsNullOrWhiteSpace(q))
             {
                 query = query.Where(s => s.Clave.Contains(q) || s.Nombre.Contains(q));
@@ -66,7 +68,7 @@ public static class OrganizacionEndpoints
             var items = await query
                 .OrderBy(s => s.Clave)
                 .Skip(off).Take(lim)
-                .Select(s => new SucursalListItem(s.Id, s.Clave, s.Nombre, s.Estatus))
+                .Select(s => new SucursalListItem(s.Id, s.Clave, s.Nombre, s.Tipo, s.Estatus))
                 .ToListAsync(ct);
 
             return Results.Ok(new PagedCatalogoResponse<SucursalListItem>(items, off, lim, total));
@@ -301,6 +303,7 @@ public sealed record SucursalListItem(
     Guid Id,
     string Clave,
     string Nombre,
+    TipoSucursal Tipo,
     EstatusCatalogo Estatus);
 
 public sealed record DepartamentoListItem(

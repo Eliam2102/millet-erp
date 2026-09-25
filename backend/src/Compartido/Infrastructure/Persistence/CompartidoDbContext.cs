@@ -1109,7 +1109,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         sucursal.ToTable("sucursales", t =>
         {
             t.HasCheckConstraint("ck_sucursales_estatus", "estatus BETWEEN 0 AND 2");
-            t.HasCheckConstraint("ck_sucursales_tipo", "tipo BETWEEN 0 AND 2");
+            t.HasCheckConstraint("ck_sucursales_tipo", "tipo BETWEEN 1 AND 2");
         });
         sucursal.HasKey(x => x.Id);
         sucursal.Property(x => x.EmpresaId).IsRequired();
