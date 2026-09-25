@@ -179,10 +179,15 @@ export function EmpleadoInlineForm({
   );
 
   useEffect(() => {
-    if (esEditar || !puestoSeleccionado || rolId) return;
+    if (esEditar || !puestoSeleccionado) return;
     const sugerido = puestos.data?.items.find((p) => p.id === puestoSeleccionado)?.rolSugeridoId;
-    if (sugerido) setRolId(sugerido);
-  }, [esEditar, puestoSeleccionado, puestos.data, rolId]);
+    if (sugerido && sugerido !== rolId) {
+      setRolId(sugerido);
+      if (paso >= 2 && rolId) {
+        toast.info('Se actualizó el rol sugerido de acuerdo al puesto seleccionado');
+      }
+    }
+  }, [esEditar, puestoSeleccionado, puestos.data, rolId, paso]);
 
   const isPending = crear.isPending || actualizar.isPending;
 
@@ -598,14 +603,44 @@ export function EmpleadoInlineForm({
                 onChange={(e) => setRolId(e.target.value)}
               >
                 <option value="">Selecciona un rol</option>
-                {(roles.data?.items ?? []).filter((r) => r.activo).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.nombre}
-                  </option>
-                ))}
+                {(() => {
+                  const rolSugeridoDelPuesto = puestos.data?.items.find(p => p.id === puestoSeleccionado)?.rolSugeridoId;
+                  const todosRoles = (roles.data?.items ?? []).filter((r) => r.activo);
+                  const sugerido = todosRoles.find(r => r.id === rolSugeridoDelPuesto);
+                  const otros = todosRoles.filter(r => r.id !== rolSugeridoDelPuesto);
+                  return (
+                    <>
+                      {sugerido && (
+                        <optgroup label="Sugerido para el puesto">
+                          <option value={sugerido.id}>{sugerido.nombre} (Recomendado)</option>
+                        </optgroup>
+                      )}
+                      <optgroup label={sugerido ? "Otros roles disponibles" : "Roles disponibles"}>
+                        {otros.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nombre}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </>
+                  );
+                })()}
               </select>
             </Field>
           )}
+
+          {acceso !== 0 && (() => {
+            const rolSugeridoId = puestos.data?.items.find(p => p.id === puestoSeleccionado)?.rolSugeridoId;
+            if (rolSugeridoId && rolId === rolSugeridoId) {
+              const rol = roles.data?.items.find(r => r.id === rolSugeridoId);
+              return (
+                <p className="text-xs text-muted-foreground mt-1 col-span-1 md:col-span-3">
+                  Se ha seleccionado <strong>{rol?.nombre}</strong> porque es el rol configurado como predeterminado (por sus alcances) para el puesto elegido.
+                </p>
+              );
+            }
+            return null;
+          })()}
 
           {acceso !== 0 && correoValidable && (
             <div className="rounded-md border p-2.5 text-xs md:col-span-3" role="status" aria-live="polite">
