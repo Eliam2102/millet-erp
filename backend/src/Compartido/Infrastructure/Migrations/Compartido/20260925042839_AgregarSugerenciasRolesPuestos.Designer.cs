@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Compartido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 {
     [DbContext(typeof(CompartidoDbContext))]
-    partial class CompartidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925042839_AgregarSugerenciasRolesPuestos")]
+    partial class AgregarSugerenciasRolesPuestos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1223,10 +1226,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("puesto_id");
 
-                    b.Property<Guid?>("RolSugeridoId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("rol_sugerido_id");
-
                     b.Property<Guid>("SucursalId")
                         .HasColumnType("uuid")
                         .HasColumnName("sucursal_id");
@@ -1256,15 +1255,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasIndex("PuestoId")
                         .HasDatabaseName("ix_sucursal_puestos_puesto_id");
 
-                    b.HasIndex("RolSugeridoId")
-                        .HasDatabaseName("ix_sucursal_puestos_rol_sugerido_id");
-
                     b.HasIndex("SucursalId")
                         .HasDatabaseName("ix_sucursal_puestos_sucursal_id");
 
-                    b.HasIndex("SucursalId", "PuestoId", "DepartamentoId")
+                    b.HasIndex("SucursalId", "PuestoId")
                         .IsUnique()
-                        .HasDatabaseName("ix_sucursal_puestos_sucursal_id_puesto_id_departamento_id");
+                        .HasDatabaseName("ix_sucursal_puestos_sucursal_id_puesto_id");
 
                     b.ToTable("sucursal_puestos", "compartido", t =>
                         {
