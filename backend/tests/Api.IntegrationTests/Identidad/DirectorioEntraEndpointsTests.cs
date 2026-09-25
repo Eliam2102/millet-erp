@@ -3,6 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.Api.IntegrationTests.Identidad;
 
@@ -119,6 +122,35 @@ public class DirectorioEntraEndpointsTests : IClassFixture<WebApplicationFactory
         // Enum serializado como número: 1 = PendientePrimerAcceso.
         Assert.Equal(1, usuario.GetProperty("estadoAcceso").GetInt32());
         Assert.False(json.GetProperty("puedeCrearCuentaNueva").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Cuenta_Existente_Vinculada_A_Empleado_Bloquea_Vincular()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var correo = $"vinculado-{RandomSufijo()}@millet.mx";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var empresa = await compartido.Empresas.FirstAsync();
+            var empleado = new Millet.Administracion.Domain.Empleado(
+                Guid.CreateVersion7(),
+                empresa.Id,
+                $"CLV-{RandomSufijo()}",
+                "Empleado Existente",
+                email: correo);
+            compartido.Empleados.Add(empleado);
+            await compartido.SaveChangesAsync();
+        }
+
+        var json = await ValidarAsync(client, correo);
+
+        Assert.False(json.GetProperty("puedeVincularCuentaExistente").GetBoolean());
+        Assert.False(json.GetProperty("puedeCrearCuentaNueva").GetBoolean());
+        Assert.Equal("USUARIO_YA_VINCULADO", json.GetProperty("motivoBloqueo").GetString());
+        var empleadoProp = json.GetProperty("empleadoVinculado");
+        Assert.Equal("Empleado Existente", empleadoProp.GetProperty("nombre").GetString());
     }
 
     [Theory]

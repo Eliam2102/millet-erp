@@ -47,6 +47,8 @@ export function useEmpleadosAdmin() {
       }
       return items;
     },
+    refetchInterval: (query) =>
+      query.state.data?.some((e) => e.estadoAcceso === 2) ? 3000 : false,
   });
 }
 
@@ -127,8 +129,10 @@ export interface ValidacionCorreoCorporativo {
   dominioPermitido: boolean;
   cuentaEntra: { objectId: string; nombreMostrado: string; habilitada: boolean } | null;
   usuarioErp: { id: string; nombre: string; estadoAcceso: number; activo: boolean } | null;
+  empleadoVinculado?: { id: string; clave: string; nombre: string } | null;
   puedeVincularCuentaExistente: boolean;
   puedeCrearCuentaNueva: boolean;
+  motivoBloqueo?: string | null;
 }
 
 export function useValidarCorreoCorporativo(correo: string, enabled: boolean) {
@@ -156,6 +160,8 @@ export function useAccesoColaborador(empleadoId: string | null) {
       );
       return data;
     },
+    refetchInterval: (query) =>
+      query.state.data?.estadoAcceso === 2 ? 3000 : false,
   });
 }
 
@@ -199,9 +205,12 @@ export function useAccionAccesoColaborador(accion: 'reintentar' | 'reenviar') {
       );
       return data;
     },
-    onSuccess: (_, vars) => queryClient.invalidateQueries({
-      queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'],
-    }),
+    onSuccess: (_, vars) => {
+      invalidar(queryClient);
+      queryClient.invalidateQueries({
+        queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'],
+      });
+    },
   });
 }
 

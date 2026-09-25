@@ -217,7 +217,7 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
                 ct);
 
             usuario.VincularEntraOid(creada.Cuenta.ObjectId);
-            usuario.RegistrarEnvioAcceso(clock.UtcNow);
+            usuario.RegistrarEnvioAcceso(clock.UtcNow, creada.ContrasenaTemporal);
 
             _logger.LogInformation(
                 "[ProvisionCuentaEntraWorker] Cuenta {Upn} creada y solicitud de correo aceptada (usuario {UsuarioId}).",

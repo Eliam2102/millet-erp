@@ -63,10 +63,44 @@ const EMPLEADOS = {
       usuarioId: null,
       estatus: 1,
     },
+    {
+      id: 'aaaaaaaa-0000-0000-0000-000000000003',
+      empresaId: 'e-1',
+      clave: 'EMP-003',
+      nombre: 'Carlos Activo',
+      email: 'carlos@millet.mx',
+      puestoId: null,
+      jefeDirectoId: null,
+      sucursalId: null,
+      departamentoId: null,
+      usuarioId: 'u-3',
+      usuarioActivo: true,
+      estadoAcceso: 0,
+      primerAccesoEn: '2026-09-10T10:00:00Z',
+      estatus: 0,
+    },
+    {
+      id: 'aaaaaaaa-0000-0000-0000-000000000004',
+      empresaId: 'e-1',
+      clave: 'EMP-004',
+      nombre: 'Ana Pendiente Login',
+      email: 'ana@millet.mx',
+      emailContacto: 'ana.personal@gmail.com',
+      puestoId: null,
+      jefeDirectoId: null,
+      sucursalId: null,
+      departamentoId: null,
+      usuarioId: 'u-4',
+      usuarioActivo: true,
+      estadoAcceso: 1,
+      primerAccesoEn: null,
+      accesoEnviadoEn: '2026-09-20T10:00:00Z',
+      estatus: 0,
+    },
   ],
   offset: 0,
   limit: 200,
-  total: 2,
+  total: 4,
 };
 
 function setPermisos(permisos: string[]) {
@@ -123,7 +157,7 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     expect(screen.getByText('Pedro López')).toBeInTheDocument();
     // Columna Puesto: id resuelto a clave vía GET /catalogos/puestos.
     expect(await screen.findByText('GER')).toBeInTheDocument();
-    expect(screen.getByText('Activo')).toBeInTheDocument();
+    expect(screen.getAllByText('Activo').length).toBeGreaterThan(0);
     expect(screen.getByText('Inactivo')).toBeInTheDocument();
   });
 
@@ -136,7 +170,7 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     expect(
       screen.getByRole('form', { name: /agregar empleado/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Paso 1 de 5:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Paso 1 de 4:/i)).toBeInTheDocument();
     expect(screen.getByText('Persona y sucursal')).toBeInTheDocument();
 
     expect(
@@ -179,5 +213,67 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
         screen.getByText(/No se pudieron cargar los empleados/i),
       ).toBeInTheDocument(),
     );
+  });
+
+  it('filtra por "Sin iniciar sesión" y por "Sin acceso"', async () => {
+    setPermisos([PermisosCanonicos.AdminEmpleadosGestionar]);
+    render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText('Juana Pérez')).toBeInTheDocument();
+    expect(screen.getByText('Ana Pendiente Login')).toBeInTheDocument();
+    expect(screen.getByText('Carlos Activo')).toBeInTheDocument();
+
+    // Filtra por Sin iniciar sesión
+    fireEvent.click(screen.getByRole('button', { name: /sin iniciar sesión/i }));
+    expect(screen.getByText('Ana Pendiente Login')).toBeInTheDocument();
+    expect(screen.queryByText('Carlos Activo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Juana Pérez')).not.toBeInTheDocument();
+
+    // Filtra por Sin acceso
+    fireEvent.click(screen.getByRole('button', { name: /sin acceso \(2\)/i }));
+    expect(screen.getByText('Juana Pérez')).toBeInTheDocument();
+    expect(screen.queryByText('Ana Pendiente Login')).not.toBeInTheDocument();
+  });
+
+  it('permite reenviar acceso al colaborador pendiente de primer login', async () => {
+    let reenvioLlamado = false;
+    mswServer.use(
+      http.post(
+        '*/api/v1/admin/colaboradores/:id/acceso/reenviar',
+        async ({ params }) => {
+          if (params.id === 'aaaaaaaa-0000-0000-0000-000000000004') {
+            reenvioLlamado = true;
+            return HttpResponse.json({
+              empleadoId: params.id,
+              usuarioId: 'u-4',
+              email: 'ana@millet.mx',
+              estadoAcceso: 1,
+              motivoErrorProvision: null,
+              accesoEnviadoEn: new Date().toISOString(),
+              primerAccesoEn: null,
+              emailContacto: 'ana.personal@gmail.com',
+              usuarioActivo: true,
+            });
+          }
+          return new HttpResponse(null, { status: 404 });
+        },
+      ),
+    );
+
+    setPermisos([
+      PermisosCanonicos.AdminEmpleadosGestionar,
+      PermisosCanonicos.IdentidadUsuariosCrear,
+    ]);
+    render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText('Ana Pendiente Login')).toBeInTheDocument();
+    const btnReenviar = screen.getByRole('button', { name: /reenviar acceso/i });
+    expect(btnReenviar).toBeInTheDocument();
+
+    fireEvent.click(btnReenviar);
+
+    await waitFor(() => {
+      expect(reenvioLlamado).toBe(true);
+    });
   });
 });

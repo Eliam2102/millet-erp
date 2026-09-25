@@ -136,6 +136,18 @@ public sealed class GraphDirectorioColaboradores : IEntraDirectorioPort
             // verificará employeeId antes de adoptar la cuenta. Nunca se adopta a ciegas.
             throw new ConflictException("ENTRA_UPN_EN_USO", "Graph rechazó el UPN; verifique si ya existe.");
         }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 403 || string.Equals(ex.Error?.Code, "Authorization_RequestDenied", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessRuleException(
+                "ENTRA_PERMISOS_INSUFICIENTES",
+                "Microsoft Entra ID rechazó la creación de cuenta por permisos insuficientes en el tenant.");
+        }
+        catch (ODataError ex)
+        {
+            throw new BusinessRuleException(
+                "ENTRA_ERROR_CREACION_CUENTA",
+                $"Microsoft Entra ID rechazó la creación de cuenta: {ex.Error?.Message ?? ex.Message}");
+        }
     }
 
     public async Task<string> RestablecerContrasenaTemporalAsync(string objectId, CancellationToken ct)
@@ -155,6 +167,18 @@ public sealed class GraphDirectorioColaboradores : IEntraDirectorioPort
         catch (ODataError ex) when (ex.ResponseStatusCode == 404)
         {
             throw new EntityNotFoundException("ENTRA_CUENTA_NO_ENCONTRADA", "La cuenta Microsoft ya no existe.");
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 403 || string.Equals(ex.Error?.Code, "Authorization_RequestDenied", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessRuleException(
+                "ENTRA_PERMISOS_INSUFICIENTES",
+                "Microsoft Entra ID rechazó el restablecimiento de contraseña (403 Authorization_RequestDenied). La aplicación registrada en Azure requiere el rol de directorio 'User Administrator' (Administrador de usuarios) o 'Helpdesk Administrator'.");
+        }
+        catch (ODataError ex)
+        {
+            throw new BusinessRuleException(
+                "ENTRA_ERROR_RESTABLECER_CONTRASENA",
+                $"Microsoft Entra ID rechazó el restablecimiento de contraseña: {ex.Error?.Message ?? ex.Message}");
         }
         return contrasena;
     }
@@ -199,16 +223,31 @@ public sealed class GraphCorreoColaboradores : ICorreoSalientePort
                    "Microsoft te solicitará cambiarla en el primer inicio de sesión.\n" +
                    $"Accede aquí: {correo.UrlInicioSesion}\n\n" +
                    "Si no solicitaste este acceso, contacta al administrador.";
-        await _graph.Users[_sender].SendMail.PostAsync(new SendMailPostRequestBody
+        try
         {
-            Message = new Message
+            await _graph.Users[_sender].SendMail.PostAsync(new SendMailPostRequestBody
             {
-                Subject = "Acceso al ERP Millet",
-                Body = new ItemBody { ContentType = BodyType.Text, Content = body },
-                ToRecipients = [new Recipient { EmailAddress = new EmailAddress { Address = correo.Destinatario } }]
-            },
-            SaveToSentItems = true
-        }, cancellationToken: ct);
-        // Graph confirma aceptación de la solicitud, no entrega al buzón.
+                Message = new Message
+                {
+                    Subject = "Acceso al ERP Millet",
+                    Body = new ItemBody { ContentType = BodyType.Text, Content = body },
+                    ToRecipients = [new Recipient { EmailAddress = new EmailAddress { Address = correo.Destinatario } }]
+                },
+                SaveToSentItems = true
+            }, cancellationToken: ct);
+            // Graph confirma aceptación de la solicitud, no entrega al buzón.
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 403 || string.Equals(ex.Error?.Code, "Authorization_RequestDenied", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessRuleException(
+                "CORREO_PERMISOS_INSUFICIENTES",
+                "Microsoft Entra ID rechazó el envío de correo por permisos insuficientes. La aplicación requiere el permiso 'Mail.Send' en el tenant.");
+        }
+        catch (ODataError ex)
+        {
+            throw new BusinessRuleException(
+                "CORREO_ERROR_ENVIO",
+                $"Error al enviar correo vía Microsoft Graph: {ex.Error?.Message ?? ex.Message}");
+        }
     }
 }

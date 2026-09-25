@@ -215,6 +215,7 @@ public static class OrganizacionEndpoints
             [FromQuery] Guid? empresaId,
             [FromQuery] Guid? puestoId,
             [FromQuery] Guid? sucursalId,
+            [FromQuery] string? filtroAcceso,
             [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
@@ -245,6 +246,32 @@ public static class OrganizacionEndpoints
             if (empresaId is Guid eid) query = query.Where(x => x.EmpresaId == eid);
             if (puestoId is Guid pid) query = query.Where(x => x.PuestoId == pid);
             if (sucursalId is Guid sid) query = query.Where(x => x.SucursalId == sid);
+            if (!string.IsNullOrWhiteSpace(filtroAcceso))
+            {
+                switch (filtroAcceso.Trim().ToLowerInvariant())
+                {
+                    case "con-acceso":
+                        query = query.Where(x => x.UsuarioId != null);
+                        break;
+                    case "sin-acceso":
+                        query = query.Where(x => x.UsuarioId == null);
+                        break;
+                    case "sin-login":
+                        var sinLoginIds = await identidadDb.Usuarios.AsNoTracking()
+                            .Where(u => u.PrimerAccesoEn == null || u.EstadoAcceso == EstadoAcceso.PendientePrimerAcceso)
+                            .Select(u => u.Id)
+                            .ToListAsync(ct);
+                        query = query.Where(x => x.UsuarioId.HasValue && sinLoginIds.Contains(x.UsuarioId.Value));
+                        break;
+                    case "acceso-inactivo":
+                        var inactivosIds = await identidadDb.Usuarios.AsNoTracking()
+                            .Where(u => !u.Activo)
+                            .Select(u => u.Id)
+                            .ToListAsync(ct);
+                        query = query.Where(x => x.UsuarioId.HasValue && inactivosIds.Contains(x.UsuarioId.Value));
+                        break;
+                }
+            }
             if (!string.IsNullOrWhiteSpace(q))
             {
                 query = query.Where(x =>
@@ -255,17 +282,55 @@ public static class OrganizacionEndpoints
             var total = await query.CountAsync(ct);
             var puestosDict = await db.Puestos.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nombre, ct);
             var deptosDict = await db.Departamentos.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Nombre, ct);
+            var sucursalesDict = await db.Sucursales.AsNoTracking().ToDictionaryAsync(s => s.Id, s => (s.Nombre, (short)s.Tipo), ct);
+
             var itemsRaw = await query
                 .OrderBy(x => x.Nombre)
                 .Skip(off).Take(lim)
                 .ToListAsync(ct);
+
+            var usuarioIds = itemsRaw
+                .Where(x => x.UsuarioId.HasValue)
+                .Select(x => x.UsuarioId!.Value)
+                .Distinct()
+                .ToList();
+
+            var usuariosDict = usuarioIds.Count > 0
+                ? await identidadDb.Usuarios.AsNoTracking()
+                    .Where(u => usuarioIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => (
+                        Activo: u.Activo,
+                        EstadoAcceso: (short)u.EstadoAcceso,
+                        PrimerAccesoEn: u.PrimerAccesoEn,
+                        AccesoEnviadoEn: u.AccesoEnviadoEn
+                    ), ct)
+                : [];
+
             var items = itemsRaw
-                .Select(x => new EmpleadoListItem(
-                    x.Id, x.EmpresaId, x.Clave, x.Nombre, x.Email,
-                    x.PuestoId, x.JefeDirectoId, x.SucursalId,
-                    x.DepartamentoId, x.UsuarioId, x.Estatus,
-                    x.PuestoId != null && puestosDict.TryGetValue(x.PuestoId.Value, out var pn) ? pn : null,
-                    x.DepartamentoId != null && deptosDict.TryGetValue(x.DepartamentoId.Value, out var dn) ? dn : null))
+                .Select(x =>
+                {
+                    (bool Activo, short EstadoAcceso, DateTimeOffset? PrimerAccesoEn, DateTimeOffset? AccesoEnviadoEn)? userInfo =
+                        x.UsuarioId.HasValue && usuariosDict.TryGetValue(x.UsuarioId.Value, out var u)
+                            ? u
+                            : null;
+                    (string Nombre, short Tipo)? sucInfo =
+                        x.SucursalId.HasValue && sucursalesDict.TryGetValue(x.SucursalId.Value, out var s)
+                            ? s
+                            : null;
+                    return new EmpleadoListItem(
+                        x.Id, x.EmpresaId, x.Clave, x.Nombre, x.Email,
+                        x.PuestoId, x.JefeDirectoId, x.SucursalId,
+                        x.DepartamentoId, x.UsuarioId, x.Estatus,
+                        x.PuestoId != null && puestosDict.TryGetValue(x.PuestoId.Value, out var pn) ? pn : null,
+                        x.DepartamentoId != null && deptosDict.TryGetValue(x.DepartamentoId.Value, out var dn) ? dn : null,
+                        userInfo?.Activo,
+                        userInfo?.EstadoAcceso,
+                        userInfo?.PrimerAccesoEn,
+                        userInfo?.AccesoEnviadoEn,
+                        x.EmailContacto,
+                        sucInfo?.Nombre,
+                        sucInfo?.Tipo);
+                })
                 .ToList();
 
             return Results.Ok(new PagedCatalogoResponse<EmpleadoListItem>(items, off, lim, total));
@@ -341,4 +406,11 @@ public sealed record EmpleadoListItem(
     Guid? UsuarioId,
     EstatusCatalogo Estatus,
     string? PuestoNombre = null,
-    string? DepartamentoNombre = null);
+    string? DepartamentoNombre = null,
+    bool? UsuarioActivo = null,
+    short? EstadoAcceso = null,
+    DateTimeOffset? PrimerAccesoEn = null,
+    DateTimeOffset? AccesoEnviadoEn = null,
+    string? EmailContacto = null,
+    string? SucursalNombre = null,
+    short? SucursalTipo = null);

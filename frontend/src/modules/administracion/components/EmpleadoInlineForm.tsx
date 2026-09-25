@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, Loader2, Plus, RotateCcw, X } from 'lucide-react';
@@ -175,7 +175,7 @@ export function EmpleadoInlineForm({
   }, [correoCorporativo]);
 
   const validacion = useValidarCorreoCorporativo(
-    correoValidable, !esEditar && paso === 3 && acceso !== 0 && canDarAcceso,
+    correoValidable, !esEditar && paso === 2 && acceso !== 0 && canDarAcceso,
   );
 
   // Rol sugerido por la asignación puntual (sucursal+puesto+departamento) —
@@ -251,6 +251,10 @@ export function EmpleadoInlineForm({
           type: error.code,
           message: 'Ya existe un empleado con esa clave en la empresa.',
         });
+        return;
+      }
+      if (error.code === 'USUARIO_YA_VINCULADO') {
+        toast.error('El usuario corporativo ya está vinculado a otro colaborador.');
         return;
       }
       if (
@@ -338,20 +342,22 @@ export function EmpleadoInlineForm({
       toast.error('Indica clave, nombre y sucursal.');
       return;
     }
-    if (paso === 1 && !values.departamentoId) {
-      toast.error('Selecciona el departamento.');
-      return;
+    if (paso === 1) {
+      if (!values.departamentoId) {
+        toast.error('Selecciona el departamento.');
+        return;
+      }
+      if (!values.puestoId) {
+        toast.error('Selecciona el puesto.');
+        return;
+      }
     }
-    if (paso === 2 && !values.puestoId) {
-      toast.error('Selecciona el puesto.');
-      return;
-    }
-    if (paso === 3 && acceso !== 0 && (!values.email || !rolId)) {
+    if (paso === 2 && acceso !== 0 && (!values.email || !rolId)) {
       toast.error('Indica correo corporativo y rol para dar acceso.');
       return;
     }
     if (
-      paso === 3 &&
+      paso === 2 &&
       acceso !== 0 &&
       (correoValidable !== values.email?.trim() ||
         validacion.isPending ||
@@ -363,16 +369,40 @@ export function EmpleadoInlineForm({
     ) {
       if (validacion.data && !validacion.data.dominioPermitido) {
         toast.error(`El dominio del correo no está permitido. Dominios permitidos: ${DOMINIOS_CORPORATIVOS.join(', ')}`);
+      } else if (acceso === 1) {
+        if (validacion.data?.empleadoVinculado) {
+          toast.error(
+            `Esta cuenta ya está vinculada al colaborador ${validacion.data.empleadoVinculado.nombre} (${validacion.data.empleadoVinculado.clave}).`,
+          );
+        } else if (validacion.data?.usuarioErp && !validacion.data.usuarioErp.activo) {
+          toast.error('El usuario existe en el ERP pero se encuentra desactivado.');
+        } else if (validacion.data?.cuentaEntra && !validacion.data.cuentaEntra.habilitada) {
+          toast.error('La cuenta Microsoft se encuentra deshabilitada en el directorio.');
+        } else if (!validacion.data?.cuentaEntra) {
+          toast.error(`No se encontró una cuenta Microsoft para vincular con "${correoValidable}".`);
+        } else {
+          toast.error('La cuenta Microsoft no puede ser vinculada a un colaborador.');
+        }
       } else {
-        toast.error('El correo no está disponible para el modo de acceso elegido.');
+        if (validacion.data?.cuentaEntra) {
+          toast.error('Ya existe una cuenta en Microsoft con este correo.');
+        } else if (validacion.data?.empleadoVinculado) {
+          toast.error(
+            `Ya existe un colaborador registrado con este correo (${validacion.data.empleadoVinculado.nombre}).`,
+          );
+        } else if (validacion.data?.usuarioErp) {
+          toast.error('Ya existe un usuario en el ERP registrado con este correo.');
+        } else {
+          toast.error('El correo no está disponible para una cuenta nueva.');
+        }
       }
       return;
     }
-    if (paso === 3 && acceso === 2 && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailContacto.trim())) {
+    if (paso === 2 && acceso === 2 && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailContacto.trim())) {
       toast.error('Indica un correo de contacto válido.');
       return;
     }
-    setPaso((p) => Math.min(p + 1, 4));
+    setPaso((p) => Math.min(p + 1, 3));
   }
 
   return (
@@ -410,9 +440,29 @@ export function EmpleadoInlineForm({
       )}
 
       {!esEditar && (
-        <div className="rounded-md bg-muted/40 px-3 py-2 text-sm" aria-live="polite">
-          <span className="font-medium">Paso {paso + 1} de 5:</span>{' '}
-          {['Persona y sucursal', 'Departamento', 'Puesto', 'Acceso y rol', 'Confirmación'][paso]}
+        <div className="space-y-1.5">
+          <div className="rounded-md bg-muted/40 px-3 py-2 text-sm flex items-center justify-between" aria-live="polite">
+            <div>
+              <span className="font-medium">Paso {paso + 1} de 4:</span>{' '}
+              {['Persona y sucursal', 'Departamento y puesto', 'Acceso y rol', 'Confirmación'][paso]}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {['Persona y sucursal', 'Departamento y puesto', 'Acceso y rol', 'Confirmación'].map((nombre, i) => (
+                <div
+                  key={nombre}
+                  className={cn(
+                    'h-1.5 w-6 rounded-full transition-colors',
+                    i === paso
+                      ? 'bg-primary'
+                      : i < paso
+                        ? 'bg-emerald-500'
+                        : 'bg-muted-foreground/20',
+                  )}
+                  title={`${i + 1}. ${nombre}`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -450,45 +500,20 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field
-          label={esEditar ? 'Email' : 'Correo corporativo'}
-          error={form.formState.errors.email?.message}
-          className={cn('md:col-span-4', !esEditar && paso !== 0 && paso !== 3 && 'hidden')}
-        >
-          {esEditar ? (
+        {esEditar && (
+          <Field
+            label="Email"
+            error={form.formState.errors.email?.message}
+            className="md:col-span-4"
+          >
             <Input
               maxLength={254}
               type="email"
               placeholder="juana.perez@millet.mx"
               {...form.register('email')}
             />
-          ) : (
-            <div className="flex items-center">
-              <Input
-                maxLength={100}
-                placeholder="juana.perez"
-                value={emailPrefix}
-                onChange={(e) => handleEmailPrefixChange(e.target.value)}
-                className="rounded-r-none border-r-0 focus:z-10"
-              />
-              <div className="flex h-9 items-center rounded-r-md border border-l-0 bg-muted px-2.5 text-xs text-muted-foreground">
-                <span className="mr-1 font-semibold text-foreground">@</span>
-                <select
-                  value={DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
-                  onChange={(e) => handleEmailDomainChange(e.target.value)}
-                  className="cursor-pointer bg-transparent text-xs font-medium text-foreground outline-none"
-                  aria-label="Dominio corporativo"
-                >
-                  {DOMINIOS_CORPORATIVOS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-        </Field>
+          </Field>
+        )}
 
         <Field
           label={sucursalFija ? 'Sucursal (fijada)' : 'Sucursal'}
@@ -517,8 +542,9 @@ export function EmpleadoInlineForm({
 
         <Field
           label="Departamento"
+          required
           error={form.formState.errors.departamentoId?.message}
-          className={cn('md:col-span-4', !esEditar && paso !== 1 && 'hidden')}
+          className={cn('md:col-span-6', !esEditar && paso !== 1 && 'hidden')}
         >
           <Controller
             control={form.control}
@@ -540,7 +566,11 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field label="Puesto" className={cn('md:col-span-4', !esEditar && paso !== 2 && 'hidden')}>
+        <Field
+          label="Puesto"
+          required
+          className={cn('md:col-span-6', !esEditar && paso !== 1 && 'hidden')}
+        >
           <Controller
             control={form.control}
             name="puestoId"
@@ -554,10 +584,10 @@ export function EmpleadoInlineForm({
               />
             )}
           />
-          {!esEditar && paso === 2 && sucursalSeleccionada && departamentoSeleccionado && (
+          {!esEditar && paso === 1 && sucursalSeleccionada && departamentoSeleccionado && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Si el puesto que buscas no aparece para este departamento, puedes agregarlo/vincularlo en el menú de Sucursales. 
-              <span className="font-medium text-amber-700 dark:text-amber-400"> Tu avance se guarda como borrador.</span>
+              Si el puesto que buscas no aparece para este departamento, puedes agregarlo/vincularlo en el menú de Sucursales.{' '}
+              <span className="font-medium text-amber-700 dark:text-amber-400">Tu avance se guarda como borrador.</span>
             </p>
           )}
         </Field>
@@ -602,9 +632,9 @@ export function EmpleadoInlineForm({
         )}
       </div>
 
-      {!esEditar && paso === 3 && (
-        <div className="grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-3">
-          <Field label="Acceso al ERP">
+      {!esEditar && paso === 2 && (
+        <div className="grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-12">
+          <Field label="Acceso al ERP" className="md:col-span-6">
             <select
               aria-label="Acceso al ERP"
               className="h-9 w-full rounded-md border bg-background px-3 text-sm"
@@ -616,8 +646,9 @@ export function EmpleadoInlineForm({
               {canDarAcceso && <option value={2}>Cuenta Microsoft nueva</option>}
             </select>
           </Field>
-          {acceso !== 0 && (
-            <Field label="Rol en la empresa" required>
+
+          {acceso !== 0 ? (
+            <Field label="Rol en la empresa" required className="md:col-span-6">
               <select
                 aria-label="Rol en la empresa"
                 className="h-9 w-full rounded-md border bg-background px-3 text-sm"
@@ -657,12 +688,54 @@ export function EmpleadoInlineForm({
                 </Badge>
               )}
             </Field>
+          ) : (
+            <div className="flex items-center md:col-span-6 text-xs text-muted-foreground pt-5">
+              Sin rol de sistema (empleado sin acceso al ERP).
+            </div>
           )}
 
-          
+          <Field
+            label="Correo corporativo"
+            required={acceso !== 0}
+            error={form.formState.errors.email?.message}
+            className="md:col-span-12"
+          >
+            <div className="flex items-center w-full">
+              <Input
+                maxLength={100}
+                placeholder="juana.perez"
+                value={emailPrefix}
+                onChange={(e) => handleEmailPrefixChange(e.target.value)}
+                className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+              />
+              <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-muted px-3 text-xs text-muted-foreground">
+                <span className="mr-1.5 font-semibold text-foreground">@</span>
+                <select
+                  value={DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
+                  onChange={(e) => handleEmailDomainChange(e.target.value)}
+                  className="cursor-pointer bg-transparent text-xs font-medium text-foreground outline-none"
+                  aria-label="Dominio corporativo"
+                >
+                  {DOMINIOS_CORPORATIVOS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {emailPrefix.trim() && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Correo resultante:{' '}
+                <span className="font-mono font-medium text-foreground">
+                  {emailPrefix.trim()}@{emailDomain}
+                </span>
+              </p>
+            )}
+          </Field>
 
           {acceso !== 0 && correoValidable && (
-            <div className="rounded-md border p-2.5 text-xs md:col-span-3" role="status" aria-live="polite">
+            <div className="rounded-md border p-2.5 text-xs md:col-span-12" role="status" aria-live="polite">
               {validacion.isPending ? (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
@@ -692,7 +765,46 @@ export function EmpleadoInlineForm({
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
                       <span>
                         Cuenta Microsoft encontrada: <strong>{validacion.data.cuentaEntra?.nombreMostrado}</strong>
+                        {validacion.data.usuarioErp && (
+                          <span className="ml-1 text-xs opacity-85 font-normal">
+                            (se vinculará al usuario existente del ERP)
+                          </span>
+                        )}
                       </span>
+                    </div>
+                  ) : validacion.data.empleadoVinculado ? (
+                    <div className="flex items-start gap-2 text-rose-600">
+                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">La cuenta ya está vinculada a un colaborador en el ERP.</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          Esta cuenta Microsoft pertenece a{' '}
+                          <strong className="text-foreground">{validacion.data.empleadoVinculado.nombre}</strong> (clave:{' '}
+                          <strong className="font-mono text-foreground">{validacion.data.empleadoVinculado.clave}</strong>).
+                          Cada empleado debe contar con una cuenta Microsoft independiente.
+                        </p>
+                      </div>
+                    </div>
+                  ) : validacion.data.usuarioErp && !validacion.data.usuarioErp.activo ? (
+                    <div className="flex items-start gap-2 text-rose-600">
+                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">Usuario desactivado en el ERP.</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          Existe un usuario en el ERP con este correo ({validacion.data.usuarioErp.nombre}) pero está desactivado.
+                          Reactívalo desde el módulo de usuarios antes de asignarlo.
+                        </p>
+                      </div>
+                    </div>
+                  ) : validacion.data.cuentaEntra && !validacion.data.cuentaEntra.habilitada ? (
+                    <div className="flex items-start gap-2 text-rose-600">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">Cuenta Microsoft deshabilitada.</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          La cuenta Microsoft ({validacion.data.cuentaEntra.nombreMostrado}) se encuentra deshabilitada en el directorio Entra ID.
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 font-medium text-amber-600 dark:text-amber-400">
@@ -715,7 +827,9 @@ export function EmpleadoInlineForm({
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {validacion.data.cuentaEntra
                           ? 'Ya existe una cuenta en Entra ID con este correo.'
-                          : 'Ya existe un usuario en el ERP registrado con este correo.'}
+                          : validacion.data.empleadoVinculado
+                            ? `Ya existe un colaborador (${validacion.data.empleadoVinculado.nombre}, clave: ${validacion.data.empleadoVinculado.clave}) con este correo en el ERP.`
+                            : 'Ya existe un usuario en el ERP registrado con este correo.'}
                       </p>
                     </div>
                   </div>
@@ -725,7 +839,7 @@ export function EmpleadoInlineForm({
           )}
 
           {acceso === 2 && (
-            <Field label="Correo personal de contacto" required>
+            <Field label="Correo personal de contacto" required className="md:col-span-6">
               <Input
                 type="email"
                 value={emailContacto}
@@ -735,19 +849,19 @@ export function EmpleadoInlineForm({
             </Field>
           )}
           {acceso === 2 && (
-            <p className="text-xs text-amber-700 md:col-span-3">
+            <p className="text-xs text-amber-700 md:col-span-12">
               Se enviará una contraseña temporal al correo de contacto cuando el entorno tenga Graph y correo habilitados.
             </p>
           )}
           {acceso === 1 && (
-            <p className="text-xs text-amber-700 md:col-span-3">
+            <p className="text-xs text-amber-700 md:col-span-12">
               El ERP verificará la cuenta Microsoft al guardar; el resultado depende del proveedor configurado en este entorno.
             </p>
           )}
         </div>
       )}
 
-      {!esEditar && paso === 4 && (
+      {!esEditar && paso === 3 && (
         <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1">
           <p className="font-medium">Revisa antes de crear</p>
           <p>
@@ -794,12 +908,12 @@ export function EmpleadoInlineForm({
               Anterior
             </Button>
           )}
-          {!esEditar && paso < 4 && (
+          {!esEditar && paso < 3 && (
             <Button type="button" size="sm" disabled={isPending} onClick={siguientePaso}>
               Siguiente
             </Button>
           )}
-          {(esEditar || paso === 4) && (
+          {(esEditar || paso === 3) && (
             <Button type="submit" size="sm" disabled={isPending}>
               {esEditar ? (
                 <>

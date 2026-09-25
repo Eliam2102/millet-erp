@@ -78,6 +78,13 @@ export interface EmpleadoListItem {
   estatus: EstatusCatalogo;
   puestoNombre?: string | null;
   departamentoNombre?: string | null;
+  usuarioActivo?: boolean | null;
+  estadoAcceso?: number | null;
+  primerAccesoEn?: string | null;
+  accesoEnviadoEn?: string | null;
+  emailContacto?: string | null;
+  sucursalNombre?: string | null;
+  sucursalTipo?: number | null;
 }
 
 /** Mirror de <c>AlmacenListItem</c>. */

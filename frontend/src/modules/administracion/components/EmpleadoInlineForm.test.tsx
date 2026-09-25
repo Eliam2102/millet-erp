@@ -37,6 +37,13 @@ describe('<EmpleadoInlineForm>', () => {
 
   it('permite ingresar solo el nombre de usuario y selecciona uzieltzaboutlook.com por defecto', () => {
     const onCancel = vi.fn();
+    sessionStorage.setItem(
+      'millet_empleado_wizard_draft_v1',
+      JSON.stringify({
+        values: { clave: 'EMP-001', nombre: 'Juana', sucursalId: 's-1', departamentoId: 'd-1', puestoId: 'p-1' },
+        paso: 2,
+      }),
+    );
     render(<EmpleadoInlineForm onCancel={onCancel} />, { wrapper: createQueryWrapper() });
 
     const emailInput = screen.getByPlaceholderText('juana.perez');
@@ -238,19 +245,15 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
     await sincronizar();
 
-    // Paso 1: departamento.
+    // Paso 1: departamento y puesto unificados.
     fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
     fireEvent.click(await screen.findByText('Ventas'));
-    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
-    await sincronizar();
-
-    // Paso 2: puesto (trae rolSugeridoId).
     fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
     fireEvent.click(await screen.findByText('Vendedor de mostrador'));
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
     await sincronizar();
 
-    // Paso 3: acceso — el rol se precarga con el sugerido y muestra el hint.
+    // Paso 2: acceso — el rol se precarga con el sugerido y muestra el hint.
     fireEvent.change(screen.getByLabelText(/acceso al erp/i), { target: { value: '1' } });
     const rolSelect = await screen.findByLabelText(/rol en la empresa/i);
     expect(rolSelect).toHaveValue(ROL_SUGERIDO_ID);
@@ -264,7 +267,7 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     // Vuelve a elegir el sugerido para completar el flujo hasta el resumen.
     fireEvent.change(rolSelect, { target: { value: ROL_SUGERIDO_ID } });
 
-    // Correo corporativo para pasar la validación de dominio del paso 3.
+    // Correo corporativo para pasar la validación de dominio del paso 2.
     fireEvent.change(screen.getByPlaceholderText('juana.perez'), {
       target: { value: 'vendedor.mty' },
     });
@@ -276,7 +279,7 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
 
-    // Paso 4: resumen muestra el rol que se va a asignar.
+    // Paso 3: resumen muestra el rol que se va a asignar.
     expect(await screen.findByText(/revisa antes de crear/i)).toBeInTheDocument();
     expect(screen.getByText(/rol a asignar:/i)).toBeInTheDocument();
     expect(screen.getByText('Vendedor')).toBeInTheDocument();
@@ -314,24 +317,75 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
     await sincronizar();
 
+    // Paso 1: departamento y puesto unificados.
     fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
     fireEvent.click(await screen.findByText('Ventas'));
-    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
-    await sincronizar();
-
     fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
     fireEvent.click(await screen.findByText('Vendedor de mostrador'));
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
     await sincronizar();
 
-    // Paso 3: sin acceso (default) — avanzar directo al resumen.
+    // Paso 2: sin acceso (default) — avanzar directo al resumen.
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
 
-    // Paso 4: enviar — el backend rechaza por el 422 mockeado arriba.
+    // Paso 3: enviar — el backend rechaza por el 422 mockeado arriba.
     fireEvent.click(screen.getByRole('button', { name: /agregar empleado/i }));
 
     expect(
       await screen.findByText(/el puesto está en varios departamentos de la sucursal/i),
     ).toBeInTheDocument();
   });
+
+  it('muestra alerta de error y bloquea el avance cuando la cuenta Microsoft ya está vinculada a otro colaborador', async () => {
+    mswServer.use(
+      http.get('*/api/v1/identidad/directorio-entra/validar-correo', () =>
+        HttpResponse.json({
+          correo: 'vendedor.mty@uzieltzaboutlook.onmicrosoft.com',
+          dominioPermitido: true,
+          cuentaEntra: { objectId: 'oid-1', nombreMostrado: 'Vendedor Mty', habilitada: true },
+          usuarioErp: { id: 'u-99', nombre: 'Carlos Ruiz', estadoAcceso: 1, activo: true },
+          empleadoVinculado: { id: 'emp-99', clave: 'EMP-99', nombre: 'Carlos Ruiz' },
+          puedeVincularCuentaExistente: false,
+          puedeCrearCuentaNueva: false,
+          motivoBloqueo: 'USUARIO_YA_VINCULADO',
+        }),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    // Paso 0
+    fireEvent.change(screen.getByPlaceholderText('EMP-001'), { target: { value: 'EMP-NEW' } });
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Nuevo Colaborador' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 1
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
+    fireEvent.click(await screen.findByText('Ventas'));
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+    fireEvent.click(await screen.findByText('Vendedor de mostrador'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 2: cuenta existente
+    fireEvent.change(screen.getByLabelText(/acceso al erp/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByPlaceholderText('juana.perez'), {
+      target: { value: 'vendedor.mty' },
+    });
+
+    expect(
+      await screen.findByText(/la cuenta ya está vinculada a un colaborador en el erp/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Carlos Ruiz/i)).toBeInTheDocument();
+    expect(screen.getByText(/EMP-99/i)).toBeInTheDocument();
+
+    // Intentar dar siguiente debe bloquear y quedarse en el paso 2
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    expect(screen.queryByText(/revisa antes de crear/i)).not.toBeInTheDocument();
+  });
 });
+
