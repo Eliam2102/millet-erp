@@ -18,10 +18,10 @@ import {
 import {
   useActualizarEmpleado,
   useAltaColaborador,
+  usePuestosDeSucursal,
   useValidarCorreoCorporativo,
 } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
-import { usePuestos } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { ActualizarEmpleadoPayload } from '@/modules/administracion/api/types';
@@ -78,7 +78,6 @@ export function EmpleadoInlineForm({
   const canAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const canDarAcceso = canCrearUsuarios && canAsignar;
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
-  const puestos = usePuestos();
   const [paso, setPaso] = useState(0);
   const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
   const [emailContacto, setEmailContacto] = useState('');
@@ -179,17 +178,27 @@ export function EmpleadoInlineForm({
     correoValidable, !esEditar && paso === 3 && acceso !== 0 && canDarAcceso,
   );
 
-  // Rol sugerido por el puesto elegido — solo precarga el select si el
-  // usuario aún no tocó el rol; sigue siendo editable en todo momento
-  // (el hint junto al select avisa que es sugerencia, no asignación).
-  const rolSugeridoId = esEditar
+  // Rol sugerido por la asignación puntual (sucursal+puesto+departamento) —
+  // con Parte E (un puesto en varios departamentos) el rol sugerido ya
+  // NO es propiedad del puesto solo: cada asignación puede traer su
+  // propia excepción (rolSugeridoId) y si no, hereda el del puesto
+  // (rolSugeridoEfectivoId = asignación ?? puesto). Solo precarga el
+  // select si el usuario aún no tocó el rol; sigue siendo editable en
+  // todo momento (el hint junto al select avisa que es sugerencia, no
+  // asignación — 01-04).
+  const puestosDeSucursal = usePuestosDeSucursal(
+    !esEditar ? sucursalSeleccionada || null : null,
+    !esEditar ? departamentoSeleccionado || null : null,
+  );
+  const rolSugeridoEfectivoId = esEditar
     ? undefined
-    : puestos.data?.items.find((p) => p.id === puestoSeleccionado)?.rolSugeridoId;
+    : puestosDeSucursal.data?.items.find((p) => p.puestoId === puestoSeleccionado)
+        ?.rolSugeridoEfectivoId;
 
   useEffect(() => {
     if (esEditar || !puestoSeleccionado || rolId) return;
-    if (rolSugeridoId) setRolId(rolSugeridoId);
-  }, [esEditar, puestoSeleccionado, rolSugeridoId, rolId]);
+    if (rolSugeridoEfectivoId) setRolId(rolSugeridoEfectivoId);
+  }, [esEditar, puestoSeleccionado, rolSugeridoEfectivoId, rolId]);
 
   const rolSeleccionado = roles.data?.items.find((r) => r.id === rolId);
 
@@ -501,7 +510,11 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        <Field label="Departamento" className={cn('md:col-span-4', !esEditar && paso !== 1 && 'hidden')}>
+        <Field
+          label="Departamento"
+          error={form.formState.errors.departamentoId?.message}
+          className={cn('md:col-span-4', !esEditar && paso !== 1 && 'hidden')}
+        >
           <Controller
             control={form.control}
             name="departamentoId"
@@ -613,7 +626,7 @@ export function EmpleadoInlineForm({
                   </option>
                 ))}
               </select>
-              {rolSugeridoId && rolId === rolSugeridoId && (
+              {rolSugeridoEfectivoId && rolId === rolSugeridoEfectivoId && (
                 <Badge
                   variant="secondary"
                   className="mt-1 font-normal text-muted-foreground"

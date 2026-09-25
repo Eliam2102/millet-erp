@@ -73,6 +73,31 @@ describe('<PuestoSelector>', () => {
     expect(screen.queryByText('Vendedor de Mostrador')).not.toBeInTheDocument();
   });
 
+  it('muestra una sola vez un puesto asignado a varios departamentos', async () => {
+    mswServer.use(
+      http.get('*/api/v1/admin/empresas/sucursales/:sucursalId/puestos', () =>
+        HttpResponse.json({
+          items: [
+            ...PUESTOS_SUCURSAL.items,
+            { ...PUESTOS_SUCURSAL.items[0], departamentoId: DEPTO_VENTAS, departamentoNombre: 'Ventas' },
+          ],
+          total: 3,
+        }),
+      ),
+    );
+    render(
+      <PuestoSelector value={null} onChange={vi.fn()} sucursalId={SUCURSAL_ID} />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Vendedor de Mostrador')).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('Gerente General')).toHaveLength(1);
+  });
+
   it('muestra mensaje descriptivo cuando no hay puestos en el departamento seleccionado', async () => {
     const DEPTO_VACIO = '00000000-0000-0000-0000-000000000077';
     render(

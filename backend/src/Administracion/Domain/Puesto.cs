@@ -40,7 +40,18 @@ public sealed class Puesto : BaseEntity, IAuditable, IPerteneceAEmpresa
     public Guid? RolSugeridoId { get; private set; }
 
     /// <summary>
-    /// Departamento organizacional al que pertenece este puesto (F1-ADM-01.4, ADR-0051).
+    /// Departamento organizacional de referencia (F1-ADM-01.4, ADR-0051).
+    /// <para>
+    /// F1-ADM-01.4 reabierta (2026-09-24): desde que <see cref="SucursalPuesto"/>
+    /// admite varias asignaciones del mismo puesto a distintos departamentos
+    /// de una sucursal (una fila por departamento), este campo <b>deja de
+    /// ser fuente de verdad</b> para "en qué departamento opera el puesto".
+    /// Queda como dato informativo/opcional del catálogo (p. ej. para
+    /// reportes o como sugerencia al dar de alta el puesto); ninguna
+    /// validación nueva de Empleado o de la asignación Sucursal↔Puesto lo
+    /// usa — la fuente real es <c>SucursalPuesto.DepartamentoId</c> por
+    /// asignación.
+    /// </para>
     /// </summary>
     public Guid? DepartamentoId { get; private set; }
 

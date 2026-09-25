@@ -1435,7 +1435,11 @@ public sealed class CompartidoDbContext : BaseDbContext
     /// <summary>
     /// Configura <see cref="SucursalPuesto"/> (F1-ADM-01 Fase 1). Análogo
     /// exacto de <see cref="ConfigureSucursalDepartamento"/> pero para
-    /// <see cref="Puesto"/>. UNIQUE en <c>(SucursalId, PuestoId)</c>.
+    /// <see cref="Puesto"/>. UNIQUE en
+    /// <c>(SucursalId, PuestoId, DepartamentoId)</c> — ya no en
+    /// <c>(SucursalId, PuestoId)</c>, para permitir que un mismo puesto
+    /// se asigne a varios departamentos de la sucursal (F1-ADM-01.4
+    /// reabierta, migración <c>PuestoEnVariosDepartamentosPorSucursal</c>).
     ///
     /// <para>
     /// F1-ADM-01: <see cref="SucursalPuesto.EmpresaId"/> +
@@ -1458,12 +1462,14 @@ public sealed class CompartidoDbContext : BaseDbContext
         asignacion.Property(x => x.SucursalId).IsRequired();
         asignacion.Property(x => x.PuestoId).IsRequired();
         asignacion.Property(x => x.DepartamentoId).IsRequired();
+        asignacion.Property(x => x.RolSugeridoId);
         asignacion.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
-        asignacion.HasIndex(x => new { x.SucursalId, x.PuestoId }).IsUnique();
+        asignacion.HasIndex(x => new { x.SucursalId, x.PuestoId, x.DepartamentoId }).IsUnique();
         asignacion.HasIndex(x => x.SucursalId);
         asignacion.HasIndex(x => x.PuestoId);
         asignacion.HasIndex(x => x.DepartamentoId);
+        asignacion.HasIndex(x => x.RolSugeridoId);
 
         asignacion.HasOne<Empresa>()
             .WithMany()

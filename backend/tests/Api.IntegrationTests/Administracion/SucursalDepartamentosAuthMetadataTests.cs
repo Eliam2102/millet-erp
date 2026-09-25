@@ -84,7 +84,11 @@ public class SucursalDepartamentosAuthMetadataTests : IClassFixture<WebApplicati
     /// <summary>
     /// Las 4 rutas del grupo N:M: su patrón contiene tanto <c>sucursales</c>
     /// como <c>departamentos</c> (lo que excluye el catálogo global de
-    /// departamentos y el CRUD de sucursales, que solo contienen uno).
+    /// departamentos y el CRUD de sucursales, que solo contienen uno) y NO
+    /// contiene <c>puestos</c> — F1-ADM-01.4 reabierta agregó rutas
+    /// <c>…/puestos/{puestoId}/departamentos/{departamentoId}/…</c> al
+    /// grupo Sucursal↔Puesto↔Departamento que, sin este filtro, también
+    /// matchean por contener ambas palabras.
     /// </summary>
     private List<RouteEndpoint> GrupoEndpoints()
     {
@@ -96,7 +100,8 @@ public class SucursalDepartamentosAuthMetadataTests : IClassFixture<WebApplicati
             .OfType<RouteEndpoint>()
             .Where(e => e.RoutePattern.RawText is string r
                 && r.Contains("sucursales", StringComparison.OrdinalIgnoreCase)
-                && r.Contains("departamentos", StringComparison.OrdinalIgnoreCase))
+                && r.Contains("departamentos", StringComparison.OrdinalIgnoreCase)
+                && !r.Contains("puestos", StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 

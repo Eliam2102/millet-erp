@@ -7,14 +7,16 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Administracion.Application.SucursalPuestos;
 
 /// <summary>
-/// Reactiva una asignación Sucursal ↔ Puesto previamente desactivada
-/// (F1-ADM-01 Fase 2). Análogo exacto de
-/// <c>ReactivarAsignacionSucursalDepartamentoCommand</c>. Idempotente:
+/// Reactiva una asignación Sucursal ↔ Puesto ↔ Departamento previamente
+/// desactivada (F1-ADM-01 Fase 2, reabierta 2026-09-24). Análogo de
+/// <c>ReactivarAsignacionSucursalDepartamentoCommand</c>. La fila se
+/// identifica por la terna (sucursal, puesto, departamento). Idempotente:
 /// si ya está Activa, no-op.
 /// </summary>
 public sealed record ReactivarAsignacionSucursalPuestoCommand(
     Guid SucursalId,
-    Guid PuestoId) : IRequest<SucursalPuestoResponse>;
+    Guid PuestoId,
+    Guid DepartamentoId) : IRequest<SucursalPuestoResponse>;
 
 public sealed class ReactivarAsignacionSucursalPuestoHandler
     : IRequestHandler<ReactivarAsignacionSucursalPuestoCommand, SucursalPuestoResponse>
@@ -30,11 +32,13 @@ public sealed class ReactivarAsignacionSucursalPuestoHandler
         var asignacion = await _db.SucursalPuestos
             .FirstOrDefaultAsync(
                 a => a.SucursalId == command.SucursalId
-                  && a.PuestoId == command.PuestoId,
+                  && a.PuestoId == command.PuestoId
+                  && a.DepartamentoId == command.DepartamentoId,
                 cancellationToken)
             ?? throw new EntityNotFoundException(
                 "SUCURSAL_PUESTO_NO_ENCONTRADA",
-                $"No existe asignación para sucursal '{command.SucursalId}' y puesto '{command.PuestoId}'.");
+                $"No existe asignación para sucursal '{command.SucursalId}', puesto '{command.PuestoId}' " +
+                $"y departamento '{command.DepartamentoId}'.");
 
         if (asignacion.Estatus != EstatusCatalogo.Activo)
         {
@@ -58,6 +62,8 @@ public sealed class ReactivarAsignacionSucursalPuestoHandler
             asignacion.DepartamentoId,
             deptoNombre,
             asignacion.Estatus,
-            asignacion.Version);
+            asignacion.Version,
+            asignacion.RolSugeridoId,
+            asignacion.RolSugeridoId ?? puesto.RolSugeridoId);
     }
 }

@@ -118,31 +118,76 @@ internal static class ValidacionesEmpleado
         }
     }
 
-    /// <summary>Valida que el puesto esté asignado a la sucursal del empleado, activo en ella y pertenezca al departamento del empleado si se especificó.</summary>
+    /// <summary>
+    /// Valida que el puesto esté asignado a la sucursal del empleado y
+    /// activo en ella. Desde F1-ADM-01.4 reabierta (2026-09-24) un mismo
+    /// puesto puede estar asignado a varios departamentos de la misma
+    /// sucursal (una fila <c>SucursalPuesto</c> por departamento):
+    /// <list type="bullet">
+    ///   <item>Si viene <paramref name="departamentoId"/>, se busca la
+    ///         asignación exacta (sucursal, puesto, departamento). Si no
+    ///         existe → <c>EMPLEADO_PUESTO_NO_ASIGNADO_A_SUCURSAL</c>
+    ///         (cubre tanto "el puesto no está en la sucursal" como "no
+    ///         está en ese departamento").</item>
+    ///   <item>Si NO viene <paramref name="departamentoId"/>, se buscan
+    ///         todas las asignaciones activas del puesto en la sucursal:
+    ///         si hay exactamente una, se usa implícitamente (sin
+    ///         error); si hay varias, el llamador debe especificar el
+    ///         departamento → 422
+    ///         <c>EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO</c>.</item>
+    /// </list>
+    /// </summary>
     internal static async Task ValidarPuestoDeSucursalAsync(
         CompartidoDbContext db, Guid sucursalId, Guid puestoId, Guid? departamentoId, CancellationToken ct)
     {
-        var puestoSucursal = await db.SucursalPuestos.AsNoTracking()
+        if (departamentoId is Guid deptoEspecificado)
+        {
+            var asignacion = await db.SucursalPuestos.AsNoTracking()
+                .Where(sp => sp.SucursalId == sucursalId
+                    && sp.PuestoId == puestoId
+                    && sp.DepartamentoId == deptoEspecificado)
+                .Select(sp => new { sp.Estatus })
+                .FirstOrDefaultAsync(ct);
+            if (asignacion is null)
+            {
+                throw new BusinessRuleException(
+                    "EMPLEADO_PUESTO_NO_ASIGNADO_A_SUCURSAL",
+                    "El puesto no está asignado a ese departamento en la sucursal del empleado.");
+            }
+            if (asignacion.Estatus != EstatusCatalogo.Activo)
+            {
+                throw new BusinessRuleException(
+                    "EMPLEADO_PUESTO_SUCURSAL_INACTIVO",
+                    "El puesto en la sucursal del empleado no está activo.");
+            }
+            return;
+        }
+
+        var asignaciones = await db.SucursalPuestos.AsNoTracking()
             .Where(sp => sp.SucursalId == sucursalId && sp.PuestoId == puestoId)
-            .Select(sp => new { sp.Estatus, sp.DepartamentoId })
-            .FirstOrDefaultAsync(ct);
-        if (puestoSucursal is null)
+            .Select(sp => sp.Estatus)
+            .ToListAsync(ct);
+        if (asignaciones.Count == 0)
         {
             throw new BusinessRuleException(
                 "EMPLEADO_PUESTO_NO_ASIGNADO_A_SUCURSAL",
                 "El puesto no está asignado a la sucursal del empleado.");
         }
-        if (puestoSucursal.Estatus != EstatusCatalogo.Activo)
+
+        var activas = asignaciones.Count(e => e == EstatusCatalogo.Activo);
+        if (activas == 0)
         {
             throw new BusinessRuleException(
                 "EMPLEADO_PUESTO_SUCURSAL_INACTIVO",
                 "El puesto en la sucursal del empleado no está activo.");
         }
-        if (departamentoId is Guid deptoEsp && puestoSucursal.DepartamentoId != deptoEsp)
+        if (activas > 1)
         {
             throw new BusinessRuleException(
-                "EMPLEADO_PUESTO_NO_CORRESPONDE_A_DEPARTAMENTO",
-                "El puesto no pertenece al departamento asignado en esta sucursal.");
+                "EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO",
+                "El puesto está asignado a varios departamentos en la sucursal del empleado; " +
+                "especifica a cuál departamento pertenece.");
         }
+        // activas == 1: única asignación activa, se usa implícitamente.
     }
 }

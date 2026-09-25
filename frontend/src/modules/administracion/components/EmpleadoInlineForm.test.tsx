@@ -145,6 +145,10 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
               puestoNombre: 'Vendedor de mostrador',
               departamentoId: DEPTO_ID,
               departamentoNombre: 'Ventas',
+              // Sin excepción propia — hereda el rol sugerido del puesto
+              // (Parte E: rolSugeridoEfectivoId = asignación ?? puesto).
+              rolSugeridoId: null,
+              rolSugeridoEfectivoId: ROL_SUGERIDO_ID,
               estatus: 0,
               version: 1,
             },
@@ -276,5 +280,58 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     expect(await screen.findByText(/revisa antes de crear/i)).toBeInTheDocument();
     expect(screen.getByText(/rol a asignar:/i)).toBeInTheDocument();
     expect(screen.getByText('Vendedor')).toBeInTheDocument();
+  });
+
+  it('muestra el error de servidor en el campo Departamento cuando el alta falla con EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO', async () => {
+    mswServer.use(
+      http.post('*/api/v1/admin/colaboradores', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Error de validación',
+            status: 422,
+            code: 'EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO',
+            errores: [
+              {
+                campo: 'departamentoId',
+                codigo: 'EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO',
+                mensaje: 'El puesto está en varios departamentos de la sucursal; indica cuál.',
+              },
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    fireEvent.change(screen.getByPlaceholderText('EMP-001'), { target: { value: 'EMP-VEN' } });
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Vendedor Mty' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
+    fireEvent.click(await screen.findByText('Ventas'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+    fireEvent.click(await screen.findByText('Vendedor de mostrador'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 3: sin acceso (default) — avanzar directo al resumen.
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    // Paso 4: enviar — el backend rechaza por el 422 mockeado arriba.
+    fireEvent.click(screen.getByRole('button', { name: /agregar empleado/i }));
+
+    expect(
+      await screen.findByText(/el puesto está en varios departamentos de la sucursal/i),
+    ).toBeInTheDocument();
   });
 });
