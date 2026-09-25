@@ -1315,19 +1315,19 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         puesto.HasData(
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000001"), "EJEC", "Ejecutivo", seedTime),
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000002"), "GER", "Gerente", seedTime),
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000003"), "OPER", "Operativo", seedTime)
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000001"), "EJEC", "Ejecutivo", Guid.Parse("00000002-0003-0000-0000-000000000001"), seedTime),
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000002"), "GER", "Gerente", Guid.Parse("00000002-0003-0000-0000-000000000003"), seedTime),
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000003"), "OPER", "Operativo", Guid.Parse("00000002-0003-0000-0000-000000000004"), seedTime)
         );
     }
 
-    private static object SeedPuesto(Guid id, string clave, string nombre, DateTimeOffset seedTime) => new
+    private static object SeedPuesto(Guid id, string clave, string nombre, Guid? rolSugeridoId, DateTimeOffset seedTime) => new
     {
         Id = id,
         EmpresaId = EmpresaBootstrapId,
         Clave = clave,
         Nombre = nombre,
-        RolSugeridoId = (Guid?)null,
+        RolSugeridoId = rolSugeridoId,
         DepartamentoId = (Guid?)null,
         Estatus = EstatusCatalogo.Activo,
         Version = 1,
