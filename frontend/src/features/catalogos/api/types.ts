@@ -23,11 +23,18 @@ export const TipoPersonaProveedor = {
 export type TipoPersonaProveedor =
   (typeof TipoPersonaProveedor)[keyof typeof TipoPersonaProveedor];
 
+export const TipoSucursal = {
+  Taller: 1,
+  Planta: 2,
+} as const;
+export type TipoSucursal = (typeof TipoSucursal)[keyof typeof TipoSucursal];
+
 /** Mirror de <c>SucursalListItem</c>. */
 export interface SucursalListItem {
   id: string;
   clave: string;
   nombre: string;
+  tipo: TipoSucursal;
   estatus: EstatusCatalogo;
 }
 
@@ -71,6 +78,13 @@ export interface EmpleadoListItem {
   estatus: EstatusCatalogo;
   puestoNombre?: string | null;
   departamentoNombre?: string | null;
+  usuarioActivo?: boolean | null;
+  estadoAcceso?: number | null;
+  primerAccesoEn?: string | null;
+  accesoEnviadoEn?: string | null;
+  emailContacto?: string | null;
+  sucursalNombre?: string | null;
+  sucursalTipo?: number | null;
 }
 
 /** Mirror de <c>AlmacenListItem</c>. */

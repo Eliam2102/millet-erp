@@ -416,7 +416,7 @@ public class RequisicionesEndpointsTests : IClassFixture<WebApplicationFactory<P
         {
             compartido.Sucursales.Add(new Sucursal(
                 SucursalQafId, EmpresaInicialId, SucursalCodigoQaf, "QA Folios (sucursal aislada de test)",
-                TipoSucursal.Sucursal,
+                TipoSucursal.Taller,
                 calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
                 ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México"));
         }

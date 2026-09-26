@@ -784,6 +784,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Estatus = (short)0,
                             Nombre = "Ejecutivo",
+                            RolSugeridoId = new Guid("00000002-0003-0000-0000-000000000001"),
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -797,6 +798,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Estatus = (short)0,
                             Nombre = "Gerente",
+                            RolSugeridoId = new Guid("00000002-0003-0000-0000-000000000003"),
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -810,6 +812,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Estatus = (short)0,
                             Nombre = "Operativo",
+                            RolSugeridoId = new Guid("00000002-0003-0000-0000-000000000004"),
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -1111,7 +1114,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             t.HasCheckConstraint("ck_sucursales_estatus", "estatus BETWEEN 0 AND 2");
 
-                            t.HasCheckConstraint("ck_sucursales_tipo", "tipo BETWEEN 0 AND 2");
+                            t.HasCheckConstraint("ck_sucursales_tipo", "tipo BETWEEN 1 AND 2");
                         });
                 });
 
@@ -1220,6 +1223,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("puesto_id");
 
+                    b.Property<Guid?>("RolSugeridoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rol_sugerido_id");
+
                     b.Property<Guid>("SucursalId")
                         .HasColumnType("uuid")
                         .HasColumnName("sucursal_id");
@@ -1249,12 +1256,15 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasIndex("PuestoId")
                         .HasDatabaseName("ix_sucursal_puestos_puesto_id");
 
+                    b.HasIndex("RolSugeridoId")
+                        .HasDatabaseName("ix_sucursal_puestos_rol_sugerido_id");
+
                     b.HasIndex("SucursalId")
                         .HasDatabaseName("ix_sucursal_puestos_sucursal_id");
 
-                    b.HasIndex("SucursalId", "PuestoId")
+                    b.HasIndex("SucursalId", "PuestoId", "DepartamentoId")
                         .IsUnique()
-                        .HasDatabaseName("ix_sucursal_puestos_sucursal_id_puesto_id");
+                        .HasDatabaseName("ix_sucursal_puestos_sucursal_id_puesto_id_departamento_id");
 
                     b.ToTable("sucursal_puestos", "compartido", t =>
                         {

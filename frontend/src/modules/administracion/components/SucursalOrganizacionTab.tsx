@@ -592,6 +592,7 @@ function FilaPuestoDepartamento({
       {
         sucursalId,
         puestoId: item.puestoId,
+        departamentoId: item.departamentoId,
         idempotencyKey: crypto.randomUUID(),
       },
       {
@@ -612,6 +613,7 @@ function FilaPuestoDepartamento({
       {
         sucursalId,
         puestoId: item.puestoId,
+        departamentoId: item.departamentoId,
         idempotencyKey: crypto.randomUUID(),
       },
       {
@@ -725,14 +727,22 @@ function AsignarPuestoADepartamentoModal({
   const [puestoId, setPuestoId] = useState('');
   const [busquedaPuesto, setBusquedaPuesto] = useState('');
 
-  // Filtrar puestos que ya están asignados a esta sucursal
+  // Filtrar puestos que YA tienen fila para ESTE departamento — un
+  // mismo puesto puede repetirse en otros departamentos de la
+  // sucursal (Parte E "un puesto en varios departamentos"), así que
+  // el filtro es por combinación (puesto, departamento), no por
+  // puesto solo.
   const puestosDisponibles = useMemo(() => {
     const catalogo = catalogoQuery.data?.items ?? [];
-    const asignadosIds = new Set(puestosAsignados.map((a) => a.puestoId));
+    const asignadosIds = new Set(
+      puestosAsignados
+        .filter((a) => a.departamentoId === departamento.departamentoId)
+        .map((a) => a.puestoId),
+    );
     return catalogo
       .filter((p) => !asignadosIds.has(p.id))
       .sort((a, b) => a.clave.localeCompare(b.clave));
-  }, [catalogoQuery.data, puestosAsignados]);
+  }, [catalogoQuery.data, puestosAsignados, departamento.departamentoId]);
 
   const puestosFiltrados = useMemo(() => {
     const q = busquedaPuesto.trim().toLowerCase();

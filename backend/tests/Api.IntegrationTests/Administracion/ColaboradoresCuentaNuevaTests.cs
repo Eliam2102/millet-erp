@@ -165,7 +165,7 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
     }
 
     [Fact]
-    public async Task Reenviar_Acceso_Genera_Otra_Contrasena()
+    public async Task Reenviar_Acceso_Reenvia_Misma_Contrasena_Temporal()
     {
         var client = await CreateSuperAdminClientAsync();
         var org = await CrearOrganizacionAsync(client);
@@ -179,7 +179,7 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var correos = _host.Correo.Enviados.Where(c => c.Upn == upn).ToList();
         Assert.Equal(2, correos.Count);
-        Assert.NotEqual(correos[0].ContrasenaTemporal, correos[1].ContrasenaTemporal);
+        Assert.Equal(correos[0].ContrasenaTemporal, correos[1].ContrasenaTemporal);
         Assert.True((await LeerUsuarioAsync(usuarioId)).AccesoEnviadoEn > primerEnvio);
     }
 

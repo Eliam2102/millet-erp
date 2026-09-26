@@ -22,7 +22,7 @@ public class SucursalTests
             empresaId: EmpresaId,
             clave: clave,
             nombre: nombre,
-            tipo: TipoSucursal.Sucursal,
+            tipo: TipoSucursal.Taller,
             calle: "Calle Ficticia 123",
             numeroExterior: "123",
             colonia: "Colonia de Prueba",
@@ -81,7 +81,7 @@ public class SucursalTests
     public void Constructor_Should_Reject_EmptyEmpresaId()
     {
         var act = () => new Sucursal(
-            Guid.CreateVersion7(), Guid.Empty, "CDMX", "Ciudad de México", TipoSucursal.Sucursal,
+            Guid.CreateVersion7(), Guid.Empty, "CDMX", "Ciudad de México", TipoSucursal.Taller,
             calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
             ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México");
         act.Should().Throw<BusinessRuleException>()
@@ -89,7 +89,7 @@ public class SucursalTests
     }
 
     private static Sucursal CrearConId(Guid id) => new(
-        id, EmpresaId, "CDMX", "Ciudad de México", TipoSucursal.Sucursal,
+        id, EmpresaId, "CDMX", "Ciudad de México", TipoSucursal.Taller,
         calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
         ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México");
 
@@ -135,7 +135,7 @@ public class SucursalTests
     }
 
     private static Sucursal CrearConClaveAw(string claveAw) => new(
-        Guid.CreateVersion7(), EmpresaId, "CON", "CONKAL", TipoSucursal.Sucursal,
+        Guid.CreateVersion7(), EmpresaId, "CON", "CONKAL", TipoSucursal.Taller,
         calle: "Calle Ficticia 123", numeroExterior: "123", colonia: "Colonia de Prueba",
         ciudad: "Mérida", municipio: "Mérida", estado: "Yucatán", codigoPostal: "97000", pais: "México",
         claveAw: claveAw);
@@ -181,5 +181,51 @@ public class SucursalTests
         var sucursal = Crear();
         sucursal.CambiarEstatus(EstatusCatalogo.EnRevision);
         sucursal.Estatus.Should().Be(EstatusCatalogo.EnRevision);
+    }
+
+    [Fact]
+    public void Constructor_Should_Accept_Planta_And_Taller()
+    {
+        var taller = new Sucursal(
+            Guid.CreateVersion7(), EmpresaId, "TAL", "Taller Central", TipoSucursal.Taller,
+            "Calle 1", "100", "Col", "Mérida", "Mérida", "Yucatán", "97000", "México");
+        taller.Tipo.Should().Be(TipoSucursal.Taller);
+
+        var planta = new Sucursal(
+            Guid.CreateVersion7(), EmpresaId, "PLN", "Planta Conkal", TipoSucursal.Planta,
+            "Calle 2", "200", "Col", "Conkal", "Conkal", "Yucatán", "97345", "México");
+        planta.Tipo.Should().Be(TipoSucursal.Planta);
+    }
+
+    [Theory]
+    [InlineData((TipoSucursal)0)]
+    [InlineData((TipoSucursal)3)]
+    [InlineData((TipoSucursal)99)]
+    public void Constructor_Should_Reject_InvalidTipo(TipoSucursal invalidTipo)
+    {
+        var act = () => new Sucursal(
+            Guid.CreateVersion7(), EmpresaId, "INV", "Invalida", invalidTipo,
+            "Calle 1", "100", "Col", "Mérida", "Mérida", "Yucatán", "97000", "México");
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "SUCURSAL_TIPO_INVALIDO");
+    }
+
+    [Fact]
+    public void ActualizarDatos_Should_UpdateTipo()
+    {
+        var sucursal = Crear();
+        sucursal.Tipo.Should().Be(TipoSucursal.Taller);
+
+        sucursal.ActualizarDatos(tipo: TipoSucursal.Planta);
+        sucursal.Tipo.Should().Be(TipoSucursal.Planta);
+    }
+
+    [Fact]
+    public void ActualizarDatos_Should_Reject_InvalidTipo()
+    {
+        var sucursal = Crear();
+        var act = () => sucursal.ActualizarDatos(tipo: (TipoSucursal)99);
+        act.Should().Throw<BusinessRuleException>()
+            .Where(e => e.Code == "SUCURSAL_TIPO_INVALIDO");
     }
 }

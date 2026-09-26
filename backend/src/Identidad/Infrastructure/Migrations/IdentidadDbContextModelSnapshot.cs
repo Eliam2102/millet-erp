@@ -1221,6 +1221,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000005-0008-0000-0000-000000000003"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "admin.empleados.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Crear, editar, dar de baja y dar acceso a empleados de todas las sucursales de la empresa",
+                            Modulo = "admin",
+                            Recurso = "empleados",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000004-0003-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "catalogos.monedas.gestionar",
@@ -3702,6 +3716,11 @@ namespace Millet.Identidad.Infrastructure.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean")
                         .HasColumnName("activo");
+
+                    b.Property<string>("ContrasenaTemporal")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("contrasena_temporal");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")

@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Administracion.Application.Abstractions;
 using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -9,17 +10,29 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Administracion.Application.SucursalPuestos;
 
 /// <summary>
-/// Asigna un puesto a una sucursal (F1-ADM-01 Fase 2). Análogo exacto de
+/// Asigna un puesto a un departamento de una sucursal (F1-ADM-01 Fase 2,
+/// reabierta 2026-09-24 por pedido del owner: un mismo puesto puede
+/// asignarse a varios departamentos de la sucursal). Análogo de
 /// <c>AsignarDepartamentoASucursalCommand</c>. La asignación nace Activa.
-/// Si ya existe una asignación para el par (<see cref="SucursalId"/>,
-/// <see cref="PuestoId"/>) — sea Activa o Inactiva — devuelve 409
-/// <c>SUCURSAL_PUESTO_DUPLICADA</c>. Para reactivar una asignación
-/// inactiva se usa el endpoint Reactivar.
+/// Si ya existe una asignación para la terna (<see cref="SucursalId"/>,
+/// <see cref="PuestoId"/>, <see cref="DepartamentoId"/>) — sea Activa o
+/// Inactiva — devuelve 409 <c>SUCURSAL_PUESTO_DUPLICADA</c>. El mismo
+/// puesto en OTRO departamento activo de la sucursal es una asignación
+/// distinta y válida. Para reactivar una asignación inactiva se usa el
+/// endpoint Reactivar.
+///
+/// <para>
+/// <see cref="RolSugeridoId"/> opcional (excepción puntual sobre el rol
+/// sugerido del puesto, F1-ADM-01.4 reabierta): si viene, debe ser un rol
+/// existente y activo → 409 <c>ROL_SUGERIDO_INVALIDO</c> (mismo patrón
+/// que <c>CrearPuestoCommand</c>).
+/// </para>
 /// </summary>
 public sealed record AsignarPuestoASucursalCommand(
     Guid SucursalId,
     Guid PuestoId,
-    Guid DepartamentoId) : IRequest<SucursalPuestoResponse>;
+    Guid DepartamentoId,
+    Guid? RolSugeridoId = null) : IRequest<SucursalPuestoResponse>;
 
 public sealed class AsignarPuestoASucursalValidator
     : AbstractValidator<AsignarPuestoASucursalCommand>
@@ -36,8 +49,13 @@ public sealed class AsignarPuestoASucursalHandler
     : IRequestHandler<AsignarPuestoASucursalCommand, SucursalPuestoResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly IRolReadPort _rolReadPort;
 
-    public AsignarPuestoASucursalHandler(CompartidoDbContext db) => _db = db;
+    public AsignarPuestoASucursalHandler(CompartidoDbContext db, IRolReadPort rolReadPort)
+    {
+        _db = db;
+        _rolReadPort = rolReadPort;
+    }
 
     public async Task<SucursalPuestoResponse> Handle(
         AsignarPuestoASucursalCommand command, CancellationToken cancellationToken)
@@ -99,16 +117,29 @@ public sealed class AsignarPuestoASucursalHandler
                 $"La asignación del departamento '{depto.Nombre}' a la sucursal '{sucursal.Nombre}' está inactiva.");
         }
 
+        if (command.RolSugeridoId.HasValue)
+        {
+            var rolActivo = await _rolReadPort.ExisteActivoAsync(command.RolSugeridoId.Value, cancellationToken);
+            if (!rolActivo)
+            {
+                throw new ConflictException(
+                    "ROL_SUGERIDO_INVALIDO",
+                    $"El rol sugerido '{command.RolSugeridoId.Value}' no existe o está inactivo.");
+            }
+        }
+
         var existe = await _db.SucursalPuestos.AsNoTracking()
             .AnyAsync(
                 a => a.SucursalId == command.SucursalId
-                  && a.PuestoId == command.PuestoId,
+                  && a.PuestoId == command.PuestoId
+                  && a.DepartamentoId == command.DepartamentoId,
                 cancellationToken);
         if (existe)
         {
             throw new ConflictException(
                 "SUCURSAL_PUESTO_DUPLICADA",
-                $"El puesto '{puesto.Clave}' ya está asignado a la sucursal '{sucursal.Clave}'.");
+                $"El puesto '{puesto.Clave}' ya está asignado al departamento '{depto.Nombre}' " +
+                $"en la sucursal '{sucursal.Clave}'.");
         }
 
         var asignacion = new SucursalPuesto(
@@ -116,7 +147,8 @@ public sealed class AsignarPuestoASucursalHandler
             sucursal.EmpresaId,
             command.SucursalId,
             command.PuestoId,
-            command.DepartamentoId);
+            command.DepartamentoId,
+            rolSugeridoId: command.RolSugeridoId);
 
         _db.SucursalPuestos.Add(asignacion);
         await _db.SaveChangesAsync(cancellationToken);
@@ -129,6 +161,8 @@ public sealed class AsignarPuestoASucursalHandler
             asignacion.DepartamentoId,
             depto.Nombre,
             asignacion.Estatus,
-            asignacion.Version);
+            asignacion.Version,
+            asignacion.RolSugeridoId,
+            asignacion.RolSugeridoId ?? puesto.RolSugeridoId);
     }
 }

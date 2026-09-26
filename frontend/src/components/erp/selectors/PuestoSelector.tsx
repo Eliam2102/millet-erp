@@ -48,6 +48,11 @@ export function PuestoSelector({
             p.puestoId === value;
           return esActivoOSeleccionado && matchDepto;
         })
+        // Un puesto puede estar en varios departamentos de la sucursal
+        // (una fila por asignación): se muestra una sola vez.
+        .filter(
+          (p, i, filas) => filas.findIndex((f) => f.puestoId === p.puestoId) === i,
+        )
         .map((p) => ({
           id: p.puestoId,
           clave: p.puestoClave,

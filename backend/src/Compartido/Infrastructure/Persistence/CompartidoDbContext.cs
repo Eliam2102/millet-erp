@@ -1109,7 +1109,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         sucursal.ToTable("sucursales", t =>
         {
             t.HasCheckConstraint("ck_sucursales_estatus", "estatus BETWEEN 0 AND 2");
-            t.HasCheckConstraint("ck_sucursales_tipo", "tipo BETWEEN 0 AND 2");
+            t.HasCheckConstraint("ck_sucursales_tipo", "tipo BETWEEN 1 AND 2");
         });
         sucursal.HasKey(x => x.Id);
         sucursal.Property(x => x.EmpresaId).IsRequired();
@@ -1220,7 +1220,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     /// para el backfill/seed de filas que hoy no tienen <c>EmpresaId</c>).
     /// Ver F1-ADM-01.
     /// </summary>
-    internal static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+    public static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
 
     /// <summary>
     /// Configura <see cref="Departamento"/> (B.1). F1-ADM-01: catálogo por
@@ -1315,19 +1315,19 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         puesto.HasData(
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000001"), "EJEC", "Ejecutivo", seedTime),
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000002"), "GER", "Gerente", seedTime),
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000003"), "OPER", "Operativo", seedTime)
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000001"), "EJEC", "Ejecutivo", Guid.Parse("00000002-0003-0000-0000-000000000001"), seedTime),
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000002"), "GER", "Gerente", Guid.Parse("00000002-0003-0000-0000-000000000003"), seedTime),
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000003"), "OPER", "Operativo", Guid.Parse("00000002-0003-0000-0000-000000000004"), seedTime)
         );
     }
 
-    private static object SeedPuesto(Guid id, string clave, string nombre, DateTimeOffset seedTime) => new
+    private static object SeedPuesto(Guid id, string clave, string nombre, Guid? rolSugeridoId, DateTimeOffset seedTime) => new
     {
         Id = id,
         EmpresaId = EmpresaBootstrapId,
         Clave = clave,
         Nombre = nombre,
-        RolSugeridoId = (Guid?)null,
+        RolSugeridoId = rolSugeridoId,
         DepartamentoId = (Guid?)null,
         Estatus = EstatusCatalogo.Activo,
         Version = 1,
@@ -1435,7 +1435,11 @@ public sealed class CompartidoDbContext : BaseDbContext
     /// <summary>
     /// Configura <see cref="SucursalPuesto"/> (F1-ADM-01 Fase 1). Análogo
     /// exacto de <see cref="ConfigureSucursalDepartamento"/> pero para
-    /// <see cref="Puesto"/>. UNIQUE en <c>(SucursalId, PuestoId)</c>.
+    /// <see cref="Puesto"/>. UNIQUE en
+    /// <c>(SucursalId, PuestoId, DepartamentoId)</c> — ya no en
+    /// <c>(SucursalId, PuestoId)</c>, para permitir que un mismo puesto
+    /// se asigne a varios departamentos de la sucursal (F1-ADM-01.4
+    /// reabierta, migración <c>PuestoEnVariosDepartamentosPorSucursal</c>).
     ///
     /// <para>
     /// F1-ADM-01: <see cref="SucursalPuesto.EmpresaId"/> +
@@ -1458,12 +1462,14 @@ public sealed class CompartidoDbContext : BaseDbContext
         asignacion.Property(x => x.SucursalId).IsRequired();
         asignacion.Property(x => x.PuestoId).IsRequired();
         asignacion.Property(x => x.DepartamentoId).IsRequired();
+        asignacion.Property(x => x.RolSugeridoId);
         asignacion.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
-        asignacion.HasIndex(x => new { x.SucursalId, x.PuestoId }).IsUnique();
+        asignacion.HasIndex(x => new { x.SucursalId, x.PuestoId, x.DepartamentoId }).IsUnique();
         asignacion.HasIndex(x => x.SucursalId);
         asignacion.HasIndex(x => x.PuestoId);
         asignacion.HasIndex(x => x.DepartamentoId);
+        asignacion.HasIndex(x => x.RolSugeridoId);
 
         asignacion.HasOne<Empresa>()
             .WithMany()

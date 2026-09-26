@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -25,6 +26,7 @@ public class EmpresasEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string EndpointBase = "/api/v1/admin/empresas";
+    private static readonly Guid EmpresaInicialId = Guid.Parse("00000003-0000-0000-0000-000000000001");
 
     private readonly WebApplicationFactory<Program> _factory;
 
@@ -230,6 +232,157 @@ public class EmpresasEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             Nombre = "Sucursal Duplicada",
         });
         Assert.Equal(HttpStatusCode.Conflict, duplicada.StatusCode);
+    }
+
+    // Criterios 01-01 y 01-02 del documento de aceptación ADM-01.
+
+    [Fact]
+    public async Task Crear_Sucursal_Sin_Nombre_Es_Rechazada()
+    {
+        var client = await CreateSuperAdminClientAsync();
+
+        var response = await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = RandomClave("SUN"),
+            Nombre = "",
+        });
+
+        Assert.True(
+            response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity,
+            $"Se esperaba 400/422, fue {response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task Editar_Sucursal_Conserva_Clave_Aw_Y_Zona_Horaria()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var claveAw = RandomClave("AW");
+        var creada = await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = RandomClave("SUZ"),
+            Nombre = "Sucursal con A+W",
+            ClaveAw = claveAw,
+        });
+        creada.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+
+        (await client.PatchAsJsonAsync($"{EndpointBase}/sucursales/{id}", new { ZonaHoraria = "America/Mexico_City" }))
+            .EnsureSuccessStatusCode();
+        var renombrada = await client.PatchAsJsonAsync($"{EndpointBase}/sucursales/{id}", new { Nombre = "Sucursal renombrada" });
+
+        Assert.Equal(HttpStatusCode.OK, renombrada.StatusCode);
+        var body = await ReadJsonAsync(renombrada);
+        Assert.Equal("Sucursal renombrada", body.GetProperty("nombre").GetString());
+        Assert.Equal(claveAw, body.GetProperty("claveAw").GetString());
+        Assert.Equal("America/Mexico_City", body.GetProperty("zonaHoraria").GetString());
+    }
+
+    [Fact]
+    public async Task Crear_Sucursal_Con_Tipo_Planta_Y_Taller_Persiste_Correctamente()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var clavePlanta = RandomClave("PLN");
+        var respPlanta = await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = clavePlanta,
+            Nombre = "Planta Conkal Central",
+            Tipo = TipoSucursal.Planta,
+        });
+        respPlanta.EnsureSuccessStatusCode();
+        var bodyPlanta = await ReadJsonAsync(respPlanta);
+        Assert.Equal((int)TipoSucursal.Planta, bodyPlanta.GetProperty("tipo").GetInt32());
+
+        var claveTaller = RandomClave("TAL");
+        var respTaller = await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = claveTaller,
+            Nombre = "Taller Sucursal Cancún",
+            Tipo = TipoSucursal.Taller,
+        });
+        respTaller.EnsureSuccessStatusCode();
+        var bodyTaller = await ReadJsonAsync(respTaller);
+        Assert.Equal((int)TipoSucursal.Taller, bodyTaller.GetProperty("tipo").GetInt32());
+    }
+
+    [Fact]
+    public async Task Editar_Sucursal_Actualiza_Tipo()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var clave = RandomClave("SUT");
+        var creada = await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = clave,
+            Nombre = "Sucursal Inicial",
+            Tipo = TipoSucursal.Taller,
+        });
+        creada.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+
+        var patchResp = await client.PatchAsJsonAsync($"{EndpointBase}/sucursales/{id}", new
+        {
+            Tipo = TipoSucursal.Planta,
+        });
+        Assert.Equal(HttpStatusCode.OK, patchResp.StatusCode);
+        var body = await ReadJsonAsync(patchResp);
+        Assert.Equal((int)TipoSucursal.Planta, body.GetProperty("tipo").GetInt32());
+    }
+
+    [Fact]
+    public async Task Crear_Sucursal_Con_Tipo_Invalido_Retorna_Error_Validacion()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var response = await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = RandomClave("INV"),
+            Nombre = "Sucursal Tipo Inválido",
+            Tipo = 99,
+        });
+        Assert.True(
+            response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity,
+            $"Se esperaba 400/422, fue {response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task Desactivar_Sucursal_Es_Baja_Logica()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var creada = await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = RandomClave("SUB"),
+            Nombre = "Sucursal para baja",
+        });
+        creada.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+
+        var response = await client.PostAsync($"{EndpointBase}/sucursales/{id}/desactivar", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, (await ReadJsonAsync(response)).GetProperty("estatus").GetInt32()); // Inactivo
+    }
+
+    [Fact]
+    public async Task Desactivar_Empresa_Con_Sucursales_Activas_Es_Rechazada()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        (await client.PostAsJsonAsync($"{EndpointBase}/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = RandomClave("SUE"),
+            Nombre = "Sucursal activa",
+        })).EnsureSuccessStatusCode();
+
+        var response = await client.PostAsync($"{EndpointBase}/{EmpresaInicialId}/desactivar", content: null);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("EMPRESA_TIENE_SUCURSALES_ACTIVAS",
+            (await ReadJsonAsync(response)).GetProperty("code").GetString());
     }
 
     // --- Helpers ---

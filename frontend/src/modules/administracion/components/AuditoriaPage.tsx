@@ -77,6 +77,13 @@ export function AuditoriaPage() {
   // Esto evita que cada keystroke dispare una query al backend con el
   // costo de un table scan parcial (el rango es obligatorio pero el
   // resto de filtros son optimización).
+  const empresaActualId = useAuthStore((s) => s.currentEmpresaId);
+  // Sucursal activa de la sesión (SucursalSelector) — se usa como
+  // filtro por defecto del propio selector de esta página (01-05):
+  // el usuario ya eligió su contexto operativo, no debería tener que
+  // repetirlo aquí.
+  const sucursalActivaId = useAuthStore((s) => s.currentSucursalId);
+
   const [draftDesde, setDraftDesde] = useState(formatYmd(inicioDefault));
   const [draftHasta, setDraftHasta] = useState(formatYmd(hoy));
   const [draftModulo, setDraftModulo] = useState<string>('');
@@ -84,8 +91,7 @@ export function AuditoriaPage() {
   const [draftAccion, setDraftAccion] = useState<string>('');
   const [draftUsuarioId, setDraftUsuarioId] = useState<string>('');
   const [draftEmpresaId, setDraftEmpresaId] = useState<string>('');
-  const [draftSucursalId, setDraftSucursalId] = useState<string>('');
-  const empresaActualId = useAuthStore((s) => s.currentEmpresaId);
+  const [draftSucursalId, setDraftSucursalId] = useState<string>(sucursalActivaId ?? '');
   const sucursalesQuery = useQuery({
     queryKey: ['auth', 'sucursales', empresaActualId],
     enabled: empresaActualId != null,
@@ -96,6 +102,7 @@ export function AuditoriaPage() {
     useState<ConsultarBitacoraFiltros>({
       desde: formatYmd(inicioDefault),
       hasta: formatYmd(hoy),
+      sucursalId: sucursalActivaId ?? undefined,
       offset: 0,
       limit: PAGE_LIMIT,
     });
@@ -146,10 +153,11 @@ export function AuditoriaPage() {
     setDraftAccion('');
     setDraftUsuarioId('');
     setDraftEmpresaId('');
-    setDraftSucursalId('');
+    setDraftSucursalId(sucursalActivaId ?? '');
     setFiltrosAplicados({
       desde: formatYmd(inicioDefault),
       hasta: formatYmd(hoy),
+      sucursalId: sucursalActivaId ?? undefined,
       offset: 0,
       limit: PAGE_LIMIT,
     });

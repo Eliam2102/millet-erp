@@ -20,7 +20,7 @@ import {
   useReactivarUsuario,
   useUsuario,
 } from '@/modules/identidad/api';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -69,7 +69,6 @@ export function UsuarioDetalle() {
   const canVerCentrosCosto = useHasPermission(
     PermisosCanonicos.CentrosCostoAsignacionesAdministrar,
   );
-  const idempotencyKey = useFormIdempotencyKey();
   const desactivar = useDesactivarUsuario();
   const reactivar = useReactivarUsuario();
   const currentUserId = useAuthStore((s) => s.user?.id);
@@ -105,7 +104,7 @@ export function UsuarioDetalle() {
     }
 
     desactivar.mutate(
-      { id: usuario.id, idempotencyKey },
+      { id: usuario.id, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
           toast.success(`Usuario ${usuario.email} desactivado`);
@@ -129,7 +128,7 @@ export function UsuarioDetalle() {
 
   function handleReactivar() {
     reactivar.mutate(
-      { id: usuario.id, idempotencyKey },
+      { id: usuario.id, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
           toast.success(`Usuario ${usuario.email} reactivado`);

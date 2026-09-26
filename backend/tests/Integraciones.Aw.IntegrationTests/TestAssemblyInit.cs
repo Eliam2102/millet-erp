@@ -14,6 +14,17 @@ internal static class TestAssemblyInit
     [ModuleInitializer]
     public static void Init()
     {
+        // F1 (Parte F, base de desarrollo limpia): sin BD desechable no se
+        // arranca — evita caer en `millet_dev` por defecto. Mismo criterio
+        // que Api.IntegrationTests.
+        if (string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")))
+        {
+            throw new InvalidOperationException(
+                "Los tests de integración usan una BD desechable: corre " +
+                "./tools/validate-integration-isolated.sh [--filter ...]");
+        }
+
         // PR B (Integraciones.Aw) — outbox named options.
         Environment.SetEnvironmentVariable("Outbox__Disabled", "true");
         Environment.SetEnvironmentVariable("Compras__Outbox__Disabled", "true");
@@ -29,5 +40,9 @@ internal static class TestAssemblyInit
         Environment.SetEnvironmentVariable(
             "ServiceBus__ConnectionString",
             "Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=k;SharedAccessKey=x");
+
+        // F2 (Parte F): idem Api.IntegrationTests — la fase de datos demo
+        // del seed de Compartido no corre en tests.
+        Environment.SetEnvironmentVariable("Seed__DatosDemo__Habilitado", "false");
     }
 }

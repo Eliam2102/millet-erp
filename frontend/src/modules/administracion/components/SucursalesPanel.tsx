@@ -17,6 +17,7 @@ import {
 import {
   EstatusCatalogo,
   type SucursalResponse,
+  TipoSucursal,
 } from '@/modules/administracion/api/types';
 import { useDesactivarSucursal } from '@/modules/administracion/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -180,6 +181,21 @@ export function SucursalesPanel({
                       {s.clave}
                     </Link>
                     <span className="flex-1 truncate text-sm">{s.nombre}</span>
+                    {s.tipo === TipoSucursal.Planta ? (
+                      <Badge
+                        variant="outline"
+                        className="border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
+                      >
+                        Planta
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+                      >
+                        Taller
+                      </Badge>
+                    )}
                     {activa ? (
                       <Badge variant="secondary">Activa</Badge>
                     ) : (

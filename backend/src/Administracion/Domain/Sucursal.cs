@@ -26,8 +26,8 @@ public sealed class Sucursal : BaseEntity, IAuditable, IPerteneceAEmpresa
     public string Clave { get; private set; } = string.Empty;
     public string Nombre { get; private set; } = string.Empty;
 
-    /// <summary>Clasificación operativa (F1-ADM-01, placeholder — ver <see cref="TipoSucursal"/>).</summary>
-    public TipoSucursal Tipo { get; private set; } = TipoSucursal.Sucursal;
+    /// <summary>Clasificación operativa (Taller o Planta — ver <see cref="TipoSucursal"/>).</summary>
+    public TipoSucursal Tipo { get; private set; } = TipoSucursal.Taller;
 
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
@@ -102,6 +102,7 @@ public sealed class Sucursal : BaseEntity, IAuditable, IPerteneceAEmpresa
             throw new BusinessRuleException("SUCURSAL_EMPRESA_INVALIDA", "La empresa es obligatoria.");
         ValidarClave(clave);
         ValidarNombre(nombre);
+        ValidarTipo(tipo);
         ValidarClaveAw(claveAw);
         ValidarCalle(calle);
         ValidarNumeroExterior(numeroExterior);
@@ -170,7 +171,11 @@ public sealed class Sucursal : BaseEntity, IAuditable, IPerteneceAEmpresa
             Nombre = nombre;
         }
 
-        if (tipo is not null) Tipo = tipo.Value;
+        if (tipo is not null)
+        {
+            ValidarTipo(tipo.Value);
+            Tipo = tipo.Value;
+        }
 
         if (limpiarClaveAw)
         {
@@ -239,6 +244,13 @@ public sealed class Sucursal : BaseEntity, IAuditable, IPerteneceAEmpresa
         if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 254)
             throw new BusinessRuleException("SUCURSAL_NOMBRE_INVALIDO",
                 "El nombre es requerido y no puede exceder 254 caracteres.");
+    }
+
+    private static void ValidarTipo(TipoSucursal tipo)
+    {
+        if (!Enum.IsDefined(tipo))
+            throw new BusinessRuleException("SUCURSAL_TIPO_INVALIDO",
+                "El tipo de sucursal debe ser Taller (1) o Planta (2).");
     }
 
     private static void ValidarClaveAw(string? claveAw)

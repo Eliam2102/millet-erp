@@ -52,6 +52,12 @@ public sealed class Usuario : BaseEntity, IAuditable
     public string? MotivoErrorProvision { get; private set; }
 
     /// <summary>
+    /// Contraseña temporal asignada mientras la cuenta está en <see cref="EstadoAcceso.PendientePrimerAcceso"/>.
+    /// Se borra automáticamente al registrar el primer acceso (<see cref="PrimerAccesoEn"/>).
+    /// </summary>
+    public string? ContrasenaTemporal { get; private set; }
+
+    /// <summary>
     /// Cuenta que no corresponde a un empleado (super-admin de bootstrap,
     /// soporte, QA). Es la única forma legítima de tener Usuario sin
     /// Empleado vinculado (decisión D4 del plan 15).
@@ -151,16 +157,39 @@ public sealed class Usuario : BaseEntity, IAuditable
     }
 
     /// <summary>
-    /// Se envió el correo de acceso con una contraseña temporal nueva. Solo
+    /// Se envió el correo de acceso con una contraseña temporal. Solo
     /// aplica a una cuenta ya creada en Entra que todavía no ha entrado.
+    /// Si se proporciona la contraseña, se almacena temporalmente hasta el primer acceso.
     /// </summary>
-    public void RegistrarEnvioAcceso(DateTimeOffset cuando)
+    public void RegistrarEnvioAcceso(DateTimeOffset cuando, string? contrasena = null)
     {
         if (TieneOidPendiente || EstadoAcceso is not EstadoAcceso.PendientePrimerAcceso)
             throw new BusinessRuleException("USUARIO_ACCESO_NO_REENVIABLE",
                 "Solo se envía el acceso a una cuenta creada en Entra que aún no inicia sesión.");
 
         AccesoEnviadoEn = cuando;
+        if (!string.IsNullOrWhiteSpace(contrasena))
+        {
+            ContrasenaTemporal = contrasena;
+        }
+    }
+
+    /// <summary>
+    /// Guarda la contraseña temporal emitida por Entra ID para reenviarla o mostrarla al administrador.
+    /// </summary>
+    public void GuardarContrasenaTemporal(string contrasena)
+    {
+        if (string.IsNullOrWhiteSpace(contrasena))
+            throw new ArgumentException("La contraseña temporal no puede estar vacía.", nameof(contrasena));
+        ContrasenaTemporal = contrasena;
+    }
+
+    /// <summary>
+    /// Limpia la contraseña temporal manualmente si es requerido.
+    /// </summary>
+    public void LimpiarContrasenaTemporal()
+    {
+        ContrasenaTemporal = null;
     }
 
     /// <summary>Graph rechazó la creación de la cuenta.</summary>
@@ -192,8 +221,8 @@ public sealed class Usuario : BaseEntity, IAuditable
 
     /// <summary>
     /// Registra el inicio de sesión. La primera vez fija
-    /// <see cref="PrimerAccesoEn"/> y pasa a <see cref="EstadoAcceso.Activo"/>;
-    /// después es no-op.
+    /// <see cref="PrimerAccesoEn"/>, pasa a <see cref="EstadoAcceso.Activo"/>
+    /// y elimina cualquier contraseña temporal almacenada; después es no-op.
     /// </summary>
     public void RegistrarAcceso(DateTimeOffset cuando)
     {
@@ -203,6 +232,7 @@ public sealed class Usuario : BaseEntity, IAuditable
 
         PrimerAccesoEn ??= cuando;
         EstadoAcceso = EstadoAcceso.Activo;
+        ContrasenaTemporal = null;
     }
 
     public void MarcarComoCuentaTecnica() => EsCuentaTecnica = true;

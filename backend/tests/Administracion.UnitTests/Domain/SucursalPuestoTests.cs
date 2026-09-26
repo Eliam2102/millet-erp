@@ -112,4 +112,46 @@ public class SucursalPuestoTests
         asignacion.CambiarEstatus(EstatusCatalogo.EnRevision);
         asignacion.Estatus.Should().Be(EstatusCatalogo.EnRevision);
     }
+
+    [Fact]
+    public void Should_Create_Without_RolSugerido_By_Default()
+    {
+        var asignacion = Crear();
+        asignacion.RolSugeridoId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Constructor_Should_Accept_RolSugeridoId()
+    {
+        var rolId = Guid.CreateVersion7();
+        var asignacion = new SucursalPuesto(
+            Guid.CreateVersion7(), EmpresaId, SucursalId, PuestoId, DepartamentoId,
+            rolSugeridoId: rolId);
+
+        asignacion.RolSugeridoId.Should().Be(rolId);
+    }
+
+    [Fact]
+    public void FijarRolSugerido_Should_SetTheValue()
+    {
+        var asignacion = Crear();
+        var rolId = Guid.CreateVersion7();
+
+        asignacion.FijarRolSugerido(rolId);
+
+        asignacion.RolSugeridoId.Should().Be(rolId);
+    }
+
+    [Fact]
+    public void LimpiarRolSugerido_Should_ClearTheValue()
+    {
+        var rolId = Guid.CreateVersion7();
+        var asignacion = new SucursalPuesto(
+            Guid.CreateVersion7(), EmpresaId, SucursalId, PuestoId, DepartamentoId,
+            rolSugeridoId: rolId);
+
+        asignacion.LimpiarRolSugerido();
+
+        asignacion.RolSugeridoId.Should().BeNull();
+    }
 }

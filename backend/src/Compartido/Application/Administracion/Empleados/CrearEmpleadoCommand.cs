@@ -17,7 +17,7 @@ namespace Millet.Administracion.Application.Empleados;
 public sealed record CrearEmpleadoCommand(
     Guid Id,
     Guid EmpresaId,
-    string Clave,
+    string? Clave,
     string Nombre,
     string? Email = null,
     Guid? PuestoId = null,
@@ -33,7 +33,7 @@ public sealed class CrearEmpleadoValidator : AbstractValidator<CrearEmpleadoComm
     public CrearEmpleadoValidator()
     {
         RuleFor(c => c.EmpresaId).NotEmpty();
-        RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
+        RuleFor(c => c.Clave!).MaximumLength(20).When(c => !string.IsNullOrWhiteSpace(c.Clave));
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
         RuleFor(c => c.Email!).NotEmpty().EmailAddress().MaximumLength(254)
             .When(c => c.Email is not null);
@@ -61,14 +61,23 @@ public sealed class CrearEmpleadoHandler
                 $"No existe la empresa '{command.EmpresaId}'.");
         }
 
-        var claveExiste = await _db.Empleados.AsNoTracking()
-            .AnyAsync(e => e.EmpresaId == command.EmpresaId && e.Clave == command.Clave,
-                cancellationToken);
-        if (claveExiste)
+        string clave;
+        if (string.IsNullOrWhiteSpace(command.Clave))
         {
-            throw new ConflictException(
-                "EMPLEADO_CLAVE_DUPLICADA",
-                $"Ya existe un empleado con clave '{command.Clave}' en la empresa.");
+            clave = await GeneradorClaveEmpleado.GenerarSiguienteClaveAsync(_db, command.EmpresaId, cancellationToken);
+        }
+        else
+        {
+            clave = command.Clave.Trim();
+            var claveExiste = await _db.Empleados.AsNoTracking()
+                .AnyAsync(e => e.EmpresaId == command.EmpresaId && e.Clave == clave,
+                    cancellationToken);
+            if (claveExiste)
+            {
+                throw new ConflictException(
+                    "EMPLEADO_CLAVE_DUPLICADA",
+                    $"Ya existe un empleado con clave '{clave}' en la empresa.");
+            }
         }
 
         if (command.PuestoId is Guid puestoId)
@@ -92,7 +101,7 @@ public sealed class CrearEmpleadoHandler
         var empleado = new Empleado(
             id,
             command.EmpresaId,
-            command.Clave,
+            clave,
             command.Nombre,
             email: command.Email,
             puestoId: command.PuestoId,

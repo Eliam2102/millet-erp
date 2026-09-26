@@ -23,6 +23,7 @@ public sealed record CrearSucursalCommand(
     Guid Id,
     string Clave,
     string Nombre,
+    TipoSucursal? Tipo = null,
     string? ClaveAw = null) : IRequest<SucursalResponse>;
 
 public sealed class CrearSucursalValidator : AbstractValidator<CrearSucursalCommand>
@@ -31,6 +32,9 @@ public sealed class CrearSucursalValidator : AbstractValidator<CrearSucursalComm
     {
         RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
+        RuleFor(c => c.Tipo!.Value).IsInEnum()
+            .When(c => c.Tipo.HasValue)
+            .WithMessage("El tipo de sucursal debe ser Taller (1) o Planta (2).");
         RuleFor(c => c.ClaveAw!).NotEmpty().MaximumLength(40)
             .When(c => c.ClaveAw is not null);
     }
@@ -88,15 +92,13 @@ public sealed class CrearSucursalHandler
         }
 
         var id = command.Id == Guid.Empty ? Guid.CreateVersion7() : command.Id;
-        // F1-ADM-01: Tipo/domicilio son campos nuevos del dominio sin captura
-        // todavía en este command (Fase 2 los expondrá en la API). Placeholders
-        // explícitos hasta entonces.
+        var tipo = command.Tipo ?? TipoSucursal.Taller;
         var sucursal = new Sucursal(
             id,
             empresaId,
             command.Clave,
             command.Nombre,
-            tipo: TipoSucursal.Sucursal,
+            tipo: tipo,
             calle: "Sin especificar",
             numeroExterior: "S/N",
             colonia: "Sin especificar",
@@ -118,7 +120,7 @@ public sealed class CrearSucursalHandler
         await _db.SaveChangesAsync(cancellationToken);
 
         return new SucursalResponse(
-            sucursal.Id, sucursal.Clave, sucursal.Nombre,
+            sucursal.Id, sucursal.Clave, sucursal.Nombre, sucursal.Tipo,
             sucursal.Estatus, sucursal.Version, sucursal.ClaveAw, sucursal.ZonaHoraria);
     }
 }

@@ -165,6 +165,7 @@ public static class PermisosCanonicos
     public const string AdminPuestosLeer                                = "admin.puestos.leer";
     public const string AdminEmpleadosGestionar                        = "admin.empleados.gestionar";
     public const string AdminEmpleadosLeerTodasSucursales              = "admin.empleados.leer-todas-sucursales";
+    public const string AdminEmpleadosGestionarTodasSucursales         = "admin.empleados.gestionar-todas-sucursales";
 
     // ----- Administración — Series y Folios (F-Admin-PR6.1) -----
     // Permiso transversal para todo el CRUD de series; la reserva del
@@ -516,6 +517,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000005-0007-0000-0000-000000000002"), AdminPuestosLeer,                              "Consultar puestos del catálogo organizacional"),
         (Guid.Parse("00000005-0008-0000-0000-000000000001"), AdminEmpleadosGestionar,                      "Crear, editar y desactivar empleados del catálogo organizacional"),
         (Guid.Parse("00000005-0008-0000-0000-000000000002"), AdminEmpleadosLeerTodasSucursales,            "Consultar empleados de todas las sucursales de la empresa"),
+        (Guid.Parse("00000005-0008-0000-0000-000000000003"), AdminEmpleadosGestionarTodasSucursales,       "Crear, editar, dar de baja y dar acceso a empleados de todas las sucursales de la empresa"),
         // Catálogos granulares (F-Admin-PR5.x). Reusan namespace 00000004-* (Compartido).
         (Guid.Parse("00000004-0003-0000-0000-000000000001"), CatalogosMonedasGestionar,                    "Crear, editar y desactivar monedas del catálogo cross-empresa"),
         (Guid.Parse("00000004-0004-0000-0000-000000000001"), CatalogosTiposCambioGestionar,                "Registrar tipos de cambio por moneda y fecha"),
