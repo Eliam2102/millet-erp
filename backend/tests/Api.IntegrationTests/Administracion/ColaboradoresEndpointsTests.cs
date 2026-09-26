@@ -196,7 +196,7 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
         using (var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
         {
             var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
-            Assert.False((await identidad.Usuarios.IgnoreQueryFilters().AsNoTracking()
+            Assert.True((await identidad.Usuarios.IgnoreQueryFilters().AsNoTracking()
                 .SingleAsync(u => u.Id == usuarioId)).Activo);
         }
     }

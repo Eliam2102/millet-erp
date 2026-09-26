@@ -67,7 +67,7 @@ public enum TipoAccesoColaborador
 /// </summary>
 public sealed record AltaColaboradorCommand(
     Guid Id,
-    string Clave,
+    string? Clave,
     string Nombre,
     Guid SucursalId,
     Guid DepartamentoId,
@@ -101,7 +101,7 @@ public sealed class AltaColaboradorValidator : AbstractValidator<AltaColaborador
 
     public AltaColaboradorValidator()
     {
-        RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
+        RuleFor(c => c.Clave!).MaximumLength(20).When(c => !string.IsNullOrWhiteSpace(c.Clave));
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
         RuleFor(c => c.SucursalId).NotEmpty();
         RuleFor(c => c.DepartamentoId).NotEmpty();

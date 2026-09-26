@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, Loader2, Plus, RotateCcw, X } from 'lucide-react';
@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import {
   applyServerErrors,
   esApiError,
-  useFormIdempotencyKey,
 } from '@/lib/api';
 import {
   EmpleadoSchema,
@@ -19,6 +18,7 @@ import {
   useActualizarEmpleado,
   useAltaColaborador,
   usePuestosDeSucursal,
+  useSiguienteClaveEmpleado,
   useValidarCorreoCorporativo,
 } from '@/modules/administracion/api';
 import { useRoles } from '@/modules/identidad/api/roles';
@@ -71,9 +71,11 @@ export function EmpleadoInlineForm({
   onSaved,
 }: EmpleadoInlineFormProps) {
   const esEditar = empleado != null;
-  const idempotencyKey = useFormIdempotencyKey();
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const regenerarKey = useCallback(() => setIdempotencyKey(crypto.randomUUID()), []);
   const crear = useAltaColaborador();
   const actualizar = useActualizarEmpleado();
+  const siguienteClaveQuery = useSiguienteClaveEmpleado(!esEditar);
   const canCrearUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
   const canAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const canDarAcceso = canCrearUsuarios && canAsignar;
@@ -115,13 +117,23 @@ export function EmpleadoInlineForm({
       : { ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' },
   });
 
+  // Autocompletar la siguiente clave en modo alta si no está establecida
+  useEffect(() => {
+    if (!esEditar && siguienteClaveQuery.data?.siguienteClave) {
+      const actual = form.getValues('clave');
+      if (!actual) {
+        form.setValue('clave', siguienteClaveQuery.data.siguienteClave);
+      }
+    }
+  }, [esEditar, siguienteClaveQuery.data?.siguienteClave, form]);
+
   // Cargar borrador de sessionStorage en modo alta
   useEffect(() => {
     if (esEditar) {
       form.setFocus('nombre');
       return;
     }
-    form.setFocus('clave');
+    form.setFocus('nombre');
 
     try {
       const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
@@ -245,15 +257,19 @@ export function EmpleadoInlineForm({
   }
 
   function onError(error: Error) {
+    regenerarKey();
     if (esApiError(error)) {
       if (error.code === 'EMPLEADO_CLAVE_DUPLICADA') {
+        setPaso(0);
         form.setError('clave', {
           type: error.code,
           message: 'Ya existe un empleado con esa clave en la empresa.',
         });
+        toast.error('Ya existe un empleado con esa clave en la empresa. Por favor cámbiala.');
         return;
       }
       if (error.code === 'USUARIO_YA_VINCULADO') {
+        setPaso(2);
         toast.error('El usuario corporativo ya está vinculado a otro colaborador.');
         return;
       }
@@ -263,9 +279,10 @@ export function EmpleadoInlineForm({
           error,
         )
       ) {
+        toast.error('Corrige los errores indicados en el formulario.');
         return;
       }
-      toast.error(error.problem.title, {
+      toast.error(error.problem.title || error.message, {
         description: error.traceId ? `Código: ${error.traceId}` : undefined,
       });
       return;
@@ -280,6 +297,7 @@ export function EmpleadoInlineForm({
         {
           onSuccess: () => {
             toast.success('Empleado actualizado');
+            regenerarKey();
             onSaved?.();
           },
           onError,
@@ -305,7 +323,7 @@ export function EmpleadoInlineForm({
       {
         command: {
           id: '00000000-0000-0000-0000-000000000000',
-          clave: values.clave,
+          clave: values.clave?.trim() || null,
           nombre: values.nombre,
           puestoId: values.puestoId,
           jefeDirectoId: values.jefeDirectoId || null,
@@ -322,13 +340,14 @@ export function EmpleadoInlineForm({
       {
         onSuccess: (resp) => {
           sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-          toast.success(`Colaborador "${resp.empleado.nombre}" agregado`, {
+          toast.success(`Colaborador "${resp.empleado.nombre}" (${resp.empleado.clave}) agregado`, {
             description: acceso === 2
               ? 'La cuenta queda en provisión; revisa su estado en Acceso.'
               : undefined,
           });
           form.reset({ ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' });
-          form.setFocus('clave');
+          regenerarKey();
+          form.setFocus('nombre');
           onSaved?.();
         },
         onError,
@@ -338,8 +357,8 @@ export function EmpleadoInlineForm({
 
   function siguientePaso() {
     const values = form.getValues();
-    if (paso === 0 && (!values.clave.trim() || !values.nombre.trim() || !values.sucursalId)) {
-      toast.error('Indica clave, nombre y sucursal.');
+    if (paso === 0 && (!values.nombre.trim() || !values.sucursalId)) {
+      toast.error('Indica nombre y sucursal.');
       return;
     }
     if (paso === 1) {
@@ -469,22 +488,28 @@ export function EmpleadoInlineForm({
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
         <Field
           label="Clave"
-          required
+          required={esEditar}
           error={form.formState.errors.clave?.message}
           className={cn('md:col-span-3', !esEditar && paso !== 0 && 'hidden')}
         >
           <Input
             maxLength={20}
-            placeholder="EMP-001"
-            className="font-mono"
-            disabled={esEditar}
+            placeholder={siguienteClaveQuery.data?.siguienteClave ?? 'EMP-001'}
+            className="font-mono bg-muted/60 cursor-not-allowed select-none text-muted-foreground font-medium"
+            disabled
+            readOnly
             title={
               esEditar
                 ? 'La clave es inmutable (business key).'
-                : 'Clave única del empleado en la empresa.'
+                : 'Clave autoincremental asignada automáticamente por el sistema (no editable).'
             }
             {...form.register('clave')}
           />
+          <p className="text-[11px] text-muted-foreground">
+            {esEditar
+              ? 'Identificador inmutable del empleado.'
+              : 'Autoincremental (EMP-xxx). Asignada automáticamente (no editable).'}
+          </p>
         </Field>
 
         <Field
@@ -865,7 +890,10 @@ export function EmpleadoInlineForm({
         <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1">
           <p className="font-medium">Revisa antes de crear</p>
           <p>
-            {form.getValues('nombre')} · <span className="font-mono">{form.getValues('clave')}</span>
+            {form.getValues('nombre')} ·{' '}
+            <span className="font-mono">
+              {form.getValues('clave') || siguienteClaveQuery.data?.siguienteClave || 'Autogenerada'}
+            </span>
           </p>
           <p className="text-muted-foreground text-xs">Sucursal, departamento y puesto seleccionados.</p>
           <p>

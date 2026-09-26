@@ -454,7 +454,7 @@ export interface EmpleadoResponse {
 export interface CrearEmpleadoCommand {
   id: string;
   empresaId: string;
-  clave: string;
+  clave?: string | null;
   nombre: string;
   email?: string | null;
   puestoId?: string | null;

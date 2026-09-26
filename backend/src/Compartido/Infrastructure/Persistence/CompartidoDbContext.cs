@@ -1220,7 +1220,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     /// para el backfill/seed de filas que hoy no tienen <c>EmpresaId</c>).
     /// Ver F1-ADM-01.
     /// </summary>
-    internal static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+    public static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
 
     /// <summary>
     /// Configura <see cref="Departamento"/> (B.1). F1-ADM-01: catálogo por

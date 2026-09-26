@@ -19,6 +19,12 @@ describe('<EmpleadoInlineForm>', () => {
       permisos: ['identidad.usuarios.crear', 'identidad.asignaciones.administrar'],
       errorMessage: null,
     });
+
+    mswServer.use(
+      http.get('*/api/v1/admin/empleados/siguiente-clave', () =>
+        HttpResponse.json({ siguienteClave: 'EMP-017' }),
+      ),
+    );
   });
 
   afterEach(() => {
@@ -119,6 +125,9 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     });
 
     mswServer.use(
+      http.get('*/api/v1/admin/empleados/siguiente-clave', () =>
+        HttpResponse.json({ siguienteClave: 'EMP-017' }),
+      ),
       http.get('*/api/v1/catalogos/sucursales', () =>
         HttpResponse.json({
           items: [{ id: SUC_ID, clave: 'MTY', nombre: 'Monterrey', estatus: 0 }],
@@ -355,8 +364,7 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
     await sincronizar();
 
-    // Paso 0
-    fireEvent.change(screen.getByPlaceholderText('EMP-001'), { target: { value: 'EMP-NEW' } });
+    // Paso 0: clave es autoincremental y no editable; llenar nombre y sucursal
     fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Nuevo Colaborador' } });
     fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
     fireEvent.click(await screen.findByText('Monterrey'));
@@ -386,6 +394,82 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     // Intentar dar siguiente debe bloquear y quedarse en el paso 2
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
     expect(screen.queryByText(/revisa antes de crear/i)).not.toBeInTheDocument();
+  });
+
+  it('autocompleta con siguiente-clave autoincremental y permite avanzar el paso 0 sin teclear clave', async () => {
+    mswServer.use(
+      http.get('*/api/v1/admin/empleados/siguiente-clave', () =>
+        HttpResponse.json({ siguienteClave: 'EMP-017' }),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    // Comprobar que autocompleta con EMP-017 y que está deshabilitado / no editable
+    await waitFor(() => {
+      const inputClave = screen.getByPlaceholderText('EMP-017');
+      expect(inputClave).toHaveValue('EMP-017');
+      expect(inputClave).toBeDisabled();
+      expect(inputClave).toHaveAttribute('readonly');
+    });
+
+    // Llenar solo nombre y sucursal (sin tocar clave) y avanzar
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Empleado Nuevo' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Debe avanzar exitosamente al paso 1 (Departamento y puesto)
+    expect(await screen.findByText(/paso 2 de 4/i)).toBeInTheDocument();
+  });
+
+  it('cuando el backend retorna EMPLEADO_CLAVE_DUPLICADA, regresa al paso 0 y marca el error en clave', async () => {
+    mswServer.use(
+      http.post('*/api/v1/admin/colaboradores', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Conflicto',
+            status: 409,
+            code: 'EMPLEADO_CLAVE_DUPLICADA',
+            detail: 'Ya existe un empleado con esa clave en la empresa.',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    // Paso 0: clave no editable; solo llenar nombre y sucursal
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Duplicado User' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 1
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
+    fireEvent.click(await screen.findByText('Ventas'));
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+    fireEvent.click(await screen.findByText('Vendedor de mostrador'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 2 (sin acceso, siguiente directo al resumen)
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 3 (resumen) -> enviar
+    expect(await screen.findByText(/revisa antes de crear/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /agregar empleado/i }));
+
+    // Debe regresar automáticamente al Paso 0 y mostrar el error de clave duplicada
+    expect(await screen.findByText(/paso 1 de 4/i)).toBeInTheDocument();
+    expect(await screen.findByText(/ya existe un empleado con esa clave en la empresa/i)).toBeInTheDocument();
   });
 });
 

@@ -58,6 +58,19 @@ public static class EmpleadosEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        group.MapGet("/siguiente-clave", async (
+            CompartidoDbContext db,
+            ICurrentEmpresaContext empresaContext,
+            CancellationToken ct) =>
+        {
+            var empresaId = empresaContext.Current ?? CompartidoDbContext.EmpresaBootstrapId;
+            var siguienteClave = await GeneradorClaveEmpleado.GenerarSiguienteClaveAsync(db, empresaId, ct);
+            return Results.Ok(new SiguienteClaveEmpleadoResponse(siguienteClave));
+        })
+        .WithName("ObtenerSiguienteClaveEmpleado")
+        .WithSummary("Obtiene la siguiente clave autoincremental disponible para empleado")
+        .Produces<SiguienteClaveEmpleadoResponse>(StatusCodes.Status200OK);
+
         group.MapPatch("/{id:guid}", async (
             Guid id,
             [FromBody] ActualizarEmpleadoPayload payload,
@@ -174,4 +187,6 @@ public static class EmpleadosEndpoints
         bool LimpiarCodigoNomina = false,
         string? EmailContacto = null,
         bool LimpiarEmailContacto = false);
+
+    public sealed record SiguienteClaveEmpleadoResponse(string SiguienteClave);
 }

@@ -45,7 +45,7 @@ import { useDepartamentos, usePuestos, useSucursales } from '@/features/catalogo
 import type { EmpleadoListItem } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
 import { EmpleadoAccesoPanel } from '@/modules/administracion/components/EmpleadoAccesoPanel';
 
@@ -138,7 +138,6 @@ export function EmpleadosPage() {
     [puestosQuery.data],
   );
 
-  const idempotencyKey = useFormIdempotencyKey();
   const desactivar = useDesactivarEmpleado();
   const reactivar = useReactivarEmpleado();
   const reenviar = useAccionAccesoColaborador('reenviar');
@@ -852,7 +851,7 @@ export function EmpleadosPage() {
                                 disabled={cambioPendiente}
                                 onClick={() =>
                                   reactivar.mutate(
-                                    { id: e.id, idempotencyKey },
+                                    { id: e.id, idempotencyKey: crypto.randomUUID() },
                                     {
                                       onSuccess: () =>
                                         toast.success(`Empleado "${e.nombre}" reactivado`),
@@ -917,7 +916,7 @@ export function EmpleadosPage() {
               onClick={() => {
                 if (confirmDesactivar == null) return;
                 desactivar.mutate(
-                  { id: confirmDesactivar.id, idempotencyKey },
+                  { id: confirmDesactivar.id, idempotencyKey: crypto.randomUUID() },
                   {
                     onSuccess: () => {
                       toast.success(

@@ -135,6 +135,9 @@ export function useDesactivarUsuario() {
         queryKey: identidadKeys.usuario(vars.id),
       });
       queryClient.invalidateQueries({ queryKey: identidadKeys.usuarios() });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'empleados'] });
+      queryClient.invalidateQueries({ queryKey: ['catalogos', 'empleados'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores'] });
     },
   });
 }
@@ -159,6 +162,9 @@ export function useReactivarUsuario() {
         queryKey: identidadKeys.usuario(vars.id),
       });
       queryClient.invalidateQueries({ queryKey: identidadKeys.usuarios() });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'empleados'] });
+      queryClient.invalidateQueries({ queryKey: ['catalogos', 'empleados'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores'] });
     },
   });
 }

@@ -81,8 +81,11 @@ public sealed class GestionColaboradorHandlers :
     public Task<EmpleadoResponse> Handle(ReactivarColaboradorCommand request, CancellationToken cancellationToken) =>
         _transaccion.EjecutarAsync(async () =>
         {
-            // Recontratar no concede acceso automáticamente: requiere decisión del admin.
-            return await _mediator.Send(new ReactivarEmpleadoCommand(request.EmpleadoId), cancellationToken);
+            var reactivado = await _mediator.Send(new ReactivarEmpleadoCommand(request.EmpleadoId), cancellationToken);
+            var usuarioId = await ObtenerUsuarioIdAsync(request.EmpleadoId, cancellationToken);
+            if (usuarioId is Guid id)
+                await _mediator.Send(new Millet.Identidad.Application.Usuarios.ReactivarUsuarioCommand(id), cancellationToken);
+            return reactivado;
         }, cancellationToken);
 
     private async Task<Guid?> ObtenerUsuarioIdAsync(Guid empleadoId, CancellationToken ct) =>

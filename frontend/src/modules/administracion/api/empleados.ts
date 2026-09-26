@@ -74,7 +74,7 @@ export function useCrearEmpleado() {
 
 export interface AltaColaboradorCommand {
   id: string;
-  clave: string;
+  clave?: string | null;
   nombre: string;
   sucursalId: string;
   departamentoId: string;
@@ -85,6 +85,25 @@ export interface AltaColaboradorCommand {
   rolId: string | null;
   jefeDirectoId: string | null;
   codigoNomina: string | null;
+}
+
+export interface SiguienteClaveEmpleadoResponse {
+  siguienteClave: string;
+}
+
+export function useSiguienteClaveEmpleado(enabled = true) {
+  return useQuery<SiguienteClaveEmpleadoResponse>({
+    queryKey: ['admin', 'empleados', 'siguiente-clave'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<SiguienteClaveEmpleadoResponse>(
+        `${BASE}/siguiente-clave`,
+        { signal },
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 5000,
+  });
 }
 
 export function useAltaColaborador() {
@@ -265,4 +284,7 @@ function useCambioEstatusEmpleado(accion: 'desactivar' | 'reactivar') {
 function invalidar(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: adminKeys.empleados() });
   queryClient.invalidateQueries({ queryKey: CATALOGOS_EMPLEADOS_KEY });
+  queryClient.invalidateQueries({ queryKey: ['admin', 'empleados', 'siguiente-clave'] });
+  queryClient.invalidateQueries({ queryKey: ['identidad', 'usuarios'] });
+  queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores'] });
 }
