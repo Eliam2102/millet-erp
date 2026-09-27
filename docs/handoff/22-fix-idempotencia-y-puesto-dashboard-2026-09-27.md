@@ -23,3 +23,17 @@
 ## Notas para PR (Pull Request)
 Los cambios ya fueron validados localmente y el backend compilÃ³ sin problemas con todas las dependencias. 
 **Al empujar (push) estos cambios a tu rama remota, el Pull Request actual de tu compaÃ±ero se actualizarÃ¡ automÃ¡ticamente.** Ya no necesitas crear otro PR; simplemente empuja los commits y aprueben el PR existente.
+
+
+## Resumen de Pruebas (QA y Backend)
+
+### QA (Validación Manual en UI)
+1. **Idempotencia:** Se validó la Matriz de Permisos guardando, quitando y volviendo a guardar permisos en una misma sesión sin recargar. Resultado: HTTP 200 OK continuo sin colisión de llaves.
+2. **Puesto en Dashboard:** Se comprobó con cuentas operativas (ej. Gerente de Almacén) y usuarios recién aprovisionados que el ícono (??) refleja el puesto de Recursos Humanos o un fallback elegante.
+3. **Visibilidad Aislada (Catálogos vs Operación):** Se verificó que los perfiles operativos vean los catálogos globales pero sus transacciones y consultas (ej. Entradas/Salidas) se limiten estricta y visualmente a su sucursal de origen.
+
+### Backend (Integration Tests & Seguridad)
+La solución cumple con la cobertura automatizada de Api.IntegrationTests sobre PostgreSQL aislado:
+- **PermisoFaltante403Tests.cs**: Confirma que el middleware detiene accesos no autorizados, retornando HTTP 403 ProblemDetails si un usuario carece del permiso granular exacto, evitando filtraciones desde la API.
+- **EmpleadoSucursalScopeTests.cs**: Valida el SucursalScopeGuard, demostrando que un perfil sin el permiso Bypass (gestionar-todas-sucursales) es bloqueado (HTTP 403) al intentar consultar o mutar datos de una sucursal a la cual no está vinculado en la tabla UsuarioSucursal.
+
