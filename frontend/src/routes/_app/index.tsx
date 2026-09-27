@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useAuth } from '@/lib/auth/useAuth';
+import { useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { authMode } from '@/lib/auth/config';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -19,6 +20,10 @@ export const Route = createFileRoute('/_app/')({
 function HomeComponent() {
   const { user, currentEmpresa, empresas } = useAuth();
   const tieneEmpresas = empresas.length > 0;
+  const isSuperAdmin = useHasAnyPermission([
+    'admin.sucursales.gestionar-todas-sucursales',
+    'identidad.roles.administrar',
+  ]);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -96,9 +101,17 @@ function HomeComponent() {
                 <Briefcase className="h-3.5 w-3.5" />
                 Puesto
               </span>
-              <p className="font-medium text-slate-800 dark:text-slate-200">
-                {user?.puestoNombre ?? 'Sin puesto asignado'}
-              </p>
+              <div className="font-medium text-slate-800 dark:text-slate-200">
+                {user?.puestoNombre ? (
+                  user.puestoNombre
+                ) : isSuperAdmin ? (
+                  <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 border-0">
+                    Superadministrador
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground">Sin puesto asignado</span>
+                )}
+              </div>
             </div>
 
             <div className="space-y-1">
