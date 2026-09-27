@@ -4,7 +4,7 @@ import { authMode } from '@/lib/auth/config';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Building2, CheckCircle2, ShieldAlert, User, Mail, Fingerprint } from 'lucide-react';
+import { Building2, CheckCircle2, ShieldAlert, User, Mail, Fingerprint, Briefcase } from 'lucide-react';
 
 /**
  * Pantalla principal (Home) dentro del shell autenticado.
@@ -88,6 +88,16 @@ function HomeComponent() {
               </span>
               <p className="font-medium text-slate-800 dark:text-slate-200">
                 {user?.email ?? '—'}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Briefcase className="h-3.5 w-3.5" />
+                Puesto
+              </span>
+              <p className="font-medium text-slate-800 dark:text-slate-200">
+                {user?.puestoNombre ?? 'Sin puesto asignado'}
               </p>
             </div>
 

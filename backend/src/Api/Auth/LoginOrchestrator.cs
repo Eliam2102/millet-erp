@@ -41,6 +41,7 @@ public sealed class LoginOrchestrator
     private readonly IPermissionLoader _permissionLoader;
     private readonly IClock _clock;
     private readonly Millet.Compras.Infrastructure.ComprasDbContext _comprasDb;
+    private readonly Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext _compartidoDb;
 
     public LoginOrchestrator(
         IdentidadDbContext db,
@@ -50,7 +51,8 @@ public sealed class LoginOrchestrator
         IPermissionCache permissionCache,
         IPermissionLoader permissionLoader,
         IClock clock,
-        Millet.Compras.Infrastructure.ComprasDbContext comprasDb)
+        Millet.Compras.Infrastructure.ComprasDbContext comprasDb,
+        Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext compartidoDb)
     {
         _db = db;
         _entraValidator = entraValidator;
@@ -60,6 +62,7 @@ public sealed class LoginOrchestrator
         _permissionLoader = permissionLoader;
         _clock = clock;
         _comprasDb = comprasDb;
+        _compartidoDb = compartidoDb;
     }
 
     /// <summary>
@@ -156,10 +159,15 @@ public sealed class LoginOrchestrator
 
         var comprasSettings = await LoadComprasSettingsAsync(empresaId, cancellationToken);
 
+        var puestoNombre = await (from e in _compartidoDb.Empleados.AsNoTracking()
+                                  join p in _compartidoDb.Puestos.AsNoTracking() on e.PuestoId equals p.Id
+                                  where e.UsuarioId == usuario.Id
+                                  select p.Nombre).FirstOrDefaultAsync(cancellationToken);
+
         return new LoginResponse(
             AccessToken: token.Value,
             ExpiresAt: token.ExpiresAt,
-            Usuario: new UsuarioInfo(usuario.Id, usuario.Email, usuario.Nombre),
+            Usuario: new UsuarioInfo(usuario.Id, usuario.Email, usuario.Nombre, puestoNombre),
             Empresas: empresaInfos,
             Permisos: permisos,
             ComprasSettings: comprasSettings);
@@ -218,10 +226,15 @@ public sealed class LoginOrchestrator
 
         var comprasSettings = await LoadComprasSettingsAsync(selectedEmpresaId, cancellationToken);
 
+        var puestoNombre = await (from e in _compartidoDb.Empleados.AsNoTracking()
+                                  join p in _compartidoDb.Puestos.AsNoTracking() on e.PuestoId equals p.Id
+                                  where e.UsuarioId == usuario.Id
+                                  select p.Nombre).FirstOrDefaultAsync(cancellationToken);
+
         return new LoginResponse(
             AccessToken: token.Value,
             ExpiresAt: token.ExpiresAt,
-            Usuario: new UsuarioInfo(usuario.Id, usuario.Email, usuario.Nombre),
+            Usuario: new UsuarioInfo(usuario.Id, usuario.Email, usuario.Nombre, puestoNombre),
             Empresas: empresas,
             Permisos: permisos,
             ComprasSettings: comprasSettings);

@@ -3,7 +3,7 @@ using Millet.Compras.Application.Settings;
 namespace Millet.Api.Auth.Models;
 
 /// <summary>Datos del usuario autenticado para el frontend.</summary>
-public sealed record UsuarioInfo(Guid Id, string Email, string Nombre);
+public sealed record UsuarioInfo(Guid Id, string Email, string Nombre, string? PuestoNombre);
 
 /// <summary>
 /// Una empresa accesible para el usuario. <see cref="EsLaActual"/> indica si

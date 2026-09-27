@@ -12,6 +12,7 @@ export interface UsuarioInfo {
   id: string;
   email: string;
   nombre: string;
+  puestoNombre?: string | null;
 }
 
 /**
@@ -58,6 +59,7 @@ export interface MeResponse {
   userId: string;
   email: string;
   nombre: string;
+  puestoNombre?: string | null;
   currentEmpresaId: string | null;
   departamentoId: string | null;
   permisos: string[];
