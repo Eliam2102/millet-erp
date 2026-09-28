@@ -3,6 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.SharedKernel.Domain.Audit;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
@@ -82,7 +85,7 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task Get_Filtra_Sucursal_Sin_Ocultar_Eventos_Globales_En_Consulta_Sin_Filtro()
+    public async Task Get_Filtra_Sucursal_De_La_Empresa_Activa()
     {
         var client = await CreateSuperAdminClientAsync();
         var clave = $"AUD-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
@@ -108,9 +111,40 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         Assert.All(items.EnumerateArray(), i =>
             Assert.Equal(sucursalId, i.GetProperty("sucursalId").GetGuid()));
 
-        var global = await client.GetAsync(
+        var sinFiltroSucursal = await client.GetAsync(
             $"{EndpointBase}?desde={desde:yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}");
-        Assert.Equal(HttpStatusCode.OK, global.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, sinFiltroSucursal.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_No_Expone_Eventos_Globales_Ni_De_Otra_Empresa()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+        var marcador = $"AISLAMIENTO-{Guid.NewGuid():N}";
+        var empresaActual = Guid.Parse("00000003-0000-0000-0000-000000000001");
+        var otraEmpresa = Guid.NewGuid();
+        foreach (var empresa in new Guid?[] { null, otraEmpresa, empresaActual })
+            db.AuditLog.Add(new AuditLogEntry
+            {
+                Id = Guid.CreateVersion7(), Timestamp = DateTimeOffset.UtcNow,
+                EmpresaId = empresa, Modulo = "QA", Entidad = marcador,
+                Operacion = "crear", Cambios = "{}", CorrelationId = Guid.NewGuid(),
+            });
+        await db.SaveChangesAsync();
+
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var url = $"{EndpointBase}?desde={hoy.AddDays(-1):yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}&recurso={marcador}";
+        var response = await client.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        var items = (await ReadJsonAsync(response)).GetProperty("items");
+        Assert.Single(items.EnumerateArray());
+        Assert.Equal(empresaActual, items[0].GetProperty("empresaId").GetGuid());
+
+        var forzado = await client.GetAsync($"{url}&empresaId={otraEmpresa}");
+        forzado.EnsureSuccessStatusCode();
+        Assert.Empty((await ReadJsonAsync(forzado)).GetProperty("items").EnumerateArray());
     }
 
     [Fact]

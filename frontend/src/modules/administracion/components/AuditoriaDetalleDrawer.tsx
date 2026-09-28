@@ -88,7 +88,7 @@ export function AuditoriaDetalleDrawer({
                   {entry.empresaId ?? '—'}
                 </dd>
                 <dt className="text-muted-foreground">Sucursal</dt>
-                <dd className="font-mono text-xs">{entry.sucursalClave ? `${entry.sucursalClave} · ${entry.sucursalId}` : entry.sucursalId ?? 'Evento global / sin sucursal'}</dd>
+                <dd className="font-mono text-xs">{entry.sucursalClave ? `${entry.sucursalClave} · ${entry.sucursalId}` : entry.sucursalId ?? 'Sin sucursal específica'}</dd>
                 <dt className="text-muted-foreground">Módulo</dt>
                 <dd>{entry.modulo}</dd>
                 <dt className="text-muted-foreground">Entidad</dt>

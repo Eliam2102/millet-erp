@@ -333,7 +333,7 @@ export function AuditoriaPage() {
             value={draftSucursalId}
             onChange={(e) => setDraftSucursalId(e.target.value)}
           >
-            <option value="">Todas, incluyendo eventos globales</option>
+            <option value="">Todas las sucursales de la empresa</option>
             {(sucursalesQuery.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.clave} · {s.nombre}</option>)}
           </select>
         </div>

@@ -113,13 +113,13 @@ public sealed class ConsultarBitacoraHandler
             .AsNoTracking()
             .Where(a => a.Timestamp >= desdeUtc && a.Timestamp < hastaUtc);
 
-        // La bitácora no tiene query filter global: acotar aquí la empresa
-        // del token evita consultar registros de otra razón social pasando
-        // un empresaId arbitrario. Eventos sin empresa son globales.
+        // La bitácora no tiene query filter global. Un evento sin empresa
+        // puede pertenecer a una identidad de otra razón social; no se debe
+        // exponer en la vista de una empresa por el solo hecho de ser global.
         if (_empresaContext.Current is Guid empresaActual)
-            query = query.Where(a => a.EmpresaId == empresaActual || a.EmpresaId == null);
+            query = query.Where(a => a.EmpresaId == empresaActual);
         else
-            query = query.Where(a => a.EmpresaId == null);
+            query = query.Where(a => false);
 
         if (request.Modulo is { Length: > 0 })
             query = query.Where(a => a.Modulo == request.Modulo);
@@ -160,8 +160,7 @@ public sealed class ConsultarBitacoraHandler
                 (string?)null))
             .ToListAsync(cancellationToken);
 
-        // La proyección JSONB se hace después de paginar en SQL. Los eventos
-        // anteriores sin metadatos siguen visibles en consultas globales.
+        // La proyección JSONB se hace después de paginar en SQL.
         var ids = rows.Select(r => r.Id).ToList();
         var metadatosPorId = await _db.AuditLog.AsNoTracking()
             .Where(a => ids.Contains(a.Id))

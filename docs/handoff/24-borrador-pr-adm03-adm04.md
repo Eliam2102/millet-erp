@@ -7,17 +7,17 @@ La base integrada de empresas, usuarios y permisos aún no registraba todos los 
 ## Cambio verificable
 
 - ADM-01/02: regresión de organización, identidad y catálogos sobre dos empresas y distintos permisos.
-- ADM-03: accesos permitidos y denegados sin conservar tokens ni contraseñas; auditoría con usuario, empresa, fecha local, entidad, acción y valores anteriores/nuevos; particiones mensuales automáticas.
+- ADM-03: accesos permitidos y denegados sin conservar tokens ni contraseñas; auditoría con usuario, empresa, fecha local, entidad, acción y valores anteriores/nuevos; particiones mensuales automáticas. La consulta de una empresa excluye eventos sin empresa y de otras razones sociales.
 - ADM-04: referencias de impuestos con clave, tipo, factor, valor, vigencia, estado y fuente; sin tasas reales precargadas. Formas de pago SAT conservan mantenimiento controlado y consulta. Monedas y unidades continúan desde los catálogos existentes.
 - Propuesta de validación funcional en `docs/handoff/23-borrador-validacion-adm01-adm04.md`.
 
 ## Verificación local
 
-- 285 pruebas de integración de Administración, Identidad y Catálogos: aprobadas.
+- 286 pruebas de integración de Administración, Identidad y Catálogos: aprobadas con banco de pruebas preparado sin una segunda asignación SuperAdmin introducida por el perfil local de arranque.
 - 383 pruebas unitarias de los cuatro proyectos pertinentes: aprobadas.
 - 6 pruebas de interfaz de impuestos y auditoría: aprobadas.
 - Compilación del frontend y análisis estático de archivos cambiados: aprobados.
-- Recorrido visual local: inicio de sesión simulado, navegación a impuestos, formulario de alta, consulta de auditoría y detalle de acceso.
+- Recorrido visual local: inicio de sesión simulado, alta, edición y desactivación de una referencia de prueba; exclusión de inactivos en consulta vigente; auditoría del cambio con valores anteriores y nuevos.
 - Migración aplicada en una base local aislada y escritura de auditoría posterior a octubre de 2026 comprobada.
 
 ## Límites que debe ver el revisor

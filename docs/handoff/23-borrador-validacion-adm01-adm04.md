@@ -28,4 +28,4 @@ Millet debe confirmar puntualmente:
 
 ## Límites del cierre local
 
-La implementación y las pruebas locales comprueban el código de esta rama. Falta validar permisos de creación de particiones en la infraestructura de destino, ejecutar el flujo real de Entra y obtener UAT de Millet con datos oficiales. Esas validaciones no se sustituyen por el inicio de sesión simulado ni por registros de prueba.
+La implementación y las pruebas locales comprueban el código de esta rama. La bitácora de una empresa sólo devuelve eventos atribuidos a ella; los eventos sin empresa se reservan para una futura vista de seguridad transversal, cuya autorización deberá definirse aparte. Falta validar permisos de creación de particiones en la infraestructura de destino, ejecutar el flujo real de Entra y obtener UAT de Millet con datos oficiales. Esas validaciones no se sustituyen por el inicio de sesión simulado ni por registros de prueba.
