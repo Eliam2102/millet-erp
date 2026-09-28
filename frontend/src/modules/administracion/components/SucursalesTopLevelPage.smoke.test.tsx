@@ -44,8 +44,8 @@ const EMPRESA_DETALLE = {
     version: 1,
   },
   sucursales: [
-    { id: 's-1', clave: 'S01', nombre: 'Matriz', estatus: 0, version: 1 },
-    { id: 's-2', clave: 'S02', nombre: 'Sucursal Norte', estatus: 0, version: 1 },
+    { id: 's-1', clave: 'S01', nombre: 'Matriz', tipo: 1, estatus: 0, version: 1 },
+    { id: 's-2', clave: 'S02', nombre: 'Sucursal Norte', tipo: 2, estatus: 0, version: 1 },
   ],
   departamentos: [],
 };

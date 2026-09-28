@@ -35,7 +35,7 @@ public sealed class DesactivarSucursalHandler
         }
 
         return new SucursalResponse(
-            sucursal.Id, sucursal.Clave, sucursal.Nombre,
+            sucursal.Id, sucursal.Clave, sucursal.Nombre, sucursal.Tipo,
             sucursal.Estatus, sucursal.Version, sucursal.ClaveAw, sucursal.ZonaHoraria);
     }
 }

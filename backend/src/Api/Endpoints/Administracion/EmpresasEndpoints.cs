@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Empresas;
 using Millet.Administracion.Application.Sucursales;
+using Millet.Administracion.Domain;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
@@ -179,7 +180,7 @@ public static class EmpresasEndpoints
         {
             var response = await mediator.Send(
                 new ActualizarSucursalCommand(
-                    id, payload.Nombre, payload.ClaveAw,
+                    id, payload.Nombre, payload.Tipo, payload.ClaveAw,
                     payload.LimpiarClaveAw ?? false,
                     payload.ZonaHoraria), ct);
             return Results.Ok(response);
@@ -229,6 +230,7 @@ public static class EmpresasEndpoints
     /// <c>ZonaHoraria</c> es el id IANA ([Decisión 12-8], CAJAS-PR3).</summary>
     public sealed record ActualizarSucursalPayload(
         string? Nombre,
+        TipoSucursal? Tipo = null,
         string? ClaveAw = null,
         bool? LimpiarClaveAw = null,
         string? ZonaHoraria = null);

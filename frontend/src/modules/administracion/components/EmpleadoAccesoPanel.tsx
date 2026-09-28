@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
+import { adminKeys } from '@/modules/administracion/api/keys';
 import {
   useAccesoColaborador,
   useAccionAccesoColaborador,
@@ -23,6 +25,7 @@ interface Props {
 const ESTADOS = ['Acceso activo', 'Pendiente de primer acceso', 'Creando cuenta Microsoft', 'Error de provisión'];
 
 export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, empleadoActivo }: Props) {
+  const queryClient = useQueryClient();
   const puedeCrear = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
   const puedeAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const puedeEditar = useHasPermission(PermisosCanonicos.IdentidadUsuariosEditar);
@@ -112,7 +115,15 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, empleadoActi
       <div className="flex flex-wrap gap-2">
         {!estado.usuarioActivo && puedeEditar && <Button size="sm" variant="outline" disabled={pendiente}
           onClick={() => reactivar.mutate({ id: usuarioId, idempotencyKey: crypto.randomUUID() },
-            { onSuccess: () => { acceso.refetch(); toast.success('Usuario reactivado'); }, onError: error })}>
+            {
+              onSuccess: () => {
+                acceso.refetch();
+                queryClient.invalidateQueries({ queryKey: adminKeys.empleados() });
+                queryClient.invalidateQueries({ queryKey: ['catalogos', 'empleados'] });
+                toast.success('Usuario reactivado');
+              },
+              onError: error,
+            })}>
           Reactivar acceso
         </Button>}
         {estado.estadoAcceso === 3 && puedeCrear && <Button size="sm" variant="outline" disabled={pendiente}

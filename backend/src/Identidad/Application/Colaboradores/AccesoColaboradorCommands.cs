@@ -111,8 +111,10 @@ public sealed class AccesoColaboradorHandlers :
                 "El empleado no tiene correo de contacto para enviarle el acceso.");
         }
 
-        // Primero Entra y el correo; si cualquiera falla no se registra el envío.
-        var contrasena = await _directorio.RestablecerContrasenaTemporalAsync(usuario.EntraOid, cancellationToken);
+        // Cada reenvío invalida la clave anterior. Nunca se conserva en el ERP.
+        var contrasena = await _directorio.RestablecerContrasenaTemporalAsync(
+            usuario.EntraOid, cancellationToken);
+
         await _correoSaliente.EnviarAccesoColaboradorAsync(
             new CorreoAccesoColaborador(
                 empleado.EmailContacto,

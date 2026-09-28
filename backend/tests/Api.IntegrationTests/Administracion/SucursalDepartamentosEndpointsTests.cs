@@ -220,6 +220,31 @@ public class SucursalDepartamentosEndpointsTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task Desasignar_Y_Reasignar_Conserva_La_Misma_Fila_Y_Su_Historial()
+    {
+        // Criterio 01-03: desasignar es baja lógica (sin borrado físico) y
+        // cada cambio de la relación queda en la bitácora.
+        var client = await CreateSuperAdminClientAsync();
+        var sucursalId = await CrearSucursalAsync(client);
+        var deptoId = await CrearDepartamentoAsync(client);
+        await AsignarAsync(client, sucursalId, deptoId);
+        var base_ = $"{EmpresasBase}/sucursales/{sucursalId}/departamentos/{deptoId}";
+        (await client.PostAsync($"{base_}/desactivar", content: null)).EnsureSuccessStatusCode();
+        (await client.PostAsync($"{base_}/reactivar", content: null)).EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var filas = await db.SucursalDepartamentos.AsNoTracking()
+            .Where(x => x.SucursalId == sucursalId && x.DepartamentoId == deptoId)
+            .ToListAsync();
+        var fila = Assert.Single(filas);
+        var eventos = await db.Set<Millet.SharedKernel.Domain.Audit.AuditLogEntry>().AsNoTracking()
+            .CountAsync(a => a.EntidadId == fila.Id);
+        Assert.True(eventos >= 3, $"Se esperaban asignación, baja y reactivación en bitácora; hubo {eventos}.");
+    }
+
+    [Fact]
     public async Task Reactivar_Despues_De_Desactivar_Retorna_200_Activo()
     {
         var client = await CreateSuperAdminClientAsync();

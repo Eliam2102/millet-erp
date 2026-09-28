@@ -60,12 +60,14 @@ public enum TipoAccesoColaborador
 ///         rollback nunca deja cuentas huérfanas en el tenant (F4).</item>
 /// </list>
 ///
-/// El rol se toma de <see cref="RolId"/> o, si no viene, de
-/// <c>Puesto.RolSugeridoId</c> (D3).
+/// Con acceso al ERP, <see cref="RolId"/> es obligatorio: el rol sugerido
+/// del puesto sólo lo precarga la UI y el usuario lo confirma o cambia; el
+/// backend nunca lo asigna por su cuenta (criterio 01-04 de aceptación,
+/// sustituye el respaldo automático de D3).
 /// </summary>
 public sealed record AltaColaboradorCommand(
     Guid Id,
-    string Clave,
+    string? Clave,
     string Nombre,
     Guid SucursalId,
     Guid DepartamentoId,
@@ -99,7 +101,7 @@ public sealed class AltaColaboradorValidator : AbstractValidator<AltaColaborador
 
     public AltaColaboradorValidator()
     {
-        RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
+        RuleFor(c => c.Clave!).MaximumLength(20).When(c => !string.IsNullOrWhiteSpace(c.Clave));
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
         RuleFor(c => c.SucursalId).NotEmpty();
         RuleFor(c => c.DepartamentoId).NotEmpty();
@@ -130,6 +132,10 @@ public sealed class AltaColaboradorValidator : AbstractValidator<AltaColaborador
             .Null()
             .When(c => c.Acceso == TipoAccesoColaborador.SinAcceso)
             .WithMessage("Un colaborador sin acceso al ERP no lleva rol.");
+        RuleFor(c => c.RolId)
+            .NotEmpty()
+            .When(c => c.Acceso != TipoAccesoColaborador.SinAcceso)
+            .WithMessage("Indica el rol del colaborador: el sugerido por el puesto no se asigna solo.");
 
         RuleFor(c => c.CodigoNomina!).NotEmpty().MaximumLength(20)
             .When(c => c.CodigoNomina is not null);
@@ -188,7 +194,7 @@ public sealed class AltaColaboradorHandler
         }
 
         var correo = command.CorreoCorporativo!.Trim();
-        var rolId = await ResolverRolAsync(command, cancellationToken);
+        var rolId = ResolverRol(command);
         var cuentaNueva = command.Acceso == TipoAccesoColaborador.CuentaNueva;
         CuentaEntra? cuenta = null;
         Usuario? existente = null;
@@ -292,18 +298,10 @@ public sealed class AltaColaboradorHandler
             CodigoNomina: command.CodigoNomina,
             EmailContacto: string.IsNullOrWhiteSpace(command.EmailContacto) ? null : command.EmailContacto.Trim());
 
-    private async Task<Guid> ResolverRolAsync(AltaColaboradorCommand command, CancellationToken ct)
-    {
-        if (command.RolId is Guid rolId) return rolId;
-
-        var sugerido = await _compartido.Puestos.AsNoTracking()
-            .Where(p => p.Id == command.PuestoId)
-            .Select(p => p.RolSugeridoId)
-            .FirstOrDefaultAsync(ct);
-        return sugerido ?? throw new BusinessRuleException(
+    private static Guid ResolverRol(AltaColaboradorCommand command) =>
+        command.RolId ?? throw new BusinessRuleException(
             "ALTA_ROL_REQUERIDO",
-            "Indica el rol: el puesto no tiene un rol sugerido.");
-    }
+            "Indica el rol del colaborador: el sugerido por el puesto no se asigna solo.");
 
     /// <summary>
     /// Camino B: el correo nuevo tiene que estar libre en el directorio y en

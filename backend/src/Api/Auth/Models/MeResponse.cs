@@ -21,6 +21,7 @@ public sealed record MeResponse(
     Guid UserId,
     string Email,
     string Nombre,
+    string? PuestoNombre,
     Guid? CurrentEmpresaId,
     Guid? DepartamentoId,
     IReadOnlyList<string> Permisos,

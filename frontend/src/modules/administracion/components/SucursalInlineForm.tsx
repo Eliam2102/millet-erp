@@ -18,7 +18,10 @@ import {
   useActualizarSucursal,
   useCrearSucursal,
 } from '@/modules/administracion/api';
-import type { SucursalResponse } from '@/modules/administracion/api/types';
+import {
+  type SucursalResponse,
+  TipoSucursal,
+} from '@/modules/administracion/api/types';
 import { cn } from '@/lib/utils';
 
 /**
@@ -45,6 +48,7 @@ export interface SucursalInlineFormProps {
 const VALORES_INICIALES: SucursalValues = {
   clave: '',
   nombre: '',
+  tipo: TipoSucursal.Taller,
   claveAw: '',
 };
 
@@ -65,6 +69,7 @@ export function SucursalInlineForm({
       ? {
           clave: sucursal.clave,
           nombre: sucursal.nombre,
+          tipo: sucursal.tipo ?? TipoSucursal.Taller,
           claveAw: sucursal.claveAw ?? '',
         }
       : VALORES_INICIALES,
@@ -121,6 +126,7 @@ export function SucursalInlineForm({
           id: sucursal.id,
           payload: {
             nombre: values.nombre,
+            tipo: values.tipo,
             claveAw: claveAw === '' ? null : claveAw,
             limpiarClaveAw,
           },
@@ -142,6 +148,7 @@ export function SucursalInlineForm({
         command: {
           clave: values.clave,
           nombre: values.nombre,
+          tipo: values.tipo,
           claveAw: claveAw === '' ? null : claveAw,
         },
         idempotencyKey,
@@ -183,7 +190,7 @@ export function SucursalInlineForm({
           label="Clave"
           required
           error={form.formState.errors.clave?.message}
-          className="md:col-span-3"
+          className="md:col-span-2"
         >
           <Input
             maxLength={20}
@@ -198,13 +205,29 @@ export function SucursalInlineForm({
           label="Nombre"
           required
           error={form.formState.errors.nombre?.message}
-          className="md:col-span-6"
+          className="md:col-span-4"
         >
           <Input
             maxLength={254}
             placeholder="Sucursal Mérida"
             {...form.register('nombre')}
           />
+        </Field>
+
+        <Field
+          label="Tipo"
+          required
+          error={form.formState.errors.tipo?.message}
+          className="md:col-span-3"
+        >
+          <select
+            aria-label="Tipo de sucursal"
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            {...form.register('tipo', { valueAsNumber: true })}
+          >
+            <option value={TipoSucursal.Taller}>Taller (Corte local)</option>
+            <option value={TipoSucursal.Planta}>Planta (Maquila central)</option>
+          </select>
         </Field>
 
         <Field

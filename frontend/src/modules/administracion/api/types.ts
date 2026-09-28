@@ -35,10 +35,17 @@ export interface ListarEmpresasResponse {
   total: number;
 }
 
+export const TipoSucursal = {
+  Taller: 1,
+  Planta: 2,
+} as const;
+export type TipoSucursal = (typeof TipoSucursal)[keyof typeof TipoSucursal];
+
 export interface SucursalResponse {
   id: string;
   clave: string;
   nombre: string;
+  tipo: TipoSucursal;
   /** Enum <c>EstatusCatalogo</c> serializado como número. */
   estatus: number;
   version: number;
@@ -47,6 +54,7 @@ export interface SucursalResponse {
    * ADR-0048, p.ej. "CONKAL"). null = no recibe pedidos de A+W.
    */
   claveAw?: string | null;
+  zonaHoraria?: string;
 }
 
 export interface DepartamentoResponse {
@@ -85,9 +93,13 @@ export interface ListarDepartamentosDeSucursalResponse {
 }
 
 /**
- * Una asignación N:M Sucursal ↔ Puesto (F1-ADM-01 Fase 2 backend).
- * Mirror de <c>SucursalPuestoResponse</c>. Análogo exacto de
- * <see cref="SucursalDepartamentoResponse"/>.
+ * Una asignación N:M Sucursal ↔ Puesto ↔ Departamento (F1-ADM-01 Fase
+ * 2/3 backend + Parte E "un puesto en varios departamentos"). Mirror
+ * de <c>SucursalPuestoResponse</c>. Análogo exacto de
+ * <see cref="SucursalDepartamentoResponse"/>, salvo que la unicidad
+ * ahora es <c>(sucursalId, puestoId, departamentoId)</c>: un mismo
+ * puesto puede tener una fila por cada departamento activo de la
+ * sucursal en el que participa.
  */
 export interface SucursalPuestoResponse {
   sucursalId: string;
@@ -96,6 +108,17 @@ export interface SucursalPuestoResponse {
   puestoNombre: string;
   departamentoId: string;
   departamentoNombre?: string | null;
+  /**
+   * Rol sugerido propio de esta asignación (sucursal+puesto+departamento).
+   * <c>null</c> = sin excepción, hereda el rol sugerido del puesto.
+   */
+  rolSugeridoId: string | null;
+  /**
+   * Rol sugerido efectivo a precargar en el wizard de alta:
+   * <c>rolSugeridoId ?? rolSugeridoDelPuesto</c>. Siempre solo
+   * sugerencia editable (01-04) — nunca se asigna en silencio.
+   */
+  rolSugeridoEfectivoId: string | null;
   /** <c>EstatusCatalogo</c> (Activo/Inactivo/EnRevision). */
   estatus: number;
   version: number;
@@ -174,13 +197,16 @@ export interface CrearSucursalCommand {
   id?: string;
   clave: string;
   nombre: string;
+  tipo?: TipoSucursal;
   claveAw?: string | null;
 }
 
 export interface ActualizarSucursalPayload {
   nombre?: string | null;
+  tipo?: TipoSucursal | null;
   claveAw?: string | null;
   limpiarClaveAw?: boolean | null;
+  zonaHoraria?: string | null;
 }
 
 export interface CrearCanalVentaCommand {
@@ -365,7 +391,15 @@ export interface ActualizarParametroPayload {
 
 // ── Puestos y Empleados (ADM-FE-PR1, doc 10-catalogo-puestos-empleados) ──
 
-/** Mirror de <c>PuestoResponse</c> backend (F1-ADM-01.4). */
+/**
+ * Mirror de <c>PuestoResponse</c> backend (F1-ADM-01.4). Con la Parte
+ * E ("un puesto en varios departamentos de la sucursal"), el puesto
+ * ya NO tiene un único departamento — eso ahora vive en la asignación
+ * N:M por sucursal (<see cref="SucursalPuestoResponse"/>).
+ * <c>departamentoId</c> aquí es solo "departamento de referencia"
+ * (opcional, informativo del catálogo maestro); ninguna validación
+ * lo usa como fuente de verdad.
+ */
 export interface PuestoResponse {
   id: string;
   clave: string;
@@ -374,6 +408,7 @@ export interface PuestoResponse {
   version: number;
   rolSugeridoId?: string | null;
   rolSugeridoNombre?: string | null;
+  /** Departamento de referencia (opcional, informativo). */
   departamentoId?: string | null;
   departamentoNombre?: string | null;
 }
@@ -384,6 +419,7 @@ export interface CrearPuestoCommand {
   clave: string;
   nombre: string;
   rolSugeridoId?: string | null;
+  /** Departamento de referencia (opcional, informativo). */
   departamentoId?: string | null;
 }
 
@@ -392,6 +428,7 @@ export interface ActualizarPuestoPayload {
   nombre?: string | null;
   rolSugeridoId?: string | null;
   limpiarRolSugerido?: boolean;
+  /** Departamento de referencia (opcional, informativo). */
   departamentoId?: string | null;
   limpiarDepartamento?: boolean;
 }
@@ -417,7 +454,7 @@ export interface EmpleadoResponse {
 export interface CrearEmpleadoCommand {
   id: string;
   empresaId: string;
-  clave: string;
+  clave?: string | null;
   nombre: string;
   email?: string | null;
   puestoId?: string | null;

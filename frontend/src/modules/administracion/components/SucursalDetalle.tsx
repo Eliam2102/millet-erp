@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useSucursales } from '@/features/catalogos/api';
+import { TipoSucursal } from '@/modules/administracion/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { SucursalOrganizacionTab } from '@/modules/administracion/components/SucursalOrganizacionTab';
@@ -50,6 +51,19 @@ export function SucursalDetalle() {
               <span className="hidden truncate text-sm text-muted-foreground md:inline">
                 · {sucursal?.nombre ?? 'Sucursal'}
               </span>
+              {sucursal != null && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs',
+                    sucursal.tipo === TipoSucursal.Planta
+                      ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                      : 'border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+                  )}
+                >
+                  {sucursal.tipo === TipoSucursal.Planta ? 'Planta' : 'Taller'}
+                </Badge>
+              )}
               {sucursal == null && (
                 <Badge variant="outline" className="text-muted-foreground">
                   No encontrada en el catálogo activo

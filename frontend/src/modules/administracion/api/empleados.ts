@@ -47,6 +47,8 @@ export function useEmpleadosAdmin() {
       }
       return items;
     },
+    refetchInterval: (query) =>
+      query.state.data?.some((e) => e.estadoAcceso === 2) ? 3000 : false,
   });
 }
 
@@ -72,7 +74,7 @@ export function useCrearEmpleado() {
 
 export interface AltaColaboradorCommand {
   id: string;
-  clave: string;
+  clave?: string | null;
   nombre: string;
   sucursalId: string;
   departamentoId: string;
@@ -83,6 +85,25 @@ export interface AltaColaboradorCommand {
   rolId: string | null;
   jefeDirectoId: string | null;
   codigoNomina: string | null;
+}
+
+export interface SiguienteClaveEmpleadoResponse {
+  siguienteClave: string;
+}
+
+export function useSiguienteClaveEmpleado(enabled = true) {
+  return useQuery<SiguienteClaveEmpleadoResponse>({
+    queryKey: ['admin', 'empleados', 'siguiente-clave'],
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<SiguienteClaveEmpleadoResponse>(
+        `${BASE}/siguiente-clave`,
+        { signal },
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 5000,
+  });
 }
 
 export function useAltaColaborador() {
@@ -127,8 +148,10 @@ export interface ValidacionCorreoCorporativo {
   dominioPermitido: boolean;
   cuentaEntra: { objectId: string; nombreMostrado: string; habilitada: boolean } | null;
   usuarioErp: { id: string; nombre: string; estadoAcceso: number; activo: boolean } | null;
+  empleadoVinculado?: { id: string; clave: string; nombre: string } | null;
   puedeVincularCuentaExistente: boolean;
   puedeCrearCuentaNueva: boolean;
+  motivoBloqueo?: string | null;
 }
 
 export function useValidarCorreoCorporativo(correo: string, enabled: boolean) {
@@ -156,6 +179,8 @@ export function useAccesoColaborador(empleadoId: string | null) {
       );
       return data;
     },
+    refetchInterval: (query) =>
+      query.state.data?.estadoAcceso === 2 ? 3000 : false,
   });
 }
 
@@ -199,9 +224,12 @@ export function useAccionAccesoColaborador(accion: 'reintentar' | 'reenviar') {
       );
       return data;
     },
-    onSuccess: (_, vars) => queryClient.invalidateQueries({
-      queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'],
-    }),
+    onSuccess: (_, vars) => {
+      invalidar(queryClient);
+      queryClient.invalidateQueries({
+        queryKey: ['admin', 'colaboradores', vars.empleadoId, 'acceso'],
+      });
+    },
   });
 }
 
@@ -256,4 +284,7 @@ function useCambioEstatusEmpleado(accion: 'desactivar' | 'reactivar') {
 function invalidar(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: adminKeys.empleados() });
   queryClient.invalidateQueries({ queryKey: CATALOGOS_EMPLEADOS_KEY });
+  queryClient.invalidateQueries({ queryKey: ['admin', 'empleados', 'siguiente-clave'] });
+  queryClient.invalidateQueries({ queryKey: ['identidad', 'usuarios'] });
+  queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores'] });
 }

@@ -30,6 +30,9 @@ public sealed class DarAccesoColaboradorValidator : AbstractValidator<DarAccesoC
         RuleFor(x => x.EmpleadoId).NotEmpty();
         RuleFor(x => x.Acceso).Must(x => x is TipoAccesoColaborador.CuentaExistente or TipoAccesoColaborador.CuentaNueva);
         RuleFor(x => x.CorreoCorporativo).NotEmpty().EmailAddress().MaximumLength(254);
+        // Criterio 01-04: el rol sugerido del puesto sólo se precarga en la UI.
+        RuleFor(x => x.RolId).NotEmpty()
+            .WithMessage("Indica el rol del colaborador: el sugerido por el puesto no se asigna solo.");
         RuleFor(x => x.EmailContacto!).EmailAddress().MaximumLength(254)
             .When(x => !string.IsNullOrWhiteSpace(x.EmailContacto));
     }
@@ -73,7 +76,7 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
             throw new BusinessRuleException("COLABORADOR_INACTIVO", "Reactiva al empleado antes de darle acceso.");
         if (empleado.SucursalId is not Guid sucursalId ||
             empleado.DepartamentoId is not Guid departamentoId ||
-            empleado.PuestoId is not Guid puestoId)
+            empleado.PuestoId is null)
             throw new BusinessRuleException("COLABORADOR_ESTRUCTURA_INCOMPLETA",
                 "Asigna sucursal, departamento y puesto antes de dar acceso.");
 
@@ -85,9 +88,7 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
             throw new BusinessRuleException("COLABORADOR_SIN_CORREO_CONTACTO",
                 "Se requiere un correo personal o de contacto para enviar la contraseña temporal.");
 
-        var rolId = request.RolId ?? await _compartido.Puestos.AsNoTracking()
-            .Where(p => p.Id == puestoId).Select(p => p.RolSugeridoId)
-            .FirstOrDefaultAsync(ct)
+        var rolId = request.RolId
             ?? throw new BusinessRuleException("ALTA_ROL_REQUERIDO", "Indica un rol para el acceso.");
 
         CuentaEntra? cuenta = null;

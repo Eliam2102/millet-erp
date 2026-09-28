@@ -897,10 +897,10 @@ else if (proveedorColaboradores.Equals("Simulado", StringComparison.OrdinalIgnor
             .Get<Millet.Identidad.Application.DirectorioEntra.CorreoSandboxOptions>() ?? new();
         var esLoopback = sandbox.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
             || sandbox.Host == "127.0.0.1" || sandbox.Host == "::1";
-        if (!builder.Environment.IsDevelopment() || authMode != AuthMode.FakeForLocalDev
+        if (!builder.Environment.IsDevelopment()
             || !esLoopback || sandbox.Puerto is < 1 or > 65535)
             throw new InvalidOperationException(
-                "La provisión simulada solo se permite en Development, con FakeForLocalDev y SMTP de captura en loopback.");
+                "La provisión simulada solo se permite en Development y SMTP de captura en loopback.");
         builder.Services.AddSingleton<Millet.Identidad.Application.Ports.ICorreoSalientePort,
             Millet.Api.Auth.Provisioning.CorreoSandboxLocal>();
     }

@@ -138,25 +138,39 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         }
     }
 
+    private static readonly HashSet<string> ExcludedProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ContrasenaTemporal",
+        "Contrasena",
+        "Password"
+    };
+
+    private static bool IsAuditableProperty(PropertyEntry p) =>
+        !ExcludedProperties.Contains(p.Metadata.Name);
+
     private static string SerializeChanges(EntityEntry entry)
     {
         return entry.State switch
         {
             EntityState.Added => JsonSerializer.Serialize(new
             {
-                snapshot = entry.Properties.ToDictionary(p => p.Metadata.Name, p => p.CurrentValue)
+                snapshot = entry.Properties
+                    .Where(IsAuditableProperty)
+                    .ToDictionary(p => p.Metadata.Name, p => p.CurrentValue)
             }),
             EntityState.Modified => JsonSerializer.Serialize(new
             {
                 diff = entry.Properties
-                    .Where(p => p.IsModified)
+                    .Where(p => p.IsModified && IsAuditableProperty(p))
                     .ToDictionary(
                         p => p.Metadata.Name,
                         p => (object)new { antes = p.OriginalValue, despues = p.CurrentValue })
             }),
             EntityState.Deleted => JsonSerializer.Serialize(new
             {
-                snapshot_pre_borrado = entry.Properties.ToDictionary(p => p.Metadata.Name, p => p.OriginalValue)
+                snapshot_pre_borrado = entry.Properties
+                    .Where(IsAuditableProperty)
+                    .ToDictionary(p => p.Metadata.Name, p => p.OriginalValue)
             }),
             _ => "{}"
         };

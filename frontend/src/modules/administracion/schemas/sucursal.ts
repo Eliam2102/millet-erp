@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TipoSucursal } from '@/modules/administracion/api/types';
 
 /**
  * Schema Zod compartido para crear/actualizar Sucursal. Mirror de
@@ -20,6 +21,9 @@ export const SucursalSchema = z.object({
     .trim()
     .min(1, 'Nombre requerido')
     .max(254, 'Máximo 254 caracteres'),
+  tipo: z.nativeEnum(TipoSucursal, {
+    message: 'El tipo debe ser Taller o Planta',
+  }),
   // Clave con la que A+W refiere la sucursal (ingesta de pedidos,
   // ADR-0048). Vacía/ausente = la sucursal no recibe pedidos de A+W.
   // .optional() y NO .default(''): el default hace divergir el tipo de

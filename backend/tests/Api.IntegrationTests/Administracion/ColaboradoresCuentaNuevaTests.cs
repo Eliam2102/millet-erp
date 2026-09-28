@@ -165,7 +165,7 @@ public class ColaboradoresCuentaNuevaTests : IClassFixture<ColaboradoresCuentaNu
     }
 
     [Fact]
-    public async Task Reenviar_Acceso_Genera_Otra_Contrasena()
+    public async Task Reenviar_Acceso_Restablece_Contrasena_Temporal()
     {
         var client = await CreateSuperAdminClientAsync();
         var org = await CrearOrganizacionAsync(client);

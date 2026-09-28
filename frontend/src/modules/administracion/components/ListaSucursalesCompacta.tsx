@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   EstatusCatalogo,
   type SucursalResponse,
+  TipoSucursal,
 } from '@/modules/administracion/api/types';
 import { cn } from '@/lib/utils';
 
@@ -57,6 +58,12 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
               >
                 {item.clave}
               </span>
+              <Badge
+                variant="outline"
+                className="px-1 py-0 text-[10px]"
+              >
+                {item.tipo === TipoSucursal.Planta ? 'Planta' : 'Taller'}
+              </Badge>
               {esInactiva ? (
                 <Badge
                   variant="outline"

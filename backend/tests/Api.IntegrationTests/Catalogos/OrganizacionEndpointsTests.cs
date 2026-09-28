@@ -3,6 +3,12 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Administracion.Domain;
+using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Catalogos;
 
@@ -77,6 +83,20 @@ public class OrganizacionEndpointsTests : IClassFixture<WebApplicationFactory<Pr
         var items = json.GetProperty("items");
         Assert.Equal(1, items.GetArrayLength());
         Assert.Equal("MTY", items[0].GetProperty("clave").GetString());
+        Assert.Equal((int)TipoSucursal.Planta, items[0].GetProperty("tipo").GetInt32());
+    }
+
+    [Fact]
+    public async Task ListarSucursales_Filtra_Por_Tipo()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var response = await client.GetAsync($"/api/v1/catalogos/sucursales?tipo={(int)TipoSucursal.Planta}&limit=200");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        var items = json.GetProperty("items").EnumerateArray().ToList();
+        Assert.True(items.Count > 0);
+        Assert.All(items, item => Assert.Equal((int)TipoSucursal.Planta, item.GetProperty("tipo").GetInt32()));
     }
 
     // --- Departamentos ---
@@ -130,6 +150,66 @@ public class OrganizacionEndpointsTests : IClassFixture<WebApplicationFactory<Pr
         {
             Assert.Equal(SucursalMidId, item.GetProperty("sucursalId").GetGuid());
         }
+    }
+
+    // --- Empleados ---
+
+    [Fact]
+    public async Task ListarEmpleados_Retorna_Datos_De_Acceso_Y_Filtra()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var claveSin = $"ES-{Guid.NewGuid():N}"[..12];
+        var claveCon = $"EC-{Guid.NewGuid():N}"[..12];
+        var testUserId = Guid.CreateVersion7();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+
+            identidad.Usuarios.Add(new Usuario(
+                testUserId,
+                $"dev-test-{Guid.NewGuid():N}",
+                $"test-{Guid.NewGuid():N}@millet.mx",
+                "Usuario Test",
+                EstadoAcceso.Activo));
+            await identidad.SaveChangesAsync();
+
+            compartido.Empleados.Add(new Empleado(
+                Guid.CreateVersion7(), EmpresaSeedId, claveSin, "Empleado Sin Acceso",
+                sucursalId: SucursalMidId));
+            compartido.Empleados.Add(new Empleado(
+                Guid.CreateVersion7(), EmpresaSeedId, claveCon, "Empleado Con Acceso",
+                sucursalId: SucursalMidId, usuarioId: testUserId));
+            await compartido.SaveChangesAsync();
+        }
+
+        // 1. Listar sin filtro retorna el empleado con datos de acceso y sucursal
+        var responseAll = await client.GetAsync($"/api/v1/catalogos/empleados?q={claveCon}");
+        Assert.Equal(HttpStatusCode.OK, responseAll.StatusCode);
+        var jsonAll = await ReadJsonAsync(responseAll);
+        var itemsAll = jsonAll.GetProperty("items").EnumerateArray().ToList();
+        Assert.Single(itemsAll);
+        var empCon = itemsAll[0];
+        Assert.Equal(claveCon, empCon.GetProperty("clave").GetString());
+        Assert.True(empCon.GetProperty("usuarioActivo").GetBoolean());
+        Assert.Equal((int)EstadoAcceso.Activo, empCon.GetProperty("estadoAcceso").GetInt32());
+        Assert.Equal("Planta México Centro", empCon.GetProperty("sucursalNombre").GetString());
+
+        // 2. Filtro sin-acceso
+        var responseSin = await client.GetAsync($"/api/v1/catalogos/empleados?filtroAcceso=sin-acceso&q={claveSin}");
+        Assert.Equal(HttpStatusCode.OK, responseSin.StatusCode);
+        var itemsSin = (await ReadJsonAsync(responseSin)).GetProperty("items").EnumerateArray().ToList();
+        Assert.Single(itemsSin);
+        Assert.Equal(claveSin, itemsSin[0].GetProperty("clave").GetString());
+        Assert.Equal(JsonValueKind.Null, itemsSin[0].GetProperty("usuarioId").ValueKind);
+
+        // 3. Filtro con-acceso excluye claveSin
+        var responseCon = await client.GetAsync($"/api/v1/catalogos/empleados?filtroAcceso=con-acceso&q={claveSin}");
+        Assert.Equal(HttpStatusCode.OK, responseCon.StatusCode);
+        var itemsCon = (await ReadJsonAsync(responseCon)).GetProperty("items").EnumerateArray().ToList();
+        Assert.Empty(itemsCon);
     }
 
     // --- Helpers ---

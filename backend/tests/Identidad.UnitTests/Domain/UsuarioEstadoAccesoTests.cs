@@ -208,4 +208,25 @@ public sealed class UsuarioEstadoAccesoTests
         usuario.MarcarComoCuentaTecnica();
         usuario.EsCuentaTecnica.Should().BeTrue();
     }
+
+    [Fact]
+    public void RegistrarEnvioAcceso_Guarda_Solo_Fecha()
+    {
+        var usuario = Crear(OidReal, EstadoAcceso.PendientePrimerAcceso);
+        var ahora = DateTimeOffset.UtcNow;
+
+        usuario.RegistrarEnvioAcceso(ahora);
+
+        usuario.AccesoEnviadoEn.Should().Be(ahora);
+    }
+
+    [Fact]
+    public void RegistrarAcceso_Activa_Usuario()
+    {
+        var usuario = Crear(OidReal, EstadoAcceso.PendientePrimerAcceso);
+
+        usuario.RegistrarAcceso(DateTimeOffset.UtcNow);
+
+        usuario.EstadoAcceso.Should().Be(EstadoAcceso.Activo);
+    }
 }

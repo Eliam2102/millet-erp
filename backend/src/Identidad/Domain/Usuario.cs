@@ -151,8 +151,8 @@ public sealed class Usuario : BaseEntity, IAuditable
     }
 
     /// <summary>
-    /// Se envió el correo de acceso con una contraseña temporal nueva. Solo
-    /// aplica a una cuenta ya creada en Entra que todavía no ha entrado.
+    /// Se envió el correo de acceso. Solo aplica a una cuenta ya creada
+    /// en Entra que todavía no ha entrado. La contraseña nunca se almacena.
     /// </summary>
     public void RegistrarEnvioAcceso(DateTimeOffset cuando)
     {
@@ -192,7 +192,7 @@ public sealed class Usuario : BaseEntity, IAuditable
 
     /// <summary>
     /// Registra el inicio de sesión. La primera vez fija
-    /// <see cref="PrimerAccesoEn"/> y pasa a <see cref="EstadoAcceso.Activo"/>;
+    /// <see cref="PrimerAccesoEn"/>, pasa a <see cref="EstadoAcceso.Activo"/>
     /// después es no-op.
     /// </summary>
     public void RegistrarAcceso(DateTimeOffset cuando)

@@ -9,7 +9,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useAsignarPermisos, usePermisos } from '@/modules/identidad/api';
 import type { PermisoResponse } from '@/modules/identidad/api/types';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,7 @@ export function MatrizPermisos({
   disabledHint,
 }: MatrizPermisosProps) {
   const permisosQuery = usePermisos(true);
-  const idempotencyKey = useFormIdempotencyKey();
+  const keyFor = useBodyScopedIdempotencyKey();
   const asignar = useAsignarPermisos();
 
   // Si el caller cambia de rol (mismo componente, nuevo id) o el
@@ -116,11 +116,12 @@ export function MatrizPermisos({
   }
 
   function handleGuardar() {
+    const command = { permisoIds: [...seleccionados] };
     asignar.mutate(
       {
         id: rolId,
-        command: { permisoIds: [...seleccionados] },
-        idempotencyKey,
+        command,
+        idempotencyKey: keyFor(command),
       },
       {
         onSuccess: () => {

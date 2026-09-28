@@ -172,6 +172,33 @@ En Windows PowerShell:
 
 El script crea un PostgreSQL temporal en un puerto libre, aplica los 12 contextos, ejecuta las tres suites en serie y elimina el contenedor al terminar.
 
+## 7.1 Correr tests de integración
+
+La BD de desarrollo (`millet_dev`, contenedor `millet-dev-postgres`) **no se
+usa para tests de integración**: acumula datos que rompen los asserts de
+conteo. Los tres proyectos de integración (`Api.IntegrationTests`,
+`Compras.IntegrationTests`, `Integraciones.Aw.IntegrationTests`) fallan al
+cargar si la variable `ConnectionStrings__Postgres` no está definida, con el
+mensaje:
+
+```
+Los tests de integración usan una BD desechable: corre ./tools/validate-integration-isolated.sh [--filter ...]
+```
+
+Correr el gate completo (BD desechable en Docker, se borra al terminar):
+
+```bash
+./tools/validate-integration-isolated.sh
+```
+
+Para acotar a un subconjunto, cualquier argumento extra se reenvía a
+`dotnet test` en los tres proyectos (un proyecto sin coincidencias no hace
+fallar el script):
+
+```bash
+./tools/validate-integration-isolated.sh --filter "FullyQualifiedName~Empleado"
+```
+
 ## 8. Detener
 
 ```bash

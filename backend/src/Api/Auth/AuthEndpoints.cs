@@ -103,6 +103,7 @@ public static class AuthEndpoints
             IPermissionLoader permissionLoader,
             Millet.Identidad.Infrastructure.IdentidadDbContext identidadDb,
             Millet.Compras.Infrastructure.ComprasDbContext comprasDb,
+            Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext compartidoDb,
             CancellationToken cancellationToken) =>
         {
             if (currentUser.UserId is not Guid userId)
@@ -152,10 +153,16 @@ public static class AuthEndpoints
                 .Select(u => u.DepartamentoId)
                 .FirstOrDefaultAsync(cancellationToken);
 
+            var puestoNombre = await (from e in compartidoDb.Empleados.AsNoTracking()
+                                      join p in compartidoDb.Puestos.AsNoTracking() on e.PuestoId equals p.Id
+                                      where e.UsuarioId == userId
+                                      select p.Nombre).FirstOrDefaultAsync(cancellationToken);
+
             return Results.Ok(new MeResponse(
                 UserId: userId,
                 Email: string.Empty, // El JWT no incluye email en current user context; PR siguiente lo agrega si se necesita
                 Nombre: currentUser.UserName ?? string.Empty,
+                PuestoNombre: puestoNombre,
                 CurrentEmpresaId: currentEmpresa.Current,
                 DepartamentoId: departamentoId,
                 Permisos: permisos,

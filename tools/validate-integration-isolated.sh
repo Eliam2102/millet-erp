@@ -50,12 +50,24 @@ audit_port="${port_mapping##*:}"
 
 export ConnectionStrings__Postgres="Host=127.0.0.1;Port=$audit_port;Database=millet_dev;Username=pgadmin;Password=$audit_password;Include Error Detail=true"
 export ASPNETCORE_ENVIRONMENT="Development"
+# El bootstrap que corre con las migraciones también lee user-secrets: sin
+# esto, un tenant real guardado ahí siembra su OID como SuperAdmin y los
+# tests (que entran como 'dev-superadmin') reciben 403.
+export Auth__Mode="FakeForLocalDev"
+export Auth__InitialAdminEntraOid="dev-superadmin"
+export Entra__Proveedor="Simulado"
 
 projects=(
   'tests/Integraciones.Aw.IntegrationTests/Millet.Integraciones.Aw.IntegrationTests.csproj'
   'tests/Compras.IntegrationTests/Millet.Compras.IntegrationTests.csproj'
   'tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj'
 )
+
+# F1 (Parte F): argumentos extra (p. ej. --filter "FullyQualifiedName~Empleado")
+# se reenvían tal cual a cada `dotnet test`. Con VSTest 17.x, un proyecto sin
+# coincidencias para el filtro termina en 0 ("Ninguna prueba coincide con el
+# filtro..."), así que no hace falta lógica especial para no tumbar el script.
+extra_test_args=("$@")
 
 cd "$backend_dir"
 "$dotnet_bin" tool restore
@@ -83,7 +95,8 @@ for project in "${projects[@]}"; do
   "$dotnet_bin" test "$project" \
     --configuration Debug \
     --no-build \
-    --no-restore
+    --no-restore \
+    "${extra_test_args[@]}"
 done
 
 echo "Gate de integración aprobado: las tres suites terminaron correctamente (ver conteos arriba)."

@@ -44,7 +44,7 @@ public sealed class ObtenerEmpresaHandler
 
         var sucursales = await _db.Sucursales.AsNoTracking()
             .OrderBy(s => s.Clave)
-            .Select(s => new SucursalResponse(s.Id, s.Clave, s.Nombre, s.Estatus, s.Version, s.ClaveAw, s.ZonaHoraria))
+            .Select(s => new SucursalResponse(s.Id, s.Clave, s.Nombre, s.Tipo, s.Estatus, s.Version, s.ClaveAw, s.ZonaHoraria))
             .ToListAsync(cancellationToken);
 
         var departamentos = await _db.Departamentos.AsNoTracking()

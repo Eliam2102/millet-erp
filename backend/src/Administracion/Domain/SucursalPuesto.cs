@@ -22,10 +22,14 @@ namespace Millet.Administracion.Domain;
 /// </para>
 ///
 /// <para>
-/// La unicidad se enforce con UNIQUE en <c>(SucursalId, PuestoId)</c> —
-/// surrogate <see cref="BaseEntity.Id"/> sirve sólo como PK física para
-/// auditoría y compatibilidad con <c>BaseDbContext</c>. Mismo patrón que
-/// <c>SucursalDepartamento</c>.
+/// La unicidad se enforce con UNIQUE en
+/// <c>(SucursalId, PuestoId, DepartamentoId)</c> — ya NO en
+/// <c>(SucursalId, PuestoId)</c>: un mismo puesto genérico (p. ej.
+/// "Gerente") puede asignarse a varios departamentos de la misma
+/// sucursal, una fila por departamento (F1-ADM-01.4 reabierta, pedido
+/// del owner 2026-09-24). Surrogate <see cref="BaseEntity.Id"/> sirve
+/// sólo como PK física para auditoría y compatibilidad con
+/// <c>BaseDbContext</c>. Mismo patrón que <c>SucursalDepartamento</c>.
 /// </para>
 /// </summary>
 public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
@@ -35,6 +39,18 @@ public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
     public Guid SucursalId { get; private set; }
     public Guid PuestoId { get; private set; }
     public Guid DepartamentoId { get; private set; }
+
+    /// <summary>
+    /// Rol sugerido para esta asignación puntual (sucursal + puesto +
+    /// departamento), excepción opcional sobre <see cref="Puesto.RolSugeridoId"/>
+    /// (F1-ADM-01.4 reabierta). Referencia lógica a <c>identidad.roles</c>,
+    /// sin FK cross-módulo — mismo patrón que <c>Puesto.RolSugeridoId</c>.
+    /// El rol "efectivo" para una asignación es
+    /// <c>RolSugeridoId ?? Puesto.RolSugeridoId</c>; en cualquier caso
+    /// sigue siendo sólo sugerencia (01-04): el rol se asigna explícito.
+    /// </summary>
+    public Guid? RolSugeridoId { get; private set; }
+
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
     private SucursalPuesto() { }
@@ -45,7 +61,8 @@ public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
         Guid sucursalId,
         Guid puestoId,
         Guid departamentoId,
-        EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
+        EstatusCatalogo estatus = EstatusCatalogo.Activo,
+        Guid? rolSugeridoId = null) : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("SUCURSAL_PUESTO_ID_INVALIDO",
@@ -68,6 +85,7 @@ public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
         PuestoId = puestoId;
         DepartamentoId = departamentoId;
         Estatus = estatus;
+        RolSugeridoId = rolSugeridoId;
     }
 
     /// <summary>
@@ -87,4 +105,18 @@ public sealed class SucursalPuesto : BaseEntity, IAuditable, IPerteneceAEmpresa
     /// internos. El endpoint público sólo expone Activar/Desactivar.
     /// </summary>
     public void CambiarEstatus(EstatusCatalogo nuevoEstatus) => Estatus = nuevoEstatus;
+
+    /// <summary>
+    /// Fija el rol sugerido de esta asignación puntual, como excepción
+    /// sobre el rol sugerido del puesto (F1-ADM-01.4 reabierta). La
+    /// validación de que el rol exista y esté activo vive en el handler
+    /// (vía <c>IRolReadPort</c>), igual que <c>Puesto.ActualizarDatos</c>.
+    /// </summary>
+    public void FijarRolSugerido(Guid rolId) => RolSugeridoId = rolId;
+
+    /// <summary>
+    /// Limpia el rol sugerido de la asignación: vuelve a heredar el del
+    /// puesto (<c>RolSugeridoId ?? Puesto.RolSugeridoId</c>).
+    /// </summary>
+    public void LimpiarRolSugerido() => RolSugeridoId = null;
 }

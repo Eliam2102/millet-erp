@@ -11,8 +11,8 @@ export const EmpleadoSchema = z.object({
   clave: z
     .string()
     .trim()
-    .min(1, 'Clave requerida')
-    .max(20, 'Máximo 20 caracteres'),
+    .max(20, 'Máximo 20 caracteres')
+    .optional(),
   nombre: z
     .string()
     .trim()

@@ -7,6 +7,18 @@ import { SucursalPuestosTab } from '@/modules/administracion/components/Sucursal
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 const SUCURSAL_ID = '00000000-0000-0000-0000-000000000010';
+const DEPTO_DIR = '00000000-0000-0000-0000-000000000099';
+const DEPTO_ADM = '00000000-0000-0000-0000-000000000088';
+const ROL_ADMIN = '00000000-0000-0000-0000-000000000c01';
+
+const ROLES = {
+  items: [
+    { id: ROL_ADMIN, codigo: 'ADMIN', nombre: 'Administrador', activo: true, permisoIds: [] },
+  ],
+  offset: 0,
+  limit: 200,
+  total: 1,
+};
 
 const CATALOGO_PUESTOS = {
   items: [
@@ -15,7 +27,7 @@ const CATALOGO_PUESTOS = {
       clave: 'GER',
       nombre: 'Gerente General',
       estatus: 0,
-      departamentoId: '00000000-0000-0000-0000-000000000099',
+      departamentoId: DEPTO_DIR,
       departamentoNombre: 'Dirección',
     },
     {
@@ -36,7 +48,7 @@ const DEPARTAMENTOS_DE_SUCURSAL = {
   items: [
     {
       sucursalId: SUCURSAL_ID,
-      departamentoId: '00000000-0000-0000-0000-000000000099',
+      departamentoId: DEPTO_DIR,
       departamentoClave: 'DIR',
       departamentoNombre: 'Dirección',
       estatus: 0,
@@ -44,7 +56,7 @@ const DEPARTAMENTOS_DE_SUCURSAL = {
     },
     {
       sucursalId: SUCURSAL_ID,
-      departamentoId: '00000000-0000-0000-0000-000000000088',
+      departamentoId: DEPTO_ADM,
       departamentoClave: 'ADM',
       departamentoNombre: 'Administración',
       estatus: 0,
@@ -54,6 +66,8 @@ const DEPARTAMENTOS_DE_SUCURSAL = {
   total: 2,
 };
 
+// Un puesto (GER) con DOS asignaciones — Dirección y Administración —
+// para probar el agrupamiento "un puesto, varios departamentos".
 const ASIGNADOS_INICIALES = {
   items: [
     {
@@ -61,13 +75,27 @@ const ASIGNADOS_INICIALES = {
       puestoId: '00000000-0000-0000-0000-000000000001',
       puestoClave: 'GER',
       puestoNombre: 'Gerente General',
-      departamentoId: '00000000-0000-0000-0000-000000000099',
+      departamentoId: DEPTO_DIR,
       departamentoNombre: 'Dirección',
+      rolSugeridoId: null,
+      rolSugeridoEfectivoId: ROL_ADMIN,
+      estatus: 0,
+      version: 1,
+    },
+    {
+      sucursalId: SUCURSAL_ID,
+      puestoId: '00000000-0000-0000-0000-000000000001',
+      puestoClave: 'GER',
+      puestoNombre: 'Gerente General',
+      departamentoId: DEPTO_ADM,
+      departamentoNombre: 'Administración',
+      rolSugeridoId: null,
+      rolSugeridoEfectivoId: ROL_ADMIN,
       estatus: 0,
       version: 1,
     },
   ],
-  total: 1,
+  total: 2,
 };
 
 beforeEach(() => {
@@ -94,6 +122,7 @@ beforeEach(() => {
       '*/api/v1/admin/empresas/sucursales/:sucursalId/puestos',
       () => HttpResponse.json(ASIGNADOS_INICIALES),
     ),
+    http.get('*/api/v1/identidad/roles', () => HttpResponse.json(ROLES)),
   );
 });
 
@@ -111,45 +140,55 @@ afterEach(() => {
 });
 
 describe('<SucursalPuestosTab>', () => {
-  it('renderiza únicamente los puestos asignados a la sucursal y no los no asignados', async () => {
+  it('agrupa las asignaciones de un mismo puesto en varios departamentos', async () => {
     render(<SucursalPuestosTab sucursalId={SUCURSAL_ID} canGestionar={true} />, {
       wrapper: createQueryWrapper(),
     });
 
     await waitFor(() => {
       expect(screen.getByText('GER')).toBeInTheDocument();
-      expect(screen.getByText('Gerente General')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Activa')).toBeInTheDocument();
-    expect(screen.getByText('Depto sucursal:')).toBeInTheDocument();
+    // El puesto GER aparece UNA sola vez agrupado (no repetido por fila)
+    expect(screen.getAllByText('GER')).toHaveLength(1);
+    // Con sus dos departamentos listados debajo
     expect(screen.getByText('Dirección')).toBeInTheDocument();
+    expect(screen.getByText('Administración')).toBeInTheDocument();
+    expect(screen.getByText('2 departamentos')).toBeInTheDocument();
 
-    // El puesto sin asignar no debe aparecer en la lista principal
+    // El puesto sin asignar no debe aparecer en la lista
     expect(screen.queryByText('Auxiliar Administrativo')).not.toBeInTheDocument();
-    expect(screen.queryByText('Sin asignar')).not.toBeInTheDocument();
   });
 
-  it('abre modal al pulsar Asignar puesto y envía puestoId y departamentoId con Idempotency-Key fresca', async () => {
-    let payloadRecibido: unknown = null;
-    let idempotencyKeyRecibida: string | null = null;
-    let puestoIdEnviado: string | null = null;
+  it('muestra "Hereda del puesto" cuando la asignación no tiene excepción de rol sugerido', async () => {
+    render(<SucursalPuestosTab sucursalId={SUCURSAL_ID} canGestionar={true} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    await waitFor(() => expect(screen.getByText('GER')).toBeInTheDocument());
+
+    expect(screen.getAllByText(/hereda del puesto/i)).toHaveLength(2);
+  });
+
+  it('abre el modal, permite elegir varios departamentos y hace una llamada por cada uno', async () => {
+    const departamentosRecibidos: string[] = [];
 
     mswServer.use(
       http.post(
         '*/api/v1/admin/empresas/sucursales/:sucursalId/puestos/:puestoId',
-        async ({ request, params }) => {
-          puestoIdEnviado = params.puestoId as string;
-          idempotencyKeyRecibida = request.headers.get('Idempotency-Key');
-          payloadRecibido = await request.json();
+        async ({ request }) => {
+          const body = (await request.json()) as { departamentoId: string };
+          departamentosRecibidos.push(body.departamentoId);
           return HttpResponse.json(
             {
               sucursalId: SUCURSAL_ID,
-              puestoId: params.puestoId,
+              puestoId: '00000000-0000-0000-0000-000000000002',
               puestoClave: 'AUX',
               puestoNombre: 'Auxiliar Administrativo',
-              departamentoId: '00000000-0000-0000-0000-000000000088',
-              departamentoNombre: 'Administración',
+              departamentoId: body.departamentoId,
+              departamentoNombre: body.departamentoId === DEPTO_DIR ? 'Dirección' : 'Administración',
+              rolSugeridoId: null,
+              rolSugeridoEfectivoId: null,
               estatus: 0,
               version: 1,
             },
@@ -165,45 +204,62 @@ describe('<SucursalPuestosTab>', () => {
 
     await waitFor(() => expect(screen.getByText('GER')).toBeInTheDocument());
 
-    const botonAbrirModal = screen.getByRole('button', {
-      name: /^asignar puesto$/i,
-    });
-    fireEvent.click(botonAbrirModal);
+    fireEvent.click(screen.getByRole('button', { name: /^asignar puesto$/i }));
 
     await waitFor(() =>
       expect(
         screen.getByRole('heading', {
-          name: /asignar puesto a departamento en sucursal/i,
+          name: /asignar puesto a departamentos de la sucursal/i,
         }),
       ).toBeInTheDocument(),
     );
 
-    // Seleccionar puesto en el modal
     const selectPuesto = screen.getByLabelText(/puesto a asignar/i);
     fireEvent.change(selectPuesto, {
       target: { value: '00000000-0000-0000-0000-000000000002' },
     });
 
-    // Seleccionar departamento en el modal
-    const selectDepto = screen.getByLabelText(/departamento asignado \*/i);
-    fireEvent.change(selectDepto, {
-      target: { value: '00000000-0000-0000-0000-000000000088' },
-    });
+    const checkboxDir = await screen.findByLabelText('Departamento DIR');
+    const checkboxAdm = screen.getByLabelText('Departamento ADM');
+    fireEvent.click(checkboxDir);
+    fireEvent.click(checkboxAdm);
 
-    // Confirmar en el modal
     const dialog = screen.getByRole('dialog');
     const botonConfirmar = within(dialog).getByRole('button', {
       name: /^asignar puesto$/i,
     });
     fireEvent.click(botonConfirmar);
 
-    await waitFor(() => expect(payloadRecibido).not.toBeNull());
-    expect(puestoIdEnviado).toBe('00000000-0000-0000-0000-000000000002');
-    expect(payloadRecibido).toEqual({
-      departamentoId: '00000000-0000-0000-0000-000000000088',
+    await waitFor(() => expect(departamentosRecibidos).toHaveLength(2));
+    expect(departamentosRecibidos.sort()).toEqual([DEPTO_ADM, DEPTO_DIR].sort());
+  });
+
+  it('excluye del selector de departamentos los que el puesto ya tiene asignados', async () => {
+    render(<SucursalPuestosTab sucursalId={SUCURSAL_ID} canGestionar={true} />, {
+      wrapper: createQueryWrapper(),
     });
-    expect(idempotencyKeyRecibida).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+
+    await waitFor(() => expect(screen.getByText('GER')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^asignar puesto$/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          name: /asignar puesto a departamentos de la sucursal/i,
+        }),
+      ).toBeInTheDocument(),
+    );
+
+    // GER ya está en DIR y ADM (los dos únicos departamentos activos)
+    const selectPuesto = screen.getByLabelText(/puesto a asignar/i);
+    fireEvent.change(selectPuesto, {
+      target: { value: '00000000-0000-0000-0000-000000000001' },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/ya está asignado a todos los departamentos activos/i),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -242,5 +298,46 @@ describe('<SucursalPuestosTab>', () => {
       name: /^asignar puesto$/i,
     });
     expect(botonConfirmar).toBeDisabled();
+  });
+
+  it('edita el rol sugerido de una asignación con el inline form (patrón amber)', async () => {
+    let bodyVisto: unknown = null;
+
+    mswServer.use(
+      http.patch(
+        '*/api/v1/admin/empresas/sucursales/:sucursalId/puestos/:puestoId/departamentos/:departamentoId',
+        async ({ request }) => {
+          bodyVisto = await request.json();
+          return HttpResponse.json({
+            sucursalId: SUCURSAL_ID,
+            puestoId: '00000000-0000-0000-0000-000000000001',
+            puestoClave: 'GER',
+            puestoNombre: 'Gerente General',
+            departamentoId: DEPTO_DIR,
+            departamentoNombre: 'Dirección',
+            rolSugeridoId: ROL_ADMIN,
+            rolSugeridoEfectivoId: ROL_ADMIN,
+            estatus: 0,
+            version: 2,
+          });
+        },
+      ),
+    );
+
+    render(<SucursalPuestosTab sucursalId={SUCURSAL_ID} canGestionar={true} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    await waitFor(() => expect(screen.getByText('GER')).toBeInTheDocument());
+
+    const botonesEditar = screen.getAllByRole('button', { name: /editar rol sugerido/i });
+    fireEvent.click(botonesEditar[0]);
+
+    const select = await screen.findByLabelText(/rol sugerido para ger en/i);
+    fireEvent.change(select, { target: { value: ROL_ADMIN } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^guardar$/i }));
+
+    await waitFor(() => expect(bodyVisto).toEqual({ rolSugeridoId: ROL_ADMIN }));
   });
 });

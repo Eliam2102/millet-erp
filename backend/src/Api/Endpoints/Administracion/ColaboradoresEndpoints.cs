@@ -2,10 +2,13 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Application.Colaboradores;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.Endpoints.Administracion;
 
@@ -35,8 +38,13 @@ public static class ColaboradoresEndpoints
             IMediator mediator,
             IAuthorizationService authorization,
             HttpContext httpContext,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
+            await EmpleadoSucursalScope.VerificarSucursalAsync(
+                command.SucursalId, currentUser, permisos, usuarioSucursales, ct);
             if (command.Acceso != TipoAccesoColaborador.SinAcceso)
             {
                 foreach (var permiso in new[]
@@ -60,8 +68,8 @@ public static class ColaboradoresEndpoints
         .WithDescription(
             "Caminos de `acceso`: 0 = sin acceso al ERP, 1 = ya tiene cuenta Microsoft, " +
             "2 = cuenta Microsoft nueva (requiere `emailContacto`; el usuario queda en " +
-            "ProvisionandoCuenta; la creación y el correo requieren adaptadores reales). El rol se " +
-            "toma de `rolId` o del rol sugerido del puesto.")
+            "ProvisionandoCuenta; la creación y el correo requieren adaptadores reales). Con acceso, " +
+            "`rolId` es obligatorio: el rol sugerido del puesto no se asigna automáticamente.")
         .Produces<AltaColaboradorResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -78,8 +86,14 @@ public static class ColaboradoresEndpoints
             IMediator mediator,
             IAuthorizationService authorization,
             HttpContext httpContext,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                empleadoId, db, currentUser, permisos, usuarioSucursales, ct);
             foreach (var permiso in new[]
             {
                 PermisosCanonicos.IdentidadUsuariosCrear,
@@ -101,8 +115,18 @@ public static class ColaboradoresEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         group.MapGet("/{empleadoId:guid}/acceso", async (
-            Guid empleadoId, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ObtenerAccesoColaboradorQuery(empleadoId), ct)))
+            Guid empleadoId,
+            IMediator mediator,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            CancellationToken ct) =>
+        {
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                empleadoId, db, currentUser, permisos, usuarioSucursales, ct);
+            return Results.Ok(await mediator.Send(new ObtenerAccesoColaboradorQuery(empleadoId), ct));
+        })
         .WithName("ObtenerAccesoColaborador")
         .WithSummary("Estado del acceso al ERP de un colaborador")
         .Produces<EstadoAccesoColaboradorResponse>()
@@ -113,10 +137,16 @@ public static class ColaboradoresEndpoints
             IMediator mediator,
             IAuthorizationService authorization,
             HttpContext httpContext,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
             if (!await TienePermisoAsync(authorization, httpContext, PermisosCanonicos.IdentidadUsuariosCrear))
                 return Results.Forbid();
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                empleadoId, db, currentUser, permisos, usuarioSucursales, ct);
             return Results.Ok(await mediator.Send(new ReintentarProvisionColaboradorCommand(empleadoId), ct));
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -132,10 +162,16 @@ public static class ColaboradoresEndpoints
             IMediator mediator,
             IAuthorizationService authorization,
             HttpContext httpContext,
+            CompartidoDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken ct) =>
         {
             if (!await TienePermisoAsync(authorization, httpContext, PermisosCanonicos.IdentidadUsuariosCrear))
                 return Results.Forbid();
+            await EmpleadoSucursalScope.VerificarEmpleadoAsync(
+                empleadoId, db, currentUser, permisos, usuarioSucursales, ct);
             return Results.Ok(await mediator.Send(new ReenviarAccesoColaboradorCommand(empleadoId), ct));
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())

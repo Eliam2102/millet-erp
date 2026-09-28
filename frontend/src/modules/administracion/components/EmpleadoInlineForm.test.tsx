@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -17,6 +19,12 @@ describe('<EmpleadoInlineForm>', () => {
       permisos: ['identidad.usuarios.crear', 'identidad.asignaciones.administrar'],
       errorMessage: null,
     });
+
+    mswServer.use(
+      http.get('*/api/v1/admin/empleados/siguiente-clave', () =>
+        HttpResponse.json({ siguienteClave: 'EMP-017' }),
+      ),
+    );
   });
 
   afterEach(() => {
@@ -35,6 +43,13 @@ describe('<EmpleadoInlineForm>', () => {
 
   it('permite ingresar solo el nombre de usuario y selecciona uzieltzaboutlook.com por defecto', () => {
     const onCancel = vi.fn();
+    sessionStorage.setItem(
+      'millet_empleado_wizard_draft_v1',
+      JSON.stringify({
+        values: { clave: 'EMP-001', nombre: 'Juana', sucursalId: 's-1', departamentoId: 'd-1', puestoId: 'p-1' },
+        paso: 2,
+      }),
+    );
     render(<EmpleadoInlineForm onCancel={onCancel} />, { wrapper: createQueryWrapper() });
 
     const emailInput = screen.getByPlaceholderText('juana.perez');
@@ -88,3 +103,373 @@ describe('<EmpleadoInlineForm>', () => {
     expect(sessionStorage.getItem('millet_empleado_wizard_draft_v1')).toBeNull();
   });
 });
+
+describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
+  const SUC_ID = '00000000-0000-0000-0000-0000000000a1';
+  const DEPTO_ID = '00000000-0000-0000-0000-0000000000a2';
+  const PUESTO_ID = '00000000-0000-0000-0000-0000000000a3';
+  const ROL_SUGERIDO_ID = '00000000-0000-0000-0000-0000000000a4';
+  const ROL_OTRO_ID = '00000000-0000-0000-0000-0000000000a5';
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    useAuthStore.setState({
+      status: 'authenticated',
+      accessToken: 'test-token',
+      expiresAt: new Date(Date.now() + 3600_000),
+      user: { id: 'u-1', email: 'a@b.com', nombre: 'Admin' },
+      empresas: [],
+      currentEmpresaId: 'e-1',
+      permisos: ['identidad.usuarios.crear', 'identidad.asignaciones.administrar'],
+      errorMessage: null,
+    });
+
+    mswServer.use(
+      http.get('*/api/v1/admin/empleados/siguiente-clave', () =>
+        HttpResponse.json({ siguienteClave: 'EMP-017' }),
+      ),
+      http.get('*/api/v1/catalogos/sucursales', () =>
+        HttpResponse.json({
+          items: [{ id: SUC_ID, clave: 'MTY', nombre: 'Monterrey', estatus: 0 }],
+          offset: 0,
+          limit: 200,
+          total: 1,
+        }),
+      ),
+      http.get('*/api/v1/admin/empresas/sucursales/:sucursalId/departamentos', () =>
+        HttpResponse.json({
+          items: [
+            {
+              sucursalId: SUC_ID,
+              departamentoId: DEPTO_ID,
+              departamentoClave: 'VEN',
+              departamentoNombre: 'Ventas',
+              estatus: 0,
+              version: 1,
+            },
+          ],
+          total: 1,
+        }),
+      ),
+      http.get('*/api/v1/admin/empresas/sucursales/:sucursalId/puestos', () =>
+        HttpResponse.json({
+          items: [
+            {
+              sucursalId: SUC_ID,
+              puestoId: PUESTO_ID,
+              puestoClave: 'VEND',
+              puestoNombre: 'Vendedor de mostrador',
+              departamentoId: DEPTO_ID,
+              departamentoNombre: 'Ventas',
+              // Sin excepción propia — hereda el rol sugerido del puesto
+              // (Parte E: rolSugeridoEfectivoId = asignación ?? puesto).
+              rolSugeridoId: null,
+              rolSugeridoEfectivoId: ROL_SUGERIDO_ID,
+              estatus: 0,
+              version: 1,
+            },
+          ],
+          total: 1,
+        }),
+      ),
+      http.get('*/api/v1/catalogos/puestos', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: PUESTO_ID,
+              clave: 'VEND',
+              nombre: 'Vendedor de mostrador',
+              estatus: 0,
+              rolSugeridoId: ROL_SUGERIDO_ID,
+              rolSugeridoNombre: 'Vendedor',
+            },
+          ],
+          offset: 0,
+          limit: 200,
+          total: 1,
+        }),
+      ),
+      http.get('*/api/v1/catalogos/departamentos', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
+      ),
+      http.get('*/api/v1/catalogos/empleados', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
+      ),
+      http.get('*/api/v1/identidad/roles', () =>
+        HttpResponse.json({
+          items: [
+            { id: ROL_SUGERIDO_ID, codigo: 'VEN', nombre: 'Vendedor', descripcion: null, esDelSistema: false, activo: true, version: 1 },
+            { id: ROL_OTRO_ID, codigo: 'SUP', nombre: 'Supervisor', descripcion: null, esDelSistema: false, activo: true, version: 1 },
+          ],
+          offset: 0,
+          limit: 200,
+          total: 2,
+        }),
+      ),
+      http.get('*/api/v1/identidad/directorio-entra/validar-correo', () =>
+        HttpResponse.json({
+          correo: 'vendedor.mty@uzieltzaboutlook.onmicrosoft.com',
+          dominioPermitido: true,
+          cuentaEntra: { objectId: 'oid-1', nombreMostrado: 'Vendedor Mty', habilitada: true },
+          usuarioErp: null,
+          puedeVincularCuentaExistente: true,
+          puedeCrearCuentaNueva: false,
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+    useAuthStore.setState({
+      status: 'idle',
+      accessToken: null,
+      expiresAt: null,
+      user: null,
+      empresas: [],
+      currentEmpresaId: null,
+      permisos: [],
+      errorMessage: null,
+    });
+  });
+
+  // Sincroniza con las queries en vuelo (sucursales/departamentos/
+  // puestos/roles) antes de abrir un combobox — sin esto, un click
+  // disparado en el mismo tick que una query aún en curso deja el
+  // Popover de Radix abierto-y-cerrado por la re-renderización que
+  // llega justo después (falso negativo de "no encontrado").
+  async function sincronizar() {
+    await waitFor(() => expect(screen.queryByText('Cargando…')).not.toBeInTheDocument());
+  }
+
+  it('precarga el rol sugerido con etiqueta, sigue editable y el resumen muestra el rol elegido', async () => {
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    // Paso 0: clave, nombre y sucursal.
+    fireEvent.change(screen.getByPlaceholderText('EMP-001'), { target: { value: 'EMP-VEN' } });
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Vendedor Mty' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 1: departamento y puesto unificados.
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
+    fireEvent.click(await screen.findByText('Ventas'));
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+    fireEvent.click(await screen.findByText('Vendedor de mostrador'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 2: acceso — el rol se precarga con el sugerido y muestra el hint.
+    fireEvent.change(screen.getByLabelText(/acceso al erp/i), { target: { value: '1' } });
+    const rolSelect = await screen.findByLabelText(/rol en la empresa/i);
+    expect(rolSelect).toHaveValue(ROL_SUGERIDO_ID);
+    expect(screen.getByText(/sugerido por el puesto/i)).toBeInTheDocument();
+
+    // El rol sigue siendo editable: cambiarlo quita el hint de sugerencia.
+    fireEvent.change(rolSelect, { target: { value: ROL_OTRO_ID } });
+    expect(rolSelect).toHaveValue(ROL_OTRO_ID);
+    expect(screen.queryByText(/sugerido por el puesto/i)).not.toBeInTheDocument();
+
+    // Vuelve a elegir el sugerido para completar el flujo hasta el resumen.
+    fireEvent.change(rolSelect, { target: { value: ROL_SUGERIDO_ID } });
+
+    // Correo corporativo para pasar la validación de dominio del paso 2.
+    fireEvent.change(screen.getByPlaceholderText('juana.perez'), {
+      target: { value: 'vendedor.mty' },
+    });
+
+    await waitFor(
+      () => expect(screen.getByText(/cuenta microsoft encontrada/i)).toBeInTheDocument(),
+      { timeout: 2000 },
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    // Paso 3: resumen muestra el rol que se va a asignar.
+    expect(await screen.findByText(/revisa antes de crear/i)).toBeInTheDocument();
+    expect(screen.getByText(/rol a asignar:/i)).toBeInTheDocument();
+    expect(screen.getByText('Vendedor')).toBeInTheDocument();
+  });
+
+  it('muestra el error de servidor en el campo Departamento cuando el alta falla con EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO', async () => {
+    mswServer.use(
+      http.post('*/api/v1/admin/colaboradores', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Error de validación',
+            status: 422,
+            code: 'EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO',
+            errores: [
+              {
+                campo: 'departamentoId',
+                codigo: 'EMPLEADO_DEPARTAMENTO_REQUERIDO_PARA_PUESTO',
+                mensaje: 'El puesto está en varios departamentos de la sucursal; indica cuál.',
+              },
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    fireEvent.change(screen.getByPlaceholderText('EMP-001'), { target: { value: 'EMP-VEN' } });
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Vendedor Mty' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 1: departamento y puesto unificados.
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
+    fireEvent.click(await screen.findByText('Ventas'));
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+    fireEvent.click(await screen.findByText('Vendedor de mostrador'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 2: sin acceso (default) — avanzar directo al resumen.
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    // Paso 3: enviar — el backend rechaza por el 422 mockeado arriba.
+    fireEvent.click(screen.getByRole('button', { name: /agregar empleado/i }));
+
+    expect(
+      await screen.findByText(/el puesto está en varios departamentos de la sucursal/i),
+    ).toBeInTheDocument();
+  });
+
+  it('muestra alerta de error y bloquea el avance cuando la cuenta Microsoft ya está vinculada a otro colaborador', async () => {
+    mswServer.use(
+      http.get('*/api/v1/identidad/directorio-entra/validar-correo', () =>
+        HttpResponse.json({
+          correo: 'vendedor.mty@uzieltzaboutlook.onmicrosoft.com',
+          dominioPermitido: true,
+          cuentaEntra: { objectId: 'oid-1', nombreMostrado: 'Vendedor Mty', habilitada: true },
+          usuarioErp: { id: 'u-99', nombre: 'Carlos Ruiz', estadoAcceso: 1, activo: true },
+          empleadoVinculado: { id: 'emp-99', clave: 'EMP-99', nombre: 'Carlos Ruiz' },
+          puedeVincularCuentaExistente: false,
+          puedeCrearCuentaNueva: false,
+          motivoBloqueo: 'USUARIO_YA_VINCULADO',
+        }),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    // Paso 0: clave es autoincremental y no editable; llenar nombre y sucursal
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Nuevo Colaborador' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 1
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
+    fireEvent.click(await screen.findByText('Ventas'));
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+    fireEvent.click(await screen.findByText('Vendedor de mostrador'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 2: cuenta existente
+    fireEvent.change(screen.getByLabelText(/acceso al erp/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByPlaceholderText('juana.perez'), {
+      target: { value: 'vendedor.mty' },
+    });
+
+    expect(
+      await screen.findByText(/la cuenta ya está vinculada a un colaborador en el erp/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Carlos Ruiz/i)).toBeInTheDocument();
+    expect(screen.getByText(/EMP-99/i)).toBeInTheDocument();
+
+    // Intentar dar siguiente debe bloquear y quedarse en el paso 2
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    expect(screen.queryByText(/revisa antes de crear/i)).not.toBeInTheDocument();
+  });
+
+  it('autocompleta con siguiente-clave autoincremental y permite avanzar el paso 0 sin teclear clave', async () => {
+    mswServer.use(
+      http.get('*/api/v1/admin/empleados/siguiente-clave', () =>
+        HttpResponse.json({ siguienteClave: 'EMP-017' }),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    // Comprobar que autocompleta con EMP-017 y que está deshabilitado / no editable
+    await waitFor(() => {
+      const inputClave = screen.getByPlaceholderText('EMP-017');
+      expect(inputClave).toHaveValue('EMP-017');
+      expect(inputClave).toBeDisabled();
+      expect(inputClave).toHaveAttribute('readonly');
+    });
+
+    // Llenar solo nombre y sucursal (sin tocar clave) y avanzar
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Empleado Nuevo' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Debe avanzar exitosamente al paso 1 (Departamento y puesto)
+    expect(await screen.findByText(/paso 2 de 4/i)).toBeInTheDocument();
+  });
+
+  it('cuando el backend retorna EMPLEADO_CLAVE_DUPLICADA, regresa al paso 0 y marca el error en clave', async () => {
+    mswServer.use(
+      http.post('*/api/v1/admin/colaboradores', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Conflicto',
+            status: 409,
+            code: 'EMPLEADO_CLAVE_DUPLICADA',
+            detail: 'Ya existe un empleado con esa clave en la empresa.',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    await sincronizar();
+
+    // Paso 0: clave no editable; solo llenar nombre y sucursal
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Duplicado User' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar sucursal/i }));
+    fireEvent.click(await screen.findByText('Monterrey'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 1
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar departamento/i }));
+    fireEvent.click(await screen.findByText('Ventas'));
+    fireEvent.click(screen.getByRole('combobox', { name: /seleccionar puesto/i }));
+    fireEvent.click(await screen.findByText('Vendedor de mostrador'));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 2 (sin acceso, siguiente directo al resumen)
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    await sincronizar();
+
+    // Paso 3 (resumen) -> enviar
+    expect(await screen.findByText(/revisa antes de crear/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /agregar empleado/i }));
+
+    // Debe regresar automáticamente al Paso 0 y mostrar el error de clave duplicada
+    expect(await screen.findByText(/paso 1 de 4/i)).toBeInTheDocument();
+    expect(await screen.findByText(/ya existe un empleado con esa clave en la empresa/i)).toBeInTheDocument();
+  });
+});
+

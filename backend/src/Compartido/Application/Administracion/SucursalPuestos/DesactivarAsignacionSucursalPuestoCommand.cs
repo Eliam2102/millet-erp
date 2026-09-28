@@ -7,13 +7,17 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Administracion.Application.SucursalPuestos;
 
 /// <summary>
-/// Desactiva una asignación Sucursal ↔ Puesto (F1-ADM-01 Fase 2). Análogo
-/// exacto de <c>DesactivarAsignacionSucursalDepartamentoCommand</c>.
-/// Idempotente: si ya está Inactiva, no-op.
+/// Desactiva una asignación Sucursal ↔ Puesto ↔ Departamento (F1-ADM-01
+/// Fase 2, reabierta 2026-09-24). Análogo de
+/// <c>DesactivarAsignacionSucursalDepartamentoCommand</c>. La fila se
+/// identifica por la terna (sucursal, puesto, departamento) — desactivar
+/// un departamento del puesto NO afecta sus otras asignaciones activas
+/// en la misma sucursal. Idempotente: si ya está Inactiva, no-op.
 /// </summary>
 public sealed record DesactivarAsignacionSucursalPuestoCommand(
     Guid SucursalId,
-    Guid PuestoId) : IRequest<SucursalPuestoResponse>;
+    Guid PuestoId,
+    Guid DepartamentoId) : IRequest<SucursalPuestoResponse>;
 
 public sealed class DesactivarAsignacionSucursalPuestoHandler
     : IRequestHandler<DesactivarAsignacionSucursalPuestoCommand, SucursalPuestoResponse>
@@ -29,11 +33,13 @@ public sealed class DesactivarAsignacionSucursalPuestoHandler
         var asignacion = await _db.SucursalPuestos
             .FirstOrDefaultAsync(
                 a => a.SucursalId == command.SucursalId
-                  && a.PuestoId == command.PuestoId,
+                  && a.PuestoId == command.PuestoId
+                  && a.DepartamentoId == command.DepartamentoId,
                 cancellationToken)
             ?? throw new EntityNotFoundException(
                 "SUCURSAL_PUESTO_NO_ENCONTRADA",
-                $"No existe asignación para sucursal '{command.SucursalId}' y puesto '{command.PuestoId}'.");
+                $"No existe asignación para sucursal '{command.SucursalId}', puesto '{command.PuestoId}' " +
+                $"y departamento '{command.DepartamentoId}'.");
 
         if (asignacion.Estatus != EstatusCatalogo.Inactivo)
         {
@@ -57,6 +63,8 @@ public sealed class DesactivarAsignacionSucursalPuestoHandler
             asignacion.DepartamentoId,
             deptoNombre,
             asignacion.Estatus,
-            asignacion.Version);
+            asignacion.Version,
+            asignacion.RolSugeridoId,
+            asignacion.RolSugeridoId ?? puesto.RolSugeridoId);
     }
 }

@@ -101,7 +101,7 @@ public sealed class DirectorioEntraSimulado : IEntraDirectorioPort
 
     public Task<string> RestablecerContrasenaTemporalAsync(string objectId, CancellationToken ct)
     {
-        if (!_cuentasPorUpn.Values.Any(c => c.ObjectId == objectId))
+        if (string.IsNullOrWhiteSpace(objectId) || objectId.StartsWith("pending:", StringComparison.OrdinalIgnoreCase))
         {
             throw new EntityNotFoundException(
                 "ENTRA_CUENTA_NO_ENCONTRADA",

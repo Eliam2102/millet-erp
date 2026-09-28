@@ -94,12 +94,23 @@ export const adminKeys = {
   sucursalDepartamentosList: (sucursalId: string) =>
     [...adminKeys.sucursalDepartamentos(), 'list', sucursalId] as const,
 
-  // F1-ADM-01 Fase 2/3: asignaciones N:M Sucursal ↔ Puesto y
-  // Usuario ↔ Sucursal. Mismo criterio que sucursalDepartamentos —
-  // scopeadas por sucursal, invalidadas por cualquier mutación.
+  // F1-ADM-01 Fase 2/3 + Parte E (un puesto en varios departamentos):
+  // asignaciones N:M Sucursal ↔ Puesto ↔ Departamento y Usuario ↔
+  // Sucursal. Mismo criterio que sucursalDepartamentos — scopeadas por
+  // sucursal, invalidadas por cualquier mutación. El filtro opcional
+  // por departamento entra a la key para cachear cada vista distinta
+  // (p.ej. PuestoSelector filtrado vs. la pestaña completa), pero las
+  // mutaciones invalidan por `sucursalPuestosSucursal` (sin el filtro)
+  // para que TanStack invalide TODAS las variantes de esa sucursal por
+  // prefix-match, no solo la que no trae departamentoId.
   sucursalPuestos: () => [...adminKeys.all, 'sucursal-puestos'] as const,
-  sucursalPuestosList: (sucursalId: string) =>
+  sucursalPuestosSucursal: (sucursalId: string) =>
     [...adminKeys.sucursalPuestos(), 'list', sucursalId] as const,
+  sucursalPuestosList: (sucursalId: string, departamentoId?: string | null) =>
+    [
+      ...adminKeys.sucursalPuestosSucursal(sucursalId),
+      departamentoId ?? null,
+    ] as const,
 
   sucursalUsuarios: () => [...adminKeys.all, 'sucursal-usuarios'] as const,
   sucursalUsuariosList: (sucursalId: string) =>
