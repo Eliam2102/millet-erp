@@ -1,0 +1,190 @@
+.millet-login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(350px, 47%) minmax(0, 1fr);
+  background: #fbfcfe;
+  color: #1c2a4a;
+}
+
+.millet-login__brand {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 48px 62px;
+  background: #1c2a4a;
+}
+
+.millet-login__wordmark {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  display: flex;
+  flex-direction: column;
+  color: #e53543;
+  line-height: 1;
+  font-family: Arial, Helvetica, sans-serif;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -.075em;
+}
+
+.millet-login__wordmark span {
+  font-size: clamp(36px, 4vw, 56px);
+}
+
+.millet-login__wordmark small {
+  align-self: flex-end;
+  padding-right: 2px;
+  margin-top: 1px;
+  font-size: clamp(8px, .8vw, 11px);
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: .19em;
+}
+
+.millet-login__glass {
+  position: absolute;
+  inset: 16% 9% 18% 14%;
+  display: grid;
+  grid-template-columns: 1.15fr .7fr .42fr;
+  gap: 16px;
+  opacity: .42;
+  transform: skewY(-7deg);
+  pointer-events: none;
+}
+
+.millet-login__glass span {
+  border: 1px solid #788ab7;
+  background: linear-gradient(125deg, transparent 5%, rgba(154, 177, 232, .16) 45%, transparent 70%);
+  box-shadow: inset 1px 0 rgba(255, 255, 255, .1);
+}
+
+.millet-login__glass span:nth-child(2) {
+  margin-top: 65px;
+  margin-bottom: -26px;
+}
+
+.millet-login__glass span:nth-child(3) {
+  margin-top: 140px;
+  margin-bottom: 25px;
+}
+
+.millet-login__content {
+  display: grid;
+  place-items: center;
+  padding: 40px 28px;
+}
+
+.millet-login__form {
+  width: min(100%, 370px);
+}
+
+.millet-login__form h1 {
+  margin: 0 0 6px;
+  font-size: 31px;
+  font-weight: 750;
+  letter-spacing: -.045em;
+  line-height: 1.2;
+}
+
+.millet-login__intro {
+  margin: 0;
+  color: #68778d;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.millet-login__microsoft {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 29px;
+  padding: 10px 16px;
+  border: 1px solid #d7dfeb;
+  border-radius: 9px;
+  background: #fff;
+  color: #253755;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+.millet-login__microsoft:hover:not(:disabled) {
+  border-color: #9aaac3;
+  background: #f7f9fc;
+  box-shadow: 0 3px 12px rgba(31, 49, 83, .06);
+}
+
+.millet-login__microsoft:focus-visible,
+.millet-login__switch-account:focus-visible {
+  outline: 3px solid #6679c9;
+  outline-offset: 3px;
+}
+
+.millet-login__microsoft:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
+.millet-login__switch-account {
+  display: block;
+  margin: 14px auto 0;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: #50658d;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.millet-login__transition {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+  color: #50658d;
+  font-size: 13px;
+}
+
+.millet-login__help {
+  margin: 24px 0 0;
+  color: #7a879b;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+@media (max-width: 620px) {
+  .millet-login {
+    grid-template-columns: 1fr;
+    grid-template-rows: 180px minmax(0, 1fr);
+  }
+
+  .millet-login__brand {
+    padding: 25px;
+  }
+
+  .millet-login__wordmark span {
+    font-size: 37px;
+  }
+
+  .millet-login__wordmark small {
+    font-size: 8px;
+  }
+
+  .millet-login__glass {
+    inset: 24% 7% 18% 28%;
+  }
+
+  .millet-login__content {
+    place-items: start center;
+    padding: 56px 22px 40px;
+  }
+}
