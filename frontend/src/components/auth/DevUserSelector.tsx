@@ -16,23 +16,22 @@ export function DevUserSelector() {
   const { loginAsFakeUser, isLoading } = useAuth();
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        Modo dev (ADR-0015). Selecciona un usuario seed:
+    <div className="mt-7">
+      <p className="text-sm font-semibold text-[#253755]">
+        Acceso de prueba
       </p>
-      <div className="grid gap-2">
+      <div className="mt-3 grid max-h-[40vh] gap-2 overflow-y-auto pr-1">
         {seedDevUsers.map((user) => (
           <button
+            type="button"
             key={user.oid}
-            onClick={() =>
-              loginAsFakeUser(user.oid, user.email, user.nombre)
-            }
+            onClick={() => void loginAsFakeUser(user.oid, user.email, user.nombre)}
             disabled={isLoading}
-            className="text-left rounded-md border border-slate-200 dark:border-slate-700 px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-lg border border-[#d7dfeb] bg-white px-4 py-3 text-left transition-colors hover:bg-[#f7f9fc] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#6679c9] disabled:cursor-wait disabled:opacity-50"
           >
-            <div className="font-medium">{user.nombre}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              <code>{user.oid}</code> — {user.descripcion}
+            <div className="text-sm font-semibold text-[#253755]">{user.nombre}</div>
+            <div className="mt-0.5 text-xs text-[#68778d]">
+              {user.descripcion}
             </div>
           </button>
         ))}
