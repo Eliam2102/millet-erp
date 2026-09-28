@@ -149,7 +149,7 @@ export function AuditoriaPage() {
   const usuariosMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const u of usuarios) {
-      if (u.id) map[u.id] = u.nombre || u.email;
+      if (u.id) map[u.id] = u.nombre || u.email || "";
     }
     return map;
   }, [usuarios]);
@@ -157,7 +157,7 @@ export function AuditoriaPage() {
   const empresasMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const e of empresas) {
-      if (e.id) map[e.id] = e.razonSocial || e.nombreComercial;
+      if (e.id) map[e.id] = e.razonSocial || e.nombreComercial || "";
     }
     return map;
   }, [empresas]);
@@ -604,11 +604,8 @@ function AuditoriaTabla({
     const problem = esApiError(error) ? error.problem : undefined;
     return (
       <ErrorState
+        problem={problem}
         title="Error al cargar la bitácora"
-        description={
-          problem?.detail ??
-          'Ocurrió un error inesperado al consultar la bitácora de auditoría.'
-        }
         onRetry={onRetry}
       />
     );
