@@ -77,7 +77,13 @@ public abstract class BaseDbContext : DbContext
         entity.Property(x => x.Modulo).HasMaxLength(64).IsRequired();
         entity.Property(x => x.Entidad).HasMaxLength(128).IsRequired();
         entity.Property(x => x.Operacion).HasMaxLength(32).IsRequired();
+        entity.Property(x => x.ActorNombre).HasMaxLength(128).IsRequired();
+        entity.Property(x => x.ActorTipo).HasMaxLength(32).IsRequired();
+        entity.Property(x => x.ActorEmail).HasMaxLength(256);
+        entity.Property(x => x.EntidadEtiqueta).HasMaxLength(256).IsRequired();
+        entity.Property(x => x.Resumen).HasMaxLength(512).IsRequired();
         entity.HasIndex(x => new { x.EmpresaId, x.Timestamp });
+        entity.HasIndex(x => new { x.ActorTipo, x.Timestamp });
         entity.HasIndex(x => new { x.UsuarioId, x.Timestamp });
         entity.HasIndex(x => new { x.Modulo, x.Entidad, x.EntidadId });
         // B.2: histórico por agregado (root + hijos) en single index lookup.

@@ -49,4 +49,19 @@ public sealed class AuditLogEntry
     public bool EsBulk { get; init; }
 
     public string? Metadatos { get; init; }
+
+    /// <summary>Nombre de quien realizó la operación (usuario, proceso background o sistema).</summary>
+    public string ActorNombre { get; init; } = string.Empty;
+
+    /// <summary>Tipo de actor: 'usuario' | 'proceso' | 'sistema'.</summary>
+    public string ActorTipo { get; init; } = string.Empty;
+
+    /// <summary>Email del usuario si la operación fue realizada por un usuario autenticado.</summary>
+    public string? ActorEmail { get; init; }
+
+    /// <summary>Etiqueta legible de la entidad afectada (ej. "EMP-0012 · Juana Pérez").</summary>
+    public string EntidadEtiqueta { get; init; } = string.Empty;
+
+    /// <summary>Frase legible que describe la acción realizada (ej. "Creó Empleado EMP-0012 · Juana Pérez").</summary>
+    public string Resumen { get; init; } = string.Empty;
 }

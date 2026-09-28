@@ -1059,6 +1059,8 @@ builder.Services.AddSingleton<
 builder.Services.AddScoped<MetadataSaveChangesInterceptor>();
 builder.Services.AddScoped<EmpresaContextSaveChangesInterceptor>();
 builder.Services.AddScoped<AuditSaveChangesInterceptor>();
+builder.Services.AddScoped<AuthAccessAuditWriter>();
+builder.Services.AddScoped<IAuditLogWriter, AuditLogWriter>();
 
 // === DbContexts ===
 var connectionString = builder.Configuration.GetConnectionString("Postgres")
@@ -1080,6 +1082,7 @@ builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) =>
     opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
 });
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
+builder.Services.AddHostedService<AuditPartitionRolloverJob>();
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 
 // Compras + Integraciones.Aw consumen IIntegrationEventPublisher
@@ -1373,6 +1376,7 @@ Millet.Api.Endpoints.Catalogos.MonedasEndpoints.MapMonedasEndpoints(app);
 Millet.Api.Endpoints.Catalogos.CatalogosEditablesEndpoints.MapCatalogosEditablesEndpoints(app);
 // Catálogos SAT read-only (PR5.3): FormasPago, UsosCfdi
 Millet.Api.Endpoints.Catalogos.CatalogosSatEndpoints.MapCatalogosSatEndpoints(app);
+Millet.Api.Endpoints.Catalogos.ImpuestosEndpoints.MapImpuestosEndpoints(app);
 // Catálogos SAT en vivo vía FiscalAPI (FAC-DET-PR1): ClaveProdServ, ClaveUnidad, ObjetoImp
 Millet.Api.Endpoints.Catalogos.CatalogosSatFiscalApiEndpoints.MapCatalogosSatFiscalApiEndpoints(app);
 

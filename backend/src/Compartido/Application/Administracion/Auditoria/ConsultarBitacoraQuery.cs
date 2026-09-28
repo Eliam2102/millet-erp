@@ -9,8 +9,7 @@ namespace Millet.Administracion.Application.Auditoria;
 
 /// <summary>
 /// Query consolidada sobre el log de auditoría (<c>core.audit_log</c>,
-/// ADR-0008). Cierre del <c>PLATFORM-TODO(&lt;AuditUI&gt;)</c> declarado en
-/// 01-diseno §12 del módulo Administración.
+/// ADR-0008). Cierre del <c>PLATFORM-TODO(&lt;AuditUI&gt;)</c> y F1-ADM-03.
 ///
 /// <para>
 /// El rango de fechas (<see cref="Desde"/>, <see cref="Hasta"/>) es
@@ -27,8 +26,13 @@ public sealed record ConsultarBitacoraQuery(
     Guid? UsuarioId = null,
     Guid? EmpresaId = null,
     Guid? SucursalId = null,
+    Guid? EntidadId = null,
+    Guid? AggregateRootId = null,
+    string? ActorTipo = null,
+    string? Q = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<ConsultarBitacoraResponse>;
+    int Limit = 50,
+    string? ZonaHoraria = null) : IRequest<ConsultarBitacoraResponse>;
 
 public sealed class ConsultarBitacoraQueryValidator : AbstractValidator<ConsultarBitacoraQuery>
 {
@@ -44,12 +48,23 @@ public sealed class ConsultarBitacoraQueryValidator : AbstractValidator<Consulta
 
         RuleFor(x => x.Offset).GreaterThanOrEqualTo(0);
         RuleFor(x => x.Limit).InclusiveBetween(1, 200);
+        RuleFor(x => x.ZonaHoraria)
+            .Must(zona => zona is null || EsZonaHorariaValida(zona))
+            .WithMessage("La zona horaria debe ser un identificador IANA válido.");
+    }
+
+    private static bool EsZonaHorariaValida(string zona)
+    {
+        try { TimeZoneInfo.FindSystemTimeZoneById(zona); return true; }
+        catch (TimeZoneNotFoundException) { return false; }
+        catch (InvalidTimeZoneException) { return false; }
     }
 }
 
 /// <summary>
-/// Una fila del log de auditoría enriquecida para UI (con nombre de
-/// usuario via JOIN cuando disponible).
+/// Una fila del log de auditoría enriquecida para UI y reportes.
+/// Proyecta las columnas snapshot (ActorNombre, ActorTipo, EntidadEtiqueta, Resumen)
+/// y mantiene UsuarioNombre por compatibilidad con el frontend.
 /// </summary>
 public sealed record AuditLogEntryResponse(
     Guid Id,
@@ -60,11 +75,18 @@ public sealed record AuditLogEntryResponse(
     string Modulo,
     string Entidad,
     Guid? EntidadId,
+    Guid? AggregateRootId,
     string Operacion,
     string Cambios,
     Guid CorrelationId,
     Guid? SucursalId,
-    string? SucursalClave);
+    string? SucursalClave,
+    string ActorNombre,
+    string ActorTipo,
+    string? ActorEmail,
+    string EntidadEtiqueta,
+    string Resumen,
+    string? Origen);
 
 public sealed record ConsultarBitacoraResponse(
     IReadOnlyList<AuditLogEntryResponse> Items,
@@ -77,7 +99,9 @@ public sealed class ConsultarBitacoraHandler
     private readonly ICurrentEmpresaContext _empresaContext;
     private readonly CompartidoDbContext _compartidoDb;
 
-    public ConsultarBitacoraHandler(CoreDbContext db, ICurrentEmpresaContext empresaContext,
+    public ConsultarBitacoraHandler(
+        CoreDbContext db,
+        ICurrentEmpresaContext empresaContext,
         CompartidoDbContext compartidoDb)
     {
         _db = db;
@@ -89,23 +113,26 @@ public sealed class ConsultarBitacoraHandler
         ConsultarBitacoraQuery request,
         CancellationToken cancellationToken)
     {
-        // Convertir DateOnly a DateTimeOffset UTC. La columna Timestamp en
-        // PG es timestamptz; comparamos contra el rango [Desde 00:00 UTC,
-        // (Hasta+1) 00:00 UTC) — incluye todo el día Hasta.
-        var desdeUtc = new DateTimeOffset(request.Desde.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-        var hastaUtc = new DateTimeOffset(request.Hasta.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        // Las fechas del filtro representan días locales de quien consulta.
+        // Sin zona horaria explícita se conserva el comportamiento UTC anterior.
+        var zona = request.ZonaHoraria is null
+            ? TimeZoneInfo.Utc : TimeZoneInfo.FindSystemTimeZoneById(request.ZonaHoraria);
+        var desdeUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(
+            request.Desde.ToDateTime(TimeOnly.MinValue), zona));
+        var hastaUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(
+            request.Hasta.AddDays(1).ToDateTime(TimeOnly.MinValue), zona));
 
         var query = _db.AuditLog
             .AsNoTracking()
             .Where(a => a.Timestamp >= desdeUtc && a.Timestamp < hastaUtc);
 
-        // La bitácora no tiene query filter global: acotar aquí la empresa
-        // del token evita consultar registros de otra razón social pasando
-        // un empresaId arbitrario. Eventos sin empresa son globales.
+        // La bitácora no tiene query filter global. Un evento sin empresa
+        // puede pertenecer a una identidad de otra razón social; no se debe
+        // exponer en la vista de una empresa por el solo hecho de ser global.
         if (_empresaContext.Current is Guid empresaActual)
-            query = query.Where(a => a.EmpresaId == empresaActual || a.EmpresaId == null);
+            query = query.Where(a => a.EmpresaId == empresaActual);
         else
-            query = query.Where(a => a.EmpresaId == null);
+            query = query.Where(a => false);
 
         if (request.Modulo is { Length: > 0 })
             query = query.Where(a => a.Modulo == request.Modulo);
@@ -117,6 +144,20 @@ public sealed class ConsultarBitacoraHandler
             query = query.Where(a => a.UsuarioId == u);
         if (request.EmpresaId is Guid e)
             query = query.Where(a => a.EmpresaId == e);
+        if (request.EntidadId is Guid entId)
+            query = query.Where(a => a.EntidadId == entId);
+        if (request.AggregateRootId is Guid rootId)
+            query = query.Where(a => a.AggregateRootId == rootId);
+        if (request.ActorTipo is { Length: > 0 })
+            query = query.Where(a => a.ActorTipo == request.ActorTipo);
+        if (request.Q is { Length: > 0 } search)
+        {
+            var pattern = $"%{search.Trim()}%";
+            query = query.Where(a =>
+                EF.Functions.ILike(a.ActorNombre, pattern) ||
+                EF.Functions.ILike(a.EntidadEtiqueta, pattern) ||
+                EF.Functions.ILike(a.Resumen, pattern));
+        }
         if (request.SucursalId is Guid sucursal)
         {
             var filtro = System.Text.Json.JsonSerializer.Serialize(new { sucursalId = sucursal });
@@ -126,57 +167,112 @@ public sealed class ConsultarBitacoraHandler
 
         var total = await query.CountAsync(cancellationToken);
 
-        var rows = await query
+        var rawRows = await query
             .OrderByDescending(a => a.Timestamp)
             .Skip(request.Offset)
             .Take(request.Limit)
-            .Select(a => new AuditLogEntryResponse(
+            .Select(a => new
+            {
                 a.Id,
                 a.Timestamp,
                 a.UsuarioId,
-                null,  // UsuarioNombre — enriquecimiento cross-schema diferido; null hasta que se prioritice
+                a.ActorNombre,
+                a.ActorTipo,
+                a.ActorEmail,
+                a.EntidadEtiqueta,
+                a.Resumen,
                 a.EmpresaId,
                 a.Modulo,
                 a.Entidad,
                 a.EntidadId,
+                a.AggregateRootId,
                 a.Operacion,
                 a.Cambios,
                 a.CorrelationId,
-                (Guid?)null,
-                (string?)null))
+                a.Metadatos
+            })
             .ToListAsync(cancellationToken);
 
-        // La proyección JSONB se hace después de paginar en SQL. Los eventos
-        // anteriores sin metadatos siguen visibles en consultas globales.
-        var ids = rows.Select(r => r.Id).ToList();
-        var metadatosPorId = await _db.AuditLog.AsNoTracking()
-            .Where(a => ids.Contains(a.Id))
-            .Select(a => new { a.Id, a.Metadatos })
-            .ToDictionaryAsync(a => a.Id, a => a.Metadatos, cancellationToken);
+
         var sucursalIds = new HashSet<Guid>();
-        rows = rows.Select(row =>
+        var items = new List<AuditLogEntryResponse>(rawRows.Count);
+
+        foreach (var r in rawRows)
         {
-            if (!metadatosPorId.TryGetValue(row.Id, out var json) || json is null)
-                return row;
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("sucursalId", out var sid) || !sid.TryGetGuid(out var value))
-                return row;
-            sucursalIds.Add(value);
-            var clave = doc.RootElement.TryGetProperty("sucursalClave", out var claveJson)
-                ? claveJson.GetString() : null;
-            return row with { SucursalId = value, SucursalClave = clave };
-        }).ToList();
+            Guid? sucursalId = null;
+            string? sucursalClave = null;
+            string? origen = null;
+
+            if (!string.IsNullOrWhiteSpace(r.Metadatos))
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(r.Metadatos);
+                    if (doc.RootElement.TryGetProperty("sucursalId", out var sid) && sid.TryGetGuid(out var val))
+                    {
+                        sucursalId = val;
+                        sucursalIds.Add(val);
+                    }
+                    if (doc.RootElement.TryGetProperty("sucursalClave", out var sc) && sc.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        sucursalClave = sc.GetString();
+                    }
+                    if (doc.RootElement.TryGetProperty("origen", out var orig) && orig.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        origen = orig.GetString();
+                    }
+                }
+                catch
+                {
+                    // Ignorar json malformado en metadatos
+                }
+            }
+
+            var actorNombre = !string.IsNullOrWhiteSpace(r.ActorNombre)
+                ? r.ActorNombre
+                : (r.UsuarioId.HasValue ? $"Usuario {r.UsuarioId.Value.ToString()[..8]}" : "Sistema");
+            var actorTipo = !string.IsNullOrWhiteSpace(r.ActorTipo) ? r.ActorTipo : "usuario";
+            var entidadEtiqueta = !string.IsNullOrWhiteSpace(r.EntidadEtiqueta)
+                ? r.EntidadEtiqueta
+                : $"{r.Entidad} {(r.EntidadId.HasValue ? r.EntidadId.Value.ToString()[..8] : string.Empty)}".Trim();
+            var resumen = !string.IsNullOrWhiteSpace(r.Resumen)
+                ? r.Resumen
+                : $"{r.Operacion} {r.Entidad}";
+
+            items.Add(new AuditLogEntryResponse(
+                Id: r.Id,
+                Timestamp: r.Timestamp,
+                UsuarioId: r.UsuarioId,
+                UsuarioNombre: actorNombre,
+                EmpresaId: r.EmpresaId,
+                Modulo: r.Modulo,
+                Entidad: r.Entidad,
+                EntidadId: r.EntidadId,
+                AggregateRootId: r.AggregateRootId,
+                Operacion: r.Operacion,
+                Cambios: r.Cambios,
+                CorrelationId: r.CorrelationId,
+                SucursalId: sucursalId,
+                SucursalClave: sucursalClave,
+                ActorNombre: actorNombre,
+                ActorTipo: actorTipo,
+                ActorEmail: r.ActorEmail,
+                EntidadEtiqueta: entidadEtiqueta,
+                Resumen: resumen,
+                Origen: origen));
+        }
 
         if (sucursalIds.Count > 0)
         {
             var claves = await _compartidoDb.Sucursales.AsNoTracking()
                 .Where(s => sucursalIds.Contains(s.Id))
                 .ToDictionaryAsync(s => s.Id, s => s.Clave, cancellationToken);
-            rows = rows.Select(r => r.SucursalId is Guid sid &&
+
+            items = items.Select(r => r.SucursalId is Guid sid &&
                 r.SucursalClave is null && claves.TryGetValue(sid, out var clave)
                 ? r with { SucursalClave = clave } : r).ToList();
         }
 
-        return new ConsultarBitacoraResponse(rows, total);
+        return new ConsultarBitacoraResponse(items, total);
     }
 }

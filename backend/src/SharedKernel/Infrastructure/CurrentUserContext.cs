@@ -31,6 +31,8 @@ public sealed class CurrentUserContext : ICurrentUserContext
 
     public string? UserName => GetClaim(MilletClaimTypes.Name);
 
+    public string? Email => GetClaim(MilletClaimTypes.Email);
+
     private string? GetClaim(string type)
     {
         var user = _httpContextAccessor.HttpContext?.User;

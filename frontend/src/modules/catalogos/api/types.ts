@@ -68,6 +68,27 @@ export interface MonedaResponse {
   version: number;
 }
 
+/** Referencia compartida; las tasas reales requieren validación de Millet. */
+export interface ImpuestoReferenciaResponse {
+  id: string;
+  clave: string;
+  nombre: string;
+  tipo: 'Traslado' | 'Retencion';
+  factor: 'Tasa' | 'Cuota' | 'Exento';
+  tasa: number;
+  vigenteDesde: string;
+  vigenteHasta: string | null;
+  activo: boolean;
+  fuente: string;
+  version: number;
+}
+
+export type CrearImpuestoReferenciaPayload = Omit<ImpuestoReferenciaResponse, 'id' | 'version'>;
+export type ActualizarImpuestoReferenciaPayload = Pick<
+  ImpuestoReferenciaResponse,
+  'nombre' | 'vigenteHasta' | 'activo' | 'fuente'
+>;
+
 export interface CrearMonedaPayload {
   codigo: string;
   nombre: string;

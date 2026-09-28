@@ -147,6 +147,7 @@ import { Route as AppAdminCatalogosTransportistasIndexRouteImport } from './rout
 import { Route as AppAdminCatalogosRegimenesFiscalesIndexRouteImport } from './routes/_app/admin/catalogos/regimenes-fiscales/index';
 import { Route as AppAdminCatalogosMonedasIndexRouteImport } from './routes/_app/admin/catalogos/monedas/index';
 import { Route as AppAdminCatalogosIncotermsIndexRouteImport } from './routes/_app/admin/catalogos/incoterms/index';
+import { Route as AppAdminCatalogosImpuestosIndexRouteImport } from './routes/_app/admin/catalogos/impuestos/index';
 import { Route as AppAdminCatalogosFormasPagoIndexRouteImport } from './routes/_app/admin/catalogos/formas-pago/index';
 import { Route as AppAdminCatalogosCondicionesPagoIndexRouteImport } from './routes/_app/admin/catalogos/condiciones-pago/index';
 import { Route as AppAdminCatalogosCategoriasArticuloIndexRouteImport } from './routes/_app/admin/catalogos/categorias-articulo/index';
@@ -909,6 +910,12 @@ const AppAdminCatalogosIncotermsIndexRoute =
     path: '/admin/catalogos/incoterms/',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAdminCatalogosImpuestosIndexRoute =
+  AppAdminCatalogosImpuestosIndexRouteImport.update({
+    id: '/admin/catalogos/impuestos/',
+    path: '/admin/catalogos/impuestos/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminCatalogosFormasPagoIndexRoute =
   AppAdminCatalogosFormasPagoIndexRouteImport.update({
     id: '/admin/catalogos/formas-pago/',
@@ -1133,6 +1140,7 @@ export interface FileRoutesByFullPath {
   '/admin/catalogos/categorias-articulo/': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   '/admin/catalogos/condiciones-pago/': typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   '/admin/catalogos/formas-pago/': typeof AppAdminCatalogosFormasPagoIndexRoute;
+  '/admin/catalogos/impuestos/': typeof AppAdminCatalogosImpuestosIndexRoute;
   '/admin/catalogos/incoterms/': typeof AppAdminCatalogosIncotermsIndexRoute;
   '/admin/catalogos/monedas/': typeof AppAdminCatalogosMonedasIndexRoute;
   '/admin/catalogos/regimenes-fiscales/': typeof AppAdminCatalogosRegimenesFiscalesIndexRoute;
@@ -1286,6 +1294,7 @@ export interface FileRoutesByTo {
   '/admin/catalogos/categorias-articulo': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   '/admin/catalogos/condiciones-pago': typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   '/admin/catalogos/formas-pago': typeof AppAdminCatalogosFormasPagoIndexRoute;
+  '/admin/catalogos/impuestos': typeof AppAdminCatalogosImpuestosIndexRoute;
   '/admin/catalogos/incoterms': typeof AppAdminCatalogosIncotermsIndexRoute;
   '/admin/catalogos/monedas': typeof AppAdminCatalogosMonedasIndexRoute;
   '/admin/catalogos/regimenes-fiscales': typeof AppAdminCatalogosRegimenesFiscalesIndexRoute;
@@ -1441,6 +1450,7 @@ export interface FileRoutesById {
   '/_app/admin/catalogos/categorias-articulo/': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   '/_app/admin/catalogos/condiciones-pago/': typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   '/_app/admin/catalogos/formas-pago/': typeof AppAdminCatalogosFormasPagoIndexRoute;
+  '/_app/admin/catalogos/impuestos/': typeof AppAdminCatalogosImpuestosIndexRoute;
   '/_app/admin/catalogos/incoterms/': typeof AppAdminCatalogosIncotermsIndexRoute;
   '/_app/admin/catalogos/monedas/': typeof AppAdminCatalogosMonedasIndexRoute;
   '/_app/admin/catalogos/regimenes-fiscales/': typeof AppAdminCatalogosRegimenesFiscalesIndexRoute;
@@ -1596,6 +1606,7 @@ export interface FileRouteTypes {
     | '/admin/catalogos/categorias-articulo/'
     | '/admin/catalogos/condiciones-pago/'
     | '/admin/catalogos/formas-pago/'
+    | '/admin/catalogos/impuestos/'
     | '/admin/catalogos/incoterms/'
     | '/admin/catalogos/monedas/'
     | '/admin/catalogos/regimenes-fiscales/'
@@ -1749,6 +1760,7 @@ export interface FileRouteTypes {
     | '/admin/catalogos/categorias-articulo'
     | '/admin/catalogos/condiciones-pago'
     | '/admin/catalogos/formas-pago'
+    | '/admin/catalogos/impuestos'
     | '/admin/catalogos/incoterms'
     | '/admin/catalogos/monedas'
     | '/admin/catalogos/regimenes-fiscales'
@@ -1903,6 +1915,7 @@ export interface FileRouteTypes {
     | '/_app/admin/catalogos/categorias-articulo/'
     | '/_app/admin/catalogos/condiciones-pago/'
     | '/_app/admin/catalogos/formas-pago/'
+    | '/_app/admin/catalogos/impuestos/'
     | '/_app/admin/catalogos/incoterms/'
     | '/_app/admin/catalogos/monedas/'
     | '/_app/admin/catalogos/regimenes-fiscales/'
@@ -2891,6 +2904,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminCatalogosIncotermsIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/catalogos/impuestos/': {
+      id: '/_app/admin/catalogos/impuestos/';
+      path: '/admin/catalogos/impuestos';
+      fullPath: '/admin/catalogos/impuestos/';
+      preLoaderRoute: typeof AppAdminCatalogosImpuestosIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/catalogos/formas-pago/': {
       id: '/_app/admin/catalogos/formas-pago/';
       path: '/admin/catalogos/formas-pago';
@@ -3145,6 +3165,7 @@ interface AppRouteChildren {
   AppAdminCatalogosCategoriasArticuloIndexRoute: typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   AppAdminCatalogosCondicionesPagoIndexRoute: typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   AppAdminCatalogosFormasPagoIndexRoute: typeof AppAdminCatalogosFormasPagoIndexRoute;
+  AppAdminCatalogosImpuestosIndexRoute: typeof AppAdminCatalogosImpuestosIndexRoute;
   AppAdminCatalogosIncotermsIndexRoute: typeof AppAdminCatalogosIncotermsIndexRoute;
   AppAdminCatalogosMonedasIndexRoute: typeof AppAdminCatalogosMonedasIndexRoute;
   AppAdminCatalogosRegimenesFiscalesIndexRoute: typeof AppAdminCatalogosRegimenesFiscalesIndexRoute;
@@ -3310,6 +3331,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminCatalogosCondicionesPagoIndexRoute:
     AppAdminCatalogosCondicionesPagoIndexRoute,
   AppAdminCatalogosFormasPagoIndexRoute: AppAdminCatalogosFormasPagoIndexRoute,
+  AppAdminCatalogosImpuestosIndexRoute: AppAdminCatalogosImpuestosIndexRoute,
   AppAdminCatalogosIncotermsIndexRoute: AppAdminCatalogosIncotermsIndexRoute,
   AppAdminCatalogosMonedasIndexRoute: AppAdminCatalogosMonedasIndexRoute,
   AppAdminCatalogosRegimenesFiscalesIndexRoute:
