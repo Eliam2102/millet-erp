@@ -147,6 +147,7 @@ afterEach(() => {
   });
 });
 
+
 describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
   it('renderiza la lista con email, clave de puesto resuelta y badges', async () => {
     setPermisos([PermisosCanonicos.AdminEmpleadosGestionar]);
@@ -276,4 +277,28 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
       expect(reenvioLlamado).toBe(true);
     });
   });
+
+  it('filtra por "Por reasignar" y muestra banner informativo y botón de reasignar', async () => {
+    setPermisos([PermisosCanonicos.AdminEmpleadosGestionar]);
+    render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText('Juana Pérez')).toBeInTheDocument();
+
+    const btnPorReasignar = screen.getByRole('button', { name: /por reasignar/i });
+    expect(btnPorReasignar).toBeInTheDocument();
+    fireEvent.click(btnPorReasignar);
+
+    expect(
+      screen.getByText('Colaboradores pendientes de reasignación'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Los colaboradores continúan operando con normalidad con su histórico/i),
+    ).toBeInTheDocument();
+
+    // Empleados activos sin sucursal/depto aparecen y ofrecen botón Reasignar
+    expect(screen.getByText('Juana Pérez')).toBeInTheDocument();
+    const reasignarBtns = screen.getAllByRole('button', { name: /reasignar/i });
+    expect(reasignarBtns.length).toBeGreaterThan(0);
+  });
 });
+

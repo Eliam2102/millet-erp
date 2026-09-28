@@ -37,11 +37,10 @@ public static class AuthEndpoints
         {
             try
             {
+                // El login exitoso no se audita: cada inicio de sesión llenaba la
+                // bitácora de ruido. Solo quedan los intentos denegados.
                 var response = await orchestrator.LoginWithEntraTokenAsync(
                     request.EntraToken, request.EmpresaId, cancellationToken);
-                await audit.WriteAsync("acceso", response.Usuario.Id,
-                    response.Empresas.FirstOrDefault(e => e.EsLaActual)?.Id,
-                    "EntraId", null, http.Connection.RemoteIpAddress, cancellationToken);
                 return Results.Ok(response);
             }
             catch (UnauthorizedAccessException)

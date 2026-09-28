@@ -685,7 +685,8 @@ independiente de cambios posteriores en catálogos de usuarios o entidades:
 
 2. **Registro explícito de accesos:**
    - Servicio `IAuditLogWriter` (`Millet.SharedKernel.Application` / `Infrastructure`) para registrar eventos de auditoría independientes de `DbContext.SaveChangesAsync`.
-   - `LoginOrchestrator` registra eventos de `acceso` exitoso y `acceso-denegado` (capturando el código de fallo en el resumen).
+   - `AuthAccessAuditWriter` registra `acceso_denegado` (con el código de fallo en el resumen) y los cambios de empresa (`cambiar_empresa` / `cambiar_empresa_denegado`), entidad `Sesion`.
+   - **El login exitoso no se audita** (decisión del owner, 2026-09-28): cada inicio de sesión llenaba la bitácora de ruido. Los registros `acceso` anteriores se conservan como histórico.
 
 3. **Bandeja de bitácora y drawer de detalle:**
    - Tabla en `/admin/auditoria` con columnas humanizadas: Fecha, Quién (con badge de tipo), Qué hizo, Registro, Módulo y Sucursal. Sin GUIDs crudos.

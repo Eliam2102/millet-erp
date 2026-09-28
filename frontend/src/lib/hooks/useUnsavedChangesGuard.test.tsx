@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useUnsavedChangesGuard } from '@/lib/hooks/useUnsavedChangesGuard';
 
 describe('useUnsavedChangesGuard', () => {
-  let addSpy: ReturnType<typeof vi.spyOn>;
-  let removeSpy: ReturnType<typeof vi.spyOn>;
+  let addSpy: MockInstance<typeof window.addEventListener>;
+  let removeSpy: MockInstance<typeof window.removeEventListener>;
 
   beforeEach(() => {
     addSpy = vi.spyOn(window, 'addEventListener');

@@ -62,13 +62,18 @@ const ARTICULO = {
 
 beforeEach(() => {
   // El detalle siempre responde Activo, así que el botón Desactivar sigue
-  // visible tras el primer DELETE (permite la 2ª acción). El form anidado monta
-  // el <UnidadMedidaSelect> → lista vacía basta.
+  // visible tras el primer DELETE (permite la 2ª acción). Los selectores del form
+  // anidado (unidad, moneda, categoría) necesitan handler: sin él la petición
+  // falla y el cliente limpia la sesión → lista vacía basta.
   mswServer.use(
     http.get('*/api/v1/datos-maestros/articulos/a-1', () =>
       HttpResponse.json(ARTICULO),
     ),
     http.get('*/api/v1/catalogos/unidades-medida', () => HttpResponse.json([])),
+    http.get('*/api/v1/catalogos/monedas', () => HttpResponse.json([])),
+    http.get('*/api/v1/catalogos/categorias-articulo', () =>
+      HttpResponse.json([]),
+    ),
   );
   useAuthStore.setState({
     status: 'authenticated',

@@ -26,7 +26,7 @@ describe('handleCeCoMutationError — 409/428 → recargar con aviso', () => {
   it('409 CONCURRENCY_CONFLICT abre el diálogo y devuelve true', () => {
     const c = ctx();
     const error = new ApiError(
-      { title: 'Conflicto', status: 409, code: 'CONCURRENCY_CONFLICT' },
+      { type: 'about:blank', title: 'Conflicto', status: 409, code: 'CONCURRENCY_CONFLICT' },
       409,
     );
     expect(handleCeCoMutationError(error, c)).toBe(true);
@@ -36,7 +36,7 @@ describe('handleCeCoMutationError — 409/428 → recargar con aviso', () => {
   it('428 SIN code abre el diálogo (matcheo por status — el backend no manda code)', () => {
     const c = ctx();
     const error = new ApiError(
-      { title: 'If-Match requerido', status: 428 },
+      { type: 'about:blank', title: 'If-Match requerido', status: 428 },
       428,
     );
     expect(handleCeCoMutationError(error, c)).toBe(true);
@@ -46,7 +46,7 @@ describe('handleCeCoMutationError — 409/428 → recargar con aviso', () => {
   it('el onRefrescar del diálogo invalida el namespace del módulo', () => {
     const c = ctx();
     handleCeCoMutationError(
-      new ApiError({ title: 'x', status: 428 }, 428),
+      new ApiError({ type: 'about:blank', title: 'x', status: 428 }, 428),
       c,
     );
     const args = c.openSimple.mock.calls[0][0] as { onRefrescar: () => void };
@@ -59,7 +59,7 @@ describe('handleCeCoMutationError — 409/428 → recargar con aviso', () => {
   it('409 CECO_CLAVE_DUPLICADA NO abre el diálogo (es error de campo, no de recarga)', () => {
     const c = ctx();
     const error = new ApiError(
-      { title: 'Clave duplicada', status: 409, code: 'CECO_CLAVE_DUPLICADA' },
+      { type: 'about:blank', title: 'Clave duplicada', status: 409, code: 'CECO_CLAVE_DUPLICADA' },
       409,
     );
     expect(handleCeCoMutationError(error, c)).toBe(false);
@@ -71,7 +71,7 @@ describe('handleCeCoMutationError — 409/428 → recargar con aviso', () => {
     expect(handleCeCoMutationError(new Error('boom'), c)).toBe(false);
     expect(
       handleCeCoMutationError(
-        new ApiError({ title: 'Validación', status: 422 }, 422),
+        new ApiError({ type: 'about:blank', title: 'Validación', status: 422 }, 422),
         c,
       ),
     ).toBe(false);

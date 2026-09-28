@@ -194,12 +194,19 @@ function FilaDepartamentoAsignado({
       etiquetaAccesible={`departamento ${item.departamentoClave}`}
       tituloConfirmacion="Desactivar departamento"
       descripcionConfirmacion={
-        <>
-          ¿Confirmas desactivar{' '}
-          <span className="font-mono font-semibold">{item.departamentoClave}</span> en
-          esta sucursal? Bloquea nuevas asignaciones de puestos y requisiciones con
-          esta combinación pero NO afecta las existentes.
-        </>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            ¿Confirmas desactivar el departamento{' '}
+            <span className="font-mono font-semibold text-foreground">{item.departamentoClave}</span> en
+            esta sucursal?
+          </p>
+          <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+            <p className="font-semibold">Información operativa:</p>
+            <p className="mt-0.5">
+              Los empleados asignados actualmente continuarán operando con normalidad. Esta acción únicamente impide que se registren nuevos empleados o requisiciones con esta combinación en la sucursal.
+            </p>
+          </div>
+        </div>
       }
       desactivando={desactivar.isPending}
       reactivando={reactivar.isPending}

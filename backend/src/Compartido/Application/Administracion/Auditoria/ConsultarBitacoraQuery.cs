@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -139,7 +141,15 @@ public sealed class ConsultarBitacoraHandler
         if (request.Recurso is { Length: > 0 })
             query = query.Where(a => a.Entidad == request.Recurso);
         if (request.Accion is { Length: > 0 })
-            query = query.Where(a => a.Operacion == request.Accion);
+        {
+            var accionNorm = request.Accion.Trim().ToLowerInvariant();
+            if (accionNorm is "autorizacion" or "autorización")
+                query = query.Where(a => a.Operacion == "autorizacion");
+            else if (accionNorm is "eliminar" or "borrar")
+                query = query.Where(a => a.Operacion == "borrar" || a.Operacion == "eliminar");
+            else
+                query = query.Where(a => EF.Functions.ILike(a.Operacion, request.Accion));
+        }
         if (request.UsuarioId is Guid u)
             query = query.Where(a => a.UsuarioId == u);
         if (request.EmpresaId is Guid e)
@@ -195,6 +205,110 @@ public sealed class ConsultarBitacoraHandler
 
 
         var sucursalIds = new HashSet<Guid>();
+        var departamentoIds = new HashSet<Guid>();
+        var puestoIds = new HashSet<Guid>();
+        var empleadoIds = new HashSet<Guid>();
+
+        // 1. Recolectar IDs relevantes de las filas consultadas
+        foreach (var r in rawRows)
+        {
+            if (r.EntidadId.HasValue)
+            {
+                var ent = r.Entidad;
+                var id = r.EntidadId.Value;
+                if (ent == "Sucursal") sucursalIds.Add(id);
+                else if (ent == "Departamento") departamentoIds.Add(id);
+                else if (ent == "Puesto") puestoIds.Add(id);
+                else if (ent == "Empleado") empleadoIds.Add(id);
+            }
+
+            if (!string.IsNullOrWhiteSpace(r.Metadatos))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(r.Metadatos);
+                    if (doc.RootElement.TryGetProperty("sucursalId", out var sid) && sid.TryGetGuid(out var val))
+                    {
+                        sucursalIds.Add(val);
+                    }
+                }
+                catch { }
+            }
+
+            if (!string.IsNullOrWhiteSpace(r.Cambios))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(r.Cambios);
+                    var root = doc.RootElement;
+
+                    void CollectFromProps(JsonElement el)
+                    {
+                        if (el.ValueKind != JsonValueKind.Object) return;
+                        foreach (var prop in el.EnumerateObject())
+                        {
+                            var name = prop.Name;
+                            if (prop.Value.ValueKind == JsonValueKind.String && prop.Value.TryGetGuid(out var g))
+                            {
+                                if (name.Equals("DepartamentoId", StringComparison.OrdinalIgnoreCase)) departamentoIds.Add(g);
+                                else if (name.Equals("PuestoId", StringComparison.OrdinalIgnoreCase)) puestoIds.Add(g);
+                                else if (name.Equals("JefeDirectoId", StringComparison.OrdinalIgnoreCase) || name.Equals("EmpleadoId", StringComparison.OrdinalIgnoreCase)) empleadoIds.Add(g);
+                                else if (name.Equals("SucursalId", StringComparison.OrdinalIgnoreCase)) sucursalIds.Add(g);
+                            }
+                            else if (prop.Value.ValueKind == JsonValueKind.Object)
+                            {
+                                if (prop.Value.TryGetProperty("antes", out var antes) && antes.ValueKind == JsonValueKind.String && antes.TryGetGuid(out var gAntes))
+                                {
+                                    if (name.Equals("DepartamentoId", StringComparison.OrdinalIgnoreCase)) departamentoIds.Add(gAntes);
+                                    else if (name.Equals("PuestoId", StringComparison.OrdinalIgnoreCase)) puestoIds.Add(gAntes);
+                                    else if (name.Equals("JefeDirectoId", StringComparison.OrdinalIgnoreCase) || name.Equals("EmpleadoId", StringComparison.OrdinalIgnoreCase)) empleadoIds.Add(gAntes);
+                                    else if (name.Equals("SucursalId", StringComparison.OrdinalIgnoreCase)) sucursalIds.Add(gAntes);
+                                }
+                                if (prop.Value.TryGetProperty("despues", out var despues) && despues.ValueKind == JsonValueKind.String && despues.TryGetGuid(out var gDesp))
+                                {
+                                    if (name.Equals("DepartamentoId", StringComparison.OrdinalIgnoreCase)) departamentoIds.Add(gDesp);
+                                    else if (name.Equals("PuestoId", StringComparison.OrdinalIgnoreCase)) puestoIds.Add(gDesp);
+                                    else if (name.Equals("JefeDirectoId", StringComparison.OrdinalIgnoreCase) || name.Equals("EmpleadoId", StringComparison.OrdinalIgnoreCase)) empleadoIds.Add(gDesp);
+                                    else if (name.Equals("SucursalId", StringComparison.OrdinalIgnoreCase)) sucursalIds.Add(gDesp);
+                                }
+                            }
+                        }
+                    }
+
+                    if (root.TryGetProperty("snapshot", out var snap)) CollectFromProps(snap);
+                    if (root.TryGetProperty("snapshot_pre_borrado", out var snapPre)) CollectFromProps(snapPre);
+                    if (root.TryGetProperty("diff", out var diff)) CollectFromProps(diff);
+                }
+                catch { }
+            }
+        }
+
+        // 2. Resolver diccionarios en paralelo o batch desde _compartidoDb
+        var deptos = departamentoIds.Count > 0
+            ? await _compartidoDb.Departamentos.AsNoTracking()
+                .Where(d => departamentoIds.Contains(d.Id))
+                .ToDictionaryAsync(d => d.Id, d => string.IsNullOrEmpty(d.Clave) ? d.Nombre : $"{d.Nombre} ({d.Clave})", cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        var puestos = puestoIds.Count > 0
+            ? await _compartidoDb.Puestos.AsNoTracking()
+                .Where(p => puestoIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => string.IsNullOrEmpty(p.Clave) ? p.Nombre : $"{p.Nombre} ({p.Clave})", cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        var empleados = empleadoIds.Count > 0
+            ? await _compartidoDb.Empleados.AsNoTracking()
+                .Where(e => empleadoIds.Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, e => string.IsNullOrEmpty(e.Clave) ? e.Nombre : $"{e.Nombre} ({e.Clave})", cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        var sucursales = sucursalIds.Count > 0
+            ? await _compartidoDb.Sucursales.AsNoTracking()
+                .Where(s => sucursalIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => (Clave: s.Clave, Nombre: s.Nombre), cancellationToken)
+            : new Dictionary<Guid, (string Clave, string Nombre)>();
+
+        // 3. Mapear y enriquecer las filas para que la respuesta sea 100% amigable y sin GUIDs crudos
         var items = new List<AuditLogEntryResponse>(rawRows.Count);
 
         foreach (var r in rawRows)
@@ -207,37 +321,151 @@ public sealed class ConsultarBitacoraHandler
             {
                 try
                 {
-                    using var doc = System.Text.Json.JsonDocument.Parse(r.Metadatos);
+                    using var doc = JsonDocument.Parse(r.Metadatos);
                     if (doc.RootElement.TryGetProperty("sucursalId", out var sid) && sid.TryGetGuid(out var val))
                     {
                         sucursalId = val;
-                        sucursalIds.Add(val);
                     }
-                    if (doc.RootElement.TryGetProperty("sucursalClave", out var sc) && sc.ValueKind == System.Text.Json.JsonValueKind.String)
+                    if (doc.RootElement.TryGetProperty("sucursalClave", out var sc) && sc.ValueKind == JsonValueKind.String)
                     {
                         sucursalClave = sc.GetString();
                     }
-                    if (doc.RootElement.TryGetProperty("origen", out var orig) && orig.ValueKind == System.Text.Json.JsonValueKind.String)
+                    if (doc.RootElement.TryGetProperty("origen", out var orig) && orig.ValueKind == JsonValueKind.String)
                     {
                         origen = orig.GetString();
                     }
                 }
-                catch
-                {
-                    // Ignorar json malformado en metadatos
-                }
+                catch { }
+            }
+
+            if (sucursalId.HasValue && sucursalClave is null && sucursales.TryGetValue(sucursalId.Value, out var sInfo))
+            {
+                sucursalClave = sInfo.Clave;
             }
 
             var actorNombre = !string.IsNullOrWhiteSpace(r.ActorNombre)
                 ? r.ActorNombre
                 : (r.UsuarioId.HasValue ? $"Usuario {r.UsuarioId.Value.ToString()[..8]}" : "Sistema");
             var actorTipo = !string.IsNullOrWhiteSpace(r.ActorTipo) ? r.ActorTipo : "usuario";
-            var entidadEtiqueta = !string.IsNullOrWhiteSpace(r.EntidadEtiqueta)
-                ? r.EntidadEtiqueta
-                : $"{r.Entidad} {(r.EntidadId.HasValue ? r.EntidadId.Value.ToString()[..8] : string.Empty)}".Trim();
-            var resumen = !string.IsNullOrWhiteSpace(r.Resumen)
-                ? r.Resumen
-                : $"{r.Operacion} {r.Entidad}";
+
+            // Enriquecer EntidadEtiqueta
+            var entidadEtiqueta = r.EntidadEtiqueta;
+            if (string.IsNullOrWhiteSpace(entidadEtiqueta) || Guid.TryParse(entidadEtiqueta, out _) || entidadEtiqueta.StartsWith(r.Entidad + " ", StringComparison.Ordinal))
+            {
+                if (r.Entidad == "Empleado" && r.EntidadId.HasValue && empleados.TryGetValue(r.EntidadId.Value, out var empNom))
+                    entidadEtiqueta = empNom;
+                else if (r.Entidad == "Departamento" && r.EntidadId.HasValue && deptos.TryGetValue(r.EntidadId.Value, out var depNom))
+                    entidadEtiqueta = depNom;
+                else if (r.Entidad == "Puesto" && r.EntidadId.HasValue && puestos.TryGetValue(r.EntidadId.Value, out var pstNom))
+                    entidadEtiqueta = pstNom;
+                else if (r.Entidad == "Sucursal" && r.EntidadId.HasValue && sucursales.TryGetValue(r.EntidadId.Value, out var sucData))
+                    entidadEtiqueta = $"{sucData.Nombre} ({sucData.Clave})";
+                else
+                    entidadEtiqueta = !string.IsNullOrWhiteSpace(r.EntidadEtiqueta)
+                        ? r.EntidadEtiqueta
+                        : $"{r.Entidad} {(r.EntidadId.HasValue ? r.EntidadId.Value.ToString()[..8] : string.Empty)}".Trim();
+            }
+
+            // Enriquecer Resumen reemplazando GUIDs conocidos y nombres técnicos
+            var resumen = !string.IsNullOrWhiteSpace(r.Resumen) ? r.Resumen : $"{r.Operacion} {r.Entidad}";
+            resumen = resumen
+                .Replace("DepartamentoId:", "Departamento:")
+                .Replace("PuestoId:", "Puesto:")
+                .Replace("JefeDirectoId:", "Jefe directo:")
+                .Replace("SucursalId:", "Sucursal:")
+                .Replace("EmpresaId:", "Empresa:")
+                .Replace("UsuarioId:", "Usuario:")
+                .Replace("RolId:", "Rol:")
+                .Replace("RolSugeridoId:", "Rol sugerido:");
+
+            foreach (var (gid, nombre) in deptos) resumen = resumen.Replace(gid.ToString(), nombre);
+            foreach (var (gid, nombre) in puestos) resumen = resumen.Replace(gid.ToString(), nombre);
+            foreach (var (gid, nombre) in empleados) resumen = resumen.Replace(gid.ToString(), nombre);
+            foreach (var (gid, sData) in sucursales) resumen = resumen.Replace(gid.ToString(), sData.Nombre);
+
+            // Enriquecer Cambios inyectando snapshotTexto y antesTexto/despuesTexto
+            var cambios = r.Cambios;
+            if (!string.IsNullOrWhiteSpace(cambios))
+            {
+                try
+                {
+                    var node = JsonNode.Parse(cambios);
+                    if (node is JsonObject rootObj)
+                    {
+                        var modificado = false;
+                        if (rootObj["snapshot"] is JsonObject snapObj)
+                        {
+                            var snapTexto = rootObj["snapshotTexto"] as JsonObject ?? new JsonObject();
+                            if (snapObj.TryGetPropertyValue("DepartamentoId", out var dVal) && dVal?.ToString() is string dStr && Guid.TryParse(dStr, out var dId) && deptos.TryGetValue(dId, out var dNom))
+                            {
+                                snapTexto["DepartamentoId"] = dNom;
+                                modificado = true;
+                            }
+                            if (snapObj.TryGetPropertyValue("PuestoId", out var pVal) && pVal?.ToString() is string pStr && Guid.TryParse(pStr, out var pId) && puestos.TryGetValue(pId, out var pNom))
+                            {
+                                snapTexto["PuestoId"] = pNom;
+                                modificado = true;
+                            }
+                            if (snapObj.TryGetPropertyValue("JefeDirectoId", out var jVal) && jVal?.ToString() is string jStr && Guid.TryParse(jStr, out var jId) && empleados.TryGetValue(jId, out var jNom))
+                            {
+                                snapTexto["JefeDirectoId"] = jNom;
+                                modificado = true;
+                            }
+                            if (snapObj.TryGetPropertyValue("SucursalId", out var sVal) && sVal?.ToString() is string sStr && Guid.TryParse(sStr, out var sId) && sucursales.TryGetValue(sId, out var sNom))
+                            {
+                                snapTexto["SucursalId"] = sNom.Nombre;
+                                modificado = true;
+                            }
+                            if (modificado)
+                            {
+                                rootObj["snapshotTexto"] = snapTexto;
+                            }
+                        }
+
+                        if (rootObj["diff"] is JsonObject diffObj)
+                        {
+                            void EnrichDiffField(string propName, IReadOnlyDictionary<Guid, string> dict)
+                            {
+                                if (diffObj[propName] is JsonObject itemObj)
+                                {
+                                    if (itemObj["antes"]?.ToString() is string aStr && Guid.TryParse(aStr, out var aId) && dict.TryGetValue(aId, out var aNom))
+                                    {
+                                        itemObj["antesTexto"] = aNom;
+                                        modificado = true;
+                                    }
+                                    if (itemObj["despues"]?.ToString() is string dStr && Guid.TryParse(dStr, out var dId) && dict.TryGetValue(dId, out var dNom))
+                                    {
+                                        itemObj["despuesTexto"] = dNom;
+                                        modificado = true;
+                                    }
+                                }
+                            }
+                            EnrichDiffField("DepartamentoId", deptos);
+                            EnrichDiffField("PuestoId", puestos);
+                            EnrichDiffField("JefeDirectoId", empleados);
+                            if (diffObj["SucursalId"] is JsonObject sucDiff)
+                            {
+                                if (sucDiff["antes"]?.ToString() is string saStr && Guid.TryParse(saStr, out var saId) && sucursales.TryGetValue(saId, out var saNom))
+                                {
+                                    sucDiff["antesTexto"] = saNom.Nombre;
+                                    modificado = true;
+                                }
+                                if (sucDiff["despues"]?.ToString() is string sdStr && Guid.TryParse(sdStr, out var sdId) && sucursales.TryGetValue(sdId, out var sdNom))
+                                {
+                                    sucDiff["despuesTexto"] = sdNom.Nombre;
+                                    modificado = true;
+                                }
+                            }
+                        }
+
+                        if (modificado)
+                        {
+                            cambios = rootObj.ToJsonString();
+                        }
+                    }
+                }
+                catch { }
+            }
 
             items.Add(new AuditLogEntryResponse(
                 Id: r.Id,
@@ -250,7 +478,7 @@ public sealed class ConsultarBitacoraHandler
                 EntidadId: r.EntidadId,
                 AggregateRootId: r.AggregateRootId,
                 Operacion: r.Operacion,
-                Cambios: r.Cambios,
+                Cambios: cambios,
                 CorrelationId: r.CorrelationId,
                 SucursalId: sucursalId,
                 SucursalClave: sucursalClave,
@@ -260,17 +488,6 @@ public sealed class ConsultarBitacoraHandler
                 EntidadEtiqueta: entidadEtiqueta,
                 Resumen: resumen,
                 Origen: origen));
-        }
-
-        if (sucursalIds.Count > 0)
-        {
-            var claves = await _compartidoDb.Sucursales.AsNoTracking()
-                .Where(s => sucursalIds.Contains(s.Id))
-                .ToDictionaryAsync(s => s.Id, s => s.Clave, cancellationToken);
-
-            items = items.Select(r => r.SucursalId is Guid sid &&
-                r.SucursalClave is null && claves.TryGetValue(sid, out var clave)
-                ? r with { SucursalClave = clave } : r).ToList();
         }
 
         return new ConsultarBitacoraResponse(items, total);

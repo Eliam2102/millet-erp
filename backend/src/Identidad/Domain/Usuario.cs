@@ -136,6 +136,25 @@ public sealed class Usuario : BaseEntity, IAuditable
     }
 
     /// <summary>
+    /// Actualiza la cuenta de Entra ID vinculada (email y OID definitivo)
+    /// tras la edición administrativa del correo corporativo del colaborador.
+    /// </summary>
+    public void ActualizarCuentaEntra(string nuevoEmail, string nuevoEntraOid)
+    {
+        if (string.IsNullOrWhiteSpace(nuevoEmail))
+            throw new ArgumentException("Email es requerido.", nameof(nuevoEmail));
+        if (string.IsNullOrWhiteSpace(nuevoEntraOid) || EsOidPendiente(nuevoEntraOid))
+            throw new BusinessRuleException("USUARIO_OID_INVALIDO",
+                "El OID a vincular debe ser el definitivo de Entra ID.");
+
+        Email = nuevoEmail.Trim();
+        EntraOid = nuevoEntraOid.Trim();
+        MotivoErrorProvision = null;
+        if (EstadoAcceso is not EstadoAcceso.Activo)
+            EstadoAcceso = EstadoAcceso.PendientePrimerAcceso;
+    }
+
+    /// <summary>
     /// Pide al worker de provisión que cree la cuenta en Entra (camino B
     /// del alta unificada). Solo para un usuario recién dado de alta con
     /// OID pendiente que todavía no ha entrado.

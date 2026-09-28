@@ -103,7 +103,8 @@ public static class ColaboradoresEndpoints
                     return Results.Forbid();
             var result = await mediator.Send(new DarAccesoColaboradorCommand(
                 empleadoId, payload.Acceso, payload.CorreoCorporativo,
-                payload.RolId, payload.EmailContacto), ct);
+                payload.RolId, payload.EmailContacto,
+                payload.DepartamentoId, payload.PuestoId), ct);
             return Results.Ok(result);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -189,7 +190,9 @@ public static class ColaboradoresEndpoints
         TipoAccesoColaborador Acceso,
         string CorreoCorporativo,
         Guid? RolId = null,
-        string? EmailContacto = null);
+        string? EmailContacto = null,
+        Guid? DepartamentoId = null,
+        Guid? PuestoId = null);
 
     private static async Task<bool> TienePermisoAsync(
         IAuthorizationService authorization, HttpContext httpContext, string permiso)

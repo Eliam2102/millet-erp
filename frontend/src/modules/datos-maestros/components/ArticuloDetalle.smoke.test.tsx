@@ -63,6 +63,13 @@ function setPermisos(permisos: string[]) {
 }
 
 beforeEach(() => {
+  // Selectores del form anidado: sin handler, la petición falla y el cliente
+  // limpia la sesión (se pierden permisos y desaparecen las acciones).
+  mswServer.use(
+    http.get('*/api/v1/catalogos/unidades-medida', () => HttpResponse.json([])),
+    http.get('*/api/v1/catalogos/monedas', () => HttpResponse.json([])),
+    http.get('*/api/v1/catalogos/categorias-articulo', () => HttpResponse.json([])),
+  );
   routerMock.navigate.mockClear();
   // Base: gestiona artículos pero SIN permiso de ubicaciones → el botón "Ver
   // ubicaciones" no aparece (los tests que lo prueban añaden el permiso).

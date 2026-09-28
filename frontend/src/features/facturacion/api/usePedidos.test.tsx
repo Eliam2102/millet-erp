@@ -237,7 +237,7 @@ describe('useCrearPedidoManual', () => {
     result.current.mutate({ command: commandValido, idempotencyKey: 'idem-2' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as {
+    const err = result.current.error as unknown as {
       status: number;
       problem: { errores?: { campo: string }[] };
     };
@@ -314,7 +314,7 @@ describe('useEditarPedido', () => {
     });
     result.current.mutate({ id: 'p-1', version: 1, command: editCommand });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(409);
   });
 });

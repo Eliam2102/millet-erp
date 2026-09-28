@@ -17,6 +17,7 @@ import {
   formatTimestampDetalle,
   formatearValorCampo,
   humanizarCampo,
+  humanizarTextoConLookups,
   isUuid,
 } from './auditoria-utils';
 
@@ -91,8 +92,18 @@ export function AuditoriaDetalleDrawer({
       if (entry.entidad === 'Puesto' && lookups?.puestos?.[entry.entidadId]) {
         return `Puesto · ${lookups.puestos[entry.entidadId]}`;
       }
+      if (entry.entidad === 'Empleado' && lookups?.empleados?.[entry.entidadId]) {
+        return `Empleado · ${lookups.empleados[entry.entidadId]}`;
+      }
+      if (entry.entidad === 'Rol' && lookups?.roles?.[entry.entidadId]) {
+        return `Rol · ${lookups.roles[entry.entidadId]}`;
+      }
     }
-    return entry.entidadEtiqueta || entry.entidad;
+    const et = entry.entidadEtiqueta;
+    if (et && !isUuid(et)) {
+      return humanizarTextoConLookups(et, lookups);
+    }
+    return entry.entidad;
   }, [entry, lookups]);
 
   const sucursalNombre = useMemo(() => {
@@ -114,7 +125,7 @@ export function AuditoriaDetalleDrawer({
         <SheetHeader>
           <SheetTitle className="text-lg font-semibold">
             {entry != null
-              ? (entry.resumen || `${entry.operacion} · ${entry.entidad}`)
+              ? humanizarTextoConLookups(entry.resumen || `${entry.operacion} · ${entry.entidad}`, lookups)
               : 'Detalle'}
           </SheetTitle>
           <SheetDescription id="auditoria-drawer-desc" asChild>
@@ -162,7 +173,7 @@ export function AuditoriaDetalleDrawer({
 
                   <dt className="text-muted-foreground">Correo</dt>
                   <dd className="text-foreground">
-                    {entry.actorEmail || 'No aplica'}
+                    {entry.actorEmail || (entry.usuarioId ? lookups?.usuariosEmail?.[entry.usuarioId] : null) || 'No aplica'}
                   </dd>
 
                   <dt className="text-muted-foreground">Origen</dt>

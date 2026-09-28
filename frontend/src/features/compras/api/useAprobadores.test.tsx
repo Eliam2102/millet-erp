@@ -140,7 +140,7 @@ describe('useAprobadoresHistorico', () => {
       { wrapper: createQueryWrapper() },
     );
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(422);
     expect(err.code).toBe('FILTRO_OBLIGATORIO');
   });
@@ -226,7 +226,7 @@ describe('useDesignarAprobador', () => {
       idempotencyKey: 'idem-d2',
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(404);
     expect(err.code).toBe('USUARIO_NO_ENCONTRADO');
   });
@@ -294,7 +294,7 @@ describe('useRevocarAprobador', () => {
       idempotencyKey: 'idem-r2',
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(404);
     expect(err.code).toBe('APROBADOR_NO_ENCONTRADO');
   });

@@ -16,7 +16,7 @@ public sealed class Adm03AccesosTests : IClassFixture<WebApplicationFactory<Prog
     public Adm03AccesosTests(WebApplicationFactory<Program> factory) => _factory = factory;
 
     [Fact]
-    public async Task Cada_Sesion_Y_Cambio_Denegado_Quedan_En_Bitacora_Sin_Token()
+    public async Task Cambio_Denegado_Queda_En_Bitacora_Sin_Token()
     {
         var client = _factory.CreateClientWithIdempotency();
         var token = await FakeLoginAsync(client, "dev-superadmin");
@@ -34,10 +34,9 @@ public sealed class Adm03AccesosTests : IClassFixture<WebApplicationFactory<Prog
         audit.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await audit.Content.ReadAsStringAsync());
         var items = doc.RootElement.GetProperty("items").EnumerateArray().ToList();
-        Assert.Contains(items, item => item.GetProperty("operacion").GetString() == "acceso" &&
-            item.GetProperty("usuarioId").ValueKind == JsonValueKind.String &&
-            !string.IsNullOrWhiteSpace(item.GetProperty("usuarioNombre").GetString()));
         Assert.Contains(items, item => item.GetProperty("operacion").GetString() == "cambiar_empresa_denegado" &&
+            item.GetProperty("usuarioId").ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(item.GetProperty("usuarioNombre").GetString()) &&
             item.GetProperty("cambios").GetString()!.Contains("EMPRESA_ACCESS_DENIED"));
         Assert.DoesNotContain(token, await audit.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }

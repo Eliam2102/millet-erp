@@ -85,6 +85,7 @@ export interface EmpleadoListItem {
   emailContacto?: string | null;
   sucursalNombre?: string | null;
   sucursalTipo?: number | null;
+  codigoNomina?: string | null;
 }
 
 /** Mirror de <c>AlmacenListItem</c>. */

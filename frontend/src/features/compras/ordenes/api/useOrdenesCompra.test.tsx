@@ -121,7 +121,7 @@ describe('useOrdenesCompra', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number };
+    const err = result.current.error as unknown as { status: number };
     expect(err.status).toBe(403);
   });
 
@@ -149,7 +149,7 @@ describe('useOrdenesCompra', () => {
     await waitFor(() => expect(result.current.isError).toBe(true), {
       timeout: 3000,
     });
-    const err = result.current.error as { status: number };
+    const err = result.current.error as unknown as { status: number };
     expect(err.status).toBe(500);
   });
 });

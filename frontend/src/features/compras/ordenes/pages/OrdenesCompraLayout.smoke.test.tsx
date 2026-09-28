@@ -48,7 +48,7 @@ vi.mock('@tanstack/react-router', () => ({
     to: string;
     params?: Record<string, string>;
     className?: string;
-    'aria-current'?: string;
+    'aria-current'?: React.AriaAttributes['aria-current'];
   }) => (
     <a
       href={params != null ? to.replace('$id', params.id ?? '') : to}

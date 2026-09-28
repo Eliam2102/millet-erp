@@ -7,8 +7,8 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 namespace Millet.Api.Auth;
 
 /// <summary>
-/// Registra cada intento de inicio de sesión o cambio de empresa en la
-/// bitácora consolidada. Nunca conserva credenciales, tokens ni correos.
+/// Registra los accesos denegados y los cambios de empresa en la bitácora
+/// consolidada (el login exitoso no se audita para no ensuciarla). Nunca conserva credenciales, tokens ni correos.
 /// </summary>
 public sealed class AuthAccessAuditWriter(CoreDbContext db, IClock clock)
 {

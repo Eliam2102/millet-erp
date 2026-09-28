@@ -9,6 +9,7 @@ import {
   PowerOff,
   RotateCcw,
   Search,
+  Unlink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -597,7 +598,7 @@ function FilaPuestoDepartamento({
       },
       {
         onSuccess: () => {
-          toast.success(`${item.puestoClave} desactivado`);
+          toast.success(`${item.puestoClave} desvinculado del departamento`);
           setConfirmDesactivar(false);
         },
         onError: (error) => {
@@ -653,10 +654,10 @@ function FilaPuestoDepartamento({
             size="sm"
             disabled={pending}
             onClick={() => setConfirmDesactivar(true)}
-            aria-label={`Desactivar puesto ${item.puestoClave}`}
+            aria-label={`Desvincular puesto ${item.puestoClave} del departamento`}
             className="text-muted-foreground hover:text-destructive"
           >
-            <PowerOff className="h-4 w-4 mr-1" /> Desactivar
+            <Unlink className="h-4 w-4 mr-1" /> Desvincular
           </Button>
         )}
         {canGestionar && inactivo && (
@@ -680,11 +681,21 @@ function FilaPuestoDepartamento({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar puesto</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmas desactivar{' '}
-              <span className="font-mono font-semibold">{item.puestoClave}</span> en
-              esta sucursal? Bloquea nuevas asignaciones de empleados con esta combinación.
+            <AlertDialogTitle>Desvincular puesto del departamento</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  ¿Confirmas desvincular el puesto{' '}
+                  <span className="font-mono font-semibold text-foreground">{item.puestoClave}</span> de
+                  este departamento en la sucursal?
+                </p>
+                <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+                  <p className="font-semibold">Información operativa:</p>
+                  <p className="mt-0.5">
+                    Los empleados asignados actualmente continuarán operando con normalidad. Esta acción únicamente impide realizar nuevos registros o asignaciones con esta combinación en la sucursal.
+                  </p>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -695,7 +706,7 @@ function FilaPuestoDepartamento({
               onClick={handleConfirmarDesactivar}
               disabled={desactivar.isPending}
             >
-              {desactivar.isPending ? 'Desactivando…' : 'Desactivar'}
+              {desactivar.isPending ? 'Desvinculando…' : 'Desvincular'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

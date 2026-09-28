@@ -29,6 +29,7 @@ const ARTICULO: ArticuloDetalle = {
   unidadMedidaId: null,
   naturaleza: 0,
   categoria: null,
+  categoriaId: null,
   precioReferenciaMonto: null,
   precioReferenciaMoneda: null,
   estatus: 0,
