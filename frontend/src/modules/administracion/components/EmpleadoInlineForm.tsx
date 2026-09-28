@@ -55,7 +55,7 @@ const VALORES_INICIALES: EmpleadoValues = {
   codigoNomina: '',
 };
 
-const DOMINIOS_CORPORATIVOS = [
+export const DOMINIOS_CORPORATIVOS = [
   'uzieltzaboutlook.onmicrosoft.com',
   'millet.mx',
   'millet.com.mx',

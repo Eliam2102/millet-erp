@@ -1020,6 +1020,7 @@ export function EmpleadosPage() {
                         empleadoId={e.id}
                         usuarioId={e.usuarioId}
                         email={e.email}
+                        emailContacto={e.emailContacto}
                         empleadoActivo={activo}
                       />
                     </div>
