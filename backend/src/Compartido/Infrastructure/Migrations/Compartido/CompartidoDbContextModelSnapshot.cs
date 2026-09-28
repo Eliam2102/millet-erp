@@ -784,7 +784,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Estatus = (short)0,
                             Nombre = "Ejecutivo",
-                            RolSugeridoId = new Guid("00000002-0003-0000-0000-000000000001"),
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -798,7 +797,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Estatus = (short)0,
                             Nombre = "Gerente",
-                            RolSugeridoId = new Guid("00000002-0003-0000-0000-000000000003"),
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -812,7 +810,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             EmpresaId = new Guid("00000003-0000-0000-0000-000000000001"),
                             Estatus = (short)0,
                             Nombre = "Operativo",
-                            RolSugeridoId = new Guid("00000002-0003-0000-0000-000000000004"),
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

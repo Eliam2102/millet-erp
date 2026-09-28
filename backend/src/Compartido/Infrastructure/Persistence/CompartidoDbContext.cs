@@ -1315,9 +1315,9 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         puesto.HasData(
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000001"), "EJEC", "Ejecutivo", Guid.Parse("00000002-0003-0000-0000-000000000001"), seedTime),
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000002"), "GER", "Gerente", Guid.Parse("00000002-0003-0000-0000-000000000003"), seedTime),
-            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000003"), "OPER", "Operativo", Guid.Parse("00000002-0003-0000-0000-000000000004"), seedTime)
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000001"), "EJEC", "Ejecutivo", null, seedTime),
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000002"), "GER", "Gerente", null, seedTime),
+            SeedPuesto(Guid.Parse("00000000-0000-0000-0000-000000000003"), "OPER", "Operativo", null, seedTime)
         );
     }
 

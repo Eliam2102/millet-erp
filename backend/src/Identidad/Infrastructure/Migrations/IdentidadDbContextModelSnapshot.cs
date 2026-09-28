@@ -3717,11 +3717,6 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("activo");
 
-                    b.Property<string>("ContrasenaTemporal")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("contrasena_temporal");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");

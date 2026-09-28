@@ -111,11 +111,9 @@ public sealed class AccesoColaboradorHandlers :
                 "El empleado no tiene correo de contacto para enviarle el acceso.");
         }
 
-        // Si ya cuenta con contraseña temporal guardada, la reusamos para enviarle la misma;
-        // en caso contrario, se solicita a Entra ID restablecerla.
-        var contrasena = !string.IsNullOrWhiteSpace(usuario.ContrasenaTemporal)
-            ? usuario.ContrasenaTemporal
-            : await _directorio.RestablecerContrasenaTemporalAsync(usuario.EntraOid, cancellationToken);
+        // Cada reenvío invalida la clave anterior. Nunca se conserva en el ERP.
+        var contrasena = await _directorio.RestablecerContrasenaTemporalAsync(
+            usuario.EntraOid, cancellationToken);
 
         await _correoSaliente.EnviarAccesoColaboradorAsync(
             new CorreoAccesoColaborador(
@@ -126,7 +124,7 @@ public sealed class AccesoColaboradorHandlers :
                 _entraOptions.CurrentValue.UrlInicioSesion),
             cancellationToken);
 
-        usuario.RegistrarEnvioAcceso(_clock.UtcNow, contrasena);
+        usuario.RegistrarEnvioAcceso(_clock.UtcNow);
         await _identidad.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

@@ -194,18 +194,9 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
                     usuario.Email, usuario.Nombre, empleado.EmailContacto, empleado.Clave),
                 ct);
 
-            var logMessage =
-                "\n========================================================================" +
-                "\n[PROVISIÓN ENTRA ID - CUENTA CREADA]" +
-                $"\n  Usuario (UPN):         {creada.Cuenta.Upn}" +
-                $"\n  Nombre:                 {empleado.Nombre}" +
-                $"\n  Contraseña Temporal:   {creada.ContrasenaTemporal}" +
-                $"\n  Correo Contacto:        {empleado.EmailContacto}" +
-                $"\n  OID en Entra ID:        {creada.Cuenta.ObjectId}" +
-                "\n========================================================================";
-
-            _logger.LogInformation("{LogMessage}", logMessage);
-            Console.WriteLine(logMessage);
+            _logger.LogInformation(
+                "Cuenta Entra creada para {Upn} (usuario {UsuarioId}); credencial enviada por el canal configurado.",
+                creada.Cuenta.Upn, usuario.Id);
 
             await correoSaliente.EnviarAccesoColaboradorAsync(
                 new CorreoAccesoColaborador(
@@ -217,7 +208,7 @@ public sealed class ProvisionCuentaEntraWorker : BackgroundService
                 ct);
 
             usuario.VincularEntraOid(creada.Cuenta.ObjectId);
-            usuario.RegistrarEnvioAcceso(clock.UtcNow, creada.ContrasenaTemporal);
+            usuario.RegistrarEnvioAcceso(clock.UtcNow);
 
             _logger.LogInformation(
                 "[ProvisionCuentaEntraWorker] Cuenta {Upn} creada y solicitud de correo aceptada (usuario {UsuarioId}).",

@@ -30,19 +30,9 @@ public sealed class CorreoSandboxLocal : ICorreoSalientePort
 
     public async Task EnviarAccesoColaboradorAsync(CorreoAccesoColaborador correo, CancellationToken ct)
     {
-        var logMessage =
-            "\n========================================================================" +
-            "\n[ACCESO DE COLABORADOR - CREDANCIALES Y CLAVE TEMPORAL GENERADAS]" +
-            $"\n  Nombre:                 {correo.NombreColaborador}" +
-            $"\n  UPN / Correo Microsoft: {correo.Upn}" +
-            $"\n  Contraseña Temporal:    {correo.ContrasenaTemporal}" +
-            $"\n  Correo Contacto:        {correo.Destinatario}" +
-            $"\n  URL Inicio Sesión:      {correo.UrlInicioSesion}" +
-            $"\n  Proveedor Entra:        {(_cuentaReal ? "Graph (Tenant Microsoft Real)" : "Simulado (Stub local)")}" +
-            "\n========================================================================";
-
-        _logger.LogInformation("{LogMessage}", logMessage);
-        Console.WriteLine(logMessage);
+        _logger.LogInformation(
+            "Correo de acceso preparado para {Destinatario} ({Proveedor}).",
+            correo.Destinatario, _cuentaReal ? "Graph de prueba" : "simulado");
 
         using var mensaje = new MailMessage(
             "acceso@millet.local.test", correo.Destinatario,

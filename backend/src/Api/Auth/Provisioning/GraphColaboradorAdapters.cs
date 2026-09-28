@@ -217,12 +217,17 @@ public sealed class GraphCorreoColaboradores : ICorreoSalientePort
     {
         if (string.IsNullOrWhiteSpace(_sender))
             throw new BusinessRuleException("CORREO_ACCESO_NO_CONFIGURADO", "Falta el buzón remitente.");
-        var body = $"Hola {correo.NombreColaborador},\n\n" +
-                   $"Tu usuario para el ERP Millet es: {correo.Upn}\n" +
-                   $"Contraseña temporal: {correo.ContrasenaTemporal}\n\n" +
-                   "Microsoft te solicitará cambiarla en el primer inicio de sesión.\n" +
-                   $"Accede aquí: {correo.UrlInicioSesion}\n\n" +
-                   "Si no solicitaste este acceso, contacta al administrador.";
+        var nombre = System.Net.WebUtility.HtmlEncode(correo.NombreColaborador);
+        var upn = System.Net.WebUtility.HtmlEncode(correo.Upn);
+        var contrasena = System.Net.WebUtility.HtmlEncode(correo.ContrasenaTemporal);
+        var url = System.Net.WebUtility.HtmlEncode(correo.UrlInicioSesion);
+        var body = $"<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto'>" +
+                   $"<h2>Bienvenido al ERP Millet</h2><p>Hola {nombre}, tu usuario es <strong>{upn}</strong>.</p>" +
+                   $"<p>Contraseña temporal: <strong>{contrasena}</strong></p>" +
+                   "<p>Microsoft te solicitará cambiarla en el primer inicio de sesión.</p>" +
+                   $"<p><a href='{url}' style='display:inline-block;padding:12px 20px;background:#4F46E5;color:#fff;text-decoration:none;border-radius:6px'>Iniciar sesión en el ERP</a></p>" +
+                   $"<p>Si el botón no abre, copia este enlace: {url}</p>" +
+                   "<p>Si no solicitaste este acceso, contacta al administrador.</p></div>";
         try
         {
             await _graph.Users[_sender].SendMail.PostAsync(new SendMailPostRequestBody
@@ -230,7 +235,7 @@ public sealed class GraphCorreoColaboradores : ICorreoSalientePort
                 Message = new Message
                 {
                     Subject = "Acceso al ERP Millet",
-                    Body = new ItemBody { ContentType = BodyType.Text, Content = body },
+                    Body = new ItemBody { ContentType = BodyType.Html, Content = body },
                     ToRecipients = [new Recipient { EmailAddress = new EmailAddress { Address = correo.Destinatario } }]
                 },
                 SaveToSentItems = true
