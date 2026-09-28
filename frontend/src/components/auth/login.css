@@ -14,7 +14,10 @@
   flex-direction: column;
   justify-content: flex-start;
   padding: 48px 62px;
-  background: #1c2a4a;
+  background:
+    radial-gradient(ellipse 70% 55% at 85% 20%, rgba(96, 124, 190, .22), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 10% 95%, rgba(229, 53, 67, .08), transparent 70%),
+    linear-gradient(160deg, #213258 0%, #1c2a4a 45%, #152039 100%);
 }
 
 .millet-login__wordmark {
@@ -39,6 +42,12 @@
   align-self: flex-end;
   padding-right: 2px;
   margin-top: 1px;
+  color: #000;
+  /* Contorno blanco para que el negro se lea sobre el azul marino. */
+  text-shadow:
+    -1px -1px 0 #fff, 0 -1px 0 #fff, 1px -1px 0 #fff,
+    -1px 0 0 #fff, 1px 0 0 #fff,
+    -1px 1px 0 #fff, 0 1px 0 #fff, 1px 1px 0 #fff;
   font-size: clamp(8px, .8vw, 11px);
   font-style: normal;
   font-weight: 800;
@@ -50,76 +59,220 @@
   inset: 16% 9% 18% 14%;
   display: grid;
   grid-template-columns: 1.15fr .7fr .42fr;
-  gap: 16px;
-  opacity: .42;
-  transform: skewY(-7deg);
+  gap: 22px;
+  transform:
+    perspective(1400px)
+    rotateY(calc(-16deg + var(--gx, 0) * 7deg))
+    rotateX(calc(4deg - var(--gy, 0) * 5deg));
+  transform-origin: 30% 50%;
+  transition: transform .9s cubic-bezier(.2, .7, .2, 1);
   pointer-events: none;
 }
 
+/* Panel de vidrio: sin contorno duro; se lee por reflejo, canto y sombra. */
 .millet-login__glass span {
-  border: 1px solid #788ab7;
-  background: linear-gradient(125deg, transparent 5%, rgba(154, 177, 232, .16) 45%, transparent 70%);
-  box-shadow: inset 1px 0 rgba(255, 255, 255, .1);
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  background:
+    linear-gradient(115deg,
+      rgba(255, 255, 255, .11) 0%,
+      rgba(255, 255, 255, .035) 32%,
+      rgba(255, 255, 255, .01) 55%,
+      rgba(255, 255, 255, .05) 100%);
+  backdrop-filter: blur(3px) saturate(1.15);
+  -webkit-backdrop-filter: blur(3px) saturate(1.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .16),
+    inset 0 -1px 0 rgba(255, 255, 255, .04),
+    inset -1px 0 0 rgba(255, 255, 255, .05),
+    0 40px 70px -30px rgba(5, 10, 25, .55);
+  /* Paralaje: cada panel se desplaza según su profundidad (--depth). */
+  --depth: 1;
+  transform: translate3d(calc(var(--gx, 0) * var(--depth) * 10px), calc(var(--gy, 0) * var(--depth) * 8px), 0);
+  transition: transform .9s cubic-bezier(.2, .7, .2, 1);
+}
+
+/* Canto del vidrio: tinte verdoso característico del vidrio flotado. */
+.millet-login__glass span::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg,
+    rgba(170, 225, 210, .45),
+    rgba(120, 190, 175, .18) 50%,
+    rgba(170, 225, 210, .32));
+}
+
+/* Reflejo diagonal suave. */
+.millet-login__glass span::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -60%;
+  width: 55%;
+  height: 140%;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, .07) 45%,
+    rgba(255, 255, 255, .12) 50%,
+    rgba(255, 255, 255, .07) 55%,
+    transparent);
+  /* El reflejo recorre el vidrio en sentido contrario al cursor. */
+  transform: translateX(calc(var(--gx, 0) * -60px)) rotate(18deg);
+  transition: transform .9s cubic-bezier(.2, .7, .2, 1);
 }
 
 .millet-login__glass span:nth-child(2) {
   margin-top: 65px;
   margin-bottom: -26px;
+  opacity: .8;
+  --depth: 1.8;
+}
+
+.millet-login__glass span:nth-child(2)::after {
+  left: -20%;
 }
 
 .millet-login__glass span:nth-child(3) {
   margin-top: 140px;
   margin-bottom: 25px;
+  opacity: .6;
+  --depth: 2.6;
 }
 
+.millet-login__glass span:nth-child(3)::after {
+  left: 10%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .millet-login__glass,
+  .millet-login__glass span,
+  .millet-login__glass span::after {
+    --gx: 0;
+    --gy: 0;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .millet-login__glass span {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Rejilla del lado derecho: barra superior a la altura del logo, formulario
+   centrado en vertical y pie; todo comparte el mismo borde izquierdo. */
 .millet-login__content {
   display: grid;
-  place-items: center;
-  padding: 40px 28px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 52px 9vw 40px;
+}
+
+.millet-login__topbar,
+.millet-login__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.millet-login__topbar {
+  font-size: 14px;
+}
+
+.millet-login__product {
+  color: #1c2a4a;
+  font-weight: 650;
+  letter-spacing: .01em;
+}
+
+.millet-login__topbar-link {
+  color: #1c2a4a;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.millet-login__topbar-link:hover {
+  text-decoration: underline;
+}
+
+.millet-login__topbar-link:focus-visible {
+  outline: 3px solid #6679c9;
+  outline-offset: 3px;
 }
 
 .millet-login__form {
-  width: min(100%, 370px);
+  align-self: center;
+  width: min(100%, 460px);
+  padding: 40px 0;
+}
+
+.millet-login__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: #e53543;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.millet-login__eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
 }
 
 .millet-login__form h1 {
-  margin: 0 0 6px;
-  font-size: 31px;
+  margin: 0 0 12px;
+  font-size: clamp(36px, 3.2vw, 46px);
   font-weight: 750;
-  letter-spacing: -.045em;
-  line-height: 1.2;
+  letter-spacing: -.035em;
+  line-height: 1.08;
 }
 
 .millet-login__intro {
   margin: 0;
-  color: #68778d;
-  font-size: 13px;
-  line-height: 1.6;
+  color: #56657c;
+  font-size: 17px;
+  line-height: 1.55;
 }
 
 .millet-login__microsoft {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 11px;
+  gap: 12px;
   width: 100%;
-  min-height: 46px;
-  margin-top: 29px;
-  padding: 10px 16px;
-  border: 1px solid #d7dfeb;
-  border-radius: 9px;
-  background: #fff;
-  color: #253755;
-  font-size: 13px;
+  min-height: 58px;
+  margin-top: 36px;
+  padding: 14px 20px;
+  border: 1px solid #1c2a4a;
+  border-radius: 12px;
+  background: #1c2a4a;
+  color: #fff;
+  font-size: 16px;
   font-weight: 650;
   cursor: pointer;
-  transition: border-color .15s, background .15s, box-shadow .15s;
+  box-shadow: 0 1px 2px rgba(28, 42, 74, .12), 0 6px 16px rgba(28, 42, 74, .14);
+  transition: background .15s, box-shadow .15s, transform .15s;
 }
 
 .millet-login__microsoft:hover:not(:disabled) {
-  border-color: #9aaac3;
-  background: #f7f9fc;
-  box-shadow: 0 3px 12px rgba(31, 49, 83, .06);
+  background: #263863;
+  box-shadow: 0 2px 4px rgba(28, 42, 74, .14), 0 10px 24px rgba(28, 42, 74, .2);
+  transform: translateY(-1px);
+}
+
+.millet-login__microsoft:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .millet-login__microsoft:focus-visible,
@@ -130,17 +283,23 @@
 
 .millet-login__microsoft:disabled {
   cursor: wait;
-  opacity: .7;
+  opacity: .75;
+}
+
+.millet-login__secure {
+  margin: 14px 0 0;
+  color: #6b7a90;
+  font-size: 14px;
 }
 
 .millet-login__switch-account {
   display: block;
-  margin: 14px auto 0;
-  padding: 4px;
+  margin: 12px 0 0;
+  padding: 4px 0;
   border: 0;
   background: transparent;
   color: #50658d;
-  font-size: 12px;
+  font-size: 14px;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -149,16 +308,23 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 28px;
+  margin-top: 36px;
   color: #50658d;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .millet-login__help {
-  margin: 24px 0 0;
-  color: #7a879b;
-  font-size: 11px;
+  margin: 32px 0 0;
+  padding-top: 22px;
+  border-top: 1px solid #e1e7f0;
+  color: #6b7a90;
+  font-size: 14px;
   line-height: 1.6;
+}
+
+.millet-login__footer {
+  color: #95a1b3;
+  font-size: 12px;
 }
 
 @media (max-width: 620px) {
@@ -184,7 +350,30 @@
   }
 
   .millet-login__content {
-    place-items: start center;
-    padding: 56px 22px 40px;
+    padding: 24px 22px;
   }
+
+  .millet-login__topbar {
+    font-size: 13px;
+  }
+
+  .millet-login__form {
+    align-self: start;
+    padding: 36px 0;
+  }
+
+  .millet-login__footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .millet-login__form h1 {
+    font-size: 34px;
+  }
+
+  .millet-login__intro {
+    font-size: 16px;
+  }
+
 }
