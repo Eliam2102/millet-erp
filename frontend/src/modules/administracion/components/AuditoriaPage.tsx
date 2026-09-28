@@ -26,6 +26,12 @@ import type {
   ConsultarBitacoraFiltros,
 } from '@/modules/administracion/api';
 import { AuditoriaDetalleDrawer } from '@/modules/administracion/components/AuditoriaDetalleDrawer';
+import {
+  type AuditoriaLookups,
+  formatFecha,
+  formatHora,
+  isUuid,
+} from './auditoria-utils';
 
 const PAGE_LIMIT = 50;
 const TODOS = '__todos__';
@@ -111,13 +117,13 @@ export function AuditoriaPage() {
     });
 
   const empresasQuery = useEmpresas({ limit: 200 });
-  const empresas = empresasQuery.data?.items ?? [];
+  const empresas = useMemo(() => empresasQuery.data?.items ?? [], [empresasQuery.data?.items]);
   const usuariosQuery = useUsuarios({ limit: 200 });
-  const usuarios = usuariosQuery.data?.items ?? [];
+  const usuarios = useMemo(() => usuariosQuery.data?.items ?? [], [usuariosQuery.data?.items]);
 
   const auditoriaQuery = useAuditoria(filtrosAplicados);
 
-  const items = auditoriaQuery.data?.items ?? [];
+  const items = useMemo(() => auditoriaQuery.data?.items ?? [], [auditoriaQuery.data?.items]);
   const total = auditoriaQuery.data?.total ?? 0;
   const offset = filtrosAplicados.offset ?? 0;
 
@@ -132,6 +138,59 @@ export function AuditoriaPage() {
   const [seleccionado, setSeleccionado] =
     useState<AuditLogEntryResponse | null>(null);
 
+  const sucursalesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of sucursalesQuery.data ?? []) {
+      map[s.id] = s.nombre ? `${s.nombre}${s.clave ? ` (${s.clave})` : ''}` : s.clave;
+    }
+    return map;
+  }, [sucursalesQuery.data]);
+
+  const usuariosMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const u of usuarios) {
+      if (u.id) map[u.id] = u.nombre || u.email;
+    }
+    return map;
+  }, [usuarios]);
+
+  const empresasMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of empresas) {
+      if (e.id) map[e.id] = e.razonSocial || e.nombreComercial;
+    }
+    return map;
+  }, [empresas]);
+
+  const lookups = useMemo<AuditoriaLookups>(() => {
+    const sucursales: Record<string, string> = { ...sucursalesMap };
+    const usuariosRef: Record<string, string> = { ...usuariosMap };
+    const empresasRef: Record<string, string> = { ...empresasMap };
+
+    for (const item of items) {
+      if (item.usuarioId && (item.actorNombre || item.usuarioNombre)) {
+        const nom = item.actorNombre || item.usuarioNombre;
+        if (nom && !nom.startsWith('Usuario ') && !isUuid(nom)) {
+          usuariosRef[item.usuarioId] = nom;
+        }
+      }
+      if (item.sucursalId && item.sucursalClave && !sucursales[item.sucursalId]) {
+        sucursales[item.sucursalId] = item.sucursalClave;
+      }
+      if (item.entidadId && item.entidadEtiqueta && !isUuid(item.entidadEtiqueta)) {
+        if (item.entidad === 'Sucursal' && !sucursales[item.entidadId]) {
+          sucursales[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Usuario' && !usuariosRef[item.entidadId]) {
+          usuariosRef[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Empresa' && !empresasRef[item.entidadId]) {
+          empresasRef[item.entidadId] = item.entidadEtiqueta;
+        }
+      }
+    }
+
+    return { sucursales, usuarios: usuariosRef, empresas: empresasRef };
+  }, [sucursalesMap, usuariosMap, empresasMap, items]);
+
   function aplicar() {
     if (rangoInvalido) return;
     setFiltrosAplicados({
@@ -140,7 +199,7 @@ export function AuditoriaPage() {
       q: draftQ.trim() || undefined,
       actorTipo: draftActorTipo || undefined,
       modulo: draftModulo || undefined,
-      recurso: draftRecurso.trim() || undefined,
+      recurso: draftRecurso || undefined,
       accion: draftAccion || undefined,
       usuarioId: draftUsuarioId || undefined,
       empresaId: draftEmpresaId || undefined,
@@ -152,8 +211,10 @@ export function AuditoriaPage() {
   }
 
   function limpiar() {
-    setDraftDesde(formatYmd(inicioDefault));
-    setDraftHasta(formatYmd(hoy));
+    const defaultDesde = formatYmd(inicioDefault);
+    const defaultHasta = formatYmd(hoy);
+    setDraftDesde(defaultDesde);
+    setDraftHasta(defaultHasta);
     setDraftQ('');
     setDraftActorTipo('');
     setDraftModulo('');
@@ -164,56 +225,58 @@ export function AuditoriaPage() {
     setDraftSucursalId(sucursalActivaId ?? '');
     setFiltroAggregateRootId(null);
     setFiltrosAplicados({
-      desde: formatYmd(inicioDefault),
-      hasta: formatYmd(hoy),
+      desde: defaultDesde,
+      hasta: defaultHasta,
       sucursalId: sucursalActivaId ?? undefined,
       offset: 0,
       limit: PAGE_LIMIT,
     });
   }
 
-  function paginar(nuevoOffset: number) {
-    setFiltrosAplicados({ ...filtrosAplicados, offset: nuevoOffset });
-  }
-
-  function handleFiltrarPorRegistro(aggregateRootId: string) {
-    setFiltroAggregateRootId(aggregateRootId);
+  function handleFiltrarPorRegistro(rootId: string) {
+    setFiltroAggregateRootId(rootId);
     setFiltrosAplicados((prev) => ({
       ...prev,
-      aggregateRootId,
+      aggregateRootId: rootId,
       offset: 0,
     }));
     setSeleccionado(null);
   }
 
-  function quitarFiltroRegistro() {
+  function handleQuitarFiltroRegistro() {
     setFiltroAggregateRootId(null);
-    setFiltrosAplicados((prev) => ({
-      ...prev,
-      aggregateRootId: undefined,
-      offset: 0,
-    }));
+    setFiltrosAplicados((prev) => {
+      const copy = { ...prev };
+      delete copy.aggregateRootId;
+      return { ...copy, offset: 0 };
+    });
+  }
+
+  function cambiarPagina(nuevoOffset: number) {
+    setFiltrosAplicados((prev) => ({ ...prev, offset: nuevoOffset }));
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Bitácora de auditoría
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Historial consolidado de cambios y accesos. Rango obligatorio, máximo{' '}
-          {RANGO_MAX_DIAS} días.
-        </p>
-      </header>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Bitácora de auditoría
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Consulta consolidada de eventos del sistema (rango obligatorio, máx.
+            90 días).
+          </p>
+        </div>
+      </div>
 
-      {/* Banner de filtro por historial de registro */}
       {filtroAggregateRootId && (
-        <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+        <div className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/5 px-4 py-2 text-sm text-primary">
           <div className="flex items-center gap-2">
-            <History className="h-4 w-4 text-primary" />
+            <History className="h-4 w-4" />
             <span>
-              Mostrando solo el historial del registro seleccionado.
+              Mostrando solo el historial del registro seleccionado (
+              <code className="text-xs font-mono">{filtroAggregateRootId.slice(0, 8)}…</code>).
             </span>
           </div>
           <Button
@@ -221,7 +284,7 @@ export function AuditoriaPage() {
             size="sm"
             variant="ghost"
             className="h-7 text-xs gap-1"
-            onClick={quitarFiltroRegistro}
+            onClick={handleQuitarFiltroRegistro}
           >
             <X className="h-3.5 w-3.5" />
             Quitar filtro de registro
@@ -229,19 +292,48 @@ export function AuditoriaPage() {
         </div>
       )}
 
-      <div className="grid gap-3 rounded-md border bg-card p-3 md:grid-cols-3 lg:grid-cols-4">
-        {/* Buscador de texto */}
-        <div className="flex flex-col gap-1 md:col-span-2 lg:col-span-2">
-          <label
-            htmlFor="auditoria-q"
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Buscar
+      {/* Panel de Filtros */}
+      <div className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-3 lg:grid-cols-4">
+        {/* Rango obligatorio */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="auditoria-desde" className="text-xs font-medium text-muted-foreground">
+            Desde <span className="text-destructive">*</span>
+          </label>
+          <Input
+            id="auditoria-desde"
+            type="date"
+            className="h-9"
+            value={draftDesde}
+            onChange={(e) => setDraftDesde(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="auditoria-hasta" className="text-xs font-medium text-muted-foreground">
+            Hasta <span className="text-destructive">*</span>
+          </label>
+          <Input
+            id="auditoria-hasta"
+            type="date"
+            className="h-9"
+            value={draftHasta}
+            onChange={(e) => setDraftHasta(e.target.value)}
+          />
+          {diasRango != null && diasRango > RANGO_MAX_DIAS && (
+            <span className="text-[11px] text-destructive">Máximo 90 días.</span>
+          )}
+        </div>
+
+        {/* Búsqueda de texto */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="auditoria-q" className="text-xs font-medium text-muted-foreground">
+            Buscar (texto libre)
           </label>
           <Input
             id="auditoria-q"
-            type="text"
-            placeholder="Buscar por actor, etiqueta de registro o resumen…"
+            type="search"
+            placeholder="Actor, resumen, registro..."
+            className="h-9"
             value={draftQ}
             onChange={(e) => setDraftQ(e.target.value)}
           />
@@ -260,7 +352,7 @@ export function AuditoriaPage() {
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={TODOS}>Todos</SelectItem>
+              <SelectItem value={TODOS}>Todos los tipos</SelectItem>
               {ACTOR_TIPOS.map((t) => (
                 <SelectItem key={t.value} value={t.value}>
                   {t.label}
@@ -268,67 +360,6 @@ export function AuditoriaPage() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Acción */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Acción
-          </label>
-          <Select
-            value={draftAccion || TODOS}
-            onValueChange={(v) => setDraftAccion(v === TODOS ? '' : v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todas</SelectItem>
-              {ACCIONES.map((a) => (
-                <SelectItem key={a.value} value={a.value}>
-                  {a.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Fechas */}
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="auditoria-desde"
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Desde
-          </label>
-          <Input
-            id="auditoria-desde"
-            type="date"
-            value={draftDesde}
-            onChange={(e) => setDraftDesde(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="auditoria-hasta"
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Hasta
-          </label>
-          <Input
-            id="auditoria-hasta"
-            type="date"
-            value={draftHasta}
-            onChange={(e) => setDraftHasta(e.target.value)}
-          />
-          {diasRango != null && diasRango > RANGO_MAX_DIAS && (
-            <p className="text-xs text-destructive">{`Máximo ${RANGO_MAX_DIAS} días.`}</p>
-          )}
-          {diasRango != null && diasRango < 0 && (
-            <p className="text-xs text-destructive">
-              &quot;Desde&quot; debe ser anterior a &quot;hasta&quot;.
-            </p>
-          )}
         </div>
 
         {/* Módulo */}
@@ -354,21 +385,41 @@ export function AuditoriaPage() {
           </Select>
         </div>
 
-        {/* Recurso */}
+        {/* Recurso / Entidad */}
         <div className="flex flex-col gap-1">
-          <label
-            htmlFor="auditoria-recurso"
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Recurso
+          <label htmlFor="auditoria-recurso" className="text-xs font-medium text-muted-foreground">
+            Entidad
           </label>
           <Input
             id="auditoria-recurso"
-            type="text"
-            placeholder="Ej. Empleado, Requisicion…"
+            placeholder="ej. Requisicion, Empleado..."
+            className="h-9"
             value={draftRecurso}
             onChange={(e) => setDraftRecurso(e.target.value)}
           />
+        </div>
+
+        {/* Acción */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Acción
+          </label>
+          <Select
+            value={draftAccion || TODOS}
+            onValueChange={(v) => setDraftAccion(v === TODOS ? '' : v)}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todas</SelectItem>
+              {ACCIONES.map((a) => (
+                <SelectItem key={a.value} value={a.value}>
+                  {a.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Usuario */}
@@ -387,10 +438,7 @@ export function AuditoriaPage() {
               <SelectItem value={TODOS}>Todos</SelectItem>
               {usuarios.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
-                  {u.nombre}{' '}
-                  <span className="text-xs text-muted-foreground">
-                    ({u.email})
-                  </span>
+                  {u.nombre || u.email}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -472,6 +520,7 @@ export function AuditoriaPage() {
         error={auditoriaQuery.error}
         onRetry={() => auditoriaQuery.refetch()}
         onVer={(entry) => setSeleccionado(entry)}
+        lookups={lookups}
       />
 
       {total > PAGE_LIMIT && (
@@ -483,19 +532,19 @@ export function AuditoriaPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              size="sm"
               variant="outline"
+              size="sm"
               disabled={offset === 0}
-              onClick={() => paginar(Math.max(0, offset - PAGE_LIMIT))}
+              onClick={() => cambiarPagina(Math.max(0, offset - PAGE_LIMIT))}
             >
               Anterior
             </Button>
             <Button
               type="button"
-              size="sm"
               variant="outline"
-              disabled={offset + items.length >= total}
-              onClick={() => paginar(offset + PAGE_LIMIT)}
+              size="sm"
+              disabled={offset + PAGE_LIMIT >= total}
+              onClick={() => cambiarPagina(offset + PAGE_LIMIT)}
             >
               Siguiente
             </Button>
@@ -509,6 +558,7 @@ export function AuditoriaPage() {
           if (!open) setSeleccionado(null);
         }}
         onFiltrarRegistro={handleFiltrarPorRegistro}
+        lookups={lookups}
       />
     </div>
   );
@@ -521,6 +571,7 @@ interface AuditoriaTablaProps {
   error: unknown;
   onRetry: () => void;
   onVer: (entry: AuditLogEntryResponse) => void;
+  lookups: AuditoriaLookups;
 }
 
 function AuditoriaTabla({
@@ -530,6 +581,7 @@ function AuditoriaTabla({
   error,
   onRetry,
   onVer,
+  lookups,
 }: AuditoriaTablaProps) {
   if (isLoading) {
     return (
@@ -550,15 +602,24 @@ function AuditoriaTabla({
 
   if (isError) {
     const problem = esApiError(error) ? error.problem : undefined;
-    return <ErrorState problem={problem} onRetry={onRetry} />;
+    return (
+      <ErrorState
+        title="Error al cargar la bitácora"
+        description={
+          problem?.detail ??
+          'Ocurrió un error inesperado al consultar la bitácora de auditoría.'
+        }
+        onRetry={onRetry}
+      />
+    );
   }
 
   if (items.length === 0) {
     return (
       <EmptyState
         icon={<ClipboardList className="h-10 w-10" />}
-        title="Sin movimientos en el rango seleccionado."
-        description="Ajusta el rango o los filtros para ver registros."
+        title="Sin registros de auditoría"
+        description="No se encontraron eventos en el rango y filtros seleccionados."
       />
     );
   }
@@ -569,7 +630,7 @@ function AuditoriaTabla({
         <thead className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 text-left">
-              Fecha
+              Fecha y hora
             </th>
             <th scope="col" className="px-3 py-2 text-left">
               Quién
@@ -594,16 +655,34 @@ function AuditoriaTabla({
         <tbody className="divide-y">
           {items.map((entry) => {
             const actorTipo = entry.actorTipo?.toLowerCase() ?? 'usuario';
+            const actorNombre =
+              (entry.actorNombre && !entry.actorNombre.startsWith('Usuario ') && !isUuid(entry.actorNombre) ? entry.actorNombre : null) ??
+              (entry.usuarioNombre && !isUuid(entry.usuarioNombre) ? entry.usuarioNombre : null) ??
+              (entry.usuarioId ? lookups.usuarios?.[entry.usuarioId] : null) ??
+              entry.actorNombre ??
+              entry.usuarioNombre ??
+              'Sistema';
+
+            const sucursalNombre = entry.sucursalId ? lookups.sucursales?.[entry.sucursalId] : null;
+
+            const etiquetaRegistro =
+              (entry.entidadId && entry.entidad === 'Sucursal' && lookups.sucursales?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Sucursal · ${lookups.sucursales[entry.entidadId]}` : null) ??
+              (entry.entidadId && entry.entidad === 'Usuario' && lookups.usuarios?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Usuario · ${lookups.usuarios[entry.entidadId]}` : null) ??
+              (entry.entidadId && entry.entidad === 'Empresa' && lookups.empresas?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Empresa · ${lookups.empresas[entry.entidadId]}` : null) ??
+              entry.entidadEtiqueta ??
+              entry.entidad;
+
             return (
               <tr key={entry.id} className="hover:bg-muted/10">
-                <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-                  {formatTimestamp(entry.timestamp)}
+                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-xs" title={entry.timestamp}>
+                  <div className="font-medium text-foreground">{formatFecha(entry.timestamp)}</div>
+                  <div className="text-[11px] text-muted-foreground">{formatHora(entry.timestamp)} hrs</div>
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-medium text-foreground">
-                        {entry.actorNombre || entry.usuarioNombre || 'Sistema'}
+                        {actorNombre}
                       </span>
                       <Badge
                         variant={actorTipo === 'usuario' ? 'secondary' : 'outline'}
@@ -631,7 +710,7 @@ function AuditoriaTabla({
                 <td className="px-3 py-2">
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-foreground">
-                      {entry.entidadEtiqueta || entry.entidad}
+                      {etiquetaRegistro}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {entry.entidad}
@@ -642,9 +721,18 @@ function AuditoriaTabla({
                   <span className="text-sm">{entry.modulo}</span>
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <span className="text-sm text-muted-foreground">
-                    {entry.sucursalClave || 'No aplica'}
-                  </span>
+                  {sucursalNombre ? (
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">{sucursalNombre}</span>
+                      {entry.sucursalClave && (
+                        <span className="text-[11px] text-muted-foreground font-mono">{entry.sucursalClave}</span>
+                      )}
+                    </div>
+                  ) : entry.sucursalClave ? (
+                    <span className="text-sm text-muted-foreground font-mono">{entry.sucursalClave}</span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No aplica</span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   <Button
@@ -680,13 +768,4 @@ function diferenciaDias(desde: string, hasta: string): number | null {
   const d2 = new Date(`${hasta}T00:00:00Z`).getTime();
   if (Number.isNaN(d1) || Number.isNaN(d2)) return null;
   return Math.round((d2 - d1) / (24 * 60 * 60 * 1000));
-}
-
-function formatTimestamp(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return ts;
-  return d.toLocaleString('es-MX', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
 }

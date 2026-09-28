@@ -12,6 +12,15 @@ import {
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import type { AuditLogEntryResponse } from '@/modules/administracion/api';
+import {
+  type AuditoriaLookups,
+  formatTimestampDetalle,
+  formatearValorCampo,
+  humanizarCampo,
+  isUuid,
+} from './auditoria-utils';
+
+export type { AuditoriaLookups };
 
 /**
  * <c>&lt;AuditoriaDetalleDrawer/&gt;</c> — Sheet slide-from-right con
@@ -29,12 +38,14 @@ export interface AuditoriaDetalleDrawerProps {
   entry: AuditLogEntryResponse | null;
   onOpenChange: (open: boolean) => void;
   onFiltrarRegistro?: (aggregateRootId: string) => void;
+  lookups?: AuditoriaLookups;
 }
 
 export function AuditoriaDetalleDrawer({
   entry,
   onOpenChange,
   onFiltrarRegistro,
+  lookups,
 }: AuditoriaDetalleDrawerProps) {
   const open = entry != null;
   const esBorrado = entry != null && (
@@ -47,6 +58,51 @@ export function AuditoriaDetalleDrawer({
   );
 
   const actorTipo = entry?.actorTipo?.toLowerCase() ?? 'usuario';
+
+  const actorNombre = useMemo(() => {
+    if (!entry) return 'Sistema';
+    if (entry.actorNombre && !entry.actorNombre.startsWith('Usuario ') && !isUuid(entry.actorNombre)) {
+      return entry.actorNombre;
+    }
+    if (entry.usuarioNombre && !isUuid(entry.usuarioNombre)) {
+      return entry.usuarioNombre;
+    }
+    if (entry.usuarioId && lookups?.usuarios?.[entry.usuarioId]) {
+      return lookups.usuarios[entry.usuarioId];
+    }
+    return entry.actorNombre || entry.usuarioNombre || 'Sistema';
+  }, [entry, lookups]);
+
+  const registroLabel = useMemo(() => {
+    if (!entry) return '';
+    if (entry.entidadId) {
+      if (entry.entidad === 'Sucursal' && lookups?.sucursales?.[entry.entidadId]) {
+        return `Sucursal · ${lookups.sucursales[entry.entidadId]}`;
+      }
+      if (entry.entidad === 'Usuario' && lookups?.usuarios?.[entry.entidadId]) {
+        return `Usuario · ${lookups.usuarios[entry.entidadId]}`;
+      }
+      if (entry.entidad === 'Empresa' && lookups?.empresas?.[entry.entidadId]) {
+        return `Empresa · ${lookups.empresas[entry.entidadId]}`;
+      }
+      if (entry.entidad === 'Departamento' && lookups?.departamentos?.[entry.entidadId]) {
+        return `Departamento · ${lookups.departamentos[entry.entidadId]}`;
+      }
+      if (entry.entidad === 'Puesto' && lookups?.puestos?.[entry.entidadId]) {
+        return `Puesto · ${lookups.puestos[entry.entidadId]}`;
+      }
+    }
+    return entry.entidadEtiqueta || entry.entidad;
+  }, [entry, lookups]);
+
+  const sucursalNombre = useMemo(() => {
+    if (!entry) return 'No aplica';
+    if (entry.sucursalId && lookups?.sucursales?.[entry.sucursalId]) {
+      return lookups.sucursales[entry.sucursalId];
+    }
+    if (entry.sucursalClave) return entry.sucursalClave;
+    return 'No aplica';
+  }, [entry, lookups]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -64,7 +120,7 @@ export function AuditoriaDetalleDrawer({
           <SheetDescription id="auditoria-drawer-desc" asChild>
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <span className="text-xs text-muted-foreground tabular-nums">
-                {entry != null ? formatTimestamp(entry.timestamp) : 'Selecciona una entrada del log.'}
+                {entry != null ? formatTimestampDetalle(entry.timestamp) : 'Selecciona una entrada del log.'}
               </span>
               {entry?.aggregateRootId && onFiltrarRegistro && (
                 <Button
@@ -94,7 +150,7 @@ export function AuditoriaDetalleDrawer({
                   <dt className="text-muted-foreground">Actor</dt>
                   <dd className="flex items-center gap-2">
                     <span className="font-medium text-foreground">
-                      {entry.actorNombre || entry.usuarioNombre || 'Sistema'}
+                      {actorNombre}
                     </span>
                     <Badge
                       variant={actorTipo === 'usuario' ? 'secondary' : 'outline'}
@@ -114,7 +170,8 @@ export function AuditoriaDetalleDrawer({
                     {entry.origen || 'No aplica'}
                   </dd>
                 </dl>
-              </div>            </section>
+              </div>
+            </section>
 
             {/* Metadatos del Registro */}
             <section className="space-y-2">
@@ -125,7 +182,7 @@ export function AuditoriaDetalleDrawer({
                 <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
                   <dt className="text-muted-foreground">Registro</dt>
                   <dd className="font-medium text-foreground">
-                    {entry.entidadEtiqueta || entry.entidad}
+                    {registroLabel}
                   </dd>
 
                   <dt className="text-muted-foreground">Módulo</dt>
@@ -136,14 +193,14 @@ export function AuditoriaDetalleDrawer({
 
                   <dt className="text-muted-foreground">Acción</dt>
                   <dd>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs capitalize">
                       {entry.operacion}
                     </Badge>
                   </dd>
 
                   <dt className="text-muted-foreground">Sucursal</dt>
-                  <dd className="text-foreground">
-                    {entry.sucursalClave || 'No aplica'}
+                  <dd className="text-foreground font-medium">
+                    {sucursalNombre}
                   </dd>
                 </dl>
               </div>
@@ -154,9 +211,9 @@ export function AuditoriaDetalleDrawer({
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Detalle de cambios
               </h3>
-              {parsed.kind === 'diff' && <CamposDiffTable diff={parsed.diff} esBorrado={parsed.esBorrado} />}
+              {parsed.kind === 'diff' && <CamposDiffTable diff={parsed.diff} esBorrado={parsed.esBorrado} lookups={lookups} />}
               {parsed.kind === 'objeto' && (
-                <CamposValorTable value={parsed.value} titulo={parsed.titulo} />
+                <CamposValorTable value={parsed.value} titulo={parsed.titulo} lookups={lookups} />
               )}
               {parsed.kind === 'empty' && (
                 <p
@@ -204,7 +261,10 @@ type CambiosParsed =
  * - snapshot: { ... }, con opcional snapshotTexto: { ... }
  * - snapshot_pre_borrado: { ... }, con opcional snapshotTexto: { ... }
  */
-function parsearCambios(json: string | undefined, operacionEsBorrado: boolean): CambiosParsed {
+function parsearCambios(
+  json: string | undefined,
+  operacionEsBorrado: boolean,
+): CambiosParsed {
   if (json == null || json.trim().length === 0 || json.trim() === '{}') {
     return { kind: 'empty' };
   }
@@ -248,15 +308,6 @@ function parsearCambios(json: string | undefined, operacionEsBorrado: boolean): 
   }
 }
 
-function formatTimestamp(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return ts;
-  return d.toLocaleString('es-MX', {
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-  });
-}
-
 interface CampoDiff {
   campo: string;
   label: string;
@@ -268,11 +319,13 @@ interface CampoDiff {
 function CamposDiffTable({
   diff,
   esBorrado,
+  lookups,
 }: {
   diff: Record<string, unknown>;
   esBorrado?: boolean;
+  lookups?: AuditoriaLookups;
 }) {
-  const campos = useMemo(() => construirCamposDiff(diff, esBorrado), [diff, esBorrado]);
+  const campos = useMemo(() => construirCamposDiff(diff, esBorrado, lookups), [diff, esBorrado, lookups]);
 
   if (campos.length === 0) {
     return (
@@ -316,11 +369,13 @@ function CamposDiffTable({
 function CamposValorTable({
   value,
   titulo,
+  lookups,
 }: {
   value: Record<string, unknown>;
   titulo: string;
+  lookups?: AuditoriaLookups;
 }) {
-  const campos = useMemo(() => construirCamposSimple(value), [value]);
+  const campos = useMemo(() => construirCamposSimple(value, lookups), [value, lookups]);
 
   if (campos.length === 0) {
     return (
@@ -358,6 +413,7 @@ function CamposValorTable({
 function construirCamposDiff(
   diff: Record<string, unknown>,
   esBorrado?: boolean,
+  lookups?: AuditoriaLookups,
 ): CampoDiff[] {
   return Object.keys(diff)
     .sort()
@@ -381,8 +437,8 @@ function construirCamposDiff(
         ? undefined
         : par;
 
-      const antesStr = formatearValorCampo(antesRaw);
-      const despuesStr = esBorrado ? 'Eliminado' : formatearValorCampo(despuesRaw);
+      const antesStr = formatearValorCampo(antesRaw, campo, lookups);
+      const despuesStr = esBorrado ? 'Eliminado' : formatearValorCampo(despuesRaw, campo, lookups);
 
       return {
         campo,
@@ -396,6 +452,7 @@ function construirCamposDiff(
 
 function construirCamposSimple(
   value: unknown,
+  lookups?: AuditoriaLookups,
 ): { campo: string; label: string; valor: string }[] {
   if (!esObjetoPlano(value)) return [];
   return Object.keys(value)
@@ -403,7 +460,7 @@ function construirCamposSimple(
     .map((campo) => ({
       campo,
       label: humanizarCampo(campo),
-      valor: formatearValorCampo(value[campo]),
+      valor: formatearValorCampo(value[campo], campo, lookups),
     }));
 }
 
@@ -420,40 +477,4 @@ function valoresIguales(a: unknown, b: unknown): boolean {
   } catch {
     return false;
   }
-}
-
-/** "sucursalId" → "Sucursal ID"; "razon_social" → "Razon Social". */
-function humanizarCampo(campo: string): string {
-  const espaciado = campo
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/_/g, ' ')
-    .trim();
-  const capitalizado = espaciado
-    .split(' ')
-    .filter((w) => w.length > 0)
-    .map((w) => w[0].toUpperCase() + w.slice(1))
-    .join(' ');
-  return capitalizado.replace(/\bId\b/g, 'ID');
-}
-
-/** Formatea un valor a texto legible — sin llaves ni comillas de JSON ni dashes genéricos. */
-function formatearValorCampo(v: unknown): string {
-  if (v == null) return 'No aplica';
-  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
-  if (typeof v === 'string') return v.length === 0 ? 'No aplica' : v;
-  if (typeof v === 'number') return String(v);
-  if (Array.isArray(v)) {
-    return v.length === 0
-      ? 'No aplica'
-      : v.map((x) => formatearValorCampo(x)).join(', ');
-  }
-  if (typeof v === 'object') {
-    const entries = Object.entries(v as Record<string, unknown>);
-    return entries.length === 0
-      ? 'No aplica'
-      : entries
-          .map(([k, val]) => `${humanizarCampo(k)}: ${formatearValorCampo(val)}`)
-          .join(' · ');
-  }
-  return String(v);
 }
