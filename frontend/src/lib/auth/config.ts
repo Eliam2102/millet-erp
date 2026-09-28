@@ -7,7 +7,7 @@ import type { AuthMode, SeedDevUser } from '@/lib/auth/types';
  * (ej. el DevUserSelector se elimina del bundle de prod).
  */
 export const authMode: AuthMode = (import.meta.env.VITE_AUTH_MODE ??
-  'FakeForLocalDev') as AuthMode;
+  'EntraId') as AuthMode;
 
 /**
  * Base URL del API. Vacío significa "usa el origen actual" (mismo host:

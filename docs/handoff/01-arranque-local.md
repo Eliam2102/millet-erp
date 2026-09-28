@@ -23,8 +23,10 @@ Windows PowerShell:
 ```
 
 Ambas rutas levantan PostgreSQL, restauran y compilan el backend, aplican el
-mismo manifiesto canónico de 12 migraciones e instalan el frontend. Ninguna
-requiere Azure ni Entra ID real para el arranque local.
+mismo manifiesto canónico de 12 migraciones e instalan el frontend. Para
+iniciar sesión en el modo compartido de desarrollo se requiere una cuenta
+autorizada de Microsoft Entra ID y configuración local de tenant, aplicación
+SPA, audiencia del API y, para inicializar un administrador, su OID real.
 
 ## 1. Clonar y comprobar rama
 

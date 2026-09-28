@@ -57,9 +57,14 @@ Equivalente vía VS Code: `Tasks: Run Task` → `frontend: dev`, `frontend: buil
 
 ## Login en dev local
 
-Con `VITE_AUTH_MODE=FakeForLocalDev` el componente `<DevUserSelector />`
-sustituye al botón "Iniciar sesión con Microsoft". No hay redirect a Entra
-ni MFA.
+El modo compartido de desarrollo es `EntraId`: configura los IDs del tenant,
+la aplicación SPA y el API en `.env.development.local` (ignorado por Git) y
+usa **Continuar con Microsoft**. El backend debe estar también en modo
+`EntraId` y la cuenta necesita autorización dentro del ERP.
+
+`FakeForLocalDev` permanece como opción explícita para pruebas aisladas.
+Si se activa, frontend y backend deben usar ese mismo modo; el selector
+`<DevUserSelector />` reemplaza el botón de Microsoft.
 
 Phase 1: el `BootstrapSuperAdminHostedService` del backend crea **solo el
 SuperAdmin** y la empresa "Millet ERP - Empresa Inicial Dev" en el primer
