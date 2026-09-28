@@ -496,7 +496,9 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
 
     expect(screen.getByDisplayValue('A4567')).toBeInTheDocument();
     expect(screen.getByDisplayValue('rodrigo.contacto@gmail.com')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('rodrigo@millet.mx')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('rodrigo')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('millet.mx')).toBeInTheDocument();
+    expect(screen.getByText('rodrigo@millet.mx')).toBeInTheDocument();
   });
 
   it('en modo editar muestra feedback cuando se cambia el correo corporativo', async () => {
@@ -536,11 +538,56 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
       { wrapper: createQueryWrapper() },
     );
 
-    const emailInput = screen.getByDisplayValue('rodrigo@millet.mx');
-    fireEvent.change(emailInput, { target: { value: 'rodrigo.nuevo@millet.mx' } });
+    const emailInput = screen.getByDisplayValue('rodrigo');
+    fireEvent.change(emailInput, { target: { value: 'rodrigo.nuevo' } });
 
     expect(
       await screen.findByText(/no se encontró una cuenta en microsoft entra id/i),
+    ).toBeInTheDocument();
+  });
+
+  it('en modo editar alerta si el correo ya está en uso por otro usuario del ERP', async () => {
+    mswServer.use(
+      http.get('*/api/v1/identidad/directorio-entra/validar-correo*', () =>
+        HttpResponse.json({
+          correo: 'carlos@millet.mx',
+          dominioPermitido: true,
+          cuentaEntra: { id: 'guid-1', nombreMostrado: 'Carlos ERP', habilitada: true },
+          usuarioErp: { id: 'u-otro', nombre: 'Carlos ERP', estadoAcceso: 1, activo: true },
+          empleadoVinculado: null,
+          puedeVincularCuentaExistente: true,
+          puedeCrearCuentaNueva: false,
+          motivoBloqueo: null,
+        }),
+      ),
+    );
+
+    const empleado = {
+      id: 'e-123',
+      empresaId: 'emp-1',
+      clave: 'EMP-055',
+      nombre: 'Rodrigo Sánchez',
+      email: 'rodrigo@millet.mx',
+      puestoId: 'p-1',
+      jefeDirectoId: null,
+      sucursalId: 's-1',
+      departamentoId: 'd-1',
+      usuarioId: 'u-1',
+      estatus: 0,
+      codigoNomina: 'A4567',
+      emailContacto: 'rodrigo.contacto@gmail.com',
+    };
+
+    render(
+      <EmpleadoInlineForm empleado={empleado} onCancel={vi.fn()} />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    const emailInput = screen.getByDisplayValue('rodrigo');
+    fireEvent.change(emailInput, { target: { value: 'carlos' } });
+
+    expect(
+      await screen.findByText(/el correo ya está en uso por otro usuario del erp/i),
     ).toBeInTheDocument();
   });
 });

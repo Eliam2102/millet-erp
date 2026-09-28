@@ -97,7 +97,9 @@ export function EmpleadoInlineForm({
   const [emailDomain, setEmailDomain] = useState(() => {
     if (!emailInicial) return DOMINIOS_CORPORATIVOS[0];
     const at = emailInicial.indexOf('@');
-    return at > 0 ? emailInicial.slice(at + 1) : DOMINIOS_CORPORATIVOS[0];
+    const rawDomain = at > 0 ? emailInicial.slice(at + 1).toLowerCase() : '';
+    const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
+    return matched ?? DOMINIOS_CORPORATIVOS[0];
   });
 
   const form = useForm<EmpleadoValues>({
@@ -134,8 +136,14 @@ export function EmpleadoInlineForm({
       setEmailContacto(empleado.emailContacto ?? '');
       if (empleado.email) {
         const at = empleado.email.indexOf('@');
-        setEmailPrefix(at > 0 ? empleado.email.slice(0, at) : empleado.email);
-        if (at > 0) setEmailDomain(empleado.email.slice(at + 1));
+        const prefix = at > 0 ? empleado.email.slice(0, at) : empleado.email;
+        const rawDomain = at > 0 ? empleado.email.slice(at + 1).toLowerCase() : '';
+        const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
+        setEmailPrefix(prefix);
+        setEmailDomain(matched ?? DOMINIOS_CORPORATIVOS[0]);
+      } else {
+        setEmailPrefix('');
+        setEmailDomain(DOMINIOS_CORPORATIVOS[0]);
       }
     }
   }, [empleado, form]);
@@ -254,10 +262,14 @@ export function EmpleadoInlineForm({
     if (val.includes('@')) {
       const parts = val.split('@');
       const prefix = parts[0];
-      const domain = parts.slice(1).join('@');
+      const domain = parts.slice(1).join('@').toLowerCase();
       setEmailPrefix(prefix);
-      if (domain) setEmailDomain(domain);
-      const full = prefix.trim() && domain.trim() ? `${prefix.trim()}@${domain.trim()}` : val.trim();
+      const matchedDomain = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === domain);
+      if (matchedDomain) {
+        setEmailDomain(matchedDomain);
+      }
+      const activeDomain = matchedDomain ?? emailDomain;
+      const full = prefix.trim() ? `${prefix.trim()}@${activeDomain.trim()}` : '';
       form.setValue('email', full, { shouldValidate: true });
     } else {
       setEmailPrefix(val);
@@ -356,6 +368,10 @@ export function EmpleadoInlineForm({
         }
         if (validacion.data.empleadoVinculado && validacion.data.empleadoVinculado.id !== empleado.id) {
           toast.error(`Esta cuenta ya está vinculada al colaborador ${validacion.data.empleadoVinculado.nombre} (${validacion.data.empleadoVinculado.clave}).`);
+          return;
+        }
+        if (validacion.data.usuarioErp && validacion.data.usuarioErp.id !== empleado.usuarioId) {
+          toast.error(`Ya existe un usuario en el ERP registrado con este correo (${validacion.data.usuarioErp.nombre}).`);
           return;
         }
       }
@@ -697,21 +713,55 @@ export function EmpleadoInlineForm({
           <Field
             label="Correo corporativo"
             error={form.formState.errors.email?.message}
-            className="md:col-span-4"
+            className="md:col-span-12"
           >
-            <Input
-              maxLength={254}
-              type="email"
-              placeholder="juana.perez@millet.mx"
-              {...form.register('email')}
-            />
+            <div className="flex items-center w-full">
+              <Input
+                maxLength={100}
+                placeholder="juana.perez"
+                value={emailPrefix}
+                onChange={(e) => handleEmailPrefixChange(e.target.value)}
+                className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+              />
+              <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-muted px-3 text-xs text-muted-foreground">
+                <span className="mr-1.5 font-semibold text-foreground">@</span>
+                <select
+                  value={DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
+                  onChange={(e) => handleEmailDomainChange(e.target.value)}
+                  className="cursor-pointer bg-transparent text-xs font-medium text-foreground outline-none"
+                  aria-label="Dominio corporativo"
+                >
+                  {DOMINIOS_CORPORATIVOS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {emailPrefix.trim() ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Correo resultante:{' '}
+                <span className="font-mono font-medium text-foreground">
+                  {emailPrefix.trim()}@{DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
+                </span>
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vacío: sin correo corporativo
+              </p>
+            )}
           </Field>
         )}
 
         <Field
           label="Código de nómina"
           error={form.formState.errors.codigoNomina?.message}
-          className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}
+          className={cn(
+            'md:col-span-4',
+            !esEditar && paso !== 0 && 'hidden',
+            esEditar && 'md:col-span-6',
+          )}
         >
           <Input
             maxLength={20}
@@ -723,7 +773,7 @@ export function EmpleadoInlineForm({
         </Field>
 
         {esEditar && (
-          <Field label="Correo personal de contacto" className="md:col-span-4">
+          <Field label="Correo personal de contacto" className="md:col-span-6">
             <Input
               type="email"
               value={emailContacto}
@@ -767,6 +817,16 @@ export function EmpleadoInlineForm({
                       Esta cuenta Microsoft pertenece a{' '}
                       <strong className="text-foreground">{validacion.data.empleadoVinculado.nombre}</strong> (clave:{' '}
                       <strong className="font-mono text-foreground">{validacion.data.empleadoVinculado.clave}</strong>).
+                    </p>
+                  </div>
+                </div>
+              ) : validacion.data.usuarioErp && validacion.data.usuarioErp.id !== empleado?.usuarioId ? (
+                <div className="flex items-start gap-2 text-rose-600">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">El correo ya está en uso por otro usuario del ERP.</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Ya existe un usuario registrado en el sistema con este correo (<strong>{validacion.data.usuarioErp.nombre}</strong>).
                     </p>
                   </div>
                 </div>
