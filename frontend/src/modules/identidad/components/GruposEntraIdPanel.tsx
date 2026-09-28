@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { useDesasociarGrupoEntraId } from '@/modules/identidad/api';
 import type { RolGrupoEntraIdResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -50,14 +50,14 @@ export function GruposEntraIdPanel({
   );
   const puedeGestionar = canGestionar && !bloqueado;
 
-  const idempotencyKey = useFormIdempotencyKey();
   const desasociar = useDesasociarGrupoEntraId();
 
   function handleConfirmarDesasociar() {
+    if (desasociar.isPending) return;
     if (paraDesasociar == null) return;
     const g = paraDesasociar;
     desasociar.mutate(
-      { rolId, grupoId: g.id, idempotencyKey },
+      { rolId, grupoId: g.id, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
           toast.success(`Grupo "${g.nombre}" desasociado`);
