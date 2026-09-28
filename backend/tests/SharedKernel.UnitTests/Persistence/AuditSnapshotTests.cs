@@ -269,4 +269,23 @@ public sealed class AuditSnapshotTests
         updated.RootElement.GetProperty("diff").GetProperty("Clabe").GetProperty("despues").GetString()
             .Should().Be("[PROTEGIDO]");
     }
+
+    [Fact]
+    public async Task ValoresLargos_NoExcedenLasColumnasDeAuditoria()
+    {
+        var user = new FakeUserContext(Guid.NewGuid(), new string('A', 150), new string('b', 250) + "@m.mx");
+        await using var db = NewContext(user, new FakeEmpresaContext(false), new AuditOriginContext());
+        var entidad = new FakeAuditableEntity { Clave = "LARGA", Nombre = new string('N', 400) };
+
+        db.Entidades.Add(entidad);
+        await db.SaveChangesAsync();
+        entidad.Nombre = new string('C', 1000);
+        await db.SaveChangesAsync();
+
+        var logs = await db.AuditLog.ToListAsync();
+        logs.Should().HaveCount(2);
+        logs.Should().OnlyContain(log => log.ActorNombre.Length <= 128 &&
+            log.ActorEmail != null && log.ActorEmail.Length <= 256 &&
+            log.EntidadEtiqueta.Length <= 256 && log.Resumen.Length <= 512);
+    }
 }

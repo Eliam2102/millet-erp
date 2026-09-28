@@ -72,8 +72,8 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                             UPDATE core.audit_log a
                             SET
                                 actor_tipo = 'usuario',
-                                actor_nombre = COALESCE(u.nombre, 'Usuario ' || SUBSTRING(a.usuario_id::text FROM 1 FOR 8)),
-                                actor_email = u.email
+                                actor_nombre = LEFT(COALESCE(u.nombre, 'Usuario ' || SUBSTRING(a.usuario_id::text FROM 1 FOR 8)), 128),
+                                actor_email = LEFT(u.email, 256)
                             FROM identidad.usuarios u
                             WHERE u.id = a.usuario_id
                         $update_actor$;
@@ -89,7 +89,7 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                 UPDATE core.audit_log
                 SET
                     actor_tipo = 'proceso',
-                    actor_nombre = 'Proceso: ' || (metadatos->>'origen')
+                    actor_nombre = LEFT('Proceso: ' || (metadatos->>'origen'), 128)
                 WHERE usuario_id IS NULL AND metadatos IS NOT NULL AND (metadatos->>'origen') IS NOT NULL;
 
                 UPDATE core.audit_log
@@ -99,7 +99,7 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                 WHERE (actor_tipo IS NULL OR actor_tipo = '');
 
                 UPDATE core.audit_log
-                SET entidad_etiqueta = COALESCE(
+                SET entidad_etiqueta = LEFT(COALESCE(
                     NULLIF(TRIM(cambios->'snapshot'->>'Clave'), ''),
                     NULLIF(TRIM(cambios->'snapshot'->>'Folio'), ''),
                     NULLIF(TRIM(cambios->'snapshot'->>'Codigo'), ''),
@@ -113,15 +113,15 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                     NULLIF(TRIM(cambios->'diff'->'Folio'->>'despues'), ''),
                     NULLIF(TRIM(cambios->'diff'->'Nombre'->>'despues'), ''),
                     entidad || ' ' || SUBSTRING(entidad_id::text FROM 1 FOR 8)
-                );
+                ), 256);
 
                 UPDATE core.audit_log
-                SET resumen = CASE
+                SET resumen = LEFT(CASE
                     WHEN operacion = 'crear' THEN 'Creó ' || entidad || ' ' || entidad_etiqueta
                     WHEN operacion = 'actualizar' THEN 'Modificó ' || entidad || ' ' || entidad_etiqueta
                     WHEN operacion = 'eliminar' THEN 'Eliminó ' || entidad || ' ' || entidad_etiqueta
                     ELSE operacion || ' ' || entidad || ' ' || entidad_etiqueta
-                END;
+                END, 512);
             ");
         }
 

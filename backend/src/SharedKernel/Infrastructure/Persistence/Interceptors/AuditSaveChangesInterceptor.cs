@@ -139,9 +139,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             }
 
             var entidad = entry.Entity.GetType().Name;
-            var entidadEtiqueta = ResolveEntidadEtiqueta(entry, entityId);
+            var entidadEtiqueta = Limit(ResolveEntidadEtiqueta(entry, entityId), 256);
             var (cambiosJson, changedBusinessProps) = SerializeChanges(entry);
-            var resumen = ResolveResumen(entry, entidad, entidadEtiqueta, changedBusinessProps);
+            var resumen = Limit(ResolveResumen(entry, entidad, entidadEtiqueta, changedBusinessProps), 512);
 
             var auditEntry = new AuditLogEntry
             {
@@ -166,9 +166,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     _ => "unknown"
                 },
                 Cambios = cambiosJson,
-                ActorNombre = actorNombre,
+                ActorNombre = Limit(actorNombre, 128),
                 ActorTipo = actorTipo,
-                ActorEmail = actorEmail,
+                ActorEmail = actorEmail is null ? null : Limit(actorEmail, 256),
                 EntidadEtiqueta = entidadEtiqueta,
                 Resumen = resumen,
                 CorrelationId = correlationId,
@@ -227,6 +227,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
     private static object? SafeValue(PropertyEntry p, object? value) =>
         IsProtectedProperty(p) && value is not null ? "[PROTEGIDO]" : value;
+
+    private static string Limit(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength];
 
     private static string ResolveEntidadEtiqueta(EntityEntry entry, Guid? entityId)
     {
