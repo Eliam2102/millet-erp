@@ -7,7 +7,7 @@
  * DevUserSelector solo se incluye si `VITE_AUTH_MODE === 'FakeForLocalDev'`).
  */
 interface ImportMetaEnv {
-  /** Modo de autenticación. Default 'FakeForLocalDev' en dev local. */
+  /** Modo de autenticación. Desarrollo compartido usa 'EntraId'. */
   readonly VITE_AUTH_MODE: 'EntraId' | 'FakeForLocalDev';
 
   /** Base URL del API. Vacío usa origen actual (mismo host, ideal para prod). */
