@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
+import { EstatusCatalogo } from '@/modules/administracion/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 describe('<EmpleadoInlineForm>', () => {
@@ -484,7 +485,7 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
       sucursalId: 's-1',
       departamentoId: 'd-1',
       usuarioId: 'u-1',
-      estatus: 0,
+      estatus: EstatusCatalogo.Activo,
       codigoNomina: 'A4567',
       emailContacto: 'rodrigo.contacto@gmail.com',
     };
@@ -528,7 +529,7 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
       sucursalId: 's-1',
       departamentoId: 'd-1',
       usuarioId: 'u-1',
-      estatus: 0,
+      estatus: EstatusCatalogo.Activo,
       codigoNomina: 'A4567',
       emailContacto: 'rodrigo.contacto@gmail.com',
     };
@@ -573,7 +574,7 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
       sucursalId: 's-1',
       departamentoId: 'd-1',
       usuarioId: 'u-1',
-      estatus: 0,
+      estatus: EstatusCatalogo.Activo,
       codigoNomina: 'A4567',
       emailContacto: 'rodrigo.contacto@gmail.com',
     };

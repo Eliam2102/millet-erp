@@ -1,12 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
   applyServerErrors,
   type FormConSetError,
 } from '@/lib/api/apply-server-errors';
 import { ApiError } from '@/lib/api/error';
 
-function fakeForm(): FormConSetError & { setError: ReturnType<typeof vi.fn> } {
-  return { setError: vi.fn() };
+function fakeForm(): FormConSetError & { setError: Mock<FormConSetError['setError']> } {
+  return { setError: vi.fn<FormConSetError['setError']>() };
 }
 
 describe('applyServerErrors', () => {

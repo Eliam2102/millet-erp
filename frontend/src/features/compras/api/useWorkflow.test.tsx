@@ -75,7 +75,7 @@ describe('useTransmitirRequisicion', () => {
     result.current.mutate({ requisicionId: RQ_ID, idempotencyKey: 'idem-t2' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(409);
     expect(err.code).toBe('CONCURRENCIA_DETECTADA');
   });
@@ -148,7 +148,7 @@ describe('useAutorizarRequisicion', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(403);
     expect(err.code).toBe('NIVEL_NO_PERMITIDO');
   });
@@ -228,7 +228,7 @@ describe('useRechazarRequisicion', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(422);
     expect(err.code).toBe('MOTIVO_REQUIERE_TEXTO');
   });
@@ -303,7 +303,7 @@ describe('useEliminarRequisicion', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(422);
     expect(err.code).toBe('MOTIVO_NO_APLICA_A_ELIMINACION');
   });
@@ -375,7 +375,7 @@ describe('useCancelarRequisicion', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as {
+    const err = result.current.error as unknown as {
       status: number;
       code?: string;
       traceId?: string;

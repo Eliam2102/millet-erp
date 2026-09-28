@@ -10,7 +10,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
  * uploads (packing list, vale) morían con 415 en el servidor.
  */
 
-const fetchMock = vi.fn(
+const fetchMock = vi.fn<typeof fetch>(
   async () => new Response(null, { status: 200 }),
 );
 

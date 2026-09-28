@@ -10,6 +10,7 @@ import {
   EstadoRequisicion,
   Prioridad,
   type RequisicionListItemResponse,
+  OrigenRequisicion,
 } from '@/features/compras/api/types';
 import type { PendientesSearch } from '@/features/compras/lib/pendientes-search-schema';
 
@@ -25,7 +26,7 @@ vi.mock('@tanstack/react-router', () => ({
     to: string;
     params?: Record<string, string>;
     className?: string;
-    'aria-current'?: string;
+    'aria-current'?: React.AriaAttributes['aria-current'];
   }) => (
     <a
       href={params != null ? `${to.replace('$id', params.id ?? '')}` : to}
@@ -56,6 +57,9 @@ function makeItem(
     requisitanteNombre: 'Pepe Pérez',
     departamentoNombre: 'Compras y Adquisiciones',
     departamentoClave: 'COMPRAS',
+    situacionSurtido: null,
+    nivelPendiente: null,
+    origen: OrigenRequisicion.Manual,
     ...overrides,
   };
 }
