@@ -289,4 +289,5 @@ function invalidar(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['admin', 'empleados', 'siguiente-clave'] });
   queryClient.invalidateQueries({ queryKey: ['identidad', 'usuarios'] });
   queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores'] });
+  queryClient.invalidateQueries({ queryKey: adminKeys.auditoria() });
 }

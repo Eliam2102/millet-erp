@@ -115,6 +115,7 @@ beforeEach(() => {
     user: { id: 'u-1', email: 'a@b.com', nombre: 'Admin' },
     empresas: [],
     currentEmpresaId: 'e-1',
+    currentSucursalId: null,
     permisos: [
       PermisosCanonicos.AdminAuditoriaLeer,
       PermisosCanonicos.AdminEmpresasLeer,

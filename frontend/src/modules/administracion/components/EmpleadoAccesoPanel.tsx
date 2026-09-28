@@ -270,6 +270,7 @@ export function EmpleadoAccesoPanel({
             onSuccess: () => {
               queryClient.invalidateQueries({ queryKey: adminKeys.empleados() });
               queryClient.invalidateQueries({ queryKey: ['catalogos', 'empleados'] });
+              queryClient.invalidateQueries({ queryKey: adminKeys.auditoria() });
               toast.success(tipo === 2
                 ? 'Cuenta en provisión. Revisa su estado antes de confirmar el envío.'
                 : 'Cuenta Microsoft vinculada al colaborador.');
@@ -536,6 +537,7 @@ export function EmpleadoAccesoPanel({
                 acceso.refetch();
                 queryClient.invalidateQueries({ queryKey: adminKeys.empleados() });
                 queryClient.invalidateQueries({ queryKey: ['catalogos', 'empleados'] });
+                queryClient.invalidateQueries({ queryKey: adminKeys.auditoria() });
                 toast.success('Usuario reactivado');
               },
               onError: error,

@@ -20,6 +20,8 @@ import { esApiError, apiRequest } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useAuditoria } from '@/modules/administracion/api/auditoria';
 import { useEmpresas } from '@/modules/administracion/api';
+import { useDepartamentos, usePuestos, useEmpleados } from '@/features/catalogos/api/hooks';
+import { useRoles } from '@/modules/identidad/api/roles';
 import { useUsuarios } from '@/modules/identidad/api/usuarios';
 import type {
   AuditLogEntryResponse,
@@ -30,6 +32,7 @@ import {
   type AuditoriaLookups,
   formatFecha,
   formatHora,
+  humanizarTextoConLookups,
   isUuid,
 } from './auditoria-utils';
 
@@ -50,6 +53,7 @@ const MODULOS: readonly string[] = [
 const ACCIONES: readonly { label: string; value: string }[] = [
   { label: 'Crear', value: 'Crear' },
   { label: 'Actualizar', value: 'Actualizar' },
+  { label: 'Autorización', value: 'autorizacion' },
   { label: 'Desactivar', value: 'Desactivar' },
   { label: 'Reactivar', value: 'Reactivar' },
   { label: 'Eliminar', value: 'Eliminar' },
@@ -121,6 +125,15 @@ export function AuditoriaPage() {
   const usuariosQuery = useUsuarios({ limit: 200 });
   const usuarios = useMemo(() => usuariosQuery.data?.items ?? [], [usuariosQuery.data?.items]);
 
+  const departamentosQuery = useDepartamentos();
+  const departamentos = useMemo(() => departamentosQuery.data?.items ?? [], [departamentosQuery.data?.items]);
+  const puestosQuery = usePuestos();
+  const puestos = useMemo(() => puestosQuery.data?.items ?? [], [puestosQuery.data?.items]);
+  const empleadosQuery = useEmpleados();
+  const empleados = useMemo(() => empleadosQuery.data?.items ?? [], [empleadosQuery.data?.items]);
+  const rolesQuery = useRoles({ limit: 200 });
+  const roles = useMemo(() => rolesQuery.data?.items ?? [], [rolesQuery.data?.items]);
+
   const auditoriaQuery = useAuditoria(filtrosAplicados);
 
   const items = useMemo(() => auditoriaQuery.data?.items ?? [], [auditoriaQuery.data?.items]);
@@ -154,6 +167,14 @@ export function AuditoriaPage() {
     return map;
   }, [usuarios]);
 
+  const usuariosEmailMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const u of usuarios) {
+      if (u.id && u.email) map[u.id] = u.email;
+    }
+    return map;
+  }, [usuarios]);
+
   const empresasMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const e of empresas) {
@@ -162,10 +183,47 @@ export function AuditoriaPage() {
     return map;
   }, [empresas]);
 
+  const departamentosMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const d of departamentos) {
+      if (d.id) map[d.id] = d.nombre ? `${d.nombre}${d.clave ? ` (${d.clave})` : ''}` : d.clave;
+    }
+    return map;
+  }, [departamentos]);
+
+  const puestosMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of puestos) {
+      if (p.id) map[p.id] = p.nombre ? `${p.nombre}${p.clave ? ` (${p.clave})` : ''}` : p.clave;
+    }
+    return map;
+  }, [puestos]);
+
+  const empleadosMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const emp of empleados) {
+      if (emp.id) map[emp.id] = emp.nombre ? `${emp.nombre}${emp.clave ? ` (${emp.clave})` : ''}` : emp.clave;
+    }
+    return map;
+  }, [empleados]);
+
+  const rolesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const r of roles) {
+      if (r.id) map[r.id] = r.nombre;
+    }
+    return map;
+  }, [roles]);
+
   const lookups = useMemo<AuditoriaLookups>(() => {
     const sucursales: Record<string, string> = { ...sucursalesMap };
     const usuariosRef: Record<string, string> = { ...usuariosMap };
+    const usuariosEmailRef: Record<string, string> = { ...usuariosEmailMap };
     const empresasRef: Record<string, string> = { ...empresasMap };
+    const departamentosRef: Record<string, string> = { ...departamentosMap };
+    const puestosRef: Record<string, string> = { ...puestosMap };
+    const empleadosRef: Record<string, string> = { ...empleadosMap };
+    const rolesRef: Record<string, string> = { ...rolesMap };
 
     for (const item of items) {
       if (item.usuarioId && (item.actorNombre || item.usuarioNombre)) {
@@ -173,6 +231,9 @@ export function AuditoriaPage() {
         if (nom && !nom.startsWith('Usuario ') && !isUuid(nom)) {
           usuariosRef[item.usuarioId] = nom;
         }
+      }
+      if (item.usuarioId && item.actorEmail && !usuariosEmailRef[item.usuarioId]) {
+        usuariosEmailRef[item.usuarioId] = item.actorEmail;
       }
       if (item.sucursalId && item.sucursalClave && !sucursales[item.sucursalId]) {
         sucursales[item.sucursalId] = item.sucursalClave;
@@ -184,12 +245,29 @@ export function AuditoriaPage() {
           usuariosRef[item.entidadId] = item.entidadEtiqueta;
         } else if (item.entidad === 'Empresa' && !empresasRef[item.entidadId]) {
           empresasRef[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Departamento' && !departamentosRef[item.entidadId]) {
+          departamentosRef[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Puesto' && !puestosRef[item.entidadId]) {
+          puestosRef[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Empleado' && !empleadosRef[item.entidadId]) {
+          empleadosRef[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Rol' && !rolesRef[item.entidadId]) {
+          rolesRef[item.entidadId] = item.entidadEtiqueta;
         }
       }
     }
 
-    return { sucursales, usuarios: usuariosRef, empresas: empresasRef };
-  }, [sucursalesMap, usuariosMap, empresasMap, items]);
+    return {
+      sucursales,
+      usuarios: usuariosRef,
+      usuariosEmail: usuariosEmailRef,
+      empresas: empresasRef,
+      departamentos: departamentosRef,
+      puestos: puestosRef,
+      empleados: empleadosRef,
+      roles: rolesRef,
+    };
+  }, [sucursalesMap, usuariosMap, usuariosEmailMap, empresasMap, departamentosMap, puestosMap, empleadosMap, rolesMap, items]);
 
   function aplicar() {
     if (rangoInvalido) return;
@@ -484,6 +562,11 @@ export function AuditoriaPage() {
             onChange={(e) => setDraftSucursalId(e.target.value)}
           >
             <option value="">Todas las sucursales de la empresa</option>
+            {draftSucursalId && !(sucursalesQuery.data ?? []).some((s) => s.id === draftSucursalId) && (
+              <option value={draftSucursalId} hidden>
+                {draftSucursalId}
+              </option>
+            )}
             {(sucursalesQuery.data ?? []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.clave} · {s.nombre}
@@ -663,11 +746,20 @@ function AuditoriaTabla({
             const sucursalNombre = entry.sucursalId ? lookups.sucursales?.[entry.sucursalId] : null;
 
             const etiquetaRegistro =
-              (entry.entidadId && entry.entidad === 'Sucursal' && lookups.sucursales?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Sucursal · ${lookups.sucursales[entry.entidadId]}` : null) ??
-              (entry.entidadId && entry.entidad === 'Usuario' && lookups.usuarios?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Usuario · ${lookups.usuarios[entry.entidadId]}` : null) ??
-              (entry.entidadId && entry.entidad === 'Empresa' && lookups.empresas?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Empresa · ${lookups.empresas[entry.entidadId]}` : null) ??
-              entry.entidadEtiqueta ??
+              (entry.entidadEtiqueta && !isUuid(entry.entidadEtiqueta) && !entry.entidadEtiqueta.startsWith(entry.entidad + ' ')
+                ? humanizarTextoConLookups(entry.entidadEtiqueta, lookups)
+                : null) ??
+              (entry.entidadId && entry.entidad === 'Sucursal' && lookups.sucursales?.[entry.entidadId] ? lookups.sucursales[entry.entidadId] : null) ??
+              (entry.entidadId && entry.entidad === 'Usuario' && lookups.usuarios?.[entry.entidadId] ? lookups.usuarios[entry.entidadId] : null) ??
+              (entry.entidadId && entry.entidad === 'Empresa' && lookups.empresas?.[entry.entidadId] ? lookups.empresas[entry.entidadId] : null) ??
+              (entry.entidadId && entry.entidad === 'Departamento' && lookups.departamentos?.[entry.entidadId] ? lookups.departamentos[entry.entidadId] : null) ??
+              (entry.entidadId && entry.entidad === 'Puesto' && lookups.puestos?.[entry.entidadId] ? lookups.puestos[entry.entidadId] : null) ??
+              (entry.entidadId && entry.entidad === 'Empleado' && lookups.empleados?.[entry.entidadId] ? lookups.empleados[entry.entidadId] : null) ??
+              (entry.entidadId && entry.entidad === 'Rol' && lookups.roles?.[entry.entidadId] ? lookups.roles[entry.entidadId] : null) ??
+              (entry.entidadEtiqueta && !isUuid(entry.entidadEtiqueta) ? humanizarTextoConLookups(entry.entidadEtiqueta, lookups) : null) ??
               entry.entidad;
+
+            const resumenHumanizado = humanizarTextoConLookups(entry.resumen || entry.operacion, lookups);
 
             return (
               <tr key={entry.id} className="hover:bg-muted/10">
@@ -688,20 +780,29 @@ function AuditoriaTabla({
                         {entry.actorTipo || 'usuario'}
                       </Badge>
                     </div>
-                    {entry.actorEmail ? (
-                      <span className="text-xs text-muted-foreground">
-                        {entry.actorEmail}
-                      </span>
-                    ) : entry.origen ? (
-                      <span className="text-xs text-muted-foreground">
-                        {entry.origen}
-                      </span>
-                    ) : null}
+                    {(() => {
+                      const email = entry.actorEmail || (entry.usuarioId ? lookups.usuariosEmail?.[entry.usuarioId] : null);
+                      if (email) {
+                        return (
+                          <span className="text-xs text-muted-foreground">
+                            {email}
+                          </span>
+                        );
+                      }
+                      if (entry.origen) {
+                        return (
+                          <span className="text-xs text-muted-foreground">
+                            {entry.origen}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </td>
                 <td className="px-3 py-2">
                   <span className="text-sm font-medium text-foreground">
-                    {entry.resumen || entry.operacion}
+                    {resumenHumanizado}
                   </span>
                 </td>
                 <td className="px-3 py-2">

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ using Millet.Identidad.Application.UsuarioSucursales;
 using Millet.Identidad.Application.Usuarios;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Identidad.Application.Colaboradores;
@@ -48,6 +50,9 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
     private readonly TransaccionColaborador _transaccion;
     private readonly IEntraDirectorioPort _directorio;
     private readonly IOptionsMonitor<EntraDirectorioOptions> _options;
+    private readonly IAuditLogWriter _auditWriter;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IAuditCorrelationContext _correlacion;
 
     public DarAccesoColaboradorHandler(
         IMediator mediator,
@@ -55,7 +60,10 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
         CompartidoDbContext compartido,
         TransaccionColaborador transaccion,
         IEntraDirectorioPort directorio,
-        IOptionsMonitor<EntraDirectorioOptions> options)
+        IOptionsMonitor<EntraDirectorioOptions> options,
+        IAuditLogWriter auditWriter,
+        ICurrentUserContext currentUser,
+        IAuditCorrelationContext correlacion)
     {
         _mediator = mediator;
         _identidad = identidad;
@@ -63,11 +71,15 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
         _transaccion = transaccion;
         _directorio = directorio;
         _options = options;
+        _auditWriter = auditWriter;
+        _currentUser = currentUser;
+        _correlacion = correlacion;
     }
 
     public async Task<AltaColaboradorResponse> Handle(
         DarAccesoColaboradorCommand request, CancellationToken cancellationToken)
     {
+        using var correlacion = _correlacion.Begin(Guid.CreateVersion7());
         var ct = cancellationToken;
         var empleado = await _compartido.Empleados
             .SingleOrDefaultAsync(e => e.Id == request.EmpleadoId, ct)
@@ -134,7 +146,12 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
                 throw new ConflictException("USUARIO_EMAIL_DUPLICADO", "El correo ya existe en el ERP.");
         }
 
-        return await _transaccion.EjecutarAsync(async () =>
+        var sucursal = await _compartido.Sucursales.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == sucursalId, ct);
+        var rol = await _identidad.Roles.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == rolId, ct);
+
+        var response = await _transaccion.EjecutarAsync(async () =>
         {
             Guid usuarioId;
             if (reutilizable is not null)
@@ -181,5 +198,71 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
                 new AccesoColaboradorResponse(usuarioId, correo, final.EntraOid,
                     final.EstadoAcceso, reutilizable is not null, empleado.EmpresaId, rolId, sucursalId));
         }, ct);
+
+        string actorTipo;
+        string actorNombre;
+        string? actorEmail;
+        if (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
+        {
+            actorTipo = "usuario";
+            actorNombre = !string.IsNullOrWhiteSpace(_currentUser.UserName) ? _currentUser.UserName : "Usuario";
+            actorEmail = _currentUser.Email;
+        }
+        else
+        {
+            actorTipo = "sistema";
+            actorNombre = "Sistema";
+            actorEmail = null;
+        }
+
+        var rolNombre = rol?.Nombre ?? "Rol";
+        var sucursalNombre = sucursal?.Nombre ?? "Sucursal";
+        var sucursalClave = sucursal?.Clave;
+
+        var tipoAccesoTexto = request.Acceso == TipoAccesoColaborador.CuentaNueva
+            ? "Crear cuenta Microsoft"
+            : "Ya tiene cuenta Microsoft";
+        var estadoAccesoTexto = response.Acceso?.EstadoAcceso == EstadoAcceso.Activo
+            ? "Activo"
+            : "Pendiente de primer acceso";
+
+        var snapshotObj = new Dictionary<string, object?>
+        {
+            ["Colaborador"] = $"{empleado.Clave} · {empleado.Nombre}",
+            ["CorreoCorporativo"] = correo,
+            ["Rol"] = rolNombre,
+            ["Sucursal"] = !string.IsNullOrWhiteSpace(sucursalClave) ? $"{sucursalNombre} ({sucursalClave})" : sucursalNombre,
+            ["TipoAcceso"] = tipoAccesoTexto,
+            ["EstadoAcceso"] = estadoAccesoTexto
+        };
+
+        var metadatosObj = new Dictionary<string, object?>
+        {
+            ["sucursalId"] = sucursalId,
+            ["sucursalClave"] = sucursalClave,
+            ["empleadoId"] = empleado.Id,
+            ["usuarioId"] = response.Acceso?.UsuarioId,
+            ["rolId"] = rolId,
+            ["tipoAcceso"] = request.Acceso.ToString()
+        };
+
+        await _auditWriter.RegistrarAsync(
+            operacion: "autorizacion",
+            modulo: "Identidad",
+            entidad: "Empleado",
+            entidadId: empleado.Id,
+            aggregateRootId: empleado.Id,
+            actorNombre: actorNombre,
+            actorTipo: actorTipo,
+            actorEmail: actorEmail,
+            entidadEtiqueta: $"{empleado.Clave} · {empleado.Nombre}",
+            resumen: $"Autorizó acceso al ERP al colaborador {empleado.Clave} · {empleado.Nombre} con rol {rolNombre} en {sucursalNombre}",
+            usuarioId: _currentUser.UserId,
+            empresaId: empleado.EmpresaId,
+            cambios: JsonSerializer.Serialize(new { snapshot = snapshotObj }),
+            metadatos: JsonSerializer.Serialize(metadatosObj),
+            cancellationToken: ct);
+
+        return response;
     }
 }

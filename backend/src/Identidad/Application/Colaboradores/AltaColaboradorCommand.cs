@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentValidation;
 using MediatR;
@@ -154,6 +155,8 @@ public sealed class AltaColaboradorHandler
     private readonly IEntraDirectorioPort _directorio;
     private readonly IOptionsMonitor<EntraDirectorioOptions> _entraOptions;
     private readonly IAuditCorrelationContext _correlacion;
+    private readonly IAuditLogWriter _auditWriter;
+    private readonly ICurrentUserContext _currentUser;
 
     public AltaColaboradorHandler(
         IMediator mediator,
@@ -162,7 +165,9 @@ public sealed class AltaColaboradorHandler
         TransaccionColaborador transaccion,
         IEntraDirectorioPort directorio,
         IOptionsMonitor<EntraDirectorioOptions> entraOptions,
-        IAuditCorrelationContext correlacion)
+        IAuditCorrelationContext correlacion,
+        IAuditLogWriter auditWriter,
+        ICurrentUserContext currentUser)
     {
         _mediator = mediator;
         _identidad = identidad;
@@ -171,6 +176,8 @@ public sealed class AltaColaboradorHandler
         _directorio = directorio;
         _entraOptions = entraOptions;
         _correlacion = correlacion;
+        _auditWriter = auditWriter;
+        _currentUser = currentUser;
     }
 
     public async Task<AltaColaboradorResponse> Handle(
@@ -180,7 +187,7 @@ public sealed class AltaColaboradorHandler
 
         var sucursal = await _compartido.Sucursales.AsNoTracking()
             .Where(s => s.Id == command.SucursalId)
-            .Select(s => new { s.Id, s.EmpresaId })
+            .Select(s => new { s.Id, s.EmpresaId, s.Nombre, s.Clave })
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new BusinessRuleException(
                 "EMPLEADO_SUCURSAL_NO_EXISTE",
@@ -208,7 +215,10 @@ public sealed class AltaColaboradorHandler
             existente = await BuscarUsuarioReutilizableAsync(correo, cuenta, cancellationToken);
         }
 
-        return await _transaccion.EjecutarAsync(async () =>
+        var rol = await _identidad.Roles.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == rolId, cancellationToken);
+
+        var response = await _transaccion.EjecutarAsync(async () =>
         {
             Guid usuarioId;
             if (cuentaNueva)
@@ -281,6 +291,72 @@ public sealed class AltaColaboradorHandler
                     rolId,
                     sucursal.Id));
         }, cancellationToken);
+
+        string actorTipo;
+        string actorNombre;
+        string? actorEmail;
+        if (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
+        {
+            actorTipo = "usuario";
+            actorNombre = !string.IsNullOrWhiteSpace(_currentUser.UserName) ? _currentUser.UserName : "Usuario";
+            actorEmail = _currentUser.Email;
+        }
+        else
+        {
+            actorTipo = "sistema";
+            actorNombre = "Sistema";
+            actorEmail = null;
+        }
+
+        var rolNombre = rol?.Nombre ?? "Rol";
+        var sucursalNombre = sucursal.Nombre ?? "Sucursal";
+        var sucursalClave = sucursal.Clave;
+
+        var tipoAccesoTexto = command.Acceso == TipoAccesoColaborador.CuentaNueva
+            ? "Crear cuenta Microsoft"
+            : "Ya tiene cuenta Microsoft";
+        var estadoAccesoTexto = response.Acceso?.EstadoAcceso == EstadoAcceso.Activo
+            ? "Activo"
+            : "Pendiente de primer acceso";
+
+        var snapshotObj = new Dictionary<string, object?>
+        {
+            ["Colaborador"] = $"{response.Empleado.Clave} · {response.Empleado.Nombre}",
+            ["CorreoCorporativo"] = correo,
+            ["Rol"] = rolNombre,
+            ["Sucursal"] = !string.IsNullOrWhiteSpace(sucursalClave) ? $"{sucursalNombre} ({sucursalClave})" : sucursalNombre,
+            ["TipoAcceso"] = tipoAccesoTexto,
+            ["EstadoAcceso"] = estadoAccesoTexto
+        };
+
+        var metadatosObj = new Dictionary<string, object?>
+        {
+            ["sucursalId"] = sucursal.Id,
+            ["sucursalClave"] = sucursalClave,
+            ["empleadoId"] = response.Empleado.Id,
+            ["usuarioId"] = response.Acceso?.UsuarioId,
+            ["rolId"] = rolId,
+            ["tipoAcceso"] = command.Acceso.ToString()
+        };
+
+        await _auditWriter.RegistrarAsync(
+            operacion: "autorizacion",
+            modulo: "Identidad",
+            entidad: "Empleado",
+            entidadId: response.Empleado.Id,
+            aggregateRootId: response.Empleado.Id,
+            actorNombre: actorNombre,
+            actorTipo: actorTipo,
+            actorEmail: actorEmail,
+            entidadEtiqueta: $"{response.Empleado.Clave} · {response.Empleado.Nombre}",
+            resumen: $"Autorizó acceso al ERP al colaborador {response.Empleado.Clave} · {response.Empleado.Nombre} con rol {rolNombre} en {sucursalNombre}",
+            usuarioId: _currentUser.UserId,
+            empresaId: response.Empleado.EmpresaId,
+            cambios: JsonSerializer.Serialize(new { snapshot = snapshotObj }),
+            metadatos: JsonSerializer.Serialize(metadatosObj),
+            cancellationToken: cancellationToken);
+
+        return response;
     }
 
     private static CrearEmpleadoCommand CrearEmpleado(
