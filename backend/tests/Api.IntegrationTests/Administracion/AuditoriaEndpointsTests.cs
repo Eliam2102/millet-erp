@@ -148,6 +148,69 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task Get_Proyecta_Campos_Snapshot_Y_Ninguno_Vacio()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var desde = hoy.AddDays(-30);
+        var url = $"{EndpointBase}?desde={desde:yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}&limit=50";
+
+        var response = await client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await ReadJsonAsync(response);
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+        Assert.NotEmpty(items);
+
+        foreach (var item in items)
+        {
+            Assert.True(item.TryGetProperty("actorNombre", out var actorNombre) && !string.IsNullOrWhiteSpace(actorNombre.GetString()));
+            Assert.True(item.TryGetProperty("actorTipo", out var actorTipo) && !string.IsNullOrWhiteSpace(actorTipo.GetString()));
+            Assert.True(item.TryGetProperty("entidadEtiqueta", out var etiqueta) && !string.IsNullOrWhiteSpace(etiqueta.GetString()));
+            Assert.True(item.TryGetProperty("resumen", out var resumen) && !string.IsNullOrWhiteSpace(resumen.GetString()));
+            // Compatibilidad frontend
+            Assert.True(item.TryGetProperty("usuarioNombre", out var usuarioNombre) && !string.IsNullOrWhiteSpace(usuarioNombre.GetString()));
+        }
+    }
+
+    [Fact]
+    public async Task Get_Filtra_Por_ActorTipo_Y_Por_Q_Texto()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var desde = hoy.AddDays(-30);
+
+        // Filtro por actorTipo=proceso
+        var resProceso = await client.GetAsync($"{EndpointBase}?desde={desde:yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}&actorTipo=proceso");
+        Assert.Equal(HttpStatusCode.OK, resProceso.StatusCode);
+        var bodyProceso = await ReadJsonAsync(resProceso);
+        var itemsProceso = bodyProceso.GetProperty("items").EnumerateArray().ToList();
+        if (itemsProceso.Count > 0)
+        {
+            Assert.All(itemsProceso, i => Assert.Equal("proceso", i.GetProperty("actorTipo").GetString()));
+        }
+
+        // Filtro por busqueda de texto Q
+        var resQ = await client.GetAsync($"{EndpointBase}?desde={desde:yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}&q=Cre");
+        Assert.Equal(HttpStatusCode.OK, resQ.StatusCode);
+        var bodyQ = await ReadJsonAsync(resQ);
+        var itemsQ = bodyQ.GetProperty("items").EnumerateArray().ToList();
+        if (itemsQ.Count > 0)
+        {
+            Assert.All(itemsQ, i =>
+            {
+                var resumen = i.GetProperty("resumen").GetString() ?? "";
+                var etiqueta = i.GetProperty("entidadEtiqueta").GetString() ?? "";
+                var actor = i.GetProperty("actorNombre").GetString() ?? "";
+                Assert.True(
+                    resumen.Contains("Cre", StringComparison.OrdinalIgnoreCase) ||
+                    etiqueta.Contains("Cre", StringComparison.OrdinalIgnoreCase) ||
+                    actor.Contains("Cre", StringComparison.OrdinalIgnoreCase));
+            });
+        }
+    }
+
+    [Fact]
     public async Task Get_Sin_Token_Retorna_401()
     {
         var client = _factory.CreateClient();

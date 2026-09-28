@@ -489,6 +489,101 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         }
     }
 
+    [Fact]
+    public async Task PostSesion_LoginExitoso_Y_Rechazado_RegistranEventosEnAuditLog()
+    {
+        var superAdminOid = GetConfiguredSuperAdminOid();
+
+        var fakeValidator = new FakeEntraTokenValidator(token =>
+        {
+            if (token == "token-superadmin-audit")
+            {
+                return new EntraTokenClaims(superAdminOid, "superadmin@dev.local", "Super Admin Dev");
+            }
+            throw new UnauthorizedAccessException();
+        });
+
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IEntraTokenValidator>();
+                services.AddScoped<IEntraTokenValidator>(_ => fakeValidator);
+            });
+        }).CreateClient();
+
+        // 1. Login exitoso
+        var okRes = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-superadmin-audit", null));
+        okRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 2. Login rechazado (usuario inactivo)
+        var inactiveOid = $"inactive-{Guid.NewGuid():N}";
+        var inactiveEmail = $"inactive-{Guid.NewGuid():N}@millet.mx";
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Millet.Identidad.Infrastructure.IdentidadDbContext>();
+            var usuario = new Millet.Identidad.Domain.Usuario(Guid.CreateVersion7(), inactiveOid, inactiveEmail, "Inactivo Test");
+            usuario.Desactivar();
+            db.Usuarios.Add(usuario);
+            await db.SaveChangesAsync();
+        }
+
+        var fakeValidator2 = new FakeEntraTokenValidator(token =>
+        {
+            if (token == "token-inactivo")
+            {
+                return new EntraTokenClaims(inactiveOid, inactiveEmail, "Inactivo Test");
+            }
+            throw new UnauthorizedAccessException();
+        });
+
+        var client2 = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IEntraTokenValidator>();
+                services.AddScoped<IEntraTokenValidator>(_ => fakeValidator2);
+            });
+        }).CreateClient();
+
+        try
+        {
+            var failRes = await client2.PostAsJsonAsync(Endpoint, new LoginRequest("token-inactivo", null));
+            failRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            await CleanupUsuarioAsync(inactiveOid);
+        }
+
+        // 3. Verificar audit_log en CoreDbContext
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var coreDb = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Infrastructure.Persistence.CoreDbContext>();
+
+            var accesoLog = await coreDb.AuditLog
+                .Where(a => a.Operacion == "acceso" && a.Entidad == "Usuario")
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefaultAsync();
+
+            accesoLog.Should().NotBeNull();
+            accesoLog!.ActorTipo.Should().Be("usuario");
+            accesoLog.ActorNombre.Should().NotBeNullOrWhiteSpace();
+            accesoLog.Resumen.Should().Be("Inició sesión");
+            accesoLog.EntidadEtiqueta.Should().Contain("superadmin@dev.local");
+
+            var denegadoLog = await coreDb.AuditLog
+                .Where(a => a.Operacion == "acceso-denegado" && a.Entidad == "Usuario")
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefaultAsync();
+
+            denegadoLog.Should().NotBeNull();
+            denegadoLog!.ActorTipo.Should().Be("usuario");
+            denegadoLog.Resumen.Should().Be("Acceso denegado: USUARIO_INACTIVO");
+            denegadoLog.ActorEmail.Should().Be(inactiveEmail);
+        }
+    }
+
     // ====================================================================
     // FAKE ENTRA TOKEN VALIDATOR TEST DOUBLE
     // ====================================================================

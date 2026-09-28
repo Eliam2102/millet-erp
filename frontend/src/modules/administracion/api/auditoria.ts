@@ -56,6 +56,10 @@ function buildAuditoriaPath(filtros: ConsultarBitacoraFiltros): string {
     params.set('empresaId', filtros.empresaId);
   }
   if (filtros.sucursalId) params.set('sucursalId', filtros.sucursalId);
+  if (filtros.entidadId) params.set('entidadId', filtros.entidadId);
+  if (filtros.aggregateRootId) params.set('aggregateRootId', filtros.aggregateRootId);
+  if (filtros.actorTipo) params.set('actorTipo', filtros.actorTipo);
+  if (filtros.q) params.set('q', filtros.q);
   if (filtros.offset != null) params.set('offset', String(filtros.offset));
   if (filtros.limit != null) params.set('limit', String(filtros.limit));
   return `/api/v1/admin/auditoria?${params.toString()}`;

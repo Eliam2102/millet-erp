@@ -43,6 +43,10 @@ export interface ConsultarBitacoraFiltros {
   usuarioId?: string;
   empresaId?: string;
   sucursalId?: string;
+  entidadId?: string;
+  aggregateRootId?: string;
+  actorTipo?: string;
+  q?: string;
   offset?: number;
   limit?: number;
 }

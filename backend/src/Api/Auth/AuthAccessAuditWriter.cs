@@ -32,6 +32,10 @@ public sealed class AuthAccessAuditWriter(CoreDbContext db, IClock clock)
             EntidadId = userId,
             AggregateRootId = userId,
             Operacion = operation,
+            ActorTipo = "usuario",
+            ActorNombre = userId.HasValue ? $"Usuario {userId.Value.ToString()[..8]}" : "Sistema",
+            EntidadEtiqueta = "Sesión de usuario",
+            Resumen = operation == "acceso" ? "Inicio de sesión" : (operation.Contains("denegado") ? $"Acceso denegado ({reasonCode ?? "error"})" : operation),
             Cambios = JsonSerializer.Serialize(new
             {
                 canal = channel,

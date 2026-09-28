@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Eye } from 'lucide-react';
+import { ClipboardList, Eye, History, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,7 @@ import {
   ErrorState,
   TableSkeleton,
 } from '@/components/erp';
-import { esApiError } from '@/lib/api';
-import { apiRequest } from '@/lib/api';
+import { esApiError, apiRequest } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useAuditoria } from '@/modules/administracion/api/auditoria';
 import { useEmpresas } from '@/modules/administracion/api';
@@ -42,28 +41,30 @@ const MODULOS: readonly string[] = [
   'Compartido',
 ];
 
-const ACCIONES: readonly string[] = [
-  'Crear',
-  'Actualizar',
-  'Desactivar',
-  'Reactivar',
-  'Eliminar',
+const ACCIONES: readonly { label: string; value: string }[] = [
+  { label: 'Crear', value: 'Crear' },
+  { label: 'Actualizar', value: 'Actualizar' },
+  { label: 'Desactivar', value: 'Desactivar' },
+  { label: 'Reactivar', value: 'Reactivar' },
+  { label: 'Eliminar', value: 'Eliminar' },
+  { label: 'Acceso', value: 'acceso' },
+  { label: 'Acceso denegado', value: 'acceso-denegado' },
+];
+
+const ACTOR_TIPOS: readonly { label: string; value: string }[] = [
+  { label: 'Usuario', value: 'usuario' },
+  { label: 'Proceso', value: 'proceso' },
+  { label: 'Sistema', value: 'sistema' },
 ];
 
 /**
  * <c>&lt;AuditoriaPage/&gt;</c> — bandeja P2 (full-width tabular,
  * filtros server-side) del log consolidado <c>core.audit_log</c>
- * (UF-Admin-PR7 §1, ADR-0008).
+ * (UF-Admin-PR7 §1, ADR-0008, F1-ADM-03).
  *
  * <para>El rango de fechas es obligatorio (default últimos 7 días) y
- * con máximo 90 días — el backend rechaza con 400 si se excede; el
- * frontend además bloquea el botón "Aplicar" para evitar el roundtrip
- * inútil. Datos sensibles → no se cachean (staleTime 0 en el hook).</para>
- *
- * <para>El nombre del usuario llega <c>null</c> hasta que el backend
- * resuelva el enrich cross-schema
- * (PLATFORM-TODO &lt;AuditUsuarioEnrich&gt;) — la tabla cae al
- * <c>usuarioId</c> truncado con tooltip explicativo.</para>
+ * con máximo 90 días. Se muestran datos humanizados (quién, qué hizo,
+ * registro, módulo, sucursal) sin GUIDs crudos expuestos al usuario.</para>
  */
 export function AuditoriaPage() {
   const hoy = useMemo(() => new Date(), []);
@@ -73,29 +74,31 @@ export function AuditoriaPage() {
     return d;
   }, [hoy]);
 
-  // Filtros "borrador" — solo se aplican al hacer click en "Aplicar".
-  // Esto evita que cada keystroke dispare una query al backend con el
-  // costo de un table scan parcial (el rango es obligatorio pero el
-  // resto de filtros son optimización).
   const empresaActualId = useAuthStore((s) => s.currentEmpresaId);
-  // Sucursal activa de la sesión (SucursalSelector) — se usa como
-  // filtro por defecto del propio selector de esta página (01-05):
-  // el usuario ya eligió su contexto operativo, no debería tener que
-  // repetirlo aquí.
   const sucursalActivaId = useAuthStore((s) => s.currentSucursalId);
 
   const [draftDesde, setDraftDesde] = useState(formatYmd(inicioDefault));
   const [draftHasta, setDraftHasta] = useState(formatYmd(hoy));
-  const [draftModulo, setDraftModulo] = useState<string>('');
+  const [draftQ, setDraftQ] = useState('');
+  const [draftActorTipo, setDraftActorTipo] = useState('');
+  const [draftModulo, setDraftModulo] = useState('');
   const [draftRecurso, setDraftRecurso] = useState('');
-  const [draftAccion, setDraftAccion] = useState<string>('');
-  const [draftUsuarioId, setDraftUsuarioId] = useState<string>('');
-  const [draftEmpresaId, setDraftEmpresaId] = useState<string>('');
-  const [draftSucursalId, setDraftSucursalId] = useState<string>(sucursalActivaId ?? '');
+  const [draftAccion, setDraftAccion] = useState('');
+  const [draftUsuarioId, setDraftUsuarioId] = useState('');
+  const [draftEmpresaId, setDraftEmpresaId] = useState('');
+  const [draftSucursalId, setDraftSucursalId] = useState(sucursalActivaId ?? '');
+  const [filtroAggregateRootId, setFiltroAggregateRootId] = useState<string | null>(null);
+
   const sucursalesQuery = useQuery({
     queryKey: ['auth', 'sucursales', empresaActualId],
     enabled: empresaActualId != null,
-    queryFn: async ({ signal }) => (await apiRequest<Array<{ id: string; nombre: string; clave: string }>>('/api/auth/sucursales', { signal })).data,
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<Array<{ id: string; nombre: string; clave: string }>>(
+          '/api/auth/sucursales',
+          { signal },
+        )
+      ).data,
   });
 
   const [filtrosAplicados, setFiltrosAplicados] =
@@ -134,12 +137,15 @@ export function AuditoriaPage() {
     setFiltrosAplicados({
       desde: draftDesde,
       hasta: draftHasta,
+      q: draftQ.trim() || undefined,
+      actorTipo: draftActorTipo || undefined,
       modulo: draftModulo || undefined,
       recurso: draftRecurso.trim() || undefined,
       accion: draftAccion || undefined,
       usuarioId: draftUsuarioId || undefined,
       empresaId: draftEmpresaId || undefined,
       sucursalId: draftSucursalId || undefined,
+      aggregateRootId: filtroAggregateRootId || undefined,
       offset: 0,
       limit: PAGE_LIMIT,
     });
@@ -148,12 +154,15 @@ export function AuditoriaPage() {
   function limpiar() {
     setDraftDesde(formatYmd(inicioDefault));
     setDraftHasta(formatYmd(hoy));
+    setDraftQ('');
+    setDraftActorTipo('');
     setDraftModulo('');
     setDraftRecurso('');
     setDraftAccion('');
     setDraftUsuarioId('');
     setDraftEmpresaId('');
     setDraftSucursalId(sucursalActivaId ?? '');
+    setFiltroAggregateRootId(null);
     setFiltrosAplicados({
       desde: formatYmd(inicioDefault),
       hasta: formatYmd(hoy),
@@ -167,6 +176,25 @@ export function AuditoriaPage() {
     setFiltrosAplicados({ ...filtrosAplicados, offset: nuevoOffset });
   }
 
+  function handleFiltrarPorRegistro(aggregateRootId: string) {
+    setFiltroAggregateRootId(aggregateRootId);
+    setFiltrosAplicados((prev) => ({
+      ...prev,
+      aggregateRootId,
+      offset: 0,
+    }));
+    setSeleccionado(null);
+  }
+
+  function quitarFiltroRegistro() {
+    setFiltroAggregateRootId(null);
+    setFiltrosAplicados((prev) => ({
+      ...prev,
+      aggregateRootId: undefined,
+      offset: 0,
+    }));
+  }
+
   return (
     <div className="space-y-4 p-4">
       <header>
@@ -174,12 +202,98 @@ export function AuditoriaPage() {
           Bitácora de auditoría
         </h1>
         <p className="text-xs text-muted-foreground">
-          Historial consolidado de cambios. Rango obligatorio, máximo{' '}
+          Historial consolidado de cambios y accesos. Rango obligatorio, máximo{' '}
           {RANGO_MAX_DIAS} días.
         </p>
       </header>
 
+      {/* Banner de filtro por historial de registro */}
+      {filtroAggregateRootId && (
+        <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-primary" />
+            <span>
+              Mostrando solo el historial del registro seleccionado.
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs gap-1"
+            onClick={quitarFiltroRegistro}
+          >
+            <X className="h-3.5 w-3.5" />
+            Quitar filtro de registro
+          </Button>
+        </div>
+      )}
+
       <div className="grid gap-3 rounded-md border bg-card p-3 md:grid-cols-3 lg:grid-cols-4">
+        {/* Buscador de texto */}
+        <div className="flex flex-col gap-1 md:col-span-2 lg:col-span-2">
+          <label
+            htmlFor="auditoria-q"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Buscar
+          </label>
+          <Input
+            id="auditoria-q"
+            type="text"
+            placeholder="Buscar por actor, etiqueta de registro o resumen…"
+            value={draftQ}
+            onChange={(e) => setDraftQ(e.target.value)}
+          />
+        </div>
+
+        {/* Tipo de actor */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Tipo de actor
+          </label>
+          <Select
+            value={draftActorTipo || TODOS}
+            onValueChange={(v) => setDraftActorTipo(v === TODOS ? '' : v)}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todos</SelectItem>
+              {ACTOR_TIPOS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Acción */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Acción
+          </label>
+          <Select
+            value={draftAccion || TODOS}
+            onValueChange={(v) => setDraftAccion(v === TODOS ? '' : v)}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todas</SelectItem>
+              {ACCIONES.map((a) => (
+                <SelectItem key={a.value} value={a.value}>
+                  {a.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Fechas */}
         <div className="flex flex-col gap-1">
           <label
             htmlFor="auditoria-desde"
@@ -217,6 +331,7 @@ export function AuditoriaPage() {
           )}
         </div>
 
+        {/* Módulo */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Módulo
@@ -239,6 +354,7 @@ export function AuditoriaPage() {
           </Select>
         </div>
 
+        {/* Recurso */}
         <div className="flex flex-col gap-1">
           <label
             htmlFor="auditoria-recurso"
@@ -249,34 +365,13 @@ export function AuditoriaPage() {
           <Input
             id="auditoria-recurso"
             type="text"
-            placeholder="Ej. Empresa, Serie…"
+            placeholder="Ej. Empleado, Requisicion…"
             value={draftRecurso}
             onChange={(e) => setDraftRecurso(e.target.value)}
           />
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Acción
-          </label>
-          <Select
-            value={draftAccion || TODOS}
-            onValueChange={(v) => setDraftAccion(v === TODOS ? '' : v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todas</SelectItem>
-              {ACCIONES.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
+        {/* Usuario */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Usuario
@@ -302,6 +397,7 @@ export function AuditoriaPage() {
           </Select>
         </div>
 
+        {/* Empresa */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Empresa
@@ -325,8 +421,14 @@ export function AuditoriaPage() {
           </Select>
         </div>
 
+        {/* Sucursal */}
         <div className="flex flex-col gap-1">
-          <label htmlFor="auditoria-sucursal" className="text-xs font-medium text-muted-foreground">Sucursal</label>
+          <label
+            htmlFor="auditoria-sucursal"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Sucursal
+          </label>
           <select
             id="auditoria-sucursal"
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
@@ -334,10 +436,15 @@ export function AuditoriaPage() {
             onChange={(e) => setDraftSucursalId(e.target.value)}
           >
             <option value="">Todas las sucursales de la empresa</option>
-            {(sucursalesQuery.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.clave} · {s.nombre}</option>)}
+            {(sucursalesQuery.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.clave} · {s.nombre}
+              </option>
+            ))}
           </select>
         </div>
 
+        {/* Botones de acción */}
         <div className="flex items-end gap-2 md:col-span-3 lg:col-span-4">
           <Button
             type="button"
@@ -401,6 +508,7 @@ export function AuditoriaPage() {
         onOpenChange={(open) => {
           if (!open) setSeleccionado(null);
         }}
+        onFiltrarRegistro={handleFiltrarPorRegistro}
       />
     </div>
   );
@@ -428,10 +536,11 @@ function AuditoriaTabla({
       <TableSkeleton
         rows={5}
         columns={[
-          { width: 'w-32' },
+          { width: 'w-28' },
+          { width: 'w-44' },
+          { width: 'w-48' },
           { width: 'w-40' },
-          { width: 'w-32' },
-          { width: 'w-32' },
+          { width: 'w-24' },
           { width: 'w-24' },
           { width: 'w-16' },
         ]}
@@ -463,16 +572,19 @@ function AuditoriaTabla({
               Fecha
             </th>
             <th scope="col" className="px-3 py-2 text-left">
-              Usuario
+              Quién
+            </th>
+            <th scope="col" className="px-3 py-2 text-left">
+              Qué hizo
+            </th>
+            <th scope="col" className="px-3 py-2 text-left">
+              Registro
             </th>
             <th scope="col" className="px-3 py-2 text-left">
               Módulo
             </th>
             <th scope="col" className="px-3 py-2 text-left">
-              Entidad
-            </th>
-            <th scope="col" className="px-3 py-2 text-left">
-              Acción
+              Sucursal
             </th>
             <th scope="col" className="px-3 py-2 text-right">
               Acciones
@@ -480,78 +592,79 @@ function AuditoriaTabla({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {items.map((entry) => (
-            <tr key={entry.id}>
-              <td className="px-3 py-2 tabular-nums">
-                {formatTimestamp(entry.timestamp)}
-              </td>
-              <td className="px-3 py-2">
-                <UsuarioCell
-                  nombre={entry.usuarioNombre}
-                  usuarioId={entry.usuarioId}
-                />
-              </td>
-              <td className="px-3 py-2">{entry.modulo}</td>
-              <td className="px-3 py-2">
-                <div>{entry.entidad}</div>
-                {entry.entidadId != null && (
-                  <div className="font-mono text-[10px] text-muted-foreground">
-                    {truncateId(entry.entidadId)}
+          {items.map((entry) => {
+            const actorTipo = entry.actorTipo?.toLowerCase() ?? 'usuario';
+            return (
+              <tr key={entry.id} className="hover:bg-muted/10">
+                <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                  {formatTimestamp(entry.timestamp)}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-foreground">
+                        {entry.actorNombre || entry.usuarioNombre || 'Sistema'}
+                      </span>
+                      <Badge
+                        variant={actorTipo === 'usuario' ? 'secondary' : 'outline'}
+                        className="text-[10px] px-1.5 py-0 capitalize"
+                      >
+                        {entry.actorTipo || 'usuario'}
+                      </Badge>
+                    </div>
+                    {entry.actorEmail ? (
+                      <span className="text-xs text-muted-foreground">
+                        {entry.actorEmail}
+                      </span>
+                    ) : entry.origen ? (
+                      <span className="text-xs text-muted-foreground">
+                        {entry.origen}
+                      </span>
+                    ) : null}
                   </div>
-                )}
-              </td>
-              <td className="px-3 py-2">
-                <Badge variant="outline">{entry.operacion}</Badge>
-              </td>
-              <td className="px-3 py-2 text-right">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onVer(entry)}
-                  aria-label="Ver detalle"
-                >
-                  <Eye className="mr-1 h-4 w-4" />
-                  Ver
-                </Button>
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td className="px-3 py-2">
+                  <span className="text-sm font-medium text-foreground">
+                    {entry.resumen || entry.operacion}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-foreground">
+                      {entry.entidadEtiqueta || entry.entidad}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {entry.entidad}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span className="text-sm">{entry.modulo}</span>
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span className="text-sm text-muted-foreground">
+                    {entry.sucursalClave || 'No aplica'}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onVer(entry)}
+                    aria-label="Ver detalle"
+                  >
+                    <Eye className="mr-1 h-4 w-4" />
+                    Ver
+                  </Button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
-}
-
-/**
- * Renderiza el nombre del usuario; los registros de usuarios eliminados
- * conservan el identificador como referencia histórica.
- */
-function UsuarioCell({
-  nombre,
-  usuarioId,
-}: {
-  nombre: string | null;
-  usuarioId: string | null;
-}) {
-  if (nombre != null && nombre.length > 0) {
-    return <span>{nombre}</span>;
-  }
-  if (usuarioId == null) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  return (
-    <span
-      className="font-mono text-xs text-muted-foreground"
-      title="No se encontró el nombre de este usuario"
-    >
-      {truncateId(usuarioId)}
-    </span>
-  );
-}
-
-function truncateId(id: string): string {
-  return id.length > 8 ? `${id.slice(0, 8)}…` : id;
 }
 
 function formatYmd(d: Date): string {
@@ -572,5 +685,8 @@ function diferenciaDias(desde: string, hasta: string): number | null {
 function formatTimestamp(ts: string): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return ts;
-  return d.toLocaleString();
+  return d.toLocaleString('es-MX', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
 }

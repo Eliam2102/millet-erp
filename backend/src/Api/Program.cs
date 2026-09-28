@@ -1060,6 +1060,7 @@ builder.Services.AddScoped<MetadataSaveChangesInterceptor>();
 builder.Services.AddScoped<EmpresaContextSaveChangesInterceptor>();
 builder.Services.AddScoped<AuditSaveChangesInterceptor>();
 builder.Services.AddScoped<AuthAccessAuditWriter>();
+builder.Services.AddScoped<IAuditLogWriter, AuditLogWriter>();
 
 // === DbContexts ===
 var connectionString = builder.Configuration.GetConnectionString("Postgres")
