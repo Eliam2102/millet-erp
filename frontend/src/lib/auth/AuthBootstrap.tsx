@@ -3,10 +3,45 @@ import { MsalProvider } from '@azure/msal-react';
 import { type PublicClientApplication } from '@azure/msal-browser';
 import { authMode, buildMsalInstance } from '@/lib/auth/config';
 import { handlePostLoginRedirect, trySilentLogin } from '@/lib/auth/useAuth';
-import { Loader2 } from 'lucide-react';
+import { GlassLoader } from '@/components/auth/GlassLoader';
 
 interface AuthBootstrapProps {
   children: ReactNode;
+}
+
+/**
+ * Arranque de MSAL compartido por todo el módulo. React StrictMode monta los
+ * efectos dos veces en desarrollo; sin esto se creaban dos instancias y cada
+ * una procesaba el mismo redirect, mandando dos POST /api/auth/sesion en
+ * paralelo (el segundo chocaba con el alta del usuario → 500).
+ */
+let arranqueMsal: Promise<PublicClientApplication | null> | null = null;
+
+function arrancarMsal(): Promise<PublicClientApplication | null> {
+  arranqueMsal ??= (async () => {
+    const instance = buildMsalInstance();
+    if (instance === null) {
+      return null;
+    }
+    await instance.initialize();
+    // Orden importante:
+    // 1. handlePostLoginRedirect: si acabamos de volver de Entra (redirect
+    //    flow), MSAL detecta el código en la URL y restaura la sesión.
+    // 2. trySilentLogin: si NO veníamos de un redirect pero MSAL tiene
+    //    cuenta cacheada (refresh del browser con sesión activa), pide
+    //    silent un access token y restaura la sesión.
+    // Si ambos fallan, queda 'unauthenticated' y se muestra LoginScreen.
+    const restoredFromRedirect = await handlePostLoginRedirect(instance);
+    if (!restoredFromRedirect) {
+      await trySilentLogin(instance);
+    }
+    return instance;
+  })().catch((error: unknown) => {
+    // Permite reintentar un fallo temporal de inicialización.
+    arranqueMsal = null;
+    throw error;
+  });
+  return arranqueMsal;
 }
 
 /**
@@ -24,57 +59,58 @@ export function AuthBootstrap({ children }: AuthBootstrapProps) {
     null,
   );
   const [isReady, setIsReady] = useState(authMode !== 'EntraId');
+  const [startupError, setStartupError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (authMode !== 'EntraId') {
       return;
     }
 
-    const instance = buildMsalInstance();
-    if (instance === null) {
-      return;
-    }
-
-    instance
-      .initialize()
-      .then(async () => {
-        // Orden importante:
-        // 1. handlePostLoginRedirect: si acabamos de volver de Entra (redirect
-        //    flow), MSAL detecta el código en la URL y restaura la sesión.
-        // 2. trySilentLogin: si NO veníamos de un redirect pero MSAL tiene
-        //    cuenta cacheada (refresh del browser con sesión activa), pide
-        //    silent un access token y restaura la sesión.
-        // Si ambos fallan, queda 'unauthenticated' y se muestra LoginScreen.
-        const restoredFromRedirect = await handlePostLoginRedirect(instance);
-        if (!restoredFromRedirect) {
-          await trySilentLogin(instance);
+    let activo = true;
+    arrancarMsal()
+      .then((instance) => {
+        if (!activo || instance === null) {
+          return;
         }
         setMsalInstance(instance);
         setIsReady(true);
       })
       .catch((err) => {
         console.error('MSAL initialize failed:', err);
-        setIsReady(true); // unblock UI; el LoginScreen mostrará el error
+        if (activo) {
+          setStartupError(true);
+        }
       });
-  }, []);
+
+    return () => {
+      activo = false;
+    };
+  }, [attempt]);
+
+  if (startupError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-center text-white" role="alert">
+        <p>No se pudo iniciar el acceso. Comprueba tu conexión e inténtalo de nuevo.</p>
+        <button
+          type="button"
+          className="rounded-md bg-white px-4 py-2 font-medium text-slate-900"
+          onClick={() => {
+            setStartupError(false);
+            setAttempt((current) => current + 1);
+          }}
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
 
   // Mientras MSAL inicializa, no renderizamos el árbol (evita usar el hook
   // useMsal sin provider). En FakeForLocalDev mode isReady=true desde el
   // arranque y este bloqueo no aplica.
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100 p-4">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 text-white shadow-md shadow-indigo-500/20">
-            <span className="text-xl font-bold tracking-tight">M</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400" />
-            <span>Iniciando Millet ERP...</span>
-          </div>
-        </div>
-      </div>
-    );
+    return <GlassLoader />;
   }
 
   // En FakeForLocalDev no creamos MsalProvider — useMsal devuelve stubs
