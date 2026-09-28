@@ -192,6 +192,8 @@ export function useDarAccesoColaborador() {
     correoCorporativo: string;
     emailContacto: string | null;
     rolId: string;
+    departamentoId?: string | null;
+    puestoId?: string | null;
     idempotencyKey: string;
   }>({
     mutationFn: async ({ empleadoId, idempotencyKey, ...body }) => {

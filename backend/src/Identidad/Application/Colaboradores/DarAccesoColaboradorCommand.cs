@@ -21,7 +21,9 @@ public sealed record DarAccesoColaboradorCommand(
     TipoAccesoColaborador Acceso,
     string CorreoCorporativo,
     Guid? RolId = null,
-    string? EmailContacto = null) : IRequest<AltaColaboradorResponse>;
+    string? EmailContacto = null,
+    Guid? DepartamentoId = null,
+    Guid? PuestoId = null) : IRequest<AltaColaboradorResponse>;
 
 public sealed class DarAccesoColaboradorValidator : AbstractValidator<DarAccesoColaboradorCommand>
 {
@@ -74,6 +76,15 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
             throw new ConflictException("COLABORADOR_YA_TIENE_ACCESO", "El empleado ya tiene un usuario vinculado.");
         if (empleado.Estatus != EstatusCatalogo.Activo)
             throw new BusinessRuleException("COLABORADOR_INACTIVO", "Reactiva al empleado antes de darle acceso.");
+
+        if (request.DepartamentoId.HasValue || request.PuestoId.HasValue)
+        {
+            empleado.ActualizarDatos(
+                departamentoId: request.DepartamentoId ?? empleado.DepartamentoId,
+                puestoId: request.PuestoId ?? empleado.PuestoId);
+            await _compartido.SaveChangesAsync(ct);
+        }
+
         if (empleado.SucursalId is not Guid sucursalId ||
             empleado.DepartamentoId is not Guid departamentoId ||
             empleado.PuestoId is null)
