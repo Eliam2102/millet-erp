@@ -20,6 +20,7 @@ import {
   NivelAutorizacion,
   Prioridad,
   type RequisicionResponse,
+  OrigenRequisicion,
 } from '@/features/compras/api/types';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -96,12 +97,16 @@ function makeRq(
         id: 'l-1',
         posicion: 1,
         articuloId: 'art-1',
+        articuloClave: null,
+        articuloNombre: null,
         cantidad: 1,
         unidadMedida: 'PZA',
         precioEstimadoMonto: 100,
         precioEstimadoMoneda: 'MXN',
         cuentaContableId: null,
         centroCostoId: null,
+        centroCostoClave: null,
+        centroCostoNombre: null,
         proyecto: null,
         fechaRequerida: null,
         notas: null,
@@ -113,6 +118,14 @@ function makeRq(
       },
     ],
     autorizaciones: [],
+    requisitanteNombre: null,
+    departamentoNombre: null,
+    departamentoClave: null,
+    proveedorSugeridoRazonSocial: null,
+    proveedorSugeridoClave: null,
+    comprometidaEnOcId: null,
+    situacionSurtido: null,
+    origen: OrigenRequisicion.Manual,
     ...overrides,
   };
 }
@@ -493,7 +506,7 @@ describe('Cobertura matriz §6.1 (acciones sin parámetros × 10 estados)', () =
     for (const a of acciones) {
       for (const estado of ESTADOS_TODOS) {
         const result = a.fn(makeRq(estado), TODOS_LOS_PERMISOS);
-        const esperaVisible = a.visiblesEn.includes(estado);
+        const esperaVisible = (a.visiblesEn as readonly EstadoRequisicion[]).includes(estado);
         expect(
           result.visible,
           `[${a.name}] estado=${NOMBRES[estado]} esperaba visible=${esperaVisible}`,

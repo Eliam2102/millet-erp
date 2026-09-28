@@ -90,6 +90,8 @@ describe('salida-display — nombres con fallback al id', () => {
           costoUnitarioMxn: 10,
           montoTotalMxn: 20,
           centroCostoId: null,
+          centroCostoClave: null,
+          centroCostoNombre: null,
           proyectoId: null,
         },
       ],

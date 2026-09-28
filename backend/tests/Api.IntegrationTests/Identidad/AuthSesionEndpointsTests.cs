@@ -490,7 +490,7 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
-    public async Task PostSesion_LoginExitoso_Y_Rechazado_RegistranEventosEnAuditLog()
+    public async Task PostSesion_LoginExitoso_NoSeAudita_Y_Rechazado_SiSeRegistra()
     {
         var superAdminOid = GetConfiguredSuperAdminOid();
 
@@ -513,8 +513,10 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         }).CreateClient();
 
         // 1. Login exitoso
+        var inicio = DateTimeOffset.UtcNow;
         var okRes = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-superadmin-audit", null));
         okRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var superAdminId = (await okRes.Content.ReadFromJsonAsync<LoginResponse>())!.Usuario.Id;
 
         // 2. Login rechazado (usuario inactivo)
         var inactiveOid = $"inactive-{Guid.NewGuid():N}";
@@ -561,17 +563,10 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         {
             var coreDb = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Infrastructure.Persistence.CoreDbContext>();
 
-            var accesoLog = await coreDb.AuditLog
-                .Where(a => a.Operacion == "acceso" && a.Entidad == "Sesion")
-                .OrderByDescending(a => a.Timestamp)
-                .FirstOrDefaultAsync();
-
-            accesoLog.Should().NotBeNull();
-            accesoLog!.ActorTipo.Should().Be("usuario");
-            accesoLog.ActorNombre.Should().NotBeNullOrWhiteSpace();
-            accesoLog.Resumen.Should().Be("Inicio de sesión");
-            accesoLog.EntidadEtiqueta.Should().Be("Sesión de usuario");
-            accesoLog.ActorEmail.Should().BeNull();
+            var accesoAuditado = await coreDb.AuditLog.AnyAsync(a =>
+                a.Operacion == "acceso" && a.Entidad == "Sesion" &&
+                a.UsuarioId == superAdminId && a.Timestamp >= inicio);
+            accesoAuditado.Should().BeFalse("el login exitoso no se audita");
 
             var denegadoLog = await coreDb.AuditLog
                 .Where(a => a.Operacion == "acceso_denegado" && a.Entidad == "Sesion")

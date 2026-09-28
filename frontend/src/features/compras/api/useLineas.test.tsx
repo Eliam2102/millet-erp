@@ -40,7 +40,7 @@ const lineaValores = {
   precioEstimadoMonto: 100,
   precioEstimadoMoneda: 'MXN',
   cuentaContableId: null,
-  centroCostoId: null,
+  centroCostoId: 'cc-1',
   proyecto: null,
   fechaRequerida: null,
   notas: null,

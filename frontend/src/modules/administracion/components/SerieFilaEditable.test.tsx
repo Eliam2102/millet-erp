@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { SerieFilaEditable } from '@/modules/administracion/components/SerieFilaEditable';
+import { ReinicioPeriodo, TipoDocumentoSerie } from '@/modules/administracion/api/types';
 
 /**
  * Validación crítica del UF-Admin-PR6 §5.2: cambiar el RadioGroup de
@@ -16,10 +17,10 @@ const SERIE_OC = {
   id: 'srv-1',
   empresaId: 'e-1',
   sucursalId: null,
-  tipoDocumento: 1,
+  tipoDocumento: TipoDocumentoSerie.OrdenCompra,
   prefijo: 'OC',
   sufijo: null,
-  reinicioPeriodo: 1, // Anual
+  reinicioPeriodo: ReinicioPeriodo.Anual,
   activa: true,
   version: 1,
 };

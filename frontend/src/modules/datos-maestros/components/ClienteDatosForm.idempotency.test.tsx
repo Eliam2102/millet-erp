@@ -34,6 +34,11 @@ const CLIENTE: ClienteDetalle = {
   origen: 0,
   email: null,
   telefono: null,
+  numRegIdTrib: null,
+  paisResidencia: null,
+  domicilioExtranjeroCalle: null,
+  domicilioExtranjeroEstado: null,
+  domicilioExtranjeroCodigoPostal: null,
   datosFiscalesCompletos: true,
   estatus: 0,
 };

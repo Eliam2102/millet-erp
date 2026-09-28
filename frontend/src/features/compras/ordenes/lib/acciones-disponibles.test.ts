@@ -91,6 +91,28 @@ function makeOc(
     createdAt: '2026-05-12T00:00:00Z',
     updatedAt: '2026-05-12T00:00:00Z',
     lineas: [],
+    proveedorRazonSocial: null,
+    proveedorClave: null,
+    referenciaProveedor: null,
+    contactoProveedorNombre: null,
+    contactoProveedorEmail: null,
+    contactoProveedorTelefono: null,
+    infoLogisticaDireccion: null,
+    infoLogisticaTransportistaId: null,
+    infoLogisticaTransportistaTexto: null,
+    infoLogisticaNumeroGuia: null,
+    infoLogisticaInstrucciones: null,
+    infoImportIncotermId: null,
+    infoImportPaisOrigen: null,
+    infoImportNumeroContenedor: null,
+    infoImportCodigoRuta: null,
+    infoImportSemanaEmbarque: null,
+    infoImportNumeroPedimento: null,
+    descuentoGlobalTipo: null,
+    descuentoGlobalValor: null,
+    gastosAdicionales: 0,
+    redondeo: 0,
+    adjuntos: [],
     ...overrides,
   };
 }
@@ -107,7 +129,7 @@ describe('acciones-disponibles — gate de permisos', () => {
         const result = accion.fn(oc, []);
         expect(
           result.visible,
-          `${accion.id} en ${EstadoOrdenCompra[estado] ?? estado}: esperaba visible=false sin permisos`,
+          `${accion.id} en ${estado}: esperaba visible=false sin permisos`,
         ).toBe(false);
       }
     }
@@ -119,7 +141,7 @@ describe('acciones-disponibles — gate de permisos', () => {
 // ============================================================================
 
 interface CeldaEsperada {
-  estado: number;
+  estado: EstadoOrdenCompra;
   /** undefined = solo verificar visible/no-visible (ignorar habilitada). */
   visible: boolean;
   habilitada?: boolean;

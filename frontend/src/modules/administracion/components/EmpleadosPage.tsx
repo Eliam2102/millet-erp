@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import {
   AlertCircle,
+  ArrowRightLeft,
   Building2,
   CheckCircle2,
   Clock,
@@ -54,7 +55,8 @@ export type FiltroAcceso =
   | 'con-acceso'
   | 'sin-acceso'
   | 'sin-login'
-  | 'acceso-inactivo';
+  | 'acceso-inactivo'
+  | 'por-reasignar';
 
 function getInitials(nombre: string): string {
   const parts = nombre.trim().split(/\s+/).filter(Boolean);
@@ -75,6 +77,35 @@ function getAvatarColors(str: string): string {
   let sum = 0;
   for (let i = 0; i < str.length; i++) sum += str.charCodeAt(i);
   return colors[sum % colors.length];
+}
+
+function getMotivosReasignacion(
+  e: EmpleadoListItem,
+  sucursalesMap: Map<string, { estatus: EstatusCatalogo }>,
+  deptosMap: Map<string, { estatus: EstatusCatalogo }>,
+  puestosMap: Map<string, { estatus: EstatusCatalogo }>,
+): string[] {
+  if (e.estatus !== EstatusCatalogo.Activo) return [];
+  const motivos: string[] = [];
+  if (!e.sucursalId) {
+    motivos.push('Sin sucursal');
+  } else if (sucursalesMap.get(e.sucursalId)?.estatus === EstatusCatalogo.Inactivo) {
+    motivos.push('Sucursal inactiva');
+  }
+
+  if (!e.departamentoId) {
+    motivos.push('Sin depto');
+  } else if (deptosMap.get(e.departamentoId)?.estatus === EstatusCatalogo.Inactivo) {
+    motivos.push('Depto inactivo');
+  }
+
+  if (!e.puestoId) {
+    motivos.push('Sin puesto');
+  } else if (puestosMap.get(e.puestoId)?.estatus === EstatusCatalogo.Inactivo) {
+    motivos.push('Puesto inactivo');
+  }
+
+  return motivos;
 }
 
 function formatFecha(iso: string | null | undefined): string | null {
@@ -138,6 +169,21 @@ export function EmpleadosPage() {
     [puestosQuery.data],
   );
 
+  const sucursalesMap = useMemo(
+    () => new Map((sucursalesQuery.data?.items ?? []).map((s) => [s.id, s])),
+    [sucursalesQuery.data],
+  );
+
+  const deptosMap = useMemo(
+    () => new Map((deptosQuery.data?.items ?? []).map((d) => [d.id, d])),
+    [deptosQuery.data],
+  );
+
+  const puestosMap = useMemo(
+    () => new Map((puestosQuery.data?.items ?? []).map((p) => [p.id, p])),
+    [puestosQuery.data],
+  );
+
   const desactivar = useDesactivarEmpleado();
   const reactivar = useReactivarEmpleado();
   const reenviar = useAccionAccesoColaborador('reenviar');
@@ -161,8 +207,14 @@ export function EmpleadosPage() {
     let sinLogin = 0;
     let inactivos = 0;
     let activoConAcceso = 0;
+    let porReasignar = 0;
 
     for (const e of empleados) {
+      const motivos = getMotivosReasignacion(e, sucursalesMap, deptosMap, puestosMap);
+      if (motivos.length > 0) {
+        porReasignar++;
+      }
+
       if (e.usuarioId == null) {
         sinAcceso++;
       } else {
@@ -184,19 +236,22 @@ export function EmpleadosPage() {
       sinLogin,
       inactivos,
       activoConAcceso,
+      porReasignar,
     };
-  }, [empleados]);
+  }, [empleados, sucursalesMap, deptosMap, puestosMap]);
 
   // Lista filtrada
   const empleadosFiltrados = useMemo(() => {
     return empleados.filter((e) => {
-      // Filtro de acceso
-      if (filtroAcceso === 'con-acceso' && e.usuarioId == null) return false;
-      if (filtroAcceso === 'sin-acceso' && e.usuarioId != null) return false;
-      if (filtroAcceso === 'acceso-inactivo') {
+      // Filtro de acceso / reasignación
+      if (filtroAcceso === 'por-reasignar') {
+        const motivos = getMotivosReasignacion(e, sucursalesMap, deptosMap, puestosMap);
+        if (motivos.length === 0) return false;
+      } else if (filtroAcceso === 'con-acceso' && e.usuarioId == null) return false;
+      else if (filtroAcceso === 'sin-acceso' && e.usuarioId != null) return false;
+      else if (filtroAcceso === 'acceso-inactivo') {
         if (e.usuarioId == null || e.usuarioActivo !== false) return false;
-      }
-      if (filtroAcceso === 'sin-login') {
+      } else if (filtroAcceso === 'sin-login') {
         if (
           e.usuarioId == null ||
           e.usuarioActivo === false ||
@@ -231,7 +286,7 @@ export function EmpleadosPage() {
 
       return true;
     });
-  }, [empleados, filtroAcceso, filtroSucursal, filtroDepto, busqueda, puestoClavePorId]);
+  }, [empleados, filtroAcceso, filtroSucursal, filtroDepto, busqueda, puestoClavePorId, sucursalesMap, deptosMap, puestosMap]);
 
   function handleReenviarAcceso(e: EmpleadoListItem) {
     setReenviandoId(e.id);
@@ -301,7 +356,7 @@ export function EmpleadosPage() {
       </header>
 
       {/* KPI Cards Interactivas */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {/* Total */}
         <Card
           className={`cursor-pointer transition-all hover:shadow-sm ${
@@ -418,6 +473,31 @@ export function EmpleadosPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Por reasignar */}
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-sm ${
+            filtroAcceso === 'por-reasignar' ? 'ring-2 ring-amber-500 bg-amber-50/60 dark:bg-amber-950/20' : ''
+          }`}
+          onClick={() => setFiltroAcceso('por-reasignar')}
+        >
+          <CardContent className="p-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                Por Reasignar
+              </span>
+              <ArrowRightLeft className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-amber-800 dark:text-amber-200">
+                {metricas.porReasignar}
+              </span>
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                pendientes
+              </span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Inline Form de Alta */}
@@ -483,6 +563,19 @@ export function EmpleadosPage() {
           >
             <span className="h-2 w-2 rounded-full bg-rose-400" />
             Bloqueados ({metricas.inactivos})
+          </Button>
+          <Button
+            size="sm"
+            variant={filtroAcceso === 'por-reasignar' ? 'default' : 'ghost'}
+            className={`h-8 text-xs font-medium gap-1.5 ${
+              filtroAcceso !== 'por-reasignar'
+                ? 'text-amber-800 hover:text-amber-900 bg-amber-50/50'
+                : 'bg-amber-600 hover:bg-amber-700 text-white'
+            }`}
+            onClick={() => setFiltroAcceso('por-reasignar')}
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5" />
+            Por reasignar ({metricas.porReasignar})
           </Button>
         </div>
 
@@ -554,6 +647,22 @@ export function EmpleadosPage() {
         </div>
       </div>
 
+      {/* Banner informativo si está en filtro Por Reasignar */}
+      {filtroAcceso === 'por-reasignar' && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+              Colaboradores pendientes de reasignación
+            </p>
+            <p className="text-amber-800 dark:text-amber-300/90 leading-relaxed">
+              Estos empleados tienen desvinculada o sin asignar su sucursal, departamento o puesto (o la asignación se encuentra inactiva). 
+              <strong> Los colaboradores continúan operando con normalidad con su histórico</strong>, pero para asignarlos a nuevas solicitudes, viáticos o completar su perfil operativo se requiere actualizar su asignación.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Lista / Tabla de Colaboradores */}
       {query.isError ? (
         <ErrorState
@@ -617,6 +726,7 @@ export function EmpleadosPage() {
                 tieneUsuario && !usuarioBloqueado && !pendientePrimerAcceso && !enProvision && !errorProvision;
 
               const isReenviando = reenviandoId === e.id;
+              const motivosReasig = getMotivosReasignacion(e, sucursalesMap, deptosMap, puestosMap);
 
               return (
                 <li key={e.id} className="p-3.5 transition-colors hover:bg-muted/15">
@@ -692,6 +802,22 @@ export function EmpleadosPage() {
                               </span>
                             )}
                           </div>
+                          {motivosReasig.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                              <span className="text-[11px] font-medium text-amber-800 dark:text-amber-300">
+                                Pendiente de reasignar:
+                              </span>
+                              {motivosReasig.map((m) => (
+                                <Badge
+                                  key={m}
+                                  variant="outline"
+                                  className="border-amber-300 bg-amber-50 text-[10px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 py-0 h-4 font-normal"
+                                >
+                                  {m}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -812,6 +938,23 @@ export function EmpleadosPage() {
                             </Button>
                           )}
 
+                          {/* Botón Reasignar si tiene asignación pendiente */}
+                          {canGestionar && motivosReasig.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs gap-1 border-amber-300 bg-amber-50/60 text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                              onClick={() => {
+                                setEditandoId(e.id);
+                                setAgregando(false);
+                              }}
+                              title={`Reasignar sucursal, departamento o puesto de ${e.nombre}`}
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" />
+                              Reasignar
+                            </Button>
+                          )}
+
                           {/* Botón Editar Empleado */}
                           {canGestionar && (
                             <Button
@@ -877,7 +1020,11 @@ export function EmpleadosPage() {
                         empleadoId={e.id}
                         usuarioId={e.usuarioId}
                         email={e.email}
+                        emailContacto={e.emailContacto}
                         empleadoActivo={activo}
+                        sucursalId={e.sucursalId}
+                        departamentoId={e.departamentoId}
+                        puestoId={e.puestoId}
                       />
                     </div>
                   )}

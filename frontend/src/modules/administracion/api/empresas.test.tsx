@@ -133,7 +133,7 @@ describe('useEmpresa', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number };
+    const err = result.current.error as unknown as { status: number };
     expect(err.status).toBe(404);
   });
 });
@@ -209,7 +209,7 @@ describe('useCrearEmpresa', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(409);
     expect(err.code).toBe('EMPRESA_RFC_DUPLICADO');
   });

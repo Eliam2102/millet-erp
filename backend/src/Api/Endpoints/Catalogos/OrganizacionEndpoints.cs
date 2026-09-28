@@ -329,7 +329,8 @@ public static class OrganizacionEndpoints
                         userInfo?.AccesoEnviadoEn,
                         x.EmailContacto,
                         sucInfo?.Nombre,
-                        sucInfo?.Tipo);
+                        sucInfo?.Tipo,
+                        x.CodigoNomina);
                 })
                 .ToList();
 
@@ -413,4 +414,5 @@ public sealed record EmpleadoListItem(
     DateTimeOffset? AccesoEnviadoEn = null,
     string? EmailContacto = null,
     string? SucursalNombre = null,
-    short? SucursalTipo = null);
+    short? SucursalTipo = null,
+    string? CodigoNomina = null);

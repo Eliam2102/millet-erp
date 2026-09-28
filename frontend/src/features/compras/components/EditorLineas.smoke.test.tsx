@@ -11,6 +11,7 @@ import {
   Prioridad,
   type LineaResponse,
   type RequisicionResponse,
+  OrigenRequisicion,
 } from '@/features/compras/api/types';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -33,6 +34,10 @@ function makeLinea(overrides: Partial<LineaResponse> = {}): LineaResponse {
     cantRecibida: 0,
     cantPendiente: 5,
     reservaId: null,
+    articuloClave: null,
+    articuloNombre: null,
+    centroCostoClave: null,
+    centroCostoNombre: null,
     ...overrides,
   };
 }
@@ -64,6 +69,14 @@ function makeRq(overrides: Partial<RequisicionResponse> = {}): RequisicionRespon
     updatedAt: '2026-05-09T10:00:00Z',
     lineas: [makeLinea()],
     autorizaciones: [],
+    requisitanteNombre: null,
+    departamentoNombre: null,
+    departamentoClave: null,
+    proveedorSugeridoRazonSocial: null,
+    proveedorSugeridoClave: null,
+    comprometidaEnOcId: null,
+    situacionSurtido: null,
+    origen: OrigenRequisicion.Manual,
     ...overrides,
   };
 }

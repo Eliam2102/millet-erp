@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, Loader2, Plus, RotateCcw, X } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import {
   applyServerErrors,
   esApiError,
+  useBodyScopedIdempotencyKey,
 } from '@/lib/api';
 import {
   EmpleadoSchema,
@@ -33,6 +34,7 @@ import {
   SucursalSelector,
 } from '@/components/erp';
 import { cn } from '@/lib/utils';
+import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
 
 export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
@@ -54,13 +56,6 @@ const VALORES_INICIALES: EmpleadoValues = {
   codigoNomina: '',
 };
 
-const DOMINIOS_CORPORATIVOS = [
-  'uzieltzaboutlook.onmicrosoft.com',
-  'millet.mx',
-  'millet.com.mx',
-  'uzieltzaboutlook.com',
-];
-
 const DRAFT_STORAGE_KEY = 'millet_empleado_wizard_draft_v1';
 
 export function EmpleadoInlineForm({
@@ -71,8 +66,7 @@ export function EmpleadoInlineForm({
   onSaved,
 }: EmpleadoInlineFormProps) {
   const esEditar = empleado != null;
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
-  const regenerarKey = useCallback(() => setIdempotencyKey(crypto.randomUUID()), []);
+  const keyFor = useBodyScopedIdempotencyKey();
   const crear = useAltaColaborador();
   const actualizar = useActualizarEmpleado();
   const siguienteClaveQuery = useSiguienteClaveEmpleado(!esEditar);
@@ -82,7 +76,7 @@ export function EmpleadoInlineForm({
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
   const [paso, setPaso] = useState(0);
   const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
-  const [emailContacto, setEmailContacto] = useState('');
+  const [emailContacto, setEmailContacto] = useState(() => empleado?.emailContacto ?? '');
   const [rolId, setRolId] = useState('');
   const [correoValidable, setCorreoValidable] = useState('');
   const [borradorCargado, setBorradorCargado] = useState(false);
@@ -97,7 +91,9 @@ export function EmpleadoInlineForm({
   const [emailDomain, setEmailDomain] = useState(() => {
     if (!emailInicial) return DOMINIOS_CORPORATIVOS[0];
     const at = emailInicial.indexOf('@');
-    return at > 0 ? emailInicial.slice(at + 1) : DOMINIOS_CORPORATIVOS[0];
+    const rawDomain = at > 0 ? emailInicial.slice(at + 1).toLowerCase() : '';
+    const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
+    return matched ?? DOMINIOS_CORPORATIVOS[0];
   });
 
   const form = useForm<EmpleadoValues>({
@@ -112,10 +108,39 @@ export function EmpleadoInlineForm({
           sucursalId: empleado.sucursalId ?? '',
           departamentoId: empleado.departamentoId ?? '',
           usuarioId: '',
-          codigoNomina: '',
+          codigoNomina: empleado.codigoNomina ?? '',
         }
       : { ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' },
   });
+
+  // Sincronizar campos al cambiar el empleado en modo edición
+  useEffect(() => {
+    if (empleado) {
+      form.reset({
+        clave: empleado.clave,
+        nombre: empleado.nombre,
+        email: empleado.email ?? '',
+        puestoId: empleado.puestoId ?? '',
+        jefeDirectoId: empleado.jefeDirectoId ?? '',
+        sucursalId: empleado.sucursalId ?? '',
+        departamentoId: empleado.departamentoId ?? '',
+        usuarioId: '',
+        codigoNomina: empleado.codigoNomina ?? '',
+      });
+      setEmailContacto(empleado.emailContacto ?? '');
+      if (empleado.email) {
+        const at = empleado.email.indexOf('@');
+        const prefix = at > 0 ? empleado.email.slice(0, at) : empleado.email;
+        const rawDomain = at > 0 ? empleado.email.slice(at + 1).toLowerCase() : '';
+        const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
+        setEmailPrefix(prefix);
+        setEmailDomain(matched ?? DOMINIOS_CORPORATIVOS[0]);
+      } else {
+        setEmailPrefix('');
+        setEmailDomain(DOMINIOS_CORPORATIVOS[0]);
+      }
+    }
+  }, [empleado, form]);
 
   // Autocompletar la siguiente clave en modo alta si no está establecida
   useEffect(() => {
@@ -186,8 +211,14 @@ export function EmpleadoInlineForm({
     return () => clearTimeout(timer);
   }, [correoCorporativo]);
 
+  const correoEsDiferente = esEditar && correoValidable !== (empleado?.email ?? '').trim();
+  const validacionHabilitada =
+    (!esEditar && paso === 2 && acceso !== 0 && canDarAcceso) ||
+    (esEditar && !!correoValidable && correoEsDiferente);
+
   const validacion = useValidarCorreoCorporativo(
-    correoValidable, !esEditar && paso === 2 && acceso !== 0 && canDarAcceso,
+    correoValidable,
+    validacionHabilitada,
   );
 
   // Rol sugerido por la asignación puntual (sucursal+puesto+departamento) —
@@ -225,10 +256,14 @@ export function EmpleadoInlineForm({
     if (val.includes('@')) {
       const parts = val.split('@');
       const prefix = parts[0];
-      const domain = parts.slice(1).join('@');
+      const domain = parts.slice(1).join('@').toLowerCase();
       setEmailPrefix(prefix);
-      if (domain) setEmailDomain(domain);
-      const full = prefix.trim() && domain.trim() ? `${prefix.trim()}@${domain.trim()}` : val.trim();
+      const matchedDomain = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === domain);
+      if (matchedDomain) {
+        setEmailDomain(matchedDomain);
+      }
+      const activeDomain = matchedDomain ?? emailDomain;
+      const full = prefix.trim() ? `${prefix.trim()}@${activeDomain.trim()}` : '';
       form.setValue('email', full, { shouldValidate: true });
     } else {
       setEmailPrefix(val);
@@ -257,7 +292,6 @@ export function EmpleadoInlineForm({
   }
 
   function onError(error: Error) {
-    regenerarKey();
     if (esApiError(error)) {
       if (error.code === 'EMPLEADO_CLAVE_DUPLICADA') {
         setPaso(0);
@@ -268,8 +302,20 @@ export function EmpleadoInlineForm({
         toast.error('Ya existe un empleado con esa clave en la empresa. Por favor cámbiala.');
         return;
       }
+      if (error.code === 'ENTRA_CUENTA_NO_ENCONTRADA') {
+        toast.error('No se encontró una cuenta en Microsoft Entra ID para ese correo.');
+        return;
+      }
+      if (error.code === 'ENTRA_CUENTA_DESHABILITADA') {
+        toast.error('La cuenta en Microsoft Entra ID se encuentra deshabilitada.');
+        return;
+      }
+      if (error.code === 'DOMINIO_NO_PERMITIDO') {
+        toast.error(`El dominio del correo no está autorizado (${DOMINIOS_CORPORATIVOS.join(', ')}).`);
+        return;
+      }
       if (error.code === 'USUARIO_YA_VINCULADO') {
-        setPaso(2);
+        if (!esEditar) setPaso(2);
         toast.error('El usuario corporativo ya está vinculado a otro colaborador.');
         return;
       }
@@ -292,12 +338,44 @@ export function EmpleadoInlineForm({
 
   function onSubmit(values: EmpleadoValues) {
     if (esEditar && empleado != null) {
+      if (values.email && values.email.trim() !== (empleado.email ?? '').trim()) {
+        const emailTrim = values.email.trim();
+        if (correoValidable !== emailTrim || validacion.isPending) {
+          toast.error('Espera a que termine la validación del correo corporativo.');
+          return;
+        }
+        if (validacion.isError) {
+          toast.error('No se pudo verificar el correo corporativo con Microsoft Entra ID.');
+          return;
+        }
+        if (!validacion.data?.dominioPermitido) {
+          toast.error(`El dominio del correo no está permitido. Dominios autorizados: ${DOMINIOS_CORPORATIVOS.join(', ')}`);
+          return;
+        }
+        if (!validacion.data?.cuentaEntra) {
+          toast.error(`No existe una cuenta en Microsoft Entra ID para "${emailTrim}". Debe existir previamente en Azure para vincularla a este colaborador.`);
+          return;
+        }
+        if (!validacion.data.cuentaEntra.habilitada) {
+          toast.error('La cuenta Microsoft encontrada se encuentra deshabilitada en Entra ID.');
+          return;
+        }
+        if (validacion.data.empleadoVinculado && validacion.data.empleadoVinculado.id !== empleado.id) {
+          toast.error(`Esta cuenta ya está vinculada al colaborador ${validacion.data.empleadoVinculado.nombre} (${validacion.data.empleadoVinculado.clave}).`);
+          return;
+        }
+        if (validacion.data.usuarioErp && validacion.data.usuarioErp.id !== empleado.usuarioId) {
+          toast.error(`Ya existe un usuario en el ERP registrado con este correo (${validacion.data.usuarioErp.nombre}).`);
+          return;
+        }
+      }
+
+      const patch = payloadPatch(values, empleado, emailContacto);
       actualizar.mutate(
-        { id: empleado.id, payload: payloadPatch(values, empleado, emailContacto), idempotencyKey },
+        { id: empleado.id, payload: patch, idempotencyKey: keyFor({ id: empleado.id, ...patch }) },
         {
           onSuccess: () => {
             toast.success('Empleado actualizado');
-            regenerarKey();
             onSaved?.();
           },
           onError,
@@ -319,23 +397,25 @@ export function EmpleadoInlineForm({
       return;
     }
 
+    const command = {
+      id: '00000000-0000-0000-0000-000000000000',
+      clave: values.clave?.trim() || null,
+      nombre: values.nombre,
+      puestoId: values.puestoId,
+      jefeDirectoId: values.jefeDirectoId || null,
+      sucursalId: values.sucursalId,
+      departamentoId: values.departamentoId,
+      acceso,
+      correoCorporativo: values.email || null,
+      emailContacto: acceso === 2 ? emailContacto.trim() : null,
+      rolId: acceso === 0 ? null : rolId,
+      codigoNomina: values.codigoNomina || null,
+    };
+
     crear.mutate(
       {
-        command: {
-          id: '00000000-0000-0000-0000-000000000000',
-          clave: values.clave?.trim() || null,
-          nombre: values.nombre,
-          puestoId: values.puestoId,
-          jefeDirectoId: values.jefeDirectoId || null,
-          sucursalId: values.sucursalId,
-          departamentoId: values.departamentoId,
-          acceso,
-          correoCorporativo: values.email || null,
-          emailContacto: acceso === 2 ? emailContacto.trim() : null,
-          rolId: acceso === 0 ? null : rolId,
-          codigoNomina: values.codigoNomina || null,
-        },
-        idempotencyKey,
+        command,
+        idempotencyKey: keyFor(command),
       },
       {
         onSuccess: (resp) => {
@@ -346,7 +426,6 @@ export function EmpleadoInlineForm({
               : undefined,
           });
           form.reset({ ...VALORES_INICIALES, sucursalId: sucursalIdInicial ?? '' });
-          regenerarKey();
           form.setFocus('nombre');
           onSaved?.();
         },
@@ -525,21 +604,6 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
-        {esEditar && (
-          <Field
-            label="Email"
-            error={form.formState.errors.email?.message}
-            className="md:col-span-4"
-          >
-            <Input
-              maxLength={254}
-              type="email"
-              placeholder="juana.perez@millet.mx"
-              {...form.register('email')}
-            />
-          </Field>
-        )}
-
         <Field
           label={sucursalFija ? 'Sucursal (fijada)' : 'Sucursal'}
           className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}
@@ -617,7 +681,14 @@ export function EmpleadoInlineForm({
           )}
         </Field>
 
-        <Field label="Jefe directo (autoriza viáticos N1)" className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}>
+        <Field
+          label="Jefe directo (autoriza viáticos N1)"
+          className={cn(
+            'md:col-span-4',
+            !esEditar && paso !== 0 && 'hidden',
+            esEditar && 'md:col-span-12',
+          )}
+        >
           <Controller
             control={form.control}
             name="jefeDirectoId"
@@ -632,10 +703,59 @@ export function EmpleadoInlineForm({
           />
         </Field>
 
+        {esEditar && (
+          <Field
+            label="Correo corporativo"
+            error={form.formState.errors.email?.message}
+            className="md:col-span-12"
+          >
+            <div className="flex items-center w-full">
+              <Input
+                maxLength={100}
+                placeholder="juana.perez"
+                value={emailPrefix}
+                onChange={(e) => handleEmailPrefixChange(e.target.value)}
+                className="flex-1 min-w-0 rounded-r-none border-r-0 focus:z-10"
+              />
+              <div className="flex h-9 shrink-0 items-center rounded-r-md border border-l-0 bg-muted px-3 text-xs text-muted-foreground">
+                <span className="mr-1.5 font-semibold text-foreground">@</span>
+                <select
+                  value={DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
+                  onChange={(e) => handleEmailDomainChange(e.target.value)}
+                  className="cursor-pointer bg-transparent text-xs font-medium text-foreground outline-none"
+                  aria-label="Dominio corporativo"
+                >
+                  {DOMINIOS_CORPORATIVOS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {emailPrefix.trim() ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Correo resultante:{' '}
+                <span className="font-mono font-medium text-foreground">
+                  {emailPrefix.trim()}@{DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0]}
+                </span>
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vacío: sin correo corporativo
+              </p>
+            )}
+          </Field>
+        )}
+
         <Field
           label="Código de nómina"
           error={form.formState.errors.codigoNomina?.message}
-          className={cn('md:col-span-4', !esEditar && paso !== 0 && 'hidden')}
+          className={cn(
+            'md:col-span-4',
+            !esEditar && paso !== 0 && 'hidden',
+            esEditar && 'md:col-span-6',
+          )}
         >
           <Input
             maxLength={20}
@@ -645,15 +765,97 @@ export function EmpleadoInlineForm({
             {...form.register('codigoNomina')}
           />
         </Field>
+
         {esEditar && (
-          <Field label="Actualizar correo de contacto" className="md:col-span-4">
+          <Field label="Correo personal de contacto" className="md:col-span-6">
             <Input
               type="email"
               value={emailContacto}
               onChange={(e) => setEmailContacto(e.target.value)}
-              placeholder="Vacío: conservar el correo actual"
+              placeholder="contacto@ejemplo.com"
             />
           </Field>
+        )}
+
+        {esEditar && correoEsDiferente && correoValidable && (
+          <div className="rounded-md border p-2.5 text-xs md:col-span-12" role="status" aria-live="polite">
+            {validacion.isPending ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                <span>
+                  Verificando cuenta Microsoft en Entra ID para <strong className="font-mono">{correoValidable}</strong>…
+                </span>
+              </div>
+            ) : validacion.isError ? (
+              <div className="flex items-center gap-2 text-rose-600 font-medium">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>No se pudo verificar el correo contra Microsoft Entra ID.</span>
+              </div>
+            ) : validacion.data ? (
+              !validacion.data.dominioPermitido ? (
+                <div className="flex items-start gap-2 text-rose-600">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Dominio no permitido para cuenta corporativa.</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      El dominio del correo <strong>{correoValidable}</strong> no está dentro de los dominios autorizados ({DOMINIOS_CORPORATIVOS.join(', ')}).
+                    </p>
+                  </div>
+                </div>
+              ) : validacion.data.empleadoVinculado && validacion.data.empleadoVinculado.id !== empleado?.id ? (
+                <div className="flex items-start gap-2 text-rose-600">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">La cuenta ya está vinculada a otro colaborador.</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Esta cuenta Microsoft pertenece a{' '}
+                      <strong className="text-foreground">{validacion.data.empleadoVinculado.nombre}</strong> (clave:{' '}
+                      <strong className="font-mono text-foreground">{validacion.data.empleadoVinculado.clave}</strong>).
+                    </p>
+                  </div>
+                </div>
+              ) : validacion.data.usuarioErp && validacion.data.usuarioErp.id !== empleado?.usuarioId ? (
+                <div className="flex items-start gap-2 text-rose-600">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">El correo ya está en uso por otro usuario del ERP.</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Ya existe un usuario registrado en el sistema con este correo (<strong>{validacion.data.usuarioErp.nombre}</strong>).
+                    </p>
+                  </div>
+                </div>
+              ) : validacion.data.cuentaEntra ? (
+                !validacion.data.cuentaEntra.habilitada ? (
+                  <div className="flex items-start gap-2 text-rose-600">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">Cuenta Microsoft deshabilitada.</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        La cuenta Microsoft ({validacion.data.cuentaEntra.nombreMostrado}) se encuentra deshabilitada en el directorio Entra ID.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 font-medium text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>
+                      Cuenta Microsoft encontrada en Entra ID: <strong>{validacion.data.cuentaEntra.nombreMostrado}</strong>
+                    </span>
+                  </div>
+                )
+              ) : (
+                <div className="flex items-start gap-2 text-rose-600">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">No se encontró una cuenta en Microsoft Entra ID.</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      No existe una cuenta Microsoft para <strong>{correoValidable}</strong> en el tenant de Entra ID Azure. Debe existir previamente en Azure antes de poder vincularla o enviarle acceso.
+                    </p>
+                  </div>
+                </div>
+              )
+            ) : null}
+          </div>
         )}
       </div>
 
@@ -967,7 +1169,7 @@ function payloadPatch(
   anterior: EmpleadoListItem,
   emailContacto: string,
 ): ActualizarEmpleadoPayload {
-  const campo = (nuevo: string | undefined, previo: string | null) => {
+  const campo = (nuevo: string | undefined, previo: string | null | undefined) => {
     const v = nuevo?.trim() ?? '';
     return {
       valor: v === '' ? null : v,
@@ -980,7 +1182,8 @@ function payloadPatch(
   const jefe = campo(values.jefeDirectoId, anterior.jefeDirectoId);
   const sucursal = campo(values.sucursalId, anterior.sucursalId);
   const departamento = campo(values.departamentoId, anterior.departamentoId);
-  const codigoNomina = values.codigoNomina?.trim() || null;
+  const codigoNomina = campo(values.codigoNomina, anterior.codigoNomina);
+  const contacto = campo(emailContacto, anterior.emailContacto);
 
   return {
     nombre: values.nombre,
@@ -994,8 +1197,10 @@ function payloadPatch(
     limpiarSucursal: sucursal.limpiar,
     departamentoId: departamento.valor,
     limpiarDepartamento: departamento.limpiar,
-    codigoNomina,
-    emailContacto: emailContacto.trim() || null,
+    codigoNomina: codigoNomina.valor,
+    limpiarCodigoNomina: codigoNomina.limpiar,
+    emailContacto: contacto.valor,
+    limpiarEmailContacto: contacto.limpiar,
   };
 }
 

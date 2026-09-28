@@ -1,12 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import {
   ConflictResolutionDialog,
   type ConflictDialogForm,
 } from '@/components/erp/collaboration/ConflictResolutionDialog';
 
-function fakeForm(): ConflictDialogForm & { reset: ReturnType<typeof vi.fn> } {
-  return { reset: vi.fn() };
+function fakeForm(): ConflictDialogForm & { reset: Mock<ConflictDialogForm['reset']> } {
+  return { reset: vi.fn<ConflictDialogForm['reset']>() };
 }
 
 describe('<ConflictResolutionDialog> — modo simple', () => {

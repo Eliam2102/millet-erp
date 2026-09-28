@@ -6,6 +6,7 @@ import {
   EstadoRequisicion,
   Prioridad,
   type RequisicionResponse,
+  OrigenRequisicion,
 } from '@/features/compras/api/types';
 
 function makeRq(overrides: Partial<RequisicionResponse> = {}): RequisicionResponse {
@@ -38,6 +39,11 @@ function makeRq(overrides: Partial<RequisicionResponse> = {}): RequisicionRespon
     updatedAt: '2026-05-09T10:00:00Z',
     lineas: [],
     autorizaciones: [],
+    proveedorSugeridoRazonSocial: null,
+    proveedorSugeridoClave: null,
+    comprometidaEnOcId: null,
+    situacionSurtido: null,
+    origen: OrigenRequisicion.Manual,
     ...overrides,
   };
 }

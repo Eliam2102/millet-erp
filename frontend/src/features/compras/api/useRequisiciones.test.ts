@@ -117,7 +117,7 @@ describe('useRequisiciones', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number; code?: string };
+    const err = result.current.error as unknown as { status: number; code?: string };
     expect(err.status).toBe(403);
     expect(err.code).toBe('PERMISO_DENEGADO');
   });
@@ -140,7 +140,7 @@ describe('useRequisiciones', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number };
+    const err = result.current.error as unknown as { status: number };
     expect(err.status).toBe(500);
   });
 });

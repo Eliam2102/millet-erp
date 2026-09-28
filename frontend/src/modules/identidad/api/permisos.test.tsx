@@ -127,7 +127,7 @@ describe('usePermisos', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const err = result.current.error as { status: number };
+    const err = result.current.error as unknown as { status: number };
     expect(err.status).toBe(500);
   });
 });

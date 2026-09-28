@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import {
   applyServerErrors,
   esApiError,
-  useFormIdempotencyKey,
+  useBodyScopedIdempotencyKey,
 } from '@/lib/api';
 import {
   SucursalSchema,
@@ -59,7 +59,7 @@ export function SucursalInlineForm({
   onSaved,
 }: SucursalInlineFormProps) {
   const esEditar = sucursal != null;
-  const idempotencyKey = useFormIdempotencyKey();
+  const keyFor = useBodyScopedIdempotencyKey();
   const crear = useCrearSucursal();
   const actualizar = useActualizarSucursal();
 
@@ -130,7 +130,7 @@ export function SucursalInlineForm({
             claveAw: claveAw === '' ? null : claveAw,
             limpiarClaveAw,
           },
-          idempotencyKey,
+          idempotencyKey: keyFor({ id: sucursal.id, empresaId, ...values, limpiarClaveAw }),
         },
         {
           onSuccess: () => {
@@ -151,7 +151,7 @@ export function SucursalInlineForm({
           tipo: values.tipo,
           claveAw: claveAw === '' ? null : claveAw,
         },
-        idempotencyKey,
+        idempotencyKey: keyFor({ empresaId, ...values }),
       },
       {
         onSuccess: (resp) => {

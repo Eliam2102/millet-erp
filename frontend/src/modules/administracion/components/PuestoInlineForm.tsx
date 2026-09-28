@@ -1,14 +1,15 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DepartamentoSelector } from '@/components/erp';
 import {
   applyServerErrors,
   esApiError,
-  useFormIdempotencyKey,
+  useBodyScopedIdempotencyKey,
 } from '@/lib/api';
 import {
   PuestoSchema,
@@ -27,7 +28,7 @@ import { cn } from '@/lib/utils';
  * Mismo patrón que <c>CanalVentaInlineForm</c>: border dashed primary
  * (agregar) vs solid amber (editar). La clave es business key
  * inmutable — en modo editar el input va disabled y el PATCH solo
- * manda nombre y rolSugeridoId opcionales.
+ * manda nombre, departamentoId y rolSugeridoId opcionales.
  */
 export interface PuestoInlineFormProps {
   puesto?: PuestoListItem | null;
@@ -39,6 +40,7 @@ const VALORES_INICIALES: PuestoValues = {
   clave: '',
   nombre: '',
   rolSugeridoId: '',
+  departamentoId: '',
 };
 
 export function PuestoInlineForm({
@@ -47,7 +49,7 @@ export function PuestoInlineForm({
   onSaved,
 }: PuestoInlineFormProps) {
   const esEditar = puesto != null;
-  const idempotencyKey = useFormIdempotencyKey();
+  const keyFor = useBodyScopedIdempotencyKey();
   const crear = useCrearPuesto();
   const actualizar = useActualizarPuesto();
   const rolesQuery = useRoles({ soloActivos: true });
@@ -59,6 +61,7 @@ export function PuestoInlineForm({
           clave: puesto.clave,
           nombre: puesto.nombre,
           rolSugeridoId: puesto.rolSugeridoId ?? '',
+          departamentoId: puesto.departamentoId ?? '',
         }
       : VALORES_INICIALES,
   });
@@ -104,16 +107,20 @@ export function PuestoInlineForm({
 
   function onSubmit(values: PuestoValues) {
     if (esEditar && puesto != null) {
-      const limpiarRol = !values.rolSugeridoId;
+      const limpiarRol = !values.rolSugeridoId && !!puesto.rolSugeridoId;
+      const limpiarDepto = !values.departamentoId && !!puesto.departamentoId;
+      const payload = {
+        nombre: values.nombre,
+        rolSugeridoId: values.rolSugeridoId || null,
+        limpiarRolSugerido: limpiarRol,
+        departamentoId: values.departamentoId || null,
+        limpiarDepartamento: limpiarDepto,
+      };
       actualizar.mutate(
         {
           id: puesto.id,
-          payload: {
-            nombre: values.nombre,
-            rolSugeridoId: limpiarRol ? null : values.rolSugeridoId,
-            limpiarRolSugerido: limpiarRol,
-          },
-          idempotencyKey,
+          payload,
+          idempotencyKey: keyFor({ id: puesto.id, ...values, limpiarRol, limpiarDepto }),
         },
         {
           onSuccess: () => {
@@ -125,15 +132,17 @@ export function PuestoInlineForm({
       );
       return;
     }
+    const command = {
+      id: '00000000-0000-0000-0000-000000000000',
+      clave: values.clave,
+      nombre: values.nombre,
+      rolSugeridoId: values.rolSugeridoId || null,
+      departamentoId: values.departamentoId || null,
+    };
     crear.mutate(
       {
-        command: {
-          id: '00000000-0000-0000-0000-000000000000',
-          clave: values.clave,
-          nombre: values.nombre,
-          rolSugeridoId: values.rolSugeridoId || null,
-        },
-        idempotencyKey,
+        command,
+        idempotencyKey: keyFor(values),
       },
       {
         onSuccess: (resp) => {
@@ -190,7 +199,7 @@ export function PuestoInlineForm({
           label="Nombre"
           required
           error={form.formState.errors.nombre?.message}
-          className="md:col-span-5"
+          className="md:col-span-3"
         >
           <Input
             maxLength={254}
@@ -200,9 +209,28 @@ export function PuestoInlineForm({
         </Field>
 
         <Field
+          label="Departamento de referencia"
+          error={form.formState.errors.departamentoId?.message}
+          className="md:col-span-3"
+        >
+          <Controller
+            control={form.control}
+            name="departamentoId"
+            render={({ field }) => (
+              <DepartamentoSelector
+                value={field.value || null}
+                onChange={(id) => field.onChange(id ?? '')}
+                className="w-full"
+                placeholder="(Sin departamento)"
+              />
+            )}
+          />
+        </Field>
+
+        <Field
           label="Rol sugerido en el ERP"
           error={form.formState.errors.rolSugeridoId?.message}
-          className="md:col-span-4"
+          className="md:col-span-3"
         >
           <select
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"

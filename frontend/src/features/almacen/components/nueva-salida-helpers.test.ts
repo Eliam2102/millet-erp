@@ -26,6 +26,8 @@ function linea(partial: Partial<LineaResponse>): LineaResponse {
     cantRecibida: 0,
     cantPendiente: 0,
     reservaId: null,
+    centroCostoClave: null,
+    centroCostoNombre: null,
     ...partial,
   };
 }

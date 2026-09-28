@@ -30,6 +30,10 @@ function lineaOc(
     cantidadRecibida: 0,
     cantidadFacturada: 0,
     textoAdicional: null,
+    centroCostoId: null,
+    centroCostoClave: null,
+    centroCostoNombre: null,
+    requisicionFolio: null,
     ...partial,
   };
 }

@@ -28,6 +28,8 @@ function makeLinea(overrides: Partial<LineaResponse> = {}): LineaResponse {
     cantRecibida: 0,
     cantPendiente: 5,
     reservaId: null,
+    articuloClave: null,
+    articuloNombre: null,
     ...overrides,
   };
 }

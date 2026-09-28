@@ -43,9 +43,7 @@ public static class DevAuthEndpoints
                 var response = await orchestrator.LoginWithFakeOidAsync(
                     request.EntraOid, request.Email, request.Nombre,
                     request.EmpresaId, cancellationToken);
-                await audit.WriteAsync("acceso", response.Usuario.Id,
-                    response.Empresas.FirstOrDefault(e => e.EsLaActual)?.Id,
-                    "FakeForLocalDev", null, http.Connection.RemoteIpAddress, cancellationToken);
+                // Igual que /api/auth/sesion: el login exitoso no se audita.
                 return Results.Ok(response);
             }
             catch (ForbiddenException ex)
