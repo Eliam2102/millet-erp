@@ -25,6 +25,8 @@ public sealed class AuditSnapshotTests
         public bool EsActivo { get; set; } = true;
         public string? Email { get; set; }
         public string? Password { get; set; }
+        public string? Clabe { get; set; }
+        public string? ApiKey { get; set; }
 
         public FakeAuditableEntity() : base(Guid.CreateVersion7()) { }
 
@@ -229,5 +231,42 @@ public sealed class AuditSnapshotTests
 
         // No debe agregarse ninguna fila en audit_log
         db.AuditLog.Count().Should().Be(1, "modificar solo campos tecnicos no genera evento de auditoria");
+    }
+
+    [Fact]
+    public async Task CrearYModificar_DatosSensibles_RegistraAccionSinExponerValores()
+    {
+        var user = new FakeUserContext(Guid.NewGuid(), "Admin");
+        await using var db = NewContext(user, new FakeEmpresaContext(false), new AuditOriginContext());
+        var entidad = new FakeAuditableEntity
+        {
+            Clave = "PROV-1",
+            Clabe = "012345678901234567",
+            ApiKey = "secreto-inicial"
+        };
+
+        db.Entidades.Add(entidad);
+        await db.SaveChangesAsync();
+
+        entidad.Clabe = "987654321098765432";
+        entidad.ApiKey = "secreto-nuevo";
+        await db.SaveChangesAsync();
+
+        var logs = await db.AuditLog.OrderBy(l => l.Timestamp).ToListAsync();
+        logs.Should().HaveCount(2);
+        foreach (var log in logs)
+        {
+            log.Cambios.Should().NotContain("012345678901234567").And.NotContain("987654321098765432");
+            log.Cambios.Should().NotContain("secreto-inicial").And.NotContain("secreto-nuevo");
+            log.Resumen.Should().NotContain("012345678901234567").And.NotContain("987654321098765432");
+            log.Resumen.Should().NotContain("secreto-inicial").And.NotContain("secreto-nuevo");
+        }
+
+        using var created = JsonDocument.Parse(logs[0].Cambios);
+        created.RootElement.GetProperty("snapshot").GetProperty("Clabe").GetString()
+            .Should().Be("[PROTEGIDO]");
+        using var updated = JsonDocument.Parse(logs[1].Cambios);
+        updated.RootElement.GetProperty("diff").GetProperty("Clabe").GetProperty("despues").GetString()
+            .Should().Be("[PROTEGIDO]");
     }
 }

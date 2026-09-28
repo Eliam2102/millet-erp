@@ -562,25 +562,28 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             var coreDb = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Infrastructure.Persistence.CoreDbContext>();
 
             var accesoLog = await coreDb.AuditLog
-                .Where(a => a.Operacion == "acceso" && a.Entidad == "Usuario")
+                .Where(a => a.Operacion == "acceso" && a.Entidad == "Sesion")
                 .OrderByDescending(a => a.Timestamp)
                 .FirstOrDefaultAsync();
 
             accesoLog.Should().NotBeNull();
             accesoLog!.ActorTipo.Should().Be("usuario");
             accesoLog.ActorNombre.Should().NotBeNullOrWhiteSpace();
-            accesoLog.Resumen.Should().Be("Inició sesión");
-            accesoLog.EntidadEtiqueta.Should().Contain("superadmin@dev.local");
+            accesoLog.Resumen.Should().Be("Inicio de sesión");
+            accesoLog.EntidadEtiqueta.Should().Be("Sesión de usuario");
+            accesoLog.ActorEmail.Should().BeNull();
 
             var denegadoLog = await coreDb.AuditLog
-                .Where(a => a.Operacion == "acceso-denegado" && a.Entidad == "Usuario")
+                .Where(a => a.Operacion == "acceso_denegado" && a.Entidad == "Sesion")
                 .OrderByDescending(a => a.Timestamp)
                 .FirstOrDefaultAsync();
 
             denegadoLog.Should().NotBeNull();
             denegadoLog!.ActorTipo.Should().Be("usuario");
-            denegadoLog.Resumen.Should().Be("Acceso denegado: USUARIO_INACTIVO");
-            denegadoLog.ActorEmail.Should().Be(inactiveEmail);
+            denegadoLog.Resumen.Should().Be("Acceso denegado (USUARIO_INACTIVO)");
+            denegadoLog.ActorEmail.Should().BeNull();
+            denegadoLog.Cambios.Should().Contain("USUARIO_INACTIVO");
+            denegadoLog.Cambios.Should().NotContain(inactiveEmail);
         }
     }
 

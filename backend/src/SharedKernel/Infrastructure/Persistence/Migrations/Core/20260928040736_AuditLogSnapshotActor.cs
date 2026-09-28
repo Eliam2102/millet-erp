@@ -65,17 +65,18 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                 DO $backfill$
                 BEGIN
                     IF EXISTS (
-                        SELECT 1 FROM information_schema.tables 
+                        SELECT 1 FROM information_schema.tables
                         WHERE table_schema = 'identidad' AND table_name = 'usuarios'
                     ) THEN
-                        EXECUTE '
+                        EXECUTE $update_actor$
                             UPDATE core.audit_log a
                             SET
-                                actor_tipo = usuario,
-                                actor_nombre = COALESCE(u.nombre, Usuario  || SUBSTRING(a.usuario_id::text FROM 1 FOR 8)),
+                                actor_tipo = 'usuario',
+                                actor_nombre = COALESCE(u.nombre, 'Usuario ' || SUBSTRING(a.usuario_id::text FROM 1 FOR 8)),
                                 actor_email = u.email
                             FROM identidad.usuarios u
-                            WHERE u.id = a.usuario_id';
+                            WHERE u.id = a.usuario_id
+                        $update_actor$;
                     END IF;
                 END $backfill$;
 

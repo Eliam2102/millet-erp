@@ -208,6 +208,26 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         !SensitiveProperties.Contains(p.Metadata.Name) &&
         !TechnicalProperties.Contains(p.Metadata.Name);
 
+    // La auditoría conserva que cambió un dato sensible, pero nunca copia su
+    // valor al snapshot, diff, texto legible ni resumen. "Clave" por sí sola
+    // es una clave de catálogo y no debe confundirse con una clave privada.
+    private static readonly string[] ProtectedPropertyNameParts =
+    [
+        "Clabe", "NumeroCuenta", "CuentaBancaria", "NumeroTarjeta",
+        "TarjetaNumero", "ApiKey", "Token", "Secret", "Certificado",
+        "PrivateKey", "ClavePrivada", "LlavePrivada", "Csd", "Pfx"
+    ];
+
+    private static bool IsProtectedProperty(PropertyEntry p)
+    {
+        var name = p.Metadata.Name;
+        return ProtectedPropertyNameParts.Any(part =>
+            name.Contains(part, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static object? SafeValue(PropertyEntry p, object? value) =>
+        IsProtectedProperty(p) && value is not null ? "[PROTEGIDO]" : value;
+
     private static string ResolveEntidadEtiqueta(EntityEntry entry, Guid? entityId)
     {
         string? GetPropValue(string propName)
@@ -294,6 +314,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     private static string? FormatValueText(PropertyEntry p, object? value, EntityEntry entry)
     {
         if (value is null) return null;
+        if (IsProtectedProperty(p)) return "[PROTEGIDO]";
 
         var clrType = p.Metadata.ClrType;
         var underlying = Nullable.GetUnderlyingType(clrType) ?? clrType;
@@ -341,7 +362,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 var snapshotTexto = new Dictionary<string, string>();
                 foreach (var p in entry.Properties.Where(IsAuditableProperty))
                 {
-                    snapshot[p.Metadata.Name] = p.CurrentValue;
+                    snapshot[p.Metadata.Name] = SafeValue(p, p.CurrentValue);
                     var text = FormatValueText(p, p.CurrentValue, entry);
                     if (text is not null)
                     {
@@ -364,12 +385,13 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     var antesTexto = FormatValueText(p, p.OriginalValue, entry);
                     var despuesTexto = FormatValueText(p, p.CurrentValue, entry);
 
-                    changedProps.Add((p.Metadata.Name, antesTexto, despuesTexto, p.OriginalValue, p.CurrentValue));
+                    changedProps.Add((p.Metadata.Name, antesTexto, despuesTexto,
+                        SafeValue(p, p.OriginalValue), SafeValue(p, p.CurrentValue)));
 
                     var item = new Dictionary<string, object?>
                     {
-                        ["antes"] = p.OriginalValue,
-                        ["despues"] = p.CurrentValue
+                        ["antes"] = SafeValue(p, p.OriginalValue),
+                        ["despues"] = SafeValue(p, p.CurrentValue)
                     };
 
                     if (antesTexto is not null) item["antesTexto"] = antesTexto;
@@ -387,7 +409,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 var snapshotTexto = new Dictionary<string, string>();
                 foreach (var p in entry.Properties.Where(IsAuditableProperty))
                 {
-                    snapshotPreBorrado[p.Metadata.Name] = p.OriginalValue;
+                    snapshotPreBorrado[p.Metadata.Name] = SafeValue(p, p.OriginalValue);
                     var text = FormatValueText(p, p.OriginalValue, entry);
                     if (text is not null)
                     {

@@ -67,8 +67,6 @@ projects=(
 # se reenvían tal cual a cada `dotnet test`. Con VSTest 17.x, un proyecto sin
 # coincidencias para el filtro termina en 0 ("Ninguna prueba coincide con el
 # filtro..."), así que no hace falta lógica especial para no tumbar el script.
-extra_test_args=("$@")
-
 cd "$backend_dir"
 "$dotnet_bin" tool restore
 "$dotnet_bin" restore Millet.sln
@@ -92,11 +90,18 @@ done < "$contexts_file"
 
 for project in "${projects[@]}"; do
   echo "Probando $(basename "$(dirname "$project")")"
-  "$dotnet_bin" test "$project" \
-    --configuration Debug \
-    --no-build \
-    --no-restore \
-    "${extra_test_args[@]}"
+  if [[ "$#" -gt 0 ]]; then
+    "$dotnet_bin" test "$project" \
+      --configuration Debug \
+      --no-build \
+      --no-restore \
+      "$@"
+  else
+    "$dotnet_bin" test "$project" \
+      --configuration Debug \
+      --no-build \
+      --no-restore
+  fi
 done
 
 echo "Gate de integración aprobado: las tres suites terminaron correctamente (ver conteos arriba)."
