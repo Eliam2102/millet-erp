@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DepartamentoSelector, PuestoSelector } from '@/components/erp';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -14,6 +15,7 @@ import {
   useDarAccesoColaborador,
   useValidarCorreoCorporativo,
 } from '@/modules/administracion/api/empleados';
+import { usePuestosDeSucursal } from '@/modules/administracion/api/sucursal-puestos';
 import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/components/EmpleadoInlineForm';
 import { useRoles } from '@/modules/identidad/api/roles';
 import { useReactivarUsuario } from '@/modules/identidad/api/usuarios';
@@ -24,16 +26,31 @@ interface Props {
   email: string | null;
   emailContacto?: string | null;
   empleadoActivo: boolean;
+  sucursalId?: string | null;
+  departamentoId?: string | null;
+  puestoId?: string | null;
 }
 
 const ESTADOS = ['Acceso activo', 'Pendiente de primer acceso', 'Creando cuenta Microsoft', 'Error de provisión'];
 
-export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContacto, empleadoActivo }: Props) {
+export function EmpleadoAccesoPanel({
+  empleadoId,
+  usuarioId,
+  email,
+  emailContacto,
+  empleadoActivo,
+  sucursalId,
+  departamentoId: initialDepartamentoId,
+  puestoId: initialPuestoId,
+}: Props) {
   const queryClient = useQueryClient();
   const puedeCrear = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
   const puedeAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const puedeEditar = useHasPermission(PermisosCanonicos.IdentidadUsuariosEditar);
   const [tipo, setTipo] = useState<1 | 2>(1);
+
+  const [departamentoId, setDepartamentoId] = useState(() => initialDepartamentoId ?? '');
+  const [puestoId, setPuestoId] = useState(() => initialPuestoId ?? '');
 
   const emailInicial = email ?? '';
   const [emailPrefix, setEmailPrefix] = useState(() => {
@@ -69,6 +86,15 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContact
     }
   }, [email, emailContacto]);
 
+  useEffect(() => {
+    if (initialDepartamentoId !== undefined) {
+      setDepartamentoId(initialDepartamentoId ?? '');
+    }
+    if (initialPuestoId !== undefined) {
+      setPuestoId(initialPuestoId ?? '');
+    }
+  }, [initialDepartamentoId, initialPuestoId]);
+
   const activeDomain = DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0];
   const correoFinal = emailPrefix.trim() ? `${emailPrefix.trim()}@${activeDomain}` : '';
 
@@ -82,6 +108,18 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContact
   }, [correoFinal]);
 
   const roles = useRoles({ soloActivos: true, limit: 200 }, usuarioId == null && puedeCrear && puedeAsignar);
+  const puestosDeSucursal = usePuestosDeSucursal(
+    sucursalId || null,
+    departamentoId || null,
+  );
+  const rolSugerido = puestosDeSucursal.data?.items.find((p) => p.puestoId === puestoId)?.rolSugeridoEfectivoId;
+
+  useEffect(() => {
+    if (rolSugerido && !rolId) {
+      setRolId(rolSugerido);
+    }
+  }, [rolSugerido, rolId]);
+
   const acceso = useAccesoColaborador(usuarioId ? empleadoId : null);
   const dar = useDarAccesoColaborador();
   const reintentar = useAccionAccesoColaborador('reintentar');
@@ -117,6 +155,10 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContact
 
   function error(err: Error) {
     if (esApiError(err)) {
+      if (err.code === 'COLABORADOR_ESTRUCTURA_INCOMPLETA') {
+        toast.error('Asigna departamento y puesto antes de dar acceso.');
+        return;
+      }
       if (err.code === 'ENTRA_DOMINIO_NO_PERMITIDO') {
         toast.error(`El dominio del correo no está permitido. Dominios permitidos: ${DOMINIOS_CORPORATIVOS.join(', ')}`);
         return;
@@ -163,6 +205,10 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContact
         onSubmit={(event) => {
           event.preventDefault();
           const correo = correoFinal;
+          if (!departamentoId || !puestoId) {
+            toast.error('Selecciona el departamento y puesto del colaborador.');
+            return;
+          }
           if (!emailPrefix.trim() || !rolId || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) {
             toast.error('Indica correo corporativo y rol válidos.');
             return;
@@ -217,6 +263,8 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContact
             correoCorporativo: correo,
             emailContacto: tipo === 2 ? contacto.trim() : null,
             rolId,
+            departamentoId,
+            puestoId,
             idempotencyKey: crypto.randomUUID(),
           }, {
             onSuccess: () => {
@@ -231,6 +279,7 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContact
         }}
       >
         <div className="md:col-span-2 text-sm font-medium">Dar acceso al ERP</div>
+
         <label className="text-xs">Modo de acceso
           <select
             className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm"
@@ -241,19 +290,77 @@ export function EmpleadoAccesoPanel({ empleadoId, usuarioId, email, emailContact
             <option value={2}>Crear cuenta Microsoft</option>
           </select>
         </label>
+
         <label className="text-xs">Rol en la empresa
           <select
+            aria-label="Rol en la empresa"
             className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm"
             value={rolId}
             onChange={(e) => setRolId(e.target.value)}
             required
           >
             <option value="">Selecciona un rol</option>
-            {(roles.data?.items ?? []).filter((r) => r.activo).map((r) => (
-              <option key={r.id} value={r.id}>{r.nombre}</option>
-            ))}
+            {(() => {
+              const todosRoles = (roles.data?.items ?? []).filter((r) => r.activo);
+              const sugerido = todosRoles.find((r) => r.id === rolSugerido);
+              const otros = todosRoles.filter((r) => r.id !== rolSugerido);
+              return (
+                <>
+                  {sugerido && (
+                    <optgroup label="Sugerido para el puesto">
+                      <option value={sugerido.id}>{sugerido.nombre} (Recomendado)</option>
+                    </optgroup>
+                  )}
+                  <optgroup label={sugerido ? "Otros roles disponibles" : "Roles disponibles"}>
+                    {otros.map((r) => (
+                      <option key={r.id} value={r.id}>{r.nombre}</option>
+                    ))}
+                  </optgroup>
+                </>
+              );
+            })()}
           </select>
         </label>
+
+        <div className="md:col-span-1">
+          <label className="text-xs font-medium">Departamento</label>
+          <div className="mt-1">
+            <DepartamentoSelector
+              value={departamentoId || null}
+              onChange={(id) => {
+                const nuevo = id ?? '';
+                if (nuevo !== departamentoId) {
+                  setDepartamentoId(nuevo);
+                  setPuestoId('');
+                }
+              }}
+              sucursalId={sucursalId || undefined}
+              className="w-full"
+            />
+          </div>
+        </div>
+
+        <div className="md:col-span-1">
+          <label className="text-xs font-medium">Puesto</label>
+          <div className="mt-1">
+            <PuestoSelector
+              value={puestoId || null}
+              onChange={(id) => {
+                const nuevo = id ?? '';
+                setPuestoId(nuevo);
+                if (nuevo) {
+                  const sugerido = puestosDeSucursal.data?.items.find((p) => p.puestoId === nuevo)?.rolSugeridoEfectivoId;
+                  if (sugerido) {
+                    setRolId(sugerido);
+                  }
+                }
+              }}
+              sucursalId={sucursalId || undefined}
+              departamentoId={departamentoId || undefined}
+              className="w-full"
+            />
+          </div>
+        </div>
 
         <div className="md:col-span-2">
           <label className="text-xs font-medium">Correo corporativo</label>

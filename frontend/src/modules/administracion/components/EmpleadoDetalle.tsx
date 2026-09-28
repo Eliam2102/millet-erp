@@ -129,7 +129,8 @@ export function EmpleadoDetalle() {
 
     {tab === 'acceso' && <section role="tabpanel" className="space-y-4">
       <EmpleadoAccesoPanel empleadoId={empleado.id} usuarioId={empleado.usuarioId}
-        email={empleado.email} emailContacto={empleado.emailContacto} empleadoActivo={empleado.estatus === EstatusCatalogo.Activo} />
+        email={empleado.email} emailContacto={empleado.emailContacto} empleadoActivo={empleado.estatus === EstatusCatalogo.Activo}
+        sucursalId={empleado.sucursalId} departamentoId={empleado.departamentoId} puestoId={empleado.puestoId} />
       {empleado.usuarioId && puedeLeerUsuarios && <>
         {usuario.isLoading ? <TableSkeleton rows={3} /> : usuario.isError ?
           <ErrorState title="No se pudieron consultar los roles" onRetry={() => usuario.refetch()} /> :

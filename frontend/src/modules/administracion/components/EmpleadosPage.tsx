@@ -1022,6 +1022,9 @@ export function EmpleadosPage() {
                         email={e.email}
                         emailContacto={e.emailContacto}
                         empleadoActivo={activo}
+                        sucursalId={e.sucursalId}
+                        departamentoId={e.departamentoId}
+                        puestoId={e.puestoId}
                       />
                     </div>
                   )}

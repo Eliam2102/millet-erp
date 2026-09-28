@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -19,16 +19,46 @@ describe('<EmpleadoAccesoPanel>', () => {
         'identidad.usuarios.crear',
         'identidad.asignaciones.administrar',
         'identidad.usuarios.editar',
+        'compartido.catalogos.leer',
       ],
       errorMessage: null,
     });
 
     mswServer.use(
-      http.get('*/api/v1/identidad/roles', () =>
+      http.get('*/api/v1/identidad/roles*', () =>
         HttpResponse.json({
           items: [
             { id: 'rol-1', nombre: 'Vendedor', activo: true },
             { id: 'rol-2', nombre: 'Administrador', activo: true },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/catalogos/departamentos*', () =>
+        HttpResponse.json({
+          items: [
+            { id: 'd-1', nombre: 'Ventas', activo: true },
+            { id: 'd-2', nombre: 'Almacén', activo: true },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/admin/empresas/sucursales/*/departamentos*', () =>
+        HttpResponse.json({
+          items: [
+            { id: 'd-1', departamentoId: 'd-1', departamentoNombre: 'Ventas', activo: true },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/catalogos/puestos*', () =>
+        HttpResponse.json({
+          items: [
+            { id: 'p-1', nombre: 'Ejecutivo de Ventas', activo: true },
+          ],
+        }),
+      ),
+      http.get('*/api/v1/admin/empresas/sucursales/*/puestos*', () =>
+        HttpResponse.json({
+          items: [
+            { puestoId: 'p-1', puestoNombre: 'Ejecutivo de Ventas', rolSugeridoEfectivoId: 'rol-1' },
           ],
         }),
       ),
@@ -56,6 +86,9 @@ describe('<EmpleadoAccesoPanel>', () => {
         email="juana.perez@millet.mx"
         emailContacto="juana.personal@gmail.com"
         empleadoActivo={true}
+        sucursalId="s-1"
+        departamentoId="d-1"
+        puestoId="p-1"
       />,
       { wrapper: createQueryWrapper() },
     );
@@ -76,6 +109,9 @@ describe('<EmpleadoAccesoPanel>', () => {
         usuarioId={null}
         email={null}
         empleadoActivo={true}
+        sucursalId="s-1"
+        departamentoId="d-1"
+        puestoId="p-1"
       />,
       { wrapper: createQueryWrapper() },
     );
@@ -114,6 +150,9 @@ describe('<EmpleadoAccesoPanel>', () => {
         usuarioId={null}
         email="roberto@millet.mx"
         empleadoActivo={true}
+        sucursalId="s-1"
+        departamentoId="d-1"
+        puestoId="p-1"
       />,
       { wrapper: createQueryWrapper() },
     );
@@ -146,6 +185,9 @@ describe('<EmpleadoAccesoPanel>', () => {
         usuarioId={null}
         email="roberto@millet.mx"
         empleadoActivo={true}
+        sucursalId="s-1"
+        departamentoId="d-1"
+        puestoId="p-1"
       />,
       { wrapper: createQueryWrapper() },
     );
@@ -177,6 +219,9 @@ describe('<EmpleadoAccesoPanel>', () => {
         usuarioId={null}
         email="nuevo.usuario@millet.mx"
         empleadoActivo={true}
+        sucursalId="s-1"
+        departamentoId="d-1"
+        puestoId="p-1"
       />,
       { wrapper: createQueryWrapper() },
     );
@@ -187,5 +232,22 @@ describe('<EmpleadoAccesoPanel>', () => {
     expect(
       await screen.findByText(/correo disponible para provisión de nueva cuenta/i),
     ).toBeInTheDocument();
+  });
+
+  it('precarga departamento y puesto iniciales y sugiere rol efectivo del puesto', async () => {
+    render(
+      <EmpleadoAccesoPanel
+        empleadoId="emp-1"
+        usuarioId={null}
+        email="juana.perez@millet.mx"
+        empleadoActivo={true}
+        sucursalId="s-1"
+        departamentoId="d-1"
+        puestoId="p-1"
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    expect(await screen.findByText(/vendedor \(recomendado\)/i)).toBeInTheDocument();
   });
 });
