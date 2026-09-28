@@ -76,6 +76,8 @@ export function EmpleadoDetalle() {
     {tab === 'datos' && <section role="tabpanel" className="space-y-3">
       <p className="text-sm">Sucursal base: {sucursalBase?.nombre ?? 'Sin asignar'}</p>
       <p className="text-sm">Correo: {empleado.email ?? 'Sin registrar'}</p>
+      <p className="text-sm">Código de nómina: <span className="font-mono">{empleado.codigoNomina || 'Sin registrar'}</span></p>
+      <p className="text-sm">Correo personal de contacto: {empleado.emailContacto || 'Sin registrar'}</p>
       {editando ? <EmpleadoInlineForm empleado={empleado} onCancel={() => setEditando(false)} onSaved={() => setEditando(false)} />
         : <Button size="sm" variant="outline" onClick={() => setEditando(true)}>Editar datos y transferir sucursal base</Button>}
     </section>}
