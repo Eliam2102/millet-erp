@@ -24,19 +24,25 @@ Arquitectura y decisiones técnicas: [../docs/arquitectura.md](../docs/arquitect
 ## Variables de entorno
 
 Vite carga automáticamente `.env.development` (con `npm run dev`) y
-`.env.production` (con `npm run build`). Para overrides personales, copia
-`.env.local.example` a `.env.local` (gitignored).
+`.env.production` (con `npm run build`). Para el desarrollo compartido,
+copia `.env.local.example` a `.env.development.local` (ignorado por Git),
+completa los campos y reinicia Vite. No edites `.env.development` con IDs
+personales: es un archivo versionado.
 
 | Variable | Dev local | Producción |
 |---|---|---|
-| `VITE_AUTH_MODE` | `FakeForLocalDev` | `EntraId` |
+| `VITE_AUTH_MODE` | `EntraId` | `EntraId` |
 | `VITE_API_BASE_URL` | `http://localhost:5000` | URL del App Service |
-| `VITE_ENTRA_TENANT_ID` | (vacío) | desde Key Vault vía workflow |
-| `VITE_ENTRA_CLIENT_ID` | (vacío) | desde Key Vault vía workflow |
-| `VITE_API_AUDIENCE` | (vacío) | `api://<api-client-id>/access_as_user` |
+| `VITE_ENTRA_TENANT_ID` | Tenant de desarrollo autorizado, en `.env.development.local` | Configuración del despliegue |
+| `VITE_ENTRA_CLIENT_ID` | ID de la aplicación SPA, en `.env.development.local` | Configuración del despliegue |
+| `VITE_API_AUDIENCE` | Scope expuesto por el API, normalmente `api://<api-client-id>/access_as_user` | Configuración del despliegue |
 
-En modo `FakeForLocalDev` las variables de Entra están vacías a propósito, pero
-deben estar declaradas para que TypeScript no se queje (`vite-env.d.ts`).
+En el archivo compartido los campos de Entra están vacíos a propósito. La
+aplicación necesita los valores locales completos para entrar con Microsoft.
+`VITE_ENTRA_DOMAIN` no es consumida por el frontend actual. Las variables
+`VITE_` se incluyen en el bundle del navegador; no son lugar para contraseñas
+ni client secrets. `FakeForLocalDev` sólo se activa explícitamente para una
+prueba aislada y también debe configurarse en el backend.
 
 ---
 

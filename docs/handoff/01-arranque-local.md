@@ -132,7 +132,11 @@ cd frontend
 npm run dev
 ```
 
-Abrir `http://localhost:5173`. En desarrollo local se usa el selector de usuario fake; esto no valida Entra ID real.
+Abrir `http://localhost:5173`. El modo compartido es `EntraId`: antes de
+iniciar, completa las plantillas personales y cárgalas como explica el
+[README principal](../../README.md#configuración-personal-antes-de-iniciar-sesión).
+El selector de usuario simulado sólo aparece cuando frontend y backend se
+configuran explícitamente en `FakeForLocalDev`; esa prueba no valida Entra.
 
 El puerto `5173` no es intercambiable en el arranque estándar: la política CORS de desarrollo permite `http://localhost:5173`. Si se usa otro puerto, la pantalla puede abrir pero el login devolverá `Failed to fetch` hasta que el origen se configure explícitamente en la API.
 
