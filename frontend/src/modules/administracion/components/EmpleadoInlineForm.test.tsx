@@ -471,5 +471,77 @@ describe('<EmpleadoInlineForm> — rol sugerido por el puesto (B4)', () => {
     expect(await screen.findByText(/paso 1 de 4/i)).toBeInTheDocument();
     expect(await screen.findByText(/ya existe un empleado con esa clave en la empresa/i)).toBeInTheDocument();
   });
+
+  it('en modo editar precarga codigoNomina y emailContacto correctamente', async () => {
+    const empleado = {
+      id: 'e-123',
+      empresaId: 'emp-1',
+      clave: 'EMP-055',
+      nombre: 'Rodrigo Sánchez',
+      email: 'rodrigo@millet.mx',
+      puestoId: 'p-1',
+      jefeDirectoId: null,
+      sucursalId: 's-1',
+      departamentoId: 'd-1',
+      usuarioId: 'u-1',
+      estatus: 0,
+      codigoNomina: 'A4567',
+      emailContacto: 'rodrigo.contacto@gmail.com',
+    };
+
+    render(
+      <EmpleadoInlineForm empleado={empleado} onCancel={vi.fn()} />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    expect(screen.getByDisplayValue('A4567')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('rodrigo.contacto@gmail.com')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('rodrigo@millet.mx')).toBeInTheDocument();
+  });
+
+  it('en modo editar muestra feedback cuando se cambia el correo corporativo', async () => {
+    mswServer.use(
+      http.get('*/api/v1/identidad/directorio-entra/validar-correo*', () =>
+        HttpResponse.json({
+          correo: 'rodrigo.nuevo@millet.mx',
+          dominioPermitido: true,
+          cuentaEntra: null,
+          usuarioErp: null,
+          empleadoVinculado: null,
+          puedeVincularCuentaExistente: false,
+          puedeCrearCuentaNueva: true,
+          motivoBloqueo: null,
+        }),
+      ),
+    );
+
+    const empleado = {
+      id: 'e-123',
+      empresaId: 'emp-1',
+      clave: 'EMP-055',
+      nombre: 'Rodrigo Sánchez',
+      email: 'rodrigo@millet.mx',
+      puestoId: 'p-1',
+      jefeDirectoId: null,
+      sucursalId: 's-1',
+      departamentoId: 'd-1',
+      usuarioId: 'u-1',
+      estatus: 0,
+      codigoNomina: 'A4567',
+      emailContacto: 'rodrigo.contacto@gmail.com',
+    };
+
+    render(
+      <EmpleadoInlineForm empleado={empleado} onCancel={vi.fn()} />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    const emailInput = screen.getByDisplayValue('rodrigo@millet.mx');
+    fireEvent.change(emailInput, { target: { value: 'rodrigo.nuevo@millet.mx' } });
+
+    expect(
+      await screen.findByText(/no se encontró una cuenta en microsoft entra id/i),
+    ).toBeInTheDocument();
+  });
 });
 

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { PowerOff, RotateCcw } from 'lucide-react';
+import { PowerOff, RotateCcw, Unlink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +25,8 @@ interface FilaAsignacionSucursalProps {
   descripcionConfirmacion: ReactNode;
   desactivando: boolean;
   reactivando: boolean;
+  textoBotonDesactivar?: string;
+  textoAccionConfirmar?: string;
   /** Recibe `cerrar` para cerrar el diálogo al terminar la mutación. */
   onConfirmarDesactivar: (cerrar: () => void) => void;
   onReactivar: () => void;
@@ -33,7 +35,7 @@ interface FilaAsignacionSucursalProps {
 
 /**
  * Fila de una asignación a sucursal (usuario, departamento o puesto) con
- * badge de estatus y acciones desactivar/reactivar. El contenido descriptivo
+ * badge de estatus y acciones desactivar/reactivar/desvincular. El contenido descriptivo
  * de la fila llega como `children`.
  */
 export function FilaAsignacionSucursal({
@@ -45,6 +47,8 @@ export function FilaAsignacionSucursal({
   descripcionConfirmacion,
   desactivando,
   reactivando,
+  textoBotonDesactivar = 'Desactivar',
+  textoAccionConfirmar = 'Desactivar',
   onConfirmarDesactivar,
   onReactivar,
   children,
@@ -79,10 +83,15 @@ export function FilaAsignacionSucursal({
             size="sm"
             disabled={pending}
             onClick={() => setConfirmDesactivar(true)}
-            aria-label={`Desactivar ${etiquetaAccesible}`}
+            aria-label={`${textoBotonDesactivar} ${etiquetaAccesible}`}
             className="text-muted-foreground hover:text-destructive"
           >
-            <PowerOff className="h-4 w-4 mr-1" /> Desactivar
+            {textoBotonDesactivar === 'Desvincular' ? (
+              <Unlink className="h-4 w-4 mr-1" />
+            ) : (
+              <PowerOff className="h-4 w-4 mr-1" />
+            )}
+            {textoBotonDesactivar}
           </Button>
         )}
         {canGestionar && inactiva && (
@@ -115,7 +124,7 @@ export function FilaAsignacionSucursal({
               onClick={() => onConfirmarDesactivar(() => setConfirmDesactivar(false))}
               disabled={desactivando}
             >
-              {desactivando ? 'Desactivando…' : 'Desactivar'}
+              {desactivando ? `${textoAccionConfirmar}…` : textoAccionConfirmar}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

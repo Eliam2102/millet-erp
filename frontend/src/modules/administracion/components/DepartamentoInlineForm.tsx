@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import {
   applyServerErrors,
   esApiError,
-  useFormIdempotencyKey,
+  useBodyScopedIdempotencyKey,
 } from '@/lib/api';
 import {
   DepartamentoSchema,
@@ -48,7 +48,7 @@ export function DepartamentoInlineForm({
   onSaved,
 }: DepartamentoInlineFormProps) {
   const esEditar = departamento != null;
-  const idempotencyKey = useFormIdempotencyKey();
+  const keyFor = useBodyScopedIdempotencyKey();
   const crear = useCrearDepartamento();
   const actualizar = useActualizarDepartamento();
 
@@ -98,7 +98,7 @@ export function DepartamentoInlineForm({
           empresaId,
           id: departamento.id,
           payload: { nombre: values.nombre },
-          idempotencyKey,
+          idempotencyKey: keyFor({ id: departamento.id, nombre: values.nombre }),
         },
         {
           onSuccess: () => {
@@ -111,7 +111,7 @@ export function DepartamentoInlineForm({
       return;
     }
     crear.mutate(
-      { empresaId, command: values, idempotencyKey },
+      { empresaId, command: values, idempotencyKey: keyFor({ empresaId, ...values }) },
       {
         onSuccess: (resp) => {
           toast.success(`Departamento ${resp.clave} agregado`);

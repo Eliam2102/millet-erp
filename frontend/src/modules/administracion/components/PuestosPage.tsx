@@ -23,7 +23,7 @@ import {
 import type { PuestoListItem } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { PuestoInlineForm } from '@/modules/administracion/components/PuestoInlineForm';
 
 /**
@@ -47,7 +47,6 @@ export function PuestosPage() {
   const query = usePuestosAdmin();
   const puestos = query.data ?? [];
 
-  const idempotencyKey = useFormIdempotencyKey();
   const desactivar = useDesactivarPuesto();
   const reactivar = useReactivarPuesto();
   const cambioPendiente = desactivar.isPending || reactivar.isPending;
@@ -131,6 +130,19 @@ export function PuestosPage() {
                     <div className="flex flex-1 flex-col truncate">
                       <span className="truncate text-sm font-medium">{p.nombre}</span>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        {p.departamentoNombre ? (
+                          <span>
+                            Depto:{' '}
+                            <span className="font-medium text-foreground">
+                              {p.departamentoNombre}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="italic text-muted-foreground/70">
+                            Sin depto
+                          </span>
+                        )}
+                        <span>•</span>
                         {p.rolSugeridoNombre ? (
                           <span>
                             Rol sugerido:{' '}
@@ -183,7 +195,7 @@ export function PuestosPage() {
                             disabled={cambioPendiente}
                             onClick={() =>
                               reactivar.mutate(
-                                { id: p.id, idempotencyKey },
+                                { id: p.id, idempotencyKey: crypto.randomUUID() },
                                 {
                                   onSuccess: () =>
                                     toast.success(
@@ -234,7 +246,7 @@ export function PuestosPage() {
               onClick={() => {
                 if (confirmDesactivar == null) return;
                 desactivar.mutate(
-                  { id: confirmDesactivar.id, idempotencyKey },
+                  { id: confirmDesactivar.id, idempotencyKey: crypto.randomUUID() },
                   {
                     onSuccess: () => {
                       toast.success(

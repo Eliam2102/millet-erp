@@ -348,11 +348,13 @@ function AsignacionDepartamentoRow({
       estatus={item.estatus}
       canGestionar={canGestionar}
       etiquetaAccesible={`asignación ${etiquetaAsignacion}`}
-      tituloConfirmacion="Desactivar asignación"
+      tituloConfirmacion="Desvincular puesto del departamento"
+      textoBotonDesactivar="Desvincular"
+      textoAccionConfirmar="Desvincular"
       descripcionConfirmacion={
         <>
-          ¿Confirmas desactivar{' '}
-          <span className="font-mono font-semibold">{item.puestoClave}</span> en{' '}
+          ¿Confirmas desvincular{' '}
+          <span className="font-mono font-semibold">{item.puestoClave}</span> del departamento{' '}
           <span className="font-semibold">
             {item.departamentoNombre ?? item.departamentoId}
           </span>

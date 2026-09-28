@@ -229,4 +229,39 @@ public sealed class UsuarioEstadoAccesoTests
 
         usuario.EstadoAcceso.Should().Be(EstadoAcceso.Activo);
     }
+
+    [Fact]
+    public void ActualizarCuentaEntra_Actualiza_Email_Y_EntraOid()
+    {
+        var usuario = Crear(OidReal, EstadoAcceso.PendientePrimerAcceso);
+        const string nuevoOid = "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d";
+        const string nuevoEmail = "ana.nueva@millet.mx";
+
+        usuario.ActualizarCuentaEntra(nuevoEmail, nuevoOid);
+
+        usuario.Email.Should().Be(nuevoEmail);
+        usuario.EntraOid.Should().Be(nuevoOid);
+        usuario.EstadoAcceso.Should().Be(EstadoAcceso.PendientePrimerAcceso);
+    }
+
+    [Fact]
+    public void ActualizarCuentaEntra_Rechaza_Oid_Invalido()
+    {
+        var usuario = Crear(OidReal);
+
+        var act = () => usuario.ActualizarCuentaEntra("ana.nueva@millet.mx", "pending:ana.nueva@millet.mx");
+
+        act.Should().Throw<BusinessRuleException>()
+            .Which.Code.Should().Be("USUARIO_OID_INVALIDO");
+    }
+
+    [Fact]
+    public void ActualizarCuentaEntra_Rechaza_Email_Vacio()
+    {
+        var usuario = Crear(OidReal);
+
+        var act = () => usuario.ActualizarCuentaEntra("   ", OidReal);
+
+        act.Should().Throw<ArgumentException>();
+    }
 }
