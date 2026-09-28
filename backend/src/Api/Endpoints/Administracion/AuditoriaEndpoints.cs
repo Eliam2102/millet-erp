@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Auditoria;
 using Millet.Api.Auth;
 using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace Millet.Api.Endpoints.Administracion;
 
@@ -30,9 +32,11 @@ public static class AuditoriaEndpoints
             [FromQuery] Guid? usuarioId,
             [FromQuery] Guid? empresaId,
             [FromQuery] Guid? sucursalId,
+            [FromQuery] string? zonaHoraria,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
+            IdentidadDbContext identidadDb,
             CancellationToken cancellationToken) =>
         {
             // Required params: si faltan, retornar 400 ProblemDetails antes
@@ -56,10 +60,22 @@ public static class AuditoriaEndpoints
                 EmpresaId: empresaId,
                 SucursalId: sucursalId,
                 Offset: offset ?? 0,
-                Limit: limit ?? 50);
+                Limit: limit ?? 50,
+                ZonaHoraria: zonaHoraria);
 
             var response = await mediator.Send(query, cancellationToken);
-            return Results.Ok(response);
+            var ids = response.Items.Where(i => i.UsuarioId.HasValue)
+                .Select(i => i.UsuarioId!.Value).Distinct().ToArray();
+            if (ids.Length == 0) return Results.Ok(response);
+            var nombres = await identidadDb.Usuarios.AsNoTracking()
+                .Where(u => ids.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Nombre, cancellationToken);
+            return Results.Ok(response with
+            {
+                Items = response.Items.Select(i => i.UsuarioId is Guid id &&
+                    nombres.TryGetValue(id, out var nombre)
+                    ? i with { UsuarioNombre = nombre } : i).ToList()
+            });
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminAuditoriaLeer)
         .WithTags("Administracion")

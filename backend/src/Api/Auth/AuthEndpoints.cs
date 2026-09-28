@@ -5,6 +5,7 @@ using Millet.Catalogos.Domain;
 using Millet.Api.Auth.Models;
 using Millet.Identidad.Application;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Auth;
 
@@ -30,14 +31,31 @@ public static class AuthEndpoints
         group.MapPost("/sesion", async (
             [FromBody] LoginRequest request,
             LoginOrchestrator orchestrator,
+            AuthAccessAuditWriter audit,
+            HttpContext http,
             CancellationToken cancellationToken) =>
         {
-            var response = await orchestrator.LoginWithEntraTokenAsync(
-                request.EntraToken,
-                request.EmpresaId,
-                cancellationToken);
-
-            return Results.Ok(response);
+            try
+            {
+                var response = await orchestrator.LoginWithEntraTokenAsync(
+                    request.EntraToken, request.EmpresaId, cancellationToken);
+                await audit.WriteAsync("acceso", response.Usuario.Id,
+                    response.Empresas.FirstOrDefault(e => e.EsLaActual)?.Id,
+                    "EntraId", null, http.Connection.RemoteIpAddress, cancellationToken);
+                return Results.Ok(response);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                await audit.WriteAsync("acceso_denegado", null, null,
+                    "EntraId", "TOKEN_INVALIDO", http.Connection.RemoteIpAddress, cancellationToken);
+                throw;
+            }
+            catch (ForbiddenException ex)
+            {
+                await audit.WriteAsync("acceso_denegado", null, null,
+                    "EntraId", ex.Code, http.Connection.RemoteIpAddress, cancellationToken);
+                throw;
+            }
         })
         .AllowAnonymous()
         .WithName("PostSesion");
@@ -46,6 +64,9 @@ public static class AuthEndpoints
             [FromBody] CambiarEmpresaRequest request,
             LoginOrchestrator orchestrator,
             ICurrentUserContext currentUser,
+            ICurrentEmpresaContext currentEmpresa,
+            AuthAccessAuditWriter audit,
+            HttpContext http,
             CancellationToken cancellationToken) =>
         {
             if (currentUser.UserId is not Guid userId)
@@ -53,12 +74,21 @@ public static class AuthEndpoints
                 return Results.Unauthorized();
             }
 
-            var response = await orchestrator.ChangeEmpresaAsync(
-                userId,
-                request.EmpresaId,
-                cancellationToken);
-
-            return Results.Ok(response);
+            try
+            {
+                var response = await orchestrator.ChangeEmpresaAsync(
+                    userId, request.EmpresaId, cancellationToken);
+                await audit.WriteAsync("cambiar_empresa", userId, request.EmpresaId,
+                    "ERP", null, http.Connection.RemoteIpAddress, cancellationToken);
+                return Results.Ok(response);
+            }
+            catch (ForbiddenException ex)
+            {
+                await audit.WriteAsync("cambiar_empresa_denegado", userId,
+                    currentEmpresa.Current, "ERP", ex.Code,
+                    http.Connection.RemoteIpAddress, cancellationToken);
+                throw;
+            }
         })
         .RequireAuthorization()
         .WithName("PostCambiarEmpresa");

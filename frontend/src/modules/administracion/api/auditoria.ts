@@ -39,6 +39,7 @@ function buildAuditoriaPath(filtros: ConsultarBitacoraFiltros): string {
   const params = new URLSearchParams();
   params.set('desde', filtros.desde);
   params.set('hasta', filtros.hasta);
+  params.set('zonaHoraria', Intl.DateTimeFormat().resolvedOptions().timeZone);
   if (filtros.modulo != null && filtros.modulo.length > 0) {
     params.set('modulo', filtros.modulo);
   }

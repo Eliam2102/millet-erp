@@ -28,7 +28,8 @@ public sealed record ConsultarBitacoraQuery(
     Guid? EmpresaId = null,
     Guid? SucursalId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<ConsultarBitacoraResponse>;
+    int Limit = 50,
+    string? ZonaHoraria = null) : IRequest<ConsultarBitacoraResponse>;
 
 public sealed class ConsultarBitacoraQueryValidator : AbstractValidator<ConsultarBitacoraQuery>
 {
@@ -44,6 +45,16 @@ public sealed class ConsultarBitacoraQueryValidator : AbstractValidator<Consulta
 
         RuleFor(x => x.Offset).GreaterThanOrEqualTo(0);
         RuleFor(x => x.Limit).InclusiveBetween(1, 200);
+        RuleFor(x => x.ZonaHoraria)
+            .Must(zona => zona is null || EsZonaHorariaValida(zona))
+            .WithMessage("La zona horaria debe ser un identificador IANA válido.");
+    }
+
+    private static bool EsZonaHorariaValida(string zona)
+    {
+        try { TimeZoneInfo.FindSystemTimeZoneById(zona); return true; }
+        catch (TimeZoneNotFoundException) { return false; }
+        catch (InvalidTimeZoneException) { return false; }
     }
 }
 
@@ -89,11 +100,14 @@ public sealed class ConsultarBitacoraHandler
         ConsultarBitacoraQuery request,
         CancellationToken cancellationToken)
     {
-        // Convertir DateOnly a DateTimeOffset UTC. La columna Timestamp en
-        // PG es timestamptz; comparamos contra el rango [Desde 00:00 UTC,
-        // (Hasta+1) 00:00 UTC) — incluye todo el día Hasta.
-        var desdeUtc = new DateTimeOffset(request.Desde.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-        var hastaUtc = new DateTimeOffset(request.Hasta.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        // Las fechas del filtro representan días locales de quien consulta.
+        // Sin zona horaria explícita se conserva el comportamiento UTC anterior.
+        var zona = request.ZonaHoraria is null
+            ? TimeZoneInfo.Utc : TimeZoneInfo.FindSystemTimeZoneById(request.ZonaHoraria);
+        var desdeUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(
+            request.Desde.ToDateTime(TimeOnly.MinValue), zona));
+        var hastaUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(
+            request.Hasta.AddDays(1).ToDateTime(TimeOnly.MinValue), zona));
 
         var query = _db.AuditLog
             .AsNoTracking()

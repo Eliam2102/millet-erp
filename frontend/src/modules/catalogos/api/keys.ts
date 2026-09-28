@@ -26,6 +26,7 @@ export const catalogosKeys = {
 
   // ─── Monedas + TiposCambio ─────────────────────────────────────
   monedas: () => [...catalogosKeys.all, 'monedas'] as const,
+  impuestos: () => [...catalogosKeys.all, 'impuestos'] as const,
   monedasList: (filtros: ListarMonedasFiltros) =>
     [...catalogosKeys.monedas(), 'list', filtros] as const,
   moneda: (id: string) => [...catalogosKeys.monedas(), 'detail', id] as const,

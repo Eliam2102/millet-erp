@@ -5,6 +5,7 @@
 export * from '@/modules/catalogos/api/types';
 export * from '@/modules/catalogos/api/keys';
 export * from '@/modules/catalogos/api/monedas';
+export * from '@/modules/catalogos/api/impuestos';
 export * from '@/modules/catalogos/api/tipos-cambio';
 export * from '@/modules/catalogos/api/condiciones-pago';
 export * from '@/modules/catalogos/api/incoterms';

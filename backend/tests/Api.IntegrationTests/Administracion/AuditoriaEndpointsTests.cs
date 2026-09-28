@@ -66,6 +66,22 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task Get_Con_Zona_Horaria_Incluye_Acceso_Del_Dia_Local()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var zona = TimeZoneInfo.FindSystemTimeZoneById("America/Merida");
+        var hoyLocal = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zona).DateTime);
+        var response = await client.GetAsync(
+            $"{EndpointBase}?desde={hoyLocal:yyyy-MM-dd}&hasta={hoyLocal:yyyy-MM-dd}&zonaHoraria=America%2FMerida&recurso=Sesion");
+
+        response.EnsureSuccessStatusCode();
+        var items = (await ReadJsonAsync(response)).GetProperty("items");
+        Assert.Contains(items.EnumerateArray(), item =>
+            item.GetProperty("entidad").GetString() == "Sesion" &&
+            item.GetProperty("operacion").GetString() == "acceso");
+    }
+
+    [Fact]
     public async Task Get_Filtra_Sucursal_Sin_Ocultar_Eventos_Globales_En_Consulta_Sin_Filtro()
     {
         var client = await CreateSuperAdminClientAsync();
@@ -106,6 +122,42 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var response = await client.GetAsync(
             $"{EndpointBase}?desde={hace30:yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Alta_Y_Cambio_De_Sucursal_Conservan_Usuario_Fecha_Y_Antes_Despues()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var clave = $"AUD-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var nombreInicial = $"Sucursal {clave}";
+        var crear = await client.PostAsJsonAsync("/api/v1/admin/empresas/sucursales", new
+        {
+            Id = Guid.Empty, Clave = clave, Nombre = nombreInicial,
+        });
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        var nombreNuevo = $"{nombreInicial} editada";
+        var editar = await client.PatchAsJsonAsync(
+            $"/api/v1/admin/empresas/sucursales/{id}", new { Nombre = nombreNuevo });
+        editar.EnsureSuccessStatusCode();
+
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var audit = await client.GetAsync(
+            $"{EndpointBase}?desde={hoy.AddDays(-1):yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}&recurso=Sucursal");
+        audit.EnsureSuccessStatusCode();
+        var items = (await ReadJsonAsync(audit)).GetProperty("items").EnumerateArray()
+            .Where(i => i.GetProperty("entidadId").ValueKind == JsonValueKind.String &&
+                i.GetProperty("entidadId").GetGuid() == id).ToList();
+        Assert.Contains(items, i => i.GetProperty("operacion").GetString() == "crear");
+        var cambio = Assert.Single(items, i => i.GetProperty("operacion").GetString() == "actualizar");
+        Assert.Equal(JsonValueKind.String, cambio.GetProperty("usuarioId").ValueKind);
+        Assert.False(string.IsNullOrWhiteSpace(cambio.GetProperty("usuarioNombre").GetString()));
+        Assert.NotEqual(default, cambio.GetProperty("timestamp").GetDateTimeOffset());
+        using var diff = JsonDocument.Parse(cambio.GetProperty("cambios").GetString()!);
+        var nombre = diff.RootElement.GetProperty("diff").GetProperty("Nombre");
+        Assert.Equal(nombreInicial, nombre.GetProperty("antes").GetString());
+        Assert.Equal(nombreNuevo, nombre.GetProperty("despues").GetString());
     }
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()

@@ -111,7 +111,12 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 Id = Guid.CreateVersion7(),
                 Timestamp = now,
                 UsuarioId = _userContext.UserId,
-                EmpresaId = _empresaContext.IsBypassed ? null : _empresaContext.Current,
+                // El bypass permite operar entre empresas, pero no convierte
+                // una entidad de una empresa en un evento global. La empresa
+                // del recurso auditado prevalece sobre el contexto del actor.
+                EmpresaId = entry.Entity is IPerteneceAEmpresa scoped
+                    ? scoped.EmpresaId
+                    : (_empresaContext.IsBypassed ? null : _empresaContext.Current),
                 Modulo = ResolveModule(entry.Entity.GetType()),
                 Entidad = entry.Entity.GetType().Name,
                 EntidadId = entityId,

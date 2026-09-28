@@ -524,13 +524,8 @@ function AuditoriaTabla({
 }
 
 /**
- * Renderiza el nombre del usuario; si el backend aún no resuelve el
- * enriquecimiento cross-schema, cae al ID truncado con tooltip nativo.
- *
- * PLATFORM-TODO(&lt;AuditUsuarioEnrich&gt;): cuando el backend popule
- * <c>UsuarioNombre</c> via JOIN/projection cross-schema, esta celda
- * dejará de mostrar el ID y el tooltip se vuelve obsoleto. Eliminar
- * el branch del fallback.
+ * Renderiza el nombre del usuario; los registros de usuarios eliminados
+ * conservan el identificador como referencia histórica.
  */
 function UsuarioCell({
   nombre,
@@ -548,7 +543,7 @@ function UsuarioCell({
   return (
     <span
       className="font-mono text-xs text-muted-foreground"
-      title="Nombre no disponible — pendiente de enriquecimiento PLATFORM-TODO(<AuditUsuarioEnrich>)"
+      title="No se encontró el nombre de este usuario"
     >
       {truncateId(usuarioId)}
     </span>
