@@ -352,15 +352,22 @@ function AsignacionDepartamentoRow({
       textoBotonDesactivar="Desvincular"
       textoAccionConfirmar="Desvincular"
       descripcionConfirmacion={
-        <>
-          ¿Confirmas desvincular{' '}
-          <span className="font-mono font-semibold">{item.puestoClave}</span> del departamento{' '}
-          <span className="font-semibold">
-            {item.departamentoNombre ?? item.departamentoId}
-          </span>
-          ? Bloquea nuevas asignaciones de empleados con esta combinación pero
-          NO afecta las existentes.
-        </>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            ¿Confirmas desvincular{' '}
+            <span className="font-mono font-semibold text-foreground">{item.puestoClave}</span> del departamento{' '}
+            <span className="font-semibold text-foreground">
+              {item.departamentoNombre ?? item.departamentoId}
+            </span>{' '}
+            en esta sucursal?
+          </p>
+          <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+            <p className="font-semibold">Información operativa:</p>
+            <p className="mt-0.5">
+              Los empleados asignados actualmente continuarán operando con normalidad. Esta acción únicamente impide que se registren nuevas altas o asignaciones con esta combinación en la sucursal.
+            </p>
+          </div>
+        </div>
       }
       desactivando={desactivar.isPending}
       reactivando={reactivar.isPending}

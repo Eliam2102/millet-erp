@@ -116,7 +116,7 @@ export function FilaAsignacionSucursal({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{tituloConfirmacion}</AlertDialogTitle>
-            <AlertDialogDescription>{descripcionConfirmacion}</AlertDialogDescription>
+            <AlertDialogDescription asChild><div className="text-sm text-muted-foreground">{descripcionConfirmacion}</div></AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={desactivando}>Cancelar</AlertDialogCancel>
