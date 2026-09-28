@@ -244,9 +244,15 @@ export function useAuth() {
   );
 
   /**
-   * Cierra sesión: limpia state local y hace MSAL logoutRedirect si aplica.
-   * El redirect flow es coherente con loginRedirect — toda la ventana
-   * navega a Entra para invalidar la sesión y vuelve al SPA.
+   * Cierra sesión del ERP y, en EntraId, también la sesión de Microsoft del
+   * navegador (importante en equipos compartidos de almacén/planta).
+   *
+   * Se usa logoutRedirect con logoutHint: si el ID token trae el claim
+   * opcional `login_hint` (configurado en el app registration → Token
+   * configuration), Microsoft cierra la sesión sin mostrar la pantalla
+   * "elige la cuenta" y regresa a postLogoutRedirectUri ('/'), donde el
+   * guard de rutas manda a /login. Sin ese claim el flujo sigue funcionando,
+   * solo que Microsoft muestra el selector de cuenta.
    *
    * También limpia el cache de TanStack Query: sin esto, un login
    * subsiguiente (mismo tab, otro usuario/empresa en dev con
@@ -254,21 +260,29 @@ export function useAuth() {
    * sesión anterior antes de que las queries se vuelvan a disparar.
    */
   const logout = useCallback(async () => {
+    queryClient.clear();
     const account =
-      msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0];
-    if (authMode === 'EntraId' && account) {
-      // Limpia la sesión en memoria pero mantiene status 'authenticating'
-      // para que cualquier pantalla intermedia muestre estado de carga y deshabilite
-      // botones mientras el navegador redirige a Microsoft Entra ID.
+      authMode === 'EntraId'
+        ? (msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0])
+        : undefined;
+
+    if (account) {
+      // Mantiene status 'authenticating' para que cualquier pantalla
+      // intermedia muestre carga mientras el navegador va a Microsoft.
       clearSession('authenticating');
+      const loginHint = account.idTokenClaims?.login_hint;
       await msalInstance.logoutRedirect({
         account,
+        logoutHint: typeof loginHint === 'string' ? loginHint : undefined,
+        // '/' ya está registrada como Redirect URI en Entra; registrar
+        // '/login' aparte no es necesario porque el guard redirige ahí.
         postLogoutRedirectUri: window.location.origin + '/',
       });
-    } else {
-      clearSession('idle');
-      navigate({ to: '/login' });
+      return;
     }
+
+    clearSession('idle');
+    navigate({ to: '/login' });
   }, [clearSession, msalInstance, navigate]);
 
   return {
