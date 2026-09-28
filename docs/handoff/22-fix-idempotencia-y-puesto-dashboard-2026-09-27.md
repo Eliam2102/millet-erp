@@ -37,3 +37,12 @@ La solución cumple con la cobertura automatizada de Api.IntegrationTests sobre P
 - **PermisoFaltante403Tests.cs**: Confirma que el middleware detiene accesos no autorizados, retornando HTTP 403 ProblemDetails si un usuario carece del permiso granular exacto, evitando filtraciones desde la API.
 - **EmpleadoSucursalScopeTests.cs**: Valida el SucursalScopeGuard, demostrando que un perfil sin el permiso Bypass (gestionar-todas-sucursales) es bloqueado (HTTP 403) al intentar consultar o mutar datos de una sucursal a la cual no está vinculado en la tabla UsuarioSucursal.
 
+
+### 3. Badge de Superadministrador en Dashboard
+**Contexto y Aprendizaje:** El usuario Superadministrador (cuenta técnica de máxima autoridad) no tiene un registro de empleado físico en el módulo Compartido/RH, por lo que su puesto resolvía como nulo.
+**Solución en UI:** En \rontend/src/routes/_app/index.tsx\, en lugar de mostrar 'Sin puesto asignado', se implementó una evaluación reactiva con el hook nativo \useHasAnyPermission(['admin.sucursales.gestionar-todas-sucursales', 'identidad.roles.administrar'])\.
+- Si el usuario cuenta con puesto asignado en RH, se muestra dicho puesto.
+- Si no tiene puesto pero cuenta con permisos de superadmin, se renderiza un \<Badge>\ distintivo ('Superadministrador').
+- Si es un usuario regular sin asignación, muestra el estado neutro ('Sin puesto asignado').
+- **Arquitectura:** \useAuth()\ no retorna \permisos\ directamente para prevenir re-renders globales innecesarios; la consulta canónica de permisos en el frontend de Millet debe realizarse siempre a través de los selectores especializados como \useHasAnyPermission\ o \useHasPermission\ de \@/lib/auth/useHasPermission\.
+
