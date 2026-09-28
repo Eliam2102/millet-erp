@@ -24,9 +24,16 @@ public sealed class AuditOriginAttributionTests
         public FakeEntity() : base(Guid.CreateVersion7()) { }
     }
 
+    private sealed class FakeTenantEntity : BaseEntity, IAuditable, IPerteneceAEmpresa
+    {
+        public Guid EmpresaId { get; set; }
+        public FakeTenantEntity(Guid empresaId) : base(Guid.CreateVersion7()) => EmpresaId = empresaId;
+    }
+
     private sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
     {
         public DbSet<FakeEntity> Entidades => Set<FakeEntity>();
+        public DbSet<FakeTenantEntity> EntidadesEmpresa => Set<FakeTenantEntity>();
         public DbSet<AuditLogEntry> AuditLog => Set<AuditLogEntry>();
     }
 
@@ -103,6 +110,22 @@ public sealed class AuditOriginAttributionTests
         var logRow = await db.AuditLog.SingleAsync();
         logRow.UsuarioId.Should().BeNull();
         logRow.Metadatos.Should().Be($"{{\"origen\":\"{nameof(AuditOriginAttributionTests)}\"}}");
+    }
+
+    [Fact]
+    public async Task Bypass_Conserva_La_Empresa_Real_De_La_Entidad_Auditada()
+    {
+        var empresaId = Guid.NewGuid();
+        var userContext = new FakeUserContext(Guid.NewGuid(), "admin@millet.mx");
+        var empresaContext = new FakeEmpresaContext(bypassed: true);
+        await using var db = NewContext(userContext, empresaContext, new AuditOriginContext());
+        db.EntidadesEmpresa.Add(new FakeTenantEntity(empresaId));
+
+        await db.SaveChangesAsync();
+
+        var log = await db.AuditLog.SingleAsync();
+        log.EmpresaId.Should().Be(empresaId);
+        log.UsuarioId.Should().Be(userContext.UserId);
     }
 
     [Fact]

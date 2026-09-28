@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth.Models;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.Auth;
 
@@ -21,6 +22,8 @@ public static class DevAuthEndpoints
         app.MapPost("/api/dev/fake-login", async (
             [FromBody] FakeLoginRequest request,
             LoginOrchestrator orchestrator,
+            AuthAccessAuditWriter audit,
+            HttpContext http,
             IHostEnvironment environment,
             IConfiguration configuration,
             CancellationToken cancellationToken) =>
@@ -35,14 +38,22 @@ public static class DevAuthEndpoints
                 return Results.NotFound();
             }
 
-            var response = await orchestrator.LoginWithFakeOidAsync(
-                request.EntraOid,
-                request.Email,
-                request.Nombre,
-                request.EmpresaId,
-                cancellationToken);
-
-            return Results.Ok(response);
+            try
+            {
+                var response = await orchestrator.LoginWithFakeOidAsync(
+                    request.EntraOid, request.Email, request.Nombre,
+                    request.EmpresaId, cancellationToken);
+                await audit.WriteAsync("acceso", response.Usuario.Id,
+                    response.Empresas.FirstOrDefault(e => e.EsLaActual)?.Id,
+                    "FakeForLocalDev", null, http.Connection.RemoteIpAddress, cancellationToken);
+                return Results.Ok(response);
+            }
+            catch (ForbiddenException ex)
+            {
+                await audit.WriteAsync("acceso_denegado", null, null,
+                    "FakeForLocalDev", ex.Code, http.Connection.RemoteIpAddress, cancellationToken);
+                throw;
+            }
         })
         .AllowAnonymous()
         .WithName("PostFakeLogin")

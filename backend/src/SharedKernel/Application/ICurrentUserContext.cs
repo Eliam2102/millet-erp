@@ -13,4 +13,7 @@ public interface ICurrentUserContext
 
     /// <summary>Nombre del usuario para campos de auditoría (CreatedBy/UpdatedBy).</summary>
     string? UserName { get; }
+
+    /// <summary>Email del usuario si está disponible en los claims del token.</summary>
+    string? Email => null;
 }

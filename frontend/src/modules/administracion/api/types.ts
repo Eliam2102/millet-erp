@@ -339,11 +339,18 @@ export interface AuditLogEntryResponse {
   modulo: string;
   entidad: string;
   entidadId: string | null;
+  aggregateRootId?: string | null;
   operacion: string;
   /** JSON serializado del cambio. Forma típica: <c>{ before, after }</c>
    *  para updates, objeto plano para creates, etc. */
   cambios: string;
   correlationId: string;
+  actorNombre?: string;
+  actorTipo?: string;
+  actorEmail?: string | null;
+  entidadEtiqueta?: string;
+  resumen?: string;
+  origen?: string | null;
 }
 
 export interface ConsultarBitacoraResponse {

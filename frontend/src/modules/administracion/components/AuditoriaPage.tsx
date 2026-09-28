@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Eye } from 'lucide-react';
+import { ClipboardList, Eye, History, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,7 @@ import {
   ErrorState,
   TableSkeleton,
 } from '@/components/erp';
-import { esApiError } from '@/lib/api';
-import { apiRequest } from '@/lib/api';
+import { esApiError, apiRequest } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useAuditoria } from '@/modules/administracion/api/auditoria';
 import { useEmpresas } from '@/modules/administracion/api';
@@ -27,6 +26,12 @@ import type {
   ConsultarBitacoraFiltros,
 } from '@/modules/administracion/api';
 import { AuditoriaDetalleDrawer } from '@/modules/administracion/components/AuditoriaDetalleDrawer';
+import {
+  type AuditoriaLookups,
+  formatFecha,
+  formatHora,
+  isUuid,
+} from './auditoria-utils';
 
 const PAGE_LIMIT = 50;
 const TODOS = '__todos__';
@@ -42,28 +47,30 @@ const MODULOS: readonly string[] = [
   'Compartido',
 ];
 
-const ACCIONES: readonly string[] = [
-  'Crear',
-  'Actualizar',
-  'Desactivar',
-  'Reactivar',
-  'Eliminar',
+const ACCIONES: readonly { label: string; value: string }[] = [
+  { label: 'Crear', value: 'Crear' },
+  { label: 'Actualizar', value: 'Actualizar' },
+  { label: 'Desactivar', value: 'Desactivar' },
+  { label: 'Reactivar', value: 'Reactivar' },
+  { label: 'Eliminar', value: 'Eliminar' },
+  { label: 'Acceso', value: 'acceso' },
+  { label: 'Acceso denegado', value: 'acceso-denegado' },
+];
+
+const ACTOR_TIPOS: readonly { label: string; value: string }[] = [
+  { label: 'Usuario', value: 'usuario' },
+  { label: 'Proceso', value: 'proceso' },
+  { label: 'Sistema', value: 'sistema' },
 ];
 
 /**
  * <c>&lt;AuditoriaPage/&gt;</c> — bandeja P2 (full-width tabular,
  * filtros server-side) del log consolidado <c>core.audit_log</c>
- * (UF-Admin-PR7 §1, ADR-0008).
+ * (UF-Admin-PR7 §1, ADR-0008, F1-ADM-03).
  *
  * <para>El rango de fechas es obligatorio (default últimos 7 días) y
- * con máximo 90 días — el backend rechaza con 400 si se excede; el
- * frontend además bloquea el botón "Aplicar" para evitar el roundtrip
- * inútil. Datos sensibles → no se cachean (staleTime 0 en el hook).</para>
- *
- * <para>El nombre del usuario llega <c>null</c> hasta que el backend
- * resuelva el enrich cross-schema
- * (PLATFORM-TODO &lt;AuditUsuarioEnrich&gt;) — la tabla cae al
- * <c>usuarioId</c> truncado con tooltip explicativo.</para>
+ * con máximo 90 días. Se muestran datos humanizados (quién, qué hizo,
+ * registro, módulo, sucursal) sin GUIDs crudos expuestos al usuario.</para>
  */
 export function AuditoriaPage() {
   const hoy = useMemo(() => new Date(), []);
@@ -73,29 +80,31 @@ export function AuditoriaPage() {
     return d;
   }, [hoy]);
 
-  // Filtros "borrador" — solo se aplican al hacer click en "Aplicar".
-  // Esto evita que cada keystroke dispare una query al backend con el
-  // costo de un table scan parcial (el rango es obligatorio pero el
-  // resto de filtros son optimización).
   const empresaActualId = useAuthStore((s) => s.currentEmpresaId);
-  // Sucursal activa de la sesión (SucursalSelector) — se usa como
-  // filtro por defecto del propio selector de esta página (01-05):
-  // el usuario ya eligió su contexto operativo, no debería tener que
-  // repetirlo aquí.
   const sucursalActivaId = useAuthStore((s) => s.currentSucursalId);
 
   const [draftDesde, setDraftDesde] = useState(formatYmd(inicioDefault));
   const [draftHasta, setDraftHasta] = useState(formatYmd(hoy));
-  const [draftModulo, setDraftModulo] = useState<string>('');
+  const [draftQ, setDraftQ] = useState('');
+  const [draftActorTipo, setDraftActorTipo] = useState('');
+  const [draftModulo, setDraftModulo] = useState('');
   const [draftRecurso, setDraftRecurso] = useState('');
-  const [draftAccion, setDraftAccion] = useState<string>('');
-  const [draftUsuarioId, setDraftUsuarioId] = useState<string>('');
-  const [draftEmpresaId, setDraftEmpresaId] = useState<string>('');
-  const [draftSucursalId, setDraftSucursalId] = useState<string>(sucursalActivaId ?? '');
+  const [draftAccion, setDraftAccion] = useState('');
+  const [draftUsuarioId, setDraftUsuarioId] = useState('');
+  const [draftEmpresaId, setDraftEmpresaId] = useState('');
+  const [draftSucursalId, setDraftSucursalId] = useState(sucursalActivaId ?? '');
+  const [filtroAggregateRootId, setFiltroAggregateRootId] = useState<string | null>(null);
+
   const sucursalesQuery = useQuery({
     queryKey: ['auth', 'sucursales', empresaActualId],
     enabled: empresaActualId != null,
-    queryFn: async ({ signal }) => (await apiRequest<Array<{ id: string; nombre: string; clave: string }>>('/api/auth/sucursales', { signal })).data,
+    queryFn: async ({ signal }) =>
+      (
+        await apiRequest<Array<{ id: string; nombre: string; clave: string }>>(
+          '/api/auth/sucursales',
+          { signal },
+        )
+      ).data,
   });
 
   const [filtrosAplicados, setFiltrosAplicados] =
@@ -108,13 +117,13 @@ export function AuditoriaPage() {
     });
 
   const empresasQuery = useEmpresas({ limit: 200 });
-  const empresas = empresasQuery.data?.items ?? [];
+  const empresas = useMemo(() => empresasQuery.data?.items ?? [], [empresasQuery.data?.items]);
   const usuariosQuery = useUsuarios({ limit: 200 });
-  const usuarios = usuariosQuery.data?.items ?? [];
+  const usuarios = useMemo(() => usuariosQuery.data?.items ?? [], [usuariosQuery.data?.items]);
 
   const auditoriaQuery = useAuditoria(filtrosAplicados);
 
-  const items = auditoriaQuery.data?.items ?? [];
+  const items = useMemo(() => auditoriaQuery.data?.items ?? [], [auditoriaQuery.data?.items]);
   const total = auditoriaQuery.data?.total ?? 0;
   const offset = filtrosAplicados.offset ?? 0;
 
@@ -129,94 +138,231 @@ export function AuditoriaPage() {
   const [seleccionado, setSeleccionado] =
     useState<AuditLogEntryResponse | null>(null);
 
+  const sucursalesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of sucursalesQuery.data ?? []) {
+      map[s.id] = s.nombre ? `${s.nombre}${s.clave ? ` (${s.clave})` : ''}` : s.clave;
+    }
+    return map;
+  }, [sucursalesQuery.data]);
+
+  const usuariosMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const u of usuarios) {
+      if (u.id) map[u.id] = u.nombre || u.email || "";
+    }
+    return map;
+  }, [usuarios]);
+
+  const empresasMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of empresas) {
+      if (e.id) map[e.id] = e.razonSocial || e.nombreComercial || "";
+    }
+    return map;
+  }, [empresas]);
+
+  const lookups = useMemo<AuditoriaLookups>(() => {
+    const sucursales: Record<string, string> = { ...sucursalesMap };
+    const usuariosRef: Record<string, string> = { ...usuariosMap };
+    const empresasRef: Record<string, string> = { ...empresasMap };
+
+    for (const item of items) {
+      if (item.usuarioId && (item.actorNombre || item.usuarioNombre)) {
+        const nom = item.actorNombre || item.usuarioNombre;
+        if (nom && !nom.startsWith('Usuario ') && !isUuid(nom)) {
+          usuariosRef[item.usuarioId] = nom;
+        }
+      }
+      if (item.sucursalId && item.sucursalClave && !sucursales[item.sucursalId]) {
+        sucursales[item.sucursalId] = item.sucursalClave;
+      }
+      if (item.entidadId && item.entidadEtiqueta && !isUuid(item.entidadEtiqueta)) {
+        if (item.entidad === 'Sucursal' && !sucursales[item.entidadId]) {
+          sucursales[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Usuario' && !usuariosRef[item.entidadId]) {
+          usuariosRef[item.entidadId] = item.entidadEtiqueta;
+        } else if (item.entidad === 'Empresa' && !empresasRef[item.entidadId]) {
+          empresasRef[item.entidadId] = item.entidadEtiqueta;
+        }
+      }
+    }
+
+    return { sucursales, usuarios: usuariosRef, empresas: empresasRef };
+  }, [sucursalesMap, usuariosMap, empresasMap, items]);
+
   function aplicar() {
     if (rangoInvalido) return;
     setFiltrosAplicados({
       desde: draftDesde,
       hasta: draftHasta,
+      q: draftQ.trim() || undefined,
+      actorTipo: draftActorTipo || undefined,
       modulo: draftModulo || undefined,
-      recurso: draftRecurso.trim() || undefined,
+      recurso: draftRecurso || undefined,
       accion: draftAccion || undefined,
       usuarioId: draftUsuarioId || undefined,
       empresaId: draftEmpresaId || undefined,
       sucursalId: draftSucursalId || undefined,
+      aggregateRootId: filtroAggregateRootId || undefined,
       offset: 0,
       limit: PAGE_LIMIT,
     });
   }
 
   function limpiar() {
-    setDraftDesde(formatYmd(inicioDefault));
-    setDraftHasta(formatYmd(hoy));
+    const defaultDesde = formatYmd(inicioDefault);
+    const defaultHasta = formatYmd(hoy);
+    setDraftDesde(defaultDesde);
+    setDraftHasta(defaultHasta);
+    setDraftQ('');
+    setDraftActorTipo('');
     setDraftModulo('');
     setDraftRecurso('');
     setDraftAccion('');
     setDraftUsuarioId('');
     setDraftEmpresaId('');
     setDraftSucursalId(sucursalActivaId ?? '');
+    setFiltroAggregateRootId(null);
     setFiltrosAplicados({
-      desde: formatYmd(inicioDefault),
-      hasta: formatYmd(hoy),
+      desde: defaultDesde,
+      hasta: defaultHasta,
       sucursalId: sucursalActivaId ?? undefined,
       offset: 0,
       limit: PAGE_LIMIT,
     });
   }
 
-  function paginar(nuevoOffset: number) {
-    setFiltrosAplicados({ ...filtrosAplicados, offset: nuevoOffset });
+  function handleFiltrarPorRegistro(rootId: string) {
+    setFiltroAggregateRootId(rootId);
+    setFiltrosAplicados((prev) => ({
+      ...prev,
+      aggregateRootId: rootId,
+      offset: 0,
+    }));
+    setSeleccionado(null);
+  }
+
+  function handleQuitarFiltroRegistro() {
+    setFiltroAggregateRootId(null);
+    setFiltrosAplicados((prev) => {
+      const copy = { ...prev };
+      delete copy.aggregateRootId;
+      return { ...copy, offset: 0 };
+    });
+  }
+
+  function cambiarPagina(nuevoOffset: number) {
+    setFiltrosAplicados((prev) => ({ ...prev, offset: nuevoOffset }));
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Bitácora de auditoría
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Historial consolidado de cambios. Rango obligatorio, máximo{' '}
-          {RANGO_MAX_DIAS} días.
-        </p>
-      </header>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Bitácora de auditoría
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Consulta consolidada de eventos del sistema (rango obligatorio, máx.
+            90 días).
+          </p>
+        </div>
+      </div>
 
-      <div className="grid gap-3 rounded-md border bg-card p-3 md:grid-cols-3 lg:grid-cols-4">
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="auditoria-desde"
-            className="text-xs font-medium text-muted-foreground"
+      {filtroAggregateRootId && (
+        <div className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/5 px-4 py-2 text-sm text-primary">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            <span>
+              Mostrando solo el historial del registro seleccionado (
+              <code className="text-xs font-mono">{filtroAggregateRootId.slice(0, 8)}…</code>).
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs gap-1"
+            onClick={handleQuitarFiltroRegistro}
           >
-            Desde
+            <X className="h-3.5 w-3.5" />
+            Quitar filtro de registro
+          </Button>
+        </div>
+      )}
+
+      {/* Panel de Filtros */}
+      <div className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-3 lg:grid-cols-4">
+        {/* Rango obligatorio */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="auditoria-desde" className="text-xs font-medium text-muted-foreground">
+            Desde <span className="text-destructive">*</span>
           </label>
           <Input
             id="auditoria-desde"
             type="date"
+            className="h-9"
             value={draftDesde}
             onChange={(e) => setDraftDesde(e.target.value)}
           />
         </div>
+
         <div className="flex flex-col gap-1">
-          <label
-            htmlFor="auditoria-hasta"
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Hasta
+          <label htmlFor="auditoria-hasta" className="text-xs font-medium text-muted-foreground">
+            Hasta <span className="text-destructive">*</span>
           </label>
           <Input
             id="auditoria-hasta"
             type="date"
+            className="h-9"
             value={draftHasta}
             onChange={(e) => setDraftHasta(e.target.value)}
           />
           {diasRango != null && diasRango > RANGO_MAX_DIAS && (
-            <p className="text-xs text-destructive">{`Máximo ${RANGO_MAX_DIAS} días.`}</p>
-          )}
-          {diasRango != null && diasRango < 0 && (
-            <p className="text-xs text-destructive">
-              &quot;Desde&quot; debe ser anterior a &quot;hasta&quot;.
-            </p>
+            <span className="text-[11px] text-destructive">Máximo 90 días.</span>
           )}
         </div>
 
+        {/* Búsqueda de texto */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="auditoria-q" className="text-xs font-medium text-muted-foreground">
+            Buscar (texto libre)
+          </label>
+          <Input
+            id="auditoria-q"
+            type="search"
+            placeholder="Actor, resumen, registro..."
+            className="h-9"
+            value={draftQ}
+            onChange={(e) => setDraftQ(e.target.value)}
+          />
+        </div>
+
+        {/* Tipo de actor */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Tipo de actor
+          </label>
+          <Select
+            value={draftActorTipo || TODOS}
+            onValueChange={(v) => setDraftActorTipo(v === TODOS ? '' : v)}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todos los tipos</SelectItem>
+              {ACTOR_TIPOS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Módulo */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Módulo
@@ -239,22 +385,21 @@ export function AuditoriaPage() {
           </Select>
         </div>
 
+        {/* Recurso / Entidad */}
         <div className="flex flex-col gap-1">
-          <label
-            htmlFor="auditoria-recurso"
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Recurso
+          <label htmlFor="auditoria-recurso" className="text-xs font-medium text-muted-foreground">
+            Entidad
           </label>
           <Input
             id="auditoria-recurso"
-            type="text"
-            placeholder="Ej. Empresa, Serie…"
+            placeholder="ej. Requisicion, Empleado..."
+            className="h-9"
             value={draftRecurso}
             onChange={(e) => setDraftRecurso(e.target.value)}
           />
         </div>
 
+        {/* Acción */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Acción
@@ -269,14 +414,15 @@ export function AuditoriaPage() {
             <SelectContent>
               <SelectItem value={TODOS}>Todas</SelectItem>
               {ACCIONES.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a}
+                <SelectItem key={a.value} value={a.value}>
+                  {a.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
+        {/* Usuario */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Usuario
@@ -292,16 +438,14 @@ export function AuditoriaPage() {
               <SelectItem value={TODOS}>Todos</SelectItem>
               {usuarios.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
-                  {u.nombre}{' '}
-                  <span className="text-xs text-muted-foreground">
-                    ({u.email})
-                  </span>
+                  {u.nombre || u.email}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
+        {/* Empresa */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Empresa
@@ -325,19 +469,30 @@ export function AuditoriaPage() {
           </Select>
         </div>
 
+        {/* Sucursal */}
         <div className="flex flex-col gap-1">
-          <label htmlFor="auditoria-sucursal" className="text-xs font-medium text-muted-foreground">Sucursal</label>
+          <label
+            htmlFor="auditoria-sucursal"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Sucursal
+          </label>
           <select
             id="auditoria-sucursal"
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
             value={draftSucursalId}
             onChange={(e) => setDraftSucursalId(e.target.value)}
           >
-            <option value="">Todas, incluyendo eventos globales</option>
-            {(sucursalesQuery.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.clave} · {s.nombre}</option>)}
+            <option value="">Todas las sucursales de la empresa</option>
+            {(sucursalesQuery.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.clave} · {s.nombre}
+              </option>
+            ))}
           </select>
         </div>
 
+        {/* Botones de acción */}
         <div className="flex items-end gap-2 md:col-span-3 lg:col-span-4">
           <Button
             type="button"
@@ -365,6 +520,7 @@ export function AuditoriaPage() {
         error={auditoriaQuery.error}
         onRetry={() => auditoriaQuery.refetch()}
         onVer={(entry) => setSeleccionado(entry)}
+        lookups={lookups}
       />
 
       {total > PAGE_LIMIT && (
@@ -376,19 +532,19 @@ export function AuditoriaPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              size="sm"
               variant="outline"
+              size="sm"
               disabled={offset === 0}
-              onClick={() => paginar(Math.max(0, offset - PAGE_LIMIT))}
+              onClick={() => cambiarPagina(Math.max(0, offset - PAGE_LIMIT))}
             >
               Anterior
             </Button>
             <Button
               type="button"
-              size="sm"
               variant="outline"
-              disabled={offset + items.length >= total}
-              onClick={() => paginar(offset + PAGE_LIMIT)}
+              size="sm"
+              disabled={offset + PAGE_LIMIT >= total}
+              onClick={() => cambiarPagina(offset + PAGE_LIMIT)}
             >
               Siguiente
             </Button>
@@ -401,6 +557,8 @@ export function AuditoriaPage() {
         onOpenChange={(open) => {
           if (!open) setSeleccionado(null);
         }}
+        onFiltrarRegistro={handleFiltrarPorRegistro}
+        lookups={lookups}
       />
     </div>
   );
@@ -413,6 +571,7 @@ interface AuditoriaTablaProps {
   error: unknown;
   onRetry: () => void;
   onVer: (entry: AuditLogEntryResponse) => void;
+  lookups: AuditoriaLookups;
 }
 
 function AuditoriaTabla({
@@ -422,16 +581,18 @@ function AuditoriaTabla({
   error,
   onRetry,
   onVer,
+  lookups,
 }: AuditoriaTablaProps) {
   if (isLoading) {
     return (
       <TableSkeleton
         rows={5}
         columns={[
-          { width: 'w-32' },
+          { width: 'w-28' },
+          { width: 'w-44' },
+          { width: 'w-48' },
           { width: 'w-40' },
-          { width: 'w-32' },
-          { width: 'w-32' },
+          { width: 'w-24' },
           { width: 'w-24' },
           { width: 'w-16' },
         ]}
@@ -441,15 +602,21 @@ function AuditoriaTabla({
 
   if (isError) {
     const problem = esApiError(error) ? error.problem : undefined;
-    return <ErrorState problem={problem} onRetry={onRetry} />;
+    return (
+      <ErrorState
+        problem={problem}
+        title="Error al cargar la bitácora"
+        onRetry={onRetry}
+      />
+    );
   }
 
   if (items.length === 0) {
     return (
       <EmptyState
         icon={<ClipboardList className="h-10 w-10" />}
-        title="Sin movimientos en el rango seleccionado."
-        description="Ajusta el rango o los filtros para ver registros."
+        title="Sin registros de auditoría"
+        description="No se encontraron eventos en el rango y filtros seleccionados."
       />
     );
   }
@@ -460,19 +627,22 @@ function AuditoriaTabla({
         <thead className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 text-left">
-              Fecha
+              Fecha y hora
             </th>
             <th scope="col" className="px-3 py-2 text-left">
-              Usuario
+              Quién
+            </th>
+            <th scope="col" className="px-3 py-2 text-left">
+              Qué hizo
+            </th>
+            <th scope="col" className="px-3 py-2 text-left">
+              Registro
             </th>
             <th scope="col" className="px-3 py-2 text-left">
               Módulo
             </th>
             <th scope="col" className="px-3 py-2 text-left">
-              Entidad
-            </th>
-            <th scope="col" className="px-3 py-2 text-left">
-              Acción
+              Sucursal
             </th>
             <th scope="col" className="px-3 py-2 text-right">
               Acciones
@@ -480,83 +650,106 @@ function AuditoriaTabla({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {items.map((entry) => (
-            <tr key={entry.id}>
-              <td className="px-3 py-2 tabular-nums">
-                {formatTimestamp(entry.timestamp)}
-              </td>
-              <td className="px-3 py-2">
-                <UsuarioCell
-                  nombre={entry.usuarioNombre}
-                  usuarioId={entry.usuarioId}
-                />
-              </td>
-              <td className="px-3 py-2">{entry.modulo}</td>
-              <td className="px-3 py-2">
-                <div>{entry.entidad}</div>
-                {entry.entidadId != null && (
-                  <div className="font-mono text-[10px] text-muted-foreground">
-                    {truncateId(entry.entidadId)}
+          {items.map((entry) => {
+            const actorTipo = entry.actorTipo?.toLowerCase() ?? 'usuario';
+            const actorNombre =
+              (entry.actorNombre && !entry.actorNombre.startsWith('Usuario ') && !isUuid(entry.actorNombre) ? entry.actorNombre : null) ??
+              (entry.usuarioNombre && !isUuid(entry.usuarioNombre) ? entry.usuarioNombre : null) ??
+              (entry.usuarioId ? lookups.usuarios?.[entry.usuarioId] : null) ??
+              entry.actorNombre ??
+              entry.usuarioNombre ??
+              'Sistema';
+
+            const sucursalNombre = entry.sucursalId ? lookups.sucursales?.[entry.sucursalId] : null;
+
+            const etiquetaRegistro =
+              (entry.entidadId && entry.entidad === 'Sucursal' && lookups.sucursales?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Sucursal · ${lookups.sucursales[entry.entidadId]}` : null) ??
+              (entry.entidadId && entry.entidad === 'Usuario' && lookups.usuarios?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Usuario · ${lookups.usuarios[entry.entidadId]}` : null) ??
+              (entry.entidadId && entry.entidad === 'Empresa' && lookups.empresas?.[entry.entidadId] && isUuid(entry.entidadEtiqueta ?? '') ? `Empresa · ${lookups.empresas[entry.entidadId]}` : null) ??
+              entry.entidadEtiqueta ??
+              entry.entidad;
+
+            return (
+              <tr key={entry.id} className="hover:bg-muted/10">
+                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-xs" title={entry.timestamp}>
+                  <div className="font-medium text-foreground">{formatFecha(entry.timestamp)}</div>
+                  <div className="text-[11px] text-muted-foreground">{formatHora(entry.timestamp)} hrs</div>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-foreground">
+                        {actorNombre}
+                      </span>
+                      <Badge
+                        variant={actorTipo === 'usuario' ? 'secondary' : 'outline'}
+                        className="text-[10px] px-1.5 py-0 capitalize"
+                      >
+                        {entry.actorTipo || 'usuario'}
+                      </Badge>
+                    </div>
+                    {entry.actorEmail ? (
+                      <span className="text-xs text-muted-foreground">
+                        {entry.actorEmail}
+                      </span>
+                    ) : entry.origen ? (
+                      <span className="text-xs text-muted-foreground">
+                        {entry.origen}
+                      </span>
+                    ) : null}
                   </div>
-                )}
-              </td>
-              <td className="px-3 py-2">
-                <Badge variant="outline">{entry.operacion}</Badge>
-              </td>
-              <td className="px-3 py-2 text-right">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onVer(entry)}
-                  aria-label="Ver detalle"
-                >
-                  <Eye className="mr-1 h-4 w-4" />
-                  Ver
-                </Button>
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td className="px-3 py-2">
+                  <span className="text-sm font-medium text-foreground">
+                    {entry.resumen || entry.operacion}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-foreground">
+                      {etiquetaRegistro}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {entry.entidad}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span className="text-sm">{entry.modulo}</span>
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {sucursalNombre ? (
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">{sucursalNombre}</span>
+                      {entry.sucursalClave && (
+                        <span className="text-[11px] text-muted-foreground font-mono">{entry.sucursalClave}</span>
+                      )}
+                    </div>
+                  ) : entry.sucursalClave ? (
+                    <span className="text-sm text-muted-foreground font-mono">{entry.sucursalClave}</span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No aplica</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onVer(entry)}
+                    aria-label="Ver detalle"
+                  >
+                    <Eye className="mr-1 h-4 w-4" />
+                    Ver
+                  </Button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
-}
-
-/**
- * Renderiza el nombre del usuario; si el backend aún no resuelve el
- * enriquecimiento cross-schema, cae al ID truncado con tooltip nativo.
- *
- * PLATFORM-TODO(&lt;AuditUsuarioEnrich&gt;): cuando el backend popule
- * <c>UsuarioNombre</c> via JOIN/projection cross-schema, esta celda
- * dejará de mostrar el ID y el tooltip se vuelve obsoleto. Eliminar
- * el branch del fallback.
- */
-function UsuarioCell({
-  nombre,
-  usuarioId,
-}: {
-  nombre: string | null;
-  usuarioId: string | null;
-}) {
-  if (nombre != null && nombre.length > 0) {
-    return <span>{nombre}</span>;
-  }
-  if (usuarioId == null) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  return (
-    <span
-      className="font-mono text-xs text-muted-foreground"
-      title="Nombre no disponible — pendiente de enriquecimiento PLATFORM-TODO(<AuditUsuarioEnrich>)"
-    >
-      {truncateId(usuarioId)}
-    </span>
-  );
-}
-
-function truncateId(id: string): string {
-  return id.length > 8 ? `${id.slice(0, 8)}…` : id;
 }
 
 function formatYmd(d: Date): string {
@@ -572,10 +765,4 @@ function diferenciaDias(desde: string, hasta: string): number | null {
   const d2 = new Date(`${hasta}T00:00:00Z`).getTime();
   if (Number.isNaN(d1) || Number.isNaN(d2)) return null;
   return Math.round((d2 - d1) / (24 * 60 * 60 * 1000));
-}
-
-function formatTimestamp(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return ts;
-  return d.toLocaleString();
 }

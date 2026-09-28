@@ -17,6 +17,8 @@ import { useActualizarEmpresa } from '@/modules/administracion/api';
 import type { EmpresaResponse } from '@/modules/administracion/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { hoyLocalISO } from '@/lib/datetime';
+import { useImpuestosReferencia } from '@/modules/catalogos/api';
 
 /**
  * Form de datos generales de la empresa (tab "Datos" del detalle).
@@ -32,6 +34,11 @@ export interface EmpresaDatosFormProps {
 
 export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
   const canEditar = useHasPermission(PermisosCanonicos.AdminEmpresasEditar);
+  const canLeerImpuestos = useHasPermission(PermisosCanonicos.CompartidoCatalogosLeer);
+  const impuestos = useImpuestosReferencia(hoyLocalISO(), false, canLeerImpuestos);
+  const tasasIva = (impuestos.data ?? []).filter(
+    (i) => i.clave === '002' && i.tipo === 'Traslado' && i.factor === 'Tasa',
+  );
   const idempotencyKey = useFormIdempotencyKey();
   const actualizar = useActualizarEmpresa();
 
@@ -146,26 +153,51 @@ export function EmpresaDatosForm({ empresa }: EmpresaDatosFormProps) {
         hint="Fracción 0–1 (ej. 0.16). Fallback de IVA en captura manual de Facturación; el IVA del artículo tiene prioridad. Vacío = sin default."
         error={form.formState.errors.tasaIvaDefault?.message}
       >
-        <Controller
-          name="tasaIvaDefault"
-          control={form.control}
-          render={({ field }) => (
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              max={1}
-              placeholder="0.16"
-              disabled={!canEditar}
-              value={field.value ?? ''}
-              onChange={(e) =>
-                field.onChange(
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
+        <div className="space-y-2">
+          <Controller
+            name="tasaIvaDefault"
+            control={form.control}
+            render={({ field }) => (
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                max={1}
+                placeholder="0.16"
+                disabled={!canEditar}
+                value={field.value ?? ''}
+                onChange={(e) =>
+                  field.onChange(
+                    e.target.value === '' ? null : Number(e.target.value),
+                  )
+                }
+              />
+            )}
+          />
+          {canEditar && tasasIva.length > 0 && (
+            <label className="block text-xs text-muted-foreground">
+              Tomar una tasa IVA vigente del catálogo
+              <select
+                className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+                defaultValue=""
+                onChange={(event) => {
+                  if (event.target.value !== '') {
+                    form.setValue('tasaIvaDefault', Number(event.target.value), {
+                      shouldDirty: true, shouldValidate: true,
+                    });
+                  }
+                }}
+              >
+                <option value="">Seleccionar referencia…</option>
+                {tasasIva.map((i) => (
+                  <option key={i.id} value={i.tasa}>
+                    {i.nombre} · {i.tasa} · {i.fuente}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
-        />
+        </div>
       </FormRow>
 
       <FormRow

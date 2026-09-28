@@ -93,6 +93,7 @@ public sealed class CompartidoDbContext : BaseDbContext
 
     // F-Admin-PR5.3: catálogos SAT read-mostly (sin CRUD UI).
     public DbSet<FormaPago> FormasPago => Set<FormaPago>();
+    public DbSet<ImpuestoReferencia> ImpuestosReferencia => Set<ImpuestoReferencia>();
     public DbSet<UsoCfdi> UsosCfdi => Set<UsoCfdi>();
 
     // F-Admin-PR6.1: series y secuencias de folios cross-módulo.
@@ -151,6 +152,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureCategoriaArticulo(modelBuilder);
         ConfigureTipoCambio(modelBuilder);
         ConfigureFormaPago(modelBuilder);
+        ConfigureImpuestoReferencia(modelBuilder);
         ConfigureUsoCfdi(modelBuilder);
         ConfigureSerie(modelBuilder);
         ConfigureSecuenciaFolio(modelBuilder);
@@ -385,6 +387,21 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedFormaPago("00000002-0005-0000-0000-000000000031", "31", "Intermediario pagos", seedTime),
             SeedFormaPago("00000002-0005-0000-0000-000000000099", "99", "Por definir", seedTime)
         );
+    }
+
+    private static void ConfigureImpuestoReferencia(ModelBuilder modelBuilder)
+    {
+        var impuesto = modelBuilder.Entity<ImpuestoReferencia>();
+        impuesto.ToTable("impuestos_referencia");
+        impuesto.HasKey(x => x.Id);
+        impuesto.Property(x => x.Clave).HasMaxLength(20).IsRequired();
+        impuesto.Property(x => x.Nombre).HasMaxLength(120).IsRequired();
+        impuesto.Property(x => x.Tipo).HasMaxLength(12).IsRequired();
+        impuesto.Property(x => x.Factor).HasMaxLength(8).IsRequired();
+        impuesto.Property(x => x.Tasa).HasPrecision(12, 6).IsRequired();
+        impuesto.Property(x => x.Fuente).HasMaxLength(120).IsRequired();
+        impuesto.HasIndex(x => new { x.Clave, x.Tipo, x.Factor, x.VigenteDesde }).IsUnique();
+        impuesto.HasIndex(x => new { x.Activo, x.VigenteDesde, x.VigenteHasta });
     }
 
     private static object SeedFormaPago(string id, string clave, string descripcion, DateTimeOffset seedTime) => new

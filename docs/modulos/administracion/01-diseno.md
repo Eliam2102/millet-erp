@@ -664,15 +664,33 @@ EF InMemory con los interceptores reales) y por
 verifica por reflexión que todo call site de `Bypass()` en los 9 módulos
 tiene un `SetOrigin()` correspondiente en el mismo método.
 
-**Límite conocido:** `ConsultarBitacoraQuery`/`AuditLogEntryResponse` (§9,
-`GET /api/v1/admin/auditoria`) todavía no proyecta `Metadatos` — el origen
-del proceso en background queda en la tabla `core.audit_log` pero no es
-visible desde `/admin/auditoria` ni desde `AuditoriaDetalleDrawer` en el
-frontend. Verificable hoy solo por consulta directa a
-`core.audit_log.metadatos`. Pendiente agregar el campo al DTO y a la UI en
-un PR de seguimiento — no bloqueaba F1-ADM-03 porque el criterio de cierre
-(alta/cambio/autorización de usuario dejan antes/después, usuario y fecha)
-no depende de este campo.
+**Proyección en bitácora:** `ConsultarBitacoraQuery` y `AuditLogEntryResponse`
+proyectan `Origen` leyendo del JSON `Metadatos`. En la UI de auditoría
+(`/admin/auditoria` y `AuditoriaDetalleDrawer`), el origen es plenamente visible
+como metadato del actor cuando la acción fue ejecutada por un proceso en
+background.
+
+### 9.3 Columnas snapshot, eventos de acceso e interfaz legible (F1-ADM-03)
+
+Para garantizar total legibilidad humana sin GUIDs expuestos y con auditoría
+independiente de cambios posteriores en catálogos de usuarios o entidades:
+
+1. **Columnas snapshot en `core.audit_log`:**
+   - `ActorNombre` (varchar 200, obligatorio): Nombre del usuario o identificador del proceso/sistema al momento del hecho.
+   - `ActorTipo` (varchar 50, obligatorio): `usuario`, `proceso` o `sistema`.
+   - `ActorEmail` (varchar 256, opcional): Correo del actor al momento de la operación.
+   - `EntidadEtiqueta` (varchar 300, obligatorio): Etiqueta legible del registro (ej. `EMP-0012 · Juana Pérez` o `REQ-0001 · Requisición`).
+   - `Resumen` (varchar 500, obligatorio): Resumen de negocio en lenguaje natural (ej. `Modificó Empleado — Estatus: Activo → Inactivo`).
+   - `AggregateRootId` (uuid, opcional): Identificador del agregado raíz para consultar el historial completo de un registro.
+
+2. **Registro explícito de accesos:**
+   - Servicio `IAuditLogWriter` (`Millet.SharedKernel.Application` / `Infrastructure`) para registrar eventos de auditoría independientes de `DbContext.SaveChangesAsync`.
+   - `LoginOrchestrator` registra eventos de `acceso` exitoso y `acceso-denegado` (capturando el código de fallo en el resumen).
+
+3. **Bandeja de bitácora y drawer de detalle:**
+   - Tabla en `/admin/auditoria` con columnas humanizadas: Fecha, Quién (con badge de tipo), Qué hizo, Registro, Módulo y Sucursal. Sin GUIDs crudos.
+   - Filtros por rango de fechas (máximo 90 días), texto libre `q` (búsqueda sobre actor, etiqueta o resumen), tipo de actor, acción (incluyendo accesos), módulo, recurso, usuario, empresa y sucursal.
+   - Drawer de detalle con botón "Ver historial de este registro" filtrando por `AggregateRootId`, representaciones amigables (`antesTexto`/`despuesTexto`), y leyenda "Eliminado" en la columna "Después" para borrados.
 
 ## 10. Multi-tenant (ADR-0011)
 
@@ -703,7 +721,7 @@ Sección obligatoria por [ADR-0031](../../decisiones/0031-deuda-de-plataforma-y-
 | Pieza | Ticket / Identificador | NoOp en uso hoy | Cómo se wirea |
 |---|---|---|---|
 | Bitácora UI consolidada (`/admin/auditoria`) | `<AuditUI>` | ✅ Resuelto — `GET /api/v1/admin/auditoria` (`AuditoriaEndpoints`/`ConsultarBitacoraQuery`) + UI `/admin/auditoria` (`AuditoriaPage` + `AuditoriaDetalleDrawer`) implementados. | — |
-| Origen de background en `ConsultarBitacoraQuery` | `<AuditOriginEnDto>` | `AuditLogEntry.Metadatos` se popula (§9.2) pero `AuditLogEntryResponse` no lo proyecta; no visible en `/admin/auditoria`. | Agregar `Metadatos`/`Origen` a `AuditLogEntryResponse` y a `AuditoriaDetalleDrawer` en un PR de seguimiento. |
+| Origen de background en `ConsultarBitacoraQuery` | `<AuditOriginEnDto>` | ✅ Resuelto — `ConsultarBitacoraQuery` proyecta `Origen` desde `Metadatos` y se visualiza en `/admin/auditoria` y `AuditoriaDetalleDrawer`. | — |
 | Mapeo Entra ID → Roles automático | `<EntraIdMapping>` | Mapeo manual via `UsuarioEmpresaRol`. | Post-MVP: hosted service que sincroniza grupos Entra ID → roles definidos. |
 | Sync tipos de cambio (DOF/Banxico) | `<TipoCambioSync>` | Carga manual via UI. | Post-MVP: hosted service NCrontab (ADR-0022) consume DOF/Banxico. |
 | Re-localización física de schemas (Fase B ADR-0035) | `<SchemaRename>` | Schemas físicos siguen siendo `compartido`. Código organizado en 3 módulos. | Cuando exista razón concreta (BI externo, política de seguridad). |
@@ -715,6 +733,7 @@ Cualquier stub adicional introducido durante implementación se agrega aquí con
 
 ## 13. Rev.
 
+- **2026-09-28** — Rev. 4. Complemento F1-ADM-03: nueva §9.3 (columnas snapshot `ActorNombre`, `ActorTipo`, `ActorEmail`, `EntidadEtiqueta`, `Resumen`, `AggregateRootId` en `core.audit_log`, `IAuditLogWriter` para eventos de acceso y login rechazado); se retira el límite conocido de §9.2 y se marca resuelto `<AuditOriginEnDto>` en §12; actualización completa de frontend `/admin/auditoria` y `AuditoriaDetalleDrawer` con soporte de diff humanizado y botón de historial.
 - **2026-05-13** — Rev. 2. Decisiones A1–A7 cerradas (ver §3). Cambios estructurales: §1.1 agrega módulo `Almacen` (A1=b); §1.2 reordena fases y agrega contrato SettingsSchema en F-Admin-PR1 (A7=b); §4.2 separa `Almacen` a §4.2.1; §6.1 incluye `displayMode` en registry; nueva §6.5 con contrato `SettingsSchema` completo; §6.6 (antes §6.5) y §6.7 (antes §6.6) renumeradas. Autor: Claude.
 - **2026-09-20** — Rev. 3. Cierre de F1-ADM-03: nuevas §9.1 (enforcement de cobertura `IAuditable`/`INotAudited`) y §9.2 (`IAuditOriginContext` para atribución de origen en workers/seeds en background); §11 agrega las 3 suites de prueba nuevas; §12 marca `<AuditUI>` resuelto y agrega `<AuditOriginEnDto>` (gap detectado: `Metadatos`/origen no se proyecta aún en `ConsultarBitacoraQuery` ni en la UI). Evidencia de QA en carpeta de tareas externa `VidriosMillet-Tareas/F1-ADM-03-auditoria/07-evidencia-qa-capturas.md` (fuera del repo, no se commitea). Autor: Claude.
 - **2026-05-13** — Rev. 1. Diseño inicial v1. Autor: Claude. Pendiente validación owner. Incluye §12 según ADR-0031.
