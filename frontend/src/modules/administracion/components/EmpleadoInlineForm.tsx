@@ -34,6 +34,7 @@ import {
   SucursalSelector,
 } from '@/components/erp';
 import { cn } from '@/lib/utils';
+import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
 
 export interface EmpleadoInlineFormProps {
   empleado?: EmpleadoListItem | null;
@@ -54,13 +55,6 @@ const VALORES_INICIALES: EmpleadoValues = {
   usuarioId: '',
   codigoNomina: '',
 };
-
-export const DOMINIOS_CORPORATIVOS = [
-  'uzieltzaboutlook.onmicrosoft.com',
-  'millet.mx',
-  'millet.com.mx',
-  'uzieltzaboutlook.com',
-];
 
 const DRAFT_STORAGE_KEY = 'millet_empleado_wizard_draft_v1';
 

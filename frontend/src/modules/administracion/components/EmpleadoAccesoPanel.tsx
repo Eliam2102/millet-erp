@@ -16,7 +16,7 @@ import {
   useValidarCorreoCorporativo,
 } from '@/modules/administracion/api/empleados';
 import { usePuestosDeSucursal } from '@/modules/administracion/api/sucursal-puestos';
-import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/components/EmpleadoInlineForm';
+import { DOMINIOS_CORPORATIVOS } from '@/modules/administracion/dominios-corporativos';
 import { useRoles } from '@/modules/identidad/api/roles';
 import { useReactivarUsuario } from '@/modules/identidad/api/usuarios';
 
@@ -67,33 +67,29 @@ export function EmpleadoAccesoPanel({
   });
 
   const [contacto, setContacto] = useState(() => emailContacto ?? '');
-  const [rolId, setRolId] = useState('');
+  const [rolElegido, setRolId] = useState('');
 
-  useEffect(() => {
-    if (email) {
-      const at = email.indexOf('@');
-      const prefix = at > 0 ? email.slice(0, at) : email;
-      const rawDomain = at > 0 ? email.slice(at + 1).toLowerCase() : '';
-      const matched = DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain);
-      setEmailPrefix(prefix);
-      setEmailDomain(matched ?? DOMINIOS_CORPORATIVOS[0]);
-    } else {
-      setEmailPrefix('');
-      setEmailDomain(DOMINIOS_CORPORATIVOS[0]);
-    }
-    if (emailContacto !== undefined) {
-      setContacto(emailContacto ?? '');
-    }
-  }, [email, emailContacto]);
-
-  useEffect(() => {
-    if (initialDepartamentoId !== undefined) {
-      setDepartamentoId(initialDepartamentoId ?? '');
-    }
-    if (initialPuestoId !== undefined) {
-      setPuestoId(initialPuestoId ?? '');
-    }
-  }, [initialDepartamentoId, initialPuestoId]);
+  // Resincroniza el estado local cuando cambian las props (patrón "ajustar estado al cambiar props", sin useEffect).
+  const [prev, setPrev] = useState({ email, emailContacto, initialDepartamentoId, initialPuestoId });
+  if (prev.email !== email || prev.emailContacto !== emailContacto) {
+    const at = email ? email.indexOf('@') : -1;
+    const rawDomain = email && at > 0 ? email.slice(at + 1).toLowerCase() : '';
+    setEmailPrefix(email ? (at > 0 ? email.slice(0, at) : email) : '');
+    setEmailDomain(DOMINIOS_CORPORATIVOS.find((d) => d.toLowerCase() === rawDomain) ?? DOMINIOS_CORPORATIVOS[0]);
+    if (emailContacto !== undefined) setContacto(emailContacto ?? '');
+  }
+  if (prev.initialDepartamentoId !== initialDepartamentoId || prev.initialPuestoId !== initialPuestoId) {
+    if (initialDepartamentoId !== undefined) setDepartamentoId(initialDepartamentoId ?? '');
+    if (initialPuestoId !== undefined) setPuestoId(initialPuestoId ?? '');
+  }
+  if (
+    prev.email !== email ||
+    prev.emailContacto !== emailContacto ||
+    prev.initialDepartamentoId !== initialDepartamentoId ||
+    prev.initialPuestoId !== initialPuestoId
+  ) {
+    setPrev({ email, emailContacto, initialDepartamentoId, initialPuestoId });
+  }
 
   const activeDomain = DOMINIOS_CORPORATIVOS.includes(emailDomain) ? emailDomain : DOMINIOS_CORPORATIVOS[0];
   const correoFinal = emailPrefix.trim() ? `${emailPrefix.trim()}@${activeDomain}` : '';
@@ -114,11 +110,8 @@ export function EmpleadoAccesoPanel({
   );
   const rolSugerido = puestosDeSucursal.data?.items.find((p) => p.puestoId === puestoId)?.rolSugeridoEfectivoId;
 
-  useEffect(() => {
-    if (rolSugerido && !rolId) {
-      setRolId(rolSugerido);
-    }
-  }, [rolSugerido, rolId]);
+  // Sin elección explícita, el rol sugerido del puesto se usa por defecto.
+  const rolId = rolElegido || rolSugerido || '';
 
   const acceso = useAccesoColaborador(usuarioId ? empleadoId : null);
   const dar = useDarAccesoColaborador();
