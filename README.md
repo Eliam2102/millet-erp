@@ -112,9 +112,11 @@ El checklist verificable está en
 
 ## Desarrollo local
 
-Para iterar sin necesidad de Azure ni Entra ID. Ver
-[ADR-0015](./docs/decisiones/0015-local-dev-auth.md) para detalles del modo
-`FakeForLocalDev`.
+El inicio de sesión de desarrollo usa Microsoft Entra ID. Cada integrante
+necesita una cuenta autorizada, el registro de aplicación de desarrollo y sus
+valores locales de configuración. El modo `FakeForLocalDev` sigue disponible
+solo para pruebas locales explícitas; ver
+[ADR-0015](./docs/decisiones/0015-local-dev-auth.md).
 
 ### Pre-requisitos
 
@@ -158,11 +160,24 @@ cd frontend
 npm run dev
 ```
 
-Abre <http://localhost:5173>. Verás el `<DevUserSelector />` (en lugar del botón
-"Iniciar sesión con Microsoft") — selecciona **"Super Admin (Dev)"** para
-loguearte con todos los permisos. El `BootstrapSuperAdminHostedService` crea
-automáticamente el usuario, el rol `super-admin` y la empresa inicial dev en
-el primer arranque del backend.
+Antes de iniciar, copia las variables `VITE_ENTRA_TENANT_ID`,
+`VITE_ENTRA_CLIENT_ID` y `VITE_API_AUDIENCE` a
+`frontend/.env.development.local` (ignorado por Git). En el backend configura
+`Auth__InitialAdminEntraOid` con el OID real de tu cuenta de desarrollo si
+vas a inicializar una base nueva con acceso de administrador. No publiques
+ese valor en `launchSettings.json` ni en `appsettings.Development.json`.
+
+Por ejemplo, exporta `Auth__InitialAdminEntraOid` en la terminal donde
+arrancarás `dotnet watch` (en PowerShell, usa `$env:Auth__InitialAdminEntraOid`).
+La aplicación SPA de desarrollo debe tener registrada la URI de retorno
+`http://localhost:5173/` en Entra. Usa una cuenta de prueba autorizada;
+no incluyas secretos ni claves de usuario en los archivos de Vite.
+
+Abre <http://localhost:5173> y usa **Continuar con Microsoft**. Si faltan los
+IDs de Entra, el frontend indicará que no puede iniciar; si falta el OID de
+administrador en una base nueva, el backend omitirá ese bootstrap. Tener una
+cuenta de Microsoft no concede permisos ERP por sí solo: la cuenta debe estar
+vinculada y autorizada en el sistema.
 
 ### Parar el ambiente
 

@@ -1,10 +1,11 @@
 # Usuarios seed del modo `FakeForLocalDev`
 
-Este documento describe los usuarios sintéticos disponibles cuando el backend
-arranca con `Auth:Mode = "FakeForLocalDev"` (default en
-`backend/src/Api/appsettings.Development.json`). El frontend con
-`VITE_AUTH_MODE=FakeForLocalDev` los expone vía `<DevUserSelector />` en
-lugar del botón "Iniciar sesión con Microsoft".
+Este documento describe el modo de pruebas aisladas `FakeForLocalDev`. El
+desarrollo compartido usa `EntraId` por defecto. Para activar el modo de
+prueba, configura explícitamente `Auth__Mode=FakeForLocalDev` y
+`Auth__InitialAdminEntraOid=dev-superadmin` en el backend, junto con
+`VITE_AUTH_MODE=FakeForLocalDev` en un archivo `.env.*.local` del frontend.
+Los dos lados deben usar el mismo modo. No publiques esos ajustes locales.
 
 Detalle de la decisión: [ADR-0015](decisiones/0015-local-dev-auth.md).
 
@@ -30,18 +31,18 @@ cuando los módulos de negocio los necesiten.
 
 ## Cómo funciona end-to-end
 
-1. **Backend**: `Auth:Mode = FakeForLocalDev` en `appsettings.Development.json`.
+1. **Backend**: `Auth__Mode=FakeForLocalDev` como variable local.
    El `AuthModeValidator` falla en arranque si este modo se intenta fuera de
    `Development`. El `BootstrapSuperAdminHostedService` crea idempotentemente
    el rol `super-admin`, el usuario con `EntraOid = dev-superadmin`, la
    empresa inicial (`MID010101AAA / Millet Dev`) y la asignación
    usuario↔empresa↔rol.
-2. **Frontend**: `VITE_AUTH_MODE=FakeForLocalDev` en `.env.development`. El
+2. **Frontend**: `VITE_AUTH_MODE=FakeForLocalDev` en `.env.development.local`. El
    `<DevUserSelector />` muestra las tarjetas de usuarios seed y al hacer
    clic llama a `POST /api/dev/fake-login` con el `oid` correspondiente.
-3. **`/api/dev/fake-login`**: solo existe en builds de Debug (`#if DEBUG`),
-   y aún ahí re-valida `Auth:Mode == FakeForLocalDev` para defensa en
-   profundidad. Devuelve un JWT firmado por `Auth:Jwt:SigningKey`.
+3. **`/api/dev/fake-login`**: responde solo en `Development` con
+   `Auth:Mode == FakeForLocalDev`; en los demás casos devuelve 404.
+   Devuelve un JWT firmado por `Auth:Jwt:SigningKey`.
 4. **Backend valida el JWT** con `JwtBearer` y popula `HttpContext.User`. El
    `CurrentUserContext` y el `CurrentEmpresaContext` leen claims y el
    `PermissionAuthorizationHandler` resuelve los permisos via
@@ -80,8 +81,8 @@ Cuando llegue el PR que necesite (por ejemplo) un `dev-cobrador`:
 
 ## Garantías de seguridad (resumen)
 
-- **Compilación condicional**: `DevAuthEndpoints` está envuelto en
-  `#if DEBUG`. Builds de Release no contienen el endpoint.
+- **Disponibilidad condicionada**: el endpoint exige `Development` y
+  `FakeForLocalDev` en cada solicitud.
 - **Validación en arranque**: `AuthModeValidator.EnsureAllowedForEnvironment`
   rechaza `FakeForLocalDev` fuera de Development.
 - **Re-validación en request**: el handler del endpoint vuelve a chequear
@@ -99,7 +100,7 @@ Si en tu ambiente local el frontend siempre te abre el inicio de sesión real de
 
 Esto ocurre comúnmente porque Vite prioriza el archivo `.env.local` sobre `.env.development`.
 
-### Escenario: El frontend pide Entra ID pero el backend usa botones falsos
-- **Causa**: Tienes un archivo `frontend/.env.local` con `VITE_AUTH_MODE=EntraId` y tu `backend/src/Api/appsettings.Development.json` tiene `"Mode": "FakeForLocalDev"`.
-- **Solución (para regresar a botones falsos)**: Cambia a `VITE_AUTH_MODE=FakeForLocalDev` en tu `frontend/.env.local` (o elimina el archivo).
-- **Solución (para usar Entra ID end-to-end)**: Cambia `"Mode": "EntraId"` en `backend/src/Api/appsettings.Development.json`.
+### Escenario: El frontend pide Entra ID pero el backend usa el modo de prueba
+- **Causa**: una variable local del backend sobreescribe el modo `EntraId` compartido.
+- **Solución para usar Entra**: elimina esa variable o usa `Auth__Mode=EntraId`; conserva `VITE_AUTH_MODE=EntraId` y completa los IDs locales del frontend.
+- **Solución para una prueba aislada con usuarios sintéticos**: configura ambos lados en `FakeForLocalDev` y el OID sintético del SuperAdmin en el backend.
