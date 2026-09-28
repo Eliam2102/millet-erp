@@ -55,10 +55,26 @@ Restaurar paquetes y compilar:
 dotnet build backend/Millet.sln
 ```
 
-Correr todos los tests:
+Correr los tests unitarios:
 ```powershell
 dotnet test backend/Millet.sln
 ```
+
+> **Tests de integración (BD de pruebas desechable).** Con `dotnet test` directo,
+> `Api.IntegrationTests`, `Compras.IntegrationTests` e
+> `Integraciones.Aw.IntegrationTests` salen en rojo sin haberse ejecutado: se
+> niegan a correr contra la BD de desarrollo. Para correrlos, desde la raíz del
+> repo y con Docker levantado:
+>
+> ```bash
+> ./tools/validate-integration-isolated.sh
+> # o un subconjunto:
+> ./tools/validate-integration-isolated.sh --filter "FullyQualifiedName~Empleado"
+> ```
+>
+> El script levanta un Postgres 17 temporal en Docker, aplica las migraciones de
+> todos los contextos, corre los tres proyectos y borra el contenedor al
+> terminar. No toca la BD de desarrollo ni los user-secrets (~3 min completo).
 
 Correr la API localmente (Hello world placeholder en Fase 1):
 ```powershell
