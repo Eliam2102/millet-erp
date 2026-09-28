@@ -69,9 +69,12 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task Get_Con_Zona_Horaria_Incluye_Acceso_Del_Dia_Local()
+    public async Task Get_Con_Zona_Horaria_Incluye_Evento_De_Sesion_Del_Dia_Local()
     {
         var client = await CreateSuperAdminClientAsync();
+        // El login exitoso ya no se audita; un cambio de empresa denegado sí.
+        var denegado = await client.PostAsJsonAsync("/api/auth/cambiar-empresa", new { EmpresaId = Guid.NewGuid() });
+        Assert.Equal(HttpStatusCode.Forbidden, denegado.StatusCode);
         var zona = TimeZoneInfo.FindSystemTimeZoneById("America/Merida");
         var hoyLocal = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zona).DateTime);
         var response = await client.GetAsync(
@@ -81,7 +84,7 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var items = (await ReadJsonAsync(response)).GetProperty("items");
         Assert.Contains(items.EnumerateArray(), item =>
             item.GetProperty("entidad").GetString() == "Sesion" &&
-            item.GetProperty("operacion").GetString() == "acceso");
+            item.GetProperty("operacion").GetString() == "cambiar_empresa_denegado");
     }
 
     [Fact]
