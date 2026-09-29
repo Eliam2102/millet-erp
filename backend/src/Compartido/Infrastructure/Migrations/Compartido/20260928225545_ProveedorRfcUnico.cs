@@ -10,6 +10,24 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // No se puede decidir automáticamente cuál de dos proveedores
+            // históricos con el mismo RFC conserva la identidad fiscal.
+            // Detener antes de modificar filas y pedir conciliación explícita.
+            migrationBuilder.Sql("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM compartido.proveedores
+                        WHERE upper(trim(rfc)) NOT IN ('XAXX010101000', 'XEXX010101000')
+                        GROUP BY upper(trim(rfc))
+                        HAVING count(*) > 1
+                    ) THEN
+                        RAISE EXCEPTION 'Hay RFC no genéricos duplicados en proveedores; conciliar los registros antes de aplicar ProveedorRfcUnico.';
+                    END IF;
+                END $$;
+                """);
+
             migrationBuilder.DropIndex(
                 name: "ix_proveedores_rfc",
                 schema: "compartido",
