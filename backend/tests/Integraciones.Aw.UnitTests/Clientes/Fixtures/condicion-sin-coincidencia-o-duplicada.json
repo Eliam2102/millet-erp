@@ -1,0 +1,98 @@
+{
+  "escenario": "condicion-sin-coincidencia-o-duplicada",
+  "descripcion": "Un cliente con ZAHLBED sin fila en catalogo y otro con BEZ duplicada en KA_ZAHLBED: condicion no resuelta, no se inventan dias.",
+  "origen": {
+    "KU_KUNDEN": [
+      {
+        "ID": 1003,
+        "MANDANT": 1,
+        "NAME1": "CLIENTE DEMO 001",
+        "NAME2": null,
+        "NAME3": null,
+        "STRASSE": "CALLE DEMO 1",
+        "ORT": "CIUDAD DEMO",
+        "PLZ": "00000",
+        "PROVINZ": "DEMO",
+        "LAND": "MX",
+        "UST_ID": null,
+        "STEUERNUMMER": "XAXX010101000",
+        "TLF1": "5500000000",
+        "TLF2": null,
+        "MAIL": "demo@example.invalid",
+        "ZAHLBED": "30 DIAS",
+        "WAEHRUNG": "PESOSMX",
+        "KREDIT_LIMIT": "1000.00",
+        "KREDIT_LIMIT1": null,
+        "KREDIT_LIMIT_NET": null,
+        "KZ_STATUS": 1,
+        "KZ_GESPERRT": 0,
+        "DATUM": "2026-09-01",
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      },
+      {
+        "ID": 1004,
+        "MANDANT": 1,
+        "NAME1": "CLIENTE DEMO 004",
+        "NAME2": null,
+        "NAME3": null,
+        "STRASSE": "CALLE DEMO 1",
+        "ORT": "CIUDAD DEMO",
+        "PLZ": "00000",
+        "PROVINZ": "DEMO",
+        "LAND": "MX",
+        "UST_ID": null,
+        "STEUERNUMMER": "XAXX010101000",
+        "TLF1": "5500000000",
+        "TLF2": null,
+        "MAIL": "demo@example.invalid",
+        "ZAHLBED": "REPARTO",
+        "WAEHRUNG": "PESOSMX",
+        "KREDIT_LIMIT": "1000.00",
+        "KREDIT_LIMIT1": null,
+        "KREDIT_LIMIT_NET": null,
+        "KZ_STATUS": 1,
+        "KZ_GESPERRT": 0,
+        "DATUM": "2026-09-01",
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ],
+    "KA_ZAHLBED": [
+      {
+        "BEZ": "CONTADO",
+        "NUMMER": 1,
+        "BRUTTOTAGE": 0
+      },
+      {
+        "BEZ": "REPARTO",
+        "NUMMER": 4,
+        "BRUTTOTAGE": 3
+      },
+      {
+        "BEZ": "60 DIAS",
+        "NUMMER": 6,
+        "BRUTTOTAGE": 60
+      },
+      {
+        "BEZ": "REPARTO",
+        "NUMMER": 9,
+        "BRUTTOTAGE": 30
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": false
+  },
+  "resultadoEsperado": {
+    "resultado": "CondicionNoResuelta",
+    "clientes": {
+      "1003": {
+        "motivo": "SinCoincidencia",
+        "dias": null
+      },
+      "1004": {
+        "motivo": "Duplicada",
+        "dias": null
+      }
+    }
+  }
+}
