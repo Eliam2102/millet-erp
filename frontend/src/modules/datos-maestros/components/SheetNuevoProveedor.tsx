@@ -12,6 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 import {
   Select,
   SelectContent,
@@ -40,7 +41,10 @@ import {
   type CrearProveedorValues,
 } from '@/modules/datos-maestros/schemas/proveedor';
 import { useCrearProveedor } from '@/modules/datos-maestros/api';
-import { TipoPersonaProveedor } from '@/modules/datos-maestros/api/types';
+import {
+  EstatusCatalogo,
+  TipoPersonaProveedor,
+} from '@/modules/datos-maestros/api/types';
 
 /**
  * <c>&lt;NuevoProveedorProvider/&gt;</c> + Sheet asociado (P4 del
@@ -181,6 +185,15 @@ function NuevoProveedorForm({
       {
         onSuccess: (resp) => {
           toast.success(`Proveedor ${resp.clave} creado`);
+          if (resp.estatus === EstatusCatalogo.EnRevision) {
+            toast.warning(
+              `${resp.clave} quedó en revisión: posible duplicado`,
+              {
+                description:
+                  'RFC genérico con la misma razón social que otro proveedor existente. Revísalo antes de operar con él.',
+              },
+            );
+          }
           form.reset(values);
           onClose({ force: true });
           navigate({
@@ -194,6 +207,15 @@ function NuevoProveedorForm({
               form.setError('clave', {
                 type: error.code,
                 message: 'Ya existe un proveedor con esa clave.',
+              });
+              return;
+            }
+            if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
+              form.setError('rfc', {
+                type: error.code,
+                message:
+                  error.problem.detail ??
+                  'Ya existe un proveedor con ese RFC.',
               });
               return;
             }
@@ -257,7 +279,7 @@ function NuevoProveedorForm({
         hint="12 caracteres (persona moral) o 13 (persona física)."
         error={form.formState.errors.rfc?.message}
       >
-        <Input
+        <UppercaseInput
           maxLength={13}
           placeholder="ACM010101ABC"
           className="font-mono"

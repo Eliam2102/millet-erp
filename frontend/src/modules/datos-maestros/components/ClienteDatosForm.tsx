@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 import {
   Select,
   SelectContent,
@@ -217,7 +218,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           name="rfc"
           control={form.control}
           render={({ field }) => (
-            <Input
+            <UppercaseInput
               maxLength={13}
               disabled={!canEditar}
               className="font-mono"
