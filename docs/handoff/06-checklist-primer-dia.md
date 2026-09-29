@@ -3,7 +3,7 @@
 - [ ] Recibí acceso al repositorio privado.
 - [ ] Activé MFA en GitHub.
 - [ ] Cloné el repositorio y estoy en `main`.
-- [ ] Instalé .NET 9, Node 22 y Docker.
+- [ ] Instalé .NET 10, Node 22 y Docker.
 - [ ] Levanté PostgreSQL en un puerto propio sin colisión.
 - [ ] Apliqué los 12 contextos de migración.
 - [ ] Arranqué API y frontend.

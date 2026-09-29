@@ -8,7 +8,7 @@
 
 ## Evidencia ejecutada
 
-- .NET SDK global disponible: `10.0.401`; el proyecto requiere oficialmente .NET 9. La revalidación se ejecutó con SDK `9.0.318` aislado en una carpeta temporal, sin modificar la instalación global. El onboarding debe instalar .NET 9 de forma normal.
+- Migración a .NET 10 (2026-09-29): SDK `10.0.112` (exigido por `global.json`). Compilación completa con 0 advertencias y 0 errores; pruebas unitarias del backend y del frontend (1,653) aprobadas; gate de integración con BD desechable aprobado (A+W 7, Compras 131 y API 546) y sin cambios de modelo pendientes en los 12 DbContext. El resumen de pruebas de abajo es previo a esta migración.
 - Backend: compilación completa aprobada, **0 advertencias y 0 errores**.
 - Backend: **2,768 pruebas aprobadas y 0 fallidas**: 2,279 unitarias y 489 de integración (A+W 7, Compras 120 y API 362). La última revalidación utilizó una base migrada limpia y una copia independiente por proyecto de integración.
 - Frontend: **278 archivos y 1,567 pruebas aprobadas**.

@@ -92,7 +92,7 @@ funcionan bien entre sí.
             return false;        // no reintentar errores 4xx
           return failureCount < 3;
         },
-        refetchOnWindowFocus: false  // ERP: no necesario, los eventos SignalR cubren
+        refetchOnWindowFocus: true   // revisión 2026-09: SignalR solo publica presencia; ver ADR-0020
       }
     }
   });
