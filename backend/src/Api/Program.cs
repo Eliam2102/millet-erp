@@ -1081,6 +1081,7 @@ builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) =>
     ConfigureMilletDbContext(opts, sp);
     opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
 });
+builder.Services.AddScoped<Millet.DatosMaestros.Application.Clientes.AplicarClienteAwService>();
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 builder.Services.AddHostedService<AuditPartitionRolloverJob>();
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));

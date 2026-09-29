@@ -1,7 +1,5 @@
 using FluentValidation;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 
 namespace Millet.DatosMaestros.Application.Clientes;
@@ -62,50 +60,36 @@ public sealed class ProvisionarClienteDesdeAwValidator
 public sealed class ProvisionarClienteDesdeAwHandler
     : IRequestHandler<ProvisionarClienteDesdeAwCommand, ProvisionarClienteDesdeAwResponse>
 {
-    private readonly CompartidoDbContext _db;
+    private readonly AplicarClienteAwService _aplicar;
 
-    public ProvisionarClienteDesdeAwHandler(CompartidoDbContext db) => _db = db;
+    public ProvisionarClienteDesdeAwHandler(AplicarClienteAwService aplicar) => _aplicar = aplicar;
 
     public async Task<ProvisionarClienteDesdeAwResponse> Handle(
         ProvisionarClienteDesdeAwCommand request, CancellationToken cancellationToken)
     {
-        var existente = await _db.Clientes
-            .FirstOrDefaultAsync(c => c.ReferenciaExterna == request.ReferenciaExterna, cancellationToken);
-        if (existente is not null)
-            return Respuesta(existente, creado: false);
+        // Existente: se devuelve sin tocar (SoloCrear). Nuevo: Cliente Origen=Aw +
+        // registro de origen con datos mínimos, en una transacción. CP del
+        // domicilio en A+W como prefill del CP FISCAL (el operador lo valida
+        // contra la constancia). La validación fiscal completa (régimen, etc.)
+        // ocurre en la emisión y NO se ha verificado contra el master.
+        var r = await _aplicar.AplicarAsync(new AplicarClienteAwSnapshot(
+            request.ReferenciaExterna, request.RazonSocial, DateTime.UtcNow,
+            VersionContrato: "1", VersionMapeo: "0-borrador",
+            Rfc: request.Rfc,
+            CodigoPostalFiscal: request.CodigoPostalFiscal,
+            UsoCfdiDefault: request.UsoCfdiDefault,
+            FormaPagoDefault: request.FormaPagoDefault,
+            MetodoPagoDefault: request.MetodoPagoDefault,
+            MonedaDefault: request.MonedaDefault,
+            NumRegIdTrib: request.NumRegIdTrib,
+            PaisResidencia: request.PaisResidencia,
+            DomicilioExtranjeroCalle: request.DomicilioExtranjeroCalle,
+            DomicilioExtranjeroEstado: request.DomicilioExtranjeroEstado,
+            DomicilioExtranjeroCodigoPostal: request.DomicilioExtranjeroCodigoPostal,
+            Telefono: request.Telefono,
+            SoloCrear: true), cancellationToken);
 
-        // Clave determinista desde la referencia A+W (numero_cliente):
-        // legible, única (la referencia lo es) y ≤20 chars.
-        var clave = $"AW-{request.ReferenciaExterna}";
-        var cliente = new Cliente(
-            id: Guid.CreateVersion7(),
-            clave: clave.Length <= 20 ? clave : clave[..20],
-            razonSocial: request.RazonSocial,
-            origen: OrigenMaster.Aw,
-            referenciaExterna: request.ReferenciaExterna,
-            rfc: request.Rfc,
-            // CP del domicilio en A+W como prefill del CP FISCAL: el operador
-            // lo valida contra la constancia (el SAT exige coincidencia); el
-            // gate real de timbrado sigue siendo TieneFiscalesCompletos, que
-            // también exige régimen — y ese nunca viene de A+W.
-            codigoPostalFiscal: request.CodigoPostalFiscal,
-            usoCfdiDefault: request.UsoCfdiDefault,
-            formaPagoDefault: request.FormaPagoDefault,
-            metodoPagoDefault: request.MetodoPagoDefault,
-            monedaDefault: request.MonedaDefault ?? "MXN",
-            telefono: request.Telefono,
-            // Receptor extranjero (CCE): país+domicilio vienen de vw_erp_cliente;
-            // NumRegIdTrib es gap A+W (null hasta que lo agreguen a la vista).
-            numRegIdTrib: request.NumRegIdTrib,
-            paisResidencia: request.PaisResidencia,
-            domicilioExtranjeroCalle: request.DomicilioExtranjeroCalle,
-            domicilioExtranjeroEstado: request.DomicilioExtranjeroEstado,
-            domicilioExtranjeroCodigoPostal: request.DomicilioExtranjeroCodigoPostal);
-
-        _db.Clientes.Add(cliente);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return Respuesta(cliente, creado: true);
+        return Respuesta(r.Cliente, creado: r.Accion == AplicarClienteAwAccion.Creado);
     }
 
     private static ProvisionarClienteDesdeAwResponse Respuesta(Cliente c, bool creado) => new(
