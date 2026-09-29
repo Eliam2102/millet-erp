@@ -16,6 +16,7 @@ export {
   esApiError,
   esConflictoConcurrencia,
   esIdempotencyEnCurso,
+  esIdempotencyFalloPrevio,
   esPrecondicionRequerida,
   esErrorDeCliente,
   esErrorDeServidor,

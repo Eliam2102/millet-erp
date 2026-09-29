@@ -119,6 +119,36 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
         // Defensivo: el predicado está acotado — no debe arrastrar permisos de
         // Compras (StartsWith admin.* / == compartido.catalogos.leer, nada más).
         Assert.DoesNotContain(Guid.Parse("00000003-0004-0000-0000-000000000001"), orgAdminPermisoIds); // compras.configuracion.leer
+
+        // Admin Catálogos: debe tener 8 permisos (2 compartido.catalogos.* + 6 catalogos.*)
+        var catalogosId = await GetRolIdByCodigoAsync(client, "admin-catalogos");
+        var catalogosDetalle = await GetDetalleAsync(client, catalogosId);
+        var catalogosPermisoIds = catalogosDetalle.GetProperty("permisoIds")
+            .EnumerateArray()
+            .Select(g => g.GetGuid())
+            .ToHashSet();
+        Assert.Contains(Guid.Parse("00000004-0001-0000-0000-000000000001"), catalogosPermisoIds); // compartido.catalogos.leer
+        Assert.Contains(Guid.Parse("00000004-0002-0000-0000-000000000001"), catalogosPermisoIds); // compartido.catalogos.administrar
+        Assert.Contains(Guid.Parse("00000004-0003-0000-0000-000000000001"), catalogosPermisoIds); // catalogos.monedas.gestionar
+        Assert.Contains(Guid.Parse("00000004-0004-0000-0000-000000000001"), catalogosPermisoIds); // catalogos.tipos-cambio.gestionar
+        Assert.Contains(Guid.Parse("00000004-0005-0000-0000-000000000001"), catalogosPermisoIds); // catalogos.condiciones-pago.gestionar
+        Assert.Contains(Guid.Parse("00000004-0006-0000-0000-000000000001"), catalogosPermisoIds); // catalogos.incoterms.gestionar
+        Assert.Contains(Guid.Parse("00000004-0007-0000-0000-000000000001"), catalogosPermisoIds); // catalogos.transportistas.gestionar
+        Assert.Contains(Guid.Parse("00000004-0008-0000-0000-000000000001"), catalogosPermisoIds); // catalogos.unidades-medida.gestionar
+
+        // Admin Datos Maestros: debe tener compartido.catalogos.* + datos_maestros.*
+        var datosMaestrosId = await GetRolIdByCodigoAsync(client, "admin-datos-maestros");
+        var datosMaestrosDetalle = await GetDetalleAsync(client, datosMaestrosId);
+        var datosMaestrosPermisoIds = datosMaestrosDetalle.GetProperty("permisoIds")
+            .EnumerateArray()
+            .Select(g => g.GetGuid())
+            .ToHashSet();
+        Assert.Contains(Guid.Parse("00000004-0001-0000-0000-000000000001"), datosMaestrosPermisoIds); // compartido.catalogos.leer
+        Assert.Contains(Guid.Parse("00000004-0002-0000-0000-000000000001"), datosMaestrosPermisoIds); // compartido.catalogos.administrar
+        Assert.Contains(Guid.Parse("00000004-0009-0000-0000-000000000001"), datosMaestrosPermisoIds); // datos_maestros.proveedores.gestionar
+        Assert.Contains(Guid.Parse("00000004-0010-0000-0000-000000000001"), datosMaestrosPermisoIds); // datos_maestros.articulos.gestionar
+        Assert.Contains(Guid.Parse("00000004-0011-0000-0000-000000000001"), datosMaestrosPermisoIds); // datos_maestros.clientes.gestionar
+        Assert.Contains(Guid.Parse("00000004-0012-0000-0000-000000000001"), datosMaestrosPermisoIds); // datos_maestros.productos-aw.gestionar
     }
 
     private static async Task<Guid> GetRolIdByCodigoAsync(HttpClient client, string codigo)

@@ -50,4 +50,24 @@ describe('ImpuestosPage', () => {
     expect(screen.queryByRole('button', { name: /nueva referencia/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
   });
+
+  it('soporta limpiar la fecha de consulta sin provocar error y cargando el catálogo', async () => {
+    let capturedUrl = '';
+    mswServer.use(
+      http.get('*/api/v1/catalogos/impuestos', ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json([item]);
+      }),
+    );
+    render(<ImpuestosPage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('Tasa ficticia')).toBeInTheDocument());
+
+    const dateInput = screen.getByLabelText(/fecha de consulta/i);
+    fireEvent.change(dateInput, { target: { value: '' } });
+
+    await waitFor(() => {
+      expect(capturedUrl).not.toContain('fecha=');
+      expect(screen.getByText('Tasa ficticia')).toBeInTheDocument();
+    });
+  });
 });

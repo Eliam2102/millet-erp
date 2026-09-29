@@ -19,7 +19,9 @@ internal sealed class IdempotencyKeyConfiguration : IEntityTypeConfiguration<Ide
                 "status IN ('processing', 'completed', 'failed')");
         });
 
-        builder.HasKey(x => new { x.EmpresaId, x.UsuarioId, x.Key });
+        // Revisión 2026-09: método y ruta forman parte de la PK. Una key
+        // reusada en otro endpoint es otra operación, no un replay.
+        builder.HasKey(x => new { x.EmpresaId, x.UsuarioId, x.Key, x.HttpMethod, x.Path });
 
         builder.Property(x => x.Key).HasColumnType("text").IsRequired();
         builder.Property(x => x.EmpresaId).IsRequired();
@@ -30,6 +32,7 @@ internal sealed class IdempotencyKeyConfiguration : IEntityTypeConfiguration<Ide
         builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
         builder.Property(x => x.ResponseStatusCode);
         builder.Property(x => x.ResponseBody).HasColumnType("jsonb");
+        builder.Property(x => x.ResponseHeaders).HasColumnType("jsonb");
         builder.Property(x => x.ResponseBodyTruncated).HasDefaultValue(false);
         builder.Property(x => x.CorrelationId).IsRequired();
         builder.Property(x => x.CreatedAt).IsRequired();

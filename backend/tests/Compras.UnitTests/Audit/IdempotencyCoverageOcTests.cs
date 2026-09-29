@@ -92,7 +92,7 @@ public class IdempotencyCoverageOcTests
 
     private static string LeerOrdenesCompraEndpoints()
     {
-        // Subir desde tests/Compras.UnitTests/bin/Debug/net9.0/ hasta
+        // Subir desde tests/Compras.UnitTests/bin/Debug/net10.0/ hasta
         // raíz del repo y bajar al archivo. AppContext.BaseDirectory
         // apunta a la carpeta bin.
         var baseDir = AppContext.BaseDirectory;

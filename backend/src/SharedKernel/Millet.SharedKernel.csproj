@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -31,7 +31,6 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Serilog" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
     <!--
       Application infra (CQRS, validación, mapping). Las extension
       methods AddMilletApplication(...) en SharedKernel.Application

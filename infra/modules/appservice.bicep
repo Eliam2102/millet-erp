@@ -389,7 +389,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: plan.id
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'DOTNETCORE|9.0'
+      linuxFxVersion: 'DOTNETCORE|10.0'
       // alwaysOn no está soportado en Free/Basic. Solo activarlo en Standard+.
       alwaysOn: planSkuTier != 'Basic' && planSkuTier != 'Free'
       ftpsState: 'Disabled'

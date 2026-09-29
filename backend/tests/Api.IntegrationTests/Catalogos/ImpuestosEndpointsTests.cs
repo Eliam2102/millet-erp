@@ -60,6 +60,12 @@ public sealed class ImpuestosEndpointsTests : IClassFixture<WebApplicationFactor
         Assert.Contains((await ReadJsonAsync(historico)).EnumerateArray(),
             item => item.GetProperty("id").GetGuid() == id &&
                     !item.GetProperty("activo").GetBoolean());
+
+        var fechaVacia = await client.GetAsync($"{Base}?fecha=&incluirHistorico=true");
+        fechaVacia.EnsureSuccessStatusCode();
+
+        var fechaInvalida = await client.GetAsync($"{Base}?fecha=invalida");
+        Assert.Equal(HttpStatusCode.BadRequest, fechaInvalida.StatusCode);
     }
 
     [Fact]

@@ -7,14 +7,21 @@ import type {
   ImpuestoReferenciaResponse,
 } from '@/modules/catalogos/api/types';
 
-export function useImpuestosReferencia(fecha: string, incluirHistorico = false, enabled = true) {
+export function useImpuestosReferencia(fecha?: string | null, incluirHistorico = false, enabled = true) {
   return useQuery({
     enabled,
-    queryKey: [...catalogosKeys.impuestos(), fecha, incluirHistorico],
+    queryKey: [...catalogosKeys.impuestos(), fecha ?? '', incluirHistorico],
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams({ fecha, incluirHistorico: String(incluirHistorico) });
-      const { data } = await apiRequest<ImpuestoReferenciaResponse[]>(
-        `/api/v1/catalogos/impuestos?${params}`, { signal });
+      const params = new URLSearchParams();
+      if (fecha && fecha.trim().length > 0) {
+        params.set('fecha', fecha.trim());
+      }
+      if (incluirHistorico) {
+        params.set('incluirHistorico', 'true');
+      }
+      const qs = params.toString();
+      const url = qs ? `/api/v1/catalogos/impuestos?${qs}` : '/api/v1/catalogos/impuestos';
+      const { data } = await apiRequest<ImpuestoReferenciaResponse[]>(url, { signal });
       return data;
     },
   });

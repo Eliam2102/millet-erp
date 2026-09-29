@@ -29,13 +29,29 @@ public static class ImpuestosEndpoints
         var group = app.MapGroup("/api/v1/catalogos/impuestos").WithTags("Catalogos");
 
         group.MapGet("/", async (
-            [FromQuery] DateOnly? fecha,
+            [FromQuery] string? fecha,
             [FromQuery] bool? incluirHistorico,
             CompartidoDbContext db,
             IClock clock,
             CancellationToken ct) =>
         {
-            var dia = fecha ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+            DateOnly? fechaParsed = null;
+            if (!string.IsNullOrWhiteSpace(fecha))
+            {
+                if (DateOnly.TryParse(fecha, System.Globalization.CultureInfo.InvariantCulture, out var parsedDate))
+                {
+                    fechaParsed = parsedDate;
+                }
+                else
+                {
+                    throw new ValidationException(new[]
+                    {
+                        new ValidationError("fecha", "FECHA_INVALIDA", "El formato de fecha de consulta no es válido (se espera YYYY-MM-DD).")
+                    });
+                }
+            }
+
+            var dia = fechaParsed ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
             var query = db.ImpuestosReferencia.AsNoTracking();
             if (incluirHistorico != true)
                 query = query.Where(i => i.Activo && i.VigenteDesde <= dia &&

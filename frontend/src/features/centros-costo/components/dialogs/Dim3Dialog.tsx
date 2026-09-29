@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -50,14 +50,23 @@ export function Dim3Dialog({ open, onOpenChange, modo }: Dim3DialogProps) {
     defaultValues: { clave: '', nombre: '', grupoDim3Id: '' },
   });
 
+  // true cuando el formulario ya se cargó en esta apertura del diálogo: un
+  // refresco posterior del mismo registro (p. ej. al volver a la pestaña) no
+  // pisa los campos que el usuario ya editó.
+  const cargadoEnEstaApertura = useRef(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      cargadoEnEstaApertura.current = false;
+      return;
+    }
     if (modo.tipo === 'editar' && detalle.data) {
       form.reset({
         clave: detalle.data.data.clave,
         nombre: detalle.data.data.nombre,
         grupoDim3Id: detalle.data.data.grupoDim3Id,
-      });
+      }, { keepDirtyValues: cargadoEnEstaApertura.current });
+      cargadoEnEstaApertura.current = true;
     }
     if (modo.tipo === 'crear') {
       form.reset({ clave: '', nombre: '', grupoDim3Id: '' });

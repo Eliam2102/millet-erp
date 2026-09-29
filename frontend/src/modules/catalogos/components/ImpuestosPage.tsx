@@ -35,7 +35,7 @@ export function ImpuestosPage() {
 
   function abrirNuevo() {
     setEditando(null);
-    setDraft({ ...initial, vigenteDesde: fecha });
+    setDraft({ ...initial, vigenteDesde: fecha || hoy });
     setNuevo(true);
   }
 

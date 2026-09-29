@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
+import { MutationObserver } from '@tanstack/react-query';
+import { ApiError } from '@/lib/api/error';
+import { queryClient } from '@/lib/query-client';
 import {
   idempotencyHeader,
   useBodyScopedIdempotencyKey,
@@ -73,5 +76,73 @@ describe('useBodyScopedIdempotencyKey', () => {
     const ka = a.result.current({ x: 1 });
     const kb = b.result.current({ x: 1 });
     expect(ka).not.toBe(kb);
+  });
+});
+
+/**
+ * Revisión 2026-09 (ADR-0020): la key se renueva al terminar bien la
+ * operación que la usó. Evita que una lista/página que sigue montada
+ * reciba la respuesta cacheada de la acción anterior.
+ */
+async function ejecutarMutacion(variables: unknown, resultado: 'ok' | Error = 'ok') {
+  const observer = new MutationObserver<string, Error, unknown>(queryClient, {
+    mutationFn: async () => {
+      if (resultado !== 'ok') throw resultado;
+      return 'hecho';
+    },
+    retry: false,
+  });
+  await act(async () => {
+    await observer.mutate(variables).catch(() => undefined);
+  });
+}
+
+function falloPrevio(): ApiError {
+  return new ApiError(
+    {
+      type: 'about:blank',
+      title: 'La operación anterior falló',
+      status: 409,
+      code: 'IDEMPOTENCY_PREVIOUS_FAILURE',
+    },
+    409,
+  );
+}
+
+describe('rotación de key tras éxito', () => {
+  it('useFormIdempotencyKey: rota cuando la mutación que la usó termina bien', async () => {
+    const { result } = renderHook(() => useFormIdempotencyKey());
+    const k1 = result.current;
+    await ejecutarMutacion({ id: 'puesto-a', idempotencyKey: k1 });
+    expect(result.current).not.toBe(k1);
+  });
+
+  it('useFormIdempotencyKey: conserva la key tras un error normal (reintento seguro)', async () => {
+    const { result } = renderHook(() => useFormIdempotencyKey());
+    const k1 = result.current;
+    await ejecutarMutacion({ id: 'puesto-a', idempotencyKey: k1 }, new Error('red caída'));
+    expect(result.current).toBe(k1);
+  });
+
+  it('useFormIdempotencyKey: rota tras IDEMPOTENCY_PREVIOUS_FAILURE', async () => {
+    const { result } = renderHook(() => useFormIdempotencyKey());
+    const k1 = result.current;
+    await ejecutarMutacion({ command: { idempotencyKey: k1 } }, falloPrevio());
+    expect(result.current).not.toBe(k1);
+  });
+
+  it('useFormIdempotencyKey: no rota por mutaciones con otra key', async () => {
+    const { result } = renderHook(() => useFormIdempotencyKey());
+    const k1 = result.current;
+    await ejecutarMutacion({ idempotencyKey: crypto.randomUUID() });
+    expect(result.current).toBe(k1);
+  });
+
+  it('useBodyScopedIdempotencyKey: mismo body tras un éxito ⇒ key nueva', async () => {
+    const { result } = renderHook(() => useBodyScopedIdempotencyKey());
+    const body = { monto: 100, cuenta: 'A' };
+    const k1 = result.current(body);
+    await ejecutarMutacion({ command: body, idempotencyKey: k1 });
+    expect(result.current(body)).not.toBe(k1);
   });
 });

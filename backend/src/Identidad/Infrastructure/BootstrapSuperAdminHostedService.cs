@@ -211,6 +211,7 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Administrador de Catálogos",
                 "CRUD de catálogos cross-empresa (monedas, condiciones, SAT, etc.).",
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
+                     || p.Codigo.StartsWith("catalogos.", StringComparison.Ordinal)
             ),
             (
                 Guid.Parse("00000002-0003-0000-0000-000000000005"),
@@ -218,6 +219,7 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Administrador de Datos Maestros",
                 "Gestión de proveedores y artículos (catálogos operativos).",
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
+                     || p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
             ),
             (
                 Guid.Parse("00000002-0003-0000-0000-000000000006"),

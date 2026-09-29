@@ -55,6 +55,7 @@ Este documento describe **qué construir y por qué**, no el código. La impleme
 5. **Usuarios (F-Admin-PR4).** UI de usuarios + asignación rol×empresa.
 6. **Datos Maestros (F-Admin-PR4.5).** UI de administración de Proveedores y Artículos bajo `/admin/datos-maestros/*` (los CRUD ya operados por Compras se reutilizan; UI agrega vistas y filtros admin).
 7. **Catálogos SAT (F-Admin-PR5).** CRUD básico de Moneda + **tipos de cambio carga manual via UI inline** (A4=a), CondicionesPago, FormasPago, UsosCfdi, RegimenFiscal, Incoterm, Transportista, UnidadMedida.
+   - **Referencias de Impuestos (F1-ADM-04):** Catálogo compartido de impuestos con vigencias y validación anti-solapamiento. Ver [[12-f1-adm-04-catalogos-compartidos-impuestos.md|12-f1-adm-04-catalogos-compartidos-impuestos]].
 8. **Series y folios (F-Admin-PR6).** CRUD de series por tipo de documento y empresa/sucursal con **ReinicioPeriodo: None (eterno) | Anual | Mensual** (A5=a ampliada).
 9. **Auditoría + parámetros globales (F-Admin-PR7).** UI de bitácora consolidada + parámetros (TZ, formato fecha, redondeo).
 

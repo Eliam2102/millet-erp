@@ -20,7 +20,7 @@ namespace Millet.Compras.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("compras")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -371,8 +371,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("version");
 
-                    b.ComplexProperty<Dictionary<string, object>>("PrecioEstimado", "Millet.Compras.Domain.LineaRequisicion.PrecioEstimado#Money", b1 =>
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "PrecioEstimado", "Millet.Compras.Domain.LineaRequisicion.PrecioEstimado#Money", b1 =>
                         {
+                            b1.IsRequired();
+
                             b1.Property<decimal>("Amount")
                                 .HasPrecision(18, 6)
                                 .HasColumnType("numeric(18,6)")
@@ -788,8 +790,10 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("version");
 
-                    b.ComplexProperty<Dictionary<string, object>>("Descuento", "Millet.Compras.Domain.Oc.LineaOrdenCompra.Descuento#DescuentoLinea", b1 =>
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Descuento", "Millet.Compras.Domain.Oc.LineaOrdenCompra.Descuento#DescuentoLinea", b1 =>
                         {
+                            b1.IsRequired();
+
                             b1.Property<short>("Tipo")
                                 .HasColumnType("smallint")
                                 .HasColumnName("descuento_tipo");
@@ -1803,6 +1807,23 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -1825,6 +1846,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -1854,12 +1881,21 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");

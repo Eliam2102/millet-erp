@@ -117,7 +117,16 @@ public sealed class Adm03AccesosTests : IClassFixture<WebApplicationFactory<Prog
             CorrelationId = Guid.NewGuid(),
         });
         await db.SaveChangesAsync();
-        Assert.True(await db.AuditLog.AnyAsync(e => e.Id == id && e.Timestamp == future));
+        try
+        {
+            Assert.True(await db.AuditLog.AnyAsync(e => e.Id == id && e.Timestamp == future));
+        }
+        finally
+        {
+            // La bitácora es compartida: un evento de "Sesion" con fecha futura
+            // quedaría como "el más reciente" para otros tests.
+            await db.AuditLog.Where(e => e.Id == id && e.Timestamp == future).ExecuteDeleteAsync();
+        }
     }
 
     private static async Task<string> FakeLoginAsync(HttpClient client, string oid)
