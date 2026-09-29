@@ -6,7 +6,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "backend: build",
-      "program": "${workspaceFolder}/backend/src/Api/bin/Release/net9.0/Millet.Api.dll",
+      "program": "${workspaceFolder}/backend/src/Api/bin/Release/net10.0/Millet.Api.dll",
       "args": [],
       "cwd": "${workspaceFolder}/backend/src/Api",
       "stopAtEntry": false,

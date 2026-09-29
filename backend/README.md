@@ -1,6 +1,6 @@
 # Backend - Millet ERP
 
-API en .NET 9 que implementa el back-office del ERP. Monolito modular con
+API en .NET 10 que implementa el back-office del ERP. Monolito modular con
 arquitectura hexagonal y CQRS por módulo, comunicación entre módulos por
 eventos asíncronos vía Azure Service Bus.
 
@@ -45,7 +45,7 @@ que todos los módulos consumen. Su nombre evita la palabra reservada
 
 ## Requisitos
 
-- **.NET 9 SDK** ([descarga](https://dotnet.microsoft.com/download/dotnet/9.0))
+- **.NET 10 SDK** ([descarga](https://dotnet.microsoft.com/download/dotnet/10.0))
 - PostgreSQL 16 (para correr la app contra una BD real; en Fase 1 todavía no se usa)
 
 ## Comandos comunes
