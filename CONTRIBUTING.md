@@ -22,7 +22,7 @@ secretos pides acceso adicional.
 
 | Herramienta | Versión | Observación |
 |---|---|---|
-| .NET SDK | 9.x | Obligatorio para el backend `net9.0` |
+| .NET SDK | 10.x | Obligatorio para el backend `net10.0` |
 | Node.js | 22.x | Usar `frontend/.nvmrc` |
 | Docker + Compose | reciente | Provee PostgreSQL local de forma uniforme |
 | Git | reciente | Requerido |
