@@ -9,6 +9,7 @@ import type {
   CrearProveedorPayload,
   CrearProveedorResponse,
   ListarProveedoresResponse,
+  ProveedorDatosBancarios,
   ProveedorDetalle,
 } from '@/modules/datos-maestros/api/types';
 
@@ -21,6 +22,9 @@ import type {
  *         enriquecida con filtros (rfc, razonSocial, tipoPersona,
  *         estatus). Permiso <c>datos_maestros.proveedores.gestionar</c>.</item>
  *   <item><c>GET    /api/v1/datos-maestros/proveedores/{id}</c> — detalle.</item>
+ *   <item><c>GET    /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
+ *         — banco/CLABE (enmascarada)/beneficiario (F1-ADM-05). Permiso
+ *         <c>datos_maestros.proveedores.bancarios-ver</c>.</item>
  *   <item><c>POST   /api/v1/catalogos/proveedores</c> — alta legacy B.5.
  *         Permiso <c>compartido.catalogos.administrar</c>.</item>
  *   <item><c>PATCH  /api/v1/catalogos/proveedores/{id}</c> — patch parcial.</item>
@@ -59,6 +63,32 @@ export function useProveedor(id: string | null | undefined) {
       if (id == null) throw new Error('useProveedor invocado sin id');
       const { data } = await apiRequest<ProveedorDetalle>(
         `/api/v1/datos-maestros/proveedores/${id}`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: id != null,
+    staleTime: 0,
+  });
+}
+
+/**
+ * Datos bancarios del proveedor (F1-ADM-05). Permiso dedicado
+ * <c>datos_maestros.proveedores.bancarios-ver</c> — 403 si falta; el
+ * caller debe gatear el render con <c>useHasPermission</c> antes de
+ * montar este hook (evita el fetch fallido de entrada).
+ */
+export function useProveedorDatosBancarios(id: string | null | undefined) {
+  return useQuery({
+    queryKey:
+      id != null
+        ? datosMaestrosKeys.proveedorDatosBancarios(id)
+        : (['datos-maestros', 'noop'] as const),
+    queryFn: async ({ signal }) => {
+      if (id == null)
+        throw new Error('useProveedorDatosBancarios invocado sin id');
+      const { data } = await apiRequest<ProveedorDatosBancarios>(
+        `/api/v1/datos-maestros/proveedores/${id}/datos-bancarios`,
         { signal },
       );
       return data;
@@ -112,6 +142,9 @@ export function useActualizarProveedor() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({
         queryKey: datosMaestrosKeys.proveedor(vars.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedorDatosBancarios(vars.id),
       });
       queryClient.invalidateQueries({
         queryKey: datosMaestrosKeys.proveedores(),
