@@ -42,6 +42,7 @@ using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Integraciones.Aw.Infrastructure;
+using Millet.Integraciones.Aw.Infrastructure.Clientes;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 using Millet.Integraciones.Fiscal.Infrastructure;
 using Millet.SharedKernel.Infrastructure.Persistence.Interceptors;
@@ -795,6 +796,10 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 {
     builder.Services.AddIntegracionesAwPedidosAdapters(builder.Configuration);
 }
+
+// ADM-06: lector de clientes A+W. Independiente de pedidos; por defecto solo la fuente
+// simulada vacía (sin adaptador SQL, sin lecturas). Ver doc integration/05 §10.
+builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 
 // F2-PR2: worker de envío de CFDI por correo (drena bitacora_envio_correo,
 // genera PDF + adjunta XML, entrega vía INotificacionService [stub]).
