@@ -13,8 +13,10 @@ namespace Millet.DatosMaestros.Application.Catalogos;
 
 /// <summary>
 /// Alta de proveedor en <c>compartido.proveedores</c> (B.5). UNIQUE
-/// (clave) → 409 si choca. Validación cross-table de
-/// <see cref="MonedaPreferidaId"/> contra <c>compartido.monedas</c>.
+/// (clave) → 422 si choca; RFC único (excepto genéricos SAT,
+/// F1-ADM-05) → 409 <c>PROVEEDOR_RFC_DUPLICADO</c>. Validación
+/// cross-table de <see cref="MonedaPreferidaId"/> contra
+/// <c>compartido.monedas</c>.
 /// </summary>
 public sealed record CrearProveedorCommand(
     string Clave,
@@ -27,7 +29,11 @@ public sealed record CrearProveedorCommand(
     string? Email,
     string? Telefono) : IRequest<CrearProveedorResponse>;
 
-public sealed record CrearProveedorResponse(Guid Id, string Clave);
+public sealed record CrearProveedorResponse(
+    Guid Id,
+    string Clave,
+    EstatusCatalogo Estatus,
+    Guid? PosibleDuplicadoDeId);
 
 public sealed class CrearProveedorValidator : AbstractValidator<CrearProveedorCommand>
 {
@@ -80,12 +86,47 @@ public sealed class CrearProveedorHandler
                 $"Ya existe un proveedor con clave '{request.Clave}'.");
         }
 
+        // RFC único (F1-ADM-05), excepto genéricos SAT: cualquier estatus
+        // cuenta como duplicado. RFC genérico + misma razón social no se
+        // rechaza ni se fusiona: se crea en EnRevision para que alguien lo
+        // valide a mano (Compras ya bloquea no-activos en RQ/OC).
+        var rfcNormalizado = request.Rfc.Trim().ToUpperInvariant();
+        var estatus = EstatusCatalogo.Activo;
+        Guid? posibleDuplicadoDeId = null;
+
+        if (!Proveedor.EsRfcGenerico(rfcNormalizado))
+        {
+            var duplicadoRfc = await _db.Proveedores.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Rfc == rfcNormalizado, cancellationToken);
+            if (duplicadoRfc is not null)
+            {
+                throw new ConflictException(
+                    "PROVEEDOR_RFC_DUPLICADO",
+                    $"Ya existe el proveedor {duplicadoRfc.Clave} · {duplicadoRfc.RazonSocial} " +
+                    $"con RFC {rfcNormalizado}.");
+            }
+        }
+        else
+        {
+            // Varios proveedores legítimos comparten el RFC genérico: se
+            // compara la razón social contra todos, no solo contra el primero.
+            var razonSocial = request.RazonSocial.Trim().ToUpperInvariant();
+#pragma warning disable CA1304, CA1311, CA1862
+            posibleDuplicadoDeId = await _db.Proveedores.AsNoTracking()
+                .Where(p => p.Rfc == rfcNormalizado && p.RazonSocial.Trim().ToUpper() == razonSocial)
+                .Select(p => (Guid?)p.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+#pragma warning restore CA1304, CA1311, CA1862
+            if (posibleDuplicadoDeId is not null) estatus = EstatusCatalogo.EnRevision;
+        }
+
         var proveedor = new Proveedor(
             id: Guid.CreateVersion7(),
             clave: request.Clave,
             razonSocial: request.RazonSocial,
             rfc: request.Rfc,
             tipoPersona: request.TipoPersona,
+            estatus: estatus,
             nombreComercial: request.NombreComercial,
             condicionesPagoDias: request.CondicionesPagoDias,
             monedaPreferidaId: request.MonedaPreferidaId,
@@ -95,6 +136,7 @@ public sealed class CrearProveedorHandler
         _db.Proveedores.Add(proveedor);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new CrearProveedorResponse(proveedor.Id, proveedor.Clave);
+        return new CrearProveedorResponse(
+            proveedor.Id, proveedor.Clave, proveedor.Estatus, posibleDuplicadoDeId);
     }
 }
