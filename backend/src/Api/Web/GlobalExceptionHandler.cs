@@ -81,6 +81,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             BusinessRuleException bre => CreateProblem(bre.Code, bre.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
             EntityNotFoundException enfe => CreateProblem(enfe.Code, enfe.Message, StatusCodes.Status404NotFound, httpContext, traceId),
             ConcurrencyException ce => CreateProblem(ce.Code, ce.Message, StatusCodes.Status409Conflict, httpContext, traceId),
+            // Token de concurrencia (Version) violado: otro usuario/proceso modificó la fila.
+            DbUpdateConcurrencyException => CreateProblem(
+                "CONCURRENCY_CONFLICT",
+                "El registro fue modificado por otro usuario. Recarga e intenta de nuevo.",
+                StatusCodes.Status409Conflict, httpContext, traceId),
             ConflictException cfe => CreateProblem(cfe.Code, cfe.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             // La validación previa del RFC mejora el mensaje, pero dos altas
             // concurrentes pueden pasarla antes del INSERT. El índice sigue

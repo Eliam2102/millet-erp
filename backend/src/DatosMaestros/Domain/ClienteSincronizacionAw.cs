@@ -19,7 +19,7 @@ public enum ResultadoSincronizacionAw : short
 /// y el control de la lectura, <b>sin tocar</b> los datos fiscales locales del
 /// cliente. Nulo, 0 y desconocido se conservan distintos.
 /// </summary>
-public sealed class ClienteSincronizacionAw : BaseEntity, IAuditable
+public sealed class ClienteSincronizacionAw : BaseEntity, INotAudited
 {
     public Guid ClienteId { get; private set; }
     public string ReferenciaExterna { get; private set; } = string.Empty;
