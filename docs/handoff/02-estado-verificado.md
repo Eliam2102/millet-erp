@@ -1,5 +1,7 @@
 # Estado técnico verificado
 
+> Este archivo conserva cortes históricos. Para la base consolidada del 29/09/2026, consultar [Consolidación de la base de desarrollo](29-base-consolidada-adm08-net10-2026-09-29.md).
+
 - **Corte:** 16 de septiembre de 2026
 - **Commit original auditado:** `f0f50eb549caa304c6161c0896ed70c6a7ad8a69`
 - **Última revalidación:** `e6f506210bb1a345d7bde0d575d63df11151ee84`
@@ -8,7 +10,7 @@
 
 ## Evidencia ejecutada
 
-- Migración a .NET 10 (2026-09-29): SDK `10.0.112` (exigido por `global.json`). Compilación completa con 0 advertencias y 0 errores; pruebas unitarias del backend y del frontend (1,653) aprobadas; gate de integración con BD desechable aprobado (A+W 7, Compras 131 y API 546) y sin cambios de modelo pendientes en los 12 DbContext. El resumen de pruebas de abajo es previo a esta migración.
+- Migración a .NET 10 (2026-09-29): SDK mínimo `10.0.100` con `rollForward: latestMinor` (según `global.json`). Compilación completa con 0 advertencias y 0 errores; pruebas unitarias del backend y del frontend (1,653) aprobadas; gate de integración con BD desechable aprobado (A+W 7, Compras 131 y API 546) y sin cambios de modelo pendientes en los 12 DbContext. El resumen de pruebas de abajo es previo a esta migración.
 - Backend: compilación completa aprobada, **0 advertencias y 0 errores**.
 - Backend: **2,768 pruebas aprobadas y 0 fallidas**: 2,279 unitarias y 489 de integración (A+W 7, Compras 120 y API 362). La última revalidación utilizó una base migrada limpia y una copia independiente por proyecto de integración.
 - Frontend: **278 archivos y 1,567 pruebas aprobadas**.
