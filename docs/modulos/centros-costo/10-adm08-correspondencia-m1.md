@@ -84,6 +84,14 @@ Los grupos clasifican nodos; no agregan otro padre a la jerarquia. El destino or
 - 90 claves de vehiculos difieren solo por relleno numerico, por ejemplo `VD001` frente a `VD0001`.
 - `CCTER01` aparece en M1 y no existe en la siembra.
 - Diez Dim3 actuales no aparecen en M1: `ADCHS01`, `ADCIR01`, `ADCUN01`, `CHGCP01`, `CONAC01`, `COQRO01`, `COYUC01`, `GPGRA01`, `IMGRA01` y `MKPPU01`.
+- Cuatro NumEQ cambian de CeCo frente a la siembra actual:
+
+| NumEQ M1 | Clave actual | CeCo actual normalizado | CeCo M1 |
+| --- | --- | --- | --- |
+| VU056 | VU0056 | 20PDGG | 20DD00 |
+| CHDIR01 | CHDIR01 | 40DD01 | 50DD00 |
+| VU106 | VU0106 | 40DD01 | 50DD00 |
+| VV060 | VV0060 | 50GC00 | 40DD01 |
 
 ## Decisiones que requieren confirmacion
 
@@ -92,5 +100,9 @@ Los grupos clasifican nodos; no agregan otro padre a la jerarquia. El destino or
 3. Confirmar si los nueve CeCos antiguos restantes y las diez NumEQ ausentes deben quedar inactivos.
 4. Confirmar si los nombres de M1 sustituyen las descripciones normalizadas actuales.
 5. Confirmar vigencia real y combinaciones permitidas. La fuente no contiene fechas ni estado.
+
+## Decision tecnica aplicada
+
+No se agrega una migracion de datos en ADM-08 mientras estas decisiones sigan abiertas. Renombrar claves, desactivar registros o mover NumEQ sin confirmacion excederia la correspondencia solicitada y podria alterar la lectura de documentos historicos. Despues de la aprobacion, la implementacion debe preservar los ids cuando solo cambie clave o nombre y usar baja logica mas alta cuando cambie el padre.
 
 Hasta recibir estas confirmaciones, el cierre tecnico puede probar CRUD, jerarquia, alcance e historico, pero no debe declarar aprobados los datos reales por Contabilidad/Millet.

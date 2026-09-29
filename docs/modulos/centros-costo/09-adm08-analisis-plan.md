@@ -66,6 +66,8 @@ La propuesta M1 recibida contiene **49 CeCos** y **352 NumEQ**. La comparacion c
 1. La matriz de 49 CeCos ya esta disponible. Persisten decisiones funcionales sobre renombres, vigencias y registros que desaparecen de la propuesta; no se asumiran bajas definitivas sin aprobacion de Contabilidad/Millet.
 2. El catalogo es global por diseno y no contiene `EmpresaId`. En el modelo operativo actual de una sola empresa, el contexto de empresa participa en RBAC; el alcance de seleccion se controla por asignaciones de usuario y `centros_costo.dim3.leer-todos`.
 3. Los selectores impiden ofrecer Dim3 inactivas y respetan el alcance aplicable. Sin embargo, al guardar una linea de requisicion, Compras solo exige un `CentroCostoId`; no vuelve a comprobar que exista, este activo y pertenezca al alcance. Esta validacion de escritura requiere acordar un puerto de validacion entre Compras y CentrosCosto y debe estimarse como correccion de consumidor.
+4. M1 cambia el padre de cuatro NumEQ frente a la siembra vigente: `VU056`, `CHDIR01`, `VU106` y `VV060`. El modelo declara el padre inmutable; automatizar el cambio reinterpretaria referencias historicas. Requiere decidir entre conservar el registro, o baja logica mas alta con nueva identidad.
+5. No se genera una migracion de conciliacion mientras sigan pendientes los renombres, bajas, vigencias y reubicaciones. La propuesta M1 no incluye estado ni fechas de vigencia, y la tarea prohibe inventarlos.
 
 ## Avance por fase
 
@@ -73,9 +75,9 @@ La propuesta M1 recibida contiene **49 CeCos** y **352 NumEQ**. La comparacion c
 | --- | --- | --- |
 | 1. Linea base y recorridos | Completa | Backend, frontend y recorridos HTTP verificados |
 | 2. Correspondencia de datos | Completa | 49 CeCos y 352 NumEQ comparados contra la siembra vigente |
-| 3. Correcciones minimas | Parcial | Compatibilidad del gate en Windows corregida; sin fallos funcionales del catalogo |
+| 3. Correcciones minimas | Completa para recorridos confirmados | Compatibilidad del gate en Windows corregida; sin fallos funcionales del catalogo; cambios de datos diferidos por decision funcional |
 | 4. Pruebas y regresion | Completa para el codigo disponible | Cobertura positiva, negativa, historica, alcance y RBAC aprobada |
-| 5. Entrega tecnica | Pendiente | Requiere tabla de correspondencia y decision sobre la brecha de validacion en escritura |
+| 5. Entrega tecnica | Parcial | Evidencia tecnica lista; aceptacion de datos M1 y brecha de validacion en escritura siguen separadas |
 
 ## Operaciones consumidoras identificadas
 
@@ -125,6 +127,10 @@ No se activara obligatoriedad adicional por cuenta o documento sin aprobacion ex
 ## Regla de salida
 
 La tarea solo se marcara como cierre tecnico cuando todos los casos anteriores pasen y la tabla de los 49 CeCos este incluida. Si la fuente no llega o un caso no cabe en seis horas, se registrara la brecha con evidencia, impacto y reestimacion; no se declarara completada.
+
+## Reestimacion de brechas
+
+Una vez recibidas las decisiones de Millet, la conciliacion de datos requiere aproximadamente 2 h adicionales: 1 h para preparar una migracion historica segura y 1 h para ejecutar migracion, regresion y evidencia. La validacion autoritativa al guardar documentos consumidores debe estimarse por separado porque afecta contratos entre Compras, Almacen y CentrosCosto.
 
 ## Dependencias pendientes
 
