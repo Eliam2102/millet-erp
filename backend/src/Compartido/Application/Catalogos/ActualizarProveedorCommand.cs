@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Administracion.Domain;
 using Millet.Almacen.Domain;
@@ -16,7 +17,9 @@ namespace Millet.DatosMaestros.Application.Catalogos;
 /// = no tocar, flag <c>limpiarX</c> = setear nullable a null. Cambios
 /// permitidos: razonSocial, nombreComercial, rfc, tipoPersona,
 /// condicionesPago, moneda preferida, email, telefono y datos bancarios
-/// (banco/clabe/beneficiario — TES-PR3 [T-G1]).
+/// (banco/clabe/beneficiario — TES-PR3 [T-G1]). Si <c>rfc</c> viene y
+/// cambia, único (excepto genéricos SAT, F1-ADM-05) → 409
+/// <c>PROVEEDOR_RFC_DUPLICADO</c>.
 /// Inmutables: id, clave, claveLegacy.
 /// </summary>
 public sealed record ActualizarProveedorCommand(
@@ -68,12 +71,41 @@ public sealed class ActualizarProveedorValidator : AbstractValidator<ActualizarP
 
 public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProveedorCommand>
 {
-    private readonly CompartidoDbContext _db;
+    // Compartido NO referencia el proyecto Identidad (Identidad ya
+    // referencia Compartido; evita el ciclo) — mismo patrón que
+    // SucursalScopeGuardPermisos: literal duplicado en sync con
+    // Millet.Identidad.Domain.PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar.
+    private const string PermisoBancariosEditar = "datos_maestros.proveedores.bancarios-editar";
 
-    public ActualizarProveedorHandler(CompartidoDbContext db) => _db = db;
+    private readonly CompartidoDbContext _db;
+    private readonly ICurrentUserPermissions _permissions;
+
+    public ActualizarProveedorHandler(CompartidoDbContext db, ICurrentUserPermissions permissions)
+    {
+        _db = db;
+        _permissions = permissions;
+    }
 
     public async Task Handle(ActualizarProveedorCommand request, CancellationToken cancellationToken)
     {
+        // F1-ADM-05: banco/CLABE/beneficiario requieren el permiso dedicado
+        // de edición de bancarios, separado del permiso grueso de
+        // catálogos que ya protege el endpoint — chequeo antes de tocar
+        // nada más del request.
+        var tocaBancarios = request.Banco is not null
+            || request.Clabe is not null
+            || request.Beneficiario is not null
+            || request.LimpiarBanco
+            || request.LimpiarClabe
+            || request.LimpiarBeneficiario;
+        if (tocaBancarios
+            && !await _permissions.TieneAsync(PermisoBancariosEditar, cancellationToken))
+        {
+            throw new ForbiddenException(
+                "PROVEEDOR_BANCARIOS_SIN_PERMISO",
+                "No tiene permiso para cambiar los datos bancarios del proveedor.");
+        }
+
         var proveedor = await _db.Proveedores
             .FirstOrDefaultAsync(p => p.Id == request.ProveedorId, cancellationToken)
             ?? throw new EntityNotFoundException(
@@ -90,6 +122,28 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
                 throw new EntityNotFoundException(
                     "MONEDA_NO_ENCONTRADA",
                     $"No existe moneda con id '{monedaId}' en compartido.monedas.");
+            }
+        }
+
+        // RFC único (F1-ADM-05), excepto genéricos SAT: solo se valida si
+        // el RFC viene en el body y cambia respecto al actual. Genérico en
+        // edición se permite sin más (no hay razón social "nueva" que
+        // comparar contra un alta ya existente).
+        if (request.Rfc is not null)
+        {
+            var rfcNormalizado = request.Rfc.Trim().ToUpperInvariant();
+            if (rfcNormalizado != proveedor.Rfc && !Proveedor.EsRfcGenerico(rfcNormalizado))
+            {
+                var duplicadoRfc = await _db.Proveedores.AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        p => p.Rfc == rfcNormalizado && p.Id != proveedor.Id, cancellationToken);
+                if (duplicadoRfc is not null)
+                {
+                    throw new ConflictException(
+                        "PROVEEDOR_RFC_DUPLICADO",
+                        $"Ya existe el proveedor {duplicadoRfc.Clave} · {duplicadoRfc.RazonSocial} " +
+                        $"con RFC {rfcNormalizado}.");
+                }
             }
         }
 

@@ -351,6 +351,8 @@ public const string CatalogosTransportistasGestionar = "catalogos.transportistas
 public const string CatalogosUnidadesMedidaGestionar = "catalogos.unidades_medida.gestionar";
 
 public const string DatosMaestrosProveedoresGestionar = "datos_maestros.proveedores.gestionar";
+public const string DatosMaestrosProveedoresBancariosVer = "datos_maestros.proveedores.bancarios-ver";
+public const string DatosMaestrosProveedoresBancariosEditar = "datos_maestros.proveedores.bancarios-editar";
 public const string DatosMaestrosArticulosGestionar = "datos_maestros.articulos.gestionar";
 ```
 

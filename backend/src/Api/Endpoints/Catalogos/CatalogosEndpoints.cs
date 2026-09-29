@@ -306,7 +306,11 @@ public static class CatalogosEndpoints
         .WithSummary("Crear proveedor (B.5)")
         .WithDescription(
             "Alta de proveedor. UNIQUE(clave) → 422 " +
-            "`PROVEEDOR_CLAVE_DUPLICADA` si choca. Si llega " +
+            "`PROVEEDOR_CLAVE_DUPLICADA` si choca. RFC único salvo " +
+            "genéricos SAT (XAXX010101000/XEXX010101000) → 409 " +
+            "`PROVEEDOR_RFC_DUPLICADO`; RFC genérico + misma razón " +
+            "social que otro proveedor no se rechaza: se crea en " +
+            "`EnRevision` con `posibleDuplicadoDeId`. Si llega " +
             "`monedaPreferidaId`, validación cross-table contra " +
             "`compartido.monedas` (404 si no existe). Header " +
             "`Idempotency-Key` obligatorio.")
@@ -316,6 +320,7 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         proveedores.MapPatch("/{id:guid}", async (
@@ -357,13 +362,16 @@ public static class CatalogosEndpoints
             "PATCH parcial sobre los campos editables. Convención: " +
             "nullable `null` = no tocar; flag `limpiarX = true` = " +
             "setear nullable a null. Inmutables: `id`, `clave`, " +
-            "`claveLegacy`. Header `Idempotency-Key` obligatorio.")
+            "`claveLegacy`. Si `rfc` viene y cambia, único salvo " +
+            "genéricos SAT → 409 `PROVEEDOR_RFC_DUPLICADO`. Header " +
+            "`Idempotency-Key` obligatorio.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         proveedores.MapDelete("/{id:guid}", async (
