@@ -1,8 +1,11 @@
+using System.Linq;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Millet.Catalogos.Domain;
+using Millet.Identidad.Domain;
 
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
@@ -16,6 +19,8 @@ namespace Millet.Api.IntegrationTests.DatosMaestros;
 public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string SuperAdminOid = "dev-superadmin";
+    private static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+    private static readonly Guid MonedaMxnId = Guid.Parse("00000001-0000-0000-0000-000000000001");
     private readonly WebApplicationFactory<Program> _factory;
 
     public DatosMaestrosEndpointsTests(WebApplicationFactory<Program> factory)
@@ -184,7 +189,172 @@ public class DatosMaestrosEndpointsTests : IClassFixture<WebApplicationFactory<P
             i => i.GetProperty("id").GetGuid() == id);
     }
 
+    // --- GET /datos-bancarios (F1-ADM-05) ---
+
+    [Fact]
+    public async Task ObtenerDatosBancarios_Sin_Permiso_Retorna_403()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var proveedorId = await CrearProveedorConClabeAsync(admin, "011122223333444455");
+
+        var clienteSinBancarios = await CreateClientConPermisosAsync(
+            PermisosCanonicos.DatosMaestrosProveedoresGestionar);
+
+        var response = await clienteSinBancarios.GetAsync(
+            $"/api/v1/datos-maestros/proveedores/{proveedorId}/datos-bancarios");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ObtenerDatosBancarios_Con_Permiso_Retorna_Clabe_Enmascarada()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var proveedorId = await CrearProveedorConClabeAsync(admin, "011122223333444455");
+
+        var clienteVer = await CreateClientConPermisosAsync(
+            PermisosCanonicos.DatosMaestrosProveedoresBancariosVer);
+
+        var response = await clienteVer.GetAsync(
+            $"/api/v1/datos-maestros/proveedores/{proveedorId}/datos-bancarios");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Equal("**************4455", json.GetProperty("clabe").GetString());
+        Assert.False(json.GetProperty("clabeCompleta").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ObtenerDatosBancarios_Con_VerCuentaCompleta_Retorna_Clabe_Completa()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        const string clabe = "011122223333444455";
+        var proveedorId = await CrearProveedorConClabeAsync(admin, clabe);
+
+        var clienteCompleta = await CreateClientConPermisosAsync(
+            PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
+            PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta);
+
+        var response = await clienteCompleta.GetAsync(
+            $"/api/v1/datos-maestros/proveedores/{proveedorId}/datos-bancarios");
+        response.EnsureSuccessStatusCode();
+        var json = await ReadJsonAsync(response);
+        Assert.Equal(clabe, json.GetProperty("clabe").GetString());
+        Assert.True(json.GetProperty("clabeCompleta").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ListarYDetalle_Proveedores_No_Exponen_Clabe()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var proveedorId = await CrearProveedorConClabeAsync(admin, "011122223333444455");
+
+        var detalle = await admin.GetAsync($"/api/v1/datos-maestros/proveedores/{proveedorId}");
+        detalle.EnsureSuccessStatusCode();
+        var detalleJson = await ReadJsonAsync(detalle);
+        Assert.False(detalleJson.TryGetProperty("clabe", out _));
+        var rfc = detalleJson.GetProperty("rfc").GetString()!;
+
+        var lista = await admin.GetAsync(
+            $"/api/v1/datos-maestros/proveedores?rfc={Uri.EscapeDataString(rfc)}");
+        lista.EnsureSuccessStatusCode();
+        var items = (await ReadJsonAsync(lista)).GetProperty("items");
+        Assert.All(items.EnumerateArray(), i => Assert.False(i.TryGetProperty("clabe", out _)));
+    }
+
     // --- Helpers ---
+
+    /// <summary>Crea un proveedor y le asigna una CLABE vía el PATCH legacy de /catalogos.</summary>
+    private static async Task<Guid> CrearProveedorConClabeAsync(HttpClient admin, string clabe)
+    {
+        var crear = await admin.PostAsJsonAsync("/api/v1/catalogos/proveedores", new
+        {
+            Clave = $"PROV-BANC-{Guid.NewGuid().ToString("N")[..8]}",
+            RazonSocial = "Proveedor Bancarios Test SA de CV",
+            Rfc = $"TST{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+            TipoPersona = TipoPersonaProveedor.Moral,
+            NombreComercial = (string?)null,
+            CondicionesPagoDias = (short)30,
+            MonedaPreferidaId = MonedaMxnId,
+            Email = (string?)null,
+            Telefono = (string?)null,
+        });
+        crear.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(crear)).GetProperty("id").GetGuid();
+
+        var patch = await admin.PatchAsJsonAsync(
+            $"/api/v1/catalogos/proveedores/{id}", new { Banco = "BBVA", Clabe = clabe });
+        patch.EnsureSuccessStatusCode();
+        return id;
+    }
+
+    /// <summary>
+    /// Crea un rol nuevo con exactamente los permisos indicados, un usuario
+    /// auxiliar asignado a ese rol en la empresa bootstrap, y devuelve un
+    /// cliente logueado como ese usuario (F1-ADM-05: probar "tiene A pero
+    /// no B" sin tocar el rol super-admin, que trae todos los permisos
+    /// canónicos). Duplicado intencional del helper equivalente en
+    /// Compras.IntegrationTests — los proyectos de test no se referencian
+    /// entre sí (ver TestComprasFixtures).
+    /// </summary>
+    private async Task<HttpClient> CreateClientConPermisosAsync(params string[] codigosPermiso)
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var sufijo = Guid.NewGuid().ToString("N")[..8];
+        var oid = $"perm-test-{sufijo}";
+        var email = $"perm-test-{sufijo}@test.local";
+        var nombre = $"Usuario Permiso Test {sufijo}";
+
+        // Primer login: auto-provisiona el usuario (Usuario.EntraOid real,
+        // no "pending:...") sin empresa ni permisos todavía. Un usuario
+        // creado por el CRUD de admin nace en EstadoAcceso.PendientePrimerAcceso
+        // con OID "pending:{email}", y Usuario.RegistrarAcceso rechaza login
+        // con OID pendiente (422 USUARIO_OID_PENDIENTE) — por eso el
+        // auto-provisión de fake-login, no el POST /usuarios.
+        var client = _factory.CreateClientWithIdempotency();
+        var primerLogin = await FakeLoginJsonAsync(client, oid, email, nombre);
+        var usuarioId = primerLogin.GetProperty("usuario").GetProperty("id").GetGuid();
+
+        var rolResp = await admin.PostAsJsonAsync("/api/v1/identidad/roles", new
+        {
+            Id = Guid.Empty,
+            Codigo = $"rol-test-{sufijo}",
+            Nombre = $"Rol Test {sufijo}",
+            Descripcion = (string?)null,
+        });
+        rolResp.EnsureSuccessStatusCode();
+        var rolId = (await ReadJsonAsync(rolResp)).GetProperty("id").GetGuid();
+
+        var permisoIds = codigosPermiso
+            .Select(codigo => PermisosCanonicos.Todos.First(p => p.Codigo == codigo).Id)
+            .ToArray();
+        var putPermisos = await admin.PutAsJsonAsync(
+            $"/api/v1/identidad/roles/{rolId}/permisos", new { PermisoIds = permisoIds });
+        putPermisos.EnsureSuccessStatusCode();
+
+        var asignarResp = await admin.PostAsJsonAsync(
+            $"/api/v1/identidad/usuarios/{usuarioId}/asignaciones",
+            new { EmpresaId = EmpresaBootstrapId, RolId = rolId });
+        asignarResp.EnsureSuccessStatusCode();
+
+        // Segundo login: ahora la empresa se auto-selecciona (única
+        // asignación) y los permisos recién asignados se cargan frescos
+        // (el primer login no cacheó nada porque no había empresa).
+        var token = await FakeLoginAsync(client, oid, email, nombre);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    private static async Task<JsonElement> FakeLoginJsonAsync(HttpClient client, string oid, string email, string nombre)
+    {
+        var response = await client.PostAsJsonAsync("/api/dev/fake-login", new
+        {
+            EntraOid = oid,
+            Email = email,
+            Nombre = nombre,
+            EmpresaId = (Guid?)null,
+        });
+        response.EnsureSuccessStatusCode();
+        return await ReadJsonAsync(response);
+    }
 
     private static async Task<JsonElement> PrimeroAsync(HttpClient client, string url)
     {

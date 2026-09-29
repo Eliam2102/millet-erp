@@ -1,7 +1,7 @@
 # ============================================================================
 # Validate Application
 #
-# Valida el código de aplicación (backend .NET 9 + frontend React/Vite) en
+# Valida el código de aplicación (backend .NET 10 + frontend React/Vite) en
 # cada PR contra `main`. Corre en TODOS los PRs (sin `paths:` filter a nivel
 # workflow); un job inicial `changes` (dorny/paths-filter, ~10s) detecta qué
 # lado cambió y los jobs pesados se saltan con `if:` cuando su lado no fue
@@ -76,6 +76,8 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'global.json'
+              - 'infra/modules/appservice.bicep'
               - '.github/workflows/validate-app.yml'
             frontend:
               - 'frontend/**'
@@ -91,10 +93,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -125,10 +127,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Cache NuGet packages
         uses: actions/cache@v4

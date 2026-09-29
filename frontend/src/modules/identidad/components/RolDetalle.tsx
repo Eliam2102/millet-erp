@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useEliminarRol, useRol } from '@/modules/identidad/api';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RolDatosForm } from '@/modules/identidad/components/RolDatosForm';
@@ -55,7 +55,6 @@ export function RolDetalle() {
     PermisosCanonicos.IdentidadRolesAsignarPermisos,
   );
 
-  const idempotencyKey = useFormIdempotencyKey();
   const eliminar = useEliminarRol();
 
   if (rolQuery.isError) {
@@ -81,7 +80,7 @@ export function RolDetalle() {
 
   function handleConfirmarEliminar() {
     eliminar.mutate(
-      { id: rol.id, idempotencyKey },
+      { id: rol.id, idempotencyKey: crypto.randomUUID() },
       {
         onSuccess: () => {
           toast.success(`Rol "${rol.codigo}" eliminado`);

@@ -236,6 +236,7 @@ export {
   TextAreaField,
   type TextAreaFieldProps,
 } from '@/components/erp/forms/TextAreaField';
+export { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 export {
   ReporteShell,
   type ReporteShellProps,

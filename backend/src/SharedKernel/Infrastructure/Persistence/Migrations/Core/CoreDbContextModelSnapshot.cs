@@ -38,6 +38,15 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                         .HasColumnType("text")
                         .HasColumnName("key");
 
+                    b.Property<string>("HttpMethod")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("http_method");
+
+                    b.Property<string>("Path")
+                        .HasColumnType("text")
+                        .HasColumnName("path");
+
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
@@ -49,17 +58,6 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
-
-                    b.Property<string>("HttpMethod")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("http_method");
-
-                    b.Property<string>("Path")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("path");
 
                     b.Property<string>("RequestBodyHash")
                         .IsRequired()
@@ -77,6 +75,10 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                         .HasDefaultValue(false)
                         .HasColumnName("response_body_truncated");
 
+                    b.Property<string>("ResponseHeaders")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("response_headers");
+
                     b.Property<int?>("ResponseStatusCode")
                         .HasColumnType("integer")
                         .HasColumnName("response_status_code");
@@ -87,7 +89,7 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
 
-                    b.HasKey("EmpresaId", "UsuarioId", "Key")
+                    b.HasKey("EmpresaId", "UsuarioId", "Key", "HttpMethod", "Path")
                         .HasName("pk_idempotency_keys");
 
                     b.HasIndex("CreatedAt")

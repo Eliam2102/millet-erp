@@ -3,10 +3,12 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.Idempotency;
 using Millet.SharedKernel.Domain.Exceptions;
+using Npgsql;
 
 namespace Millet.Api.Web;
 
@@ -61,6 +63,14 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         return true;
     }
 
+    /// <summary>
+    /// Status HTTP que este handler asignará a <paramref name="exception"/>.
+    /// Lo usa <see cref="IdempotencyMiddleware"/> para decidir, antes de que
+    /// se escriba la respuesta, si el fallo fue del cliente (4xx) o del servidor.
+    /// </summary>
+    internal static int ResolveStatus(Exception exception, HttpContext httpContext)
+        => MapToProblemDetails(exception, httpContext).Status ?? StatusCodes.Status500InternalServerError;
+
     private static ProblemDetails MapToProblemDetails(Exception exception, HttpContext httpContext)
     {
         var traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
@@ -72,6 +82,18 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             EntityNotFoundException enfe => CreateProblem(enfe.Code, enfe.Message, StatusCodes.Status404NotFound, httpContext, traceId),
             ConcurrencyException ce => CreateProblem(ce.Code, ce.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             ConflictException cfe => CreateProblem(cfe.Code, cfe.Message, StatusCodes.Status409Conflict, httpContext, traceId),
+            // La validación previa del RFC mejora el mensaje, pero dos altas
+            // concurrentes pueden pasarla antes del INSERT. El índice sigue
+            // siendo la autoridad y su colisión debe responder 409, no 500.
+            DbUpdateException { InnerException: PostgresException pg }
+                when pg.SqlState == PostgresErrorCodes.UniqueViolation
+                    && pg.ConstraintName == "ux_proveedores_rfc_no_generico"
+                => CreateProblem(
+                    "PROVEEDOR_RFC_DUPLICADO",
+                    "Ya existe un proveedor con ese RFC.",
+                    StatusCodes.Status409Conflict,
+                    httpContext,
+                    traceId),
             ForbiddenException fe => CreateProblem(fe.Code, fe.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             CrossTenantViolationException cte => CreateProblem(cte.Code, cte.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             MissingEmpresaContextException mece => CreateProblem(mece.Code, mece.Message, StatusCodes.Status500InternalServerError, httpContext, traceId),
@@ -79,6 +101,8 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             IdempotencyKeyInvalidException iki => CreateProblem(iki.Code, iki.Message, StatusCodes.Status400BadRequest, httpContext, traceId),
             IdempotencyInProgressException iip => CreateProblem(iip.Code, iip.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             IdempotencyBodyMismatchException ibm => CreateProblem(ibm.Code, ibm.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
+            IdempotencyPreviousFailureException ipf => CreateProblem(ipf.Code, ipf.Message, StatusCodes.Status409Conflict, httpContext, traceId),
+            IdempotencyResponseTooLargeException irt => CreateProblem(irt.Code, irt.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             UnauthorizedAccessException => CreateProblem("UNAUTHENTICATED", "Sesión inválida o expirada.", StatusCodes.Status401Unauthorized, httpContext, traceId),
             // Dependencia externa (FiscalAPI) apagada o caída — el FE degrada a captura manual (FAC-DET-PR1).
             Millet.Integraciones.Fiscal.Domain.Exceptions.CatalogoSatNoDisponibleException cse

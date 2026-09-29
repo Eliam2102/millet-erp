@@ -113,6 +113,11 @@ public static class PermisosCanonicos
     // existiendo por compatibilidad; cuando UI migre a granulares, el
     // grueso quedará para reclasificar-naturaleza bulk.
     public const string DatosMaestrosProveedoresGestionar              = "datos_maestros.proveedores.gestionar";
+    // F1-ADM-05: datos bancarios de proveedores separados del gestionar
+    // general — ver (CLABE enmascarada salvo bypass PII) y editar
+    // (banco/CLABE/beneficiario).
+    public const string DatosMaestrosProveedoresBancariosVer           = "datos_maestros.proveedores.bancarios-ver";
+    public const string DatosMaestrosProveedoresBancariosEditar        = "datos_maestros.proveedores.bancarios-editar";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
@@ -527,6 +532,8 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0008-0000-0000-000000000001"), CatalogosUnidadesMedidaGestionar,             "Crear, editar y desactivar unidades de medida"),
         // Datos Maestros granulares (F-Admin-PR4.5).
         (Guid.Parse("00000004-0009-0000-0000-000000000001"), DatosMaestrosProveedoresGestionar,            "Crear, editar y desactivar proveedores del catálogo cross-empresa"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000002"), DatosMaestrosProveedoresBancariosVer,         "Consultar datos bancarios de proveedores (CLABE enmascarada)"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Cambiar banco, CLABE y beneficiario de proveedores"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0012-0000-0000-000000000001"), DatosMaestrosProductosAwGestionar,            "Crear, editar y desactivar productos de venta A+W del master cross-empresa (ADR-0048)"),

@@ -12,6 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 import {
   Sheet,
   SheetContent,
@@ -286,7 +287,7 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
           name="rfc"
           control={form.control}
           render={({ field }) => (
-            <Input
+            <UppercaseInput
               maxLength={13}
               placeholder="ACM010101ABC"
               className="font-mono"

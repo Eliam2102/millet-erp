@@ -2,7 +2,7 @@
 
 ## Arquitectura
 
-- Backend ASP.NET Core/.NET 9 en `backend/`.
+- Backend ASP.NET Core/.NET 10 en `backend/`.
 - Frontend React/TypeScript/Vite en `frontend/`.
 - PostgreSQL para desarrollo local.
 - Infraestructura Azure declarada en `infra/`.

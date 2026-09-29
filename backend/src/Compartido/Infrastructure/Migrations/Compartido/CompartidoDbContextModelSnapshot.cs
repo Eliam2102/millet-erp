@@ -4273,7 +4273,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasDatabaseName("ix_proveedores_estatus");
 
                     b.HasIndex("Rfc")
-                        .HasDatabaseName("ix_proveedores_rfc");
+                        .IsUnique()
+                        .HasDatabaseName("ux_proveedores_rfc_no_generico")
+                        .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
 
                     b.ToTable("proveedores", "compartido", t =>
                         {
@@ -4299,6 +4301,23 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -4321,6 +4340,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -4350,12 +4375,21 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");

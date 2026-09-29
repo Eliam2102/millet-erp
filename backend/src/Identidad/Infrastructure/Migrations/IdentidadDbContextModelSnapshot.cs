@@ -1333,6 +1333,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000004-0009-0000-0000-000000000002"),
+                            Accion = "bancarios-ver",
+                            Codigo = "datos_maestros.proveedores.bancarios-ver",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar datos bancarios de proveedores (CLABE enmascarada)",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0009-0000-0000-000000000003"),
+                            Accion = "bancarios-editar",
+                            Codigo = "datos_maestros.proveedores.bancarios-editar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Cambiar banco, CLABE y beneficiario de proveedores",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000004-0010-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "datos_maestros.articulos.gestionar",
@@ -4113,6 +4141,23 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -4135,6 +4180,12 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -4164,12 +4215,21 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");

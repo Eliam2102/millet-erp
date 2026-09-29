@@ -76,6 +76,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'catalogos.unidades-medida.gestionar',
   // Datos Maestros granulares (F-Admin-PR4.5).
   'datos_maestros.proveedores.gestionar',
+  'datos_maestros.proveedores.bancarios-ver',
+  'datos_maestros.proveedores.bancarios-editar',
   'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',

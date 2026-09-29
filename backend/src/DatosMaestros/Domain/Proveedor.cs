@@ -46,6 +46,16 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// <summary>Nombre del beneficiario de la transferencia si difiere de la razón social.</summary>
     public string? Beneficiario { get; private set; }
 
+    /// <summary>
+    /// RFC genéricos SAT ("público en general" nacional/extranjero). Se
+    /// excluyen de la unicidad de <see cref="Rfc"/>: múltiples proveedores
+    /// legítimos comparten estos valores.
+    /// </summary>
+    public static readonly string[] RfcGenericos = ["XAXX010101000", "XEXX010101000"];
+
+    public static bool EsRfcGenerico(string rfc) =>
+        RfcGenericos.Contains(rfc.Trim().ToUpperInvariant());
+
     private Proveedor() { }
 
     public Proveedor(
@@ -68,7 +78,11 @@ public sealed class Proveedor : BaseEntity, IAuditable
         if (string.IsNullOrWhiteSpace(razonSocial) || razonSocial.Length > 254)
             throw new BusinessRuleException("PROVEEDOR_RAZON_SOCIAL_INVALIDA",
                 "La razón social es requerida y no puede exceder 254 caracteres.");
-        if (string.IsNullOrWhiteSpace(rfc) || rfc.Length is < 12 or > 13)
+        if (string.IsNullOrWhiteSpace(rfc))
+            throw new BusinessRuleException("PROVEEDOR_RFC_INVALIDO",
+                "El RFC debe tener 12 (moral) o 13 (física) caracteres.");
+        var rfcNormalizado = rfc.Trim().ToUpperInvariant();
+        if (rfcNormalizado.Length is < 12 or > 13)
             throw new BusinessRuleException("PROVEEDOR_RFC_INVALIDO",
                 "El RFC debe tener 12 (moral) o 13 (física) caracteres.");
         if (condicionesPagoDias is < 0 or > 365)
@@ -79,7 +93,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
         ClaveLegacy = claveLegacy;
         RazonSocial = razonSocial;
         NombreComercial = nombreComercial;
-        Rfc = rfc;
+        Rfc = rfcNormalizado;
         TipoPersona = tipoPersona;
         CondicionesPagoDias = condicionesPagoDias;
         MonedaPreferidaId = monedaPreferidaId;
@@ -125,10 +139,11 @@ public sealed class Proveedor : BaseEntity, IAuditable
         }
         if (rfc is not null)
         {
-            if (rfc.Length is < 12 or > 13)
+            var rfcNormalizado = rfc.Trim().ToUpperInvariant();
+            if (rfcNormalizado.Length is < 12 or > 13)
                 throw new BusinessRuleException("PROVEEDOR_RFC_INVALIDO",
                     "El RFC debe tener 12 (moral) o 13 (física) caracteres.");
-            Rfc = rfc;
+            Rfc = rfcNormalizado;
         }
         if (condicionesPagoDias is short cpd)
         {

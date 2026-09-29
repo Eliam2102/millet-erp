@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Plus, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 import {
   Select,
   SelectContent,
@@ -161,7 +162,7 @@ function FiltrosBloque({
 }: FiltrosBloqueProps) {
   return (
     <div className="space-y-2 rounded-md border bg-muted/20 p-2">
-      <Input
+      <UppercaseInput
         placeholder="RFC…"
         value={rfc}
         onChange={(e) => onRfc(e.target.value)}

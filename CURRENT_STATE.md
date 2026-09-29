@@ -139,7 +139,7 @@ Project_Millet_ERP/
 
 ### 1.2 Proyectos en la solution (`backend/Millet.sln`)
 
-**Producción** (8 proyectos `Millet.*.csproj`, todos `net9.0`):
+**Producción** (8 proyectos `Millet.*.csproj`, todos `net10.0`):
 
 | Proyecto | Carpeta | Propósito |
 |---|---|---|
@@ -172,34 +172,34 @@ Project_Millet_ERP/
 
 ### 2.1 Runtime y plataforma
 
-- **.NET 9** (TFM `net9.0`, definido en cada `.csproj`).
+- **.NET 10** (TFM `net10.0`, definido en cada `.csproj`).
 - **C#** `LangVersion=latest`, `Nullable=enable`, `ImplicitUsings=enable`,
   `TreatWarningsAsErrors=true`.
 - **Tipo de proyecto API**: ASP.NET Core **Minimal API** sobre `Microsoft.NET.Sdk.Web`.
   No hay controllers MVC ni Razor Pages. Todos los endpoints se registran con
   `app.MapGroup` / `MapGet` / `MapPost` desde `Program.cs` y extensiones en
   `Api/Endpoints/**`.
-- **ORM**: **Entity Framework Core 9.0.4** con provider **Npgsql** y
+- **ORM**: **Entity Framework Core 10.0.12** con provider **Npgsql** y
   `EFCore.NamingConventions` (snake_case). 4 DbContexts (ver §5).
 - **Mediator/CQRS**: MediatR 12.4.1.
 - **Validación**: FluentValidation 11.11.0 (NO Data Annotations).
 - **Mapping**: Mapster 7.4.0 (NO AutoMapper).
-- **Logging**: Serilog 4.2.0 (`Serilog.AspNetCore` 9.0.0) + enrichers
+- **Logging**: Serilog 4.3.0 (`Serilog.AspNetCore` 10.0.0) + enrichers
   (Environment, Process, Thread) + `MaskSensitivePropertiesEnricher`.
-  Sink consola en local; **Azure Monitor OpenTelemetry Distro** 1.3.0 exporta
+  Sink consola en local; **Azure Monitor OpenTelemetry Distro** 1.6.0 exporta
   logs/traces/métricas a Application Insights cuando hay connection string.
 - **Realtime**: ASP.NET SignalR (shared framework) + `Microsoft.Azure.SignalR`
   1.27.0 como backplane gestionado en QA/Prod.
 - **PDF**: QuestPDF 2024.12.3 (`QuestPdfOrdenCompraGenerator`).
 - **Service Bus**: `Azure.Messaging.ServiceBus` 7.18.4 (publisher de Outbox).
 - **Blob Storage**: `Azure.Storage.Blobs` 12.22.2.
-- **OpenAPI**: `Microsoft.AspNetCore.OpenApi` 9.0.0 + `Scalar.AspNetCore` 2.0.16
+- **OpenAPI**: `Microsoft.AspNetCore.OpenApi` 10.0.12 + `Scalar.AspNetCore` 2.0.16
   (UI). Sólo se montan en `Development`/`Staging`.
-- **Health Checks**: `Microsoft.Extensions.Diagnostics.HealthChecks` 9.0.0
+- **Health Checks**: `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12
   + `AspNetCore.HealthChecks.NpgSql` 9.0.0.
-- **Auth**: `Microsoft.AspNetCore.Authentication.JwtBearer` 9.0.0 +
-  `Microsoft.IdentityModel.JsonWebTokens` 8.2.0 +
-  `Microsoft.IdentityModel.Protocols.OpenIdConnect` 8.2.0. **Sin**
+- **Auth**: `Microsoft.AspNetCore.Authentication.JwtBearer` 10.0.12 +
+  `Microsoft.IdentityModel.JsonWebTokens` 8.19.2 +
+  `Microsoft.IdentityModel.Protocols.OpenIdConnect` 8.19.2. **Sin**
   `Microsoft.Identity.Web` (decisión explícita, ver `Directory.Packages.props`).
 
 ### 2.2 Frontend (SPA)
@@ -220,18 +220,18 @@ Project_Millet_ERP/
 
 ### 2.3 Top-15 paquetes NuGet (producción)
 
-1. `Microsoft.EntityFrameworkCore` 9.0.4
-2. `Microsoft.EntityFrameworkCore.Design` 9.0.4
-3. `Npgsql.EntityFrameworkCore.PostgreSQL` 9.0.4
-4. `EFCore.NamingConventions` 9.0.0
+1. `Microsoft.EntityFrameworkCore` 10.0.12
+2. `Microsoft.EntityFrameworkCore.Design` 10.0.12
+3. `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3
+4. `EFCore.NamingConventions` 10.0.1
 5. `MediatR` 12.4.1
 6. `FluentValidation` 11.11.0 (+ `FluentValidation.DependencyInjectionExtensions`)
 7. `Mapster` 7.4.0 (+ `Mapster.DependencyInjection`)
-8. `Serilog.AspNetCore` 9.0.0
-9. `Azure.Monitor.OpenTelemetry.AspNetCore` 1.3.0
-10. `Microsoft.AspNetCore.OpenApi` 9.0.0 + `Scalar.AspNetCore` 2.0.16
-11. `Microsoft.AspNetCore.Authentication.JwtBearer` 9.0.0
-12. `Microsoft.IdentityModel.JsonWebTokens` 8.2.0
+8. `Serilog.AspNetCore` 10.0.0
+9. `Azure.Monitor.OpenTelemetry.AspNetCore` 1.6.0
+10. `Microsoft.AspNetCore.OpenApi` 10.0.12 + `Scalar.AspNetCore` 2.0.16
+11. `Microsoft.AspNetCore.Authentication.JwtBearer` 10.0.12
+12. `Microsoft.IdentityModel.JsonWebTokens` 8.19.2
 13. `Microsoft.Azure.SignalR` 1.27.0
 14. `Azure.Messaging.ServiceBus` 7.18.4
 15. `Azure.Storage.Blobs` 12.22.2 + `QuestPDF` 2024.12.3 +

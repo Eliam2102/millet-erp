@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
 import {
   Select,
   SelectContent,
@@ -92,6 +93,15 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
         },
         onError: (error) => {
           if (esApiError(error)) {
+            if (error.code === 'PROVEEDOR_RFC_DUPLICADO') {
+              form.setError('rfc', {
+                type: error.code,
+                message:
+                  error.problem.detail ??
+                  'Ya existe un proveedor con ese RFC.',
+              });
+              return;
+            }
             if (
               applyServerErrors(
                 form as unknown as Parameters<typeof applyServerErrors>[0],
@@ -135,7 +145,7 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
         required
         error={form.formState.errors.rfc?.message}
       >
-        <Input
+        <UppercaseInput
           maxLength={13}
           disabled={!canEditar}
           className="font-mono"
