@@ -99,7 +99,7 @@ public sealed class AwClientesSincronizador
             {
                 // Error de lectura del origen (conexión/esquema/timeout): la ejecución falla; lo ya aplicado queda.
                 _logger.LogError("Barrido de clientes {EjecucionId} falló leyendo el origen ({Tipo}).", ejec.Id, ex.GetType().Name);
-                ejec.Fallar(ex.Message, _time.GetUtcNow());
+                ejec.Fallar($"lectura_origen_fallida ({ex.GetType().Name})", _time.GetUtcNow());
                 await _db.SaveChangesAsync(CancellationToken.None);
                 return;
             }
@@ -153,7 +153,7 @@ public sealed class AwClientesSincronizador
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError("Reintento de cliente {Referencia} falló leyendo el origen ({Tipo}).", referencia, ex.GetType().Name);
-            ejec.Fallar(ex.Message, _time.GetUtcNow());
+            ejec.Fallar($"lectura_origen_fallida ({ex.GetType().Name})", _time.GetUtcNow());
             await _db.SaveChangesAsync(CancellationToken.None);
             return ejec.Id;
         }
@@ -170,18 +170,6 @@ public sealed class AwClientesSincronizador
         return ejec.Id;
     }
 
-    /// <summary>Un ciclo programado: reanuda el barrido vivo si existe, si no inicia uno nuevo.</summary>
-    public async Task EjecutarProgramadoAsync(string actor, CancellationToken ct)
-    {
-        var origen = _options.Origen.ToString();
-        var vivo = await _db.ClientesEjecuciones
-            .Where(e => e.Origen == origen && e.Tipo == AwClientesEjecucionTipo.Barrido
-                && (e.Estado == AwClientesEjecucionEstado.Pendiente || e.Estado == AwClientesEjecucionEstado.EnCurso))
-            .Select(e => (Guid?)e.Id)
-            .FirstOrDefaultAsync(ct);
-        await EjecutarAsync(vivo ?? await IniciarBarridoAsync(actor, ct), ct);
-    }
-
     private async Task ProcesarFilaAsync(AwClientesEjecucion ejec, AwClienteOrigenFila fila, CancellationToken ct)
     {
         var referencia = fila.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -195,14 +183,18 @@ public sealed class AwClientesSincronizador
         try
         {
             var r = await _aplicar.AplicarAsync(mapeo.Snapshot! with { EjecucionId = ejec.Id }, ct);
-            ejec.AcumularFila(Reducir(r), r.Accion != AplicarClienteAwAccion.Conflicto && r.Resultado == ResultadoSincronizacionAw.Pendiente);
+            if (r.Accion == AplicarClienteAwAccion.Conflicto)
+                ejec.RegistrarConflicto(referencia, "conflicto_correlacion", "Existe un cliente manual con la misma referencia externa", ahora);
+            else
+                ejec.AcumularFila(Reducir(r), r.Resultado == ResultadoSincronizacionAw.Pendiente);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Fallo por fila: se registra y el barrido sigue (terminará Parcial).
             _compartidoDb.ChangeTracker.Clear();
             _logger.LogWarning("Cliente {Referencia} no se pudo aplicar en {EjecucionId} ({Tipo}).", referencia, ejec.Id, ex.GetType().Name);
-            ejec.RegistrarError(referencia, "aplicacion_fallida", ex.Message, ahora);
+            // Solo código estable + tipo: ex.Message puede traer datos personales o secretos.
+            ejec.RegistrarError(referencia, "aplicacion_fallida", $"No se pudo aplicar el cliente ({ex.GetType().Name})", ahora);
         }
     }
 

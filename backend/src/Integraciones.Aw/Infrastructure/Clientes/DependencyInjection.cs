@@ -51,6 +51,15 @@ public static class ClientesDependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<AwClientesSincronizador>();
 
+        // El dispatcher ejecuta los barridos encolados (API o programación); no depende de ProgramacionHabilitada.
+        if (opciones.LecturaHabilitada && opciones.AplicacionHabilitada)
+        {
+            services.AddSingleton<AwClientesEjecucionDispatcher>();
+            services.AddHostedService(sp => sp.GetRequiredService<AwClientesEjecucionDispatcher>());
+            services.AddHealthChecks().AddCheck<AwClientesEjecucionDispatcherHealthCheck>(
+                "aw-clientes-ejecucion-dispatcher", tags: ["liveness"]);
+        }
+
         // El worker solo existe con ProgramacionHabilitada=true (apagado por defecto).
         if (opciones.ProgramacionHabilitada)
         {

@@ -1388,6 +1388,7 @@ Millet.Api.Endpoints.Catalogos.CatalogosSatFiscalApiEndpoints.MapCatalogosSatFis
 
 // === Datos Maestros — queries enriquecidas (F-Admin-PR4.5) ===
 Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
 
 // === Catálogo de tipos de documento OC (UF3-PR2 — Compras-specific) ===
 Millet.Api.Endpoints.Compras.Oc.TiposDocumentoOcEndpoint.MapTiposDocumentoOcEndpoint(app);

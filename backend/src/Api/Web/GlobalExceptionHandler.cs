@@ -112,6 +112,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             // Dependencia externa (FiscalAPI) apagada o caída — el FE degrada a captura manual (FAC-DET-PR1).
             Millet.Integraciones.Fiscal.Domain.Exceptions.CatalogoSatNoDisponibleException cse
                 => CreateProblem(cse.Code, cse.Message, StatusCodes.Status503ServiceUnavailable, httpContext, traceId),
+            // Sincronización de clientes A+W (ADM-06): el code estable viaja como AW_CLIENTES_<CODE>.
+            Millet.Integraciones.Aw.Application.Clientes.AwClientesSyncException ase
+                => CreateProblem("AW_CLIENTES_" + ase.Code.ToUpperInvariant(), ase.Message, AwClientesStatus(ase.Code), httpContext, traceId),
             DomainException de => CreateProblem(de.Code, de.Message, StatusCodes.Status400BadRequest, httpContext, traceId),
             _ => CreateProblem(
                 "INTERNAL_ERROR",
@@ -121,6 +124,15 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 traceId),
         };
     }
+
+    private static int AwClientesStatus(string code) => code switch
+    {
+        "barrido_en_curso" or "ejecucion_no_ejecutable" => StatusCodes.Status409Conflict,
+        "referencia_invalida" => StatusCodes.Status422UnprocessableEntity,
+        "ejecucion_no_encontrada" => StatusCodes.Status404NotFound,
+        "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" => StatusCodes.Status503ServiceUnavailable,
+        _ => StatusCodes.Status500InternalServerError,
+    };
 
     private static ProblemDetails CreateProblem(
         string code, string message, int status, HttpContext httpContext, string traceId)

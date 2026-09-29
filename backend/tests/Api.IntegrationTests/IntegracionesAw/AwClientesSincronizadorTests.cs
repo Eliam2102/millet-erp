@@ -23,6 +23,7 @@ namespace Millet.Api.IntegrationTests.IntegracionesAw;
 /// simulado propio por prueba. Datos 100 % sintéticos; cada prueba usa un rango de IDs propio y
 /// limpia barridos vivos previos (el índice único es por origen, compartido entre pruebas).
 /// </summary>
+[Collection("AwClientesSync")]
 public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private static int _siguienteBase = Random.Shared.Next(1_000_000, 900_000_000);
@@ -301,7 +302,7 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
 
         Assert.Equal(AwClientesEjecucionEstado.Fallida, e.Estado);
         Assert.NotNull(e.ErrorGeneral);
-        Assert.True(e.ErrorGeneral!.Length <= AwClientesEjecucion.MensajeErrorMaxLength);
+        Assert.Equal("lectura_origen_fallida (AwReaderException)", e.ErrorGeneral); // sin ex.Message
         Assert.Equal(3, e.Creados);
         var (cs, _) = await Leer(Ids(filas));
         Assert.Equal(3, cs.Count);
@@ -351,7 +352,6 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
             Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.IniciarBarridoAsync("t", default))).Code);
             Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.EjecutarAsync(Guid.NewGuid(), default))).Code);
             Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.ReintentarReferenciaAsync("1", "t", default))).Code);
-            Assert.Equal(codigo, (await Assert.ThrowsAsync<AwClientesSyncException>(() => s.EjecutarProgramadoAsync("t", default))).Code);
             return 0;
         });
 

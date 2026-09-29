@@ -86,6 +86,14 @@ public sealed class AwClientesEjecucion : BaseEntity, INotAudited
         _errores.Add(new AwClientesEjecucionError(Id, referencia, codigo, mensaje, ahora));
     }
 
+    /// <summary>Conflicto trazable: cuenta como Conflicto (no como Error) y deja la referencia listada.</summary>
+    public void RegistrarConflicto(string referencia, string codigo, string mensaje, DateTimeOffset ahora)
+    {
+        Leidos++;
+        Conflictos++;
+        _errores.Add(new AwClientesEjecucionError(Id, referencia, codigo, mensaje, ahora));
+    }
+
     public void AvanzarCursor(string? cursor) => CursorActual = cursor;
 
     /// <summary>Barrido terminado: Parcial si alguna fila falló, Completa si no.</summary>

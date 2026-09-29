@@ -9,10 +9,9 @@ using Millet.SharedKernel.Application;
 namespace Millet.Integraciones.Aw.Application.Workers;
 
 /// <summary>
-/// Barrido programado de clientes A+W (ADM-06). Solo se registra con
-/// <c>ProgramacionHabilitada=true</c>. Un barrido por intervalo, secuencial (nunca solapa en el
-/// proceso; entre instancias lo impide el índice único parcial). Reanuda un barrido vivo antes
-/// de iniciar uno nuevo.
+/// Programación de barridos de clientes A+W (ADM-06). Solo se registra con
+/// <c>ProgramacionHabilitada=true</c>. Cada intervalo CREA un barrido Pendiente si no hay uno vivo
+/// (lo impide el índice único parcial); NO lo ejecuta: eso lo hace <see cref="AwClientesEjecucionDispatcher"/>.
 /// </summary>
 public sealed class AwClientesSyncWorker : BackgroundService
 {
@@ -54,7 +53,7 @@ public sealed class AwClientesSyncWorker : BackgroundService
                 }
                 catch (AwClientesSyncException ex)
                 {
-                    // Flag apagada / origen sin configurar / barrido vivo en otra instancia: esperado, no es un fallo.
+                    // Flag apagada / origen sin configurar / barrido_en_curso (ya hay uno vivo): esperado, no es un fallo.
                     _logger.LogWarning("AwClientesSyncWorker: ciclo omitido ({Code}).", ex.Code);
                 }
                 catch (Exception ex)
@@ -85,7 +84,7 @@ public sealed class AwClientesSyncWorker : BackgroundService
         var sp = scope.ServiceProvider;
         using var origin = sp.GetRequiredService<IAuditOriginContext>().SetOrigin(nameof(AwClientesSyncWorker));
         using var _ = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-        await sp.GetRequiredService<AwClientesSincronizador>().EjecutarProgramadoAsync(Actor, ct);
+        await sp.GetRequiredService<AwClientesSincronizador>().IniciarBarridoAsync(Actor, ct);
     }
 }
 
