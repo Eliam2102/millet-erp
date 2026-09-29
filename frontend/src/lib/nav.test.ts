@@ -3,6 +3,8 @@ import { Inbox } from 'lucide-react';
 import {
   filtrarModuloPorPermisos,
   navSidebarItems,
+  rutaPermitida,
+  sidebarItemsVisibles,
   type NavModulo,
 } from '@/lib/nav';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -272,5 +274,49 @@ describe('navSidebarItems', () => {
       PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
       PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
     ]);
+  });
+});
+
+describe('visibilidad por permisos (sidebar y URLs)', () => {
+  const P = PermisosCanonicos;
+
+  it('sidebar: solo Inicio y módulos con alguna pantalla permitida; sin placeholders', () => {
+    const labels = sidebarItemsVisibles([P.ComprasRequisicionesLeer]).map((i) => i.label);
+    expect(labels).toEqual(['Inicio', 'Compras']);
+  });
+
+  it('sidebar: sin permisos solo queda Inicio', () => {
+    expect(sidebarItemsVisibles([]).map((i) => i.label)).toEqual(['Inicio']);
+  });
+
+  it('URL: exige el permiso de la card más específica, también en el detalle', () => {
+    expect(rutaPermitida('/compras/ordenes', [P.ComprasOrdenesLeer])).toBe(true);
+    expect(rutaPermitida('/compras/ordenes/0000-id', [P.ComprasOrdenesLeer])).toBe(true);
+    expect(rutaPermitida('/compras/ordenes/0000-id', [P.ComprasRequisicionesLeer])).toBe(false);
+    // Card más específica: partidas abiertas pide su propio permiso.
+    expect(rutaPermitida('/compras/ordenes/partidas-abiertas', [P.ComprasOrdenesLeer])).toBe(false);
+    expect(
+      rutaPermitida('/compras/ordenes/partidas-abiertas', [P.ComprasOrdenesReportesPartidasAbiertas]),
+    ).toBe(true);
+  });
+
+  it('URL: permissionsAny acepta cualquiera', () => {
+    expect(rutaPermitida('/compras/pendientes', [P.ComprasRequisicionesAutorizarNivel2])).toBe(true);
+  });
+
+  it('URL: rutas fuera del menú usan el permiso de su endpoint', () => {
+    expect(rutaPermitida('/compras/trazabilidad/oc/1', [])).toBe(false);
+    expect(rutaPermitida('/compras/trazabilidad/oc/1', [P.ComprasOrdenesLeer])).toBe(true);
+  });
+
+  it('URL: la raíz o ayuda de un módulo exige ver ese módulo', () => {
+    expect(rutaPermitida('/tesoreria', [])).toBe(false);
+    expect(rutaPermitida('/tesoreria', [P.TesoreriaCuentasVer])).toBe(true);
+    expect(rutaPermitida('/facturacion/ayuda', [P.FacturacionFacturasLeer])).toBe(true);
+  });
+
+  it('URL: Inicio y rutas ajenas a los módulos no se bloquean aquí', () => {
+    expect(rutaPermitida('/', [])).toBe(true);
+    expect(rutaPermitida('/admin/identidad/settings', [])).toBe(true);
   });
 });
