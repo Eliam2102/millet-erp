@@ -10,11 +10,15 @@ audit_container="millet-integration-gate-$$"
 audit_password="millet-integration-temporary"
 audit_log_dir="$(mktemp -d "${TMPDIR:-/tmp}/millet-integration-gate.XXXXXX")"
 
-if [[ -x "$repo_root/../.tools/dotnet/dotnet" ]]; then
-  dotnet_bin="$repo_root/../.tools/dotnet/dotnet"
+local_dotnet="$repo_root/../.tools/dotnet/dotnet"
+if [[ -x "$local_dotnet" ]] && (cd "$repo_root" && "$local_dotnet" --version >/dev/null 2>&1); then
+  dotnet_bin="$local_dotnet"
 else
+  # La instalación local puede tener un SDK anterior al de global.json.
+  # En ese caso usa el SDK compatible disponible en PATH.
   dotnet_bin="dotnet"
 fi
+(cd "$repo_root" && "$dotnet_bin" --version >/dev/null)
 
 cleanup() {
   docker stop "$audit_container" >/dev/null 2>&1 || true
