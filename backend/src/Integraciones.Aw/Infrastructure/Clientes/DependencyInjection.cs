@@ -2,8 +2,10 @@ using System.Data.Common;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Clientes;
+using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
@@ -44,6 +46,18 @@ public static class ClientesDependencyInjection
                     ? new AwClientesOrigenSimulado()
                     : AwClientesOrigenSimulado.DesdeArchivo(archivo);
             });
+        }
+
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<AwClientesSincronizador>();
+
+        // El worker solo existe con ProgramacionHabilitada=true (apagado por defecto).
+        if (opciones.ProgramacionHabilitada)
+        {
+            services.AddSingleton<AwClientesSyncWorker>();
+            services.AddHostedService(sp => sp.GetRequiredService<AwClientesSyncWorker>());
+            services.AddHealthChecks().AddCheck<AwClientesSyncWorkerHealthCheck>(
+                "aw-clientes-sync-worker", tags: ["liveness"]);
         }
 
         return services;
