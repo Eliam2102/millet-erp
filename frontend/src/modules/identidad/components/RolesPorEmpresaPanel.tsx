@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError } from '@/lib/api';
 import { useRevocarAsignacion } from '@/modules/identidad/api';
 import type { AsignacionDetalleResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -56,10 +56,10 @@ export function RolesPorEmpresaPanel({
   const esUsuarioActual =
     currentUserId != null && currentUserId === usuarioId;
 
-  const idempotencyKey = useFormIdempotencyKey();
   const revocar = useRevocarAsignacion();
 
   function handleConfirmarRevocar() {
+    if (revocar.isPending) return;
     if (esUsuarioActual) {
       toast.error('No puedes revocar tus propios roles asignados.');
       setParaRevocar(null);
@@ -72,7 +72,7 @@ export function RolesPorEmpresaPanel({
       {
         asignacionId: target.id,
         usuarioId,
-        idempotencyKey,
+        idempotencyKey: crypto.randomUUID(),
       },
       {
         onSuccess: () => {
