@@ -106,6 +106,13 @@ export const PermisosCanonicos = {
   // <c>compartido.catalogos.administrar</c> para los recursos de Datos
   // Maestros (Proveedores, Articulos).
   DatosMaestrosProveedoresGestionar: 'datos_maestros.proveedores.gestionar',
+  // Datos bancarios de proveedores (F1-ADM-05) — granulares, separados
+  // del gestionar general: ver (CLABE enmascarada salvo PII bypass) y
+  // editar (banco/CLABE/beneficiario).
+  DatosMaestrosProveedoresBancariosVer:
+    'datos_maestros.proveedores.bancarios-ver',
+  DatosMaestrosProveedoresBancariosEditar:
+    'datos_maestros.proveedores.bancarios-editar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular

@@ -121,11 +121,45 @@ export interface ActualizarProveedorPayload {
   limpiarMonedaPreferida?: boolean | null;
   limpiarEmail?: boolean | null;
   limpiarTelefono?: boolean | null;
+  /**
+   * Datos bancarios (F1-ADM-05): requieren el permiso dedicado
+   * <c>datos_maestros.proveedores.bancarios-editar</c>; sin él el
+   * backend responde 403 <c>PROVEEDOR_BANCARIOS_SIN_PERMISO</c>.
+   */
+  banco?: string | null;
+  clabe?: string | null;
+  beneficiario?: string | null;
+  limpiarBanco?: boolean | null;
+  limpiarClabe?: boolean | null;
+  limpiarBeneficiario?: boolean | null;
 }
 
 export interface CrearProveedorResponse {
   id: string;
   clave: string;
+  /**
+   * <c>EnRevision</c> cuando el alta usó un RFC genérico y coincide con
+   * la razón social de otro proveedor existente (posible duplicado sin
+   * fusionar automáticamente).
+   */
+  estatus: EstatusCatalogo;
+  /** Id del proveedor con el que se detectó la posible duplicidad. */
+  posibleDuplicadoDeId: string | null;
+}
+
+/**
+ * Respuesta de <c>GET /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
+ * (F1-ADM-05). Requiere el permiso <c>datos_maestros.proveedores.bancarios-ver</c>.
+ * La CLABE llega enmascarada por el backend salvo que el usuario tenga
+ * <c>tesoreria.movimientos.ver-cuenta-completa</c> (ADR-0018), en cuyo
+ * caso <c>clabeCompleta = true</c>.
+ */
+export interface ProveedorDatosBancarios {
+  id: string;
+  banco: string | null;
+  clabe: string | null;
+  beneficiario: string | null;
+  clabeCompleta: boolean;
 }
 
 // ─── Artículos ─────────────────────────────────────────────────────

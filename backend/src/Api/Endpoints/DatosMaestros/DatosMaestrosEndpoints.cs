@@ -12,7 +12,9 @@ using Millet.DatosMaestros.Application.ProductosAw;
 using Millet.DatosMaestros.Application.Proveedores;
 using Millet.DatosMaestros.Domain;
 using Millet.Identidad.Domain;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Domain.Cuentas;
 
 namespace Millet.Api.Endpoints.DatosMaestros;
 
@@ -93,6 +95,38 @@ public static class DatosMaestrosEndpoints
         .WithName("ObtenerProveedorDatosMaestros")
         .WithSummary("Detalle de proveedor (F-Admin-PR4.5)")
         .Produces<ProveedorDetalle>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        proveedores.MapGet("/{id:guid}/datos-bancarios", async (
+            Guid id,
+            CompartidoDbContext db,
+            ICurrentUserPermissions permisos,
+            CancellationToken ct) =>
+        {
+            var p = await db.Proveedores.AsNoTracking()
+                .Select(x => new { x.Id, x.Banco, x.Clabe, x.Beneficiario })
+                .FirstOrDefaultAsync(x => x.Id == id, ct)
+                ?? throw new EntityNotFoundException(
+                    "PROVEEDOR_NO_ENCONTRADO",
+                    $"No existe proveedor con id '{id}'.");
+
+            var verCompleta = await permisos.TieneAsync(
+                PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, ct);
+            var clabe = p.Clabe is null ? null : verCompleta ? p.Clabe : Clabe.Enmascarar(p.Clabe);
+
+            return Results.Ok(new ProveedorDatosBancarios(
+                p.Id, p.Banco, clabe, p.Beneficiario, verCompleta));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosVer)
+        .WithName("ObtenerProveedorDatosBancarios")
+        .WithSummary("Datos bancarios de proveedor (F1-ADM-05)")
+        .WithDescription(
+            "CLABE enmascarada (últimos 4 dígitos) salvo que el usuario tenga " +
+            "`tesoreria.movimientos.ver-cuenta-completa` (PII, ADR-0018), en " +
+            "cuyo caso `clabeCompleta = true` y viene sin enmascarar.")
+        .Produces<ProveedorDatosBancarios>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
@@ -641,4 +675,15 @@ public static class DatosMaestrosEndpoints
         string? Email,
         string? Telefono,
         EstatusCatalogo Estatus);
+
+    /// <summary>
+    /// Respuesta de <c>GET /datos-maestros/proveedores/{id}/datos-bancarios</c>
+    /// (F1-ADM-05). CLABE enmascarada salvo bypass PII (<c>ClabeCompleta</c>).
+    /// </summary>
+    public sealed record ProveedorDatosBancarios(
+        Guid Id,
+        string? Banco,
+        string? Clabe,
+        string? Beneficiario,
+        bool ClabeCompleta);
 }

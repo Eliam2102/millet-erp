@@ -92,4 +92,37 @@ public class ProveedorTests
         var p = Crear(estatus: EstatusCatalogo.Inactivo);
         Assert.Equal(EstatusCatalogo.Inactivo, p.Estatus);
     }
+
+    // --- RFC único (F1-ADM-05): normalización y detección de genéricos ---
+
+    [Fact]
+    public void Should_Normalize_Rfc_TrimAndUpperInvariant_OnCreate()
+    {
+        var p = Crear(rfc: "  emp010101aaa  ");
+        Assert.Equal("EMP010101AAA", p.Rfc);
+    }
+
+    [Fact]
+    public void Should_Normalize_Rfc_TrimAndUpperInvariant_OnActualizarDatos()
+    {
+        var p = Crear();
+        p.ActualizarDatos(rfc: "  abcd010101abc  ");
+        Assert.Equal("ABCD010101ABC", p.Rfc);
+    }
+
+    [Theory]
+    [InlineData("XAXX010101000")]
+    [InlineData("XEXX010101000")]
+    [InlineData("xaxx010101000")]
+    [InlineData("  XEXX010101000  ")]
+    public void EsRfcGenerico_Should_Detect_GenericosSat(string rfc)
+    {
+        Assert.True(Proveedor.EsRfcGenerico(rfc));
+    }
+
+    [Fact]
+    public void EsRfcGenerico_Should_Return_False_Para_RfcNormal()
+    {
+        Assert.False(Proveedor.EsRfcGenerico("EMP010101AAA"));
+    }
 }

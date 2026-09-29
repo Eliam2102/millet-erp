@@ -943,7 +943,14 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Beneficiario).HasMaxLength(254);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
-        proveedor.HasIndex(x => x.Rfc);
+        // F1-ADM-05: RFC único salvo genéricos SAT (público en general),
+        // que varios proveedores legítimos comparten. Filtro por valor,
+        // no por columna calculada: Rfc siempre se persiste normalizado
+        // (Trim + ToUpperInvariant en el dominio).
+        proveedor.HasIndex(x => x.Rfc)
+            .IsUnique()
+            .HasDatabaseName("ux_proveedores_rfc_no_generico")
+            .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         proveedor.HasIndex(x => x.Estatus);
     }
 
