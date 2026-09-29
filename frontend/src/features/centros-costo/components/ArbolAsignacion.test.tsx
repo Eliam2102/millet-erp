@@ -129,6 +129,25 @@ describe('<ArbolAsignacion>', () => {
     ).toBeDisabled();
   });
 
+  it('un CeCo sin máquinas no aparenta ser asignable', () => {
+    const sinMaquinas = structuredClone(ARBOL);
+    sinMaquinas.dim1s[0].grupos[0].dim2s.push({
+      id: 'nomina', clave: '40NM00', nombre: 'NOMINA', estado: TriEstado.Ninguno,
+      dim3Vivas: 0, dim3Asignadas: 0, grupos: [],
+    });
+    const onMarcar = vi.fn();
+    render(<ArbolAsignacion arbol={sinMaquinas} onMarcar={onMarcar} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir 101 · CONKAL' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir OPERACIONES' }));
+
+    const nomina = screen.getByRole('checkbox', { name: 'Alcance de 40NM00 · NOMINA' });
+    expect(nomina).toBeDisabled();
+    expect(screen.getByText('Sin máquinas')).toBeInTheDocument();
+    fireEvent.click(nomina);
+    expect(onMarcar).not.toHaveBeenCalled();
+  });
+
   it('columna ASIGNADAS: color semántico del tri-estado (05 §7.3)', () => {
     // Tres Dim1 en los tres estados; la columna mapea el `estado` del DTO.
     const tresEstados: ArbolAsignacionResponse = {

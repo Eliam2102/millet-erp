@@ -100,6 +100,7 @@ function FilaNodo({
   // Colapsado a Dim1 (nivel 0 abierto no; el usuario expande).
   const [open, setOpen] = useState(false);
   const expandible = !nodo.esHoja && nodo.hijos.length > 0;
+  const sinAsignables = !nodo.esHoja && nodo.dim3Vivas === 0;
   const esRaiz = nivel === 0;
 
   return (
@@ -117,7 +118,7 @@ function FilaNodo({
         >
           <Checkbox
             checked={estadoAChecked(nodo.estado)}
-            disabled={disabled}
+            disabled={disabled || sinAsignables}
             aria-label={`Alcance de ${nodo.etiqueta}`}
             onCheckedChange={(checked) =>
               onMarcar({ ...nodo.marca, asignar: checked === true })
@@ -184,6 +185,9 @@ function BadgeAsignadas({
 }: {
   nodo: { estado: TriEstado; dim3Asignadas: number; dim3Vivas: number };
 }) {
+  if (nodo.dim3Vivas === 0) {
+    return <span className="text-muted-foreground">Sin máquinas</span>;
+  }
   if (nodo.estado === TriEstado.Todo) {
     return (
       <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-900 ring-1 ring-inset ring-emerald-200">
