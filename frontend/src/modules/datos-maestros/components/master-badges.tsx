@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   EstatusCatalogo,
   OrigenMaster,
+  type ResultadoSincronizacion,
 } from '@/modules/datos-maestros/api/types';
 import { cn } from '@/lib/utils';
 
@@ -74,6 +75,48 @@ export function FiscalesIncompletosBadge({
       )}
     >
       Fiscales incompletos
+    </Badge>
+  );
+}
+
+/**
+ * Resultado de la última lectura A+W. "Sincronizado" solo para
+ * Aplicado/SinCambios y, si se informa, con una aplicación real
+ * (<c>aplicado</c>); Pendiente/Conflicto/Error NUNCA se muestran como
+ * sincronizados.
+ */
+export function ResultadoSincronizacionBadge({
+  resultado,
+  aplicado = true,
+  className,
+}: {
+  resultado: ResultadoSincronizacion;
+  aplicado?: boolean;
+  className?: string;
+}) {
+  if (resultado === 'Aplicado' || resultado === 'SinCambios') {
+    if (!aplicado) {
+      return (
+        <Badge variant="outline" className={className}>
+          Sin aplicar
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className={className}>
+        Sincronizado
+      </Badge>
+    );
+  }
+  const [texto, tono] =
+    resultado === 'Pendiente'
+      ? ['Pendiente de validación', 'border-amber-300 bg-amber-500/10 text-amber-700 dark:text-amber-300']
+      : resultado === 'Conflicto'
+        ? ['Conflicto', 'border-orange-300 bg-orange-500/10 text-orange-700 dark:text-orange-300']
+        : ['Error de sincronización', 'border-destructive/40 bg-destructive/10 text-destructive'];
+  return (
+    <Badge variant="outline" className={cn(tono, className)}>
+      {texto}
     </Badge>
   );
 }

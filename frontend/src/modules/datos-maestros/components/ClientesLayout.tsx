@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Plus, TriangleAlert, Users } from 'lucide-react';
+import { Plus, RefreshCw, TriangleAlert, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
@@ -23,6 +23,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ListaClientesCompacta } from '@/modules/datos-maestros/components/ListaClientesCompacta';
 import { useNuevoCliente } from '@/modules/datos-maestros/components/nuevo-cliente-context';
+import { SheetSincronizacionClientes } from '@/modules/datos-maestros/components/SheetSincronizacionClientes';
 import { cn } from '@/lib/utils';
 
 /**
@@ -48,6 +49,11 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
   const canGestionar = useHasPermission(
     PermisosCanonicos.DatosMaestrosClientesGestionar,
   );
+
+  const canSincronizar = useHasPermission(
+    PermisosCanonicos.DatosMaestrosClientesSincronizar,
+  );
+  const [syncAbierto, setSyncAbierto] = useState(false);
 
   const [rfcInput, setRfcInput] = useState('');
   const [razonInput, setRazonInput] = useState('');
@@ -90,12 +96,24 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-semibold tracking-tight">Clientes</h1>
-          {canGestionar && (
-            <Button size="sm" onClick={() => nuevoCliente.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nuevo
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {canSincronizar && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSyncAbierto(true)}
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Sincronizar
+              </Button>
+            )}
+            {canGestionar && (
+              <Button size="sm" onClick={() => nuevoCliente.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nuevo
+              </Button>
+            )}
+          </div>
         </div>
 
         <FiltrosBloque
@@ -131,6 +149,13 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
+
+      {canSincronizar && (
+        <SheetSincronizacionClientes
+          open={syncAbierto}
+          onOpenChange={setSyncAbierto}
+        />
+      )}
     </div>
   );
 }

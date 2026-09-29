@@ -240,6 +240,98 @@ export interface CrearArticuloResponse {
 
 // ─── Clientes (ADR-0048) ───────────────────────────────────────────
 
+/** Mirror de <c>ResultadoSincronizacionAw</c> (serializado como string). */
+export type ResultadoSincronizacion =
+  | 'Aplicado'
+  | 'SinCambios'
+  | 'Pendiente'
+  | 'Conflicto'
+  | 'Error';
+
+export interface ClienteOrigenAwResumen {
+  resultado: ResultadoSincronizacion;
+  ultimaLecturaUtc: string;
+}
+
+/** Candidatos fiscales/crédito/domicilio: solo con <c>origen-ver</c> (null si no). */
+export interface ClienteOrigenAwDetalle {
+  condicionOrigen: string | null;
+  diasNominalesOrigen: number | null;
+  monedaOrigen: string | null;
+  monedaNormalizada: string | null;
+  nombreComercialOrigen: string | null;
+  estadoOrigenCrudo: number | null;
+  bloqueoOrigenCrudo: number | null;
+  ultimaLecturaUtc: string;
+  ultimaAplicacionUtc: string | null;
+  resultado: ResultadoSincronizacion;
+  error: string | null;
+  versionContrato: string;
+  versionMapeo: string;
+  registroVersion: number;
+  candidatoFiscalUstId?: string | null;
+  candidatoFiscalSteuernummer?: string | null;
+  creditoReferenciaLimite?: number | null;
+  creditoReferenciaLimite1?: number | null;
+  creditoReferenciaNet?: number | null;
+  domicilioOrigenCalle?: string | null;
+  domicilioOrigenCiudad?: string | null;
+  domicilioOrigenCp?: string | null;
+  domicilioOrigenProvincia?: string | null;
+  domicilioOrigenPais?: string | null;
+}
+
+// ─── Sincronización de clientes A+W (F1-ADM-06) ─────────────────────
+
+export type EstadoEjecucionSync =
+  | 'Pendiente'
+  | 'EnCurso'
+  | 'Completa'
+  | 'Parcial'
+  | 'Fallida'
+  | 'Cancelada';
+
+export interface EjecucionSyncErrorItem {
+  referencia: string;
+  codigo: string;
+  mensaje: string;
+}
+
+export interface EjecucionSyncResumen {
+  id: string;
+  tipo: string;
+  estado: EstadoEjecucionSync;
+  leidos: number;
+  creados: number;
+  actualizados: number;
+  sinCambios: number;
+  pendientes: number;
+  conflictos: number;
+  errores: number;
+  iniciadaEnUtc: string | null;
+  terminadaEnUtc: string | null;
+  actor: string | null;
+  reintentoDeId: string | null;
+  errorGeneral: string | null;
+}
+
+export interface EjecucionSyncDetalle
+  extends Omit<EjecucionSyncResumen, 'errores'> {
+  errores: EjecucionSyncErrorItem[];
+}
+
+export interface ListarEjecucionesSyncResponse {
+  items: EjecucionSyncResumen[];
+  offset: number;
+  limit: number;
+  total: number;
+}
+
+export interface EjecucionSyncAceptada {
+  id: string;
+  estado: EstadoEjecucionSync;
+}
+
 export interface ClienteItem {
   id: string;
   clave: string;
@@ -255,6 +347,8 @@ export interface ClienteItem {
   /** false = falta RFC, régimen fiscal o CP → no puede timbrar. */
   datosFiscalesCompletos: boolean;
   estatus: EstatusCatalogo;
+  /** Resumen de la última lectura A+W; null si nunca se sincronizó. */
+  origenAw?: ClienteOrigenAwResumen | null;
 }
 
 export interface ListarClientesResponse {
@@ -288,6 +382,8 @@ export interface ClienteDetalle {
   domicilioExtranjeroCodigoPostal: string | null;
   datosFiscalesCompletos: boolean;
   estatus: EstatusCatalogo;
+  version: number;
+  origenAw?: ClienteOrigenAwDetalle | null;
 }
 
 export interface CrearClientePayload {

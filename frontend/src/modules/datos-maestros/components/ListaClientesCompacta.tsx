@@ -5,6 +5,7 @@ import {
   EstatusCatalogoBadge,
   FiscalesIncompletosBadge,
   OrigenBadge,
+  ResultadoSincronizacionBadge,
 } from '@/modules/datos-maestros/components/master-badges';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +76,12 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
             completos={item.datosFiscalesCompletos}
             className="text-[10px] py-0"
           />
+          {item.origenAw != null && (
+            <ResultadoSincronizacionBadge
+              resultado={item.origenAw.resultado}
+              className="text-[10px] py-0"
+            />
+          )}
         </div>
       </Link>
     </li>

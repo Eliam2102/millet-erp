@@ -81,6 +81,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
+  'datos_maestros.clientes.sincronizar',
+  'datos_maestros.clientes.origen-ver',
+  'datos_maestros.clientes.fiscal-editar',
   'datos_maestros.productos-aw.gestionar',
   // Administración — andamio /admin (F-Admin-PR1.2) y CRUDs (PR2.3+).
   'admin.empresas.leer',
