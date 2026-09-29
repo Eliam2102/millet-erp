@@ -195,7 +195,7 @@ public sealed class AwClientesSincronizador
         try
         {
             var r = await _aplicar.AplicarAsync(mapeo.Snapshot! with { EjecucionId = ejec.Id }, ct);
-            ejec.AcumularFila(Reducir(r));
+            ejec.AcumularFila(Reducir(r), r.Accion != AplicarClienteAwAccion.Conflicto && r.Resultado == ResultadoSincronizacionAw.Pendiente);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -209,7 +209,6 @@ public sealed class AwClientesSincronizador
     private static AwClientesFilaResultado Reducir(AplicarClienteAwResultado r) => r.Accion switch
     {
         AplicarClienteAwAccion.Conflicto => AwClientesFilaResultado.Conflicto,
-        _ when r.Resultado == ResultadoSincronizacionAw.Pendiente => AwClientesFilaResultado.Pendiente,
         AplicarClienteAwAccion.Creado => AwClientesFilaResultado.Creado,
         AplicarClienteAwAccion.Actualizado => AwClientesFilaResultado.Actualizado,
         _ => AwClientesFilaResultado.SinCambios,

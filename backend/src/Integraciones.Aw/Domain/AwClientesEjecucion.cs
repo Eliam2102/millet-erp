@@ -20,7 +20,7 @@ public enum AwClientesEjecucionEstado : short
 /// que una caída deja la ejecución <c>EnCurso</c> y se reanuda sin duplicar. Sin auditoría
 /// por fila (es telemetría operativa, no dato de negocio).
 /// </summary>
-public sealed class AwClientesEjecucion : BaseEntity
+public sealed class AwClientesEjecucion : BaseEntity, INotAudited
 {
     public const int MensajeErrorMaxLength = 500;
 
@@ -65,15 +65,16 @@ public sealed class AwClientesEjecucion : BaseEntity
 
     public void Iniciar() => Estado = AwClientesEjecucionEstado.EnCurso;
 
-    public void AcumularFila(AwClientesFilaResultado r)
+    /// <summary>Pendiente es ortogonal a la acción: se suma además de Creado/Actualizado/SinCambios.</summary>
+    public void AcumularFila(AwClientesFilaResultado accion, bool esPendiente)
     {
         Leidos++;
-        switch (r)
+        if (esPendiente) Pendientes++;
+        switch (accion)
         {
             case AwClientesFilaResultado.Creado: Creados++; break;
             case AwClientesFilaResultado.Actualizado: Actualizados++; break;
             case AwClientesFilaResultado.SinCambios: SinCambios++; break;
-            case AwClientesFilaResultado.Pendiente: Pendientes++; break;
             case AwClientesFilaResultado.Conflicto: Conflictos++; break;
         }
     }
@@ -109,7 +110,7 @@ public sealed class AwClientesEjecucion : BaseEntity
 public enum AwClientesFilaResultado { Creado, Actualizado, SinCambios, Pendiente, Conflicto }
 
 /// <summary>Error por referencia: código + mensaje corto, nunca el payload completo.</summary>
-public sealed class AwClientesEjecucionError : BaseEntity
+public sealed class AwClientesEjecucionError : BaseEntity, INotAudited
 {
     public Guid EjecucionId { get; private set; }
     public string Referencia { get; private set; } = string.Empty;
