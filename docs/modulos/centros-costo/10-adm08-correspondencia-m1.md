@@ -103,6 +103,6 @@ Los grupos clasifican nodos; no agregan otro padre a la jerarquia. El destino or
 
 ## Decision tecnica aplicada
 
-No se agrega una migracion de datos en ADM-08 mientras estas decisiones sigan abiertas. Renombrar claves, desactivar registros o mover NumEQ sin confirmacion excederia la correspondencia solicitada y podria alterar la lectura de documentos historicos. Despues de la aprobacion, la implementacion debe preservar los ids cuando solo cambie clave o nombre y usar baja logica mas alta cuando cambie el padre.
+Millet confirmo conservar los registros adicionales del ERP y tomar M1 como fuente de verdad para claves, grupos, altas faltantes y los cuatro cambios de padre. La migracion `ReconciliacionCatalogoM1` preserva los ids cuando cambia clave, nombre o grupo; crea `40NM00` y `CCTER01`; y aplica baja historica mas alta vigente cuando cambia el padre.
 
-Hasta recibir estas confirmaciones, el cierre tecnico puede probar CRUD, jerarquia, alcance e historico, pero no debe declarar aprobados los datos reales por Contabilidad/Millet.
+El impacto y los riesgos para documentos existentes se detallan en `12-adm08-impacto-historico-m1.md`.

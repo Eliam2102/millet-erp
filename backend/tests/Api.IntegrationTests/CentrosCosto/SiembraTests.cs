@@ -27,6 +27,8 @@ public class SiembraTests : IClassFixture<WebApplicationFactory<Program>>
     private static readonly string[] Dim1Esperadas =
         ["101=CONKAL", "102=CHICHI SUAREZ", "103=CIRCUITO", "104=CANCUN", "105=PLANTA PINTURA"];
 
+    private static readonly string[] ClavesReubicadas = ["VU056", "CHDIR01", "VU106", "VV060"];
+
     private sealed record Conteos(int GruposDim2, int GruposDim3, int Dim1, int Dim2, int Dim3);
 
     private static async Task<Conteos> ContarSembradosAsync(CentrosCostoDbContext db)
@@ -45,9 +47,9 @@ public class SiembraTests : IClassFixture<WebApplicationFactory<Program>>
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CentrosCostoDbContext>();
 
-        // ── 1. Conteos exactos por prefijos congelados (6/44/5/57/361) ──
+        // ── 1. Siembra original + reconciliación M1 (1 CeCo y 5 Dim3 nuevas) ──
         var c = await ContarSembradosAsync(db);
-        Assert.Equal(new Conteos(6, 44, 5, 57, 361), c);
+        Assert.Equal(new Conteos(6, 44, 5, 58, 366), c);
 
         // ── 2. Las 5 dim1 con clave de reportes directa + nombre del Excel ──
         var dim1s = await db.Dim1s.AsNoTracking()
@@ -82,6 +84,21 @@ public class SiembraTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal("CONKAL", conkal.Nombre);
         var grupoGantry = await db.GruposDim3.AsNoTracking().SingleAsync(g => g.Id == gantry.GrupoDim3Id);
         Assert.Equal("LINEA / CORTE 1", grupoGantry.Nombre);
+
+        // ── 5. Reconciliación M1: claves vigentes y filas históricas ──
+        Assert.Equal("NOMINA", (await db.Dim2s.SingleAsync(d => d.Clave == "40NM00")).Nombre);
+        Assert.Equal("CAPITAL HUMANO", (await db.Dim2s.SingleAsync(d => d.Clave == "40DD01")).Nombre);
+        Assert.Equal("CORPORATIVO MILLET", (await db.Dim2s.SingleAsync(d => d.Clave == "50DD00")).Nombre);
+
+        var historicas = await db.Dim3s.CountAsync(d => d.Clave.EndsWith("-LEGACY"));
+        Assert.Equal(4, historicas);
+
+        var padresM1 = await db.Dim3s.AsNoTracking()
+            .Where(d => ClavesReubicadas.Contains(d.Clave))
+            .Join(db.Dim2s, d => d.Dim2Id, ceco => ceco.Id, (d, ceco) => d.Clave + "=" + ceco.Clave)
+            .OrderBy(x => x)
+            .ToListAsync();
+        Assert.Equal(["CHDIR01=50DD00", "VU056=20DD00", "VU106=50DD00", "VV060=40DD01"], padresM1);
     }
 
     [Fact]
@@ -91,7 +108,7 @@ public class SiembraTests : IClassFixture<WebApplicationFactory<Program>>
         var db = scope.ServiceProvider.GetRequiredService<CentrosCostoDbContext>();
 
         var antes = await ContarSembradosAsync(db);
-        Assert.Equal(361, antes.Dim3); // precondición: la siembra ya corrió
+        Assert.Equal(366, antes.Dim3); // precondición: siembra + reconciliación ya corrieron
 
         var updatedAtAntes = await db.Database
             .SqlQuery<DateTimeOffset>($"SELECT max(updated_at) AS \"Value\" FROM centros_costo.dim3 WHERE id::text LIKE '0000000c-0005-%'")
@@ -100,7 +117,7 @@ public class SiembraTests : IClassFixture<WebApplicationFactory<Program>>
         // Re-ejecuta EXACTAMENTE el SQL de la migración (fuente única: la
         // misma constante que corre en Up). Sin excepción = el ON CONFLICT
         // sin target absorbe PK y claves; el guard final vuelve a validar
-        // 6/44/5/57/361 sobre lo ya sembrado.
+        // conteos sobre lo ya sembrado y reconciliado.
         await db.Database.ExecuteSqlRawAsync(SiembraCatalogoSql.Sql);
 
         var despues = await ContarSembradosAsync(db);
