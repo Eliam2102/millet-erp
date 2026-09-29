@@ -337,3 +337,48 @@ CONFLICT`.
 - Política específica si el volumen crece y la tabla se vuelve cuello de botella (sharding por empresa, particionado por fecha)
 - Estrategia de idempotencia para webhooks entrantes (cuando aplique)
 - Idempotencia entre el frontend y SignalR (si surge necesidad)
+
+## Revisión 2026-09 — alcance por endpoint y política de fallos
+
+**Contexto.** En uso real, acciones repetidas desde una misma pantalla
+(desactivar varios puestos, reactivar tras desactivar, reenviar un correo)
+respondían "éxito" sin ejecutarse, y un error de negocio dejaba la acción
+bloqueada hasta 24 h con `IDEMPOTENCY_IN_PROGRESS`. Causas:
+
+1. La búsqueda de la key ignoraba método y ruta: la misma key en
+   `/puestos/B/desactivar` repetía la respuesta de `/puestos/A/desactivar`.
+2. Una excepción del handler (409/422 de dominio) dejaba la fila `failed`
+   sin respuesta y todo reintento recibía `IDEMPOTENCY_IN_PROGRESS`.
+3. El frontend conservaba la misma key durante toda la vida del componente,
+   aunque la operación ya hubiera terminado bien.
+
+**Cambios.**
+
+| Situación | Antes | Ahora |
+|---|---|---|
+| Misma key en otro endpoint | replay de la otra operación | operación independiente (PK incluye `http_method` y `path`); se registra un warning |
+| Operación anterior terminó en 4xx | bloqueo 24 h o replay del error | la fila se borra; el reintento se ejecuta de nuevo (no hubo efecto) |
+| Operación anterior terminó en 5xx | 409 `IDEMPOTENCY_IN_PROGRESS` | 409 `IDEMPOTENCY_PREVIOUS_FAILURE`, sin `Retry-After`; el cliente no reintenta solo |
+| 2xx sin body (204) | se marcaba `truncated` y el retry fallaba | replay del status sin body |
+| 2xx con respuesta no cacheable | 409 `IDEMPOTENCY_IN_PROGRESS` | 409 `IDEMPOTENCY_RESPONSE_TOO_LARGE` |
+| Replay | solo body | body + `ETag` + `Location` (columna `response_headers`) |
+| Frontend | una key por montaje | la key se renueva cuando la mutación que la usó termina con éxito o con `IDEMPOTENCY_PREVIOUS_FAILURE` |
+
+**Tabla.** PK de `core.idempotency_keys`:
+`(empresa_id, usuario_id, key, http_method, path)`; columna nueva
+`response_headers jsonb null` (migración `IdempotencyKeyPorEndpoint`).
+
+**Garantías que se mantienen.** Doble clic y reintento por red con la misma
+key y el mismo body no duplican el efecto; una key reusada con otro body en
+el mismo endpoint sigue siendo 422; tras un 5xx no se re-ejecuta con la
+misma key (ops fiscales).
+
+**Frontend.** `useFormIdempotencyKey` y `useBodyScopedIdempotencyKey`
+(`frontend/src/lib/api/idempotency.ts`) se suscriben a la caché de mutaciones
+de TanStack Query y generan una key nueva al terminar bien la operación. Los
+componentes no cambian. `refetchOnWindowFocus` pasa a `true` (ADR-0023).
+
+**Tests.** `IdempotencyMiddlewareTests`: otra ruta ejecuta, reintento tras
+4xx ejecuta, reintento tras 5xx da `IDEMPOTENCY_PREVIOUS_FAILURE`, replay
+incluye `ETag`. `idempotency.test.ts`: rotación tras éxito, conservación tras
+error, rotación tras fallo previo.

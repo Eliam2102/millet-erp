@@ -44,9 +44,12 @@ function logClientError(scope: 'query' | 'mutation', error: unknown): void {
  *   componente lo consume.
  * - **No reintentar errores 4xx** — son del cliente (mal request, falta
  *   permiso, etc.); reintentar no ayuda.
- * - **`refetchOnWindowFocus: false`** — en un ERP los eventos SignalR
- *   (ADR-0001) cubren las invalidaciones reactivas; no necesitamos
- *   refetchear cada vez que la pestaña recupera foco.
+ * - **`refetchOnWindowFocus: true`** — al volver a la pestaña se recargan
+ *   las queries con más de `staleTime`, para ver lo que cambiaron otros
+ *   usuarios. SignalR (ADR-0001) hoy solo publica presencia, no
+ *   invalidaciones de datos. Structural sharing evita re-renders si nada
+ *   cambió; los formularios que se cargan desde una query deben usar
+ *   `keepDirtyValues` para no pisar lo que el usuario está escribiendo.
  * - **Backstop global de errores** (`queryCache`/`mutationCache`): loguea
  *   toda falla; opcionalmente muestra toast genérico si la mutación lo pide
  *   por `meta.toastOnError` (opt-in, para no duplicar los toasts que ya
@@ -77,7 +80,7 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       gcTime: 5 * 60_000,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
       retry: (failureCount, error) => {
         if (isClientError(error)) {
           return false;

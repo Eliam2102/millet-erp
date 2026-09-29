@@ -513,7 +513,8 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         }).CreateClient();
 
         // 1. Login exitoso
-        var inicio = DateTimeOffset.UtcNow;
+        // La bitácora es compartida: acotar la consulta a esta ejecución.
+        var inicio = DateTimeOffset.UtcNow.AddSeconds(-1);
         var okRes = await client.PostAsJsonAsync(Endpoint, new LoginRequest("token-superadmin-audit", null));
         okRes.StatusCode.Should().Be(HttpStatusCode.OK);
         var superAdminId = (await okRes.Content.ReadFromJsonAsync<LoginResponse>())!.Usuario.Id;
@@ -563,13 +564,17 @@ public class AuthSesionEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         {
             var coreDb = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Infrastructure.Persistence.CoreDbContext>();
 
+            var fin = DateTimeOffset.UtcNow.AddSeconds(1);
+
             var accesoAuditado = await coreDb.AuditLog.AnyAsync(a =>
                 a.Operacion == "acceso" && a.Entidad == "Sesion" &&
-                a.UsuarioId == superAdminId && a.Timestamp >= inicio);
+                a.UsuarioId == superAdminId && a.Timestamp >= inicio && a.Timestamp <= fin);
             accesoAuditado.Should().BeFalse("el login exitoso no se audita");
 
             var denegadoLog = await coreDb.AuditLog
-                .Where(a => a.Operacion == "acceso_denegado" && a.Entidad == "Sesion")
+                .Where(a => a.Operacion == "acceso_denegado" && a.Entidad == "Sesion"
+                    && a.UsuarioId == null
+                    && a.Timestamp >= inicio && a.Timestamp <= fin)
                 .OrderByDescending(a => a.Timestamp)
                 .FirstOrDefaultAsync();
 

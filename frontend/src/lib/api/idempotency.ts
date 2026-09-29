@@ -1,36 +1,85 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { esIdempotencyFalloPrevio } from '@/lib/api/error';
+import { queryClient } from '@/lib/query-client';
 
 /**
  * Helpers de <c>Idempotency-Key</c> (ADR-0020).
  *
- * <para>Cada formulario que dispara una mutation con efecto de "crear/
- * transmitir/autorizar/etc." necesita un key estable durante la vida
- * del componente, para que reintentos tras error de red o retry de
- * <c>IDEMPOTENCY_IN_PROGRESS</c> NO dupliquen el efecto en el backend
- * (la tabla <c>core.idempotency_log</c> garantiza que el segundo POST
- * con el mismo key + body devuelva la respuesta cacheada).</para>
+ * <para>Una key protege UNA operación lógica: mientras la operación no
+ * termina bien, reintentos (error de red, doble clic, retry de
+ * <c>IDEMPOTENCY_IN_PROGRESS</c>) reusan la key y el backend no duplica el
+ * efecto (<c>core.idempotency_keys</c> devuelve la respuesta cacheada).</para>
  *
- * <para>Si el form se desmonta y se vuelve a montar (navegación + back),
- * es un form "nuevo" → nueva key. Eso es coherente con el ADR-0020.</para>
+ * <para>Revisión 2026-09: en cuanto la mutación que llevaba la key termina
+ * con éxito (o el backend responde <c>IDEMPOTENCY_PREVIOUS_FAILURE</c>), el
+ * hook genera una key nueva automáticamente. Así un componente que sigue
+ * montado (lista, página de detalle, fila editable) puede repetir la acción
+ * — otro registro, o el mismo otra vez — sin recibir la respuesta de la
+ * operación anterior.</para>
  *
  * <para>Ver doc 05 §7.6 para la lista de endpoints que requieren el
  * header.</para>
  */
 
 /**
- * Hook que retorna un UUID v4 estable durante la vida del componente.
- * Usa el initializer lazy de <c>useState</c> para que el UUID se genere
- * una sola vez por montaje (re-renders devuelven el mismo valor; un
- * remount = key nueva, coherente con ADR-0020).
+ * Busca <paramref name="key"/> en las variables de una mutación: el valor
+ * directo o una propiedad de primer o segundo nivel
+ * (<c>{ id, idempotencyKey }</c>, <c>{ command, idempotencyKey }</c>,
+ * <c>{ args: { idempotencyKey } }</c>).
+ */
+function variablesUsanKey(variables: unknown, key: string): boolean {
+  if (variables === key) return true;
+  if (typeof variables !== 'object' || variables === null) return false;
+  return Object.values(variables).some(
+    (valor) =>
+      valor === key ||
+      (typeof valor === 'object' &&
+        valor !== null &&
+        Object.values(valor).some((anidado) => anidado === key)),
+  );
+}
+
+/**
+ * Llama <paramref name="rotar"/> cuando termina una mutación que usó la key
+ * vigente: con éxito (la operación quedó hecha; la siguiente es otra) o con
+ * <c>IDEMPOTENCY_PREVIOUS_FAILURE</c> (el backend ya no aceptará esa key).
+ * Otros errores conservan la key para que el reintento sea seguro.
+ */
+function useRotarTrasExito(keyVigente: () => string | null, rotar: () => void): void {
+  const keyRef = useRef(keyVigente);
+  const rotarRef = useRef(rotar);
+  // Siempre la versión del último render (la suscripción se crea una vez).
+  useEffect(() => {
+    keyRef.current = keyVigente;
+    rotarRef.current = rotar;
+  });
+
+  useEffect(
+    () =>
+      queryClient.getMutationCache().subscribe((event) => {
+        if (event.type !== 'updated') return;
+        const termino =
+          event.action.type === 'success' ||
+          (event.action.type === 'error' && esIdempotencyFalloPrevio(event.action.error));
+        if (!termino) return;
+        const key = keyRef.current();
+        if (key !== null && variablesUsanKey(event.mutation.state.variables, key)) {
+          rotarRef.current();
+        }
+      }),
+    [],
+  );
+}
+
+/**
+ * Key para formularios y acciones: estable entre re-renders y reintentos
+ * de la misma operación, y nueva en cuanto esa operación termina con éxito
+ * (ver <c>useRotarTrasExito</c>). Sirve igual para un sheet de creación que
+ * para una lista con acciones por fila.
  *
- * <para><b>Solo para forms de creación única (one-shot)</b>: un montaje =
- * una operación lógica. Para forms <b>multi-submit</b> que se mantienen
- * montados y disparan varias mutaciones con bodies distintos (p.ej. los
- * inline forms de "agregar línea" de RQ/OC) NO uses este hook: generá una
- * key fresca por submit con <c>crypto.randomUUID()</c> dentro del
- * <c>onSubmit</c> y pasala en las variables del <c>mutate</c> (patrón
- * <c>AccionesOC</c> / <c>SheetNuevaOC</c>). Reusar la misma key con un
- * body distinto = 422 IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY.</para>
+ * <para>Si el mismo componente puede reenviar la operación con un body
+ * distinto <b>antes</b> de que termine bien (corregir tras un rechazo que
+ * mueve dinero), usa <c>useBodyScopedIdempotencyKey</c>.</para>
  *
  * @example
  * ```tsx
@@ -43,7 +92,11 @@ import { useCallback, useRef, useState } from 'react';
  * ```
  */
 export function useFormIdempotencyKey(): string {
-  const [key] = useState<string>(() => crypto.randomUUID());
+  const [key, setKey] = useState<string>(() => crypto.randomUUID());
+  useRotarTrasExito(
+    () => key,
+    () => setKey(crypto.randomUUID()),
+  );
   return key;
 }
 
@@ -64,10 +117,9 @@ export function useFormIdempotencyKey(): string {
  *   key estable por montaje (`useFormIdempotencyKey`).</item>
  * </list>
  *
- * Para creates one-shot que se desmontan al éxito basta
- * <c>useFormIdempotencyKey</c>; para acciones repetibles con guarda de
- * dominio (reintento de timbrado, cancelar cobro) usar
- * <c>crypto.randomUUID()</c> fresco por clic.
+ * Tras un éxito la key se renueva (ver <c>useRotarTrasExito</c>), igual
+ * que en <c>useFormIdempotencyKey</c>, que basta cuando el body no se
+ * corrige entre intentos.
  *
  * El hash usa <c>JSON.stringify</c>: el orden de llaves es determinista
  * porque el comando se construye con el mismo literal en cada render.
@@ -83,6 +135,14 @@ export function useFormIdempotencyKey(): string {
  */
 export function useBodyScopedIdempotencyKey(): (body: unknown) => string {
   const ref = useRef<{ hash: string; key: string } | null>(null);
+  // Tras un éxito el siguiente keyFor(body) genera key nueva aunque el body
+  // sea idéntico: repetir la misma operación a propósito es otra operación.
+  useRotarTrasExito(
+    () => ref.current?.key ?? null,
+    () => {
+      ref.current = null;
+    },
+  );
   return useCallback((body: unknown) => {
     const hash = JSON.stringify(body);
     if (ref.current === null || ref.current.hash !== hash) {

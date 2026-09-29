@@ -61,6 +61,14 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         return true;
     }
 
+    /// <summary>
+    /// Status HTTP que este handler asignará a <paramref name="exception"/>.
+    /// Lo usa <see cref="IdempotencyMiddleware"/> para decidir, antes de que
+    /// se escriba la respuesta, si el fallo fue del cliente (4xx) o del servidor.
+    /// </summary>
+    internal static int ResolveStatus(Exception exception, HttpContext httpContext)
+        => MapToProblemDetails(exception, httpContext).Status ?? StatusCodes.Status500InternalServerError;
+
     private static ProblemDetails MapToProblemDetails(Exception exception, HttpContext httpContext)
     {
         var traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
@@ -79,6 +87,8 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             IdempotencyKeyInvalidException iki => CreateProblem(iki.Code, iki.Message, StatusCodes.Status400BadRequest, httpContext, traceId),
             IdempotencyInProgressException iip => CreateProblem(iip.Code, iip.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             IdempotencyBodyMismatchException ibm => CreateProblem(ibm.Code, ibm.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
+            IdempotencyPreviousFailureException ipf => CreateProblem(ipf.Code, ipf.Message, StatusCodes.Status409Conflict, httpContext, traceId),
+            IdempotencyResponseTooLargeException irt => CreateProblem(irt.Code, irt.Message, StatusCodes.Status409Conflict, httpContext, traceId),
             UnauthorizedAccessException => CreateProblem("UNAUTHENTICATED", "Sesión inválida o expirada.", StatusCodes.Status401Unauthorized, httpContext, traceId),
             // Dependencia externa (FiscalAPI) apagada o caída — el FE degrada a captura manual (FAC-DET-PR1).
             Millet.Integraciones.Fiscal.Domain.Exceptions.CatalogoSatNoDisponibleException cse
