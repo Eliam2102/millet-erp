@@ -1,9 +1,11 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Millet.Api.Web;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain.Exceptions;
+using Npgsql;
 
 namespace Millet.Api.IntegrationTests.Web;
 
@@ -57,6 +59,35 @@ public class GlobalExceptionHandlerTests
 
         status.Should().Be(StatusCodes.Status409Conflict);
         code.Should().Be("CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task Should_Map_Concurrent_Proveedor_Rfc_Unique_Violation_To_409()
+    {
+        var postgres = new PostgresException(
+            messageText: "duplicate key value violates unique constraint",
+            severity: "ERROR",
+            invariantSeverity: "ERROR",
+            sqlState: PostgresErrorCodes.UniqueViolation,
+            detail: "",
+            hint: "",
+            position: 0,
+            internalPosition: 0,
+            internalQuery: "",
+            where: "",
+            schemaName: "compartido",
+            tableName: "proveedores",
+            columnName: "rfc",
+            dataTypeName: "",
+            constraintName: "ux_proveedores_rfc_no_generico",
+            file: "",
+            line: "",
+            routine: "");
+
+        var (status, code, _) = await Handle(new DbUpdateException("race", postgres));
+
+        status.Should().Be(StatusCodes.Status409Conflict);
+        code.Should().Be("PROVEEDOR_RFC_DUPLICADO");
     }
 
     [Fact]
