@@ -73,6 +73,7 @@ cd "$backend_dir"
 "$dotnet_bin" build Millet.sln --configuration Debug --no-restore
 
 while IFS= read -r item; do
+  item="${item%$'\r'}"
   [[ -z "$item" || "$item" == \#* ]] && continue
   IFS='|' read -r context project <<< "$item"
   echo "Migrando $context"
