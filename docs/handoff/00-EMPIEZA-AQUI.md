@@ -6,6 +6,8 @@ Este paquete explica **el repositorio y lo construido**, no sustituye la planeac
 
 Geovany y Uzziel deben poder clonar el repositorio, levantar el stack local, ejecutar pruebas, localizar módulos y comenzar una tarea de Ola 1A sin depender de una explicación verbal.
 
+> **Base consolidada 29/09/2026:** revisar primero [ramas incorporadas, pruebas y pendientes de publicación](29-base-consolidada-adm08-net10-2026-09-29.md).
+
 ## Orden de lectura
 
 1. [18-diagnostico-y-plan-reanudacion-2026-09-20.md](18-diagnostico-y-plan-reanudacion-2026-09-20.md)

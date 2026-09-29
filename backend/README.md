@@ -1,107 +1,61 @@
-# Backend - Millet ERP
+# Backend · Millet ERP
 
-API en .NET 9 que implementa el back-office del ERP. Monolito modular con
-arquitectura hexagonal y CQRS por módulo, comunicación entre módulos por
-eventos asíncronos vía Azure Service Bus.
+API ASP.NET Core en .NET 10. La solución `Millet.sln` contiene el host `Api`,
+los proyectos de cada módulo y sus proyectos de pruebas. Los módulos usan
+CQRS con MediatR y PostgreSQL con esquemas propios; el código compartido vive
+en `SharedKernel` y `Compartido`. El código de negocio ya está implementado
+en varios módulos: este repositorio dejó de ser un esqueleto inicial.
 
-Para entender la arquitectura completa antes de tocar código, lee
-[`docs/arquitectura.md`](../docs/arquitectura.md) (15-20 min). Las decisiones
-fundacionales viven en [`docs/decisiones/`](../docs/decisiones/).
-
-## Estructura
-
-```
-backend/
-├── Millet.sln
-├── Directory.Build.props          ← settings comunes a todos los proyectos
-├── Directory.Packages.props       ← Central Package Management (versiones)
-├── nuget.config
-├── src/
-│   ├── Api/                       ← ASP.NET host único, hosts todos los módulos
-│   ├── SharedKernel/              ← primitivas transversales (BaseEntity, Money, IClock, …)
-│   │   ├── Domain/
-│   │   ├── Application/
-│   │   └── Infrastructure/
-│   └── Identidad/                 ← módulo (esqueleto vacío en Fase 1)
-│       ├── Domain/
-│       ├── Application/
-│       └── Infrastructure/
-└── tests/
-    ├── SharedKernel.UnitTests/
-    ├── Identidad.UnitTests/
-    └── Api.IntegrationTests/
-```
-
-La modularidad es por **carpetas y namespaces**, no por proyectos `.csproj`
-separados por módulo. Un solo `Api.csproj` referencia todos los módulos. Esto
-mantiene los tiempos de build razonables sin perder el aislamiento, que se
-garantiza por convención (no joins SQL cross-schema, comunicación por eventos)
-y no por límites de proyecto.
-
-`SharedKernel` es el "shared kernel" en sentido DDD: tipos transversales
-(`BaseEntity`, `Money`, `IClock`, excepciones de dominio, value objects)
-que todos los módulos consumen. Su nombre evita la palabra reservada
-`Shared` de VB.NET (CA1716).
+La integración de código y sus pruebas no sustituyen la validación operativa
+de Millet. Consultar la [base consolidada](../docs/handoff/29-base-consolidada-adm08-net10-2026-09-29.md)
+para conocer qué se comprobó y qué depende de servicios externos.
 
 ## Requisitos
 
-- **.NET 9 SDK** ([descarga](https://dotnet.microsoft.com/download/dotnet/9.0))
-- PostgreSQL 16 (para correr la app contra una BD real; en Fase 1 todavía no se usa)
+- SDK .NET 10 compatible con `../global.json`: mínimo 10.0.100 y avance permitido `latestMinor`.
+- PostgreSQL local y Docker para el conjunto de pruebas de integración desechable.
+- Variables locales según las plantillas del repositorio y el [arranque local](../docs/handoff/01-arranque-local.md).
+- Para el acceso manual: configuración Microsoft Entra del entorno autorizado y clave de firma JWT local. Las credenciales se inyectan por variables o secretos locales.
 
-## Comandos comunes
+## Compilación y pruebas
 
-Restaurar paquetes y compilar:
-```powershell
-dotnet build backend/Millet.sln
+Desde la raíz del repositorio:
+
+```bash
+dotnet restore backend/Millet.sln
+dotnet build backend/Millet.sln --configuration Release --no-restore
+./tools/validate-integration-isolated.sh
 ```
 
-Correr los tests unitarios:
-```powershell
-dotnet test backend/Millet.sln
-```
+El último comando crea PostgreSQL temporal, aplica los 12 contextos definidos
+en `tools/migration-contexts.txt` y ejecuta las tres suites de integración.
+El contenedor se elimina al terminar. Las suites se niegan a ejecutarse
+contra una base de desarrollo normal.
 
-> **Tests de integración (BD de pruebas desechable).** Con `dotnet test` directo,
-> `Api.IntegrationTests`, `Compras.IntegrationTests` e
-> `Integraciones.Aw.IntegrationTests` salen en rojo sin haberse ejecutado: se
-> niegan a correr contra la BD de desarrollo. Para correrlos, desde la raíz del
-> repo y con Docker levantado:
->
-> ```bash
-> ./tools/validate-integration-isolated.sh
-> # o un subconjunto:
-> ./tools/validate-integration-isolated.sh --filter "FullyQualifiedName~Empleado"
-> ```
->
-> El script levanta un Postgres 17 temporal en Docker, aplica las migraciones de
-> todos los contextos, corre los tres proyectos y borra el contenedor al
-> terminar. No toca la BD de desarrollo ni los user-secrets (~3 min completo).
+Las pruebas unitarias se ejecutan por proyecto de `backend/tests/*.UnitTests/`.
+No usar `dotnet test` sobre toda la solución contra una base de desarrollo:
+incluye suites que requieren el entorno aislado anterior.
 
-Correr la API localmente (Hello world placeholder en Fase 1):
-```powershell
+## Arranque local
+
+Desde la raíz, con las variables del entorno cargadas:
+
+```bash
 dotnet run --project backend/src/Api/Millet.Api.csproj
 ```
 
-La API arranca por defecto en `http://localhost:5000` (puerto puede variar
-según `Properties/launchSettings.json`). En el browser o con curl:
-```
-curl http://localhost:5000/
-# → Hello World!
-```
+El puerto efectivo es el indicado por `Now listening on`; el perfil de
+`Properties/launchSettings.json` puede definirlo. Verificar `/health/live`
+y `/health/ready` en ese puerto. El ingreso manual usa Microsoft Entra.
+Los adaptadores y trabajadores de A+W, correo y Azure requieren su propia
+configuración; un health local satisfactorio no acredita esas integraciones.
 
-## Estado actual (Fase 1)
+## Migraciones de datos
 
-Esta fase es **scaffolding y fundación técnica**, no implementa módulos de
-negocio. Lo que existe:
+Antes de actualizar una base con información, conservar una copia y probar
+la actualización allí. `ProveedorRfcUnico` detiene la migración si encuentra
+RFC no genéricos duplicados. `ReconciliacionCatalogoM1` conserva los IDs
+históricos y crea IDs nuevos para cuatro equipos que cambian de padre;
+su reversa exige conciliación manual de referencias.
 
-- ✅ Estructura de proyectos, solución, Central Package Management
-- ✅ Hello world endpoint
-- ⬜ `BaseEntity`, `IClock`, `Money`, excepciones de dominio (PR 2)
-- ⬜ `BaseDbContext`, interceptors, esquemas iniciales (PR 3)
-- ⬜ `ProblemDetails`, Serilog, OTel Distro, `/health` (PR 4)
-- ⬜ Bicep para App Service, Service Bus, SignalR (PR 5)
-- ⬜ Frontend setup (PR 6)
-
-Lo que **no** está en Fase 1: módulos de negocio (Comercial, Fiscal, etc.),
-tablas de identidad reales, MediatR, Outbox publisher, Hubs SignalR concretos,
-componentes de presentación del frontend, login real con Entra ID. Cada uno
-llega en una fase posterior.
+Ver [impacto histórico de ADM-08](../docs/modulos/centros-costo/12-adm08-impacto-historico-m1.md).

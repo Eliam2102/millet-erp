@@ -25,7 +25,7 @@ namespace Millet.Api.Auth;
 /// <para>
 /// <b>Tolerancia a tokens malformados (H2 del review del prompt PR A):</b>
 /// si el header Authorization no existe, no es Bearer, o el token NO es
-/// un JWT parseable (<see cref="JsonWebTokenHandler.ReadJsonWebToken"/>
+/// un JWT parseable (<see cref="JsonWebTokenHandler.ReadJsonWebToken(string)"/>
 /// lanza), forwardea al scheme <c>Jwt</c> que va a fallar limpio con 401.
 /// NO crashear ni devolver 500.
 /// </para>

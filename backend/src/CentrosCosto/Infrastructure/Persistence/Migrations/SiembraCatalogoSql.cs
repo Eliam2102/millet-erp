@@ -525,9 +525,9 @@ INSERT INTO centros_costo.dim3 (id, dim2_id, clave, nombre, grupo_dim3_id, estat
   ('0000000c-0005-0000-0000-000000000361', '0000000c-0004-0000-0000-000000000050', 'VV0099', 'CHEVROLET, AVEO LS SEDAN, 2016', '0000000c-0002-0000-0000-000000000044', 0, 0, now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC', 'migration-SiembraCatalogoCeCo', 'migration-SiembraCatalogoCeCo', NULL)
 ON CONFLICT DO NOTHING;
 
--- Guard final: el árbol completo debe quedar sembrado (conteos por prefijo
+-- Guard final: el árbol base completo debe quedar sembrado (mínimos por prefijo
 -- de GUID congelado — inmunes a datos ajenos). Si el ON CONFLICT sin target
--- tragó algo legítimo, aquí truena: RAISE = rollback total de la migración.
+-- tragó algo legítimo, aquí truena; migraciones posteriores pueden agregar filas.
 DO $$
 DECLARE g2 int; g3 int; d1 int; d2 int; d3 int;
 BEGIN
@@ -536,7 +536,7 @@ BEGIN
   SELECT count(*) INTO d1 FROM centros_costo.dim1        WHERE id::text LIKE '0000000c-0003-%';
   SELECT count(*) INTO d2 FROM centros_costo.dim2        WHERE id::text LIKE '0000000c-0004-%';
   SELECT count(*) INTO d3 FROM centros_costo.dim3        WHERE id::text LIKE '0000000c-0005-%';
-  IF g2 <> 6 OR g3 <> 44 OR d1 <> 5 OR d2 <> 57 OR d3 <> 361 THEN
+  IF g2 < 6 OR g3 < 44 OR d1 < 5 OR d2 < 57 OR d3 < 361 THEN
     RAISE EXCEPTION 'SIEMBRA_CECO_INCOMPLETA: grupos_dim2=% (6), grupos_dim3=% (44), dim1=% (5), dim2=% (57), dim3=% (361).', g2, g3, d1, d2, d3;
   END IF;
 END $$;

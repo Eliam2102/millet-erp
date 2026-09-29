@@ -39,7 +39,7 @@ el módulo de compras.
 | Carpeta | Contenido |
 |---|---|
 | [`infra/`](./infra/) | Infrastructure as Code en Bicep para los ambientes de Azure (dev, qa, prod). |
-| [`backend/`](./backend/) | API en .NET 9 con arquitectura hexagonal y CQRS por módulo. |
+| [`backend/`](./backend/) | API en .NET 10 con arquitectura hexagonal y CQRS por módulo. |
 | [`frontend/`](./frontend/) | SPA en React 19 + TypeScript + Vite + shadcn/ui. |
 | [`docs/`](./docs/) | Documentación del proyecto, decisiones arquitectónicas (ADRs) y levantamientos por módulo. |
 | [`tools/`](./tools/) | Scripts y utilidades del proyecto. |
@@ -50,7 +50,7 @@ Cada subcarpeta tiene su propio `README.md` con detalles específicos.
 
 ## Stack tecnológico
 
-- **Backend:** .NET 9, C# con nullable reference types, MediatR (CQRS),
+- **Backend:** .NET 10, C# con nullable reference types, MediatR (CQRS),
   FluentValidation, Mapster, Serilog, Entity Framework Core.
 - **Frontend:** React 18, TypeScript, Vite, shadcn/ui.
 - **Base de datos:** PostgreSQL 16 (Flexible Server en Azure), un solo motor
@@ -120,7 +120,7 @@ solo para pruebas locales explícitas; ver
 
 ### Pre-requisitos
 
-- **.NET 9 SDK** — backend
+- **.NET 10 SDK** — backend
 - **Node.js 22** — frontend (versión pinneada en `frontend/.nvmrc`)
 - **Docker** — para PostgreSQL local. Si prefieres Postgres nativo, instálalo
   con usuario `pgadmin`/password `pgadmin` y crea el database `millet_dev`.

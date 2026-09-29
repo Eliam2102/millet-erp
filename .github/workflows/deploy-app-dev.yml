@@ -63,10 +63,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -138,10 +138,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Azure Login via OIDC
         uses: azure/login@v2
@@ -380,7 +380,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Wait for App Service warm-up
-        # App Service Linux con linuxFxVersion=DOTNETCORE|9.0 carga el nuevo
+        # App Service Linux con linuxFxVersion=DOTNETCORE|10.0 carga el nuevo
         # paquete y reinicia el container. Tiempo de warmup creció a ~110-120s
         # con CxP F7-PR3 (más DbSets + hosted workers + seed permisos
         # adicionales). Reentrenamos el sleep+retries para tolerar 150s reales

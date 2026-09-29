@@ -141,6 +141,21 @@ export function esIdempotencyEnCurso(error: unknown): error is ApiError {
   );
 }
 
+/**
+ * <c>true</c> si el backend rechazó el reintento porque la operación
+ * original con esa key falló en el servidor (5xx) y pudo dejar efectos
+ * parciales. No es transitorio: no se reintenta solo; el usuario revisa el
+ * estado del registro y el siguiente intento usa una key nueva
+ * (ADR-0020 §"Revisión 2026-09").
+ */
+export function esIdempotencyFalloPrevio(error: unknown): error is ApiError {
+  return (
+    esApiError(error) &&
+    error.status === 409 &&
+    error.code === 'IDEMPOTENCY_PREVIOUS_FAILURE'
+  );
+}
+
 /** <c>true</c> si el error es un 4xx (cliente). */
 export function esErrorDeCliente(error: unknown): error is ApiError {
   return esApiError(error) && error.status >= 400 && error.status < 500;
