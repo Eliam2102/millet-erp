@@ -161,6 +161,7 @@ export function ConfiguracionCentrosCostoPage() {
       </header>
 
       <ArbolCentrosCosto
+        key={[...expandidos].join(':')}
         incluirInactivos={incluirInactivos}
         expandidosForzados={expandidos}
         puedeAdministrar={puedeAdministrar}

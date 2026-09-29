@@ -13,6 +13,7 @@ import {
   DIM1,
   DIM2S,
   DIM3S,
+  GRUPO_DIM2_ID,
   esperarArbol,
   instalarHandlers,
   limpiarAuth,
@@ -124,6 +125,43 @@ describe('<ConfiguracionCentrosCostoPage> — interacciones (DoD FE-PR2)', () =>
 
     // La rama completa quedó expandida: dim1 101 → 20PDMC → MCLC101.
     await waitFor(() => expect(screen.getByText('MCLC101')).toBeInTheDocument());
+  });
+
+  it('la búsqueda de dimensión 2 abre su ubicación y carga la rama', async () => {
+    const otraDim1: NodoCeCo = { ...DIM1, id: 'd1-2', clave: '102', nombre: 'CHICHI' };
+    let cargoDim1 = false;
+    mswServer.use(
+      http.get('*/api/v1/centros-costo/dim2/', () => HttpResponse.json({
+        items: [{
+          id: 'd2-1', dim1Id: 'd1-1', clave: '40NM00', nombre: 'NOMINA',
+          grupoDim2Id: GRUPO_DIM2_ID, grupoDim2Nombre: 'ADMINISTRACION Y FINANZAS',
+          estatus: 0, version: 0,
+        }],
+        total: 1, offset: 0, limit: 8,
+      })),
+      http.get('*/api/v1/centros-costo/jerarquia', ({ request }) => {
+        const url = new URL(request.url);
+        const nodoTipo = url.searchParams.get('nodoTipo');
+        const nodoId = url.searchParams.get('nodoId') ?? '';
+        if (nodoTipo === 'raiz') return HttpResponse.json([DIM1, otraDim1]);
+        if (nodoTipo === 'dim1' && nodoId === 'd1-1') {
+          cargoDim1 = true;
+          return HttpResponse.json(DIM2S);
+        }
+        return HttpResponse.json([]);
+      }),
+    );
+
+    render(<ConfiguracionCentrosCostoPage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('101')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Buscar en el catálogo'), {
+      target: { value: '40NM00' },
+    });
+    const resultados = await screen.findByTestId('buscador-resultados');
+    fireEvent.click(await within(resultados).findByText('NOMINA'));
+
+    await waitFor(() => expect(cargoDim1).toBe(true));
+    expect(screen.getByText('20PDMC')).toBeInTheDocument();
   });
 
   it('axe-core: cero violations con el árbol operativo', async () => {
