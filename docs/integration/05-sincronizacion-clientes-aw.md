@@ -113,6 +113,7 @@ Notas:
 1. **Sin watermark.** No hay fecha de cambios confiable demostrada en A+W. Se usa conciliación paginada (orden estable por ID) y comparación de snapshot; no se filtra por "fecha del día". En fixtures se prueba versión fuente si existe.
 2. **Ausencia != baja.** Que una fila falte en un lote, un timeout o un código nuevo nunca produce baja. Solo una baja explícita con estado mapeado y aprobado restringe operaciones nuevas, conservando documentos y cartera. En A+W real, detectar borrado físico exacto requiere un mecanismo de origen confirmado (**PENDIENTE**).
 3. **Relectura en reintento.** Un reintento vuelve a leer A+W antes de aplicar; un payload antiguo guardado no reemplaza un dato más reciente. Con versión de origen monotónica verificada, se rechaza la menor y la repetida es idempotente (**PENDIENTE** hasta verificarla).
+   *Implementado (ADM-06 cierre, PROPUESTA cambiable):* el orden es `LeidoEnUtc`; una lectura con `LeidoEnUtc` menor al ya aplicado se ignora (`SinCambios`) y no pisa el registro vigente (prueba `Lectura_atrasada_con_datos_distintos_no_pisa_el_registro_vigente`). Si Jorge confirma un campo de versión/fecha de cambio monotónico en A+W, sustituye a `LeidoEnUtc`.
 4. **Serialización.** Aplicación serializada por referencia; un solo barrido por origen a la vez. La paginación no da foto transaccional: se repiten barridos y se concilia para converger.
 5. **Carrera pedido vs. sincronización.** Índice único en referencia + reintento específico al conflicto de esa clave + relectura del cliente ganador. No capturar cualquier error SQL como "ya existe". No duplicar el algoritmo entre handlers.
 6. **Fallo parcial** no se reporta como ejecución completa; tras caída se reanuda o repite de forma idempotente.
@@ -188,8 +189,16 @@ Códigos de error (`AW_CLIENTES_*`, Problem Details):
 | `AW_CLIENTES_BARRIDO_EN_CURSO` | 409 | Ya hay un barrido vivo para el origen. |
 | `AW_CLIENTES_EJECUCION_NO_EJECUTABLE` | 409 | La ejecución no está `Pendiente`/`EnCurso`. |
 | `AW_CLIENTES_REFERENCIA_INVALIDA` | 422 | Referencia vacía. |
+| `moneda_sin_equivalencia` (código de error por fila en la ejecución, no HTTP) | — | Alta omitida por moneda sin mapeo validado; se reintenta tras configurar `MapeoMoneda`. |
 | `AW_CLIENTES_EJECUCION_NO_ENCONTRADA` | 404 | Id inexistente. |
 | `AW_CLIENTES_LECTURA_DESHABILITADA` / `_APLICACION_DESHABILITADA` / `_ORIGEN_SIN_CONFIGURAR` | 503 | Flags apagados u origen SQL sin conexión. |
+
+Códigos de clientes A+W fuera de `/sincronizacion` (mapeo de ProblemDetails existente, sin códigos nuevos de transporte):
+
+| Código | HTTP | Cuándo | Qué hace el usuario |
+|---|---|---|---|
+| `CLIENTE_FISCAL_AW_SIN_PERMISO` | 403 | `PATCH` de un cliente `Origen=Aw` que cambia razón social, RFC, régimen o CP (o los limpia) sin el permiso `fiscal-editar`. | Pedir el permiso al área fiscal; el formulario conserva lo capturado. |
+| `CONCURRENCY_CONFLICT` | 409 | El cliente cambió (edición manual o sincronización) desde que se cargó. | Recargar y reaplicar; nunca se sobrescribe en silencio. |
 
 Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 
@@ -224,6 +233,47 @@ Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 - **Cancelación a mitad de lote** no persiste los contadores de ese lote (`Leidos` exacto; al reanudar, esas filas cuentan como `SinCambios`).
 - **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
 
+## 10.9 Propuestas de flujo pendientes de confirmación (cierre ADM-06)
+
+Todas son **PROPUESTA — cambiable**: se construyeron así para no inventar política de Millet; si Millet/Eliam pide otra cosa, cambia solo el punto indicado.
+
+| # | Propuesta actual | Alternativa si Millet lo pide | Qué cambiaría |
+|---|---|---|---|
+| 1 | **Cliente inactivo e ingesta de pedidos.** `ResolverPorReferenciaAsync` (ingesta) y `ObtenerAsync` (cartera, reportes, detalle de pedido) siguen devolviendo al cliente inactivo; el bloqueo de uso nuevo está donde el usuario elige cliente (`BuscarAsync`, solo Activos). Un pedido A+W de un cliente inactivo se importa. | Rechazar o dejar en revisión ese pedido. | `ResolverPorReferenciaAsync` + `ProcesarSolicitudAwHandler` + su prueba. |
+| 2 | **Baja explícita en ERP** (`DesactivarClienteCommand`, permiso y auditoría). La sincronización nunca da de baja ni reactiva; la ausencia de una fila no es baja. | Mapear `KZ_STATUS`/`KZ_GESPERRT` a `Estatus` cuando Millet apruebe el mapeo. | `AplicarClienteAwService` + mapeo versionado. |
+| 3 | **Conflicto con cliente manual** (misma referencia o clave `AW-{ref}`): se registra `Conflicto` con causa, sin fusionar; lo resuelve una persona y se reprocesa. | Asistente de vinculación manual. | Nuevo comando de vinculación. |
+| 4 | **Fuera de orden:** orden por `LeidoEnUtc` + relectura; una lectura más vieja se ignora. | Campo de versión/fecha monotónico de A+W (Jorge). | Reemplazar la comparación en `AplicarClienteAwService`. |
+| 5 | **Mapeos** de moneda, estado, condición y RFC: quedan `Pendiente` con valor crudo (`VersionMapeo=0-borrador`). | Mapeo aprobado por Millet. | Tablas de mapeo + `VersionMapeo`. |
+| 6 | **Bandeja de conflictos:** filtro "Resultado de sincronización" (un valor a la vez) en la lista de clientes, y botón Reintentar por referencia en el detalle de la ejecución y en el detalle del cliente; sin pantalla nueva. | Filtro compuesto "Por revisar" (Pendiente+Conflicto+Error) o bandeja dedicada si el volumen lo pide (ver D1: ~14 mil pendientes por `<indf>`). | Backend (filtro multivalor) y frontend. |
+
+**Discrepancia detectada (punto 1):** el comentario de `DesactivarClienteCommand` dice que los pedidos nuevos de un cliente inactivo "caen a la bandeja de excepciones de ingesta", pero `ProcesarSolicitudAwHandler` no lo verifica (no lee `Estatus`). Hoy el pedido se importa. Se reporta a Eliam; no se cambia sin política.
+
+## 10.10 Verificación de solo lectura en MILMAIN (2026-09-30)
+
+Bloques Q01–Q07 y Q09 del paquete de consultas, ejecutados uno por uno con `SELECT` de solo lectura (Q08 no se ejecutó: requiere un ID acordado). Es **evidencia de esquema y muestra**, no integración aprobada ni validación de la población completa. No se guardan IDs, montos ni nombres reales.
+
+| Bloque | Resultado | Consecuencia para el contrato |
+|---|---|---|
+| Q01 | Instancia `SER-DATA\AWBUSINESS`, base `MILMAIN`, SQL Server 13.0 (2016), TCP 1433. | Coincide con la ficha de conexión. |
+| Q02 | Las 31 columnas del contrato existen con los tipos esperados (`ID`/`MANDANT` int; `TRANSACTION_TIME` datetime NULL; `DATUM` date NULL; límites de crédito decimal(28,8) NULL y `*_NET` float NULL; `KZ_STATUS` int NULL; `KZ_GESPERRT` int NOT NULL). | Tipos del mapper correctos; nulo distinto de cero se mantiene. |
+| Q03 | Sin `BEZ` duplicado en `KA_ZAHLBED`. | El join por nombre de condición es 1 a 1 hoy. |
+| Q04 | `60 DIAS` = 60 días; `CONTADO` = 0; `REPARTO` = 3; las tres con `KZ_GESPERRT = 0`. | `BRUTTOTAGE` son días nominales (ya documentado). |
+| Q05 | Muestra de 25 (las de ID más alto): `TRANSACTION_TIME` **NULL en las 25**; moneda `PESOSMX` y `<indf>`; `KZ_STATUS` 1 o 2; `KZ_GESPERRT` 1 en casi todas; límites de crédito NULL, 0 o con valor. | `TRANSACTION_TIME` no sirve como marca de cambio. `<indf>` es real: queda `Pendiente` (sin mapeo). El significado de `KZ_STATUS` y `KZ_GESPERRT` **sigue PENDIENTE**; que casi todas tengan `KZ_GESPERRT = 1` exige confirmarlo con Jorge antes de usarlo para bajas o bloqueos. |
+| Q06 | Sin clientes con condición huérfana. | Cobertura completa del join en la base consultada. |
+| Q07 | `ID` es la llave primaria por sí sola; existe un índice único `(MANDANT, HAUPT_ID, ID)`. | `ReferenciaExterna = KU_KUNDEN.ID` no necesita `MANDANT`; se conserva como contexto. |
+| Q09 | Existe `KA_WAEHRUNGEN` (`WAEHRUNG`, `NUMMER`, `FREMD_KEY`, `KENNZ`, `KZ_GESPERRT`...). No se consultaron valores. | Falta ver qué columna, si alguna, equivale al código ISO (`MXN`); `PESOSMX` -> `MXN` **sigue sin validar**. |
+
+Segunda tanda (Q10–Q13, consultas adicionales de solo lectura, agregados sin datos personales):
+
+| Bloque | Resultado | Consecuencia para el contrato |
+|---|---|---|
+| Q10 | `KA_WAEHRUNGEN` tiene 5 filas; `FREMD_KEY` trae el código ISO: `PESOSMX`->`MXN`, `Euro`->`EUR`, `USD`->`USD`, `CAN`->`CAD`. `<indf>` tiene código vacío. | Existe una fuente de equivalencia en el propio A+W. **PROPUESTA:** resolver moneda con `KA_WAEHRUNGEN.FREMD_KEY` en lugar de un mapa fijo; `<indf>` (sin código) queda `Pendiente`. Falta que Millet confirme que `FREMD_KEY` es el código ISO oficial. |
+| Q11 | 44,690 clientes en total: `PESOSMX` 30,078; `<indf>` 14,130 (~32 %); `USD` 479; `Euro` 3. | **Un primer barrido real dejaría ~14 mil clientes en `Pendiente` por moneda.** La bandeja "Por revisar" debe poder filtrar por causa, o Millet define qué hacer con `<indf>` antes de activar la sincronización. |
+| Q12 | `KZ_GESPERRT = 1` en ~35 mil de 44,690 clientes (~78 %); `KZ_STATUS` toma 1 o 2 (y 0 en una fila). | `KZ_GESPERRT = 1` **no puede significar baja ni inactivo** para esa proporción de clientes; confirma que no se mapea a `Estatus`. Su significado lo define Jorge/CxC. |
+| Q13 | 2 mandantes; `DATUM` de 2008-07-27 a 2026-09-30; **solo 5 filas** con `TRANSACTION_TIME`. | `TRANSACTION_TIME` **no sirve** como marca de cambio. Con 2 mandantes, `MANDANT` se conserva como contexto (la llave `ID` es única por sí sola). Un barrido completo son ~44.7 mil filas: medir tiempo y carga antes de activar la programación. |
+
+Pendiente después de esta verificación (lo define Millet, no el ERP): qué hacer con los clientes en `<indf>` (sin moneda); confirmar que `FREMD_KEY` es el código oficial; significado de `KZ_STATUS` y `KZ_GESPERRT`; y una versión o fecha de cambio confiable en A+W (`DATUM` es una fecha, no un registro de modificación, y `TRANSACTION_TIME` casi nunca viene).
+
 ## 11. Versionado
 
 | Elemento | Valor |
@@ -243,3 +293,11 @@ Cada ejecución y cada registro de origen guardan ambas versiones.
 - Campos de contacto/domicilio a aplicar; uso de `NAME2/NAME3`.
 - Versión monotónica de origen y detección exacta de borrado físico.
 - Ruta privada, instancia efectiva, TLS y permisos SELECT hacia `MILMAIN`; medición de carga y cadencia.
+
+## 13. Cierre de diferencias del borrador de Eliam (2026-09-30)
+
+- **Esquema corregido:** `AwClientesSqlOrigen` lee `SYSADM.KU_KUNDEN` y `SYSADM.KA_ZAHLBED` (antes `dbo.`); el test de SQL estático lo fija.
+- **Moneda sin equivalencia (resuelto, observación de Eliam 2026-09-30):** el barrido **ya no crea** un cliente nuevo si la moneda de origen no tiene equivalencia validada (mapeo vacío o `<indf>`); no se asume MXN. La fila se registra como error por referencia con código `moneda_sin_equivalencia` (la ejecución termina `Parcial`, cuenta en `Pendientes`) y se crea al reintentar una vez configurado el mapeo. Un cliente ya existente no cambia de moneda. Excepción: la auto-provisión por pedido (`SoloCrear`, sin moneda de origen) conserva su default porque el pedido no puede esperar.
+- **Recibido vs. aplicado (resuelto):** en cada aplicación sobre un cliente existente el registro guarda `Diferencias` (campo, recibido, se conserva, motivo) para razón social, moneda, teléfono y correo cuando A+W trae un valor distinto al local. Se ve en el detalle de origen ("Recibido de A+W y no aplicado al cliente"); una lectura posterior sin diferencias las limpia. Los fiscales locales siguen protegidos.
+- **`KREDIT_LIMIT1_NET` no se lee a propósito:** el crédito es solo referencia y no alimenta ninguna política. Se agrega (DTO + columna + migración) solo si CxC lo pide.
+- **Recibido vs aplicado:** hoy el detalle muestra el snapshot de origen y el cliente ERP por separado; una vista de diferencias campo a campo queda fuera de esta entrega (mejora posterior).
