@@ -2,7 +2,13 @@
 
 **Fecha de corte:** 2026-09-29  
 **Rama:** `feature/F1-ADM-09`  
-**Alcance de este documento:** fases 0, 2 y 4; no contiene credenciales, CSD, payloads ni valores de configuración sensibles.
+**Alcance de este documento:** evidencia parcial del primer corte; no contiene credenciales, CSD, payloads ni valores de configuración sensibles. El plan contractual actualizado está en `docs/modulos/integraciones-fiscal/03-f1-adm-09-plan-implementacion.md`.
+
+## Corrección de alcance del 29-sep-2026
+
+El commit `4103239` no cierra por sí solo ADM-09. Reforzó PAC/CSD, autorización por empresa, no exposición de secretos y regresiones del formulario. La ficha original exige además alcance autorizado por sucursal, separación demostrada por tipo, concurrencia, serie desactivada, emisor fiscal, tres estados visibles del CSD, mensajes integrados, evidencia UI/API y PR en `main`.
+
+Hasta completar esas fases, el estado oficial es **implementación parcial**. Timbrado, cancelación y complementos existentes son contexto consumidor, no entregables nuevos de ADM-09.
 
 ## Resultado
 
@@ -12,6 +18,10 @@
 - **Parámetros:** la implementación actual es global o por módulo, no por empresa. Por tanto, no se puede acreditar el requisito del plan de "parámetros fiscales por empresa" con el modelo vigente.
 - **Prueba real FiscalAPI sandbox:** **bloqueada**; no se encontraron credenciales ni CSD de prueba disponibles de forma segura en el entorno. No se intentó una llamada con datos inventados.
 - **Producción:** **bloqueada** hasta recibir insumos por canal seguro y resolver formalmente la custodia del CSD.
+- **Alcance por sucursal:** **pendiente**; `SucursalId` existe en Serie, pero falta autorización integral basada en asignaciones reales.
+- **Estado visible del CSD:** **pendiente**; se rechaza un certificado vencido al guardar, pero no se proyectan los tres estados requeridos.
+- **Reserva concurrente/tipo:** capacidades existentes que deben ejecutarse y documentarse dentro del cierre.
+- **PR/main:** rama remota disponible; integración final pendiente.
 
 ## Evidencia verificable
 

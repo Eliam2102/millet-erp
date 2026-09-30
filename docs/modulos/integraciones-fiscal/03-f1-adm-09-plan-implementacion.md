@@ -1,254 +1,198 @@
-# F1-ADM-09 · Plan de implementación y cierre
+# F1-ADM-09 · Plan de implementación actualizado
 
-**Fecha de corte:** 2026-09-29  
-**Rama:** `feature/F1-ADM-09`  
-**Estado:** plan listo para ejecución; cierre productivo condicionado a insumos seguros de Millet  
-**Criterio rector:** reutilizar lo existente y agregar sólo las pruebas, ajustes y evidencia que demuestren el recorrido completo.
+**Actualizado:** 2026-09-29
 
-## 1. Objetivo y resultado observable
+**Rama:** `feature/F1-ADM-09`
 
-Configurar por empresa el PAC FiscalAPI, el CSD, las series y los parámetros fiscales sin mezclar datos entre empresas ni exponer secretos.
+**Responsable:** Uziel
 
-La funcionalidad queda **lista para UAT** cuando una empresa puede:
+**Estado:** implementación parcial; cierre completo pendiente
 
-1. guardar y consultar su configuración FiscalAPI;
-2. rotar ApiKey y CSD sin que ningún secreto regrese en respuestas o logs;
-3. probar la conexión contra sandbox;
-4. usar únicamente sus series y parámetros fiscales vigentes;
-5. rechazar acceso cruzado, credenciales/CSD inválidos y operaciones sin permiso;
-6. repetir una mutación con la misma `Idempotency-Key` sin duplicar efectos.
+**Fuente funcional:** ficha ADM-09 ajustada el 28-sep-2026
 
-La configuración real de producción queda fuera del cierre técnico hasta recibir ApiKey, CSD y parámetros vigentes por un canal seguro.
+## 1. Resultado contractual
 
-## 2. Base existente que se integra
+Configuración administrativa completa del emisor fiscal, PAC, CSD y series, con permisos explícitos, aislamiento por empresa y sucursal autorizada, separación por tipo de comprobante, reserva concurrente sin duplicados, estado visible del CSD, mensajes claros y evidencia sin secretos.
 
-No se crea un módulo ni una pantalla nuevos. Se integran las piezas actuales:
+ADM-09 no reconstruye el motor de timbrado, cancelación, descarga ni complementos. Esas capacidades consumen esta configuración.
 
-| Pieza | Implementación existente | Uso en ADM-09 |
+## 2. Estado después de `4103239`
+
+| Requisito | Estado | Brecha |
 |---|---|---|
-| Configuración PAC por empresa | `backend/src/Integraciones.Fiscal` | Alta, rotación, consulta y prueba de conexión |
-| Cifrado de secretos | `FiscalSecretCipher` + ASP.NET Data Protection | ApiKey y material CSD cifrados en reposo |
-| Validación CSD | `CsdValidador` | Rechazo temprano de certificado, llave o password inválidos |
-| Adaptador PAC | SDK oficial FiscalAPI | Conexión y operaciones en sandbox |
-| Series fiscales | Administración: API/UI de Series | Selección de serie vigente y segregada por empresa |
-| Parámetros | Administración: API/UI de Parámetros | Configuración fiscal no secreta por empresa |
-| Autorización | `integraciones.fiscal.leer` y `integraciones.fiscal.administrar` | Lectura y mutación separadas |
-| Idempotencia | Middleware compartido (ADR-0020) | Protección de `PUT` de configuración |
-| UI | `/admin/integraciones/fiscal`, `/admin/series`, `/admin/parametros` | Recorrido administrativo completo |
+| Permiso PAC/CSD | Cubierto | API/UI usan `integraciones.fiscal.administrar` |
+| PAC aislado por empresa | Cubierto | `EmpresaId`, guard HTTP y pruebas cross-tenant |
+| Secretos cifrados/no expuestos | Cubierto | Data Protection, DTO enmascarado y regresiones |
+| Emisor fiscal | Parcial | Empresa/RFC/régimen/CP existen; falta recorrido ADM-09 |
+| Series por sucursal | Parcial | `SucursalId` existe; falta autorización integral y filtrado |
+| Series por tipo | Parcial | Modelo/reserva lo soportan; falta evidencia negativa explícita |
+| Concurrencia | Preexistente | UPSERT + índice + prueba de 50; falta ejecutarla/documentarla |
+| Reserva sin permiso | Faltante | Endpoint público sólo exige autenticación |
+| Serie desactivada | Parcial | Falta desactivar → no reservar + histórico consultable |
+| Estado del CSD | Parcial | Se rechaza vencido; UI no muestra vigente/próximo/vencido |
+| Configuración incompleta/PAC caído | Parcial | Errores puntuales sin cierre UI/API completo |
+| Sandbox real | Pendiente externo | Sin ApiKey/CSD sandbox entregados por canal seguro |
+| PR integrado en `main` | Pendiente | Rama remota creada, cierre completo no integrado |
 
-Decisiones aplicables: ADR-0007, ADR-0010, ADR-0011, ADR-0012, ADR-0020, ADR-0021, ADR-0037 y ADR-0038.
+## 3. Reglas de diseño
 
-## 3. Alcance
+1. Reutilizar `Empresa`, `Serie`, `SecuenciaFolio`, permisos, `UsuarioSucursal` y FiscalAPI existentes.
+2. No crear otra entidad de series, contador o PAC.
+3. `SucursalId` enviado por el cliente no autoriza: validar asignaciones reales del usuario.
+4. Definir explícitamente cuándo una serie global (`SucursalId = null`) puede usarse.
+5. Factura/Ingreso y Nota de crédito/Egreso conservan secuencias independientes.
+6. Secretos y ciphertext nunca regresan en DTO, logs o evidencia.
+7. `NotBefore`/`NotAfter` del certificado son metadatos no secretos.
+8. Un doble del PAC prueba manejo de errores, nunca prueba sandbox real.
 
-### Incluido
+## 4. Fases
 
-- Configuración FiscalAPI por empresa en sandbox.
-- ApiKey de entrada solamente; respuesta siempre enmascarada.
-- Captura y rotación de CSD con validación criptográfica previa.
-- Identidades de prueba permitidas únicamente con `test.fiscalapi.com`.
-- Activación/desactivación y prueba de conexión.
-- Validación de permisos, empresa del JWT e idempotencia en el borde HTTP.
-- Series y parámetros ya existentes, verificados como parte del recorrido fiscal.
-- Pruebas unitarias puntuales, pruebas API de integración y regresión frontend.
-- Checklist manual de interfaz y evidencia sin secretos.
+### Fase 1 · Permisos y sucursal
 
-### Fuera de alcance
+- Resolver sucursales autorizadas reutilizando `UsuarioSucursal`.
+- Aplicar alcance a listado, detalle, alta, edición, desactivación y reserva.
+- Añadir filtro opcional y columna de sucursal a Series.
+- Proteger la reserva HTTP con el permiso correspondiente; conservar usos internos por MediatR.
+- Mantener empresa como primera barrera.
 
-- Credenciales, certificados o timbrado productivos.
-- Un segundo PAC, failover o abstracciones nuevas.
-- Rediseñar las pantallas de Series o Parámetros.
-- Construcción del XML CFDI, cancelación o descarga masiva.
-- Automatización E2E con Playwright/Cypress: el repositorio no tiene ese stack instalado y no hace falta agregarlo para este cierre.
-- Guardar secretos en Git, fixtures, capturas, documentación o variables visibles del frontend.
+**Salida:** usuarios de sucursales distintas no ven, alteran ni reservan la serie ajena.
 
-## 4. Plan por fases
+### Fase 2 · Tipo, desactivación y concurrencia
 
-### Fase 0 · Gate de entrada y seguridad
+- Probar secuencias independientes de Factura/Ingreso y Nota de crédito/Egreso.
+- Ejecutar la prueba existente de 50 reservas concurrentes únicas.
+- Probar desactivar → reserva rechazada y consulta histórica disponible.
+- No sustituir el UPSERT ni el índice actuales.
 
-**Objetivo:** congelar el contrato y evitar trabajar con secretos reales.
+**Salida:** separación y concurrencia demostradas reproduciblemente.
 
-- Confirmar empresa sandbox y usuario con permisos de lectura/administración.
-- Usar credenciales y CSD de prueba; no pedir ni copiar datos productivos.
-- Verificar que Data Protection tenga almacenamiento persistente configurado en el ambiente objetivo.
-- Resolver antes de producción la discrepancia documental sobre custodia del CSD: ADR-0038 describe CSD en Key Vault, mientras el código vigente lo cifra en la base con Data Protection. El cierre sandbox puede continuar con el código existente; producción requiere decisión explícita o ADR de reemplazo.
+### Fase 3 · Emisor y estado del CSD
 
-**Salida:** insumos sandbox identificados, ningún secreto en archivos versionados y decisión productiva registrada como dependencia.
+- Reutilizar Empresa para RFC, razón social, régimen y código postal.
+- Validar permisos y recorrido UI/API; no crear otra entidad de emisor.
+- Extraer y persistir sólo `NotBefore`/`NotAfter` durante la validación del CSD.
+- Derivar estado con umbral documentado de 30 días: `Vigente`, `ProximoAVencer`, `Vencido`.
+- Exponer estado/expiración y mostrar badge, sin material criptográfico.
+- Crear migración únicamente para estos metadatos.
 
-### Fase 1 · Contrato HTTP e integración backend
+**Salida:** configuración del emisor y vigencia del CSD visibles de forma segura.
 
-**Objetivo:** demostrar el flujo real desde endpoints, no sólo handlers aislados.
+### Fase 4 · Configuración incompleta y PAC
 
-- Crear pruebas de integración para `GET`, `PUT` y `POST .../test` de configuración fiscal.
-- Cubrir permiso de lectura, permiso de administración y ausencia de permiso.
-- Cubrir empresa correcta y rechazo cross-tenant.
-- Cubrir `Idempotency-Key` ausente, válida y repetida.
-- Confirmar que GET/PUT nunca devuelven ApiKey, CSD, password, hashes o ciphertext.
-- Mantener las pruebas de conexión deterministas con un doble del cliente FiscalAPI; la llamada real queda para el gate sandbox.
+- Reutilizar códigos existentes de PAC/CSD/series.
+- Mostrar mensajes accionables para emisor incompleto, CSD ausente/vencido, serie inexistente/inactiva y PAC no disponible.
+- Cubrir éxito, timeout y 503 con doble determinista.
+- Verificar que `Probar conexión` no muta configuración y un rechazo conocido no deja estado ambiguo.
+- No rediseñar la reconciliación de timbrados ambiguos.
 
-**Salida:** contrato HTTP protegido y reproducible en CI.
+**Salida:** errores claros y verificables en API/UI.
 
-### Fase 2 · Recorrido fiscal por empresa
+### Fase 5 · Evidencia y cierre
 
-**Objetivo:** unir PAC, CSD, Series y Parámetros usando las capacidades existentes.
-
-- Configurar FiscalAPI sandbox para empresa A.
-- Capturar/rotar CSD de prueba y validar que una carga inválida no persista cambios.
-- Crear o seleccionar una serie fiscal vigente de empresa A.
-- Crear o seleccionar los parámetros fiscales requeridos de empresa A.
-- Cambiar a empresa B y comprobar que no puede leer o mutar la configuración de A.
-- Verificar que series y parámetros de A no aparecen como datos utilizables de B.
-
-**Salida:** recorrido nominal y negativo por empresa, sin duplicar lógica entre módulos.
-
-### Fase 3 · Frontend y seguridad visible
-
-**Objetivo:** asegurar que la interfaz conserva el contrato seguro.
-
-- Extender las pruebas del formulario sólo donde falte cobertura observable: enmascarado, CSD, error de guardado y control por permiso.
-- Confirmar que cambiar a modo live limpia identidades sandbox.
-- Confirmar que `Probar conexión` usa la configuración persistida y queda deshabilitado con cambios sin guardar.
-- Verificar que archivos y passwords no reaparecen después de guardar o recargar.
-- Ejecutar typecheck, lint y tests focalizados.
-
-**Salida:** UI sin regresiones y sin secretos rehidratados.
-
-### Fase 4 · Sandbox y evidencia de cierre
-
-**Objetivo:** realizar una única prueba controlada contra FiscalAPI sandbox.
-
-- Guardar configuración con credenciales de prueba por canal seguro.
-- Ejecutar `Probar conexión` y registrar sólo estado, código, duración y correlation/request id no sensible.
-- Revisar logs y Network para confirmar ausencia de ApiKey, CSD y password.
-- Adjuntar evidencia redactada del caso nominal, negativo, segregación y regresión.
-- Documentar recuperación/rotación y dependencia pendiente para producción.
-
-**Salida:** ADM-09 lista para UAT en sandbox; producción permanece bloqueada nominalmente por insumos y decisión de custodia del CSD.
+- Ejecutar suites focalizadas y regresión proporcional.
+- Recorrer UI con usuario autorizado/no autorizado, dos sucursales y dos tipos.
+- Revisar Network, consola y logs para ausencia de secretos.
+- Probar `https://test.fiscalapi.com` sólo con ApiKey/CSD sandbox válidos.
+- Sin insumos, registrar bloqueo externo; nunca simular éxito.
+- Crear PR ADM-09 e integrar después de todas las puertas técnicas.
 
 ## 5. Commits propuestos
 
-Los commits se ejecutan sólo después de cada fase verde. No se incluye commit automático en este plan.
-
-| Orden | Commit | Propósito |
+| # | Commit | Alcance |
 |---:|---|---|
-| 1 | `test(fiscal): cubrir configuracion PAC por HTTP` | Permisos, tenant, idempotencia y no exposición de secretos |
-| 2 | `test(fiscal): cerrar regresion del formulario PAC` | Casos visibles faltantes sin introducir E2E nuevo |
-| 3 | `fix(fiscal): cerrar brechas detectadas por integracion` | Sólo si las pruebas descubren una falla real; omitir si no hay cambio productivo |
-| 4 | `docs(fiscal): registrar evidencia sandbox ADM-09` | Resultado, comandos, evidencia redactada y bloqueo productivo |
+| 1 | `fix(admin): aplicar alcance de sucursal a series` | Listado, mutaciones, reserva y UI |
+| 2 | `test(admin): acreditar series fiscales y concurrencia` | Tipo, desactivación y simultaneidad |
+| 3 | `feat(fiscal): exponer estado seguro del CSD` | Metadatos, migración, DTO y badge |
+| 4 | `fix(fiscal): aclarar configuracion incompleta y PAC caido` | Mensajes y pruebas negativas |
+| 5 | `docs(fiscal): cerrar evidencia ADM-09` | Automatización, UI y sandbox |
 
-## 6. Archivos previstos y por qué
+No mezclar refactors generales ni regenerar `routeTree.gen.ts` sin cambio de ruta fuente.
 
-### Cambio mínimo esperado
+## 6. Archivos probables
 
-| Archivo | Motivo |
-|---|---|
-| `backend/tests/Api.IntegrationTests/IntegracionesFiscal/ConfiguracionPacEndpointsTests.cs` | Nueva cobertura del borde HTTP completo |
-| `frontend/src/features/integraciones-fiscal/components/ConfiguracionPacForm.test.tsx` | Completar regresiones visibles que hoy no están cubiertas |
-| `docs/modulos/integraciones-fiscal/03-f1-adm-09-plan-implementacion.md` | Fuente versionada del plan y alcance |
-| `docs/handoff/30-evidencia-f1-adm-09.md` | Evidencia final, comandos y resultado sandbox |
+### Series
 
-### Sólo si una prueba demuestra una brecha
+- `backend/src/Compartido/Application/Administracion/Series/**`: alcance en queries/comandos.
+- `backend/src/Api/Endpoints/Administracion/SeriesEndpoints.cs`: permiso y filtro.
+- `backend/tests/Api.IntegrationTests/Administracion/SeriesEndpointsTests.cs`: sucursales, tipos, desactivación y concurrencia.
+- Componentes/API existentes de Series en frontend: filtro/columna de sucursal y mensajes.
 
-| Archivo | Motivo posible |
-|---|---|
-| `backend/src/Api/Endpoints/IntegracionesFiscal/IntegracionesFiscalEndpoints.cs` | Corregir contrato, autorización o metadata HTTP |
-| `backend/src/Integraciones.Fiscal/Application/Configuracion/**` | Corregir validación/orquestación en el punto compartido |
-| `backend/src/Integraciones.Fiscal/Domain/ConfiguracionPac.cs` | Corregir una invariante de dominio, no una particularidad de UI |
-| `backend/src/Integraciones.Fiscal/Infrastructure/Cifrado/**` | Corregir cifrado/validación demostrablemente defectuosos |
-| `frontend/src/features/integraciones-fiscal/components/ConfiguracionPacForm.tsx` | Corregir comportamiento observable fallido |
-| `frontend/src/features/integraciones-fiscal/api/**` | Corregir contrato cliente-servidor |
+### Emisor y CSD
 
-No se debe editar manualmente `frontend/src/routeTree.gen.ts`; sólo se regenera si cambia una ruta fuente.
+- Endpoint/formulario de Empresa existentes: pruebas y cambio sólo ante brecha demostrada.
+- `backend/src/Integraciones.Fiscal/Domain/ConfiguracionPac.cs`: metadatos de vigencia.
+- `backend/src/Integraciones.Fiscal/Infrastructure/Cifrado/CsdValidador.cs`: fechas validadas.
+- `backend/src/Integraciones.Fiscal/Application/Configuracion/**`: persistencia/proyección.
+- Persistencia, migración y snapshot de Integraciones Fiscal.
+- `frontend/src/features/integraciones-fiscal/**`: tipos, badge y mensajes.
 
-## 7. Pruebas automatizadas
+### Documentación
 
-### Backend unitarias
+- Este plan y `docs/handoff/30-evidencia-f1-adm-09.md`.
 
-- Creación exige ApiKey.
-- Rotación idempotente no cambia timestamps con el mismo secreto.
-- CSD completo válido se acepta; password, par o vigencia inválidos se rechazan.
-- Identidades sandbox se rechazan fuera de `test.fiscalapi.com`.
-- Cambio a live limpia identidades sandbox.
-- Cifrado round-trip, separación por purpose y hash de detección.
+Resolver rutas exactas con `rg` antes de editar; no crear duplicados.
 
-Comando:
+## 7. Pruebas automatizadas obligatorias
+
+### Autorización
+
+- 401 sin autenticar.
+- 403 sin permiso para PAC/emisor/series/reserva HTTP.
+- Empresa A no opera B.
+- Usuario de sucursal A no lista, modifica ni reserva B.
+- Serie global respeta política explícita.
+
+### Series
+
+- Factura y Nota de crédito mantienen secuencias independientes.
+- 50 reservas concurrentes producen 50 folios únicos.
+- Serie desactivada rechaza reserva; histórico sigue consultable.
+
+### CSD/secretos
+
+- Límites vigente, próximo a vencer (≤30 días) y vencido.
+- Rotación actualiza fechas; eliminación las limpia.
+- DTO/JSON no contiene ApiKey, certificado, llave, password, hash o ciphertext.
+- Lector ve estado pero no muta.
+
+### PAC
+
+- Éxito, timeout y 503 normalizados.
+- Emisor/CSD/serie faltantes generan mensaje accionable.
+- Prueba de conexión no muta ni deja estado ambiguo.
 
 ```powershell
 dotnet test backend/tests/Integraciones.Fiscal.UnitTests/Millet.Integraciones.Fiscal.UnitTests.csproj --no-restore
-```
-
-### Backend integración HTTP
-
-- `GET` sin autenticar → 401.
-- Usuario sin `integraciones.fiscal.leer` → 403.
-- Usuario lector obtiene configuración enmascarada.
-- Usuario lector no puede guardar/probar → 403.
-- Administrador sin `Idempotency-Key` en `PUT` → 400.
-- Administrador guarda configuración sandbox → 200.
-- Repetición con la misma key idempotente → misma respuesta/efecto.
-- Empresa A intentando operar sobre B → 403 y sin cambio persistido.
-- Respuesta serializada no contiene ApiKey, CSD, password, hash ni ciphertext.
-- Prueba de conexión con doble: éxito y error normalizado sin filtrar credenciales.
-
-Comando focalizado:
-
-```powershell
-dotnet test backend/tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj --no-restore --filter FullyQualifiedName~IntegracionesFiscal
-```
-
-### Frontend
-
-- Toggle sandbox/live.
-- No renderizar secretos existentes; placeholder enmascarado.
-- CSD se envía sólo al capturar/rotar y se limpia del estado tras éxito.
-- Botón de prueba bloqueado con cambios sin guardar.
-- Campos de identidad sólo en sandbox.
-- Mutaciones ocultas o deshabilitadas sin permiso administrar.
-- Error de API conserva un mensaje útil sin mostrar el payload sensible.
-
-Comandos:
-
-```powershell
+dotnet test backend/tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj --no-restore --filter "FullyQualifiedName~IntegracionesFiscal|FullyQualifiedName~SeriesEndpointsTests"
 npm --prefix frontend run test -- ConfiguracionPacForm
 npm --prefix frontend run typecheck
 npm --prefix frontend run lint
 ```
 
-### Regresión de solución
+Un runner bloqueado se reporta como no concluyente, nunca como verde.
 
-```powershell
-dotnet build backend/Millet.sln --no-restore
-dotnet test backend/Millet.sln --no-build --no-restore
-npm --prefix frontend run test
-npm --prefix frontend run build
-```
+## 8. Verificación UI
 
-## 8. Verificación manual en interfaz
-
-Ejecutar con DevTools abiertos y datos exclusivamente sandbox:
-
-1. Ingresar como lector: la ruta abre, los datos aparecen enmascarados y no hay acciones de mutación disponibles.
-2. Ingresar como administrador y seleccionar empresa A.
-3. Activar modo sandbox; comprobar Base URL `https://test.fiscalapi.com` e identidades de prueba.
-4. Capturar ApiKey y CSD de prueba; guardar y recargar.
-5. Confirmar que ApiKey, `.cer`, `.key` y password no reaparecen en UI, respuesta, consola, Network ni logs.
-6. Ejecutar `Probar conexión`; comprobar resultado, duración y timestamp.
-7. Ir a Series y verificar una serie fiscal vigente para A.
-8. Ir a Parámetros y verificar los parámetros fiscales de A.
-9. Cambiar a empresa B; comprobar ausencia de configuración, series y parámetros de A.
-10. Intentar URL/API de A con sesión en B; comprobar 403.
-11. Probar CSD/password inválido; comprobar mensaje controlado y que la configuración anterior permanece intacta.
-12. Volver de sandbox a live; comprobar que desaparecen identidades de prueba y que la UI exige una rotación consciente antes de operación real.
+1. Sin permisos: no editar emisor/PAC/CSD/series ni reservar por API pública.
+2. Administrador: configurar emisor reutilizando Empresa y guardar PAC/CSD sandbox.
+3. Recargar: secretos no reaparecen; sólo estado y expiración.
+4. Validar badges vigente, próximo a vencer y vencido.
+5. Usuario sucursal A sólo ve/reserva series permitidas.
+6. Sucursal B no puede usar A por UI ni URL/API directa.
+7. Factura y Nota de crédito reservan contadores independientes.
+8. Serie desactivada bloquea reserva; histórico continúa visible.
+9. Timeout/503 del PAC muestra mensaje claro sin secretos ni estado indeterminado.
+10. Revisar Network, consola y logs.
+11. Con insumos autorizados, ejecutar una prueba real sandbox y registrar sólo resultado, timestamp, duración y correlation id no sensible.
 
 ## 9. Definition of Done
 
-- Build, lint, unitarias, integración HTTP y regresión frontend en verde.
-- Caso nominal, negativo, cross-tenant e idempotente documentados.
-- Ningún secreto en Git, salida de pruebas, capturas, respuestas o logs.
-- Series y parámetros fiscales verificados por empresa.
-- Prueba sandbox controlada exitosa o bloqueo externo con dueño y evidencia.
-- Revisión cruzada del PR.
-- Decisión de custodia productiva del CSD registrada antes de habilitar live.
-
-## 10. Estado inicial de esta rama
-
-Antes de ejecutar el plan existe una modificación ajena en `frontend/src/routeTree.gen.ts`. Debe preservarse y no incluirse en los commits de ADM-09 salvo que se demuestre que proviene de una regeneración requerida por una ruta fuente cambiada.
+- Todos los criterios ADM-09 cubiertos o declarados dependencia externa.
+- Alcance por sucursal validado contra asignaciones reales.
+- Permisos aplicados a configuración y reserva pública.
+- Tipo, desactivación y concurrencia demostrados.
+- Emisor reutilizado y CSD con estado seguro visible.
+- Mensajes de configuración incompleta/PAC caído verificados.
+- Ningún secreto expuesto.
+- Evidencia automática/UI actualizada.
+- PR propio integrado en `main`; sandbox real sólo puede quedar bloqueado por insumos externos documentados.
