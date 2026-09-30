@@ -139,9 +139,90 @@ Cada fixture (`backend/tests/Integraciones.Aw.UnitTests/Clientes/Fixtures/<escen
 
 El test de forma (`ClientesFixturesTests`, A3) verifica que existan los 12 archivos, que los campos obligatorios estén presentes, que `resultadoEsperado` no esté vacío y que no haya RFC reales (solo genéricos o con prefijo `DEMO`). Las pruebas de comportamiento contra persistencia real corresponden a las Entregas B y C.
 
-## 10. Configuración y ejecución (propuesta)
+## 10. Configuración y ejecución (implementado)
 
-Nombres **propuestos**, no implementados: `ConnectionStrings:AwClientesDb`, `IntegracionesAw:Clientes`. Lector real **deshabilitado por defecto**, con flags independientes para leer, aplicar y programar; `AwIntegracionDb` no es el interruptor del lector de clientes y configurar clientes no habilita pedidos. Un adaptador de vista `vw_erp_cliente` ampliada podrá usar el mismo contrato. Ruta de conexión privada, TLS, cuenta de lectura y cadencia: **PENDIENTE** (VILO/TI); ningún secreto va al repositorio.
+Implementado en la rama de ADM-06 (Entregas C y D). La lectura **real** contra A+W no está probada: ver "Límites conocidos".
+
+### 10.1 Configuración
+
+Sección `IntegracionesAw:Clientes` (`AwClientesOptions`) y conexión `ConnectionStrings:AwClientesDb`. Todo apagado por defecto y independiente del flujo de pedidos (`AwIntegracionDb` no es el interruptor de clientes, y configurar clientes no habilita pedidos).
+
+| Clave | Default | Significado |
+|---|---|---|
+| `Origen` | `Simulado` | `Simulado` (en memoria, opcionalmente desde JSON) o `Sql` (adaptador `AwClientesSqlOrigen`, solo SELECT). |
+| `LecturaHabilitada` | `false` | Permite leer del origen. |
+| `AplicacionHabilitada` | `false` | Permite aplicar al maestro de clientes. |
+| `ProgramacionHabilitada` | `false` | Registra el worker de barridos periódicos. |
+| `TamanoLote` | `100` | Filas por lote (máximo `500`). |
+| `SqlQueryTimeoutSeconds` | `5` | Timeout por consulta SQL. |
+| `SqlConnectTimeoutSeconds` | `15` | Timeout de conexión. |
+| `IntervaloProgramacionMinutos` | `60` | Cadencia del worker (mínimo efectivo 1). |
+| `ArchivoSimulado` | `""` | Ruta a JSON (formato de fixtures, `{origen:{KU_KUNDEN:[...],KA_ZAHLBED:[...]}}`) para el origen simulado; vacío = origen vacío. |
+| `MapeoMoneda` | `{}` | `WAEHRUNG` -> ISO. Vacío: no se normaliza (`PESOSMX`->`MXN` PENDIENTE). |
+
+- El adaptador SQL solo se registra con `Origen=Sql` **y** un connection string real (una referencia Key Vault sin resolver se trata como ausente). La conexión exige TLS verificado (`Encrypt=True`, sin `TrustServerCertificate`); si no, falla al construirse.
+- Sincronizar exige `LecturaHabilitada` **y** `AplicacionHabilitada`; de lo contrario `AW_CLIENTES_LECTURA_DESHABILITADA` / `AW_CLIENTES_APLICACION_DESHABILITADA` (503).
+
+### 10.2 Dispatcher vs. worker
+
+- **`AwClientesEjecucionDispatcher`** (HostedService): se registra con `LecturaHabilitada && AplicacionHabilitada`, **no** depende de `ProgramacionHabilitada`. Cada 5 s toma los barridos `Pendiente`/`EnCurso` del origen configurado y los ejecuta (reanuda desde el cursor). Un fallo del ciclo se registra (solo el tipo de excepción) y no lo detiene. HealthCheck `aw-clientes-ejecucion-dispatcher`.
+- **`AwClientesSyncWorker`**: solo existe con `ProgramacionHabilitada=true`. Cada `IntervaloProgramacionMinutos` **encola** un barrido (actor de servicio); no lo ejecuta, lo ejecuta el dispatcher. Si ya hay uno vivo, el ciclo se omite (warning). HealthCheck `aw-clientes-sync-worker`.
+- Máximo un barrido vivo por origen (índice único parcial). El POST de la API solo encola.
+
+### 10.3 API HTTP
+
+Base `/api/v1/datos-maestros/clientes/sincronizacion`; todas requieren el permiso `datos_maestros.clientes.sincronizar`.
+
+| Método y ruta | Efecto |
+|---|---|
+| `POST /ejecuciones` `{ "tipo": "Barrido" }` | Encola un barrido; 202 con `{ id, estado: "Pendiente" }`. Requiere `Idempotency-Key`. |
+| `GET /ejecuciones?estado&offset&limit` | Lista paginada (limit 1..100, default 20), más reciente primero. |
+| `GET /ejecuciones/{id}` | Contadores y hasta 200 errores por referencia (`erroresTruncados` si hay más). |
+| `POST /reintentos` `{ "referencia": "..." }` | Relee esa referencia del origen y la aplica **inline**; devuelve el detalle real. Requiere `Idempotency-Key`. |
+
+Códigos de error (`AW_CLIENTES_*`, Problem Details):
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `AW_CLIENTES_TIPO_INVALIDO` | 422 (regla de negocio) | `tipo` distinto de `Barrido`. |
+| `AW_CLIENTES_BARRIDO_EN_CURSO` | 409 | Ya hay un barrido vivo para el origen. |
+| `AW_CLIENTES_EJECUCION_NO_EJECUTABLE` | 409 | La ejecución no está `Pendiente`/`EnCurso`. |
+| `AW_CLIENTES_REFERENCIA_INVALIDA` | 422 | Referencia vacía. |
+| `AW_CLIENTES_EJECUCION_NO_ENCONTRADA` | 404 | Id inexistente. |
+| `AW_CLIENTES_LECTURA_DESHABILITADA` / `_APLICACION_DESHABILITADA` / `_ORIGEN_SIN_CONFIGURAR` | 503 | Flags apagados u origen SQL sin conexión. |
+
+Los mensajes de error persistidos no incluyen texto de excepción ni payload.
+
+### 10.4 Permisos
+
+`datos_maestros.clientes.sincronizar` (`PermisosCanonicos.DatosMaestrosClientesSincronizar`), sembrado por la migración `SeedPermisosClientesSincronizacionAw` (Identidad). Los datos de origen A+W se muestran en lista y detalle de clientes con los permisos de lectura existentes.
+
+### 10.5 Tablas nuevas
+
+- `compartido.cliente_sincronizacion_aw`: registro de origen por cliente (referencia, hash, versiones de contrato y mapeo, valores crudos, resultado, causa de pendiente/conflicto).
+- `integraciones_aw.aw_clientes_ejecucion` y `integraciones_aw.aw_clientes_ejecucion_error`: ejecuciones (tipo, estado `Pendiente|EnCurso|Completa|Parcial|Fallida|Cancelada`, cursor, contadores, actor) y errores por referencia. Ambas marcadas `INotAudited` (ADR-0008).
+
+### 10.6 Semántica de contadores
+
+`Leidos`, `Creados`, `Actualizados`, `SinCambios`, `Conflictos` y `Errores` cuentan por **acción**. `Pendientes` es **ortogonal**: suma además cuando el resultado quedó pendiente de validación (moneda, estado o condición sin mapeo), sin importar la acción. Un **conflicto no es un error**: es una diferencia registrada con causa (p. ej. fiscales corregidos localmente) que no sobrescribe; `Errores` son fallos de lectura o aplicación de una fila. Un error por fila deja la ejecución en `Parcial`, nunca `Completa`; un error de lectura del origen la deja `Fallida`.
+
+### 10.7 Activar en un ambiente de prueba
+
+1. Aplicar migraciones (Compartido, IntegracionesAw, Identidad) y asignar `datos_maestros.clientes.sincronizar` al rol de prueba.
+2. Origen simulado: `IntegracionesAw__Clientes__Origen=Simulado`, `LecturaHabilitada=true`, `AplicacionHabilitada=true`, y opcionalmente `ArchivoSimulado=<ruta a JSON con datos sintéticos>` y `MapeoMoneda__MXN=MXN` solo para pruebas. Reiniciar (los servicios se registran al arrancar).
+3. `POST /ejecuciones {"tipo":"Barrido"}` con `Idempotency-Key`; consultar `GET /ejecuciones/{id}` hasta `Completa`. Verificar en clientes el origen A+W y los pendientes.
+4. Programación (opcional): `ProgramacionHabilitada=true`, `IntervaloProgramacionMinutos` bajo en pruebas.
+5. Origen SQL (solo cuando exista ruta a A+W, O1A-AW-INT): `Origen=Sql` y `ConnectionStrings__AwClientesDb` inyectada desde Key Vault / variable de ambiente, con `Encrypt=True`, cuenta de solo SELECT sobre `MILMAIN`. **Ningún secreto en el repositorio ni en `appsettings`.** Probar primero un reintento de una referencia conocida y luego un barrido.
+
+### 10.8 Límites conocidos / pendientes
+
+- **Conexión y lectura real contra A+W no probadas.** Depende de O1A-AW-INT (ruta privada, TLS, cuenta de lectura, instancia efectiva). Todo lo verificado usa origen simulado y fixtures.
+- **Mapeos PENDIENTES**: moneda (`PESOSMX`->`MXN`, catálogo), estado (`KZ_STATUS`/`KZ_GESPERRT`) y condición (cardinalidad de `KA_ZAHLBED`). Sin mapeo validado, el resultado queda pendiente y no hay cambios de moneda/estatus. `VersionMapeo` sigue en `0-borrador`.
+- **Conflicto con cliente manual**: la resolución (p. ej. clave `AW-{ref}` que choca con una clave manual, o mismo cliente dado de alta a mano) queda fuera de ADM-06; se registra el conflicto y no se fusiona.
+- **Gate de emisión fiscal sin dueño**: `Cliente.DatosFiscalesCompletos` no lo usa ningún gate de servidor; la emisión en Facturación recibe el receptor en el body y no lo coteja con el master, así que un cliente A+W incompleto sigue siendo timbrable. Corresponde a Facturación; ADM-06 solo garantiza que la sincronización no inventa fiscales. Por asignar (Eliam).
+- **Bajas explícitas**: no existe política; la ausencia de una fila nunca es baja y la sincronización no cambia `Estatus`.
+- **Cancelación a mitad de lote** no persiste los contadores de ese lote (`Leidos` exacto; al reanudar, esas filas cuentan como `SinCambios`).
+- **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
 
 ## 11. Versionado
 

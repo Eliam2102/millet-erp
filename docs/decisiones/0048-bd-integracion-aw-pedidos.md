@@ -171,11 +171,11 @@ a tabla administrable); gaps G1–G13 requieren confirmación del equipo A+W
 
 ## Adenda — ADM-06 — Sincronización de clientes (extensión, 2026-09)
 
-**Estado**: propuesta de extensión (nada de esto está implementado).
+**Estado**: implementado en la rama de ADM-06; conexión real a A+W pendiente.
 
 **Decisión.** `Integraciones.Aw` incorpora un lector de clientes de **solo
 lectura** sobre la base `MILMAIN` de A+W, con conexión y flags **independientes**
-del flujo de pedidos. Los nombres son **PROPUESTOS**, no settings existentes:
+del flujo de pedidos. Los nombres son los **implementados** (ver doc 05 §10):
 
 - `ConnectionStrings:AwClientesDb` (conexión propia; no se reutiliza
   `ConnectionStrings:AwIntegracionDb`, que además registra adaptadores de
