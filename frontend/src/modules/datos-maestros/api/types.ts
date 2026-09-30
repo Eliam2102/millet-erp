@@ -279,6 +279,15 @@ export interface ClienteOrigenAwDetalle {
   domicilioOrigenCp?: string | null;
   domicilioOrigenProvincia?: string | null;
   domicilioOrigenPais?: string | null;
+  /** Recibido de A+W que no se aplicó al cliente existente (última aplicación). */
+  diferencias?: DiferenciaAplicacionAw[];
+}
+
+export interface DiferenciaAplicacionAw {
+  campo: string;
+  recibido?: string | null;
+  conservado?: string | null;
+  motivo: string;
 }
 
 // ─── Sincronización de clientes A+W (F1-ADM-06) ─────────────────────

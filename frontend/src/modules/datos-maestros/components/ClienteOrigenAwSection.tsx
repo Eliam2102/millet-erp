@@ -131,6 +131,31 @@ export function ClienteOrigenAwSection({
           </tbody>
         </table>
       )}
+      {(o.diferencias?.length ?? 0) > 0 && (
+        <table className="mt-4 w-full text-sm">
+          <caption className="mb-1 text-left text-xs text-muted-foreground">
+            Recibido de A+W y no aplicado al cliente
+          </caption>
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th className="py-1 font-normal">Campo</th>
+              <th className="py-1 font-normal">Recibido</th>
+              <th className="py-1 font-normal">Se conserva</th>
+              <th className="py-1 font-normal">Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {o.diferencias!.map((d) => (
+              <tr key={d.campo} className="border-t">
+                <td className="py-1">{d.campo}</td>
+                <td className="py-1">{d.recibido || '—'}</td>
+                <td className="py-1">{d.conservado || '—'}</td>
+                <td className="py-1 text-muted-foreground">{d.motivo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }

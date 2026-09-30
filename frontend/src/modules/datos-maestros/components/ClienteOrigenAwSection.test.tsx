@@ -95,6 +95,23 @@ describe('<ClienteOrigenAwSection>', () => {
     expect(screen.queryByRole('cell', { name: 'Moneda' })).not.toBeInTheDocument();
   });
 
+  it('muestra lo recibido de A+W que no se aplicó, con su motivo', () => {
+    setPermisos([]);
+    render(
+      <ClienteOrigenAwSection
+        cliente={cliente({
+          diferencias: [
+            { campo: 'Moneda', recibido: 'USD', conservado: 'MXN', motivo: 'Se conserva la moneda del cliente existente.' },
+          ],
+        })}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    expect(screen.getByText('Recibido de A+W y no aplicado al cliente')).toBeInTheDocument();
+    expect(screen.getByText('USD')).toBeInTheDocument();
+    expect(screen.getByText('Se conserva la moneda del cliente existente.')).toBeInTheDocument();
+  });
+
   it('oculta Reintentar lectura sin sincronizar y lo muestra con el permiso', () => {
     setPermisos([]);
     const { unmount } = render(<ClienteOrigenAwSection cliente={cliente({})} />, {
