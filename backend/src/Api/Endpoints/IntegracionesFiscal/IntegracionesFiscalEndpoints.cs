@@ -15,6 +15,7 @@ using Millet.Integraciones.Fiscal.Application.RfcsReceptores.EliminarRfcReceptor
 using Millet.Integraciones.Fiscal.Application.RfcsReceptores.ListarRfcsReceptores;
 using Millet.Integraciones.Fiscal.Application.RfcsReceptores.SubirFielReceptor;
 using Millet.Integraciones.Fiscal.Domain;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.Endpoints.IntegracionesFiscal;
 
@@ -49,9 +50,11 @@ public static class IntegracionesFiscalEndpoints
         config.MapGet("/{empresaId:guid}/{proveedor:int}", async (
             Guid empresaId,
             int proveedor,
+            ICurrentEmpresaContext currentEmpresa,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            EnsureCurrentEmpresa(currentEmpresa, empresaId);
             var response = await mediator.Send(
                 new ObtenerConfiguracionPacQuery(empresaId, (ProveedorPac)proveedor), ct);
             return response is null ? Results.NotFound() : Results.Ok(response);
@@ -68,9 +71,11 @@ public static class IntegracionesFiscalEndpoints
             Guid empresaId,
             int proveedor,
             [FromBody] TestConexionPacPayload? payload,
+            ICurrentEmpresaContext currentEmpresa,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            EnsureCurrentEmpresa(currentEmpresa, empresaId);
             var response = await mediator.Send(
                 new TestConexionPacCommand(
                     EmpresaId: empresaId,
@@ -227,6 +232,16 @@ public static class IntegracionesFiscalEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
+    }
+
+    private static void EnsureCurrentEmpresa(ICurrentEmpresaContext currentEmpresa, Guid empresaId)
+    {
+        var actual = currentEmpresa.Current
+            ?? throw new SharedKernel.Application.Exceptions.ForbiddenException(
+                "EMPRESA_NO_SELECCIONADA", "El usuario no tiene una empresa seleccionada en el JWT.");
+        if (actual != empresaId)
+            throw new SharedKernel.Application.Exceptions.CrossTenantViolationException(
+                nameof(ConfiguracionPac), actual, empresaId);
     }
 
     public sealed record GuardarConfiguracionPacPayload(
