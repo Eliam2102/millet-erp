@@ -327,6 +327,8 @@ export interface EjecucionSyncResumen {
 export interface EjecucionSyncDetalle
   extends Omit<EjecucionSyncResumen, 'errores'> {
   errores: EjecucionSyncErrorItem[];
+  /** El backend limita cuántos errores lista; true = hay más de los mostrados. */
+  erroresTruncados?: boolean;
 }
 
 /** Forma real del backend (GET /ejecuciones/{id} y POST /reintentos): el resumen viene anidado. */

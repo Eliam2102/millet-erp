@@ -53,7 +53,7 @@ export function ClienteOrigenAwSection({
         onSuccess: (r) => {
           if (r.estado === 'Completa') toast.success('Lectura completada.');
           else
-            toast.warning(`La lectura terminó con estado ${r.estado}.`);
+            toast.warning(r.errores[0]?.mensaje ?? `La lectura terminó con estado ${r.estado}.`);
         },
         onError: (e) => toast.error(mensajeErrorSincronizacion(e)),
       },

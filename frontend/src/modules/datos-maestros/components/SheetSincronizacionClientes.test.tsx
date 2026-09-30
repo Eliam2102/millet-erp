@@ -91,10 +91,29 @@ describe('<SheetSincronizacionClientes>', () => {
     abrir();
     const fila = await screen.findByText('En cola', { selector: 'span *, span' });
     fila.closest('button')!.click();
-    expect(await screen.findByText('AW-9')).toBeInTheDocument();
+    expect(await screen.findByText(/ref\. AW-9/)).toBeInTheDocument();
     await waitFor(() => expect(llamadas).toBeGreaterThan(1), { timeout: 6000 });
     expect(await screen.findByText('Completa')).toBeInTheDocument();
   }, 10_000);
+
+  it('muestra causa, acción sugerida y avisa cuando hay más errores de los listados', async () => {
+    mswServer.use(
+      http.get(URL_LISTA, () => lista([ej('Parcial')])),
+      http.get(`${URL_LISTA}/e-1`, () =>
+        HttpResponse.json({
+          ejecucion: ej('Parcial'),
+          errores: [{ referencia: '91002', codigo: 'moneda_sin_equivalencia', mensaje: "la moneda '<indf>' no tiene equivalencia" }],
+          erroresTruncados: true,
+        }),
+      ),
+    );
+    abrir();
+    const fila = await screen.findByText('Parcial (con errores)');
+    fila.closest('button')!.click();
+    expect(await screen.findByText('Moneda sin equivalencia')).toBeInTheDocument();
+    expect(screen.getByText(/Configura el mapeo de moneda y reintenta/)).toBeInTheDocument();
+    expect(screen.getByText(/solo los primeros errores/)).toBeInTheDocument();
+  });
 
   it('reintentar por fila envía la referencia al endpoint de reintentos', async () => {
     let body: unknown = null;

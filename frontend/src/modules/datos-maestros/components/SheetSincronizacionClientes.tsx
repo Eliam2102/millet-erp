@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { ErroresEjecucionSync } from '@/modules/datos-maestros/components/ErroresEjecucionSync';
 import {
   mensajeErrorSincronizacion,
   useEjecucionesSync,
@@ -174,7 +175,9 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
         onSuccess: (r) =>
           r.estado === 'Completa'
             ? toast.success(`Referencia ${referencia} reprocesada.`)
-            : toast.warning(`La lectura de ${referencia} terminó con estado ${r.estado}.`),
+            : toast.warning(
+                r.errores[0]?.mensaje ?? `La lectura de ${referencia} terminó con estado ${r.estado}.`,
+              ),
         onError: (e) => toast.error(mensajeErrorSincronizacion(e)),
       },
     );
@@ -225,42 +228,12 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
             ))}
           </dl>
           {d.errores.length > 0 && (
-            <table className="w-full text-sm">
-              <caption className="mb-1 text-left text-xs text-muted-foreground">
-                Errores y conflictos por referencia
-              </caption>
-              <thead>
-                <tr className="text-left text-xs text-muted-foreground">
-                  <th className="py-1 font-normal">Referencia</th>
-                  <th className="py-1 font-normal">Código</th>
-                  <th className="py-1 font-normal">Mensaje</th>
-                  <th className="py-1 font-normal">
-                    <span className="sr-only">Acciones</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.errores.map((er, i) => (
-                  <tr key={`${er.referencia}-${i}`} className="border-t align-top">
-                    <td className="py-1 font-mono">{er.referencia}</td>
-                    <td className="py-1 font-mono text-xs">{er.codigo}</td>
-                    <td className="py-1">{er.mensaje}</td>
-                    <td className="py-1 text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={reintentar.isPending}
-                        onClick={() => handleReintentar(er.referencia)}
-                        aria-label={`Reintentar referencia ${er.referencia}`}
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ErroresEjecucionSync
+              errores={d.errores}
+              truncados={d.erroresTruncados}
+              reintentando={reintentar.isPending ? reintentar.variables?.referencia : null}
+              onReintentar={handleReintentar}
+            />
           )}
         </>
       )}

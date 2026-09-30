@@ -248,7 +248,7 @@ export function useReintentarCliente() {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 export function aplanarDetalle(r: EjecucionSyncDetalleRespuesta): EjecucionSyncDetalle {
-  return { ...r.ejecucion, errores: r.errores };
+  return { ...r.ejecucion, errores: r.errores, erroresTruncados: r.erroresTruncados };
 }
 
 function buildListarClientesPath(filtros: ListarClientesFiltros): string {
