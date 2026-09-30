@@ -16,6 +16,7 @@ import {
   useEjecucionesSync,
   useEjecucionSync,
   useIniciarSincronizacion,
+  useReintentarCliente,
 } from '@/modules/datos-maestros/api';
 import type {
   EjecucionSyncResumen,
@@ -162,7 +163,22 @@ function FilaEjecucion({
 
 function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }) {
   const query = useEjecucionSync(id);
+  const reintentar = useReintentarCliente();
   const d = query.data;
+
+  // Reproceso por referencia (mismo endpoint y permiso que el detalle del cliente).
+  function handleReintentar(referencia: string) {
+    reintentar.mutate(
+      { referencia },
+      {
+        onSuccess: (r) =>
+          r.estado === 'Completa'
+            ? toast.success(`Referencia ${referencia} reprocesada.`)
+            : toast.warning(`La lectura de ${referencia} terminó con estado ${r.estado}.`),
+        onError: (e) => toast.error(mensajeErrorSincronizacion(e)),
+      },
+    );
+  }
   return (
     <div className="space-y-3">
       <Button type="button" variant="ghost" size="sm" onClick={onVolver}>
@@ -218,6 +234,9 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
                   <th className="py-1 font-normal">Referencia</th>
                   <th className="py-1 font-normal">Código</th>
                   <th className="py-1 font-normal">Mensaje</th>
+                  <th className="py-1 font-normal">
+                    <span className="sr-only">Acciones</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -226,6 +245,18 @@ function DetalleEjecucion({ id, onVolver }: { id: string; onVolver: () => void }
                     <td className="py-1 font-mono">{er.referencia}</td>
                     <td className="py-1 font-mono text-xs">{er.codigo}</td>
                     <td className="py-1">{er.mensaje}</td>
+                    <td className="py-1 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={reintentar.isPending}
+                        onClick={() => handleReintentar(er.referencia)}
+                        aria-label={`Reintentar referencia ${er.referencia}`}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

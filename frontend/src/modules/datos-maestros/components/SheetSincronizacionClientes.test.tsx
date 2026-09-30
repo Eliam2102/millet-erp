@@ -94,4 +94,26 @@ describe('<SheetSincronizacionClientes>', () => {
     await waitFor(() => expect(llamadas).toBeGreaterThan(1), { timeout: 6000 });
     expect(await screen.findByText('Completa')).toBeInTheDocument();
   }, 10_000);
+
+  it('reintentar por fila envía la referencia al endpoint de reintentos', async () => {
+    let body: unknown = null;
+    mswServer.use(
+      http.get(URL_LISTA, () => lista([ej('Parcial')])),
+      http.get(`${URL_LISTA}/e-1`, () =>
+        HttpResponse.json({
+          ...ej('Parcial'),
+          errores: [{ referencia: 'AW-9', codigo: 'conflicto_correlacion', mensaje: 'Existe un cliente manual' }],
+        }),
+      ),
+      http.post('*/clientes/sincronizacion/reintentos', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: 'r-1', estado: 'Completa' });
+      }),
+    );
+    abrir();
+    const fila = await screen.findByText('Parcial (con errores)');
+    fila.closest('button')!.click();
+    (await screen.findByRole('button', { name: 'Reintentar referencia AW-9' })).click();
+    await waitFor(() => expect(body).toEqual({ referencia: 'AW-9' }));
+  });
 });
