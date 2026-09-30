@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Domain;
+using Millet.Facturacion.Domain.Ports;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.IntegrationTests.DatosMaestros;
@@ -30,7 +32,7 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
         DomicilioCalle: "CALLE DEMO 1", DomicilioCiudad: "CIUDAD DEMO", DomicilioCp: "06600",
         DomicilioProvincia: "PROV", DomicilioPais: "MX",
         CondicionCodigoOrigen: "Z030", CondicionNumeroOrigen: 30, DiasNominalesOrigen: 30,
-        MonedaCodigoOrigen: "MXN", MonedaNormalizada: "MXN",
+        MonedaCodigoOrigen: "MXN", MonedaNormalizada: "MXN", MonedaDefault: "MXN",
         CreditoReferenciaLimite: 1000m, CreditoReferenciaLimite1: 500m, CreditoReferenciaNet: 30d);
 
     private async Task<T> ConScopeAsync<T>(Func<CompartidoDbContext, AplicarClienteAwService, Task<T>> f)
@@ -112,6 +114,63 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
     }
 
     [Fact]
+    public async Task Lectura_atrasada_con_datos_distintos_no_pisa_el_registro_vigente()
+    {
+        var r = NuevaRef();
+        var ahora = DateTime.UtcNow;
+        await Aplicar(Snap(r) with { LeidoEnUtc = ahora });
+        await Aplicar(Snap(r) with { LeidoEnUtc = ahora.AddMinutes(1), DiasNominalesOrigen = 60, CondicionCodigoOrigen = "Z060", CondicionNumeroOrigen = 60 });
+
+        var res = await Aplicar(Snap(r) with { LeidoEnUtc = ahora.AddSeconds(-30), DiasNominalesOrigen = 15, CondicionCodigoOrigen = "Z015", CondicionNumeroOrigen = 15 });
+
+        Assert.Equal(AplicarClienteAwAccion.SinCambios, res.Accion);
+        var (cs, regs) = await Leer(r);
+        Assert.Single(cs);
+        Assert.Equal(60, Assert.Single(regs).DiasNominalesOrigen);
+        Assert.Equal("Z060", regs[0].CondicionCodigoOrigen);
+    }
+
+    [Fact]
+    public async Task Baja_explicita_conserva_identidad_y_lectura_historica_y_la_sincronizacion_no_reactiva()
+    {
+        var r = NuevaRef();
+        await Aplicar(Snap(r));
+        var (antes, _) = await Leer(r);
+        var id = antes[0].Id;
+
+        using (var scope = _factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<MediatR.IMediator>().Send(new DesactivarClienteCommand(id));
+
+        // Releer con cambio comercial: no reactiva, no toca fiscales, mantiene la identidad.
+        var res = await Aplicar(Snap(r) with
+        {
+            LeidoEnUtc = DateTime.UtcNow.AddMinutes(1),
+            CondicionCodigoOrigen = "Z060", CondicionNumeroOrigen = 60, DiasNominalesOrigen = 60,
+        });
+
+        Assert.Equal(AplicarClienteAwAccion.Actualizado, res.Accion);
+        var (cs, regs) = await Leer(r);
+        Assert.Equal(id, Assert.Single(cs).Id);
+        Assert.Equal(EstatusCatalogo.Inactivo, cs[0].Estatus);
+        Assert.Equal(Rfc, cs[0].Rfc);
+        Assert.Equal(60, Assert.Single(regs).DiasNominalesOrigen);
+
+        using var scope2 = _factory.Services.CreateScope();
+        var port = scope2.ServiceProvider.GetRequiredService<IClientesReadPort>();
+        // Cartera/documentos históricos: el puerto sigue devolviendo al cliente inactivo.
+        Assert.NotNull(await port.ObtenerAsync(id, CancellationToken.None));
+        Assert.NotNull(await port.ResolverPorReferenciaAsync(r, CancellationToken.None));
+        // Uso nuevo (selector de emisión): ya no aparece.
+        var busqueda = await port.BuscarAsync(null, cs[0].RazonSocial, 50, CancellationToken.None);
+        Assert.DoesNotContain(busqueda, b => b.ClienteId == id);
+
+        // Un pedido posterior por la misma referencia no crea otro cliente.
+        var prov = await Provisionar(new ProvisionarClienteDesdeAwCommand(r, "OTRA", Rfc, null, "06600", null, null, null, "MXN"));
+        Assert.False(prov.Creado);
+        Assert.Equal(id, prov.ClienteId);
+    }
+
+    [Fact]
     public async Task Correccion_fiscal_local_posterior_al_alta_sobrevive_a_nueva_lectura()
     {
         var r = NuevaRef();
@@ -162,12 +221,32 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
     }
 
     [Fact]
-    public async Task Moneda_desconocida_y_condicion_sin_coincidencia_dejan_Pendiente_sin_bloquear_el_alta()
+    public async Task Moneda_sin_equivalencia_no_crea_el_cliente_ni_asume_MXN()
     {
         var r = NuevaRef();
         var res = await Aplicar(Snap(r) with
         {
-            MonedaCodigoOrigen = "<indf>", MonedaNormalizada = null,
+            MonedaCodigoOrigen = "<indf>", MonedaNormalizada = null, MonedaDefault = null,
+        });
+
+        Assert.Equal(AplicarClienteAwAccion.NoCreado, res.Accion);
+        Assert.Null(res.Cliente);
+        Assert.Equal(ResultadoSincronizacionAw.Pendiente, res.Resultado);
+        var (cs, regs) = await Leer(r);
+        Assert.Empty(cs);
+        Assert.Empty(regs);
+
+        // Al resolverse el mapeo, el reintento sí lo crea.
+        var ok = await Aplicar(Snap(r));
+        Assert.Equal(AplicarClienteAwAccion.Creado, ok.Accion);
+    }
+
+    [Fact]
+    public async Task Condicion_sin_coincidencia_deja_Pendiente_sin_bloquear_el_alta()
+    {
+        var r = NuevaRef();
+        var res = await Aplicar(Snap(r) with
+        {
             CondicionCodigoOrigen = "ZXXX", CondicionNumeroOrigen = null, DiasNominalesOrigen = null,
         });
 
@@ -175,10 +254,33 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
         Assert.Equal(ResultadoSincronizacionAw.Pendiente, res.Resultado);
         var (cs, regs) = await Leer(r);
         Assert.Single(cs);
-        Assert.Equal("<indf>", regs[0].MonedaCodigoOrigen);
-        Assert.Null(regs[0].MonedaNormalizada);
         Assert.Null(regs[0].CondicionNumeroOrigen);
         Assert.Equal(ResultadoSincronizacionAw.Pendiente, regs[0].Resultado);
+    }
+
+    [Fact]
+    public async Task Lo_recibido_que_no_se_aplica_queda_como_diferencia_en_el_registro()
+    {
+        var r = NuevaRef();
+        await Aplicar(Snap(r) with { Telefono = "5550001", Email = "a@demo.test" });
+        var res = await Aplicar(Snap(r, razon: "OTRA RAZON") with
+        {
+            MonedaDefault = "USD", MonedaNormalizada = "USD", MonedaCodigoOrigen = "USD",
+            Telefono = "5559999", Email = "A@DEMO.TEST",
+        });
+
+        Assert.Equal(AplicarClienteAwAccion.Actualizado, res.Accion);
+        var (cs, regs) = await Leer(r);
+        Assert.Equal("MXN", cs[0].MonedaDefault);
+        var dif = DiferenciaAplicacionAw.Leer(regs[0].Diferencias);
+        Assert.Equal(["Razón social", "Moneda", "Teléfono"], dif.Select(d => d.Campo));
+        Assert.Equal("USD", dif.Single(d => d.Campo == "Moneda").Recibido);
+        Assert.Equal("MXN", dif.Single(d => d.Campo == "Moneda").Conservado);
+
+        // Una lectura que ya no difiere limpia las diferencias.
+        await Aplicar(Snap(r, razon: "CLIENTE DEMO 001") with { Telefono = "5550001", Email = "a@demo.test", NombreComercialOrigen = "OTRO" });
+        var (_, regs2) = await Leer(r);
+        Assert.Empty(DiferenciaAplicacionAw.Leer(regs2[0].Diferencias));
     }
 
     [Fact]

@@ -1076,6 +1076,7 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_cliente_sincronizacion_aw_resultado", "resultado BETWEEN 0 AND 4"));
         sync.HasKey(x => x.Id);
         sync.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        sync.Property(x => x.Diferencias).HasMaxLength(2000);
         sync.Property(x => x.NombreComercialOrigen).HasMaxLength(400);
         sync.Property(x => x.DomicilioOrigenCalle).HasMaxLength(200);
         sync.Property(x => x.DomicilioOrigenCiudad).HasMaxLength(100);

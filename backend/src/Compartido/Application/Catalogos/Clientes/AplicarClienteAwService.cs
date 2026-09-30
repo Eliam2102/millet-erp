@@ -63,10 +63,11 @@ public sealed record AplicarClienteAwSnapshot(
     // Auto-provisión de pedidos: si el cliente ya existe no se toca nada.
     bool SoloCrear = false);
 
-public enum AplicarClienteAwAccion { Creado, Actualizado, SinCambios, Conflicto }
+/// <summary><c>NoCreado</c>: alta omitida por moneda sin equivalencia (Cliente = null).</summary>
+public enum AplicarClienteAwAccion { Creado, Actualizado, SinCambios, Conflicto, NoCreado }
 
 public sealed record AplicarClienteAwResultado(
-    Cliente Cliente,
+    Cliente? Cliente,
     AplicarClienteAwAccion Accion,
     ResultadoSincronizacionAw Resultado);
 
@@ -116,6 +117,11 @@ public sealed class AplicarClienteAwService
                 }
             }
 
+            // Moneda sin equivalencia validada: no se inventa MXN; no se crea hasta resolver el mapeo (doc 05 §13).
+            // La auto-provisión de pedidos (SoloCrear) no trae moneda de origen y conserva su default.
+            if (!snap.SoloCrear && snap.MonedaDefault is null)
+                return new(null, AplicarClienteAwAccion.NoCreado, ResultadoSincronizacionAw.Pendiente);
+
             var nuevo = CrearCliente(snap);
             var registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), nuevo.Id, snap.ReferenciaExterna);
             var hash = CalcularHash(snap);
@@ -159,6 +165,11 @@ public sealed class AplicarClienteAwService
             .FirstOrDefaultAsync(r => r.ClienteId == cliente.Id, ct);
         var hash = CalcularHash(snap);
 
+        // Lectura atrasada (evento fuera de orden): la más reciente ya aplicada es la vigente y no se pisa.
+        // Orden = LeidoEnUtc; una versión monotónica de A+W lo reemplazaría (doc 05 §7, PENDIENTE).
+        if (registro is not null && snap.LeidoEnUtc < registro.LeidoEnUtc)
+            return new(cliente, AplicarClienteAwAccion.SinCambios, registro.Resultado);
+
         if (registro is not null && registro.HashOrigen == hash
             && registro.VersionMapeo == snap.VersionMapeo
             && registro.Resultado != ResultadoSincronizacionAw.Error)
@@ -176,6 +187,7 @@ public sealed class AplicarClienteAwService
             return new(cliente, AplicarClienteAwAccion.SinCambios, registro.Resultado);
         }
 
+        var diferencias = DiferenciaAplicacionAw.Serializar(Diferencias(cliente, snap));
         var telefono = string.IsNullOrWhiteSpace(cliente.Telefono) ? Vacio(snap.Telefono) : null;
         var email = string.IsNullOrWhiteSpace(cliente.Email) ? Vacio(snap.Email) : null;
         if (telefono is not null || email is not null)
@@ -187,7 +199,7 @@ public sealed class AplicarClienteAwService
             registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), cliente.Id, snap.ReferenciaExterna);
             _db.Set<ClienteSincronizacionAw>().Add(registro);
         }
-        AplicarRegistro(registro, snap, hash, resultado);
+        AplicarRegistro(registro, snap, hash, resultado, diferencias);
         await _db.SaveChangesAsync(ct);
         return new(cliente, AplicarClienteAwAccion.Actualizado, resultado);
     }
@@ -218,7 +230,8 @@ public sealed class AplicarClienteAwService
     }
 
     private static void AplicarRegistro(
-        ClienteSincronizacionAw r, AplicarClienteAwSnapshot s, string hash, ResultadoSincronizacionAw resultado) =>
+        ClienteSincronizacionAw r, AplicarClienteAwSnapshot s, string hash, ResultadoSincronizacionAw resultado,
+        string? diferencias = null) =>
         r.Aplicar(
             s.MandantOrigen, s.NombreComercialOrigen,
             s.DomicilioCalle, s.DomicilioCiudad, s.DomicilioCp, s.DomicilioProvincia, s.DomicilioPais,
@@ -228,7 +241,7 @@ public sealed class AplicarClienteAwService
             s.CreditoReferenciaLimite, s.CreditoReferenciaLimite1, s.CreditoReferenciaNet,
             s.EstadoOrigenCrudo, s.BloqueoOrigenCrudo, s.FechaOrigen, s.TransaccionOrigenUtc,
             s.EjecucionId, s.LeidoEnUtc, DateTime.UtcNow,
-            hash, s.VersionContrato, s.VersionMapeo, resultado);
+            hash, s.VersionContrato, s.VersionMapeo, resultado, diferencias: diferencias);
 
     /// <summary>
     /// Pendiente (sin baja/activación/conversión automática) si hay moneda o
@@ -240,6 +253,25 @@ public sealed class AplicarClienteAwService
         || s.EstadoOrigenCrudo is not null
             ? ResultadoSincronizacionAw.Pendiente
             : ResultadoSincronizacionAw.Aplicado;
+
+    /// <summary>Lo recibido que la política deja fuera del cliente existente (se ve en el detalle de origen).</summary>
+    private static List<DiferenciaAplicacionAw> Diferencias(Cliente c, AplicarClienteAwSnapshot s)
+    {
+        var d = new List<DiferenciaAplicacionAw>();
+        void Dif(string campo, string? recibido, string? local, string motivo)
+        {
+            recibido = Vacio(recibido);
+            local = Vacio(local);
+            if (recibido is not null && local is not null
+                && !string.Equals(recibido, local, StringComparison.OrdinalIgnoreCase))
+                d.Add(new(campo, recibido, local, motivo));
+        }
+        Dif("Razón social", s.RazonSocial, c.RazonSocial, "Se conserva la razón social local.");
+        Dif("Moneda", s.MonedaDefault, c.MonedaDefault, "Se conserva la moneda del cliente existente.");
+        Dif("Teléfono", s.Telefono, c.Telefono, "Solo se completa si el local está vacío.");
+        Dif("Correo", s.Email, c.Email, "Solo se completa si el local está vacío.");
+        return d;
+    }
 
     private static string? Vacio(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 

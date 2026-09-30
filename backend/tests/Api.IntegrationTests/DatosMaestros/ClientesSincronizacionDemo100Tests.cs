@@ -187,9 +187,9 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         Assert.Equal(clienteId, (await ListaAsync(c, b + 100)).GetProperty("id").GetGuid());
     }
 
-    // Paso 3: moneda <indf>, estado desconocido y condición duplicada: Pendiente visible, sin éxito inventado.
+    // Paso 3: moneda <indf> no crea el cliente (no se asume MXN); estado desconocido y condición duplicada: Pendiente visible, sin éxito inventado.
     [Fact]
-    public async Task Demo100_moneda_estado_y_condicion_duplicada_quedan_Pendiente_sin_normalizar()
+    public async Task Demo100_estado_y_condicion_duplicada_quedan_Pendiente_y_moneda_sin_equivalencia_no_crea()
     {
         var b = NuevaBase();
         var origen = new OrigenFake([
@@ -202,25 +202,21 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
 
         var e = await BarridoAsync(f, c);
 
-        Assert.Equal("Completa", e.GetProperty("ejecucion").GetProperty("estado").GetString());
-        Assert.Equal((3, 3, 3), (N(e, "leidos"), N(e, "creados"), N(e, "pendientes"))); // creado pero Pendiente
-        foreach (var r in new[] { b + 1, b + 2, b + 3 })
+        Assert.Equal("Parcial", e.GetProperty("ejecucion").GetProperty("estado").GetString());
+        Assert.Equal((3, 2, 2, 1), (N(e, "leidos"), N(e, "creados"), N(e, "pendientes"), N(e, "errores"))); // b+1 no se crea
+        Assert.Equal(0, (await Json(await c.GetAsync($"{Clientes}?referenciaExterna={b + 1}"))).GetProperty("total").GetInt32());
+        foreach (var r in new[] { b + 2, b + 3 })
         {
             var item = await ListaAsync(c, r);
             Assert.Equal("Pendiente", item.GetProperty("origenAw").GetProperty("resultado").GetString());
             var o = (await DetalleAsync(c, item.GetProperty("id").GetGuid())).GetProperty("origenAw");
             Assert.Equal("Pendiente", o.GetProperty("resultado").GetString());
-            if (r == b + 1)
-            {
-                Assert.Equal("<indf>", o.GetProperty("monedaOrigen").GetString());
-                Assert.Equal(JsonValueKind.Null, o.GetProperty("monedaNormalizada").ValueKind);
-            }
             if (r == b + 2) Assert.Equal(7, o.GetProperty("estadoOrigenCrudo").GetInt32());
             if (r == b + 3) Assert.Equal(JsonValueKind.Null, o.GetProperty("diasNominalesOrigen").ValueKind); // no se elige una de las 2 filas
         }
         // Filtro por resultado: los tres son localizables como Pendiente.
         var pend = await Json(await c.GetAsync($"{Clientes}?resultadoSincronizacion=Pendiente&limit=200"));
-        Assert.True(new[] { b + 1, b + 2, b + 3 }.All(r => pend.GetProperty("items").EnumerateArray()
+        Assert.True(new[] { b + 2, b + 3 }.All(r => pend.GetProperty("items").EnumerateArray()
             .Any(i => i.GetProperty("referenciaExterna").GetString() == r.ToString())));
     }
 

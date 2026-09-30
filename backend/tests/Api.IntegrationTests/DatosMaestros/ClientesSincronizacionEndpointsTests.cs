@@ -71,6 +71,7 @@ public class ClientesSincronizacionEndpointsTests : IClassFixture<WebApplication
             b.UseSetting("IntegracionesAw:Clientes:LecturaHabilitada", flags ? "true" : "false");
             b.UseSetting("IntegracionesAw:Clientes:AplicacionHabilitada", flags ? "true" : "false");
             b.UseSetting("IntegracionesAw:Clientes:TamanoLote", "3");
+            b.UseSetting("IntegracionesAw:Clientes:MapeoMoneda:MXN", "MXN"); // sin mapeo la moneda no se asume y el alta se omite
             if (origen is not null)
                 b.ConfigureServices(s => s.AddSingleton<IAwClientesOrigen>(origen));
         });

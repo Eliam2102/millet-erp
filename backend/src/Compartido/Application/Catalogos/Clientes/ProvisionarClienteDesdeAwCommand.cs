@@ -89,7 +89,8 @@ public sealed class ProvisionarClienteDesdeAwHandler
             Telefono: request.Telefono,
             SoloCrear: true), cancellationToken);
 
-        return Respuesta(r.Cliente, creado: r.Accion == AplicarClienteAwAccion.Creado);
+        // SoloCrear nunca devuelve NoCreado: Cliente siempre viene.
+        return Respuesta(r.Cliente!, creado: r.Accion == AplicarClienteAwAccion.Creado);
     }
 
     private static ProvisionarClienteDesdeAwResponse Respuesta(Cliente c, bool creado) => new(

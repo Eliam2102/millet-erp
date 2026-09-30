@@ -56,6 +56,8 @@ public sealed class ClienteSincronizacionAw : BaseEntity, INotAudited
     public string VersionMapeo { get; private set; } = string.Empty;
     public ResultadoSincronizacionAw Resultado { get; private set; }
     public string? Error { get; private set; }
+    /// <summary>JSON de lo recibido que NO se aplicó al cliente existente (campo, recibido, conservado, motivo) en la última aplicación.</summary>
+    public string? Diferencias { get; private set; }
 
     private ClienteSincronizacionAw() { }
 
@@ -87,8 +89,9 @@ public sealed class ClienteSincronizacionAw : BaseEntity, INotAudited
         DateOnly? fechaOrigen, DateTime? transaccionOrigenUtc,
         Guid? ejecucionId, DateTime leidoEnUtc, DateTime aplicadoEnUtc,
         string hashOrigen, string versionContrato, string versionMapeo,
-        ResultadoSincronizacionAw resultado, string? error = null)
+        ResultadoSincronizacionAw resultado, string? error = null, string? diferencias = null)
     {
+        Max(diferencias, 2000, nameof(Diferencias));
         Max(nombreComercialOrigen, 400, nameof(NombreComercialOrigen));
         Max(domicilioCalle, 200, nameof(DomicilioOrigenCalle));
         Max(domicilioCiudad, 100, nameof(DomicilioOrigenCiudad));
@@ -140,6 +143,7 @@ public sealed class ClienteSincronizacionAw : BaseEntity, INotAudited
         VersionMapeo = versionMapeo;
         Resultado = resultado;
         Error = error;
+        Diferencias = diferencias;
     }
 
     /// <summary>Lectura sin cambios: solo refresca la marca de lectura; conserva el resultado previo.</summary>

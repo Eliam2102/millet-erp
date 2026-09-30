@@ -183,7 +183,10 @@ public sealed class AwClientesSincronizador
         try
         {
             var r = await _aplicar.AplicarAsync(mapeo.Snapshot! with { EjecucionId = ejec.Id }, ct);
-            if (r.Accion == AplicarClienteAwAccion.Conflicto)
+            if (r.Accion == AplicarClienteAwAccion.NoCreado)
+                ejec.RegistrarError(referencia, "moneda_sin_equivalencia",
+                    $"Cliente no creado: la moneda de origen '{mapeo.Snapshot!.MonedaCodigoOrigen ?? "(vacía)"}' no tiene equivalencia validada.", ahora);
+            else if (r.Accion == AplicarClienteAwAccion.Conflicto)
                 ejec.RegistrarConflicto(referencia, "conflicto_correlacion", "Existe un cliente manual con la misma referencia externa", ahora);
             else
                 ejec.AcumularFila(Reducir(r), r.Resultado == ResultadoSincronizacionAw.Pendiente);

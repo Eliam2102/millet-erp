@@ -31,10 +31,10 @@ public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory
             DomicilioCalle: "CALLE DEMO 1", DomicilioCiudad: "CIUDAD DEMO", DomicilioCp: "06600",
             DomicilioProvincia: "PROV", DomicilioPais: "MX",
             CondicionCodigoOrigen: "Z030", CondicionNumeroOrigen: 30, DiasNominalesOrigen: 30,
-            MonedaCodigoOrigen: "MXN", MonedaNormalizada: "MXN",
+            MonedaCodigoOrigen: "MXN", MonedaNormalizada: "MXN", MonedaDefault: "MXN",
             CreditoReferenciaLimite: 1000m, CreditoReferenciaLimite1: 500m, CreditoReferenciaNet: 30d);
         var res = await svc.AplicarAsync(snap, CancellationToken.None);
-        return res.Cliente.Id;
+        return res.Cliente!.Id;
     }
 
     private static string Url(Guid id) => $"/api/v1/datos-maestros/clientes/{id}";
