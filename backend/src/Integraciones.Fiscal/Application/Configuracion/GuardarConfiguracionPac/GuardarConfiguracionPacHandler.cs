@@ -143,14 +143,17 @@ public sealed class GuardarConfiguracionPacHandler
                 // llave, .cer/.key de pares distintos, cert vencido) — sin
                 // esto el error aparece hasta el timbrado (incidente
                 // 2026-07-11: "The .KEY's password is incorrect").
-                CsdValidador.Validar(csd.CertificadoBase64, csd.LlavePrivadaBase64, csd.Password, ahora);
+                var vigencia = CsdValidador.Validar(
+                    csd.CertificadoBase64, csd.LlavePrivadaBase64, csd.Password, ahora);
 
                 config.ConfigurarCsd(
                     certificadoCifrado: _cipher.Encrypt(csd.CertificadoBase64),
                     llavePrivadaCifrada: _cipher.Encrypt(csd.LlavePrivadaBase64),
                     passwordCifrado: _cipher.Encrypt(csd.Password),
                     hash: csdHash,
-                    ahora: ahora);
+                    ahora: ahora,
+                    notBefore: vigencia.NotBefore,
+                    notAfter: vigencia.NotAfter);
                 rotacion = true;
             }
         }
@@ -172,10 +175,10 @@ public sealed class GuardarConfiguracionPacHandler
                 OcurridoEn: ahora),
             ct);
 
-        return MapToResponse(config);
+        return MapToResponse(config, ahora);
     }
 
-    internal static ConfiguracionPacResponse MapToResponse(ConfiguracionPac c)
+    internal static ConfiguracionPacResponse MapToResponse(ConfiguracionPac c, DateTimeOffset ahora)
     {
         return new ConfiguracionPacResponse(
             Id: c.Id,
@@ -193,6 +196,9 @@ public sealed class GuardarConfiguracionPacHandler
             ReceptorSandbox: MapIdentidadDto(c.ReceptorSandbox),
             CsdConfigurado: c.CsdConfigurado,
             CsdActualizadoAt: c.CsdActualizadoAt,
+            CsdNotBefore: c.CsdNotBefore,
+            CsdNotAfter: c.CsdNotAfter,
+            CsdEstado: c.ObtenerEstadoCsd(ahora)?.ToString(),
             CreatedAt: c.CreatedAt,
             UpdatedAt: c.UpdatedAt,
             Version: c.Version);

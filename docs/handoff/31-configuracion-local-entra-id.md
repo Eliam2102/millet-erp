@@ -38,6 +38,8 @@ dotnet user-secrets set "Auth:EntraId:ClientSecret" "<SECRETO_NUEVO>" --project 
 
 No registrar el valor real en esta nota. En QA y producción debe provenir de Key Vault.
 
+La conexión local de PostgreSQL también está registrada en User Secrets con la clave `ConnectionStrings:Postgres`. Usa IPv4 explícita (`127.0.0.1:5432`) porque en este equipo la resolución de `localhost` llegó a cortar la negociación de Npgsql durante el arranque. No copiar la contraseña fuera del almacén local.
+
 ## Frontend
 
 `frontend/.env.development.local`:
@@ -58,7 +60,13 @@ El frontend convierte el audience base en el scope `api://5be93b1d-a0b7-447e-aa8
 - `GET /health/live`: HTTP 200.
 - `POST /api/auth/dev-login`: HTTP 404; el acceso falso está deshabilitado.
 - Redirección de MSAL al tenant configurado observada.
+- Reinicio verificado usando sólo User Secrets: el API inicia y `/health/live` responde HTTP 200.
+- PostgreSQL local verificado en el contenedor `millet-dev-postgres`, puerto 5432.
 
 ## Verificación pendiente en Azure
 
-En App Registration debe existir el scope `access_as_user` bajo el Application ID URI indicado. La Redirect URI de tipo SPA debe incluir el origen local usado por Vite, por ejemplo `http://127.0.0.1:5173/`. Completar el inicio de sesión y confirmar que `POST /api/auth/sesion` acepta el access token.
+En App Registration debe existir el scope `access_as_user` bajo el Application ID URI indicado. La Redirect URI de tipo SPA debe incluir exactamente el origen local usado por Vite: `http://localhost:5173/`. `localhost` y `127.0.0.1` son Redirect URI distintas para Entra. Completar el inicio de sesión y confirmar que `POST /api/auth/sesion` acepta el access token.
+
+## Diagnóstico del 30-sep-2026
+
+El mensaje `INTERNAL_ERROR` mostrado después de volver de Microsoft no fue causado por una limpieza de credenciales Entra. Las variables del frontend y las claves Entra del backend seguían presentes. El API había perdido disponibilidad porque la conexión PostgreSQL basada en `localhost` se cerraba durante la negociación. Se persistió `ConnectionStrings:Postgres` con `127.0.0.1:5432` en User Secrets y el reinicio posterior quedó saludable.

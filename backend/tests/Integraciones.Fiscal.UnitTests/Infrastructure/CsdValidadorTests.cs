@@ -43,6 +43,9 @@ public sealed class CsdValidadorTests
         var act = () => CsdValidador.Validar(cer, key, pass, Ahora);
 
         act.Should().NotThrow();
+        var vigencia = act();
+        vigencia.NotBefore.Should().BeBefore(Ahora);
+        vigencia.NotAfter.Should().BeAfter(Ahora);
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 # F1-ADM-09 · Evidencia de seguridad y gate de cierre
 
-**Fecha de corte:** 2026-09-29  
+**Fecha de corte:** 2026-09-30
 **Rama:** `feature/F1-ADM-09`  
 **Alcance de este documento:** evidencia parcial del primer corte; no contiene credenciales, CSD, payloads ni valores de configuración sensibles. El plan contractual actualizado está en `docs/modulos/integraciones-fiscal/03-f1-adm-09-plan-implementacion.md`.
 
@@ -18,9 +18,9 @@ Hasta completar esas fases, el estado oficial es **implementación parcial**. Ti
 - **Parámetros:** la implementación actual es global o por módulo, no por empresa. Por tanto, no se puede acreditar el requisito del plan de "parámetros fiscales por empresa" con el modelo vigente.
 - **Prueba real FiscalAPI sandbox:** **bloqueada**; no se encontraron credenciales ni CSD de prueba disponibles de forma segura en el entorno. No se intentó una llamada con datos inventados.
 - **Producción:** **bloqueada** hasta recibir insumos por canal seguro y resolver formalmente la custodia del CSD.
-- **Alcance por sucursal:** **pendiente**; `SucursalId` existe en Serie, pero falta autorización integral basada en asignaciones reales.
-- **Estado visible del CSD:** **pendiente**; se rechaza un certificado vencido al guardar, pero no se proyectan los tres estados requeridos.
-- **Reserva concurrente/tipo:** capacidades existentes que deben ejecutarse y documentarse dentro del cierre.
+- **Alcance por sucursal:** implementado con asignaciones reales `UsuarioSucursal` en listado, detalle, mutaciones y reserva HTTP; las series globales sólo se administran con permiso corporativo.
+- **Estado visible del CSD:** `NotBefore`/`NotAfter` se persisten como metadatos y la UI proyecta `Vigente`, `ProximoAVencer` y `Vencido` con umbral inclusivo de 30 días.
+- **Reserva concurrente/tipo:** regresiones de tipo, desactivación e histórico añadidas; la prueba HTTP de 50 reservas se conserva, pero su ejecución sigue condicionada al runner con BD desechable.
 - **PR/main:** rama remota disponible; integración final pendiente.
 
 ## Evidencia verificable
@@ -45,6 +45,32 @@ Consecuencia: el cierre puede reutilizar parámetros verdaderamente globales, pe
 
 ## Comandos ejecutados
 
+### Emisor fiscal y prueba de conexión PAC
+
+- El snapshot de emisión reutiliza `Empresa` como única fuente de RFC, razón social, régimen fiscal y código postal; no se creó otra entidad de emisor.
+- `Probar conexión` quedó como operación de sólo lectura: no actualiza `UltimaTestConexionAt` ni `UltimaTestConexionExitosa`.
+- Los dobles deterministas cubren éxito, configuración ausente/inactiva (422), timeout, 503 y rechazo HTTP conocido con mensajes accionables que no propagan el detalle interno del proveedor.
+
+```powershell
+dotnet test backend/tests/Integraciones.Fiscal.UnitTests/Millet.Integraciones.Fiscal.UnitTests.csproj --no-restore --filter "FullyQualifiedName~TestConexionPacHandlerTests"
+```
+
+Resultado: **6 pasaron, 0 fallaron, 0 omitidas**.
+
+```powershell
+dotnet test backend/tests/Facturacion.UnitTests/Millet.Facturacion.UnitTests.csproj --no-restore --filter "FullyQualifiedName~EmisorSnapshotTests"
+```
+
+Resultado: **2 pasaron, 0 fallaron, 0 omitidas**.
+
+```powershell
+dotnet test backend/tests/Facturacion.UnitTests/Millet.Facturacion.UnitTests.csproj --no-build --no-restore --filter "FullyQualifiedName~EmitirFacturaVentaHandlerTests|FullyQualifiedName~AnticiposHandlerTests|FullyQualifiedName~CartaPorte"
+```
+
+Resultado: **41 pasaron, 0 fallaron, 0 omitidas**.
+
+La compilación aislada posterior de `Api.IntegrationTests` terminó correctamente con **0 warnings y 0 errores**; valida la composición del código HTTP, pero no sustituye la ejecución contra PostgreSQL pendiente.
+
 ### Implementación y regresión ADM-09
 
 - Se añadieron 8 casos HTTP para autenticación, RBAC, idempotencia, enmascarado, cross-tenant y doble determinista del PAC.
@@ -55,15 +81,41 @@ Consecuencia: el cierre puede reutilizar parámetros verdaderamente globales, pe
 dotnet test backend/tests/Integraciones.Fiscal.UnitTests/Millet.Integraciones.Fiscal.UnitTests.csproj --no-restore
 ```
 
-Resultado: **176 pasaron, 0 fallaron, 0 omitidas**.
+Resultado integrado del 30-sep: **183 pasaron, 0 fallaron, 0 omitidas**.
 
 ```powershell
 dotnet build backend/tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj --no-restore -p:BaseOutputPath=<directorio-temporal>
 ```
 
-Resultado: **compilación exitosa, 0 warnings, 0 errores**. La ejecución HTTP quedó bloqueada: el runner oficial requiere una BD desechable y el script Bash no pudo crearla en este host (`E_ACCESSDENIED`).
+Resultado integrado del 30-sep: **compilación exitosa, 0 warnings, 0 errores**, incluyendo las regresiones finales de Series y PAC. La ejecución HTTP quedó bloqueada: el runner oficial requiere una BD desechable y el script Bash no pudo crearla en este host (`E_ACCESSDENIED`).
 
-Los comandos focalizados de Vitest, typecheck y ESLint arrancaron pero no finalizaron en este host, incluso aislando un caso preexistente; se interrumpieron y no se consideran resultados verdes. El build normal de la solución también encontró una DLL del API bloqueada por una instancia previa; la compilación aislada anterior evita ese bloqueo y valida el código afectado.
+`npm --prefix frontend run typecheck:test` terminó verde. Limitando Vitest a un worker para evitar el bloqueo del pool en este host, `ConfiguracionPacForm` terminó con **10/10** pruebas verdes y `SeriesPage.smoke` con **3/3**. ESLint focalizado terminó sin errores; el único warning detectado fue corregido después. El build normal de la solución encontró una DLL del API bloqueada por una instancia previa; la compilación aislada posterior terminó con **0 warnings y 0 errores** y valida el código afectado.
+
+Se intentó ejecutar el gate HTTP focalizado dos veces. El runner oficial `tools/validate-integration-isolated.sh` no pudo iniciar Bash/WSL (`Bash/Service/CreateInstance/E_ACCESSDENIED`). En el segundo intento se creó un PostgreSQL 17 temporal en Docker y en un puerto distinto al de desarrollo, pero la API de Docker dejó de responder incluso a `inspect`, `stop` y `rm`; el proceso se interrumpió sin obtener resultados de pruebas. El gate HTTP se registra como **no concluyente por infraestructura del host**, no como verde ni como fallo funcional. El contenedor temporal se creó con `--rm`; no se tocó `millet-dev-postgres`, aunque Docker debe recuperar disponibilidad para confirmar que la limpieza automática terminó.
+
+### Series, sucursales y emisor
+
+- El endpoint público de reserva exige `admin.series.gestionar`; las invocaciones internas por MediatR permanecen sin acoplarse a HTTP.
+- La UI muestra y filtra por sucursal reutilizando el catálogo existente; `SucursalId = null` aparece como `Global`.
+- Empresa es la fuente única de RFC, razón social, régimen y CP para el snapshot del emisor.
+
+```powershell
+dotnet test backend/tests/Facturacion.UnitTests/Millet.Facturacion.UnitTests.csproj --no-restore --filter "FullyQualifiedName~EmisorSnapshot|FullyQualifiedName~EmitirFacturaVentaHandler|FullyQualifiedName~EmitirFacturaAnticipoHandler|FullyQualifiedName~EmitirCartaPorteHandler"
+```
+
+Resultado integrado: **7 pasaron, 0 fallaron, 0 omitidas**.
+
+### Handoff para migración, reinicio y UAT
+
+El código queda **listo para aplicar la migración en un ambiente controlado, reiniciar el API y comenzar UAT de interfaz**, sujeto a las siguientes verificaciones operativas:
+
+1. confirmar que Docker/runner vuelve a responder y ejecutar el gate HTTP focalizado contra una BD desechable;
+2. aplicar `20260930043912_CsdVigenciaMetadatos` y verificar las columnas `csd_not_before` y `csd_not_after`;
+3. reiniciar el API y comprobar `/health/live`, lectura/descifrado de la configuración PAC existente y persistencia del key ring;
+4. recorrer UAT con usuario autorizado/no autorizado, dos sucursales, serie global y tipos Factura/Nota de crédito;
+5. mantener la prueba real de FiscalAPI bloqueada hasta recibir ApiKey y CSD sandbox por canal seguro.
+
+La actualización local de `docs/handoff/31-configuracion-local-entra-id.md` se conserva: documenta el arranque estable con PostgreSQL en `127.0.0.1` mediante User Secrets y no debe descartarse durante el handoff.
 
 ### Seguridad focalizada
 

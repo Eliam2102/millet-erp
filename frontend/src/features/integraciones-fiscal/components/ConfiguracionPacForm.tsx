@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   applyServerErrors,
   esApiError,
@@ -461,6 +462,27 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
               <span className="font-medium text-emerald-700 dark:text-emerald-400">
                 ✓ CSD configurado y validado
               </span>
+              {existing.csdEstado ? (
+                <Badge
+                  variant="outline"
+                  className={
+                    existing.csdEstado === 'Vigente'
+                      ? 'ml-2 border-emerald-500 text-emerald-700 dark:text-emerald-400'
+                      : existing.csdEstado === 'ProximoAVencer'
+                        ? 'ml-2 border-amber-500 text-amber-700 dark:text-amber-400'
+                        : 'ml-2 border-destructive text-destructive'
+                  }
+                >
+                  {existing.csdEstado === 'ProximoAVencer'
+                    ? 'Próximo a vencer'
+                    : existing.csdEstado}
+                </Badge>
+              ) : null}
+              {existing.csdNotAfter ? (
+                <span className="text-muted-foreground">
+                  {' — '}vence: {new Date(existing.csdNotAfter).toLocaleDateString()}
+                </span>
+              ) : null}
               {existing.csdActualizadoAt ? (
                 <span className="text-muted-foreground">
                   {' — '}actualizado: {new Date(existing.csdActualizadoAt).toLocaleString()}

@@ -147,6 +147,9 @@ function buildListarPath(filtros: ListarSeriesFiltros): string {
   if (filtros.tipoDocumento != null) {
     params.set('tipoDocumento', String(filtros.tipoDocumento));
   }
+  if (filtros.sucursalId != null && filtros.sucursalId.length > 0) {
+    params.set('sucursalId', filtros.sucursalId);
+  }
   if (filtros.offset != null) params.set('offset', String(filtros.offset));
   if (filtros.limit != null) params.set('limit', String(filtros.limit));
   const query = params.toString();

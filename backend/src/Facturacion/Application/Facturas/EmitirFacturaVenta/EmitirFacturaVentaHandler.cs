@@ -111,7 +111,7 @@ public sealed class EmitirFacturaVentaHandler
         // 2.bis F12-PR1: snapshot del emisor (razón social + LugarExpedicion del
         // master). Falla aquí si la empresa no tiene CP fiscal — sin quemar folio.
         var emisor = await EmisorSnapshot.ResolverAsync(
-            _empresasFiscal, empresaId, command.RfcEmisor, command.RegimenFiscalEmisor, cancellationToken);
+            _empresasFiscal, empresaId, cancellationToken);
 
         // 3. F4-PR2: cargar y validar los anticipos a amortizar ANTES de timbrar —
         // la relación 07 va en el XML (inmutable) y un saldo insuficiente debe

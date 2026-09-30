@@ -96,9 +96,12 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
     }
 
     [Theory]
-    [InlineData(true, 200, "Conexión disponible")]
-    [InlineData(false, 401, "Credenciales rechazadas")]
-    public async Task Test_con_doble_devuelve_resultado_normalizado_sin_secretos(bool exitosa, int status, string mensaje)
+    [InlineData(true, 200, "Conexión disponible", "Conexión exitosa con FiscalAPI.")]
+    [InlineData(false, 0, "timeout interno", "No fue posible conectar con FiscalAPI dentro del tiempo esperado.")]
+    [InlineData(false, 422, "config interna", "Configura y activa las credenciales de FiscalAPI antes de probar la conexión.")]
+    [InlineData(false, 503, "respuesta interna", "FiscalAPI no está disponible temporalmente. Intenta de nuevo.")]
+    public async Task Test_con_doble_devuelve_resultado_normalizado_sin_secretos(
+        bool exitosa, int status, string mensaje, string esperado)
     {
         var sdk = new StubSdk { Resultado = new(exitosa, status, mensaje, 7, DateTimeOffset.UtcNow) };
         await using var factory = FactoryWith(sdk);
@@ -109,8 +112,29 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(1, sdk.PingCount);
-        Assert.Equal(exitosa, JsonDocument.Parse(json).RootElement.GetProperty("exitosa").GetBoolean());
+        var body = JsonDocument.Parse(json).RootElement;
+        Assert.Equal(exitosa, body.GetProperty("exitosa").GetBoolean());
+        Assert.Equal(esperado, body.GetProperty("mensaje").GetString());
+        Assert.DoesNotContain(mensaje, json, StringComparison.Ordinal);
         AssertNoSecrets(json);
+    }
+
+    [Fact]
+    public async Task Test_con_configuracion_persistida_no_la_muta()
+    {
+        var sdk = new StubSdk();
+        await using var factory = FactoryWith(sdk);
+        var client = await CreateClientAsync(
+            PermisosCanonicos.IntegracionesFiscalLeer,
+            PermisosCanonicos.IntegracionesFiscalAdministrar,
+            factory: factory);
+        (await client.PutAsJsonAsync($"{Base}/{EmpresaId}/1", Body())).EnsureSuccessStatusCode();
+        var before = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+
+        (await client.PostAsJsonAsync($"{Base}/{EmpresaId}/1/test", new { })).EnsureSuccessStatusCode();
+        var after = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+
+        Assert.Equal(before, after);
     }
 
     private WebApplicationFactory<Program> FactoryWith(StubSdk sdk) =>

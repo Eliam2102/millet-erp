@@ -63,8 +63,7 @@ public sealed class TestConexionPacHandlerTests
     {
         var db = InMemoryFiscalDb.Create();
         var sdk = new StubSdk();
-        var clock = new InMemoryFiscalDb.FakeClock(Ahora);
-        var handler = new TestConexionPacHandler(db, sdk, clock);
+        var handler = new TestConexionPacHandler(sdk);
 
         var response = await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi,
@@ -77,7 +76,7 @@ public sealed class TestConexionPacHandlerTests
     }
 
     [Fact]
-    public async Task Ping_con_config_persistida_actualiza_timestamp_y_flag()
+    public async Task Ping_con_config_persistida_no_la_muta()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -93,8 +92,7 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(true, 200, "OK", 50, Ahora) };
-        var clock = new InMemoryFiscalDb.FakeClock(Ahora);
-        var handler = new TestConexionPacHandler(db, sdk, clock);
+        var handler = new TestConexionPacHandler(sdk);
 
         await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi,
@@ -102,12 +100,12 @@ public sealed class TestConexionPacHandlerTests
             CancellationToken.None);
 
         var refreshed = db.ConfiguracionesPac.Single();
-        refreshed.UltimaTestConexionAt.Should().Be(Ahora);
-        refreshed.UltimaTestConexionExitosa.Should().BeTrue();
+        refreshed.UltimaTestConexionAt.Should().BeNull();
+        refreshed.UltimaTestConexionExitosa.Should().BeNull();
     }
 
     [Fact]
-    public async Task Ping_fallido_persiste_flag_en_false()
+    public async Task Ping_fallido_no_deja_estado_ambiguo_persistido()
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -122,8 +120,7 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(false, 401, "Unauthorized", 30, Ahora) };
-        var handler = new TestConexionPacHandler(
-            db, sdk, new InMemoryFiscalDb.FakeClock(Ahora));
+        var handler = new TestConexionPacHandler(sdk);
 
         var response = await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi, null, null, null),
@@ -131,6 +128,24 @@ public sealed class TestConexionPacHandlerTests
 
         response.Exitosa.Should().BeFalse();
         response.StatusCode.Should().Be(401);
-        db.ConfiguracionesPac.Single().UltimaTestConexionExitosa.Should().BeFalse();
+        response.Mensaje.Should().Be("FiscalAPI rechazó la conexión (HTTP 401). Revisa la configuración.");
+        db.ConfiguracionesPac.Single().UltimaTestConexionExitosa.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0, "No fue posible conectar con FiscalAPI dentro del tiempo esperado.")]
+    [InlineData(422, "Configura y activa las credenciales de FiscalAPI antes de probar la conexión.")]
+    [InlineData(503, "FiscalAPI no está disponible temporalmente. Intenta de nuevo.")]
+    public async Task Ping_fallido_normaliza_mensaje_accionable(int statusCode, string mensaje)
+    {
+        var sdk = new StubSdk { Resultado = new(false, statusCode, "detalle interno", 30, Ahora) };
+        var handler = new TestConexionPacHandler(sdk);
+
+        var response = await handler.Handle(
+            new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi, null, null, null),
+            CancellationToken.None);
+
+        response.Mensaje.Should().Be(mensaje);
+        response.Mensaje.Should().NotContain("detalle interno");
     }
 }

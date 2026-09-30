@@ -53,6 +53,11 @@ const EMPRESA_E1 = {
 };
 
 beforeEach(() => {
+  mswServer.use(
+    http.get('*/api/v1/catalogos/sucursales', () =>
+      HttpResponse.json({ items: [], total: 0 }),
+    ),
+  );
   useAuthStore.setState({
     status: 'authenticated',
     accessToken: 'test-token',
@@ -108,6 +113,7 @@ describe('<SeriesPage> — smoke', () => {
     expect(screen.getByText('Anual')).toBeInTheDocument();
     // Estatus activa.
     expect(screen.getByText('Activa')).toBeInTheDocument();
+    expect(screen.getByText('Global')).toBeInTheDocument();
     // Botón "Nueva serie" (puede aparecer en header y empty state — basta con uno).
     expect(
       screen.getAllByRole('button', { name: /nueva serie/i })[0],

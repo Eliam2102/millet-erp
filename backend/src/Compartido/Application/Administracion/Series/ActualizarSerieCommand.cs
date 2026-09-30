@@ -40,8 +40,13 @@ public sealed class ActualizarSerieHandler
     : IRequestHandler<ActualizarSerieCommand, SerieResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
 
-    public ActualizarSerieHandler(CompartidoDbContext db) => _db = db;
+    public ActualizarSerieHandler(CompartidoDbContext db, SerieSucursalScope scope)
+    {
+        _db = db;
+        _scope = scope;
+    }
 
     public async Task<SerieResponse> Handle(
         ActualizarSerieCommand command, CancellationToken cancellationToken)
@@ -51,6 +56,8 @@ public sealed class ActualizarSerieHandler
             ?? throw new EntityNotFoundException(
                 "SERIE_NO_ENCONTRADA",
                 $"No existe serie con id '{command.Id}'.");
+
+        await _scope.VerificarAsync(serie.SucursalId, cancellationToken);
 
         serie.ActualizarDatos(
             prefijo: command.Prefijo,

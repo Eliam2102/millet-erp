@@ -43,12 +43,19 @@ public sealed class CrearSerieHandler
     : IRequestHandler<CrearSerieCommand, SerieResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
 
-    public CrearSerieHandler(CompartidoDbContext db) => _db = db;
+    public CrearSerieHandler(CompartidoDbContext db, SerieSucursalScope scope)
+    {
+        _db = db;
+        _scope = scope;
+    }
 
     public async Task<SerieResponse> Handle(
         CrearSerieCommand command, CancellationToken cancellationToken)
     {
+        await _scope.VerificarAsync(command.SucursalId, cancellationToken);
+
         // Verificar existencia de empresa.
         var empresaExiste = await _db.Empresas.AsNoTracking()
             .AnyAsync(e => e.Id == command.EmpresaId, cancellationToken);

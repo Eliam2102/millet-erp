@@ -39,6 +39,7 @@ public static class SeriesEndpoints
         group.MapGet("/", async (
             [FromQuery] Guid? empresaId,
             [FromQuery] TipoDocumentoSerie? tipoDocumento,
+            [FromQuery] Guid? sucursalId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -48,6 +49,7 @@ public static class SeriesEndpoints
                 new ListarSeriesQuery(
                     EmpresaId: empresaId,
                     TipoDocumento: tipoDocumento,
+                    SucursalId: sucursalId,
                     Offset: offset ?? 0,
                     Limit: limit ?? 50),
                 ct);
@@ -146,14 +148,16 @@ public static class SeriesEndpoints
         // --- RESERVAR (interno: requiere autenticación pero sin permiso específico) ---
         group.MapPost("/reservar", async (
             [FromBody] ReservarFolioCommand command,
+            SerieSucursalScope scope,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await scope.VerificarAsync(command.SucursalId, ct);
             var response = await mediator.Send(command, ct);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization()
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminSeriesGestionar)
         .WithName("ReservarFolio")
         .WithSummary("Reservar atómicamente el siguiente folio de una serie")
         .Produces<ReservarFolioResponse>(StatusCodes.Status200OK)

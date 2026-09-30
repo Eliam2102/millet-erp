@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Millet.Integraciones.Fiscal.Domain;
+using Millet.Integraciones.Fiscal.Domain.Exceptions;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using SdkModels = Fiscalapi.Models;
 using SdkCommon = Fiscalapi.Common;
@@ -350,13 +351,30 @@ public sealed class FiscalApiSdkAdapter : IFiscalApiSdkClient
                 TiempoMs:     stopwatch.ElapsedMilliseconds,
                 ConsultadoEn: DateTimeOffset.UtcNow);
         }
+        catch (ConfiguracionPacNoDisponibleException)
+        {
+            stopwatch.Stop();
+            return new PingResultDto(false, 422, "Configuración PAC incompleta.",
+                stopwatch.ElapsedMilliseconds, DateTimeOffset.UtcNow);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            stopwatch.Stop();
+            return new PingResultDto(false, 0, "Timeout del PAC.",
+                stopwatch.ElapsedMilliseconds, DateTimeOffset.UtcNow);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             stopwatch.Stop();
+            _logger.LogWarning(ex, "[FiscalApiSdkAdapter] Falló la prueba de conexión con FiscalAPI.");
             return new PingResultDto(
                 Exitosa:      false,
                 StatusCode:   0,
-                Mensaje:      ex.Message,
+                Mensaje:      "No fue posible conectar con FiscalAPI.",
                 TiempoMs:     stopwatch.ElapsedMilliseconds,
                 ConsultadoEn: DateTimeOffset.UtcNow);
         }

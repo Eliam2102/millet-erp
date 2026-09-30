@@ -250,6 +250,9 @@ public sealed class GuardarConfiguracionPacHandlerTests
 
         response.CsdConfigurado.Should().BeTrue();
         response.CsdActualizadoAt.Should().Be(Ahora);
+        response.CsdNotBefore.Should().Be(Ahora.AddYears(-1));
+        response.CsdNotAfter.Should().Be(Ahora.AddYears(4));
+        response.CsdEstado.Should().Be("Vigente");
 
         var persisted = db.ConfiguracionesPac.Single();
         cipher.Decrypt(persisted.CsdCertificadoCifrado!).Should().Be(CsdEku.CertificadoBase64);
@@ -276,6 +279,7 @@ public sealed class GuardarConfiguracionPacHandlerTests
             NewCommand(apiKey: null) with { Csd = CrearCsdDto("otro-pass") },
             CancellationToken.None);
         db.ConfiguracionesPac.Single().CsdHash.Should().NotBe(hashOriginal);
+        db.ConfiguracionesPac.Single().CsdNotAfter.Should().Be(Ahora.AddYears(4));
     }
 
     [Fact]

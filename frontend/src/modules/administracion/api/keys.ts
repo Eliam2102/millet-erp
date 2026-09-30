@@ -21,6 +21,7 @@ export interface ListarEmpresasFiltros {
  */
 export interface ListarSeriesFiltros {
   empresaId?: string | null;
+  sucursalId?: string | null;
   tipoDocumento?: TipoDocumentoSerie | null;
   offset?: number;
   limit?: number;

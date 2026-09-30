@@ -737,6 +737,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.Administracion.Application.Series.SerieSucursalScope>();
 
 // IRolReadPort (F1-ADM-01.4): lectura cross-módulo de roles para validación
 // de RolSugeridoId en Puesto. Adapter hospedado en Identidad.

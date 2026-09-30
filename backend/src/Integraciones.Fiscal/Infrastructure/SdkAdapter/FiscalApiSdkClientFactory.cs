@@ -3,6 +3,7 @@ using Fiscalapi.Common;
 using Fiscalapi.Services;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Fiscal.Domain;
+using Millet.Integraciones.Fiscal.Domain.Exceptions;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using SdkClient = Fiscalapi.Abstractions.IFiscalApiClient;
 
@@ -38,8 +39,7 @@ public sealed class FiscalApiSdkClientFactory : IFiscalApiSdkClientFactory
                 "FiscalApiSdkAdapter requiere TenantKey configurado (IntegracionesFiscal:Sdk:TenantKey).");
 
         var config = await _resolver.ResolverAsync(empresaId, ProveedorPac.FiscalApi, cancellationToken)
-            ?? throw new InvalidOperationException(
-                $"No hay configuración PAC activa para empresa {empresaId}.");
+            ?? throw new ConfiguracionPacNoDisponibleException(empresaId);
 
         // Cache key incluye empresa + un hash de la api key (sin
         // material crudo) para que el cache se invalide al rotar.

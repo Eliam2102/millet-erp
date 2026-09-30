@@ -15,8 +15,13 @@ public sealed class DesactivarSerieHandler
     : IRequestHandler<DesactivarSerieCommand, SerieResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
 
-    public DesactivarSerieHandler(CompartidoDbContext db) => _db = db;
+    public DesactivarSerieHandler(CompartidoDbContext db, SerieSucursalScope scope)
+    {
+        _db = db;
+        _scope = scope;
+    }
 
     public async Task<SerieResponse> Handle(
         DesactivarSerieCommand command, CancellationToken cancellationToken)
@@ -26,6 +31,8 @@ public sealed class DesactivarSerieHandler
             ?? throw new EntityNotFoundException(
                 "SERIE_NO_ENCONTRADA",
                 $"No existe serie con id '{command.Id}'.");
+
+        await _scope.VerificarAsync(serie.SucursalId, cancellationToken);
 
         if (serie.Activa)
         {

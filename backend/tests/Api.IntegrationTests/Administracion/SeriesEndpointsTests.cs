@@ -3,6 +3,12 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.Catalogos.Domain;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
@@ -58,6 +64,62 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await ReadJsonAsync(response);
         Assert.True(body.GetProperty("total").GetInt32() >= 0);
+    }
+
+    [Fact]
+    public async Task Usuario_Solo_Ve_Y_Opera_Series_De_Sucursal_Asignada()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var propia = await CrearSucursalAsync(admin, "SRP");
+        var ajena = await CrearSucursalAsync(admin, "SRA");
+        var propiaId = await CrearSerieAsync(admin, propia, 4, RandomPrefijo());
+        var ajenaId = await CrearSerieAsync(admin, ajena, 4, RandomPrefijo());
+        var operativo = await CreateOperativoAsync(propia);
+
+        var listado = await operativo.GetAsync(EndpointBase);
+        listado.EnsureSuccessStatusCode();
+        var ids = (await ReadJsonAsync(listado)).GetProperty("items").EnumerateArray()
+            .Select(x => x.GetProperty("id").GetGuid()).ToArray();
+        Assert.Contains(propiaId, ids);
+        Assert.DoesNotContain(ajenaId, ids);
+
+        Assert.Equal(HttpStatusCode.OK, (await operativo.GetAsync($"{EndpointBase}/{propiaId}")).StatusCode);
+        await AssertSucursalForbiddenAsync(await operativo.GetAsync($"{EndpointBase}/{ajenaId}"));
+        await AssertSucursalForbiddenAsync(await operativo.PatchAsJsonAsync(
+            $"{EndpointBase}/{ajenaId}", new { Prefijo = RandomPrefijo() }));
+        await AssertSucursalForbiddenAsync(await operativo.PostAsync(
+            $"{EndpointBase}/{ajenaId}/desactivar", null));
+        await AssertSucursalForbiddenAsync(await operativo.PostAsJsonAsync(
+            $"{EndpointBase}/reservar", new
+            {
+                EmpresaId = EmpresaBootstrapId,
+                SucursalId = ajena,
+                TipoDocumento = 4,
+                FechaReferencia = "2026-05-14",
+            }));
+    }
+
+    [Fact]
+    public async Task Serie_Global_Es_Fallback_Pero_Solo_Corporativo_La_Gestiona()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var sucursal = await CrearSucursalAsync(admin, "SRG");
+        var globalId = await CrearSerieAsync(admin, null, 3, RandomPrefijo());
+        var operativo = await CreateOperativoAsync(sucursal);
+
+        var reserva = await operativo.PostAsJsonAsync($"{EndpointBase}/reservar", new
+        {
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = sucursal,
+            TipoDocumento = 3,
+            FechaReferencia = "2026-05-14",
+        });
+        reserva.EnsureSuccessStatusCode();
+
+        var patch = await operativo.PatchAsJsonAsync(
+            $"{EndpointBase}/{globalId}", new { Prefijo = RandomPrefijo() });
+        Assert.Equal(HttpStatusCode.Forbidden, patch.StatusCode);
+        Assert.Equal("SERIE_GLOBAL_RESTRINGIDA", (await ReadJsonAsync(patch)).GetProperty("code").GetString());
     }
 
     // --- CREATE ---
@@ -206,7 +268,49 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.False(body.GetProperty("activa").GetBoolean());
     }
 
+    [Fact]
+    public async Task Desactivar_Bloquea_Reserva_Pero_Conserva_Detalle()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        var id = await CrearSerieAsync(client, sucursal, 4, RandomPrefijo());
+
+        (await client.PostAsync($"{EndpointBase}/{id}/desactivar", null)).EnsureSuccessStatusCode();
+
+        var reserva = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+        {
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = sucursal,
+            TipoDocumento = 4,
+            FechaReferencia = "2026-05-14",
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, reserva.StatusCode);
+        Assert.Equal("SERIE_NO_CONFIGURADA", (await ReadJsonAsync(reserva)).GetProperty("code").GetString());
+
+        var detalle = await client.GetAsync($"{EndpointBase}/{id}");
+        detalle.EnsureSuccessStatusCode();
+        Assert.False((await ReadJsonAsync(detalle)).GetProperty("serie").GetProperty("activa").GetBoolean());
+    }
+
     // --- RESERVAR ---
+
+    [Fact]
+    public async Task Reservar_Sin_Permiso_Retorna_403()
+    {
+        var client = _factory.CreateClientWithIdempotency();
+        var token = await FakeLoginAsync(client, "dev-noperms", "noperms@dev.local", "Sin Permisos");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+        {
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = (Guid?)null,
+            TipoDocumento = 2,
+            FechaReferencia = "2026-05-14",
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 
     [Fact]
     public async Task Reservar_Sin_Serie_Configurada_Retorna_422()
@@ -315,6 +419,32 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task Reservar_Cfdi_Y_NotaCredito_Mantiene_Secuencias_Independientes()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        await CrearSerieAsync(client, sucursal, 2, RandomPrefijo());
+        await CrearSerieAsync(client, sucursal, 3, RandomPrefijo());
+
+        async Task<long> Reservar(int tipo)
+        {
+            var response = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+            {
+                EmpresaId = EmpresaBootstrapId,
+                SucursalId = sucursal,
+                TipoDocumento = tipo,
+                FechaReferencia = "2026-05-14",
+            });
+            response.EnsureSuccessStatusCode();
+            return (await ReadJsonAsync(response)).GetProperty("numero").GetInt64();
+        }
+
+        Assert.Equal(1, await Reservar(2));
+        Assert.Equal(2, await Reservar(2));
+        Assert.Equal(1, await Reservar(3));
+    }
+
+    [Fact]
     public async Task Reservar_50_Concurrentes_Devuelve_50_Folios_Unicos()
     {
         // Concurrencia: dispara 50 POSTs en paralelo con keys distintos.
@@ -363,6 +493,72 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     {
         // Máx 10: "T" + 9 hex. Con 3 hex la BD de dev ya chocaba (409).
         return "T" + Guid.NewGuid().ToString("N").Substring(0, 9).ToUpperInvariant();
+    }
+
+    private static async Task<Guid> CrearSerieAsync(
+        HttpClient client, Guid? sucursalId, int tipoDocumento, string prefijo)
+    {
+        var response = await client.PostAsJsonAsync(EndpointBase, new
+        {
+            Id = Guid.Empty,
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = sucursalId,
+            TipoDocumento = tipoDocumento,
+            Prefijo = prefijo,
+            Sufijo = (string?)null,
+            ReinicioPeriodo = 0,
+        });
+        response.EnsureSuccessStatusCode();
+        return (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+    }
+
+    private async Task<HttpClient> CreateOperativoAsync(Guid sucursalId)
+    {
+        var random = Guid.NewGuid().ToString("N")[..10];
+        var oid = $"test-series-{random}";
+        var usuarioId = Guid.CreateVersion7();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var rolId = Guid.CreateVersion7();
+            db.Roles.Add(new Rol(rolId, oid, "Rol de prueba de alcance de series"));
+            var permisoId = await db.Permisos.AsNoTracking()
+                .Where(p => p.Codigo == PermisosCanonicos.AdminSeriesGestionar)
+                .Select(p => p.Id).SingleAsync();
+            db.RolPermisos.Add(new RolPermiso(Guid.CreateVersion7(), rolId, permisoId));
+            db.Usuarios.Add(new Usuario(usuarioId, oid, $"{oid}@test.local", "Usuario Series"));
+            db.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
+            db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(
+                Guid.CreateVersion7(), usuarioId, EmpresaBootstrapId, rolId, null));
+            db.UsuarioSucursales.Add(new UsuarioSucursal(
+                Guid.CreateVersion7(), usuarioId, sucursalId, EmpresaBootstrapId));
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithIdempotency();
+        var token = await FakeLoginAsync(client, oid, $"{oid}@test.local", "Usuario Series");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    private static async Task<Guid> CrearSucursalAsync(HttpClient client, string prefix)
+    {
+        var clave = $"{prefix}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+        var response = await client.PostAsJsonAsync("/api/v1/admin/empresas/sucursales", new
+        {
+            Id = Guid.Empty,
+            Clave = clave,
+            Nombre = $"Sucursal {clave}",
+        });
+        response.EnsureSuccessStatusCode();
+        return (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+    }
+
+    private static async Task AssertSucursalForbiddenAsync(HttpResponseMessage response)
+    {
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("SUCURSAL_NO_ASOCIADA", (await ReadJsonAsync(response)).GetProperty("code").GetString());
     }
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()

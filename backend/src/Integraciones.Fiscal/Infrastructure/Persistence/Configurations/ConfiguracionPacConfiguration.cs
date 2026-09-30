@@ -56,6 +56,8 @@ public sealed class ConfiguracionPacConfiguration : IEntityTypeConfiguration<Con
         builder.Property(c => c.CsdPasswordCifrado).HasColumnType("bytea");
         builder.Property(c => c.CsdHash).HasMaxLength(64);
         builder.Property(c => c.CsdActualizadoAt);
+        builder.Property(c => c.CsdNotBefore);
+        builder.Property(c => c.CsdNotAfter);
 
         // Identidades de prueba (LCO sintética) — owned opcionales, table
         // splitting sobre la misma fila. Todas las columnas NULL ⇒ navegación

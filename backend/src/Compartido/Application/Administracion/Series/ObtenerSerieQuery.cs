@@ -22,11 +22,13 @@ public sealed class ObtenerSerieHandler
 {
     private readonly CompartidoDbContext _db;
     private readonly IClock _clock;
+    private readonly SerieSucursalScope _scope;
 
-    public ObtenerSerieHandler(CompartidoDbContext db, IClock clock)
+    public ObtenerSerieHandler(CompartidoDbContext db, IClock clock, SerieSucursalScope scope)
     {
         _db = db;
         _clock = clock;
+        _scope = scope;
     }
 
     public async Task<SerieDetalleResponse> Handle(
@@ -37,6 +39,9 @@ public sealed class ObtenerSerieHandler
             ?? throw new EntityNotFoundException(
                 "SERIE_NO_ENCONTRADA",
                 $"No existe serie con id '{query.Id}'.");
+
+        if (serie.SucursalId is not null)
+            await _scope.VerificarAsync(serie.SucursalId, cancellationToken);
 
         var fechaHoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
         var periodo = Serie.CalcularPeriodoClave(serie.ReinicioPeriodo, fechaHoy);

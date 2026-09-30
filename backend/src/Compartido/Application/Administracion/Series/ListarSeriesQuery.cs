@@ -12,6 +12,7 @@ namespace Millet.Administracion.Application.Series;
 public sealed record ListarSeriesQuery(
     Guid? EmpresaId = null,
     TipoDocumentoSerie? TipoDocumento = null,
+    Guid? SucursalId = null,
     int Offset = 0,
     int Limit = 50) : IRequest<ListarSeriesResponse>;
 
@@ -24,8 +25,13 @@ public sealed class ListarSeriesHandler
 {
     private const int LimitMax = 200;
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
 
-    public ListarSeriesHandler(CompartidoDbContext db) => _db = db;
+    public ListarSeriesHandler(CompartidoDbContext db, SerieSucursalScope scope)
+    {
+        _db = db;
+        _scope = scope;
+    }
 
     public async Task<ListarSeriesResponse> Handle(
         ListarSeriesQuery query, CancellationToken cancellationToken)
@@ -36,10 +42,20 @@ public sealed class ListarSeriesHandler
             : query.Limit;
 
         IQueryable<Serie> q = _db.Series.AsNoTracking();
+        if (!await _scope.PuedeGestionarGlobalesAsync(cancellationToken))
+        {
+            var autorizadas = await _scope.ListarAutorizadasAsync(cancellationToken);
+            q = q.Where(s => s.SucursalId == null || autorizadas.Contains(s.SucursalId.Value));
+        }
         if (query.EmpresaId is Guid empresaId)
             q = q.Where(s => s.EmpresaId == empresaId);
         if (query.TipoDocumento is TipoDocumentoSerie tipo)
             q = q.Where(s => s.TipoDocumento == tipo);
+        if (query.SucursalId is Guid sucursalId)
+        {
+            await _scope.VerificarAsync(sucursalId, cancellationToken);
+            q = q.Where(s => s.SucursalId == sucursalId || s.SucursalId == null);
+        }
 
         var total = await q.CountAsync(cancellationToken);
         var items = await q
