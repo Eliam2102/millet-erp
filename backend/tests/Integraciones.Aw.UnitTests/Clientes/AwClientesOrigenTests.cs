@@ -166,6 +166,7 @@ public sealed class AwClientesOrigenTests
         sql.Should().NotMatchRegex(@"(?i)\b(INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|EXEC)\b");
         sql.Should().Contain("TOP").And.Contain("ORDER BY").And.Contain("@cursor");
         Regex.IsMatch(sql, @"\*").Should().BeFalse();
+        sql.Should().Contain("SYSADM.KU_KUNDEN").And.Contain("SYSADM.KA_ZAHLBED").And.NotContain("dbo.");
     }
 
     [Fact]

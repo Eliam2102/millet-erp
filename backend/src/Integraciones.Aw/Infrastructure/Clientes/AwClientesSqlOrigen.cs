@@ -11,7 +11,7 @@ using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
 
 /// <summary>
-/// Lector SOLO-SELECT de clientes A+W (<c>dbo.KU_KUNDEN</c> + catálogo <c>dbo.KA_ZAHLBED</c>).
+/// Lector SOLO-SELECT de clientes A+W (<c>SYSADM.KU_KUNDEN</c> + catálogo <c>SYSADM.KA_ZAHLBED</c>).
 /// Deshabilitado por defecto (ver <see cref="ClientesDependencyInjection"/>). Reusa la plomería
 /// (timeouts, clasificación a <c>AwReaderException</c>) de Pedidos.
 /// </summary>
@@ -32,8 +32,8 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
                        UST_ID, STEUERNUMMER, TLF1, TLF2, MAIL, ZAHLBED, WAEHRUNG,
                        KREDIT_LIMIT, KREDIT_LIMIT1, KREDIT_LIMIT_NET, KZ_STATUS, KZ_GESPERRT,
                        DATUM, TRANSACTION_TIME
-                  FROM dbo.KU_KUNDEN WHERE ID > @cursor ORDER BY ID) AS k
-          LEFT JOIN dbo.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
+                  FROM SYSADM.KU_KUNDEN WHERE ID > @cursor ORDER BY ID) AS k
+          LEFT JOIN SYSADM.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
          ORDER BY k.ID, z.NUMMER
         """;
 
@@ -44,8 +44,8 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
                        UST_ID, STEUERNUMMER, TLF1, TLF2, MAIL, ZAHLBED, WAEHRUNG,
                        KREDIT_LIMIT, KREDIT_LIMIT1, KREDIT_LIMIT_NET, KZ_STATUS, KZ_GESPERRT,
                        DATUM, TRANSACTION_TIME
-                  FROM dbo.KU_KUNDEN WHERE ID = @cursor ORDER BY ID) AS k
-          LEFT JOIN dbo.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
+                  FROM SYSADM.KU_KUNDEN WHERE ID = @cursor ORDER BY ID) AS k
+          LEFT JOIN SYSADM.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
          ORDER BY k.ID, z.NUMMER
         """;
 
