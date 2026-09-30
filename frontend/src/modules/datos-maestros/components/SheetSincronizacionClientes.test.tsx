@@ -82,8 +82,9 @@ describe('<SheetSincronizacionClientes>', () => {
       http.get(`${URL_LISTA}/e-1`, () => {
         llamadas++;
         return HttpResponse.json({
-          ...ej(llamadas === 1 ? 'Pendiente' : 'Completa'),
+          ejecucion: ej(llamadas === 1 ? 'Pendiente' : 'Completa'),
           errores: [{ referencia: 'AW-9', codigo: 'conflicto_correlacion', mensaje: 'Existe un cliente manual' }],
+          erroresTruncados: false,
         });
       }),
     );
@@ -101,13 +102,14 @@ describe('<SheetSincronizacionClientes>', () => {
       http.get(URL_LISTA, () => lista([ej('Parcial')])),
       http.get(`${URL_LISTA}/e-1`, () =>
         HttpResponse.json({
-          ...ej('Parcial'),
+          ejecucion: ej('Parcial'),
           errores: [{ referencia: 'AW-9', codigo: 'conflicto_correlacion', mensaje: 'Existe un cliente manual' }],
+          erroresTruncados: false,
         }),
       ),
       http.post('*/clientes/sincronizacion/reintentos', async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ id: 'r-1', estado: 'Completa' });
+        return HttpResponse.json({ ejecucion: ej('Completa', { id: 'r-1' }), errores: [], erroresTruncados: false });
       }),
     );
     abrir();

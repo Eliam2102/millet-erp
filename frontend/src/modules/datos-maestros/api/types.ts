@@ -329,6 +329,13 @@ export interface EjecucionSyncDetalle
   errores: EjecucionSyncErrorItem[];
 }
 
+/** Forma real del backend (GET /ejecuciones/{id} y POST /reintentos): el resumen viene anidado. */
+export interface EjecucionSyncDetalleRespuesta {
+  ejecucion: Omit<EjecucionSyncResumen, 'errores'>;
+  errores: EjecucionSyncErrorItem[];
+  erroresTruncados: boolean;
+}
+
 export interface ListarEjecucionesSyncResponse {
   items: EjecucionSyncResumen[];
   offset: number;

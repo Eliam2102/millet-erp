@@ -12,6 +12,7 @@ import type {
   CrearClienteResponse,
   EjecucionSyncAceptada,
   EjecucionSyncDetalle,
+  EjecucionSyncDetalleRespuesta,
   ListarClientesResponse,
   ListarEjecucionesSyncResponse,
 } from '@/modules/datos-maestros/api/types';
@@ -185,11 +186,11 @@ export function useEjecucionSync(id: string | null | undefined) {
         : (['datos-maestros', 'noop'] as const),
     queryFn: async ({ signal }) => {
       if (id == null) throw new Error('useEjecucionSync invocado sin id');
-      const { data } = await apiRequest<EjecucionSyncDetalle>(
+      const { data } = await apiRequest<EjecucionSyncDetalleRespuesta>(
         `${SYNC_BASE}/ejecuciones/${id}`,
         { signal },
       );
-      return data;
+      return aplanarDetalle(data);
     },
     enabled: id != null,
     refetchInterval: (q) =>
@@ -224,9 +225,9 @@ export function useIniciarSincronizacion() {
 
 export function useReintentarCliente() {
   const queryClient = useQueryClient();
-  return useMutation<EjecucionSyncAceptada, Error, { referencia: string }>({
+  return useMutation<EjecucionSyncDetalle, Error, { referencia: string }>({
     mutationFn: async ({ referencia }) => {
-      const { data } = await apiRequest<EjecucionSyncAceptada>(
+      const { data } = await apiRequest<EjecucionSyncDetalleRespuesta>(
         `${SYNC_BASE}/reintentos`,
         {
           method: 'POST',
@@ -234,7 +235,7 @@ export function useReintentarCliente() {
           idempotencyKey: crypto.randomUUID(),
         },
       );
-      return data;
+      return aplanarDetalle(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -245,6 +246,10 @@ export function useReintentarCliente() {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
+
+export function aplanarDetalle(r: EjecucionSyncDetalleRespuesta): EjecucionSyncDetalle {
+  return { ...r.ejecucion, errores: r.errores };
+}
 
 function buildListarClientesPath(filtros: ListarClientesFiltros): string {
   const params = new URLSearchParams();
