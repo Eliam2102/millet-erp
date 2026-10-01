@@ -41,6 +41,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { adminRegistry } from '@/lib/admin/registry';
 
 /**
  * <c>nav.ts</c> — un solo lugar donde se declara la navegación del ERP.
@@ -955,12 +956,20 @@ function contieneRuta(base: string, pathname: string): boolean {
  * específica que contiene la ruta (<c>/compras/ordenes/123</c> → card
  * <c>/compras/ordenes</c>), así el sidebar y la URL directa usan la misma
  * regla. Sin card: la raíz de un módulo (<c>/tesoreria</c>, su ayuda) exige
- * ver ese módulo; el resto (Inicio, administración) lo decide su ruta.
+ * ver ese módulo. La configuración administrativa exige un permiso de
+ * su módulo en el registry; Inicio queda disponible para la sesión.
  *
  * <para>Es una guarda de navegación, no de seguridad: el backend valida
  * cada endpoint.</para>
  */
 export function rutaPermitida(pathname: string, permisos: readonly string[]): boolean {
+  const settingsModulo = pathname.match(/^\/admin\/([^/]+)\/settings(?:\/|$)/)?.[1];
+  if (settingsModulo !== undefined) {
+    return adminRegistry.some(
+      (section) => section.modulo === settingsModulo && permisos.includes(section.permisoRequerido),
+    );
+  }
+
   const candidatas = [
     ...modulos.flatMap((m) => m.secciones.flatMap((s) => s.cards)),
     ...rutasFueraDelMenu,

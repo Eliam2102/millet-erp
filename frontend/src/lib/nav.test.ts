@@ -315,8 +315,19 @@ describe('visibilidad por permisos (sidebar y URLs)', () => {
     expect(rutaPermitida('/facturacion/ayuda', [P.FacturacionFacturasLeer])).toBe(true);
   });
 
-  it('URL: Inicio y rutas ajenas a los módulos no se bloquean aquí', () => {
+  it('URL: Inicio sigue disponible sin permisos de módulos', () => {
     expect(rutaPermitida('/', [])).toBe(true);
-    expect(rutaPermitida('/admin/identidad/settings', [])).toBe(true);
+  });
+
+  it('URL: configuración genérica exige un permiso administrativo del mismo módulo', () => {
+    expect(rutaPermitida('/admin/compras/settings', [])).toBe(false);
+    expect(rutaPermitida('/admin/compras/settings', [P.ComprasRequisicionesLeer])).toBe(false);
+    expect(rutaPermitida('/admin/compras/settings', [P.IdentidadUsuariosLeer])).toBe(false);
+    expect(rutaPermitida('/admin/compras/settings', [P.ComprasConfiguracionLeer])).toBe(true);
+    expect(rutaPermitida('/admin/compras/settings/', [P.ComprasConfiguracionLeer])).toBe(true);
+  });
+
+  it('URL: un módulo administrativo desconocido no concede acceso', () => {
+    expect(rutaPermitida('/admin/no-existe/settings', [P.ComprasConfiguracionLeer])).toBe(false);
   });
 });
