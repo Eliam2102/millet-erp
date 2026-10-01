@@ -38,6 +38,9 @@ public sealed class IdentidadDbContext : BaseDbContext
     // (UsuarioId, SucursalId). FK física cross-schema a
     // compartido.sucursales, mismo patrón que UsuarioServicio → Empresa.
     public DbSet<UsuarioSucursal> UsuarioSucursales => Set<UsuarioSucursal>();
+    // ADR-0053: excepciones de permisos (Conceder/Denegar) por usuario/empresa
+    // sobre la base del rol. UNIQUE (UsuarioId, EmpresaId, PermisoId).
+    public DbSet<UsuarioPermisoOverride> UsuarioPermisoOverrides => Set<UsuarioPermisoOverride>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +60,7 @@ public sealed class IdentidadDbContext : BaseDbContext
         ConfigureUsuarioServicio(modelBuilder);
         ConfigureUsuarioServicioPermiso(modelBuilder);
         ConfigureUsuarioSucursal(modelBuilder);
+        ConfigureUsuarioPermisoOverride(modelBuilder);
 
         SeedPermisosCanonicos(modelBuilder);
     }
@@ -338,6 +342,43 @@ public sealed class IdentidadDbContext : BaseDbContext
             .WithMany()
             .HasForeignKey(x => x.EmpresaId)
             .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    /// <summary>
+    /// Configura <see cref="UsuarioPermisoOverride"/> (ADR-0053). Cascade desde
+    /// <c>Usuario</c>; Restrict hacia <c>Permiso</c> y <c>Empresa</c>. Índice
+    /// único <c>(UsuarioId, EmpresaId, PermisoId)</c>.
+    /// </summary>
+    private static void ConfigureUsuarioPermisoOverride(ModelBuilder modelBuilder)
+    {
+        var o = modelBuilder.Entity<UsuarioPermisoOverride>();
+        o.ToTable("usuario_permiso_overrides");
+        o.HasKey(x => x.Id);
+        o.Property(x => x.Efecto).HasConversion<short>().IsRequired();
+        o.Property(x => x.Motivo).HasMaxLength(UsuarioPermisoOverride.MotivoMaxLength);
+
+        o.HasIndex(x => new { x.UsuarioId, x.EmpresaId, x.PermisoId }).IsUnique();
+        o.HasIndex(x => x.PermisoId);
+        o.HasIndex(x => x.EmpresaId);
+
+        o.HasOne<Usuario>()
+            .WithMany()
+            .HasForeignKey(x => x.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        o.HasOne<Permiso>()
+            .WithMany()
+            .HasForeignKey(x => x.PermisoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        o.HasOne<Empresa>()
+            .WithMany()
+            .HasForeignKey(x => x.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Sin FK al asignador: es dato informativo y no debe bloquear el
+        // borrado del usuario que configuró.
+        o.Property(x => x.AsignadoPorUsuarioId);
     }
 
     /// <summary>

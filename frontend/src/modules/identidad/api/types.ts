@@ -152,3 +152,45 @@ export interface AsignarRolPayload {
   empresaId: string;
   rolId: string;
 }
+
+// ─── Permisos personalizados por usuario (ADR-0053) ─────────────────
+
+export type OrigenPermiso = 'Rol' | 'Concedido' | 'Denegado';
+export type EfectoPermiso = 'Conceder' | 'Denegar';
+
+export interface PermisoEfectivoItem {
+  permisoId: string;
+  codigo: string;
+  origen: OrigenPermiso;
+  /** <c>false</c> solo cuando el origen es <c>Denegado</c>. */
+  efectivo: boolean;
+  motivo: string | null;
+}
+
+export interface PermisosEfectivosUsuarioResponse {
+  usuarioId: string;
+  empresaId: string;
+  rolId: string | null;
+  rolCodigo: string | null;
+  rolEsSuperAdmin: boolean;
+  permisos: PermisoEfectivoItem[];
+  concedidos: number;
+  denegados: number;
+}
+
+export interface PermisoOverrideItem {
+  permisoId: string;
+  efecto: EfectoPermiso;
+  motivo?: string | null;
+}
+
+export interface ActualizarPermisosOverridePayload {
+  overrides: PermisoOverrideItem[];
+}
+
+export interface PermisosOverrideResumenResponse {
+  usuarioId: string;
+  empresaId: string;
+  concedidos: number;
+  denegados: number;
+}

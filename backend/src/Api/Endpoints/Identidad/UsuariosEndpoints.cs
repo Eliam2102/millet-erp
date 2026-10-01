@@ -252,8 +252,73 @@ public static class UsuariosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // --- PERMISOS PERSONALIZADOS (ADR-0053) ---
+        group.MapGet("/{id:guid}/empresas/{empresaId:guid}/permisos", async (
+            Guid id,
+            Guid empresaId,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(
+                new ObtenerPermisosEfectivosUsuarioQuery(id, empresaId), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IdentidadUsuariosLeer)
+        .WithName("ObtenerPermisosEfectivosUsuario")
+        .WithSummary("Permisos efectivos del usuario en una empresa, con su origen (Rol/Concedido/Denegado)")
+        .Produces<PermisosEfectivosUsuarioResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPut("/{id:guid}/empresas/{empresaId:guid}/permisos-override", async (
+            Guid id,
+            Guid empresaId,
+            [FromBody] ActualizarPermisosOverridePayload payload,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(
+                new ActualizarPermisosOverrideUsuarioCommand(
+                    id, empresaId, payload.Overrides ?? Array.Empty<PermisoOverrideItem>()),
+                ct);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IdentidadUsuariosGestionarPermisos)
+        .WithName("ActualizarPermisosOverrideUsuario")
+        .WithSummary("Reemplaza atómicamente las excepciones de permisos (Conceder/Denegar) del usuario en la empresa")
+        .Produces<PermisosOverrideResumenResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapDelete("/{id:guid}/empresas/{empresaId:guid}/permisos-override", async (
+            Guid id,
+            Guid empresaId,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await mediator.Send(new RestablecerPermisosOverrideUsuarioCommand(id, empresaId), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IdentidadUsuariosGestionarPermisos)
+        .WithName("RestablecerPermisosOverrideUsuario")
+        .WithSummary("Quita todas las excepciones de permisos del usuario en la empresa (vuelve al rol)")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
     }
+
+    /// <summary>Payload del PUT /usuarios/{id}/empresas/{empresaId}/permisos-override.</summary>
+    public sealed record ActualizarPermisosOverridePayload(IReadOnlyList<PermisoOverrideItem>? Overrides);
 
     /// <summary>Payload del PATCH /usuarios/{id}.</summary>
     public sealed record ActualizarUsuarioPayload(

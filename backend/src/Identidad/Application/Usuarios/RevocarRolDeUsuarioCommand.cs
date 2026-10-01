@@ -16,6 +16,8 @@ namespace Millet.Identidad.Application.Usuarios;
 ///         es la única asignación de super-admin a un usuario activo en
 ///         el sistema. Evita que se elimine la única vía de acceso
 ///         super-admin.</item>
+///   <item>Borra las excepciones de permisos del usuario en la empresa
+///         (cambio de rol, ADR-0053) e invalida su caché de permisos.</item>
 ///   <item>Publica <see cref="UsuarioRolRevocadoEvent"/> via
 ///         <see cref="IIntegrationEventPublisher"/>.</item>
 /// </list>
@@ -32,17 +34,20 @@ public sealed class RevocarRolDeUsuarioHandler
     private readonly IdentidadDbContext _db;
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentEmpresaContext _empresaContext;
+    private readonly IPermissionCache _permissionCache;
     private readonly IClock _clock;
 
     public RevocarRolDeUsuarioHandler(
         IdentidadDbContext db,
         IIntegrationEventPublisher events,
         ICurrentEmpresaContext empresaContext,
+        IPermissionCache permissionCache,
         IClock clock)
     {
         _db = db;
         _events = events;
         _empresaContext = empresaContext;
+        _permissionCache = permissionCache;
         _clock = clock;
     }
 
@@ -70,7 +75,14 @@ public sealed class RevocarRolDeUsuarioHandler
             (asignacion.UsuarioId, asignacion.EmpresaId, asignacion.RolId);
 
         _db.UsuarioEmpresaRoles.Remove(asignacion);
+        // Cambio de rol: las excepciones de permisos del usuario en esta
+        // empresa se borran en la misma transacción (ADR-0053).
+        var overridesBorrados = await PermisosOverrideReglas.QuitarPorCambioDeRolAsync(
+            _db, usuarioId, empresaId, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+        await PermisosOverrideReglas.NotificarCambioDeRolAsync(
+            _permissionCache, _events, _clock,
+            usuarioId, empresaId, overridesBorrados, cancellationToken);
 
         await _events.PublishAsync(
             new UsuarioRolRevocadoEvent(

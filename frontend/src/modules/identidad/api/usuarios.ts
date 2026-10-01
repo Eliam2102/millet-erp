@@ -5,10 +5,13 @@ import {
   type ListarUsuariosFiltros,
 } from '@/modules/identidad/api/keys';
 import type {
+  ActualizarPermisosOverridePayload,
   ActualizarUsuarioPayload,
   AsignarRolPayload,
   CrearUsuarioCommand,
   ListarUsuariosResponse,
+  PermisosEfectivosUsuarioResponse,
+  PermisosOverrideResumenResponse,
   UsuarioDetalleResponse,
   UsuarioEmpresaRolResponse,
   UsuarioResponse,
@@ -28,6 +31,9 @@ import type {
  *   <item><c>POST   /{id}/reactivar</c>.</item>
  *   <item><c>POST   /{id}/asignaciones</c> — asignar rol×empresa.</item>
  *   <item><c>DELETE /asignaciones/{usuarioEmpresaRolId}</c> — revocar.</item>
+ *   <item><c>GET    /{id}/empresas/{empresaId}/permisos</c> — efectivos con origen.</item>
+ *   <item><c>PUT    /{id}/empresas/{empresaId}/permisos-override</c> — excepciones (batch).</item>
+ *   <item><c>DELETE /{id}/empresas/{empresaId}/permisos-override</c> — volver al rol.</item>
  * </list>
  *
  * <para>Convención de invalidación: las mutaciones invalidan la
@@ -213,6 +219,83 @@ export function useRevocarAsignacion() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({
         queryKey: identidadKeys.usuario(vars.usuarioId),
+      });
+    },
+  });
+}
+
+// ─── Permisos personalizados (ADR-0053) ─────────────────────────────
+
+/** Permisos efectivos del usuario en una empresa, con su origen. */
+export function usePermisosEfectivosUsuario(
+  usuarioId: string | null | undefined,
+  empresaId: string | null | undefined,
+) {
+  const habilitado = usuarioId != null && empresaId != null;
+  return useQuery({
+    queryKey: habilitado
+      ? identidadKeys.permisosEfectivos(usuarioId, empresaId)
+      : (['identidad', 'noop'] as const),
+    queryFn: async ({ signal }) => {
+      if (!habilitado) throw new Error('usePermisosEfectivosUsuario sin ids');
+      const { data } = await apiRequest<PermisosEfectivosUsuarioResponse>(
+        `/api/v1/identidad/usuarios/${usuarioId}/empresas/${empresaId}/permisos`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: habilitado,
+    staleTime: 0,
+  });
+}
+
+export interface ActualizarPermisosOverrideArgs {
+  usuarioId: string;
+  empresaId: string;
+  payload: ActualizarPermisosOverridePayload;
+  idempotencyKey: string;
+}
+
+export function useActualizarPermisosOverride() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    PermisosOverrideResumenResponse,
+    Error,
+    ActualizarPermisosOverrideArgs
+  >({
+    mutationFn: async ({ usuarioId, empresaId, payload, idempotencyKey }) => {
+      const { data } = await apiRequest<PermisosOverrideResumenResponse>(
+        `/api/v1/identidad/usuarios/${usuarioId}/empresas/${empresaId}/permisos-override`,
+        { method: 'PUT', body: payload, idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: identidadKeys.permisosEfectivos(vars.usuarioId, vars.empresaId),
+      });
+    },
+  });
+}
+
+export interface RestablecerPermisosOverrideArgs {
+  usuarioId: string;
+  empresaId: string;
+  idempotencyKey: string;
+}
+
+export function useRestablecerPermisosOverride() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, RestablecerPermisosOverrideArgs>({
+    mutationFn: async ({ usuarioId, empresaId, idempotencyKey }) => {
+      await apiRequest<void>(
+        `/api/v1/identidad/usuarios/${usuarioId}/empresas/${empresaId}/permisos-override`,
+        { method: 'DELETE', idempotencyKey },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: identidadKeys.permisosEfectivos(vars.usuarioId, vars.empresaId),
       });
     },
   });

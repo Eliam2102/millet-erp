@@ -23,6 +23,8 @@ public static class PermisosCanonicos
     public const string IdentidadUsuariosCrear = "identidad.usuarios.crear";
     public const string IdentidadUsuariosEditar = "identidad.usuarios.editar";
     public const string IdentidadUsuariosDesactivar = "identidad.usuarios.desactivar";
+    // Excepciones de permisos por (usuario, empresa) sobre el rol base (ADR-0053).
+    public const string IdentidadUsuariosGestionarPermisos = "identidad.usuarios.gestionar-permisos";
     public const string IdentidadRolesLeer = "identidad.roles.leer";
     // <c>IdentidadRolesAdministrar</c> es el permiso grueso heredado de F0
     // (cubre crear+editar+desactivar+asignar permisos en un solo bit). En
@@ -466,6 +468,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000002-0002-0000-0000-000000000002"), IdentidadUsuariosCrear,                       "Crear nuevos usuarios"),
         (Guid.Parse("00000002-0002-0000-0000-000000000003"), IdentidadUsuariosEditar,                      "Editar perfil y estado de usuarios"),
         (Guid.Parse("00000002-0002-0000-0000-00000000000d"), IdentidadUsuariosDesactivar,                  "Desactivar y reactivar usuarios (soft-delete)"),
+        (Guid.Parse("00000002-0002-0000-0000-00000000000e"), IdentidadUsuariosGestionarPermisos,           "Administrar excepciones de permisos (conceder/denegar) de un usuario por empresa"),
         (Guid.Parse("00000002-0002-0000-0000-000000000004"), IdentidadRolesLeer,                           "Listar y consultar roles"),
         (Guid.Parse("00000002-0002-0000-0000-000000000005"), IdentidadRolesAdministrar,                    "Crear, editar y desactivar roles"),
         (Guid.Parse("00000002-0002-0000-0000-000000000006"), IdentidadAsignacionesLeer,                    "Consultar asignaciones de roles a usuarios por empresa"),
