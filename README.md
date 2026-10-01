@@ -41,10 +41,14 @@ el módulo de compras.
 | [`infra/`](./infra/) | Infrastructure as Code en Bicep para los ambientes de Azure (dev, qa, prod). |
 | [`backend/`](./backend/) | API en .NET 10 con arquitectura hexagonal y CQRS por módulo. |
 | [`frontend/`](./frontend/) | SPA en React 19 + TypeScript + Vite + shadcn/ui. |
+| [`design-system/`](./design-system/) | Guía visual y tokens Millet; lectura obligatoria antes de crear o modificar UI. |
 | [`docs/`](./docs/) | Documentación del proyecto, decisiones arquitectónicas (ADRs) y levantamientos por módulo. |
 | [`tools/`](./tools/) | Scripts y utilidades del proyecto. |
 
 Cada subcarpeta tiene su propio `README.md` con detalles específicos.
+Para trabajo de UI, comienza por [`design-system/DESIGN.md`](./design-system/DESIGN.md),
+la [integración con Tailwind 4](./design-system/README.md) y las
+[instrucciones para agentes](./frontend/AGENTS.md).
 
 ---
 
