@@ -72,17 +72,17 @@ public static class ClientesDependencyInjection
         return services;
     }
 
-    /// <summary>Conexión propia de clientes (no es el factory de pedidos); TLS verificado obligatorio.</summary>
-    private sealed class ClientesSqlConnectionFactory : IIntegracionSqlConnectionFactory
+    /// <summary>Conexión propia de clientes/productos (no es el factory de pedidos); TLS verificado obligatorio.</summary>
+    internal sealed class ClientesSqlConnectionFactory : IIntegracionSqlConnectionFactory
     {
         private readonly string _connectionString;
 
-        public ClientesSqlConnectionFactory(string connectionString)
+        public ClientesSqlConnectionFactory(string connectionString, string nombre = AwClientesOptions.ConnectionStringName)
         {
             var b = new SqlConnectionStringBuilder(connectionString);
             if (b.Encrypt == SqlConnectionEncryptOption.Optional || b.TrustServerCertificate)
                 throw new InvalidOperationException(
-                    "ConnectionStrings:AwClientesDb exige TLS verificado (Encrypt=True, sin TrustServerCertificate).");
+                    $"ConnectionStrings:{nombre} exige TLS verificado (Encrypt=True, sin TrustServerCertificate).");
             _connectionString = b.ConnectionString;
         }
 

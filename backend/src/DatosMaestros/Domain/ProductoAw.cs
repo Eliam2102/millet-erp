@@ -79,6 +79,12 @@ public sealed class ProductoAw : BaseEntity, IAuditable
     public OrigenMaster Origen { get; private set; } = OrigenMaster.Aw;
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
+    /// <summary>Fecha de la baja controlada (nunca DELETE); null mientras el producto no esté dado de baja.</summary>
+    public DateTime? FechaBaja { get; private set; }
+
+    private readonly List<ProductoAwVariante> _variantes = [];
+    public IReadOnlyList<ProductoAwVariante> Variantes => _variantes;
+
     private ProductoAw() { }
 
     public ProductoAw(
@@ -232,6 +238,60 @@ public sealed class ProductoAw : BaseEntity, IAuditable
         && !string.IsNullOrWhiteSpace(ClaveUnidadSat);
 
     public void CambiarEstatus(EstatusCatalogo nuevoEstatus) => Estatus = nuevoEstatus;
+
+    /// <summary>Baja controlada: Inactivo + fecha. Idempotente (conserva la fecha original); no borra datos ni variantes.</summary>
+    public void DarDeBaja(DateTime fechaBajaUtc)
+    {
+        if (Estatus == EstatusCatalogo.Inactivo && FechaBaja.HasValue) return;
+        Estatus = EstatusCatalogo.Inactivo;
+        FechaBaja ??= fechaBajaUtc;
+    }
+
+    /// <summary>Reactiva un producto dado de baja: Activo y limpia la fecha de baja. Idempotente.</summary>
+    public void Reactivar()
+    {
+        Estatus = EstatusCatalogo.Activo;
+        FechaBaja = null;
+    }
+
+    /// <summary>
+    /// Upsert de variantes por <c>ClaveVariante</c>. Rechaza claves repetidas en
+    /// la lista. Las variantes no incluidas se conservan (la ausencia no es baja).
+    /// Valida todo antes de mutar.
+    /// </summary>
+    public void AplicarVariantes(IEnumerable<ProductoAwVarianteDato> datos)
+    {
+        var lista = datos.ToList();
+        var repetida = lista.GroupBy(d => d.ClaveVariante).FirstOrDefault(g => g.Count() > 1);
+        if (repetida is not null)
+            throw new BusinessRuleException("PRODUCTO_AW_VARIANTE_DUPLICADA",
+                $"La clave de variante '{repetida.Key}' viene repetida para el producto {ReferenciaExterna}.");
+
+        // Fase 1: construir/validar sin tocar el estado.
+        var nuevas = new List<ProductoAwVariante>();
+        var cambios = new List<(ProductoAwVariante V, ProductoAwVarianteDato D)>();
+        foreach (var d in lista)
+        {
+            var existente = _variantes.FirstOrDefault(v => v.ClaveVariante == d.ClaveVariante);
+            if (existente is null)
+                nuevas.Add(new ProductoAwVariante(Guid.CreateVersion7(), Id, d.ClaveVariante,
+                    d.AltoMm, d.AnchoMm, d.EspesorMm, d.Composicion));
+            else
+                cambios.Add((existente, d));
+        }
+        foreach (var (v, d) in cambios)
+        {
+            if (d.AltoMm is <= 0 || d.AnchoMm is <= 0 || d.EspesorMm is <= 0)
+                throw new BusinessRuleException("PRODUCTO_AW_VARIANTE_MEDIDA_INVALIDA",
+                    "Las medidas deben ser mayores a 0 (o nulas si no se informan).");
+            if (d.Composicion is { Length: > 200 })
+                throw new BusinessRuleException("PRODUCTO_AW_VARIANTE_COMPOSICION_INVALIDA",
+                    "La composición no puede exceder 200 caracteres.");
+        }
+        // Fase 2: aplicar.
+        foreach (var (v, d) in cambios) v.Asignar(d.AltoMm, d.AnchoMm, d.EspesorMm, d.Composicion);
+        _variantes.AddRange(nuevas);
+    }
 
     private static void ValidarFiscales(
         string? claveProdServSat, string? claveUnidadSat, string? objetoImp,

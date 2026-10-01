@@ -38,7 +38,9 @@ public sealed record ProductoAwItem(
     decimal? PesoUnitarioKg,
     OrigenMaster Origen,
     bool DatosFiscalesCompletos,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    DateTime? FechaBaja,
+    int NumVariantes);
 
 public sealed record ListarProductosAwResponse(
     IReadOnlyList<ProductoAwItem> Items,
@@ -95,7 +97,7 @@ public sealed class ListarProductosAwHandler
                 p.ClaveUnidadSat, p.ObjetoImp, p.TasaIvaTraslado,
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.Origen,
                 p.ClaveProdServSat != null && p.ClaveUnidadSat != null,
-                p.Estatus))
+                p.Estatus, p.FechaBaja, p.Variantes.Count))
             .ToListAsync(cancellationToken);
 
         return new ListarProductosAwResponse(items, offset, limit, total);

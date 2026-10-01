@@ -43,6 +43,7 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Integraciones.Aw.Infrastructure;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
+using Millet.Integraciones.Aw.Infrastructure.Productos;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 using Millet.Integraciones.Fiscal.Infrastructure;
 using Millet.SharedKernel.Infrastructure.Persistence.Interceptors;
@@ -800,6 +801,7 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 // ADM-06: lector de clientes A+W. Independiente de pedidos; por defecto solo la fuente
 // simulada vacía (sin adaptador SQL, sin lecturas). Ver doc integration/05 §10.
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
+builder.Services.AddIntegracionesAwProductos(builder.Configuration);
 
 // F2-PR2: worker de envío de CFDI por correo (drena bitacora_envio_correo,
 // genera PDF + adjunta XML, entrega vía INotificacionService [stub]).
@@ -1087,6 +1089,8 @@ builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) =>
     opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
 });
 builder.Services.AddScoped<Millet.DatosMaestros.Application.Clientes.AplicarClienteAwService>();
+builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.AplicarProductoAwService>();
+builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.IProductoAwContratoReadPort, Millet.Compartido.Infrastructure.PublicAdapters.ProductoAwContratoReadAdapter>();
 builder.Services.AddDbContext<CoreDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
 builder.Services.AddHostedService<AuditPartitionRolloverJob>();
 builder.Services.AddDbContext<IdentidadDbContext>((sp, opts) => ConfigureMilletDbContext(opts, sp));
@@ -1389,6 +1393,7 @@ Millet.Api.Endpoints.Catalogos.CatalogosSatFiscalApiEndpoints.MapCatalogosSatFis
 // === Datos Maestros — queries enriquecidas (F-Admin-PR4.5) ===
 Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.ProductosAwSincronizacionEndpoints.MapProductosAwSincronizacionEndpoints(app);
 
 // === Catálogo de tipos de documento OC (UF3-PR2 — Compras-specific) ===
 Millet.Api.Endpoints.Compras.Oc.TiposDocumentoOcEndpoint.MapTiposDocumentoOcEndpoint(app);

@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Compartido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 {
     [DbContext(typeof(CompartidoDbContext))]
-    partial class CompartidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261001055626_ProductoAwVariantesSincronizacion")]
+    partial class ProductoAwVariantesSincronizacion
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3015,7 +3018,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         {
                             t.HasCheckConstraint("ck_unidades_medida_decimales", "decimales BETWEEN 0 AND 6");
 
-                            t.HasCheckConstraint("ck_unidades_medida_dimension", "dimension BETWEEN 0 AND 5");
+                            t.HasCheckConstraint("ck_unidades_medida_dimension", "dimension BETWEEN 0 AND 4");
 
                             t.HasCheckConstraint("ck_unidades_medida_estatus", "estatus BETWEEN 0 AND 2");
 
@@ -3179,38 +3182,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Estatus = (short)0,
                             FactorABase = 1m,
                             Nombre = "Hora",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000002-0007-0000-0000-00000000000b"),
-                            Codigo = "M2",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Decimales = 2,
-                            Dimension = (short)5,
-                            EsBase = true,
-                            Estatus = (short)0,
-                            FactorABase = 1m,
-                            Nombre = "Metro cuadrado",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000002-0007-0000-0000-00000000000c"),
-                            Codigo = "M3",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Decimales = 3,
-                            Dimension = (short)2,
-                            EsBase = false,
-                            Estatus = (short)0,
-                            FactorABase = 1000m,
-                            Nombre = "Metro cúbico",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

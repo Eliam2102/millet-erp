@@ -408,7 +408,7 @@ public static class DatosMaestrosEndpoints
         productosAw.MapGet("/{id:guid}", async (
             Guid id, CompartidoDbContext db, CancellationToken ct) =>
         {
-            var p = await db.ProductosAw.AsNoTracking()
+            var p = await db.ProductosAw.AsNoTracking().Include(x => x.Variantes)
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new EntityNotFoundException(
                     "PRODUCTO_AW_NO_ENCONTRADO",
@@ -419,7 +419,10 @@ public static class DatosMaestrosEndpoints
                 p.ClaveUnidadSat, p.ObjetoImp, p.TasaIvaTraslado,
                 p.TasaRetencionIva, p.TasaRetencionIsr,
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.Origen,
-                p.DatosFiscalesCompletos, p.Estatus));
+                p.DatosFiscalesCompletos, p.Estatus, p.FechaBaja,
+                p.Variantes.OrderBy(v => v.ClaveVariante)
+                    .Select(v => new ProductoAwVarianteDato(v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
+                    .ToList()));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProductosAwGestionar)
         .WithName("ObtenerProductoAw")
@@ -633,7 +636,9 @@ public static class DatosMaestrosEndpoints
         decimal? PesoUnitarioKg,
         OrigenMaster Origen,
         bool DatosFiscalesCompletos,
-        EstatusCatalogo Estatus);
+        EstatusCatalogo Estatus,
+        DateTime? FechaBaja,
+        IReadOnlyList<ProductoAwVarianteDato> Variantes);
 
     public sealed record CrearProductoAwRequest(
         string ReferenciaExterna,

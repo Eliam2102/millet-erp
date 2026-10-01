@@ -1,0 +1,37 @@
+{
+  "escenario": "baja-con-historico",
+  "descripcion": "Producto dado de baja con lineas facturadas: bloquea uso nuevo, la consulta historica por id sigue funcionando.",
+  "origen": {
+    "vw_erp_articulo": [
+      {
+        "producto_ref": "DEMO-P008",
+        "descripcion": "PRODUCTO DEMO 001",
+        "unidad_medida": "M2",
+        "baja": true,
+        "variantes": [
+          {
+            "clave_variante": "V1",
+            "alto_mm": null,
+            "ancho_mm": null,
+            "espesor_mm": 6,
+            "composicion": "6mm"
+          }
+        ],
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": true,
+    "referenciaExterna": "DEMO-P008",
+    "activo": true,
+    "lineasHistoricas": 3
+  },
+  "resultadoEsperado": {
+    "resultado": "Actualizado",
+    "estatus": "Inactivo",
+    "altaDeLineasNuevas": "Bloqueada",
+    "consultaHistoricaPorId": "Disponible",
+    "lineasHistoricasIntactas": 3
+  }
+}
