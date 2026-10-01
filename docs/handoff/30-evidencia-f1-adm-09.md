@@ -4,6 +4,14 @@
 **Rama:** `feature/F1-ADM-09`  
 **Alcance de este documento:** evidencia parcial del primer corte; no contiene credenciales, CSD, payloads ni valores de configuración sensibles. El plan contractual actualizado está en `docs/modulos/integraciones-fiscal/03-f1-adm-09-plan-implementacion.md`.
 
+## Actualización 1-oct-2026 — gate local y control optimista
+
+- PostgreSQL 17 temporal en Docker Desktop `desktop-linux`: 12 DbContexts migrados; `millet-dev-postgres` no fue modificado.
+- Gate HTTP ADM-09: **37/37**. Incluye 50 reservas concurrentes, idempotencia, carrera desactivar-reservar, multiempresa, BaseUrl PAC y versiones obsoletas.
+- `Integraciones.Fiscal.UnitTests`: **195/195**; compilación de integración: **0 warnings, 0 errores**; frontend `typecheck:test`: aprobado.
+- Series y PAC usan `X-Expected-Version`; una versión obsoleta devuelve `409 CONCURRENCY_CONFLICT` sin sobrescribir.
+- P01–P06 permanecen sin inventar: candidato, unicidad activa, fallback global, continuidad inicial, inmutabilidad/`SerieId` y custodia productiva requieren decisión o datos externos.
+
 ## Corrección de alcance del 29-sep-2026
 
 El commit `4103239` no cierra por sí solo ADM-09. Reforzó PAC/CSD, autorización por empresa, no exposición de secretos y regresiones del formulario. La ficha original exige además alcance autorizado por sucursal, separación demostrada por tipo, concurrencia, serie desactivada, emisor fiscal, tres estados visibles del CSD, mensajes integrados, evidencia UI/API y PR en `main`.
@@ -14,13 +22,14 @@ Hasta completar esas fases, el estado oficial es **implementación parcial**. Ti
 
 - **Cifrado y CSD:** evidencia estática y pruebas focalizadas en verde.
 - **Persistencia de Data Protection en QA/producción:** preparada en código e infraestructura, pero no se verificó un despliegue real desde este entorno.
-- **Segregación PAC/series:** el modelo incluye `EmpresaId`; la validación HTTP/cross-tenant corresponde a las pruebas de integración del cierre.
+- **Segregación PAC/series:** PAC y Series implementan `IPerteneceAEmpresa`; Series contrasta además el `EmpresaId` recibido con la empresa del JWT en listado, alta y reserva. Las regresiones HTTP compilan, pero su ejecución sigue pendiente del runner PostgreSQL.
 - **Parámetros:** la implementación actual es global o por módulo, no por empresa. Por tanto, no se puede acreditar el requisito del plan de "parámetros fiscales por empresa" con el modelo vigente.
 - **Prueba real FiscalAPI sandbox:** **bloqueada**; no se encontraron credenciales ni CSD de prueba disponibles de forma segura en el entorno. No se intentó una llamada con datos inventados.
 - **Producción:** **bloqueada** hasta recibir insumos por canal seguro y resolver formalmente la custodia del CSD.
 - **Alcance por sucursal:** implementado con asignaciones reales `UsuarioSucursal` en listado, detalle, mutaciones y reserva HTTP; las series globales sólo se administran con permiso corporativo.
 - **Estado visible del CSD:** `NotBefore`/`NotAfter` se persisten como metadatos y la UI proyecta `Vigente`, `ProximoAVencer` y `Vencido` con umbral inclusivo de 30 días.
 - **Reserva concurrente/tipo:** regresiones de tipo, desactivación e histórico añadidas; la prueba HTTP de 50 reservas se conserva, pero su ejecución sigue condicionada al runner con BD desechable.
+- **BaseUrl FiscalAPI:** restringida en dominio y fábrica SDK a los orígenes HTTPS oficiales de test/live; HTTP, loopback, hosts alternos, paths, puertos, query y userinfo se rechazan antes de una salida externa.
 - **PR/main:** rama remota disponible; integración final pendiente.
 
 ## Evidencia verificable
@@ -81,7 +90,7 @@ La compilación aislada posterior de `Api.IntegrationTests` terminó correctamen
 dotnet test backend/tests/Integraciones.Fiscal.UnitTests/Millet.Integraciones.Fiscal.UnitTests.csproj --no-restore
 ```
 
-Resultado integrado del 30-sep: **183 pasaron, 0 fallaron, 0 omitidas**.
+Resultado integrado posterior a la especificación v2: **195 pasaron, 0 fallaron, 0 omitidas**.
 
 ```powershell
 dotnet build backend/tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj --no-restore -p:BaseOutputPath=<directorio-temporal>
@@ -91,7 +100,24 @@ Resultado integrado del 30-sep: **compilación exitosa, 0 warnings, 0 errores**,
 
 `npm --prefix frontend run typecheck:test` terminó verde. Limitando Vitest a un worker para evitar el bloqueo del pool en este host, `ConfiguracionPacForm` terminó con **10/10** pruebas verdes y `SeriesPage.smoke` con **3/3**. ESLint focalizado terminó sin errores; el único warning detectado fue corregido después. El build normal de la solución encontró una DLL del API bloqueada por una instancia previa; la compilación aislada posterior terminó con **0 warnings y 0 errores** y valida el código afectado.
 
-Se intentó ejecutar el gate HTTP focalizado dos veces. El runner oficial `tools/validate-integration-isolated.sh` no pudo iniciar Bash/WSL (`Bash/Service/CreateInstance/E_ACCESSDENIED`). En el segundo intento se creó un PostgreSQL 17 temporal en Docker y en un puerto distinto al de desarrollo, pero la API de Docker dejó de responder incluso a `inspect`, `stop` y `rm`; el proceso se interrumpió sin obtener resultados de pruebas. El gate HTTP se registra como **no concluyente por infraestructura del host**, no como verde ni como fallo funcional. El contenedor temporal se creó con `--rm`; no se tocó `millet-dev-postgres`, aunque Docker debe recuperar disponibilidad para confirmar que la limpieza automática terminó.
+Se intentó ejecutar el gate HTTP focalizado, pero el runner oficial `tools/validate-integration-isolated.sh` no pudo iniciar Bash/WSL (`Bash/Service/CreateInstance/E_ACCESSDENIED`). Docker volvió a responder parcialmente y mostró los dos contenedores temporales en estado `Created`, pero las operaciones `rm` y `rm -f` quedaron bloqueadas. No se obtuvieron resultados HTTP ni de concurrencia/idempotencia. El gate se registra como **no concluyente por infraestructura del host**, no como verde ni como fallo funcional; no se tocó `millet-dev-postgres`.
+
+### Frontera de seguridad de la especificación v2
+
+- `Serie` implementa `IPerteneceAEmpresa`, activando filtro global e interceptor de escritura ya existentes.
+- El scope de Series rechaza un `EmpresaId` distinto al contexto autenticado tanto desde HTTP como desde consumidores MediatR.
+- La regresión cross-tenant cubre listado, alta, detalle, edición, desactivación y reserva, y verifica que la fila ajena no cambie.
+- `ConfiguracionPac.ValidarBaseUrl` sólo permite `https://test.fiscalapi.com` y `https://live.fiscalapi.com` como origen puro; la fábrica SDK vuelve a validar antes de crear el cliente.
+- Pruebas unitarias negativas cubren HTTP, localhost, IPv4/IPv6 loopback, host suplantado, userinfo, path, query y puerto alterno. Los casos HTTP equivalentes compilan y esperan `CONFIG_PAC_BASE_URL_INVALIDA`.
+- P01-P06 permanecen abiertas. No se cambió selección/fallback de series, unicidad activa, continuidad, identidad histórica ni custodia productiva.
+
+### Reserva, idempotencia y desactivación concurrente
+
+- `ReservarFolioHandler` abre una transacción, bloquea con `FOR UPDATE` la serie activa seleccionada y ejecuta el UPSERT del contador antes de confirmar.
+- La prueba nueva fuerza el orden bloqueo externo → desactivación en espera → reserva en espera; al liberar, la desactivación confirma primero y la reserva debe responder `SERIE_NO_CONFIGURADA` sin incrementar.
+- La prueba de idempotencia específica de reserva exige misma respuesta y número con misma clave/body, exactamente un incremento con clave nueva y `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY` con payload distinto.
+- La compilación aislada de `Api.IntegrationTests` posterior a estos cambios terminó con **0 warnings y 0 errores**.
+- No se ejecutaron estos casos contra PostgreSQL: Docker Desktop permaneció en estado `starting` tras el reinicio. No se tocó la distribución/daemon de WSL2 ni `millet-dev-postgres`.
 
 ### Series, sucursales y emisor
 
@@ -107,7 +133,7 @@ Resultado integrado: **7 pasaron, 0 fallaron, 0 omitidas**.
 
 ### Handoff para migración, reinicio y UAT
 
-El código queda **listo para aplicar la migración en un ambiente controlado, reiniciar el API y comenzar UAT de interfaz**, sujeto a las siguientes verificaciones operativas:
+El código queda **listo para aplicar la migración en un ambiente controlado, reiniciar el API y comenzar UAT de seguridad/interfaz**, pero no para declarar una prueba sandbox fiscal completa mientras P02-P05 sigan abiertas:
 
 1. confirmar que Docker/runner vuelve a responder y ejecutar el gate HTTP focalizado contra una BD desechable;
 2. aplicar `20260930043912_CsdVigenciaMetadatos` y verificar las columnas `csd_not_before` y `csd_not_after`;
