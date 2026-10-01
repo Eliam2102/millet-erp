@@ -1,4 +1,4 @@
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,7 +19,11 @@ import {
   AsignarRolSchema,
   type AsignarRolValues,
 } from '@/modules/identidad/schemas/usuario';
-import { useAsignarRol, useRoles } from '@/modules/identidad/api';
+import {
+  useAsignarRol,
+  usePermisosEfectivosUsuario,
+  useRoles,
+} from '@/modules/identidad/api';
 import { useEmpresas } from '@/modules/administracion/api';
 import type { RolResponse } from '@/modules/identidad/api/types';
 import type { EmpresaResponse } from '@/modules/administracion/api/types';
@@ -171,6 +175,16 @@ function FormReady({
 
   const isPending = asignar.isPending;
 
+  // Cambiar el rol borra las excepciones de permisos del usuario en la
+  // empresa (ADR-0053): se avisa antes de confirmar.
+  const empresaSeleccionada = useWatch({ control: form.control, name: 'empresaId' });
+  const efectivos = usePermisosEfectivosUsuario(
+    empresaSeleccionada === '' ? null : usuarioId,
+    empresaSeleccionada === '' ? null : empresaSeleccionada,
+  );
+  const perdidos =
+    (efectivos.data?.concedidos ?? 0) + (efectivos.data?.denegados ?? 0);
+
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
@@ -258,6 +272,16 @@ function FormReady({
           />
         </Field>
       </div>
+
+      {perdidos > 0 && (
+        <p
+          role="alert"
+          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200"
+        >
+          Al asignar un rol distinto en esta empresa se perderán {perdidos}{' '}
+          permiso(s) personalizado(s) de este usuario.
+        </p>
+      )}
 
       <div className="flex items-center justify-end gap-2">
         <Button

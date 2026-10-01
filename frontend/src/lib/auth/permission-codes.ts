@@ -20,6 +20,7 @@ export const PermisosCanonicos = {
   IdentidadUsuariosCrear: 'identidad.usuarios.crear',
   IdentidadUsuariosEditar: 'identidad.usuarios.editar',
   IdentidadUsuariosDesactivar: 'identidad.usuarios.desactivar',
+  IdentidadUsuariosGestionarPermisos: 'identidad.usuarios.gestionar-permisos',
   IdentidadRolesLeer: 'identidad.roles.leer',
   IdentidadRolesAdministrar: 'identidad.roles.administrar',
   IdentidadRolesCrear: 'identidad.roles.crear',

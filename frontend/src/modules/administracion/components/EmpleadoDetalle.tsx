@@ -7,6 +7,8 @@ import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useDepartamentos, usePuestos, useSucursales } from '@/features/catalogos/api';
 import { useUsuario } from '@/modules/identidad/api/usuarios';
 import { RolesPorEmpresaPanel } from '@/modules/identidad/components/RolesPorEmpresaPanel';
+import { PermisosPersonalizadosPanel } from '@/modules/identidad/components/PermisosPersonalizadosPanel';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { EmpleadoInlineForm } from './EmpleadoInlineForm';
 import { EmpleadoAccesoPanel } from './EmpleadoAccesoPanel';
 import { useEmpleadosAdmin } from '@/modules/administracion/api/empleados';
@@ -35,6 +37,7 @@ export function EmpleadoDetalle() {
   const puestos = usePuestos();
   const empleado = empleados.data?.find((e) => e.id === id);
   const puedeLeerUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosLeer);
+  const empresaActivaId = useAuthStore((s) => s.currentEmpresaId);
   const usuario = useUsuario(puedeLeerUsuarios ? empleado?.usuarioId : null);
   const puedeGestionarSucursales = useHasPermission(PermisosCanonicos.AdminSucursalesUsuariosGestionar);
   const asignaciones = useSucursalesDeUsuario(puedeGestionarSucursales ? empleado?.usuarioId ?? null : null);
@@ -135,6 +138,7 @@ export function EmpleadoDetalle() {
         {usuario.isLoading ? <TableSkeleton rows={3} /> : usuario.isError ?
           <ErrorState title="No se pudieron consultar los roles" onRetry={() => usuario.refetch()} /> :
           <RolesPorEmpresaPanel usuarioId={empleado.usuarioId} asignaciones={usuario.data?.asignaciones ?? []} />}
+        {empresaActivaId != null && <PermisosPersonalizadosPanel usuarioId={empleado.usuarioId} empresaId={empresaActivaId} />}
         <Button asChild variant="link" size="sm"><Link to="/admin/usuarios/$id" params={{ id: empleado.usuarioId }}>Abrir cuenta de acceso</Link></Button>
       </>}
       {empleado.usuarioId && !puedeLeerUsuarios && <p className="text-sm text-muted-foreground">No tienes permiso para consultar el detalle de roles de esta cuenta.</p>}

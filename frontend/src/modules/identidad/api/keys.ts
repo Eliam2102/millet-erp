@@ -37,4 +37,7 @@ export const identidadKeys = {
     [...identidadKeys.usuarios(), 'list', filtros] as const,
   usuario: (id: string) =>
     [...identidadKeys.usuarios(), 'detail', id] as const,
+  // Cuelga de usuario(id): invalidar el detalle refresca también los efectivos.
+  permisosEfectivos: (usuarioId: string, empresaId: string) =>
+    [...identidadKeys.usuario(usuarioId), 'permisos-efectivos', empresaId] as const,
 } as const;
