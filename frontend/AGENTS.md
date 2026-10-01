@@ -1,7 +1,8 @@
 # UI del ERP Millet
 
 Antes de crear o modificar una pantalla o componente, lee completo
-`../design-system/DESIGN.md` y después `../design-system/README.md` (rutas desde
+`../design-system/DESIGN.md`, consulta los nodos de referencia en
+`../design-system/FIGMA.md` y después `../design-system/README.md` (rutas desde
 esta carpeta). La guía visual no cambia permisos, reglas de negocio ni estados
 reales del backend.
 

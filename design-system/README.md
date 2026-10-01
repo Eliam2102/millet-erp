@@ -2,8 +2,10 @@
 
 Los cuatro archivos aportados (`DESIGN.md`, `tokens.json`, `tokens.css` y
 `tailwind.config.ts`) se conservan como referencia visual versionada. Empieza por
-leer `DESIGN.md` completo. El canvas mencionado en la guía no está incluido en
-esta entrega; la comparación con sus 12 pantallas queda pendiente.
+leer `DESIGN.md` completo y consultar [`FIGMA.md`](./FIGMA.md): el 1-oct-2026
+Eliam compartió el canvas de referencia. Se revisaron sus 13 vistas (incluida
+la variante 3b de búsqueda); ahí están los enlaces directos y la comparación
+con lo implementado.
 
 ## Uso en este repositorio
 
@@ -50,7 +52,8 @@ Para una acción deshabilitada, explica el bloqueo en texto cercano o tooltip.
 Las clases específicas que las pantallas ya pasan con `className` pueden
 sobrescribir la receta compartida; migrarlas requiere revisar cada consumidor.
 Pendientes: shell/rail/topbar, tablas, dialogs/sheets, los demás componentes y
-pantallas, colores locales heredados y revisión contra el canvas. Esta etapa
+pantallas, colores locales heredados y comprobación de cada implementación
+contra Figma. Esta etapa
 no cambia reglas funcionales, paginación, prioridades ni permisos.
 
 Las instrucciones para agentes están en `frontend/AGENTS.md` y `CLAUDE.md`.

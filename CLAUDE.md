@@ -384,7 +384,8 @@ primero (Compras / Requisiciones).
 ## UI / Design system Millet
 
 Antes de crear o modificar UI, lee completo `design-system/DESIGN.md`, después
-`design-system/README.md` y sigue `frontend/AGENTS.md`. Reutiliza los componentes
+`design-system/FIGMA.md`, `design-system/README.md` y sigue `frontend/AGENTS.md`.
+Reutiliza los componentes
 compartidos y sus tokens. El frontend usa Tailwind 4: las clases están en
 `frontend/src/index.css`; el config adjunto se conserva como referencia.
 No introduzcas colores de la paleta default ni hex sueltos en UI nueva o migrada.
