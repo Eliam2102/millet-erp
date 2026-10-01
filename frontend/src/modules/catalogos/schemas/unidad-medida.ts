@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Schemas Zod del catálogo de unidades de medida (ADR-0046 Etapa 1a). La
- * validación estructural (decimales 0..6, factor &gt; 0, dimensión 0..4)
+ * validación estructural (decimales 0..6, factor &gt; 0, dimensión 0..5)
  * espeja los CHECK del DDL; el guardrail de "en uso" vive en el backend.
  */
 
@@ -20,7 +20,7 @@ const nombre = z
 const dimension = z.number()
   .int()
   .min(0)
-  .max(4, 'Dimensión inválida');
+  .max(5, 'Dimensión inválida');
 const factorABase = z.number()
   .positive('El factor debe ser mayor a 0');
 const decimales = z.number()

@@ -6,7 +6,9 @@ import type { EjecucionSyncErrorItem } from '@/modules/datos-maestros/api/types'
  * Catálogo de los códigos por fila que emite el sincronizador de clientes A+W
  * (doc integration/05 §10.3). Un código desconocido se muestra tal cual.
  */
-const CODIGOS: Record<string, { titulo: string; accion: string; conflicto?: boolean }> = {
+export type CatalogoErroresSync = Record<string, { titulo: string; accion: string; conflicto?: boolean }>;
+
+const CODIGOS: CatalogoErroresSync = {
   moneda_sin_equivalencia: {
     titulo: 'Moneda sin equivalencia',
     accion: 'El cliente no se creó. Configura el mapeo de moneda y reintenta.',
@@ -36,12 +38,15 @@ export function ErroresEjecucionSync({
   truncados,
   reintentando,
   onReintentar,
+  catalogo = CODIGOS,
 }: {
   errores: EjecucionSyncErrorItem[];
   truncados?: boolean;
   /** Referencia en reproceso (solo esa fila se deshabilita). */
   reintentando?: string | null;
   onReintentar: (referencia: string) => void;
+  /** Catálogo de causas del recurso; por defecto el de clientes. */
+  catalogo?: CatalogoErroresSync;
 }) {
   return (
     <section aria-label="Errores y conflictos por referencia" className="space-y-2">
@@ -51,7 +56,7 @@ export function ErroresEjecucionSync({
       </h4>
       <ul className="divide-y rounded-md border">
         {errores.map((er, i) => {
-          const c = CODIGOS[er.codigo];
+          const c = catalogo[er.codigo];
           const Icono = c?.conflicto ? AlertTriangle : XCircle;
           return (
             <li key={`${er.referencia}-${i}`} className="flex gap-3 p-3 text-sm">

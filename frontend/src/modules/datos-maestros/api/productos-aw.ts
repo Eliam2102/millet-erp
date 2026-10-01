@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, esApiError } from '@/lib/api';
 import {
   datosMaestrosKeys,
   type ListarProductosAwFiltros,
@@ -10,6 +10,8 @@ import type {
   CrearProductoAwResponse,
   ListarProductosAwResponse,
   ProductoAwDetalle,
+  AwProductosResumen,
+  ProductoAwSincronizacionEstado,
 } from '@/modules/datos-maestros/api/types';
 
 /**
@@ -139,6 +141,96 @@ export function useDesactivarProductoAw() {
       });
     },
   });
+}
+
+// ─── Sincronización A+W (F1-ADM-07; permiso `productos-aw.gestionar`) ──
+
+const SYNC_BASE = '/api/v1/datos-maestros/productos-aw/sincronizacion';
+
+/** Estado de origen del producto; el `etag` es la versión para If-Match. */
+export function useProductoAwSincronizacion(id: string | null | undefined) {
+  return useQuery({
+    queryKey:
+      id != null
+        ? datosMaestrosKeys.productoAwSync(id)
+        : (['datos-maestros', 'noop'] as const),
+    queryFn: async ({ signal }) => {
+      if (id == null) throw new Error('useProductoAwSincronizacion sin id');
+      const { data } = await apiRequest<ProductoAwSincronizacionEstado>(
+        `/api/v1/datos-maestros/productos-aw/${id}/sincronizacion`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: id != null,
+    staleTime: 0,
+  });
+}
+
+function invalidarProductos(queryClient: ReturnType<typeof useQueryClient>) {
+  return queryClient.invalidateQueries({
+    queryKey: datosMaestrosKeys.productosAw(),
+  });
+}
+
+/** Barrido síncrono; responde el resumen real (200). */
+export function useSincronizarProductosAw() {
+  const queryClient = useQueryClient();
+  return useMutation<AwProductosResumen, Error, void>({
+    mutationFn: async () => {
+      const { data } = await apiRequest<AwProductosResumen>(SYNC_BASE, {
+        method: 'POST',
+        // Key fresca por acción (ADR-0020).
+        idempotencyKey: crypto.randomUUID(),
+      });
+      return data;
+    },
+    onSuccess: () => invalidarProductos(queryClient),
+  });
+}
+
+/**
+ * Relee una referencia. Con `version` manda If-Match: si el producto
+ * cambió, el backend responde 409 y NO sobrescribe.
+ */
+export function useReintentarProductoAw() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    AwProductosResumen,
+    Error,
+    { referencia: string; version?: number | null }
+  >({
+    mutationFn: async ({ referencia, version }) => {
+      const { data } = await apiRequest<AwProductosResumen>(
+        `${SYNC_BASE}/${encodeURIComponent(referencia)}`,
+        {
+          method: 'POST',
+          idempotencyKey: crypto.randomUUID(),
+          ifMatch: version != null ? String(version) : undefined,
+        },
+      );
+      return data;
+    },
+    // También tras un 409: relee versión y estado para que el siguiente intento parta de lo vigente.
+    onSettled: () => invalidarProductos(queryClient),
+  });
+}
+
+/** Mensaje en español para los errores de sincronización de productos. */
+export function mensajeErrorSincronizacionProductos(error: unknown): string {
+  if (!esApiError(error)) return 'No se pudo completar la operación.';
+  switch (error.status) {
+    case 409:
+      return 'El producto cambió o es manual; no se sobrescribió. Se recargó el estado: revisa y vuelve a intentar.';
+    case 404:
+      return 'La referencia ya no existe en A+W; no se modificó el producto.';
+    case 503:
+      return 'La sincronización con A+W no está disponible (origen deshabilitado o sin configurar).';
+    case 403:
+      return 'No tienes permiso para sincronizar productos A+W.';
+    default:
+      return error.problem.title;
+  }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────

@@ -485,6 +485,9 @@ export interface ProductoAwItem {
   /** false = falta clave prod/serv o clave unidad SAT → no timbra. */
   datosFiscalesCompletos: boolean;
   estatus: EstatusCatalogo;
+  /** Fecha de baja (A+W o manual); null = nunca dado de baja. */
+  fechaBaja?: string | null;
+  numVariantes?: number;
 }
 
 export interface ListarProductosAwResponse {
@@ -514,6 +517,60 @@ export interface ProductoAwDetalle {
   origen: OrigenMaster;
   datosFiscalesCompletos: boolean;
   estatus: EstatusCatalogo;
+  fechaBaja?: string | null;
+  variantes?: ProductoAwVariante[];
+}
+
+/** Medidas en mm: null = A+W no las informó (NUNCA 0). */
+export interface ProductoAwVariante {
+  claveVariante: string;
+  altoMm: number | null;
+  anchoMm: number | null;
+  espesorMm: number | null;
+  composicion: string | null;
+}
+
+// ─── Sincronización de productos A+W (F1-ADM-07) ────────────────────
+
+export interface AwProductoError {
+  referencia: string;
+  codigo: string;
+  mensaje: string;
+}
+
+/** Resumen síncrono del barrido o del reintento por referencia. */
+export interface AwProductosResumen {
+  leidos: number;
+  creados: number;
+  actualizados: number;
+  sinCambios: number;
+  pendientes: number;
+  conflictos: number;
+  errores: number;
+  erroresPorReferencia: AwProductoError[];
+}
+
+export interface ProductoAwSincronizacionDetalle {
+  resultado: ResultadoSincronizacion | null;
+  error: string | null;
+  /** JSON serializado por el backend (lista de DiferenciaAplicacionAw). */
+  diferencias: string | null;
+  hashOrigen: string | null;
+  leidoEnUtc: string | null;
+  aplicadoEnUtc: string | null;
+  versionContrato: string | null;
+  versionMapeo: string | null;
+  descripcionOrigen: string | null;
+  unidadOrigenCruda: string | null;
+  bajaOrigenCruda: string | null;
+}
+
+export interface ProductoAwSincronizacionEstado {
+  productoId: string;
+  referencia: string;
+  version: number;
+  /** null = el producto nunca vino de A+W. */
+  sincronizacion: ProductoAwSincronizacionDetalle | null;
 }
 
 export interface CrearProductoAwPayload {
