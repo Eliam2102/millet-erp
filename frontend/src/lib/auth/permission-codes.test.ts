@@ -20,6 +20,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'identidad.usuarios.crear',
   'identidad.usuarios.editar',
   'identidad.usuarios.desactivar',
+  'identidad.usuarios.gestionar-permisos',
   'identidad.roles.leer',
   'identidad.roles.administrar',
   'identidad.roles.crear',
