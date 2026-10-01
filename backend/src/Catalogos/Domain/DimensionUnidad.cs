@@ -27,4 +27,7 @@ public enum DimensionUnidad : short
 
     /// <summary>Tiempo (base HR). Ej. HR.</summary>
     Tiempo = 4,
+
+    /// <summary>Área (base M2). Ej. M2.</summary>
+    Area = 5,
 }

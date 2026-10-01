@@ -102,4 +102,6 @@ export const datosMaestrosKeys = {
     [...datosMaestrosKeys.productosAw(), 'list', filtros] as const,
   productoAw: (id: string) =>
     [...datosMaestrosKeys.productosAw(), 'detail', id] as const,
+  productoAwSync: (id: string) =>
+    [...datosMaestrosKeys.productosAw(), 'sync', id] as const,
 } as const;

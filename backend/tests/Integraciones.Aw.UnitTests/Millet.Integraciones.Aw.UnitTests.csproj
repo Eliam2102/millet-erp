@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <Content Include="Clientes\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Productos\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

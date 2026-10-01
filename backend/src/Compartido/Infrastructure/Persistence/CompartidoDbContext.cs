@@ -51,6 +51,9 @@ public sealed class CompartidoDbContext : BaseDbContext
     // ADR-0048 D5: master de productos de venta manufacturados (A+W),
     // SEPARADO de Articulos (compras/almacén) a propósito.
     public DbSet<ProductoAw> ProductosAw => Set<ProductoAw>();
+    // ADM-07: variantes (medidas/composición) y registro de origen A+W de producto.
+    public DbSet<ProductoAwVariante> ProductosAwVariantes => Set<ProductoAwVariante>();
+    public DbSet<ProductoSincronizacionAw> ProductosSincronizacionAw => Set<ProductoSincronizacionAw>();
     public DbSet<Sucursal> Sucursales => Set<Sucursal>();
     // FAC-ING-PR2: catálogo administrable de canales de venta (reemplaza el
     // enum de Facturación). PK short asignada por la app; seed 1..10 espejo
@@ -138,6 +141,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureCliente(modelBuilder);
         ConfigureClienteSincronizacionAw(modelBuilder);
         ConfigureProductoAw(modelBuilder);
+        ConfigureProductoAwSincronizacion(modelBuilder);
         ConfigureSucursal(modelBuilder);
         ConfigureCanalVenta(modelBuilder);
         ConfigureDepartamento(modelBuilder);
@@ -762,8 +766,8 @@ public sealed class CompartidoDbContext : BaseDbContext
 
     /// <summary>
     /// ADR-0046 Etapa 1a: catálogo de unidades de medida. Dimensión como
-    /// enum (check 0..4), <c>factor_a_base</c> &gt; 0, <c>decimales</c> 0..6,
-    /// <c>codigo</c> único. Seed de 10 unidades (5 dimensiones, base marcada
+    /// enum (check 0..5), <c>factor_a_base</c> &gt; 0, <c>decimales</c> 0..6,
+    /// <c>codigo</c> único. Seed de 12 unidades (6 dimensiones, base marcada
     /// con <c>es_base</c>). El FK desde <c>articulos</c> es Etapa 1b.
     /// </summary>
     private static void ConfigureUnidadMedida(ModelBuilder modelBuilder)
@@ -771,7 +775,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         var um = modelBuilder.Entity<UnidadMedida>();
         um.ToTable("unidades_medida", t =>
         {
-            t.HasCheckConstraint("ck_unidades_medida_dimension", "dimension BETWEEN 0 AND 4");
+            t.HasCheckConstraint("ck_unidades_medida_dimension", "dimension BETWEEN 0 AND 5");
             t.HasCheckConstraint("ck_unidades_medida_factor_positivo", "factor_a_base > 0");
             t.HasCheckConstraint("ck_unidades_medida_decimales", "decimales BETWEEN 0 AND 6");
             t.HasCheckConstraint("ck_unidades_medida_estatus", "estatus BETWEEN 0 AND 2");
@@ -804,7 +808,11 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedUnidadMedida("00000002-0007-0000-0000-000000000008", "CM", "Centímetro", DimensionUnidad.Longitud, 0.01m, 1, false, seedTime),
             SeedUnidadMedida("00000002-0007-0000-0000-000000000009", "MM", "Milímetro", DimensionUnidad.Longitud, 0.001m, 0, false, seedTime),
             // Tiempo (base HR)
-            SeedUnidadMedida("00000002-0007-0000-0000-00000000000a", "HR", "Hora", DimensionUnidad.Tiempo, 1m, 2, true, seedTime)
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000a", "HR", "Hora", DimensionUnidad.Tiempo, 1m, 2, true, seedTime),
+            // Área (base M2)
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000b", "M2", "Metro cuadrado", DimensionUnidad.Area, 1m, 2, true, seedTime),
+            // Volumen: M3 = 1000 L
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000c", "M3", "Metro cúbico", DimensionUnidad.Volumen, 1000m, 3, false, seedTime)
         );
     }
 
@@ -1163,6 +1171,55 @@ public sealed class CompartidoDbContext : BaseDbContext
         producto.HasOne<CategoriaArticulo>()
             .WithMany()
             .HasForeignKey(x => x.CategoriaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        producto.HasMany(x => x.Variantes)
+            .WithOne()
+            .HasForeignKey(v => v.ProductoAwId)
+            .OnDelete(DeleteBehavior.Restrict);
+        producto.Navigation(x => x.Variantes).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+
+    /// <summary>
+    /// Configura <see cref="ProductoAwVariante"/> y <see cref="ProductoSincronizacionAw"/>
+    /// (ADM-07). Mismo patrón que <see cref="ClienteSincronizacionAw"/>: FK RESTRICT,
+    /// UNIQUE por producto y por referencia; variante UNIQUE (producto, clave).
+    /// </summary>
+    private static void ConfigureProductoAwSincronizacion(ModelBuilder modelBuilder)
+    {
+        var variante = modelBuilder.Entity<ProductoAwVariante>();
+        variante.ToTable("producto_aw_variante", t =>
+            t.HasCheckConstraint("ck_producto_aw_variante_medidas",
+                "(alto_mm IS NULL OR alto_mm > 0) AND (ancho_mm IS NULL OR ancho_mm > 0) AND (espesor_mm IS NULL OR espesor_mm > 0)"));
+        variante.HasKey(x => x.Id);
+        variante.Property(x => x.ClaveVariante).HasMaxLength(50).IsRequired();
+        variante.Property(x => x.AltoMm).HasPrecision(12, 3);
+        variante.Property(x => x.AnchoMm).HasPrecision(12, 3);
+        variante.Property(x => x.EspesorMm).HasPrecision(12, 3);
+        variante.Property(x => x.Composicion).HasMaxLength(200);
+        variante.Property(x => x.Version).IsConcurrencyToken();
+        variante.HasIndex(x => new { x.ProductoAwId, x.ClaveVariante }).IsUnique();
+
+        var sync = modelBuilder.Entity<ProductoSincronizacionAw>();
+        sync.ToTable("producto_sincronizacion_aw", t =>
+            t.HasCheckConstraint("ck_producto_sincronizacion_aw_resultado", "resultado BETWEEN 0 AND 4"));
+        sync.HasKey(x => x.Id);
+        sync.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        sync.Property(x => x.DescripcionOrigen).HasMaxLength(400);
+        sync.Property(x => x.UnidadOrigenCruda).HasMaxLength(50);
+        sync.Property(x => x.BajaOrigenCruda).HasMaxLength(20);
+        sync.Property(x => x.HashOrigen).HasMaxLength(64).IsRequired();
+        sync.Property(x => x.VersionContrato).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.VersionMapeo).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.Resultado).HasConversion<short>().IsRequired();
+        sync.Property(x => x.Error).HasMaxLength(1000);
+        sync.Property(x => x.Diferencias).HasMaxLength(2000);
+        sync.Property(x => x.Version).IsConcurrencyToken();
+        sync.HasIndex(x => x.ProductoAwId).IsUnique();
+        sync.HasIndex(x => x.ReferenciaExterna).IsUnique();
+        sync.HasOne<ProductoAw>()
+            .WithMany()
+            .HasForeignKey(x => x.ProductoAwId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 

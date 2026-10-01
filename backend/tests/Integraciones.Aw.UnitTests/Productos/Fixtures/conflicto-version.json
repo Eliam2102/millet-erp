@@ -1,0 +1,36 @@
+{
+  "escenario": "conflicto-version",
+  "descripcion": "Edicion manual y sincronizacion con Version vieja: ConflictoVersion, no se sobrescribe en silencio.",
+  "origen": {
+    "vw_erp_articulo": [
+      {
+        "producto_ref": "DEMO-P009",
+        "descripcion": "DESCRIPCION DESDE A+W",
+        "unidad_medida": "M2",
+        "baja": false,
+        "variantes": [
+          {
+            "clave_variante": "V1",
+            "alto_mm": null,
+            "ancho_mm": null,
+            "espesor_mm": 6,
+            "composicion": "6mm"
+          }
+        ],
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": true,
+    "referenciaExterna": "DEMO-P009",
+    "activo": true,
+    "version": 5,
+    "versionLeidaPorSincronizacion": 4
+  },
+  "resultadoEsperado": {
+    "resultado": "ConflictoVersion",
+    "sobrescritoEnSilencio": false,
+    "versionErp": 5
+  }
+}

@@ -155,7 +155,7 @@ public class CatalogosEditablesEndpointsTests : IClassFixture<WebApplicationFact
         var response = await client.GetAsync("/api/v1/catalogos/unidades-medida");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var items = await ReadJsonAsync(response);
-        Assert.True(items.GetArrayLength() >= 10, "El seed debe tener 10 unidades.");
+        Assert.True(items.GetArrayLength() >= 12, "El seed debe tener 12 unidades.");
 
         var porCodigo = new Dictionary<string, JsonElement>();
         foreach (var it in items.EnumerateArray())
@@ -179,6 +179,12 @@ public class CatalogosEditablesEndpointsTests : IClassFixture<WebApplicationFact
         var g = porCodigo["G"];
         Assert.Equal(0.001m, g.GetProperty("factorABase").GetDecimal());
         Assert.False(g.GetProperty("esBase").GetBoolean());
+
+        // M2: Area (5), base. M3: Volumen (2), factor 1000 a L.
+        Assert.Equal(5, porCodigo["M2"].GetProperty("dimension").GetInt32());
+        Assert.True(porCodigo["M2"].GetProperty("esBase").GetBoolean());
+        Assert.Equal(2, porCodigo["M3"].GetProperty("dimension").GetInt32());
+        Assert.Equal(1000m, porCodigo["M3"].GetProperty("factorABase").GetDecimal());
     }
 
     [Fact]

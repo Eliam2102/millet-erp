@@ -1,0 +1,39 @@
+{
+  "escenario": "dos-medidas-mismo-codigo",
+  "descripcion": "Un mismo codigo con dos medidas: 1 producto, 2 variantes.",
+  "origen": {
+    "vw_erp_articulo": [
+      {
+        "producto_ref": "DEMO-P002",
+        "descripcion": "PRODUCTO DEMO 001",
+        "unidad_medida": "M2",
+        "baja": false,
+        "variantes": [
+          {
+            "clave_variante": "V1",
+            "alto_mm": 1000,
+            "ancho_mm": 500,
+            "espesor_mm": 6,
+            "composicion": "6mm"
+          },
+          {
+            "clave_variante": "V2",
+            "alto_mm": 2000,
+            "ancho_mm": 1000,
+            "espesor_mm": 6,
+            "composicion": "6mm"
+          }
+        ],
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": false
+  },
+  "resultadoEsperado": {
+    "resultado": "Creado",
+    "productos": 1,
+    "variantes": 2
+  }
+}

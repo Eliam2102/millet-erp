@@ -34,6 +34,7 @@ const PRODUCTO: ProductoAwDetalle = {
   origen: 1,
   datosFiscalesCompletos: false,
   estatus: 0,
+  version: 3,
 };
 
 beforeEach(() => {
@@ -113,6 +114,37 @@ describe('<ProductoAwDatosForm> — Idempotency-Key por submit (regresión Bug B
     expect(keys[0]).toBeTruthy();
     expect(keys[1]).toBeTruthy();
     expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  it('el PATCH manda If-Match con la versión del detalle y el form se reinicia al cambiar la versión', async () => {
+    let ifMatch: string | null = null;
+    mswServer.use(
+      http.patch(
+        '*/api/v1/datos-maestros/productos-aw/pa-1',
+        async ({ request }) => {
+          ifMatch = request.headers.get('If-Match');
+          return new HttpResponse(null, { status: 204 });
+        },
+      ),
+    );
+
+    const { rerender } = render(<ProductoAwDatosForm producto={PRODUCTO} />, {
+      wrapper: createQueryWrapper(),
+    });
+    // La sync cambió la descripción: llega el detalle con versión nueva.
+    rerender(
+      <ProductoAwDatosForm
+        producto={{ ...PRODUCTO, descripcion: 'Desde A+W', version: 4 }}
+      />,
+    );
+    const descripcion = (await screen.findByDisplayValue(
+      'Desde A+W',
+    )) as HTMLInputElement;
+
+    fireEvent.change(descripcion, { target: { value: 'Editada' } });
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    await waitFor(() => expect(ifMatch).toBe('"4"'));
   });
 
   it('completar la clave prod/serv SAT (vía ClaveSatSelector) viaja en el PATCH', async () => {

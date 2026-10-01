@@ -115,6 +115,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             // Sincronización de clientes A+W (ADM-06): el code estable viaja como AW_CLIENTES_<CODE>.
             Millet.Integraciones.Aw.Application.Clientes.AwClientesSyncException ase
                 => CreateProblem("AW_CLIENTES_" + ase.Code.ToUpperInvariant(), ase.Message, AwClientesStatus(ase.Code), httpContext, traceId),
+            // Sincronización de productos A+W (ADM-07): mismos códigos estables, prefijo AW_PRODUCTOS_.
+            Millet.Integraciones.Aw.Application.Productos.AwProductosSyncException apse
+                => CreateProblem("AW_PRODUCTOS_" + apse.Code.ToUpperInvariant(), apse.Message, AwClientesStatus(apse.Code), httpContext, traceId),
             DomainException de => CreateProblem(de.Code, de.Message, StatusCodes.Status400BadRequest, httpContext, traceId),
             _ => CreateProblem(
                 "INTERNAL_ERROR",
@@ -130,7 +133,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         "barrido_en_curso" or "ejecucion_no_ejecutable" => StatusCodes.Status409Conflict,
         "referencia_invalida" => StatusCodes.Status422UnprocessableEntity,
         "ejecucion_no_encontrada" => StatusCodes.Status404NotFound,
-        "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" => StatusCodes.Status503ServiceUnavailable,
+        "lectura_deshabilitada" or "aplicacion_deshabilitada" or "origen_sin_configurar" or "origen_deshabilitado" => StatusCodes.Status503ServiceUnavailable,
         _ => StatusCodes.Status500InternalServerError,
     };
 
