@@ -357,6 +357,13 @@ public sealed class FiscalApiSdkAdapter : IFiscalApiSdkClient
             return new PingResultDto(false, 422, "Configuración PAC incompleta.",
                 stopwatch.ElapsedMilliseconds, DateTimeOffset.UtcNow);
         }
+        catch (IntegracionFiscalNoHabilitadaException ex)
+        {
+            stopwatch.Stop();
+            _logger.LogWarning("[FiscalApiSdkAdapter] Prueba de conexión omitida: {Motivo}", ex.Message);
+            return new PingResultDto(false, 501, "Integración fiscal no habilitada.",
+                stopwatch.ElapsedMilliseconds, DateTimeOffset.UtcNow);
+        }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             stopwatch.Stop();

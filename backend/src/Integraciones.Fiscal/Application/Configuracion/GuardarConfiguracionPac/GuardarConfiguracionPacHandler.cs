@@ -6,6 +6,7 @@ using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.Integraciones.Fiscal.Infrastructure.Cifrado;
 using Millet.Integraciones.Fiscal.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Fiscal.Application.Configuracion.GuardarConfiguracionPac;
 
@@ -104,6 +105,9 @@ public sealed class GuardarConfiguracionPacHandler
         else
         {
             config = existente;
+
+            if (command.VersionEsperada != config.Version)
+                throw new ConcurrencyException(nameof(ConfiguracionPac), config.Id);
 
             // BaseUrl siempre se actualiza. Timeouts/retry/schedule
             // legacy quedaron eliminados en PR-13 (los maneja el SDK

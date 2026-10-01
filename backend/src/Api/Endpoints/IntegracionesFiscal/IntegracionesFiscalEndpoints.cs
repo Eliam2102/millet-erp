@@ -96,16 +96,20 @@ public static class IntegracionesFiscalEndpoints
         config.MapPut("/{empresaId:guid}/{proveedor:int}", async (
             Guid empresaId,
             int proveedor,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] GuardarConfiguracionPacPayload payload,
+            ICurrentEmpresaContext currentEmpresa,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            EnsureCurrentEmpresa(currentEmpresa, empresaId);
             var command = new GuardarConfiguracionPacCommand(
                 EmpresaId: empresaId,
                 Proveedor: (ProveedorPac)proveedor,
                 BaseUrl: payload.BaseUrl,
                 ApiKey: payload.ApiKey,
                 Activo: payload.Activo,
+                VersionEsperada: expectedVersion,
                 EmisorSandbox: payload.EmisorSandbox,
                 ReceptorSandbox: payload.ReceptorSandbox,
                 Csd: payload.Csd);

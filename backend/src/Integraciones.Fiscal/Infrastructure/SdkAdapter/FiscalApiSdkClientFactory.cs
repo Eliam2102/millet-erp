@@ -32,14 +32,15 @@ public sealed class FiscalApiSdkClientFactory : IFiscalApiSdkClientFactory
     {
         var opts = _options.CurrentValue;
         if (opts.Disabled)
-            throw new InvalidOperationException(
-                "FiscalApiSdkAdapter está deshabilitado (FiscalApiSdkAdapterOptions.Disabled=true).");
+            throw new IntegracionFiscalNoHabilitadaException(
+                "FiscalApiSdkAdapter está deshabilitado (IntegracionesFiscal:Sdk:Disabled=true).");
         if (string.IsNullOrWhiteSpace(opts.TenantKey))
-            throw new InvalidOperationException(
+            throw new IntegracionFiscalNoHabilitadaException(
                 "FiscalApiSdkAdapter requiere TenantKey configurado (IntegracionesFiscal:Sdk:TenantKey).");
 
         var config = await _resolver.ResolverAsync(empresaId, ProveedorPac.FiscalApi, cancellationToken)
             ?? throw new ConfiguracionPacNoDisponibleException(empresaId);
+        ConfiguracionPac.ValidarBaseUrl(config.BaseUrl);
 
         // Cache key incluye empresa + un hash de la api key (sin
         // material crudo) para que el cache se invalide al rotar.
@@ -49,7 +50,7 @@ public sealed class FiscalApiSdkClientFactory : IFiscalApiSdkClientFactory
         {
             var settings = new FiscalapiSettings
             {
-                ApiUrl     = string.IsNullOrWhiteSpace(config.BaseUrl) ? opts.BaseUrl : config.BaseUrl,
+                ApiUrl     = config.BaseUrl,
                 ApiKey     = config.ApiKey,
                 ApiVersion = opts.ApiVersion,
                 Tenant     = opts.TenantKey,

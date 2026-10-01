@@ -210,6 +210,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
       {
         empresaId,
         proveedor: ProveedorPac.FiscalApi,
+        versionEsperada: existing?.version,
         payload: {
           baseUrl: values.baseUrl,
           apiKey: apiKeyDraft.trim() === '' ? null : apiKeyDraft.trim(),
@@ -223,6 +224,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
       {
         onSuccess: () => {
           toast.success('Configuración guardada.');
+          form.reset(values);
           setApiKeyDraft('');
           setCsdCerDraft(null);
           setCsdKeyDraft(null);
@@ -315,7 +317,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
             <Label htmlFor="baseUrl">Base URL</Label>
             <Input
               id="baseUrl"
-              placeholder="https://api.fiscalapi.com"
+              placeholder="https://live.fiscalapi.com"
               {...form.register('baseUrl')}
             />
             {form.formState.errors.baseUrl && (

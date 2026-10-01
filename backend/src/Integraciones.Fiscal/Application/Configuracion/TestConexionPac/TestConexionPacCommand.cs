@@ -58,6 +58,7 @@ public sealed class TestConexionPacHandler
     {
         { Exitosa: true } => "Conexión exitosa con FiscalAPI.",
         { StatusCode: 422 } => "Configura y activa las credenciales de FiscalAPI antes de probar la conexión.",
+        { StatusCode: 501 } => "La integración fiscal no está habilitada en este ambiente. Contacta a TI.",
         { StatusCode: 503 } => "FiscalAPI no está disponible temporalmente. Intenta de nuevo.",
         { StatusCode: 0 } => "No fue posible conectar con FiscalAPI dentro del tiempo esperado.",
         _ => $"FiscalAPI rechazó la conexión (HTTP {result.StatusCode}). Revisa la configuración.",

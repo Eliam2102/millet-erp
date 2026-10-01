@@ -11,6 +11,7 @@ using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
 using Millet.Integraciones.Fiscal.Domain;
 using Millet.Integraciones.Fiscal.Domain.Ports;
+using Millet.Integraciones.Fiscal.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.IntegracionesFiscal;
@@ -44,7 +45,7 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
     public async Task Lector_obtiene_configuracion_enmascarada_y_no_puede_mutar()
     {
         var admin = await CreateClientAsync(PermisosCanonicos.IntegracionesFiscalAdministrar);
-        (await admin.PutAsJsonAsync($"{Base}/{EmpresaId}/1", Body())).EnsureSuccessStatusCode();
+        (await PutCurrentAsync(admin)).EnsureSuccessStatusCode();
         var reader = await CreateClientAsync(PermisosCanonicos.IntegracionesFiscalLeer);
 
         var get = await reader.GetAsync($"{Base}/{EmpresaId}/1");
@@ -76,8 +77,25 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
 
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
-        Assert.Equal(await first.Content.ReadAsStringAsync(), await replay.Content.ReadAsStringAsync());
+        Assert.True(JsonElement.DeepEquals(await ReadJsonAsync(first), await ReadJsonAsync(replay)));
         AssertNoSecrets(await replay.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("http://test.fiscalapi.com")]
+    [InlineData("https://localhost")]
+    [InlineData("https://127.0.0.1")]
+    [InlineData("https://test.fiscalapi.com.evil.example")]
+    [InlineData("https://test.fiscalapi.com/api")]
+    public async Task Put_rechaza_base_url_no_oficial_sin_persistir(string baseUrl)
+    {
+        var client = await CreateClientAsync(PermisosCanonicos.IntegracionesFiscalAdministrar);
+
+        var response = await PutCurrentAsync(client, Body(baseUrl));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("CONFIG_PAC_BASE_URL_INVALIDA",
+            (await ReadJsonAsync(response)).GetProperty("code").GetString());
     }
 
     [Fact]
@@ -128,13 +146,33 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
             PermisosCanonicos.IntegracionesFiscalLeer,
             PermisosCanonicos.IntegracionesFiscalAdministrar,
             factory: factory);
-        (await client.PutAsJsonAsync($"{Base}/{EmpresaId}/1", Body())).EnsureSuccessStatusCode();
+        (await PutCurrentAsync(client, factory: factory)).EnsureSuccessStatusCode();
         var before = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
 
         (await client.PostAsJsonAsync($"{Base}/{EmpresaId}/1/test", new { })).EnsureSuccessStatusCode();
         var after = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
 
         Assert.Equal(before, after);
+    }
+
+    [Fact]
+    public async Task Put_con_version_obsoleta_retorna_409_sin_mutar()
+    {
+        var client = await CreateClientAsync(
+            PermisosCanonicos.IntegracionesFiscalLeer,
+            PermisosCanonicos.IntegracionesFiscalAdministrar);
+        var saved = await PutCurrentAsync(client);
+        saved.EnsureSuccessStatusCode();
+        var version = (await ReadJsonAsync(saved)).GetProperty("version").GetInt32();
+
+        var current = await PutWithVersionAsync(client, version, Body("https://live.fiscalapi.com"));
+        current.EnsureSuccessStatusCode();
+        var stale = await PutWithVersionAsync(client, version, Body("https://test.fiscalapi.com"));
+
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal("CONCURRENCY_CONFLICT", (await ReadJsonAsync(stale)).GetProperty("code").GetString());
+        var persisted = await client.GetAsync($"{Base}/{EmpresaId}/1");
+        Assert.Equal("https://live.fiscalapi.com", (await ReadJsonAsync(persisted)).GetProperty("baseUrl").GetString());
     }
 
     private WebApplicationFactory<Program> FactoryWith(StubSdk sdk) =>
@@ -184,21 +222,61 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
         return client;
     }
 
-    private static object Body() => new
+    private static object Body(string baseUrl = "https://test.fiscalapi.com") => new
     {
-        baseUrl = "https://test.fiscalapi.com",
+        baseUrl,
         apiKey = "dummy-not-a-secret",
         activo = true,
     };
 
-    private static async Task<HttpResponseMessage> PutAsync(HttpClient client, string key)
+    private async Task<HttpResponseMessage> PutAsync(HttpClient client, string key)
     {
         using var request = new HttpRequestMessage(HttpMethod.Put, $"{Base}/{EmpresaId}/1")
         {
             Content = JsonContent.Create(Body()),
         };
         request.Headers.Add("Idempotency-Key", key);
+        var version = await CurrentVersionAsync();
+        if (version is int value) request.Headers.Add("X-Expected-Version", value.ToString());
         return await client.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> PutCurrentAsync(
+        HttpClient client, object? body = null, WebApplicationFactory<Program>? factory = null)
+    {
+        factory ??= _factory;
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"{Base}/{EmpresaId}/1")
+        {
+            Content = JsonContent.Create(body ?? Body()),
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("D"));
+        var version = await CurrentVersionAsync(factory);
+        if (version is int value) request.Headers.Add("X-Expected-Version", value.ToString());
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> PutWithVersionAsync(
+        HttpClient client, int version, object body)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"{Base}/{EmpresaId}/1")
+        {
+            Content = JsonContent.Create(body),
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("D"));
+        request.Headers.Add("X-Expected-Version", version.ToString());
+        return await client.SendAsync(request);
+    }
+
+    private async Task<int?> CurrentVersionAsync(WebApplicationFactory<Program>? factory = null)
+    {
+        factory ??= _factory;
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        return await scope.ServiceProvider.GetRequiredService<IntegracionesFiscalDbContext>()
+            .ConfiguracionesPac.AsNoTracking()
+            .Where(c => c.EmpresaId == EmpresaId && c.Proveedor == ProveedorPac.FiscalApi)
+            .Select(c => (int?)c.Version)
+            .SingleOrDefaultAsync();
     }
 
     private static void AssertNoSecrets(string json)

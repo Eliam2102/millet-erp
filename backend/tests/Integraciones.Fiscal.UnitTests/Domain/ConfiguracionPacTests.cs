@@ -12,7 +12,7 @@ public sealed class ConfiguracionPacTests
 
     private static ConfiguracionPac NewDefault() =>
         new(Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", CifradoSample, HashSample, Ahora);
+            "https://live.fiscalapi.com", CifradoSample, HashSample, Ahora);
 
     [Fact]
     public void Constructor_marca_activo_y_setea_ultima_rotacion()
@@ -28,7 +28,7 @@ public sealed class ConfiguracionPacTests
     {
         var act = () => new ConfiguracionPac(
             Guid.NewGuid(), Guid.Empty, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", CifradoSample, HashSample, Ahora);
+            "https://live.fiscalapi.com", CifradoSample, HashSample, Ahora);
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_EMPRESA_INVALIDA");
@@ -39,6 +39,15 @@ public sealed class ConfiguracionPacTests
     [InlineData("   ")]
     [InlineData("not-a-url")]
     [InlineData("ftp://api.fiscalapi.com")]
+    [InlineData("http://test.fiscalapi.com")]
+    [InlineData("https://localhost")]
+    [InlineData("https://127.0.0.1")]
+    [InlineData("https://[::1]")]
+    [InlineData("https://test.fiscalapi.com.evil.example")]
+    [InlineData("https://user@test.fiscalapi.com")]
+    [InlineData("https://test.fiscalapi.com/api")]
+    [InlineData("https://test.fiscalapi.com?redirect=http://localhost")]
+    [InlineData("https://live.fiscalapi.com:8443")]
     public void Constructor_rechaza_base_url_invalida(string baseUrl)
     {
         var act = () => new ConfiguracionPac(
@@ -49,12 +58,25 @@ public sealed class ConfiguracionPacTests
             .Which.Code.Should().Be("CONFIG_PAC_BASE_URL_INVALIDA");
     }
 
+    [Theory]
+    [InlineData("https://test.fiscalapi.com")]
+    [InlineData("https://test.fiscalapi.com/")]
+    [InlineData("https://live.fiscalapi.com")]
+    public void Constructor_acepta_origen_oficial_https(string baseUrl)
+    {
+        var act = () => new ConfiguracionPac(
+            Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
+            baseUrl, CifradoSample, HashSample, Ahora);
+
+        act.Should().NotThrow();
+    }
+
     [Fact]
     public void Constructor_rechaza_apikey_cifrado_vacio()
     {
         var act = () => new ConfiguracionPac(
             Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", [], HashSample, Ahora);
+            "https://live.fiscalapi.com", [], HashSample, Ahora);
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_APIKEY_INVALIDA");
@@ -68,7 +90,7 @@ public sealed class ConfiguracionPacTests
     {
         var act = () => new ConfiguracionPac(
             Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", CifradoSample, hash, Ahora);
+            "https://live.fiscalapi.com", CifradoSample, hash, Ahora);
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_APIKEY_HASH_INVALIDO");

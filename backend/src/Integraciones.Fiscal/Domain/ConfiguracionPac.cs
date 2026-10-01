@@ -243,15 +243,21 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         UltimaTestConexionExitosa = exitosa;
     }
 
-    private static void ValidarBaseUrl(string baseUrl)
+    public static void ValidarBaseUrl(string baseUrl)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new BusinessRuleException("CONFIG_PAC_BASE_URL_INVALIDA",
                 "BaseUrl es requerida.");
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri)
-            || (uri.Scheme is not "http" and not "https"))
+            || uri.Scheme != Uri.UriSchemeHttps
+            || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || uri.AbsolutePath != "/"
+            || !string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment)
+            || (uri.Host != "test.fiscalapi.com" && uri.Host != "live.fiscalapi.com"))
             throw new BusinessRuleException("CONFIG_PAC_BASE_URL_INVALIDA",
-                "BaseUrl debe ser una URI absoluta http o https.");
+                "BaseUrl debe ser un origen HTTPS oficial de FiscalAPI (test o live).");
         if (baseUrl.Length > 500)
             throw new BusinessRuleException("CONFIG_PAC_BASE_URL_INVALIDA",
                 "BaseUrl excede 500 caracteres.");

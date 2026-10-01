@@ -135,6 +135,7 @@ public sealed class TestConexionPacHandlerTests
     [Theory]
     [InlineData(0, "No fue posible conectar con FiscalAPI dentro del tiempo esperado.")]
     [InlineData(422, "Configura y activa las credenciales de FiscalAPI antes de probar la conexión.")]
+    [InlineData(501, "La integración fiscal no está habilitada en este ambiente. Contacta a TI.")]
     [InlineData(503, "FiscalAPI no está disponible temporalmente. Intenta de nuevo.")]
     public async Task Ping_fallido_normaliza_mensaje_accionable(int statusCode, string mensaje)
     {

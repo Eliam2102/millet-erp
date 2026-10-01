@@ -93,7 +93,7 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var cifradoOriginal = configOriginal.ApiKeyCifrado;
 
         var responseUpdate = await handler.Handle(
-            NewCommand(apiKey: null) with { BaseUrl = "https://live.fiscalapi.com" },
+            NewCommand(apiKey: null) with { BaseUrl = "https://live.fiscalapi.com", VersionEsperada = configOriginal.Version },
             CancellationToken.None);
 
         db.ConfiguracionesPac.Single().ApiKeyHash.Should().Be(hashOriginal);
@@ -108,7 +108,7 @@ public sealed class GuardarConfiguracionPacHandlerTests
         await handler.Handle(NewCommand(apiKey: "original-key"), CancellationToken.None);
 
         var responseUpdate = await handler.Handle(
-            NewCommand(apiKey: "nueva-key-rotada"),
+            NewCommand(apiKey: "nueva-key-rotada") with { VersionEsperada = db.ConfiguracionesPac.Single().Version },
             CancellationToken.None);
 
         var persisted = db.ConfiguracionesPac.Single();
@@ -124,7 +124,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
         await handler.Handle(NewCommand(apiKey: "same-key"), CancellationToken.None);
         var cifradoInicial = db.ConfiguracionesPac.Single().ApiKeyCifrado;
 
-        await handler.Handle(NewCommand(apiKey: "same-key"), CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: "same-key") with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
 
         db.ConfiguracionesPac.Single().ApiKeyCifrado.Should().Equal(cifradoInicial); // no re-cifró
         publisher.Published.Count(p => p is IntegracionesFiscalConfiguracionActualizadaEvent e && e.Rotacion).Should().Be(1);
@@ -136,7 +137,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var (handler, db, _, _, _) = Build();
         await handler.Handle(NewCommand(), CancellationToken.None);
 
-        await handler.Handle(NewCommand(apiKey: null) with { Activo = false }, CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Activo = false, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
 
         db.ConfiguracionesPac.Single().Activo.Should().BeFalse();
     }
@@ -202,11 +204,13 @@ public sealed class GuardarConfiguracionPacHandlerTests
         await handler.Handle(SandboxCommand(Eku, Eku), CancellationToken.None);
 
         // Reemplazo del owned type sobre entidad trackeada.
-        await handler.Handle(SandboxCommand(Eku, Cacx, apiKey: null), CancellationToken.None);
+        await handler.Handle(SandboxCommand(Eku, Cacx, apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
         db.ConfiguracionesPac.Single().ReceptorSandbox!.Rfc.Should().Be("CACX7605101P8");
 
         // Upsert con null limpia.
-        await handler.Handle(SandboxCommand(null, null, apiKey: null), CancellationToken.None);
+        await handler.Handle(SandboxCommand(null, null, apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
         var persisted = db.ConfiguracionesPac.Single();
         persisted.EmisorSandbox.Should().BeNull();
         persisted.ReceptorSandbox.Should().BeNull();
@@ -218,7 +222,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var (handler, db, _, _, _) = Build();
         await handler.Handle(SandboxCommand(Eku, Eku), CancellationToken.None);
 
-        await handler.Handle(NewCommand(apiKey: null), CancellationToken.None); // BaseUrl live, sin identidades
+        await handler.Handle(NewCommand(apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None); // BaseUrl live, sin identidades
 
         var persisted = db.ConfiguracionesPac.Single();
         persisted.EmisorSandbox.Should().BeNull();
@@ -271,12 +276,14 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var hashOriginal = db.ConfiguracionesPac.Single().CsdHash;
 
         // Mismo CSD: no re-cifra (hash idéntico).
-        await handler.Handle(NewCommand(apiKey: null) with { Csd = CsdEku }, CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Csd = CsdEku, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
         db.ConfiguracionesPac.Single().CsdHash.Should().Be(hashOriginal);
 
         // CSD distinto (otro par cert/llave válido): rota.
         await handler.Handle(
-            NewCommand(apiKey: null) with { Csd = CrearCsdDto("otro-pass") },
+            NewCommand(apiKey: null) with
+                { Csd = CrearCsdDto("otro-pass"), VersionEsperada = db.ConfiguracionesPac.Single().Version },
             CancellationToken.None);
         db.ConfiguracionesPac.Single().CsdHash.Should().NotBe(hashOriginal);
         db.ConfiguracionesPac.Single().CsdNotAfter.Should().Be(Ahora.AddYears(4));
@@ -290,7 +297,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
 
         var invalido = CsdEku with { Password = "password-equivocada" };
         var act = () => handler.Handle(
-            NewCommand(apiKey: null) with { Csd = invalido }, CancellationToken.None);
+            NewCommand(apiKey: null) with
+                { Csd = invalido, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
 
         (await act.Should().ThrowAsync<BusinessRuleException>())
             .Which.Code.Should().Be("CONFIG_PAC_CSD_PASSWORD_INCORRECTA");
@@ -303,7 +311,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var (handler, db, _, _, _) = Build();
         await handler.Handle(NewCommand() with { Csd = CsdEku }, CancellationToken.None);
 
-        await handler.Handle(NewCommand(apiKey: null), CancellationToken.None); // Csd null = no tocar
+        await handler.Handle(NewCommand(apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None); // Csd null = no tocar
 
         db.ConfiguracionesPac.Single().CsdConfigurado.Should().BeTrue();
     }
