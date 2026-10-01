@@ -109,6 +109,7 @@ qué un sistema es como es.
 | [0046](./0046-catalogo-unidad-medida-y-conversion.md) | Catálogo de unidad de medida, conversión en dos niveles y validación de decimales por unidad (workstream 4 etapas) | Aceptada |
 | [0051](./0051-segmentacion-de-datos-por-sucursal.md) | Segmentación de datos por sucursal como patrón transversal (refinamiento de ADR-0011) | Aceptada |
 | [0052](./0052-transaccion-compartida-alta-colaborador.md) | Transacción compartida Identidad + Compartido para el alta de colaborador (excepción a ADR-0030) | Aceptada (ratificación del owner pendiente) |
+| [0053](./0053-permisos-personalizados-por-usuario.md) | Permisos personalizados por usuario como excepciones Conceder/Denegar sobre el rol (refinamiento de ADR-0007) | Propuesta |
 
 ## Backlog explícito (decisiones pendientes que NO deben olvidarse)
 
