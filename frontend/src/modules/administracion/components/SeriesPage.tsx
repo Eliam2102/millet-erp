@@ -349,8 +349,10 @@ function SeriesTabla({
   }
 
   function handleConfirmarDesactivar(id: string) {
+    const serie = items.find((item) => item.id === id);
+    if (serie == null) return;
     desactivar.mutate(
-      { id, idempotencyKey },
+      { id, versionEsperada: serie.version, idempotencyKey },
       {
         onSuccess: () => {
           toast.success('Serie desactivada');

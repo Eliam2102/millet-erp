@@ -9,7 +9,7 @@ namespace Millet.Administracion.Application.Series;
 /// Desactiva una <see cref="Domain.Serie"/> (F-Admin-PR6.1). Idempotente:
 /// si ya está inactiva, no-op.
 /// </summary>
-public sealed record DesactivarSerieCommand(Guid Id) : IRequest<SerieResponse>;
+public sealed record DesactivarSerieCommand(Guid Id, int VersionEsperada) : IRequest<SerieResponse>;
 
 public sealed class DesactivarSerieHandler
     : IRequestHandler<DesactivarSerieCommand, SerieResponse>
@@ -33,6 +33,9 @@ public sealed class DesactivarSerieHandler
                 $"No existe serie con id '{command.Id}'.");
 
         await _scope.VerificarAsync(serie.SucursalId, cancellationToken);
+
+        if (serie.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(Domain.Serie), serie.Id);
 
         if (serie.Activa)
         {

@@ -42,13 +42,15 @@ public sealed class ListarSeriesHandler
             : query.Limit;
 
         IQueryable<Serie> q = _db.Series.AsNoTracking();
+        if (query.EmpresaId is Guid empresaId)
+            _scope.VerificarEmpresa(empresaId);
         if (!await _scope.PuedeGestionarGlobalesAsync(cancellationToken))
         {
             var autorizadas = await _scope.ListarAutorizadasAsync(cancellationToken);
             q = q.Where(s => s.SucursalId == null || autorizadas.Contains(s.SucursalId.Value));
         }
-        if (query.EmpresaId is Guid empresaId)
-            q = q.Where(s => s.EmpresaId == empresaId);
+        if (query.EmpresaId is Guid empresaFiltro)
+            q = q.Where(s => s.EmpresaId == empresaFiltro);
         if (query.TipoDocumento is TipoDocumentoSerie tipo)
             q = q.Where(s => s.TipoDocumento == tipo);
         if (query.SucursalId is Guid sucursalId)

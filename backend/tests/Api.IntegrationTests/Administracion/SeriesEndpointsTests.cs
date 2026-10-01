@@ -5,7 +5,9 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -67,6 +69,67 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task Operaciones_CrossTenant_No_Leen_Ni_Modifican_La_Serie_Ajena()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var empresaAjena = Guid.CreateVersion7();
+        var serieAjena = Guid.CreateVersion7();
+        var prefijo = RandomPrefijo();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            db.Empresas.Add(new Empresa(
+                empresaAjena, $"E{Guid.NewGuid():N}"[..12], $"R{Guid.NewGuid():N}"[..12],
+                "Empresa ajena", "601", "Calle", "1", "Colonia", "Ciudad",
+                "Municipio", "Estado", "MEX"));
+            db.Series.Add(new Serie(
+                serieAjena, empresaAjena, null, TipoDocumentoSerie.Poliza,
+                prefijo, null, ReinicioPeriodo.None));
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.GetAsync($"{EndpointBase}?empresaId={empresaAjena}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.PostAsJsonAsync(EndpointBase, new
+            {
+                Id = Guid.Empty,
+                EmpresaId = empresaAjena,
+                SucursalId = (Guid?)null,
+                TipoDocumento = 4,
+                Prefijo = RandomPrefijo(),
+                Sufijo = (string?)null,
+                ReinicioPeriodo = 0,
+            })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"{EndpointBase}/{serieAjena}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await PatchSerieAsync(client, serieAjena, 0, new
+            {
+                Prefijo = RandomPrefijo(),
+            })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await DesactivarSerieAsync(client, serieAjena, 0)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+            {
+                EmpresaId = empresaAjena,
+                SucursalId = (Guid?)null,
+                TipoDocumento = 4,
+                FechaReferencia = "2026-05-14",
+            })).StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        using var verifyBypass = verifyScope.ServiceProvider
+            .GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var persisted = await verifyScope.ServiceProvider.GetRequiredService<CompartidoDbContext>()
+            .Series.AsNoTracking().SingleAsync(x => x.Id == serieAjena);
+        Assert.True(persisted.Activa);
+        Assert.Equal(prefijo, persisted.Prefijo);
+    }
+
+    [Fact]
     public async Task Usuario_Solo_Ve_Y_Opera_Series_De_Sucursal_Asignada()
     {
         var admin = await CreateSuperAdminClientAsync();
@@ -85,10 +148,10 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
         Assert.Equal(HttpStatusCode.OK, (await operativo.GetAsync($"{EndpointBase}/{propiaId}")).StatusCode);
         await AssertSucursalForbiddenAsync(await operativo.GetAsync($"{EndpointBase}/{ajenaId}"));
-        await AssertSucursalForbiddenAsync(await operativo.PatchAsJsonAsync(
-            $"{EndpointBase}/{ajenaId}", new { Prefijo = RandomPrefijo() }));
-        await AssertSucursalForbiddenAsync(await operativo.PostAsync(
-            $"{EndpointBase}/{ajenaId}/desactivar", null));
+        await AssertSucursalForbiddenAsync(await PatchSerieAsync(
+            operativo, ajenaId, 0, new { Prefijo = RandomPrefijo() }));
+        await AssertSucursalForbiddenAsync(await DesactivarSerieAsync(
+            operativo, ajenaId, 0));
         await AssertSucursalForbiddenAsync(await operativo.PostAsJsonAsync(
             $"{EndpointBase}/reservar", new
             {
@@ -116,8 +179,9 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         });
         reserva.EnsureSuccessStatusCode();
 
-        var patch = await operativo.PatchAsJsonAsync(
-            $"{EndpointBase}/{globalId}", new { Prefijo = RandomPrefijo() });
+        var patch = await PatchSerieAsync(
+            operativo, globalId, await ObtenerVersionSerieAsync(admin, globalId),
+            new { Prefijo = RandomPrefijo() });
         Assert.Equal(HttpStatusCode.Forbidden, patch.StatusCode);
         Assert.Equal("SERIE_GLOBAL_RESTRINGIDA", (await ReadJsonAsync(patch)).GetProperty("code").GetString());
     }
@@ -223,9 +287,10 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             ReinicioPeriodo = 0,
         });
         created.EnsureSuccessStatusCode();
-        var id = (await ReadJsonAsync(created)).GetProperty("id").GetGuid();
-
-        var patched = await client.PatchAsJsonAsync($"{EndpointBase}/{id}", new
+        var createdBody = await ReadJsonAsync(created);
+        var id = createdBody.GetProperty("id").GetGuid();
+        var version = createdBody.GetProperty("version").GetInt32();
+        var patched = await PatchSerieAsync(client, id, version, new
         {
             Prefijo = nuevoPrefijo,
             Sufijo = (string?)null,
@@ -239,6 +304,25 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         var verifyBody = await ReadJsonAsync(verify);
         Assert.Equal(nuevoPrefijo,
             verifyBody.GetProperty("serie").GetProperty("prefijo").GetString());
+
+        var stale = await PatchSerieAsync(client, id, version, new { Prefijo = RandomPrefijo() });
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal("CONCURRENCY_CONFLICT", (await ReadJsonAsync(stale)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Desactivar_Con_Version_Obsoleta_Retorna_409()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var id = await CrearSerieAsync(client, Guid.NewGuid(), 4, RandomPrefijo());
+        var version = await ObtenerVersionSerieAsync(client, id);
+
+        var patched = await PatchSerieAsync(client, id, version, new { Prefijo = RandomPrefijo() });
+        patched.EnsureSuccessStatusCode();
+
+        var stale = await DesactivarSerieAsync(client, id, version);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal("CONCURRENCY_CONFLICT", (await ReadJsonAsync(stale)).GetProperty("code").GetString());
     }
 
     // --- DESACTIVAR ---
@@ -262,7 +346,7 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         created.EnsureSuccessStatusCode();
         var id = (await ReadJsonAsync(created)).GetProperty("id").GetGuid();
 
-        var resp = await client.PostAsync($"{EndpointBase}/{id}/desactivar", null);
+        var resp = await DesactivarSerieAsync(client, id, await ObtenerVersionSerieAsync(client, id));
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var body = await ReadJsonAsync(resp);
         Assert.False(body.GetProperty("activa").GetBoolean());
@@ -273,15 +357,16 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     {
         var client = await CreateSuperAdminClientAsync();
         var sucursal = Guid.NewGuid();
-        var id = await CrearSerieAsync(client, sucursal, 4, RandomPrefijo());
+        var tipoDocumento = await TipoSinSerieGlobalActivaAsync();
+        var id = await CrearSerieAsync(client, sucursal, tipoDocumento, RandomPrefijo());
 
-        (await client.PostAsync($"{EndpointBase}/{id}/desactivar", null)).EnsureSuccessStatusCode();
+        (await DesactivarSerieAsync(client, id, await ObtenerVersionSerieAsync(client, id))).EnsureSuccessStatusCode();
 
         var reserva = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
         {
             EmpresaId = EmpresaBootstrapId,
             SucursalId = sucursal,
-            TipoDocumento = 4,
+            TipoDocumento = tipoDocumento,
             FechaReferencia = "2026-05-14",
         });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, reserva.StatusCode);
@@ -316,14 +401,13 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     public async Task Reservar_Sin_Serie_Configurada_Retorna_422()
     {
         var client = await CreateSuperAdminClientAsync();
-        // EmpresaId aleatoria — garantizado a no tener serie.
-        var fakeEmpresaId = Guid.NewGuid();
+        var tipoDocumento = await TipoSinSerieGlobalActivaAsync();
 
         var resp = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
         {
-            EmpresaId = fakeEmpresaId,
-            SucursalId = (Guid?)null,
-            TipoDocumento = 1, // OrdenCompra
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = (Guid?)Guid.NewGuid(),
+            TipoDocumento = tipoDocumento,
             FechaReferencia = "2026-05-14",
         });
 
@@ -445,6 +529,107 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task Reservar_Reintento_Idempotente_No_Consume_Otro_Folio_Y_Rechaza_Body_Distinto()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        await CrearSerieAsync(admin, sucursal, 4, RandomPrefijo());
+        var client = await CreateSuperAdminClientAsync(autoIdempotency: false);
+        var key = Guid.NewGuid().ToString("D");
+        var body = new
+        {
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = (Guid?)sucursal,
+            TipoDocumento = 4,
+            FechaReferencia = "2026-05-14",
+        };
+
+        var first = await PostReservaAsync(client, key, body);
+        var replay = await PostReservaAsync(client, key, body);
+        first.EnsureSuccessStatusCode();
+        replay.EnsureSuccessStatusCode();
+        Assert.True(replay.Headers.Contains("Idempotent-Replayed"));
+        var firstBody = await ReadJsonAsync(first);
+        Assert.True(JsonElement.DeepEquals(firstBody, await ReadJsonAsync(replay)));
+
+        var next = await PostReservaAsync(client, Guid.NewGuid().ToString("D"), body);
+        next.EnsureSuccessStatusCode();
+        Assert.Equal(
+            firstBody.GetProperty("numero").GetInt64() + 1,
+            (await ReadJsonAsync(next)).GetProperty("numero").GetInt64());
+
+        var mismatch = await PostReservaAsync(client, key, new
+        {
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = (Guid?)sucursal,
+            TipoDocumento = 4,
+            FechaReferencia = "2026-05-15",
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, mismatch.StatusCode);
+        Assert.Equal("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_BODY",
+            (await ReadJsonAsync(mismatch)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Reserva_En_Espera_No_Nace_Despues_De_Desactivacion_Confirmada()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        var tipoDocumento = await TipoSinSerieGlobalActivaAsync();
+        var serieId = await CrearSerieAsync(client, sucursal, tipoDocumento, RandomPrefijo());
+
+        using var lockScope = _factory.Services.CreateScope();
+        using var bypass = lockScope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var lockDb = lockScope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        await using var blocker = await lockDb.Database.BeginTransactionAsync();
+        var locked = await lockDb.Database.SqlQueryRaw<Guid>(
+                "SELECT id AS \"Value\" FROM compartido.series WHERE id = {0} FOR UPDATE", serieId)
+            .SingleAsync();
+        Assert.Equal(serieId, locked);
+
+        var deactivate = DesactivarSerieAsync(
+            client, serieId, await ObtenerVersionSerieAsync(client, serieId));
+        await EsperarUpdateSerieBloqueadoAsync();
+        var reserve = client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+        {
+            EmpresaId = EmpresaBootstrapId,
+            SucursalId = (Guid?)sucursal,
+            TipoDocumento = tipoDocumento,
+            FechaReferencia = "2026-05-14",
+        });
+        await Task.Delay(100);
+        Assert.False(reserve.IsCompleted);
+
+        await blocker.CommitAsync();
+        (await deactivate).EnsureSuccessStatusCode();
+        var reservationResult = await reserve;
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, reservationResult.StatusCode);
+        Assert.Equal("SERIE_NO_CONFIGURADA",
+            (await ReadJsonAsync(reservationResult)).GetProperty("code").GetString());
+
+        async Task EsperarUpdateSerieBloqueadoAsync()
+        {
+            for (var attempt = 0; attempt < 50; attempt++)
+            {
+                using var probeScope = _factory.Services.CreateScope();
+                using var probeBypass = probeScope.ServiceProvider
+                    .GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var probeDb = probeScope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                var waiters = await probeDb.Database.SqlQueryRaw<int>("""
+                        SELECT count(*)::int AS "Value"
+                        FROM pg_stat_activity
+                        WHERE wait_event_type = 'Lock'
+                          AND query ILIKE '%UPDATE%series%'
+                        """).SingleAsync();
+                if (waiters > 0) return;
+                await Task.Delay(20);
+            }
+
+            throw new TimeoutException("La desactivación no llegó a esperar el bloqueo de la serie.");
+        }
+    }
+
+    [Fact]
     public async Task Reservar_50_Concurrentes_Devuelve_50_Folios_Unicos()
     {
         // Concurrencia: dispara 50 POSTs en paralelo con keys distintos.
@@ -493,6 +678,22 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     {
         // Máx 10: "T" + 9 hex. Con 3 hex la BD de dev ya chocaba (409).
         return "T" + Guid.NewGuid().ToString("N").Substring(0, 9).ToUpperInvariant();
+    }
+
+    private async Task<int> TipoSinSerieGlobalActivaAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var usados = await db.Series.AsNoTracking()
+            .Where(s => s.EmpresaId == EmpresaBootstrapId && s.SucursalId == null && s.Activa)
+            .Select(s => s.TipoDocumento)
+            .Distinct()
+            .ToListAsync();
+        return Enum.GetValues<TipoDocumentoSerie>()
+            .Except(usados)
+            .Select(tipo => (int)tipo)
+            .First();
     }
 
     private static async Task<Guid> CrearSerieAsync(
@@ -561,12 +762,53 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal("SUCURSAL_NO_ASOCIADA", (await ReadJsonAsync(response)).GetProperty("code").GetString());
     }
 
-    private async Task<HttpClient> CreateSuperAdminClientAsync()
+    private async Task<HttpClient> CreateSuperAdminClientAsync(bool autoIdempotency = true)
     {
-        var client = _factory.CreateClientWithIdempotency();
+        var client = autoIdempotency
+            ? _factory.CreateClientWithIdempotency()
+            : _factory.CreateClient();
         var token = await FakeLoginAsync(client, SuperAdminOid, "superadmin@dev.local", "Super Admin Dev");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
+    }
+
+    private static async Task<HttpResponseMessage> PostReservaAsync(
+        HttpClient client, string idempotencyKey, object body)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{EndpointBase}/reservar")
+        {
+            Content = JsonContent.Create(body),
+        };
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> PatchSerieAsync(
+        HttpClient client, Guid id, int version, object body)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"{EndpointBase}/{id}")
+        {
+            Content = JsonContent.Create(body),
+        };
+        request.Headers.Add("X-Expected-Version", version.ToString());
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("D"));
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> DesactivarSerieAsync(
+        HttpClient client, Guid id, int version)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{EndpointBase}/{id}/desactivar");
+        request.Headers.Add("X-Expected-Version", version.ToString());
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("D"));
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<int> ObtenerVersionSerieAsync(HttpClient client, Guid id)
+    {
+        var response = await client.GetAsync($"{EndpointBase}/{id}");
+        response.EnsureSuccessStatusCode();
+        return (await ReadJsonAsync(response)).GetProperty("serie").GetProperty("version").GetInt32();
     }
 
     private static async Task<string> FakeLoginAsync(HttpClient client, string oid, string email, string nombre)

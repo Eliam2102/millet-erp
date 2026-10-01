@@ -21,11 +21,9 @@ namespace Millet.Administracion.Domain;
 /// </para>
 ///
 /// <para>
-/// La unicidad efectiva por <c>(EmpresaId, SucursalId?, TipoDocumento,
-/// Prefijo, Sufijo)</c> está garantizada por un índice único en la
-/// configuración EF Core; el <c>NULL</c> de SucursalId se normaliza a
-/// <c>Guid.Empty</c> para que el índice único PostgreSQL no descarte
-/// duplicados (los NULLs no chocan por default).
+/// La detección actual de duplicados por <c>(EmpresaId, SucursalId?,
+/// TipoDocumento, Prefijo, Sufijo)</c> vive en el handler de alta. La regla
+/// de unicidad activa en base de datos depende de la decisión fiscal P02.
 /// </para>
 ///
 /// PLATFORM-TODO(&lt;SeriesSchemaMigrate&gt;): Fase A guarda las tablas
@@ -35,9 +33,9 @@ namespace Millet.Administracion.Domain;
 /// propio DbContext y schema) hace migración aditiva renombrando a
 /// <c>admin.*</c>.
 /// </summary>
-public sealed class Serie : BaseEntity, IAuditable
+public sealed class Serie : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
-    public Guid EmpresaId { get; private set; }
+    public Guid EmpresaId { get; set; }
     public Guid? SucursalId { get; private set; }
     public TipoDocumentoSerie TipoDocumento { get; private set; }
     public string Prefijo { get; private set; } = string.Empty;

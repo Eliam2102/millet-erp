@@ -94,6 +94,7 @@ export function useCrearSerie() {
 
 export interface ActualizarSerieArgs {
   id: string;
+  versionEsperada: number;
   payload: ActualizarSeriePayload;
   idempotencyKey: string;
 }
@@ -101,10 +102,15 @@ export interface ActualizarSerieArgs {
 export function useActualizarSerie() {
   const queryClient = useQueryClient();
   return useMutation<SerieResponse, Error, ActualizarSerieArgs>({
-    mutationFn: async ({ id, payload, idempotencyKey }) => {
+    mutationFn: async ({ id, versionEsperada, payload, idempotencyKey }) => {
       const { data } = await apiRequest<SerieResponse>(
         `/api/v1/admin/series/${id}`,
-        { method: 'PATCH', body: payload, idempotencyKey },
+        {
+          method: 'PATCH',
+          body: payload,
+          idempotencyKey,
+          headers: { 'X-Expected-Version': String(versionEsperada) },
+        },
       );
       return data;
     },
@@ -117,16 +123,21 @@ export function useActualizarSerie() {
 
 export interface DesactivarSerieArgs {
   id: string;
+  versionEsperada: number;
   idempotencyKey: string;
 }
 
 export function useDesactivarSerie() {
   const queryClient = useQueryClient();
   return useMutation<SerieResponse, Error, DesactivarSerieArgs>({
-    mutationFn: async ({ id, idempotencyKey }) => {
+    mutationFn: async ({ id, versionEsperada, idempotencyKey }) => {
       const { data } = await apiRequest<SerieResponse>(
         `/api/v1/admin/series/${id}/desactivar`,
-        { method: 'POST', idempotencyKey },
+        {
+          method: 'POST',
+          idempotencyKey,
+          headers: { 'X-Expected-Version': String(versionEsperada) },
+        },
       );
       return data;
     },

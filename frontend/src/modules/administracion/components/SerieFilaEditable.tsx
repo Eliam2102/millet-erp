@@ -99,6 +99,7 @@ export function SerieFilaEditable({
     actualizar.mutate(
       {
         id: serie.id,
+        versionEsperada: serie.version,
         payload: {
           prefijo:
             values.prefijo !== serie.prefijo ? values.prefijo : undefined,

@@ -57,34 +57,65 @@ public sealed class ReservarFolioHandler
     : IRequestHandler<ReservarFolioCommand, ReservarFolioResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
 
-    public ReservarFolioHandler(CompartidoDbContext db) => _db = db;
+    public ReservarFolioHandler(CompartidoDbContext db, SerieSucursalScope scope)
+    {
+        _db = db;
+        _scope = scope;
+    }
 
     public async Task<ReservarFolioResponse> Handle(
         ReservarFolioCommand command, CancellationToken cancellationToken)
     {
+        _scope.VerificarEmpresa(command.EmpresaId);
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted, cancellationToken);
+
         // Resolver la Serie activa. Estrategia: buscar primero con
         // SucursalId del request; si no hay, caer al match cross-sucursal
         // (SucursalId IS NULL). Permite que una empresa tenga una serie
         // específica por sucursal y un fallback general.
-        Serie? serie = null;
+        Guid? serieId = null;
         if (command.SucursalId is Guid sucId)
         {
-            serie = await _db.Series.AsNoTracking()
-                .FirstOrDefaultAsync(s =>
-                    s.EmpresaId == command.EmpresaId
-                    && s.SucursalId == sucId
-                    && s.TipoDocumento == command.TipoDocumento
-                    && s.Activa,
-                    cancellationToken);
+            const string sqlSucursal = """
+                SELECT id AS "Value"
+                FROM compartido.series
+                WHERE empresa_id = {0}
+                  AND sucursal_id = {1}
+                  AND tipo_documento = {2}
+                  AND activa
+                LIMIT 1
+                FOR UPDATE
+                """;
+            serieId = (await _db.Database.SqlQueryRaw<Guid>(
+                    sqlSucursal, command.EmpresaId, sucId, (short)command.TipoDocumento)
+                .ToListAsync(cancellationToken))
+                .FirstOrDefault();
         }
-        serie ??= await _db.Series.AsNoTracking()
-            .FirstOrDefaultAsync(s =>
-                s.EmpresaId == command.EmpresaId
-                && s.SucursalId == null
-                && s.TipoDocumento == command.TipoDocumento
-                && s.Activa,
-                cancellationToken);
+        if (serieId is null || serieId == Guid.Empty)
+        {
+            const string sqlGlobal = """
+                SELECT id AS "Value"
+                FROM compartido.series
+                WHERE empresa_id = {0}
+                  AND sucursal_id IS NULL
+                  AND tipo_documento = {1}
+                  AND activa
+                LIMIT 1
+                FOR UPDATE
+                """;
+            serieId = (await _db.Database.SqlQueryRaw<Guid>(
+                    sqlGlobal, command.EmpresaId, (short)command.TipoDocumento)
+                .ToListAsync(cancellationToken))
+                .FirstOrDefault();
+        }
+
+        var serie = serieId is Guid id && id != Guid.Empty
+            ? await _db.Series.AsNoTracking().SingleAsync(s => s.Id == id, cancellationToken)
+            : null;
 
         if (serie is null)
         {
@@ -131,6 +162,7 @@ public sealed class ReservarFolioHandler
         var numero = result.Single();
 
         var folio = FormatearFolio(serie, periodoClave, numero);
+        await transaction.CommitAsync(cancellationToken);
         return new ReservarFolioResponse(folio, numero, periodoClave);
     }
 

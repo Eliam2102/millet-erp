@@ -54,6 +54,7 @@ public sealed class CrearSerieHandler
     public async Task<SerieResponse> Handle(
         CrearSerieCommand command, CancellationToken cancellationToken)
     {
+        _scope.VerificarEmpresa(command.EmpresaId);
         await _scope.VerificarAsync(command.SucursalId, cancellationToken);
 
         // Verificar existencia de empresa.

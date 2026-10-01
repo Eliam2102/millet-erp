@@ -103,12 +103,16 @@ public static class SeriesEndpoints
         // --- PATCH ---
         group.MapPatch("/{id:guid}", async (
             Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] ActualizarSeriePayload payload,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            if (expectedVersion is not int version)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
             var command = new ActualizarSerieCommand(
                 id,
+                version,
                 payload.Prefijo,
                 payload.Sufijo,
                 payload.ReinicioPeriodo,
@@ -130,10 +134,13 @@ public static class SeriesEndpoints
         // --- DESACTIVAR ---
         group.MapPost("/{id:guid}/desactivar", async (
             Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             IMediator mediator,
             CancellationToken ct) =>
         {
-            var response = await mediator.Send(new DesactivarSerieCommand(id), ct);
+            if (expectedVersion is not int version)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            var response = await mediator.Send(new DesactivarSerieCommand(id, version), ct);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())

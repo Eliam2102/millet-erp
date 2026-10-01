@@ -17,6 +17,7 @@ namespace Millet.Administracion.Application.Series;
 /// </summary>
 public sealed record ActualizarSerieCommand(
     Guid Id,
+    int VersionEsperada,
     string? Prefijo,
     string? Sufijo,
     ReinicioPeriodo? ReinicioPeriodo,
@@ -58,6 +59,9 @@ public sealed class ActualizarSerieHandler
                 $"No existe serie con id '{command.Id}'.");
 
         await _scope.VerificarAsync(serie.SucursalId, cancellationToken);
+
+        if (serie.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(Serie), serie.Id);
 
         serie.ActualizarDatos(
             prefijo: command.Prefijo,
