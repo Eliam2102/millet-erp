@@ -20,6 +20,8 @@ namespace Millet.Identidad.Application.Usuarios;
 ///         <c>ROL_NO_ENCONTRADO</c>).</item>
 ///   <item>409 <c>USUARIO_ASIGNACION_DUPLICADA</c> si ya existe la combinación
 ///         <c>(UsuarioId, EmpresaId, RolId)</c> (unique idx en BD).</item>
+///   <item>Borra las excepciones de permisos del usuario en la empresa
+///         (cambio de rol, ADR-0053) e invalida su caché de permisos.</item>
 ///   <item>Publica <see cref="UsuarioRolAsignadoEvent"/> via
 ///         <see cref="IIntegrationEventPublisher"/>.</item>
 /// </list>
@@ -47,6 +49,7 @@ public sealed class AsignarRolAUsuarioHandler
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _empresaContext;
+    private readonly IPermissionCache _permissionCache;
     private readonly IClock _clock;
 
     public AsignarRolAUsuarioHandler(
@@ -54,12 +57,14 @@ public sealed class AsignarRolAUsuarioHandler
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext empresaContext,
+        IPermissionCache permissionCache,
         IClock clock)
     {
         _db = db;
         _events = events;
         _currentUser = currentUser;
         _empresaContext = empresaContext;
+        _permissionCache = permissionCache;
         _clock = clock;
     }
 
@@ -119,7 +124,14 @@ public sealed class AsignarRolAUsuarioHandler
             _currentUser.UserId);
 
         _db.UsuarioEmpresaRoles.Add(asignacion);
+        // Cambio de rol: las excepciones de permisos del usuario en esta
+        // empresa se borran en la misma transacción (ADR-0053).
+        var overridesBorrados = await PermisosOverrideReglas.QuitarPorCambioDeRolAsync(
+            _db, command.UsuarioId, command.EmpresaId, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+        await PermisosOverrideReglas.NotificarCambioDeRolAsync(
+            _permissionCache, _events, _clock,
+            command.UsuarioId, command.EmpresaId, overridesBorrados, cancellationToken);
 
         // PLATFORM-TODO(<AdminOutbox>): IdentidadDbContext no tiene el
         // OutboxSaveChangesInterceptor wireado. El evento se encola al
