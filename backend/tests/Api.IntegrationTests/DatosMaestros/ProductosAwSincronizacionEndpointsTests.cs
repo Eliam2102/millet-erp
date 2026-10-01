@@ -139,6 +139,37 @@ public class ProductosAwSincronizacionEndpointsTests : IClassFixture<WebApplicat
     }
 
     [Fact]
+    public async Task Patch_manual_valida_If_Match_viejo_409_vigente_204_y_sin_header_204()
+    {
+        var referencia = $"DEMO-{Guid.NewGuid():N}"[..20];
+        await using var f = Host(null);
+        var id = await SembrarAsync(f, referencia);
+        var c = await ClienteConPermisosAsync(f, PermisosCanonicos.DatosMaestrosProductosAwGestionar);
+
+        var detalle = await c.GetAsync($"{Base}/{id}");
+        var version = (await Json(detalle)).GetProperty("version").GetInt32();
+        Assert.Equal($"\"{version}\"", detalle.Headers.ETag!.Tag);
+
+        HttpRequestMessage Patch(string descripcion, int? ifMatch)
+        {
+            var r = new HttpRequestMessage(HttpMethod.Patch, $"{Base}/{id}")
+            {
+                Content = JsonContent.Create(new { descripcion }),
+            };
+            if (ifMatch is { } v) r.Headers.TryAddWithoutValidation("If-Match", $"\"{v}\"");
+            return r;
+        }
+
+        var viejo = await c.SendAsync(Patch("PISADA", version + 9));
+        Assert.Equal(HttpStatusCode.Conflict, viejo.StatusCode);
+        Assert.Contains("PRODUCTO_AW_CONFLICTO_VERSION", await viejo.Content.ReadAsStringAsync());
+        Assert.NotEqual("PISADA", (await Json(await c.GetAsync($"{Base}/{id}"))).GetProperty("descripcion").GetString());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await c.SendAsync(Patch("VIGENTE", version))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await c.SendAsync(Patch("SIN HEADER", null))).StatusCode);
+    }
+
+    [Fact]
     public async Task Contrato_devuelve_inactivo_con_estatus()
     {
         var referencia = $"DEMO-{Guid.NewGuid():N}"[..20];

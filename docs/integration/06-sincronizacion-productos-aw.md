@@ -75,6 +75,8 @@ Las medidas (`alto_mm`, `ancho_mm`, `espesor_mm`) son nullables: **nulo signific
 
 `Version` (long) implementa concurrencia optimista (ETag/If-Match, ADR-0012). Si una edición manual y una sincronización compiten, o dos escritores usan una versión vieja, el resultado es `ConflictoVersion`: **no se sobrescribe en silencio**. Mismo mecanismo que `ClienteSincronizacionAw`.
 
+La edición manual (`PATCH /{id}`) también valida versión: `GET /{id}` expone `version` y `ETag`; el PATCH acepta `If-Match` opcional y, si la versión es vieja, responde 409 `PRODUCTO_AW_CONFLICTO_VERSION` sin escribir (sin `If-Match` se comporta como antes). El formulario manda la versión con que se abrió y recarga el detalle al recibir el 409.
+
 ## 9. Contrato de lectura y endpoints (D1/D2)
 
 **Puerto:** `IProductoAwContratoReadPort` (`ObtenerPorReferenciaAsync`, `ObtenerPorIdAsync`) en `Millet.DatosMaestros.Application.ProductosAw`; adaptador `ProductoAwContratoReadAdapter` sobre `CompartidoDbContext` (solo lectura). Devuelve inactivos con su `estatus`; nunca borra. Inventario, producción y facturación futuros lo consumen sin tocar tablas.

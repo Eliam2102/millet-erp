@@ -519,6 +519,8 @@ export interface ProductoAwDetalle {
   estatus: EstatusCatalogo;
   fechaBaja?: string | null;
   variantes?: ProductoAwVariante[];
+  /** Versión (ETag) para If-Match en la edición. */
+  version: number;
 }
 
 /** Medidas en mm: null = A+W no las informó (NUNCA 0). */

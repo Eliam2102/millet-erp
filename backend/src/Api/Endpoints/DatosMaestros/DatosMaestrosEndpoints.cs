@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.CentrosCosto;
 using Millet.Api.Web;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -406,13 +407,14 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
         productosAw.MapGet("/{id:guid}", async (
-            Guid id, CompartidoDbContext db, CancellationToken ct) =>
+            Guid id, HttpResponse response, CompartidoDbContext db, CancellationToken ct) =>
         {
             var p = await db.ProductosAw.AsNoTracking().Include(x => x.Variantes)
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new EntityNotFoundException(
                     "PRODUCTO_AW_NO_ENCONTRADO",
                     $"No existe producto A+W con id '{id}'.");
+            CentrosCostoCatalogoEndpoints.SetEtag(response, p.Version);
             return Results.Ok(new ProductoAwDetalle(
                 p.Id, p.ReferenciaExterna, p.Descripcion, p.UnidadMedida,
                 p.UnidadMedidaId, p.CategoriaId, p.ClaveProdServSat,
@@ -422,7 +424,8 @@ public static class DatosMaestrosEndpoints
                 p.DatosFiscalesCompletos, p.Estatus, p.FechaBaja,
                 p.Variantes.OrderBy(v => v.ClaveVariante)
                     .Select(v => new ProductoAwVarianteDato(v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
-                    .ToList()));
+                    .ToList(),
+                p.Version));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProductosAwGestionar)
         .WithName("ObtenerProductoAw")
@@ -476,9 +479,17 @@ public static class DatosMaestrosEndpoints
         productosAw.MapPatch("/{id:guid}", async (
             Guid id,
             [FromBody] ActualizarProductoAwRequest body,
+            [FromHeader(Name = "If-Match")] string? ifMatch,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            int? version = null;
+            if (!string.IsNullOrWhiteSpace(ifMatch))
+            {
+                if (!CentrosCostoCatalogoEndpoints.TryParseVersion(ifMatch, out var v))
+                    throw new BusinessRuleException("IF_MATCH_INVALIDO", "If-Match debe ser la versión (ETag) del producto.");
+                version = v;
+            }
             await mediator.Send(
                 new ActualizarProductoAwCommand(
                     ProductoAwId: id,
@@ -501,7 +512,8 @@ public static class DatosMaestrosEndpoints
                     LimpiarTasaRetencionIsr: body.LimpiarTasaRetencionIsr ?? false,
                     LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false,
                     LimpiarUnidadAduana: body.LimpiarUnidadAduana ?? false,
-                    LimpiarPesoUnitarioKg: body.LimpiarPesoUnitarioKg ?? false),
+                    LimpiarPesoUnitarioKg: body.LimpiarPesoUnitarioKg ?? false,
+                    VersionEsperada: version),
                 ct);
             return Results.NoContent();
         })
@@ -638,7 +650,8 @@ public static class DatosMaestrosEndpoints
         bool DatosFiscalesCompletos,
         EstatusCatalogo Estatus,
         DateTime? FechaBaja,
-        IReadOnlyList<ProductoAwVarianteDato> Variantes);
+        IReadOnlyList<ProductoAwVarianteDato> Variantes,
+        int Version);
 
     public sealed record CrearProductoAwRequest(
         string ReferenciaExterna,

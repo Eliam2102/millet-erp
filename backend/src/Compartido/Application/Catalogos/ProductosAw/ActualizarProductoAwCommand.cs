@@ -33,7 +33,8 @@ public sealed record ActualizarProductoAwCommand(
     bool LimpiarTasaRetencionIsr = false,
     bool LimpiarFraccionArancelaria = false,
     bool LimpiarUnidadAduana = false,
-    bool LimpiarPesoUnitarioKg = false) : IRequest;
+    bool LimpiarPesoUnitarioKg = false,
+    int? VersionEsperada = null) : IRequest;
 
 public sealed class ActualizarProductoAwValidator : AbstractValidator<ActualizarProductoAwCommand>
 {
@@ -78,6 +79,13 @@ public sealed class ActualizarProductoAwHandler : IRequestHandler<ActualizarProd
             ?? throw new EntityNotFoundException(
                 "PRODUCTO_AW_NO_ENCONTRADO",
                 $"No existe producto A+W con id '{request.ProductoAwId}'.");
+
+        if (request.VersionEsperada is { } esperada && esperada != producto.Version)
+        {
+            throw new ConflictException(
+                "PRODUCTO_AW_CONFLICTO_VERSION",
+                "El producto cambió desde que lo abriste; recarga y reintenta.");
+        }
 
         // FK opcional a UnidadMedida: asignación explícita con sincronía del
         // snapshot (mismo patrón AsignarUnidadMedida de Articulo, ADR-0046).

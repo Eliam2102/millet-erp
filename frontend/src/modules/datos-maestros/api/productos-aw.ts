@@ -94,20 +94,24 @@ export function useCrearProductoAw() {
 export interface ActualizarProductoAwArgs {
   id: string;
   payload: ActualizarProductoAwPayload;
+  /** Versión del detalle con que se armó el form (If-Match, ADR-0012). */
+  version: number;
   idempotencyKey: string;
 }
 
 export function useActualizarProductoAw() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, ActualizarProductoAwArgs>({
-    mutationFn: async ({ id, payload, idempotencyKey }) => {
+    mutationFn: async ({ id, payload, version, idempotencyKey }) => {
       await apiRequest<void>(`/api/v1/datos-maestros/productos-aw/${id}`, {
         method: 'PATCH',
         body: payload,
         idempotencyKey,
+        ifMatch: String(version),
       });
     },
-    onSuccess: (_data, vars) => {
+    // También tras un 409: recarga el detalle para que el form parta de lo vigente.
+    onSettled: (_data, _error, vars) => {
       queryClient.invalidateQueries({
         queryKey: datosMaestrosKeys.productoAw(vars.id),
       });
