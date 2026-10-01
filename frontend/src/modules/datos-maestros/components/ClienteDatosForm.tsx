@@ -19,7 +19,10 @@ import {
   type ActualizarClienteValues,
 } from '@/modules/datos-maestros/schemas/cliente';
 import { useActualizarCliente } from '@/modules/datos-maestros/api';
-import type { ClienteDetalle } from '@/modules/datos-maestros/api/types';
+import {
+  OrigenMaster,
+  type ClienteDetalle,
+} from '@/modules/datos-maestros/api/types';
 import { MonedaSelector } from '@/components/erp/selectors/MonedaSelector';
 import { RegimenFiscalSelector } from '@/components/erp/selectors/RegimenFiscalSelector';
 import { UsoCfdiSelector } from '@/components/erp/selectors/UsoCfdiSelector';
@@ -50,7 +53,18 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
   const canEditar = useHasPermission(
     PermisosCanonicos.DatosMaestrosClientesGestionar,
   );
+  const canFiscalEditar = useHasPermission(
+    PermisosCanonicos.DatosMaestrosClientesFiscalEditar,
+  );
   const actualizar = useActualizarCliente();
+  // En Origen=Aw los fiscales con valor previo solo los cambia `fiscal-editar`
+  // (el backend responde 403 si no); completar un campo vacío sigue libre.
+  const fiscalBloqueado = (valor: string | null) =>
+    cliente.origen === OrigenMaster.Aw && !canFiscalEditar && !!valor;
+  const razonBloqueada = fiscalBloqueado(cliente.razonSocial);
+  const rfcBloqueado = fiscalBloqueado(cliente.rfc);
+  const regimenBloqueado = fiscalBloqueado(cliente.regimenFiscal);
+  const cpBloqueado = fiscalBloqueado(cliente.codigoPostalFiscal);
 
   const form = useForm<ActualizarClienteValues>({
     resolver: zodResolver(ActualizarClienteSchema),
@@ -195,6 +209,13 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
         />
       </FormRow>
 
+      {(razonBloqueada || rfcBloqueado || regimenBloqueado || cpBloqueado) && (
+        <p className="text-xs text-muted-foreground md:col-span-2">
+          Cliente de origen A+W: los datos fiscales ya registrados solo los
+          modifica quien tenga el permiso de edición fiscal.
+        </p>
+      )}
+
       <div className="md:col-span-2">
         <FormRow
           label="Razón social"
@@ -203,7 +224,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
         >
           <Input
             maxLength={254}
-            disabled={!canEditar}
+            disabled={!canEditar || razonBloqueada}
             {...form.register('razonSocial')}
           />
         </FormRow>
@@ -220,7 +241,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
           render={({ field }) => (
             <UppercaseInput
               maxLength={13}
-              disabled={!canEditar}
+              disabled={!canEditar || rfcBloqueado}
               className="font-mono"
               value={field.value ?? ''}
               onChange={(e) =>
@@ -245,7 +266,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             <RegimenFiscalSelector
               value={field.value}
               onChange={field.onChange}
-              disabled={!canEditar}
+              disabled={!canEditar || regimenBloqueado}
             />
           )}
         />
@@ -263,7 +284,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
             <Input
               maxLength={5}
               inputMode="numeric"
-              disabled={!canEditar}
+              disabled={!canEditar || cpBloqueado}
               className="font-mono"
               value={field.value ?? ''}
               onChange={(e) =>

@@ -62,6 +62,15 @@ public class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task Should_Map_DbUpdateConcurrencyException_To_409()
+    {
+        var (status, code, _) = await Handle(new DbUpdateConcurrencyException("token viejo"));
+
+        status.Should().Be(StatusCodes.Status409Conflict);
+        code.Should().Be("CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
     public async Task Should_Map_Concurrent_Proveedor_Rfc_Unique_Violation_To_409()
     {
         var postgres = new PostgresException(

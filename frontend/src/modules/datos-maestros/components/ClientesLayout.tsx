@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Plus, TriangleAlert, Users } from 'lucide-react';
+import { Plus, RefreshCw, TriangleAlert, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UppercaseInput } from '@/components/erp/forms/UppercaseInput';
@@ -17,12 +17,14 @@ import {
   OrigenMaster,
 } from '@/modules/datos-maestros/api/types';
 import type { ListarClientesFiltros } from '@/modules/datos-maestros/api/keys';
+import type { ResultadoSincronizacion } from '@/modules/datos-maestros/api/types';
 import { esApiError } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ListaClientesCompacta } from '@/modules/datos-maestros/components/ListaClientesCompacta';
 import { useNuevoCliente } from '@/modules/datos-maestros/components/nuevo-cliente-context';
+import { SheetSincronizacionClientes } from '@/modules/datos-maestros/components/SheetSincronizacionClientes';
 import { cn } from '@/lib/utils';
 
 /**
@@ -49,10 +51,16 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
     PermisosCanonicos.DatosMaestrosClientesGestionar,
   );
 
+  const canSincronizar = useHasPermission(
+    PermisosCanonicos.DatosMaestrosClientesSincronizar,
+  );
+  const [syncAbierto, setSyncAbierto] = useState(false);
+
   const [rfcInput, setRfcInput] = useState('');
   const [razonInput, setRazonInput] = useState('');
   const [origen, setOrigen] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
+  const [resultadoSync, setResultadoSync] = useState<string>('');
   const [soloFiscalesIncompletos, setSoloFiscalesIncompletos] =
     useState(false);
 
@@ -67,9 +75,20 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       estatus:
         estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       fiscalesIncompletos: soloFiscalesIncompletos ? true : undefined,
+      resultadoSincronizacion:
+        resultadoSync !== ''
+          ? (resultadoSync as ResultadoSincronizacion)
+          : undefined,
       limit: 200,
     }),
-    [rfcDebounced, razonDebounced, origen, estatus, soloFiscalesIncompletos],
+    [
+      rfcDebounced,
+      razonDebounced,
+      origen,
+      estatus,
+      soloFiscalesIncompletos,
+      resultadoSync,
+    ],
   );
 
   const clientesQuery = useClientes(filtros);
@@ -90,12 +109,24 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-semibold tracking-tight">Clientes</h1>
-          {canGestionar && (
-            <Button size="sm" onClick={() => nuevoCliente.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nuevo
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {canSincronizar && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSyncAbierto(true)}
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Sincronizar
+              </Button>
+            )}
+            {canGestionar && (
+              <Button size="sm" onClick={() => nuevoCliente.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nuevo
+              </Button>
+            )}
+          </div>
         </div>
 
         <FiltrosBloque
@@ -107,6 +138,8 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
           onOrigen={setOrigen}
           estatus={estatus}
           onEstatus={setEstatus}
+          resultadoSync={resultadoSync}
+          onResultadoSync={setResultadoSync}
           soloFiscalesIncompletos={soloFiscalesIncompletos}
           onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
         />
@@ -131,6 +164,13 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
+
+      {canSincronizar && (
+        <SheetSincronizacionClientes
+          open={syncAbierto}
+          onOpenChange={setSyncAbierto}
+        />
+      )}
     </div>
   );
 }
@@ -144,6 +184,8 @@ interface FiltrosBloqueProps {
   onOrigen: (v: string) => void;
   estatus: string;
   onEstatus: (v: string) => void;
+  resultadoSync: string;
+  onResultadoSync: (v: string) => void;
   soloFiscalesIncompletos: boolean;
   onSoloFiscalesIncompletos: (v: boolean) => void;
 }
@@ -157,6 +199,8 @@ function FiltrosBloque({
   onOrigen,
   estatus,
   onEstatus,
+  resultadoSync,
+  onResultadoSync,
   soloFiscalesIncompletos,
   onSoloFiscalesIncompletos,
 }: FiltrosBloqueProps) {
@@ -211,6 +255,26 @@ function FiltrosBloque({
           </SelectContent>
         </Select>
       </div>
+      {/* Bandeja de revisión de la sincronización A+W (F1-ADM-06): el
+          backend filtra por un solo resultado a la vez. */}
+      <Select
+        value={resultadoSync === '' ? 'all' : resultadoSync}
+        onValueChange={(v) => onResultadoSync(v === 'all' ? '' : v)}
+      >
+        <SelectTrigger
+          className="h-8 text-xs"
+          aria-label="Resultado de sincronización"
+        >
+          <SelectValue placeholder="Resultado de sincronización" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Sincronización: todos</SelectItem>
+          <SelectItem value="Pendiente">Pendiente de validación</SelectItem>
+          <SelectItem value="Conflicto">Conflicto</SelectItem>
+          <SelectItem value="Error">Error</SelectItem>
+          <SelectItem value="Aplicado">Aplicado</SelectItem>
+        </SelectContent>
+      </Select>
       {/* Bandeja de trabajo pre-timbrado: fiscalesIncompletos=true trae
           solo los clientes que aún no pueden timbrar. */}
       <Button

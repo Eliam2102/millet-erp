@@ -46,6 +46,8 @@ public sealed class CompartidoDbContext : BaseDbContext
     // ADR-0048 D6: master de clientes (primer consumidor: Facturación vía
     // IClientesReadPort; nacen desde A+W por auto-provisión).
     public DbSet<Cliente> Clientes => Set<Cliente>();
+    // ADM-06: registro de origen A+W 1:1 con Cliente (valores crudos + control).
+    public DbSet<ClienteSincronizacionAw> ClientesSincronizacionAw => Set<ClienteSincronizacionAw>();
     // ADR-0048 D5: master de productos de venta manufacturados (A+W),
     // SEPARADO de Articulos (compras/almacén) a propósito.
     public DbSet<ProductoAw> ProductosAw => Set<ProductoAw>();
@@ -134,6 +136,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureProveedor(modelBuilder);
         ConfigureArticulo(modelBuilder);
         ConfigureCliente(modelBuilder);
+        ConfigureClienteSincronizacionAw(modelBuilder);
         ConfigureProductoAw(modelBuilder);
         ConfigureSucursal(modelBuilder);
         ConfigureCanalVenta(modelBuilder);
@@ -1059,6 +1062,50 @@ public sealed class CompartidoDbContext : BaseDbContext
         cliente.HasIndex(x => x.ReferenciaExterna).IsUnique();
         cliente.HasIndex(x => x.Rfc);
         cliente.HasIndex(x => x.Estatus);
+    }
+
+    /// <summary>
+    /// Configura <see cref="ClienteSincronizacionAw"/> (ADM-06): registro de
+    /// origen 1:1 con <see cref="Cliente"/>. FK RESTRICT; UNIQUE en cliente_id
+    /// y referencia_externa (la carrera de alta se resuelve por este índice).
+    /// </summary>
+    private static void ConfigureClienteSincronizacionAw(ModelBuilder modelBuilder)
+    {
+        var sync = modelBuilder.Entity<ClienteSincronizacionAw>();
+        sync.ToTable("cliente_sincronizacion_aw", t =>
+            t.HasCheckConstraint("ck_cliente_sincronizacion_aw_resultado", "resultado BETWEEN 0 AND 4"));
+        sync.HasKey(x => x.Id);
+        sync.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        sync.Property(x => x.Diferencias).HasMaxLength(2000);
+        sync.Property(x => x.NombreComercialOrigen).HasMaxLength(400);
+        sync.Property(x => x.DomicilioOrigenCalle).HasMaxLength(200);
+        sync.Property(x => x.DomicilioOrigenCiudad).HasMaxLength(100);
+        sync.Property(x => x.DomicilioOrigenCp).HasMaxLength(20);
+        sync.Property(x => x.DomicilioOrigenProvincia).HasMaxLength(100);
+        sync.Property(x => x.DomicilioOrigenPais).HasMaxLength(100);
+        sync.Property(x => x.CandidatoFiscalUstId).HasMaxLength(40);
+        sync.Property(x => x.CandidatoFiscalSteuernummer).HasMaxLength(40);
+        sync.Property(x => x.Telefono2Origen).HasMaxLength(50);
+        sync.Property(x => x.CondicionCodigoOrigen).HasMaxLength(50);
+        sync.Property(x => x.MonedaCodigoOrigen).HasMaxLength(20);
+        sync.Property(x => x.MonedaNormalizada).HasMaxLength(3);
+        sync.Property(x => x.CreditoReferenciaLimite).HasPrecision(18, 4);
+        sync.Property(x => x.CreditoReferenciaLimite1).HasPrecision(18, 4);
+        sync.Property(x => x.HashOrigen).HasMaxLength(64).IsRequired();
+        sync.Property(x => x.VersionContrato).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.VersionMapeo).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.Resultado).HasConversion<short>().IsRequired();
+        sync.Property(x => x.Error).HasMaxLength(1000);
+        sync.Property(x => x.Telefono2Origen).HasColumnName("telefono2_origen");
+        sync.Property(x => x.CreditoReferenciaLimite1).HasColumnName("credito_referencia_limite_1");
+        sync.Property(x => x.Version).IsConcurrencyToken();
+
+        sync.HasIndex(x => x.ClienteId).IsUnique();
+        sync.HasIndex(x => x.ReferenciaExterna).IsUnique();
+        sync.HasOne<Cliente>()
+            .WithMany()
+            .HasForeignKey(x => x.ClienteId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     /// <summary>

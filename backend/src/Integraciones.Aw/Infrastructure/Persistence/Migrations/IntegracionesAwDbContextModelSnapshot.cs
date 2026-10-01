@@ -19,10 +19,191 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("integraciones_aw")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwClientesEjecucion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor");
+
+                    b.Property<int>("Actualizados")
+                        .HasColumnType("integer")
+                        .HasColumnName("actualizados");
+
+                    b.Property<int>("Conflictos")
+                        .HasColumnType("integer")
+                        .HasColumnName("conflictos");
+
+                    b.Property<int>("Creados")
+                        .HasColumnType("integer")
+                        .HasColumnName("creados");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CursorActual")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("cursor_actual");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("ErrorGeneral")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("error_general");
+
+                    b.Property<int>("Errores")
+                        .HasColumnType("integer")
+                        .HasColumnName("errores");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTimeOffset>("IniciadaEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("iniciada_en_utc");
+
+                    b.Property<int>("Leidos")
+                        .HasColumnType("integer")
+                        .HasColumnName("leidos");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origen");
+
+                    b.Property<int>("Pendientes")
+                        .HasColumnType("integer")
+                        .HasColumnName("pendientes");
+
+                    b.Property<Guid?>("ReintentoDeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reintento_de_id");
+
+                    b.Property<int>("SinCambios")
+                        .HasColumnType("integer")
+                        .HasColumnName("sin_cambios");
+
+                    b.Property<DateTimeOffset?>("TerminadaEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("terminada_en_utc");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_aw_clientes_ejecucion");
+
+                    b.HasIndex("IniciadaEnUtc")
+                        .HasDatabaseName("ix_aw_clientes_ejecucion_iniciada");
+
+                    b.HasIndex("Origen")
+                        .IsUnique()
+                        .HasDatabaseName("uq_aw_clientes_ejecucion_barrido_vivo")
+                        .HasFilter("tipo = 0 AND estado IN (0, 1)");
+
+                    b.ToTable("aw_clientes_ejecucion", "integraciones_aw");
+                });
+
+            modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwClientesEjecucionError", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EjecucionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ejecucion_id");
+
+                    b.Property<string>("Mensaje")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("mensaje");
+
+                    b.Property<DateTimeOffset>("OcurridoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ocurrido_en_utc");
+
+                    b.Property<string>("Referencia")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("referencia");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_aw_clientes_ejecucion_error");
+
+                    b.HasIndex("EjecucionId", "Referencia")
+                        .HasDatabaseName("ix_aw_clientes_ejecucion_error_ref");
+
+                    b.ToTable("aw_clientes_ejecucion_error", "integraciones_aw");
+                });
 
             modelBuilder.Entity("Millet.Integraciones.Aw.Domain.Correlacion", b =>
                 {
@@ -356,6 +537,23 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -378,6 +576,12 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -407,12 +611,21 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");
@@ -507,6 +720,16 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                     b.ToTable("integration_events_outbox", "integraciones_aw");
                 });
 
+            modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwClientesEjecucionError", b =>
+                {
+                    b.HasOne("Millet.Integraciones.Aw.Domain.AwClientesEjecucion", null)
+                        .WithMany("ErroresPorReferencia")
+                        .HasForeignKey("EjecucionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_aw_clientes_ejecucion_error_aw_clientes_ejecucion_ejecucion");
+                });
+
             modelBuilder.Entity("Millet.Integraciones.Aw.Domain.Correlacion", b =>
                 {
                     b.HasOne("Millet.Integraciones.Aw.Domain.EntidadExterna", null)
@@ -525,6 +748,11 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_envio_entidad_externa_entidad_externa_id");
+                });
+
+            modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwClientesEjecucion", b =>
+                {
+                    b.Navigation("ErroresPorReferencia");
                 });
 #pragma warning restore 612, 618
         }

@@ -124,6 +124,10 @@ public static class PermisosCanonicos
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
+    // F1-ADM-06: sincronización de clientes desde A+W.
+    public const string DatosMaestrosClientesSincronizar               = "datos_maestros.clientes.sincronizar";
+    public const string DatosMaestrosClientesOrigenVer                 = "datos_maestros.clientes.origen-ver";
+    public const string DatosMaestrosClientesFiscalEditar              = "datos_maestros.clientes.fiscal-editar";
     public const string DatosMaestrosProductosAwGestionar              = "datos_maestros.productos-aw.gestionar";
 
     // ----- Administración — andamio mínimo del área /admin (F-Admin-PR1.2) -----
@@ -539,6 +543,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Cambiar banco, CLABE y beneficiario de proveedores"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000003"), DatosMaestrosClientesOrigenVer,               "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000004"), DatosMaestrosClientesFiscalEditar,            "Modificar datos fiscales de clientes con origen A+W"),
         (Guid.Parse("00000004-0012-0000-0000-000000000001"), DatosMaestrosProductosAwGestionar,            "Crear, editar y desactivar productos de venta A+W del master cross-empresa (ADR-0048)"),
         // Cuentas por Pagar (F0-PR1). Namespace 00000007-*.
         (Guid.Parse("00000007-0001-0000-0000-000000000001"), CuentasPorPagarFacturasLeer,                 "Consultar facturas de proveedor (detalle y listados)"),

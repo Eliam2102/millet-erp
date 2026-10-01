@@ -113,3 +113,7 @@ stacktraces en producción son una fuga de información.
 - En Swagger/OpenAPI: documentar las respuestas de error usando los `type` de Problem Details
 - Frontend: definir `type ApiError = { ... }` en `frontend/src/types/api-error.ts` y exportar utilidades
 - Tests: verificar que cada excepción tiene su mapeo (test parametrizado)
+
+## Catálogos de códigos por módulo
+
+- A+W clientes (`AW_CLIENTES_*`, 409 de concurrencia y protección fiscal): [`docs/integration/05-sincronizacion-clientes-aw.md`](../integration/05-sincronizacion-clientes-aw.md) §10.3.

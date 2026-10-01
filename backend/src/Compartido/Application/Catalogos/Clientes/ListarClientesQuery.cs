@@ -19,6 +19,8 @@ public sealed record ListarClientesQuery(
     OrigenMaster? Origen = null,
     EstatusCatalogo? Estatus = null,
     bool? FiscalesIncompletos = null,
+    string? ReferenciaExterna = null,
+    ResultadoSincronizacionAw? ResultadoSincronizacion = null,
     int Offset = 0,
     int Limit = 50) : IRequest<ListarClientesResponse>;
 
@@ -34,7 +36,8 @@ public sealed record ClienteItem(
     bool EsGenerico,
     OrigenMaster Origen,
     bool DatosFiscalesCompletos,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    ClienteOrigenAwResumen? OrigenAw = null);
 
 public sealed record ListarClientesResponse(
     IReadOnlyList<ClienteItem> Items,
@@ -81,17 +84,37 @@ public sealed class ListarClientesHandler
                 : q.Where(c => c.Rfc != null && c.RegimenFiscal != null && c.CodigoPostalFiscal != null);
         }
 
+        if (!string.IsNullOrWhiteSpace(query.ReferenciaExterna))
+        {
+            var refExt = query.ReferenciaExterna.Trim();
+            q = q.Where(c => c.ReferenciaExterna == refExt);
+        }
+        if (query.ResultadoSincronizacion is ResultadoSincronizacionAw rs)
+            q = q.Where(c => _db.ClientesSincronizacionAw.Any(s => s.ClienteId == c.Id && s.Resultado == rs));
+
         var total = await q.CountAsync(cancellationToken);
-        var items = await q
+        // Left join 1:1 (UNIQUE cliente_id): un cliente manual queda con Sync = null.
+        var rows = await q
             .OrderBy(c => c.Clave)
             .Skip(offset).Take(limit)
-            .Select(c => new ClienteItem(
-                c.Id, c.Clave, c.ReferenciaExterna, c.RazonSocial, c.Rfc,
-                c.RegimenFiscal, c.CodigoPostalFiscal, c.MonedaDefault,
-                c.EsGenerico, c.Origen,
-                c.Rfc != null && c.RegimenFiscal != null && c.CodigoPostalFiscal != null,
-                c.Estatus))
+            .Select(c => new
+            {
+                Item = new ClienteItem(
+                    c.Id, c.Clave, c.ReferenciaExterna, c.RazonSocial, c.Rfc,
+                    c.RegimenFiscal, c.CodigoPostalFiscal, c.MonedaDefault,
+                    c.EsGenerico, c.Origen,
+                    c.Rfc != null && c.RegimenFiscal != null && c.CodigoPostalFiscal != null,
+                    c.Estatus, null),
+                Sync = _db.ClientesSincronizacionAw
+                    .Where(s => s.ClienteId == c.Id)
+                    .Select(s => new { s.Resultado, s.LeidoEnUtc })
+                    .FirstOrDefault(),
+            })
             .ToListAsync(cancellationToken);
+        var items = rows.Select(r => r.Sync is null
+            ? r.Item
+            : r.Item with { OrigenAw = new ClienteOrigenAwResumen(r.Sync.Resultado.ToString(), r.Sync.LeidoEnUtc) })
+            .ToList();
 
         return new ListarClientesResponse(items, offset, limit, total);
     }

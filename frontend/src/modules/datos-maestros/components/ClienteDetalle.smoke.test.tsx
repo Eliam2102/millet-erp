@@ -153,4 +153,37 @@ describe('<ClienteDetalle> — smoke', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText('Inactivo')).toBeInTheDocument();
   });
+
+  it('muestra la sección de origen A+W y no dice Sincronizado con Error', async () => {
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/clientes/c-1', () =>
+        HttpResponse.json({
+          ...CLIENTE_DETALLE,
+          version: 3,
+          origenAw: {
+            condicionOrigen: 'N30',
+            diasNominalesOrigen: 30,
+            monedaOrigen: 'MXN',
+            monedaNormalizada: 'MXN',
+            nombreComercialOrigen: null,
+            ultimaLecturaUtc: '2026-09-01T10:00:00Z',
+            ultimaAplicacionUtc: '2026-09-01T10:00:00Z',
+            resultado: 'Error',
+            error: 'lectura_fallida',
+            versionContrato: 'v1',
+            versionMapeo: 'm1',
+            registroVersion: 1,
+          },
+        }),
+      ),
+    );
+
+    render(<ClienteDetalle />, { wrapper: createQueryWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByText('Datos de origen A+W')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Error de sincronización')).toBeInTheDocument();
+    expect(screen.queryByText('Sincronizado')).not.toBeInTheDocument();
+  });
 });

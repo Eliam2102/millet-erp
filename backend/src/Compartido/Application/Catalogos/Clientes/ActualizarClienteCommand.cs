@@ -2,6 +2,8 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compartido.Infrastructure.Persistence;
+using Millet.DatosMaestros.Domain;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.DatosMaestros.Application.Clientes;
@@ -76,9 +78,18 @@ public sealed class ActualizarClienteValidator : AbstractValidator<ActualizarCli
 
 public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarClienteCommand>
 {
-    private readonly CompartidoDbContext _db;
+    // Compartido no referencia Identidad: literal duplicado en sync con
+    // Millet.Identidad.Domain.PermisosCanonicos.DatosMaestrosClientesFiscalEditar.
+    private const string PermisoFiscalEditar = "datos_maestros.clientes.fiscal-editar";
 
-    public ActualizarClienteHandler(CompartidoDbContext db) => _db = db;
+    private readonly CompartidoDbContext _db;
+    private readonly ICurrentUserPermissions _permissions;
+
+    public ActualizarClienteHandler(CompartidoDbContext db, ICurrentUserPermissions permissions)
+    {
+        _db = db;
+        _permissions = permissions;
+    }
 
     public async Task Handle(ActualizarClienteCommand request, CancellationToken cancellationToken)
     {
@@ -87,6 +98,22 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
             ?? throw new EntityNotFoundException(
                 "CLIENTE_NO_ENCONTRADO",
                 $"No existe cliente con id '{request.ClienteId}'.");
+
+        // F1-ADM-06 D3: en clientes de origen A+W, cambiar un fiscal ya
+        // poblado (o limpiarlo) requiere fiscal-editar; completar vacíos no.
+        static bool Cambia(string? nuevo, string? actual) => !string.IsNullOrEmpty(nuevo) && nuevo != actual;
+        if (cliente.Origen == OrigenMaster.Aw
+            && (Cambia(request.RazonSocial, cliente.RazonSocial)
+                || (Cambia(request.Rfc, cliente.Rfc) && !string.IsNullOrEmpty(cliente.Rfc))
+                || (Cambia(request.RegimenFiscal, cliente.RegimenFiscal) && !string.IsNullOrEmpty(cliente.RegimenFiscal))
+                || (Cambia(request.CodigoPostalFiscal, cliente.CodigoPostalFiscal) && !string.IsNullOrEmpty(cliente.CodigoPostalFiscal))
+                || request.LimpiarRfc || request.LimpiarRegimenFiscal || request.LimpiarCodigoPostalFiscal)
+            && !await _permissions.TieneAsync(PermisoFiscalEditar, cancellationToken))
+        {
+            throw new ForbiddenException(
+                "CLIENTE_FISCAL_AW_SIN_PERMISO",
+                "No tiene permiso para modificar los datos fiscales de un cliente con origen A+W.");
+        }
 
         cliente.ActualizarDatos(
             razonSocial: request.RazonSocial,

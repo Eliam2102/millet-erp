@@ -22,6 +22,7 @@ import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { ClienteOrigenAwSection } from '@/modules/datos-maestros/components/ClienteOrigenAwSection';
 import { ClienteDatosForm } from '@/modules/datos-maestros/components/ClienteDatosForm';
 import {
   EstatusCatalogoBadge,
@@ -142,6 +143,7 @@ export function ClienteDetalle() {
 
       <div className="px-4 pt-4 pb-6">
         <ClienteDatosForm cliente={cliente} />
+        <ClienteOrigenAwSection cliente={cliente} />
       </div>
 
       <AlertDialog

@@ -194,6 +194,8 @@ public static class DatosMaestrosEndpoints
             [FromQuery] OrigenMaster? origen,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] bool? fiscalesIncompletos,
+            [FromQuery] string? referenciaExterna,
+            [FromQuery] ResultadoSincronizacionAw? resultadoSincronizacion,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -206,6 +208,8 @@ public static class DatosMaestrosEndpoints
                     Origen: origen,
                     Estatus: estatus,
                     FiscalesIncompletos: fiscalesIncompletos,
+                    ReferenciaExterna: referenciaExterna,
+                    ResultadoSincronizacion: resultadoSincronizacion,
                     Offset: offset ?? 0,
                     Limit: limit ?? 50),
                 ct);
@@ -219,13 +223,17 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
         clientes.MapGet("/{id:guid}", async (
-            Guid id, CompartidoDbContext db, CancellationToken ct) =>
+            Guid id, CompartidoDbContext db, ICurrentUserPermissions permisos, CancellationToken ct) =>
         {
             var c = await db.Clientes.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new EntityNotFoundException(
                     "CLIENTE_NO_ENCONTRADO",
                     $"No existe cliente con id '{id}'.");
+            var sync = await db.ClientesSincronizacionAw.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.ClienteId == id, ct);
+            var verOrigen = sync is not null && await permisos.TieneAsync(
+                PermisosCanonicos.DatosMaestrosClientesOrigenVer, ct);
             return Results.Ok(new ClienteDetalle(
                 c.Id, c.Clave, c.ReferenciaExterna, c.RazonSocial, c.Rfc,
                 c.RegimenFiscal, c.CodigoPostalFiscal, c.UsoCfdiDefault,
@@ -233,7 +241,8 @@ public static class DatosMaestrosEndpoints
                 c.EsGenerico, c.Origen, c.Email, c.Telefono,
                 c.NumRegIdTrib, c.PaisResidencia, c.DomicilioExtranjeroCalle,
                 c.DomicilioExtranjeroEstado, c.DomicilioExtranjeroCodigoPostal,
-                c.DatosFiscalesCompletos, c.Estatus));
+                c.DatosFiscalesCompletos, c.Estatus, c.Version,
+                sync is null ? null : ClienteOrigenAwProyeccion.Detalle(sync, verOrigen)));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesGestionar)
         .WithName("ObtenerClienteDatosMaestros")
@@ -551,7 +560,9 @@ public static class DatosMaestrosEndpoints
         string? DomicilioExtranjeroEstado,
         string? DomicilioExtranjeroCodigoPostal,
         bool DatosFiscalesCompletos,
-        EstatusCatalogo Estatus);
+        EstatusCatalogo Estatus,
+        int Version,
+        ClienteOrigenAwDetalle? OrigenAw);
 
     public sealed record CrearClienteRequest(
         string Clave,
