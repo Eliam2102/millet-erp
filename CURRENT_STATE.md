@@ -38,7 +38,7 @@ Project_Millet_ERP/
 │   │   └── compras-oc-plantillas-notif.md
 │   ├── modulos/
 │   │   ├── README.md
-│   │   ├── administracion/         ← 00..09 (levantamiento, diseño, plan, PRs, etc.)
+│   │   ├── administracion/         ← 00..13, adm-10, adm-11 (contrato adjuntos)
 │   │   ├── compras-ordenes-compra/ ← 00..07
 │   │   ├── compras-requisiciones/  ← 00..07
 │   │   └── datos-maestros/

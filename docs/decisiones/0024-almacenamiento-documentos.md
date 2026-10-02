@@ -223,6 +223,9 @@ SAS para volumen, stream para adjuntos visibles en la UI.
 > el front consuma el object URL en vez del `blobRef` crudo. No se abordan
 > en este PR (alcance: solo Compras OC).
 
+> ### Addendum F1-ADM-11 (2026-10): Contrato de Adjuntos con Control de Acceso por Documento Padre
+> A partir de la tarea F1-ADM-11, la autorización de adjuntos de negocio se deriva estrictamente del agregado padre en BD (autorización por sucursal con `SucursalScopeGuard` y bypass `{modulo}.{recurso}.leer-todas-sucursales`, ADR-0051). La subida atómica valida acceso y formato/tamaño/firma (`AdjuntosPoliticaOptions`) ANTES de escribir en storage, compensando con eliminación del blob físico si la inserción en BD falla. Para el contrato y directrices para módulos futuros, consultar [docs/modulos/administracion/adm-11-contrato-adjuntos.md](../modulos/administracion/adm-11-contrato-adjuntos.md).
+
 ### Acceso desde frontend — patrón de upload
 
 Patrón inverso para subidas de usuario:
