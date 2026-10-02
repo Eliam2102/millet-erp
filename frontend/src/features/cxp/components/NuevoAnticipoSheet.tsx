@@ -29,6 +29,8 @@ import { fetchCfdiDetalle } from '@/features/cxp/api/useCfdis';
 import type { CfdiListItem } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { fetchProveedoresPorRfc } from '@/features/catalogos/api';
 import { OrdenCompraSelector, ProveedorSelector } from '@/components/erp';
 
@@ -69,6 +71,9 @@ function Form({ onClose }: { onClose: () => void }) {
 
   const [cfdiSel, setCfdiSel] = useState<CfdiListItem | null>(null);
   const [cargarCfdiOpen, setCargarCfdiOpen] = useState(false);
+  const puedeCargarCfdi = useHasPermission(
+    PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
+  );
 
   const form = useForm<CapturarAnticipoValues>({
     resolver: zodResolver(CapturarAnticipoSchema),
@@ -163,14 +168,16 @@ function Form({ onClose }: { onClose: () => void }) {
             placeholder="Vincular CFDI del anticipo…"
             className="flex-1"
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCargarCfdiOpen(true)}
-          >
-            <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
-            Cargar XML
-          </Button>
+          {puedeCargarCfdi && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCargarCfdiOpen(true)}
+            >
+              <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
+              Cargar XML
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           Al vincular se prellenan UUID, serie, fecha y monto desde el XML.

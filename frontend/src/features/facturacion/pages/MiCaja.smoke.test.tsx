@@ -136,4 +136,35 @@ describe('<MiCaja> — smoke', () => {
     );
     expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
   });
+
+  it('sin permiso operar: oculta Iniciar arqueo, Liquidar ruta y Registrar movimiento', async () => {
+    useAuthStore.setState({ permisos: [] });
+    mswServer.use(
+      http.get(`${BASE}/sesion-actual`, () =>
+        HttpResponse.json({ sesion: sesionAbierta, diaAnteriorPendiente: false }),
+      ),
+    );
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByText('Caja Mostrador Conkal')).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /Iniciar arqueo/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Liquidar ruta/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Registrar movimiento/i })).toBeNull();
+  });
+
+  it('sin permiso operar y sin sesión: oculta Abrir sesión', async () => {
+    useAuthStore.setState({ permisos: [] });
+    mswServer.use(
+      http.get(`${BASE}/sesion-actual`, () =>
+        HttpResponse.json({ sesion: null, diaAnteriorPendiente: false }),
+      ),
+      http.get(BASE, () => HttpResponse.json([])),
+    );
+    render(<MiCaja />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Fondo de apertura/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /Abrir sesión/i })).toBeNull();
+  });
 });

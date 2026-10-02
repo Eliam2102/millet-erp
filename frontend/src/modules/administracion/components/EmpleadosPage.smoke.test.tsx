@@ -300,5 +300,23 @@ describe('<EmpleadosPage> — smoke (ADM-FE-PR1)', () => {
     const reasignarBtns = screen.getAllByRole('button', { name: /reasignar/i });
     expect(reasignarBtns.length).toBeGreaterThan(0);
   });
+  it('"Dar acceso" exige usuarios.crear y asignaciones.administrar', async () => {
+    setPermisos([
+      PermisosCanonicos.AdminEmpleadosGestionar,
+      PermisosCanonicos.IdentidadUsuariosCrear,
+    ]);
+    const { unmount } = render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Juana Pérez')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /dar acceso/i })).not.toBeInTheDocument();
+    unmount();
+
+    setPermisos([
+      PermisosCanonicos.AdminEmpleadosGestionar,
+      PermisosCanonicos.IdentidadUsuariosCrear,
+      PermisosCanonicos.IdentidadAsignacionesAdministrar,
+    ]);
+    render(<EmpleadosPage />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByRole('button', { name: /dar acceso/i })).toBeInTheDocument();
+  });
 });
 

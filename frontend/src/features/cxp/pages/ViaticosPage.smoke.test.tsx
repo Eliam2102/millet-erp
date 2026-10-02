@@ -99,6 +99,47 @@ describe('<ViaticosPage> — smoke', () => {
     expect(screen.getByText(/Pasará a DF/i)).toBeInTheDocument();
   });
 
+  it('Rechazar solo con autorizar-jefe (autorizar-df no basta)', async () => {
+    useAuthStore.setState({
+      permisos: [
+        'cuentas_por_pagar.viaticos.leer',
+        'cuentas_por_pagar.viaticos.autorizar-df',
+      ],
+    });
+    mswServer.use(
+      http.get('*/api/v1/cuentas-por-pagar/viaticos', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'v-1',
+              empleadoId: 'e-1',
+              jefeDirectoId: 'j-1',
+              destino: 'CDMX',
+              fechaSalida: '2026-06-01',
+              fechaRegreso: '2026-06-03',
+              montoSolicitado: 10000,
+              topePolitica: 8000,
+              excedePolitica: true,
+              estado: EstadoSolicitudViaticos.RequiereDireccionFinanzas,
+              montoComprobado: null,
+              diferenciaLiquidacion: null,
+              fechaSolicitud: '2026-05-24T00:00:00Z',
+              version: 1,
+            },
+          ],
+          offset: 0,
+          limit: 200,
+          total: 1,
+        }),
+      ),
+    );
+    render(<ViaticosPage />, { wrapper: createQueryWrapper() });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Aut\. DF/i })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /Rechazar/i })).toBeNull();
+  });
+
   it('axe-core: cero violations en estado vacío', async () => {
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/viaticos', () =>

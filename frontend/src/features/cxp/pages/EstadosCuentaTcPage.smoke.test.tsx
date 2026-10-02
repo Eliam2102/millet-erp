@@ -103,6 +103,43 @@ describe('<EstadosCuentaTcPage> — smoke', () => {
     ).not.toBeInTheDocument();
   });
 
+  const ecConciliable = {
+    id: 'ec-1',
+    tarjetaId: 't-1',
+    periodoDesde: '2026-05-01',
+    periodoHasta: '2026-05-31',
+    fechaCorte: '2026-05-31',
+    fechaLimitePago: '2026-06-15',
+    estado: EstadoCuentaTcStatus.EnConciliacion,
+    totalBancoMxn: 0,
+    totalConciliadoMxn: 0,
+    diferenciaMxn: 0,
+    perfilParserUsado: null,
+    lineasCount: 0,
+    version: 1,
+  };
+
+  it.each([
+    ['sin cerrar-estado-cuenta (solo registrar-movimiento)', ['cuentas_por_pagar.tc.leer', 'cuentas_por_pagar.tc.registrar-movimiento'], false],
+    ['con cerrar-estado-cuenta', ['cuentas_por_pagar.tc.leer', 'cuentas_por_pagar.tc.cerrar-estado-cuenta'], true],
+  ])('Marcar conciliado %s', async (_n, permisos, visible) => {
+    useAuthStore.setState({ permisos });
+    mswServer.use(
+      http.get('*/api/v1/cuentas-por-pagar/tarjetas', () =>
+        HttpResponse.json({ items: [], offset: 0, limit: 200, total: 0 }),
+      ),
+      http.get('*/api/v1/cuentas-por-pagar/estados-cuenta-tc', () =>
+        HttpResponse.json({ items: [ecConciliable], offset: 0, limit: 200, total: 1 }),
+      ),
+    );
+    render(<EstadosCuentaTcPage />, { wrapper: createQueryWrapper() });
+    // Con registrar-movimiento aparece "Subir archivo" (tabla ya cargada).
+    await screen.findByRole('button', {
+      name: visible ? /Marcar conciliado/i : /Subir archivo/i,
+    });
+    expect(!!screen.queryByRole('button', { name: /Marcar conciliado/i })).toBe(visible);
+  });
+
   it('axe-core: cero violations en estado vacío', async () => {
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/estados-cuenta-tc', () =>

@@ -36,6 +36,23 @@ function logClientError(scope: 'query' | 'mutation', error: unknown): void {
 }
 
 /**
+ * Aviso global de 403. El store de permisos solo se refresca en login o
+ * cambio de empresa, así que si le quitan un permiso a mitad de sesión la UI
+ * lo sigue mostrando hasta que la API lo rechaza. En lugar de refrescar la
+ * sesión sola, el 403 se pinta como aviso. El <c>id</c> fijo colapsa varios
+ * 403 simultáneos en un solo toast.
+ */
+function avisarSinPermiso(error: unknown): void {
+  if (!esApiError(error) || error.status !== 403) return;
+  toast.warning('Ya no tienes permiso para esta acción', {
+    id: 'sin-permiso',
+    description:
+      error.problem.detail ??
+      'Tus permisos pudieron cambiar. Vuelve a iniciar sesión para actualizarlos.',
+  });
+}
+
+/**
  * Instancia única de QueryClient para toda la app. Configuración alineada
  * con ADR-0023:
  *
@@ -57,13 +74,19 @@ function logClientError(scope: 'query' | 'mutation', error: unknown): void {
  */
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error) => logClientError('query', error),
+    onError: (error) => {
+      logClientError('query', error);
+      avisarSinPermiso(error);
+    },
   }),
   mutationCache: new MutationCache({
     onError: (error, _variables, _context, mutation) => {
       logClientError('mutation', error);
       const meta = mutation.meta as MutationMetaErrorHandling | undefined;
-      if (!meta?.toastOnError) return;
+      if (!meta?.toastOnError) {
+        avisarSinPermiso(error);
+        return;
+      }
       const fallback =
         typeof meta.toastOnError === 'string'
           ? meta.toastOnError
