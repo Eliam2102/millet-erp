@@ -23,6 +23,7 @@
     <ProjectReference Include="..\DatosMaestros\Millet.DatosMaestros.csproj" />
     <ProjectReference Include="..\Almacen\Millet.Almacen.csproj" />
     <ProjectReference Include="..\CentrosCosto\Millet.CentrosCosto.csproj" />
+    <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />
     <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
     <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
     <ProjectReference Include="..\Compras\Millet.Compras.csproj" />
