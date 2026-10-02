@@ -71,7 +71,7 @@ Formato general de entrega para todo lo que sigue: **texto plano (CSV UTF-8 o ho
    - *Por qué:* hoy se ignora con advertencia para no suponer; sin ella no se puede completar ni la afectabilidad ni la naturaleza.
    - *Formato:* tabla categoría → significado.
    - *Cambia:* configuración (alias y mapeo); un campo nuevo si es una clasificación propia.
-3. **Validez de los códigos que rompen el patrón.** Doce códigos tienen 13 caracteres (último segmento de 3 dígitos) frente a 12 de los demás (999.99.99.99).
+3. **Validez de los códigos que rompen el patrón.** Doce códigos tienen 13 caracteres (último segmento de 3 dígitos) frente a 12 de los demás (999.99.99.99). **Actualización 2026-10-02:** el TL identificó que son cuentas de depreciación acumulada con un cero adicional; el importador los resuelve (1 raíz y 11 con padre existente, ninguna huérfana). Propuesta pendiente de Contabilidad: homologarlos a 4 segmentos en una copia de trabajo, conservando el código original en `codigo_origen` (0 colisiones); si se deben conservar los originales, usar `codigo_padre` explícito.
    - *Necesario:* confirmar si son válidos o errores de captura, y a qué cuenta padre pertenecen.
    - *Por qué:* hoy la deducción por segmentos los deja huérfanos (error en la importación).
    - *Formato:* lista de códigos con su padre.

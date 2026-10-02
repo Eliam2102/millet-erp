@@ -11,7 +11,8 @@ Estado: **plan escrito, sin aprobar, sin código implementado.** Plan completo e
 - Estimación vigente: **≈50 h** → 01a ≈38 h (hasta ~12-oct) y 01b ≈12 h (hasta ~14-oct); supuestos en §14.3.
 - ADR a escribir: **0054, 0055, 0056** (el 0053 ya es permisos personalizados, en `main`).
 - El fix de permisos (PR #24) y ADM-06/07 **ya están en `main`**; la rama está 31 commits atrás. Antes de implementar: rebase autorizado por el dueño, correr migraciones de los 12 contextos (+ el nuevo), añadir los 3 permisos también a `permission-codes.test.ts` y regenerar `routeTree.gen.ts`.
-- **No implementar** hasta que el dueño apruebe el plan v0.2.
+- **Actualización 2-oct-2026:** implementación 01a (backend) y 01b (UI) terminadas y subidas; hoja «Plan de cuentas-VILO» confirmada; los 12 códigos de 13 caracteres son depreciación acumulada y se resuelven sin homologar (ver plan §20.10). Pendiente de Contabilidad: naturaleza, afectabilidad, cuentas de control y la homologación propuesta.
+- ~~No implementar hasta que el dueño apruebe el plan v0.2.~~ (superado)
 
 ## Cómo retomar
 

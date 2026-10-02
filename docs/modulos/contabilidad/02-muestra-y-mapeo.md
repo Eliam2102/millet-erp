@@ -32,7 +32,7 @@ La columna canónica de título/afectable se llama `tipo_cuenta` (alias `titulo_
 
 ## 3. Estadísticas de la hoja base recibida (sin contenido)
 
-849 filas, 729 con código y 120 vacías; códigos de forma `999.99.99.99` (717) y `999.99.99.999` (12, rompen un patrón de ancho fijo);
+849 filas, 729 con código y 120 vacías; códigos de forma `999.99.99.99` (717) y `999.99.99.999` (12, formato distinto de ancho fijo: son cuentas de depreciación acumulada con un cero adicional en el último segmento; con la jerarquía por segmentos **no** quedan huérfanas: 1 raíz y 11 con padre existente. Propuesta del TL, pendiente de Contabilidad: homologar a `999.99.99.99` en una copia de trabajo guardando el código original en `codigo_origen`; 0 colisiones);
 niveles contables 1–4 (118/404/151/56); 8 filas con nivel contable distinto de los segmentos distintos de cero; 1 huérfana por padre inferido;
 178 con hijas y 551 hojas; `Tipo` con 14 categorías y 4 vacías; agrupador SAT en 552 filas; 0 duplicados, 0 espacios sobrantes, 0 caracteres corruptos.
 Las otras dos hojas («Plan de cuentas (5)», «Catalogo») tienen formatos de código distintos; cuál es la oficial está pendiente (ver `04-evidencia-f1-con-01.md`).
