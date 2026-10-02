@@ -248,3 +248,11 @@ Decisión del TL: la hoja correcta es «Plan de cuentas-VILO». Estructura real 
 4. **Columna vacía en el encabezado:** el servidor la tolera (advertencia «columna N sin nombre», no se importa).
 5. Pendiente: no se probó con el archivo real (no se leyó, por instrucción) ni contra el backend real.
 
+
+
+## Alta manual: cuenta padre como combobox y código sugerido (2026-10-02)
+
+- **Cuenta padre.** El campo pasó de "caja de búsqueda + `<select>` nativo" (dos controles, sin etiqueta visible el primero) a un único combobox (`CuentaPadreSelector`) con los componentes del ERP (`Popover` + `Command` + `CommandInput`, mismo patrón que `components/erp/selectors`). Búsqueda en servidor con debounce de 200 ms; solo títulos activos; opción «Sin padre — cuenta raíz».
+- **Opción 2 (P18).** Al elegir el padre se autollena el siguiente código libre de su rama, editable; no pisa un código que el usuario ya escribió. Validación de rama al crear (`CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA`), configurable. No aplica al editar.
+- **Pruebas.** Unitarias de Contabilidad: 86 (17 nuevas de rama y siguiente código: ancho fijo, ancho libre, inactivas, rama llena, otra rama, nivel saltado). Vitest de Contabilidad: 51 (combobox, autollenado, motivo sin sugerencia, error de rama en el campo Código). Integración: prueba HTTP nueva de sugerencia + rechazo fuera de rama + padre afectable.
+- **Pendiente de Contabilidad.** Confirmar la regla de numeración y si se permite mover cuentas entre padres (hoy permitido si no están usadas).

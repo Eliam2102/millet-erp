@@ -11,6 +11,7 @@ Una cuenta de otra empresa responde 404.
 |---|---|---|
 | `GET /cuentas?estatus=&tipo=&q=&padreId=&pendientes=&offset=&limit=` | `contabilidad.catalogo.leer` | 200 paginado |
 | `GET /cuentas/arbol?estatus=&raizId=` | leer | 200 hijas directas de `raizId` (null = raíces), carga perezosa |
+| `GET /cuentas/siguiente-codigo?padreId=` | administrar | 200 `{codigo, motivo}`: código sugerido (editable) para una hija nueva; `codigo` null + `motivo` si no se puede inferir (rama llena o padre sin hijas en ancho libre); 422 si el padre no existe, está inactivo o es afectable |
 | `GET /cuentas/{id}` | leer | 200 + `ETag`; incluye `usada` y `origenes`; 404 |
 | `POST /cuentas` | `contabilidad.catalogo.administrar` | 201 + ETag; 409 código duplicado; 422 reglas |
 | `PUT /cuentas/{id}` (`If-Match`) | administrar | 200; 404; 409; 422; 428 |
@@ -35,7 +36,7 @@ Detalle del contrato de archivo: `05-contrato-importacion.md`.
 Cuentas: `CONTAB_CUENTA_NO_ENCONTRADA` (404), `CONTAB_CUENTA_CODIGO_INVALIDO`, `CONTAB_CUENTA_NOMBRE_INVALIDO`, `CONTAB_CUENTA_PADRE_INVALIDO`,
 `CONTAB_CUENTA_PADRE_NO_ES_TITULO`, `CONTAB_CUENTA_CICLO`, `CONTAB_CUENTA_NIVEL_EXCEDIDO`, `CONTAB_CUENTA_NATURALEZA_INVALIDA`,
 `CONTAB_CUENTA_AFECTABLE_CON_HIJAS`, `CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE`, `CONTAB_CUENTA_CONTROL_CONFLICTO`,
-`CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO`, `CONTAB_CUENTA_BAJA_CON_HIJAS_ACTIVAS` (todos 422), `CONTAB_CUENTA_CODIGO_DUPLICADO` (409).
+`CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO`, `CONTAB_CUENTA_BAJA_CON_HIJAS_ACTIVAS`, `CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA` (alta manual: el código no empieza con la parte significativa del padre o no agrega exactamente un nivel) (todos 422), `CONTAB_CUENTA_CODIGO_DUPLICADO` (409).
 Puerto/validar-movimiento (`motivo`): `NoExiste`, `Inactiva`, `PendienteValidacion`, `Titulo`, `ControlSoloAuxiliar`.
 Importación: ver `05-contrato-importacion.md` (tabla completa con sugerencias). Concurrencia estándar: `CONCURRENCY_CONFLICT` (409).
 
