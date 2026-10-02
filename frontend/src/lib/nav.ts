@@ -938,6 +938,21 @@ export function sidebarItemsVisibles(
   );
 }
 
+/** Contexto visual del shell, siempre limitado a las pantallas permitidas. */
+export function contextoNavegacion(pathname: string, permisos: readonly string[]) {
+  return sidebarItemsVisibles(permisos)
+    .filter((item): item is NavSidebarItem & NavModulo => item.kind === 'modulo')
+    .flatMap((item) => {
+      const modulo = filtrarModuloPorPermisos(item, permisos);
+      return modulo.secciones.flatMap((seccion) =>
+        seccion.cards
+          .filter((card) => contieneRuta(card.to, pathname))
+          .map((card) => ({ modulo, seccion, card })),
+      );
+    })
+    .sort((a, b) => b.card.to.length - a.card.to.length)[0];
+}
+
 /**
  * Rutas que no tienen card en el menú (se llega desde otra pantalla) pero
  * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.

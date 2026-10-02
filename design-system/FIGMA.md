@@ -33,16 +33,16 @@ principales coinciden con los tokens adjuntos.
 
 | Elemento | Referencia Figma | Estado observado en código |
 |---|---|---|
-| Navegación | Rail oscuro 76px, ícono y etiqueta, Admin al fondo, sin logo | `SidebarNav` sigue en 240px con logo y módulos que abren AppLauncher |
-| Panel de módulo | Panel blanco 240px, filtro y secciones | Aún debe incorporarse usando el registro de navegación y permisos existente |
-| Topbar | Breadcrumb, búsqueda global, sucursal, Nuevo, notificaciones, avatar | `Topbar` tiene búsqueda contextual y acciones existentes; falta adaptar composición y búsqueda global |
+| Navegación | Rail oscuro 76px, ícono y etiqueta, Admin al fondo, sin logo | Rail de 76px implementado; módulos permitidos en el orden visual y Admin al fondo. Móvil conserva AppLauncher |
+| Panel de módulo | Panel blanco 240px, filtro y secciones | Panel de 240px implementado con filtro, secciones, selección y contraer/expandir; utiliza el registro filtrado por permisos |
+| Topbar | Breadcrumb, búsqueda global, sucursal, Nuevo, notificaciones, avatar | Breadcrumb, altura 56px, Nuevo y avatar adaptados. Se preservó búsqueda contextual; búsqueda global ⌘K pendiente |
 | Inicio | 4 indicadores, Requiere tu acción, Recientes y Módulos | La ruta Inicio muestra contexto y datos de sesión; aún no es la bandeja del diseño |
 | Listados | KPIs, tabs, filtros, tabla densa y paginación integrados | La primera etapa sólo migró controles; faltan contenedores y consumidores de tablas |
 | Detalle y captura | Lista maestra 320px, detalle por secciones y sheet 560px | Pendiente de migración visual de estos patrones y sus consumidores |
 | Móvil | Header, búsqueda, listas y barra inferior | El shell conserva el drawer con botón de menú |
 
 Esta comparación proviene de lectura de `AppShell`, `SidebarNav`, `Topbar` y la
-ruta Inicio; no se ejecutó una sesión autenticada en esta revisión. La primera
+ruta Inicio; la comprobación del shell usó una vista aislada con datos vacíos y sesión de prueba, sin conexión al API. No acredita una sesión real. La primera
 etapa de controles sigue siendo la base reutilizable del PR 27.
 
 ## Orden para continuar

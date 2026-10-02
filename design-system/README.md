@@ -16,7 +16,7 @@ capa `base` y expone las clases del config adjunto mediante `@theme inline`:
 La adaptación usa los valores hex exactos de los tokens para esos aliases;
 no mezcla el formato HSL del adjunto con los colores completos de Tailwind 4.
 
-La fuente se carga desde Google Fonts según `tokens.css`, con fallback local.
+La fuente se carga mediante links de Google Fonts en `frontend/index.html`, con fallback local. El import del adjunto queda anidado al integrar la capa base y no basta para cargar la fuente en producción.
 El modo oscuro anterior se conserva como compatibilidad: **no tiene una paleta
 aprobada en estos adjuntos y no se declara migrado**.
 
@@ -51,7 +51,9 @@ Para una acción deshabilitada, explica el bloqueo en texto cercano o tooltip.
 
 Las clases específicas que las pantallas ya pasan con `className` pueden
 sobrescribir la receta compartida; migrarlas requiere revisar cada consumidor.
-Pendientes: shell/rail/topbar, tablas, dialogs/sheets, los demás componentes y
+Segunda etapa: rail de 76px, panel de módulo de 240px con filtro y contraer/expandir, breadcrumb, topbar de 56px, Nuevo y avatar. Reutiliza rutas y permisos existentes; el menú móvil conserva el drawer/launcher. La búsqueda contextual y las acciones existentes siguen disponibles.
+
+Pendientes: búsqueda global ⌘K, completar composición del topbar, tablas, dialogs/sheets, los demás componentes y
 pantallas, colores locales heredados y comprobación de cada implementación
 contra Figma. Esta etapa
 no cambia reglas funcionales, paginación, prioridades ni permisos.
