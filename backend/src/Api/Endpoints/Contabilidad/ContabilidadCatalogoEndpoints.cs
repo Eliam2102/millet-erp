@@ -55,6 +55,12 @@ public static class ContabilidadCatalogoEndpoints
         .RequireAuthorization(leer).WithName("ArbolCuentasContables")
         .WithSummary("Hijas directas de raizId (null = raíces); carga perezosa");
 
+        g.MapGet("/cuentas/siguiente-codigo", async ([FromQuery] Guid padreId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new SiguienteCodigoQuery(padreId), ct)))
+        .RequireAuthorization(administrar).WithName("SiguienteCodigoCuentaContable")
+        .WithSummary("Código sugerido (editable) para una hija nueva del padre; null + motivo si no se puede inferir")
+        .Produces<SiguienteCodigoResponse>().ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         g.MapGet("/cuentas/{id:guid}", async (Guid id, HttpResponse response, IMediator mediator, CancellationToken ct) =>
         {
             var dto = await mediator.Send(new ObtenerCuentaQuery(id), ct);

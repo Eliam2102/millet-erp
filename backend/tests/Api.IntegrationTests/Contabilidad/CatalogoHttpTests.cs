@@ -33,6 +33,46 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
     }
 
     [Fact]
+    public async Task Alta_manual_sugiere_el_siguiente_codigo_y_rechaza_codigos_fuera_de_la_rama_del_padre()
+    {
+        var suf = Sufijo();
+        try
+        {
+            var c = await LoginAsync(factory);
+            var raiz = await CrearCuenta(c, Codigo(suf, "100.00.00.00"), "FIX raiz", tipo: "Titulo");
+            var bancos = await CrearCuenta(c, Codigo(suf, "100.10.00.00"), "FIX bancos", padreId: raiz.GetProperty("id").GetGuid(), tipo: "Titulo");
+            var bancosId = bancos.GetProperty("id").GetGuid();
+            await CrearCuenta(c, Codigo(suf, "100.10.01.00"), padreId: bancosId, tipo: "Afectable");
+
+            // Sugerencia: siguiente hija libre de la rama, con el mismo ancho.
+            var sug = await c.GetAsync($"{Base}/cuentas/siguiente-codigo?padreId={bancosId}");
+            Assert.Equal(HttpStatusCode.OK, sug.StatusCode);
+            var cuerpo = await Json(sug);
+            Assert.Equal(Codigo(suf, "100.10.02.00"), cuerpo.GetProperty("codigo").GetString());
+            Assert.Equal(JsonValueKind.Null, cuerpo.GetProperty("motivo").ValueKind);
+
+            // La sugerencia se acepta tal cual.
+            await CrearCuenta(c, Codigo(suf, "100.10.02.00"), padreId: bancosId, tipo: "Afectable");
+
+            // Otra rama o un nivel saltado: 422 con el código de error y nada se crea.
+            foreach (var fuera in new[] { "100.20.01.00", "100.10.02.07" })
+            {
+                var r = await c.PostAsJsonAsync($"{Base}/cuentas",
+                    new { codigo = Codigo(suf, fuera), nombre = "FIX fuera", padreId = bancosId, tipo = "Afectable", cuentaControl = "Ninguna" });
+                Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+                Assert.Equal("CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA", await Code(r));
+            }
+
+            // Padre afectable: la sugerencia aplica las mismas reglas que el alta.
+            var hoja = await CrearCuenta(c, Codigo(suf, "100.10.03.00"), padreId: bancosId, tipo: "Afectable");
+            var sobreHoja = await c.GetAsync($"{Base}/cuentas/siguiente-codigo?padreId={hoja.GetProperty("id").GetGuid()}");
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, sobreHoja.StatusCode);
+            Assert.Equal("CONTAB_CUENTA_PADRE_NO_ES_TITULO", await Code(sobreHoja));
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Fact]
     public async Task Codigo_repetido_da_409_y_el_codigo_invalido_422()
     {
         var suf = Sufijo();

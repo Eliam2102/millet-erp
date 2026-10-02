@@ -148,4 +148,76 @@ public sealed class FormatoCatalogo
         tokens[numericos[k]] = new string('0', tokens[numericos[k]].Length);
         return string.Concat(tokens);
     }
+
+    private static bool EsCeros(string t) => EsNumerico(t) && t.All(c => c == '0');
+
+    /// <summary>Parte significativa: el código sin los segmentos numéricos finales en cero (<c>100.10.00.00</c> ⇒ <c>100.10</c>).</summary>
+    public string PrefijoSignificativo(string codigo)
+    {
+        var t = Tokens(codigo);
+        var fin = t.Length;
+        while (fin >= 3 && EsCeros(t[fin - 1])) fin -= 2;
+        return string.Concat(t[..fin]);
+    }
+
+    /// <summary>
+    /// El código es hija directa por rama del padre: empieza con su parte significativa seguida de un separador
+    /// y agrega exactamente un nivel significativo. Vale para ancho fijo (<c>100.10.30.00</c> bajo <c>100.10.00.00</c>)
+    /// y para ancho libre (<c>4.1.1</c> bajo <c>4.1</c>).
+    /// </summary>
+    public bool EstaEnRama(string codigo, string codigoPadre)
+    {
+        var padre = PrefijoSignificativo(codigoPadre);
+        var hija = PrefijoSignificativo(codigo);
+        if (!hija.StartsWith(padre, StringComparison.Ordinal) || hija.Length <= padre.Length) return false;
+        var resto = hija[padre.Length..];
+        return Opciones.Codigo.Separadores.Any(s => resto.StartsWith(s, StringComparison.Ordinal))
+            && Tokens(hija).Length == Tokens(padre).Length + 2;
+    }
+
+    /// <summary>
+    /// Opción 2 (alta manual): siguiente código hijo libre de un padre. Ancho fijo: llena el primer segmento en cero
+    /// con el mayor valor usado + 1 (mismo ancho). Ancho libre: agrega un segmento con el formato de las hermanas.
+    /// <paramref name="existentes"/> debe incluir las inactivas (el código no se reutiliza, P9). Null + motivo si no se puede inferir.
+    /// </summary>
+    public (string? Codigo, string? Motivo) SiguienteHijo(string codigoPadre, IReadOnlyCollection<string> existentes)
+    {
+        var t = Tokens(codigoPadre);
+        var nPrefijo = Tokens(PrefijoSignificativo(codigoPadre)).Length;
+        var usados = existentes.ToHashSet(StringComparer.Ordinal);
+
+        if (nPrefijo < t.Length)
+        {
+            // Ancho fijo: el segmento a llenar es el primero en cero tras la parte significativa.
+            var idx = nPrefijo + 1;
+            var ancho = t[idx].Length;
+            var valores = existentes
+                .Select(Tokens)
+                .Where(e => e.Length == t.Length && e.Take(idx).SequenceEqual(t.Take(idx)) && EsNumerico(e[idx]) && !EsCeros(e[idx])
+                    && e.Skip(idx + 1).Where((_, i) => i % 2 == 1).All(EsCeros))
+                .Select(e => int.Parse(e[idx], CultureInfo.InvariantCulture));
+            for (var n = valores.DefaultIfEmpty(0).Max() + 1; ; n++)
+            {
+                var seg = n.ToString(CultureInfo.InvariantCulture).PadLeft(ancho, '0');
+                if (seg.Length > ancho)
+                    return (null, $"La rama de {codigoPadre} ya no tiene códigos libres en ese nivel; escriba el código.");
+                var candidato = string.Concat(t.Take(idx).Append(seg).Concat(t.Skip(idx + 1)));
+                if (!usados.Contains(candidato)) return (candidato, null);
+            }
+        }
+
+        // Ancho libre: prefijo + separador + número, con el separador y ancho de las hermanas existentes.
+        var hermanas = existentes.Select(Tokens)
+            .Where(e => e.Length == t.Length + 2 && e.Take(t.Length).SequenceEqual(t) && EsNumerico(e[^1]))
+            .ToList();
+        if (hermanas.Count == 0)
+            return (null, $"{codigoPadre} aún no tiene cuentas hijas para deducir el formato; escriba el código.");
+        var sep = hermanas[0][^2];
+        var anchoLibre = hermanas.Max(e => e[^1].Length);
+        for (var n = hermanas.Max(e => int.Parse(e[^1], CultureInfo.InvariantCulture)) + 1; ; n++)
+        {
+            var candidato = codigoPadre + sep + n.ToString(CultureInfo.InvariantCulture).PadLeft(anchoLibre, '0');
+            if (!usados.Contains(candidato)) return (candidato, null);
+        }
+    }
 }

@@ -64,6 +64,13 @@ public sealed class CatalogoOpciones
     {
         /// <summary>PorSegmentos (padre = código con el último segmento numérico distinto de cero puesto a ceros) o PorColumna (solo <c>codigo_padre</c>).</summary>
         public string Modo { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Alta manual: el código de una cuenta hija debe empezar con la parte significativa del código del
+        /// padre y agregar exactamente un nivel (p. ej. bajo <c>100.10.00.00</c> ⇒ <c>100.10.30.00</c>).
+        /// Encendida por defecto; regla a confirmar con Contabilidad. No aplica al editar (el código es inmutable).
+        /// </summary>
+        public bool ExigirCodigoEnRamaDelPadre { get; set; } = true;
     }
 
     public sealed class CuentaControlOpcion

@@ -90,6 +90,29 @@ public sealed class ConfiguracionFormatoHandler(FormatoCatalogo formato) : IRequ
     public Task<CatalogoOpciones> Handle(ConfiguracionFormatoQuery request, CancellationToken cancellationToken) => Task.FromResult(formato.Opciones);
 }
 
+/// <summary>Opción 2: código sugerido (editable) para una hija nueva del padre; Codigo null + Motivo si no se puede inferir.</summary>
+public sealed record SiguienteCodigoQuery(Guid PadreId) : IRequest<SiguienteCodigoResponse>;
+
+public sealed record SiguienteCodigoResponse(string? Codigo, string? Motivo);
+
+public sealed class SiguienteCodigoHandler(ContabilidadDbContext db, FormatoCatalogo formato)
+    : IRequestHandler<SiguienteCodigoQuery, SiguienteCodigoResponse>
+{
+    public async Task<SiguienteCodigoResponse> Handle(SiguienteCodigoQuery request, CancellationToken cancellationToken)
+    {
+        // Mismas reglas que el alta: el padre existe, está activo y es título.
+        var padre = await new PoliticaCatalogo(db, formato).ValidarPadreAsync(request.PadreId, cancellationToken);
+        var prefijo = formato.PrefijoSignificativo(padre!.Codigo);
+        // Incluye inactivas: el código no se reutiliza (P9).
+        var existentes = await db.Cuentas.AsNoTracking()
+            .Where(c => c.Codigo.StartsWith(prefijo))
+            .Select(c => c.Codigo)
+            .ToListAsync(cancellationToken);
+        var (codigo, motivo) = formato.SiguienteHijo(padre.Codigo, existentes);
+        return new SiguienteCodigoResponse(codigo, motivo);
+    }
+}
+
 public sealed record ImportacionLoteDto(
     Guid Id, string Fuente, string? ArchivoNombre, string Huella, int TotalFilas, int Creadas, int Actualizadas, int SinCambios,
     DateTimeOffset AplicadoEn, string? AplicadoPor);

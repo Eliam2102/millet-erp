@@ -55,6 +55,15 @@ internal sealed class PoliticaCatalogo(ContabilidadDbContext db, FormatoCatalogo
             throw new BusinessRuleException("CONTAB_CUENTA_NATURALEZA_INVALIDA", "La naturaleza no es coherente con la del padre (HerenciaNaturaleza activa).");
     }
 
+    /// <summary>Alta manual: el código debe pertenecer a la rama del padre (opción 2; configurable, encendida por defecto).</summary>
+    public void ValidarRama(string codigo, CuentaContable? padre)
+    {
+        if (padre is null || !Opciones.Jerarquia.ExigirCodigoEnRamaDelPadre || formato.EstaEnRama(codigo, padre.Codigo)) return;
+        var sugerido = formato.PrefijoSignificativo(padre.Codigo);
+        throw new BusinessRuleException("CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA",
+            $"El código {codigo} no corresponde a la cuenta padre {padre.Codigo}: debe empezar con «{sugerido}» y agregar un solo nivel.");
+    }
+
     /// <summary>Cuenta de control listada en configuración: el catálogo marca el tipo (§20.1 regla 1).</summary>
     public CuentaControl ResolverControl(string codigo, CuentaControl solicitado)
     {
@@ -101,6 +110,7 @@ public sealed class CrearCuentaHandler(ContabilidadDbContext db, FormatoCatalogo
         var padre = await _p.ValidarPadreAsync(request.PadreId, cancellationToken);
         var nivel = (padre?.Nivel ?? 0) + 1;
         _p.ValidarNivelYHerencia(nivel, request.Naturaleza, padre);
+        _p.ValidarRama(codigo, padre);
 
         var cuenta = new CuentaContable(Guid.CreateVersion7(), codigo, request.Nombre.Trim(), padre?.Id, nivel,
             request.Naturaleza, request.Tipo, _p.ResolverControl(codigo, request.CuentaControl),
