@@ -46,6 +46,8 @@ import {
 } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { fetchProveedoresPorRfc } from '@/features/catalogos/api';
 import { ProveedorSelector } from '@/components/erp';
 
@@ -103,6 +105,9 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
 
   const [cfdiSel, setCfdiSel] = useState<CfdiListItem | null>(null);
   const [cargarCfdiOpen, setCargarCfdiOpen] = useState(false);
+  const puedeCargarCfdi = useHasPermission(
+    PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
+  );
 
   const form = useForm<CapturarNotaCreditoValues>({
     resolver: zodResolver(CapturarNotaCreditoSchema),
@@ -226,14 +231,16 @@ function NuevaNcForm({ onClose }: { onClose: () => void }) {
             placeholder="Vincular CFDI de egreso…"
             className="flex-1"
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCargarCfdiOpen(true)}
-          >
-            <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
-            Cargar XML
-          </Button>
+          {puedeCargarCfdi && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCargarCfdiOpen(true)}
+            >
+              <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
+              Cargar XML
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           Al vincular se prellenan UUID, importes y la relación con la

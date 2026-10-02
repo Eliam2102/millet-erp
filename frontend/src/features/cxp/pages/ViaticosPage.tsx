@@ -535,7 +535,7 @@ function Acciones({
         )}
       {(s.estado === EstadoSolicitudViaticos.Solicitada ||
         s.estado === EstadoSolicitudViaticos.RequiereDireccionFinanzas) &&
-        (puedeAutJefe || puedeAutDf) && (
+        puedeAutJefe && (
           <Button
             variant="ghost"
             size="sm"
