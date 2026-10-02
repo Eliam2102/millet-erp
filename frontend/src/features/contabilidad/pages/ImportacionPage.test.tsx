@@ -77,8 +77,12 @@ describe('<ImportacionPage>', () => {
     render(<ImportacionPage />, { wrapper: createQueryWrapper() });
     await subir();
 
-    expect(await screen.findByText('Errores y advertencias por código')).toBeInTheDocument();
+    expect(await screen.findByText('Errores y avisos encontrados')).toBeInTheDocument();
     expect(screen.getByText('Cuentas huérfanas', { exact: false })).toBeInTheDocument();
+    // El reporte agrupa por hallazgo legible (no por código interno) y la sección se llama «Qué revisar».
+    expect(screen.getByText('Cuenta padre inexistente')).toBeInTheDocument();
+    expect(screen.getByText('Qué revisar')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/CONTAB_/);
     expect(screen.getByRole('button', { name: /Descargar reporte/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Continuar a la vista previa' }));
@@ -89,6 +93,12 @@ describe('<ImportacionPage>', () => {
     expect(screen.getByText(/Agrega la cuenta padre al archivo/)).toBeInTheDocument();
     expect(screen.getByText(/Pídela a Contabilidad/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Aplicar importación' })).toBeDisabled();
+    // Lenguaje de usuario: título legible y nombre de columna legible; nunca el código interno ni la columna técnica.
+    expect(screen.getByText(/Cuenta padre inexistente \(columna «Cuenta padre»\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Dato pendiente de validación \(columna «Naturaleza»\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Qué hacer:/).length).toBeGreaterThan(0);
+    // (El texto de ejemplo del servidor puede nombrar columnas; lo que pinta la UI no.)
+    expect(document.body.textContent).not.toMatch(/CONTAB_|\(codigo_padre\)|\(naturaleza\)|\(cuenta_control\)/);
 
     // Filtro "solo con errores": oculta la fila 2 (sin errores).
     expect(screen.getByText('Crear', { selector: 'div' })).toBeInTheDocument();
@@ -161,7 +171,7 @@ describe('<ImportacionPage>', () => {
     const reintentar = await screen.findByRole('button', { name: 'Reintentar análisis' });
     falla = false;
     fireEvent.click(reintentar);
-    await waitFor(() => expect(screen.getByText('Errores y advertencias por código')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Errores y avisos encontrados')).toBeInTheDocument());
   });
 
   describe('.xlsx real: varias hojas, título y filas vacías', () => {
@@ -215,7 +225,7 @@ describe('<ImportacionPage>', () => {
       );
       render(<ImportacionPage />, { wrapper: createQueryWrapper() });
       await subir(await libroUnaHoja());
-      expect(await screen.findByText('Errores y advertencias por código')).toBeInTheDocument();
+      expect(await screen.findByText('Errores y avisos encontrados')).toBeInTheDocument();
       expect(screen.queryByLabelText('Hoja del libro')).not.toBeInTheDocument();
       expect(screen.queryByText(/Encabezado detectado/)).not.toBeInTheDocument();
       expect(perfilado!.columnas).toEqual(['codigo', 'nombre']);

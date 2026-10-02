@@ -3,18 +3,23 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import type { ErrorFila, VistaPrevia } from '../api/types';
+import { nombreColumna, severidadLegible, tituloHallazgo } from '../lib/textos';
 
 const ACCION: Record<string, string> = { Crear: 'Crear', Actualizar: 'Actualizar', SinCambios: 'Sin cambios', Rechazar: 'Rechazada' };
 
 function Hallazgo({ e }: { e: ErrorFila }) {
   const esError = e.severidad === 'Error';
   return (
-    <li className="space-y-0.5">
+    // El código interno queda en el title (soporte); en pantalla, lenguaje de usuario.
+    <li className="space-y-0.5" title={e.codigo}>
       <span className={esError ? 'text-danger-fg' : 'text-warning-fg'}>
-        <span className="font-mono text-xs">{e.codigo}</span>
-        {e.columna ? ` (${e.columna})` : ''}: {e.mensaje}
+        <span className="font-medium">
+          {severidadLegible(e.severidad)} · {tituloHallazgo(e.codigo)}
+          {e.columna ? ` (columna «${nombreColumna(e.columna)}»)` : ''}:
+        </span>{' '}
+        {e.mensaje}
       </span>
-      {e.sugerencia && <span className="block text-xs text-ink-muted">Sugerencia: {e.sugerencia}</span>}
+      {e.sugerencia && <span className="block text-xs text-ink-muted">Qué hacer: {e.sugerencia}</span>}
     </li>
   );
 }
