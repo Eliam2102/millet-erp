@@ -410,6 +410,12 @@ builder.Services.AddScoped<
     Millet.Compras.Domain.Ports.DatosMaestros.IProveedorReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.ProveedorReadAdapter>();
 
+// === Adjuntos: política de formato y tamaño (F1-ADM-11, configuración de prueba) ===
+builder.Services
+    .AddOptions<Millet.SharedKernel.Application.Adjuntos.AdjuntosPoliticaOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.SharedKernel.Application.Adjuntos.AdjuntosPoliticaOptions.SectionName));
+
 // === Compras OC: blob storage (F2-PR4 stub, F10-PR3 real con Azure) ===
 // Si `Compras:Oc:BlobStorage:ConnectionString` está configurado (viene
 // de Key Vault en QA/Prod), se usa Azure Blob real con BlobServiceClient.
