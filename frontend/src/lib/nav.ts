@@ -35,6 +35,7 @@ import {
   Sliders,
   Truck,
   Unlock,
+  Upload,
   Users,
   Warehouse,
   Wallet,
@@ -862,6 +863,35 @@ const moduloFacturacion: NavModulo = {
   ],
 };
 
+const moduloContabilidad: NavModulo = {
+  moduloId: 'contabilidad',
+  label: 'Contabilidad',
+  icon: BookOpen,
+  secciones: [
+    {
+      label: 'Catálogo',
+      cards: [
+        {
+          label: 'Catálogo de cuentas',
+          description:
+            'Árbol y lista de cuentas contables: consulta, alta, edición y baja lógica. Marca las cuentas pendientes de validación.',
+          to: '/contabilidad/catalogo',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ContabilidadCatalogoLeer,
+        },
+        {
+          label: 'Importación del catálogo',
+          description:
+            'Carga de un archivo .csv/.xlsx en 3 pasos: perfilado de solo lectura, vista previa y aplicación idempotente.',
+          to: '/contabilidad/importacion',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadCatalogoImportar,
+        },
+      ],
+    },
+  ],
+};
+
 const modulos: readonly NavModulo[] = [
   moduloFacturacion,
   moduloCuentasPorCobrar,
@@ -871,7 +901,7 @@ const modulos: readonly NavModulo[] = [
   moduloTesoreria,
   moduloCentrosCosto,
   placeholderModulo('activos', 'Activos Fijos', Building2),
-  placeholderModulo('contabilidad', 'Contabilidad', BookOpen),
+  moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', BarChart3),
 ];
 
