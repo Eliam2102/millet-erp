@@ -15,7 +15,7 @@ import {
   useProveedorDatosBancarios,
 } from '@/modules/datos-maestros/api';
 import type { ProveedorDatosBancarios } from '@/modules/datos-maestros/api/types';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useHasAllPermissions, useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
@@ -42,9 +42,11 @@ export function ProveedorBancariosSection({
   const canVer = useHasPermission(
     PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
   );
-  const canEditar = useHasPermission(
+  // El guardado va por PATCH /catalogos/proveedores/{id}: la API exige catalogos.administrar.
+  const canEditar = useHasAllPermissions([
     PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
-  );
+    PermisosCanonicos.CompartidoCatalogosAdministrar,
+  ]);
   const [editando, setEditando] = useState(false);
   const query = useProveedorDatosBancarios(canVer ? proveedorId : null);
 
