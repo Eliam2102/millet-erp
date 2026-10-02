@@ -1,0 +1,94 @@
+/* Millet ERP — tokens CSS
+ * Importar una sola vez en el entry (ej. src/index.css) ANTES de @tailwind base.
+ * Fuente de verdad: tokens.json. No agregar colores fuera de este archivo.
+ */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  /* ---- Variables shadcn/ui (formato HSL sin hsl()) ---- */
+  --background: 220 17.6% 96.7%;          /* #F5F6F8 */
+  --foreground: 221 26.7% 11.8%;          /* #161B26 */
+  --card: 0 0% 100%;                      /* #FFFFFF */
+  --card-foreground: 221 26.7% 11.8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 221 26.7% 11.8%;
+  --primary: 226 65% 43.7%;               /* #2748B8 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 21.4% 94.5%;           /* #EEF0F4 */
+  --secondary-foreground: 220 17.2% 30.8%;/* #414A5C */
+  --muted: 220 25% 95.3%;                 /* #F0F2F6 */
+  --muted-foreground: 221 13.2% 46.1%;    /* #667085 */
+  --accent: 223 70% 96.1%;                /* #EEF2FC (selección) */
+  --accent-foreground: 227 68.4% 33.5%;   /* #1B3590 */
+  --destructive: 3 61% 47.3%;             /* #C2362F */
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 19.1% 90.8%;              /* #E3E6EC */
+  --input: 220 17.1% 86.3%;               /* #D6DAE2 */
+  --ring: 226 65% 43.7%;                  /* #2748B8 */
+  --radius: 0.5rem;                       /* 8px = radius-md */
+
+  /* ---- Tokens propios Millet (hex) ---- */
+  --mt-surface-page: #F5F6F8;
+  --mt-surface-card: #FFFFFF;
+  --mt-surface-subtle: #FAFBFC;
+  --mt-surface-muted: #F0F2F6;
+  --mt-surface-selected: #EEF2FC;
+  --mt-surface-row-focus: #F7F9FE;
+
+  --mt-text-primary: #161B26;
+  --mt-text-secondary: #414A5C;
+  --mt-text-strong-ui: #2B3243;
+  --mt-text-muted: #667085;
+  --mt-text-subtle: #8A93A5;
+
+  --mt-border: #E3E6EC;
+  --mt-border-divider: #EEF0F4;
+  --mt-border-row: #F0F2F5;
+  --mt-border-control: #D6DAE2;
+  --mt-border-dashed: #C9CED8;
+
+  --mt-primary: #2748B8;
+  --mt-primary-hover: #1B3590;
+  --mt-primary-soft: #F0F4FD;
+  --mt-primary-soft-border: #C8D3F2;
+  --mt-primary-disabled: #C8D1E8;
+  --mt-avatar-bg: #E8EEFB;
+
+  --mt-rail-bg: #131B2C;
+  --mt-rail-active-bg: #26324F;
+  --mt-rail-fg: #9AA5BD;
+  --mt-rail-disabled-fg: #56617A;
+
+  --mt-success-bg: #E5F4EC;  --mt-success-fg: #1E6B45;  --mt-success: #1E8E5A;
+  --mt-warning-bg: #FFF4DB;  --mt-warning-fg: #7A5000;  --mt-warning: #C98A00;
+  --mt-warning-note-bg: #FFF8E8; --mt-warning-note-fg: #5C3D00;
+  --mt-danger-bg: #FDECEC;   --mt-danger-fg: #A12A2A;   --mt-danger: #C2362F;  --mt-danger-ring: #F2B8B8;
+  --mt-info-bg: #EEF2FC;     --mt-info-fg: #1B3590;     --mt-info: #2748B8;
+  --mt-neutral-bg: #EEF0F4;  --mt-neutral-fg: #414A5C;
+  --mt-notification-dot: #D6303F;
+
+  --mt-scrim-dialog: rgba(15, 20, 34, 0.42);
+  --mt-scrim-sheet: rgba(15, 20, 34, 0.32);
+
+  --mt-shadow-card: 0 0 0 1px #E3E6EC, 0 1px 2px rgba(16, 24, 40, .04);
+  --mt-shadow-card-flat: 0 0 0 1px #E3E6EC;
+  --mt-shadow-dialog: 0 0 0 1px rgba(16, 24, 40, .08), 0 24px 48px -12px rgba(16, 24, 40, .35);
+  --mt-shadow-sheet: -24px 0 48px -16px rgba(16, 24, 40, .28);
+
+  --mt-font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mt-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* html se queda en 16px para que rem/Tailwind no se descuadren; la base de 13px va en body */
+body {
+  font-family: var(--mt-font-sans);
+  font-size: 13px;               /* base de la app */
+  line-height: 1.4;
+  color: var(--mt-text-primary);
+  background: var(--mt-surface-page);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--mt-primary); text-decoration: none; }
+a:hover { color: var(--mt-primary-hover); }
+:focus-visible { outline: 2px solid var(--mt-primary); outline-offset: 2px; }
+.tabular { font-variant-numeric: tabular-nums; }

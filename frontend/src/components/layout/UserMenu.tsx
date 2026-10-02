@@ -27,9 +27,9 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <Avatar>
-          <AvatarFallback>{initials || <UserIcon className="h-4 w-4" />}</AvatarFallback>
+      <DropdownMenuTrigger aria-label="Menú de usuario" className="flex min-h-11 min-w-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-8 md:min-w-8">
+        <Avatar className="size-8">
+          <AvatarFallback className="bg-brand-avatar text-xs font-semibold text-brand">{initials || <UserIcon className="h-4 w-4" />}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
