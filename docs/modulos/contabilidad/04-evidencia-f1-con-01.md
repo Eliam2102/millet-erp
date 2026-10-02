@@ -108,3 +108,143 @@ Formato general de entrega para todo lo que sigue: **texto plano (CSV UTF-8 o ho
    - *Cambia:* solo el estado del criterio.
 
 Además: cargar datos definitivos en un ambiente real requiere aprobación de Contabilidad/Guillermo; el archivo real no se versiona (solo estructura y estadísticas, §20.9).
+
+---
+
+## 01b — UI (frontend)
+
+> Solo datos ficticios `FIX-*`. No se leyeron ni usaron archivos reales de Contabilidad. Sin cambios de backend ni de API.
+
+### 1. Archivos
+
+Creados en `frontend/src/features/contabilidad/`:
+`api/types.ts`, `api/hooks.ts` (React Query: árbol perezoso, lista, detalle con ETag, ancestros, crear/editar/baja/reactivar, perfilado, vista previa, aplicar), `lib/errores.ts` (onError unificado), `lib/archivo.ts` (lectura de .csv/.xlsx, reporte de perfilado sin contenido), `schemas/cuenta.ts`, `components/` (`InsigniasCuenta`, `ArbolCuentas`, `CuentaForm`, `NuevaCuentaSheet`, `ConfirmarEstatusCuenta`, `PerfilReporte`, `VistaPreviaTabla`), `pages/` (`CatalogoPage`, `CuentaDetallePage`, `ImportacionPage`) y las pruebas `*.test.ts(x)`.
+Rutas (`frontend/src/routes/_app/contabilidad/`): `catalogo.index.tsx` (`/contabilidad/catalogo`), `catalogo.$id.tsx`, `importacion.tsx`; `routeTree.gen.ts` regenerado por TanStack Router (no editado a mano).
+Modificados: `frontend/src/lib/nav.ts` (el placeholder «Contabilidad» pasa a módulo con 2 cards gateadas por `leer` / `importar`) y `frontend/src/lib/nav.test.ts` (Contabilidad ya no es «disabled»). El espejo de permisos de `permission-codes.ts` se reutiliza tal cual.
+
+### 2. Componentes reutilizados (y por qué no se creó uno nuevo)
+
+| Reutilizado | Para qué |
+|---|---|
+| `ui/sheet`, `ui/alert-dialog`, `ui/alert`, `ui/badge`, `ui/button`, `ui/input`, `ui/skeleton`, sonner (`toast`) | Sheet «Nueva cuenta», confirmaciones, avisos, insignias, estados de carga y toasts: no se añadió ningún componente de UI base ni color nuevo; los colores salen de los tokens del design system (ver «Design system» abajo) |
+| `ConflictDialogProvider` / `useConflictDialog` (`openSimple`) | Diálogo de recarga ante 409/428 (mismo que Compras y CeCo) |
+| `centros-costo/components/internal/Field` | Etiqueta + error de campo del formulario |
+| `lib/api` (`apiRequest`, `esConflictoConcurrencia`, `esPrecondicionRequerida`, `applyServerErrors`), patrón `useDetalleCatalogo`/`useMutacionConIfMatch` | If-Match/ETag e Idempotency-Key como los otros módulos |
+| `useDebouncedValue` (200 ms), `useHasPermission`, `createQueryWrapper`, harness `conPermisos/limpiarAuth` de CeCo en pruebas | Búsqueda, permisos y arnés de pruebas |
+| `exceljs` (ya dependencia) | Lectura de `.xlsx` con importación dinámica |
+
+Nuevos (sin equivalente en el repo): `InsigniasCuenta` (reglas de «Pendiente»), `ArbolCuentas` (el árbol de CeCo es específico de 3 niveles/dimensiones, no parametrizable sin reescribirlo; se siguió su patrón ARIA tree y lazy), `CuentaForm`, `PerfilReporte`, `VistaPreviaTabla`, `ConfirmarEstatusCuenta` (el de CeCo está atado a cascada de dimensiones), `manejarErrorCuenta` (el handler de CeCo invalida el namespace de CeCo; los handlers son por-feature por convención). El Sheet usa `window.confirm` al cerrar con `isDirty`, igual que los providers de CxC/Compras.
+
+### 3. Estados visibles → prueba
+
+| Estado / requisito | Prueba |
+|---|---|
+| Cargando (árbol, detalle) | `CatalogoPage › cargando…`; `CuentaDetallePage › cargando…` |
+| Vacío con CTA importar | `CatalogoPage › vacío…` |
+| Sin resultados con filtros (no confundir con vacío) | `CatalogoPage › lista sin resultados…` |
+| Guardando | `CuentaForm › guardando…` (botón «Guardando…» deshabilitado) |
+| Guardado: toast solo tras 2xx, Idempotency-Key | `CuentaForm › guardando…guardado`; `CuentaDetallePage › guardado: PUT con If-Match…`; baja y aplicar importación |
+| Error de validación 422, el formulario conserva datos | `CuentaForm › 422…`; `CuentaDetallePage › 422 CAMBIO_BLOQUEADO_POR_USO` |
+| Validación de cliente | `CuentaForm › validación de cliente…` |
+| Sin permiso (sin acciones de escritura) | `CatalogoPage › sin permiso de escritura…`; `CuentaDetallePage › sin permiso de administrar…`; `ImportacionPage › sin permiso de importar…` |
+| Conflicto 409 (recargar sin sobrescribir, borrador conservado) / 428 | `CuentaDetallePage › conflicto 409…`, `› 428…` |
+| Fallo recuperable (reintentar sin perder datos) | `CatalogoPage › fallo recuperable…`; `CuentaDetallePage › fallo recuperable…`; `CuentaForm › fallo recuperable (500)…`; `ImportacionPage › fallo recuperable en el perfilado…` |
+| Insignia «Pendiente» (naturaleza/tipo nulos, nunca valor supuesto) | `CatalogoPage › insignia pendiente…`; `CuentaDetallePage › naturaleza y tipo nulos…` |
+| Árbol perezoso por `raizId`, insignia Inactiva | `CatalogoPage › cargando…` (expande y carga la hija) |
+| Búsqueda con debounce 200 ms y filtro «pendientes» | `CatalogoPage › búsqueda con debounce…` |
+| Cuenta usada: candado, explicación y campos bloqueados | `CuentaDetallePage › cuenta usada…` |
+| Baja lógica con confirm y efectos; baja rechazada (hijas activas) | `CuentaDetallePage › baja lógica…`, `› baja rechazada…` |
+| Importación: formato inválido; perfilado agrupado y «qué se reabre»; vista previa con acción/errores/sugerencia y filtro «solo con errores»; aplicar deshabilitado con errores | `ImportacionPage › formato no soportado…`, `› paso 2 perfilado…` |
+| Importación: aplicar (huella + Idempotency-Key), resultado, «idempotente: ya aplicado», 422 al aplicar | `ImportacionPage › aplicar…`, `› resultado idempotente…`, `› 422 FILAS_CON_ERRORES…` |
+| Lectura de archivo (BOM, Windows-1252, xlsx como texto, filas vacías conservadas); reporte sin contenido | `lib/archivo.test.ts` |
+
+### 4. Resultados reales (2026-10-02, Node v24.4.1 en el worktree; `npm install` previo)
+
+| Comando | Resultado |
+|---|---|
+| `tsc -b tsconfig.app.json tsconfig.node.json` | exit 0, sin errores |
+| `npm run typecheck:test` (`tsc -b tsconfig.test.json`) | exit 0 (tras corregir un tipo en mi propia prueba) |
+| `npm run lint` | exit 0: **0 errores, 10 warnings**, todos preexistentes en `modules/administracion` (ninguno en `features/contabilidad`) |
+| `npm run build` | exit 0 («built in 32.90s»; solo el aviso habitual de chunks > 500 kB) |
+| `vitest run src/features/contabilidad src/lib/nav.test.ts` | 56 pruebas en 6 archivos; 3 fallaron en la primera corrida (selector `getByLabelText(/Código/)` ambiguo con «Código agrupador»), corregido y reejecutado el archivo: pasa |
+| `vitest run` (suite completa, 312 archivos) | **308 archivos / 1742 pruebas pasaron; 4 archivos fallaron** (`LineaInlineForm.idempotency`, `EditorLineas.cc`, `TarjetasPage.smoke`, `EmpleadosPage.smoke`: módulos ajenos, tiempos de espera por carga de la máquina). Reejecutados solos: **4 archivos / 15 pruebas, todos pasan** |
+
+Notas: la corrida de vitest reescribe localmente dos snapshots de otros módulos (`EstadoBadge`, `NaturalezaBadge`, solo saltos de línea); se revirtieron con `git checkout` para no ensuciar el diff. `routeTree.gen.ts` aparece con diff completo por saltos de línea (CRLF/LF); el contenido nuevo son las 3 rutas de Contabilidad. Tras la última edición de una prueba (`CatalogoPage.smoke`, solo tipo) se verificó con `typecheck:test`, pero la suite completa no se repitió.
+
+### 5. Pendiente y límites conocidos
+
+- **Capturas de pantalla** (árbol, vista previa con errores, conflicto, sin permiso): NO generadas (no hay navegador/servicios que pueda usar sin tocar el backend y Vite del dueño). Pendiente de generar a mano contra el backend local.
+- No se verificó el flujo de extremo a extremo contra el backend real (solo MSW con los contratos de `03`/`05`).
+- La búsqueda global del topbar contextual no se cableó: el catálogo usa su propio campo con debounce de 200 ms (mismo enfoque que `BuscadorCatalogo` de CeCo).
+- Se omitió el historial (auditoría) del detalle porque la API no lo expone, y la descarga de «plantilla de muestra» (el plan §10 la mencionaba): no hay plantilla ficticia versionada que servir.
+- Sin master-detail de 320 px: se usó bandeja (P1) + página de detalle (P3), más simple y suficiente para el alcance.
+
+### 6. Desviaciones y defectos del backend detectados (no corregidos)
+
+1. `GET /cuentas/arbol` no devuelve `cuentaControl` ni `naturaleza`: en el árbol no se puede mostrar la insignia «Control»; sí aparece en lista y detalle.
+2. `GET /cuentas/{id}` devuelve `usada` solo para la propia cuenta, pero el bloqueo R8 del `PUT` también se dispara si una **descendiente** está usada: la UI puede no mostrar el candado y recibir 422 `CAMBIO_BLOQUEADO_POR_USO` (se muestra el mensaje y se conserva el borrador).
+3. No hay endpoint de ancestros ni de hijos: se resuelven con `GET /cuentas/{id}` encadenado y `GET /cuentas?padreId=` (hasta 200 hijas).
+4. Los 422 de reglas de negocio llegan con `code` y `detail` pero **sin `errores[]` por campo**; la UI mapea código → campo con una tabla local (`lib/errores.ts`).
+5. El 422 `CONTAB_IMPORT_FILAS_CON_ERRORES` trae `errores[]` con la forma de `ErrorFila` (fila/columna/codigo/mensaje), distinta de la convención `{campo,codigo,mensaje}` de `ProblemDetails`; se lee con un cast.
+6. `perfilado` devuelve `Resumen/Distribuciones/Estructura/...` como `object` (sin esquema tipado): la UI muestra los escalares genéricamente y los campos conocidos (`porCodigoError`, `queSeReabre`, `columnasSinMapeo`, `pendientesValidacion`).
+
+### 7. Design system (ronda 2: migración a `design-system/DESIGN.md`)
+
+Leídos completos: `DESIGN.md`, `FIGMA.md`, `README.md`, `frontend/AGENTS.md` e `index.css`.
+
+**Qué se migró**
+- Todos los colores default y ajustados a tokens: `amber-*`/`slate-*` → variantes semánticas de `Badge` (`warning` para pendiente y tipo/naturaleza nulos, `neutral` para Título/Afectable/Inactiva/Usada, `info` para Control, `outline` para naturaleza, `danger`/`success`/`neutral` para la acción por fila de la vista previa) y `text-warning-fg`, `bg-warning-note-bg`, `text-warning-note-fg`, `border-warning`; los alias shadcn (`text-muted-foreground`, `text-destructive`, `bg-muted`, `text-primary`, `border-input`) → `text-ink-muted`, `text-danger-fg`, `bg-surface-subtle/muted`, `text-brand`, `border-line-control`.
+- Contenedores de tabla y secciones: `border` → `rounded-lg bg-surface-card shadow-card-flat`; filas con `border-line-row`; encabezados con la receta 4.4 (`text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted`, `bg-surface-subtle`, `border-line-divider`).
+- Controles: `<input type="checkbox">` → `Checkbox` + `Label` compartidos; `<select>` nativos con la receta de `Input` (`SELECT_CLASS`: h-36, `border-line-control`, foco de marca, mínimo táctil); botones de formularios y del asistente con `size="lg"` (h-36); «Desactivar» con `variant="secondary-danger"`; ancho del Sheet con el token `sm:max-w-sheet` (560 px, verificado en el CSS generado).
+- Formulario: `Field` de centros-costo (usaba `rose-600` por defecto) sustituido por un `Field` local sobre el `Label` compartido, con «(opcional)» en campos opcionales y grid `gap-x-4 gap-y-3.5`.
+- Avisos de campos bloqueados/cuenta usada: nuevo `AvisoNota` (callout 4.10, `role="note"`, tokens `warning-note`); reemplaza el `Alert` y el `<p>` con colores propios.
+- Páginas: H1 `text-3xl` con descripción de una línea, padding `px-6 py-5` (plantilla 5.1), íconos con `strokeWidth` 1.6 y `size-*`.
+- Componentes propios que se conservan: no existe en el repo un equivalente compartido para insignias de cuenta (`NaturalezaBadge`/`EstadoBadge` son de Compras, con enums y colores default propios), así que `InsigniasCuenta` se reescribió sobre `Badge`; `ArbolCuentas`, `CuentaForm`, `PerfilReporte`, `VistaPreviaTabla` y `ConfirmarEstatusCuenta` usan Button/Badge/Checkbox/Label/Alert/AlertDialog/Sheet/Skeleton compartidos.
+
+**Checklist de la sección 9**
+
+| Punto | Estado |
+|---|---|
+| Dentro del App Shell, con el ítem activo en rail y panel | Cumple en lo que depende del shell (las rutas viven bajo `_app`; Contabilidad es módulo del registro de navegación con 2 cards). **Pendiente** verificar visualmente el ítem activo en el navegador |
+| Breadcrumb refleja la ubicación | **Pendiente**: lo resuelve el shell; no se comprobó en navegador que las 3 rutas nuevas produzcan el breadcrumb esperado |
+| Usa una plantilla de la sección 5 sin layouts inventados | **Parcial**: bandeja y detalle usan H1 + descripción + tarjeta de tabla, pero sin KPIs, tabs de vista ni chips de filtro (5.1), y el detalle no tiene lista maestra de 320 px (5.2); el Sheet sí es el de 4.8 en ancho pero sin footer fijo con «Guardar borrador». No cumple la plantilla completa |
+| Sin hex, tamaños ni radios fuera de tokens | **Cumple** en colores: `grep` de paleta default/hex en `features/contabilidad` y `routes/_app/contabilidad` (sin pruebas) = 0. Quedan los valores arbitrarios que la propia guía prescribe (`tracking-[0.04em]`) y `min-w-[560px]/[640px]` de las tablas |
+| Plex Sans 13 base; folios/UUID/RFC en Plex Mono | **Cumple**: cuerpo `text-sm`; códigos de cuenta en `font-mono` |
+| Montos con `tabular-nums` a la derecha en `$0,000.00` | **No aplica**: el módulo no muestra montos (sí conteos; sin `tabular-nums` en conteos) |
+| Estados con los badges y textos exactos de 7.2 | **Parcial**: se usan variantes semánticas de `Badge`, pero 7.2 no define estados para cuentas contables; los textos («Inactiva», «Pendiente de validación», etc.) son del dominio y deben validarse con Contabilidad |
+| Tabla de 10 filas, estirada al alto disponible | **No cumple**: la lista pagina de 50 en 50 (`limit` 50, como el resto de la API de catálogos) y no se estira al alto; la paginación es «Anterior/Siguiente» |
+| Una acción primaria por zona; botones deshabilitados explican el motivo | **Cumple**: «Aplicar importación» y el toggle «Árbol» deshabilitados llevan `title` y texto cercano |
+| Botones de ícono con `aria-label`, inputs con `<label>`, sin `onClick` en `div` | **Cumple**: chevrons del árbol con `aria-label`; campos con `Label`/`aria-label`; ningún `onClick` en `div` |
+| Español (es-MX), sentence case, sin datos inventados | **Cumple** (datos solo `FIX-*` en pruebas) |
+
+**Pendiente del design system**
+- Comparar con Figma en navegador y capturas de pantalla (no generadas; mismo motivo que arriba).
+- Los `<select>` siguen siendo nativos con la receta de Input; migrarlos al `Select` (Radix) compartido exige reescribir las pruebas que usan `fireEvent.change`.
+- Composición completa de plantillas 5.1/5.2 (KPIs, tabs, chips de filtro, lista maestra, sheet con footer fijo).
+- Modo oscuro: no migrado (igual que el resto del sistema).
+- `frontend/src/lib/nav.test.ts:348` sigue con un error de tipos preexistente de main (`string` no asignable a `"compras.ordenes.leer" | "compras.ordenes.autorizar-nivel1"`); no se tocó.
+
+**Verificación de esta ronda (reales):** `grep` de paleta default/hex/alias shadcn en los dos directorios = 0 coincidencias; `vitest run src/features/contabilidad src/lib/nav.test.ts src/components/layout` = 11 archivos / 84 pruebas pasan; `tsc -b tsconfig.app.json` exit 0; `tsc -b tsconfig.test.json` = solo el error preexistente `nav.test.ts(348,58)`; `eslint` sobre contabilidad (features y rutas) exit 0 sin avisos; `npm run build` exit 0.
+
+### 8. Ronda 3 — lector de .xlsx con varias hojas, título y filas vacías
+
+Decisión del TL: la hoja correcta es «Plan de cuentas-VILO». Estructura real (solo estructura): libro de 3 hojas; la hoja correcta es la 3.ª, con un título en la fila 1, los encabezados en la fila 2 (incluida una columna vacía) y filas vacías intercaladas. Antes, `archivo.ts` leía `worksheets[0]` y tomaba la fila 1 como cabecera.
+
+**Qué cambió (solo frontend, `features/contabilidad`)**
+- `lib/archivo.ts`: `leerArchivo` se divide en `abrirArchivo` (lee todas las hojas como TEXTO; devuelve nombre y filas con datos por hoja), `hojaSugerida`, `detectarEncabezado` y `prepararHoja`. Se normalizan las cabeceras igual que el servidor (`FormatoCatalogo.NormalizarCabecera`: sin acentos, minúsculas, espacios y guiones a `_`).
+- Selector de hoja (`ImportacionPage`): si el .xlsx tiene más de una hoja, antes del perfilado se muestra «Hoja del libro» con «nombre — N filas con datos» y el botón «Analizar hoja»; se preselecciona la hoja cuyo nombre contiene «plan de cuentas» y tiene encabezado reconocible (si hay varias, la de más columnas reconocidas; si ninguna, la primera). Con una sola hoja no hay paso extra.
+- Detección del encabezado: usa los alias de `GET /api/v1/contabilidad/configuracion-formato` (`importacion.columnas`) y elige la primera fila, dentro de las primeras 15, con al menos 2 columnas canónicas distintas. Si ninguna coincide (o no se pudo leer la configuración), usa la fila 1 y lo avisa. Si el encabezado no está en la fila 1, avisa «Encabezado detectado en la fila N; las N-1 fila(s) anteriores se ignoraron».
+- Números de fila: el cuerpo conserva las filas vacías posteriores al encabezado. El servidor numera con cabecera = 1, así que el cliente suma un `desplazamiento` (fila del encabezado - 1) para mostrar la fila real del archivo en la vista previa, el perfilado (ejemplos), los errores al aplicar y el reporte descargable. **El backend no se modificó.**
+- Reglas sin cambio: perfilado y vista previa no escriben; Idempotency-Key, huella, permisos y estados visibles igual.
+
+**Pruebas (fixtures FIX-* generados en la prueba con exceljs)** — `lib/archivo.test.ts` y `pages/ImportacionPage.test.tsx`: libro de 3 hojas con título en la fila 1, encabezado en la fila 2, filas vacías y columna vacía en el encabezado. Cubren: lista de hojas con nombre y filas con datos; preselección de «Plan de cuentas-VILO» frente a la 1.ª hoja con el mismo texto en el nombre; encabezado detectado en la fila 2; título descartado; números de fila del servidor + desplazamiento = filas 4 y 7 del archivo; vista previa que muestra la fila 4 (servidor 3) y no la 3; una sola hoja con encabezado en la fila 1 sin selector y con desplazamiento 0; sin encabezado reconocible usa la fila 1 y avisa; límite de 15 filas; reporte descargable con filas reales y sin valores de celda.
+
+**Resultados reales:** `vitest run src/features/contabilidad` = 5 archivos / 47 pruebas pasan; `vitest run src/lib/nav.test.ts src/components/layout` = 6 archivos / 49 pruebas pasan; `tsc -b tsconfig.app.json` exit 0; `tsc -b tsconfig.test.json` = solo el error preexistente `src/lib/nav.test.ts(348,58)`; `eslint` en contabilidad (features y rutas) exit 0 sin avisos; `npm run build` exit 0.
+
+**Hallazgos para el TL (no corregidos)**
+1. **CSV con título antes del encabezado:** el backend (`LectorTabla.Leer`) toma SIEMPRE el primer registro como cabeceras. Un CSV real con una fila de título (como el .xlsx) falla con 422 `CONTAB_IMPORT_COLUMNA_FALTANTE` y la lista de cabeceras encontradas (la del título). No hay tolerancia en el servidor, y el cliente no toca el CSV (se envían los bytes tal cual). Cambio mínimo propuesto si se necesita: en `LectorTabla`, tras decodificar el CSV, saltar los primeros registros hasta la primera fila que cumpla ≥2 alias canónicos (máx. 15) y numerar las filas con el desplazamiento correspondiente; alternativa sin tocar el backend: pedir a Contabilidad el CSV sin la fila de título o exportar como .xlsx.
+2. **Numeración del servidor:** con `columnas`+`filas` la numeración es relativa a la cabecera (cabecera = 1). El desplazamiento en el cliente la corrige; un campo opcional `filaEncabezado` en `ImportacionRequest` permitiría que el servidor devuelva directamente la fila real y que también aplique a los mensajes del servidor que incluyan «fila N» en el texto (hoy esos textos, si los hubiera, no se corrigen en el cliente).
+3. **Preselección ambigua:** si la hoja 1 (otra numeración) también se llamara «Plan de cuentas…» y tuviera encabezado reconocible con más columnas que la hoja VILO, se preseleccionaría esa; el usuario ve el selector y puede cambiarla.
+4. **Columna vacía en el encabezado:** el servidor la tolera (advertencia «columna N sin nombre», no se importa).
+5. Pendiente: no se probó con el archivo real (no se leyó, por instrucción) ni contra el backend real.
+
