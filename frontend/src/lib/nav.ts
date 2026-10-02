@@ -966,6 +966,21 @@ function contieneRuta(base: string, pathname: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
+/** Accesos del buscador: mismo catálogo y permisos que los menús. */
+export function accesosNavegacion(permisos: readonly string[]) {
+  const accesos = sidebarItemsVisibles(permisos).flatMap((item) =>
+    item.kind === 'link'
+      ? [{ ...item, description: 'Página de inicio', modulo: 'General' }]
+      : filtrarModuloPorPermisos(item, permisos).secciones.flatMap((seccion) =>
+          seccion.cards.map((card) => ({ ...card, modulo: item.label })),
+        ),
+  );
+  accesos.push(...adminRegistry
+    .filter((section) => permisos.includes(section.permisoRequerido))
+    .map((section) => ({ to: section.href, label: section.titulo, description: section.descripcion, modulo: 'Administración', icon: section.icon })));
+  return [...new Map(accesos.filter((acceso) => rutaPermitida(acceso.to, permisos)).map((acceso) => [acceso.to, acceso])).values()];
+}
+
 /**
  * ¿Puede el usuario abrir esta URL? Aplica el permiso de la card más
  * específica que contiene la ruta (<c>/compras/ordenes/123</c> → card
