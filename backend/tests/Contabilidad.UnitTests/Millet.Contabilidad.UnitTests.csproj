@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -12,8 +12,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
     <PackageReference Include="FluentAssertions" />
   </ItemGroup>
 
@@ -23,12 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Fixtures FIX-* (datos ficticios) compartidos con Contabilidad.UnitTests. -->
-    <Compile Include="..\Contabilidad.UnitTests\Fixtures\FixturesCatalogo.cs" Link="Contabilidad\Fixtures\FixturesCatalogo.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Api\Millet.Api.csproj" />
+    <ProjectReference Include="..\..\src\Contabilidad\Millet.Contabilidad.csproj" />
   </ItemGroup>
 
 </Project>
