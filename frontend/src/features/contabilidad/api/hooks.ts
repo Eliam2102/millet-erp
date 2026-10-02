@@ -10,6 +10,7 @@ import type {
   PaginaCuentas,
   Perfil,
   ResultadoAplicar,
+  SiguienteCodigo,
   VistaPrevia,
 } from './types';
 
@@ -23,6 +24,7 @@ export const contabKeys = {
   detalle: (id: string) => ['contabilidad', 'detalle', id] as const,
   ancestros: (id: string, padreId: string | null) =>
     ['contabilidad', 'ancestros', id, padreId] as const,
+  siguienteCodigo: (padreId: string) => ['contabilidad', 'siguiente-codigo', padreId] as const,
 };
 
 function qs(params: Record<string, unknown>): string {
@@ -40,6 +42,17 @@ export function useArbol(raizId: string | null, estatus: FiltroEstatus) {
     queryKey: contabKeys.arbol(raizId, estatus),
     queryFn: async ({ signal }) =>
       (await apiRequest<NodoArbol[]>(`${BASE}/cuentas/arbol${qs({ raizId, estatus })}`, { signal })).data,
+  });
+}
+
+/** Código sugerido para una hija nueva del padre (solo al crear). Sin padre (raíz) no se consulta. */
+export function useSiguienteCodigo(padreId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: contabKeys.siguienteCodigo(padreId ?? ''),
+    enabled: enabled && !!padreId,
+    staleTime: 0,
+    queryFn: async ({ signal }) =>
+      (await apiRequest<SiguienteCodigo>(`${BASE}/cuentas/siguiente-codigo${qs({ padreId })}`, { signal })).data,
   });
 }
 

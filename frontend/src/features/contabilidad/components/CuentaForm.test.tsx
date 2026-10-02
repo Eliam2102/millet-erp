@@ -32,6 +32,100 @@ describe('<CuentaForm> alta', () => {
     expect(() => unmount()).not.toThrow();
   });
 
+  it('cuenta padre: un solo combobox busca títulos activos y guarda el padre elegido', async () => {
+    const titulo = { id: 't1', codigo: 'FIX-100', nombre: 'FIX Bancos', padreId: null, nivel: 1, naturaleza: 'Deudora', tipo: 'Titulo',
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1 };
+    const consultas: URLSearchParams[] = [];
+    let body: unknown = null;
+    mswServer.use(
+      http.get('*/api/v1/contabilidad/cuentas', ({ request }) => {
+        consultas.push(new URL(request.url).searchParams);
+        return HttpResponse.json({ items: [titulo], total: 1, offset: 0, limit: 50 });
+      }),
+      http.post('*/api/v1/contabilidad/cuentas', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...titulo, id: 'n1', codigo: 'FIX-001' }, { status: 201, headers: { ETag: '"1"' } });
+      }),
+      http.get('*/api/v1/contabilidad/cuentas/siguiente-codigo', () => HttpResponse.json({ codigo: 'FIX-100.01', motivo: null })),
+    );
+    render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    llenar();
+
+    // Un solo control etiquetado «Cuenta padre» (antes había caja de búsqueda + <select> separados).
+    const trigger = screen.getByLabelText('Cuenta padre');
+    expect(trigger).toHaveAttribute('role', 'combobox');
+    expect(trigger).toHaveTextContent('Sin padre');
+    fireEvent.click(trigger);
+    fireEvent.change(await screen.findByLabelText('Buscar cuenta padre'), { target: { value: 'Bancos' } });
+    // Tras el debounce, la búsqueda va al servidor: solo títulos activos con el término escrito.
+    await waitFor(() =>
+      expect(consultas.some((p) => p.get('tipo') === 'Titulo' && p.get('estatus') === 'Activo' && p.get('q') === 'Bancos')).toBe(true),
+    );
+    fireEvent.click(await screen.findByText('FIX Bancos'));
+    expect(screen.getByLabelText('Cuenta padre')).toHaveTextContent('FIX-100 — FIX Bancos');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    await waitFor(() => expect(body).toMatchObject({ padreId: 't1' }));
+    // El código que el usuario ya había escrito NO se pisa con la sugerencia.
+    expect(body).toMatchObject({ codigo: 'FIX-001' });
+  });
+
+  it('opción 2: al elegir el padre se sugiere el siguiente código (editable) y se envía tal cual', async () => {
+    const titulo = { id: 't1', codigo: 'FIX-100.10.00.00', nombre: 'FIX Bancos', padreId: null, nivel: 1, naturaleza: 'Deudora', tipo: 'Titulo',
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1 };
+    let pedido: string | null = null;
+    let body: unknown = null;
+    mswServer.use(
+      http.get('*/api/v1/contabilidad/cuentas', () => HttpResponse.json({ items: [titulo], total: 1, offset: 0, limit: 50 })),
+      http.get('*/api/v1/contabilidad/cuentas/siguiente-codigo', ({ request }) => {
+        pedido = new URL(request.url).searchParams.get('padreId');
+        return HttpResponse.json({ codigo: 'FIX-100.10.03.00', motivo: null });
+      }),
+      http.post('*/api/v1/contabilidad/cuentas', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...titulo, id: 'n1' }, { status: 201, headers: { ETag: '"1"' } });
+      }),
+    );
+    render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    expect(screen.getByText(/Elige primero la cuenta padre/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Cuenta padre'));
+    fireEvent.click(await screen.findByText('FIX Bancos'));
+
+    await waitFor(() => expect(screen.getByLabelText(/^Código\*?$/)).toHaveValue('FIX-100.10.03.00'));
+    expect(pedido).toBe('t1');
+    expect(screen.getByText('Sugerido según la cuenta padre; puedes cambiarlo.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Nombre/), { target: { value: 'FIX Banco Centro' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    await waitFor(() => expect(body).toMatchObject({ codigo: 'FIX-100.10.03.00', padreId: 't1', nombre: 'FIX Banco Centro' }));
+  });
+
+  it('opción 2: si no se puede sugerir, explica el motivo y el código queda para escribirlo', async () => {
+    const titulo = { id: 't1', codigo: 'FIX-4', nombre: 'FIX Raiz libre', padreId: null, nivel: 1, naturaleza: null, tipo: 'Titulo',
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: true, version: 1 };
+    mswServer.use(
+      http.get('*/api/v1/contabilidad/cuentas', () => HttpResponse.json({ items: [titulo], total: 1, offset: 0, limit: 50 })),
+      http.get('*/api/v1/contabilidad/cuentas/siguiente-codigo', () =>
+        HttpResponse.json({ codigo: null, motivo: 'FIX-4 aún no tiene cuentas hijas para deducir el formato; escriba el código.' })),
+    );
+    render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(screen.getByLabelText('Cuenta padre'));
+    fireEvent.click(await screen.findByText('FIX Raiz libre'));
+    expect(await screen.findByText(/aún no tiene cuentas hijas/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Código\*?$/)).toHaveValue('');
+  });
+
+  it('422 CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA se marca en el campo Código y conserva los datos', async () => {
+    mswServer.use(http.post('*/api/v1/contabilidad/cuentas', () =>
+      problem(422, { code: 'CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA', detail: 'El código FIX-001 no corresponde a la cuenta padre FIX-100.' })));
+    render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    llenar();
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    expect((await screen.findAllByText(/no corresponde a la cuenta padre/)).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/^Código\*?$/)).toHaveValue('FIX-001');
+  });
+
   it('validación de cliente: campos requeridos vacíos no envían y muestran el error', async () => {
     const post = vi.fn();
     mswServer.use(http.post('*/api/v1/contabilidad/cuentas', () => { post(); return HttpResponse.json({}, { status: 201 }); }));

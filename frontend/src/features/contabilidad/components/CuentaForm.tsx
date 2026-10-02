@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useRef, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -7,15 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { useCrearCuenta, useCuentas, useEditarCuenta } from '../api/hooks';
+import { useCrearCuenta, useEditarCuenta, useSiguienteCodigo } from '../api/hooks';
 import type { Cuenta } from '../api/types';
 import { aBody, CuentaSchema, VALORES_VACIOS, type CuentaValues } from '../schemas/cuenta';
 import { manejarErrorCuenta } from '../lib/errores';
 import { SELECT_CLASS } from '../lib/estilos';
 import { AvisoNota } from './AvisoNota';
+import { CuentaPadreSelector } from './CuentaPadreSelector';
 
 /** Label (shared) + control + error inline, receta DESIGN 4.2. */
 function Field({ label, htmlFor, required, opcional, error, full, children }: {
@@ -72,8 +72,6 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
   const crear = useCrearCuenta();
   const editar = useEditarCuenta();
   const [mensaje, setMensaje] = useState<string | null>(null);
-  const [busquedaPadre, setBusquedaPadre] = useState('');
-  const q = useDebouncedValue(busquedaPadre.trim(), 200);
 
   const form = useForm<CuentaValues>({
     resolver: zodResolver(CuentaSchema),
@@ -84,10 +82,32 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  // Candidatas a padre: títulos activos (el servidor revalida R3/R4 y ciclos).
-  const padres = useCuentas({ tipo: 'Titulo', estatus: 'Activo', q, limit: 50 });
-  const opciones = (padres.data?.items ?? []).filter((p) => p.id !== cuenta?.id);
-  if (padreActual && !opciones.some((p) => p.id === padreActual.id)) opciones.unshift(padreActual as Cuenta);
+  // Opción 2: al elegir el padre (solo en alta) se propone el siguiente código libre de su rama. Es editable:
+  // solo se rellena si el campo está vacío o conserva la sugerencia anterior (nunca pisa lo que escribió el usuario).
+  const padreId = useWatch({ control: form.control, name: 'padreId' });
+  const codigoActual = useWatch({ control: form.control, name: 'codigo' });
+  const sugerencia = useSiguienteCodigo(padreId || null, !editando);
+  const ultimaSugerencia = useRef<string | null>(null);
+  const codigoSugerido = sugerencia.data?.codigo ?? null;
+  useEffect(() => {
+    if (editando || !codigoSugerido) return;
+    const actual = form.getValues('codigo').trim();
+    if (actual === '' || actual === ultimaSugerencia.current) {
+      form.setValue('codigo', codigoSugerido, { shouldDirty: true });
+      ultimaSugerencia.current = codigoSugerido;
+    }
+  }, [editando, codigoSugerido, form]);
+  const ayudaCodigo = editando
+    ? 'El código no se modifica.'
+    : !padreId
+      ? 'Elige primero la cuenta padre para sugerir el código (una cuenta raíz se escribe a mano).'
+      : sugerencia.isFetching
+        ? 'Calculando el código sugerido…'
+        : sugerencia.data?.motivo
+          ? sugerencia.data.motivo
+          : codigoSugerido && codigoActual.trim() === codigoSugerido
+            ? 'Sugerido según la cuenta padre; puedes cambiarlo.'
+            : null;
 
   const guardando = crear.isPending || editar.isPending;
 
@@ -125,28 +145,30 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
       {bloqueado && <AvisoNota>{MOTIVO_BLOQUEO}</AvisoNota>}
 
       <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
+        <Field label="Cuenta padre" htmlFor="cta-padre" full error={errors.padreId?.message}>
+          <Controller
+            control={form.control}
+            name="padreId"
+            render={({ field }) => (
+              <CuentaPadreSelector
+                id="cta-padre"
+                value={field.value}
+                onChange={field.onChange}
+                excluirId={cuenta?.id}
+                padreActual={padreActual}
+                disabled={bloqueado}
+                title={bloqueado ? MOTIVO_BLOQUEO : undefined}
+              />
+            )}
+          />
+        </Field>
+
         <Field label="Código" htmlFor="cta-codigo" required error={errors.codigo?.message}>
           <Input id="cta-codigo" maxLength={30} readOnly={editando} className="font-mono" {...form.register('codigo')} />
-          {editando && <p className="text-xs text-ink-muted">El código no se modifica.</p>}
+          {ayudaCodigo && <p className="text-xs text-ink-muted" aria-live="polite">{ayudaCodigo}</p>}
         </Field>
         <Field label="Nombre" htmlFor="cta-nombre" required error={errors.nombre?.message}>
           <Input id="cta-nombre" maxLength={254} {...form.register('nombre')} />
-        </Field>
-
-        <Field label="Cuenta padre" htmlFor="cta-padre" full error={errors.padreId?.message}>
-          <Input
-            aria-label="Buscar cuenta padre"
-            placeholder="Buscar título por código o nombre…"
-            value={busquedaPadre}
-            disabled={bloqueado}
-            onChange={(e) => setBusquedaPadre(e.target.value)}
-          />
-          <select id="cta-padre" className={SELECT} disabled={bloqueado} title={bloqueado ? MOTIVO_BLOQUEO : undefined} {...form.register('padreId')}>
-            <option value="">(Sin padre — cuenta raíz)</option>
-            {opciones.map((p) => (
-              <option key={p.id} value={p.id}>{p.codigo} — {p.nombre}</option>
-            ))}
-          </select>
         </Field>
 
         <Field label="Naturaleza" htmlFor="cta-naturaleza" error={errors.naturaleza?.message}>

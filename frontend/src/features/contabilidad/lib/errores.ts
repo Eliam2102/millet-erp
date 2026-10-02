@@ -8,6 +8,7 @@ import { contabKeys } from '../api/hooks';
 const CAMPO_POR_CODIGO: Record<string, string> = {
   CONTAB_CUENTA_CODIGO_INVALIDO: 'codigo',
   CONTAB_CUENTA_CODIGO_DUPLICADO: 'codigo',
+  CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA: 'codigo',
   CONTAB_CUENTA_NOMBRE_INVALIDO: 'nombre',
   CONTAB_CUENTA_PADRE_INVALIDO: 'padreId',
   CONTAB_CUENTA_PADRE_NO_ES_TITULO: 'padreId',

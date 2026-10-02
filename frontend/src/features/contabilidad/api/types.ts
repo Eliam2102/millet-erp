@@ -12,6 +12,12 @@ export interface OrigenCuenta {
   codigoOrigen: string;
 }
 
+/** Opción 2 del alta manual: código sugerido (editable) para una hija del padre; null + motivo si no se puede inferir. */
+export interface SiguienteCodigo {
+  codigo: string | null;
+  motivo: string | null;
+}
+
 export interface Cuenta {
   id: string;
   codigo: string;
