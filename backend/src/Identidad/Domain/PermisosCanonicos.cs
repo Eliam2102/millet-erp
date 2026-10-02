@@ -88,6 +88,7 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesCancelarDoble                    = "compras.ordenes.cancelar-doble";
     public const string ComprasOrdenesReportesPartidasAbiertas         = "compras.ordenes.reportes-partidas-abiertas";
     public const string ComprasOrdenesCerrarManual                     = "compras.ordenes.cerrar-manual";
+    public const string ComprasOrdenesLeerTodasSucursales              = "compras.ordenes.leer-todas-sucursales";
 
     // ----- Configuración del módulo Compras (Settings, decisión 2026-05-13) -----
     public const string ComprasConfiguracionLeer                       = "compras.configuracion.leer";
@@ -507,6 +508,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-000000000009"), ComprasOrdenesCancelarDoble,                  "Cancelar órdenes de compra con recepciones parciales (doble firma)"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000a"), ComprasOrdenesReportesPartidasAbiertas,       "Consultar reporte de partidas abiertas de órdenes de compra"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000b"), ComprasOrdenesCerrarManual,                   "Cerrar órdenes de compra manualmente (servicios/residuales)"),
+        (Guid.Parse("00000003-0003-0000-0000-00000000000c"), ComprasOrdenesLeerTodasSucursales,            "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000004-0001-0000-0000-000000000001"), CompartidoCatalogosLeer,                      "Consultar catálogos cross-empresa (proveedores, artículos)"),
