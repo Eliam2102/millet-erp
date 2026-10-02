@@ -445,18 +445,18 @@ function Acciones({
               Conciliar auto
             </Button>
           )}
-          {ec.diferenciaMxn === 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onMarcarConciliado}
-              disabled={isPending}
-            >
-              <CheckCircle2 className="mr-1 h-3 w-3" />
-              Marcar conciliado
-            </Button>
-          )}
         </>
+      )}
+      {enConciliacion && puedeCerrar && ec.diferenciaMxn === 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onMarcarConciliado}
+          disabled={isPending}
+        >
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          Marcar conciliado
+        </Button>
       )}
       {conciliado && puedeCerrar && (
         <Button

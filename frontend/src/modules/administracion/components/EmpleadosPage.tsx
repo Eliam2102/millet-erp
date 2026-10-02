@@ -44,7 +44,7 @@ import {
 } from '@/modules/administracion/api';
 import { useDepartamentos, usePuestos, useSucursales } from '@/features/catalogos/api';
 import type { EmpleadoListItem } from '@/features/catalogos/api';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useHasAllPermissions, useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { EmpleadoInlineForm } from '@/modules/administracion/components/EmpleadoInlineForm';
@@ -153,6 +153,11 @@ export function EmpleadosPage() {
   const canCrearUsuarios = useHasPermission(
     PermisosCanonicos.IdentidadUsuariosCrear,
   );
+  // La API de dar acceso exige ambos permisos.
+  const canDarAcceso = useHasAllPermissions([
+    PermisosCanonicos.IdentidadUsuariosCrear,
+    PermisosCanonicos.IdentidadAsignacionesAdministrar,
+  ]);
 
   const query = useEmpleadosAdmin();
   const empleados = query.data ?? [];
@@ -910,7 +915,7 @@ export function EmpleadosPage() {
                           )}
 
                           {/* Botón Dar Acceso si no tiene cuenta */}
-                          {!tieneUsuario && canGestionar && canCrearUsuarios && activo && (
+                          {!tieneUsuario && canGestionar && canDarAcceso && activo && (
                             <Button
                               size="sm"
                               variant="outline"

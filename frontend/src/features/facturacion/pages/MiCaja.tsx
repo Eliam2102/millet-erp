@@ -100,15 +100,12 @@ export function MiCaja() {
             <div className="flex items-start gap-2 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
-                Esta sesión es de un <b>día anterior</b>: los cobros y movimientos están
-                bloqueados; realiza el arqueo y el cierre extemporáneo (§5.2).
+                Esta sesión es de un <b>día anterior</b>: los cobros y movimientos están bloqueados;
+                realiza el arqueo y el cierre extemporáneo (§5.2).
               </p>
             </div>
           )}
-          <SesionPanel
-            sesion={query.data.sesion}
-            bloqueada={query.data.diaAnteriorPendiente}
-          />
+          <SesionPanel sesion={query.data.sesion} bloqueada={query.data.diaAnteriorPendiente} />
         </>
       )}
 
@@ -120,6 +117,7 @@ export function MiCaja() {
 // ─── Apertura (§5.1 paso 1) ──────────────────────────────────────────
 
 function AperturaSesionCard() {
+  const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
   const cajas = useListarCajas(true);
   const abrir = useAbrirSesion();
   const idempotencyKey = useFormIdempotencyKey();
@@ -171,8 +169,8 @@ function AperturaSesionCard() {
       <div>
         <h2 className="font-medium">Abrir sesión</h2>
         <p className="text-xs text-muted-foreground">
-          Declara el fondo y la sucursal de operación; su zona horaria define el día del
-          corte ([Decisión 12-A]/[12-8]).
+          Declara el fondo y la sucursal de operación; su zona horaria define el día del corte
+          ([Decisión 12-A]/[12-8]).
         </p>
       </div>
 
@@ -228,17 +226,19 @@ function AperturaSesionCard() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             Esta caja tiene <b>{ajustes.data!.length}</b> ajuste(s) pendiente(s) por{' '}
-            <b>{formatearMxn(ajustes.data!.reduce((s, a) => s + a.importe, 0))}</b> que se
-            aplicarán automáticamente al abrir la sesión ([Decisión 12-C]).
+            <b>{formatearMxn(ajustes.data!.reduce((s, a) => s + a.importe, 0))}</b> que se aplicarán
+            automáticamente al abrir la sesión ([Decisión 12-C]).
           </p>
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button onClick={onAbrir} disabled={abrir.isPending}>
-          Abrir sesión
-        </Button>
-      </div>
+      {puedeOperar && (
+        <div className="flex justify-end">
+          <Button onClick={onAbrir} disabled={abrir.isPending}>
+            Abrir sesión
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -275,9 +275,7 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
           {sesion.totalesPorForma.map((t) => (
             <div key={t.formaPago} className="rounded-md border bg-muted/20 p-2">
               <div className="text-xs text-muted-foreground">{nombreForma(t.formaPago)}</div>
-              <div className="font-mono text-sm tabular-nums">
-                {formatearMxn(t.montoSistema)}
-              </div>
+              <div className="font-mono text-sm tabular-nums">{formatearMxn(t.montoSistema)}</div>
             </div>
           ))}
         </div>
@@ -298,6 +296,8 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
 
 function IniciarArqueoBoton(props: { sesion: CajaSesionDetalleResponse }) {
   const arqueo = useIniciarArqueo();
+  const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
+  if (!puedeOperar) return null;
   return (
     <div className="flex justify-end">
       <Button
@@ -322,24 +322,26 @@ function IniciarArqueoBoton(props: { sesion: CajaSesionDetalleResponse }) {
 function MovimientosAcciones(props: { sesion: CajaSesionDetalleResponse }) {
   const [capturando, setCapturando] = useState(false);
   const [liquidando, setLiquidando] = useState(false);
+  const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" onClick={() => setLiquidando((v) => !v)}>
-          <Truck className="mr-1 h-4 w-4" />
-          Liquidar ruta
-        </Button>
-        <Button variant="outline" onClick={() => setCapturando((v) => !v)}>
-          <Plus className="mr-1 h-4 w-4" />
-          Registrar movimiento
-        </Button>
+        {puedeOperar && (
+          <>
+            <Button variant="outline" onClick={() => setLiquidando((v) => !v)}>
+              <Truck className="mr-1 h-4 w-4" />
+              Liquidar ruta
+            </Button>
+            <Button variant="outline" onClick={() => setCapturando((v) => !v)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Registrar movimiento
+            </Button>
+          </>
+        )}
         <IniciarArqueoBoton sesion={props.sesion} />
       </div>
       {capturando && (
-        <MovimientoInlineForm
-          sesionId={props.sesion.id}
-          onCerrar={() => setCapturando(false)}
-        />
+        <MovimientoInlineForm sesionId={props.sesion.id} onCerrar={() => setCapturando(false)} />
       )}
       {liquidando && <LiquidarRutaForm onCerrar={() => setLiquidando(false)} />}
     </div>
@@ -391,7 +393,8 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
           );
           props.onCerrar();
         },
-        onError: (error) => toastError(error, 'No se pudo registrar la liquidación (no se guardó ningún cobro).'),
+        onError: (error) =>
+          toastError(error, 'No se pudo registrar la liquidación (no se guardó ningún cobro).'),
       },
     );
   }
@@ -402,9 +405,8 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <div>
           <h3 className="font-medium">Liquidación de ruta</h3>
           <p className="text-xs text-muted-foreground">
-            Cobros del reparto en un solo registro (todo-o-nada, [Decisión 12-7]); cada
-            comprobante se cobra por su monto por cobrar (neto de notas de crédito,
-            [Decisión 13-K]).
+            Cobros del reparto en un solo registro (todo-o-nada, [Decisión 12-7]); cada comprobante
+            se cobra por su monto por cobrar (neto de notas de crédito, [Decisión 13-K]).
           </p>
         </div>
         <div className="w-56">
@@ -644,8 +646,7 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
   const [declarado, setDeclarado] = useState('');
   const [notas, setNotas] = useState('');
 
-  const esperadoEfectivo =
-    props.sesion.cortes.find((c) => c.formaPago === '01')?.montoSistema ?? 0;
+  const esperadoEfectivo = props.sesion.cortes.find((c) => c.formaPago === '01')?.montoSistema ?? 0;
 
   function onCerrar() {
     const monto = Number(declarado);
@@ -899,8 +900,8 @@ function AutorizarAperturaCard() {
       <div>
         <h2 className="font-medium">Autorizar apertura de caja ajena</h2>
         <p className="text-xs text-muted-foreground">
-          Autorización consumible de un solo uso y vigencia corta ([Decisión 12-1]); el
-          alcance sigue a la caja, la responsabilidad al cajero que abre (§5.3).
+          Autorización consumible de un solo uso y vigencia corta ([Decisión 12-1]); el alcance
+          sigue a la caja, la responsabilidad al cajero que abre (§5.3).
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">

@@ -37,6 +37,8 @@ import {
   esConflictoConcurrencia,
   useBodyScopedIdempotencyKey,
 } from '@/lib/api';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { tesoreriaKeys } from '@/features/tesoreria/api/keys';
 
 export interface ConfirmarDepositoDialogProps {
@@ -79,6 +81,9 @@ export function ConfirmarDepositoDialog({
 
   const [movimientoId, setMovimientoId] = useState<string | null>(null);
   const [altaRapida, setAltaRapida] = useState(false);
+  const puedeAltaRapida = useHasPermission(
+    PermisosCanonicos.TesoreriaMovimientosRegistrar,
+  );
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [fechaValor, setFechaValor] = useState(() =>
     hoyLocalISO(),
@@ -269,13 +274,15 @@ export function ConfirmarDepositoDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <button
-                type="button"
-                className="text-xs text-primary underline-offset-2 hover:underline"
-                onClick={() => setAltaRapida(true)}
-              >
-                El ingreso aún no está registrado — alta rápida
-              </button>
+              {puedeAltaRapida && (
+                <button
+                  type="button"
+                  className="text-xs text-primary underline-offset-2 hover:underline"
+                  onClick={() => setAltaRapida(true)}
+                >
+                  El ingreso aún no está registrado — alta rápida
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3 rounded-md border border-dashed border-primary/50 p-3">
