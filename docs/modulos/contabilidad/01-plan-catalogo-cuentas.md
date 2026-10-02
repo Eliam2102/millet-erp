@@ -1,6 +1,6 @@
 # Plan — F1-CON-01 Catálogo contable consumible (`Millet.Contabilidad`)
 
-> **Versión:** 0.1 (borrador de planeación) · **Fecha:** 2026-10-01
+> **Versión:** 0.3 (v0.2 + decisiones P14–P17 tras recibir la hoja base provisional; ver §18 y §20.10) · **Fecha:** 2026-10-01
 > **Tarea:** F1-CON-01 · **Responsable:** Uziel · **Rama:** `feature/F1-CON-01-catalogo-contable`
 > **Estado:** PLAN. No hay código de producto, migraciones ni cambios en `backend/`/`frontend/`.
 > **Fuente funcional:** ficha F1-CON-01 (texto del dueño, planeación provisional 28-sep).
@@ -15,7 +15,7 @@
 cableado a stubs · §8 API · §9 permisos · §10 UI · §11 migración y DbContext ·
 §12 pruebas · §13 aislamiento · §14 fases, esfuerzo y commits · §15 ADRs ·
 §16 entregables · §17 dependencias de plataforma pendientes (ADR-0031) ·
-§18 preguntas abiertas.
+§18 decisiones P1–P13 (cerradas) · §19 riesgos · §20 preparación para datos reales.
 
 Todos los datos de ejemplo de este plan son **ficticios y no reales** (prefijo
 `FIX-`); no representan cuentas de Millet.
@@ -57,7 +57,7 @@ Hoy cuatro módulos apuntan a un módulo Contabilidad que no existe (§2).
 
 ---
 
-## 2. Hallazgos: lo que YA existe (verificado en el árbol, HEAD `0096cb8`)
+## 2. Hallazgos: lo que YA existe (verificado en el árbol, HEAD `0096cb8`; re-verificado contra `main` `81f2d22` el 2026-10-01: sigue sin existir catálogo ni `ICuentaContableReadPort`; ver §19 para lo que cambió)
 
 ### 2.1 No existe un módulo ni catálogo de Contabilidad
 `rg "CuentaContable|PlanCuentas|cuentas_contables"` en `backend/src`: **cero**
@@ -197,8 +197,8 @@ Entidad `CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa`
 | `padre_id` | uuid? FK self | nulo = raíz; `ON DELETE RESTRICT` |
 | `nivel` | smallint | **almacenado y validado**: raíz=1, hijo=padre.nivel+1; tope configurable (default 10, §18); recalculado en cascada si el padre cambia (solo permitido sin uso) |
 | `ruta` | varchar | materialized path opcional (`/id1/id2/`) para detectar ciclos y listar subárbol sin recursión; **solo si EF/CTE recursivo resulta costoso** — recomendado omitir en v1 y usar CTE recursivo |
-| `naturaleza` | smallint enum `NaturalezaCuenta {Deudora, Acreedora}` | requerida; la entrega Contabilidad (§18) |
-| `tipo` | smallint enum `TipoCuenta {Titulo, Afectable}` | requerida. Título puede tener hijos y **no recibe movimientos**; afectable es hoja |
+| `naturaleza` | smallint? enum `NaturalezaCuenta {Deudora, Acreedora}` | **anulable (P14)**: la hoja base no la trae y no se supone; `NULL` = pendiente de validación. La entrega Contabilidad |
+| `tipo` | smallint? enum `TipoCuenta {Titulo, Afectable}` | **anulable (P14)**; `NULL` = pendiente de validación (no se deriva de la jerarquía). Título puede tener hijos y **no recibe movimientos**; afectable es hoja. Una cuenta con `naturaleza` o `tipo` nulos tiene estado de validación `Pendiente` (calculado, sin columna) |
 | `estatus` | smallint `EstatusCatalogo` (reuso de `Millet.Catalogos`: Activo/Inactivo) | baja lógica = `Inactivo` (no `DeletedAt`; "desactivar no destruye referencias") |
 | `cuenta_control` | smallint enum `CuentaControl {Ninguna, Clientes, Proveedores}` | solo `Afectable`; marca cuenta de control (§5.7) |
 | `codigo_agrupador` | varchar(30)? | referencia de agrupación (p. ej. código agrupador SAT) — **valor pendiente de Contabilidad** (§18); texto libre validado por longitud |
@@ -333,7 +333,7 @@ Task<CuentaContableValidacion> ValidarParaMovimientoAsync(
 Task<CuentaContableLectura?> ObtenerAsync(Guid cuentaId, CancellationToken ct);
 ```
 `CuentaContableValidacion(Valida, Motivo?, Cuenta?)` con
-`Motivo ∈ {NoExiste, Titulo, Inactiva, ControlSoloAuxiliar}` (mapeo 1:1 a los
+`Motivo ∈ {NoExiste, Titulo, Inactiva, ControlSoloAuxiliar, PendienteValidacion}` (`PendienteValidacion` = `tipo` o `naturaleza` nulos: la cuenta no se acepta para movimientos hasta que Contabilidad la valide; **inferencia mía a confirmar con el TL**) (mapeo 1:1 a los
 códigos `CONTAB_CUENTA_*`). `CuentaContableLectura(Id, Codigo, Nombre, Naturaleza, Tipo, Activa, CuentaControl)`.
 La empresa sale de `ICurrentEmpresaContext` (no es parámetro): una cuenta de otra
 empresa responde `NoExiste`. Solo lectura; **cero escritura** del consumidor.
@@ -384,6 +384,8 @@ PUT/PATCH/POST de estado (428/409); `Idempotency-Key` en POST; Problem Details.
 |---|---|---|
 | `POST /importaciones` (`Idempotency-Key`) | importar | 201 lote; 200 idempotente; 422 filas con errores (sin escritura); 409 conflicto concurrente |
 | `GET /importaciones?offset=&limit=` | leer | 200 lotes |
+| `POST /importaciones/perfilado` (solo lectura, §20.3) | importar | 200 reporte; 422 formato |
+| `GET /configuracion-formato` (§20.1) | leer | 200 configuración activa |
 
 ### 8.3 Estados comunes
 401 sin sesión; 403 `PERMISO_FALTANTE` (Problem Details existente de
@@ -541,13 +543,13 @@ capturas de pantalla de árbol, vista previa con errores, conflicto y sin permis
 
 ## 14. Fases ordenadas, esfuerzo y commits propuestos
 
-Esfuerzo en horas de construcción técnica. **Total estimado 34–37 h vs 18 h
+Esfuerzo en horas de construcción técnica (columna h = plan 0.1; reestimación vigente en §14.3). **Total plan 0.1: 34–37 h vs 18 h
 provisionales: no cuadra** (se acerca a las 36 h históricas). Solo backend
 (F0–F6 ≈ 27 h) tampoco entra en 18 h; ver §14.2.
 
 | Fase | Alcance | Archivos principales | Depende de | Riesgos | h |
 |---|---|---|---|---|---|
-| F0 Contrato y ADR | ADR-0053/0054, `03-contrato-api.md` (rutas, permisos, códigos), muestra ficticia `02-muestra-y-mapeo.md` (estructura, mapeo pendiente) | `docs/decisiones/0053-*.md`, `docs/modulos/contabilidad/*` | respuestas §18 P1–P6 deseables | decisiones abiertas | 2 |
+| F0 Contrato y ADR | ADR-0054/0055/0056, `03-contrato-api.md` (rutas, permisos, códigos), muestra ficticia `02-muestra-y-mapeo.md` (estructura, mapeo pendiente) | `docs/decisiones/0054-*.md`…`0056-*.md`, `docs/modulos/contabilidad/*` (incl. `05-contrato-importacion.md`) | decisiones §18 (cerradas; las provisionales se reabren con datos reales) | decisiones provisionales | 2 (+1 de §20) |
 | F1 Esqueleto y persistencia | proyecto, entidades, configs, DbContext, migración inicial, alta en manifiesto/CI/Program/sln, health | `backend/src/Contabilidad/**`, `tools/migration-contexts.txt`, `deploy-app-dev.yml`, `Program.cs`, `Millet.Api.csproj`, `Millet.sln` | F0 | olvidar un punto del manifiesto; ciclos de referencia | 4 |
 | F2 Permisos | 3 constantes + tuplas + migración seed Identidad + espejo frontend | `PermisosCanonicos.cs`, `Identidad/Infrastructure/Migrations/*`, `frontend/src/lib/auth/permission-codes.ts` | F1 (namespace) | **conflicto con cambios de otro responsable en `PermisosCanonicos.cs` (rama de permisos personalizados tiene ese archivo modificado)** — rebase y commit aislado | 2 |
 | F3 Dominio y CRUD | `CuentaContable` + `CatalogoCuentasPolicy`, commands/queries/validadores, endpoints, ETag/If-Match, códigos de error | `Contabilidad/Domain`, `Application/Catalogo`, `Api/Endpoints/Contabilidad/*` | F1, F2 | rendimiento CTE; reglas R5/R9 sin definir | 6 |
@@ -556,7 +558,7 @@ provisionales: no cuadra** (se acerca a las 36 h históricas). Solo backend
 | F6 Pruebas backend | unit + integración (matriz §12) | `tests/Contabilidad.UnitTests`, `tests/Api.IntegrationTests/Contabilidad/*` | F3–F5 | helper de usuarios por permiso; suite lenta | 5 (parcial, se escribe junto con F3–F5) |
 | F7 UI | árbol/lista, detalle, edición, baja, importación, estados, tests | `frontend/src/features/contabilidad/**`, `routes/_app/contabilidad/*` | F3–F5 | volumen de estados | 8 |
 | F8 Evidencia y cierre | ejecutar suite, capturas, tabla esperado/obtenido, doc de pendientes, PR | `docs/modulos/contabilidad/04-evidencia-f1-con-01.md` | todas | — | 2 |
-| **Total** | | | | | **37** (con F6 5 h separadas); neto 34 h si F6 se solapa 3 h con F3–F5 |
+| **Total (plan 0.1, sin §20)** | | | | | **37** (con F6 5 h separadas); neto 34 h si F6 se solapa 3 h con F3–F5. **Vigente con §20: ≈50 h, ver §14.3** |
 
 ### 14.1 Commits propuestos (pequeños, mensajes neutrales; sin push ni commit hasta aprobación)
 1. `docs: contrato, ADR y muestra del catalogo contable (F1-CON-01)`
@@ -580,18 +582,49 @@ dejar solo `codigo_agrupador` (-0.5). Aun así ≈ 28 h. **Recomendación: confi
 con el dueño ~32–36 h o dividir en F1-CON-01a (backend + permisos + pruebas, ≈ 27 h)
 y F1-CON-01b (UI + evidencia, ≈ 10 h)**, sin recortar criterios de aceptación.
 
+### 14.3 Reestimación vigente (decisión P11 + preparación §20)
+
+La preparación para datos reales (§20) **añade 13 h**: 11 h al 01a y 2 h al 01b.
+
+| Pieza añadida (§20) | Fase que la absorbe | h |
+|---|---|---|
+| Configuración de formato (opciones + validación al arrancar + `GET` del formato activo) | F1/F3 (01a) | 1.5 |
+| Normalizador de filas + mapeo de columnas por alias (servidor, fuente única de verdad) | F4 (01a) | 2 |
+| Perfilado de solo lectura (endpoint + reporte agrupado por código de error) | F4 (01a) | 2.5 |
+| Errores por fila clasificados con sugerencia | F4 (01a) | 1 |
+| Fixtures `FIX-*` (feliz + sucios + 5 000 filas) y pruebas parametrizadas de 3 formatos | F6 (01a) | 3 |
+| Contrato de importación y checklist "llegó el archivo real" (docs) | F0/F8 (01a) | 1 |
+| Lectura tolerante en cliente (BOM/codificación) y pantalla de perfilado | F7 (01b) | 2 |
+
+| Tarea | Alcance | Horas |
+|---|---|---|
+| **F1-CON-01a** | F0–F6: backend, permisos, importación + perfilado, puerto, pruebas | **≈ 38** (27 + 11) |
+| **F1-CON-01b** | F7 UI + F8 evidencia | **≈ 12** (10 + 2) |
+| Total | | **≈ 50** (≈ 47 si F6 se solapa con F3–F5) |
+
+**Ajuste v0.3 (P14–P16): +3 h al 01a** (columnas anulables y estado pendiente, jerarquía por segmentos, mapeo de la hoja base y sus pruebas) → **01a ≈ 41 h** (cierre ~lun 12-oct, ya sin holgura), 01b sin cambio (≈ 12 h, ~13–14-oct). Total ≈ 53 h.
+
+**Calendario propuesto** (supuestos míos, a corregir: ~6 h productivas/día, inicio
+vie 2-oct con el plan aprobado, +1 h de rebase y migraciones de los 12 contextos
+—que autoriza el dueño— y alta del 13.º contexto):
+- **01a:** vie 2-oct → **lun 12-oct** (38 h ≈ 6.3 días hábiles). PR propio.
+- **01b:** mar 13-oct → **mié 14-oct** (12 h). PR propio.
+- Si el plan se aprueba más tarde, el calendario se corre día por día. La fecha
+  original de la ficha (2-oct) ya no es alcanzable con ninguna variante.
+- Riesgo de fecha: lo que salga del archivo real (§20.8) puede reabrir P2/P3/P6 y
+  añadir retrabajo en 01a; el diseño por configuración lo acota, no lo elimina.
+
 ---
 
 ## 15. ADRs a escribir
-- **ADR-0053 — Módulo Contabilidad y catálogo de cuentas**: nuevo módulo/esquema,
+- **ADR-0054 — Módulo Contabilidad y catálogo de cuentas**: nuevo módulo/esquema,
   `EmpresaId` conservado (divergencia de CeCo), baja lógica por estatus, código
   único por empresa incluyendo inactivas, sin sucursal (aplica/no aplica ADR-0051).
-- **ADR-0054 — Cuenta usada, inmutabilidad y procedimiento de impacto**: definición
+- **ADR-0055 — Cuenta usada, inmutabilidad y procedimiento de impacto**: definición
   de "usada" (`cuentas_contables_uso`), campos protegidos, contrato de cuentas de
   control, y que el procedimiento de reclasificación queda diferido con su
   contrato.
-- (Opcional) **ADR-0055 — Importación de catálogo con huella e idempotencia**:
-  si el dueño pide que sea patrón reutilizable (contrasta con ADR-0044).
+- **ADR-0056 — Importación de catálogo: huella, idempotencia, perfilado y formato por configuración** (ya no es opcional: §20 lo hace pieza central; contrasta con ADR-0044). Nota: 0053 ya es *permisos personalizados por usuario* (en `main`); verificar en `docs/decisiones/README.md` de `main` que 0054+ sigan libres al implementar.
 Cada ADR lista consumidores (Facturación, CxP, Almacén, Tesorería) y su motivo.
 
 ---
@@ -624,9 +657,51 @@ Cada stub nuevo lleva `// PLATFORM-TODO(<id>): …` (buscable con `rg PLATFORM-T
 
 ---
 
-## 18. Preguntas abiertas / decisiones que requieren aprobación del dueño o de Contabilidad
+## 18. Decisiones P1–P13 (registro de cierre, 2026-10-01)
 
-Cada una con recomendación; ninguna se resuelve inventando un valor.
+Respondidas por el dueño (Uziel). "Aceptada" = recomendación del plan adoptada.
+Las marcadas **(provisional)** dependen de Contabilidad y se reabren con el archivo
+real (ver §20.8).
+
+| # | Decisión | Motivo | Reabre si… |
+|---|---|---|---|
+| P1 | Archivo oficial/equivalencias: se trabaja con fixtures `FIX-*`; `fuente`/`codigo_origen` genéricos. **(provisional)** El TL entregará lo real "si lo tienen". Pedir primero un extracto real mínimo (decenas de cuentas con código, nivel y naturaleza) + lista de cuentas de control; después archivo oficial y equivalencias SAP↔ERP | Permite avanzar sin inventar datos | Llega el archivo (§20.7) |
+| P2 | **Aceptada.** `codigo` varchar(30) texto libre; validación por patrón **en configuración** (§20.1); nivel máx. 10 (configurable); naturaleza obligatoria; **sin** regla de herencia (R5 apagada, bandera de config) | No fijar formato real sin Contabilidad | El formato real no cabe en el patrón/longitud, o hay herencia de naturaleza |
+| P3 | **Aceptada.** Enum `Ninguna/Clientes/Proveedores` solo en afectables + validación por `OrigenMovimiento`. **Matiz añadido:** la lista de cuentas de control puede venir de configuración (§20.1) | El criterio de aceptación exige control solo por auxiliar | Contabilidad define más tipos de control, por moneda/sucursal, u orígenes permitidos distintos |
+| P4 | **Aceptada.** Tabla `cuentas_contables_uso` escrita solo por Contabilidad (`RegistrarUsoCuentaCommand`); simulada en pruebas. Referencias de consumidores (Tesorería, conceptos) **no** cuentan como uso por ahora | No hay pólizas; trazabilidad de quién/cuándo | Se construye pólizas o se cablean consumidores |
+| P5 | Sin cambio al plan: solo bloquear y explicar (R8); flujo de reclasificación diferido a ADR-0055 y `<ContabilidadReclasificacion>` | Fuera de alcance | Contabilidad pide el flujo |
+| P6 | Sin cambio al plan: dos campos de texto opcionales (`codigo_agrupador`, `grupo_reporte`), sin catálogo. **(provisional)** | No hay definición de agrupaciones | Contabilidad define agrupaciones multinivel |
+| P7 | Sin cambio al plan: 3 permisos `leer/administrar/importar`; el seed asigna solo a roles que el dueño defina; "consulta" = solo `leer`. Roles concretos: **pendiente del dueño** (no bloquea la construcción) | Granularidad ADR-0041 | Se define el rol de Millet |
+| P8 | **Aceptada.** Bloquear baja de título con hijos activos (`CONTAB_CUENTA_BAJA_CON_HIJAS_ACTIVAS`); sin cascada (difiere de ADR-0049) | Evitar bajas masivas silenciosas | Contabilidad prefiere cascada |
+| P9 | **Aceptada.** Código único incluyendo inactivas; índice único no parcial | Preserva histórico | — |
+| P10 | **Aceptada.** CSV + xlsx, parseo en cliente, 5 000 filas (configurable), upsert no destructivo (no desactiva ausentes) | Sin parser binario en backend | El archivo real es muy grande o con varias hojas |
+| P11 | **División 01a/01b** (recomendación; el dueño pidió el calendario sobre esa división) y se suma la preparación §20. Reestimación en §14.3 | 18 h no alcanzan ni el backend | El dueño/TL ajusta fechas |
+| P12 | **Aceptada.** `frontend/src/features/contabilidad`; `EmpresaId` es el único contexto (una sola Millet) | Patrón más reciente | — |
+| P13 | **Aceptada.** Piloto Tesorería `CuentaContableRef` fuera de F1-CON-01; `PLATFORM-TODO(<ContabilidadCuentasConsumidores>)` | Cambia contrato de otro módulo | — |
+
+### Decisiones posteriores (2026-10-01, tras recibir el archivo y el cuestionario)
+
+El TL pidió avanzar con la hoja **«Plan de cuentas-VILO»** (Excel corregido del 21-sep) como **base provisional de desarrollo**, sin completar por suposición naturaleza, afectabilidad ni cuentas de control; la carga definitiva queda sujeta a la validación de Contabilidad.
+
+| # | Decisión | Motivo | Reabre si… |
+|---|---|---|---|
+| P14 | `naturaleza` y `tipo` (título/afectable) **anulables**; `NULL` = pendiente de validación. Reemplaza «naturaleza obligatoria» de P2. El puerto responde `PendienteValidacion`; el importador las acepta opcionales con advertencia (no error) | La hoja no trae esas columnas y el TL pide no suponerlas | Contabilidad entrega la validación; entonces se completan por importación/edición |
+| P15 | **Jerarquía por segmentos del código** (modo configurable `Jerarquia.Modo = PorSegmentos`): el padre es el código con el último segmento distinto de cero puesto a ceros; acepta `codigo_padre` explícito si llega (`PorColumna`) | La hoja no trae código padre | La estructura final cambia (la hoja alterna de 5 segmentos o 'Catalogo' resultan ser la oficial) |
+| P16 | Base provisional = hoja «Plan de cuentas-VILO»; mapeo de columnas por alias: `Numero`→`codigo`, `Cuenta`→`nombre`, `Tipo`→**no se mapea a naturaleza/tipo** (es una categoría tipo SAP B1 sin equivalencia confirmada; se importa como informativa solo si se añade campo después), `Código agrupador SAT`→`codigo_agrupador`, `Nivel Contable`→se **valida** contra el nivel derivado, `Nivel de cuenta SAT`→informativo | Tipo≠naturaleza ni afectabilidad; no suponer | Contabilidad confirma el significado de `Tipo` |
+| P7 (ampliada) | Maestros contables: **ejecuta el Contador General, autoriza el Director de Administración y Finanzas** (cuestionario C-19). El flujo de autorización **no** entra en F1-CON-01; los permisos `administrar`/`importar` se asignarán al rol del Contador General (rol exacto: pendiente del dueño) | Regla recibida | Se pida flujo de aprobación |
+| P3 (confirmada) | Las cuentas globalizadoras de clientes/proveedores solo se afectan desde su módulo y deben conciliar con auxiliares (C-09) → el diseño enum + `OrigenMovimiento` se mantiene. El cuestionario añade una **casilla de catálogo «no afectable por asiento manual»** de alcance general: **pregunta abierta P17** (no se implementa sin confirmación). Qué cuentas son de control: pendiente de Contabilidad | Respuesta C-09 | Contabilidad lista las cuentas |
+| P17 (abierta) | ¿La casilla «no afectable por asiento manual» es un atributo propio (booleano) además de `cuenta_control`? | Cuestionario C-09 | — |
+
+Fuera de F1-CON-01 aunque salen del cuestionario: 13 períodos (el 13 solo para ajustes de auditoría), dimensiones obligatorias por grupo de cuentas (ubicación/área/equipo/cliente), tipos de cambio, pólizas recurrentes y reclasificación con trazabilidad.
+
+**Pregunta pendiente para el TL (no la resuelvo yo):** el último criterio de
+aceptación dice que "muestra y mapeo de Contabilidad quedan documentados". ¿Basta
+documentar el formato del mapeo y una muestra ficticia, o se entiende como el mapeo
+real? Si es lo segundo, ese criterio queda abierto hasta recibir los datos reales.
+Igualmente, cargar datos definitivos en un ambiente real requiere aprobación de
+Contabilidad/Guillermo (ficha).
+
+### Preguntas originales (referencia histórica)
 
 | # | Pregunta | Quién | Recomendación |
 |---|---|---|---|
@@ -634,7 +709,7 @@ Cada una con recomendación; ninguna se resuelve inventando un valor.
 | P2 | **Formato del código** (longitud, separadores, segmentos), niveles máximos y **naturaleza** (¿hereda del padre? ¿hay cuentas de naturaleza mixta o acreedora de activo/ contra-cuentas?) | Contabilidad | Código varchar(30) texto libre validado por patrón configurable; nivel máx 10; naturaleza obligatoria por cuenta **sin** regla de herencia hasta que Contabilidad la confirme (R5 desactivada) |
 | P3 | **Cuentas de control** de clientes y proveedores: ¿cuáles son? ¿una por moneda/sucursal? ¿qué orígenes pueden afectarlas (auxiliares CxC/CxP, ajustes de cierre)? | Contabilidad + CxC/CxP | Enum `Ninguna/Clientes/Proveedores` + validación por `OrigenMovimiento`; los orígenes permitidos viven en configuración documentada, no hardcode adicional; esperar lista oficial |
 | P4 | **¿Qué es "cuenta con movimientos" mientras no existan pólizas?** | Dueño + Contabilidad | Tabla `cuentas_contables_uso` escrita solo por Contabilidad (comando interno) y simulada en pruebas; considerar también "usada" si el consumidor la **referencia** (Tesorería `CuentaContableRef`, conceptos) — recomendado diferir: documentado como límite hasta wiring de consumidores |
-| P5 | **Procedimiento de impacto explícito**: ¿quién aprueba, qué evidencia, se permite reclasificar? | Contabilidad | En esta tarea solo bloquear y explicar; diseñar el flujo (solicitud → aprobación → alta de cuenta nueva + baja de la vieja, sin tocar histórico) en ADR-0054 como trabajo futuro |
+| P5 | **Procedimiento de impacto explícito**: ¿quién aprueba, qué evidencia, se permite reclasificar? | Contabilidad | En esta tarea solo bloquear y explicar; diseñar el flujo (solicitud → aprobación → alta de cuenta nueva + baja de la vieja, sin tocar histórico) en ADR-0055 como trabajo futuro |
 | P6 | **Agrupaciones**: ¿qué referencias de agrupación necesitan los reportes (código agrupador SAT, grupo de estado financiero, rubro)? ¿un nivel o varios? | Contabilidad | Dos campos opcionales de texto (`codigo_agrupador`, `grupo_reporte`) sin catálogo, hasta definir; no crear tabla de agrupaciones sin definición |
 | P7 | **Permisos exactos y roles**: ¿están bien `leer/administrar/importar`? ¿qué rol de Millet los recibe? ¿existe rol "consulta"? | Dueño (Eduardo) | Mantener los 3; asignar en el seed solo a roles definidos por el dueño; "consulta" = solo `leer` |
 | P8 | Baja de un título con hijos activos: ¿bloquear (R9) o cascada como ADR-0049? | Contabilidad | Bloquear (más seguro para contabilidad); revisar con el dueño |
@@ -647,12 +722,161 @@ Cada una con recomendación; ninguna se resuelve inventando un valor.
 ---
 
 ## 19. Riesgos transversales
-- **Choque en `PermisosCanonicos.cs`/snapshot de Identidad** con el trabajo de otro
-  responsable (permisos personalizados, archivos modificados en el repo original):
-  commits aislados, rebase explícito, no mezclar cambios.
-- **Migración de Identidad** ordenada por timestamp: crearla con fecha posterior a
-  la más reciente de `main` (`20260928230813…`) y verificar que no pisa la de la
-  otra rama (`20261001174838_AgregarPermisosOverridePorUsuario` existe sin
-  versionar en el otro árbol).
+- **Conflictos de rebase con `main`** (verificado 2026-10-01, `main`=`81f2d22`, la
+  rama está 31 commits atrás): el fix de permisos (PR #24, ADR-0053) y ADM-06/07 ya
+  están integrados y tocan `PermisosCanonicos.cs`, `frontend/src/lib/auth/permission-codes.ts`
+  (+ su `.test.ts`, que lleva una lista esperada de permisos: **hay que añadir los 3
+  nuevos**) y `routeTree.gen.ts` (archivo generado: regenerar, no resolver a mano).
+  Commits aislados; el rebase lo autoriza el dueño.
+- **Migración de Identidad** ordenada por timestamp: crearla posterior a la más
+  reciente de `main` (`20261001174838_AgregarPermisosOverridePorUsuario`).
 - Reglas aún sin definir de negocio (P2–P6) pueden forzar retrabajo: construir con
   configuración mínima y sin valores por defecto que cambien el negocio.
+
+---
+
+## 20. Preparación para datos reales
+
+**Objetivo:** el TL entregará (si existen) el archivo oficial, las equivalencias
+SAP↔ERP, las cuentas de control, la naturaleza y el formato de código. Mientras
+tanto se construye con `FIX-*`, **diseñado para que lo real entre editando
+configuración, no código**, y para que los desajustes salgan rápido, claros y
+agrupados. No cambia las reglas: no se inventan cuentas reales y los datos reales no
+se versionan (§20.9). Lo que sí necesita datos reales está en §20.8.
+
+### 20.1 Todo lo que depende de Millet va en configuración
+Sección `Contabilidad:Catalogo` (appsettings; **no son secretos**, son parámetros
+de formato; se valida al arrancar con `ValidateOnStart` y falla con mensaje claro si
+es inconsistente). Los **valores por defecto son permisivos y genéricos** (no fingen ser el
+formato de Millet):
+
+| Clave | Contenido | Default permisivo |
+|---|---|---|
+| `Codigo.Patron` | regex del código normalizado | alfanumérico + `.` `-`, 1–30 |
+| `Codigo.LongitudMin/Max` | longitud | 1 / 30 |
+| `Codigo.Separadores` | separadores válidos de segmentos | `.` `-` |
+| `Codigo.RellenoCeros` | por segmento: longitud fija a la que se rellena un segmento numérico que perdió ceros a la izquierda (`[]` = apagado) | apagado |
+| `NivelMaximo` | tope de niveles | 10 |
+| `Naturaleza.Valores` / `Naturaleza.Aliases` | valores válidos y sinónimos aceptados del archivo (p. ej. inicial → valor) | `Deudora`, `Acreedora` y sus iniciales; nada más |
+| `Jerarquia.Modo` | `PorSegmentos` \| `PorColumna` (P15) | `PorSegmentos` |
+| `HerenciaNaturaleza` | activa R5 | `false` |
+| `Tipo.Aliases` | sinónimos de `Titulo`/`Afectable` | genéricos |
+| `Importacion.Columnas` | alias de cabeceras por columna canónica (§20.2) | español/inglés genéricos |
+| `Importacion.MaxFilas` | límite de lote | 5 000 |
+| `CuentasControl` | lista `{codigo, tipo: Clientes\|Proveedores}` y orígenes permitidos por tipo | vacía |
+
+Reglas: (1) un código listado en `CuentasControl` **marca** la cuenta al importar/crear;
+la columna `cuenta_control` del archivo, si existe, debe coincidir o se rechaza la fila
+(`CONTAB_IMPORT_CONTROL_CONFLICTO`). (2) La verdad persistida es la columna de BD:
+cambiar la configuración **no reescribe** cuentas existentes, se aplica en el siguiente
+import/edición (se documenta). (3) `GET /api/v1/contabilidad/configuracion-formato`
+(`…catalogo.leer`) expone la configuración activa a la UI y al perfilado. (4) Un cambio de
+formato real = editar esta sección + fixtures; si exige tocar código es un defecto del
+diseño y se reabre ADR-0056.
+
+### 20.2 Importador con mapeo de columnas por alias y tolerancia
+**Una sola implementación de normalización, en el servidor**, usada por vista previa,
+perfilado y aplicar (los tres coinciden y se prueba una vez). El cliente solo decodifica
+y manda **texto crudo** por celda; no corrige datos.
+
+- **Columnas canónicas:** `fuente`, `codigo_origen`, `codigo`, `nombre`, `codigo_padre`,
+  `naturaleza`, `tipo`, `cuenta_control`, `codigo_agrupador`, `grupo_reporte`. Mapeo por
+  alias (sin acentos, minúsculas, espacios/guiones normalizados). Columna obligatoria
+  ausente → `CONTAB_IMPORT_COLUMNA_FALTANTE` con las cabeceras encontradas y los alias
+  aceptados. Cabecera sin alias conocido → advertencia, no error.
+- **Tolerancias:** BOM UTF-8/UTF-16; UTF-8 con *fallback* Windows-1252 y advertencia si
+  hubo caracteres de reemplazo; `trim` y colapso de espacios (incl. NBSP); mayúsculas y
+  minúsculas en `codigo` y enums; delimitador `,` `;` o tab autodetectado; CRLF/LF;
+  comillas CSV; filas vacías o solo de separadores ignoradas (se cuentan).
+- **Ceros a la izquierda:** la lectura xlsx toma el **texto** de la celda y trata el código
+  siempre como texto. Si el archivo ya perdió los ceros (Excel), solo se repara cuando
+  `Codigo.RellenoCeros` lo declara y **nunca en silencio**: advertencia
+  `CONTAB_IMPORT_CODIGO_RELLENADO` por fila y conteo en el reporte. Sin esa configuración,
+  un código fuera de patrón es error; no se adivina.
+- **Decimales:** el catálogo no tiene columnas numéricas; si el archivo trae alguna
+  (p. ej. saldos, que **no** se importan) se ignora con advertencia. El separador `.`/`,`
+  solo se interpretará si una columna numérica se añade después (configuración).
+- **Equivalencias SAP↔ERP:** `fuente` + `codigo_origen` ya modelan la correspondencia (§4.2).
+
+### 20.3 Modo de perfilado (solo lectura)
+`POST /api/v1/contabilidad/importaciones/perfilado` (permiso `…catalogo.importar`; no
+exige `Idempotency-Key` porque no escribe; **prueba: cero cambios en BD**). Mismo cuerpo
+que la vista previa; devuelve un reporte JSON que la UI muestra y permite descargar:
+
+- **Resumen:** filas leídas/vacías/inválidas, columnas encontradas/faltantes/ignoradas, advertencias de codificación.
+- **Distribuciones:** histograma de longitud de código, de nivel y de número de segmentos; separadores usados; valores de naturaleza y tipo vistos (reconocidos vs no reconocidos).
+- **Estructura:** huérfanas (padre inexistente), ciclos (con la cadena de filas), duplicados de código y de `fuente+codigo_origen`, títulos sin hijos, afectables con hijos, profundidad máxima vs `NivelMaximo`.
+- **Control:** coincidencias y conflictos con `CuentasControl`.
+- **Agrupado por código de error** `CONTAB_*`: conteo y hasta N ejemplos (solo número de fila y campo; el reporte exportable no vuelca nombres ni códigos reales, §20.9).
+- **"Qué se reabre":** mapa hallazgo → decisión (longitudes fuera de patrón ⇒ P2; naturaleza no reconocida ⇒ P2/P3; huérfanas masivas ⇒ P1).
+- Reutiliza el validador del importador; cero lógica duplicada.
+
+### 20.4 Errores por fila clasificados y accionables
+Cada error: `{fila, columna, codigo, severidad (Error|Advertencia), mensaje, sugerencia}`.
+Reutiliza el catálogo `CONTAB_*` de §8.4 y añade:
+`CONTAB_IMPORT_COLUMNA_FALTANTE`, `CONTAB_IMPORT_CODIGO_RELLENADO` (adv.),
+`CONTAB_IMPORT_CODIGO_FORMATO`, `CONTAB_IMPORT_NATURALEZA_DESCONOCIDA`,
+`CONTAB_IMPORT_TIPO_DESCONOCIDO`, `CONTAB_IMPORT_PADRE_INEXISTENTE`,
+`CONTAB_IMPORT_CODIGO_DUPLICADO_EN_ARCHIVO`, `CONTAB_IMPORT_CICLO`,
+`CONTAB_IMPORT_CONTROL_CONFLICTO`, `CONTAB_IMPORT_CODIFICACION` (adv.). La
+**sugerencia** sale de una tabla código→texto (p. ej. *"Naturaleza 'X' no reconocida;
+valores aceptados: …; si es válida, añada el alias en `Naturaleza.Aliases`"*). Son
+textos de código/documentación, no valores de negocio.
+
+### 20.5 Fixtures `FIX-*` (NO reales) y pruebas
+Archivos con prefijo `FIX-` y marca "DATOS FICTICIOS":
+- **Feliz:** 1 título + 2 afectables (§6.2).
+- **Sucios:** BOM; Windows-1252; ceros perdidos (con y sin `RellenoCeros`); espacios/NBSP;
+  mayúsculas mezcladas; filas vacías; código duplicado; `fuente+codigo_origen` duplicado;
+  ciclo; padre inexistente; padre después del hijo (debe resolver); naturaleza/tipo
+  desconocidos; columna obligatoria ausente; cabeceras con alias; conflicto de control.
+- **Volumen:** generador determinista de **5 000 filas** y de 5 001 (⇒ `CONTAB_IMPORT_LIMITE_FILAS`), con presupuesto de tiempo documentado para vista previa, perfilado y aplicar.
+- **Pruebas parametrizadas de formato de código** con 2–3 configuraciones ficticias
+  (p. ej. segmentos con `-` de longitud fija; numérico de longitud fija; jerárquico con `.`),
+  ejecutando **los mismos casos** para demostrar que cambiar de formato es solo configuración.
+- Perfilado: el reporte de cada fixture sucio coincide con conteos esperados y no escribe en BD.
+
+### 20.6 Contrato de importación (entregable a Contabilidad)
+`docs/modulos/contabilidad/05-contrato-importacion.md` (se escribe en F0/F8): columnas
+canónicas y obligatoriedad, alias aceptados, valores, reglas (unicidad, padre, ciclos,
+niveles, naturaleza, control), tolerancias, límites, ejemplo `FIX-*`, tabla de errores
+con sugerencia y cómo pedir el archivo (**texto plano, códigos como texto, sin saldos**).
+
+### 20.7 Checklist "llegó el archivo real"
+1. **Guardar fuera del repo** (§20.9). Confirmar con el TL origen, fecha y que no incluya saldos.
+2. **Perfilar** (§20.3) en local; no aplicar nada.
+3. **Revisar el reporte** y la tabla "qué se reabre".
+4. **Clasificar cada hallazgo:**
+   - *Error de datos* (duplicados, huérfanas o ciclos reales): se devuelve a Contabilidad con el reporte (códigos de error y números de fila, sin contenido). No se toca código.
+   - *Desajuste de configuración/mapeo* (cabecera con otro nombre, otro alias de naturaleza, patrón de código distinto, ceros): se ajusta §20.1 y se reperfila.
+   - *Error de código* (perfilado y vista previa discrepan sobre el mismo archivo, el importador lanza excepción, o un fixture equivalente falla): defecto nuestro; se reproduce con un `FIX-*` nuevo y se corrige con prueba.
+5. **Reabrir decisiones** según el reporte: P2, P3, P6, P1 y el criterio de "mapeo documentado" (§18).
+6. **Vista previa** con la configuración ajustada: 0 errores y advertencias revisadas.
+7. **Aplicar** primero en local/QA; reimportar el mismo archivo ⇒ idempotente (huella); en el ambiente real solo con aprobación de Contabilidad/Guillermo.
+8. Documentar **estructura y estadísticas** (no contenido) en `02-muestra-y-mapeo.md`.
+
+**Dato vs código:** si el defecto se reproduce con un archivo *ficticio* equivalente es código; si el mismo hallazgo sale idéntico en perfilado, vista previa y aplicar, y no se reproduce con ficticios, es dato o configuración.
+
+### 20.8 Qué sigue necesitando datos reales
+(a) Cerrar el criterio "mapeo documentado" si se interpreta como el real (pregunta al TL, §18).
+(b) Cargar datos definitivos en un ambiente real (aprobación de Contabilidad/Guillermo).
+(c) Confirmar P2/P3/P6: naturaleza y cuentas de control **sí** afectan reglas de dominio, no
+solo configuración (herencia de naturaleza, control por moneda, más tipos de control).
+Pedir en orden: **extracto real mínimo** (decenas de cuentas con código, nivel y naturaleza)
++ lista de cuentas de control; después archivo oficial y equivalencias.
+
+### 20.9 Manejo de datos reales
+- **Nunca** se commitean ni se suben al repo, notas, issues ni artefactos.
+- Viven en una **carpeta local fuera del repositorio** (ruta **a confirmar por el dueño**).
+- Solo se documentan **estructura y estadísticas** (longitudes, conteos, códigos de error); nunca códigos ni nombres de cuentas reales.
+- Los logs del importador no registran valores de celdas (solo fila, columna y código de error).
+- Las pruebas automatizadas usan solo `FIX-*`.
+
+### 20.10 Hallazgos del archivo recibido (solo estructura y estadísticas)
+Archivo «Catálogo de cuentas corregido 21-sep» (guardado **fuera** del repo, en Descargas del dueño; no se copia ni se cita su contenido) y cuestionario «Contabilidad — SAP». Estadísticas, no datos:
+
+- Tres hojas con formatos de código distintos: «Plan de cuentas (5)» (727 códigos, 5 segmentos, 14 categorías en `Tipo`), «Catalogo» (299 filas, formato de 12 dígitos + 2 + 1; 147 códigos distintos y 139 filas con código repetido, siempre con el mismo nombre) y **«Plan de cuentas-VILO»** (base provisional).
+- «Plan de cuentas-VILO»: 849 filas, 729 con código, 120 vacías; códigos `999.99.99.99` (717) y `999.99.99.999` (12, todos con el mismo prefijo ⇒ rompen el patrón); niveles contables 1–4 (118/404/151/56), 8 filas con nivel ≠ segmentos distintos de cero; 1 huérfana por padre inferido; 178 con hijos y 551 hojas; `Tipo` con 14 categorías y 4 vacías; agrupador SAT en 552 filas (118 de 3 dígitos, 432 de forma `999.99`, 2 anómalos de 18 caracteres); 0 duplicados, 0 espacios sobrantes, 0 caracteres corruptos.
+- **Ausentes en el archivo:** naturaleza, título/afectable, código padre, cuenta de control y código de origen SAP (Contabilidad indicó además que **no quiere usar el catálogo actual de SAP**, por lo que la correspondencia SAP↔ERP puede ser innecesaria o solo para saldos iniciales: por confirmar).
+- Efecto en el diseño: P14, P15, P16 (§18). El perfilado (§20.3) debe reportar: códigos fuera de patrón (los 12), huérfanas, discrepancias nivel contable vs derivado, `Tipo` sin mapeo y campos pendientes de validación (conteo).
+- **Estado:** el TL fijó la hoja «Plan de cuentas-VILO» como **base provisional** (pendiente de confirmación de Contabilidad). Se construye ya; el **reporte de implementación** (`04-evidencia-f1-con-01.md`, sección «Datos pendientes de Contabilidad») debe listar lo que falta: confirmación de la hoja y estructura final; significado de `Tipo`; validez de los 12 códigos de 13 caracteres; naturaleza, afectabilidad y cuentas de control; casilla «no afectable por asiento manual» (P17); agrupaciones de reporte; si se requieren equivalencias SAP↔ERP (¿solo saldos iniciales?); perfiles de consulta/importación y roles; y cómo se entiende el criterio «mapeo documentado».
