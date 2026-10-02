@@ -53,7 +53,9 @@ Las clases específicas que las pantallas ya pasan con `className` pueden
 sobrescribir la receta compartida; migrarlas requiere revisar cada consumidor.
 Segunda etapa: rail de 76px, panel de módulo de 240px con filtro y contraer/expandir, breadcrumb, topbar de 56px, Nuevo y avatar. Reutiliza rutas y permisos existentes; el menú móvil conserva el drawer/launcher. La búsqueda contextual y las acciones existentes siguen disponibles.
 
-Pendientes: búsqueda global ⌘K, completar composición del topbar, tablas, dialogs/sheets, los demás componentes y
+Buscador de accesos: botón Buscar o ir a, ⌘K/Ctrl+K, búsqueda sin acentos, navegación por teclado y permisos actualizados; reutiliza el catálogo de navegación y Administración. La búsqueda contextual permanece dentro del diálogo.
+
+Pendientes: búsqueda global de registros/acciones, completar composición del topbar, tablas, dialogs/sheets, los demás componentes y
 pantallas, colores locales heredados y comprobación de cada implementación
 contra Figma. Esta etapa
 no cambia reglas funcionales, paginación, prioridades ni permisos.
