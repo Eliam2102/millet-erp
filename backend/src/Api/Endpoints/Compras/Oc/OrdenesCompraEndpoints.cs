@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Compras.Application.Oc.ActualizarCabecera;
@@ -184,10 +185,17 @@ public static class OrdenesCompraEndpoints
 
         group.MapGet("/{id:guid}", async (
             Guid id,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IMediator mediator,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             var response = await mediator.Send(new ObtenerOrdenCompraPorIdQuery(id), cancellationToken);
             // ETag con Version (cuidado §2.4 [P1]). El cliente devuelve
             // este valor en If-Match al hacer mutaciones futuras.
@@ -1155,9 +1163,15 @@ public static class OrdenesCompraEndpoints
             Guid id,
             Guid adjuntoId,
             ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IAlmacenarBlobPort blobPort,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             var adjunto = await db.AdjuntosOc
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
@@ -1194,10 +1208,17 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromForm] Guid tipoDocumentoId,
             IFormFile archivo,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IMediator mediator,
             IAlmacenarBlobPort blob,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             if (archivo is null || archivo.Length == 0)
             {
                 throw new BusinessRuleException(
@@ -1258,9 +1279,16 @@ public static class OrdenesCompraEndpoints
         group.MapDelete("/{id:guid}/adjuntos/{adjuntoId:guid}", async (
             Guid id,
             Guid adjuntoId,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             await mediator.Send(new RemoverAdjuntoCommand(id, adjuntoId), cancellationToken);
             return Results.NoContent();
         })
