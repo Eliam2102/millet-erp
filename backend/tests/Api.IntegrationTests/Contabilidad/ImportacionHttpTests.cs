@@ -130,7 +130,9 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.Equal("naturaleza", e.GetProperty("columna").GetString());
             Assert.Equal("CONTAB_IMPORT_NATURALEZA_DESCONOCIDA", e.GetProperty("codigo").GetString());
             Assert.Equal("Error", e.GetProperty("severidad").GetString());
-            Assert.Contains("Naturaleza.Aliases", e.GetProperty("sugerencia").GetString());
+            var sug = e.GetProperty("sugerencia").GetString();
+            Assert.Contains("Deudora", sug);
+            Assert.DoesNotContain("Aliases", sug);
             Assert.Equal(antes, await TotalFilasModulo());
         }
         finally { await Limpiar(factory.Services, suf); }

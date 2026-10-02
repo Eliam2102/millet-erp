@@ -150,7 +150,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
                 $"El archivo no trae la columna '{c}'; no se supone y queda pendiente de validación."));
         if (o.Jerarquia.Modo == CatalogoOpciones.ModoPorColumna && !idx.ContainsKey("codigo_padre"))
             res.Archivo.Add(Err(0, "codigo_padre", "CONTAB_IMPORT_COLUMNA_FALTANTE", "Advertencia",
-                "Jerarquia.Modo = PorColumna pero el archivo no trae codigo_padre: todas las cuentas serán raíz."));
+                "El archivo no trae la columna codigo_padre: todas las cuentas se cargarán como cuentas raíz."));
         if (tabla.CodificacionFallback || tabla.CaracteresReemplazo > 0)
             res.Archivo.Add(Err(0, null, "CONTAB_IMPORT_CODIFICACION", "Advertencia",
                 tabla.CodificacionFallback
@@ -187,7 +187,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
                 (codigo, fila.Rellenado) = f.Rellenar(codigo);
                 if (fila.Rellenado)
                     fila.Errores.Add(Err(num, "codigo", "CONTAB_IMPORT_CODIGO_RELLENADO", "Advertencia",
-                        "Se rellenó con ceros un segmento numérico según Codigo.RellenoCeros."));
+                        "Se completó con ceros un segmento del código que había perdido el cero inicial."));
                 var motivo = f.MotivoCodigoInvalido(codigo);
                 if (motivo is not null)
                     fila.Errores.Add(Err(num, "codigo", "CONTAB_IMPORT_CODIGO_FORMATO", "Error", $"Código fuera de formato: {motivo}."));
@@ -262,7 +262,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
             else if (controlCol is { } cc && controlCol != CuentaControl.Ninguna && controlCfg.Count > 0)
             {
                 fila.Errores.Add(Err(num, "cuenta_control", "CONTAB_IMPORT_CONTROL_CONFLICTO", "Error",
-                    "El código no figura en CuentasControl de la configuración pero el archivo lo marca como control."));
+                    "El archivo marca esta cuenta como de control, pero no está en la lista de cuentas de control del sistema."));
                 fila.Control = cc;
             }
             else fila.Control = controlCol ?? CuentaControl.Ninguna;
@@ -368,7 +368,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
                     fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_CUENTA_PADRE_INVALIDO", "Error", "El padre existe pero está inactivo."));
                 else if (o.HerenciaNaturaleza && padre.Naturaleza is { } pn && n.Naturaleza is { } hn && pn != hn)
                     fila.Errores.Add(Err(num, "naturaleza", "CONTAB_CUENTA_NATURALEZA_INVALIDA", "Error",
-                        "La naturaleza no es coherente con la del padre (HerenciaNaturaleza activa)."));
+                        "La naturaleza no coincide con la de la cuenta padre."));
             }
             var ciclo = Ciclo(n, nodos);
             if (ciclo is not null)
@@ -456,28 +456,28 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
     /// <summary>Tabla código → texto (§20.4). Son textos del sistema, no valores de negocio.</summary>
     private string Sugerencia(string codigo, string? columna) => codigo switch
     {
-        "CONTAB_IMPORT_COLUMNA_FALTANTE" => $"Agregue la columna o declare su alias en Importacion.Columnas ({string.Join("|", f.AliasesColumna(columna ?? "codigo"))}).",
-        "CONTAB_IMPORT_COLUMNA_IGNORADA" => "Si la columna es válida, declare su alias en Importacion.Columnas; si no, ignore la advertencia.",
+        "CONTAB_IMPORT_COLUMNA_FALTANTE" => $"Agregue la columna «{columna}» al archivo (también se acepta con los encabezados: {string.Join(", ", f.AliasesColumna(columna ?? "codigo"))}).",
+        "CONTAB_IMPORT_COLUMNA_IGNORADA" => "El sistema no reconoce esta columna y la ignora. Si necesita que se cargue, avise al administrador del sistema.",
         "CONTAB_IMPORT_COLUMNA_SIN_MAPEO" => "Columna informativa conocida: no se importa. Confirme con Contabilidad su significado antes de mapearla.",
         "CONTAB_IMPORT_CAMPO_PENDIENTE" => "La cuenta se importa como pendiente de validación y no podrá recibir movimientos hasta que Contabilidad complete el dato.",
-        "CONTAB_IMPORT_CODIGO_FORMATO" => "Corrija el código o ajuste Codigo.Patron / Codigo.LongitudMin / Codigo.LongitudMax en la configuración.",
+        "CONTAB_IMPORT_CODIGO_FORMATO" => "Corrija el código para que siga el formato de cuentas del catálogo. Si el formato del archivo es el correcto, avise al administrador del sistema.",
         "CONTAB_IMPORT_CODIGO_RELLENADO" => "Verifique que el archivo no perdió ceros a la izquierda (formato texto en Excel).",
-        "CONTAB_IMPORT_NATURALEZA_DESCONOCIDA" => $"Valores aceptados: {string.Join(", ", f.Opciones.Naturaleza.Aliases.SelectMany(a => a.Value.Prepend(a.Key)))}. Si es válida, agregue el alias en Naturaleza.Aliases.",
-        "CONTAB_IMPORT_TIPO_DESCONOCIDO" => $"Valores aceptados: {string.Join(", ", f.Opciones.Tipo.Aliases.SelectMany(a => a.Value.Prepend(a.Key)))}. Si es válida, agregue el alias en Tipo.Aliases.",
-        "CONTAB_IMPORT_PADRE_INEXISTENTE" => "Incluya la cuenta padre en el archivo o impórtela antes; revise Jerarquia.Modo.",
+        "CONTAB_IMPORT_NATURALEZA_DESCONOCIDA" => $"Valores aceptados: {string.Join(", ", f.Opciones.Naturaleza.Aliases.SelectMany(a => a.Value.Prepend(a.Key)))}. Corrija la celda en el archivo.",
+        "CONTAB_IMPORT_TIPO_DESCONOCIDO" => $"Valores aceptados: {string.Join(", ", f.Opciones.Tipo.Aliases.SelectMany(a => a.Value.Prepend(a.Key)))}. Corrija la celda en el archivo.",
+        "CONTAB_IMPORT_PADRE_INEXISTENTE" => "Agregue la cuenta padre al archivo o cárguela antes. El padre se obtiene quitando el último nivel del código (por ejemplo, el padre de 100.10.10.00 es 100.10.00.00).",
         "CONTAB_IMPORT_CODIGO_DUPLICADO_EN_ARCHIVO" => "Deje una sola fila por código (y por fuente + código de origen).",
         "CONTAB_IMPORT_CICLO" => "Rompa el ciclo corrigiendo el padre de alguna de las filas indicadas.",
-        "CONTAB_IMPORT_CONTROL_CONFLICTO" => "Alinee la columna cuenta_control con la lista CuentasControl de la configuración.",
+        "CONTAB_IMPORT_CONTROL_CONFLICTO" => "Corrija la marca de control de esta fila para que coincida con las cuentas de control del sistema, o avise al administrador del sistema.",
         "CONTAB_IMPORT_CODIFICACION" => "Guarde el archivo como CSV UTF-8 y vuelva a cargarlo.",
         "CONTAB_IMPORT_NIVEL_DISCREPANTE" => "Revise el código o el nivel contable del archivo; el nivel derivado de la jerarquía es el que se guarda.",
         "CONTAB_IMPORT_ORIGEN_CODIGO_DISTINTO" => "Use el código ya registrado para ese origen o cambie el código de origen.",
-        "CONTAB_CUENTA_NIVEL_EXCEDIDO" => "Reduzca la profundidad o suba NivelMaximo en la configuración.",
+        "CONTAB_CUENTA_NIVEL_EXCEDIDO" => "La cuenta queda demasiado profunda en el árbol. Reduzca los niveles o avise al administrador del sistema.",
         "CONTAB_CUENTA_PADRE_NO_ES_TITULO" => "Marque el padre como título o cambie el padre de esta cuenta.",
         "CONTAB_CUENTA_PADRE_INVALIDO" => "Reactive el padre antes de importar sus hijas.",
         "CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO" => "Cree una cuenta nueva y desactive la anterior, o use el procedimiento de reclasificación aprobado por Contabilidad.",
         "CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE" => "Marque la cuenta como afectable o quite la marca de control.",
         "CONTAB_CUENTA_AFECTABLE_CON_HIJAS" => "Marque la cuenta como título o reubique sus hijas.",
-        "CONTAB_CUENTA_NATURALEZA_INVALIDA" => "Alinee la naturaleza con la del padre o apague HerenciaNaturaleza.",
+        "CONTAB_CUENTA_NATURALEZA_INVALIDA" => "La naturaleza debe coincidir con la de la cuenta padre.",
         _ => "Revise el valor de la celda.",
     };
 }
