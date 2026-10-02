@@ -1,59 +1,38 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../../design-system/tokens.css" layer(base);
 
-/*
- * Tema base del ERP (shadcn/ui sobre Tailwind v4).
- *
- * Estructura:
- *   :root    → tokens del modo claro
- *   .dark    → overrides del modo oscuro
- *   @theme   → expone los tokens como utilities (bg-background, text-foreground, etc.)
- *
- * Los tokens `--sidebar-*` describen el shell oscuro estilo Zoho del menú lateral
- * (siempre dark navy, independiente del tema de la app).
- */
-
+/* Tokens adjuntos: capa base para que las utilities conserven prioridad. */
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.5rem;
-
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-
-  /* Sidebar: navy oscuro fijo (no cambia con dark mode), texto slate-200 */
-  --sidebar: oklch(0.21 0.034 264.665);
-  --sidebar-foreground: oklch(0.872 0.01 258.338);
-  --sidebar-muted: oklch(0.704 0.04 256.788);
-  --sidebar-active: oklch(0.279 0.041 260.031);
-  --sidebar-active-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.279 0.041 260.031);
-  --sidebar-accent: oklch(0.6 0.118 184.704);
+  /* Adaptación de los aliases shadcn a colores completos de Tailwind 4. */
+  --background: var(--mt-surface-page);
+  --foreground: var(--mt-text-primary);
+  --card: var(--mt-surface-card);
+  --card-foreground: var(--mt-text-primary);
+  --popover: var(--mt-surface-card);
+  --popover-foreground: var(--mt-text-primary);
+  --primary: var(--mt-primary);
+  --primary-foreground: var(--mt-surface-card);
+  --secondary: var(--mt-neutral-bg);
+  --secondary-foreground: var(--mt-text-secondary);
+  --muted: var(--mt-surface-muted);
+  --muted-foreground: var(--mt-text-muted);
+  --accent: var(--mt-surface-selected);
+  --accent-foreground: var(--mt-primary-hover);
+  --destructive: var(--mt-danger);
+  --destructive-foreground: var(--mt-surface-card);
+  --border: var(--mt-border);
+  --input: var(--mt-border-control);
+  --ring: var(--mt-primary);
+  --sidebar: var(--mt-rail-bg);
+  --sidebar-foreground: var(--mt-surface-card);
+  --sidebar-muted: var(--mt-rail-fg);
+  --sidebar-active: var(--mt-rail-active-bg);
+  --sidebar-active-foreground: var(--mt-surface-card);
+  --sidebar-border: var(--mt-rail-active-bg);
+  --sidebar-accent: var(--mt-primary);
 }
 
 .dark {
@@ -115,10 +94,96 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent: var(--sidebar-accent);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--mt-font-sans);
+  --font-mono: var(--mt-font-mono);
+
+  --color-surface-page: var(--mt-surface-page);
+  --color-surface-card: var(--mt-surface-card);
+  --color-surface-subtle: var(--mt-surface-subtle);
+  --color-surface-muted: var(--mt-surface-muted);
+  --color-surface-selected: var(--mt-surface-selected);
+  --color-surface-row-focus: var(--mt-surface-row-focus);
+  --color-brand-hover: var(--mt-primary-hover);
+  --color-brand-soft: var(--mt-primary-soft);
+  --color-brand-soft-border: var(--mt-primary-soft-border);
+  --color-brand-disabled: var(--mt-primary-disabled);
+  --color-rail-active: var(--mt-rail-active-bg);
+  --color-rail-fg: var(--mt-rail-fg);
+  --color-rail-disabled: var(--mt-rail-disabled-fg);
+  --color-ink: var(--mt-text-primary);
+  --color-ink-secondary: var(--mt-text-secondary);
+  --color-ink-strong: var(--mt-text-strong-ui);
+  --color-ink-muted: var(--mt-text-muted);
+  --color-ink-subtle: var(--mt-text-subtle);
+  --color-line: var(--mt-border);
+  --color-line-divider: var(--mt-border-divider);
+  --color-line-row: var(--mt-border-row);
+  --color-line-control: var(--mt-border-control);
+  --color-line-dashed: var(--mt-border-dashed);
+  --color-brand: var(--mt-primary);
+  --color-brand-avatar: var(--mt-avatar-bg);
+  --color-rail: var(--mt-rail-bg);
+  --color-notify: var(--mt-notification-dot);
+  --color-success: var(--mt-success);
+  --color-success-bg: var(--mt-success-bg);
+  --color-success-fg: var(--mt-success-fg);
+  --color-warning: var(--mt-warning);
+  --color-warning-bg: var(--mt-warning-bg);
+  --color-warning-fg: var(--mt-warning-fg);
+  --color-danger: var(--mt-danger);
+  --color-danger-bg: var(--mt-danger-bg);
+  --color-danger-fg: var(--mt-danger-fg);
+  --color-info: var(--mt-info);
+  --color-info-bg: var(--mt-info-bg);
+  --color-info-fg: var(--mt-info-fg);
+  --color-neutral-bg: var(--mt-neutral-bg);
+  --color-neutral-fg: var(--mt-neutral-fg);
+  --color-warning-note-bg: var(--mt-warning-note-bg);
+  --color-warning-note-fg: var(--mt-warning-note-fg);
+  --color-danger-ring: var(--mt-danger-ring);
+  --text-2xs: 11px;
+  --text-2xs--line-height: 14px;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-md: 14px;
+  --text-md--line-height: 20px;
+  --text-lg: 15px;
+  --text-lg--line-height: 20px;
+  --text-xl: 16px;
+  --text-xl--line-height: 22px;
+  --text-2xl: 18px;
+  --text-2xl--line-height: 24px;
+  --text-3xl: 22px;
+  --text-3xl--line-height: 28px;
+  --text-4xl: 24px;
+  --text-4xl--line-height: 30px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --shadow-card: var(--mt-shadow-card);
+  --shadow-card-flat: var(--mt-shadow-card-flat);
+  --shadow-dialog: var(--mt-shadow-dialog);
+  --shadow-sheet: var(--mt-shadow-sheet);
+  --shadow-tab-active: inset 0 -2px 0 var(--mt-primary);
+  --shadow-list-selected: inset 3px 0 0 var(--mt-primary);
+  --spacing-rail: 76px;
+  --spacing-rail-item: 64px;
+  --spacing-module-panel: 240px;
+  --spacing-topbar: 56px;
+  --spacing-master-list: 320px;
+  --spacing-sheet: 560px;
+  --spacing-dialog: 640px;
+  --spacing-ctl-xs: 22px;
+  --spacing-ctl-sm: 28px;
+  --spacing-ctl-md: 30px;
+  --spacing-ctl-lg: 34px;
+  --spacing-ctl-xl: 36px;
+  --spacing-touch: 44px;
 }
 
 @layer base {
@@ -128,7 +193,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--mt-font-sans);
   }
 }
 

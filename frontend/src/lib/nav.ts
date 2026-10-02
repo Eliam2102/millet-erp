@@ -938,6 +938,21 @@ export function sidebarItemsVisibles(
   );
 }
 
+/** Contexto visual del shell, siempre limitado a las pantallas permitidas. */
+export function contextoNavegacion(pathname: string, permisos: readonly string[]) {
+  return sidebarItemsVisibles(permisos)
+    .filter((item): item is NavSidebarItem & NavModulo => item.kind === 'modulo')
+    .flatMap((item) => {
+      const modulo = filtrarModuloPorPermisos(item, permisos);
+      return modulo.secciones.flatMap((seccion) =>
+        seccion.cards
+          .filter((card) => contieneRuta(card.to, pathname))
+          .map((card) => ({ modulo, seccion, card })),
+      );
+    })
+    .sort((a, b) => b.card.to.length - a.card.to.length)[0];
+}
+
 /**
  * Rutas que no tienen card en el menú (se llega desde otra pantalla) pero
  * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.
@@ -949,6 +964,21 @@ const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissio
 
 function contieneRuta(base: string, pathname: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
+}
+
+/** Accesos del buscador: mismo catálogo y permisos que los menús. */
+export function accesosNavegacion(permisos: readonly string[]) {
+  const accesos = sidebarItemsVisibles(permisos).flatMap((item) =>
+    item.kind === 'link'
+      ? [{ ...item, description: 'Página de inicio', modulo: 'General' }]
+      : filtrarModuloPorPermisos(item, permisos).secciones.flatMap((seccion) =>
+          seccion.cards.map((card) => ({ ...card, modulo: item.label })),
+        ),
+  );
+  accesos.push(...adminRegistry
+    .filter((section) => permisos.includes(section.permisoRequerido))
+    .map((section) => ({ to: section.href, label: section.titulo, description: section.descripcion, modulo: 'Administración', icon: section.icon })));
+  return [...new Map(accesos.filter((acceso) => rutaPermitida(acceso.to, permisos)).map((acceso) => [acceso.to, acceso])).values()];
 }
 
 /**

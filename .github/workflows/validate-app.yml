@@ -81,6 +81,7 @@ jobs:
               - '.github/workflows/validate-app.yml'
             frontend:
               - 'frontend/**'
+              - 'design-system/**'
               - '.github/workflows/validate-app.yml'
 
   build-backend:

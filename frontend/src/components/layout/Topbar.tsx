@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
-import { Bell, HelpCircle, Menu, Search, Settings } from 'lucide-react';
+import { Bell, HelpCircle, Menu, PanelLeftOpen, Search, Settings } from 'lucide-react';
+import { AccessSearch } from '@/components/layout/AccessSearch';
+import { contextoNavegacion } from '@/lib/nav';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { EmpresaSelector } from '@/components/auth/EmpresaSelector';
 import { SucursalSelector } from '@/components/auth/SucursalSelector';
 import { Button } from '@/components/ui/button';
@@ -10,9 +13,8 @@ import { QuickCreateMenu } from '@/components/layout/QuickCreateMenu';
 import { useAdminAccess } from '@/lib/admin/use-admin-registry';
 
 /**
- * Topbar de la app. Layout: hamburger (mobile) + search contextual a la
- * izquierda, acciones a la derecha (EmpresaSelector, "+", ayuda,
- * notificaciones/settings, avatar).
+ * Topbar de la app: navegación móvil, breadcrumb, buscador general y
+ * acciones de sesión. El diálogo conserva la búsqueda de la pantalla actual.
  *
  * <para><b>Search contextual</b> (design polish): el placeholder y el
  * comportamiento del input dependen del módulo / pantalla activa. En
@@ -29,6 +31,7 @@ import { useAdminAccess } from '@/lib/admin/use-admin-registry';
 export interface TopbarProps {
   /** Callback al click del botón hamburger (visible solo sub-md). */
   onMenuClick?: () => void;
+  onExpandPanel?: () => void;
 }
 
 interface SearchableRouteConfig {
@@ -72,9 +75,11 @@ const SEARCHABLE_ROUTES: Record<string, SearchableRouteConfig> = {
   '/cxc/alertas': { placeholder: 'Buscar en alertas de cartera' },
 };
 
-export function Topbar({ onMenuClick }: TopbarProps = {}) {
+export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
+  const permisos = useAuthStore((s) => s.permisos);
+  const contexto = contextoNavegacion(pathname, permisos);
   const ayudaHref = resolveAyudaHref(pathname);
   // El engrane lleva a <c>/admin</c> solo si el usuario tiene al menos
   // una card visible en el área de Administración. Sin permisos, el
@@ -85,10 +90,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
   const placeholder = searchableConfig?.placeholder ?? 'Buscar…';
   const isSearchable = searchableConfig != null;
 
-  const currentQ =
-    (search as Record<string, unknown> | undefined)?.q as
-      | string
-      | undefined;
+  const currentQ = (search as Record<string, unknown> | undefined)?.q as string | undefined;
   const [draft, setDraft] = useState(currentQ ?? '');
   // Sync draft con la URL cuando cambia (otra fuente actualizó ?q,
   // navegamos a otra ruta, etc.). Patrón derived state — evita
@@ -111,7 +113,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
         clearTimeout(commitTimerRef.current);
       }
     };
-  }, []);
+  }, [pathname]);
 
   function commitQ(value: string) {
     if (!isSearchable) return;
@@ -127,6 +129,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
         ...prev,
         q: value.length > 0 ? value : undefined,
         offset: 0,
+        page: 1,
       }),
       replace: true,
     });
@@ -143,7 +146,7 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background px-3 md:gap-4 md:px-6">
+    <header className="sticky top-0 z-20 flex h-topbar items-center gap-3 border-b border-line bg-surface-card px-3 md:gap-4 md:px-5">
       {/* Hamburger — mobile only. Abre el <MobileSidebar/>. */}
       <Button
         variant="ghost"
@@ -155,31 +158,76 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
         <Menu className="h-5 w-5" />
       </Button>
 
-      <div className="relative hidden w-full max-w-md md:block">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder={placeholder}
-          className="pl-9"
-          disabled={!isSearchable}
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            scheduleCommit(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            // Enter aplica inmediatamente (sin esperar el debounce).
-            if (e.key === 'Enter') {
-              if (commitTimerRef.current != null) {
-                clearTimeout(commitTimerRef.current);
-                commitTimerRef.current = null;
-              }
-              commitQ(draft);
-            }
-          }}
-          aria-label={placeholder}
-        />
-      </div>
+      {onExpandPanel && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden md:flex"
+          aria-label="Expandir panel"
+          onClick={onExpandPanel}
+        >
+          <PanelLeftOpen size={16} strokeWidth={1.6} />
+        </Button>
+      )}
+      <nav aria-label="Ruta actual" className="hidden min-w-0 items-center gap-1.5 text-sm md:flex">
+        {contexto ? (
+          <>
+            <span className="text-ink-muted">{contexto.modulo.label}</span>
+            <span aria-hidden="true" className="text-ink-subtle">
+              /
+            </span>
+            <span className="hidden text-ink-muted xl:inline">{contexto.seccion.label}</span>
+            <span aria-hidden="true" className="hidden text-ink-subtle xl:inline">
+              /
+            </span>
+            <Link
+              to={contexto.card.to}
+              aria-current="page"
+              className="truncate font-medium text-ink"
+            >
+              {contexto.card.label}
+            </Link>
+          </>
+        ) : (
+          <span className="font-medium text-ink">
+            {pathname === '/'
+              ? 'Inicio'
+              : pathname.startsWith('/admin')
+                ? 'Administración'
+                : 'Millet ERP'}
+          </span>
+        )}
+      </nav>
+
+      <AccessSearch>
+        {isSearchable && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder={placeholder}
+              className="h-ctl-lg border-line bg-surface-page pl-9"
+              disabled={!isSearchable}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                scheduleCommit(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                // Enter aplica inmediatamente (sin esperar el debounce).
+                if (e.key === 'Enter') {
+                  if (commitTimerRef.current != null) {
+                    clearTimeout(commitTimerRef.current);
+                    commitTimerRef.current = null;
+                  }
+                  commitQ(draft);
+                }
+              }}
+              aria-label={placeholder}
+            />
+          </div>
+        )}
+      </AccessSearch>
 
       <div className="ml-auto flex items-center gap-2">
         <EmpresaSelector />
@@ -195,7 +243,13 @@ export function Topbar({ onMenuClick }: TopbarProps = {}) {
           </Button>
         )}
 
-        <Button variant="ghost" size="icon" disabled aria-label="Notificaciones">
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled
+          aria-label="Notificaciones"
+          title="Las notificaciones aún no están disponibles"
+        >
           <Bell className="h-4 w-4" />
         </Button>
         {usuarioPuedeVerAdmin && (
