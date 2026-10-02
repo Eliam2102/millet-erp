@@ -142,12 +142,15 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
         res.ColumnasFaltantes.AddRange(CatalogoOpciones.ColumnasCanonicas.Where(c => !idx.ContainsKey(c)));
         if (faltantes.Count > 0)
             throw new BusinessRuleException("CONTAB_IMPORT_COLUMNA_FALTANTE",
-                $"Falta la columna obligatoria: {string.Join(", ", faltantes)}. Cabeceras encontradas: "
-                + $"{string.Join(", ", tabla.Columnas.Select(FormatoCatalogo.NormalizarCabecera))}. Alias aceptados: "
-                + string.Join("; ", faltantes.Select(c => $"{c} = {string.Join("|", f.AliasesColumna(c))}")) + ".");
+                $"Falta la columna obligatoria {string.Join(", ", faltantes.Select(c => $"«{Columna(c)}»"))}. "
+                + $"Encabezados encontrados en el archivo: {string.Join(", ", tabla.Columnas.Where(x => !string.IsNullOrWhiteSpace(x)))}. "
+                + "Encabezados que se aceptan: "
+                + string.Join("; ", faltantes.Select(c => $"{Columna(c)}: {string.Join(", ", f.AliasesColumna(c))}")) + ".");
         foreach (var c in ColumnasSemanticas.Where(c => !idx.ContainsKey(c)))
             res.Archivo.Add(Err(0, c, "CONTAB_IMPORT_CAMPO_PENDIENTE", "Advertencia",
-                $"El archivo no trae la columna '{c}'; no se supone y queda pendiente de validación."));
+                c == "cuenta_control"
+                    ? "El archivo no trae la columna «Cuenta de control»: las cuentas se cargan sin control (Ninguna)."
+                    : $"El archivo no trae la columna «{Columna(c)}»: ese dato queda pendiente de validación en todas las cuentas."));
         if (o.Jerarquia.Modo == CatalogoOpciones.ModoPorColumna && !idx.ContainsKey("codigo_padre"))
             res.Archivo.Add(Err(0, "codigo_padre", "CONTAB_IMPORT_COLUMNA_FALTANTE", "Advertencia",
                 "El archivo no trae la columna codigo_padre: todas las cuentas se cargarán como cuentas raíz."));
@@ -450,22 +453,46 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
         return set;
     }
 
+    /// <summary>Nombre legible de una columna canónica para los mensajes al usuario.</summary>
+    private static readonly Dictionary<string, string> NombresColumna = new()
+    {
+        ["codigo"] = "Código", ["nombre"] = "Nombre", ["codigo_padre"] = "Cuenta padre", ["naturaleza"] = "Naturaleza",
+        ["tipo_cuenta"] = "Tipo (título o afectable)", ["cuenta_control"] = "Cuenta de control",
+        ["codigo_agrupador"] = "Código agrupador", ["grupo_reporte"] = "Grupo de reporte",
+        ["codigo_origen"] = "Código de origen", ["fuente"] = "Fuente",
+    };
+
+    private static string Columna(string c) => NombresColumna.TryGetValue(c, out var n) ? n : c;
+
+    /// <summary>"Deudora o Acreedora (también se aceptan: deudor, d, …)" sin repetir valores que solo cambian en mayúsculas.</summary>
+    private static string ValoresAceptados(Dictionary<string, List<string>> aliases)
+    {
+        var canonicos = aliases.Keys.ToList();
+        var otros = aliases.Values.SelectMany(v => v)
+            .Where(a => !canonicos.Contains(a, StringComparer.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var principal = string.Join(" o ", canonicos);
+        return otros.Count == 0 ? principal : $"{principal} (también se aceptan: {string.Join(", ", otros)})";
+    }
+
     private ErrorFila Err(int fila, string? columna, string codigo, string severidad, string mensaje) =>
         new(fila, columna, codigo, severidad, mensaje, Sugerencia(codigo, columna));
 
     /// <summary>Tabla código → texto (§20.4). Son textos del sistema, no valores de negocio.</summary>
     private string Sugerencia(string codigo, string? columna) => codigo switch
     {
-        "CONTAB_IMPORT_COLUMNA_FALTANTE" => $"Agregue la columna «{columna}» al archivo (también se acepta con los encabezados: {string.Join(", ", f.AliasesColumna(columna ?? "codigo"))}).",
+        "CONTAB_IMPORT_COLUMNA_FALTANTE" => $"Agregue la columna «{Columna(columna ?? "codigo")}» al archivo (también se acepta con los encabezados: {string.Join(", ", f.AliasesColumna(columna ?? "codigo"))}).",
         "CONTAB_IMPORT_COLUMNA_IGNORADA" => "El sistema no reconoce esta columna y la ignora. Si necesita que se cargue, avise al administrador del sistema.",
         "CONTAB_IMPORT_COLUMNA_SIN_MAPEO" => "Columna informativa conocida: no se importa. Confirme con Contabilidad su significado antes de mapearla.",
-        "CONTAB_IMPORT_CAMPO_PENDIENTE" => "La cuenta se importa como pendiente de validación y no podrá recibir movimientos hasta que Contabilidad complete el dato.",
+        "CONTAB_IMPORT_CAMPO_PENDIENTE" => columna == "cuenta_control"
+            ? "Si alguna cuenta es de clientes o proveedores, agregue la columna al archivo o márquela después en el catálogo."
+            : "La cuenta se carga como pendiente de validación y no podrá recibir movimientos hasta que Contabilidad complete el dato.",
         "CONTAB_IMPORT_CODIGO_FORMATO" => "Corrija el código para que siga el formato de cuentas del catálogo. Si el formato del archivo es el correcto, avise al administrador del sistema.",
         "CONTAB_IMPORT_CODIGO_RELLENADO" => "Verifique que el archivo no perdió ceros a la izquierda (formato texto en Excel).",
-        "CONTAB_IMPORT_NATURALEZA_DESCONOCIDA" => $"Valores aceptados: {string.Join(", ", f.Opciones.Naturaleza.Aliases.SelectMany(a => a.Value.Prepend(a.Key)))}. Corrija la celda en el archivo.",
-        "CONTAB_IMPORT_TIPO_DESCONOCIDO" => $"Valores aceptados: {string.Join(", ", f.Opciones.Tipo.Aliases.SelectMany(a => a.Value.Prepend(a.Key)))}. Corrija la celda en el archivo.",
+        "CONTAB_IMPORT_NATURALEZA_DESCONOCIDA" => $"Escriba {ValoresAceptados(f.Opciones.Naturaleza.Aliases)}. Corrija la celda en el archivo.",
+        "CONTAB_IMPORT_TIPO_DESCONOCIDO" => $"Escriba {ValoresAceptados(f.Opciones.Tipo.Aliases)}. Corrija la celda en el archivo.",
         "CONTAB_IMPORT_PADRE_INEXISTENTE" => "Agregue la cuenta padre al archivo o cárguela antes. El padre se obtiene quitando el último nivel del código (por ejemplo, el padre de 100.10.10.00 es 100.10.00.00).",
-        "CONTAB_IMPORT_CODIGO_DUPLICADO_EN_ARCHIVO" => "Deje una sola fila por código (y por fuente + código de origen).",
+        "CONTAB_IMPORT_CODIGO_DUPLICADO_EN_ARCHIVO" => "Deje una sola fila con ese código en el archivo.",
         "CONTAB_IMPORT_CICLO" => "Rompa el ciclo corrigiendo el padre de alguna de las filas indicadas.",
         "CONTAB_IMPORT_CONTROL_CONFLICTO" => "Corrija la marca de control de esta fila para que coincida con las cuentas de control del sistema, o avise al administrador del sistema.",
         "CONTAB_IMPORT_CODIFICACION" => "Guarde el archivo como CSV UTF-8 y vuelva a cargarlo.",

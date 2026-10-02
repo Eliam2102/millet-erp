@@ -185,8 +185,10 @@ public class EscenariosImportacionTests
         var huerfana = p.GetProperty("PorCodigoError").EnumerateArray().First(e => e.GetProperty("Codigo").GetString() == "CONTAB_IMPORT_PADRE_INEXISTENTE");
         huerfana.GetProperty("Conteo").GetInt32().Should().Be(1);
         huerfana.GetProperty("Ejemplos")[0].GetProperty("Fila").GetInt32().Should().Be(6);
-        p.GetProperty("QueSeReabre").EnumerateArray().Select(q => q.GetProperty("Decision").GetString())
-            .Should().Contain(d => d!.Contains("P14")).And.Contain(d => d!.Contains("P16"));
+        // Lo que hay que revisar va en lenguaje de usuario: sin claves internas de decisión ni de configuración.
+        var decisiones = p.GetProperty("QueSeReabre").EnumerateArray().Select(q => q.GetProperty("Decision").GetString()!).ToList();
+        decisiones.Should().Contain(d => d.Contains("completar naturaleza y tipo")).And.Contain(d => d.Contains("qué significan"));
+        decisiones.Should().NotContain(d => d.Contains("P14") || d.Contains("P16") || d.Contains("Aliases") || d.Contains("Codigo.Patron"));
     }
 
     [Fact]

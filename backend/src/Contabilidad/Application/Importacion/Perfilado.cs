@@ -38,21 +38,21 @@ public sealed class Perfilador(FormatoCatalogo f)
 
         var reabre = new List<QueSeReabre>();
         if (N("CONTAB_IMPORT_CODIGO_FORMATO") > 0)
-            reabre.Add(new("Códigos fuera de longitud/patrón", "P2: formato del código (Codigo.Patron, LongitudMin/Max)"));
+            reabre.Add(new("Códigos fuera de longitud/patrón", "Revisar con Contabilidad el formato de esos códigos; si el formato es correcto, el administrador del sistema ajusta la configuración."));
         if (N("CONTAB_IMPORT_NATURALEZA_DESCONOCIDA") > 0)
-            reabre.Add(new("Naturaleza no reconocida", "P2/P3: aliases de naturaleza"));
+            reabre.Add(new("Naturaleza no reconocida", "Corregir la naturaleza en el archivo (Deudora o Acreedora) o confirmar el valor con Contabilidad."));
         if (N("CONTAB_IMPORT_TIPO_DESCONOCIDO") > 0)
-            reabre.Add(new("Tipo (título/afectable) no reconocido", "P2/P16: aliases de tipo"));
+            reabre.Add(new("Tipo (título/afectable) no reconocido", "Corregir el tipo en el archivo (título o afectable) o confirmar el valor con Contabilidad."));
         if (r.Huerfanas > 0)
-            reabre.Add(new("Cuentas huérfanas", "P1/P15: archivo incompleto o estructura de código distinta"));
+            reabre.Add(new("Cuentas huérfanas", "Agregar al archivo las cuentas padre que faltan o revisar sus códigos."));
         if (r.ColumnasSinMapeo.Count > 0)
-            reabre.Add(new("Columnas informativas sin mapeo (p. ej. Tipo)", "P16: significado a confirmar con Contabilidad"));
+            reabre.Add(new("Columnas que no se cargan (p. ej. Tipo)", "Confirmar con Contabilidad qué significan; hoy no se cargan al catálogo."));
         if (r.NivelContableDiscrepancias > 0)
-            reabre.Add(new("Nivel contable distinto del derivado", "P15: jerarquía por segmentos"));
+            reabre.Add(new("Nivel contable distinto del derivado", "Revisar el código o el nivel en el archivo; se guarda el nivel que corresponde al código."));
         if (filas.Any(x => x.EnArbol && x.Tipo is null || x.EnArbol && x.Naturaleza is null))
-            reabre.Add(new("Cuentas pendientes de validación (sin naturaleza o sin tipo)", "P14: validación de Contabilidad"));
+            reabre.Add(new("Cuentas pendientes de validación (sin naturaleza o sin tipo)", "Contabilidad debe completar naturaleza y tipo; mientras tanto esas cuentas no reciben movimientos."));
         if (N("CONTAB_IMPORT_CONTROL_CONFLICTO") > 0)
-            reabre.Add(new("Conflicto con cuentas de control", "P3: lista CuentasControl"));
+            reabre.Add(new("Conflicto con cuentas de control", "Revisar con Contabilidad cuáles son las cuentas de control."));
 
         var valida = filas.Where(x => x.EnArbol).ToList();
         return new PerfilImportacion(
