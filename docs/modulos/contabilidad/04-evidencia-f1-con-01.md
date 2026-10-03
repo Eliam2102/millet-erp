@@ -256,3 +256,21 @@ Decisión del TL: la hoja correcta es «Plan de cuentas-VILO». Estructura real 
 - **Opción 2 (P18).** Al elegir el padre se autollena el siguiente código libre de su rama, editable; no pisa un código que el usuario ya escribió. Validación de rama al crear (`CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA`), configurable. No aplica al editar.
 - **Pruebas.** Unitarias de Contabilidad: 86 (17 nuevas de rama y siguiente código: ancho fijo, ancho libre, inactivas, rama llena, otra rama, nivel saltado). Vitest de Contabilidad: 51 (combobox, autollenado, motivo sin sugerencia, error de rama en el campo Código). Integración: prueba HTTP nueva de sugerencia + rechazo fuera de rama + padre afectable.
 - **Pendiente de Contabilidad.** Confirmar la regla de numeración y si se permite mover cuentas entre padres (hoy permitido si no están usadas).
+
+## Ronda «reglas de Laura» y respuesta del TL (2026-10-02/03)
+
+Insumo: «Catalogo de cuenta propuesta Millet.xlsx» (hoja «Plan de cuentas», encabezado en fila 2) y handoff del TL. Del archivo real solo se documentan estructura y estadísticas (plan §18 P19–P27).
+
+- **Afectabilidad derivada (P19) y conversión dinámica (P20):** nivel 1 y cuentas con hijas acumulan; nivel ≥2 sin hijas es afectable. Una hija nueva bajo una afectable sin movimientos la convierte en acumula; con movimientos se rechaza. En la UI el tipo es informativo.
+- **Filas de título sin código (P21)** se omiten con aviso; **Reporte** se conserva en `grupo_reporte` (P22).
+- **Colectivas ampliadas (P23):** Deudores y Acreedores; supuesto configurable Clientes/Deudores ⇒ CxC, Proveedores/Acreedores ⇒ CxP; captura manual siempre rechazada.
+- **Rubros (P24, propuesta del TL):** agrupación de reporte separada del árbol (`clase` + `rubro_id` en raíces de nivel 1); en importación cada rubro agrupa las raíces que le siguen en el archivo hasta el siguiente rubro; «Acumula rubro» igual que rubro.
+- **Agrupaciones de presentación (P25)** sin exigencias de cuenta afectable; **padre explícito** para el caso de la fila 47 (P26); **13 caracteres** se conservan (P27, se retira la homologación).
+- **Panel «Probar si la cuenta acepta movimientos»** en el detalle (usa `POST /cuentas/validar-movimiento`) para demostrar el rechazo de movimientos directos en cuentas que acumulan, rubros y colectivas.
+- **Migración:** `20261003001040_ContabilidadRubrosYTipoDerivado` (aditiva: `clase`, `rubro_id` + índice, FK y check; recalcula `tipo`). Aplicada en `millet_dev` (historial 251).
+- **Muestra ficticia:** `5-FIX-formato-Laura.xlsx` (fuera del repo, en la carpeta local de pruebas FIX).
+- **Brecha con módulos auxiliares:** ni CxC ni CxP consumen hoy `ICuentaContableReadPort` ni registran asientos (revisión de solo lectura): la restricción de colectivas está lista en el puerto, pero ningún módulo la invoca todavía.
+
+**Resultados reales:** unitarias Contabilidad 109/109; integración en BD desechable (`validate-integration-isolated.sh`, filtro Contabilidad) 44/44; Vitest Contabilidad + navegación 85/85; lint del módulo sin avisos; typecheck de la app limpio; 0 colores fuera del design system.
+
+**Pendientes (propuestas del TL, no definitivas):** configuración definitiva de rubros; significado de «Acumula rubro»; asignación real de colectivas y su módulo; relación definitiva del caso de la fila 47; modalidad de aprobación de la importación (única decisión funcional pendiente); 54 naturalezas vacías se conservan vacías.

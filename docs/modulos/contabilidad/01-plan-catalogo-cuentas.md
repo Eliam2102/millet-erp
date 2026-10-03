@@ -1,6 +1,6 @@
 # Plan — F1-CON-01 Catálogo contable consumible (`Millet.Contabilidad`)
 
-> **Versión:** 0.3 (v0.2 + decisiones P14–P17 tras recibir la hoja base provisional; ver §18 y §20.10) · **Fecha:** 2026-10-01
+> **Versión:** 0.4 (v0.3 + ronda «reglas de Laura» P19–P27 y propuestas del TL para pruebas; ver §18) · **Fecha:** 2026-10-02
 > **Tarea:** F1-CON-01 · **Responsable:** Uziel · **Rama:** `feature/F1-CON-01-catalogo-contable`
 > **Estado:** PLAN. No hay código de producto, migraciones ni cambios en `backend/`/`frontend/`.
 > **Fuente funcional:** ficha F1-CON-01 (texto del dueño, planeación provisional 28-sep).
@@ -198,7 +198,7 @@ Entidad `CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa`
 | `nivel` | smallint | **almacenado y validado**: raíz=1, hijo=padre.nivel+1; tope configurable (default 10, §18); recalculado en cascada si el padre cambia (solo permitido sin uso) |
 | `ruta` | varchar | materialized path opcional (`/id1/id2/`) para detectar ciclos y listar subárbol sin recursión; **solo si EF/CTE recursivo resulta costoso** — recomendado omitir en v1 y usar CTE recursivo |
 | `naturaleza` | smallint? enum `NaturalezaCuenta {Deudora, Acreedora}` | **anulable (P14)**: la hoja base no la trae y no se supone; `NULL` = pendiente de validación. La entrega Contabilidad |
-| `tipo` | smallint? enum `TipoCuenta {Titulo, Afectable}` | **anulable (P14)**; `NULL` = pendiente de validación (no se deriva de la jerarquía). Título puede tener hijos y **no recibe movimientos**; afectable es hoja. Una cuenta con `naturaleza` o `tipo` nulos tiene estado de validación `Pendiente` (calculado, sin columna) |
+| `tipo` | smallint? enum `TipoCuenta {Titulo, Afectable}` | **v0.4 (P19): lo calcula el sistema por la jerarquía** (nivel 1 o con hijas ⇒ `Titulo` = acumula; nivel ≥ 2 sin hijas ⇒ `Afectable`); ya no queda pendiente. *Texto original v0.3:* anulable (P14); `NULL` = pendiente de validación (no se deriva de la jerarquía). Título puede tener hijos y **no recibe movimientos**; afectable es hoja. Una cuenta con `naturaleza` o `tipo` nulos tiene estado de validación `Pendiente` (calculado, sin columna) |
 | `estatus` | smallint `EstatusCatalogo` (reuso de `Millet.Catalogos`: Activo/Inactivo) | baja lógica = `Inactivo` (no `DeletedAt`; "desactivar no destruye referencias") |
 | `cuenta_control` | smallint enum `CuentaControl {Ninguna, Clientes, Proveedores}` | solo `Afectable`; marca cuenta de control (§5.7) |
 | `codigo_agrupador` | varchar(30)? | referencia de agrupación (p. ej. código agrupador SAT) — **valor pendiente de Contabilidad** (§18); texto libre validado por longitud |
@@ -693,6 +693,45 @@ El TL pidió avanzar con la hoja **«Plan de cuentas-VILO»** (Excel corregido d
 | P3 (confirmada) | Las cuentas globalizadoras de clientes/proveedores solo se afectan desde su módulo y deben conciliar con auxiliares (C-09) → el diseño enum + `OrigenMovimiento` se mantiene. El cuestionario añade una **casilla de catálogo «no afectable por asiento manual»** de alcance general: **pregunta abierta P17** (no se implementa sin confirmación). Qué cuentas son de control: pendiente de Contabilidad | Respuesta C-09 | Contabilidad lista las cuentas |
 | P18 (2026-10-02) | **Alta manual — opción 2: código sugerido y editable + validación de rama.** Al elegir el padre, el sistema propone el siguiente código libre de su rama (`GET /cuentas/siguiente-codigo`; ancho fijo: primer segmento en cero con el mayor valor usado + 1, incluyendo inactivas; ancho libre: formato de las hermanas). Al crear se exige que el código empiece con la parte significativa del padre y agregue exactamente un nivel (`CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA`), configurable con `Jerarquia.ExigirCodigoEnRamaDelPadre` (encendida). **No aplica al editar** (el código es inmutable; mover una cuenta no usada sigue permitido y puede dejar el código fuera de su rama: pendiente de Contabilidad). La importación no cambia (padre por segmentos) | Evitar códigos que no reflejan su lugar en el árbol sin quitar a Contabilidad el control de la numeración | Contabilidad define otra regla de numeración o prohíbe mover cuentas |
 | P17 (abierta) | ¿La casilla «no afectable por asiento manual» es un atributo propio (booleano) además de `cuenta_control`? | Cuestionario C-09 | — |
+
+### Ronda «reglas de Laura» (2026-10-02) — respuestas de Contabilidad vía TL
+
+Insumo: estructura y estadísticas de «Catalogo de cuenta propuesta Millet.xlsx» (hoja «Plan de cuentas»: fila 1 = empresa, fila 2 =
+encabezado `Nivel Contable | Numero | Cuenta | Tipo | Naturaleza | Reporte | Nivel de cuenta SAT | Código agrupador SAT`; 748 filas:
+739 con código, 2 vacías, 7 títulos sin código; 727 códigos `999.99.99.99` y 12 `999.99.99.999`; 54 naturalezas vacías = 51 cuentas
+de orden + 3 agrupaciones; 10 filas sin nivel contable = 9 «Rubro» + 1 «Acumula rubro»; 81 nombres repetidos que no son duplicados;
+1 huérfana por segmentos y 1 nivel contable distinto del derivado, fila 47). Reglas de Laura: título y rubro no reciben movimientos;
+nivel 1 acumula; nivel 2/3 reciben movimientos si no tienen cuentas debajo; nivel 4 recibe; las colectivas se afectan solo desde su
+módulo; ejecuta el Contador General y autoriza la Dirección de Administración y Finanzas.
+
+| # | Decisión | Motivo | Reabre si… |
+|---|---|---|---|
+| P19 | **Afectabilidad derivada por jerarquía (reemplaza P14 en cuanto a `tipo`).** Nivel 1 ⇒ acumula (`Titulo`); con hijas (activas o inactivas) ⇒ acumula; nivel ≥ 2 sin hijas ⇒ `Afectable`. Configurable `Tipo.DerivarPorJerarquia` (encendida). Con derivación el `tipo` enviado en alta/edición **se ignora** y en importación una columna `tipo_cuenta` explícita **no manda**: si contradice la jerarquía se avisa (`CONTAB_IMPORT_TIPO_DERIVADO`) y se guarda el derivado. `PendienteValidacion` = solo naturaleza nula (y nunca en rubros). Migración: backfill de `tipo` nulo por jerarquía. El puerto trata un `tipo` nulo (dato previo) como acumula | Reglas de Laura; «Tipo» clasifica pero no define afectabilidad | Contabilidad pide marcar afectabilidad a mano |
+| P20 | **Conversión dinámica.** Crear (alta, edición que cambia de padre o importación) una hija bajo una afectable la **convierte en acumula** si no tiene movimientos (`cuentas_contables_uso`; una afectable no tiene descendientes, así que basta ella); con movimientos ⇒ 422 `CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO` con mensaje de usuario (en importación se rechaza la fila hija). Una colectiva no puede tener hijas (`CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE`). Se mantiene el rechazo con padre inactivo, la validación de rama y el código sugerido (P18, ahora también para padres afectables). **Desactivar la última hija:** el padre sigue acumulando mientras tenga hijas, aunque estén inactivas (histórico); mover la última hija a otra rama tampoco lo regresa a afectable hasta que se edite. `CONTAB_CUENTA_PADRE_NO_ES_TITULO` solo aplica con la derivación apagada | Regla nivel 2/3 de Laura | Contabilidad quiere que el padre vuelva a afectable al quedarse sin hijas activas |
+| P21 | **Filas de título sin código** (Tipo «Titulo/Título», alias en `Importacion.TiposTitulo`, columna `Importacion.ColumnaClasificacion` = «Tipo»): no son error; se omiten con aviso «Fila de título de reporte (sin código): no es una cuenta y no se carga», se cuentan en perfilado (`FilasTitulo`) y vista previa (`omitidas`) y no entran en la huella. Una fila sin código que no es título sigue siendo error | 7 filas del archivo real | — |
+| P22 | **«Reporte»** es alias de `grupo_reporte` (se conserva el valor recibido; ≤ 45 caracteres en el real). «Naturaleza» se lee y se conserva (alias existente) | Columna del archivo real | Contabilidad define catálogo de reportes |
+| P23 | **Colectivas ampliadas:** `CuentaControl` += `Deudores` (3) y `Acreedores` (4) (smallint sin restricción de rango: **sin migración**). Orígenes por tipo en `OrigenesControl` con **SUPUESTO por defecto**: Clientes y Deudores ⇒ `AuxiliarCxC`; Proveedores y Acreedores ⇒ `AuxiliarCxP`. La captura `Manual` **siempre** se rechaza en una colectiva (el puerto lo impone y la configuración no puede admitirla). Aliases de importación: nombre del enum o su singular | Reglas de Laura; el TL lo confirma como propuesta para probar | El TL asigna otro origen o una colectiva admite ajustes de cierre |
+| P24 | **Rubros (propuesta del TL para pruebas, no definitiva):** agrupación de REPORTE separada del árbol. Misma tabla con `clase` (`Cuenta`=0, `Rubro`=1) y `rubro_id` (FK a la misma tabla) en las cuentas de **nivel 1** (restricción `ck_cuentas_rubro`). Un rubro no tiene padre ni hijas, no es colectivo, siempre acumula, no queda pendiente de naturaleza, no aparece en el árbol ni en el selector de padre y el puerto lo rechaza (`motivo = Rubro`). Importación: filas con Tipo «Rubro» o «Acumula rubro» (`Importacion.TiposRubro`); las cuentas de nivel 1 que aparecen debajo del rubro, en el orden del archivo y hasta el siguiente rubro, quedan asociadas (`Importacion.RubroPorOrden`, encendida). El rubro suma el saldo de esas raíces **una sola vez**, sin volver a sumar descendientes (no hay saldos todavía: documentado; consulta `GET /cuentas?rubroId=`). La asociación se cambia a mano en la edición de la cuenta raíz | Propuesta del TL | Contabilidad define qué suma cada rubro |
+| P25 | **Agrupaciones de presentación** (rubros y títulos) no reciben exigencias de cuenta afectable: sin pendiente de validación ni avisos de naturaleza o tipo. Las 54 naturalezas vacías se conservan vacías; las 51 cuentas de orden quedan **pendientes** | Respuesta del TL | Contabilidad entrega la naturaleza de las cuentas de orden |
+| P26 | **Padre explícito (fila 47, propuesta del TL para pruebas):** un código cuyo padre por segmentos no existe se relaciona con su raíz por la columna `codigo_padre` (alias «Cuenta padre»), conservando el código y el nivel recibido; si el nivel coincide con el derivado del padre explícito no hay error ni aviso. Se conserva el todo-o-nada del lote | Caso real de la fila 47 | Contabilidad corrige el código |
+| P27 | **Códigos completos de 13 caracteres** (`999.99.99.999`): se conservan tal cual (**se retira la homologación**). Si su padre por segmentos no existe, se usa el padre explícito (P26) | Respuesta del TL | — |
+| P7 (perfiles) | Sobre los permisos existentes: **Contador General** = `leer` + `administrar` + `importar`; **Dirección de Administración y Finanzas** = `leer` (consulta) mientras se decide la aprobación. Demostrado con perfiles de prueba (`ReglasLauraHttpTests`). **Única decisión pendiente: la modalidad de aprobación de la importación** (no implementada) | Respuesta C-19 | El TL define la aprobación |
+
+**SUPUESTOS configurables pendientes del TL** (todos en `Contabilidad:Catalogo`, ninguno en código):
+
+1. Deudores por CxC y acreedores por CxP (`OrigenesControl`); la lista real de cuentas colectivas (`CuentasControl`) la configura Contabilidad después.
+2. Qué suma cada rubro y si «Acumula rubro» requiere tratamiento distinto (hoy = rubro); asociación por orden del archivo (`Importacion.RubroPorOrden`).
+3. Las 54 naturalezas vacías: 51 cuentas de orden quedan pendientes; 3 agrupaciones vacías sin pendiente.
+4. Relación definitiva de la fila 47 (hoy: padre explícito a su raíz de nivel 1).
+5. Modalidad de aprobación de la importación (Dirección de Administración y Finanzas).
+
+**Brecha con los módulos auxiliares** (revisión de solo lectura, 2026-10-02): ni CxC ni CxP consumen hoy `ICuentaContableReadPort`
+ni registran movimientos contables. CxP solo guarda `ConceptoContableId` (sin validar contra el catálogo) en líneas de factura y notas
+de cargo, y `ConceptoContable` (texto) en estados de cuenta de TC; CxC no tiene referencias contables. Falta en cada auxiliar: resolver
+la cuenta colectiva (Clientes/Deudores en CxC; Proveedores/Acreedores en CxP), validarla con el puerto declarando su origen
+(`AuxiliarCxC`/`AuxiliarCxP`) y generar la póliza (que invocará `RegistrarUsoCuentaCommand`) al **autorizar la factura de proveedor
+y aplicar anticipos o notas** (CxP) y al **aplicar pagos de cliente** (CxC, `PropuestasAplicacionCommands`). Siguen abiertos
+`PLATFORM-TODO(<ContabilidadCuentasConsumidores>)` y `<ContabilidadAsientos>`.
 
 Fuera de F1-CON-01 aunque salen del cuestionario: 13 períodos (el 13 solo para ajustes de auditoría), dimensiones obligatorias por grupo de cuentas (ubicación/área/equipo/cliente), tipos de cambio, pólizas recurrentes y reclasificación con trazabilidad.
 
