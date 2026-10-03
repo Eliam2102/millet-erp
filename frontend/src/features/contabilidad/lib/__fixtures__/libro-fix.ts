@@ -47,3 +47,24 @@ export async function libroUnaHoja(): Promise<File> {
   h.addRow(['002', 'FIX Dos']);
   return aFile(wb, 'FIX-una.xlsx');
 }
+
+/**
+ * FIX-formato-Laura (solo estructura del archivo de Contabilidad, datos ficticios): hoja de reglas + «Plan de cuentas» con el
+ * nombre de empresa en la fila 1, el encabezado de 8 columnas en la fila 2, un rubro, dos títulos de reporte sin código y
+ * una fila vacía. Fila 3 = rubro, fila 4 = título, fila 5 = FIX-101, fila 7 = FIX-101.01, fila 8 = título.
+ */
+export async function libroFormatoLaura(): Promise<File> {
+  const wb = new Workbook();
+  wb.addWorksheet('Niveles y acumulación').addRow(['FIX texto de reglas de niveles']);
+  const h = wb.addWorksheet('Plan de cuentas');
+  const bal = 'Estado de Posicion Financiera (Balance)';
+  h.addRow(['FIX Empresa SA de CV']);
+  h.addRow(['Nivel Contable', 'Numero', 'Cuenta', 'Tipo', 'Naturaleza', 'Reporte', 'Nivel de cuenta SAT', 'Código agrupador SAT']);
+  h.addRow(['', 'FIX-100.00.00.00', 'FIX ACTIVO', 'Rubro', '', bal, '', '']);
+  h.addRow(['', '', 'FIX Activo circulante', 'Título', '', bal, '', '']);
+  h.addRow([1, 'FIX-101.00.00.00', 'FIX Caja y bancos', 'Activo circulante', 'Deudora', bal, 1, '101']);
+  h.addRow([]);
+  h.addRow([2, 'FIX-101.01.00.00', 'FIX Bancos', 'Activo circulante', 'Deudora', bal, 2, '102']);
+  h.addRow(['', '', 'FIX Pasivo', 'Titulo', '', bal, '', '']);
+  return aFile(wb, 'FIX-formato-Laura.xlsx');
+}

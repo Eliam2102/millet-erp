@@ -10,7 +10,7 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useCuentas } from '../api/hooks';
-import type { FiltroEstatus, TipoCuenta } from '../api/types';
+import type { ClaseCuenta, FiltroEstatus, TipoCuenta } from '../api/types';
 import { ArbolCuentas } from '../components/ArbolCuentas';
 import { SELECT_CLASS } from '../lib/estilos';
 import { InsigniasCuenta } from '../components/InsigniasCuenta';
@@ -29,14 +29,16 @@ export function CatalogoPage() {
   const [estatus, setEstatus] = useState<FiltroEstatus>('');
   const [tipo, setTipo] = useState<TipoCuenta | ''>('');
   const [pendientes, setPendientes] = useState(false);
+  const [clase, setClase] = useState<ClaseCuenta | ''>('');
   const [offset, setOffset] = useState(0);
   const [nueva, setNueva] = useState(false);
 
   const q = useDebouncedValue(busqueda.trim(), 200);
-  // El endpoint del árbol solo filtra por estatus: con búsqueda/tipo/pendientes se muestra la lista.
-  const filtrando = q !== '' || tipo !== '' || pendientes;
+  // El endpoint del árbol solo filtra por estatus: con búsqueda/tipo/pendientes/rubros se muestra la lista.
+  // Los rubros (P24) no son nodos del árbol: se consultan con el filtro «Solo rubros».
+  const filtrando = q !== '' || tipo !== '' || pendientes || clase !== '';
   const enLista = vista === 'lista' || filtrando;
-  const lista = useCuentas({ estatus, tipo, q, pendientes, offset, limit: LIMITE }, enLista);
+  const lista = useCuentas({ estatus, tipo, q, pendientes, clase: clase || undefined, offset, limit: LIMITE }, enLista);
 
   const vacioCatalogo = (
     <span data-testid="catalogo-vacio" className="flex flex-col items-start gap-2">
@@ -99,9 +101,14 @@ export function CatalogoPage() {
           <option value="Inactivo">Inactivas</option>
         </select>
         <select aria-label="Filtro de tipo" className={SELECT} value={tipo} onChange={(e) => cambiar(setTipo)(e.target.value as TipoCuenta | '')}>
-          <option value="">Título y afectable</option>
-          <option value="Titulo">Solo títulos</option>
+          <option value="">Acumulan y afectables</option>
+          <option value="Titulo">Solo las que acumulan</option>
           <option value="Afectable">Solo afectables</option>
+        </select>
+        <select aria-label="Filtro de clase" className={SELECT} value={clase} onChange={(e) => cambiar(setClase)(e.target.value as ClaseCuenta | '')}>
+          <option value="">Cuentas y rubros</option>
+          <option value="Cuenta">Solo cuentas</option>
+          <option value="Rubro">Solo rubros de reporte</option>
         </select>
         <div className="flex items-center gap-2">
           <Checkbox id="f-pendientes" checked={pendientes} onCheckedChange={(v) => cambiar(setPendientes)(v === true)} />
@@ -173,7 +180,7 @@ function ListaCuentas({
                 <td className="px-3 py-1.5">{c.nombre}</td>
                 <td className="px-3 py-1.5">{c.nivel}</td>
                 <td className="px-3 py-1.5">
-                  <InsigniasCuenta tipo={c.tipo} naturaleza={c.naturaleza} activa={c.activa} pendienteValidacion={c.pendienteValidacion} control={c.cuentaControl} />
+                  <InsigniasCuenta tipo={c.tipo} naturaleza={c.naturaleza} activa={c.activa} pendienteValidacion={c.pendienteValidacion} control={c.cuentaControl} clase={c.clase} />
                 </td>
               </tr>
             ))}

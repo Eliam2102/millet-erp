@@ -3,8 +3,14 @@
  * Los enums viajan como texto. `null` en naturaleza/tipo = pendiente de validación (nunca se supone un valor).
  */
 export type Naturaleza = 'Deudora' | 'Acreedora';
+/** P19: lo calcula el sistema por la jerarquía. `Titulo` = acumula (no recibe movimientos). */
 export type TipoCuenta = 'Titulo' | 'Afectable';
-export type CuentaControl = 'Ninguna' | 'Clientes' | 'Proveedores';
+/** P23: cuentas colectivas; solo se afectan desde su módulo. */
+export type CuentaControl = 'Ninguna' | 'Clientes' | 'Deudores' | 'Proveedores' | 'Acreedores';
+/** P24: un rubro es una agrupación de reporte fuera del árbol de niveles. */
+export type ClaseCuenta = 'Cuenta' | 'Rubro';
+export type OrigenMovimiento = 'Manual' | 'AuxiliarCxC' | 'AuxiliarCxP';
+export type MotivoRechazo = 'NoExiste' | 'Titulo' | 'Inactiva' | 'ControlSoloAuxiliar' | 'PendienteValidacion' | 'Rubro';
 export type FiltroEstatus = '' | 'Activo' | 'Inactivo';
 
 export interface OrigenCuenta {
@@ -33,6 +39,9 @@ export interface Cuenta {
   grupoReporte: string | null;
   pendienteValidacion: boolean;
   version: number;
+  clase: ClaseCuenta;
+  /** Rubro de reporte de una cuenta de nivel 1 (P24). */
+  rubroId: string | null;
   usada?: boolean | null;
   origenes?: OrigenCuenta[] | null;
 }
@@ -61,6 +70,8 @@ export interface FiltrosLista {
   q?: string;
   padreId?: string;
   pendientes?: boolean;
+  clase?: ClaseCuenta;
+  rubroId?: string;
   offset?: number;
   limit?: number;
 }
@@ -75,6 +86,14 @@ export interface CuentaBody {
   cuentaControl: CuentaControl;
   codigoAgrupador: string | null;
   grupoReporte: string | null;
+  rubroId: string | null;
+}
+
+/** Respuesta de POST /cuentas/validar-movimiento (mismo puerto que usan los módulos). */
+export interface ValidacionMovimiento {
+  valida: boolean;
+  motivo: MotivoRechazo | null;
+  cuenta: { id: string; codigo: string; nombre: string; cuentaControl: CuentaControl } | null;
 }
 
 // ─── Importación ─────────────────────────────────────────────────────────────
@@ -103,6 +122,8 @@ export interface ResumenImportacion {
   rechazadas: number;
   errores: number;
   advertencias: number;
+  /** Filas de título de reporte sin código (no se cargan). */
+  omitidas: number;
 }
 
 export interface VistaPrevia {

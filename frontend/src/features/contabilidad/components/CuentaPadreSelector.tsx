@@ -29,7 +29,7 @@ interface Props {
 
 /**
  * Combobox de cuenta padre: una sola caja de búsqueda (código o nombre) dentro del popover y la lista
- * de títulos activos. Mismo patrón que los selectores de `components/erp/selectors` (Popover + Command
+ * de cuentas activas (sin rubros). Mismo patrón que los selectores de `components/erp/selectors` (Popover + Command
  * con `shouldFilter=false`: el servidor filtra; el cliente solo pinta la página). El servidor revalida
  * padre, nivel y ciclos al guardar.
  */
@@ -39,7 +39,8 @@ export function CuentaPadreSelector({ id, value, onChange, excluirId, padreActua
   const [elegida, setElegida] = useState<Opcion | null>(null);
   const q = useDebouncedValue(busqueda.trim(), 200);
 
-  const padres = useCuentas({ tipo: 'Titulo', estatus: 'Activo', q, limit: 50 });
+  // P20: cualquier cuenta activa puede ser padre (una afectable sin movimientos pasa a acumular); los rubros no (P24).
+  const padres = useCuentas({ clase: 'Cuenta', estatus: 'Activo', q, limit: 50 });
   const items = (padres.data?.items ?? []).filter((p) => p.id !== excluirId);
 
   const resuelta =
@@ -76,7 +77,7 @@ export function CuentaPadreSelector({ id, value, onChange, excluirId, padreActua
         <Command shouldFilter={false}>
           <CommandInput
             aria-label="Buscar cuenta padre"
-            placeholder="Buscar título por código o nombre…"
+            placeholder="Buscar cuenta por código o nombre…"
             value={busqueda}
             onValueChange={setBusqueda}
           />
@@ -96,10 +97,10 @@ export function CuentaPadreSelector({ id, value, onChange, excluirId, padreActua
               <CatalogoQueryError error={padres.error} />
             ) : items.length === 0 ? (
               <p className="py-6 text-center text-sm text-ink-muted">
-                {q ? `Ningún título activo coincide con «${q}».` : 'No hay cuentas de tipo título activas.'}
+                {q ? `Ninguna cuenta activa coincide con «${q}».` : 'No hay cuentas activas.'}
               </p>
             ) : (
-              <CommandGroup heading="Títulos activos">
+              <CommandGroup heading="Cuentas activas">
                 {items.map((p) => (
                   <CommandItem key={p.id} value={p.id} onSelect={() => elegir(p)} className="justify-between gap-3">
                     <span className="min-w-0 truncate">

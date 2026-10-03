@@ -9,11 +9,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { useCrearCuenta, useEditarCuenta, useSiguienteCodigo } from '../api/hooks';
+import { useCrearCuenta, useCuentas, useEditarCuenta, useSiguienteCodigo } from '../api/hooks';
 import type { Cuenta } from '../api/types';
 import { aBody, CuentaSchema, VALORES_VACIOS, type CuentaValues } from '../schemas/cuenta';
 import { manejarErrorCuenta } from '../lib/errores';
 import { SELECT_CLASS } from '../lib/estilos';
+import { ETIQUETA_COLECTIVA, ETIQUETA_TIPO } from '../lib/textos';
 import { AvisoNota } from './AvisoNota';
 import { CuentaPadreSelector } from './CuentaPadreSelector';
 
@@ -36,8 +37,10 @@ function Field({ label, htmlFor, required, opcional, error, full, children }: {
 
 const SELECT = `w-full ${SELECT_CLASS}`;
 
+const COLECTIVAS = ['Ninguna', 'Clientes', 'Deudores', 'Proveedores', 'Acreedores'] as const;
+
 export const MOTIVO_BLOQUEO =
-  'La cuenta (o una de sus hijas) ya tiene movimientos: cambiar su padre, naturaleza o tipo alteraría la interpretación de saldos históricos. ' +
+  'La cuenta (o una de sus hijas) ya tiene movimientos: cambiar su padre o su naturaleza alteraría la interpretación de saldos históricos. ' +
   'Para reclasificar, crea una cuenta nueva y desactiva esta (procedimiento de impacto aprobado por Contabilidad).';
 
 function valoresDe(c: Cuenta): CuentaValues {
@@ -46,8 +49,8 @@ function valoresDe(c: Cuenta): CuentaValues {
     nombre: c.nombre,
     padreId: c.padreId ?? '',
     naturaleza: c.naturaleza ?? '',
-    tipo: c.tipo ?? '',
     cuentaControl: c.cuentaControl,
+    rubroId: c.rubroId ?? '',
     codigoAgrupador: c.codigoAgrupador ?? '',
     grupoReporte: c.grupoReporte ?? '',
   };
@@ -108,6 +111,20 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
           : codigoSugerido && codigoActual.trim() === codigoSugerido
             ? 'Sugerido según la cuenta padre; puedes cambiarlo.'
             : null;
+
+  // P19: el tipo lo calcula el sistema; aquí solo se explica. Alta sin padre = nivel 1 (acumula); con padre = afectable.
+  const esRubro = cuenta?.clase === 'Rubro';
+  const tipoMostrado = editando && cuenta.tipo ? cuenta.tipo : padreId ? 'Afectable' : 'Titulo';
+  const ayudaTipo = esRubro
+    ? 'Un rubro es una agrupación de reporte: no recibe movimientos.'
+    : editando
+      ? 'Lo calcula el sistema: acumula si es de nivel 1 o tiene cuentas debajo; si no, recibe movimientos.'
+      : padreId
+        ? 'Recibirá movimientos mientras no tenga cuentas debajo. Si la cuenta padre hoy recibe movimientos y no tiene ninguno registrado, pasará a acumular.'
+        : 'Las cuentas de nivel 1 (sin cuenta padre) acumulan: sus movimientos se registran en las cuentas de debajo.';
+  // P24: el rubro solo aplica a cuentas de nivel 1 (sin padre); un rubro no pertenece a otro rubro.
+  const conRubro = !padreId && !esRubro;
+  const rubros = useCuentas({ clase: 'Rubro', estatus: 'Activo', limit: 200 }, conRubro);
 
   const guardando = crear.isPending || editar.isPending;
 
@@ -178,21 +195,37 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
             <option value="Acreedora">Acreedora</option>
           </select>
         </Field>
-        <Field label="Tipo" htmlFor="cta-tipo" error={errors.tipo?.message}>
-          <select id="cta-tipo" className={SELECT} disabled={bloqueado} title={bloqueado ? MOTIVO_BLOQUEO : undefined} {...form.register('tipo')}>
-            <option value="">Pendiente de validación</option>
-            <option value="Titulo">Título</option>
-            <option value="Afectable">Afectable</option>
-          </select>
+        <Field label="Tipo" htmlFor="cta-tipo">
+          <Input id="cta-tipo" readOnly aria-describedby="cta-tipo-ayuda" value={esRubro ? 'Rubro de reporte' : ETIQUETA_TIPO[tipoMostrado]} />
+          <p id="cta-tipo-ayuda" className="text-xs text-ink-muted">{ayudaTipo}</p>
         </Field>
 
-        <Field label="Cuenta de control" htmlFor="cta-control" error={errors.cuentaControl?.message}>
-          <select id="cta-control" className={SELECT} {...form.register('cuentaControl')}>
-            <option value="Ninguna">Ninguna</option>
-            <option value="Clientes">Clientes</option>
-            <option value="Proveedores">Proveedores</option>
-          </select>
-        </Field>
+        {!esRubro && (
+          <Field label="Cuenta colectiva" htmlFor="cta-control" error={errors.cuentaControl?.message}>
+            <select id="cta-control" className={SELECT} aria-describedby="cta-control-ayuda" {...form.register('cuentaControl')}>
+              {COLECTIVAS.map((c) => <option key={c} value={c}>{ETIQUETA_COLECTIVA[c]}</option>)}
+            </select>
+            <p id="cta-control-ayuda" className="text-xs text-ink-muted">
+              Una cuenta colectiva no admite captura manual: la afecta solo su módulo, que lleva el detalle por persona.
+            </p>
+          </Field>
+        )}
+        {conRubro && (
+          <Field label="Rubro de reporte" opcional htmlFor="cta-rubro" error={errors.rubroId?.message}>
+            {/* Controlado: las opciones llegan después del valor inicial al editar. */}
+            <Controller
+              control={form.control}
+              name="rubroId"
+              render={({ field }) => (
+                <select id="cta-rubro" className={SELECT} value={field.value} onChange={field.onChange} onBlur={field.onBlur}>
+                  <option value="">Sin rubro</option>
+                  {(rubros.data?.items ?? []).map((r) => <option key={r.id} value={r.id}>{r.codigo} — {r.nombre}</option>)}
+                </select>
+              )}
+            />
+            <p className="text-xs text-ink-muted">Agrupa la cuenta en el reporte; el rubro suma el saldo de sus cuentas de nivel 1 una sola vez.</p>
+          </Field>
+        )}
         <Field label="Código agrupador" opcional htmlFor="cta-agrupador" error={errors.codigoAgrupador?.message}>
           <Input id="cta-agrupador" maxLength={30} {...form.register('codigoAgrupador')} />
         </Field>

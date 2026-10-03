@@ -93,7 +93,8 @@ describe('<CuentaDetallePage>', () => {
     await abrirEdicion();
     expect(screen.getByTestId('aviso-usada')).toHaveTextContent(/ya tiene movimientos/);
     expect(screen.getByLabelText('Naturaleza')).toBeDisabled();
-    expect(screen.getByLabelText('Tipo')).toBeDisabled();
+    // P19: el tipo es informativo (lo calcula el sistema): solo lectura siempre.
+    expect(screen.getByLabelText('Tipo')).toHaveAttribute('readonly');
     expect(screen.getByLabelText('Cuenta padre')).toBeDisabled();
     expect(screen.getByLabelText(/Nombre/)).toBeEnabled(); // el nombre sí se puede editar
   });
@@ -107,7 +108,8 @@ describe('<CuentaDetallePage>', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Cuenta actualizada'));
     expect(puts[0].ifMatch).toBe('"3"');
     expect(puts[0].key).toBeTruthy();
-    expect(puts[0].body).toMatchObject({ nombre: 'FIX Caja 2', naturaleza: 'Deudora', tipo: 'Afectable' });
+    // El tipo no se envía (lo calcula el sistema).
+    expect(puts[0].body).toMatchObject({ nombre: 'FIX Caja 2', naturaleza: 'Deudora', tipo: null });
   });
 
   it('422 CAMBIO_BLOQUEADO_POR_USO: muestra el motivo, conserva el borrador y no hay toast de éxito', async () => {
@@ -115,7 +117,7 @@ describe('<CuentaDetallePage>', () => {
     put(() => problem(422, { code: 'CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO', detail: 'La cuenta FIX-110 ya tiene movimientos; cambiar el tipo alteraría saldos.' }));
     await abrirEdicion();
     fireEvent.change(screen.getByLabelText(/Nombre/), { target: { value: 'FIX Borrador' } });
-    fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'Titulo' } });
+    fireEvent.change(screen.getByLabelText('Naturaleza'), { target: { value: 'Acreedora' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
     expect((await screen.findAllByText(/alteraría saldos/)).length).toBeGreaterThan(0);
     expect(screen.getByLabelText(/Nombre/)).toHaveValue('FIX Borrador');

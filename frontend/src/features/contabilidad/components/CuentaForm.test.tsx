@@ -59,7 +59,8 @@ describe('<CuentaForm> alta', () => {
     fireEvent.change(await screen.findByLabelText('Buscar cuenta padre'), { target: { value: 'Bancos' } });
     // Tras el debounce, la búsqueda va al servidor: solo títulos activos con el término escrito.
     await waitFor(() =>
-      expect(consultas.some((p) => p.get('tipo') === 'Titulo' && p.get('estatus') === 'Activo' && p.get('q') === 'Bancos')).toBe(true),
+      // P20: cualquier cuenta activa puede ser padre; los rubros (P24) no.
+      expect(consultas.some((p) => p.get('clase') === 'Cuenta' && p.get('estatus') === 'Activo' && p.get('q') === 'Bancos')).toBe(true),
     );
     fireEvent.click(await screen.findByText('FIX Bancos'));
     expect(screen.getByLabelText('Cuenta padre')).toHaveTextContent('FIX-100 — FIX Bancos');
@@ -175,6 +176,51 @@ describe('<CuentaForm> alta', () => {
     expect(onGuardada).toHaveBeenCalled();
     expect(capturado!.key).toBeTruthy();
     expect(capturado!.body).toMatchObject({ codigo: 'FIX-001', nombre: 'FIX Caja', naturaleza: null, tipo: null, padreId: null });
+  });
+
+  it('P19: el tipo es informativo y cambia con la cuenta padre; no se envía', async () => {
+    const cuentaPadre = { id: 't1', codigo: 'FIX-100', nombre: 'FIX Bancos', padreId: null, nivel: 1, naturaleza: 'Deudora', tipo: 'Titulo',
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false,
+      version: 1, clase: 'Cuenta', rubroId: null };
+    mswServer.use(
+      http.get('*/api/v1/contabilidad/cuentas', () => HttpResponse.json({ items: [cuentaPadre], total: 1, offset: 0, limit: 50 })),
+      http.get('*/api/v1/contabilidad/cuentas/siguiente-codigo', () => HttpResponse.json({ codigo: null, motivo: null })),
+    );
+    render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    const tipo = screen.getByLabelText('Tipo');
+    expect(tipo).toHaveAttribute('readonly');
+    expect(tipo).toHaveValue('Acumula (no recibe movimientos)');
+    expect(screen.getByText(/Las cuentas de nivel 1 \(sin cuenta padre\) acumulan/)).toBeInTheDocument();
+    // Sin padre se puede elegir rubro de reporte.
+    expect(screen.getByLabelText(/Rubro de reporte/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Cuenta padre'));
+    fireEvent.click(await screen.findByText('FIX Bancos'));
+    expect(screen.getByLabelText('Tipo')).toHaveValue('Afectable (recibe movimientos)');
+    expect(screen.getByText(/pasará a acumular/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Rubro de reporte/)).not.toBeInTheDocument();
+  });
+
+  it('P23: cuentas colectivas con etiquetas claras, incluidas deudores y acreedores', async () => {
+    let body: Record<string, unknown> | null = null;
+    mswServer.use(http.post('*/api/v1/contabilidad/cuentas', async ({ request }) => {
+      body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ id: 'n', codigo: 'FIX-001', version: 1 }, { status: 201 });
+    }));
+    render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
+    const select = screen.getByLabelText('Cuenta colectiva');
+    expect([...select.querySelectorAll('option')].map((o) => o.textContent)).toEqual([
+      'No es colectiva',
+      'Clientes (solo desde cuentas por cobrar)',
+      'Deudores (solo desde cuentas por cobrar)',
+      'Proveedores (solo desde cuentas por pagar)',
+      'Acreedores (solo desde cuentas por pagar)',
+    ]);
+    expect(screen.getByText(/no admite captura manual/)).toBeInTheDocument();
+    llenar();
+    fireEvent.change(select, { target: { value: 'Deudores' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    await waitFor(() => expect(body).toMatchObject({ cuentaControl: 'Deudores', tipo: null, rubroId: null }));
   });
 
   it('fallo recuperable (500): mensaje de reintento y datos conservados', async () => {

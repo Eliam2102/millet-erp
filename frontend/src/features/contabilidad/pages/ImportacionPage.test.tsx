@@ -12,7 +12,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 import { ImportacionPage } from './ImportacionPage';
-import { ALIAS_FIX, libroTresHojas, libroUnaHoja } from '../lib/__fixtures__/libro-fix';
+import { ALIAS_FIX, libroFormatoLaura, libroTresHojas, libroUnaHoja } from '../lib/__fixtures__/libro-fix';
 
 const IMPORTAR = 'contabilidad.catalogo.importar';
 const B = '*/api/v1/contabilidad/importaciones';
@@ -212,6 +212,44 @@ describe('<ImportacionPage>', () => {
       const fila = await screen.findByRole('cell', { name: '4' }); // fila 3 del servidor + 1 de desplazamiento
       expect(fila).toBeInTheDocument();
       expect(screen.queryByRole('cell', { name: '3' })).not.toBeInTheDocument();
+    });
+
+    it('formato de Contabilidad: preselecciona «Plan de cuentas», envía las filas de título sin código y las muestra como omitidas sin bloquear', async () => {
+      let perfilado: { columnas: string[]; filas: (string | null)[][] } | null = null;
+      mswServer.use(
+        http.get(CONFIG, () => HttpResponse.json(alias)),
+        http.post(`${B}/perfilado`, async ({ request }) => {
+          perfilado = (await request.json()) as typeof perfilado;
+          return HttpResponse.json({ ...PERFIL, resumen: { filasLeidas: 6, filasTitulo: 2, rubros: 1 }, porCodigoError: [], queSeReabre: [] });
+        }),
+        http.post(`${B}/vista-previa`, () => HttpResponse.json({
+          resumen: resumen({ leidas: 6, vacias: 1, crear: 3, rechazadas: 0, errores: 0, advertencias: 2, omitidas: 2 }),
+          huella: 'h3', puedeAplicar: true, archivo: [],
+          filas: [
+            { fila: 2, accion: 'Crear', errores: [] },
+            { fila: 3, accion: 'Omitida', errores: [err({ fila: 3, columna: 'codigo', codigo: 'CONTAB_IMPORT_FILA_TITULO', severidad: 'Advertencia',
+              mensaje: 'Fila de título de reporte (sin código): no es una cuenta y no se carga.', sugerencia: 'Nada: es un título de presentación del reporte.' })] },
+            { fila: 4, accion: 'Crear', errores: [] },
+          ],
+        })),
+      );
+      render(<ImportacionPage />, { wrapper: createQueryWrapper() });
+      await subir(await libroFormatoLaura());
+
+      const selector = (await screen.findByLabelText('Hoja del libro')) as HTMLSelectElement;
+      expect(selector.options[Number(selector.value)].textContent).toMatch(/^Plan de cuentas/);
+      fireEvent.click(screen.getByRole('button', { name: 'Analizar hoja' }));
+      expect(await screen.findByText(/Encabezado detectado en la fila 2/)).toBeInTheDocument();
+      expect(perfilado!.columnas).toEqual(['Nivel Contable', 'Numero', 'Cuenta', 'Tipo', 'Naturaleza', 'Reporte', 'Nivel de cuenta SAT', 'Código agrupador SAT']);
+      // La fila de título viaja con el código vacío (null): el servidor decide que es título y la omite.
+      expect(perfilado!.filas[1].slice(1, 4)).toEqual([null, 'FIX Activo circulante', 'Título']);
+      expect(screen.getByText('Títulos de reporte (no se cargan)')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continuar a la vista previa' }));
+      expect(await screen.findByText('Omitida (título de reporte)')).toBeInTheDocument();
+      expect(screen.getByText(/Fila de título de reporte \(sin código\)/)).toBeInTheDocument();
+      expect(screen.getByText('Títulos omitidos').nextSibling).toHaveTextContent('2');
+      expect(screen.getByRole('button', { name: 'Aplicar importación' })).toBeEnabled();
     });
 
     it('una sola hoja con encabezado en la fila 1: sin selector ni paso extra', async () => {

@@ -5,7 +5,9 @@ import { Label } from '@/components/ui/label';
 import type { ErrorFila, VistaPrevia } from '../api/types';
 import { nombreColumna, severidadLegible, tituloHallazgo } from '../lib/textos';
 
-const ACCION: Record<string, string> = { Crear: 'Crear', Actualizar: 'Actualizar', SinCambios: 'Sin cambios', Rechazar: 'Rechazada' };
+const ACCION: Record<string, string> = {
+  Crear: 'Crear', Actualizar: 'Actualizar', SinCambios: 'Sin cambios', Rechazar: 'Rechazada', Omitida: 'Omitida (título de reporte)',
+};
 
 function Hallazgo({ e }: { e: ErrorFila }) {
   const esError = e.severidad === 'Error';
@@ -33,7 +35,8 @@ export function VistaPreviaTabla({ vp, desplazamiento = 0 }: { vp: VistaPrevia; 
     <div className="space-y-4">
       <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface-card shadow-card-flat p-3 text-sm sm:grid-cols-4" aria-label="Resumen de la vista previa">
         {([['Leídas', r.leidas], ['Crear', r.crear], ['Actualizar', r.actualizar], ['Sin cambios', r.sinCambios],
-          ['Rechazadas', r.rechazadas], ['Errores', r.errores], ['Advertencias', r.advertencias], ['Vacías', r.vacias]] as const).map(([k, v]) => (
+          ['Rechazadas', r.rechazadas], ['Errores', r.errores], ['Advertencias', r.advertencias], ['Vacías', r.vacias],
+          ['Títulos omitidos', r.omitidas ?? 0]] as const).map(([k, v]) => (
           <div key={k}><dt className="text-xs text-ink-muted">{k}</dt><dd className="font-medium">{v}</dd></div>
         ))}
       </dl>
@@ -63,7 +66,7 @@ export function VistaPreviaTabla({ vp, desplazamiento = 0 }: { vp: VistaPrevia; 
               <tr key={f.fila} className="border-b border-line-row align-top">
                 <td className="px-3 py-1.5">{f.fila + desplazamiento}</td>
                 <td className="px-3 py-1.5">
-                  <Badge variant={f.accion === 'Rechazar' ? 'danger' : f.accion === 'SinCambios' ? 'neutral' : 'success'}>{ACCION[f.accion] ?? f.accion}</Badge>
+                  <Badge variant={f.accion === 'Rechazar' ? 'danger' : f.accion === 'SinCambios' || f.accion === 'Omitida' ? 'neutral' : 'success'}>{ACCION[f.accion] ?? f.accion}</Badge>
                 </td>
                 <td className="px-3 py-1.5">
                   {f.errores.length === 0 ? '—' : <ul className="space-y-1">{f.errores.map((e, i) => <Hallazgo key={i} e={e} />)}</ul>}

@@ -59,8 +59,8 @@ describe('<CatalogoPage>', () => {
     await screen.findByText('FIX-900');
     expect(screen.getByText('Tipo: Pendiente')).toBeInTheDocument();
     expect(screen.getByText('Pendiente de validación')).toBeInTheDocument();
-    // Los otros dos nodos sí son Título; el pendiente no lleva ni Título ni Afectable.
-    expect(screen.getAllByText('Título')).toHaveLength(2);
+    // Los otros dos nodos acumulan (P19: «Acumula»); el pendiente no lleva ni Acumula ni Afectable.
+    expect(screen.getAllByText('Acumula')).toHaveLength(2);
     expect(screen.queryByText('Afectable')).not.toBeInTheDocument();
   });
 

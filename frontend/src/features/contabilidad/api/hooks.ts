@@ -10,7 +10,9 @@ import type {
   PaginaCuentas,
   Perfil,
   ResultadoAplicar,
+  OrigenMovimiento,
   SiguienteCodigo,
+  ValidacionMovimiento,
   VistaPrevia,
 } from './types';
 
@@ -152,6 +154,14 @@ export function useCambiarEstatusCuenta() {
         ifMatch: ifMatch(a.id),
       })).data,
     onSuccess: invalidar,
+  });
+}
+
+/** Prueba de solo lectura: ¿la cuenta acepta un movimiento de este origen? No registra nada. */
+export function useValidarMovimiento() {
+  return useMutation({
+    mutationFn: async (a: { cuentaId: string; origen: OrigenMovimiento }) =>
+      (await apiRequest<ValidacionMovimiento>(`${BASE}/cuentas/validar-movimiento`, { method: 'POST', body: a })).data,
   });
 }
 
