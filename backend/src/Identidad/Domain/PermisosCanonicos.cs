@@ -459,6 +459,13 @@ public static class PermisosCanonicos
     public const string CentrosCostoAsignacionesAdministrar     = "centros_costo.asignaciones.administrar";
     public const string CentrosCostoDim3LeerTodos               = "centros_costo.dim3.leer-todos";
 
+    // ----- Contabilidad (F1-CON-01) -----
+    // Namespace GUID 0000000d-* reservado para el módulo Contabilidad. -0001 catálogo de cuentas.
+    // `importar` va aparte de `administrar`: es una operación masiva (carga/actualización por lote).
+    public const string ContabilidadCatalogoLeer                = "contabilidad.catalogo.leer";
+    public const string ContabilidadCatalogoAdministrar         = "contabilidad.catalogo.administrar";
+    public const string ContabilidadCatalogoImportar            = "contabilidad.catalogo.importar";
+
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
     /// Usado por la migration de seed y por el bootstrap del SuperAdmin
@@ -713,5 +720,10 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000c-0001-0000-0000-000000000002"), CentrosCostoCatalogoAdministrar,         "Crear, editar y desactivar niveles y grupos del catálogo de centros de costo"),
         (Guid.Parse("0000000c-0002-0000-0000-000000000001"), CentrosCostoAsignacionesAdministrar,     "Asignar y revocar alcance de centros de costo a usuarios (marcado por nivel o grupo, congelado en máquinas)"),
         (Guid.Parse("0000000c-0003-0000-0000-000000000001"), CentrosCostoDim3LeerTodos,               "Alcance total en centros de costo: ver todas las máquinas (Dim3) sin restricción de asignación"),
+
+        // Contabilidad (F1-CON-01). Namespace 0000000d-*.
+        (Guid.Parse("0000000d-0001-0000-0000-000000000001"), ContabilidadCatalogoLeer,                "Consultar el catálogo contable (cuentas, árbol, lotes de importación y validación de cuentas)"),
+        (Guid.Parse("0000000d-0001-0000-0000-000000000002"), ContabilidadCatalogoAdministrar,         "Crear, editar, desactivar y reactivar cuentas contables"),
+        (Guid.Parse("0000000d-0001-0000-0000-000000000003"), ContabilidadCatalogoImportar,            "Previsualizar, perfilar y aplicar importaciones del catálogo contable"),
     };
 }

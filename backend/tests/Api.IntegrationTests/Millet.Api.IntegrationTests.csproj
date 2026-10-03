@@ -23,6 +23,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Fixtures FIX-* (datos ficticios) compartidos con Contabilidad.UnitTests. -->
+    <Compile Include="..\Contabilidad.UnitTests\Fixtures\FixturesCatalogo.cs" Link="Contabilidad\Fixtures\FixturesCatalogo.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Api\Millet.Api.csproj" />
   </ItemGroup>
 

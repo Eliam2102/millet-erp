@@ -255,6 +255,10 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'centros_costo.catalogo.administrar',
   'centros_costo.asignaciones.administrar',
   'centros_costo.dim3.leer-todos',
+  // Contabilidad (F1-CON-01)
+  'contabilidad.catalogo.leer',
+  'contabilidad.catalogo.administrar',
+  'contabilidad.catalogo.importar',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

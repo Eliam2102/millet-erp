@@ -380,6 +380,11 @@ export const PermisosCanonicos = {
   CentrosCostoCatalogoAdministrar: 'centros_costo.catalogo.administrar',
   CentrosCostoAsignacionesAdministrar: 'centros_costo.asignaciones.administrar',
   CentrosCostoDim3LeerTodos: 'centros_costo.dim3.leer-todos',
+
+  // Contabilidad (backend F1-CON-01). Namespace GUID 0000000d-*.
+  ContabilidadCatalogoLeer: 'contabilidad.catalogo.leer',
+  ContabilidadCatalogoAdministrar: 'contabilidad.catalogo.administrar',
+  ContabilidadCatalogoImportar: 'contabilidad.catalogo.importar',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */
