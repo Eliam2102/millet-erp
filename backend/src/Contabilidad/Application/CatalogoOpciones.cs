@@ -27,7 +27,10 @@ public sealed class CatalogoOpciones
     public ImportacionOpciones Importacion { get; set; } = new();
     /// <summary>Cuentas de control reales (las define Contabilidad, P3). Vacía por defecto.</summary>
     public List<CuentaControlOpcion> CuentasControl { get; set; } = [];
-    /// <summary>Orígenes permitidos por tipo de control (clave: Clientes|Proveedores).</summary>
+    /// <summary>
+    /// Orígenes permitidos por tipo de cuenta colectiva (clave: Clientes|Proveedores|Deudores|Acreedores). SUPUESTO por defecto
+    /// (pendiente del TL, P23): Clientes y Deudores ⇒ AuxiliarCxC; Proveedores y Acreedores ⇒ AuxiliarCxP. Manual nunca se admite.
+    /// </summary>
     public Dictionary<string, List<string>> OrigenesControl { get; set; } = [];
 
     public sealed class CodigoOpciones
@@ -49,6 +52,12 @@ public sealed class CatalogoOpciones
     public sealed class TipoOpciones
     {
         public Dictionary<string, List<string>> Aliases { get; set; } = [];
+
+        /// <summary>
+        /// P19: el tipo (acumula/afectable) lo calcula el sistema por la jerarquía: nivel 1 o con hijas ⇒ acumula; nivel ≥ 2 sin
+        /// hijas ⇒ afectable. Encendido por defecto. Apagado = comportamiento anterior (tipo explícito, P14).
+        /// </summary>
+        public bool DerivarPorJerarquia { get; set; } = true;
     }
 
     public sealed class ImportacionOpciones
@@ -57,6 +66,24 @@ public sealed class CatalogoOpciones
         public Dictionary<string, List<string>> Columnas { get; set; } = [];
         /// <summary>Cabeceras (normalizadas) conocidas que NO se mapean a ningún campo y se ignoran con advertencia (P16).</summary>
         public List<string> ColumnasSinMapeo { get; set; } = [];
+
+        /// <summary>Cabecera (normalizada) de la columna de clasificación informativa del archivo (p. ej. «Tipo»).</summary>
+        public string ColumnaClasificacion { get; set; } = string.Empty;
+
+        /// <summary>
+        /// P21: valores de la columna de clasificación que identifican una fila de TÍTULO DE REPORTE. Una fila sin código con uno
+        /// de estos valores no es una cuenta: se omite con aviso. Se comparan sin acentos ni mayúsculas.
+        /// </summary>
+        public List<string> TiposTitulo { get; set; } = [];
+
+        /// <summary>P24: valores de la columna de clasificación que identifican un RUBRO de reporte (agrupación fuera del árbol).</summary>
+        public List<string> TiposRubro { get; set; } = [];
+
+        /// <summary>
+        /// P24 (propuesta del TL para pruebas, no definitiva): las cuentas de NIVEL 1 que aparecen debajo de un rubro, en el orden del
+        /// archivo y hasta el siguiente rubro, quedan asociadas a ese rubro. Apagado = el archivo no asocia rubros.
+        /// </summary>
+        public bool RubroPorOrden { get; set; } = true;
     }
 
     /// <summary>P15: cómo se deduce el padre de una cuenta.</summary>
@@ -102,7 +129,7 @@ public sealed class CatalogoOpciones
         ["tipo_cuenta"] = ["titulo_afectable", "afectabilidad", "account_type"],
         ["cuenta_control"] = ["cuenta_control", "control"],
         ["codigo_agrupador"] = ["codigo_agrupador", "agrupador", "codigo_agrupador_sat"],
-        ["grupo_reporte"] = ["grupo_reporte", "grupo"],
+        ["grupo_reporte"] = ["grupo_reporte", "grupo", "reporte"],
         ["nivel_contable"] = ["nivel_contable"],
     };
 
@@ -110,6 +137,9 @@ public sealed class CatalogoOpciones
     {
         if (string.IsNullOrEmpty(Jerarquia.Modo)) Jerarquia.Modo = ModoPorSegmentos;
         if (Importacion.ColumnasSinMapeo.Count == 0) Importacion.ColumnasSinMapeo = ["tipo", "nivel_de_cuenta_sat"];
+        if (string.IsNullOrEmpty(Importacion.ColumnaClasificacion)) Importacion.ColumnaClasificacion = "tipo";
+        if (Importacion.TiposTitulo.Count == 0) Importacion.TiposTitulo = ["titulo", "título"];
+        if (Importacion.TiposRubro.Count == 0) Importacion.TiposRubro = ["rubro", "acumula rubro"];
         if (string.IsNullOrEmpty(Codigo.Patron)) Codigo.Patron = "^[A-Z0-9][A-Z0-9.-]*$";
         if (Codigo.Separadores.Count == 0) Codigo.Separadores = [".", "-"];
         if (Naturaleza.Valores.Count == 0)
@@ -122,6 +152,8 @@ public sealed class CatalogoOpciones
             Importacion.Columnas.TryAdd(canonica, [.. alias]);
         OrigenesControl.TryAdd(nameof(CuentaControl.Clientes), [nameof(OrigenMovimiento.AuxiliarCxC)]);
         OrigenesControl.TryAdd(nameof(CuentaControl.Proveedores), [nameof(OrigenMovimiento.AuxiliarCxP)]);
+        OrigenesControl.TryAdd(nameof(CuentaControl.Deudores), [nameof(OrigenMovimiento.AuxiliarCxC)]);
+        OrigenesControl.TryAdd(nameof(CuentaControl.Acreedores), [nameof(OrigenMovimiento.AuxiliarCxP)]);
     }
 
     /// <summary>Errores de consistencia (vacío = válida). Se usa con <c>ValidateOnStart</c>.</summary>
@@ -154,7 +186,7 @@ public sealed class CatalogoOpciones
         {
             if (!Enum.TryParse<CuentaControl>(c.Tipo, out var t) || t == CuentaControl.Ninguna
                 || string.IsNullOrWhiteSpace(c.Codigo))
-                yield return "CuentasControl: cada entrada requiere codigo y tipo Clientes|Proveedores.";
+                yield return "CuentasControl: cada entrada requiere codigo y tipo Clientes|Proveedores|Deudores|Acreedores.";
             else if (patron is not null && !patron.IsMatch(c.Codigo.Trim().ToUpperInvariant()))
                 yield return "CuentasControl: un código listado no cumple Codigo.Patron.";
         }
@@ -162,6 +194,8 @@ public sealed class CatalogoOpciones
             if (!Enum.TryParse<CuentaControl>(tipo, out _)
                 || origenes.Any(o => !Enum.TryParse<OrigenMovimiento>(o, out _)))
                 yield return $"OrigenesControl: '{tipo}' u origen no reconocido.";
+            else if (origenes.Contains(nameof(OrigenMovimiento.Manual)))
+                yield return $"OrigenesControl: '{tipo}' no puede admitir Manual (una cuenta colectiva solo se afecta desde su módulo).";
     }
 
     public static CatalogoOpciones Predeterminadas()

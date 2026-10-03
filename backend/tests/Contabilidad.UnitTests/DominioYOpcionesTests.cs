@@ -11,11 +11,11 @@ public class DominioYOpcionesTests
         new(Guid.CreateVersion7(), codigo, nombre, null, 1, n, t, c, null, null);
 
     [Fact]
-    public void Naturaleza_y_tipo_anulables_dejan_la_cuenta_pendiente_de_validacion()
+    public void Solo_la_naturaleza_nula_deja_la_cuenta_pendiente_de_validacion()
     {
         Nueva().PendienteValidacion.Should().BeFalse();
         Nueva(n: null).PendienteValidacion.Should().BeTrue();
-        Nueva(t: null).PendienteValidacion.Should().BeTrue();
+        Nueva(t: null).PendienteValidacion.Should().BeFalse("P19: el tipo ya no queda pendiente, se deriva");
         Nueva(n: null, t: null).PendienteValidacion.Should().BeTrue();
     }
 

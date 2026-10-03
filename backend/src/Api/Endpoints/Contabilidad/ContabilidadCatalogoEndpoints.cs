@@ -24,7 +24,7 @@ public static class ContabilidadCatalogoEndpoints
 {
     public sealed record EditarCuentaRequest(
         string Nombre, Guid? PadreId, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo, CuentaControl CuentaControl,
-        string? CodigoAgrupador, string? GrupoReporte);
+        string? CodigoAgrupador, string? GrupoReporte, Guid? RubroId = null);
 
     public sealed record ValidarMovimientoRequest(string? Codigo, Guid? CuentaId, OrigenMovimiento Origen);
 
@@ -41,10 +41,10 @@ public static class ContabilidadCatalogoEndpoints
         g.MapGet("/cuentas", async (
             [FromQuery] EstatusCatalogo? estatus, [FromQuery] TipoCuenta? tipo, [FromQuery] string? q,
             [FromQuery] Guid? padreId, [FromQuery] bool? pendientes, [FromQuery] int? offset, [FromQuery] int? limit,
-            IMediator mediator, CancellationToken ct) =>
+            [FromQuery] ClaseCuenta? clase, [FromQuery] Guid? rubroId, IMediator mediator, CancellationToken ct) =>
         {
             var (off, lim) = Helpers.NormalizePaging(offset, limit);
-            return Results.Ok(await mediator.Send(new ListarCuentasQuery(estatus, tipo, q, padreId, pendientes, off, lim), ct));
+            return Results.Ok(await mediator.Send(new ListarCuentasQuery(estatus, tipo, q, padreId, pendientes, off, lim, clase, rubroId), ct));
         })
         .RequireAuthorization(leer).WithName("ListarCuentasContables")
         .Produces<PagedResponse<CuentaResponse>>();
@@ -87,7 +87,7 @@ public static class ContabilidadCatalogoEndpoints
         {
             if (!Helpers.TryParseVersion(ifMatch, out var version)) return Helpers.IfMatchRequerido();
             var result = await mediator.Send(new EditarCuentaCommand(
-                id, version, b.Nombre, b.PadreId, b.Naturaleza, b.Tipo, b.CuentaControl, b.CodigoAgrupador, b.GrupoReporte), ct);
+                id, version, b.Nombre, b.PadreId, b.Naturaleza, b.Tipo, b.CuentaControl, b.CodigoAgrupador, b.GrupoReporte, b.RubroId), ct);
             Helpers.SetEtag(response, result.Version);
             return Results.Ok(result);
         })

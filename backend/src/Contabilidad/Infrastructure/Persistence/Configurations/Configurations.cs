@@ -17,6 +17,8 @@ public sealed class CuentaContableConfiguration : IEntityTypeConfiguration<Cuent
             t.HasCheckConstraint("ck_cuentas_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_cuentas_nivel", "nivel >= 1");
             t.HasCheckConstraint("ck_cuentas_control_afectable", "cuenta_control = 0 OR COALESCE(tipo, -1) = 1");
+            // P24: un rubro no tiene padre, no es colectivo ni pertenece a otro rubro; solo una cuenta raíz pertenece a un rubro.
+            t.HasCheckConstraint("ck_cuentas_rubro", "(clase = 0 AND (rubro_id IS NULL OR padre_id IS NULL)) OR (clase = 1 AND padre_id IS NULL AND rubro_id IS NULL AND cuenta_control = 0)");
         });
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
@@ -28,7 +30,9 @@ public sealed class CuentaContableConfiguration : IEntityTypeConfiguration<Cuent
         builder.Property(x => x.CuentaControl).HasConversion<short>().IsRequired();
         builder.Property(x => x.CodigoAgrupador).HasMaxLength(30);
         builder.Property(x => x.GrupoReporte).HasMaxLength(60);
+        builder.Property(x => x.Clase).HasConversion<short>().IsRequired();
         builder.Ignore(x => x.Activa);
+        builder.Ignore(x => x.EsRubro);
         builder.Ignore(x => x.PendienteValidacion);
 
         builder.HasIndex(x => new { x.EmpresaId, x.Codigo }).IsUnique().HasDatabaseName("ux_cuentas_contables_codigo");
@@ -36,6 +40,7 @@ public sealed class CuentaContableConfiguration : IEntityTypeConfiguration<Cuent
         builder.HasIndex(x => new { x.EmpresaId, x.Estatus, x.Tipo });
 
         builder.HasOne<CuentaContable>().WithMany().HasForeignKey(x => x.PadreId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<CuentaContable>().WithMany().HasForeignKey(x => x.RubroId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

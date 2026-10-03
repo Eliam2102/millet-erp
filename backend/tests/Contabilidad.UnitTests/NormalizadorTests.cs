@@ -58,7 +58,7 @@ public class NormalizadorTests
     [Fact]
     public void Espacios_nbsp_y_mayusculas_se_normalizan()
     {
-        var r = Run(Utf8("codigo;nombre;naturaleza;tipo_cuenta\n  fix-1  ;  FIX   Uno  ;  deudora ;AFECTABLE\n"));
+        var r = Analizar(Utf8("codigo;nombre;naturaleza;tipo_cuenta\n  fix-1  ;  FIX   Uno  ;  deudora ;AFECTABLE\n"), SinDerivar());
         var f = r.Filas[0];
         (f.Codigo, f.Nombre).Should().Be(("FIX-1", "FIX Uno"));
         f.Naturaleza.Should().Be(Domain.NaturalezaCuenta.Deudora);
@@ -98,7 +98,7 @@ public class NormalizadorTests
         r.PuedeAplicar.Should().BeTrue();
         r.Archivo.Should().Contain(e => e.Codigo == "CONTAB_IMPORT_COLUMNA_SIN_MAPEO" && e.Columna == "tipo");
         r.Archivo.Should().Contain(e => e.Codigo == "CONTAB_IMPORT_COLUMNA_IGNORADA" && e.Columna == "saldo");
-        r.Filas[0].Tipo.Should().BeNull("la columna Tipo es una categoría informativa, no el título/afectable");
+        r.Filas[0].Tipo.Should().Be(Domain.TipoCuenta.Titulo, "la columna Tipo es una categoría informativa; el tipo se deriva de la jerarquía (raíz: acumula)");
     }
 
     [Fact]

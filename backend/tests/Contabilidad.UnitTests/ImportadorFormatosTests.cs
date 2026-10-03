@@ -1,5 +1,6 @@
 using Millet.Contabilidad.Application;
 using Millet.Contabilidad.Application.Importacion;
+using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.UnitTests.Fixtures;
 using static Millet.Contabilidad.UnitTests.Fixtures.FixturesCatalogo;
 
@@ -89,10 +90,17 @@ public class ImportadorFormatosTests
     }
 
     [Theory, MemberData(nameof(Todos))]
-    public void Padre_afectable_es_error(FormatoPrueba f)
+    public void Padre_marcado_afectable_es_error_sin_derivacion_y_con_derivacion_manda_la_jerarquia(FormatoPrueba f)
     {
-        var r = Run(f, f.Csv((f.Titulo, "T", f.Pad(null), "Deudora", "Afectable"), (f.Hoja1, "H", f.Pad(f.Titulo), "Deudora", "Afectable")));
-        Codigos(r, 3).Should().Contain("CONTAB_CUENTA_PADRE_NO_ES_TITULO");
+        var csv = f.Csv((f.Raiz, "R", f.Pad(null), "Deudora", "Afectable"), (f.Titulo, "T", f.Pad(f.Raiz), "Deudora", "Afectable"));
+        var cfg = f.Config();
+        cfg.Tipo.DerivarPorJerarquia = false;
+        Codigos(Analizar(csv, cfg), 3).Should().Contain("CONTAB_CUENTA_PADRE_NO_ES_TITULO");
+
+        var r = Run(f, csv);
+        r.PuedeAplicar.Should().BeTrue();
+        r.Filas[0].Tipo.Should().Be(TipoCuenta.Titulo);
+        Codigos(r, 3).Should().NotContain("CONTAB_CUENTA_PADRE_NO_ES_TITULO");
     }
 
     [Theory, MemberData(nameof(Todos))]
@@ -103,7 +111,9 @@ public class ImportadorFormatosTests
 
         var vacia = Run(f, f.Csv((f.Raiz, "R", f.Pad(null), "", ""), (f.Titulo, "T", f.Pad(f.Raiz), "", "")));
         vacia.PuedeAplicar.Should().BeTrue();
-        vacia.Filas.Should().OnlyContain(x => x.Accion == Accion.Crear && x.Naturaleza == null && x.Tipo == null);
+        // P19: la naturaleza vacía queda pendiente; el tipo vacío ya no: se deriva (raíz acumula, hoja de nivel 2 recibe movimientos).
+        vacia.Filas.Should().OnlyContain(x => x.Accion == Accion.Crear && x.Naturaleza == null);
+        vacia.Filas.Select(x => x.Tipo).Should().Equal(TipoCuenta.Titulo, TipoCuenta.Afectable);
         vacia.Hallazgos.Should().Contain(h => h.Codigo == "CONTAB_IMPORT_CAMPO_PENDIENTE" && h.Severidad == "Advertencia");
         vacia.Hallazgos.Should().NotContain(h => h.Severidad == "Error");
     }

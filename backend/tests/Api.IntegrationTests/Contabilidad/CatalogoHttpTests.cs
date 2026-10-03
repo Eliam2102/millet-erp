@@ -63,11 +63,11 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
                 Assert.Equal("CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA", await Code(r));
             }
 
-            // Padre afectable: la sugerencia aplica las mismas reglas que el alta.
+            // P20: un padre afectable también recibe sugerencia (al crear la hija pasará a acumular).
             var hoja = await CrearCuenta(c, Codigo(suf, "100.10.03.00"), padreId: bancosId, tipo: "Afectable");
             var sobreHoja = await c.GetAsync($"{Base}/cuentas/siguiente-codigo?padreId={hoja.GetProperty("id").GetGuid()}");
-            Assert.Equal(HttpStatusCode.UnprocessableEntity, sobreHoja.StatusCode);
-            Assert.Equal("CONTAB_CUENTA_PADRE_NO_ES_TITULO", await Code(sobreHoja));
+            Assert.Equal(HttpStatusCode.OK, sobreHoja.StatusCode);
+            Assert.Equal(Codigo(suf, "100.10.03.01"), (await Json(sobreHoja)).GetProperty("codigo").GetString());
         }
         finally { await Limpiar(factory.Services, suf); }
     }
@@ -153,16 +153,12 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
     }
 
     [Fact]
-    public async Task Padre_invalido_afectable_inactivo_y_nivel_excedido()
+    public async Task Padre_invalido_inactivo_y_nivel_excedido()
     {
         var suf = Sufijo();
         try
         {
             var c = await LoginAsync(factory);
-            var hoja = await CrearCuenta(c, Codigo(suf, "1"), tipo: "Afectable");
-            var bajo = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1.1"), nombre = "x", padreId = hoja.GetProperty("id").GetGuid(), cuentaControl = "Ninguna" });
-            Assert.Equal("CONTAB_CUENTA_PADRE_NO_ES_TITULO", await Code(bajo));
-
             var sinPadre = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "x", padreId = Guid.NewGuid(), cuentaControl = "Ninguna" });
             Assert.Equal("CONTAB_CUENTA_PADRE_INVALIDO", await Code(sinPadre));
 
@@ -294,8 +290,7 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             foreach (var cuerpo in new object[]
             {
                 new { nombre = "FIX cuenta", padreId = (Guid?)t.GetProperty("id").GetGuid(), naturaleza = "Acreedora", tipo = "Afectable", cuentaControl = "Ninguna" }, // naturaleza
-                new { nombre = "FIX cuenta", padreId = (Guid?)null, naturaleza = "Deudora", tipo = "Afectable", cuentaControl = "Ninguna" },                          // padre
-                new { nombre = "FIX cuenta", padreId = (Guid?)t.GetProperty("id").GetGuid(), naturaleza = "Deudora", tipo = "Titulo", cuentaControl = "Ninguna" },       // tipo
+                new { nombre = "FIX cuenta", padreId = (Guid?)null, naturaleza = "Deudora", tipo = "Afectable", cuentaControl = "Ninguna" },                          // padre (y con él el tipo derivado)
             })
             {
                 var r = await Send(c, HttpMethod.Put, $"{Base}/cuentas/{hId}", cuerpo, Etag(h));

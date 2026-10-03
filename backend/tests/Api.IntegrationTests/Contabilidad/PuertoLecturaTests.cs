@@ -17,7 +17,7 @@ namespace Millet.Api.IntegrationTests.Contabilidad;
 public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     private static CrearCuentaCommand Nueva(string codigo, TipoCuenta? tipo = TipoCuenta.Afectable, NaturalezaCuenta? nat = NaturalezaCuenta.Deudora,
-        CuentaControl control = CuentaControl.Ninguna) => new(codigo, "FIX cuenta", null, nat, tipo, control, null, null);
+        CuentaControl control = CuentaControl.Ninguna, Guid? padre = null) => new(codigo, "FIX cuenta", padre, nat, tipo, control, null, null);
 
     [Fact]
     public async Task Matriz_de_validacion_para_movimiento()
@@ -30,17 +30,23 @@ public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClass
             var m = scope.ServiceProvider.GetRequiredService<IMediator>();
             var puerto = scope.ServiceProvider.GetRequiredService<ICuentaContableReadPort>();
 
-            var ok = await m.Send(Nueva(Codigo(suf, "1")));
-            var titulo = await m.Send(Nueva(Codigo(suf, "2"), TipoCuenta.Titulo));
-            var inactiva = await m.Send(Nueva(Codigo(suf, "3")));
+            // P19: la raíz (nivel 1) acumula; sus hijas sin hijas son afectables (el tipo enviado se ignora).
+            var titulo = await m.Send(Nueva(Codigo(suf, "1"), TipoCuenta.Afectable));
+            Assert.Equal(TipoCuenta.Titulo, titulo.Tipo);
+            var raiz = titulo.Id;
+            var ok = await m.Send(Nueva(Codigo(suf, "1.1"), TipoCuenta.Titulo, padre: raiz));
+            Assert.Equal(TipoCuenta.Afectable, ok.Tipo);
+            var inactiva = await m.Send(Nueva(Codigo(suf, "1.3"), padre: raiz));
             await m.Send(new DesactivarCuentaCommand(inactiva.Id, inactiva.Version));
-            var pendienteTipo = await m.Send(Nueva(Codigo(suf, "4"), tipo: null));
-            var pendienteNat = await m.Send(Nueva(Codigo(suf, "5"), nat: null));
-            var clientes = await m.Send(Nueva(Codigo(suf, "6"), control: CuentaControl.Clientes));
-            var proveedores = await m.Send(Nueva(Codigo(suf, "7"), control: CuentaControl.Proveedores));
+            var sinTipo = await m.Send(Nueva(Codigo(suf, "1.4"), tipo: null, padre: raiz));
+            var pendienteNat = await m.Send(Nueva(Codigo(suf, "1.5"), nat: null, padre: raiz));
+            var clientes = await m.Send(Nueva(Codigo(suf, "1.6"), control: CuentaControl.Clientes, padre: raiz));
+            var proveedores = await m.Send(Nueva(Codigo(suf, "1.7"), control: CuentaControl.Proveedores, padre: raiz));
+            var deudores = await m.Send(Nueva(Codigo(suf, "1.8"), control: CuentaControl.Deudores, padre: raiz));
+            var acreedores = await m.Send(Nueva(Codigo(suf, "1.9"), control: CuentaControl.Acreedores, padre: raiz));
 
             // acepta activa + afectable (por código y por id; el código se normaliza)
-            var v = await puerto.ValidarParaMovimientoAsync(Codigo(suf, "1").ToLowerInvariant(), OrigenMovimiento.Manual, default);
+            var v = await puerto.ValidarParaMovimientoAsync(Codigo(suf, "1.1").ToLowerInvariant(), OrigenMovimiento.Manual, default);
             Assert.True(v.Valida);
             Assert.Null(v.Motivo);
             Assert.Equal(ok.Id, v.Cuenta!.Id);
@@ -48,7 +54,7 @@ public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClass
 
             Assert.Equal(MotivoRechazoCuenta.Titulo, (await puerto.ValidarParaMovimientoAsync(titulo.Id, OrigenMovimiento.Manual, default)).Motivo);
             Assert.Equal(MotivoRechazoCuenta.Inactiva, (await puerto.ValidarParaMovimientoAsync(inactiva.Id, OrigenMovimiento.Manual, default)).Motivo);
-            Assert.Equal(MotivoRechazoCuenta.PendienteValidacion, (await puerto.ValidarParaMovimientoAsync(pendienteTipo.Id, OrigenMovimiento.Manual, default)).Motivo);
+            Assert.True((await puerto.ValidarParaMovimientoAsync(sinTipo.Id, OrigenMovimiento.Manual, default)).Valida); // el tipo ya no queda pendiente
             Assert.Equal(MotivoRechazoCuenta.PendienteValidacion, (await puerto.ValidarParaMovimientoAsync(pendienteNat.Id, OrigenMovimiento.Manual, default)).Motivo);
             Assert.Equal(MotivoRechazoCuenta.NoExiste, (await puerto.ValidarParaMovimientoAsync(Guid.NewGuid(), OrigenMovimiento.Manual, default)).Motivo);
             Assert.Equal(MotivoRechazoCuenta.NoExiste, (await puerto.ValidarParaMovimientoAsync(Codigo(suf, "99"), OrigenMovimiento.Manual, default)).Motivo);
@@ -64,6 +70,13 @@ public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClass
             Assert.True((await puerto.ValidarParaMovimientoAsync(clientes.Id, OrigenMovimiento.AuxiliarCxC, default)).Valida);
             Assert.Equal(MotivoRechazoCuenta.ControlSoloAuxiliar, (await puerto.ValidarParaMovimientoAsync(proveedores.Id, OrigenMovimiento.AuxiliarCxC, default)).Motivo);
             Assert.True((await puerto.ValidarParaMovimientoAsync(proveedores.Id, OrigenMovimiento.AuxiliarCxP, default)).Valida);
+
+            // P23 (supuesto por defecto): deudores por CxC, acreedores por CxP; la captura manual siempre se rechaza.
+            Assert.Equal(MotivoRechazoCuenta.ControlSoloAuxiliar, (await puerto.ValidarParaMovimientoAsync(deudores.Id, OrigenMovimiento.Manual, default)).Motivo);
+            Assert.Equal(MotivoRechazoCuenta.ControlSoloAuxiliar, (await puerto.ValidarParaMovimientoAsync(deudores.Id, OrigenMovimiento.AuxiliarCxP, default)).Motivo);
+            Assert.True((await puerto.ValidarParaMovimientoAsync(deudores.Id, OrigenMovimiento.AuxiliarCxC, default)).Valida);
+            Assert.Equal(MotivoRechazoCuenta.ControlSoloAuxiliar, (await puerto.ValidarParaMovimientoAsync(acreedores.Id, OrigenMovimiento.Manual, default)).Motivo);
+            Assert.True((await puerto.ValidarParaMovimientoAsync(acreedores.Id, OrigenMovimiento.AuxiliarCxP, default)).Valida);
         }
         finally { await Limpiar(factory.Services, suf); }
     }
@@ -96,11 +109,11 @@ public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClass
         try
         {
             var admin = await LoginAsync(factory);
-            var cuenta = await CrearCuenta(admin, Codigo(suf, "1"));
-            await CrearCuenta(admin, Codigo(suf, "2"), tipo: "Titulo");
+            var raiz = await CrearCuenta(admin, Codigo(suf, "2"));
+            var cuenta = await CrearCuenta(admin, Codigo(suf, "2.1"), padreId: raiz.GetProperty("id").GetGuid());
             var consulta = await ClienteConPermisosAsync(factory, Millet.Identidad.Domain.PermisosCanonicos.ContabilidadCatalogoLeer);
 
-            var ok = await Json(await consulta.PostAsJsonAsync($"{Base}/cuentas/validar-movimiento", new { codigo = Codigo(suf, "1"), origen = "Manual" }));
+            var ok = await Json(await consulta.PostAsJsonAsync($"{Base}/cuentas/validar-movimiento", new { codigo = Codigo(suf, "2.1"), origen = "Manual" }));
             Assert.True(ok.GetProperty("valida").GetBoolean());
             Assert.Equal(cuenta.GetProperty("id").GetGuid(), ok.GetProperty("cuenta").GetProperty("id").GetGuid());
             var tit = await Json(await consulta.PostAsJsonAsync($"{Base}/cuentas/validar-movimiento", new { codigo = Codigo(suf, "2"), origen = "Manual" }));

@@ -141,6 +141,7 @@ internal static class ContabTestKit
         using var scope = sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
         var like = $"FIX-{sufijo}-%";
+        await db.Database.ExecuteSqlRawAsync("UPDATE contabilidad.cuentas_contables SET rubro_id = NULL WHERE codigo LIKE {0}", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.cuentas_contables_uso WHERE cuenta_id IN (SELECT id FROM contabilidad.cuentas_contables WHERE codigo LIKE {0})", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.cuentas_contables_origen WHERE cuenta_id IN (SELECT id FROM contabilidad.cuentas_contables WHERE codigo LIKE {0})", like);
         for (var nivel = 12; nivel >= 1; nivel--)

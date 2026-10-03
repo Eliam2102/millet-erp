@@ -15,11 +15,12 @@ public sealed record OrigenCuentaDto(string Fuente, string CodigoOrigen);
 public sealed record CuentaResponse(
     Guid Id, string Codigo, string Nombre, Guid? PadreId, int Nivel, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
     string Estatus, bool Activa, CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte,
-    bool PendienteValidacion, int Version, bool? Usada = null, IReadOnlyList<OrigenCuentaDto>? Origenes = null)
+    bool PendienteValidacion, int Version, ClaseCuenta Clase, Guid? RubroId,
+    bool? Usada = null, IReadOnlyList<OrigenCuentaDto>? Origenes = null)
 {
     public static CuentaResponse De(CuentaContable c, bool? usada = null, IReadOnlyList<OrigenCuentaDto>? origenes = null) => new(
         c.Id, c.Codigo, c.Nombre, c.PadreId, c.Nivel, c.Naturaleza, c.Tipo, c.Estatus.ToString(), c.Activa,
-        c.CuentaControl, c.CodigoAgrupador, c.GrupoReporte, c.PendienteValidacion, c.Version, usada, origenes);
+        c.CuentaControl, c.CodigoAgrupador, c.GrupoReporte, c.PendienteValidacion, c.Version, c.Clase, c.RubroId, usada, origenes);
 }
 
 /// <summary>Reglas R1–R9 que dependen del árbol y de la configuración (compartidas por crear/editar/baja).</summary>
@@ -34,7 +35,12 @@ internal sealed class PoliticaCatalogo(ContabilidadDbContext db, FormatoCatalogo
         return motivo is null ? c! : throw new BusinessRuleException("CONTAB_CUENTA_CODIGO_INVALIDO", $"Código inválido: {motivo}.");
     }
 
-    /// <summary>R3: el padre existe (de esta empresa, por el filtro), está activo y no es afectable explícito.</summary>
+    public bool Deriva => Opciones.Tipo.DerivarPorJerarquia;
+
+    /// <summary>
+    /// R3: el padre existe (de esta empresa, por el filtro) y está activo. Con tipo derivado (P20) un padre afectable se acepta
+    /// (se convierte con <see cref="ConvertirPadreSiAfectableAsync"/>); sin derivación sigue rechazándose.
+    /// </summary>
     public async Task<CuentaContable?> ValidarPadreAsync(Guid? padreId, CancellationToken cancellationToken)
     {
         if (padreId is null) return null;
@@ -42,9 +48,40 @@ internal sealed class PoliticaCatalogo(ContabilidadDbContext db, FormatoCatalogo
             ?? throw new BusinessRuleException("CONTAB_CUENTA_PADRE_INVALIDO", "La cuenta padre no existe.");
         if (!padre.Activa)
             throw new BusinessRuleException("CONTAB_CUENTA_PADRE_INVALIDO", $"La cuenta padre {padre.Codigo} está inactiva.");
-        if (padre.Tipo == TipoCuenta.Afectable)
+        if (padre.EsRubro)
+            throw new BusinessRuleException("CONTAB_CUENTA_PADRE_INVALIDO",
+                $"{padre.Codigo} es un rubro de reporte: agrupa cuentas de nivel 1, pero no tiene cuentas debajo en el árbol. Elija una cuenta como padre.");
+        if (!Deriva && padre.Tipo == TipoCuenta.Afectable)
             throw new BusinessRuleException("CONTAB_CUENTA_PADRE_NO_ES_TITULO", $"La cuenta padre {padre.Codigo} es afectable; solo un título puede tener hijas.");
         return padre;
+    }
+
+    /// <summary>
+    /// P20: dar una hija a una cuenta afectable la convierte en acumulativa, salvo que ya tenga movimientos o sea colectiva.
+    /// Una afectable no tiene hijas (R4), así que el subárbol con uso a revisar es ella misma.
+    /// </summary>
+    public async Task ConvertirPadreSiAfectableAsync(CuentaContable? padre, CancellationToken cancellationToken)
+    {
+        if (!Deriva || padre is null || padre.Tipo == TipoCuenta.Titulo) return;
+        if (padre.CuentaControl != CuentaControl.Ninguna)
+            throw new BusinessRuleException("CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE",
+                $"La cuenta {padre.Codigo} es colectiva y debe seguir recibiendo los movimientos de su módulo: no puede tener cuentas debajo. Quite primero la marca de cuenta colectiva.");
+        if (await db.Usos.AnyAsync(u => u.CuentaId == padre.Id, cancellationToken))
+            throw new BusinessRuleException("CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO",
+                $"La cuenta padre {padre.Codigo} ya tiene movimientos: no puede pasar a acumular para recibir cuentas debajo, porque sus saldos quedarían en una cuenta que ya no recibe movimientos. "
+                + "Cree la cuenta en otra rama o use el procedimiento de impacto (reclasificación aprobada por Contabilidad).");
+        var rastreado = db.Cuentas.Local.FirstOrDefault(c => c.Id == padre.Id)
+            ?? await db.Cuentas.FirstAsync(c => c.Id == padre.Id, cancellationToken);
+        rastreado.ConvertirEnAcumulativa();
+    }
+
+    /// <summary>P24: el rubro indicado existe (de esta empresa) y es un rubro.</summary>
+    public async Task<Guid?> ValidarRubroAsync(Guid? rubroId, CancellationToken cancellationToken)
+    {
+        if (rubroId is null) return null;
+        var r = await db.Cuentas.AsNoTracking().FirstOrDefaultAsync(c => c.Id == rubroId, cancellationToken);
+        return r is { EsRubro: true } ? r.Id
+            : throw new BusinessRuleException("CONTAB_CUENTA_RUBRO_INVALIDO", "El rubro indicado no existe o no es un rubro de reporte.");
     }
 
     public void ValidarNivelYHerencia(int nivel, NaturalezaCuenta? naturaleza, CuentaContable? padre)
@@ -83,7 +120,8 @@ internal sealed class PoliticaCatalogo(ContabilidadDbContext db, FormatoCatalogo
 
 public sealed record CrearCuentaCommand(
     string Codigo, string Nombre, Guid? PadreId, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
-    CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte) : IRequest<CuentaResponse>;
+    CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte,
+    ClaseCuenta Clase = ClaseCuenta.Cuenta, Guid? RubroId = null) : IRequest<CuentaResponse>;
 
 public sealed class CrearCuentaValidator : AbstractValidator<CrearCuentaCommand>
 {
@@ -111,10 +149,14 @@ public sealed class CrearCuentaHandler(ContabilidadDbContext db, FormatoCatalogo
         var nivel = (padre?.Nivel ?? 0) + 1;
         _p.ValidarNivelYHerencia(nivel, request.Naturaleza, padre);
         _p.ValidarRama(codigo, padre);
+        // P19: con derivación el tipo enviado se ignora (una cuenta nueva no tiene hijas).
+        var tipo = _p.Deriva ? CuentaContable.DerivarTipo(nivel, tieneHijas: false) : request.Tipo;
+        await _p.ConvertirPadreSiAfectableAsync(padre, cancellationToken);
 
         var cuenta = new CuentaContable(Guid.CreateVersion7(), codigo, request.Nombre.Trim(), padre?.Id, nivel,
-            request.Naturaleza, request.Tipo, _p.ResolverControl(codigo, request.CuentaControl),
-            FormatoCatalogo.Texto(request.CodigoAgrupador), FormatoCatalogo.Texto(request.GrupoReporte));
+            request.Naturaleza, tipo, _p.ResolverControl(codigo, request.CuentaControl),
+            FormatoCatalogo.Texto(request.CodigoAgrupador), FormatoCatalogo.Texto(request.GrupoReporte), request.Clase);
+        cuenta.AsignarRubro(await _p.ValidarRubroAsync(request.RubroId, cancellationToken));
         db.Cuentas.Add(cuenta);
         try { await db.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateException e) when (PoliticaCatalogo.EsViolacionUnica(e, "ux_cuentas_contables_codigo"))
@@ -129,7 +171,7 @@ public sealed class CrearCuentaHandler(ContabilidadDbContext db, FormatoCatalogo
 
 public sealed record EditarCuentaCommand(
     Guid Id, int VersionEsperada, string Nombre, Guid? PadreId, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
-    CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte) : IRequest<CuentaResponse>;
+    CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte, Guid? RubroId = null) : IRequest<CuentaResponse>;
 
 public sealed class EditarCuentaValidator : AbstractValidator<EditarCuentaCommand>
 {
@@ -156,8 +198,19 @@ public sealed class EditarCuentaHandler(ContabilidadDbContext db, FormatoCatalog
         var todas = await db.Cuentas.ToListAsync(cancellationToken); // el catálogo de una empresa cabe en memoria (≈ miles)
         var descendientes = Descendientes(todas, cuenta.Id);
 
+        // R2: sin ciclos; R3/R4/R5 sobre el nuevo padre.
+        if (request.PadreId == cuenta.Id || descendientes.Any(d => d.Id == request.PadreId))
+            throw new BusinessRuleException("CONTAB_CUENTA_CICLO", "El padre indicado es la propia cuenta o uno de sus descendientes.");
+        var mismoPadre = request.PadreId == cuenta.PadreId;
+        var padre = mismoPadre && request.PadreId is not null
+            ? todas.First(c => c.Id == request.PadreId) : await _p.ValidarPadreAsync(request.PadreId, cancellationToken);
+        var nivel = (padre?.Nivel ?? 0) + 1;
+        var tieneHijas = todas.Any(c => c.PadreId == cuenta.Id);
+        // P19: con derivación el tipo enviado se ignora; manda la jerarquía.
+        var tipo = _p.Deriva ? CuentaContable.DerivarTipo(nivel, tieneHijas) : request.Tipo;
+
         // R8: campos sensibles bloqueados si la cuenta o un descendiente ya tiene uso.
-        var sensible = cuenta.PadreId != request.PadreId || cuenta.Naturaleza != request.Naturaleza || cuenta.Tipo != request.Tipo;
+        var sensible = cuenta.PadreId != request.PadreId || cuenta.Naturaleza != request.Naturaleza || cuenta.Tipo != tipo;
         if (sensible)
         {
             var ids = descendientes.Select(d => d.Id).Append(cuenta.Id).ToList();
@@ -170,20 +223,16 @@ public sealed class EditarCuentaHandler(ContabilidadDbContext db, FormatoCatalog
             }
         }
 
-        // R2: sin ciclos; R3/R4/R5 sobre el nuevo padre.
-        if (request.PadreId == cuenta.Id || descendientes.Any(d => d.Id == request.PadreId))
-            throw new BusinessRuleException("CONTAB_CUENTA_CICLO", "El padre indicado es la propia cuenta o uno de sus descendientes.");
-        var padre = request.PadreId == cuenta.PadreId && request.PadreId is not null
-            ? todas.First(c => c.Id == request.PadreId) : await _p.ValidarPadreAsync(request.PadreId, cancellationToken);
-        var nivel = (padre?.Nivel ?? 0) + 1;
-        if (request.Tipo == TipoCuenta.Afectable && todas.Any(c => c.PadreId == cuenta.Id))
+        if (tipo == TipoCuenta.Afectable && tieneHijas)
             throw new BusinessRuleException("CONTAB_CUENTA_AFECTABLE_CON_HIJAS", "Una cuenta con hijas no puede ser afectable.");
         var profundidad = descendientes.Count == 0 ? 0 : descendientes.Max(d => d.Nivel - cuenta.Nivel);
         _p.ValidarNivelYHerencia(nivel + profundidad, request.Naturaleza, padre);
+        if (!mismoPadre) await _p.ConvertirPadreSiAfectableAsync(padre, cancellationToken);
 
         var delta = nivel - cuenta.Nivel;
-        cuenta.Editar(request.Nombre.Trim(), request.PadreId, nivel, request.Naturaleza, request.Tipo, _p.ResolverControl(cuenta.Codigo, request.CuentaControl),
+        cuenta.Editar(request.Nombre.Trim(), request.PadreId, nivel, request.Naturaleza, tipo, _p.ResolverControl(cuenta.Codigo, request.CuentaControl),
             FormatoCatalogo.Texto(request.CodigoAgrupador), FormatoCatalogo.Texto(request.GrupoReporte));
+        cuenta.AsignarRubro(await _p.ValidarRubroAsync(request.RubroId, cancellationToken));
         foreach (var d in descendientes) d.FijarNivel(d.Nivel + delta);
         await db.SaveChangesAsync(cancellationToken);
         return CuentaResponse.De(cuenta);

@@ -217,7 +217,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
     }
 
     [Fact]
-    public async Task Hoja_base_provisional_importa_cuentas_pendientes_de_validacion_sin_suponer_nada()
+    public async Task Hoja_base_provisional_importa_cuentas_pendientes_de_naturaleza_y_con_tipo_derivado()
     {
         var suf = Sufijo();
         try
@@ -232,9 +232,11 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.All(lista.GetProperty("items").EnumerateArray(), i =>
             {
                 Assert.Equal(JsonValueKind.Null, i.GetProperty("naturaleza").ValueKind);
-                Assert.Equal(JsonValueKind.Null, i.GetProperty("tipo").ValueKind);
                 Assert.Equal("Ninguna", i.GetProperty("cuentaControl").GetString());
             });
+            // P19: el tipo se deriva de la jerarquía (raíz y nivel 2 con hijas acumulan; hojas de nivel 3, afectables).
+            Assert.Equal(["Titulo", "Titulo", "Afectable", "Afectable"], lista.GetProperty("items").EnumerateArray()
+                .OrderBy(i => i.GetProperty("codigo").GetString()).Select(i => i.GetProperty("tipo").GetString()!).ToArray());
             Assert.Equal("100", (await Json(await c.GetAsync($"{Base}/cuentas?q={suf}&limit=1"))).GetProperty("items")[0].GetProperty("codigoAgrupador").GetString());
         }
         finally { await Limpiar(factory.Services, suf); }

@@ -42,19 +42,22 @@ public sealed class Perfilador(FormatoCatalogo f)
         if (N("CONTAB_IMPORT_NATURALEZA_DESCONOCIDA") > 0)
             reabre.Add(new("Naturaleza no reconocida", "Corregir la naturaleza en el archivo (Deudora o Acreedora) o confirmar el valor con Contabilidad."));
         if (N("CONTAB_IMPORT_TIPO_DESCONOCIDO") > 0)
-            reabre.Add(new("Tipo (título/afectable) no reconocido", "Corregir el tipo en el archivo (título o afectable) o confirmar el valor con Contabilidad."));
+            reabre.Add(new("Tipo (acumula/afectable) no reconocido", "Corregir el tipo en el archivo o quitar la columna: el sistema lo calcula por la jerarquía."));
         if (r.Huerfanas > 0)
             reabre.Add(new("Cuentas huérfanas", "Agregar al archivo las cuentas padre que faltan o revisar sus códigos."));
         if (r.ColumnasSinMapeo.Count > 0)
-            reabre.Add(new("Columnas que no se cargan (p. ej. Tipo)", "Confirmar con Contabilidad qué significan; hoy no se cargan al catálogo."));
+            reabre.Add(new("Columnas que no se cargan (p. ej. Tipo)", "La clasificación «Tipo» solo se usa para reconocer títulos de reporte y rubros; el resto de sus valores no se carga al catálogo."));
         if (r.NivelContableDiscrepancias > 0)
             reabre.Add(new("Nivel contable distinto del derivado", "Revisar el código o el nivel en el archivo; se guarda el nivel que corresponde al código."));
-        if (filas.Any(x => x.EnArbol && x.Tipo is null || x.EnArbol && x.Naturaleza is null))
-            reabre.Add(new("Cuentas pendientes de validación (sin naturaleza o sin tipo)", "Contabilidad debe completar naturaleza y tipo; mientras tanto esas cuentas no reciben movimientos."));
+        if (filas.Any(x => x.EnArbol && x.Clase == ClaseCuenta.Cuenta && x.Naturaleza is null))
+            reabre.Add(new("Cuentas pendientes de validación (sin naturaleza)", "Contabilidad debe completar la naturaleza (p. ej. de las cuentas de orden); mientras tanto esas cuentas no reciben movimientos."));
+        if (filas.Any(x => x.Clase == ClaseCuenta.Rubro))
+            reabre.Add(new("Rubros de reporte", "Se asocian a las cuentas de nivel 1 que aparecen debajo de cada rubro en el archivo (propuesta para pruebas). Confirmar con Contabilidad qué suma cada rubro y el tratamiento de «Acumula rubro»."));
         if (N("CONTAB_IMPORT_CONTROL_CONFLICTO") > 0)
             reabre.Add(new("Conflicto con cuentas de control", "Revisar con Contabilidad cuáles son las cuentas de control."));
 
         var valida = filas.Where(x => x.EnArbol).ToList();
+        var cuentas = valida.Where(x => x.Clase == ClaseCuenta.Cuenta).ToList();
         return new PerfilImportacion(
             Resumen: new
             {
@@ -64,6 +67,9 @@ public sealed class Perfilador(FormatoCatalogo f)
                 r.ColumnasEncontradas, r.ColumnasFaltantes, r.ColumnasIgnoradas,
                 Codificacion = new { Fallback1252 = r.CodificacionFallback, CaracteresReemplazo = r.CaracteresReemplazo },
                 CodigosRellenados = filas.Count(x => x.Rellenado),
+                FilasTitulo = r.FilasTitulo,
+                Rubros = valida.Count(x => x.Clase == ClaseCuenta.Rubro),
+                CuentasConRubro = valida.Count(x => x.RubroCodigo is not null),
                 Acciones = filas.GroupBy(x => x.Accion).ToDictionary(g => g.Key, g => g.Count()),
                 Huella = r.Huella,
             },
@@ -92,7 +98,10 @@ public sealed class Perfilador(FormatoCatalogo f)
             {
                 r.Huerfanas, r.Ciclos, r.DuplicadosCodigo, r.DuplicadosOrigen, r.TitulosSinHijos, r.AfectablesConHijos,
                 r.ProfundidadMaxima, f.Opciones.NivelMaximo,
-                HojasSinTipo = valida.Count(x => x.Tipo is null),
+                // P19: tipo calculado por la jerarquía (o el explícito si la derivación está apagada).
+                Acumulan = cuentas.Count(x => x.Tipo == TipoCuenta.Titulo),
+                Afectables = cuentas.Count(x => x.Tipo == TipoCuenta.Afectable),
+                PadresAConvertir = r.PadresAConvertir.Count,
             },
             Control: new
             {
@@ -100,11 +109,11 @@ public sealed class Perfilador(FormatoCatalogo f)
                 Conflictos = N("CONTAB_IMPORT_CONTROL_CONFLICTO"),
                 MarcadasPorArchivo = filas.Count(x => x.Control != CuentaControl.Ninguna),
             },
+            // P25: solo cuentas (no rubros) sin naturaleza; el tipo ya no queda pendiente.
             PendientesValidacion: new
             {
-                SinNaturaleza = valida.Count(x => x.Naturaleza is null),
-                SinTipo = valida.Count(x => x.Tipo is null),
-                Pendientes = valida.Count(x => x.Naturaleza is null || x.Tipo is null),
+                SinNaturaleza = cuentas.Count(x => x.Naturaleza is null),
+                Pendientes = cuentas.Count(x => x.Naturaleza is null),
             },
             NivelContable: new
             {

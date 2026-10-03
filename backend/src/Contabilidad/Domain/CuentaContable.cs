@@ -8,12 +8,20 @@ namespace Millet.Contabilidad.Domain;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum NaturalezaCuenta : short { Deudora = 0, Acreedora = 1 }
 
-/// <summary>Título agrupa y no recibe movimientos; afectable es hoja y sí los recibe.</summary>
+/// <summary>Título = acumula (no recibe movimientos); afectable = recibe movimientos (P19: se deriva de la jerarquía).</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TipoCuenta : short { Titulo = 0, Afectable = 1 }
 
+/// <summary>Cuentas colectivas (P23): se afectan solo desde su módulo, que lleva el detalle por persona.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum CuentaControl : short { Ninguna = 0, Clientes = 1, Proveedores = 2 }
+public enum CuentaControl : short { Ninguna = 0, Clientes = 1, Proveedores = 2, Deudores = 3, Acreedores = 4 }
+
+/// <summary>
+/// P24 (propuesta del TL para pruebas): un rubro es una agrupación de REPORTE separada del árbol de niveles: no tiene padre
+/// ni hijas, no recibe movimientos y agrupa cuentas de nivel 1 por relación explícita (<see cref="CuentaContable.RubroId"/>).
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ClaseCuenta : short { Cuenta = 0, Rubro = 1 }
 
 /// <summary>Origen declarado por quien quiere afectar una cuenta (regla R10).</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -38,23 +46,34 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     public CuentaControl CuentaControl { get; private set; }
     public string? CodigoAgrupador { get; private set; }
     public string? GrupoReporte { get; private set; }
+    public ClaseCuenta Clase { get; private set; }
+    /// <summary>Rubro de reporte al que pertenece una cuenta de nivel 1 (P24). Null en rubros y en cuentas con padre.</summary>
+    public Guid? RubroId { get; private set; }
 
+    public bool EsRubro => Clase == ClaseCuenta.Rubro;
     public bool Activa => Estatus == EstatusCatalogo.Activo;
 
-    /// <summary>P14: naturaleza o tipo nulos = pendiente de validación por Contabilidad (estado calculado; no se supone ni se deriva).</summary>
-    public bool PendienteValidacion => Naturaleza is null || Tipo is null;
+    /// <summary>P14/P19: naturaleza nula = pendiente de validación por Contabilidad (el tipo ya no queda pendiente: se deriva).</summary>
+    public bool PendienteValidacion => !EsRubro && Naturaleza is null;
+
+    /// <summary>
+    /// P19 (reglas de Contabilidad): nivel 1 acumula; una cuenta con hijas (activas o no) acumula; nivel ≥ 2 sin hijas recibe movimientos.
+    /// </summary>
+    public static TipoCuenta DerivarTipo(int nivel, bool tieneHijas) =>
+        nivel <= 1 || tieneHijas ? TipoCuenta.Titulo : TipoCuenta.Afectable;
 
     private CuentaContable() { }
 
     public CuentaContable(
         Guid id, string codigo, string nombre, Guid? padreId, int nivel,
         NaturalezaCuenta? naturaleza, TipoCuenta? tipo, CuentaControl control,
-        string? codigoAgrupador, string? grupoReporte) : base(id)
+        string? codigoAgrupador, string? grupoReporte, ClaseCuenta clase = ClaseCuenta.Cuenta) : base(id)
     {
         if (string.IsNullOrWhiteSpace(codigo) || codigo.Length > 30)
             throw new BusinessRuleException("CONTAB_CUENTA_CODIGO_INVALIDO",
                 "El código es requerido y no puede exceder 30 caracteres.");
         Codigo = codigo;
+        Clase = Enum.IsDefined(clase) ? clase : throw new BusinessRuleException("CONTAB_CUENTA_RUBRO_INVALIDO", "La clase de cuenta no es válida.");
         Editar(nombre, padreId, nivel, naturaleza, tipo, control, codigoAgrupador, grupoReporte);
     }
 
@@ -65,6 +84,10 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
         if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 254)
             throw new BusinessRuleException("CONTAB_CUENTA_NOMBRE_INVALIDO",
                 "El nombre es requerido y no puede exceder 254 caracteres.");
+        if (EsRubro && (padreId is not null || control != CuentaControl.Ninguna))
+            throw new BusinessRuleException("CONTAB_CUENTA_RUBRO_INVALIDO",
+                "Un rubro es una agrupación de reporte: no tiene cuenta padre ni puede ser cuenta colectiva.");
+        if (EsRubro) tipo = TipoCuenta.Titulo; // un rubro nunca recibe movimientos
         if (naturaleza is { } n && !Enum.IsDefined(n))
             throw new BusinessRuleException("CONTAB_CUENTA_NATURALEZA_INVALIDA", "La naturaleza no es válida.");
         if (control != CuentaControl.Ninguna && tipo != TipoCuenta.Afectable)
@@ -76,6 +99,7 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
 
         Nombre = nombre;
         PadreId = padreId;
+        if (padreId is not null) RubroId = null; // solo las cuentas de nivel 1 pertenecen a un rubro
         Nivel = (short)nivel;
         Naturaleza = naturaleza;
         Tipo = tipo;
@@ -85,6 +109,18 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     }
 
     public void FijarNivel(int nivel) => Nivel = (short)nivel;
+
+    /// <summary>P20: una afectable que recibe su primera hija pasa a acumular (el llamador ya verificó que no tiene movimientos ni es colectiva).</summary>
+    public void ConvertirEnAcumulativa() => Tipo = TipoCuenta.Titulo;
+    /// <summary>P24: asocia (o desasocia con null) una cuenta de nivel 1 a un rubro. Que el destino sea un rubro lo valida Application.</summary>
+    public void AsignarRubro(Guid? rubroId)
+    {
+        if (rubroId is not null && (EsRubro || PadreId is not null))
+            throw new BusinessRuleException("CONTAB_CUENTA_RUBRO_INVALIDO",
+                "Solo una cuenta de nivel 1 (sin cuenta padre) puede pertenecer a un rubro.");
+        RubroId = rubroId;
+    }
+
     public void Desactivar() => Estatus = EstatusCatalogo.Inactivo;
     public void Reactivar() => Estatus = EstatusCatalogo.Activo;
 }

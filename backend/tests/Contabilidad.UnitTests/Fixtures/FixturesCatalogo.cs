@@ -89,6 +89,52 @@ public static class FixturesCatalogo
         + "FIX-100.10.02.00;FIX Bancos;100.01;2;3;FIX-CATEGORIA-B\n"      // nivel contable discrepante (3 derivado)
         + "FIX-100.10.02.005;FIX Cuenta de ancho distinto;100.01;4;3;\n"; // último segmento de 3 dígitos
 
+    /// <summary>
+    /// FIX-formato-Laura: MISMO formato que la hoja «Plan de cuentas» del archivo de Contabilidad (encabezado de 8 columnas,
+    /// filas vacías, títulos de reporte sin código, rubros) más la columna opcional «Cuenta padre» para el caso de padre
+    /// explícito (fila 47 del real). Datos FICTICIOS; es la tabla que el cliente envía tras descartar la fila del nombre de empresa.
+    /// <paramref name="prefijo"/> reemplaza «FIX» en los códigos (las pruebas HTTP usan un prefijo único).
+    /// </summary>
+    public static ImportacionRequest FormatoLaura(string prefijo = "FIX", string? fuente = null)
+    {
+        const string bal = "Estado de Posicion Financiera (Balance)", res = "Estado de Pérdidas y Ganancias (Resultado)", notas = "Notas a los Estados Financieros";
+        string[] cols = ["Nivel Contable", "Numero", "Cuenta", "Tipo", "Naturaleza", "Reporte", "Nivel de cuenta SAT", "Código agrupador SAT", "Cuenta padre"];
+        string?[][] filas =
+        [
+            ["", "FIX-100.00.00.00", "FIX ACTIVO", "Rubro", "", bal, "", "", ""],                                   // fila 2: rubro
+            ["", "", "FIX Activo circulante", "Título", "", bal, "", "", ""],                                       // fila 3: título de reporte
+            ["1", "FIX-101.00.00.00", "FIX Caja y bancos", "Activo circulante", "Deudora", bal, "1", "101", ""],
+            ["2", "FIX-101.01.00.00", "FIX Bancos", "Activo circulante", "Deudora", bal, "2", "102", ""],             // nivel 2 con hijas: acumula
+            ["3", "FIX-101.01.01.00", "FIX Banco uno", "Activo circulante", "Deudora", bal, "3", "102.01", ""],
+            ["3", "FIX-101.01.02.00", "FIX Banco dos", "Activo circulante", "Deudora", bal, "3", "102.01", ""],
+            ["2", "FIX-101.02.00.00", "FIX Caja chica", "Activo circulante", "Deudora", bal, "2", "101.01", ""],        // nivel 2 sin hijas: afectable
+            ["", "", "", "", "", "", "", "", ""],                                                                     // vacía
+            ["1", "FIX-102.00.00.00", "FIX Clientes", "Activo circulante", "Deudora", bal, "1", "105", ""],
+            ["2", "FIX-102.01.00.00", "FIX Clientes nacionales", "Activo circulante", "Deudora", bal, "2", "105.01", ""],
+            ["2", "FIX-102.02.00.00", "FIX Deudores diversos", "Activo circulante", "Deudora", bal, "2", "107.05", ""],
+            ["1", "FIX-170.00.00.00", "FIX Activo fijo", "Activo fijo", "Deudora", bal, "1", "171", ""],
+            ["2", "FIX-170.05.00.07", "FIX Cuenta con padre explícito", "Activo fijo", "Deudora", bal, "2", "171.01", "FIX-170.00.00.00"], // caso fila 47
+            ["2", "FIX-170.01.00.00", "FIX Depreciación acumulada", "Activo fijo", "Acreedora", bal, "2", "171.02", ""],
+            ["3", "FIX-170.01.00.001", "FIX Depreciación de equipo", "Activo fijo", "Acreedora", bal, "3", "171.02", "FIX-170.01.00.00"], // 13 caracteres tras el prefijo
+            ["", "", "FIX Pasivo", "Titulo", "", bal, "", "", ""],                                                  // título de reporte
+            ["1", "FIX-201.00.00.00", "FIX Proveedores", "Pasivo circulante", "Acreedora", bal, "1", "201", ""],
+            ["2", "FIX-201.01.00.00", "FIX Proveedores nacionales", "Pasivo circulante", "Acreedora", bal, "2", "201.01", ""],
+            ["2", "FIX-201.02.00.00", "FIX Acreedores diversos", "Pasivo circulante", "Acreedora", bal, "2", "205.06", ""],
+            ["", "FIX-600.00.00.00", "FIX GASTOS", "Rubro", "", res, "", "", ""],
+            ["", "", "FIX Gastos generales", "Título", "", res, "", "", ""],                                      // título de reporte
+            ["1", "FIX-601.00.00.00", "FIX Gastos de operación", "Gastos", "Deudora", res, "1", "601", ""],
+            ["2", "FIX-601.01.00.00", "FIX Sueldos y salarios", "Gastos", "Deudora", res, "2", "601.01", ""],      // acumula
+            ["3", "FIX-601.01.01.00", "FIX Sueldos y salarios", "Gastos", "Deudora", res, "3", "601.01", ""],      // mismo nombre, afectable
+            ["", "", "", "", "", "", "", "", ""],                                                                     // vacía
+            ["", "FIX-700.00.00.00", "FIX CUENTAS DE ORDEN", "Acumula rubro", "", notas, "", "", ""],
+            ["1", "FIX-701.00.00.00", "FIX Valores en custodia", "Cuentas de orden", "", notas, "1", "", ""],    // sin naturaleza: pendiente
+            ["2", "FIX-701.01.00.00", "FIX Valores recibidos", "Otros gastos", "", notas, "2", "", ""],          // sin naturaleza: pendiente
+        ];
+        string? P(string? c) => c is null || prefijo == "FIX" ? c : c.Replace("FIX-", $"{prefijo}-", StringComparison.Ordinal);
+        return new(fuente, "FIX-formato-Laura.xlsx", null, cols,
+            [.. filas.Select(f => (IReadOnlyList<string?>)[.. f.Select((c, i) => c == "" ? null : i is 1 or 8 ? P(c) : c)])], null);
+    }
+
     public static string Sucio_Vacias() => "codigo;nombre;naturaleza;tipo_cuenta\n\n;;;\nFIX-1;FIX Uno;Deudora;Afectable\n;;;\n";
 
     /// <summary>Generador determinista de n filas (FIX-NNN.BB.00.00; B=00 es el título del bloque de 50).</summary>
@@ -104,6 +150,14 @@ public static class FixturesCatalogo
     }
 
     // ── Atajos ───────────────────────────────────────────────────────────────
+
+    /// <summary>Configuración por defecto con la derivación de tipo APAGADA (comportamiento anterior a P19: tipo explícito).</summary>
+    public static CatalogoOpciones SinDerivar()
+    {
+        var o = CatalogoOpciones.Predeterminadas();
+        o.Tipo.DerivarPorJerarquia = false;
+        return o;
+    }
 
     public static ResultadoAnalisis Analizar(string csv, CatalogoOpciones? opciones = null, ExistenteCatalogo? ex = null, string? fuente = null) =>
         Analizar(Utf8(csv), opciones, ex, fuente);

@@ -12,7 +12,8 @@ namespace Millet.Contabilidad.Application.Importacion;
 
 public sealed record FilaResultado(int Fila, string Accion, IReadOnlyList<ErrorFila> Errores);
 
-public sealed record ResumenImportacion(int Leidas, int Vacias, int Crear, int Actualizar, int SinCambios, int Rechazadas, int Errores, int Advertencias);
+public sealed record ResumenImportacion(
+    int Leidas, int Vacias, int Crear, int Actualizar, int SinCambios, int Rechazadas, int Errores, int Advertencias, int Omitidas);
 
 public sealed record VistaPreviaResponse(
     ResumenImportacion Resumen, string Huella, bool PuedeAplicar, IReadOnlyList<ErrorFila> Archivo, IReadOnlyList<FilaResultado> Filas);
@@ -35,7 +36,8 @@ internal static class AnalisisImportacion
             .ToDictionary(o => (o.Fuente, o.CodigoOrigen), o => porId[o.CuentaId]);
         var ex = new ExistenteCatalogo(
             [.. cuentas.Select(c => new CuentaExistente(c.Id, c.Codigo, c.Nombre, c.PadreId is { } p ? porId[p] : null,
-                c.Naturaleza, c.Tipo, c.CuentaControl, c.CodigoAgrupador, c.GrupoReporte, c.Activa, usadas.Contains(c.Id)))],
+                c.Naturaleza, c.Tipo, c.CuentaControl, c.CodigoAgrupador, c.GrupoReporte, c.Activa, usadas.Contains(c.Id),
+                c.Clase, c.RubroId is { } r ? porId[r] : null))],
             origenes);
         var fuente = FormatoCatalogo.Texto(request.Fuente)?.ToUpperInvariant();
         return (new ImportadorCatalogo(formato).Analizar(tabla, fuente, ex), formato);
@@ -58,7 +60,8 @@ public sealed class VistaPreviaImportacionHandler(
             a.Filas.Count + a.Vacias, a.Vacias,
             a.Filas.Count(f => f.Accion == Accion.Crear), a.Filas.Count(f => f.Accion == Accion.Actualizar),
             a.Filas.Count(f => f.Accion == Accion.SinCambios), a.Filas.Count(f => f.Accion == Accion.Rechazar),
-            hallazgos.Count(h => h.Severidad == "Error"), hallazgos.Count(h => h.Severidad == "Advertencia"));
+            hallazgos.Count(h => h.Severidad == "Error"), hallazgos.Count(h => h.Severidad == "Advertencia"),
+            a.Filas.Count(f => f.Accion == Accion.Omitir));
         log.LogInformation("Vista previa de catálogo: filas={Filas} errores={Errores} advertencias={Advertencias}",
             resumen.Leidas, resumen.Errores, resumen.Advertencias);
         return new VistaPreviaResponse(resumen, a.Huella, a.PuedeAplicar, a.Archivo,
@@ -123,12 +126,15 @@ public sealed class AplicarImportacionHandler(
         foreach (var f in a.Filas.Where(f => f.Accion is Accion.Crear or Accion.Actualizar))
         {
             Guid? padre = f.PadreCodigo is null ? null : ids[f.PadreCodigo];
-            if (f.Accion == Accion.Crear)
-                db.Cuentas.Add(new CuentaContable(ids[f.Codigo!], f.Codigo!, f.Nombre!, padre, f.Nivel, f.Naturaleza, f.Tipo,
-                    f.Control, f.Agrupador, f.Grupo));
-            else
-                entidades[f.Codigo!].Editar(f.Nombre!, padre, f.Nivel, f.Naturaleza, f.Tipo, f.Control, f.Agrupador, f.Grupo);
+            var cuenta = f.Accion == Accion.Crear
+                ? db.Cuentas.Add(new CuentaContable(ids[f.Codigo!], f.Codigo!, f.Nombre!, padre, f.Nivel, f.Naturaleza, f.Tipo,
+                    f.Control, f.Agrupador, f.Grupo, f.Clase)).Entity
+                : entidades[f.Codigo!];
+            if (f.Accion == Accion.Actualizar) cuenta.Editar(f.Nombre!, padre, f.Nivel, f.Naturaleza, f.Tipo, f.Control, f.Agrupador, f.Grupo);
+            cuenta.AsignarRubro(f.RubroCodigo is null ? null : ids[f.RubroCodigo]);
         }
+        // P20: cuentas existentes afectables que reciben hijas en este archivo pasan a acumular.
+        foreach (var codigo in a.PadresAConvertir) entidades[codigo].ConvertirEnAcumulativa();
         foreach (var f in a.Filas.Where(f => f.OrigenNuevo && f.Accion != Accion.Rechazar))
             db.Origenes.Add(new CuentaContableOrigen(Guid.CreateVersion7(), ids[f.Codigo!], f.Fuente, f.CodigoOrigen!, lote.Id));
         // Niveles de descendientes existentes que no vienen en el archivo pero cambiaron de padre.

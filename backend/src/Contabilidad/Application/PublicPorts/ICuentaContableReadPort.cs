@@ -16,9 +16,12 @@ public interface ICuentaContableReadPort
     Task<CuentaContableLectura?> ObtenerAsync(Guid cuentaId, CancellationToken ct);
 }
 
-/// <summary>Mapeo 1:1 a los códigos CONTAB_CUENTA_* (NoExiste, Inactiva, PendienteValidacion, Titulo, ControlSoloAuxiliar).</summary>
+/// <summary>
+/// Motivo del rechazo. <c>Titulo</c> = la cuenta acumula (P19); <c>ControlSoloAuxiliar</c> = cuenta colectiva que solo se afecta
+/// desde su módulo (P23); <c>Rubro</c> = agrupación de reporte, nunca recibe movimientos (P24).
+/// </summary>
 [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
-public enum MotivoRechazoCuenta { NoExiste, Titulo, Inactiva, ControlSoloAuxiliar, PendienteValidacion }
+public enum MotivoRechazoCuenta { NoExiste, Titulo, Inactiva, ControlSoloAuxiliar, PendienteValidacion, Rubro }
 
 public sealed record CuentaContableValidacion(bool Valida, MotivoRechazoCuenta? Motivo, CuentaContableLectura? Cuenta);
 

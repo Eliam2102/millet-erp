@@ -19,6 +19,8 @@ public sealed class FormatoCatalogo
     private readonly Dictionary<string, NaturalezaCuenta> _naturalezas = [];
     private readonly Dictionary<string, TipoCuenta> _tipos = [];
     private readonly HashSet<string> _sinMapeo;
+    private readonly HashSet<string> _tiposTitulo;
+    private readonly HashSet<string> _tiposRubro;
 
     public CatalogoOpciones Opciones { get; }
 
@@ -46,6 +48,8 @@ public sealed class FormatoCatalogo
             foreach (var a in alias) _tipos.TryAdd(Clave(a), t);
         }
         _sinMapeo = opciones.Importacion.ColumnasSinMapeo.Select(NormalizarCabecera).ToHashSet();
+        _tiposTitulo = opciones.Importacion.TiposTitulo.Select(Clave).ToHashSet();
+        _tiposRubro = opciones.Importacion.TiposRubro.Select(Clave).ToHashSet();
     }
 
     // ── Texto ────────────────────────────────────────────────────────────────
@@ -84,8 +88,20 @@ public sealed class FormatoCatalogo
     public TipoCuenta? ParseTipo(string? s) =>
         s is not null && _tipos.TryGetValue(Clave(s), out var t) ? t : null;
 
+    /// <summary>Nombre del enum (sin acentos ni mayúsculas) o su singular («cliente», «deudor», «proveedor», «acreedor»).</summary>
     public static CuentaControl? ParseControl(string? s) =>
-        s is null ? null : Enum.GetValues<CuentaControl>().Cast<CuentaControl?>().FirstOrDefault(c => Clave(c.ToString()!) == Clave(s));
+        s is null ? null : Enum.GetValues<CuentaControl>().Cast<CuentaControl?>()
+            .FirstOrDefault(c => Clave(c.ToString()!) is var n && (n == Clave(s) || n == Clave(s) + "s" || n == Clave(s) + "es"));
+
+    /// <summary>P21: la cabecera es la columna de clasificación informativa (p. ej. «Tipo»).</summary>
+    public bool EsColumnaClasificacion(string cabecera) =>
+        NormalizarCabecera(cabecera) == NormalizarCabecera(Opciones.Importacion.ColumnaClasificacion);
+
+    /// <summary>P21: el valor de la clasificación identifica una fila de título de reporte.</summary>
+    public bool EsTipoTitulo(string? valor) => valor is not null && _tiposTitulo.Contains(Clave(valor));
+
+    /// <summary>P24: el valor de la clasificación identifica un rubro de reporte («Rubro», «Acumula rubro»).</summary>
+    public bool EsTipoRubro(string? valor) => valor is not null && _tiposRubro.Contains(Clave(valor));
 
     public IReadOnlyList<string> AliasesColumna(string canonica) =>
         Opciones.Importacion.Columnas.GetValueOrDefault(canonica) ?? [];

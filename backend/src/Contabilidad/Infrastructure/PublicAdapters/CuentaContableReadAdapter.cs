@@ -8,7 +8,8 @@ namespace Millet.Contabilidad.Infrastructure.PublicAdapters;
 
 /// <summary>
 /// Adaptador productivo de <see cref="ICuentaContableReadPort"/> (lo hospeda el owner, ADR-0050).
-/// Reglas R6/R7/R10 + P14: orden de rechazo NoExiste → Inactiva → PendienteValidacion → Titulo → ControlSoloAuxiliar.
+/// Reglas R6/R7/R10 + P14/P19/P23/P24: orden de rechazo NoExiste → Rubro → Inactiva → PendienteValidacion → Titulo (acumula)
+/// → ControlSoloAuxiliar. Un tipo nulo (dato previo a P19) se trata como acumula: nunca se acepta un movimiento por omisión.
 /// El filtro global por empresa hace que una cuenta de otra empresa no exista.
 /// </summary>
 public sealed class CuentaContableReadAdapter(ContabilidadDbContext db, FormatoCatalogo formato) : ICuentaContableReadPort
@@ -33,16 +34,19 @@ public sealed class CuentaContableReadAdapter(ContabilidadDbContext db, FormatoC
         if (c is null) return new(false, MotivoRechazoCuenta.NoExiste, null);
         var l = Lectura(c);
         MotivoRechazoCuenta? motivo =
-            !c.Activa ? MotivoRechazoCuenta.Inactiva
+            c.EsRubro ? MotivoRechazoCuenta.Rubro
+            : !c.Activa ? MotivoRechazoCuenta.Inactiva
             : c.PendienteValidacion ? MotivoRechazoCuenta.PendienteValidacion
-            : c.Tipo == TipoCuenta.Titulo ? MotivoRechazoCuenta.Titulo
+            : c.Tipo != TipoCuenta.Afectable ? MotivoRechazoCuenta.Titulo
             : c.CuentaControl != CuentaControl.Ninguna && !OrigenPermitido(c.CuentaControl, origen) ? MotivoRechazoCuenta.ControlSoloAuxiliar
             : null;
         return new(motivo is null, motivo, l);
     }
 
+    /// <summary>P23: la captura manual nunca afecta una cuenta colectiva, diga lo que diga la configuración.</summary>
     private bool OrigenPermitido(CuentaControl control, OrigenMovimiento origen) =>
-        formato.Opciones.OrigenesControl.GetValueOrDefault(control.ToString())?.Contains(origen.ToString()) ?? false;
+        origen != OrigenMovimiento.Manual
+        && (formato.Opciones.OrigenesControl.GetValueOrDefault(control.ToString())?.Contains(origen.ToString()) ?? false);
 
     private static CuentaContableLectura Lectura(CuentaContable c) =>
         new(c.Id, c.Codigo, c.Nombre, c.Naturaleza, c.Tipo, c.Activa, c.CuentaControl, c.PendienteValidacion);

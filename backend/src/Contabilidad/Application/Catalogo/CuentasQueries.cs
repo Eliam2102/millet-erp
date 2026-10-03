@@ -9,8 +9,10 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Contabilidad.Application.Catalogo;
 
+/// <summary><c>RubroId</c> = cuentas de nivel 1 asociadas a ese rubro (P24); <c>Clase</c> separa cuentas de rubros.</summary>
 public sealed record ListarCuentasQuery(
-    EstatusCatalogo? Estatus, TipoCuenta? Tipo, string? Q, Guid? PadreId, bool? Pendientes, int Offset, int Limit)
+    EstatusCatalogo? Estatus, TipoCuenta? Tipo, string? Q, Guid? PadreId, bool? Pendientes, int Offset, int Limit,
+    ClaseCuenta? Clase = null, Guid? RubroId = null)
     : IRequest<PagedResponse<CuentaResponse>>;
 
 public sealed class ListarCuentasHandler(ContabilidadDbContext db) : IRequestHandler<ListarCuentasQuery, PagedResponse<CuentaResponse>>
@@ -21,7 +23,10 @@ public sealed class ListarCuentasHandler(ContabilidadDbContext db) : IRequestHan
         if (request.Estatus is { } e) q = q.Where(c => c.Estatus == e);
         if (request.Tipo is { } t) q = q.Where(c => c.Tipo == t);
         if (request.PadreId is { } p) q = q.Where(c => c.PadreId == p);
-        if (request.Pendientes is { } pend) q = q.Where(c => (c.Naturaleza == null || c.Tipo == null) == pend);
+        if (request.Clase is { } cl) q = q.Where(c => c.Clase == cl);
+        if (request.RubroId is { } r) q = q.Where(c => c.RubroId == r);
+        // P19/P25: pendiente = cuenta (no rubro) sin naturaleza.
+        if (request.Pendientes is { } pend) q = q.Where(c => (c.Clase == ClaseCuenta.Cuenta && c.Naturaleza == null) == pend);
         if (!string.IsNullOrWhiteSpace(request.Q))
         {
             var aguja = request.Q.Trim();
@@ -48,7 +53,8 @@ public sealed class ArbolCuentasHandler(ContabilidadDbContext db) : IRequestHand
 {
     public async Task<IReadOnlyList<CuentaArbolNodo>> Handle(ArbolCuentasQuery request, CancellationToken cancellationToken)
     {
-        var q = db.Cuentas.AsNoTracking().Where(c => c.PadreId == request.RaizId);
+        // P24: los rubros no son nodos del árbol de niveles.
+        var q = db.Cuentas.AsNoTracking().Where(c => c.PadreId == request.RaizId && c.Clase == ClaseCuenta.Cuenta);
         if (request.Estatus is { } e) q = q.Where(c => c.Estatus == e);
         var hijas = await q.OrderBy(c => c.Codigo).ToListAsync(cancellationToken);
         var ids = hijas.Select(h => h.Id).ToList();

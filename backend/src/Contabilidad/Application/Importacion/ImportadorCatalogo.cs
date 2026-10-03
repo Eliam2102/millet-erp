@@ -8,6 +8,8 @@ namespace Millet.Contabilidad.Application.Importacion;
 public static class Accion
 {
     public const string Crear = "Crear", Actualizar = "Actualizar", SinCambios = "SinCambios", Rechazar = "Rechazar";
+    /// <summary>P21: fila de título de reporte sin código; no es una cuenta y no se carga.</summary>
+    public const string Omitir = "Omitida";
 }
 
 /// <summary>Error/advertencia accionable por fila (§20.4). <c>Fila</c> 0 = hallazgo del archivo completo.</summary>
@@ -15,7 +17,8 @@ public sealed record ErrorFila(int Fila, string? Columna, string Codigo, string 
 
 public sealed record CuentaExistente(
     Guid Id, string Codigo, string Nombre, string? PadreCodigo, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
-    CuentaControl Control, string? Agrupador, string? Grupo, bool Activa, bool Usada);
+    CuentaControl Control, string? Agrupador, string? Grupo, bool Activa, bool Usada,
+    ClaseCuenta Clase = ClaseCuenta.Cuenta, string? RubroCodigo = null);
 
 /// <summary>Foto del catálogo de la empresa. <c>OrigenACodigo</c>: (fuente, código de origen) → código de cuenta.</summary>
 public sealed record ExistenteCatalogo(
@@ -54,6 +57,12 @@ public sealed class FilaAnalizada
     public int LongitudCodigo { get; set; }
     public int Segmentos { get; set; }
     public bool ControlCoincide { get; set; }
+    public string? ClasificacionTxt { get; set; }
+    /// <summary>P21: fila sin código que la columna de clasificación marca como título de reporte.</summary>
+    public bool EsTituloReporte { get; set; }
+    public ClaseCuenta Clase { get; set; }
+    /// <summary>P24: rubro (código) al que queda asociada una cuenta de nivel 1.</summary>
+    public string? RubroCodigo { get; set; }
 
     public bool TieneErrores => Errores.Any(e => e.Severidad == "Error");
 }
@@ -82,6 +91,9 @@ public sealed class ResultadoAnalisis
     public int ProfundidadMaxima { get; set; }
     public int NivelContableComparadas { get; set; }
     public int NivelContableDiscrepancias { get; set; }
+    public int FilasTitulo { get; set; }
+    /// <summary>P20: cuentas existentes afectables que reciben hijas en este archivo y pasarán a acumular.</summary>
+    public HashSet<string> PadresAConvertir { get; } = [];
 
     public IEnumerable<ErrorFila> Hallazgos => Archivo.Concat(Filas.SelectMany(f => f.Errores));
     public bool PuedeAplicar => Filas.Count > 0 && Filas.All(f => f.Accion != Importacion.Accion.Rechazar)
@@ -104,6 +116,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
         public NaturalezaCuenta? Naturaleza { get; set; }
         public TipoCuenta? Tipo { get; set; }
         public bool Activa { get; set; } = true;
+        public bool Rubro { get; set; }
         public FilaAnalizada? Fila { get; set; }
         public int Nivel { get; set; } = -1;
     }
@@ -124,9 +137,12 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
         // ── 1. Columnas ──────────────────────────────────────────────────────
         var idx = new Dictionary<string, int>();
         var sinMapeo = new List<(string Nombre, int Indice)>();
+        var deriva = o.Tipo.DerivarPorJerarquia;
+        int? idxClasif = null;
         for (var i = 0; i < tabla.Columnas.Count; i++)
         {
             var cab = tabla.Columnas[i];
+            if (idxClasif is null && f.EsColumnaClasificacion(cab)) idxClasif = i;
             var canonica = f.ColumnaCanonica(cab);
             if (canonica is not null && idx.TryAdd(canonica, i)) { res.ColumnasEncontradas.Add(canonica); continue; }
             var n = FormatoCatalogo.NormalizarCabecera(cab);
@@ -146,7 +162,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
                 + $"Encabezados encontrados en el archivo: {string.Join(", ", tabla.Columnas.Where(x => !string.IsNullOrWhiteSpace(x)))}. "
                 + "Encabezados que se aceptan: "
                 + string.Join("; ", faltantes.Select(c => $"{Columna(c)}: {string.Join(", ", f.AliasesColumna(c))}")) + ".");
-        foreach (var c in ColumnasSemanticas.Where(c => !idx.ContainsKey(c)))
+        foreach (var c in ColumnasSemanticas.Where(c => !idx.ContainsKey(c) && !(deriva && c == "tipo_cuenta")))
             res.Archivo.Add(Err(0, c, "CONTAB_IMPORT_CAMPO_PENDIENTE", "Advertencia",
                 c == "cuenta_control"
                     ? "El archivo no trae la columna «Cuenta de control»: las cuentas se cargan sin control (Ninguna)."
@@ -174,7 +190,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
             c => FormatoCatalogo.Codigo(c.Codigo)!, c => Enum.Parse<CuentaControl>(c.Tipo));
         var existentes = ex.Cuentas.ToDictionary(c => c.Codigo);
         var nodos = ex.Cuentas.ToDictionary(c => c.Codigo,
-            c => new Nodo { Codigo = c.Codigo, Padre = c.PadreCodigo, Naturaleza = c.Naturaleza, Tipo = c.Tipo, Activa = c.Activa });
+            c => new Nodo { Codigo = c.Codigo, Padre = c.PadreCodigo, Naturaleza = c.Naturaleza, Tipo = c.Tipo, Activa = c.Activa, Rubro = c.Clase == ClaseCuenta.Rubro });
 
         foreach (var (num, celdas) in tabla.Filas)
         {
@@ -182,7 +198,20 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
             res.Filas.Add(fila);
             string? C(string col) => idx.TryGetValue(col, out var i) && i < celdas.Length ? FormatoCatalogo.Texto(celdas[i]) : null;
 
+            fila.ClasificacionTxt = idxClasif is { } ic && ic < celdas.Length ? FormatoCatalogo.Texto(celdas[ic]) : null;
             var codigo = FormatoCatalogo.Codigo(C("codigo"));
+            if (codigo is null && f.EsTipoTitulo(fila.ClasificacionTxt))
+            {
+                // P21: título de presentación del reporte; no es una cuenta. No entra en la huella ni en el árbol.
+                fila.EsTituloReporte = true;
+                fila.Accion = Accion.Omitir;
+                res.FilasTitulo++;
+                fila.Errores.Add(Err(num, "codigo", "CONTAB_IMPORT_FILA_TITULO", "Advertencia",
+                    "Fila de título de reporte (sin código): no es una cuenta y no se carga."));
+                continue;
+            }
+            fila.Clase = f.EsTipoRubro(fila.ClasificacionTxt) ? ClaseCuenta.Rubro : ClaseCuenta.Cuenta;
+            var esRubro = fila.Clase == ClaseCuenta.Rubro;
             if (codigo is null)
                 fila.Errores.Add(Err(num, "codigo", "CONTAB_IMPORT_CODIGO_FORMATO", "Error", "El código está vacío."));
             else
@@ -224,7 +253,8 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
             fila.Naturaleza = f.ParseNaturaleza(fila.NaturalezaTxt);
             if (fila.NaturalezaTxt is null)
             {
-                if (idx.ContainsKey("naturaleza"))
+                // P25: un rubro (agrupación de reporte) no exige naturaleza; una cuenta de orden sin naturaleza sí queda pendiente.
+                if (idx.ContainsKey("naturaleza") && !esRubro)
                     fila.Errores.Add(Err(num, "naturaleza", "CONTAB_IMPORT_CAMPO_PENDIENTE", "Advertencia",
                         "Naturaleza vacía: la cuenta queda pendiente de validación."));
             }
@@ -238,7 +268,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
             fila.Tipo = f.ParseTipo(fila.TipoTxt);
             if (fila.TipoTxt is null)
             {
-                if (idx.ContainsKey("tipo_cuenta"))
+                if (idx.ContainsKey("tipo_cuenta") && !deriva && !esRubro)
                     fila.Errores.Add(Err(num, "tipo_cuenta", "CONTAB_IMPORT_CAMPO_PENDIENTE", "Advertencia",
                         "Tipo (título/afectable) vacío: la cuenta queda pendiente de validación."));
             }
@@ -279,7 +309,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
 
             huella.Append(string.Join('\u001f', fila.Fuente, fila.CodigoOrigen, codigo, nombre, padre,
                 fila.Naturaleza?.ToString() ?? fila.NaturalezaTxt, fila.Tipo?.ToString() ?? fila.TipoTxt,
-                fila.Control, fila.Agrupador, fila.Grupo, fila.NivelContableTxt)).Append('\n');
+                fila.Control, fila.Agrupador, fila.Grupo, fila.NivelContableTxt, fila.Clase)).Append('\n');
 
             // Duplicados dentro del archivo
             if (codigo is not null && !porCodigo.TryAdd(codigo, fila))
@@ -320,14 +350,17 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
             if (controlCol is null && !controlCfg.ContainsKey(codigo)) fila.Control = actual?.Control ?? CuentaControl.Ninguna;
             fila.Agrupador ??= actual?.Agrupador;
             fila.Grupo ??= actual?.Grupo;
-            fila.PadreCodigo = fila.PadreExplicito
+            fila.PadreCodigo = esRubro ? null : fila.PadreExplicito
                 ?? (o.Jerarquia.Modo == CatalogoOpciones.ModoPorSegmentos ? f.PadrePorSegmentos(codigo)
                     : idx.ContainsKey("codigo_padre") ? null : actual?.PadreCodigo);
+            if (esRubro && fila.PadreExplicito is not null)
+                fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_CUENTA_RUBRO_INVALIDO", "Error",
+                    "Un rubro es una agrupación de reporte: no tiene cuenta padre."));
             fila.EnArbol = true;
             nodos[codigo] = new Nodo
             {
                 Codigo = codigo, Padre = fila.PadreCodigo, Naturaleza = fila.Naturaleza, Tipo = fila.Tipo,
-                Activa = actual?.Activa ?? true, Fila = fila,
+                Activa = actual?.Activa ?? true, Rubro = esRubro, Fila = fila,
             };
         }
         res.Huella = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(huella.ToString()))).ToLowerInvariant();
@@ -352,6 +385,16 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
         foreach (var n in nodos.Values) Nivel(n, []);
         foreach (var (codigo, n) in nodos) res.NivelesCalculados[codigo] = Math.Max(n.Nivel, 0);
 
+        // P24: asociación de rubros por orden del archivo (propuesta del TL): cada cuenta de nivel 1 queda en el último rubro
+        // visto arriba de ella. Antes del primer rubro (o con la opción apagada) se conserva el rubro que ya tenga.
+        string? rubroActual = null;
+        foreach (var fila in res.Filas.Where(x => x.EnArbol))
+        {
+            if (fila.Clase == ClaseCuenta.Rubro) { rubroActual = o.Importacion.RubroPorOrden ? fila.Codigo : null; continue; }
+            if (nodos[fila.Codigo!].Nivel == 1)
+                fila.RubroCodigo = rubroActual ?? existentes.GetValueOrDefault(fila.Codigo!)?.RubroCodigo;
+        }
+
         foreach (var fila in res.Filas.Where(x => x.EnArbol))
         {
             var n = nodos[fila.Codigo!];
@@ -364,9 +407,26 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
                     fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_IMPORT_PADRE_INEXISTENTE", "Error",
                         "El padre (explícito o deducido por segmentos) no existe en el archivo ni en el catálogo."));
                 }
-                else if (padre.Tipo == TipoCuenta.Afectable)
+                else if (padre.Rubro)
+                    fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_CUENTA_PADRE_INVALIDO", "Error",
+                        "El padre es un rubro de reporte: los rubros agrupan cuentas de nivel 1 pero no tienen cuentas debajo en el árbol."));
+                else if (!deriva && padre.Tipo == TipoCuenta.Afectable)
                     fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_CUENTA_PADRE_NO_ES_TITULO", "Error",
                         "El padre está marcado como afectable; solo un título puede tener hijas."));
+                else if (deriva && padre.Fila is null && padre.Tipo == TipoCuenta.Afectable)
+                {
+                    // P20: una cuenta existente que hoy recibe movimientos recibe hijas: pasa a acumular, si se puede.
+                    var exPadre = existentes[padre.Codigo];
+                    if (exPadre.Usada)
+                        fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO", "Error",
+                            "La cuenta padre ya tiene movimientos: no puede pasar a acumular para recibir cuentas debajo."));
+                    else if (exPadre.Control != CuentaControl.Ninguna)
+                        fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE", "Error",
+                            "La cuenta padre es colectiva y debe seguir recibiendo los movimientos de su módulo: no puede tener cuentas debajo."));
+                    else if (res.PadresAConvertir.Add(padre.Codigo))
+                        fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_IMPORT_PADRE_CONVERTIDO", "Advertencia",
+                            "La cuenta padre hoy recibe movimientos (sin ninguno registrado) y pasará a acumular al recibir esta cuenta debajo."));
+                }
                 else if (!padre.Activa && padre.Fila is null && fila.ExistenteId is null)
                     fila.Errores.Add(Err(num, "codigo_padre", "CONTAB_CUENTA_PADRE_INVALIDO", "Error", "El padre existe pero está inactivo."));
                 else if (o.HerenciaNaturaleza && padre.Naturaleza is { } pn && n.Naturaleza is { } hn && pn != hn)
@@ -398,23 +458,42 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
                     }
                 }
             }
-            if (fila.Tipo == TipoCuenta.Afectable && hijos.ContainsKey(n.Codigo))
+            if (deriva)
+            {
+                // P19: manda la jerarquía. Si el archivo trae un tipo explícito distinto, se avisa y se usa el derivado.
+                var derivado = fila.Clase == ClaseCuenta.Rubro ? TipoCuenta.Titulo : CuentaContable.DerivarTipo(n.Nivel, hijos.ContainsKey(n.Codigo));
+                if (fila.TipoTxt is not null && f.ParseTipo(fila.TipoTxt) is { } explicito && explicito != derivado)
+                    fila.Errores.Add(Err(num, "tipo_cuenta", "CONTAB_IMPORT_TIPO_DERIVADO", "Advertencia",
+                        $"El tipo del archivo no coincide con la jerarquía; se guarda «{TextoTipo(derivado)}»."));
+                fila.Tipo = derivado;
+            }
+            else if (fila.Tipo == TipoCuenta.Afectable && hijos.ContainsKey(n.Codigo))
             {
                 res.AfectablesConHijos++;
                 fila.Errores.Add(Err(num, "tipo_cuenta", "CONTAB_CUENTA_AFECTABLE_CON_HIJAS", "Error", "Una cuenta afectable no puede tener hijas."));
             }
             else if (fila.Tipo == TipoCuenta.Titulo && !hijos.ContainsKey(n.Codigo)) res.TitulosSinHijos++;
-            if (fila.Control != CuentaControl.Ninguna && fila.Tipo != TipoCuenta.Afectable)
+            if (fila.Clase == ClaseCuenta.Rubro && fila.Control != CuentaControl.Ninguna)
+                fila.Errores.Add(Err(num, "cuenta_control", "CONTAB_CUENTA_RUBRO_INVALIDO", "Error",
+                    "Un rubro es una agrupación de reporte: no puede ser cuenta colectiva."));
+            else if (fila.Control != CuentaControl.Ninguna && fila.Tipo != TipoCuenta.Afectable)
                 fila.Errores.Add(Err(num, "cuenta_control", "CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE", "Error",
-                    "Una cuenta de control debe estar marcada explícitamente como afectable."));
+                    deriva ? "Una cuenta colectiva debe recibir movimientos: no puede ser de nivel 1 ni tener cuentas debajo."
+                        : "Una cuenta de control debe estar marcada explícitamente como afectable."));
 
             // ── 5. Acción ────────────────────────────────────────────────────
             if (fila.TieneErrores) continue;
             var actual = fila.ExistenteId is null ? null : existentes[fila.Codigo!];
             if (actual is null) { fila.Accion = Accion.Crear; continue; }
+            if (actual.Clase != fila.Clase)
+            {
+                fila.Errores.Add(Err(num, null, "CONTAB_CUENTA_RUBRO_INVALIDO", "Error",
+                    "La cuenta ya existe con otra clase (cuenta o rubro); la importación no convierte una en otra."));
+                continue;
+            }
             var sensible = actual.PadreCodigo != fila.PadreCodigo || actual.Naturaleza != fila.Naturaleza || actual.Tipo != fila.Tipo;
             var distinto = sensible || actual.Nombre != fila.Nombre || actual.Control != fila.Control
-                || actual.Agrupador != fila.Agrupador || actual.Grupo != fila.Grupo;
+                || actual.Agrupador != fila.Agrupador || actual.Grupo != fila.Grupo || actual.RubroCodigo != fila.RubroCodigo;
             if (sensible && usoSubarbol.Contains(actual.Codigo))
             {
                 fila.Errores.Add(Err(num, null, "CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO", "Error",
@@ -453,11 +532,13 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
         return set;
     }
 
+    private static string TextoTipo(TipoCuenta t) => t == TipoCuenta.Titulo ? "Acumula (no recibe movimientos)" : "Afectable (recibe movimientos)";
+
     /// <summary>Nombre legible de una columna canónica para los mensajes al usuario.</summary>
     private static readonly Dictionary<string, string> NombresColumna = new()
     {
         ["codigo"] = "Código", ["nombre"] = "Nombre", ["codigo_padre"] = "Cuenta padre", ["naturaleza"] = "Naturaleza",
-        ["tipo_cuenta"] = "Tipo (título o afectable)", ["cuenta_control"] = "Cuenta de control",
+        ["tipo_cuenta"] = "Tipo (acumula o afectable)", ["cuenta_control"] = "Cuenta de control",
         ["codigo_agrupador"] = "Código agrupador", ["grupo_reporte"] = "Grupo de reporte",
         ["codigo_origen"] = "Código de origen", ["fuente"] = "Fuente",
     };
@@ -496,13 +577,17 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
         "CONTAB_IMPORT_CICLO" => "Rompa el ciclo corrigiendo el padre de alguna de las filas indicadas.",
         "CONTAB_IMPORT_CONTROL_CONFLICTO" => "Corrija la marca de control de esta fila para que coincida con las cuentas de control del sistema, o avise al administrador del sistema.",
         "CONTAB_IMPORT_CODIFICACION" => "Guarde el archivo como CSV UTF-8 y vuelva a cargarlo.",
+        "CONTAB_IMPORT_FILA_TITULO" => "Nada: es un título de presentación del reporte. Si debía ser una cuenta, escriba su código.",
+        "CONTAB_IMPORT_TIPO_DERIVADO" => "El sistema calcula si la cuenta acumula o recibe movimientos por su posición en el catálogo; no hace falta corregir el archivo.",
+        "CONTAB_IMPORT_PADRE_CONVERTIDO" => "Confirme que la cuenta padre ya no debe recibir movimientos directos; los futuros irán a las cuentas de debajo.",
+        "CONTAB_CUENTA_RUBRO_INVALIDO" => "Revise la fila: un rubro solo agrupa cuentas de nivel 1 para el reporte; no tiene padre, hijas ni movimientos.",
         "CONTAB_IMPORT_NIVEL_DISCREPANTE" => "Revise el código o el nivel contable del archivo; el nivel derivado de la jerarquía es el que se guarda.",
         "CONTAB_IMPORT_ORIGEN_CODIGO_DISTINTO" => "Use el código ya registrado para ese origen o cambie el código de origen.",
         "CONTAB_CUENTA_NIVEL_EXCEDIDO" => "La cuenta queda demasiado profunda en el árbol. Reduzca los niveles o avise al administrador del sistema.",
         "CONTAB_CUENTA_PADRE_NO_ES_TITULO" => "Marque el padre como título o cambie el padre de esta cuenta.",
         "CONTAB_CUENTA_PADRE_INVALIDO" => "Reactive el padre antes de importar sus hijas.",
         "CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO" => "Cree una cuenta nueva y desactive la anterior, o use el procedimiento de reclasificación aprobado por Contabilidad.",
-        "CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE" => "Marque la cuenta como afectable o quite la marca de control.",
+        "CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE" => "Quite la marca de cuenta colectiva o elija una cuenta que reciba movimientos (nivel 2 o más, sin cuentas debajo).",
         "CONTAB_CUENTA_AFECTABLE_CON_HIJAS" => "Marque la cuenta como título o reubique sus hijas.",
         "CONTAB_CUENTA_NATURALEZA_INVALIDA" => "La naturaleza debe coincidir con la de la cuenta padre.",
         _ => "Revise el valor de la celda.",

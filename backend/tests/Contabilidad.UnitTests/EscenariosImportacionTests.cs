@@ -18,7 +18,7 @@ public class EscenariosImportacionTests
     // ── Hoja base provisional (P14, P15, P16) ────────────────────────────────
 
     [Fact]
-    public void Hoja_base_mapea_alias_deduce_jerarquia_y_deja_naturaleza_y_tipo_pendientes()
+    public void Hoja_base_mapea_alias_deduce_jerarquia_deja_naturaleza_pendiente_y_deriva_el_tipo()
     {
         var r = Analizar(HojaBase());
         r.ColumnasEncontradas.Should().Contain(["codigo", "nombre", "codigo_agrupador", "nivel_contable"]);
@@ -26,8 +26,9 @@ public class EscenariosImportacionTests
         r.Filas[0].Nombre.Should().Be("FIX Activo");
         r.Filas[0].Agrupador.Should().Be("100");
         r.Filas.Take(4).Select(x => x.Nivel).Should().Equal(1, 2, 3, 3);
-        // naturaleza y tipo NO se suponen ni se derivan de la jerarquía ni de "Tipo"
-        r.Filas.Should().OnlyContain(x => x.Naturaleza == null && x.Tipo == null);
+        // la naturaleza NO se supone; el tipo se deriva de la jerarquía (P19), nunca de la columna informativa "Tipo"
+        r.Filas.Should().OnlyContain(x => x.Naturaleza == null);
+        r.Filas.Take(4).Select(x => x.Tipo).Should().Equal(TipoCuenta.Titulo, TipoCuenta.Titulo, TipoCuenta.Afectable, TipoCuenta.Afectable);
         r.Archivo.Should().Contain(e => e.Codigo == "CONTAB_IMPORT_CAMPO_PENDIENTE" && e.Columna == "naturaleza");
         r.Archivo.Should().Contain(e => e.Codigo == "CONTAB_IMPORT_COLUMNA_SIN_MAPEO" && e.Columna == "tipo");
         r.Archivo.Should().Contain(e => e.Codigo == "CONTAB_IMPORT_COLUMNA_SIN_MAPEO" && e.Columna == "nivel_de_cuenta_sat");
@@ -49,7 +50,7 @@ public class EscenariosImportacionTests
     public void Cuenta_pendiente_no_se_degrada_al_reimportar_ni_se_borra_un_valor_existente_con_celda_vacia()
     {
         var ex = Cat([Existente("FIX-1", tipo: TipoCuenta.Afectable, nat: NaturalezaCuenta.Acreedora)]);
-        var r = Analizar("codigo;nombre;naturaleza;tipo_cuenta\nFIX-1;FIX;;\n", ex: ex);
+        var r = Analizar("codigo;nombre;naturaleza;tipo_cuenta\nFIX-1;FIX;;\n", SinDerivar(), ex);
         r.Filas[0].Naturaleza.Should().Be(NaturalezaCuenta.Acreedora);
         r.Filas[0].Tipo.Should().Be(TipoCuenta.Afectable);
         r.Filas[0].Accion.Should().Be(Accion.SinCambios);
@@ -67,8 +68,8 @@ public class EscenariosImportacionTests
     [Fact]
     public void Codigo_en_CuentasControl_marca_la_cuenta_aunque_la_columna_no_exista()
     {
-        var r = Analizar("codigo;nombre;naturaleza;tipo_cuenta\nFIX-C1;Ctl;Deudora;Afectable\n", ConControl("FIX-C1", "Clientes"));
-        r.Filas[0].Control.Should().Be(CuentaControl.Clientes);
+        var r = Analizar("codigo;nombre;naturaleza;tipo_cuenta\nFIX-1.00;T;Deudora;Titulo\nFIX-1.10;Ctl;Deudora;Afectable\n", ConControl("FIX-1.10", "Clientes"));
+        r.Filas[1].Control.Should().Be(CuentaControl.Clientes);
         r.PuedeAplicar.Should().BeTrue();
     }
 
@@ -94,11 +95,11 @@ public class EscenariosImportacionTests
     public void Cambiar_padre_naturaleza_o_tipo_de_cuenta_usada_se_rechaza_pero_el_nombre_no()
     {
         var ex = Cat([Existente("FIX-9", tipo: TipoCuenta.Titulo), Existente("FIX-1", padre: null, usada: true)]);
-        var bloquea = Analizar("codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\nFIX-1;FIX;;Acreedora;Afectable\n", ex: ex);
+        var bloquea = Analizar("codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\nFIX-1;FIX;;Acreedora;Afectable\n", SinDerivar(), ex);
         bloquea.Filas[0].Accion.Should().Be(Accion.Rechazar);
         bloquea.Filas[0].Errores.Should().Contain(e => e.Codigo == "CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO");
 
-        var permite = Analizar("codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\nFIX-1;FIX nombre nuevo;;Deudora;Afectable\n", ex: ex);
+        var permite = Analizar("codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\nFIX-1;FIX nombre nuevo;;Deudora;Afectable\n", SinDerivar(), ex);
         permite.Filas[0].Accion.Should().Be(Accion.Actualizar);
     }
 
@@ -113,7 +114,7 @@ public class EscenariosImportacionTests
     [Fact]
     public void Origen_resuelve_identidad_y_codigo_distinto_para_el_mismo_origen_es_error()
     {
-        var ex = Cat([Existente("FIX-1")], new() { [("FIX-FUENTE", "O-1")] = "FIX-1" });
+        var ex = Cat([Existente("FIX-1", tipo: TipoCuenta.Titulo)], new() { [("FIX-FUENTE", "O-1")] = "FIX-1" });
         var igual = Analizar("fuente;codigo_origen;codigo;nombre;naturaleza;tipo_cuenta\nFIX-FUENTE;O-1;FIX-1;FIX;Deudora;Afectable\n", ex: ex);
         igual.Filas[0].Accion.Should().Be(Accion.SinCambios);
 
@@ -141,8 +142,14 @@ public class EscenariosImportacionTests
         r.Filas[0].Errores.Should().Contain(e => e.Codigo == "CONTAB_CUENTA_PADRE_INVALIDO");
 
         var ex = Cat([Existente("FIX-2", tipo: TipoCuenta.Titulo), Existente("FIX-2.1", padre: "FIX-2")]);
-        var afectable = Analizar("codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\nFIX-2;T;;Deudora;Afectable\n", ex: ex);
+        var afectable = Analizar("codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\nFIX-2;T;;Deudora;Afectable\n", SinDerivar(), ex);
         afectable.Filas[0].Errores.Should().Contain(e => e.Codigo == "CONTAB_CUENTA_AFECTABLE_CON_HIJAS");
+
+        // P19: con derivación manda la jerarquía; el tipo explícito contradictorio solo avisa.
+        var derivado = Analizar("codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\nFIX-2;T;;Deudora;Afectable\n", ex: ex);
+        derivado.PuedeAplicar.Should().BeTrue();
+        derivado.Filas[0].Tipo.Should().Be(TipoCuenta.Titulo);
+        derivado.Filas[0].Errores.Should().ContainSingle(e => e.Codigo == "CONTAB_IMPORT_TIPO_DERIVADO" && e.Severidad == "Advertencia");
     }
 
     [Fact]
@@ -175,7 +182,7 @@ public class EscenariosImportacionTests
 
         var pend = p.GetProperty("PendientesValidacion");
         pend.GetProperty("SinNaturaleza").GetInt32().Should().Be(5);
-        pend.GetProperty("SinTipo").GetInt32().Should().Be(5);
+        pend.TryGetProperty("SinTipo", out _).Should().BeFalse("el tipo ya no queda pendiente (P19)");
         var nivel = p.GetProperty("NivelContable");
         nivel.GetProperty("Comparadas").GetInt32().Should().Be(4);
         nivel.GetProperty("Discrepancias").GetInt32().Should().Be(1);
@@ -187,7 +194,7 @@ public class EscenariosImportacionTests
         huerfana.GetProperty("Ejemplos")[0].GetProperty("Fila").GetInt32().Should().Be(6);
         // Lo que hay que revisar va en lenguaje de usuario: sin claves internas de decisión ni de configuración.
         var decisiones = p.GetProperty("QueSeReabre").EnumerateArray().Select(q => q.GetProperty("Decision").GetString()!).ToList();
-        decisiones.Should().Contain(d => d.Contains("completar naturaleza y tipo")).And.Contain(d => d.Contains("qué significan"));
+        decisiones.Should().Contain(d => d.Contains("completar la naturaleza")).And.Contain(d => d.Contains("clasificación «Tipo»"));
         decisiones.Should().NotContain(d => d.Contains("P14") || d.Contains("P16") || d.Contains("Aliases") || d.Contains("Codigo.Patron"));
     }
 
