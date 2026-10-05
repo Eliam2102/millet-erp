@@ -18,6 +18,7 @@ import {
   Home,
   Inbox,
   Landmark,
+  FlaskConical,
   Layers,
   ListTree,
   Lock,
@@ -886,6 +887,27 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/importacion',
           icon: Upload,
           permission: PermisosCanonicos.ContabilidadCatalogoImportar,
+        },
+      ],
+    },
+    {
+      label: 'Dimensiones',
+      cards: [
+        {
+          label: 'Dimensiones contables',
+          description:
+            'Reglas de cuenta × tipo de documento × dimensión con vigencia, sucursales de cada centro de costo y tipos de documento.',
+          to: '/contabilidad/dimensiones',
+          icon: Layers,
+          permission: PermisosCanonicos.ContabilidadDimensionesLeer,
+        },
+        {
+          label: 'Probar movimientos',
+          description:
+            'Valida cuenta, tipo de documento y centros contra las reglas vigentes y registra movimientos de prueba.',
+          to: '/contabilidad/movimientos-prueba',
+          icon: FlaskConical,
+          permission: PermisosCanonicos.ContabilidadMovimientosValidar,
         },
       ],
     },
