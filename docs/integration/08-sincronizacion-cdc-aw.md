@@ -68,9 +68,13 @@ Además, la lectura de cada sincronizador debe estar habilitada (`IntegracionesA
 
 ## 5. Pruebas y resultados (2026-10-05)
 
-Todas opt-in (`Category=AwSandbox`, variable `AW_SANDBOX_CONN`), con PostgreSQL desechable (`tools/validate-integration-isolated.sh`), nunca `millet_dev`. Salida real de la corrida:
+Todas opt-in (`Category=AwSandbox`, variable `AW_SANDBOX_CONN`), con PostgreSQL desechable (`tools/validate-integration-isolated.sh`), nunca `millet_dev`. Resultado (sandbox, 2026-10-05):
 
-RESULTADOS_PENDIENTES
+| Prueba | Resultado |
+|---|---|
+| `AwCambiosCdcSandboxTests` (lector: cambios, borrados, paginación, LSN) | Pasa |
+| `AwCambiosAplicadorSandboxTests` (aplicador de punta a punta) | Pasa |
+| Escenarios de fallo: LSN expirado y caída del servidor a mitad de ciclo | Pasan |
 
 ### 5.1 Casos de uso de la tarea O1A-AW-INT cubiertos por CDC
 
