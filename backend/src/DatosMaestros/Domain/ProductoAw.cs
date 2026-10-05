@@ -82,8 +82,20 @@ public sealed class ProductoAw : BaseEntity, IAuditable
     /// <summary>Fecha de la baja controlada (nunca DELETE); null mientras el producto no esté dado de baja.</summary>
     public DateTime? FechaBaja { get; private set; }
 
+    // Clasificación de A+W; dueño A+W, no editable a mano. La familia de negocio es Tipo (BA_PRODUKTART) → Grupo
+    // (BA_PRODUKTGRP); Wgr (BA_WGR, jerárquico en KA_WGR) es el grupo de mercancía. CodigoModelo (BA_MCODE) es solo
+    // la marca/modelo y se repite entre productos (doc A+W "Familias y clasificación").
+    public string? CodigoModelo { get; private set; }
+    public string? Grupo { get; private set; }
+    public string? Tipo { get; private set; }
+    public string? Wgr { get; private set; }
+    public string? WgrDescripcion { get; private set; }
+
     private readonly List<ProductoAwVariante> _variantes = [];
     public IReadOnlyList<ProductoAwVariante> Variantes => _variantes;
+
+    private readonly List<ProductoAwComponente> _componentes = [];
+    public IReadOnlyList<ProductoAwComponente> Componentes => _componentes;
 
     private ProductoAw() { }
 
@@ -291,6 +303,42 @@ public sealed class ProductoAw : BaseEntity, IAuditable
         // Fase 2: aplicar.
         foreach (var (v, d) in cambios) v.Asignar(d.AltoMm, d.AnchoMm, d.EspesorMm, d.Composicion);
         _variantes.AddRange(nuevas);
+    }
+
+    /// <summary>Reemplaza la clasificación de A+W (null = A+W no informa el dato).</summary>
+    public void AplicarClasificacion(string? codigoModelo, string? grupo, string? tipo, string? wgr = null, string? wgrDescripcion = null)
+    {
+        if (codigoModelo is { Length: > 50 } || grupo is { Length: > 100 } || tipo is { Length: > 50 }
+            || wgr is { Length: > 10 } || wgrDescripcion is { Length: > 100 })
+            throw new BusinessRuleException("PRODUCTO_AW_CLASIFICACION_INVALIDA",
+                "Código de modelo y tipo no pueden exceder 50 caracteres, el grupo y la descripción de mercancía 100, ni la mercancía 10.");
+        CodigoModelo = codigoModelo;
+        Grupo = grupo;
+        Tipo = tipo;
+        Wgr = wgr;
+        WgrDescripcion = wgrDescripcion;
+    }
+
+    /// <summary>
+    /// Reemplazo completo del árbol de composición (es posicional). Filas por <c>Orden</c>: las existentes se
+    /// actualizan, las nuevas se agregan y las que ya no vienen se quitan. Valida todo antes de mutar.
+    /// </summary>
+    public void ReemplazarComponentes(IEnumerable<ProductoAwComponenteDato> datos)
+    {
+        var lista = datos.ToList();
+        var repetido = lista.GroupBy(d => d.Orden).FirstOrDefault(g => g.Count() > 1);
+        if (repetido is not null)
+            throw new BusinessRuleException("PRODUCTO_AW_COMPONENTE_ORDEN_DUPLICADO",
+                $"El orden {repetido.Key} viene repetido para el producto {ReferenciaExterna}.");
+        foreach (var d in lista) ProductoAwComponente.Validar(d);
+
+        _componentes.RemoveAll(c => lista.TrueForAll(d => d.Orden != c.Orden));
+        foreach (var d in lista)
+        {
+            var existente = _componentes.Find(c => c.Orden == d.Orden);
+            if (existente is null) _componentes.Add(new ProductoAwComponente(Guid.CreateVersion7(), Id, d));
+            else existente.Asignar(d);
+        }
     }
 
     private static void ValidarFiscales(

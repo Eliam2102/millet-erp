@@ -26,10 +26,20 @@ public static class AwProductoSnapshotMapper
             variantes.Add(new(clave, v.AltoMm, v.AnchoMm, v.EspesorMm, Limpiar(v.Composicion)));
         }
 
+        var componentes = new List<ProductoAwComponenteDato>();
+        foreach (var c in f.Componentes ?? [])
+        {
+            var cref = Limpiar(c.Ref);
+            if (cref is null) return new(null, $"componente sin ref (referencia {referencia}, orden {c.Orden}).");
+            componentes.Add(new(c.Orden, c.Nivel, c.PadreOrden, cref, Limpiar(c.Descripcion), Limpiar(c.Tipo), c.EspesorMm));
+        }
+
         return new(new AplicarProductoAwSnapshot(
             referencia, descripcion, NormalizarUnidad(f.UnidadMedida), f.Baja, variantes, leidoEnUtc,
             AwProductosOptions.VersionContrato, AwProductosOptions.VersionMapeo,
-            TransaccionOrigenUtc: AUtc(f.TransactionTime)), null);
+            TransaccionOrigenUtc: AUtc(f.TransactionTime),
+            CodigoModelo: Limpiar(f.CodigoModelo), Grupo: Limpiar(f.Grupo), Tipo: Limpiar(f.Tipo), Componentes: componentes,
+            Wgr: Limpiar(f.Wgr), WgrDescripcion: Limpiar(f.WgrDescripcion)), null);
     }
 
     /// <summary>

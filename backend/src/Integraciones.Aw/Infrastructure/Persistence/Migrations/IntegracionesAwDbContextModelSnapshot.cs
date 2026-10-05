@@ -24,6 +24,63 @@ namespace Millet.Integraciones.Aw.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwCdcWatermark", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("ActualizadoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("actualizado_en_utc");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Entidad")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("entidad");
+
+                    b.Property<string>("Lsn")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("lsn");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_aw_cdc_watermark");
+
+                    b.HasIndex("Entidad")
+                        .IsUnique()
+                        .HasDatabaseName("uq_aw_cdc_watermark_entidad");
+
+                    b.ToTable("aw_cdc_watermark", "integraciones_aw");
+                });
+
             modelBuilder.Entity("Millet.Integraciones.Aw.Domain.AwClientesEjecucion", b =>
                 {
                     b.Property<Guid>("Id")

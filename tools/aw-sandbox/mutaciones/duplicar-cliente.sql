@@ -1,0 +1,6 @@
+SET NOCOUNT ON;
+-- Segundo cliente con el mismo RFC (copia íntegra de ID 5, que cubre las columnas NOT NULL sin default) y otro ID.
+DELETE FROM SYSADM.KU_KUNDEN WHERE ID = 1001;
+SELECT * INTO #c FROM SYSADM.KU_KUNDEN WHERE ID = 5;
+UPDATE #c SET ID = 1001, NAME1 = N'CLIENTE DEMO 005 DUPLICADO';
+INSERT SYSADM.KU_KUNDEN SELECT * FROM #c;
