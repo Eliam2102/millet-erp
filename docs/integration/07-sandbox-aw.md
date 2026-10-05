@@ -4,7 +4,7 @@
 > Complementa [05](05-sincronizacion-clientes-aw.md) y [06](06-sincronizacion-productos-aw.md), cuyo "fixture ≠ integración real" sigue vigente.
 
 ## Qué es
-SQL Server 2022 en compatibilidad 130 (= 2016, como `SER-DATA\AWBUSINESS`) con el esquema `SYSADM` **extraído del A+W real** (solo estructura: tipos, nulabilidad, collation `Latin1_General_CS_AS`, PK/índices de las 5 tablas que leen los lectores) y datos 100 % sintéticos con las rarezas reales (`BA_PRODUKT=0`, `<indf>`, `PESOSMX`, medidas 0 = sin dato, `KZ_GESPERRT` 0/1/2, `BA_MCODE` y `UST_ID` repetidos, composiciones `6+0.89+6` y `3+12+3`). Los lectores reales (`AwClientesSqlOrigen`, `AwProductosSqlOrigen`) y los sincronizadores corren contra él y contra PostgreSQL.
+SQL Server 2022 en compatibilidad 130 (= 2016, como `SER-DATA\AWBUSINESS`) con el esquema `SYSADM` **íntegro del A+W real** (solo estructura: las 755 tablas con tipos, nulabilidad, IDENTITY, collation `Latin1_General_CS_AS`, 714 PK y 693 índices secundarios = los 1 407 índices del real) y datos 100 % sintéticos con las rarezas reales (`BA_PRODUKT=0`, `<indf>`, `PESOSMX`, medidas 0 = sin dato, `KZ_GESPERRT` 0/1/2, `BA_MCODE` y `UST_ID` repetidos, composiciones `6+0.89+6` y `3+12+3`). Los lectores reales (`AwClientesSqlOrigen`, `AwProductosSqlOrigen`) y los sincronizadores corren contra él y contra PostgreSQL.
 
 ## Uso
 ```bash
@@ -13,7 +13,8 @@ cd tools/aw-sandbox && cp .env.example .env   # poner contraseñas locales (.env
 ./aw-sandbox.sh mutar <caso>  # actualizar-cliente, duplicar-cliente, invalidar-moneda, invalidar-estado,
                               # bloquear-producto, actualizar-producto, cambiar-dias-catalogo, borrar-fila, unidad-desconocida
 ./aw-sandbox.sh reseed|reset|down
-./extraer-esquema.sh          # (VPN) regenera schema/01-esquema.sql desde el A+W real, solo SELECT
+./extraer-esquema-completo.sh > schema/full/01-esquema-completo.sql   # (VPN) DDL íntegro del real, solo SELECT
+./extraer-indices.sh > schema/full/02-indices.sql                      # (VPN) índices secundarios del real, solo SELECT
 ./perfilar.sh real|sandbox    # agregados sin PII para diff
 ```
 Pruebas (opt-in; sin `AW_SANDBOX_CONN` retornan temprano en verde): `dotnet test backend/tests/Api.IntegrationTests --filter "Category=AwSandbox"`.
@@ -21,6 +22,8 @@ Requieren una BD PostgreSQL desechable (`TestAssemblyInit`), nunca `millet_dev`.
 
 ## Cobertura (10 clientes + 10 productos, todas verdes)
 consulta/recepción paginada · actualización (fiscales/clave SAT del operador no se pisan) · duplicado (RFC/`UST_ID`/`BA_MCODE` repetidos no fusionan; barrido repetido = `SinCambios`) · dato inválido (moneda/estado/unidad) · baja y "ausencia ≠ baja" · conflicto de versión · fallo a mitad (contenedor detenido) · credenciales erróneas (error `auth`, sin filtrar la contraseña) · reintento (converge) · conciliación origen/destino con diferencias explícitas (`AwConciliacion`).
+
+El seed sintético solo informa las columnas relevantes: `03-defaults-temporales.sql` pone defaults mientras se siembra y `04-quitar-defaults.sql` los quita, de modo que la estructura final es idéntica a la real. **Nunca** usar `reset` si `AW_FULL` está cargada: borra el volumen `aw_sandbox_data` (usar `reseed`).
 
 ## Qué NO cubre
 Hybrid Connection, TLS verificado (el test usa `TrustServerCertificate` solo aquí), latencia y volumen reales (150 clientes / 160 productos vs 44 695 / 6 802), ventanas de barrido, cambios que haga A+W en producción.
