@@ -51,3 +51,10 @@ Verificadas con pruebas de componente; la revisión visual en navegador con sesi
 Protección de reglas por uso (ver plan §15.1). Migración `ContabilidadReglasDimensionUso`. Resultados tras el cambio: unitarias
 Contabilidad 129/129; integración filtro Contabilidad (BD desechable) 51/51 (1 nueva); Vitest `features/contabilidad` 69/69
 (1 nueva: eliminar regla sin usos); `tsc` y `eslint` limpios.
+
+## Ajuste v0.4 (2026-10-05): K10.2
+
+Ubicación → sucursal con corporativos y dimensiones proyecto/cliente/proveedor/banco. Migración única `ContabilidadDimensiones`.
+Resultados: unitarias Contabilidad 136/136 (7 nuevas); integración Contabilidad + CentrosCosto (BD desechable) 79/79 (prueba nueva
+`Proyecto_y_auxiliares_se_exigen_y_se_validan_contra_su_catalogo`; `Centro_de_otra_sucursal…` cubre ubicación sin sucursal y corporativo);
+Vitest 190/190 (nuevas: `UbicacionesTab.test.tsx` y proyecto obligatorio en la captura); `tsc` y `eslint` limpios.

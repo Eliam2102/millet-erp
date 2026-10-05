@@ -363,3 +363,18 @@ Ahora: tabla `contabilidad.reglas_dimension_uso` (migración `ContabilidadReglas
 registrados). Sin usos ⇒ la regla se edita o se borra (`DELETE /reglas-dimension/{id}`), sea futura o vigente. Con usos ⇒ solo se
 cierra, y no antes de la última fecha contable que validó (`CONTAB_REGLA_CIERRE_ANTES_DE_USO`). Confirmar un movimiento y escribir
 reglas comparten el mismo advisory lock. La póliza real deberá registrar también sus usos (`PLATFORM-TODO(<Polizas>)`).
+
+### 15.2 Ajuste v0.4 (2026-10-05): ficha K10.2 y respuestas del TL
+
+La ficha vigente de F1-CON-02 es **K10.2** (base de conocimiento del proyecto; vence el 23-oct) e incorpora las respuestas del
+cuestionario 08 de Contabilidad (C-02, C-03) y el catálogo de centros M1. Cambios aplicados:
+
+- **Ubicación → sucursal en lugar de CeCo ↔ sucursal.** `ubicaciones_sucursal` (Dim1 → sucursal, 101 Conkal … 105 Planta Pintura,
+  mismas claves que las sucursales del Excel de insumos) y `centros_corporativos` (Dim2 usable desde cualquier sucursal; supuesto:
+  Administración y Finanzas, Logística y Abasto de 101). Error nuevo `CONTAB_DIM_UBICACION_SIN_SUCURSAL`. V49 se confirma el 16-oct.
+- **Dimensiones nuevas:** proyecto (clave libre; V41), cliente, proveedor y banco, validados contra sus catálogos por puertos
+  (`ITerceroContabilidadPort` en Compartido, `ICuentaBancariaContabilidadPort` en Tesorería). Errores `CONTAB_DIM_AUXILIAR_NO_EXISTE`
+  / `_INACTIVO`. Solo los centros se derivan; proyecto y auxiliares cuentan si vienen capturados.
+- **Migración única** `ContabilidadDimensiones` (las tres migraciones previas de la rama se consolidaron antes del PR).
+- **Pendiente con Eliam:** cómo se reconoce el grupo de cuentas (rubro o primer dígito) para sembrar las reglas de C-03, y el
+  catálogo único de tipos de documento con K10.9 (TT, PC, RF, RC, AN, PR, PP, DP, EM, SM, IM, AC, AS).
