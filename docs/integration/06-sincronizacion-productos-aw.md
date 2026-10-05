@@ -8,6 +8,8 @@
 
 ---
 
+> Sandbox local (sin Hybrid Connection): ver [07](07-sandbox-aw.md).
+
 ## 0. Limitación explícita: fixture ≠ integración real
 
 **Los fixtures de este contrato son sintéticos y NO demuestran integración real con A+W.** Prueban la forma esperada y la política de sincronización del lado ERP, nada más. La lectura real de productos contra A+W depende de:
