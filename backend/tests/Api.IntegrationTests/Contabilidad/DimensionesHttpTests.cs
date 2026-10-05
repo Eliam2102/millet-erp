@@ -27,10 +27,14 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
     private static DateOnly Hoy() => DateOnly.FromDateTime(
         TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("America/Merida")).DateTime);
 
-    /// <summary>Datos FIX de un escenario: árbol de centros propio, 2 sucursales, una rama de cuentas y un tipo de documento.</summary>
+    /// <summary>
+    /// Datos FIX de un escenario: tres ubicaciones propias (A ligada a la sucursal A, B a la sucursal B y una sin sucursal), un
+    /// CeCo corporativo en la ubicación A, una rama de cuentas y un tipo de documento.
+    /// </summary>
     private sealed record Escenario(
         string Suf, HttpClient Admin, Guid Dim1, Guid Dim2A, Guid Dim2B, Guid Dim2SinSucursal, Guid Dim3A, Guid Dim3AInactiva, Guid Dim3B,
-        Guid SucursalA, Guid SucursalB, Guid CuentaRaiz, Guid CuentaHoja, Guid Tipo, Guid Grupo2, Guid Grupo3);
+        Guid SucursalA, Guid SucursalB, Guid CuentaRaiz, Guid CuentaHoja, Guid Tipo, Guid Grupo2, Guid Grupo3,
+        Guid Dim1B, Guid Dim1SinSucursal, Guid Dim2Corporativo);
 
     private async Task<Escenario> CrearEscenarioAsync()
     {
@@ -41,10 +45,13 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var g2 = await mediator.Send(new CrearGrupoDim2Command($"FIX G2 {suf}"));
         var g3 = await mediator.Send(new CrearGrupoDim3Command($"FIX G3 {suf}"));
-        var d1 = await mediator.Send(new CrearDim1Command($"D{suf}", $"FIX Planta {suf}"));
-        var d2a = await mediator.Send(new CrearDim2Command(d1.Id, $"A{suf}", "FIX CeCo sucursal A", g2.Id));
-        var d2b = await mediator.Send(new CrearDim2Command(d1.Id, $"B{suf}", "FIX CeCo sucursal B", g2.Id));
-        var d2c = await mediator.Send(new CrearDim2Command(d1.Id, $"C{suf}", "FIX CeCo sin sucursal", g2.Id));
+        var d1 = await mediator.Send(new CrearDim1Command($"D{suf}", $"FIX Ubicación A {suf}"));
+        var d1b = await mediator.Send(new CrearDim1Command($"E{suf}", $"FIX Ubicación B {suf}"));
+        var d1s = await mediator.Send(new CrearDim1Command($"F{suf}", $"FIX Ubicación sin sucursal {suf}"));
+        var d2a = await mediator.Send(new CrearDim2Command(d1.Id, $"A{suf}", "FIX CeCo de la ubicación A", g2.Id));
+        var d2k = await mediator.Send(new CrearDim2Command(d1.Id, $"K{suf}", "FIX CeCo corporativo", g2.Id));
+        var d2b = await mediator.Send(new CrearDim2Command(d1b.Id, $"B{suf}", "FIX CeCo de la ubicación B", g2.Id));
+        var d2c = await mediator.Send(new CrearDim2Command(d1s.Id, $"C{suf}", "FIX CeCo de ubicación sin sucursal", g2.Id));
         var d3a = await mediator.Send(new CrearDim3Command(d2a.Id, $"QA{suf}", "FIX equipo A", g3.Id));
         var d3x = await mediator.Send(new CrearDim3Command(d2a.Id, $"QX{suf}", "FIX equipo dado de baja", g3.Id));
         await mediator.Send(new CambiarEstatusDim3Command(d3x.Id, d3x.Version, Activar: false));
@@ -56,10 +63,12 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
         var hoja = await CrearCuenta(admin, Codigo(suf, "5.1"), "FIX gasto de mantenimiento", Id(raiz));
         var tipo = await Json(await admin.PostAsJsonAsync($"{Base}/tipos-documento", new { clave = $"FIX-{suf}", nombre = $"FIX Factura {suf}", esPrueba = true }));
 
-        (await admin.PutAsJsonAsync($"{Base}/centros-sucursal/{d2a.Id}", new { sucursalIds = new[] { sucA } })).EnsureSuccessStatusCode();
-        (await admin.PutAsJsonAsync($"{Base}/centros-sucursal/{d2b.Id}", new { sucursalIds = new[] { sucB } })).EnsureSuccessStatusCode();
+        (await admin.PutAsJsonAsync($"{Base}/ubicaciones-sucursal/{d1.Id}", new { sucursalId = sucA })).EnsureSuccessStatusCode();
+        (await admin.PutAsJsonAsync($"{Base}/ubicaciones-sucursal/{d1b.Id}", new { sucursalId = sucB })).EnsureSuccessStatusCode();
+        (await admin.PutAsJsonAsync($"{Base}/centros-corporativos/{d2k.Id}", new { corporativo = true })).EnsureSuccessStatusCode();
 
-        return new(suf, admin, d1.Id, d2a.Id, d2b.Id, d2c.Id, d3a.Id, d3x.Id, d3b.Id, sucA, sucB, Id(raiz), Id(hoja), Id(tipo), g2.Id, g3.Id);
+        return new(suf, admin, d1.Id, d2a.Id, d2b.Id, d2c.Id, d3a.Id, d3x.Id, d3b.Id, sucA, sucB, Id(raiz), Id(hoja), Id(tipo), g2.Id, g3.Id,
+            d1b.Id, d1s.Id, d2k.Id);
     }
 
     private async Task LimpiarAsync(Escenario? e)
@@ -71,13 +80,17 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.movimientos_dimension_prueba WHERE cuenta_codigo LIKE {0}", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE regla_id IN (SELECT r.id FROM contabilidad.reglas_dimension r JOIN contabilidad.cuentas_contables c ON c.id = r.cuenta_id WHERE c.codigo LIKE {0})", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension WHERE cuenta_id IN (SELECT id FROM contabilidad.cuentas_contables WHERE codigo LIKE {0})", like);
-        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.centros_costo_sucursal WHERE dim2_id IN ({0}, {1}, {2})", e.Dim2A, e.Dim2B, e.Dim2SinSucursal);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.ubicaciones_sucursal WHERE dim1_id IN ({0}, {1}, {2})", e.Dim1, e.Dim1B, e.Dim1SinSucursal);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.centros_corporativos WHERE dim2_id = {0}", e.Dim2Corporativo);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.tipos_documento_contable WHERE clave = {0}", $"FIX-{e.Suf}");
         await Limpiar(factory.Services, e.Suf);
         var cc = scope.ServiceProvider.GetRequiredService<CentrosCostoDbContext>();
-        await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim3 WHERE dim2_id IN (SELECT id FROM centros_costo.dim2 WHERE dim1_id = {e.Dim1})");
-        await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim2 WHERE dim1_id = {e.Dim1}");
-        await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim1 WHERE id = {e.Dim1}");
+        foreach (var dim1 in new[] { e.Dim1, e.Dim1B, e.Dim1SinSucursal })
+        {
+            await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim3 WHERE dim2_id IN (SELECT id FROM centros_costo.dim2 WHERE dim1_id = {dim1})");
+            await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim2 WHERE dim1_id = {dim1}");
+            await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.dim1 WHERE id = {dim1}");
+        }
         await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.grupos_dim2 WHERE id = {e.Grupo2}");
         await cc.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM centros_costo.grupos_dim3 WHERE id = {e.Grupo3}");
     }
@@ -209,23 +222,63 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
         {
             e = await CrearEscenarioAsync();
             var hoy = Hoy();
+            // Selector: equipos de la ubicación A; los de la ubicación B no aparecen. CeCo: los de A más el corporativo.
             var deA = (await Json(await e.Admin.GetAsync($"{Base}/movimientos/centros?sucursalId={e.SucursalA}&nivel=Dim3&q={e.Suf}"))).EnumerateArray().Select(Id).ToList();
             Assert.Contains(e.Dim3A, deA);
             Assert.DoesNotContain(e.Dim3B, deA);
-            var ceCosA = (await Json(await e.Admin.GetAsync($"{Base}/movimientos/centros?sucursalId={e.SucursalA}&nivel=Dim2&q={e.Suf}"))).EnumerateArray().Select(Id).ToList();
-            Assert.Equal(new[] { e.Dim2A }, ceCosA);
+            var ceCosB = (await Json(await e.Admin.GetAsync($"{Base}/movimientos/centros?sucursalId={e.SucursalB}&nivel=Dim2&q={e.Suf}"))).EnumerateArray().Select(Id).ToHashSet();
+            Assert.True(ceCosB.SetEquals([e.Dim2B, e.Dim2Corporativo]), "La sucursal B ve su CeCo y el corporativo");
 
             // La API repite la validación: no confía en el selector.
             var otra = await Validar(e.Admin, Mov(e, e.SucursalA, hoy, dim3: e.Dim3B));
             Assert.Equal("CONTAB_DIM_CENTRO_OTRA_SUCURSAL", Assert.Single(Codigos(otra)));
-            Assert.Contains("no está asignado a la sucursal", otra.GetProperty("errores")[0].GetProperty("mensaje").GetString());
+            Assert.Contains("no se puede usar en la sucursal", otra.GetProperty("errores")[0].GetProperty("mensaje").GetString());
 
             var sinSucursal = await Validar(e.Admin, Mov(e, e.SucursalA, hoy, dim2: e.Dim2SinSucursal));
-            Assert.Equal("CONTAB_DIM_CENTRO_SIN_SUCURSAL", Assert.Single(Codigos(sinSucursal)));
+            Assert.Equal("CONTAB_DIM_UBICACION_SIN_SUCURSAL", Assert.Single(Codigos(sinSucursal)));
 
-            // Configuración: el CeCo B lista su sucursal; el C aparece como pendiente de asignar.
-            var pendientes = await Json(await e.Admin.GetAsync($"{Base}/centros-sucursal?q={e.Suf}&soloSinSucursal=true"));
-            Assert.Equal(new[] { e.Dim2SinSucursal }, pendientes.EnumerateArray().Select(x => x.GetProperty("dim2Id").GetGuid()).ToList());
+            // Corporativo: su ubicación es A, pero se usa desde B.
+            Assert.True((await Validar(e.Admin, Mov(e, e.SucursalB, hoy, dim2: e.Dim2Corporativo))).GetProperty("valido").GetBoolean());
+
+            // Configuración visible: la ubicación A ligada a la sucursal A; la ubicación sin sucursal, sin ligar.
+            var ubicaciones = (await Json(await e.Admin.GetAsync($"{Base}/ubicaciones-sucursal"))).EnumerateArray().ToList();
+            Assert.Equal(e.SucursalA, ubicaciones.Single(u => u.GetProperty("dim1Id").GetGuid() == e.Dim1).GetProperty("sucursal").GetProperty("id").GetGuid());
+            Assert.Equal(JsonValueKind.Null, ubicaciones.Single(u => u.GetProperty("dim1Id").GetGuid() == e.Dim1SinSucursal).GetProperty("sucursal").ValueKind);
+            var corporativos = (await Json(await e.Admin.GetAsync($"{Base}/centros-corporativos?q={e.Suf}&soloCorporativos=true"))).EnumerateArray().Select(x => x.GetProperty("dim2Id").GetGuid()).ToList();
+            Assert.Equal(e.Dim2Corporativo, Assert.Single(corporativos));
+        }
+        finally { await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task Proyecto_y_auxiliares_se_exigen_y_se_validan_contra_su_catalogo()
+    {
+        Escenario? e = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            var hoy = Hoy();
+            await CrearRegla(e.Admin, e.CuentaHoja, e.Tipo, "Proyecto", "Obligatorio", hoy);
+            await CrearRegla(e.Admin, e.CuentaHoja, e.Tipo, "Cliente", "Obligatorio", hoy);
+
+            var falta = await Validar(e.Admin, Mov(e, e.SucursalA, hoy, dim2: e.Dim2A));
+            var campos = falta.GetProperty("errores").EnumerateArray().Select(x => x.GetProperty("campo").GetString()).ToList();
+            Assert.Contains("proyecto", campos);
+            Assert.Contains("clienteId", campos);
+
+            // Cliente que no existe: se rechaza aunque la regla se cumpla en forma.
+            var inexistente = await e.Admin.PostAsJsonAsync($"{Base}/movimientos/validar", new
+            {
+                cuentaId = e.CuentaHoja, tipoDocumentoId = e.Tipo, fechaContable = hoy, sucursalId = e.SucursalA, dim2Id = e.Dim2A,
+                proyecto = "FIX-OBRA-01", clienteId = Guid.NewGuid(), cuentaBancariaId = Guid.NewGuid(),
+            });
+            var codigos = Codigos(await Json(inexistente));
+            Assert.Equal(2, codigos.Count(c => c == "CONTAB_DIM_AUXILIAR_NO_EXISTE"));
+            Assert.DoesNotContain("CONTAB_DIM_OBLIGATORIA_FALTANTE", codigos);
+
+            // Los selectores de auxiliares responden (pueden venir vacíos en una BD desechable).
+            foreach (var tipo in new[] { "Cliente", "Proveedor", "Banco" })
+                Assert.Equal(HttpStatusCode.OK, (await e.Admin.GetAsync($"{Base}/movimientos/auxiliares?tipo={tipo}")).StatusCode);
         }
         finally { await LimpiarAsync(e); }
     }

@@ -75,7 +75,7 @@ public class DimensionesTests
     public void Sin_reglas_cada_dimension_toma_el_valor_configurado()
     {
         var rs = ValidadorDimensiones.Resolver(Cadena, [], TipoFactura, Dia, Opc(RequerimientoDimension.Opcional));
-        rs.Should().HaveCount(3).And.OnlyContain(r => r.Requerimiento == RequerimientoDimension.Opcional && r.ReglaId == null);
+        rs.Should().HaveCount(7).And.OnlyContain(r => r.Requerimiento == RequerimientoDimension.Opcional && r.ReglaId == null);
         ValidadorDimensiones.Resolver(Cadena, [], TipoFactura, Dia, Opc(RequerimientoDimension.Obligatorio))
             .Should().OnlyContain(r => r.Requerimiento == RequerimientoDimension.Obligatorio);
     }
@@ -207,6 +207,55 @@ public class DimensionesTests
         var rs = ValidadorDimensiones.Resolver(Cadena, [R(Raiz, DimensionContable.Dim2, RequerimientoDimension.Obligatorio)], null, Dia, Opc());
         ValidadorDimensiones.EvaluarRequerimientos(rs, Mov(), new(null, null, null), "la cuenta FIX-501.01.01")
             .Single().Mensaje.Should().Contain("regla definida en la cuenta FIX-501");
+    }
+
+    // ── Proyecto y auxiliares (K10.2) ────────────────────────────────────────
+
+    private static List<ErrorDimension> EvaluarUna(DimensionContable d, RequerimientoDimension req, MovimientoDimensionado m, CentrosEfectivos e)
+    {
+        var rs = ValidadorDimensiones.Resolver(Cadena, [R(Hoja, d, req)], TipoFactura, Dia, Opc());
+        return [.. ValidadorDimensiones.EvaluarRequerimientos(rs, m, e, "la cuenta FIX-501.01.01")];
+    }
+
+    [Theory]
+    [InlineData(DimensionContable.Proyecto, "proyecto")]
+    [InlineData(DimensionContable.Cliente, "clienteId")]
+    [InlineData(DimensionContable.Proveedor, "proveedorId")]
+    [InlineData(DimensionContable.Banco, "cuentaBancariaId")]
+    public void Auxiliar_obligatorio_ausente_se_rechaza_en_su_campo(DimensionContable d, string campo)
+    {
+        var e = EvaluarUna(d, RequerimientoDimension.Obligatorio, Mov(), new(null, null, null)).Should().ContainSingle().Subject;
+        e.Codigo.Should().Be("CONTAB_DIM_OBLIGATORIA_FALTANTE");
+        e.Campo.Should().Be(campo);
+    }
+
+    [Fact]
+    public void Proyecto_capturado_cumple_y_en_blanco_no_cuenta()
+    {
+        var con = Mov() with { Proyecto = "FIX-OBRA-01" };
+        EvaluarUna(DimensionContable.Proyecto, RequerimientoDimension.Obligatorio, con, new(null, null, null)).Should().BeEmpty();
+        var blanco = Mov() with { Proyecto = "   " };
+        EvaluarUna(DimensionContable.Proyecto, RequerimientoDimension.Obligatorio, blanco, new(null, null, null)).Should().ContainSingle();
+    }
+
+    [Fact]
+    public void Cliente_que_no_aplica_se_rechaza_si_viene_capturado()
+    {
+        var m = Mov() with { ClienteId = Guid.NewGuid() };
+        EvaluarUna(DimensionContable.Cliente, RequerimientoDimension.NoAplica, m, new(null, null, null))
+            .Should().ContainSingle(x => x.Codigo == "CONTAB_DIM_NO_APLICA" && x.Campo == "clienteId");
+    }
+
+    [Fact]
+    public void Ingresos_piden_ubicacion_y_cliente_segun_C03()
+    {
+        // C-03 (cuestionario 08): ingresos → ubicación y cliente. Con equipo capturado la ubicación se deriva; falta el cliente.
+        var reglas = new[] { R(Raiz, DimensionContable.Dim1, RequerimientoDimension.Obligatorio), R(Raiz, DimensionContable.Cliente, RequerimientoDimension.Obligatorio) };
+        var rs = ValidadorDimensiones.Resolver(Cadena, reglas, TipoFactura, Dia, Opc());
+        var d1 = Guid.NewGuid(); var d2 = Guid.NewGuid(); var d3 = Guid.NewGuid();
+        var errores = ValidadorDimensiones.EvaluarRequerimientos(rs, Mov(d3: d3), new(d1, d2, d3), "la cuenta FIX-401").ToList();
+        errores.Should().ContainSingle(e => e.Campo == "clienteId");
+        ValidadorDimensiones.EvaluarRequerimientos(rs, Mov(d3: d3) with { ClienteId = Guid.NewGuid() }, new(d1, d2, d3), "x").Should().BeEmpty();
     }
 
     // ── Opciones ─────────────────────────────────────────────────────────────
