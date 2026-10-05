@@ -116,7 +116,7 @@ public static class ContabilidadDimensionesEndpoints
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(administrar).WithName("EditarReglaDimension")
-        .WithSummary("Solo reglas que aún no inician; una regla en vigor se cierra y se crea otra")
+        .WithSummary("Solo reglas que aún no han validado movimientos; una regla usada se cierra y se crea otra")
         .Produces<ReglaDimensionResponse>().ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity).ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
@@ -131,6 +131,18 @@ public static class ContabilidadDimensionesEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(administrar).WithName("CerrarReglaDimension")
         .Produces<ReglaDimensionResponse>().ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity).ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        g.MapDelete("/reglas-dimension/{id:guid}", async (
+            Guid id, [FromHeader(Name = "If-Match")] string? ifMatch, IMediator mediator, CancellationToken ct) =>
+        {
+            if (!Helpers.TryParseVersion(ifMatch, out var version)) return Helpers.IfMatchRequerido();
+            await mediator.Send(new EliminarReglaCommand(id, version), ct);
+            return Results.NoContent();
+        })
+        .RequireAuthorization(administrar).WithName("EliminarReglaDimension")
+        .WithSummary("Borra una regla que todavía no ha validado ningún movimiento (capturada por error)")
+        .Produces(StatusCodes.Status204NoContent).ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity).ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         // ─── Centros de costo (Dim2) ↔ sucursal ──────────────────────────────

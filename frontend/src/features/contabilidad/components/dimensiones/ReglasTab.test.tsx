@@ -10,10 +10,10 @@ const base = {
   cuentaId: 'c1', cuentaCodigo: 'FIX-501.01', cuentaNombre: 'FIX Mantenimiento', tipoDocumentoId: 't1', tipoDocumentoClave: 'FIX-FP',
   tipoDocumentoNombre: 'FIX Factura de proveedor', dimension: 'Dim2', nombreDimension: ETIQUETA_DIMENSION.Dim2, esPrueba: true, nota: null, version: 1,
 };
-const vigente = { ...base, id: 'r1', requerimiento: 'Obligatorio', vigenteDesde: '2026-10-01', vigenteHasta: null, estado: 'Vigente', editable: false };
+const vigente = { ...base, id: 'r1', requerimiento: 'Obligatorio', vigenteDesde: '2026-10-01', vigenteHasta: null, estado: 'Vigente', editable: false, usada: true, ultimaFechaUso: '2026-10-03' };
 const futura = {
   ...base, id: 'r2', tipoDocumentoId: null, tipoDocumentoClave: null, tipoDocumentoNombre: null, dimension: 'Dim3', nombreDimension: ETIQUETA_DIMENSION.Dim3,
-  requerimiento: 'NoAplica', vigenteDesde: '2026-11-01', vigenteHasta: '2026-12-31', estado: 'Futura', editable: true,
+  requerimiento: 'NoAplica', vigenteDesde: '2026-11-01', vigenteHasta: '2026-12-31', estado: 'Futura', editable: true, usada: false, ultimaFechaUso: null,
 };
 
 function servidor(cierres: unknown[] = []) {
@@ -47,13 +47,17 @@ describe('<ReglasTab>', () => {
     expect(screen.queryByRole('button', { name: /Nueva regla/ })).not.toBeInTheDocument();
   });
 
-  it('con permiso: solo la regla futura se edita; una vigente se cierra con If-Match', async () => {
+  it('con permiso: una regla usada no se edita ni se borra (explica por qué) y se cierra con If-Match', async () => {
     const cierres: unknown[] = [];
     servidor(cierres);
     render(<ReglasTab puedeAdministrar />, { wrapper: createQueryWrapper() });
     const filas = await screen.findAllByRole('row');
-    expect(within(filas[1]).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
-    expect(within(filas[2]).getByRole('button', { name: 'Editar' })).toBeInTheDocument();
+    const editarUsada = within(filas[1]).getByRole('button', { name: 'Editar' });
+    expect(editarUsada).toBeDisabled();
+    expect(editarUsada).toHaveAttribute('title', expect.stringContaining('Ya validó movimientos'));
+    expect(within(filas[1]).getByText('Usada')).toBeInTheDocument();
+    expect(within(filas[1]).queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
+    expect(within(filas[2]).getByRole('button', { name: 'Editar' })).toBeEnabled();
 
     fireEvent.click(within(filas[1]).getByRole('button', { name: 'Cerrar vigencia' }));
     const dialogo = await screen.findByRole('dialog');
@@ -74,5 +78,21 @@ describe('<ReglasTab>', () => {
     const dialogo = await screen.findByRole('dialog');
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar vigencia' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('no puede ser anterior a hoy');
+  });
+
+  it('una regla sin usos se elimina con If-Match tras confirmar', async () => {
+    const borradas: unknown[] = [];
+    servidor();
+    mswServer.use(http.delete('*/api/v1/contabilidad/reglas-dimension/:id', ({ request, params }) => {
+      borradas.push({ id: params.id, ifMatch: request.headers.get('If-Match') });
+      return new HttpResponse(null, { status: 204 });
+    }));
+    render(<ReglasTab puedeAdministrar />, { wrapper: createQueryWrapper() });
+    const filas = await screen.findAllByRole('row');
+    fireEvent.click(within(filas[2]).getByRole('button', { name: 'Eliminar' }));
+    const dialogo = await screen.findByRole('dialog');
+    expect(dialogo).toHaveTextContent('todavía no ha validado ningún movimiento');
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar regla' }));
+    await waitFor(() => expect(borradas).toEqual([{ id: 'r2', ifMatch: '"1"' }]));
   });
 });

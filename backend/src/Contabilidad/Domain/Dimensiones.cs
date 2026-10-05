@@ -116,6 +116,31 @@ public sealed class ReglaDimension : BaseEntity, IAuditable, IPerteneceAEmpresa
 }
 
 /// <summary>
+/// Una fila ⇒ la regla ya validó un movimiento (con su fecha contable). Mientras una regla no tenga usos se puede editar o
+/// borrar sin alterar la historia; con usos solo se cierra (y no antes de la última fecha contable que validó).
+/// Mismo patrón que <see cref="CuentaContableUso"/>.
+/// </summary>
+// PLATFORM-TODO(<Polizas>): la póliza real registra aquí el uso de las reglas con que confirma cada partida.
+public sealed class ReglaDimensionUso : BaseEntity, IPerteneceAEmpresa
+{
+    public Guid EmpresaId { get; set; }
+    public Guid ReglaId { get; private set; }
+    public string Consumidor { get; private set; } = string.Empty;
+    public string Referencia { get; private set; } = string.Empty;
+    public DateOnly FechaContable { get; private set; }
+
+    private ReglaDimensionUso() { }
+
+    public ReglaDimensionUso(Guid id, Guid reglaId, string consumidor, string referencia, DateOnly fechaContable) : base(id)
+    {
+        ReglaId = reglaId;
+        Consumidor = consumidor;
+        Referencia = referencia;
+        FechaContable = fechaContable;
+    }
+}
+
+/// <summary>
 /// Sucursales en las que se puede usar un centro de costo de nivel Dim2 (CeCo) en movimientos contables (D6).
 /// Una Dim3 hereda las sucursales de su Dim2. Vive en Contabilidad porque ADM-08 decidió no relacionar el catálogo de
 /// centros con sucursales; aquí es el alcance contable del centro, no un atributo del catálogo.

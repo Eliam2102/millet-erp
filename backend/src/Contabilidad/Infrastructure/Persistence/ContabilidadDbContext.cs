@@ -26,6 +26,7 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // F1-CON-02: dimensiones contables.
     public DbSet<TipoDocumentoContable> TiposDocumento => Set<TipoDocumentoContable>();
     public DbSet<ReglaDimension> ReglasDimension => Set<ReglaDimension>();
+    public DbSet<ReglaDimensionUso> ReglasDimensionUso => Set<ReglaDimensionUso>();
     public DbSet<CentroCostoSucursal> CentrosSucursal => Set<CentroCostoSucursal>();
     public DbSet<MovimientoDimensionPrueba> MovimientosPrueba => Set<MovimientoDimensionPrueba>();
 

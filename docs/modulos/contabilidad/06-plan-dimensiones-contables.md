@@ -353,3 +353,13 @@ Ajustes respecto de v0.1:
 
 Datos de prueba locales: `tools/datos-prueba-f1-con-02.sql` (idempotente, marcado `created_by = 'seed-f1-con-02-prueba'`, con bloque de retiro).
 
+### 15.1 Corrección v0.3 (2026-10-05): protección de reglas por uso
+
+v0.2 permitía editar una regla solo si era **futura**, suponiendo que nadie la había usado. Es falso: la validación usa la **fecha
+contable** del movimiento, así que un movimiento capturado hoy con fecha contable futura se valida con una regla futura; editarla
+después alteraba la historia de ese movimiento. Además, una regla capturada por error con inicio hoy ya no se podía corregir.
+
+Ahora: tabla `contabilidad.reglas_dimension_uso` (migración `ContabilidadReglasDimensionUso`, con relleno desde los movimientos ya
+registrados). Sin usos ⇒ la regla se edita o se borra (`DELETE /reglas-dimension/{id}`), sea futura o vigente. Con usos ⇒ solo se
+cierra, y no antes de la última fecha contable que validó (`CONTAB_REGLA_CIERRE_ANTES_DE_USO`). Confirmar un movimiento y escribir
+reglas comparten el mismo advisory lock. La póliza real deberá registrar también sus usos (`PLATFORM-TODO(<Polizas>)`).

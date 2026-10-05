@@ -18,8 +18,9 @@ Enums: `dimension` = `Dim1` | `Dim2` | `Dim3` (niveles de Centros de Costo: Dim2
 | `GET /reglas-dimension/efectivas?cuentaId=&tipoDocumentoId=&fecha=` | leer | 200 requerimiento efectivo por dimensión (fecha por defecto: hoy); 404 cuenta |
 | `GET /reglas-dimension/{id}` | leer | 200 + ETag; 404 |
 | `POST /reglas-dimension` | administrar | 201 + ETag; 409 traslape; 422 reglas |
-| `PUT /reglas-dimension/{id}` `{requerimiento, vigenteDesde, vigenteHasta?, nota?}` (`If-Match`) | administrar | 200; 422 `CONTAB_REGLA_INICIADA_NO_EDITABLE` si ya inició; 409; 428 |
-| `POST /reglas-dimension/{id}/cerrar` `{vigenteHasta}` (`If-Match`) | administrar | 200; 422; 409; 428 |
+| `PUT /reglas-dimension/{id}` `{requerimiento, vigenteDesde, vigenteHasta?, nota?}` (`If-Match`) | administrar | 200; 422 `CONTAB_REGLA_USADA` si ya validó movimientos; 409; 428 |
+| `DELETE /reglas-dimension/{id}` (`If-Match`) | administrar | 204; 422 `CONTAB_REGLA_USADA`; 404; 409; 428 |
+| `POST /reglas-dimension/{id}/cerrar` `{vigenteHasta}` (`If-Match`) | administrar | 200; 422 (`CONTAB_REGLA_CIERRE_ANTES_DE_USO` si queda antes de la última fecha contable que validó); 409; 428 |
 | `GET /sucursales` | leer | 200 sucursales de la empresa (para configurar centros) |
 | `GET /centros-sucursal?q=&sucursalId=&soloSinSucursal=&limit=` | leer | 200 `[{dim2Id, clave, nombre, activo, dim1Clave, sucursales[]}]` |
 | `PUT /centros-sucursal/{dim2Id}` `{sucursalIds[]}` | administrar | 200 (reemplaza el conjunto); 404 centro; 422 sucursal ajena |
@@ -36,14 +37,17 @@ sucursales con `UsuarioSucursal` activa.
 ## Regla
 
 `{id, cuentaId, cuentaCodigo, cuentaNombre, tipoDocumentoId?, tipoDocumentoClave?, tipoDocumentoNombre?, dimension, nombreDimension,
-requerimiento, vigenteDesde, vigenteHasta?, estado, editable, esPrueba, nota?, version}`.
+requerimiento, vigenteDesde, vigenteHasta?, estado, editable, esPrueba, nota?, version, usada, ultimaFechaUso?}`.
 
 - `cuentaId` puede ser una rama (cuenta que acumula): aplica a sus descendientes salvo regla más específica. No se aceptan rubros
   ni cuentas inactivas.
 - `tipoDocumentoId` null = todos los tipos.
 - Sin traslape para la misma (cuenta, tipo, dimensión). Sin retroactividad: `vigenteDesde` ≥ hoy y, en una regla en vigor,
   `vigenteHasta` ≥ hoy (`Contabilidad:Dimensiones:PermitirVigenciaRetroactiva` lo permite para la carga inicial real).
-- Solo una regla `Futura` se edita (`editable = true`); una en vigor se cierra y se crea otra.
+- La protección depende del **uso**, no de la fecha: mientras la regla no haya validado ningún movimiento (`usada = false`) se edita o se borra,
+  sea futura o vigente. Una regla usada solo se cierra (y no antes de `ultimaFechaUso`) y se crea otra. Motivo: la validación usa la
+  **fecha contable** del movimiento, así que una regla futura también puede haber validado movimientos con fecha contable futura.
+  El uso se registra en `contabilidad.reglas_dimension_uso` al confirmar un movimiento.
 
 ## Movimiento (validar / registrar prueba)
 
@@ -71,7 +75,7 @@ jerarquía, activo en toda la cadena) → sucursal del centro → reglas vigente
 | `CONTAB_DIM_CUENTA_NO_VALIDA` · `CONTAB_DIM_TIPO_DOC_INVALIDO` · `CONTAB_DIM_SUCURSAL_INVALIDA` | Cuenta, tipo o sucursal no aptos |
 | `CONTAB_DIM_MOVIMIENTO_INVALIDO` (422) | Envoltura de `POST /movimientos-prueba` con `errores[]` |
 | `CONTAB_REGLA_VIGENCIA_TRASLAPADA` (409) | Otra regla de la misma combinación se traslapa |
-| `CONTAB_REGLA_INICIADA_NO_EDITABLE` · `CONTAB_REGLA_VIGENCIA_RETROACTIVA` · `CONTAB_REGLA_VIGENCIA_INVALIDA` · `CONTAB_REGLA_CUENTA_INVALIDA` · `CONTAB_REGLA_TIPO_DOC_INVALIDO` | 422 de configuración de reglas |
+| `CONTAB_REGLA_USADA` · `CONTAB_REGLA_CIERRE_ANTES_DE_USO` · `CONTAB_REGLA_VIGENCIA_RETROACTIVA` · `CONTAB_REGLA_VIGENCIA_INVALIDA` · `CONTAB_REGLA_CUENTA_INVALIDA` · `CONTAB_REGLA_TIPO_DOC_INVALIDO` | 422 de configuración de reglas |
 | `CONTAB_TIPO_DOC_DUPLICADO` (409) · `CONTAB_CENTRO_SUCURSAL_INVALIDO` · `CONTAB_CENTRO_NO_ENCONTRADO` (404) | Tipos y centros por sucursal |
 | `SUCURSAL_NO_ASOCIADA` (403) | El usuario no opera esa sucursal y no tiene el bypass |
 

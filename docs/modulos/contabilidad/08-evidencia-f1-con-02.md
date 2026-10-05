@@ -11,8 +11,9 @@
 | Dimensión requerida ausente → rechazo que indica cuál falta | misma prueba: `CONTAB_DIM_OBLIGATORIA_FALTANTE`, `campo = dim3Id`, mensaje con «Dimensión 3»; `POST /movimientos-prueba` 422 sin escribir |
 | Centro inactivo → rechazo en movimiento nuevo | `Centro_inactivo_se_rechaza_en_movimiento_nuevo_y_no_se_ofrece` (equipo dado de baja y CeCo dado de baja en cadena) |
 | Sucursal incorrecta → centro de otra sucursal no seleccionable | `Centro_de_otra_sucursal_no_es_seleccionable_y_la_api_lo_rechaza` (selector + `CONTAB_DIM_CENTRO_OTRA_SUCURSAL` + `CONTAB_DIM_CENTRO_SIN_SUCURSAL`) |
-| Conservación histórica tras cambiar la regla | `Movimiento_registrado_conserva_la_regla_con_la_que_se_valido_tras_cambiar_la_politica` (cerrar regla, crear otra, el movimiento muestra la anterior; traslape 409; regla iniciada no editable; sin retroactividad) |
+| Conservación histórica tras cambiar la regla | `Movimiento_registrado_conserva_la_regla_con_la_que_se_valido_tras_cambiar_la_politica` (cerrar regla, crear otra, el movimiento muestra la anterior; traslape 409; regla usada no se edita ni se borra; sin retroactividad) |
 | Solo configuración contable edita reglas; alcance por sucursal | `Solo_la_configuracion_contable_edita_reglas_y_el_alcance_por_sucursal_se_respeta` (401, 403, `SUCURSAL_NO_ASOCIADA`, operativo vs corporativo) |
+| Protección por uso (v0.3): regla sin uso se corrige y se borra; regla futura usada por un movimiento con fecha contable futura no se edita; cierre no antes del último uso | `La_proteccion_de_la_regla_depende_de_su_uso_no_de_si_es_futura` |
 | Herencia por rama, «no aplica», jerarquía, cuenta que acumula | `Regla_de_la_rama_se_hereda_no_aplica_rechaza_lo_capturado_y_la_jerarquia_debe_ser_congruente` |
 
 ## Resultados
@@ -44,3 +45,9 @@ sembrados por ADM-08 asignados a la primera sucursal (los primeros 5 también a 
 
 Pantallas: Contabilidad → **Dimensiones contables** (pestañas Reglas · Centros por sucursal · Tipos de documento) y **Probar movimientos**.
 Verificadas con pruebas de componente; la revisión visual en navegador con sesión Entra queda a cargo del responsable (capturas para el PR).
+
+## Corrección v0.3 (2026-10-05)
+
+Protección de reglas por uso (ver plan §15.1). Migración `ContabilidadReglasDimensionUso`. Resultados tras el cambio: unitarias
+Contabilidad 129/129; integración filtro Contabilidad (BD desechable) 51/51 (1 nueva); Vitest `features/contabilidad` 69/69
+(1 nueva: eliminar regla sin usos); `tsc` y `eslint` limpios.

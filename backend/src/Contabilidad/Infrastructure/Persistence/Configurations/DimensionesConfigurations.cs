@@ -49,6 +49,21 @@ public sealed class ReglaDimensionConfiguration : IEntityTypeConfiguration<Regla
     }
 }
 
+/// <summary><c>contabilidad.reglas_dimension_uso</c>: una fila por (regla, consumidor, referencia); idempotente.</summary>
+public sealed class ReglaDimensionUsoConfiguration : IEntityTypeConfiguration<ReglaDimensionUso>
+{
+    public void Configure(EntityTypeBuilder<ReglaDimensionUso> builder)
+    {
+        builder.ToTable("reglas_dimension_uso");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Consumidor).HasMaxLength(40).IsRequired();
+        builder.Property(x => x.Referencia).HasMaxLength(100).IsRequired();
+        builder.HasIndex(x => new { x.EmpresaId, x.ReglaId, x.Consumidor, x.Referencia }).IsUnique().HasDatabaseName("ux_reglas_dimension_uso");
+        builder.HasOne<ReglaDimension>().WithMany().HasForeignKey(x => x.ReglaId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 /// <summary><c>contabilidad.centros_costo_sucursal</c> (D6). Sin FK a otros esquemas: se valida por puertos.</summary>
 public sealed class CentroCostoSucursalConfiguration : IEntityTypeConfiguration<CentroCostoSucursal>
 {

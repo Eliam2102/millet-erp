@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { hoyLocalISO } from '@/lib/datetime';
-import { useCerrarRegla, useReglas, useTiposDocumento } from '../../api/dimensiones';
+import { useCerrarRegla, useEliminarRegla, useReglas, useTiposDocumento } from '../../api/dimensiones';
 import type { Regla } from '../../api/dimensiones-types';
 import {
-  ETIQUETA_DIMENSION, ETIQUETA_REQUERIMIENTO, VARIANTE_ESTADO_REGLA, VARIANTE_REQUERIMIENTO, mensajeError, vigencia,
+  ETIQUETA_DIMENSION, ETIQUETA_REQUERIMIENTO, VARIANTE_ESTADO_REGLA, VARIANTE_REQUERIMIENTO, fechaCorta, mensajeError, vigencia,
 } from '../../lib/dimensiones';
 import { SELECT_CLASS } from '../../lib/estilos';
 import { CuentaSelector, type CuentaOpcion } from './CuentaSelector';
@@ -29,6 +29,7 @@ export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
   const [offset, setOffset] = useState(0);
   const [sheet, setSheet] = useState<{ open: boolean; regla: Regla | null }>({ open: false, regla: null });
   const [cerrando, setCerrando] = useState<Regla | null>(null);
+  const [eliminando, setEliminando] = useState<Regla | null>(null);
   const tipos = useTiposDocumento();
   const reglas = useReglas({
     cuentaId: cuenta?.id, tipoDocumentoId: tipoId || undefined, vigentesA: fecha || undefined,
@@ -108,12 +109,20 @@ export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
                         <span className="flex flex-wrap gap-1">
                           <Badge variant={VARIANTE_ESTADO_REGLA[r.estado]}>{r.estado}</Badge>
                           {r.esPrueba && <Badge variant="warning" title="Regla de prueba: no es política confirmada por Contabilidad">Prueba</Badge>}
+                          {r.usada && <Badge variant="neutral" title={`Ya validó movimientos (el más reciente con fecha contable ${fechaCorta(r.ultimaFechaUso)})`}>Usada</Badge>}
                         </span>
                       </td>
                       {puedeAdministrar && (
                         <td className="px-3 py-2 text-right">
                           <span className="flex justify-end gap-1">
-                            {r.editable && <Button variant="outline" size="sm" onClick={() => setSheet({ open: true, regla: r })}>Editar</Button>}
+                            <Button
+                              variant="outline" size="sm" disabled={!r.editable}
+                              title={r.editable ? undefined : 'Ya validó movimientos: ciérrala y crea una regla nueva para cambiar la política'}
+                              onClick={() => setSheet({ open: true, regla: r })}
+                            >
+                              Editar
+                            </Button>
+                            {r.editable && <Button variant="secondary-danger" size="sm" onClick={() => setEliminando(r)}>Eliminar</Button>}
                             {r.estado !== 'Cerrada' && <Button variant="outline" size="sm" onClick={() => setCerrando(r)}>Cerrar vigencia</Button>}
                           </span>
                         </td>
@@ -141,6 +150,7 @@ export function ReglasTab({ puedeAdministrar }: { puedeAdministrar: boolean }) {
             <ReglaSheet key={sheet.regla?.id ?? 'nueva'} open regla={sheet.regla} onOpenChange={(o) => setSheet((s) => ({ ...s, open: o }))} />
           )}
           <CerrarVigenciaDialog regla={cerrando} onClose={() => setCerrando(null)} />
+          <EliminarReglaDialog regla={eliminando} onClose={() => setEliminando(null)} />
         </>
       )}
     </div>
@@ -151,7 +161,8 @@ function CerrarVigenciaDialog({ regla, onClose }: { regla: Regla | null; onClose
   const cerrar = useCerrarRegla();
   const [hasta, setHasta] = useState(hoyLocalISO());
   const [error, setError] = useState('');
-  const minimo = regla && regla.vigenteDesde > hoyLocalISO() ? regla.vigenteDesde : hoyLocalISO();
+  // No antes de hoy (regla en vigor), de su inicio (regla futura) ni de la última fecha contable que validó.
+  const minimo = [hoyLocalISO(), regla?.vigenteDesde ?? '', regla?.ultimaFechaUso ?? ''].sort().at(-1)!;
 
   function confirmar() {
     if (!regla) return;
@@ -177,6 +188,35 @@ function CerrarVigenciaDialog({ regla, onClose }: { regla: Regla | null; onClose
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button onClick={confirmar} disabled={cerrar.isPending}>{cerrar.isPending ? 'Cerrando…' : 'Cerrar vigencia'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EliminarReglaDialog({ regla, onClose }: { regla: Regla | null; onClose: () => void }) {
+  const eliminar = useEliminarRegla();
+  const [error, setError] = useState('');
+  return (
+    <Dialog open={!!regla} onOpenChange={(o) => { if (!o) { onClose(); setError(''); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Eliminar regla</DialogTitle>
+          <DialogDescription>
+            {regla && `${ETIQUETA_DIMENSION[regla.dimension]} · ${regla.cuentaCodigo} · ${regla.tipoDocumentoClave ?? 'todos los tipos'}. `}
+            Se puede eliminar porque todavía no ha validado ningún movimiento. Esta acción no se puede deshacer.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p role="alert" className="text-sm text-danger-fg">{error}</p>}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button
+            variant="secondary-danger"
+            disabled={eliminar.isPending}
+            onClick={() => regla && eliminar.mutate(regla, { onSuccess: onClose, onError: (e) => setError(mensajeError(e)) })}
+          >
+            {eliminar.isPending ? 'Eliminando…' : 'Eliminar regla'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -34,8 +34,12 @@ export interface Regla {
   vigenteDesde: string;
   vigenteHasta: string | null;
   estado: EstadoRegla;
-  /** Solo las reglas que aún no inician se editan; una en vigor se cierra y se crea otra. */
+  /** Se edita o borra mientras no haya validado ningún movimiento; una regla usada solo se cierra. */
   editable: boolean;
+  /** Ya validó al menos un movimiento. */
+  usada: boolean;
+  /** Fecha contable más reciente que validó (la vigencia no puede cerrarse antes). */
+  ultimaFechaUso: string | null;
   esPrueba: boolean;
   nota: string | null;
   version: number;

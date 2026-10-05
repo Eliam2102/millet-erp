@@ -16,7 +16,7 @@ import { CuentaSelector, type CuentaOpcion } from './CuentaSelector';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** null = nueva regla; con valor = editar (solo reglas que aún no inician). */
+  /** null = nueva regla; con valor = editar (solo reglas que aún no han validado movimientos). */
   regla: Regla | null;
 }
 
@@ -56,7 +56,7 @@ export function ReglaSheet({ open, onOpenChange, regla }: Props) {
           <SheetTitle>{regla ? 'Editar regla' : 'Nueva regla de dimensión'}</SheetTitle>
           <SheetDescription>
             {regla
-              ? 'Solo se editan reglas que aún no inician. Una regla en vigor se cierra y se crea otra para conservar la historia.'
+              ? 'La regla aún no ha validado movimientos, así que se puede corregir. Una vez usada solo se cierra y se crea otra, para conservar la historia.'
               : 'Define si una dimensión es obligatoria, opcional o no aplica para una cuenta (o rama) en un tipo de documento.'}
           </SheetDescription>
         </SheetHeader>
@@ -92,7 +92,7 @@ export function ReglaSheet({ open, onOpenChange, regla }: Props) {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="regla-desde">Vigente desde</Label>
-              <Input id="regla-desde" type="date" required min={hoyLocalISO()} value={desde} onChange={(e) => setDesde(e.target.value)} />
+              <Input id="regla-desde" type="date" required min={regla ? undefined : hoyLocalISO()} value={desde} onChange={(e) => setDesde(e.target.value)} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="regla-hasta">Vigente hasta <span className="font-normal text-ink-muted">(opcional)</span></Label>

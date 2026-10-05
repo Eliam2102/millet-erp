@@ -69,6 +69,7 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
         var like = $"FIX-{e.Suf}-%";
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.movimientos_dimension_prueba WHERE cuenta_codigo LIKE {0}", like);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension_uso WHERE regla_id IN (SELECT r.id FROM contabilidad.reglas_dimension r JOIN contabilidad.cuentas_contables c ON c.id = r.cuenta_id WHERE c.codigo LIKE {0})", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.reglas_dimension WHERE cuenta_id IN (SELECT id FROM contabilidad.cuentas_contables WHERE codigo LIKE {0})", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.centros_costo_sucursal WHERE dim2_id IN ({0}, {1}, {2})", e.Dim2A, e.Dim2B, e.Dim2SinSucursal);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.tipos_documento_contable WHERE clave = {0}", $"FIX-{e.Suf}");
@@ -243,10 +244,14 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.Equal(HttpStatusCode.Created, conf.StatusCode);
             var movId = Id(await Json(conf));
 
-            // Una regla en vigor no se edita: se cierra y se crea otra (más estricta) a partir de mañana.
+            // Una regla que ya validó un movimiento no se edita ni se borra: se cierra y se crea otra (más estricta) a partir de mañana.
+            var usada = await Json(await e.Admin.GetAsync($"{Base}/reglas-dimension/{Id(r1)}"));
+            Assert.True(usada.GetProperty("usada").GetBoolean());
+            Assert.False(usada.GetProperty("editable").GetBoolean());
             var editar = await Send(e.Admin, HttpMethod.Put, $"{Base}/reglas-dimension/{Id(r1)}",
                 new { requerimiento = "Obligatorio", vigenteDesde = hoy, nota = "FIX" }, Etag(r1));
-            Assert.Equal("CONTAB_REGLA_INICIADA_NO_EDITABLE", await Code(editar));
+            Assert.Equal("CONTAB_REGLA_USADA", await Code(editar));
+            Assert.Equal("CONTAB_REGLA_USADA", await Code(await Send(e.Admin, HttpMethod.Delete, $"{Base}/reglas-dimension/{Id(r1)}", null, Etag(r1))));
             var traslape = await e.Admin.PostAsJsonAsync($"{Base}/reglas-dimension",
                 new { cuentaId = e.CuentaHoja, tipoDocumentoId = e.Tipo, dimension = "Dim3", requerimiento = "Obligatorio", vigenteDesde = hoy.AddDays(1), esPrueba = true });
             Assert.Equal(HttpStatusCode.Conflict, traslape.StatusCode);
@@ -275,6 +280,46 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
             var retro = await e.Admin.PostAsJsonAsync($"{Base}/reglas-dimension",
                 new { cuentaId = e.CuentaHoja, tipoDocumentoId = (Guid?)null, dimension = "Dim1", requerimiento = "Obligatorio", vigenteDesde = hoy.AddDays(-1), esPrueba = true });
             Assert.Equal("CONTAB_REGLA_VIGENCIA_RETROACTIVA", await Code(retro));
+        }
+        finally { await LimpiarAsync(e); }
+    }
+
+    [Fact]
+    public async Task La_proteccion_de_la_regla_depende_de_su_uso_no_de_si_es_futura()
+    {
+        Escenario? e = null;
+        try
+        {
+            e = await CrearEscenarioAsync();
+            var hoy = Hoy();
+
+            // Vigente desde hoy y sin usos: se corrige (error de captura) y se puede borrar.
+            var erronea = await CrearRegla(e.Admin, e.CuentaHoja, e.Tipo, "Dim1", "Obligatorio", hoy);
+            Assert.True(erronea.GetProperty("editable").GetBoolean());
+            var corregida = await Send(e.Admin, HttpMethod.Put, $"{Base}/reglas-dimension/{Id(erronea)}",
+                new { requerimiento = "Opcional", vigenteDesde = hoy, nota = "FIX corregida" }, Etag(erronea));
+            Assert.Equal(HttpStatusCode.OK, corregida.StatusCode);
+            var borrar = await Send(e.Admin, HttpMethod.Delete, $"{Base}/reglas-dimension/{Id(erronea)}", null, Etag(await Json(corregida)));
+            Assert.Equal(HttpStatusCode.NoContent, borrar.StatusCode);
+            Assert.Equal(0, await Contar(factory.Services, "reglas_dimension", $"id = '{Id(erronea)}'"));
+
+            // Futura pero ya usada por un movimiento con fecha contable futura: NO se edita ni se borra (era el hueco de v0.1).
+            var futura = await CrearRegla(e.Admin, e.CuentaHoja, e.Tipo, "Dim3", "Obligatorio", hoy.AddDays(5));
+            Assert.Equal("Futura", futura.GetProperty("estado").GetString());
+            var mov = await e.Admin.PostAsJsonAsync($"{Base}/movimientos-prueba", Mov(e, e.SucursalA, hoy.AddDays(6), dim3: e.Dim3A));
+            Assert.Equal(HttpStatusCode.Created, mov.StatusCode);
+            var editar = await Send(e.Admin, HttpMethod.Put, $"{Base}/reglas-dimension/{Id(futura)}",
+                new { requerimiento = "NoAplica", vigenteDesde = hoy.AddDays(5), nota = "FIX" }, Etag(futura));
+            var problema = await Json(editar);
+            Assert.Equal("CONTAB_REGLA_USADA", problema.GetProperty("code").GetString());
+            Assert.Contains("ciérrela y cree una regla nueva", problema.GetProperty("detail").GetString());
+
+            // Cerrarla antes de la última fecha contable que validó dejaría a ese movimiento fuera de la vigencia de su regla.
+            var antes = await Send(e.Admin, HttpMethod.Post, $"{Base}/reglas-dimension/{Id(futura)}/cerrar", new { vigenteHasta = hoy.AddDays(5) }, Etag(futura));
+            Assert.Equal("CONTAB_REGLA_CIERRE_ANTES_DE_USO", await Code(antes));
+            var ok = await Send(e.Admin, HttpMethod.Post, $"{Base}/reglas-dimension/{Id(futura)}/cerrar", new { vigenteHasta = hoy.AddDays(6) }, Etag(futura));
+            Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+            Assert.Equal(hoy.AddDays(6).ToString("yyyy-MM-dd"), (await Json(ok)).GetProperty("ultimaFechaUso").GetString());
         }
         finally { await LimpiarAsync(e); }
     }

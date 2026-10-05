@@ -8,6 +8,7 @@ using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Contabilidad.Application.Dimensiones;
 
@@ -75,6 +76,8 @@ public sealed class ConfirmarMovimientoPruebaHandler(
     ContabilidadDbContext db, ValidadorDimensiones validador, AlcanceSucursalContable alcance, IClock clock, LecturaMovimientos lectura)
     : IRequestHandler<ConfirmarMovimientoPruebaCommand, ConfirmacionMovimientoResult>
 {
+    public const string ConsumidorMovimientoPrueba = "MOVIMIENTO_PRUEBA";
+
     public async Task<ConfirmacionMovimientoResult> Handle(ConfirmarMovimientoPruebaCommand request, CancellationToken cancellationToken)
     {
         var m = request.Movimiento;
@@ -88,7 +91,11 @@ public sealed class ConfirmarMovimientoPruebaHandler(
             m.FechaContable, v.Centros.Dim1Id, v.Centros.Dim2Id, v.Centros.Dim3Id, string.IsNullOrWhiteSpace(m.Referencia) ? null : m.Referencia.Trim(),
             JsonSerializer.Serialize(v.Requerimientos, LecturaMovimientos.Json), clock.UtcNow);
         db.MovimientosPrueba.Add(mov);
-        await db.SaveChangesAsync(cancellationToken);
+        // Uso de cada regla aplicada: desde ahora no se edita ni se borra (solo se cierra). Bajo el mismo candado que las
+        // escrituras de reglas, para que nadie edite una regla mientras se registra su primer uso.
+        foreach (var reglaId in v.Requerimientos.Where(r => r.ReglaId is not null).Select(r => r.ReglaId!.Value).Distinct())
+            db.ReglasDimensionUso.Add(new ReglaDimensionUso(Guid.CreateVersion7(), reglaId, ConsumidorMovimientoPrueba, mov.Id.ToString(), m.FechaContable));
+        await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaReglas.LockReglas, ct => db.SaveChangesAsync(ct), cancellationToken);
         return new(true, v, (await lectura.ResponsesAsync([mov], cancellationToken))[0]);
     }
 }

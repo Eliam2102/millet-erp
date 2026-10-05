@@ -140,6 +140,20 @@ export function useCerrarRegla() {
   });
 }
 
+/** Borra una regla que todavía no ha validado movimientos (capturada por error). */
+export function useEliminarRegla() {
+  const invalidar = useInvalidar();
+  return useMutation({
+    mutationFn: async (regla: Regla) =>
+      (await apiRequest<void>(`${BASE}/reglas-dimension/${regla.id}`, {
+        method: 'DELETE',
+        idempotencyKey: crypto.randomUUID(),
+        ifMatch: String(regla.version),
+      })).data,
+    onSuccess: invalidar,
+  });
+}
+
 // ─── Sucursales y centros ────────────────────────────────────────────────────
 
 /** Todas las sucursales de la empresa (configuración de centros). */

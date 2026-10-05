@@ -12,13 +12,21 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Contabilidad.Application.Dimensiones;
 
-/// <summary><c>Estado</c>: Futura (aún no inicia, editable), Vigente o Cerrada (con fecha final ya pasada).</summary>
+/// <summary>
+/// <c>Estado</c>: Futura (aún no inicia), Vigente o Cerrada (fecha final ya pasada). <c>Usada</c> = ya validó al menos un movimiento;
+/// <c>Editable</c> = se puede editar o borrar (no usada). <c>UltimaFechaUso</c> = la fecha contable más reciente que validó.
+/// </summary>
 public sealed record ReglaDimensionResponse(
     Guid Id, Guid CuentaId, string CuentaCodigo, string CuentaNombre, Guid? TipoDocumentoId, string? TipoDocumentoClave,
     string? TipoDocumentoNombre, DimensionContable Dimension, string NombreDimension, RequerimientoDimension Requerimiento,
-    DateOnly VigenteDesde, DateOnly? VigenteHasta, string Estado, bool Editable, bool EsPrueba, string? Nota, int Version);
+    DateOnly VigenteDesde, DateOnly? VigenteHasta, string Estado, bool Editable, bool EsPrueba, string? Nota, int Version,
+    bool Usada = false, DateOnly? UltimaFechaUso = null);
 
-/// <summary>Reglas comunes de alta, edición y cierre (D4): sin traslapes, sin fechas retroactivas y solo reglas futuras se editan.</summary>
+/// <summary>
+/// Reglas comunes de alta, edición, cierre y borrado (D4): sin traslapes, sin fechas retroactivas y la historia se protege por USO,
+/// no por fecha: una regla que ya validó un movimiento no se edita ni se borra (aunque sea futura, porque un movimiento con fecha
+/// contable futura también se valida con ella); solo se cierra, y no antes de la última fecha contable que validó.
+/// </summary>
 internal sealed class PoliticaReglas(ContabilidadDbContext db, DimensionesOpciones opciones, IClock clock)
 {
     /// <summary>Serializa las escrituras de reglas para que el chequeo de traslape no tenga carreras.</summary>
@@ -46,6 +54,20 @@ internal sealed class PoliticaReglas(ContabilidadDbContext db, DimensionesOpcion
                 + ". Cierre esa regla antes de crear otra o elija otra fecha de inicio.");
     }
 
+    /// <summary>Última fecha contable validada por cada regla (solo las usadas aparecen).</summary>
+    public async Task<Dictionary<Guid, DateOnly>> UsosAsync(IReadOnlyCollection<Guid> reglaIds, CancellationToken ct) =>
+        await db.ReglasDimensionUso.AsNoTracking().Where(u => reglaIds.Contains(u.ReglaId))
+            .GroupBy(u => u.ReglaId).Select(g => new { g.Key, Max = g.Max(u => u.FechaContable) })
+            .ToDictionaryAsync(x => x.Key, x => x.Max, ct);
+
+    public async Task ValidarSinUsoAsync(ReglaDimension regla, string accion, CancellationToken ct)
+    {
+        if ((await UsosAsync([regla.Id], ct)).TryGetValue(regla.Id, out var ultima))
+            throw new BusinessRuleException("CONTAB_REGLA_USADA",
+                $"Esta regla ya validó movimientos (el más reciente con fecha contable {ultima:dd/MM/yyyy}): no se puede {accion} sin alterar la historia. "
+                + "Para cambiar la política ciérrela y cree una regla nueva.");
+    }
+
     public async Task<ReglaDimensionResponse> ResponseAsync(ReglaDimension r, CancellationToken ct) =>
         (await ResponsesAsync([r], ct))[0];
 
@@ -55,6 +77,7 @@ internal sealed class PoliticaReglas(ContabilidadDbContext db, DimensionesOpcion
         var tipoIds = reglas.Where(r => r.TipoDocumentoId is not null).Select(r => r.TipoDocumentoId!.Value).Distinct().ToList();
         var cuentas = await db.Cuentas.AsNoTracking().Where(c => cuentaIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
         var tipos = await db.TiposDocumento.AsNoTracking().Where(t => tipoIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, ct);
+        var usos = await UsosAsync([.. reglas.Select(r => r.Id)], ct);
         var hoy = Hoy;
         return [.. reglas.Select(r =>
         {
@@ -63,7 +86,8 @@ internal sealed class PoliticaReglas(ContabilidadDbContext db, DimensionesOpcion
             var estado = r.VigenteDesde > hoy ? "Futura" : r.VigenteHasta is { } h && h < hoy ? "Cerrada" : "Vigente";
             return new ReglaDimensionResponse(r.Id, r.CuentaId, c.Codigo, c.Nombre, r.TipoDocumentoId, t?.Clave, t?.Nombre,
                 r.Dimension, opciones.Nombre(r.Dimension), r.Requerimiento, r.VigenteDesde, r.VigenteHasta, estado,
-                Editable: r.VigenteDesde > hoy, r.EsPrueba, r.Nota, r.Version);
+                Editable: !usos.ContainsKey(r.Id), r.EsPrueba, r.Nota, r.Version,
+                Usada: usos.ContainsKey(r.Id), UltimaFechaUso: usos.TryGetValue(r.Id, out var u) ? u : null);
         })];
     }
 }
@@ -195,13 +219,13 @@ public sealed class EditarReglaHandler(ContabilidadDbContext db, IOptions<Dimens
         var regla = await db.ReglasDimension.FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken)
             ?? throw new EntityNotFoundException("CONTAB_REGLA_NO_ENCONTRADA", $"No existe la regla '{request.Id}'.");
         if (regla.Version != request.VersionEsperada) throw new ConcurrencyException(nameof(ReglaDimension), request.Id);
-        if (regla.VigenteDesde <= p.Hoy)
-            throw new BusinessRuleException("CONTAB_REGLA_INICIADA_NO_EDITABLE",
-                $"Esta regla está en vigor desde el {regla.VigenteDesde:dd/MM/yyyy}: para cambiar la política ciérrela y cree una nueva, así se conserva la historia.");
-        p.ValidarNoRetroactiva(request.VigenteDesde, "La fecha de inicio");
+        // Sin usos se corrige libremente; solo una fecha de inicio NUEVA no puede quedar en el pasado.
+        if (request.VigenteDesde != regla.VigenteDesde) p.ValidarNoRetroactiva(request.VigenteDesde, "La fecha de inicio");
+        if (request.VigenteHasta is { } h && h != regla.VigenteHasta && regla.VigenteDesde <= p.Hoy) p.ValidarNoRetroactiva(h, "La fecha final");
         regla.Reprogramar(request.Requerimiento, request.VigenteDesde, request.VigenteHasta, CrearReglaHandler.Texto(request.Nota));
         await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaReglas.LockReglas, async ct =>
         {
+            await p.ValidarSinUsoAsync(regla, "editar", ct);
             await p.ValidarSinTraslapeAsync(regla, ct);
             await db.SaveChangesAsync(ct);
         }, cancellationToken);
@@ -227,8 +251,35 @@ public sealed class CerrarReglaHandler(ContabilidadDbContext db, IOptions<Dimens
             ?? throw new EntityNotFoundException("CONTAB_REGLA_NO_ENCONTRADA", $"No existe la regla '{request.Id}'.");
         if (regla.Version != request.VersionEsperada) throw new ConcurrencyException(nameof(ReglaDimension), request.Id);
         if (regla.VigenteDesde <= p.Hoy) p.ValidarNoRetroactiva(request.VigenteHasta, "La fecha final de una regla en vigor");
+        if ((await p.UsosAsync([regla.Id], cancellationToken)).TryGetValue(regla.Id, out var ultima) && request.VigenteHasta < ultima)
+            throw new BusinessRuleException("CONTAB_REGLA_CIERRE_ANTES_DE_USO",
+                $"La regla validó un movimiento con fecha contable {ultima:dd/MM/yyyy}: la fecha final no puede ser anterior a esa fecha.");
         regla.Cerrar(request.VigenteHasta);
         await db.SaveChangesAsync(cancellationToken);
         return await p.ResponseAsync(regla, cancellationToken);
+    }
+}
+
+// ─── Eliminar (solo reglas sin usos) ─────────────────────────────────────────
+
+/// <summary>Borra una regla capturada por error mientras no haya validado ningún movimiento. Con usos: cerrarla.</summary>
+public sealed record EliminarReglaCommand(Guid Id, int VersionEsperada) : IRequest<Unit>;
+
+public sealed class EliminarReglaHandler(ContabilidadDbContext db, IOptions<DimensionesOpciones> opciones, IClock clock)
+    : IRequestHandler<EliminarReglaCommand, Unit>
+{
+    public async Task<Unit> Handle(EliminarReglaCommand request, CancellationToken cancellationToken)
+    {
+        var p = new PoliticaReglas(db, opciones.Value, clock);
+        var regla = await db.ReglasDimension.FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("CONTAB_REGLA_NO_ENCONTRADA", $"No existe la regla '{request.Id}'.");
+        if (regla.Version != request.VersionEsperada) throw new ConcurrencyException(nameof(ReglaDimension), request.Id);
+        await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaReglas.LockReglas, async ct =>
+        {
+            await p.ValidarSinUsoAsync(regla, "borrar", ct);
+            db.ReglasDimension.Remove(regla);
+            await db.SaveChangesAsync(ct);
+        }, cancellationToken);
+        return Unit.Value;
     }
 }
