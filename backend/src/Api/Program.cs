@@ -42,6 +42,7 @@ using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Integraciones.Aw.Infrastructure;
+using Millet.Integraciones.Aw.Infrastructure.Cambios;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
 using Millet.Integraciones.Aw.Infrastructure.Productos;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
@@ -802,6 +803,7 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 // simulada vacía (sin adaptador SQL, sin lecturas). Ver doc integration/05 §10.
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 builder.Services.AddIntegracionesAwProductos(builder.Configuration);
+builder.Services.AddIntegracionesAwCambios(builder.Configuration);
 
 // F2-PR2: worker de envío de CFDI por correo (drena bitacora_envio_correo,
 // genera PDF + adjunta XML, entrega vía INotificacionService [stub]).
