@@ -48,10 +48,10 @@ INSERT SYSADM.BA_PRODUKTE_BEZ (SPRACH_ID, BA_PRODUKT, BA_BEZ1, BA_BEZ2, BA_BEZ3,
 SELECT 1, BA_PRODUKT, N'DEMO PRODUCT ' + RIGHT(N'000' + CAST(BA_PRODUKT AS nvarchar(10)), 3), N'', N'', BA_MENGENEINH
 FROM SYSADM.BA_PRODUKTE_BEZ WHERE SPRACH_ID = 0 AND BA_PRODUKT > 6 AND BA_PRODUKT % 3 = 0;
 
--- Composición BA_STUKL (sin PK, como el real). Nivel 1 = lo que lee el sincronizador; nivel 2 = ruido que debe ignorarse.
+-- Composición BA_STUKL (PK real: PRODUKT+BOM_ID; BOM_ID = posición). Nivel 1 = lo que lee el sincronizador; nivel 2 = ruido que debe ignorarse.
 ;WITH n AS (SELECT TOP (160) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS i FROM sys.all_objects a CROSS JOIN sys.all_objects b)
-INSERT SYSADM.BA_STUKL (PRODUKT, BOM_POS, BOM_PRODUKT, BOM_LEVEL)
-SELECT n.i, c.pos, c.comp, c.lvl
+INSERT SYSADM.BA_STUKL (PRODUKT, BOM_ID, BOM_POS, BOM_PRODUKT, BOM_LEVEL)
+SELECT n.i, c.pos, c.pos, c.comp, c.lvl
 FROM n
 JOIN (VALUES (0,1,1,1),(0,2,2,1),(0,3,1,1),            -- laminado 6+0.89+6
             (3,1,3,1),(3,2,4,1),(3,3,3,1),            -- aislante 3+12+3
