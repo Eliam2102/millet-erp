@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Compartido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 {
     [DbContext(typeof(CompartidoDbContext))]
-    partial class CompartidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261003002417_AgregarComposicionClasificacionProductoAw")]
+    partial class AgregarComposicionClasificacionProductoAw
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4274,11 +4277,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(5)")
                         .HasColumnName("clave_unidad_sat");
 
-                    b.Property<string>("CodigoModelo")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("codigo_modelo");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -4300,6 +4298,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<short>("Estatus")
                         .HasColumnType("smallint")
                         .HasColumnName("estatus");
+
+                    b.Property<string>("FamiliaCodigo")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("familia_codigo");
 
                     b.Property<DateTime?>("FechaBaja")
                         .HasColumnType("timestamp with time zone")
@@ -4382,16 +4385,6 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .IsConcurrencyToken()
                         .HasColumnType("integer")
                         .HasColumnName("version");
-
-                    b.Property<string>("Wgr")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("wgr");
-
-                    b.Property<string>("WgrDescripcion")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("wgr_descripcion");
 
                     b.HasKey("Id")
                         .HasName("pk_producto_aw");

@@ -189,4 +189,40 @@ describe('<ProductoAwDatosForm> — Idempotency-Key por submit (regresión Bug B
       limpiarCategoria: false,
     });
   });
+
+  it('producto de A+W: el form no muestra ni envía componentes ni clasificación (dueño A+W)', async () => {
+    let body: Record<string, unknown> | null = null;
+    mswServer.use(
+      http.patch(
+        '*/api/v1/datos-maestros/productos-aw/pa-1',
+        async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>;
+          return new HttpResponse(null, { status: 204 });
+        },
+      ),
+    );
+    const conComposicion: ProductoAwDetalle = {
+      ...PRODUCTO,
+      codigoModelo: 'DEMO-VT6',
+      wgr: '370',
+      grupo: 'DEMO grupo',
+      tipo: 'VTE',
+      componentes: [
+        { orden: 1, nivel: 1, padreOrden: null, componenteRef: 'DEMO-C1', descripcion: 'DEMO pieza', tipo: 'VTE', espesorMm: 6 },
+      ],
+    };
+    render(<ProductoAwDatosForm producto={conComposicion} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(screen.queryByText('DEMO-C1')).not.toBeInTheDocument();
+    expect(screen.queryByText('DEMO-VT6')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('Vidrio templado 6 mm'), {
+      target: { value: 'Editada' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(body).not.toBeNull());
+    for (const k of ['componentes', 'codigoModelo', 'grupo', 'tipo', 'wgr', 'wgrDescripcion'])
+      expect(body).not.toHaveProperty(k);
+  });
 });

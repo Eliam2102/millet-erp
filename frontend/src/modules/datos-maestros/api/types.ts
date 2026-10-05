@@ -488,6 +488,10 @@ export interface ProductoAwItem {
   /** Fecha de baja (A+W o manual); null = nunca dado de baja. */
   fechaBaja?: string | null;
   numVariantes?: number;
+  /** Tipo de A+W (Vidrio plano, VTE, VLA, VC…); null = sin dato. */
+  tipo?: string | null;
+  /** Piezas del árbol de composición (0 = sin composición). */
+  numComponentes?: number;
 }
 
 export interface ListarProductosAwResponse {
@@ -519,8 +523,27 @@ export interface ProductoAwDetalle {
   estatus: EstatusCatalogo;
   fechaBaja?: string | null;
   variantes?: ProductoAwVariante[];
+  /** Clasificación de A+W (dueño A+W; null = sin dato). Familia de negocio = tipo → grupo; wgr = grupo de mercancía (`KA_WGR`). */
+  codigoModelo?: string | null;
+  grupo?: string | null;
+  tipo?: string | null;
+  wgr?: string | null;
+  wgrDescripcion?: string | null;
+  /** Árbol de composición aplanado, ordenado por `orden`. */
+  componentes?: ProductoAwComponente[];
   /** Versión (ETag) para If-Match en la edición. */
   version: number;
+}
+
+/** Pieza del árbol de composición; `padreOrden` null = raíz, `nivel` >= 1. */
+export interface ProductoAwComponente {
+  orden: number;
+  nivel: number;
+  padreOrden: number | null;
+  componenteRef: string;
+  descripcion: string | null;
+  tipo: string | null;
+  espesorMm: number | null;
 }
 
 /** Medidas en mm: null = A+W no las informó (NUNCA 0). */
