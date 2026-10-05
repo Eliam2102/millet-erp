@@ -382,6 +382,9 @@ public static class DatosMaestrosEndpoints
             [FromQuery] OrigenMaster? origen,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] bool? fiscalesIncompletos,
+            [FromQuery] string? tipo,
+            [FromQuery] string? grupo,
+            [FromQuery] string? wgr,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -395,7 +398,10 @@ public static class DatosMaestrosEndpoints
                     Estatus: estatus,
                     FiscalesIncompletos: fiscalesIncompletos,
                     Offset: offset ?? 0,
-                    Limit: limit ?? 50),
+                    Limit: limit ?? 50,
+                    Tipo: tipo,
+                    Grupo: grupo,
+                    Wgr: wgr),
                 ct);
             return Results.Ok(response);
         })
@@ -409,7 +415,7 @@ public static class DatosMaestrosEndpoints
         productosAw.MapGet("/{id:guid}", async (
             Guid id, HttpResponse response, CompartidoDbContext db, CancellationToken ct) =>
         {
-            var p = await db.ProductosAw.AsNoTracking().Include(x => x.Variantes)
+            var p = await db.ProductosAw.AsNoTracking().Include(x => x.Variantes).Include(x => x.Componentes)
                 .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new EntityNotFoundException(
                     "PRODUCTO_AW_NO_ENCONTRADO",
@@ -424,6 +430,10 @@ public static class DatosMaestrosEndpoints
                 p.DatosFiscalesCompletos, p.Estatus, p.FechaBaja,
                 p.Variantes.OrderBy(v => v.ClaveVariante)
                     .Select(v => new ProductoAwVarianteDato(v.ClaveVariante, v.AltoMm, v.AnchoMm, v.EspesorMm, v.Composicion))
+                    .ToList(),
+                p.CodigoModelo, p.Grupo, p.Tipo, p.Wgr, p.WgrDescripcion,
+                p.Componentes.OrderBy(c => c.Orden)
+                    .Select(c => new ProductoAwComponenteDato(c.Orden, c.Nivel, c.PadreOrden, c.ComponenteRef, c.Descripcion, c.Tipo, c.EspesorMm))
                     .ToList(),
                 p.Version));
         })
@@ -651,6 +661,12 @@ public static class DatosMaestrosEndpoints
         EstatusCatalogo Estatus,
         DateTime? FechaBaja,
         IReadOnlyList<ProductoAwVarianteDato> Variantes,
+        string? CodigoModelo,
+        string? Grupo,
+        string? Tipo,
+        string? Wgr,
+        string? WgrDescripcion,
+        IReadOnlyList<ProductoAwComponenteDato> Componentes,
         int Version);
 
     public sealed record CrearProductoAwRequest(

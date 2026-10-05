@@ -216,6 +216,68 @@ public class AplicarProductoAwServiceTests
         (await db.ProductosAw.SingleAsync()).Descripcion.Should().Be("PRODUCTO DEMO 001");
     }
 
+    private static readonly ProductoAwComponenteDato[] Arbol =
+    [
+        new(1, 1, null, "DEMO-370306", "DEMO TEMPLADO", "VTE", 6m),
+        new(2, 2, 1, "DEMO-600000", "DEMO FILOS MUERTOS", "Proceso", null),
+    ];
+
+    private static AplicarProductoAwSnapshot ConArbol(ProductoAwComponenteDato[]? c = null) =>
+        Snap() with { CodigoModelo = "VT6", Grupo = "Vidrio templado claro", Tipo = "VTE", Wgr = "370", WgrDescripcion = "VIDRIO TEMPLADO CONTROL SOLAR", Componentes = c ?? Arbol };
+
+    [Fact]
+    public async Task Clasificacion_y_componentes_se_crean_y_son_idempotentes_hasta_que_cambia_una_pieza()
+    {
+        using var db = NewDb();
+        (await Aplicar(db, ConArbol())).Accion.Should().Be(AplicarProductoAwAccion.Creado);
+        var p = await db.ProductosAw.Include(x => x.Componentes).SingleAsync();
+        (p.CodigoModelo, p.Grupo, p.Tipo).Should().Be(("VT6", "Vidrio templado claro", "VTE"));
+        (p.Wgr, p.WgrDescripcion).Should().Be(("370", "VIDRIO TEMPLADO CONTROL SOLAR"));
+        p.Componentes.Should().HaveCount(2);
+        var hash1 = (await db.ProductosSincronizacionAw.SingleAsync()).HashOrigen;
+
+        (await Aplicar(db, ConArbol())).Accion.Should().Be(AplicarProductoAwAccion.SinCambios);
+
+        var cambiado = new[] { Arbol[0] with { ComponenteRef = "DEMO-370307" }, Arbol[1] };
+        (await Aplicar(db, ConArbol(cambiado))).Accion.Should().Be(AplicarProductoAwAccion.Actualizado);
+        (await db.ProductosSincronizacionAw.SingleAsync()).HashOrigen.Should().NotBe(hash1);
+        (await db.ProductosAwComponentes.OrderBy(c => c.Orden).Select(c => c.ComponenteRef).ToListAsync())
+            .Should().Equal("DEMO-370307", "DEMO-600000");
+
+        // A+W ya no tiene piezas: el árbol se vacía.
+        (await Aplicar(db, ConArbol([]))).Accion.Should().Be(AplicarProductoAwAccion.Actualizado);
+        (await db.ProductosAwComponentes.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SoloCrear_y_snapshot_sin_componentes_no_borran_arbol_ni_clasificacion()
+    {
+        using var db = NewDb();
+        await Aplicar(db, ConArbol());
+
+        (await Aplicar(db, Snap(descripcion: "OTRA") with { SoloCrear = true })).Accion.Should().Be(AplicarProductoAwAccion.SinCambios);
+        // Ruta que no lee el árbol (Componentes null): actualiza lo suyo y respeta las piezas.
+        (await Aplicar(db, Snap(descripcion: "NUEVA DESC") with { CodigoModelo = "VT6", Grupo = "G", Tipo = "VTE" }))
+            .Accion.Should().Be(AplicarProductoAwAccion.Actualizado);
+
+        (await db.ProductosAwComponentes.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Listar_filtra_por_tipo_exacto_y_cuenta_componentes()
+    {
+        using var db = NewDb();
+        await Aplicar(db, ConArbol());
+        await Aplicar(db, Snap(referencia: "DEMO-P002") with { Tipo = "VLA", Componentes = [] });
+        var handler = new ListarProductosAwHandler(db);
+
+        var r = await handler.Handle(new ListarProductosAwQuery(Tipo: "VTE"), CancellationToken.None);
+
+        var item = r.Items.Should().ContainSingle().Subject;
+        (item.ReferenciaExterna, item.Tipo, item.NumComponentes).Should().Be(("DEMO-P001", "VTE", 2));
+        (await handler.Handle(new ListarProductosAwQuery(), CancellationToken.None)).Total.Should().Be(2);
+    }
+
     [Fact]
     public async Task Desactivar_fija_FechaBaja_y_es_idempotente()
     {

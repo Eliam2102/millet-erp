@@ -12,7 +12,7 @@ public sealed class AwProductosOptions
     public const int TamanoLoteMaximo = 500;
     public const string ConnectionStringName = "AwProductosDb";
     public const string VersionContrato = "1";
-    public const string VersionMapeo = "0-borrador";
+    public const string VersionMapeo = "1-componentes";
 
     /// <summary>Interruptor maestro; con <see cref="Origen"/> = Sql además exige <c>ConnectionStrings:AwProductosDb</c>.</summary>
     public bool OrigenHabilitado { get; set; }

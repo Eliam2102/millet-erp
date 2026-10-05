@@ -1,0 +1,6 @@
+.env
+
+# carga completa A+W (estado local; datos reales solo viven en el volumen Docker)
+.cargado
+.tablas
+carga.log

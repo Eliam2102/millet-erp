@@ -8,6 +8,8 @@
 
 ---
 
+> Sandbox local (sin Hybrid Connection): ver [07](07-sandbox-aw.md).
+
 ## 0. Cómo leer este documento
 
 - Es el contrato lógico y la política por campo de la sincronización de clientes. **No** afirma que exista lectura real contra A+W: eso es otro entregable (O1A-AW-INT). El cierre de ADM-06 es construcción técnica con fixtures sintéticos.
