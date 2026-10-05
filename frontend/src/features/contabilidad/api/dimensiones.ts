@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import type {
+  Auxiliar,
+  CentroCorporativo,
   CentroOpcion,
-  CentroSucursales,
   Dimension,
   EditarReglaBody,
   FiltrosReglas,
@@ -14,7 +15,9 @@ import type {
   Regla,
   RequerimientoEfectivo,
   Sucursal,
+  TipoAuxiliar,
   TipoDocumento,
+  UbicacionSucursal,
   Validacion,
 } from './dimensiones-types';
 
@@ -28,8 +31,9 @@ export const dimKeys = {
     ['contabilidad', 'dimensiones', 'matriz', cuentaId, tipoDocumentoId, fecha] as const,
   sucursales: ['contabilidad', 'dimensiones', 'sucursales'] as const,
   sucursalesMovimiento: ['contabilidad', 'dimensiones', 'sucursales-movimiento'] as const,
-  centrosSucursal: (q: string, sucursalId: string, soloSin: boolean) =>
-    ['contabilidad', 'dimensiones', 'centros-sucursal', q, sucursalId, soloSin] as const,
+  ubicaciones: ['contabilidad', 'dimensiones', 'ubicaciones'] as const,
+  corporativos: (q: string, solo: boolean) => ['contabilidad', 'dimensiones', 'corporativos', q, solo] as const,
+  auxiliares: (tipo: TipoAuxiliar, q: string) => ['contabilidad', 'dimensiones', 'auxiliares', tipo, q] as const,
   centros: (sucursalId: string, nivel: Dimension, dim2Id: string, q: string) =>
     ['contabilidad', 'dimensiones', 'centros', sucursalId, nivel, dim2Id, q] as const,
   movimientos: (offset: number) => ['contabilidad', 'dimensiones', 'movimientos', offset] as const,
@@ -172,25 +176,57 @@ export function useSucursalesMovimiento() {
   });
 }
 
-export function useCentrosSucursal(q: string, sucursalId: string, soloSinSucursal: boolean) {
+/** Ubicaciones (Dim1) con su sucursal. */
+export function useUbicacionesSucursal() {
   return useQuery({
-    queryKey: dimKeys.centrosSucursal(q, sucursalId, soloSinSucursal),
-    queryFn: async ({ signal }) =>
-      (await apiRequest<CentroSucursales[]>(
-        `${BASE}/centros-sucursal${qs({ q, sucursalId, soloSinSucursal: soloSinSucursal || undefined })}`, { signal })).data,
+    queryKey: dimKeys.ubicaciones,
+    queryFn: async ({ signal }) => (await apiRequest<UbicacionSucursal[]>(`${BASE}/ubicaciones-sucursal`, { signal })).data,
   });
 }
 
-export function useAsignarSucursales() {
+/** Liga una ubicación a una sucursal (null la desliga). */
+export function useAsignarSucursalUbicacion() {
   const invalidar = useInvalidar();
   return useMutation({
-    mutationFn: async (a: { dim2Id: string; sucursalIds: string[] }) =>
-      (await apiRequest<CentroSucursales>(`${BASE}/centros-sucursal/${a.dim2Id}`, {
+    mutationFn: async (a: { dim1Id: string; sucursalId: string | null }) =>
+      (await apiRequest<UbicacionSucursal>(`${BASE}/ubicaciones-sucursal/${a.dim1Id}`, {
         method: 'PUT',
-        body: { sucursalIds: a.sucursalIds },
+        body: { sucursalId: a.sucursalId },
         idempotencyKey: crypto.randomUUID(),
       })).data,
     onSuccess: invalidar,
+  });
+}
+
+export function useCentrosCorporativos(q: string, soloCorporativos: boolean) {
+  return useQuery({
+    queryKey: dimKeys.corporativos(q, soloCorporativos),
+    queryFn: async ({ signal }) =>
+      (await apiRequest<CentroCorporativo[]>(
+        `${BASE}/centros-corporativos${qs({ q, soloCorporativos: soloCorporativos || undefined })}`, { signal })).data,
+  });
+}
+
+export function useMarcarCorporativo() {
+  const invalidar = useInvalidar();
+  return useMutation({
+    mutationFn: async (a: { dim2Id: string; corporativo: boolean }) =>
+      (await apiRequest<CentroCorporativo>(`${BASE}/centros-corporativos/${a.dim2Id}`, {
+        method: 'PUT',
+        body: { corporativo: a.corporativo },
+        idempotencyKey: crypto.randomUUID(),
+      })).data,
+    onSuccess: invalidar,
+  });
+}
+
+/** Clientes, proveedores o cuentas bancarias activos para capturar una partida. */
+export function useAuxiliares(tipo: TipoAuxiliar, q: string, enabled = true) {
+  return useQuery({
+    queryKey: dimKeys.auxiliares(tipo, q),
+    enabled,
+    queryFn: async ({ signal }) =>
+      (await apiRequest<Auxiliar[]>(`${BASE}/movimientos/auxiliares${qs({ tipo, q })}`, { signal })).data,
   });
 }
 

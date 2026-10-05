@@ -24,7 +24,7 @@ export function MatrizEfectiva({ cuentaId, tipoDocumentoId, fecha }: Props) {
       ) : matriz.isError ? (
         <p role="alert" className="mt-3 text-sm text-danger-fg">No se pudo consultar la configuración de la cuenta.</p>
       ) : (
-        <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+        <dl className="mt-3 grid gap-3 sm:grid-cols-4">
           {matriz.data!.map((r) => (
             <div key={r.dimension} className="flex flex-col gap-1">
               <dt className="text-xs text-ink-muted">{ETIQUETA_DIMENSION[r.dimension]}</dt>

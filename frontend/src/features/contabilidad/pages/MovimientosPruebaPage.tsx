@@ -12,8 +12,9 @@ import {
   useValidarMovimientoDimensiones,
 } from '../api/dimensiones';
 import type {
-  CampoMovimiento, CentroOpcion, Dimension, ErrorDimension, MovimientoBody, MovimientoPrueba, Requerimiento,
+  Auxiliar, CampoMovimiento, CentroOpcion, Dimension, ErrorDimension, MovimientoBody, MovimientoPrueba, Requerimiento,
 } from '../api/dimensiones-types';
+import { AuxiliarSelector } from '../components/dimensiones/AuxiliarSelector';
 import { CentroSelector } from '../components/dimensiones/CentroSelector';
 import { CuentaSelector, type CuentaOpcion } from '../components/dimensiones/CuentaSelector';
 import {
@@ -46,12 +47,20 @@ export function MovimientosPruebaPage() {
   const [dim1, setDim1] = useState<CentroOpcion | null>(null);
   const [dim2, setDim2] = useState<CentroOpcion | null>(null);
   const [dim3, setDim3] = useState<CentroOpcion | null>(null);
+  const [proyecto, setProyecto] = useState('');
+  const [cliente, setCliente] = useState<Auxiliar | null>(null);
+  const [proveedor, setProveedor] = useState<Auxiliar | null>(null);
+  const [banco, setBanco] = useState<Auxiliar | null>(null);
   const [referencia, setReferencia] = useState('');
   const [resultado, setResultado] = useState<Resultado | null>(null);
 
   const matriz = useMatrizEfectiva(cuenta?.id ?? '', tipoId, fecha);
   const requerimiento = (d: Dimension): Requerimiento | undefined => matriz.data?.find((r) => r.dimension === d)?.requerimiento;
   const errores = resultado?.tipo === 'errores' ? resultado.errores : [];
+  const insignia = (d: Dimension) => {
+    const req = requerimiento(d);
+    return req && <Badge variant={VARIANTE_REQUERIMIENTO[req]}>{ETIQUETA_REQUERIMIENTO[req]}</Badge>;
+  };
   const errorDe = (campo: CampoMovimiento) => errores.filter((e) => e.campo === campo);
 
   function limpiarResultado<T>(set: (v: T) => void) {
@@ -76,6 +85,8 @@ export function MovimientosPruebaPage() {
     return {
       cuentaId: cuenta!.id, tipoDocumentoId: tipoId, fechaContable: fecha, sucursalId,
       dim1Id: dim1?.id ?? null, dim2Id: dim2?.id ?? null, dim3Id: dim3?.id ?? null,
+      proyecto: proyecto.trim() || null, clienteId: cliente?.id ?? null, proveedorId: proveedor?.id ?? null,
+      cuentaBancariaId: banco?.id ?? null,
       origen: 'Manual', referencia: referencia.trim() || null,
     };
   }
@@ -137,7 +148,6 @@ export function MovimientosPruebaPage() {
           </Campo>
           {(['Dim1', 'Dim2', 'Dim3'] as const).map((d) => {
             const campo = (d === 'Dim1' ? 'dim1Id' : d === 'Dim2' ? 'dim2Id' : 'dim3Id') as CampoMovimiento;
-            const req = requerimiento(d);
             const value = d === 'Dim1' ? dim1 : d === 'Dim2' ? dim2 : dim3;
             const set = d === 'Dim1' ? limpiarResultado(setDim1) : d === 'Dim2' ? cambiarDim2 : limpiarResultado(setDim3);
             return (
@@ -146,7 +156,7 @@ export function MovimientosPruebaPage() {
                 id={`mov-${campo}`}
                 label={ETIQUETA_DIMENSION[d]}
                 errores={errorDe(campo)}
-                extra={req && <Badge variant={VARIANTE_REQUERIMIENTO[req]}>{ETIQUETA_REQUERIMIENTO[req]}</Badge>}
+                extra={insignia(d)}
                 ayuda={d === 'Dim3' && dim3?.dim2Clave ? `Pertenece al CeCo ${dim3.dim2Clave}` : undefined}
               >
                 <CentroSelector
@@ -156,6 +166,25 @@ export function MovimientosPruebaPage() {
               </Campo>
             );
           })}
+          <Campo id="mov-proyecto" label={ETIQUETA_DIMENSION.Proyecto} errores={errorDe('proyecto')} extra={insignia('Proyecto')}>
+            <Input
+              id="mov-proyecto" maxLength={40} value={proyecto} placeholder="[CLAVE DE PROYECTO]"
+              aria-invalid={errorDe('proyecto').length > 0 || undefined} aria-describedby="mov-proyecto-err"
+              onChange={(e) => limpiarResultado(setProyecto)(e.target.value)}
+            />
+          </Campo>
+          {([
+            ['Cliente', 'clienteId', cliente, setCliente],
+            ['Proveedor', 'proveedorId', proveedor, setProveedor],
+            ['Banco', 'cuentaBancariaId', banco, setBanco],
+          ] as const).map(([tipo, campo, value, set]) => (
+            <Campo key={tipo} id={`mov-${campo}`} label={ETIQUETA_DIMENSION[tipo]} errores={errorDe(campo)} extra={insignia(tipo)}>
+              <AuxiliarSelector
+                id={`mov-${campo}`} tipo={tipo} value={value} onChange={limpiarResultado(set)}
+                invalido={errorDe(campo).length > 0} describedBy={`mov-${campo}-err`}
+              />
+            </Campo>
+          ))}
           <Campo id="mov-ref" label="Referencia" opcional>
             <Input id="mov-ref" maxLength={100} value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="[REFERENCIA]" />
           </Campo>
@@ -228,6 +257,15 @@ function centros(m: MovimientoPrueba): string {
   return [m.dim1, m.dim2, m.dim3].filter(Boolean).map((c) => `${c!.clave}${c!.activo ? '' : ' (baja)'}`).join(' · ') || 'Sin centros';
 }
 
+function otras(m: MovimientoPrueba): string {
+  return [
+    m.proyecto && `Proyecto ${m.proyecto}`,
+    m.cliente && `Cliente ${m.cliente.clave}`,
+    m.proveedor && `Proveedor ${m.proveedor.clave}`,
+    m.cuentaBancaria && `Cuenta ${m.cuentaBancaria.clave}`,
+  ].filter(Boolean).join(' · ');
+}
+
 function MovimientosRegistrados() {
   const [offset, setOffset] = useState(0);
   const movs = useMovimientosPrueba(offset, LIMITE);
@@ -247,7 +285,7 @@ function MovimientosRegistrados() {
               <thead className="border-b border-line-divider bg-surface-subtle text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
                 <tr>
                   <th className="px-3 py-2">Fecha contable</th><th className="px-3 py-2">Cuenta</th><th className="px-3 py-2">Tipo</th>
-                  <th className="px-3 py-2">Sucursal</th><th className="px-3 py-2">Centros</th><th className="px-3 py-2">Reglas con las que se validó</th>
+                  <th className="px-3 py-2">Sucursal</th><th className="px-3 py-2">Dimensiones</th><th className="px-3 py-2">Reglas con las que se validó</th>
                   <th className="px-3 py-2">Registró</th>
                 </tr>
               </thead>
@@ -258,7 +296,10 @@ function MovimientosRegistrados() {
                     <td className="px-3 py-2 font-mono text-xs">{m.cuentaCodigo}</td>
                     <td className="px-3 py-2 font-mono text-xs">{m.tipoDocumentoClave}</td>
                     <td className="px-3 py-2">{m.sucursalNombre ?? '[SUCURSAL]'}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{centros(m)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {centros(m)}
+                      {otras(m) && <span className="block font-sans text-ink-muted">{otras(m)}</span>}
+                    </td>
                     <td className="px-3 py-2">
                       <details>
                         <summary className="cursor-pointer text-brand">Ver reglas</summary>

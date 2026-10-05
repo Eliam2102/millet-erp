@@ -21,6 +21,8 @@ const MATRIZ = [req('Dim1', 'Opcional'), req('Dim2', 'Opcional'), req('Dim3', 'O
 function servidor(over: Parameters<typeof mswServer.use> = []) {
   const centrosPedidos: URLSearchParams[] = [];
   mswServer.use(
+    // Los de la prueba van primero: en un mismo use() gana el primer handler que coincide.
+    ...over,
     http.get(`${API}/movimientos/sucursales`, () => HttpResponse.json([
       { id: 's1', clave: 'MER', nombre: 'FIX Mérida', activa: true },
       { id: 's2', clave: 'CUN', nombre: 'FIX Cancún', activa: true },
@@ -33,7 +35,6 @@ function servidor(over: Parameters<typeof mswServer.use> = []) {
       centrosPedidos.push(new URL(request.url).searchParams);
       return HttpResponse.json([]);
     }),
-    ...over,
   );
   return centrosPedidos;
 }
@@ -113,5 +114,27 @@ describe('<MovimientosPruebaPage>', () => {
     fireEvent.click(screen.getByLabelText(ETIQUETA_DIMENSION.Dim2));
     await waitFor(() => expect(pedidos.some((p) => p.get('sucursalId') === 's1' && p.get('nivel') === 'Dim2')).toBe(true));
     expect(await screen.findByText('Esta sucursal no tiene centros de este nivel asignados.')).toBeInTheDocument();
+  });
+
+  it('proyecto obligatorio: muestra la insignia y el error junto al campo; envía proyecto y auxiliares', async () => {
+    let body: Record<string, unknown> = {};
+    const matriz = [...MATRIZ, req('Proyecto', 'Obligatorio', 'r9')];
+    servidor([
+      http.get(`${API}/reglas-dimension/efectivas`, () => HttpResponse.json(matriz)),
+      http.post(`${API}/movimientos/validar`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          valido: false, requerimientos: matriz, centros: { dim1Id: null, dim2Id: null, dim3Id: null },
+          errores: [{ codigo: 'CONTAB_DIM_OBLIGATORIA_FALTANTE', mensaje: 'Falta Proyecto: es obligatoria para la cuenta FIX-501.01.', campo: 'proyecto', dimension: 'Proyecto' }],
+        });
+      }),
+    ]);
+    await capturar();
+    await waitFor(() => expect(screen.getAllByText('Obligatoria').length).toBeGreaterThanOrEqual(2));
+    fireEvent.click(screen.getByRole('button', { name: 'Validar' }));
+    await screen.findByRole('alert');
+    expect(document.getElementById('mov-proyecto-err')).toHaveTextContent('Falta Proyecto');
+    expect(screen.getByLabelText('Proyecto')).toHaveAttribute('aria-invalid', 'true');
+    expect(body).toMatchObject({ proyecto: null, clienteId: null, proveedorId: null, cuentaBancariaId: null });
   });
 });

@@ -9,6 +9,10 @@ export const ETIQUETA_DIMENSION: Record<Dimension, string> = {
   Dim1: etiquetaNivel('dim1', 'configuracion'),
   Dim2: etiquetaNivel('dim2', 'configuracion'),
   Dim3: etiquetaNivel('dim3', 'configuracion'),
+  Proyecto: 'Proyecto',
+  Cliente: 'Cliente',
+  Proveedor: 'Proveedor',
+  Banco: 'Banco (cuenta bancaria)',
 };
 
 export const ETIQUETA_REQUERIMIENTO: Record<Requerimiento, string> = {

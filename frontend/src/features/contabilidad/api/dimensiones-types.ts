@@ -4,11 +4,15 @@
  */
 import type { OrigenMovimiento } from './types';
 
-export type Dimension = 'Dim1' | 'Dim2' | 'Dim3';
+/** Dim1 ubicación, Dim2 área (CeCo), Dim3 equipo (Centros de Costo); el resto son dimensiones de la partida (K10.2). */
+export type Dimension = 'Dim1' | 'Dim2' | 'Dim3' | 'Proyecto' | 'Cliente' | 'Proveedor' | 'Banco';
+export type DimensionCentro = 'Dim1' | 'Dim2' | 'Dim3';
+export type TipoAuxiliar = 'Cliente' | 'Proveedor' | 'Banco';
 export type Requerimiento = 'Obligatorio' | 'Opcional' | 'NoAplica';
 export type EstadoRegla = 'Futura' | 'Vigente' | 'Cerrada';
 
-export const DIMENSIONES: readonly Dimension[] = ['Dim1', 'Dim2', 'Dim3'];
+export const DIMENSIONES: readonly Dimension[] = ['Dim1', 'Dim2', 'Dim3', 'Proyecto', 'Cliente', 'Proveedor', 'Banco'];
+export const DIMENSIONES_CENTRO: readonly DimensionCentro[] = ['Dim1', 'Dim2', 'Dim3'];
 export const REQUERIMIENTOS: readonly Requerimiento[] = ['Obligatorio', 'Opcional', 'NoAplica'];
 
 export interface TipoDocumento {
@@ -101,13 +105,31 @@ export interface Sucursal {
   activa: boolean;
 }
 
-export interface CentroSucursales {
+/** Ubicación (Dim1) y la sucursal a la que está ligada; null = sin ligar (sus centros no se pueden usar). */
+export interface UbicacionSucursal {
+  dim1Id: string;
+  clave: string;
+  nombre: string;
+  activo: boolean;
+  sucursal: Sucursal | null;
+}
+
+/** CeCo (Dim2) y si es corporativo (se usa desde cualquier sucursal). */
+export interface CentroCorporativo {
   dim2Id: string;
   clave: string;
   nombre: string;
   activo: boolean;
   dim1Clave: string;
-  sucursales: Sucursal[];
+  corporativo: boolean;
+}
+
+/** Cliente, proveedor o cuenta bancaria como dimensión de la partida. */
+export interface Auxiliar {
+  id: string;
+  clave: string;
+  nombre: string;
+  activo: boolean;
 }
 
 export interface CentroOpcion {
@@ -121,7 +143,9 @@ export interface CentroOpcion {
   dim2Clave: string | null;
 }
 
-export type CampoMovimiento = 'cuentaId' | 'tipoDocumentoId' | 'sucursalId' | 'dim1Id' | 'dim2Id' | 'dim3Id';
+export type CampoMovimiento =
+  | 'cuentaId' | 'tipoDocumentoId' | 'sucursalId' | 'dim1Id' | 'dim2Id' | 'dim3Id'
+  | 'proyecto' | 'clienteId' | 'proveedorId' | 'cuentaBancariaId';
 
 export interface ErrorDimension {
   codigo: string;
@@ -145,6 +169,10 @@ export interface MovimientoBody {
   dim1Id: string | null;
   dim2Id: string | null;
   dim3Id: string | null;
+  proyecto: string | null;
+  clienteId: string | null;
+  proveedorId: string | null;
+  cuentaBancariaId: string | null;
   origen: OrigenMovimiento;
   referencia: string | null;
 }
@@ -172,6 +200,10 @@ export interface MovimientoPrueba {
   reglasAplicadas: RequerimientoEfectivo[];
   confirmadoEn: string;
   confirmadoPor: string | null;
+  proyecto: string | null;
+  cliente: Auxiliar | null;
+  proveedor: Auxiliar | null;
+  cuentaBancaria: Auxiliar | null;
 }
 
 export interface PaginaMovimientos {
