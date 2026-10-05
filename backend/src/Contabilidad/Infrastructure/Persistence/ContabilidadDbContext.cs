@@ -23,6 +23,12 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<ImportacionCatalogo> Importaciones => Set<ImportacionCatalogo>();
     public DbSet<CuentaContableUso> Usos => Set<CuentaContableUso>();
 
+    // F1-CON-02: dimensiones contables.
+    public DbSet<TipoDocumentoContable> TiposDocumento => Set<TipoDocumentoContable>();
+    public DbSet<ReglaDimension> ReglasDimension => Set<ReglaDimension>();
+    public DbSet<CentroCostoSucursal> CentrosSucursal => Set<CentroCostoSucursal>();
+    public DbSet<MovimientoDimensionPrueba> MovimientosPrueba => Set<MovimientoDimensionPrueba>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);
