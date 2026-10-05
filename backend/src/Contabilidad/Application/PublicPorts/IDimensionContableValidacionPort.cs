@@ -13,12 +13,18 @@ public interface IDimensionContableValidacionPort
     Task<ValidacionDimensiones> ValidarAsync(MovimientoDimensionado movimiento, CancellationToken ct);
 }
 
+/// <summary>
+/// Partida a validar. Centros: Dim1 ubicación, Dim2 área (CeCo), Dim3 equipo; los superiores se derivan del inferior.
+/// <c>Proyecto</c> es una clave libre mientras no exista catálogo de proyectos (V41).
+/// </summary>
 public sealed record MovimientoDimensionado(
     Guid CuentaId, Guid TipoDocumentoId, DateOnly FechaContable, Guid SucursalId,
-    Guid? Dim1Id, Guid? Dim2Id, Guid? Dim3Id, OrigenMovimiento Origen = OrigenMovimiento.Manual);
+    Guid? Dim1Id, Guid? Dim2Id, Guid? Dim3Id, OrigenMovimiento Origen = OrigenMovimiento.Manual,
+    string? Proyecto = null, Guid? ClienteId = null, Guid? ProveedorId = null, Guid? CuentaBancariaId = null);
 
 /// <summary>
-/// <c>Campo</c> = nombre del campo de captura que causa el error (cuentaId, tipoDocumentoId, sucursalId, dim1Id, dim2Id, dim3Id),
+/// <c>Campo</c> = nombre del campo de captura que causa el error (cuentaId, tipoDocumentoId, sucursalId, dim1Id, dim2Id, dim3Id,
+/// proyecto, clienteId, proveedorId, cuentaBancariaId),
 /// para que la pantalla lo muestre junto a él.
 /// </summary>
 public sealed record ErrorDimension(string Codigo, string Mensaje, string Campo, DimensionContable? Dimension = null);

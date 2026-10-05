@@ -14,9 +14,11 @@ namespace Millet.Contabilidad.Application.Dimensiones;
 
 public sealed record MovimientoRequest(
     Guid CuentaId, Guid TipoDocumentoId, DateOnly FechaContable, Guid SucursalId,
-    Guid? Dim1Id, Guid? Dim2Id, Guid? Dim3Id, OrigenMovimiento Origen = OrigenMovimiento.Manual, string? Referencia = null)
+    Guid? Dim1Id, Guid? Dim2Id, Guid? Dim3Id, OrigenMovimiento Origen = OrigenMovimiento.Manual, string? Referencia = null,
+    string? Proyecto = null, Guid? ClienteId = null, Guid? ProveedorId = null, Guid? CuentaBancariaId = null)
 {
-    public MovimientoDimensionado Movimiento => new(CuentaId, TipoDocumentoId, FechaContable, SucursalId, Dim1Id, Dim2Id, Dim3Id, Origen);
+    public MovimientoDimensionado Movimiento => new(CuentaId, TipoDocumentoId, FechaContable, SucursalId, Dim1Id, Dim2Id, Dim3Id, Origen,
+        string.IsNullOrWhiteSpace(Proyecto) ? null : Proyecto.Trim(), ClienteId, ProveedorId, CuentaBancariaId);
 }
 
 public sealed class MovimientoRequestValidator : AbstractValidator<MovimientoRequest>
@@ -28,6 +30,7 @@ public sealed class MovimientoRequestValidator : AbstractValidator<MovimientoReq
         RuleFor(m => m.SucursalId).NotEqual(Guid.Empty).WithMessage("Elija la sucursal.");
         RuleFor(m => m.FechaContable).NotEqual(default(DateOnly)).WithMessage("Indique la fecha contable.");
         RuleFor(m => m.Referencia).MaximumLength(100);
+        RuleFor(m => m.Proyecto).MaximumLength(40);
     }
 }
 
@@ -56,7 +59,8 @@ public sealed record CentroRefDto(Guid Id, string Clave, string Nombre, bool Act
 public sealed record MovimientoPruebaResponse(
     Guid Id, Guid SucursalId, string? SucursalNombre, Guid CuentaId, string CuentaCodigo, Guid TipoDocumentoId, string TipoDocumentoClave,
     DateOnly FechaContable, CentroRefDto? Dim1, CentroRefDto? Dim2, CentroRefDto? Dim3, string? Referencia,
-    IReadOnlyList<RequerimientoEfectivo> ReglasAplicadas, DateTimeOffset ConfirmadoEn, string? ConfirmadoPor);
+    IReadOnlyList<RequerimientoEfectivo> ReglasAplicadas, DateTimeOffset ConfirmadoEn, string? ConfirmadoPor,
+    string? Proyecto = null, AuxiliarContable? Cliente = null, AuxiliarContable? Proveedor = null, AuxiliarContable? CuentaBancaria = null);
 
 public sealed record ConfirmacionMovimientoResult(bool Confirmado, ValidacionDimensiones Validacion, MovimientoPruebaResponse? Movimiento);
 
@@ -88,7 +92,8 @@ public sealed class ConfirmarMovimientoPruebaHandler(
         var cuenta = await db.Cuentas.AsNoTracking().FirstAsync(c => c.Id == m.CuentaId, cancellationToken);
         var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(t => t.Id == m.TipoDocumentoId, cancellationToken);
         var mov = new MovimientoDimensionPrueba(Guid.CreateVersion7(), m.SucursalId, cuenta.Id, cuenta.Codigo, tipo.Id, tipo.Clave,
-            m.FechaContable, v.Centros.Dim1Id, v.Centros.Dim2Id, v.Centros.Dim3Id, string.IsNullOrWhiteSpace(m.Referencia) ? null : m.Referencia.Trim(),
+            m.FechaContable, v.Centros.Dim1Id, v.Centros.Dim2Id, v.Centros.Dim3Id, m.Movimiento.Proyecto, m.ClienteId, m.ProveedorId,
+            m.CuentaBancariaId, string.IsNullOrWhiteSpace(m.Referencia) ? null : m.Referencia.Trim(),
             JsonSerializer.Serialize(v.Requerimientos, LecturaMovimientos.Json), clock.UtcNow);
         db.MovimientosPrueba.Add(mov);
         // Uso de cada regla aplicada: desde ahora no se edita ni se borra (solo se cierra). Bajo el mismo candado que las
@@ -101,7 +106,8 @@ public sealed class ConfirmarMovimientoPruebaHandler(
 }
 
 /// <summary>Proyección de movimientos de prueba: resuelve sucursal y centros para mostrar (incluye centros dados de baja).</summary>
-public sealed class LecturaMovimientos(ICentroCostoContabilidadPort centros, ISucursalContabilidadPort sucursales)
+public sealed class LecturaMovimientos(
+    ICentroCostoContabilidadPort centros, ISucursalContabilidadPort sucursales, ITerceroContabilidadPort terceros, ICuentaBancariaContabilidadPort bancos)
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -111,9 +117,15 @@ public sealed class LecturaMovimientos(ICentroCostoContabilidadPort centros, ISu
         var nodos = ids.Count == 0 ? new Dictionary<Guid, CentroCostoNodo>() : await centros.ObtenerAsync(ids, ct);
         var suc = (await sucursales.ListarAsync(ct)).ToDictionary(s => s.Id);
         CentroRefDto? Ref(Guid? id) => id is { } x && nodos.TryGetValue(x, out var n) ? new(n.Id, n.Clave, n.Nombre, n.ActivoEnCadena) : null;
+        static List<Guid> Ids(IEnumerable<Guid?> xs) => [.. xs.Where(x => x is not null).Select(x => x!.Value).Distinct()];
+        var clientes = await terceros.ObtenerAsync(TipoAuxiliar.Cliente, Ids(movs.Select(m => m.ClienteId)), ct);
+        var proveedores = await terceros.ObtenerAsync(TipoAuxiliar.Proveedor, Ids(movs.Select(m => m.ProveedorId)), ct);
+        var cuentas = await bancos.ObtenerAsync(Ids(movs.Select(m => m.CuentaBancariaId)), ct);
+        static AuxiliarContable? Aux(IReadOnlyDictionary<Guid, AuxiliarContable> d, Guid? id) => id is { } x ? d.GetValueOrDefault(x) : null;
         return [.. movs.Select(m => new MovimientoPruebaResponse(m.Id, m.SucursalId, suc.GetValueOrDefault(m.SucursalId)?.Nombre,
             m.CuentaId, m.CuentaCodigo, m.TipoDocumentoId, m.TipoDocumentoClave, m.FechaContable, Ref(m.Dim1Id), Ref(m.Dim2Id), Ref(m.Dim3Id),
-            m.Referencia, JsonSerializer.Deserialize<List<RequerimientoEfectivo>>(m.ReglasAplicadas, Json) ?? [], m.ConfirmadoEn, m.CreatedBy))];
+            m.Referencia, JsonSerializer.Deserialize<List<RequerimientoEfectivo>>(m.ReglasAplicadas, Json) ?? [], m.ConfirmadoEn, m.CreatedBy,
+            m.Proyecto, Aux(clientes, m.ClienteId), Aux(proveedores, m.ProveedorId), Aux(cuentas, m.CuentaBancariaId)))];
     }
 }
 

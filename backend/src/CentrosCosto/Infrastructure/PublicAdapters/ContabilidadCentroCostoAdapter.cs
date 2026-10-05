@@ -48,24 +48,27 @@ public sealed class ContabilidadCentroCostoAdapter(CentrosCostoDbContext db) : I
     }
 
     public async Task<IReadOnlyList<CentroCostoNodo>> BuscarAsync(
-        DimensionContable nivel, string? q, IReadOnlyCollection<Guid>? dentroDeDim2, bool incluirInactivos, int limite, CancellationToken ct)
+        DimensionContable nivel, string? q, AlcanceCentros? alcance, bool incluirInactivos, int limite, CancellationToken ct)
     {
         var patron = string.IsNullOrWhiteSpace(q) ? null : $"%{q.Trim()}%";
-        var dentro = dentroDeDim2?.ToArray();
+        var sinAlcance = alcance is null;
+        var dim1 = alcance?.Dim1Ids.ToArray() ?? [];
+        var dim2 = alcance?.Dim2Ids.ToArray() ?? [];
+        // Alcance = centros de las ubicaciones permitidas UNIDOS a los CeCo permitidos (corporativos) y sus equipos.
         List<Guid> ids = nivel switch
         {
             DimensionContable.Dim1 => await db.Dim1s.AsNoTracking()
-                .Where(x => dentro == null || db.Dim2s.Any(d => d.Dim1Id == x.Id && dentro.Contains(d.Id)))
+                .Where(x => sinAlcance || dim1.Contains(x.Id) || db.Dim2s.Any(d => d.Dim1Id == x.Id && dim2.Contains(d.Id)))
                 .Where(x => incluirInactivos || x.Estatus == EstatusCatalogo.Activo)
                 .Where(x => patron == null || EF.Functions.ILike(x.Clave, patron) || EF.Functions.ILike(x.Nombre, patron))
                 .OrderBy(x => x.Clave).Take(limite).Select(x => x.Id).ToListAsync(ct),
             DimensionContable.Dim2 => await db.Dim2s.AsNoTracking()
-                .Where(x => dentro == null || dentro.Contains(x.Id))
+                .Where(x => sinAlcance || dim1.Contains(x.Dim1Id) || dim2.Contains(x.Id))
                 .Where(x => incluirInactivos || x.Estatus == EstatusCatalogo.Activo)
                 .Where(x => patron == null || EF.Functions.ILike(x.Clave, patron) || EF.Functions.ILike(x.Nombre, patron))
                 .OrderBy(x => x.Clave).Take(limite).Select(x => x.Id).ToListAsync(ct),
             _ => await db.Dim3s.AsNoTracking()
-                .Where(x => dentro == null || dentro.Contains(x.Dim2Id))
+                .Where(x => sinAlcance || dim2.Contains(x.Dim2Id) || db.Dim2s.Any(d => d.Id == x.Dim2Id && dim1.Contains(d.Dim1Id)))
                 .Where(x => incluirInactivos || x.Estatus == EstatusCatalogo.Activo)
                 .Where(x => patron == null || EF.Functions.ILike(x.Clave, patron) || EF.Functions.ILike(x.Nombre, patron))
                 .OrderBy(x => x.Clave).Take(limite).Select(x => x.Id).ToListAsync(ct),

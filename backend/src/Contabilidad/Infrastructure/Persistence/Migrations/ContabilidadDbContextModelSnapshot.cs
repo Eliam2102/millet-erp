@@ -24,7 +24,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Millet.Contabilidad.Domain.CentroCostoSucursal", b =>
+            modelBuilder.Entity("Millet.Contabilidad.Domain.CentroCorporativo", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -50,10 +50,6 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
-                    b.Property<Guid>("SucursalId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("sucursal_id");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -68,16 +64,13 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_centros_costo_sucursal");
+                        .HasName("pk_centros_corporativos");
 
-                    b.HasIndex("EmpresaId", "SucursalId")
-                        .HasDatabaseName("ix_centros_costo_sucursal_empresa_id_sucursal_id");
-
-                    b.HasIndex("EmpresaId", "Dim2Id", "SucursalId")
+                    b.HasIndex("EmpresaId", "Dim2Id")
                         .IsUnique()
-                        .HasDatabaseName("ux_centros_costo_sucursal");
+                        .HasDatabaseName("ux_centros_corporativos_dim2");
 
-                    b.ToTable("centros_costo_sucursal", "contabilidad");
+                    b.ToTable("centros_corporativos", "contabilidad");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.CuentaContable", b =>
@@ -430,6 +423,10 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
                     b.Property<DateTimeOffset>("ConfirmadoEn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("confirmado_en");
@@ -441,6 +438,10 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text")
                         .HasColumnName("created_by");
+
+                    b.Property<Guid?>("CuentaBancariaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_bancaria_id");
 
                     b.Property<string>("CuentaCodigo")
                         .IsRequired()
@@ -475,6 +476,15 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("FechaContable")
                         .HasColumnType("date")
                         .HasColumnName("fecha_contable");
+
+                    b.Property<Guid?>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<string>("Proyecto")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("proyecto");
 
                     b.Property<string>("Referencia")
                         .HasMaxLength(100)
@@ -619,7 +629,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
                     b.ToTable("reglas_dimension", "contabilidad", t =>
                         {
-                            t.HasCheckConstraint("ck_reglas_dimension_dimension", "dimension BETWEEN 1 AND 3");
+                            t.HasCheckConstraint("ck_reglas_dimension_dimension", "dimension BETWEEN 1 AND 7");
 
                             t.HasCheckConstraint("ck_reglas_dimension_requerimiento", "requerimiento BETWEEN 1 AND 3");
 
@@ -761,6 +771,62 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_tipos_documento_estatus", "estatus BETWEEN 0 AND 2");
                         });
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.UbicacionSucursal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("Dim1Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dim1_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ubicaciones_sucursal");
+
+                    b.HasIndex("EmpresaId", "Dim1Id")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ubicaciones_sucursal_dim1");
+
+                    b.HasIndex("EmpresaId", "SucursalId")
+                        .HasDatabaseName("ix_ubicaciones_sucursal_empresa_id_sucursal_id");
+
+                    b.ToTable("ubicaciones_sucursal", "contabilidad");
                 });
 
             modelBuilder.Entity("Millet.SharedKernel.Domain.Audit.AuditLogEntry", b =>

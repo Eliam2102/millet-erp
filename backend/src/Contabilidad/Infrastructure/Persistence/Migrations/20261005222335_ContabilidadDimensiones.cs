@@ -6,20 +6,19 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class ContabilidadDimensionesReglas : Migration
+    public partial class ContabilidadDimensiones : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "centros_costo_sucursal",
+                name: "centros_corporativos",
                 schema: "contabilidad",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
                     dim2_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    sucursal_id = table.Column<Guid>(type: "uuid", nullable: false),
                     version = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -29,7 +28,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_centros_costo_sucursal", x => x.id);
+                    table.PrimaryKey("pk_centros_corporativos", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
@@ -57,6 +56,27 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ubicaciones_sucursal",
+                schema: "contabilidad",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    dim1_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sucursal_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    version = table.Column<int>(type: "integer", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<string>(type: "text", nullable: true),
+                    updated_by = table.Column<string>(type: "text", nullable: true),
+                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_ubicaciones_sucursal", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "movimientos_dimension_prueba",
                 schema: "contabilidad",
                 columns: table => new
@@ -72,6 +92,10 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                     dim1_id = table.Column<Guid>(type: "uuid", nullable: true),
                     dim2_id = table.Column<Guid>(type: "uuid", nullable: true),
                     dim3_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    proyecto = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: true),
+                    cliente_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    proveedor_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    cuenta_bancaria_id = table.Column<Guid>(type: "uuid", nullable: true),
                     referencia = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     reglas_aplicadas = table.Column<string>(type: "jsonb", nullable: false),
                     confirmado_en = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -126,7 +150,7 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("pk_reglas_dimension", x => x.id);
-                    table.CheckConstraint("ck_reglas_dimension_dimension", "dimension BETWEEN 1 AND 3");
+                    table.CheckConstraint("ck_reglas_dimension_dimension", "dimension BETWEEN 1 AND 7");
                     table.CheckConstraint("ck_reglas_dimension_requerimiento", "requerimiento BETWEEN 1 AND 3");
                     table.CheckConstraint("ck_reglas_dimension_vigencia", "vigente_hasta IS NULL OR vigente_hasta >= vigente_desde");
                     table.ForeignKey(
@@ -145,17 +169,41 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            migrationBuilder.CreateIndex(
-                name: "ix_centros_costo_sucursal_empresa_id_sucursal_id",
+            migrationBuilder.CreateTable(
+                name: "reglas_dimension_uso",
                 schema: "contabilidad",
-                table: "centros_costo_sucursal",
-                columns: new[] { "empresa_id", "sucursal_id" });
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    empresa_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    regla_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    consumidor = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
+                    referencia = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    fecha_contable = table.Column<DateOnly>(type: "date", nullable: false),
+                    version = table.Column<int>(type: "integer", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<string>(type: "text", nullable: true),
+                    updated_by = table.Column<string>(type: "text", nullable: true),
+                    deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_reglas_dimension_uso", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_reglas_dimension_uso_reglas_dimension_regla_id",
+                        column: x => x.regla_id,
+                        principalSchema: "contabilidad",
+                        principalTable: "reglas_dimension",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
 
             migrationBuilder.CreateIndex(
-                name: "ux_centros_costo_sucursal",
+                name: "ux_centros_corporativos_dim2",
                 schema: "contabilidad",
-                table: "centros_costo_sucursal",
-                columns: new[] { "empresa_id", "dim2_id", "sucursal_id" },
+                table: "centros_corporativos",
+                columns: new[] { "empresa_id", "dim2_id" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -209,10 +257,36 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                 .Annotation("Npgsql:NullsDistinct", false);
 
             migrationBuilder.CreateIndex(
+                name: "ix_reglas_dimension_uso_regla_id",
+                schema: "contabilidad",
+                table: "reglas_dimension_uso",
+                column: "regla_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_reglas_dimension_uso",
+                schema: "contabilidad",
+                table: "reglas_dimension_uso",
+                columns: new[] { "empresa_id", "regla_id", "consumidor", "referencia" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ux_tipos_documento_clave",
                 schema: "contabilidad",
                 table: "tipos_documento_contable",
                 columns: new[] { "empresa_id", "clave" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_ubicaciones_sucursal_empresa_id_sucursal_id",
+                schema: "contabilidad",
+                table: "ubicaciones_sucursal",
+                columns: new[] { "empresa_id", "sucursal_id" });
+
+            migrationBuilder.CreateIndex(
+                name: "ux_ubicaciones_sucursal_dim1",
+                schema: "contabilidad",
+                table: "ubicaciones_sucursal",
+                columns: new[] { "empresa_id", "dim1_id" },
                 unique: true);
         }
 
@@ -220,11 +294,19 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "centros_costo_sucursal",
+                name: "centros_corporativos",
                 schema: "contabilidad");
 
             migrationBuilder.DropTable(
                 name: "movimientos_dimension_prueba",
+                schema: "contabilidad");
+
+            migrationBuilder.DropTable(
+                name: "reglas_dimension_uso",
+                schema: "contabilidad");
+
+            migrationBuilder.DropTable(
+                name: "ubicaciones_sucursal",
                 schema: "contabilidad");
 
             migrationBuilder.DropTable(

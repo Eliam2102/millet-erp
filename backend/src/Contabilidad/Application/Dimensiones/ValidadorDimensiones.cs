@@ -8,8 +8,9 @@ using Millet.Contabilidad.Infrastructure.Persistence;
 namespace Millet.Contabilidad.Application.Dimensiones;
 
 /// <summary>
-/// Validación de dimensiones de un movimiento (F1-CON-02, plan §5). Orden: cuenta → tipo de documento → sucursal → centros
-/// (existencia, nivel, jerarquía, estado) → sucursal del centro → reglas vigentes a la fecha contable. Junta todos los errores.
+/// Validación de dimensiones de un movimiento (F1-CON-02, ficha K10.2). Orden: cuenta → tipo de documento → sucursal → centros
+/// (existencia, nivel, jerarquía, estado) → ubicación del centro contra la sucursal (salvo centro corporativo) → auxiliares
+/// (cliente, proveedor, banco) → reglas vigentes a la fecha contable. Junta todos los errores.
 /// Resolución de reglas (D3): por dimensión gana la cuenta más cercana (la propia, luego el ancestro más cercano) y, a igual
 /// cuenta, la regla del tipo de documento sobre la de todos los tipos. Un valor derivado por jerarquía cuenta como capturado
 /// para "obligatorio", pero "no aplica" solo rechaza lo capturado directamente.
@@ -19,6 +20,8 @@ public sealed class ValidadorDimensiones(
     ICuentaContableReadPort cuentas,
     ICentroCostoContabilidadPort centros,
     ISucursalContabilidadPort sucursales,
+    ITerceroContabilidadPort terceros,
+    ICuentaBancariaContabilidadPort bancos,
     IOptions<DimensionesOpciones> opciones) : IDimensionContableValidacionPort
 {
     private DimensionesOpciones O => opciones.Value;
@@ -39,15 +42,21 @@ public sealed class ValidadorDimensiones(
                 tipo is null ? "El tipo de documento no existe." : $"El tipo de documento «{tipo.Nombre}» está inactivo.", "tipoDocumentoId"));
 
         // 3. Sucursal del movimiento (de la empresa actual).
-        var sucursal = (await sucursales.ListarAsync(ct)).FirstOrDefault(s => s.Id == m.SucursalId);
+        var catalogoSucursales = await sucursales.ListarAsync(ct);
+        var sucursal = catalogoSucursales.FirstOrDefault(s => s.Id == m.SucursalId);
         if (sucursal is not { Activa: true })
             errores.Add(new("CONTAB_DIM_SUCURSAL_INVALIDA",
                 sucursal is null ? "La sucursal no existe." : $"La sucursal {sucursal.Nombre} está inactiva.", "sucursalId"));
 
-        // 4–5. Centros.
-        var efectivos = await ValidarCentrosAsync(m, sucursal, errores, ct);
+        // 4–5. Centros y su ubicación.
+        var efectivos = await ValidarCentrosAsync(m, sucursal, catalogoSucursales, errores, ct);
 
-        // 6. Reglas vigentes a la fecha contable.
+        // 6. Auxiliares capturados: existen y están activos.
+        await ValidarAuxiliarAsync(TipoAuxiliar.Cliente, m.ClienteId, DimensionContable.Cliente, errores, ct);
+        await ValidarAuxiliarAsync(TipoAuxiliar.Proveedor, m.ProveedorId, DimensionContable.Proveedor, errores, ct);
+        await ValidarAuxiliarAsync(TipoAuxiliar.Banco, m.CuentaBancariaId, DimensionContable.Banco, errores, ct);
+
+        // 7. Reglas vigentes a la fecha contable.
         var requerimientos = cuenta.Cuenta is null
             ? []
             : await ResolverAsync(m.CuentaId, m.TipoDocumentoId, m.FechaContable, ct);
@@ -105,13 +114,13 @@ public sealed class ValidadorDimensiones(
     {
         foreach (var r in requerimientos)
         {
-            var directo = Valor(r.Dimension, m.Dim1Id, m.Dim2Id, m.Dim3Id);
-            var efectivo = Valor(r.Dimension, efectivos.Dim1Id, efectivos.Dim2Id, efectivos.Dim3Id);
+            var directo = Capturada(r.Dimension, m);
+            var efectivo = directo || Derivada(r.Dimension, efectivos);
             var origen = r.Heredada ? $" (regla definida en la cuenta {r.CuentaOrigenCodigo})" : string.Empty;
-            if (r.Requerimiento == RequerimientoDimension.Obligatorio && efectivo is null)
+            if (r.Requerimiento == RequerimientoDimension.Obligatorio && !efectivo)
                 yield return new("CONTAB_DIM_OBLIGATORIA_FALTANTE",
                     $"Falta {r.NombreDimension}: es obligatoria para {donde}{origen}.", Campo(r.Dimension), r.Dimension);
-            else if (r.Requerimiento == RequerimientoDimension.NoAplica && directo is not null)
+            else if (r.Requerimiento == RequerimientoDimension.NoAplica && directo)
                 yield return new("CONTAB_DIM_NO_APLICA",
                     $"{r.NombreDimension} no aplica para {donde}{origen}: quítela del movimiento.", Campo(r.Dimension), r.Dimension);
         }
@@ -133,8 +142,22 @@ public sealed class ValidadorDimensiones(
         return cadena;
     }
 
+    private async Task ValidarAuxiliarAsync(TipoAuxiliar tipo, Guid? id, DimensionContable dim, List<ErrorDimension> errores, CancellationToken ct)
+    {
+        if (id is not { } aid) return;
+        var encontrados = tipo == TipoAuxiliar.Banco
+            ? await bancos.ObtenerAsync([aid], ct)
+            : await terceros.ObtenerAsync(tipo, [aid], ct);
+        if (!encontrados.TryGetValue(aid, out var aux))
+            errores.Add(new("CONTAB_DIM_AUXILIAR_NO_EXISTE", $"{O.Nombre(dim)}: el registro indicado no existe.", Campo(dim), dim));
+        else if (!aux.Activo)
+            errores.Add(new("CONTAB_DIM_AUXILIAR_INACTIVO",
+                $"{O.Nombre(dim)} {aux.Clave} — {aux.Nombre} está dado de baja y no se puede usar en movimientos nuevos.", Campo(dim), dim));
+    }
+
     private async Task<CentrosEfectivos> ValidarCentrosAsync(
-        MovimientoDimensionado m, SucursalContable? sucursal, List<ErrorDimension> errores, CancellationToken ct)
+        MovimientoDimensionado m, SucursalContable? sucursal, IReadOnlyList<SucursalContable> catalogoSucursales,
+        List<ErrorDimension> errores, CancellationToken ct)
     {
         var capturados = new (DimensionContable Dim, Guid? Id)[] { (DimensionContable.Dim1, m.Dim1Id), (DimensionContable.Dim2, m.Dim2Id), (DimensionContable.Dim3, m.Dim3Id) };
         var ids = capturados.Where(c => c.Id is not null).Select(c => c.Id!.Value).ToList();
@@ -185,30 +208,62 @@ public sealed class ValidadorDimensiones(
             d2?.Id ?? d3?.Dim2Id,
             d3?.Id);
 
-        // Sucursal del centro (D6): la decide el CeCo (Dim2); una Dim3 hereda la de su Dim2. Solo Dim1 no se liga a sucursal.
-        if (O.ExigirSucursalDelCentro && congruente && efectivos.Dim2Id is { } dim2Id && sucursal is not null)
+        // Ubicación → sucursal (K10.2, V49): la ubicación (Dim1) del centro debe ser de la sucursal del movimiento, salvo que el
+        // CeCo (Dim2) sea corporativo. Una Dim3 hereda la ubicación y el carácter corporativo de su CeCo.
+        if (O.ExigirSucursalDelCentro && congruente && sucursal is not null && efectivos.Dim1Id is { } dim1Id)
         {
-            var asignadas = await db.CentrosSucursal.AsNoTracking().Where(x => x.Dim2Id == dim2Id).Select(x => x.SucursalId).ToListAsync(ct);
-            var clave = d2?.Clave ?? d3?.Dim2Clave;
-            var campo = Campo(inferior!.Nivel);
-            if (asignadas.Count == 0)
-                errores.Add(new("CONTAB_DIM_CENTRO_SIN_SUCURSAL",
-                    $"El centro {clave} no tiene sucursales asignadas para movimientos contables; pida a Contabilidad que lo asigne.", campo, inferior.Nivel));
-            else if (!asignadas.Contains(sucursal.Id))
-                errores.Add(new("CONTAB_DIM_CENTRO_OTRA_SUCURSAL",
-                    $"El centro {clave} no está asignado a la sucursal {sucursal.Nombre}.", campo, inferior.Nivel));
+            var corporativo = efectivos.Dim2Id is { } d2Id && await db.CentrosCorporativos.AsNoTracking().AnyAsync(x => x.Dim2Id == d2Id, ct);
+            if (!corporativo)
+            {
+                var nodo = (d3 ?? d2 ?? d1)!;
+                var ubicacion = d1?.Clave ?? nodo.Dim1Clave;
+                var ligada = await db.UbicacionesSucursal.AsNoTracking().FirstOrDefaultAsync(x => x.Dim1Id == dim1Id, ct);
+                if (ligada is null)
+                    errores.Add(new("CONTAB_DIM_UBICACION_SIN_SUCURSAL",
+                        $"La ubicación {ubicacion} del centro {nodo.Clave} no está ligada a ninguna sucursal; pida a Contabilidad que la configure.",
+                        Campo(nodo.Nivel), nodo.Nivel));
+                else if (ligada.SucursalId != sucursal.Id)
+                {
+                    var suya = catalogoSucursales.FirstOrDefault(s => s.Id == ligada.SucursalId)?.Nombre ?? "otra sucursal";
+                    errores.Add(new("CONTAB_DIM_CENTRO_OTRA_SUCURSAL",
+                        $"El centro {nodo.Clave} es de la ubicación {ubicacion} ({suya}) y no se puede usar en la sucursal {sucursal.Nombre}.",
+                        Campo(nodo.Nivel), nodo.Nivel));
+                }
+            }
         }
         return efectivos;
     }
 
-    private static Guid? Valor(DimensionContable d, Guid? dim1, Guid? dim2, Guid? dim3) =>
-        d switch { DimensionContable.Dim1 => dim1, DimensionContable.Dim2 => dim2, _ => dim3 };
+    /// <summary>La dimensión viene capturada directamente en la partida.</summary>
+    private static bool Capturada(DimensionContable d, MovimientoDimensionado m) => d switch
+    {
+        DimensionContable.Dim1 => m.Dim1Id is not null,
+        DimensionContable.Dim2 => m.Dim2Id is not null,
+        DimensionContable.Dim3 => m.Dim3Id is not null,
+        DimensionContable.Proyecto => !string.IsNullOrWhiteSpace(m.Proyecto),
+        DimensionContable.Cliente => m.ClienteId is not null,
+        DimensionContable.Proveedor => m.ProveedorId is not null,
+        _ => m.CuentaBancariaId is not null,
+    };
+
+    /// <summary>Solo los centros se derivan (del nivel inferior capturado); proyecto y auxiliares no.</summary>
+    private static bool Derivada(DimensionContable d, CentrosEfectivos e) => d switch
+    {
+        DimensionContable.Dim1 => e.Dim1Id is not null,
+        DimensionContable.Dim2 => e.Dim2Id is not null,
+        DimensionContable.Dim3 => e.Dim3Id is not null,
+        _ => false,
+    };
 
     public static string Campo(DimensionContable d) => d switch
     {
         DimensionContable.Dim1 => "dim1Id",
         DimensionContable.Dim2 => "dim2Id",
-        _ => "dim3Id",
+        DimensionContable.Dim3 => "dim3Id",
+        DimensionContable.Proyecto => "proyecto",
+        DimensionContable.Cliente => "clienteId",
+        DimensionContable.Proveedor => "proveedorId",
+        _ => "cuentaBancariaId",
     };
 
     private static string MensajeCuenta(CuentaContableValidacion v)

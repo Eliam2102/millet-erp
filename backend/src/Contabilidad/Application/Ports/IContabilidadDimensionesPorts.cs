@@ -13,12 +13,15 @@ public interface ICentroCostoContabilidadPort
     Task<IReadOnlyDictionary<Guid, CentroCostoNodo>> ObtenerAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 
     /// <summary>
-    /// Búsqueda para selectores. <paramref name="dentroDeDim2"/> restringe a esos CeCo (Dim2 = ellos mismos; Dim3 = sus hijos;
-    /// Dim1 = sus padres); null = sin restricción. Sin inactivos salvo que se pidan.
+    /// Búsqueda para selectores. <paramref name="alcance"/> restringe a los centros de esas ubicaciones (Dim1) o de esos CeCo
+    /// (Dim2), unidos; null = sin restricción. Sin inactivos salvo que se pidan.
     /// </summary>
     Task<IReadOnlyList<CentroCostoNodo>> BuscarAsync(
-        DimensionContable nivel, string? q, IReadOnlyCollection<Guid>? dentroDeDim2, bool incluirInactivos, int limite, CancellationToken ct);
+        DimensionContable nivel, string? q, AlcanceCentros? alcance, bool incluirInactivos, int limite, CancellationToken ct);
 }
+
+/// <summary>Centros permitidos: todos los de las ubicaciones <see cref="Dim1Ids"/> más los CeCo <see cref="Dim2Ids"/> (corporativos).</summary>
+public sealed record AlcanceCentros(IReadOnlyCollection<Guid> Dim1Ids, IReadOnlyCollection<Guid> Dim2Ids);
 
 /// <summary>
 /// Nodo del árbol de centros. <see cref="ActivoEnCadena"/> = el nodo y todos sus ancestros están activos.
@@ -39,3 +42,26 @@ public interface ISucursalContabilidadPort
 }
 
 public sealed record SucursalContable(Guid Id, string Clave, string Nombre, bool Activa);
+
+/// <summary>Auxiliares de una partida que se validan contra su catálogo (K10.2: cliente, proveedor y banco).</summary>
+public enum TipoAuxiliar { Cliente, Proveedor, Banco }
+
+/// <summary>Lectura mínima de un auxiliar para validar y mostrar: existe, está activo y cómo se llama.</summary>
+public sealed record AuxiliarContable(Guid Id, string Clave, string Nombre, bool Activo);
+
+/// <summary>
+/// Puerto de CONSUMIDOR para clientes y proveedores (maestros de <c>compartido</c>). Lo implementa Compartido.
+/// <paramref name="tipo"/> solo admite <see cref="TipoAuxiliar.Cliente"/> o <see cref="TipoAuxiliar.Proveedor"/>.
+/// </summary>
+public interface ITerceroContabilidadPort
+{
+    Task<IReadOnlyDictionary<Guid, AuxiliarContable>> ObtenerAsync(TipoAuxiliar tipo, IReadOnlyCollection<Guid> ids, CancellationToken ct);
+    Task<IReadOnlyList<AuxiliarContable>> BuscarAsync(TipoAuxiliar tipo, string? q, int limite, CancellationToken ct);
+}
+
+/// <summary>Puerto de CONSUMIDOR para cuentas bancarias de Millet (dimensión banco). Lo implementa Tesorería.</summary>
+public interface ICuentaBancariaContabilidadPort
+{
+    Task<IReadOnlyDictionary<Guid, AuxiliarContable>> ObtenerAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
+    Task<IReadOnlyList<AuxiliarContable>> BuscarAsync(string? q, int limite, CancellationToken ct);
+}

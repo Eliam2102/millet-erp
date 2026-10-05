@@ -791,13 +791,20 @@ builder.Services.AddCentrosCostoModule();
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
 builder.Services.AddContabilidadModule(builder.Configuration);
 // F1-CON-02 (dimensiones contables): los puertos de consumidor de Contabilidad los hospedan los dueños del dato.
-// Centros (Dim1→Dim2→Dim3 de ADM-08) desde CentrosCosto; sucursales + pertenencia usuario↔sucursal desde Compartido.
+// Centros (Dim1→Dim2→Dim3 de ADM-08) desde CentrosCosto; sucursales, pertenencia usuario↔sucursal, clientes y proveedores
+// desde Compartido; cuentas bancarias desde Tesorería.
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ICentroCostoContabilidadPort,
     Millet.CentrosCosto.Infrastructure.PublicAdapters.ContabilidadCentroCostoAdapter>();
 builder.Services.AddScoped<
     Millet.Contabilidad.Application.Ports.ISucursalContabilidadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.SucursalContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ITerceroContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TerceroContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ICuentaBancariaContabilidadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.CuentaBancariaContabilidadAdapter>();
 
 // === Flujo 2 de Integraciones.Aw: ingesta de pedidos en firme (ADR-0048) ===
 // Adapters reales del reader/write-back sobre MILLET_INTEGRACION (tabla-puente

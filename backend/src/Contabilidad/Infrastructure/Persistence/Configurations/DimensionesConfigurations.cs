@@ -30,7 +30,7 @@ public sealed class ReglaDimensionConfiguration : IEntityTypeConfiguration<Regla
     {
         builder.ToTable("reglas_dimension", t =>
         {
-            t.HasCheckConstraint("ck_reglas_dimension_dimension", "dimension BETWEEN 1 AND 3");
+            t.HasCheckConstraint("ck_reglas_dimension_dimension", "dimension BETWEEN 1 AND 7");
             t.HasCheckConstraint("ck_reglas_dimension_requerimiento", "requerimiento BETWEEN 1 AND 3");
             t.HasCheckConstraint("ck_reglas_dimension_vigencia", "vigente_hasta IS NULL OR vigente_hasta >= vigente_desde");
         });
@@ -64,17 +64,30 @@ public sealed class ReglaDimensionUsoConfiguration : IEntityTypeConfiguration<Re
     }
 }
 
-/// <summary><c>contabilidad.centros_costo_sucursal</c> (D6). Sin FK a otros esquemas: se valida por puertos.</summary>
-public sealed class CentroCostoSucursalConfiguration : IEntityTypeConfiguration<CentroCostoSucursal>
+/// <summary><c>contabilidad.ubicaciones_sucursal</c> (K10.2/V49): una ubicación (Dim1) pertenece a una sola sucursal. Sin FK a otros esquemas.</summary>
+public sealed class UbicacionSucursalConfiguration : IEntityTypeConfiguration<UbicacionSucursal>
 {
-    public void Configure(EntityTypeBuilder<CentroCostoSucursal> builder)
+    public void Configure(EntityTypeBuilder<UbicacionSucursal> builder)
     {
-        builder.ToTable("centros_costo_sucursal");
+        builder.ToTable("ubicaciones_sucursal");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
-        builder.Property(x => x.Dim2Id).HasColumnName("dim2_id"); // mismo nombre que en centros_costo (la convención daría dim2id)
-        builder.HasIndex(x => new { x.EmpresaId, x.Dim2Id, x.SucursalId }).IsUnique().HasDatabaseName("ux_centros_costo_sucursal");
+        builder.Property(x => x.Dim1Id).HasColumnName("dim1_id"); // mismo nombre que en centros_costo (la convención daría dim1id)
+        builder.HasIndex(x => new { x.EmpresaId, x.Dim1Id }).IsUnique().HasDatabaseName("ux_ubicaciones_sucursal_dim1");
         builder.HasIndex(x => new { x.EmpresaId, x.SucursalId });
+    }
+}
+
+/// <summary><c>contabilidad.centros_corporativos</c>: CeCo (Dim2) que se usa desde cualquier sucursal.</summary>
+public sealed class CentroCorporativoConfiguration : IEntityTypeConfiguration<CentroCorporativo>
+{
+    public void Configure(EntityTypeBuilder<CentroCorporativo> builder)
+    {
+        builder.ToTable("centros_corporativos");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Dim2Id).HasColumnName("dim2_id");
+        builder.HasIndex(x => new { x.EmpresaId, x.Dim2Id }).IsUnique().HasDatabaseName("ux_centros_corporativos_dim2");
     }
 }
 
@@ -93,6 +106,7 @@ public sealed class MovimientoDimensionPruebaConfiguration : IEntityTypeConfigur
         builder.Property(x => x.Dim1Id).HasColumnName("dim1_id");
         builder.Property(x => x.Dim2Id).HasColumnName("dim2_id");
         builder.Property(x => x.Dim3Id).HasColumnName("dim3_id");
+        builder.Property(x => x.Proyecto).HasMaxLength(40);
         builder.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.ConfirmadoEn });
         builder.HasIndex(x => new { x.EmpresaId, x.CuentaId });
         builder.HasOne<CuentaContable>().WithMany().HasForeignKey(x => x.CuentaId).OnDelete(DeleteBehavior.Restrict);

@@ -15,7 +15,7 @@ namespace Millet.Api.Endpoints.Contabilidad;
 
 /// <summary>
 /// Dimensiones contables (F1-CON-02) bajo <c>/api/v1/contabilidad/*</c>: tipos de documento, reglas cuenta × tipo × dimensión
-/// con vigencia, sucursales de cada centro de costo, validación de movimientos y movimientos de prueba. Mismas convenciones
+/// con vigencia, ubicación → sucursal y centros corporativos, validación de movimientos y movimientos de prueba. Mismas convenciones
 /// que el catálogo: ETag en GET por id, <c>If-Match</c> en mutaciones de recursos versionados, <c>Idempotency-Key</c> en POST/PUT.
 /// </summary>
 public static class ContabilidadDimensionesEndpoints
@@ -26,7 +26,9 @@ public static class ContabilidadDimensionesEndpoints
 
     public sealed record CerrarReglaRequest(DateOnly VigenteHasta);
 
-    public sealed record AsignarSucursalesRequest(IReadOnlyList<Guid> SucursalIds);
+    public sealed record AsignarSucursalUbicacionRequest(Guid? SucursalId);
+
+    public sealed record MarcarCorporativoRequest(bool Corporativo);
 
     public static IEndpointRouteBuilder MapContabilidadDimensionesEndpoints(this IEndpointRouteBuilder app)
     {
@@ -153,19 +155,31 @@ public static class ContabilidadDimensionesEndpoints
         .WithSummary("Sucursales de la empresa para asignarlas a los centros de costo")
         .Produces<IReadOnlyList<SucursalContable>>();
 
-        g.MapGet("/centros-sucursal", async (
-            [FromQuery] string? q, [FromQuery] Guid? sucursalId, [FromQuery] bool? soloSinSucursal, [FromQuery] int? limit,
-            IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ListarCentrosSucursalQuery(q, sucursalId, soloSinSucursal ?? false, Math.Clamp(limit ?? 100, 1, 500)), ct)))
-        .RequireAuthorization(leer).WithName("ListarCentrosSucursal")
-        .Produces<IReadOnlyList<CentroSucursalesResponse>>();
+        g.MapGet("/ubicaciones-sucursal", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarUbicacionesSucursalQuery(), ct)))
+        .RequireAuthorization(leer).WithName("ListarUbicacionesSucursal")
+        .WithSummary("Ubicaciones (Dimensión 1) con la sucursal a la que están ligadas")
+        .Produces<IReadOnlyList<UbicacionSucursalResponse>>();
 
-        g.MapPut("/centros-sucursal/{dim2Id:guid}", async (Guid dim2Id, AsignarSucursalesRequest b, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new AsignarSucursalesCentroCommand(dim2Id, b.SucursalIds ?? []), ct)))
+        g.MapPut("/ubicaciones-sucursal/{dim1Id:guid}", async (Guid dim1Id, AsignarSucursalUbicacionRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AsignarSucursalUbicacionCommand(dim1Id, b.SucursalId), ct)))
         .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(administrar).WithName("AsignarSucursalesCentro")
-        .WithSummary("Reemplaza las sucursales en las que se puede usar el centro de costo (Dimensión 2)")
-        .Produces<CentroSucursalesResponse>().ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+        .RequireAuthorization(administrar).WithName("AsignarSucursalUbicacion")
+        .WithSummary("Liga la ubicación a una sucursal (null la desliga)")
+        .Produces<UbicacionSucursalResponse>().ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        g.MapGet("/centros-corporativos", async (
+            [FromQuery] string? q, [FromQuery] bool? soloCorporativos, [FromQuery] int? limit, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarCentrosCorporativosQuery(q, soloCorporativos ?? false, Math.Clamp(limit ?? 100, 1, 500)), ct)))
+        .RequireAuthorization(leer).WithName("ListarCentrosCorporativos")
+        .Produces<IReadOnlyList<CentroCorporativoResponse>>();
+
+        g.MapPut("/centros-corporativos/{dim2Id:guid}", async (Guid dim2Id, MarcarCorporativoRequest b, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new MarcarCentroCorporativoCommand(dim2Id, b.Corporativo), ct)))
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(administrar).WithName("MarcarCentroCorporativo")
+        .WithSummary("Marca o desmarca un CeCo (Dimensión 2) como corporativo: se usa desde cualquier sucursal")
+        .Produces<CentroCorporativoResponse>().ProducesProblem(StatusCodes.Status404NotFound);
 
         // ─── Captura y validación de movimientos ─────────────────────────────
 
@@ -182,6 +196,13 @@ public static class ContabilidadDimensionesEndpoints
         .RequireAuthorization(validar).WithName("CentrosParaMovimiento")
         .WithSummary("Centros activos seleccionables en la sucursal (un centro de otra sucursal no aparece)")
         .Produces<IReadOnlyList<CentroOpcionDto>>().ProducesProblem(StatusCodes.Status403Forbidden);
+
+        g.MapGet("/movimientos/auxiliares", async (
+            [FromQuery] TipoAuxiliar tipo, [FromQuery] string? q, [FromQuery] int? limit, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new AuxiliaresParaMovimientoQuery(tipo, q, Math.Clamp(limit ?? 50, 1, 200)), ct)))
+        .RequireAuthorization(validar).WithName("AuxiliaresParaMovimiento")
+        .WithSummary("Clientes, proveedores o cuentas bancarias activos para capturar las dimensiones auxiliares")
+        .Produces<IReadOnlyList<AuxiliarContable>>();
 
         g.MapPost("/movimientos/validar", async (MovimientoRequest b, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ValidarMovimientoDimensionesQuery(b), ct)))

@@ -6,11 +6,12 @@ using Millet.SharedKernel.Domain;
 namespace Millet.Contabilidad.Domain;
 
 /// <summary>
-/// Dimensiones contables (F1-CON-02, D1): son los niveles del catálogo de Centros de Costo de ADM-08
-/// (Dim1 → Dim2/CeCo → Dim3/máquina). No hay otro catálogo de centros. El valor es fijo por ABI: agregar al final.
+/// Dimensiones contables (F1-CON-02, ficha K10.2). Dim1/Dim2/Dim3 son los niveles del catálogo de Centros de Costo de ADM-08
+/// (ubicación → área/CeCo → equipo; no hay otro catálogo de centros). Proyecto (sin catálogo todavía, V41), cliente,
+/// proveedor y banco son las demás dimensiones de una partida. El valor es fijo por ABI: agregar al final.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum DimensionContable : short { Dim1 = 1, Dim2 = 2, Dim3 = 3 }
+public enum DimensionContable : short { Dim1 = 1, Dim2 = 2, Dim3 = 3, Proyecto = 4, Cliente = 5, Proveedor = 6, Banco = 7 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum RequerimientoDimension : short { Obligatorio = 1, Opcional = 2, NoAplica = 3 }
@@ -141,24 +142,50 @@ public sealed class ReglaDimensionUso : BaseEntity, IPerteneceAEmpresa
 }
 
 /// <summary>
-/// Sucursales en las que se puede usar un centro de costo de nivel Dim2 (CeCo) en movimientos contables (D6).
-/// Una Dim3 hereda las sucursales de su Dim2. Vive en Contabilidad porque ADM-08 decidió no relacionar el catálogo de
-/// centros con sucursales; aquí es el alcance contable del centro, no un atributo del catálogo.
+/// Equivalencia ubicación (Dim1 del catálogo de centros) → sucursal del ERP (F1-CON-02, ficha K10.2 y V49): los centros de
+/// una ubicación solo se usan en movimientos de su sucursal. Una ubicación pertenece a una sola sucursal. Vive en Contabilidad
+/// porque ADM-08 decidió no ligar el catálogo de centros a sucursales; aquí es el alcance contable del centro.
 /// </summary>
-public sealed class CentroCostoSucursal : BaseEntity, IAuditable, IPerteneceAEmpresa
+public sealed class UbicacionSucursal : BaseEntity, IAuditable, IPerteneceAEmpresa
+{
+    public Guid EmpresaId { get; set; }
+    public Guid Dim1Id { get; private set; }
+    public Guid SucursalId { get; private set; }
+
+    private UbicacionSucursal() { }
+
+    public UbicacionSucursal(Guid id, Guid dim1Id, Guid sucursalId) : base(id)
+    {
+        if (dim1Id == Guid.Empty)
+            throw new BusinessRuleException("CONTAB_UBICACION_SUCURSAL_INVALIDA", "Indique la ubicación.");
+        Dim1Id = dim1Id;
+        CambiarSucursal(sucursalId);
+    }
+
+    public void CambiarSucursal(Guid sucursalId)
+    {
+        if (sucursalId == Guid.Empty)
+            throw new BusinessRuleException("CONTAB_UBICACION_SUCURSAL_INVALIDA", "Indique la sucursal.");
+        SucursalId = sucursalId;
+    }
+}
+
+/// <summary>
+/// Centro (Dim2) corporativo: da servicio a toda la empresa y se puede usar desde cualquier sucursal, aunque su ubicación
+/// sea otra (p. ej. Administración y Finanzas, Abasto y Logística de Conkal; V49).
+/// </summary>
+public sealed class CentroCorporativo : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
     public Guid EmpresaId { get; set; }
     public Guid Dim2Id { get; private set; }
-    public Guid SucursalId { get; private set; }
 
-    private CentroCostoSucursal() { }
+    private CentroCorporativo() { }
 
-    public CentroCostoSucursal(Guid id, Guid dim2Id, Guid sucursalId) : base(id)
+    public CentroCorporativo(Guid id, Guid dim2Id) : base(id)
     {
-        if (dim2Id == Guid.Empty || sucursalId == Guid.Empty)
-            throw new BusinessRuleException("CONTAB_CENTRO_SUCURSAL_INVALIDO", "Indique el centro de costo y la sucursal.");
+        if (dim2Id == Guid.Empty)
+            throw new BusinessRuleException("CONTAB_CENTRO_CORPORATIVO_INVALIDO", "Indique el centro de costo.");
         Dim2Id = dim2Id;
-        SucursalId = sucursalId;
     }
 }
 
@@ -179,6 +206,10 @@ public sealed class MovimientoDimensionPrueba : BaseEntity, IAuditable, IPertene
     public Guid? Dim1Id { get; private set; }
     public Guid? Dim2Id { get; private set; }
     public Guid? Dim3Id { get; private set; }
+    public string? Proyecto { get; private set; }
+    public Guid? ClienteId { get; private set; }
+    public Guid? ProveedorId { get; private set; }
+    public Guid? CuentaBancariaId { get; private set; }
     public string? Referencia { get; private set; }
     /// <summary>JSON con las reglas aplicadas (id, dimensión, requerimiento, vigencia, cuenta de origen) al confirmar.</summary>
     public string ReglasAplicadas { get; private set; } = "[]";
@@ -188,9 +219,11 @@ public sealed class MovimientoDimensionPrueba : BaseEntity, IAuditable, IPertene
 
     public MovimientoDimensionPrueba(
         Guid id, Guid sucursalId, Guid cuentaId, string cuentaCodigo, Guid tipoDocumentoId, string tipoDocumentoClave,
-        DateOnly fechaContable, Guid? dim1Id, Guid? dim2Id, Guid? dim3Id, string? referencia, string reglasAplicadas,
-        DateTimeOffset confirmadoEn) : base(id)
+        DateOnly fechaContable, Guid? dim1Id, Guid? dim2Id, Guid? dim3Id, string? proyecto, Guid? clienteId, Guid? proveedorId,
+        Guid? cuentaBancariaId, string? referencia, string reglasAplicadas, DateTimeOffset confirmadoEn) : base(id)
     {
+        if (proyecto?.Length > 40)
+            throw new BusinessRuleException("CONTAB_MOVIMIENTO_PROYECTO_INVALIDO", "La clave de proyecto admite hasta 40 caracteres.");
         if (referencia?.Length > 100)
             throw new BusinessRuleException("CONTAB_MOVIMIENTO_REFERENCIA_INVALIDA", "La referencia admite hasta 100 caracteres.");
         SucursalId = sucursalId;
@@ -202,6 +235,10 @@ public sealed class MovimientoDimensionPrueba : BaseEntity, IAuditable, IPertene
         Dim1Id = dim1Id;
         Dim2Id = dim2Id;
         Dim3Id = dim3Id;
+        Proyecto = proyecto;
+        ClienteId = clienteId;
+        ProveedorId = proveedorId;
+        CuentaBancariaId = cuentaBancariaId;
         Referencia = referencia;
         ReglasAplicadas = reglasAplicadas;
         ConfirmadoEn = confirmadoEn;
