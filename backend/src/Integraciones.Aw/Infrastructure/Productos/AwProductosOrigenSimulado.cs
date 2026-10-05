@@ -28,7 +28,15 @@ public sealed class AwProductosOrigenSimulado : IAwProductosOrigen
                 e.GetProperty("variantes").EnumerateArray().Select(v => new AwProductoOrigenVariante(
                     Str(v, "clave_variante"), Dec(v, "alto_mm"), Dec(v, "ancho_mm"),
                     Dec(v, "espesor_mm"), Str(v, "composicion"))).ToList(),
-                Str(e, "TRANSACTION_TIME") is { } t ? DateTime.Parse(t, CultureInfo.InvariantCulture) : null))
+                Str(e, "TRANSACTION_TIME") is { } t ? DateTime.Parse(t, CultureInfo.InvariantCulture) : null,
+                Str(e, "codigo_modelo"), Str(e, "grupo"), Str(e, "tipo"),
+                e.TryGetProperty("componentes", out var cs) && cs.ValueKind == JsonValueKind.Array
+                    ? cs.EnumerateArray().Select(c => new AwProductoOrigenComponente(
+                        int.Parse(Str(c, "orden")!, CultureInfo.InvariantCulture), int.Parse(Str(c, "nivel")!, CultureInfo.InvariantCulture),
+                        Str(c, "padre_orden") is { } po ? int.Parse(po, CultureInfo.InvariantCulture) : null,
+                        Str(c, "ref"), Str(c, "descripcion"), Str(c, "tipo"), Dec(c, "espesor_mm"))).ToList()
+                    : null,
+                Str(e, "wgr"), Str(e, "wgr_descripcion")))
             .ToList();
         return new(filas);
     }

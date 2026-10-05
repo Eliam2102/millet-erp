@@ -64,6 +64,8 @@ export interface ListarProductosAwFiltros {
   estatus?: EstatusCatalogo;
   /** true = bandeja de trabajo pre-timbrado (faltan claves SAT). */
   fiscalesIncompletos?: boolean;
+  /** Tipo de A+W, igualdad exacta (Vidrio plano, VTE, VLA, VC). */
+  tipo?: string;
   offset?: number;
   limit?: number;
 }

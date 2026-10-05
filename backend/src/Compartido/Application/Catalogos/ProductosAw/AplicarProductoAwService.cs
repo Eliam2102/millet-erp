@@ -34,7 +34,14 @@ public sealed record AplicarProductoAwSnapshot(
     string? FraccionArancelaria = null,
     decimal? PesoUnitarioKg = null,
     // Auto-provisión de pedidos: si existe no se toca nada y una unidad fuera de catálogo no bloquea el alta.
-    bool SoloCrear = false);
+    bool SoloCrear = false,
+    // Dueño A+W. Componentes null = no tocar el árbol (rutas que no lo leen); lista vacía = A+W ya no tiene piezas.
+    string? CodigoModelo = null,
+    string? Grupo = null,
+    string? Tipo = null,
+    IReadOnlyList<ProductoAwComponenteDato>? Componentes = null,
+    string? Wgr = null,
+    string? WgrDescripcion = null);
 
 /// <summary><c>NoAplicado</c>: unidad sin equivalencia, no se creó/actualizó el producto (ver <c>Causa</c>).</summary>
 public enum AplicarProductoAwAccion { Creado, Actualizado, SinCambios, Conflicto, NoAplicado }
@@ -54,7 +61,7 @@ public sealed record AplicarProductoAwResultado(
 public sealed class AplicarProductoAwService
 {
     /// <summary>Versión de la normalización previa al hash; subirla cambia todos los hashes.</summary>
-    public const string VersionNormalizacionHash = "p1";
+    public const string VersionNormalizacionHash = "p2";
     public const string CausaUnidadSinEquivalencia = "UNIDAD_SIN_EQUIVALENCIA";
 
     private const string PgUniqueViolation = "23505";
@@ -69,7 +76,7 @@ public sealed class AplicarProductoAwService
         var reintentoConcurrencia = false;
         for (var intento = 0; ; intento++)
         {
-            var producto = await _db.ProductosAw.Include(p => p.Variantes)
+            var producto = await _db.ProductosAw.Include(p => p.Variantes).Include(p => p.Componentes)
                 .FirstOrDefaultAsync(p => p.ReferenciaExterna == snap.ReferenciaExterna, ct);
             if (producto is not null)
             {
@@ -102,6 +109,8 @@ public sealed class AplicarProductoAwService
                 fraccionArancelaria: snap.FraccionArancelaria,
                 pesoUnitarioKg: snap.PesoUnitarioKg);
             nuevo.AplicarVariantes(snap.Variantes);
+            nuevo.AplicarClasificacion(snap.CodigoModelo, snap.Grupo, snap.Tipo, snap.Wgr, snap.WgrDescripcion);
+            if (snap.Componentes is not null) nuevo.ReemplazarComponentes(snap.Componentes);
             if (snap.Baja) nuevo.DarDeBaja(DateTime.UtcNow);
 
             var registro = new ProductoSincronizacionAw(Guid.CreateVersion7(), nuevo.Id, snap.ReferenciaExterna);
@@ -181,6 +190,13 @@ public sealed class AplicarProductoAwService
         // Las variantes nuevas llevan Id asignado: sin esto EF podría tratarlas como Modified.
         foreach (var v in producto.Variantes)
             if (_db.Entry(v).State == EntityState.Detached) _db.Entry(v).State = EntityState.Added;
+        producto.AplicarClasificacion(snap.CodigoModelo, snap.Grupo, snap.Tipo, snap.Wgr, snap.WgrDescripcion);
+        if (snap.Componentes is not null)
+        {
+            producto.ReemplazarComponentes(snap.Componentes);
+            foreach (var c in producto.Componentes)
+                if (_db.Entry(c).State == EntityState.Detached) _db.Entry(c).State = EntityState.Added;
+        }
 
         if (snap.Baja)
             producto.DarDeBaja(DateTime.UtcNow);
@@ -232,8 +248,8 @@ public sealed class AplicarProductoAwService
     private static string? Vacio(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 
     /// <summary>
-    /// SHA-256 (hex) de lo consumido: descripción, unidad, baja y variantes
-    /// ordenadas por clave. Prefijo de longitud, nulo = "~" (nulo != 0) y números
+    /// SHA-256 (hex) de lo consumido: descripción, unidad, baja, variantes
+    /// ordenadas por clave, clasificación y componentes ordenados por orden. Prefijo de longitud, nulo = "~" (nulo != 0) y números
     /// invariantes. Excluye control (ejecución, lecturas, versión esperada).
     /// Cambiar algo exige subir <see cref="VersionNormalizacionHash"/> y VersionMapeo.
     /// </summary>
@@ -253,6 +269,13 @@ public sealed class AplicarProductoAwService
         foreach (var v in s.Variantes.OrderBy(v => v.ClaveVariante, StringComparer.Ordinal))
         {
             T(v.ClaveVariante); N(v.AltoMm); N(v.AnchoMm); N(v.EspesorMm); T(v.Composicion);
+        }
+        T(s.CodigoModelo); T(s.Grupo); T(s.Tipo); T(s.Wgr); T(s.WgrDescripcion);
+        // Componentes null (no se leen) y lista vacía comparten hash: ambos dejan el árbol sin hijos en el hash.
+        foreach (var c in (s.Componentes ?? []).OrderBy(c => c.Orden))
+        {
+            sb.Append('|').Append(c.Orden).Append('|').Append(c.Nivel).Append('|').Append(c.PadreOrden?.ToString(CultureInfo.InvariantCulture) ?? "~");
+            T(c.ComponenteRef); T(c.Descripcion); T(c.Tipo); N(c.EspesorMm);
         }
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()))).ToLowerInvariant();
     }

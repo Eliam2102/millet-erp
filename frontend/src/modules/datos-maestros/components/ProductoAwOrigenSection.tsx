@@ -1,6 +1,8 @@
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   mensajeErrorSincronizacionProductos,
   useProductoAwSincronizacion,
@@ -8,6 +10,7 @@ import {
 } from '@/modules/datos-maestros/api';
 import type {
   DiferenciaAplicacionAw,
+  ProductoAwComponente,
   ProductoAwDetalle,
   ProductoAwVariante,
 } from '@/modules/datos-maestros/api/types';
@@ -56,33 +59,80 @@ export function ProductoAwBajaAviso({ producto }: { producto: ProductoAwDetalle 
   );
 }
 
-export function ProductoAwVariantesTable({ variantes }: { variantes: ProductoAwVariante[] }) {
+/** Ancho y luego alto, numérico; sin medida (nulo) al final. */
+const porMedida = (a: ProductoAwVariante, b: ProductoAwVariante) =>
+  (a.anchoMm ?? Infinity) - (b.anchoMm ?? Infinity) || (a.altoMm ?? Infinity) - (b.altoMm ?? Infinity);
+
+export function ProductoAwVariantesTable({
+  variantes,
+  unidadMedida,
+}: {
+  variantes: ProductoAwVariante[];
+  unidadMedida?: string | null;
+}) {
   if (variantes.length === 0) return null;
+  const ordenadas = [...variantes].sort(porMedida);
   return (
-    <section className="mt-4 max-w-3xl rounded-md border bg-card p-4" aria-label="Variantes">
-      <h3 className="mb-2 text-sm font-semibold">Variantes ({variantes.length})</h3>
+    <section className="mt-4 max-w-3xl rounded-md border bg-card p-4" aria-label="Medidas">
+      <h3 className="mb-2 text-sm font-semibold">
+        Medidas ({variantes.length}){' '}
+        {unidadMedida && <span className="text-xs font-normal text-muted-foreground">UC: {unidadMedida}</span>}
+      </h3>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-muted-foreground">
-            <th className="py-1 font-normal">Clave</th>
-            <th className="py-1 font-normal">Alto</th>
+            <th className="py-1 font-normal">Medida</th>
             <th className="py-1 font-normal">Ancho</th>
+            <th className="py-1 font-normal">Alto</th>
             <th className="py-1 font-normal">Espesor</th>
             <th className="py-1 font-normal">Composición</th>
           </tr>
         </thead>
         <tbody>
-          {variantes.map((v) => (
+          {ordenadas.map((v) => (
             <tr key={v.claveVariante} className="border-t">
               <td className="py-1 font-mono">{v.claveVariante}</td>
-              <td className="py-1">{mm(v.altoMm)}</td>
               <td className="py-1">{mm(v.anchoMm)}</td>
+              <td className="py-1">{mm(v.altoMm)}</td>
               <td className="py-1">{mm(v.espesorMm)}</td>
               <td className="py-1">{v.composicion || SIN_DATO}</td>
             </tr>
           ))}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+/** Árbol de piezas (BA_STUKL) en el orden de A+W: sangría por nivel; los procesos, atenuados. */
+export function ProductoAwComposicion({ componentes }: { componentes: ProductoAwComponente[] }) {
+  if (componentes.length === 0) return null;
+  const filas = [...componentes].sort((a, b) => a.orden - b.orden);
+  return (
+    <section className="mt-4 max-w-3xl rounded-md border bg-card p-4" aria-label="Composición">
+      <h3 className="mb-2 text-sm font-semibold">Composición ({componentes.length})</h3>
+      <div role="tree">
+        {filas.map((c) => (
+          <div
+            key={c.orden}
+            role="treeitem"
+            aria-level={c.nivel}
+            aria-selected={false}
+            style={{ paddingLeft: `${(Math.max(c.nivel, 1) - 1) * 1.25}rem` }}
+            className={cn(
+              'flex flex-wrap items-baseline gap-x-3 border-t py-1 text-sm first:border-t-0',
+              c.tipo === 'Proceso' && 'text-muted-foreground',
+            )}
+          >
+            <span className="font-mono">{c.componenteRef}</span>
+            <span>{c.descripcion || SIN_DATO}</span>
+            <span className="text-xs text-muted-foreground">
+              {c.tipo || SIN_DATO}
+              {c.espesorMm != null ? ` · ${c.espesorMm} mm` : ''}
+            </span>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -129,6 +179,15 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
           <RefreshCw className="mr-1.5 h-4 w-4" />
           {reintentar.isPending ? 'Leyendo…' : 'Reintentar lectura'}
         </Button>
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Badge variant="secondary">Tipo: {producto.tipo || SIN_DATO}</Badge>
+        <Badge variant="secondary">Grupo: {producto.grupo || SIN_DATO}</Badge>
+        <Badge variant="secondary">
+          Mercancía: {producto.wgr ? `${producto.wgr} · ${producto.wgrDescripcion || SIN_DATO}` : SIN_DATO}
+        </Badge>
+        <Badge variant="secondary">Modelo: {producto.codigoModelo || SIN_DATO}</Badge>
       </div>
 
       {s.error != null && s.error !== '' && (
