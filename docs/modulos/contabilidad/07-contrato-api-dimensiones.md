@@ -1,0 +1,92 @@
+# 07 — Contrato de API de dimensiones contables (F1-CON-02)
+
+Base `/api/v1/contabilidad`. Mismas convenciones que `03-contrato-api.md`: ETag en `GET` por id, `If-Match` en mutaciones de
+recursos versionados (428 si falta, 409 si no coincide), `Idempotency-Key` en `POST`/`PUT`, Problem Details con `code`, enums como
+texto. Fechas de vigencia y fecha contable como `yyyy-MM-dd`. La empresa sale del token (filtro global ADR-0011).
+
+Enums: `dimension` = `Dim1` | `Dim2` | `Dim3` (niveles de Centros de Costo: Dim2 = CeCo, Dim3 = equipo/NumEQ);
+`requerimiento` = `Obligatorio` | `Opcional` | `NoAplica`; estado de regla = `Futura` | `Vigente` | `Cerrada`.
+
+## Rutas y permisos
+
+| Método y ruta | Permiso | Respuestas |
+|---|---|---|
+| `GET /tipos-documento?incluirInactivos=` | `contabilidad.dimensiones.leer` | 200 `[{id, clave, nombre, activo, esPrueba, version}]` |
+| `POST /tipos-documento` `{clave, nombre, esPrueba}` | `contabilidad.dimensiones.administrar` | 201 + ETag; 409 `CONTAB_TIPO_DOC_DUPLICADO`; 422 |
+| `PUT /tipos-documento/{id}` `{nombre, activo}` (`If-Match`) | administrar | 200; 404; 409; 428. La clave es inmutable |
+| `GET /reglas-dimension?cuentaId=&tipoDocumentoId=&dimension=&vigentesA=&esPrueba=&offset=&limit=` | leer | 200 paginado de reglas |
+| `GET /reglas-dimension/efectivas?cuentaId=&tipoDocumentoId=&fecha=` | leer | 200 requerimiento efectivo por dimensión (fecha por defecto: hoy); 404 cuenta |
+| `GET /reglas-dimension/{id}` | leer | 200 + ETag; 404 |
+| `POST /reglas-dimension` | administrar | 201 + ETag; 409 traslape; 422 reglas |
+| `PUT /reglas-dimension/{id}` `{requerimiento, vigenteDesde, vigenteHasta?, nota?}` (`If-Match`) | administrar | 200; 422 `CONTAB_REGLA_INICIADA_NO_EDITABLE` si ya inició; 409; 428 |
+| `POST /reglas-dimension/{id}/cerrar` `{vigenteHasta}` (`If-Match`) | administrar | 200; 422; 409; 428 |
+| `GET /sucursales` | leer | 200 sucursales de la empresa (para configurar centros) |
+| `GET /centros-sucursal?q=&sucursalId=&soloSinSucursal=&limit=` | leer | 200 `[{dim2Id, clave, nombre, activo, dim1Clave, sucursales[]}]` |
+| `PUT /centros-sucursal/{dim2Id}` `{sucursalIds[]}` | administrar | 200 (reemplaza el conjunto); 404 centro; 422 sucursal ajena |
+| `GET /movimientos/sucursales` | `contabilidad.movimientos.validar` | 200 sucursales que el usuario puede operar (ADR-0051) |
+| `GET /movimientos/centros?sucursalId=&nivel=&dim2Id=&q=&limit=` | validar | 200 centros **activos** asignados a la sucursal; 403 `SUCURSAL_NO_ASOCIADA` |
+| `POST /movimientos/validar` | validar | 200 `ValidacionDimensiones` (no guarda); 400 validación; 403 sucursal |
+| `POST /movimientos-prueba` | validar | 201 movimiento con `reglasAplicadas`; 422 `CONTAB_DIM_MOVIMIENTO_INVALIDO` con `errores[]`; 403 |
+| `GET /movimientos-prueba?sucursalId=&cuentaId=&offset=&limit=` | leer | 200 paginado; sin bypass solo sucursales propias |
+| `GET /movimientos-prueba/{id}` | leer | 200; 404; 403 si es de otra sucursal |
+
+Bypass de alcance: `contabilidad.movimientos.gestionar-todas-sucursales` (corporativo). Sin él, el usuario opera solo las
+sucursales con `UsuarioSucursal` activa.
+
+## Regla
+
+`{id, cuentaId, cuentaCodigo, cuentaNombre, tipoDocumentoId?, tipoDocumentoClave?, tipoDocumentoNombre?, dimension, nombreDimension,
+requerimiento, vigenteDesde, vigenteHasta?, estado, editable, esPrueba, nota?, version}`.
+
+- `cuentaId` puede ser una rama (cuenta que acumula): aplica a sus descendientes salvo regla más específica. No se aceptan rubros
+  ni cuentas inactivas.
+- `tipoDocumentoId` null = todos los tipos.
+- Sin traslape para la misma (cuenta, tipo, dimensión). Sin retroactividad: `vigenteDesde` ≥ hoy y, en una regla en vigor,
+  `vigenteHasta` ≥ hoy (`Contabilidad:Dimensiones:PermitirVigenciaRetroactiva` lo permite para la carga inicial real).
+- Solo una regla `Futura` se edita (`editable = true`); una en vigor se cierra y se crea otra.
+
+## Movimiento (validar / registrar prueba)
+
+`{cuentaId, tipoDocumentoId, fechaContable, sucursalId, dim1Id?, dim2Id?, dim3Id?, origen (Manual|AuxiliarCxC|AuxiliarCxP), referencia?}`.
+
+Respuesta de validación: `{valido, errores[], requerimientos[], centros: {dim1Id, dim2Id, dim3Id}}`.
+`errores[]` = `{codigo, mensaje, campo, dimension?}`; `campo` ∈ `cuentaId`, `tipoDocumentoId`, `sucursalId`, `dim1Id`, `dim2Id`, `dim3Id`
+(la UI pinta el error junto a ese campo). `requerimientos[]` = `{dimension, nombreDimension, requerimiento, reglaId?,
+cuentaOrigenCodigo?, heredada, paraTodosLosTipos, vigenteDesde?, vigenteHasta?, esPrueba}`; `reglaId` null = sin regla.
+`centros` incluye los niveles superiores derivados del árbol.
+
+Orden de validación: cuenta (mismas reglas que `ICuentaContableReadPort`) → tipo de documento → sucursal → centros (existe, nivel,
+jerarquía, activo en toda la cadena) → sucursal del centro → reglas vigentes a `fechaContable`. Se devuelven **todos** los errores.
+
+## Códigos de error
+
+| Código | Cuándo |
+|---|---|
+| `CONTAB_DIM_OBLIGATORIA_FALTANTE` | Dimensión obligatoria sin valor (ni capturado ni derivado) |
+| `CONTAB_DIM_NO_APLICA` | Dimensión «no aplica» capturada directamente (un valor derivado no cuenta) |
+| `CONTAB_DIM_CENTRO_NO_EXISTE` · `CONTAB_DIM_CENTRO_NIVEL_INCORRECTO` | Id inexistente o de otro nivel |
+| `CONTAB_DIM_JERARQUIA_INCONGRUENTE` | La Dim3/Dim2 capturada no pertenece a la Dim2/Dim1 capturada |
+| `CONTAB_DIM_CENTRO_INACTIVO` | El centro o un superior está dado de baja |
+| `CONTAB_DIM_CENTRO_SIN_SUCURSAL` · `CONTAB_DIM_CENTRO_OTRA_SUCURSAL` | El CeCo no tiene sucursales o no está asignado a la del movimiento |
+| `CONTAB_DIM_CUENTA_NO_VALIDA` · `CONTAB_DIM_TIPO_DOC_INVALIDO` · `CONTAB_DIM_SUCURSAL_INVALIDA` | Cuenta, tipo o sucursal no aptos |
+| `CONTAB_DIM_MOVIMIENTO_INVALIDO` (422) | Envoltura de `POST /movimientos-prueba` con `errores[]` |
+| `CONTAB_REGLA_VIGENCIA_TRASLAPADA` (409) | Otra regla de la misma combinación se traslapa |
+| `CONTAB_REGLA_INICIADA_NO_EDITABLE` · `CONTAB_REGLA_VIGENCIA_RETROACTIVA` · `CONTAB_REGLA_VIGENCIA_INVALIDA` · `CONTAB_REGLA_CUENTA_INVALIDA` · `CONTAB_REGLA_TIPO_DOC_INVALIDO` | 422 de configuración de reglas |
+| `CONTAB_TIPO_DOC_DUPLICADO` (409) · `CONTAB_CENTRO_SUCURSAL_INVALIDO` · `CONTAB_CENTRO_NO_ENCONTRADO` (404) | Tipos y centros por sucursal |
+| `SUCURSAL_NO_ASOCIADA` (403) | El usuario no opera esa sucursal y no tiene el bypass |
+
+## Puerto público
+
+`IDimensionContableValidacionPort.ValidarAsync(MovimientoDimensionado)` (`Millet.Contabilidad.Application.PublicPorts`): misma validación
+sin el chequeo de pertenencia del usuario a la sucursal (autorización de quien llama). Pensado para Pólizas, CxP y Compras
+(`PLATFORM-TODO(<DimensionesConsumidores>)`).
+
+## Configuración `Contabilidad:Dimensiones`
+
+| Clave | Default | Efecto |
+|---|---|---|
+| `SinReglaEs` | `Opcional` | Requerimiento cuando no hay regla vigente |
+| `ExigirSucursalDelCentro` | `true` | Exige que el CeCo esté asignado a la sucursal del movimiento |
+| `PermitirVigenciaRetroactiva` | `false` | Permite fechas anteriores a hoy al crear o cerrar reglas |
+| `ZonaHoraria` | `America/Merida` | Define "hoy" para las vigencias |
+| `NombresDimension` | `Dimensión 1/2/3` | Rótulos en mensajes |
