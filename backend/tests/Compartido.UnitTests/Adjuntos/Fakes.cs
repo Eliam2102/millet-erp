@@ -84,6 +84,7 @@ internal sealed class AdjuntosEntorno : IDisposable
     public readonly FakeAudit Audit = new();
     public readonly FakeBlob Blob = new();
     public readonly FakeEnlaces Enlaces = new();
+    public readonly FallaAlGuardarInterceptor FallaAlGuardar = new();
     public readonly CompartidoDbContext Db;
     public readonly AdjuntoAcceso Acceso;
 
@@ -91,6 +92,7 @@ internal sealed class AdjuntosEntorno : IDisposable
     {
         var options = new DbContextOptionsBuilder<CompartidoDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .AddInterceptors(FallaAlGuardar)
             .Options;
         Db = new CompartidoDbContext(options, Empresa);
         Acceso = new AdjuntoAcceso(
@@ -139,4 +141,16 @@ internal static class Siembra
             new Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento(TipoDomicilio, "proveedor", "comprobante_domicilio", "Comprobante de domicilio", 5, true, 3, false));
         await db.SaveChangesAsync();
     }
+}
+
+/// <summary>Simula una caída de la BD al guardar (para probar la compensación del blob).</summary>
+internal sealed class FallaAlGuardarInterceptor : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+{
+    public bool Activo { get; set; }
+
+    public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+        Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+        Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
+        => Activo ? throw new InvalidOperationException("BD caída") : base.SavingChangesAsync(eventData, result, cancellationToken);
 }
