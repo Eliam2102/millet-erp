@@ -102,6 +102,7 @@ public sealed class SubirAdjuntoHandler : IRequestHandler<SubirAdjuntoCommand, A
         _politica.Value.ParaEntidad(propietario.TipoEntidad)
             .ValidarInstancia(nombre, request.ContentType, contenido.Length, cabecera.AsSpan(0, leidos));
 
+        // PLATFORM-TODO(<AntivirusAdjuntos>): escanear el contenido antes de SubirAsync; hoy solo formato/firma/tamaño. Ver ADR-0058.
         var hoy = AdjuntoSoporte.Hoy(_clock);
         var vigenteHasta = request.VigenteHasta;
         if (vigenteHasta is { } v && v < hoy)

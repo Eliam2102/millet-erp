@@ -524,3 +524,7 @@ también se requiere permiso `fiscal.cfdi.timbrar` o equivalente.
 - Antivirus scanning con Azure Defender for Storage
 - Estrategia de backup adicional (snapshots, replicación cross-region)
 - Política específica para documentos con datos personales sensibles (LFPDPPP)
+
+## Addendum 2026-10-06 (F1-ADM-11 G1.2)
+
+Los adjuntos de entidades de negocio (primero: expediente del proveedor) usan el servicio genérico de [ADR-0058](./0058-servicio-generico-de-adjuntos.md): puerto `IBlobStoragePort`, contenedor `adjuntos`, `BlobRef` interno nunca expuesto y descarga solo por endpoint autenticado o enlace temporal propio (token de 60 s) en lugar de URL SAS. Esta decisión de `IDocumentStorage` y SAS no se modifica para los documentos fiscales; el uso de SAS para adjuntos queda descartado en el ADR-0058.

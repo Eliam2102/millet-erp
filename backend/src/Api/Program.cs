@@ -556,6 +556,7 @@ else
 
 // === Adjuntos genéricos (F1-ADM-11 G1.2): autorización heredada del padre y enlace temporal ===
 // Cada módulo que adjunta archivos registra aquí su IAdjuntoPropietario (primero: Proveedor).
+// PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,

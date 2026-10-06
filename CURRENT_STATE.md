@@ -2,6 +2,8 @@
 
 > **Documento histórico.** Este snapshot corresponde al 15/05/2026 y ya no representa el estado operativo completo del repositorio. Para continuar desarrollo, usar [docs/handoff/18-diagnostico-y-plan-reanudacion-2026-09-20.md](docs/handoff/18-diagnostico-y-plan-reanudacion-2026-09-20.md) y [docs/handoff/00-EMPIEZA-AQUI.md](docs/handoff/00-EMPIEZA-AQUI.md).
 
+> **2026-10-06 (F1-ADM-11 G1.2):** servicio genérico de adjuntos (expediente de proveedor, vigencia, baja con motivo, enlace temporal) — ver [ADR-0058](docs/decisiones/0058-servicio-generico-de-adjuntos.md) y `docs/modulos/administracion/adm-11-contrato-adjuntos.md` §11.
+
 > Snapshot del estado del repositorio `Project_Millet_ERP` al 2026-05-15.
 > Documento base para diseñar la integración con el **Glass Agent (PHP)** y
 > con **A+W on-prem**. No prescribe diseño; sólo describe lo que existe hoy.

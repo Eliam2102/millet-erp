@@ -46,6 +46,7 @@ public sealed class DarDeBajaAdjuntoHandler : IRequestHandler<DarDeBajaAdjuntoCo
         var (propietario, _) = await _acceso.AutorizarAsync(request.TipoEntidad, request.EntidadId, AdjuntoOperacion.Baja, cancellationToken);
         var adjunto = await AdjuntoSoporte.CargarAsync(_db, propietario.TipoEntidad, request.EntidadId, request.AdjuntoId, true, cancellationToken);
 
+        // PLATFORM-TODO(<RetencionAdjuntos>): el blob se conserva siempre; falta política de retención/purga de Millet. Ver ADR-0058.
         adjunto.DarDeBaja(request.Motivo, usuarioId, _clock.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
 
