@@ -1322,6 +1322,8 @@ Millet.Api.Endpoints.CentrosCosto.CentrosCostoAsignacionesEndpoints.MapCentrosCo
 Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadEndpoints(app);
 // === Contabilidad — reglas de dimensión, centros por sucursal y movimientos de prueba (F1-CON-02) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
+// === Contabilidad — ejercicios y periodos contables: apertura, cierre y reapertura con bitácora (F1-CON-03) ===
+Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);
