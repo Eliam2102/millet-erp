@@ -91,7 +91,14 @@ public sealed class VincularFacturaNotaCreditoHandler
             FacturaOrigenId: nc.FacturaOrigenId,
             TipoRelacionCfdi: (int)nc.TipoRelacionCfdi,
             Total: nc.Total,
-            OcurridoEn: ahora), cancellationToken);
+            OcurridoEn: ahora,
+            // G1.6: la NC no tiene desglose de retenciones ni sucursal en el agregado → null.
+            Uuid: nc.UuidCfdi,
+            Subtotal: nc.Subtotal,
+            Iva: nc.ImpuestosTrasladados,
+            Retenciones: nc.Retenciones,
+            Moneda: nc.Moneda,
+            TipoCambio: nc.TipoCambio), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

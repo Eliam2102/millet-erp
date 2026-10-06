@@ -86,7 +86,8 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
                 Cantidad: l.Cantidad,
                 PrecioUnitario: l.PrecioUnitario,
                 CantidadFacturada: l.CantidadFacturada,
-                CantidadRecibida: l.CantidadRecibida))
+                CantidadRecibida: l.CantidadRecibida,
+                CentroCostoId: l.CentroCostoId))
             .ToList();
 
         return new OrdenCompraDto(

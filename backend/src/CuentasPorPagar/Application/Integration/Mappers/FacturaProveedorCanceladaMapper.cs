@@ -23,7 +23,16 @@ public sealed class FacturaProveedorCanceladaMapper
             FacturaProveedorId: notification.FacturaProveedorId,
             OrdenCompraId: notification.OrdenCompraId,
             Motivo: notification.Motivo.ToString(),
-            MotivoTexto: notification.MotivoTexto);
+            MotivoTexto: notification.MotivoTexto,
+            ProveedorId: notification.ProveedorId,
+            Uuid: notification.Uuid,
+            Subtotal: notification.Subtotal,
+            Iva: notification.Iva,
+            Retenciones: notification.Retenciones,
+            RetencionesDetalle: notification.RetencionesDetalle?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
+            Moneda: notification.Moneda,
+            TipoCambio: notification.TipoCambio,
+            SucursalId: notification.SucursalId);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

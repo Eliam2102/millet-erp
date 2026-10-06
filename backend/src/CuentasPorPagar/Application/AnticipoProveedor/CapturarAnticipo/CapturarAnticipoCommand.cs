@@ -96,7 +96,10 @@ public sealed class CapturarAnticipoHandler : IRequestHandler<CapturarAnticipoCo
             ProveedorId: anticipo.ProveedorId,
             MontoEntregado: anticipo.MontoEntregado,
             OrdenCompraId: anticipo.OrdenCompraId,
-            OcurridoEn: ahora), cancellationToken);
+            OcurridoEn: ahora,
+            // G1.6: el anticipo no tiene cuenta bancaria en el agregado → null.
+            Moneda: anticipo.Moneda,
+            TipoCambio: anticipo.TipoCambio), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

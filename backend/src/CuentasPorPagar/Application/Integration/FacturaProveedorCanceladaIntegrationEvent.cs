@@ -15,5 +15,15 @@ public sealed record FacturaProveedorCanceladaIntegrationEvent(
     Guid FacturaProveedorId,
     Guid? OrdenCompraId,
     string Motivo,
-    string? MotivoTexto)
+    string? MotivoTexto,
+    // G1.6: bloque contable opcional (al final; JSON antiguo sin estos campos deserializa a null).
+    Guid? ProveedorId = null,
+    string? Uuid = null,
+    decimal? Subtotal = null,
+    decimal? Iva = null,
+    decimal? Retenciones = null,
+    IReadOnlyList<RetencionDetallePayload>? RetencionesDetalle = null,
+    string? Moneda = null,
+    decimal? TipoCambio = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("cuentas_por_pagar.factura.cancelada.v1", EmpresaId, OcurridoEn);

@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.CuentasPorPagar.Domain.Cfdi;
 
 namespace Millet.CuentasPorPagar.Domain.FacturaProveedor.Events;
 
@@ -16,4 +17,14 @@ public sealed record FacturaProveedorCanceladaDomainEvent(
     Guid? OrdenCompraId,
     MotivoCancelacion Motivo,
     string? MotivoTexto,
-    DateTimeOffset OcurridoEn) : INotification;
+    DateTimeOffset OcurridoEn,
+    // G1.6: bloque contable opcional (al final).
+    Guid? ProveedorId = null,
+    string? Uuid = null,
+    decimal? Subtotal = null,
+    decimal? Iva = null,
+    decimal? Retenciones = null,
+    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
+    string? Moneda = null,
+    decimal? TipoCambio = null,
+    Guid? SucursalId = null) : INotification;

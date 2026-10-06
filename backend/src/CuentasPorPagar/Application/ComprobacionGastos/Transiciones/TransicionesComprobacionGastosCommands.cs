@@ -286,7 +286,16 @@ public sealed class RechazarComprobacionGastosHandler
                 OrdenCompraId: f.OrdenCompraId,
                 Motivo: Domain.FacturaProveedor.MotivoCancelacion.OtroConTexto,
                 MotivoTexto: texto,
-                OcurridoEn: ahora), cancellationToken);
+                OcurridoEn: ahora,
+                ProveedorId: f.ProveedorId,
+                Uuid: f.UuidCfdi,
+                Subtotal: f.Subtotal,
+                Iva: f.ImpuestosTrasladados,
+                Retenciones: f.Retenciones,
+                RetencionesDetalle: f.RetencionesDetalle,
+                Moneda: f.Moneda,
+                TipoCambio: f.TipoCambio,
+                SucursalId: f.SucursalId), cancellationToken);
         }
 
         var cfdiIds = c.Lineas

@@ -17,5 +17,13 @@ public sealed class NotaCargoAutorizadaMapper : INotificationHandler<NotaCargoAu
             NotaCargoId: notification.NotaCargoId,
             ProveedorId: notification.ProveedorId,
             Monto: notification.Monto,
-            FacturaOrigenId: notification.FacturaOrigenId), cancellationToken);
+            FacturaOrigenId: notification.FacturaOrigenId,
+            Uuid: notification.Uuid,
+            Subtotal: notification.Subtotal,
+            Iva: notification.Iva,
+            Retenciones: notification.Retenciones,
+            RetencionesDetalle: notification.RetencionesDetalle?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
+            Moneda: notification.Moneda,
+            TipoCambio: notification.TipoCambio,
+            SucursalId: notification.SucursalId), cancellationToken);
 }

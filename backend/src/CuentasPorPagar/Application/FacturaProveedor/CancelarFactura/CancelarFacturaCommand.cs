@@ -84,7 +84,16 @@ public sealed class CancelarFacturaHandler : IRequestHandler<CancelarFacturaComm
                 OrdenCompraId: factura.OrdenCompraId,
                 Motivo: command.Motivo,
                 MotivoTexto: command.Texto,
-                OcurridoEn: ahora), cancellationToken);
+                OcurridoEn: ahora,
+                ProveedorId: factura.ProveedorId,
+                Uuid: factura.UuidCfdi,
+                Subtotal: factura.Subtotal,
+                Iva: factura.ImpuestosTrasladados,
+                Retenciones: factura.Retenciones,
+                RetencionesDetalle: factura.RetencionesDetalle,
+                Moneda: factura.Moneda,
+                TipoCambio: factura.TipoCambio,
+                SucursalId: factura.SucursalId), cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

@@ -128,7 +128,13 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
                     FacturaOrigenId: nc.FacturaOrigenId,
                     TipoRelacionCfdi: (int)nc.TipoRelacionCfdi,
                     Total: nc.Total,
-                    OcurridoEn: ahora), cancellationToken);
+                    OcurridoEn: ahora,
+                    Uuid: nc.UuidCfdi,
+                    Subtotal: nc.Subtotal,
+                    Iva: nc.ImpuestosTrasladados,
+                    Retenciones: nc.Retenciones,
+                    Moneda: nc.Moneda,
+                    TipoCambio: nc.TipoCambio), cancellationToken);
 
                 _logger.LogInformation(
                     "[NotaCreditoEnEsperaMatchWorker] NC {Nc} vinculada a factura {Factura} (UUID {Uuid}).",
