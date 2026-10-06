@@ -7,7 +7,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Trash2, Upload, X, Loader2, Inbox } from 'lucide-react';
+import { Ban, Download, Trash2, Upload, X, Loader2, Inbox } from 'lucide-react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/erp';
 import {
@@ -16,6 +17,11 @@ import {
 } from '@/components/erp/adjuntos/TipoDocumentoSelector';
 import { AdjuntoPreview } from '@/components/erp/adjuntos/AdjuntoPreview';
 import { useContenidoAdjunto } from '@/components/erp/adjuntos/useContenidoAdjunto';
+import { EstadoAdjuntoBadge } from '@/components/erp/adjuntos/EstadoAdjuntoBadge';
+import { MotivoBajaDialog } from '@/components/erp/adjuntos/MotivoBajaDialog';
+import { EstadoAdjunto } from '@/components/erp/adjuntos/api/types';
+import { mensajeErrorAdjunto } from '@/components/erp/adjuntos/api/hooks';
+import { formatDateTime, parseDateOnlyLocal } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 
 /**
@@ -43,6 +49,12 @@ import { cn } from '@/lib/utils';
  *   (el backend lo valida al transmitir).</item>
  * </list>
  *
+ * <para><b>Servicio genérico G1.2</b> (opt-in, no afecta a OC): metadatos
+ * de vigencia/estado/hash, campo de vigencia por tipo
+ * (<c>vigenciaMeses</c>), baja con motivo (<c>modoBaja</c> +
+ * <c>onDarDeBaja</c>), toggle de dadas de baja (<c>puedeVerBajas</c>) y
+ * descarga por enlace temporal (<c>onDescargar</c>).</para>
+ *
  * <para><b>Permisos</b>: gateado por <c>canUpload</c>/<c>canRemove</c>
  * que el caller resuelve via la matriz §6.1
  * (<c>accionAdjuntarDocumento</c> / <c>accionRemoverAdjunto</c> en OC).</para>
@@ -53,11 +65,19 @@ export interface AdjuntoItem {
   id: string;
   tipoDocumentoId: string;
   nombreArchivo: string;
-  blobUrl: string;
+  /** Solo OC (legacy). El servicio genérico NO expone blobUrl. */
+  blobUrl?: string;
   contentType: string;
   tamanoBytes: number;
   fechaCarga: string;
   usuarioCargaId: string;
+  // ── Servicio genérico G1.2 (todos opcionales) ──
+  estado?: EstadoAdjunto;
+  /** yyyy-MM-dd */
+  vigenteHasta?: string | null;
+  hashSha256?: string;
+  bajaEn?: string | null;
+  bajaMotivo?: string | null;
 }
 
 const DEFAULT_MAX_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -87,7 +107,12 @@ export interface AdjuntosManagerProps<
    * Debe lanzar (rechazar) en error para que el manager muestre el
    * mensaje al usuario.
    */
-  onUpload: (args: { archivo: File; tipoDocumentoId: string }) => Promise<void>;
+  onUpload: (args: {
+    archivo: File;
+    tipoDocumentoId: string;
+    /** yyyy-MM-dd; solo si el tipo maneja vigencia y el usuario la capturó. */
+    vigenteHasta?: string;
+  }) => Promise<void>;
   /** Callback de eliminación. Solo si <c>canRemove=true</c>. */
   onRemove?: (adjuntoId: string) => Promise<void>;
 
@@ -95,6 +120,21 @@ export interface AdjuntosManagerProps<
   uploadProgress?: number;
   /** True mientras hay un upload en vuelo. */
   isUploading?: boolean;
+
+  /** Baja con diálogo de motivo (reemplaza al borrado directo). Requiere <c>onDarDeBaja</c>. */
+  modoBaja?: boolean;
+  onDarDeBaja?: (adjuntoId: string, motivo: string) => Promise<void>;
+  /** Descarga por enlace temporal; debe lanzar si falla. Sin él, se usa el link de contenido. */
+  onDescargar?: (adjuntoId: string) => Promise<void>;
+  /** Muestra el toggle "ver dadas de baja" (solo con permiso de baja). */
+  puedeVerBajas?: boolean;
+  verBajas?: boolean;
+  onVerBajasChange?: (ver: boolean) => void;
+  /** Texto de ayuda de formatos permitidos. */
+  ayudaFormatos?: string;
+  /** Estado de la lista del caller (carga / error ya traducido). */
+  adjuntosLoading?: boolean;
+  adjuntosError?: string | null;
 
   /** Si <c>false</c>, oculta el área de drop + botones de upload. */
   canUpload?: boolean;
@@ -149,6 +189,15 @@ export function AdjuntosManager<
   resolverNombreUsuario,
   resolverContenidoUrl,
   renderTipoExtra,
+  modoBaja = false,
+  onDarDeBaja,
+  onDescargar,
+  puedeVerBajas = false,
+  verBajas = false,
+  onVerBajasChange,
+  ayudaFormatos = 'PDF, imágenes, Office',
+  adjuntosLoading = false,
+  adjuntosError = null,
 }: AdjuntosManagerProps<TItem, TTipo>) {
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -159,9 +208,17 @@ export function AdjuntosManager<
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [vigenteHasta, setVigenteHasta] = useState('');
+  const [accionError, setAccionError] = useState<string | null>(null);
+  const [bajaDe, setBajaDe] = useState<TItem | null>(null);
+  const [bajaError, setBajaError] = useState<string | null>(null);
+  const vigenciaId = useId();
+  const verBajasId = useId();
 
   const tiposPorId = new Map(tipos.map((t) => [t.id, t]));
   const obligatoriosSet = new Set(obligatorios ?? []);
+  const tipoActual = tipoSeleccionado ? tiposPorId.get(tipoSeleccionado) : undefined;
+  const tipoConVigencia = tipoActual?.vigenciaMeses != null;
 
   function validarArchivo(file: File): string | null {
     if (file.size > maxBytes) {
@@ -206,10 +263,15 @@ export function AdjuntosManager<
   async function confirmarUpload() {
     if (stagedFile == null || tipoSeleccionado == null || isUploading) return;
     try {
-      await onUpload({ archivo: stagedFile, tipoDocumentoId: tipoSeleccionado });
+      await onUpload({
+        archivo: stagedFile,
+        tipoDocumentoId: tipoSeleccionado,
+        ...(tipoConVigencia && vigenteHasta ? { vigenteHasta } : {}),
+      });
       // Limpia staging tras éxito
       setStagedFile(null);
       setTipoSeleccionado(null);
+      setVigenteHasta('');
       setValidationError(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
@@ -237,6 +299,27 @@ export function AdjuntosManager<
     }
   }
 
+  async function handleDescargar(adjuntoId: string) {
+    if (onDescargar == null) return;
+    setAccionError(null);
+    try {
+      await onDescargar(adjuntoId);
+    } catch (err) {
+      setAccionError(mensajeErrorAdjunto(err));
+    }
+  }
+
+  async function confirmarBaja(motivo: string) {
+    if (bajaDe == null || onDarDeBaja == null) return;
+    setBajaError(null);
+    try {
+      await onDarDeBaja(bajaDe.id, motivo);
+      setBajaDe(null);
+    } catch (err) {
+      setBajaError(mensajeErrorAdjunto(err));
+    }
+  }
+
   return (
     <div className="space-y-4" data-component="adjuntos-manager">
       {/* Drop zone + file picker */}
@@ -249,8 +332,8 @@ export function AdjuntosManager<
             className={cn(
               'rounded-md border-2 border-dashed p-6 text-center transition-colors',
               isDragOver
-                ? 'border-primary bg-primary/5'
-                : 'border-muted-foreground/30',
+                ? 'border-brand bg-surface-selected'
+                : 'border-line-control',
             )}
             data-dragover={isDragOver || undefined}
           >
@@ -263,7 +346,7 @@ export function AdjuntosManager<
             </p>
             <label
               htmlFor={fileInputId}
-              className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted"
+              className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-md border border-line-control bg-surface-card px-3 py-1.5 text-sm font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand hover:bg-surface-subtle"
             >
               Seleccionar archivo
               <input
@@ -276,15 +359,14 @@ export function AdjuntosManager<
               />
             </label>
             <p className="mt-2 text-xs text-muted-foreground">
-              Máximo {formatBytes(maxBytes)}. Tipos permitidos: PDF, imágenes,
-              Office.
+              Máximo {formatBytes(maxBytes)}. Tipos permitidos: {ayudaFormatos}.
             </p>
           </div>
 
           {/* Staging del archivo seleccionado */}
           {stagedFile && (
             <div
-              className="rounded-md border bg-muted/30 p-3"
+              className="rounded-md border border-line bg-surface-subtle p-3"
               data-component="adjuntos-staging"
             >
               <div className="mb-3 flex items-start justify-between gap-2">
@@ -339,10 +421,34 @@ export function AdjuntosManager<
                   )}
                 </Button>
               </div>
+              {tipoConVigencia && (
+                <div className="mt-2 grid max-w-xs gap-1.5">
+                  <label
+                    htmlFor={vigenciaId}
+                    className="text-xs font-medium text-ink-strong"
+                  >
+                    Vigente hasta{' '}
+                    <span className="font-normal text-ink-muted">(opcional)</span>
+                  </label>
+                  <input
+                    id={vigenciaId}
+                    type="date"
+                    value={vigenteHasta}
+                    onChange={(e) => setVigenteHasta(e.target.value)}
+                    disabled={isUploading}
+                    aria-describedby={`${vigenciaId}-ayuda`}
+                    className="h-ctl-xl rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50"
+                  />
+                  <p id={`${vigenciaId}-ayuda`} className="text-xs text-ink-muted">
+                    Si la dejas vacía se calcula con {tipoActual?.vigenciaMeses}{' '}
+                    {tipoActual?.vigenciaMeses === 1 ? 'mes' : 'meses'} desde hoy.
+                  </p>
+                </div>
+              )}
               {/* Progress bar */}
               {isUploading && (
                 <div
-                  className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+                  className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted"
                   role="progressbar"
                   aria-valuemin={0}
                   aria-valuemax={100}
@@ -350,7 +456,7 @@ export function AdjuntosManager<
                   aria-label="Progreso de subida"
                 >
                   <div
-                    className="h-full bg-primary transition-all"
+                    className="h-full bg-brand transition-all"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
@@ -361,7 +467,7 @@ export function AdjuntosManager<
           {validationError && (
             <p
               role="alert"
-              className="text-xs text-rose-600"
+              className="text-xs text-danger-fg"
               data-component="adjuntos-validation-error"
             >
               {validationError}
@@ -370,8 +476,37 @@ export function AdjuntosManager<
         </div>
       )}
 
+      {puedeVerBajas && onVerBajasChange && (
+        <div className="flex items-center gap-2">
+          <input
+            id={verBajasId}
+            type="checkbox"
+            checked={verBajas}
+            onChange={(e) => onVerBajasChange(e.target.checked)}
+            className="size-4 accent-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          />
+          <label htmlFor={verBajasId} className="text-xs text-ink-strong">
+            Ver documentos dados de baja
+          </label>
+        </div>
+      )}
+
+      {accionError && (
+        <p role="alert" className="text-xs text-danger-fg" data-component="adjuntos-accion-error">
+          {accionError}
+        </p>
+      )}
+
       {/* Lista de adjuntos */}
-      {adjuntos.length === 0 ? (
+      {adjuntosError ? (
+        <p role="alert" className="text-sm text-danger-fg" data-component="adjuntos-error">
+          {adjuntosError}
+        </p>
+      ) : adjuntosLoading ? (
+        <p role="status" className="text-sm text-ink-muted">
+          Cargando documentos…
+        </p>
+      ) : adjuntos.length === 0 ? (
         <EmptyState
           icon={<Inbox className="h-10 w-10" />}
           title="Sin adjuntos."
@@ -399,13 +534,31 @@ export function AdjuntosManager<
                 esObligatorio={tipo != null && obligatoriosSet.has(tipo.id)}
                 tipoExtra={tipo ? renderTipoExtra?.(tipo) : undefined}
                 usuario={resolverNombreUsuario?.(a.usuarioCargaId) ?? null}
-                canRemove={Boolean(canRemove && onRemove)}
+                canRemove={Boolean(canRemove && onRemove && !modoBaja)}
                 removing={removingId === a.id}
                 onRemove={onRemove ? handleRemove : undefined}
+                onDescargar={onDescargar ? handleDescargar : undefined}
+                onDarDeBaja={
+                  modoBaja && canRemove && onDarDeBaja
+                    ? () => {
+                        setBajaError(null);
+                        setBajaDe(a);
+                      }
+                    : undefined
+                }
               />
             );
           })}
         </ul>
+      )}
+
+      {bajaDe && (
+        <MotivoBajaDialog
+          nombreArchivo={bajaDe.nombreArchivo}
+          error={bajaError}
+          onConfirmar={confirmarBaja}
+          onCerrar={() => setBajaDe(null)}
+        />
       )}
     </div>
   );
@@ -425,6 +578,9 @@ interface AdjuntoFilaProps {
   canRemove: boolean;
   removing: boolean;
   onRemove?: (adjuntoId: string) => void;
+  onDescargar?: (adjuntoId: string) => Promise<void>;
+  /** Abre el diálogo de baja con motivo (modo baja). */
+  onDarDeBaja?: () => void;
 }
 
 /**
@@ -445,7 +601,11 @@ function AdjuntoFila({
   canRemove,
   removing,
   onRemove,
+  onDescargar,
+  onDarDeBaja,
 }: AdjuntoFilaProps) {
+  const [descargando, setDescargando] = useState(false);
+  const deBaja = a.estado === EstadoAdjunto.Baja;
   const contenidoQuery = useContenidoAdjunto(contenidoEndpoint);
   const contenidoUrl = contenidoQuery.data ?? null;
   // Revoca el object URL al desmontar o cuando cambia (evita fuga de memoria).
@@ -456,11 +616,14 @@ function AdjuntoFila({
   const isLoading = contenidoQuery.isLoading;
   // Con resolver: object URL (o null mientras carga). Sin resolver:
   // blobUrl crudo (legacy; https:// en prod, file:// en dev → no navegable).
-  const urlEfectiva = contenidoEndpoint ? contenidoUrl : a.blobUrl;
+  const urlEfectiva = contenidoEndpoint ? contenidoUrl : (a.blobUrl ?? null);
 
   return (
     <li
-      className="flex items-start gap-3 rounded-md border bg-card p-3"
+      className={cn(
+        'flex items-start gap-3 rounded-md border border-line bg-surface-card p-3',
+        deBaja && 'opacity-70',
+      )}
       data-adjunto={a.id}
     >
       <AdjuntoPreview
@@ -493,10 +656,10 @@ function AdjuntoFila({
           {tipoDescripcion && (
             <span
               className={cn(
-                'rounded px-1.5 py-0.5 text-[10px]',
+                'rounded-sm px-1.5 py-0.5 text-2xs',
                 esObligatorio
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-muted text-muted-foreground',
+                  ? 'bg-warning-bg text-warning-fg'
+                  : 'bg-surface-muted text-ink-muted',
               )}
               data-tipo={tipoClave ?? undefined}
             >
@@ -504,13 +667,70 @@ function AdjuntoFila({
             </span>
           )}
           {tipoExtra}
+          {a.estado != null && <EstadoAdjuntoBadge estado={a.estado} />}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {formatBytes(a.tamanoBytes)} ·{' '}
-          {new Date(a.fechaCarga).toLocaleString()}
+          {formatBytes(a.tamanoBytes)} · {formatDateTime(a.fechaCarga)}
           {usuario ? ` · ${usuario}` : ''}
+          {a.hashSha256 && (
+            <>
+              {' · '}
+              <span className="font-mono text-2xs" title={`SHA-256: ${a.hashSha256}`}>
+                {a.hashSha256.slice(0, 8)}
+              </span>
+            </>
+          )}
         </p>
+        {a.vigenteHasta && (
+          <p
+            className={cn(
+              'mt-0.5 text-xs',
+              a.estado === EstadoAdjunto.Vencido
+                ? 'font-medium text-danger-fg'
+                : 'text-ink-muted',
+            )}
+          >
+            Vigente hasta {format(parseDateOnlyLocal(a.vigenteHasta), 'dd/MM/yyyy')}
+          </p>
+        )}
+        {deBaja && (
+          <p className="mt-0.5 text-xs text-ink-secondary">
+            Baja{a.bajaEn ? ` el ${formatDateTime(a.bajaEn)}` : ''}
+            {a.bajaMotivo ? `: ${a.bajaMotivo}` : ''}
+          </p>
+        )}
       </div>
+      {onDescargar && !deBaja && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={descargando}
+          onClick={async () => {
+            setDescargando(true);
+            try {
+              await onDescargar(a.id);
+            } finally {
+              setDescargando(false);
+            }
+          }}
+          aria-label={`Descargar ${a.nombreArchivo}`}
+          data-action="descargar-enlace"
+        >
+          {descargando ? <Loader2 className="animate-spin" /> : <Download />}
+        </Button>
+      )}
+      {onDarDeBaja && !deBaja && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onDarDeBaja}
+          aria-label={`Dar de baja ${a.nombreArchivo}`}
+          className="text-danger-fg hover:bg-danger-bg"
+          data-action="dar-de-baja-adjunto"
+        >
+          <Ban />
+        </Button>
+      )}
       {canRemove && onRemove && (
         <Button
           size="sm"
@@ -518,7 +738,7 @@ function AdjuntoFila({
           onClick={() => onRemove(a.id)}
           disabled={removing}
           aria-label={`Eliminar ${a.nombreArchivo}`}
-          className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+          className="h-7 px-2 text-danger-fg hover:bg-danger-bg"
           data-action="eliminar-adjunto"
         >
           {removing ? (
