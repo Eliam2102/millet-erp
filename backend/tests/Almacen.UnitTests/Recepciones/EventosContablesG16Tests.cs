@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Millet.Almacen.Application.Conteos;
+using Millet.Almacen.Application.DevolucionesInternas;
+using Millet.Almacen.Application.DevolucionesProveedor;
 using Millet.Almacen.Application.EventListeners;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Recepciones;
@@ -9,6 +11,8 @@ using Millet.Almacen.Application.Salidas;
 using Millet.Almacen.Application.Vales;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Conteos;
+using Millet.Almacen.Domain.DevolucionesProveedor;
+using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -166,6 +170,50 @@ public class EventosContablesG16Tests
         e.SucursalId.Should().Be(SucursalId);
         e.Lineas.Single().SubAlmacenId.Should().Be(SubId);
         e.Lineas.Single().UbicacionId.Should().Be(BinId);
+    }
+
+    [Fact]
+    public async Task Devolucion_interna_publica_almacen_y_sucursal_del_subalmacen_destino()
+    {
+        await using var db = await NuevaDbAsync();
+        var mov = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.SalidaConsumo, EmpresaId,
+            new DateOnly(2026, 6, 1));
+        var lineaSalidaId = Guid.NewGuid();
+        mov.AgregarLinea(new LineaMovimiento(lineaSalidaId, mov.Id, 1, ArticuloId, 10m, "PZA", 10m, ubicacionId: BinId));
+        mov.Registrar(FolioMovimiento.Construir(TipoMovimiento.SalidaConsumo, 2026, 1), Guid.NewGuid());
+        db.Movimientos.Add(mov);
+        await db.SaveChangesAsync();
+
+        var events = new CapturaEventos();
+        await new AplicarDevolucionInternaHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales())
+            .Handle(new AplicarDevolucionInternaCommand(mov.Id, SubId, new DateOnly(2026, 6, 1), "Integro",
+                "test", null, [new DevolucionInternaLineaInput(lineaSalidaId, 2m, BinId)]), default);
+
+        var e = events.Unico<DevolucionInternaAplicadaIntegrationEvent>();
+        e.AlmacenId.Should().Be(AlmacenId);
+        e.SucursalId.Should().Be(SucursalId);
+    }
+
+    [Fact]
+    public async Task Devolucion_a_proveedor_publica_almacen_y_sucursal_del_subalmacen_de_salida()
+    {
+        await using var db = await NuevaDbAsync();
+        var dev = new DevolucionAProveedor(Guid.NewGuid(), EmpresaId, Guid.NewGuid(), "no conforme", Guid.NewGuid());
+        dev.AgregarLinea(new LineaDevolucionProveedor(Guid.NewGuid(), dev.Id, 1, ArticuloId, 2m, "PZA", 10m));
+        dev.AgregarEvidencia(new EvidenciaDevolucionProveedor(Guid.NewGuid(), dev.Id, "Foto", "e.jpg", "blob://e.jpg"));
+        dev.SolicitarAutorizacion();
+        dev.Autorizar(Guid.NewGuid());
+        db.Set<DevolucionAProveedor>().Add(dev);
+        await db.SaveChangesAsync();
+
+        var events = new CapturaEventos();
+        await new RegistrarSalidaDevolucionAProveedorHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeOc())
+            .Handle(new RegistrarSalidaDevolucionAProveedorCommand(dev.Id, SubId, new DateOnly(2026, 6, 1),
+                [new DevolucionProveedorSalidaLineaBin(dev.Lineas.Single().Id, BinId)]), default);
+
+        var e = events.Unico<OcDevolucionRegistradaIntegrationEvent>();
+        e.AlmacenId.Should().Be(AlmacenId);
+        e.SucursalId.Should().Be(SucursalId);
     }
 
     // ─── Compatibilidad: JSON antiguo (sin campos nuevos) → null ─────────────
