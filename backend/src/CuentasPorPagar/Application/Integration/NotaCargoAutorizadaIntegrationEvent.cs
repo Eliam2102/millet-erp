@@ -14,8 +14,8 @@ public sealed record NotaCargoAutorizadaIntegrationEvent(
     string? Uuid = null,
     decimal? Subtotal = null,
     decimal? Iva = null,
-    decimal? Retenciones = null,
-    IReadOnlyList<RetencionDetallePayload>? RetencionesDetalle = null,
+    decimal? RetencionesTotal = null,
+    IReadOnlyList<RetencionDetallePayload>? Retenciones = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
     Guid? SucursalId = null)

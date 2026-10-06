@@ -29,8 +29,8 @@ public sealed record NotaCreditoProveedorRegistradaDomainEvent(
     string? Uuid = null,
     decimal? Subtotal = null,
     decimal? Iva = null,
-    decimal? Retenciones = null,
-    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
+    decimal? RetencionesTotal = null,
+    IReadOnlyList<RetencionCfdi>? Retenciones = null,
     string? Moneda = null,
     decimal? TipoCambio = null,
     Guid? SucursalId = null) : INotification;

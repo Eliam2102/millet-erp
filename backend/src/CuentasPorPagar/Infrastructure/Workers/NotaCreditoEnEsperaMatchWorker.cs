@@ -132,7 +132,7 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
                     Uuid: nc.UuidCfdi,
                     Subtotal: nc.Subtotal,
                     Iva: nc.ImpuestosTrasladados,
-                    Retenciones: nc.Retenciones,
+                    RetencionesTotal: nc.Retenciones,
                     Moneda: nc.Moneda,
                     TipoCambio: nc.TipoCambio), cancellationToken);
 

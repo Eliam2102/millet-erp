@@ -33,14 +33,14 @@ public sealed class EventosContablesG16Tests
     private static readonly RetencionCfdi[] Detalle = [new("001", null, 10m)];
 
     private static void DebeTraerBloque(
-        Guid? proveedorId, string? uuid, decimal? subtotal, decimal? iva, decimal? retenciones,
+        Guid? proveedorId, string? uuid, decimal? subtotal, decimal? iva, decimal? retencionesTotal,
         IReadOnlyList<RetencionDetallePayload>? detalle, string? moneda, decimal? tc, Guid? sucursal)
     {
         proveedorId.Should().Be(Proveedor);
         uuid.Should().Be("UUID-1");
         subtotal.Should().Be(1000m);
         iva.Should().Be(160m);
-        retenciones.Should().Be(10m);
+        retencionesTotal.Should().Be(10m);
         detalle.Should().BeEquivalentTo(new[] { new RetencionDetallePayload("001", null, 10m) });
         moneda.Should().Be("USD");
         tc.Should().Be(17.5m);
@@ -59,12 +59,12 @@ public sealed class EventosContablesG16Tests
             Lineas: [new LineaFacturada(Guid.NewGuid(), lineaId, 1m, 1000m, CentroCostoId: Ceco)],
             LineasAcumuladasOc: [],
             OcurridoEn: DateTimeOffset.UtcNow,
-            ProveedorId: Proveedor, Uuid: "UUID-1", Subtotal: 1000m, Iva: 160m, Retenciones: 10m,
-            RetencionesDetalle: Detalle, Moneda: "USD", TipoCambio: 17.5m, SucursalId: Sucursal,
+            ProveedorId: Proveedor, Uuid: "UUID-1", Subtotal: 1000m, Iva: 160m, RetencionesTotal: 10m,
+            Retenciones: Detalle, Moneda: "USD", TipoCambio: 17.5m, SucursalId: Sucursal,
             CentroCostoId: Ceco), CancellationToken.None);
 
         var e = publisher.Published.Should().BeOfType<FacturaProveedorRegistradaIntegrationEvent>().Subject;
-        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.Retenciones, e.RetencionesDetalle, e.Moneda, e.TipoCambio, e.SucursalId);
+        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.RetencionesTotal, e.Retenciones, e.Moneda, e.TipoCambio, e.SucursalId);
         e.CentroCostoId.Should().Be(Ceco);
         e.Lineas[0].CentroCostoId.Should().Be(Ceco);
     }
@@ -78,7 +78,7 @@ public sealed class EventosContablesG16Tests
             Proveedor, "UUID-1", 1000m, 160m, 10m, Detalle, "USD", 17.5m, Sucursal), CancellationToken.None);
 
         var e = publisher.Published.Should().BeOfType<FacturaProveedorCanceladaIntegrationEvent>().Subject;
-        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.Retenciones, e.RetencionesDetalle, e.Moneda, e.TipoCambio, e.SucursalId);
+        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.RetencionesTotal, e.Retenciones, e.Moneda, e.TipoCambio, e.SucursalId);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class EventosContablesG16Tests
             "UUID-1", 1000m, 160m, 10m, Detalle, "USD", 17.5m, Sucursal), CancellationToken.None);
 
         var e = publisher.Published.Should().BeOfType<NotaCreditoProveedorRegistradaIntegrationEvent>().Subject;
-        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.Retenciones, e.RetencionesDetalle, e.Moneda, e.TipoCambio, e.SucursalId);
+        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.RetencionesTotal, e.Retenciones, e.Moneda, e.TipoCambio, e.SucursalId);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class EventosContablesG16Tests
             "UUID-1", 1000m, 160m, 10m, Detalle, "USD", 17.5m, Sucursal), CancellationToken.None);
 
         var e = publisher.Published.Should().BeOfType<NotaCargoAutorizadaIntegrationEvent>().Subject;
-        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.Retenciones, e.RetencionesDetalle, e.Moneda, e.TipoCambio, e.SucursalId);
+        DebeTraerBloque(e.ProveedorId, e.Uuid, e.Subtotal, e.Iva, e.RetencionesTotal, e.Retenciones, e.Moneda, e.TipoCambio, e.SucursalId);
     }
 
     [Fact]
@@ -137,8 +137,8 @@ public sealed class EventosContablesG16Tests
         e.ProveedorId.Should().BeNull();
         e.Uuid.Should().BeNull();
         e.Subtotal.Should().BeNull();
+        e.RetencionesTotal.Should().BeNull();
         e.Retenciones.Should().BeNull();
-        e.RetencionesDetalle.Should().BeNull();
         e.SucursalId.Should().BeNull();
         e.CentroCostoId.Should().BeNull();
         e.Lineas[0].CentroCostoId.Should().BeNull();

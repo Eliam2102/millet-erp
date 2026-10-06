@@ -89,8 +89,8 @@ public sealed class CancelarFacturaHandler : IRequestHandler<CancelarFacturaComm
                 Uuid: factura.UuidCfdi,
                 Subtotal: factura.Subtotal,
                 Iva: factura.ImpuestosTrasladados,
-                Retenciones: factura.Retenciones,
-                RetencionesDetalle: factura.RetencionesDetalle,
+                RetencionesTotal: factura.Retenciones,
+                Retenciones: factura.RetencionesDetalle,
                 Moneda: factura.Moneda,
                 TipoCambio: factura.TipoCambio,
                 SucursalId: factura.SucursalId), cancellationToken);

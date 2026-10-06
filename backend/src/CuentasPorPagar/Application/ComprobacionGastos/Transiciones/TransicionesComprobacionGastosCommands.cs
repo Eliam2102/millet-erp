@@ -291,8 +291,8 @@ public sealed class RechazarComprobacionGastosHandler
                 Uuid: f.UuidCfdi,
                 Subtotal: f.Subtotal,
                 Iva: f.ImpuestosTrasladados,
-                Retenciones: f.Retenciones,
-                RetencionesDetalle: f.RetencionesDetalle,
+                RetencionesTotal: f.Retenciones,
+                Retenciones: f.RetencionesDetalle,
                 Moneda: f.Moneda,
                 TipoCambio: f.TipoCambio,
                 SucursalId: f.SucursalId), cancellationToken);

@@ -24,8 +24,8 @@ public sealed class FacturaRegistradaG16EspejoTests
   "Lineas": [{ "LineaFacturaId": "44444444-4444-4444-4444-444444444444", "LineaOcId": "55555555-5555-5555-5555-555555555555", "Cantidad": 2, "Importe": 1000, "CentroCostoId": "66666666-6666-6666-6666-666666666666" }],
   "LineasAcumuladasOc": [{ "LineaOcId": "55555555-5555-5555-5555-555555555555", "CantidadAcumulada": 5 }],
   "ProveedorId": "77777777-7777-7777-7777-777777777777",
-  "Uuid": "UUID-1", "Subtotal": 1000, "Iva": 160, "Retenciones": 10,
-  "RetencionesDetalle": [{ "Impuesto": "001", "Tasa": null, "Importe": 10 }],
+  "Uuid": "UUID-1", "Subtotal": 1000, "Iva": 160, "RetencionesTotal": 10,
+  "Retenciones": [{ "Impuesto": "001", "Tasa": null, "Importe": 10 }],
   "Moneda": "USD", "TipoCambio": 17.5,
   "SucursalId": "88888888-8888-8888-8888-888888888888",
   "CentroCostoId": "66666666-6666-6666-6666-666666666666"

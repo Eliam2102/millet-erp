@@ -28,8 +28,8 @@ public sealed class NotaCreditoProveedorRegistradaMapper
             Uuid: notification.Uuid,
             Subtotal: notification.Subtotal,
             Iva: notification.Iva,
-            Retenciones: notification.Retenciones,
-            RetencionesDetalle: notification.RetencionesDetalle?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
+            RetencionesTotal: notification.RetencionesTotal,
+            Retenciones: notification.Retenciones?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
             Moneda: notification.Moneda,
             TipoCambio: notification.TipoCambio,
             SucursalId: notification.SucursalId);
