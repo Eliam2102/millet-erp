@@ -1,15 +1,17 @@
 # Plan — F1-CON-03 Abrir, cerrar y reabrir periodos con autorización (`Millet.Contabilidad`)
 
-> **Versión:** 0.1 (borrador para aprobación) · **Fecha:** 2026-10-06
+> **Versión:** 0.2 (implementación recuperada; supuestos pendientes de ratificación) · **Fecha:** 2026-10-06
 > **Tarea:** F1-CON-03 · **Responsable (ClickUp):** Uziel · **Rama:** `feature/F1-CON-03-periodos-contables` (desde `main` `4933872`)
-> **Estado:** PLAN, sin código.
+> **Estado:** fases 1–5 implementadas en la rama; fase 6 documentada en la reanudación. Validación y entrega pendientes de evidencia.
 > **Fuentes funcionales:** texto de ClickUp (planeación 28-sep, ajustada; 8 h; 5 al 6-oct) y fichas de la base de conocimiento
 > `C1.1 · Periodos contables` y `C1.2 · Adaptadores reales de periodo y tipo de cambio` (verificadas contra `main` `9ecbcd2`,
 > 04-oct), `Plano C1 · Motor contable` §2 y §9, `Módulo 10 · Contabilidad` (R18, R19, R28), decisión `D18`.
 > **Dependencias:** F1-CON-01 (PR #30) y F1-CON-02 (PR #32), ambas en `main`.
 
-Los periodos, el ejercicio y los calendarios de este plan son **de prueba** (`FIX-`/DEMO). **No son el calendario oficial**
-de Contabilidad (dependencia externa por confirmar).
+Los datos de ejercicio y apertura usados para demostrar este plan son **de prueba** (`FIX-`/DEMO).
+El año natural y los 13 periodos son reglas recibidas; la apertura de los meses DEMO no acredita el calendario operativo.
+Contrato: [10-contrato-api-periodos.md](10-contrato-api-periodos.md). Avance, resultados y límites:
+[11-evidencia-f1-con-03.md](11-evidencia-f1-con-03.md). Decisión propuesta: [ADR-0058](../../decisiones/0058-periodos-contables-y-contrato-de-consulta.md).
 
 ---
 
@@ -159,7 +161,8 @@ Problem Details (ADR-0010); contrato completo en `10-contrato-api-periodos.md` (
   `contabilidad.periodo.leer`, `contabilidad.periodo.administrar`, `contabilidad.periodo.cerrar`,
   `contabilidad.periodo.reabrir`.
 - Asignación DEMO: «Contador General» (o el rol equivalente sembrado hoy) recibe `reabrir`; un rol contable operativo recibe
-  `leer` + `cerrar`. **Por confirmar con Contabilidad** quién cierra y quién reabre (R18 dice Contador General para ambas).
+  `leer` + `cerrar`. R18 define Contador General para cierre y reapertura; la delegación del cierre al operativo es de prueba,
+  no una autorización de negocio recibida.
 - **Sucursal:** el periodo es de la empresa, no de una sucursal; no aplica `SucursalScopeGuard` (ADR-0051) en los endpoints de
   periodos. Los consumidores siguen aplicando su propio alcance (el movimiento de prueba ya verifica la sucursal).
 
@@ -250,8 +253,9 @@ resolución de fecha → periodo, motivo obligatorio, cierre secuencial, reapert
 
 ## 13. Lo que se necesita de Millet (no bloquea; se construye con supuestos)
 
-- Calendario contable oficial y si el ejercicio es siempre año natural (supuesto: sí).
-- Quién cierra y quién reabre (supuesto: Contador General reabre; rol contable cierra).
+- Calendario operativo de apertura de los meses DEMO; año natural y periodo 13 ya constan en las reglas recibidas (R18/R19).
+- Ratificación de la delegación del cierre usada en DEMO: R18 indica Contador General para cerrar y reabrir; el rol operativo
+  de las pruebas no acredita esa delegación para producción.
 - Si el cierre debe ser secuencial y si reabrir enero obliga a reabrir los meses siguientes (supuestos D4).
 - Una reapertura real de ejemplo con operaciones permitidas/rechazadas (complemento propuesto en F1-CON-03).
 

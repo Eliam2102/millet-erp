@@ -2,14 +2,18 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Almacen.Application.Cierre;
 using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Contabilidad.Application.Periodos;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
+using Millet.Contabilidad.Infrastructure.PublicAdapters;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
@@ -26,6 +30,8 @@ public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassF
 {
     private const string Periodos = Base + "/periodos";
     private const string Motivo = "FIX cierre de prueba del periodo";
+    private static readonly int[] EneroYAjuste = [1, 13];
+    private static readonly int[] SoloEnero = [1];
 
     private static Guid Id(JsonElement e) => e.GetProperty("id").GetGuid();
 
@@ -127,6 +133,114 @@ public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassF
         Assert.All(errores.Where(e => e.GetProperty("codigo").GetString()!.StartsWith("CONTAB_PERIODO_", StringComparison.Ordinal)),
             e => Assert.Equal("fechaContable", e.GetProperty("campo").GetString()));
         return [.. errores.Select(e => e.GetProperty("codigo").GetString()!)];
+    }
+
+    private sealed class PausaConsulta(DateOnly fecha)
+    {
+        public DateOnly Fecha { get; } = fecha;
+        public TaskCompletionSource Leido { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Continuar { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    // Pausa DESPUÉS de leer el estado real: reproduce la ventana entre consultar periodo y guardar movimiento.
+    private sealed class ConsultaPausada(IPeriodoContableConsultaPort inner, PausaConsulta pausa) : IPeriodoContableConsultaPort
+    {
+        public Task<EstadoPeriodoContable> ConsultarAsync(int anio, int numero, CancellationToken ct) => inner.ConsultarAsync(anio, numero, ct);
+
+        public async Task<EstadoPeriodoContable> ConsultarPorFechaAsync(DateOnly fecha, CancellationToken ct)
+        {
+            var estado = await inner.ConsultarPorFechaAsync(fecha, ct);
+            if (fecha == pausa.Fecha)
+            {
+                pausa.Leido.TrySetResult();
+                await pausa.Continuar.Task.WaitAsync(ct);
+            }
+            return estado;
+        }
+    }
+
+    private async Task<bool> EsperarCierreBloqueadoAsync(Task<HttpResponseMessage> cerrar)
+    {
+        using var limite = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (!cerrar.IsCompleted)
+        {
+            if (await Escalar<long>(factory.Services,
+                "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND classid = 0 AND objid = 218300417") > 0)
+                return true;
+            await Task.Delay(25, limite.Token);
+        }
+        return false;
+    }
+
+    [Fact]
+    public async Task Cierre_espera_al_movimiento_que_ya_verifico_el_periodo_y_luego_rechaza_nuevos_movimientos()
+    {
+        var anio = AnioPrueba();
+        Movimiento? m = null;
+        var fecha = new DateOnly(anio, 1, 15);
+        var pausa = new PausaConsulta(fecha);
+        Task<HttpResponseMessage>? confirmar = null, cerrar = null;
+        using var host = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        {
+            s.RemoveAll<IPeriodoContableConsultaPort>();
+            s.AddScoped<IPeriodoContableConsultaPort>(sp =>
+                new ConsultaPausada(new PeriodoContableConsultaAdapter(sp.GetRequiredService<ContabilidadDbContext>()), pausa));
+        }));
+        using var admin = await LoginAsync(factory);
+        using var clienteMovimiento = await LoginAsync(host);
+        try
+        {
+            m = await CrearMovimientoBaseAsync(admin);
+            var enero = Periodo(await CrearEjercicioAsync(admin, anio, 1), 1);
+
+            confirmar = clienteMovimiento.PostAsJsonAsync($"{Base}/movimientos-prueba", Mov(m, fecha));
+            await pausa.Leido.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            cerrar = Cerrar(admin, enero);
+            Assert.True(await EsperarCierreBloqueadoAsync(cerrar));
+            Assert.False(cerrar.IsCompleted);
+
+            pausa.Continuar.TrySetResult();
+            Assert.Equal(HttpStatusCode.Created, (await confirmar).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await cerrar).StatusCode);
+            Assert.Equal(1, await Contar(factory.Services, "movimientos_dimension_prueba", $"cuenta_codigo LIKE 'FIX-{m.Suf}-%'"));
+            var rechazado = await admin.PostAsJsonAsync($"{Base}/movimientos-prueba", Mov(m, fecha));
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, rechazado.StatusCode);
+            Assert.Equal("CONTAB_PERIODO_CERRADO", await Code(rechazado));
+            Assert.Equal(1, await Contar(factory.Services, "movimientos_dimension_prueba", $"cuenta_codigo LIKE 'FIX-{m.Suf}-%'"));
+        }
+        finally
+        {
+            pausa.Continuar.TrySetResult();
+            if (confirmar is not null) await confirmar;
+            if (cerrar is not null) await cerrar;
+            await LimpiarMovimientoAsync(m);
+            await LimpiarPeriodosAsync(anio);
+        }
+    }
+
+    [Fact]
+    public async Task Apertura_de_lote_invalido_no_guarda_transiciones_bitacora_ni_version_y_libera_el_candado()
+    {
+        var anio = AnioPrueba();
+        try
+        {
+            using var admin = await LoginAsync(factory);
+            var ejercicio = await CrearEjercicioAsync(admin, anio);
+            var respuesta = await Send(admin, HttpMethod.Post, $"{Periodos}/ejercicios/{Id(ejercicio)}/abrir",
+                new { numeros = EneroYAjuste }, Etag(ejercicio));
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, respuesta.StatusCode);
+            Assert.Equal("CONTAB_PERIODO_13_REQUIERE_12_CERRADO", await Code(respuesta));
+            var sinCambios = await Json(await admin.GetAsync($"{Periodos}/ejercicios/{Id(ejercicio)}"));
+            Assert.Equal(Etag(ejercicio), Etag(sinCambios));
+            Assert.All(sinCambios.GetProperty("periodos").EnumerateArray(), p => Assert.Equal("NoAbierto", p.GetProperty("estado").GetString()));
+            Assert.Equal(Etag(Periodo(ejercicio, 1)), Etag(Periodo(sinCambios, 1)));
+            Assert.Equal(0, await Bitacora(Id(Periodo(ejercicio, 1))));
+            var valido = await Send(admin, HttpMethod.Post, $"{Periodos}/ejercicios/{Id(ejercicio)}/abrir",
+                new { numeros = SoloEnero }, Etag(ejercicio));
+            Assert.Equal(HttpStatusCode.OK, valido.StatusCode);
+            Assert.Equal(1, await Bitacora(Id(Periodo(ejercicio, 1))));
+        }
+        finally { await LimpiarPeriodosAsync(anio); }
     }
 
     // ── Casos 1, 2 y 6: el movimiento de prueba y el panel respetan el contrato ──

@@ -112,6 +112,55 @@ describe('<PeriodosPage>', () => {
     expect(within(dialogo).getByRole('button', { name: 'Reabrir periodo' })).toBeDisabled();
   });
 
+  it.each(['crear', 'abrir', 'cerrar'] as const)('%s conserva la clave al reintentar sin respuesta y la cambia al corregir el comando', async (accion) => {
+    servidor();
+    const claves: string[] = [];
+    const ruta = accion === 'crear' ? `${API}/ejercicios` : accion === 'abrir' ? `${API}/ejercicios/e1/abrir` : `${API}/p2/cerrar`;
+    mswServer.use(http.post(ruta, ({ request }) => {
+      claves.push(request.headers.get('Idempotency-Key')!);
+      // Simula una respuesta perdida: el cliente desconoce si se aplicó el cambio.
+      return HttpResponse.error();
+    }));
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoAdministrar, PermisosCanonicos.ContabilidadPeriodoCerrar);
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    await screen.findByText('2 · Febrero');
+    if (accion === 'crear') fireEvent.click(screen.getByRole('button', { name: /Nuevo ejercicio/ }));
+    else fireEvent.click((await fila(accion === 'abrir' ? '3 · Marzo' : '2 · Febrero')).getByRole('button', { name: accion === 'abrir' ? 'Abrir' : 'Cerrar' }));
+    const dialogo = await screen.findByRole('dialog');
+    const campo = within(dialogo).getByLabelText(accion === 'crear' ? 'Año' : /Motivo/);
+    if (accion !== 'crear') fireEvent.change(campo, { target: { value: 'Operación contable de prueba' } });
+    const confirmar = within(dialogo).getByRole('button', { name: accion === 'crear' ? 'Crear ejercicio' : accion === 'abrir' ? 'Abrir periodo' : 'Cerrar periodo' });
+    fireEvent.click(confirmar);
+    await within(dialogo).findByRole('alert');
+    await waitFor(() => expect(confirmar).toBeEnabled());
+    fireEvent.click(confirmar);
+    await waitFor(() => expect(claves).toHaveLength(2));
+    await within(dialogo).findByRole('alert');
+    await waitFor(() => expect(confirmar).toBeEnabled());
+    expect(claves[0]).toBeTruthy();
+    expect(claves[1]).toBe(claves[0]);
+    fireEvent.change(campo, { target: { value: accion === 'crear' ? '2028' : 'Operación contable corregida' } });
+    fireEvent.click(confirmar);
+    await waitFor(() => expect(claves).toHaveLength(3));
+    expect(claves[2]).not.toBe(claves[0]);
+  });
+
+  it('rechazo 403 conserva el motivo y muestra el mensaje de permisos', async () => {
+    servidor();
+    mswServer.use(http.post(`${API}/p1/reabrir`, () => HttpResponse.json(
+      { type: 'x', title: 'Prohibido', status: 403, detail: 'No tienes permiso para reabrir este periodo.' }, { status: 403 },
+    )));
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoReabrir);
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    fireEvent.click((await fila('1 · Enero')).getByRole('button', { name: 'Reabrir' }));
+    const dialogo = await screen.findByRole('dialog');
+    const campo = within(dialogo).getByLabelText('Motivo');
+    fireEvent.change(campo, { target: { value: 'Corrección autorizada de enero' } });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Reabrir periodo' }));
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent('No tienes permiso para reabrir este periodo');
+    expect(campo).toHaveValue('Corrección autorizada de enero');
+  });
+
   it('409 por versión: pide recargar; 422: muestra el mensaje del servidor', async () => {
     servidor();
     mswServer.use(http.post(`${API}/:id/cerrar`, () => HttpResponse.json(

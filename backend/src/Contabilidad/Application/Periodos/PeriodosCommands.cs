@@ -28,6 +28,7 @@ public sealed record BitacoraPeriodoResponse(
 /// </summary>
 internal static class PoliticaPeriodos
 {
+    // ponytail: el candado global prioriza integridad; dividir por empresa/ejercicio si el volumen exige más concurrencia.
     public const long LockPeriodos = 0x0D03_0001;
 
     public static PeriodoContableResponse Response(PeriodoContable p) => new(p.Id, p.EjercicioId, p.Anio, p.Numero,

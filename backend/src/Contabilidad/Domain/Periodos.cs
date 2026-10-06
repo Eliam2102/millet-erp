@@ -17,7 +17,7 @@ public enum AccionPeriodo : short { Abrir = 1, Cerrar = 2, Reabrir = 3 }
 /// <summary>
 /// Ejercicio contable (D1): uno por año natural y empresa. Al crearse genera los 12 periodos ordinarios y el 13 de ajuste,
 /// todos en <see cref="EstadoPeriodo.NoAbierto"/> (D2). Su versión es el candado de la apertura en lote.
-/// Calendario de PRUEBA mientras Contabilidad no confirme el oficial (supuesto: año natural).
+/// Calendario de año natural, confirmado en el diseño contable D13 (bóveda de Obsidian).
 /// </summary>
 public sealed class EjercicioContable : BaseEntity, IAuditable, IPerteneceAEmpresa
 {

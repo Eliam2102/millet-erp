@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { esApiError } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { formatDateTime } from '@/lib/datetime';
@@ -234,6 +234,7 @@ function ErrorAccion({ error, onRecargar }: { error: { mensaje: string; recargar
 
 function NuevoEjercicioDialog({ open, sugerido, onClose }: { open: boolean; sugerido: number; onClose: (anio?: number) => void }) {
   const crear = useCrearEjercicio();
+  const keyFor = useBodyScopedIdempotencyKey();
   const [anio, setAnio] = useState('');
   const [error, setError] = useState<{ mensaje: string; recargar: boolean } | null>(null);
   const valor = anio || String(sugerido);
@@ -246,7 +247,8 @@ function NuevoEjercicioDialog({ open, sugerido, onClose }: { open: boolean; suge
 
   function confirmar() {
     setError(null);
-    crear.mutate(Number(valor), { onSuccess: (e) => cerrar(e.anio), onError: (e) => setError(mensajeErrorPeriodo(e)) });
+    const command = { anio: Number(valor) };
+    crear.mutate({ ...command, idempotencyKey: keyFor(command) }, { onSuccess: (e) => cerrar(e.anio), onError: (e) => setError(mensajeErrorPeriodo(e)) });
   }
 
   return (
@@ -276,6 +278,7 @@ function NuevoEjercicioDialog({ open, sugerido, onClose }: { open: boolean; suge
 
 function AbrirDialog({ ejercicio, numeros, onClose }: { ejercicio: EjercicioContable; numeros: number[] | null; onClose: (ok: boolean) => void }) {
   const abrir = useAbrirPeriodos();
+  const keyFor = useBodyScopedIdempotencyKey();
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<{ mensaje: string; recargar: boolean } | null>(null);
   const nombres = (numeros ?? []).map((n) => ejercicio.periodos.find((p) => p.numero === n)).filter((p) => !!p).map(etiquetaPeriodo);
@@ -289,7 +292,8 @@ function AbrirDialog({ ejercicio, numeros, onClose }: { ejercicio: EjercicioCont
   function confirmar() {
     if (!numeros) return;
     setError(null);
-    abrir.mutate({ ejercicio, numeros, motivo }, { onSuccess: () => cerrar(true), onError: (e) => setError(mensajeErrorPeriodo(e)) });
+    const command = { ejercicioId: ejercicio.id, version: ejercicio.version, numeros, motivo: motivo.trim() || null };
+    abrir.mutate({ ejercicio, numeros, motivo, idempotencyKey: keyFor(command) }, { onSuccess: () => cerrar(true), onError: (e) => setError(mensajeErrorPeriodo(e)) });
   }
 
   return (
@@ -322,6 +326,7 @@ function MotivoDialog({ transicion, onClose }: {
   onClose: () => void;
 }) {
   const mutacion = useTransicionPeriodo();
+  const keyFor = useBodyScopedIdempotencyKey();
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<{ mensaje: string; recargar: boolean } | null>(null);
   const largo = motivo.trim().length;
@@ -338,7 +343,8 @@ function MotivoDialog({ transicion, onClose }: {
   function confirmar() {
     if (!transicion || !motivoValido) return;
     setError(null);
-    mutacion.mutate({ ...transicion, motivo }, { onSuccess: cerrar, onError: (e) => setError(mensajeErrorPeriodo(e)) });
+    const command = { periodoId: transicion.periodo.id, version: transicion.periodo.version, accion: transicion.accion, motivo: motivo.trim() };
+    mutacion.mutate({ ...transicion, motivo, idempotencyKey: keyFor(command) }, { onSuccess: cerrar, onError: (e) => setError(mensajeErrorPeriodo(e)) });
   }
 
   return (

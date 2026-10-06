@@ -97,25 +97,37 @@ public sealed class ConfirmarMovimientoPruebaHandler(
     {
         var m = request.Movimiento;
         await alcance.VerificarAsync(m.SucursalId, cancellationToken);
-        // Candado de periodo (falla cerrada). Un cierre concurrente entre esta lectura y el guardado no se serializa aquí:
-        // PLATFORM-TODO(<Polizas>): la póliza real verifica el periodo bajo el mismo candado que el cierre.
-        await periodo.LanzarSiNoAdmiteAsync(m.FechaContable, m.Origen, cancellationToken);
-        var v = await validador.ValidarAsync(m.Movimiento, cancellationToken);
-        if (!v.Valido) return new(false, v, null);
+        ConfirmacionMovimientoResult? resultado = null;
+        MovimientoDimensionPrueba? mov = null;
+        // Periodos antes que reglas: la lectura del estado y el guardado comparten la transacción de los cierres.
+        // Se adquiere el segundo candado en la misma transacción, sin abrir una transacción anidada.
+        await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaPeriodos.LockPeriodos, async ct =>
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({PoliticaReglas.LockReglas})", ct);
+            await periodo.LanzarSiNoAdmiteAsync(m.FechaContable, m.Origen, ct);
+            var v = await validador.ValidarAsync(m.Movimiento, ct);
+            if (!v.Valido)
+            {
+                resultado = new(false, v, null);
+                return;
+            }
 
-        var cuenta = await db.Cuentas.AsNoTracking().FirstAsync(c => c.Id == m.CuentaId, cancellationToken);
-        var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(t => t.Id == m.TipoDocumentoId, cancellationToken);
-        var mov = new MovimientoDimensionPrueba(Guid.CreateVersion7(), m.SucursalId, cuenta.Id, cuenta.Codigo, tipo.Id, tipo.Clave,
-            m.FechaContable, v.Centros.Dim1Id, v.Centros.Dim2Id, v.Centros.Dim3Id, m.Movimiento.Proyecto, m.ClienteId, m.ProveedorId,
-            m.CuentaBancariaId, string.IsNullOrWhiteSpace(m.Referencia) ? null : m.Referencia.Trim(),
-            JsonSerializer.Serialize(v.Requerimientos, LecturaMovimientos.Json), clock.UtcNow);
-        db.MovimientosPrueba.Add(mov);
-        // Uso de cada regla aplicada: desde ahora no se edita ni se borra (solo se cierra). Bajo el mismo candado que las
-        // escrituras de reglas, para que nadie edite una regla mientras se registra su primer uso.
-        foreach (var reglaId in v.Requerimientos.Where(r => r.ReglaId is not null).Select(r => r.ReglaId!.Value).Distinct())
-            db.ReglasDimensionUso.Add(new ReglaDimensionUso(Guid.CreateVersion7(), reglaId, ConsumidorMovimientoPrueba, mov.Id.ToString(), m.FechaContable));
-        await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaReglas.LockReglas, ct => db.SaveChangesAsync(ct), cancellationToken);
-        return new(true, v, (await lectura.ResponsesAsync([mov], cancellationToken))[0]);
+            var cuenta = await db.Cuentas.AsNoTracking().FirstAsync(c => c.Id == m.CuentaId, ct);
+            var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(t => t.Id == m.TipoDocumentoId, ct);
+            mov = new MovimientoDimensionPrueba(Guid.CreateVersion7(), m.SucursalId, cuenta.Id, cuenta.Codigo, tipo.Id, tipo.Clave,
+                m.FechaContable, v.Centros.Dim1Id, v.Centros.Dim2Id, v.Centros.Dim3Id, m.Movimiento.Proyecto, m.ClienteId, m.ProveedorId,
+                m.CuentaBancariaId, string.IsNullOrWhiteSpace(m.Referencia) ? null : m.Referencia.Trim(),
+                JsonSerializer.Serialize(v.Requerimientos, LecturaMovimientos.Json), clock.UtcNow);
+            db.MovimientosPrueba.Add(mov);
+            // Los usos se guardan con el movimiento bajo el mismo candado que las escrituras de reglas.
+            foreach (var reglaId in v.Requerimientos.Where(r => r.ReglaId is not null).Select(r => r.ReglaId!.Value).Distinct())
+                db.ReglasDimensionUso.Add(new ReglaDimensionUso(Guid.CreateVersion7(), reglaId, ConsumidorMovimientoPrueba, mov.Id.ToString(), m.FechaContable));
+            await db.SaveChangesAsync(ct);
+            resultado = new(true, v, null);
+        }, cancellationToken);
+        return resultado!.Confirmado
+            ? resultado with { Movimiento = (await lectura.ResponsesAsync([mov!], cancellationToken))[0] }
+            : resultado;
     }
 }
 

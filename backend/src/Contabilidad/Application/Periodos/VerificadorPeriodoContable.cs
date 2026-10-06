@@ -51,9 +51,12 @@ public sealed class ConsultarEstadoPeriodoValidator : AbstractValidator<Consulta
 {
     public ConsultarEstadoPeriodoValidator()
     {
-        RuleFor(q => q).Must(q => q.Fecha is not null ^ (q.Anio is not null && q.Numero is not null))
+        RuleFor(q => q).Must(q => q.Fecha is not null
+                ? q.Anio is null && q.Numero is null
+                : q.Anio is not null && q.Numero is not null)
             .WithName("consulta").WithMessage("Indique la fecha o el año y el número de periodo (no ambos).");
         RuleFor(q => q.Numero).InclusiveBetween(1, PeriodoContable.NumeroAjuste).When(q => q.Numero is not null);
+        RuleFor(q => q.Anio).InclusiveBetween(EjercicioContable.AnioMinimo, EjercicioContable.AnioMaximo).When(q => q.Anio is not null);
     }
 }
 

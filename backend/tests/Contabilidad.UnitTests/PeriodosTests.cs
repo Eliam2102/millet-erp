@@ -12,6 +12,24 @@ namespace Millet.Contabilidad.UnitTests;
 /// </summary>
 public class PeriodosTests
 {
+    [Theory]
+    [InlineData(true, null, null, true)]
+    [InlineData(false, 2026, 13, true)]
+    [InlineData(true, 2026, null, false)]
+    [InlineData(true, null, 1, false)]
+    [InlineData(true, 2026, 1, false)]
+    [InlineData(false, null, null, false)]
+    [InlineData(false, 2026, null, false)]
+    [InlineData(false, null, 1, false)]
+    [InlineData(false, 1999, 1, false)]
+    [InlineData(false, 3000, 1, false)]
+    [InlineData(false, 2026, 14, false)]
+    public void La_consulta_exige_fecha_exclusiva_o_anio_y_numero_validos(bool conFecha, int? anio, int? numero, bool valido)
+    {
+        var consulta = new ConsultarEstadoPeriodoQuery(conFecha ? new DateOnly(2026, 1, 15) : null, anio, numero);
+        new ConsultarEstadoPeriodoValidator().Validate(consulta).IsValid.Should().Be(valido);
+    }
+
     private static readonly DateTimeOffset Ahora = new(2026, 10, 6, 12, 0, 0, TimeSpan.Zero);
     private const string Motivo = "FIX cierre mensual de prueba";
 

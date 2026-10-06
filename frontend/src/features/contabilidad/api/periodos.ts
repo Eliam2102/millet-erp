@@ -82,8 +82,8 @@ export function useBitacoraPeriodo(periodoId: string | null) {
 export function useCrearEjercicio() {
   const invalidar = useInvalidar();
   return useMutation({
-    mutationFn: async (anio: number) =>
-      (await apiRequest<EjercicioContable>(`${BASE}/ejercicios`, { method: 'POST', body: { anio }, idempotencyKey: crypto.randomUUID() })).data,
+    mutationFn: async (a: { anio: number; idempotencyKey: string }) =>
+      (await apiRequest<EjercicioContable>(`${BASE}/ejercicios`, { method: 'POST', body: { anio: a.anio }, idempotencyKey: a.idempotencyKey })).data,
     onSuccess: invalidar,
   });
 }
@@ -92,11 +92,11 @@ export function useCrearEjercicio() {
 export function useAbrirPeriodos() {
   const invalidar = useInvalidar();
   return useMutation({
-    mutationFn: async (a: { ejercicio: EjercicioContable; numeros: number[]; motivo: string }) =>
+    mutationFn: async (a: { ejercicio: EjercicioContable; numeros: number[]; motivo: string; idempotencyKey: string }) =>
       (await apiRequest<EjercicioContable>(`${BASE}/ejercicios/${a.ejercicio.id}/abrir`, {
         method: 'POST',
         body: { numeros: a.numeros, motivo: a.motivo.trim() || null },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: a.idempotencyKey,
         ifMatch: String(a.ejercicio.version),
       })).data,
     onSuccess: invalidar,
@@ -107,11 +107,11 @@ export function useAbrirPeriodos() {
 export function useTransicionPeriodo() {
   const invalidar = useInvalidar();
   return useMutation({
-    mutationFn: async (a: { periodo: PeriodoContable; accion: 'cerrar' | 'reabrir'; motivo: string }) =>
+    mutationFn: async (a: { periodo: PeriodoContable; accion: 'cerrar' | 'reabrir'; motivo: string; idempotencyKey: string }) =>
       (await apiRequest<PeriodoContable>(`${BASE}/${a.periodo.id}/${a.accion}`, {
         method: 'POST',
         body: { motivo: a.motivo.trim() },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: a.idempotencyKey,
         ifMatch: String(a.periodo.version),
       })).data,
     onSuccess: invalidar,
