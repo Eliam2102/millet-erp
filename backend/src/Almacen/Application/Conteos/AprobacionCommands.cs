@@ -343,13 +343,23 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             .ToListAsync(cancellationToken);
         foreach (var b in bloqueosActivos) b.Liberar();
 
+        // G1.6: almacén/sucursal solo si todos los ajustes caen en un único
+        // sub-almacén; si no, null (no se inventa). CeCo/motivo: el conteo no los tiene.
+        Guid? almacenId = null, sucursalId = null;
+        var subs = payload.Select(p => p.SubAlmacenId).Distinct().ToList();
+        if (subs.Count == 1)
+            (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+                .ResolverAsync(_db, subs[0], cancellationToken);
+
         await _events.PublishAsync(new AjusteInventarioAplicadoIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: DateTimeOffset.UtcNow,
             ConteoId: conteo.Id,
             MontoNetoMxn: Math.Round(montoNeto, 2),
             AprobadorId: conteo.AprobadorId ?? Guid.Empty,
-            MovimientosGenerados: payload), cancellationToken);
+            MovimientosGenerados: payload,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 
