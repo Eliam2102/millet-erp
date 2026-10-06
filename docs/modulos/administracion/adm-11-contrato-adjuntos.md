@@ -181,3 +181,158 @@ Los siguientes aspectos fueron acordados bajo configuración de prueba y requeri
 Los siguientes módulos fueron identificados con patrones previos y quedan como deuda técnica declarada para alinearse a este contrato:
 - **Cuentas por Pagar (CxP):** `EvidenciasEndpoints` (requiere migrar a validación con documento padre y GET autenticado por stream).
 - **Almacén:** `ValeBlobEndpoints` y packing list (requieren unificar endpoints de contenido auth-gated y política de prueba).
+
+---
+
+## 11. Servicio genérico (G1.2)
+
+> **Estado de configuración:** formatos, tamaño, vigencias, obligatoriedad, retención y quién da de baja son valores de **PRUEBA — pendiente de validar con Eliam / Millet**. Ver ADR-0058.
+>
+> **Consumidor piloto legado:** las Órdenes de Compra (§1–§8) son el piloto que dio origen al contrato. Siguen con su tabla propia (`AdjuntoOC`), sus endpoints y su puerto de blob; **no** usan el servicio genérico (PLATFORM-TODO `<MigrarAdjuntosOcAlmacen>`). Todo consumidor nuevo usa el servicio genérico. El primer consumidor genérico es el expediente documental del **Proveedor**.
+
+### 11.1 Modelo
+
+Ambas tablas viven en el esquema `compartido` (`CompartidoDbContext`); las entidades están en `SharedKernel/Domain/Adjuntos/`.
+
+**`Adjunto`** (`compartido.adjuntos`) — un archivo cargado a una entidad de cualquier módulo:
+
+| Campo | Notas |
+|---|---|
+| `TipoEntidad` + `EntidadId` | Dueño del archivo (`proveedor` + id). Sin FK a la tabla del dueño: es genérico; la integridad la da `IAdjuntoPropietario`. |
+| `TipoDocumentoId` | FK lógica a `AdjuntoTipoDocumento`. |
+| `NombreArchivo`, `ContentType`, `TamanoBytes`, `HashSha256` | Hash SHA-256 en hex (64), calculado en streaming al subir. El nombre se valida sin ruta. |
+| `BlobRef` | Referencia interna al blob (`{tipoEntidad}/{entidadId}/{adjuntoId}{ext}`). **Nunca** sale en un DTO. |
+| `VigenteHasta` | `DateOnly?`. Nulo = sin vigencia. |
+| `SubidoPorId`, `SubidoEn` | Auditoría de alta. |
+| `BajaEn`, `BajaPorId`, `BajaMotivo` | Baja lógica (§11.6). |
+| `EmpresaId?` | Nulo cuando la entidad dueña es cross-empresa (Proveedor). |
+
+Implementa `IAuditable` e `IBelongsToAggregate` (`AggregateRootId = EntidadId`): el interceptor de auditoría registra altas y bajas bajo el agregado dueño. Índices `(TipoEntidad, EntidadId)` y `(EntidadId, TipoDocumentoId)`.
+
+**`AdjuntoTipoDocumento`** (`compartido.adjunto_tipos_documento`) — catálogo de tipos por entidad dueña: `TipoEntidad`, `Codigo` (único por entidad), `Nombre`, `Orden`, `Obligatorio`, `VigenciaMeses?` (nulo = sin vigencia), `SoloPersonaMoral`, `Activo`. Los siembra la migración de cada módulo con ids deterministas.
+
+Tipos sembrados de `proveedor` (PRUEBA):
+
+| Código | Obligatorio | Vigencia | Solo persona moral |
+|---|---|---|---|
+| `constancia_situacion_fiscal` | Sí | 3 meses | No |
+| `contrato` | Sí | Sin vigencia | No |
+| `acta_constitutiva` | Sí | Sin vigencia | Sí |
+| `identificacion_representante_legal` | Sí | Sin vigencia | No |
+| `comprobante_domicilio` | Sí | 3 meses | No |
+
+### 11.2 `IAdjuntoPropietario` — autorización heredada del padre
+
+Interfaz en `SharedKernel/Application/Adjuntos/IAdjuntoPropietario.cs`. Cada módulo que adjunta archivos registra **una** implementación por DI; el servicio las toma por `TipoEntidad`.
+
+| Miembro | Para qué |
+|---|---|
+| `TipoEntidad` | Clave en snake_case; coincide con `Adjunto.TipoEntidad` y con el query `?entidad=` de tipos. |
+| `CodigoNoEncontrado` | Código 404 si el padre no existe (p. ej. `PROVEEDOR_NO_ENCONTRADO`). |
+| `PermisoVer` / `PermisoSubir` / `PermisoBaja` | Permisos canónicos por operación (ADR-0041). |
+| `ResolverAsync(entidadId)` | Devuelve `AdjuntoPropietarioInfo` (`EmpresaId?`, `SucursalId?`, `PuedeSubir`, `EsPersonaMoral?`, `Etiqueta`) o `null` si no existe o no es visible para la empresa actual. |
+| `VerificarAlcanceAsync(info)` | Alcance territorial: `SucursalScopeGuard.VerificarAsync` si hay sucursal; sin sucursal no hace nada. Lanza `ForbiddenException` si no hay alcance. |
+
+`AdjuntoAcceso` aplica siempre el mismo orden (contrato §3): tipo de entidad conocido (si no, 404 `ADJUNTO_TIPO_ENTIDAD_DESCONOCIDO`) → permiso de rol (403 `ADJUNTO_PERMISO_DENEGADO`) → existencia del padre (404) → alcance (403 `SUCURSAL_NO_ASOCIADA`) → operación. Las denegaciones se auditan.
+
+### 11.3 Cómo registrar un módulo nuevo
+
+Pasos (ejemplos: pólizas **C1.3**, comercio exterior **CE12.1**, recepciones de Almacén):
+
+1. **Permisos.** Crear tres permisos canónicos por operación en `Identidad/Domain/PermisosCanonicos.cs` (`{modulo}.{recurso}.adjuntos-ver`, `.adjuntos-subir`, `.adjuntos-baja`), añadirlos a `Todos`, con migración seed en Identidad (patrón `SeedPermisosAdjuntosProveedor`) y espejo en `frontend/src/lib/auth/permission-codes.ts` (hay test de sincronía). Si el módulo tiene datos por sucursal, usar además su permiso `…leer-todas-sucursales` existente (ADR-0051).
+2. **Propietario.** Implementar `IAdjuntoPropietario` en el módulo (ver `Compartido/Application/Adjuntos/ProveedorAdjuntoPropietario.cs`). Si el módulo no referencia `Identidad`, los permisos van como literales duplicados y un test de integración los cruza con `PermisosCanonicos`. Resolver **siempre** empresa y sucursal desde la base (nunca del cliente):
+   - Pólizas (C1.3): `ResolverAsync` consulta la póliza en el contexto de la empresa actual; `EmpresaId` y `SucursalId` de la póliza; `PuedeSubir = false` si está cerrada/cancelada; `VerificarAlcanceAsync` delega en `SucursalScopeGuard` con su permiso de bypass.
+   - Comercio exterior (CE12.1): igual con el expediente de operación/pedimento; `SucursalId` de la operación.
+   - Recepciones (Almacén): `SucursalId` de la recepción; `PuedeSubir = false` en recepciones canceladas.
+   - Entidad cross-empresa (como Proveedor): `EmpresaId = null`, `SucursalId = null`; el aislamiento depende solo del permiso. Documentar la excepción.
+3. **Registro DI** en `Api/Program.cs` junto al de Proveedor: `AddScoped<IAdjuntoPropietario, MiPropietario>()`.
+4. **Tipos de documento.** Sembrar filas de `AdjuntoTipoDocumento` con `TipoEntidad` del módulo (ids deterministas, `HasData` + migración `Compartido`; se genera, no se aplica a dev sin OK del owner). Definir `Obligatorio`, `VigenciaMeses`, `SoloPersonaMoral`.
+5. **Política de archivo** (opcional): override en `Adjuntos:Politica:PorTipoEntidad:{tipo}` de `appsettings` (formatos y tamaño); sin override rige el default global (§5).
+6. **Endpoints.** Colgar `MapAdjuntos(tipoEntidad, permisoVer, permisoSubir, permisoBaja)` del grupo del padre (`.../{id:guid}`), como en `DatosMaestrosEndpoints.cs`. `MapAdjuntosGenerales()` (tipos y descarga por enlace) ya está registrado una sola vez.
+7. **Pruebas** del checklist §8 adaptadas: 403 sin permiso, 404 padre, IDOR, alcance por sucursal (si aplica), formato/tamaño sin tocar blob, compensación, baja, enlace.
+8. **Frontend:** reusar `AdjuntosManager` en modo genérico (`modoBaja`, estados, vigencia) y los hooks de `components/erp/adjuntos/api/`.
+
+### 11.4 Endpoints
+
+Anidados bajo el padre: `/api/v1/{modulo}/{recurso}/{id}/…` (primer uso: `/api/v1/datos-maestros/proveedores/{id}/…`).
+
+| Verbo | Ruta | Permiso | Notas |
+|---|---|---|---|
+| `POST` | `/adjuntos` | `adjuntos-subir` | `multipart/form-data`: `archivo`, `tipoDocumentoId`, `vigenteHasta?`. `Idempotency-Key` obligatorio. 201. |
+| `GET` | `/adjuntos?incluirBajas=` | `adjuntos-ver` | `incluirBajas=true` solo con `adjuntos-baja`. |
+| `GET` | `/adjuntos/{adjuntoId}` | `adjuntos-ver` | Metadatos. |
+| `GET` | `/adjuntos/{adjuntoId}/contenido` | `adjuntos-ver` | Stream autenticado (para previews del front). Audita la descarga. |
+| `POST` | `/adjuntos/{adjuntoId}/enlace` | `adjuntos-ver` | Emite enlace temporal (§11.5). |
+| `DELETE` | `/adjuntos/{adjuntoId}` | `adjuntos-baja` | Body `{ "motivo": "…" }`. Baja lógica. |
+| `GET` | `/adjuntos/{adjuntoId}/bitacora` | `adjuntos-baja` | Quién/cuándo/qué (reusa `ConsultarBitacoraQuery`). |
+| `GET` | `/expediente` | `adjuntos-ver` | Estado por tipo y `completo` (§11.8). |
+| `GET` | `/api/v1/adjuntos/tipos?entidad=` | autenticado + permiso de ver de la entidad | Catálogo de tipos. |
+| `GET` | `/api/v1/adjuntos/descargas/{token}` | anónimo (el token es la credencial) | Ver §11.5. |
+
+Un `adjuntoId` de otro padre responde 404 `ADJUNTO_NO_ENCONTRADO` (sin IDOR). Ningún DTO ni cabecera expone `BlobRef` ni URL de blob.
+
+### 11.5 Enlace temporal de descarga
+
+1. `POST …/adjuntos/{adjuntoId}/enlace` aplica permiso de ver + padre + alcance y devuelve `{ url, expiraEn }`.
+2. El token se genera con `ITimeLimitedDataProtector` (ASP.NET DataProtection, llaves ya persistidas), con propósito dedicado `Millet.Compartido.Adjuntos.EnlaceDescarga.v1`, atado a `adjuntoId` + `usuarioId`. **TTL 60 s** (`Adjuntos:Enlace:TtlSegundos`).
+3. `GET /api/v1/adjuntos/descargas/{token}` (`AllowAnonymous`): valida firma y expiración; **re-verifica en BD que el adjunto exista y no esté dado de baja** (si se dio de baja entre emitir y descargar → 404); hace stream y audita ("Descargó '…' por enlace temporal").
+4. Token inválido, manipulado o expirado → 401 `ADJUNTO_ENLACE_INVALIDO`.
+5. Cabeceras seguras en la respuesta (`Content-Disposition` con nombre saneado).
+
+### 11.6 Vigencia y estado derivado
+
+El estado **no se guarda**; se calcula (`Adjunto.EstadoEn(hoy)`):
+
+| Estado | Condición |
+|---|---|
+| `Baja` | Tiene baja lógica. |
+| `SinVigencia` | `VigenteHasta` nulo. |
+| `Vencido` | `VigenteHasta < hoy`. |
+| `PorVencer` | `VigenteHasta <= hoy + 30 días`. |
+| `Vigente` | Resto. |
+
+- "Hoy" es la **fecha** en `America/Mexico_City` derivada de `IClock` (UTC).
+- **Regla 31-oct / 1-nov:** un documento con `VigenteHasta = 31-oct` es `Vigente`/`PorVencer` durante todo el 31-oct y pasa a `Vencido` el 1-nov (criterio G1.2-b).
+- Al subir: si viene `vigenteHasta` y es anterior a hoy → 422 `ADJUNTO_VIGENCIA_PASADA`; si no viene y el tipo tiene `VigenciaMeses` → hoy + N meses; si el tipo no tiene vigencia y viene una fecha, se acepta.
+- No hay sustitución implícita: un tipo puede tener varios adjuntos; el expediente toma el más reciente sin baja.
+
+### 11.7 Baja lógica
+
+`DELETE …/adjuntos/{adjuntoId}` exige `motivo` de **5 a 500 caracteres** (422 `ADJUNTO_MOTIVO_BAJA_INVALIDO`). Es **irreversible** (una segunda baja → 422 `ADJUNTO_YA_DADO_DE_BAJA`). Guarda `BajaEn`, `BajaPorId`, `BajaMotivo`; el **blob físico no se borra** (retención pendiente, PLATFORM-TODO `<RetencionAdjuntos>`). Las bajas se ven solo con `adjuntos-baja` (`incluirBajas`, bitácora). Un enlace emitido antes de la baja deja de servir (§11.5).
+
+### 11.8 Política por entidad, expediente y puerto de lectura
+
+- **Política por entidad:** `AdjuntosPoliticaOptions.ParaEntidad(tipoEntidad)` aplica el override de `Adjuntos:Politica:PorTipoEntidad:{tipo}`; sin override, el default global (20 MB, §5; OC no cambia). Para `proveedor` (PRUEBA): PDF, XML, JPG, PNG, máximo 10 MB. La validación incluye extensión, MIME y firma; XML se valida por extensión, MIME y primer byte `<` (tras BOM opcional) **sin parsearlo** (sin riesgo XXE).
+- **Expediente:** `GET …/expediente` devuelve por tipo aplicable (`acta_constitutiva` solo si persona moral) el estado `Faltante | Vigente | PorVencer | Vencido`, el adjunto actual y `completo`. `Completo` = todos los obligatorios aplicables en `Vigente` o `PorVencer`. Los tipos sin vigencia cuentan como vigentes.
+- **`IExpedienteProveedorReadPort`** (`Compartido/Application/Ports`): `ObtenerAsync(proveedorId)` → `ExpedienteProveedorResumen(Completo, Faltantes[], Vencidos[], PorVencer[])`, o `null` si no existe. Es lectura inter-módulo de confianza (sin usuario) para que CxP valide el expediente antes de pasar un proveedor a Activo (G1.1/CA2.2) sin tocar tablas de Compartido. Aún sin consumidor.
+
+### 11.9 Códigos de error
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `ADJUNTO_PERMISO_DENEGADO` | 403 | Falta el permiso de la operación. |
+| `SUCURSAL_NO_ASOCIADA` | 403 | Sin alcance sobre la sucursal del padre. |
+| `ADJUNTO_TIPO_ENTIDAD_DESCONOCIDO` | 404 | Tipo de entidad sin propietario registrado. |
+| `{CodigoNoEncontrado}` (p. ej. `PROVEEDOR_NO_ENCONTRADO`) | 404 | Padre inexistente. |
+| `ADJUNTO_NO_ENCONTRADO` | 404 | Adjunto inexistente, de otro padre, o dado de baja al descargar por enlace. |
+| `ADJUNTO_TIPO_DOCUMENTO_NO_ENCONTRADO` | 404 | Tipo de documento inexistente para la entidad. |
+| `ADJUNTO_ENTIDAD_NO_ADMITE_SUBIDA` | 422 | `PuedeSubir = false` (p. ej. proveedor inactivo). |
+| `ADJUNTO_TIPO_NO_APLICA` | 422 | Tipo no aplicable a la entidad (p. ej. acta en persona física). |
+| `ADJUNTO_FORMATO_NO_PERMITIDO` | 422 | Extensión, MIME o firma no permitidos. |
+| `ADJUNTO_TAMANO_EXCEDIDO` | 422 | Supera el máximo de la política. |
+| `ADJUNTO_ARCHIVO_VACIO` | 422 | Archivo vacío. |
+| `ADJUNTO_VIGENCIA_PASADA` | 422 | `vigenteHasta` anterior a hoy. |
+| `ADJUNTO_MOTIVO_BAJA_INVALIDO` | 422 | Motivo fuera de 5–500 caracteres. |
+| `ADJUNTO_YA_DADO_DE_BAJA` | 422 | Baja repetida. |
+| `ADJUNTO_ENLACE_INVALIDO` | 401 | Token inválido, manipulado o expirado. |
+
+También existen códigos de validación de entrada (`ADJUNTO_NOMBRE_INVALIDO`, `ADJUNTO_CONTENT_TYPE_INVALIDO`, `ADJUNTO_HASH_INVALIDO`, `ADJUNTO_TAMANO_INVALIDO`, etc.) y `ADJUNTO_ARCHIVO_NO_DISPONIBLE` (blob ausente en storage). Fallos de blob o BD en la subida no dejan fila ni blob huérfano (compensación, §6).
+
+### 11.10 Dependencias de plataforma pendientes (ADR-0031)
+
+| Pieza | Ticket | NoOp / estado actual | Cómo se wirea |
+|---|---|---|---|
+| Unificar los puertos de blob | `<UnificarBlobPorts>` | Conviven el nuevo `IBlobStoragePort` y tres `IAlmacenarBlobPort` legados (Compras, Almacén, Integraciones.Aw) | Migrar los tres a `IBlobStoragePort` y retirar los duplicados |
+| Migrar adjuntos de OC y Almacén al servicio genérico | `<MigrarAdjuntosOcAlmacen>` | OC (`AdjuntoOC`), vale, packing list y evidencias siguen con su patrón propio | Un `IAdjuntoPropietario` por módulo + migración de datos; ver `hallazgos` de la auditoría F2 |
+| Antivirus de adjuntos | `<AntivirusAdjuntos>` | No hay escaneo; solo formato/firma/tamaño | Azure Defender for Storage o escaneo previo al `SubirAsync` |
+| Retención y purga | `<RetencionAdjuntos>` | Los blobs dados de baja nunca se borran | Política de Millet (años, tier Archive, purga) |
