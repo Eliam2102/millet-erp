@@ -178,3 +178,23 @@ La tabla específica ya no existe y se comprobaron 29 transiciones funcionales e
 intermedia había usado el identificador de módulo en minúsculas; se recompiló y se normalizó únicamente ese
 identificador local, dejando un evento técnico en `core.audit_log`. Las pruebas finales anteriores corresponden
 a la recompilación y al identificador canónico `Contabilidad`.
+
+## Presentación del historial por periodo
+
+Después del commit de auditoría central, se sustituye la tabla al final de la página por un panel lateral de 560 px
+(ancho completo en móvil). Mantiene el mes, ejercicio y estado actual visibles; muestra las transiciones por versión
+descendente con fecha, responsable, estado anterior/nuevo y motivo completo, incluidos saltos de línea. El historial
+tiene scroll propio y una acción fija para volver a los periodos. Escape y ambos botones de cierre devuelven el foco
+al botón del mes consultado; la lectura sigue disponible para usuarios sin permisos de mutación.
+
+Se reutiliza `Sheet`; su nueva propiedad opcional `overlayClassName` permite aplicar el scrim del diseño sólo a este
+panel. Se conservan estados de carga/error/vacío y el reintento. No cambia la API ni los permisos.
+
+Validación: 17/17 pruebas frontend de periodos y auditoría central, build/TypeScript aprobados y lint sin errores
+con las 10 advertencias previas. Dos pruebas nuevas cubren lectura/orden/motivos y devolución del foco, más error,
+reintento y Escape. Se inspeccionaron capturas Chrome de 1440×900 y 390×844, usando el componente real y datos DEMO
+en una vista aislada. Esta comprobación no acredita acceso Entra ni aceptación UAT.
+
+La comprobación adicional `npm run typecheck:test` no pasa: reporta TS2345 en `src/lib/nav.test.ts:348`
+(string frente a la unión de permisos). Ese archivo y `nav.ts` no tienen cambios en esta corrección.
+El error no está en las pruebas nuevas del historial; el build de producción y las 17 pruebas ejecutadas sí pasan.

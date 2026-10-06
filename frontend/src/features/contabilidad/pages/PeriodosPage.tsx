@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { CalendarRange, Plus, TriangleAlert } from 'lucide-react';
+import { ArrowRight, CalendarRange, History, Plus, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -61,6 +62,7 @@ export function PeriodosPage() {
   const [abriendo, setAbriendo] = useState<number[] | null>(null);
   const [transicion, setTransicion] = useState<{ periodo: PeriodoContable; accion: 'cerrar' | 'reabrir' } | null>(null);
   const [bitacoraDe, setBitacoraDe] = useState<string | null>(null);
+  const botonBitacora = useRef<HTMLButtonElement | null>(null);
 
   const lista = ejercicios.data ?? [];
   const ejercicio = lista.find((e) => e.anio === anioElegido) ?? lista[0];
@@ -180,10 +182,11 @@ export function PeriodosPage() {
                               <Button variant="secondary-danger" size="sm" onClick={() => setTransicion({ periodo: p, accion: 'reabrir' })}>Reabrir</Button>
                             )}
                             <Button
-                              variant="ghost" size="sm" aria-pressed={p.id === bitacoraDe}
+                              variant="ghost" size="sm" aria-haspopup="dialog" aria-expanded={p.id === bitacoraDe}
                               aria-label={`Bitácora de ${etiquetaPeriodo(p)}`}
-                              onClick={() => setBitacoraDe(p.id === bitacoraDe ? null : p.id)}
+                              onClick={(event) => { botonBitacora.current = event.currentTarget; setBitacoraDe(p.id); }}
                             >
+                              <History className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
                               Bitácora
                             </Button>
                           </span>
@@ -199,7 +202,12 @@ export function PeriodosPage() {
             )}
           </div>
 
-          {conBitacora && <BitacoraPanel periodo={conBitacora} />}
+          {conBitacora && (
+            <BitacoraPanel
+              periodo={conBitacora} onClose={() => setBitacoraDe(null)}
+              devolverFoco={() => botonBitacora.current?.focus()}
+            />
+          )}
         </>
       )}
 
@@ -389,40 +397,86 @@ function MotivoDialog({ transicion, onClose }: {
   );
 }
 
-function BitacoraPanel({ periodo }: { periodo: PeriodoContable }) {
+function BitacoraPanel({ periodo, onClose, devolverFoco }: {
+  periodo: PeriodoContable; onClose: () => void; devolverFoco: () => void;
+}) {
   const bitacora = useBitacoraPeriodo(periodo.id);
+  const cambios = [...(bitacora.data ?? [])].sort((a, b) => b.versionResultante - a.versionResultante);
   return (
-    <section aria-label={`Bitácora de ${etiquetaPeriodo(periodo)}`} className="flex flex-col gap-2 rounded-lg bg-surface-card p-4 shadow-card-flat">
-      <h2 className="text-md font-semibold">Bitácora · {etiquetaPeriodo(periodo)} {periodo.anio}</h2>
-      {bitacora.isLoading ? (
-        <Skeleton className="h-8 w-full" />
-      ) : bitacora.isError ? (
-        <div role="alert" className="flex items-center gap-2 text-sm text-danger-fg">
-          No se pudo cargar la bitácora.
-          <Button variant="ghost" size="sm" onClick={() => void bitacora.refetch()}>Reintentar</Button>
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent
+        className="gap-0 border-line bg-surface-card text-ink shadow-sheet sm:max-w-sheet [&>button]:flex [&>button]:size-8 [&>button]:items-center [&>button]:justify-center max-sm:[&>button]:size-11"
+        overlayClassName="bg-(--mt-scrim-sheet)"
+        onCloseAutoFocus={(event) => { event.preventDefault(); devolverFoco(); }}
+      >
+        <SheetHeader className="gap-1 border-line-divider pr-16">
+          <SheetTitle className="flex items-center gap-2 text-xl text-ink">
+            <History className="size-5 text-brand" strokeWidth={1.6} aria-hidden="true" />Bitácora del periodo
+          </SheetTitle>
+          <SheetDescription className="text-xs text-ink-muted">{periodo.nombre} · Ejercicio {periodo.anio}</SheetDescription>
+        </SheetHeader>
+        <div className="border-b border-line-divider bg-surface-subtle px-6 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-medium">Estado actual</span>
+            <Badge variant={VARIANTE_ESTADO[periodo.estado]}>{ETIQUETA_ESTADO[periodo.estado]}</Badge>
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            {periodo.fechaInicio === periodo.fechaFin ? fechaCorta(periodo.fechaInicio) : `${fechaCorta(periodo.fechaInicio)} – ${fechaCorta(periodo.fechaFin)}`}
+          </p>
         </div>
-      ) : bitacora.data!.length === 0 ? (
-        <p className="text-sm text-ink-muted">Sin movimientos: el periodo no se ha abierto.</p>
-      ) : (
-        <table className="w-full text-sm">
-          <thead className="border-b border-line-divider text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
-            <tr><th className="px-3 py-2">Cuándo</th><th className="px-3 py-2">Quién</th><th className="px-3 py-2">Acción</th><th className="px-3 py-2">Motivo</th></tr>
-          </thead>
-          <tbody>
-            {[...bitacora.data!].reverse().map((b) => (
-              <tr key={b.id} className="border-b border-line-row">
-                <td className="whitespace-nowrap px-3 py-2 text-ink-secondary">{formatDateTime(b.ocurridoEn)}</td>
-                <td className="px-3 py-2">{b.usuarioNombre}</td>
-                <td className="px-3 py-2">
-                  {ETIQUETA_ACCION[b.accion]}
-                  <span className="block text-xs text-ink-muted">{ETIQUETA_ESTADO[b.estadoAnterior]} → {ETIQUETA_ESTADO[b.estadoNuevo]}</span>
-                </td>
-                <td className="px-3 py-2 text-ink-secondary">{b.motivo ?? <span className="text-ink-muted">Sin motivo</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {bitacora.isLoading ? (
+            <div role="status" aria-label="Cargando historial" className="space-y-4">
+              <Skeleton className="h-8 w-60 max-w-full" /><Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" />
+            </div>
+          ) : bitacora.isError ? (
+            <div role="alert" className="flex flex-col items-start gap-3 text-sm">
+              <p className="text-danger-fg">No se pudo cargar la bitácora.</p>
+              <Button variant="outline" onClick={() => void bitacora.refetch()}>Reintentar</Button>
+            </div>
+          ) : cambios.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <History className="size-5 text-ink-muted" strokeWidth={1.6} aria-hidden="true" />
+              <p className="text-sm font-medium">Sin cambios registrados</p>
+              <p className="max-w-80 text-sm text-ink-muted">Aquí aparecerán las aperturas, cierres y reaperturas de este periodo.</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
+                <span>{cambios.length} {cambios.length === 1 ? 'cambio registrado' : 'cambios registrados'}</span>
+                <span>Más reciente primero</span>
+              </div>
+              <ol aria-label="Cambios del periodo" className="space-y-5">
+                {cambios.map((b, indice) => (
+                  <li key={b.id} className="relative border-l border-line-divider pl-5">
+                    <span className="absolute -left-1 top-1.5 size-2 rounded-full bg-ink-muted" aria-hidden="true" />
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold">{ETIQUETA_ACCION[b.accion]}</h3>
+                      {indice === 0 && <Badge variant="neutral">Último cambio</Badge>}
+                    </div>
+                    <time dateTime={b.ocurridoEn} className="mt-1 block text-xs text-ink-muted">{formatDateTime(b.ocurridoEn)}</time>
+                    <p className="mt-2 break-words text-sm text-ink-secondary">Por <span className="font-medium text-ink">{b.usuarioNombre}</span></p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs" aria-label={`${ETIQUETA_ESTADO[b.estadoAnterior]} a ${ETIQUETA_ESTADO[b.estadoNuevo]}`}>
+                      <Badge variant={VARIANTE_ESTADO[b.estadoAnterior]}>{ETIQUETA_ESTADO[b.estadoAnterior]}</Badge>
+                      <ArrowRight className="size-3.5 text-ink-muted" strokeWidth={1.8} aria-hidden="true" />
+                      <Badge variant={VARIANTE_ESTADO[b.estadoNuevo]}>{ETIQUETA_ESTADO[b.estadoNuevo]}</Badge>
+                    </div>
+                    {b.motivo ? (
+                      <div className="mt-3 rounded-md bg-surface-subtle p-3">
+                        <p className="mb-1 text-xs font-medium text-ink-muted">Motivo</p>
+                        <p className="whitespace-pre-wrap break-words text-sm text-ink-secondary">{b.motivo}</p>
+                      </div>
+                    ) : <p className="mt-3 text-xs text-ink-muted">Sin motivo registrado.</p>}
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+        </div>
+        <SheetFooter className="border-line-divider bg-surface-subtle">
+          <SheetClose asChild><Button variant="outline" size="lg">Volver a periodos</Button></SheetClose>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

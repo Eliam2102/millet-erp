@@ -50,6 +50,55 @@ async function fila(nombre: string) {
 afterEach(() => useAuthStore.setState({ permisos: [] }));
 
 describe('<PeriodosPage>', () => {
+  it('abre el historial en un panel, ordena los cambios y vuelve al botón de origen al cerrar', async () => {
+    servidor();
+    const registros = [
+      { id: 'b1', periodoId: 'p1', accion: 'Abrir', estadoAnterior: 'NoAbierto', estadoNuevo: 'Abierto', motivo: null, usuarioNombre: 'Contador inicial', ocurridoEn: '2026-01-02T15:00:00Z', versionResultante: 2 },
+      { id: 'b3', periodoId: 'p1', accion: 'Reabrir', estadoAnterior: 'Cerrado', estadoNuevo: 'Abierto', motivo: 'Corrección autorizada\nRevisión de enero', usuarioNombre: 'Contador general', ocurridoEn: '2026-02-06T15:00:00Z', versionResultante: 4 },
+      { id: 'b2', periodoId: 'p1', accion: 'Cerrar', estadoAnterior: 'Abierto', estadoNuevo: 'Cerrado', motivo: 'Cierre de enero', usuarioNombre: 'Contador de cierre', ocurridoEn: '2026-02-05T15:00:00Z', versionResultante: 3 },
+    ];
+    mswServer.use(http.get(`${API}/p1/bitacora`, () => HttpResponse.json(registros)));
+    conPermisos();
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    const boton = (await fila('1 · Enero')).getByRole('button', { name: 'Bitácora de 1 · Enero' });
+    fireEvent.click(boton);
+    const dialogo = await screen.findByRole('dialog', { name: 'Bitácora del periodo' });
+    expect(within(dialogo).getByText('Enero · Ejercicio 2026')).toBeInTheDocument();
+    const lista = await within(dialogo).findByRole('list', { name: 'Cambios del periodo' });
+    const cambios = within(lista).getAllByRole('listitem');
+    expect(cambios).toHaveLength(3);
+    expect(cambios[0]).toHaveTextContent('Reapertura');
+    expect(cambios[0]).toHaveTextContent('Contador general');
+    expect(cambios[0]).toHaveTextContent('Corrección autorizada Revisión de enero');
+    expect(cambios[1]).toHaveTextContent('Cierre de enero');
+    expect(cambios[2]).toHaveTextContent('Apertura');
+    expect(within(dialogo).queryByRole('button', { name: 'Reabrir' })).not.toBeInTheDocument();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Volver a periodos' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(boton).toHaveFocus();
+  });
+
+  it('permite reintentar la lectura del historial y cerrar el panel con Escape', async () => {
+    servidor();
+    let lecturas = 0;
+    mswServer.use(http.get(`${API}/p2/bitacora`, () => {
+      lecturas++;
+      return lecturas === 1 ? new HttpResponse(null, { status: 500 }) : HttpResponse.json([]);
+    }));
+    conPermisos();
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    const boton = (await fila('2 · Febrero')).getByRole('button', { name: 'Bitácora de 2 · Febrero' });
+    fireEvent.click(boton);
+    const dialogo = await screen.findByRole('dialog');
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent('No se pudo cargar la bitácora');
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Reintentar' }));
+    expect(await within(dialogo).findByText('Sin cambios registrados')).toBeInTheDocument();
+    expect(lecturas).toBe(2);
+    fireEvent.keyDown(dialogo, { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(boton).toHaveFocus();
+  });
+
   it('solo lectura: muestra los 13 periodos con su estado y sin acciones', async () => {
     servidor();
     conPermisos();
