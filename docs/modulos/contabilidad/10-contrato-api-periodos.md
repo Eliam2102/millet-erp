@@ -66,3 +66,11 @@ Reabrir contabilidad no altera el cierre de inventario (D18).
 
 Los NoOp de Facturación, Tesorería y Almacén siguen pendientes de C1.2. El puerto es de lectura y no publica eventos.
 Consulte [evidencia y pendientes](11-evidencia-f1-con-03.md) y [ADR-0058](../../decisiones/0058-periodos-contables-y-contrato-de-consulta.md).
+
+## Persistencia del historial
+
+`GET /{periodoId}/bitacora` lee exclusivamente `core.audit_log`, con operaciones `abrir`, `cerrar` y `reabrir`
+de `PeriodoContable`. El detalle estructurado está en `metadatos`; la respuesta HTTP conserva sus campos.
+Se valida que el periodo pertenezca a la empresa actual y se filtra también la empresa del registro central.
+El permiso sigue siendo `contabilidad.periodo.leer`; no concede lectura de auditoría de otros recursos.
+Cada transición se inserta junto al cambio de estado en el mismo contexto y transacción.

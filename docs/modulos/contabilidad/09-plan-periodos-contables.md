@@ -59,7 +59,7 @@ evidencia.
 | `ValidarMovimientoDimensionesHandler` | mismo archivo | Panel «Probar movimiento» | **Consumidor 2:** muestra el estado del periodo como error de validación |
 | `RegistrarUsoCuentaCommand` (cuentas) | `Contabilidad/Application/Catalogo/CuentasCommands.cs:297` | Marca la cuenta como usada; no tiene fecha y solo lo invoca un movimiento ya validado | No aplica: no es un movimiento. Se documenta como «cubierto por el movimiento que lo invoca» |
 | `BaseEntity.Version` + `If-Match`/ETag | `SharedKernel/Domain/BaseEntity.cs`, `Api/Endpoints/Contabilidad/*` (`Helpers.TryParseVersion`) | Concurrencia optimista; `DbUpdateConcurrencyException` → 409 en `GlobalExceptionHandler` | Se reutiliza para el cierre concurrente |
-| `IAuditable` + `AuditSaveChangesInterceptor` | `SharedKernel` → `core.audit_log` | Auditoría automática | Se aplica a ejercicio y periodo; además bitácora propia con motivo (§4) |
+| `IAuditable` + `AuditSaveChangesInterceptor` | `SharedKernel` → `core.audit_log` | Auditoría automática | Se aplica a ejercicio y periodo; transiciones explícitas con motivo en la misma tabla (§4) |
 | Outbox en Contabilidad | `ContabilidadDbContext.cs:12` | `PLATFORM-TODO(<OutboxContabilidad>)`: aún no existe | No se emiten eventos de integración (no hay suscriptores). La bitácora es el registro de eventos (D6) |
 
 ---
@@ -86,9 +86,9 @@ evidencia.
   - Cerrar un periodo ya cerrado con versión vigente → **409 `CONTAB_PERIODO_YA_CERRADO`** (explícito, nunca éxito silencioso).
   - Repetir la misma petición con la misma `Idempotency-Key` → se devuelve la respuesta original (ADR-0020), sin segundo
     registro en bitácora.
-  - Índice único en bitácora `(periodo_id, version_resultante)`: imposible duplicar el evento aunque fallen las capas anteriores.
-- **D6 · Bitácora como registro de eventos.** Tabla `periodos_contables_bitacora` (acción, estado anterior/nuevo, usuario,
-  fecha, motivo, versión). Se suma a `core.audit_log`. Los eventos de integración (`PeriodoContableCerradoEvent`,
+  - Una transición explícita en `core.audit_log` por comando exitoso. La versión, el candado transaccional y la idempotencia evitan repetirla; no se agrega un índice al esquema central.
+- **D6 · Bitácora como registro de eventos.** Reutiliza `core.audit_log` con acción, estado anterior/nuevo, usuario,
+  fecha, motivo y versión en registros explícitos. Se guarda con el cambio de estado en el mismo contexto y transacción; no hay tabla propia. Los eventos de integración (`PeriodoContableCerradoEvent`,
   `PeriodoContableReabiertoEvent`) quedan con `PLATFORM-TODO(<OutboxContabilidad>)` hasta que haya suscriptores (C1.2/C1.5).
 - **D7 · Motivo obligatorio** en cerrar y reabrir (10–500 caracteres). Abrir: opcional.
 - **D8 · Contrato público de consulta** (en `Contabilidad/Application/PublicPorts`):
@@ -112,13 +112,13 @@ evidencia.
 
 ---
 
-## 4. Modelo de datos (esquema `contabilidad`, una migración `ContabilidadPeriodos`)
+## 4. Modelo de datos (Contabilidad y auditoría central)
 
 | Tabla | Columnas clave | Restricciones |
 |---|---|---|
 | `ejercicios_contables` | `id`, `empresa_id`, `anio`, `version`, auditoría base | `UNIQUE (empresa_id, anio)`, `CHECK anio BETWEEN 2000 AND 2999` |
 | `periodos_contables` | `id`, `ejercicio_id`, `empresa_id`, `anio`, `numero` (1–13), `fecha_inicio`, `fecha_fin`, `estado`, `abierto_por/en`, `cerrado_por/en`, `reabierto_por/en`, `version` | `UNIQUE (empresa_id, anio, numero)`, `CHECK numero BETWEEN 1 AND 13`, índice `(empresa_id, fecha_inicio, fecha_fin)` |
-| `periodos_contables_bitacora` | `id`, `periodo_id`, `accion` (Abrir/Cerrar/Reabrir), `estado_anterior`, `estado_nuevo`, `motivo`, `usuario_id`, `usuario_nombre`, `ocurrido_en`, `version_resultante` | `UNIQUE (periodo_id, version_resultante)`; append-only (`INotAudited` no; sin UPDATE/DELETE en el handler) |
+| `core.audit_log` (existente) | Entidad `PeriodoContable`, operaciones `abrir/cerrar/reabrir`; detalle de transición en `metadatos` | Inserción junto al cambio del periodo; consulta por empresa y periodo con `contabilidad.periodo.leer` |
 
 `EjercicioContable` y `PeriodoContable` heredan de `BaseEntity` + `IAuditable`; `EmpresaId` con el filtro global (ADR-0011).
 

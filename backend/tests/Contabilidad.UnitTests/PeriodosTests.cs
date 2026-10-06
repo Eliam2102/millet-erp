@@ -79,7 +79,7 @@ public class PeriodosTests
     }
 
     [Fact]
-    public void Abrir_cerrar_y_reabrir_registran_bitacora_con_la_version_resultante()
+    public void Abrir_cerrar_y_reabrir_devuelven_datos_para_auditoria_con_la_version_resultante()
     {
         var ps = Ejercicio();
         var enero = P(ps, 1);

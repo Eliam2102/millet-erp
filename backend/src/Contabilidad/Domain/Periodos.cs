@@ -42,7 +42,7 @@ public sealed class EjercicioContable : BaseEntity, IAuditable, IPerteneceAEmpre
 /// <summary>
 /// Periodo contable (C1.1). 1–12 = meses; 13 = ajustes de auditoría (D3): fechas 31-dic, nunca se resuelve por fecha (una fecha
 /// de diciembre cae en el 12), solo se abre con el 12 cerrado y solo admite movimientos <see cref="OrigenMovimiento.Manual"/>.
-/// Cada transición devuelve su renglón de bitácora con la versión que tendrá el periodo al guardarse (la versión la incrementa
+/// Cada transición devuelve los datos para la auditoría central con la versión que tendrá el periodo al guardarse (la versión la incrementa
 /// el interceptor de metadatos en <c>SaveChanges</c>).
 /// Reglas D4 (supuestos a validar con Contabilidad): cierre secuencial (los anteriores del ejercicio cerrados) y reapertura solo
 /// si el siguiente no está cerrado («reabra primero febrero»). Abrir no exige orden.
@@ -101,7 +101,7 @@ public sealed class PeriodoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static string Nombre(int numero) => numero == NumeroAjuste ? "Ajustes de auditoría" : Meses[numero - 1];
 
     /// <summary>Solo desde <c>NoAbierto</c>. El 13 exige el 12 cerrado (R19: después del cierre ordinario).</summary>
-    public PeriodoContableBitacora Abrir(PeriodoContable? periodo12, string? motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
+    public TransicionPeriodoContable Abrir(PeriodoContable? periodo12, string? motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
     {
         if (Estado != EstadoPeriodo.NoAbierto)
             throw new BusinessRuleException("CONTAB_PERIODO_NO_ABRIBLE", Estado == EstadoPeriodo.Abierto
@@ -121,7 +121,7 @@ public sealed class PeriodoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     /// Solo desde <c>Abierto</c> y con los anteriores del ejercicio cerrados (D4). Cerrar uno ya cerrado es un conflicto
     /// explícito (409), nunca un éxito silencioso (D5).
     /// </summary>
-    public PeriodoContableBitacora Cerrar(IEnumerable<PeriodoContable> anteriores, string motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
+    public TransicionPeriodoContable Cerrar(IEnumerable<PeriodoContable> anteriores, string motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
     {
         if (Estado == EstadoPeriodo.Cerrado)
             throw new ConflictException("CONTAB_PERIODO_YA_CERRADO", $"El periodo {Clave} ya está cerrado.");
@@ -138,7 +138,7 @@ public sealed class PeriodoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     }
 
     /// <summary>Solo desde <c>Cerrado</c> y si el siguiente no está cerrado (D4). No reabre el inventario (D10/D18).</summary>
-    public PeriodoContableBitacora Reabrir(PeriodoContable? siguiente, string motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
+    public TransicionPeriodoContable Reabrir(PeriodoContable? siguiente, string motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
     {
         if (Estado != EstadoPeriodo.Cerrado)
             throw new BusinessRuleException("CONTAB_PERIODO_NO_CERRADO", $"El periodo {Clave} no está cerrado: no hay nada que reabrir.");
@@ -158,48 +158,16 @@ public sealed class PeriodoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
                 $"Indique el motivo (entre {MotivoMinimo} y {MotivoMaximo} caracteres): queda en la bitácora del periodo.");
     }
 
-    private PeriodoContableBitacora Transicion(AccionPeriodo accion, EstadoPeriodo nuevo, string? motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
+    private TransicionPeriodoContable Transicion(AccionPeriodo accion, EstadoPeriodo nuevo, string? motivo, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
     {
         var anterior = Estado;
         Estado = nuevo;
-        return new PeriodoContableBitacora(Guid.CreateVersion7(), Id, accion, anterior, nuevo,
+        return new TransicionPeriodoContable(Guid.CreateVersion7(), Id, accion, anterior, nuevo,
             string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim(), usuarioId, usuarioNombre, ahora, Version + 1);
     }
 }
 
-/// <summary>
-/// Bitácora del periodo (D6): una fila por transición, solo inserción. <see cref="VersionResultante"/> es la versión del periodo
-/// tras la transición; el índice único (periodo, versión) impide registrar dos veces el mismo evento.
-/// </summary>
-// PLATFORM-TODO(<OutboxContabilidad>): publicar PeriodoContableCerradoEvent / PeriodoContableReabiertoEvent junto con esta fila
-// cuando haya outbox en Contabilidad y suscriptores (C1.2/C1.5).
-public sealed class PeriodoContableBitacora : BaseEntity, IAuditable, IPerteneceAEmpresa
-{
-    public Guid EmpresaId { get; set; }
-    public Guid PeriodoId { get; private set; }
-    public AccionPeriodo Accion { get; private set; }
-    public EstadoPeriodo EstadoAnterior { get; private set; }
-    public EstadoPeriodo EstadoNuevo { get; private set; }
-    public string? Motivo { get; private set; }
-    public Guid? UsuarioId { get; private set; }
-    public string UsuarioNombre { get; private set; } = string.Empty;
-    public DateTimeOffset OcurridoEn { get; private set; }
-    public int VersionResultante { get; private set; }
-
-    private PeriodoContableBitacora() { }
-
-    internal PeriodoContableBitacora(
-        Guid id, Guid periodoId, AccionPeriodo accion, EstadoPeriodo estadoAnterior, EstadoPeriodo estadoNuevo, string? motivo,
-        Guid? usuarioId, string usuarioNombre, DateTimeOffset ocurridoEn, int versionResultante) : base(id)
-    {
-        PeriodoId = periodoId;
-        Accion = accion;
-        EstadoAnterior = estadoAnterior;
-        EstadoNuevo = estadoNuevo;
-        Motivo = motivo;
-        UsuarioId = usuarioId;
-        UsuarioNombre = usuarioNombre;
-        OcurridoEn = ocurridoEn;
-        VersionResultante = versionResultante;
-    }
-}
+/// <summary>Datos de la transición para la auditoría central; no es una entidad ni tiene tabla propia.</summary>
+public sealed record TransicionPeriodoContable(
+    Guid Id, Guid PeriodoId, AccionPeriodo Accion, EstadoPeriodo EstadoAnterior, EstadoPeriodo EstadoNuevo,
+    string? Motivo, Guid? UsuarioId, string UsuarioNombre, DateTimeOffset OcurridoEn, int VersionResultante);

@@ -34,7 +34,6 @@ public sealed class ContabilidadDbContext : BaseDbContext
     // F1-CON-03: periodos contables.
     public DbSet<EjercicioContable> Ejercicios => Set<EjercicioContable>();
     public DbSet<PeriodoContable> Periodos => Set<PeriodoContable>();
-    public DbSet<PeriodoContableBitacora> PeriodosBitacora => Set<PeriodoContableBitacora>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

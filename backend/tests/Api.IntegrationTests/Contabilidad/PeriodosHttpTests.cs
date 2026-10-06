@@ -4,6 +4,10 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using Millet.Contabilidad.Infrastructure.Persistence.Migrations;
+using Millet.SharedKernel.Domain.Audit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Almacen.Application.Cierre;
@@ -81,7 +85,7 @@ public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassF
     }
 
     private Task<long> Bitacora(Guid periodoId, AccionPeriodo? accion = null) =>
-        Contar(factory.Services, "periodos_contables_bitacora", $"periodo_id = '{periodoId}'" + (accion is { } a ? $" AND accion = {(short)a}" : string.Empty));
+        Escalar<long>(factory.Services, $"SELECT count(*) FROM core.audit_log WHERE modulo = 'Contabilidad' AND entidad = 'PeriodoContable' AND entidad_id = '{periodoId}' AND operacion IN ('abrir', 'cerrar', 'reabrir')" + (accion is { } a ? $" AND operacion = '{a.ToString().ToLowerInvariant()}'" : string.Empty));
 
     private async Task LimpiarPeriodosAsync(params int[] anios)
     {
@@ -89,10 +93,115 @@ public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassF
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
         foreach (var anio in anios)
         {
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.periodos_contables_bitacora WHERE periodo_id IN (SELECT id FROM contabilidad.periodos_contables WHERE anio = {0})", anio);
             await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.periodos_contables WHERE anio = {0}", anio);
             await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.ejercicios_contables WHERE anio = {0}", anio);
         }
+    }
+
+    [Fact]
+    public async Task Migracion_conserva_historial_previo_y_su_reversa_no_duplica_la_auditoria()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        // Esquema aislado dentro de una transacción: no altera el esquema que usan las demás pruebas.
+        var schema = "fix_periodos_" + Guid.NewGuid().ToString("N");
+        var periodoId = Guid.NewGuid();
+        var historialId = Guid.NewGuid();
+        var migration = new HistorialPeriodosEnAuditoriaCentral();
+        string Aislado(string sql) => sql.Replace("contabilidad.", schema + ".", StringComparison.Ordinal)
+            .Replace("core.audit_log", schema + ".audit_log", StringComparison.Ordinal);
+        async Task Ejecutar(string sql) => await db.Database.ExecuteSqlRawAsync(Aislado(sql));
+        async Task<long> ContarAislado(string sql) => await db.Database.SqlQueryRaw<long>(Aislado(sql)).SingleAsync();
+
+        var crearEsquema = "CREATE SCHEMA " + schema + "; CREATE TABLE " + schema + ".audit_log (LIKE core.audit_log INCLUDING ALL);"
+            + " CREATE TABLE " + schema + ".periodos_contables (id uuid PRIMARY KEY, empresa_id uuid NOT NULL, anio integer NOT NULL, numero integer NOT NULL);";
+        await db.Database.ExecuteSqlRawAsync(crearEsquema);
+        var seedPeriodo = $"INSERT INTO contabilidad.periodos_contables VALUES ('{periodoId}', '{EmpresaBootstrapId}', 2026, 1)";
+        await Ejecutar(seedPeriodo);
+        var down = migration.DownOperations.OfType<SqlOperation>().Single().Sql;
+        var up = migration.UpOperations.OfType<SqlOperation>().Single().Sql;
+        await Ejecutar(down); // reconstruye la tabla anterior, todavía vacía
+        var seed = $"""
+            INSERT INTO contabilidad.periodos_contables_bitacora
+                (id, empresa_id, periodo_id, accion, estado_anterior, estado_nuevo, motivo,
+                 usuario_id, usuario_nombre, ocurrido_en, version_resultante, version, created_at, updated_at)
+            VALUES ('{historialId}', '{EmpresaBootstrapId}', '{periodoId}', 2, 1, 2,
+                'FIX cierre histórico conservado', NULL, 'Contadora histórica FIX', now(), 3, 1, now(), now())
+            """;
+        await Ejecutar(seed);
+        await Ejecutar(up);
+        await Ejecutar("DROP TABLE contabilidad.periodos_contables_bitacora");
+        Assert.Equal(1, await ContarAislado($"SELECT count(*) AS \"Value\" FROM core.audit_log WHERE id = '{historialId}' AND entidad_id = '{periodoId}' AND operacion = 'cerrar' AND metadatos->>'Motivo' = 'FIX cierre histórico conservado' AND metadatos->>'VersionResultante' = '3' AND actor_nombre = 'Contadora histórica FIX'"));
+        await Ejecutar(down);
+        Assert.Equal(1, await ContarAislado($"SELECT count(*) AS \"Value\" FROM contabilidad.periodos_contables_bitacora WHERE id = '{historialId}' AND motivo = 'FIX cierre histórico conservado' AND version_resultante = 3"));
+        await Ejecutar(up);
+        Assert.Equal(1, await ContarAislado("SELECT count(*) AS \"Value\" FROM core.audit_log"));
+        await transaction.RollbackAsync();
+    }
+
+    private sealed class RechazarAuditoriaCierre : SaveChangesInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (eventData.Context is ContabilidadDbContext db
+                && db.ChangeTracker.Entries<AuditLogEntry>().Any(e => e.State == EntityState.Added && e.Entity.Operacion == "cerrar"))
+                throw new InvalidOperationException("FIX fallo al persistir auditoría central");
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    [Fact]
+    public async Task Fallo_de_auditoria_central_revierte_el_cierre_y_no_agrega_historial()
+    {
+        var anio = AnioPrueba();
+        using var host = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+            s.AddDbContext<ContabilidadDbContext>((_, options) => options.AddInterceptors(new RechazarAuditoriaCierre()))));
+        using var admin = await LoginAsync(factory);
+        using var fallido = await LoginAsync(host);
+        try
+        {
+            var ejercicio = await CrearEjercicioAsync(admin, anio, 1);
+            var enero = Periodo(ejercicio, 1);
+            Assert.Equal(HttpStatusCode.InternalServerError, (await Cerrar(fallido, enero)).StatusCode);
+            var actual = Periodo(await Json(await admin.GetAsync($"{Periodos}/ejercicios/{Id(ejercicio)}")), 1);
+            Assert.Equal("Abierto", actual.GetProperty("estado").GetString());
+            Assert.Equal(Etag(enero), Etag(actual));
+            Assert.Equal(1, await Bitacora(Id(enero)));
+            // El error libera el candado y no consume la versión: un cierre posterior puede persistirse.
+            Assert.Equal(HttpStatusCode.OK, (await Cerrar(admin, actual)).StatusCode);
+            Assert.Equal(2, await Bitacora(Id(enero)));
+        }
+        finally { await LimpiarPeriodosAsync(anio); }
+    }
+
+    [Fact]
+    public async Task Historial_central_excluye_registros_de_otra_empresa_y_conserva_el_permiso_contable()
+    {
+        var anio = AnioPrueba();
+        using var admin = await LoginAsync(factory);
+        try
+        {
+            var enero = Periodo(await CrearEjercicioAsync(admin, anio, 1), 1);
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO core.audit_log (id, timestamp, empresa_id, modulo, entidad, entidad_id, aggregate_root_id,
+                        operacion, cambios, correlation_id, es_bulk, actor_nombre, actor_tipo, entidad_etiqueta, resumen, metadatos)
+                    SELECT {Guid.NewGuid()}, timestamp, {Guid.NewGuid()}, modulo, entidad, entidad_id, aggregate_root_id,
+                        operacion, cambios, correlation_id, es_bulk, actor_nombre, actor_tipo, entidad_etiqueta, resumen, metadatos
+                    FROM core.audit_log WHERE entidad_id = {Id(enero)} AND operacion = 'abrir'
+                    """);
+            }
+            var historial = await admin.GetAsync($"{Periodos}/{Id(enero)}/bitacora");
+            Assert.Equal(HttpStatusCode.OK, historial.StatusCode);
+            Assert.Single((await Json(historial)).EnumerateArray());
+            Assert.Equal(HttpStatusCode.NotFound,
+                (await admin.GetAsync($"{Periodos}/{Guid.NewGuid()}/bitacora")).StatusCode);
+        }
+        finally { await LimpiarPeriodosAsync(anio); }
     }
 
     // ── Movimiento mínimo (cuenta afectable, tipo de documento, sucursal; sin reglas ni centros) ──
@@ -338,10 +447,16 @@ public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassF
             var estado = await Json(await operativo.GetAsync($"{Periodos}/estado?anio={anio}&numero=1"));
             Assert.Equal("Cerrado", estado.GetProperty("estado").GetString());
             Assert.Equal(0, await Bitacora(Id(Periodo(ejercicio, 1)), AccionPeriodo.Reabrir));
+            Assert.Equal(HttpStatusCode.OK,
+                (await operativo.GetAsync($"{Periodos}/{Id(Periodo(ejercicio, 1))}/bitacora")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden,
+                (await operativo.GetAsync("/api/v1/admin/auditoria?desde=2026-10-01&hasta=2026-10-31")).StatusCode);
 
             // Sin permiso de lectura no ve los periodos.
             var ajeno = await ClienteConPermisosAsync(factory, PermisosCanonicos.ContabilidadDimensionesLeer);
             Assert.Equal(HttpStatusCode.Forbidden, (await ajeno.GetAsync($"{Periodos}/ejercicios")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden,
+                (await ajeno.GetAsync($"{Periodos}/{Id(Periodo(ejercicio, 1))}/bitacora")).StatusCode);
         }
         finally { await LimpiarPeriodosAsync(anio, anio + 1); }
     }
@@ -427,7 +542,22 @@ public class PeriodosHttpTests(WebApplicationFactory<Program> factory) : IClassF
             Assert.Equal("FIX ajuste de provisión omitida en enero", ultima.GetProperty("motivo").GetString());
             Assert.Equal("dev-superadmin", ultima.GetProperty("usuarioNombre").GetString());
             Assert.Equal("Cerrado", ultima.GetProperty("estadoAnterior").GetString());
+            Assert.Equal("Abierto", ultima.GetProperty("estadoNuevo").GetString());
+            Assert.Equal(3, await Bitacora(Id(enero)));
+            // El historial de la pantalla proviene del mismo registro central, no de una tabla del módulo.
+            Assert.Equal(1, await Escalar<long>(factory.Services,
+                $"SELECT count(*) FROM core.audit_log WHERE id = '{Id(ultima)}' AND entidad_id = '{Id(enero)}' AND operacion = 'reabrir' AND metadatos->>'Motivo' = 'FIX ajuste de provisión omitida en enero'"));
+            Assert.Equal(0, await Escalar<long>(factory.Services,
+                "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'contabilidad' AND table_name = 'periodos_contables_bitacora'"));
             Assert.Equal(p.GetProperty("version").GetInt32(), ultima.GetProperty("versionResultante").GetInt32());
+            var dia = DateOnly.FromDateTime(DateTime.UtcNow);
+            var auditoria = await admin.GetAsync($"/api/v1/admin/auditoria?desde={dia:yyyy-MM-dd}&hasta={dia:yyyy-MM-dd}&modulo=Contabilidad&recurso=PeriodoContable&entidadId={Id(enero)}&accion=reabrir");
+            Assert.Equal(HttpStatusCode.OK, auditoria.StatusCode);
+            var filaCentral = Assert.Single((await Json(auditoria)).GetProperty("items").EnumerateArray());
+            Assert.Equal(Id(ultima), Id(filaCentral));
+            using var cambios = JsonDocument.Parse(filaCentral.GetProperty("cambios").GetString()!);
+            Assert.Equal("FIX ajuste de provisión omitida en enero",
+                cambios.RootElement.GetProperty("diff").GetProperty("Motivo").GetProperty("despues").GetString());
             Assert.True(await Escalar<long>(factory.Services,
                 $"SELECT count(*) FROM core.audit_log WHERE entidad_id = '{Id(enero)}' AND entidad = '{nameof(PeriodoContable)}'") >= 3);
 

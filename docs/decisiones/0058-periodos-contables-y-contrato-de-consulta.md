@@ -21,8 +21,11 @@ Los adaptadores de otros módulos corresponden a C1.2 y las pólizas a C1.3–C1
   La autorización de la póliza se implementará en C1.3.
 - Cierre secuencial dentro del ejercicio y reapertura desde el último periodo cerrado hacia atrás. Estas dos reglas son
   **supuestos de diseño VILO**, pendientes de ratificación; no se presentan como respuesta recibida de Millet.
-- Motivo obligatorio de 10–500 caracteres en cierre y reapertura. Bitácora append-only con usuario, instante, estados y
-  versión resultante; índice único `(periodo_id, version_resultante)`. Ejercicio y periodo participan en `core.audit_log`.
+- Motivo obligatorio de 10–500 caracteres en cierre y reapertura. Historial exclusivamente en `core.audit_log`:
+  transición explícita con usuario, instante, estados, motivo y versión resultante en metadatos. El registro y el periodo
+  se guardan en el mismo `ContabilidadDbContext` y transacción. Se conserva la auditoría automática de ejercicio y periodo.
+  No hay tabla propia ni cambios al esquema central; duplicados controlados por versión, candado e idempotencia.
+  La consulta mantiene el permiso contable de lectura y filtra explícitamente empresa, entidad y periodo.
 - Mutaciones protegidas por versión `If-Match`, idempotencia HTTP y advisory lock transaccional para serializar transiciones
   y reglas entre periodos vecinos. El lote de apertura usa versión del ejercicio; cierre/reapertura, versión del periodo.
 - `IPeriodoContableConsultaPort` publica estado por fecha o año/número. `VerificadorPeriodoContable` rechaza inexistente,
@@ -46,3 +49,9 @@ Los datos `FIX-`/DEMO no acreditan calendario operativo ni aceptación UAT.
 - [Contrato API](../modulos/contabilidad/10-contrato-api-periodos.md)
 - [Evidencia y handoff](../modulos/contabilidad/11-evidencia-f1-con-03.md)
 - ADR-0011, ADR-0012, ADR-0020, ADR-0031 y regla de negocio D18 de Obsidian.
+
+## Corrección acordada con Uziel
+
+Se retira la bitácora específica porque el historial es una consulta, no un proceso contable independiente.
+La migración posterior conserva las transiciones de la tabla anterior en la auditoría central antes de retirarla,
+sin modificar la migración ya publicada. El contrato HTTP del historial permanece igual.

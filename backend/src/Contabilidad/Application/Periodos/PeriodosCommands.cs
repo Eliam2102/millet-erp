@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain.Audit;
 using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Contabilidad.Application.Periodos;
@@ -97,12 +99,20 @@ public sealed class ObtenerBitacoraPeriodoHandler(ContabilidadDbContext db)
 {
     public async Task<IReadOnlyList<BitacoraPeriodoResponse>> Handle(ObtenerBitacoraPeriodoQuery request, CancellationToken cancellationToken)
     {
-        if (!await db.Periodos.AnyAsync(p => p.Id == request.PeriodoId, cancellationToken))
-            throw new EntityNotFoundException("CONTAB_PERIODO_NO_ENCONTRADO", $"No existe el periodo contable '{request.PeriodoId}'.");
-        return await db.PeriodosBitacora.AsNoTracking().Where(b => b.PeriodoId == request.PeriodoId).OrderBy(b => b.VersionResultante)
-            .Select(b => new BitacoraPeriodoResponse(b.Id, b.Accion, b.EstadoAnterior, b.EstadoNuevo, b.Motivo, b.UsuarioId,
-                b.UsuarioNombre, b.OcurridoEn, b.VersionResultante))
+        // audit_log no aplica filtro global de empresa: verificar explícitamente el periodo y su empresa.
+        var periodo = await db.Periodos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == request.PeriodoId, cancellationToken)
+            ?? throw new EntityNotFoundException("CONTAB_PERIODO_NO_ENCONTRADO", $"No existe el periodo contable '{request.PeriodoId}'.");
+        var filas = await db.Set<AuditLogEntry>().AsNoTracking()
+            .Where(a => a.EmpresaId == periodo.EmpresaId && a.Modulo == "Contabilidad"
+                && a.Entidad == nameof(PeriodoContable) && a.EntidadId == periodo.Id
+                && (a.Operacion == "abrir" || a.Operacion == "cerrar" || a.Operacion == "reabrir"))
             .ToListAsync(cancellationToken);
+        return filas.Select(a =>
+        {
+            var t = JsonSerializer.Deserialize<TransicionPeriodoContable>(a.Metadatos!)!;
+            return new BitacoraPeriodoResponse(a.Id, t.Accion, t.EstadoAnterior, t.EstadoNuevo, t.Motivo,
+                a.UsuarioId, t.UsuarioNombre, a.Timestamp, t.VersionResultante);
+        }).OrderBy(t => t.VersionResultante).ToList();
     }
 }
 
@@ -155,7 +165,7 @@ public sealed class AbrirPeriodosValidator : AbstractValidator<AbrirPeriodosComm
     }
 }
 
-public sealed class AbrirPeriodosHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock)
+public sealed class AbrirPeriodosHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock, IAuditCorrelationContext correlacion)
     : IRequestHandler<AbrirPeriodosCommand, EjercicioContableResponse>
 {
     public async Task<EjercicioContableResponse> Handle(AbrirPeriodosCommand request, CancellationToken cancellationToken)
@@ -168,7 +178,7 @@ public sealed class AbrirPeriodosHandler(ContabilidadDbContext db, ICurrentUserC
             if (ejercicio.Version != request.VersionEsperada) throw new ConcurrencyException(nameof(EjercicioContable), ejercicio.Id);
             var periodos = await db.Periodos.Where(p => p.EjercicioId == ejercicio.Id).ToDictionaryAsync(p => p.Numero, ct);
             foreach (var n in request.Numeros.Order())
-                db.PeriodosBitacora.Add(periodos[n].Abrir(periodos[12], request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow));
+                AuditoriaPeriodos.Registrar(db, periodos[n], periodos[n].Abrir(periodos[12], request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow), usuario, correlacion);
             db.Entry(ejercicio).State = EntityState.Modified; // nueva versión del ejercicio = nuevo ETag del lote
             await db.SaveChangesAsync(ct);
         }, cancellationToken);
@@ -189,7 +199,7 @@ public sealed class CerrarPeriodoValidator : AbstractValidator<CerrarPeriodoComm
     public CerrarPeriodoValidator() => RuleFor(c => c.Motivo).MotivoObligatorio();
 }
 
-public sealed class CerrarPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock)
+public sealed class CerrarPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock, IAuditCorrelationContext correlacion)
     : IRequestHandler<CerrarPeriodoCommand, PeriodoContableResponse>
 {
     public async Task<PeriodoContableResponse> Handle(CerrarPeriodoCommand request, CancellationToken cancellationToken)
@@ -200,7 +210,7 @@ public sealed class CerrarPeriodoHandler(ContabilidadDbContext db, ICurrentUserC
             periodo = await PoliticaPeriodos.PeriodoAsync(db, request.PeriodoId, request.VersionEsperada, ct);
             var p = periodo;
             var anteriores = await db.Periodos.AsNoTracking().Where(x => x.EjercicioId == p.EjercicioId && x.Numero < p.Numero).ToListAsync(ct);
-            db.PeriodosBitacora.Add(p.Cerrar(anteriores, request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow));
+            AuditoriaPeriodos.Registrar(db, p, p.Cerrar(anteriores, request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow), usuario, correlacion);
             // PLATFORM-TODO(<OutboxContabilidad>): PeriodoContableCerradoEvent cuando haya outbox y suscriptores (C1.2/C1.5).
             await db.SaveChangesAsync(ct);
         }, cancellationToken);
@@ -221,7 +231,7 @@ public sealed class ReabrirPeriodoValidator : AbstractValidator<ReabrirPeriodoCo
     public ReabrirPeriodoValidator() => RuleFor(c => c.Motivo).MotivoObligatorio();
 }
 
-public sealed class ReabrirPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock)
+public sealed class ReabrirPeriodoHandler(ContabilidadDbContext db, ICurrentUserContext usuario, IClock clock, IAuditCorrelationContext correlacion)
     : IRequestHandler<ReabrirPeriodoCommand, PeriodoContableResponse>
 {
     public async Task<PeriodoContableResponse> Handle(ReabrirPeriodoCommand request, CancellationToken cancellationToken)
@@ -232,7 +242,7 @@ public sealed class ReabrirPeriodoHandler(ContabilidadDbContext db, ICurrentUser
             periodo = await PoliticaPeriodos.PeriodoAsync(db, request.PeriodoId, request.VersionEsperada, ct);
             var p = periodo;
             var siguiente = await db.Periodos.AsNoTracking().FirstOrDefaultAsync(x => x.EjercicioId == p.EjercicioId && x.Numero == p.Numero + 1, ct);
-            db.PeriodosBitacora.Add(p.Reabrir(siguiente, request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow));
+            AuditoriaPeriodos.Registrar(db, p, p.Reabrir(siguiente, request.Motivo, usuario.UserId, PoliticaPeriodos.Usuario(usuario), clock.UtcNow), usuario, correlacion);
             // PLATFORM-TODO(<OutboxContabilidad>): PeriodoContableReabiertoEvent cuando haya outbox y suscriptores (C1.2/C1.5).
             await db.SaveChangesAsync(ct);
         }, cancellationToken);

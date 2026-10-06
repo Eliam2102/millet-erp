@@ -39,13 +39,13 @@ Pruebas HTTP en `backend/tests/Api.IntegrationTests/Contabilidad/PeriodosHttpTes
 Unitarias: `backend/tests/Contabilidad.UnitTests/PeriodosTests.cs`. Frontend:
 `frontend/src/features/contabilidad/pages/PeriodosPage.test.tsx` (permisos, motivo y errores).
 
-## Resultados de la reanudación
+## Resultados previos a la corrección de auditoría
 
 | Validación | Resultado |
 |---|---|
 | Unitarias Contabilidad | 167/167, sin fallos ni pruebas omitidas; `dotnet test backend/tests/Contabilidad.UnitTests/Millet.Contabilidad.UnitTests.csproj --no-build --no-restore --nologo` |
 | Integración HTTP con PostgreSQL real | 60/60 de Contabilidad, sin fallos ni omitidas, duración 3 min 59 s; `./tools/validate-integration-isolated.sh --filter 'FullyQualifiedName~Contabilidad'` |
-| Guard de cobertura de auditoría | Falla por 4 entidades anteriores de CON-01/02: `CuentaContableOrigen`, `CuentaContableUso`, `ImportacionCatalogo`, `ReglaDimensionUso`. Las 3 entidades nuevas de periodos declaran `IAuditable` |
+| Guard de cobertura de auditoría | Falla por 4 entidades anteriores de CON-01/02: `CuentaContableOrigen`, `CuentaContableUso`, `ImportacionCatalogo`, `ReglaDimensionUso`. En ese corte, las 3 entidades nuevas de periodos declaraban `IAuditable`; ahora solo ejercicio y periodo son entidades persistidas |
 | Vitest de pantalla de periodos y permisos | 14/14, con `--testTimeout=15000`; incluye respuesta perdida/reintento con la misma clave, comando corregido con nueva clave y 403 en reapertura |
 | TypeScript, lint y build frontend | Correctos; lint sin errores, 10 advertencias previas en Administración. Build con advertencias previas de fuentes CSS y tamaño de chunks |
 | Build backend Debug | Solución compilada con 0 advertencias y 0 errores tras corregir CA1861 en las regresiones nuevas |
@@ -58,7 +58,11 @@ la suite de integración completa. El guard de auditoría se ejecutó aparte y c
 
 ## Migraciones y datos
 
-Migración `20261006121604_ContabilidadPeriodos`: ejercicios, periodos y bitácora en esquema `contabilidad`.
+Migración publicada `20261006121604_ContabilidadPeriodos`: ejercicios, periodos y bitácora original en esquema `contabilidad`.
+La corrección añade `20261006220000_HistorialPeriodosEnAuditoriaCentral`: copia el historial anterior a `core.audit_log`
+y retira `contabilidad.periodos_contables_bitacora`. El esquema final solo conserva ejercicio y periodo.
+No se reescribe la migración publicada ni se pierden los motivos previos. La reversa reconstruye la tabla anterior
+para periodos existentes sin borrar auditoría; volver a aplicar la migración no duplica las transiciones.
 Permisos en la migración `SeedPermisosContabilidadPeriodos` de Identidad.
 `tools/datos-prueba-f1-con-03.sql` crea 2026 para la primera empresa local: 1–12 abiertos, 13 sin abrir, marca
 `seed-f1-con-03-prueba`; si el ejercicio ya existe, no lo altera. El script no acredita una aplicación ejecutada.
@@ -125,3 +129,52 @@ inverso de reapertura son supuestos de diseño pendientes de ratificación.
 
 Pendientes de entrega: revisión visual autenticada, ratificación de supuestos y PR integrado. Sin publicación,
 comentario externo ni aceptación de Millet acreditados por este documento.
+
+## Corrección: historial en auditoría central
+
+Eliam ratificó esta corrección en el mensaje compartido por Uziel el 2026-10-06: usar únicamente `core.audit_log`,
+persistir cierre/reapertura con usuario, fecha y motivo en la misma transacción del periodo, mantener el historial
+por mes en la pantalla y demostrar el rechazo de reapertura sin permiso. Solicitud/aprobación separadas,
+recálculo de saldos y ajustes ligados a reapertura no son requisitos actuales; checklist y conciliaciones corresponden a CON-12.
+
+Por instrucción de Uziel, se elimina la entidad/tabla de bitácora específica. `TransicionPeriodoContable` es un record
+de datos, no una entidad. `AuditoriaPeriodos` agrega `AuditLogEntry` al mismo `ContabilidadDbContext`, ya mapeado por
+`BaseDbContext`, antes del único `SaveChanges` de la transición dentro del advisory lock transaccional.
+No se usa `IAuditLogWriter` para estas mutaciones porque ese escritor guarda mediante otro `CoreDbContext`.
+
+Se mantienen las filas automáticas de creación/actualización y se agregan transiciones funcionales con operaciones
+`abrir`, `cerrar`, `reabrir`, módulo `Contabilidad`, entidad/aggregate `PeriodoContable` y detalle en `metadatos`.
+El diff también incluye motivo y versión para el detalle general de Administración. La pantalla de auditoría
+central permite filtrar Contabilidad y esas tres acciones. No hay cambios a su esquema ni a sus permisos.
+
+`GET /periodos/{id}/bitacora` conserva su respuesta y `contabilidad.periodo.leer`; verifica la pertenencia del periodo
+y filtra por empresa en el log central. No otorga lectura global. Los comandos conservan versión, idempotencia y
+serialización para evitar duplicados; ya no existe el índice único específico de la tabla retirada.
+
+Regresiones añadidas: migración/reversa/reaplicación con historial previo, fallo de auditoría revierte el cierre,
+y registros de otra empresa quedan fuera del historial. Se amplían reapertura, permisos, cierre concurrente,
+idempotencia y rollback del lote para verificar la persistencia central y su lectura desde Administración.
+El script DEMO escribe su historial exclusivamente en la central.
+
+Validación de esta corrección (2026-10-06):
+
+| Comprobación | Resultado |
+|---|---|
+| Unitarias de Contabilidad con binarios finales | 167/167 |
+| Integración PostgreSQL aislado: Contabilidad y `AuditoriaEndpointsTests` | 73/73; 13 contextos migrados |
+| Frontend: pantalla de periodos y smoke de auditoría | 15/15 |
+| Build solución backend Debug | 0 errores, 0 advertencias |
+| TypeScript, build y lint frontend | Aprobados; 10 advertencias de lint previas |
+| EF `has-pending-model-changes` | Sin cambios pendientes |
+| Script DEMO ejecutado dos veces en esquema aislado | 13 periodos, 12 aperturas centrales, sin duplicados |
+| Migración/reversa/reaplicación sobre copia del historial local | 29 transiciones conservadas sin duplicados |
+| API local después de reinicio | `/health/ready`: Healthy |
+
+El filtro de integración no acredita la suite completa de todos los módulos. Se conserva pendiente la inspección
+visual autenticada y la aceptación UAT, así como el fallo previo del guard de auditoría de CON-01/02.
+
+La migración se aplicó a la base local con respaldo previo en `/tmp/f1-con-03-before-auditoria-central.dump`.
+La tabla específica ya no existe y se comprobaron 29 transiciones funcionales en la central. Una compilación
+intermedia había usado el identificador de módulo en minúsculas; se recompiló y se normalizó únicamente ese
+identificador local, dejando un evento técnico en `core.audit_log`. Las pruebas finales anteriores corresponden
+a la recompilación y al identificador canónico `Contabilidad`.
