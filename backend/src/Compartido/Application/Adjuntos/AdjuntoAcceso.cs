@@ -43,6 +43,8 @@ public sealed class AdjuntoAcceso
                 "ADJUNTO_TIPO_ENTIDAD_DESCONOCIDO",
                 $"El tipo de entidad '{tipoEntidad}' no admite adjuntos.");
 
+    public ValueTask<bool> TienePermisoAsync(string permiso, CancellationToken ct) => _permisos.TieneAsync(permiso, ct);
+
     /// <summary>Solo la capa de permiso de rol (para operaciones sin padre, p. ej. listar tipos).</summary>
     public async Task<IAdjuntoPropietario> AutorizarPermisoAsync(
         string tipoEntidad, AdjuntoOperacion operacion, CancellationToken ct)

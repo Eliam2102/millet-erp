@@ -554,6 +554,20 @@ else
         Millet.Compartido.Infrastructure.Blob.LocalFilesystemBlobStoragePort>();
 }
 
+// === Adjuntos genéricos (F1-ADM-11 G1.2): autorización heredada del padre y enlace temporal ===
+// Cada módulo que adjunta archivos registra aquí su IAdjuntoPropietario (primero: Proveedor).
+builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
+builder.Services.AddScoped<
+    Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
+    Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
+builder.Services
+    .AddOptions<Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions.SectionName));
+builder.Services.AddSingleton<
+    Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
+    Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
+
 // === Compras OC: PDF real con QuestPDF (F6-PR3) ===
 // Reemplaza LocalPdfOrdenCompraStub por QuestPdfOrdenCompraGenerator con
 // layout institucional. El stub se conserva en el assembly para fixtures
