@@ -564,6 +564,10 @@ builder.Services
     .AddOptions<Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions>()
     .Bind(builder.Configuration.GetSection(
         Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions.SectionName));
+// Lectura del expediente para CxP (G1.1/CA2.2: validar antes de pasar a Activo); aún sin consumidor.
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
 builder.Services.AddSingleton<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
     Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();

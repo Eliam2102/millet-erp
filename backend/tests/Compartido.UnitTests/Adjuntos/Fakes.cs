@@ -118,3 +118,25 @@ internal sealed class FakeEnlaces : IAdjuntoEnlaceTokenService
             : null;
     }
 }
+
+/// <summary>Siembra de datos comunes de las pruebas de adjuntos.</summary>
+internal static class Siembra
+{
+    public static readonly Guid TipoCsf = Guid.Parse("00000011-0001-0000-0000-000000000001");
+    public static readonly Guid TipoContrato = Guid.Parse("00000011-0001-0000-0000-000000000002");
+    public static readonly Guid TipoActa = Guid.Parse("00000011-0001-0000-0000-000000000003");
+    public static readonly Guid TipoIdentificacion = Guid.Parse("00000011-0001-0000-0000-000000000004");
+    public static readonly Guid TipoDomicilio = Guid.Parse("00000011-0001-0000-0000-000000000005");
+
+    /// <summary>Tipos de proveedor (los mismos ids deterministas del seed de la migración).</summary>
+    public static async Task TiposProveedorAsync(CompartidoDbContext db)
+    {
+        db.AdjuntoTiposDocumento.AddRange(
+            new Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento(TipoCsf, "proveedor", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, true, 3, false),
+            new Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento(TipoContrato, "proveedor", "contrato", "Contrato", 2, true, null, false),
+            new Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento(TipoActa, "proveedor", "acta_constitutiva", "Acta constitutiva", 3, true, null, true),
+            new Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento(TipoIdentificacion, "proveedor", "identificacion_representante_legal", "Identificación del representante legal", 4, true, null, false),
+            new Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento(TipoDomicilio, "proveedor", "comprobante_domicilio", "Comprobante de domicilio", 5, true, 3, false));
+        await db.SaveChangesAsync();
+    }
+}
