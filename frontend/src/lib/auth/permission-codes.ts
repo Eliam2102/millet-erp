@@ -385,6 +385,11 @@ export const PermisosCanonicos = {
   ContabilidadCatalogoLeer: 'contabilidad.catalogo.leer',
   ContabilidadCatalogoAdministrar: 'contabilidad.catalogo.administrar',
   ContabilidadCatalogoImportar: 'contabilidad.catalogo.importar',
+  // F1-CON-02: dimensiones contables (0000000d-0002) y movimientos (0000000d-0003).
+  ContabilidadDimensionesLeer: 'contabilidad.dimensiones.leer',
+  ContabilidadDimensionesAdministrar: 'contabilidad.dimensiones.administrar',
+  ContabilidadMovimientosValidar: 'contabilidad.movimientos.validar',
+  ContabilidadMovimientosGestionarTodasSucursales: 'contabilidad.movimientos.gestionar-todas-sucursales',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

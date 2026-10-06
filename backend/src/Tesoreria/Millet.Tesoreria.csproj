@@ -12,6 +12,8 @@
     <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
     <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
     <ProjectReference Include="..\Identidad\Millet.Identidad.csproj" />
+    <!-- F1-CON-02: hospeda el adaptador del puerto de cuentas bancarias de Contabilidad. -->
+    <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />
   </ItemGroup>
 
   <ItemGroup>
