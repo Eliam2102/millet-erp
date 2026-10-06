@@ -121,6 +121,10 @@ public static class PermisosCanonicos
     // (banco/CLABE/beneficiario).
     public const string DatosMaestrosProveedoresBancariosVer           = "datos_maestros.proveedores.bancarios-ver";
     public const string DatosMaestrosProveedoresBancariosEditar        = "datos_maestros.proveedores.bancarios-editar";
+    // F1-ADM-11 G1.2: expediente documental (adjuntos) del proveedor, por operación.
+    public const string DatosMaestrosProveedoresAdjuntosVer            = "datos_maestros.proveedores.adjuntos-ver";
+    public const string DatosMaestrosProveedoresAdjuntosSubir          = "datos_maestros.proveedores.adjuntos-subir";
+    public const string DatosMaestrosProveedoresAdjuntosBaja           = "datos_maestros.proveedores.adjuntos-baja";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
@@ -557,6 +561,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000001"), DatosMaestrosProveedoresGestionar,            "Crear, editar y desactivar proveedores del catálogo cross-empresa"),
         (Guid.Parse("00000004-0009-0000-0000-000000000002"), DatosMaestrosProveedoresBancariosVer,         "Consultar datos bancarios de proveedores (CLABE enmascarada)"),
         (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Cambiar banco, CLABE y beneficiario de proveedores"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000004"), DatosMaestrosProveedoresAdjuntosVer,          "Consultar y descargar los documentos del expediente de un proveedor"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000005"), DatosMaestrosProveedoresAdjuntosSubir,        "Adjuntar documentos al expediente de un proveedor"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000006"), DatosMaestrosProveedoresAdjuntosBaja,         "Dar de baja documentos del expediente de un proveedor y consultar su historial"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),

@@ -114,6 +114,13 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.bancarios-ver',
   DatosMaestrosProveedoresBancariosEditar:
     'datos_maestros.proveedores.bancarios-editar',
+  // Expediente documental del proveedor (F1-ADM-11 G1.2).
+  DatosMaestrosProveedoresAdjuntosVer:
+    'datos_maestros.proveedores.adjuntos-ver',
+  DatosMaestrosProveedoresAdjuntosSubir:
+    'datos_maestros.proveedores.adjuntos-subir',
+  DatosMaestrosProveedoresAdjuntosBaja:
+    'datos_maestros.proveedores.adjuntos-baja',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular
