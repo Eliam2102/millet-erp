@@ -61,6 +61,28 @@ public sealed class AdjuntosPoliticaOptions
         "text/plain"
     ];
 
+    /// <summary>
+    /// Overrides por tipo de entidad dueña (clave en snake_case, p. ej. <c>proveedor</c>).
+    /// Lo no definido en un override se hereda del default global.
+    /// </summary>
+    public Dictionary<string, AdjuntosPoliticaEntidadOptions> PorTipoEntidad { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Devuelve la política efectiva para un tipo de entidad (override si existe, si no esta misma).
+    /// </summary>
+    public AdjuntosPoliticaOptions ParaEntidad(string tipoEntidad)
+    {
+        if (!PorTipoEntidad.TryGetValue(tipoEntidad, out var o))
+            return this;
+
+        return new AdjuntosPoliticaOptions
+        {
+            MaxBytes = o.MaxBytes ?? MaxBytes,
+            Extensiones = o.Extensiones is { Count: > 0 } ? o.Extensiones : Extensiones,
+            ContentTypes = o.ContentTypes is { Count: > 0 } ? o.ContentTypes : ContentTypes
+        };
+    }
+
     private static readonly AdjuntosPoliticaOptions DefaultOptions = new();
 
     /// <summary>
@@ -158,6 +180,22 @@ public sealed class AdjuntosPoliticaOptions
             }
         }
 
+        var esXml = string.Equals(extensionNormalizada, ".xml", StringComparison.OrdinalIgnoreCase)
+                    || contentType.Trim().Equals("application/xml", StringComparison.OrdinalIgnoreCase)
+                    || contentType.Trim().Equals("text/xml", StringComparison.OrdinalIgnoreCase);
+
+        if (esXml)
+        {
+            // Solo se verifica que arranque como XML ('<' tras BOM UTF-8 opcional); NO se parsea (evita XXE).
+            var inicio = cabecera.Length >= 3 && cabecera[0] == 0xEF && cabecera[1] == 0xBB && cabecera[2] == 0xBF ? 3 : 0;
+            if (cabecera.Length <= inicio || cabecera[inicio] != (byte)'<')
+            {
+                throw new BusinessRuleException(
+                    "ADJUNTO_FORMATO_NO_PERMITIDO",
+                    "El archivo no corresponde a un documento XML válido.");
+            }
+        }
+
         var esPng = string.Equals(extensionNormalizada, ".png", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(contentType.Trim(), "image/png", StringComparison.OrdinalIgnoreCase);
 
@@ -194,4 +232,15 @@ public sealed class AdjuntosPoliticaOptions
             }
         }
     }
+}
+
+/// <summary>
+/// Override de política para un tipo de entidad. Listas vacías / <c>MaxBytes</c> nulo = hereda el default global
+/// (sin valores por defecto propios para que el binder de configuración no mezcle listas).
+/// </summary>
+public sealed class AdjuntosPoliticaEntidadOptions
+{
+    public long? MaxBytes { get; set; }
+    public List<string> Extensiones { get; set; } = [];
+    public List<string> ContentTypes { get; set; } = [];
 }

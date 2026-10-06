@@ -214,4 +214,59 @@ public class AdjuntosPoliticaOptionsTests
             cabecera: [0x50, 0x4B, 0x03, 0x04]); // PK zip header
         actXlsx.Should().NotThrow();
     }
+
+    private static AdjuntosPoliticaOptions PoliticaProveedor() => new AdjuntosPoliticaOptions
+    {
+        PorTipoEntidad =
+        {
+            ["proveedor"] = new AdjuntosPoliticaEntidadOptions
+            {
+                MaxBytes = 10 * 1024 * 1024,
+                Extensiones = [".pdf", ".xml", ".jpg", ".jpeg", ".png"],
+                ContentTypes = ["application/pdf", "application/xml", "text/xml", "image/jpeg", "image/png"]
+            }
+        }
+    }.ParaEntidad("proveedor");
+
+    [Fact]
+    public void Xml_ValidoConYSinBom_NoLanza()
+    {
+        var p = PoliticaProveedor();
+        byte[] conBom = [0xEF, 0xBB, 0xBF, (byte)'<', (byte)'?', (byte)'x'];
+
+        p.Invoking(x => x.ValidarInstancia("cfdi.xml", "text/xml", 100, "<?xml version=\"1.0\"?>"u8)).Should().NotThrow();
+        p.Invoking(x => x.ValidarInstancia("cfdi.xml", "application/xml", 100, conBom)).Should().NotThrow();
+    }
+
+    [Fact]
+    public void Xml_BinarioDisfrazado_Lanza()
+    {
+        var p = PoliticaProveedor();
+
+        p.Invoking(x => x.ValidarInstancia("x.xml", "application/xml", 100, CabeceraExeMz))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("ADJUNTO_FORMATO_NO_PERMITIDO");
+    }
+
+    [Fact]
+    public void Proveedor_ExcedeDiezMb_Lanza_PeroDefaultGlobalAceptaQuince()
+    {
+        var p = PoliticaProveedor();
+        var global = new AdjuntosPoliticaOptions();
+
+        p.Invoking(x => x.ValidarInstancia("a.pdf", "application/pdf", 15 * 1024 * 1024, CabeceraPdfValida))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("ADJUNTO_TAMANO_EXCEDIDO");
+        global.Invoking(x => x.ValidarInstancia("a.pdf", "application/pdf", 15 * 1024 * 1024, CabeceraPdfValida))
+            .Should().NotThrow();
+    }
+
+    [Fact]
+    public void Proveedor_RechazaDocx_YEntidadSinOverrideUsaDefault()
+    {
+        var p = PoliticaProveedor();
+        const string docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+        p.Invoking(x => x.ValidarInstancia("a.docx", docx, 10, "PK"u8)).Should().Throw<BusinessRuleException>();
+        new AdjuntosPoliticaOptions().ParaEntidad("oc").Invoking(x => x.ValidarInstancia("a.docx", docx, 10, "PK"u8))
+            .Should().NotThrow();
+    }
 }
