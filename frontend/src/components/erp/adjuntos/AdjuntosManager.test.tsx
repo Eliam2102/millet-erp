@@ -19,8 +19,6 @@ describe('<AdjuntosManager> — contenido vía endpoint (Camino a)', () => {
     id: 'adj-1',
     tipoDocumentoId: 'tipo-x',
     nombreArchivo: 'prueba.pdf',
-    // blobUrl crudo del stub local: NO debe renderizarse en el browser.
-    blobUrl: 'file://C:/Users/x/AppData/Local/Temp/millet-oc-blobs/adj-1.pdf',
     contentType: 'application/pdf',
     tamanoBytes: 1234,
     fechaCarga: '2026-06-08T12:00:00Z',
@@ -72,7 +70,7 @@ describe('<AdjuntosManager> — contenido vía endpoint (Camino a)', () => {
     });
   });
 
-  it('sin resolver (legacy): cae al blobUrl crudo', () => {
+  it('sin resolver: no hay enlace de descarga', () => {
     const { container } = render(
       <AdjuntosManager
         adjuntos={[adjunto]}
@@ -83,10 +81,6 @@ describe('<AdjuntosManager> — contenido vía endpoint (Camino a)', () => {
       />,
       { wrapper: createQueryWrapper() },
     );
-    // Sin resolver el manager conserva el comportamiento previo (blobUrl
-    // directo). En prod ese blobUrl es https://; en dev file:// — por eso
-    // OC SIEMPRE inyecta el resolver. Este test documenta el fallback.
-    const link = container.querySelector('a[download]');
-    expect(link?.getAttribute('href')).toBe(adjunto.blobUrl);
+    expect(container.querySelector('a[download]')).toBeNull();
   });
 });

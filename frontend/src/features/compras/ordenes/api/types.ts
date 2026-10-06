@@ -284,11 +284,6 @@ export interface AdjuntoOcResponse {
   id: string;
   tipoDocumentoId: string;
   nombreArchivo: string;
-  /**
-   * URL del blob storage (Azure Blob en prod, filesystem stub en dev).
-   * Usado por el preview (PDF embed / img thumbnail) y para download.
-   */
-  blobUrl: string;
   contentType: string;
   tamanoBytes: number;
   /** ISO 8601 UTC. */
