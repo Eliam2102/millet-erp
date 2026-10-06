@@ -112,6 +112,32 @@ internal static class ContabTestKit
         return await Json(r);
     }
 
+    /// <summary>
+    /// F1-CON-03: confirmar o validar un movimiento exige su periodo abierto (falla cerrada). Crea el ejercicio de cada año de
+    /// <paramref name="fechas"/> si falta y abre sus meses sin abrir. Las pruebas de periodos usan años lejanos propios y nunca
+    /// cierran el año en curso, así que esto no interfiere con ellas.
+    /// </summary>
+    public static async Task AsegurarPeriodosAbiertosAsync(HttpClient admin, params DateOnly[] fechas)
+    {
+        foreach (var anio in fechas.Select(f => f.Year).Distinct())
+        {
+            var ejercicio = (await Json(await admin.GetAsync($"{Base}/periodos/ejercicios"))).EnumerateArray()
+                .FirstOrDefault(e => e.GetProperty("anio").GetInt32() == anio);
+            if (ejercicio.ValueKind == JsonValueKind.Undefined)
+            {
+                var creado = await admin.PostAsJsonAsync($"{Base}/periodos/ejercicios", new { anio });
+                Assert.Equal(System.Net.HttpStatusCode.Created, creado.StatusCode);
+                ejercicio = await Json(creado);
+            }
+            var porAbrir = ejercicio.GetProperty("periodos").EnumerateArray()
+                .Where(p => p.GetProperty("numero").GetInt32() <= 12 && p.GetProperty("estado").GetString() == "NoAbierto")
+                .Select(p => p.GetProperty("numero").GetInt32()).ToArray();
+            if (porAbrir.Length > 0)
+                (await Send(admin, HttpMethod.Post, $"{Base}/periodos/ejercicios/{ejercicio.GetProperty("id").GetGuid()}/abrir",
+                    new { numeros = porAbrir, motivo = "FIX apertura para pruebas" }, Etag(ejercicio))).EnsureSuccessStatusCode();
+        }
+    }
+
     // ── Base de datos (SQL crudo: no depende de empresa ni de filtros) ──────
 
     public static async Task<long> Contar(IServiceProvider sp, string tabla, string? where = null)

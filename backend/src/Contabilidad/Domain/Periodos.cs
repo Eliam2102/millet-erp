@@ -91,7 +91,9 @@ public sealed class PeriodoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     public static (int Anio, int Numero) PorFecha(DateOnly fecha) => (fecha.Year, fecha.Month);
 
     /// <summary>D3: el periodo de ajuste solo admite movimientos manuales (la condición «póliza autorizada» es de C1.3).</summary>
-    public bool AdmiteOrigen(OrigenMovimiento origen) => !EsAjuste || origen == OrigenMovimiento.Manual;
+    public bool AdmiteOrigen(OrigenMovimiento origen) => NumeroAdmiteOrigen(Numero, origen);
+
+    public static bool NumeroAdmiteOrigen(int numero, OrigenMovimiento origen) => numero != NumeroAjuste || origen == OrigenMovimiento.Manual;
 
     private static readonly string[] Meses =
         ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];

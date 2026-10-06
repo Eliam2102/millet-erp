@@ -1,3 +1,5 @@
+using Millet.Contabilidad.Application.Periodos;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -180,5 +182,22 @@ public class PeriodosTests
         Cerrar(ps, 13);
         var diciembre = () => P(ps, 12).Reabrir(P(ps, 13), Motivo, null, "fix", Ahora);
         diciembre.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_PERIODO_SIGUIENTE_CERRADO");
+    }
+
+    [Theory]
+    [InlineData(false, EstadoPeriodo.NoAbierto, 9, OrigenMovimiento.Manual, "CONTAB_PERIODO_INEXISTENTE")]
+    [InlineData(true, EstadoPeriodo.NoAbierto, 9, OrigenMovimiento.Manual, "CONTAB_PERIODO_NO_ABIERTO")]
+    [InlineData(true, EstadoPeriodo.Cerrado, 9, OrigenMovimiento.Manual, "CONTAB_PERIODO_CERRADO")]
+    [InlineData(true, EstadoPeriodo.Abierto, 13, OrigenMovimiento.AuxiliarCxP, "CONTAB_PERIODO_13_SOLO_MANUAL")]
+    [InlineData(true, EstadoPeriodo.Abierto, 13, OrigenMovimiento.Manual, null)]
+    [InlineData(true, EstadoPeriodo.Abierto, 9, OrigenMovimiento.AuxiliarCxC, null)]
+    public void El_verificador_falla_cerrado(bool existe, EstadoPeriodo estado, int numero, OrigenMovimiento origen, string? codigo)
+    {
+        var p = new EstadoPeriodoContable(2026, numero, estado, existe);
+        p.AdmiteMovimientos.Should().Be(existe && estado == EstadoPeriodo.Abierto);
+        var rechazo = VerificadorPeriodoContable.Rechazo(p, origen);
+        rechazo?.Code.Should().Be(codigo);
+        if (codigo is null) rechazo.Should().BeNull();
+        if (codigo == "CONTAB_PERIODO_CERRADO") rechazo!.Message.Should().Be("El periodo 2026-09 está cerrado; no se pueden registrar movimientos con esa fecha.");
     }
 }

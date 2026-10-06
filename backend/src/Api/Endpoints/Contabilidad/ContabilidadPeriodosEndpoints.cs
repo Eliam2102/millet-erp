@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Contabilidad.Application.Periodos;
+using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Identidad.Domain;
 using Helpers = Millet.Api.Endpoints.CentrosCosto.CentrosCostoCatalogoEndpoints;
 
@@ -104,6 +105,12 @@ public static class ContabilidadPeriodosEndpoints
         .Produces<PeriodoContableResponse>().ProducesValidationProblem().ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity).ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        g.MapGet("/estado", async ([FromQuery] DateOnly? fecha, [FromQuery] int? anio, [FromQuery] int? numero, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ConsultarEstadoPeriodoQuery(fecha, anio, numero), ct)))
+        .RequireAuthorization(leer).WithName("ConsultarEstadoPeriodoContable")
+        .WithSummary("Estado del periodo de una fecha (1–12) o por año y número (1–13); mismo contrato que IPeriodoContableConsultaPort")
+        .Produces<EstadoPeriodoContable>().ProducesValidationProblem();
 
         g.MapGet("/{periodoId:guid}/bitacora", async (Guid periodoId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObtenerBitacoraPeriodoQuery(periodoId), ct)))

@@ -24,7 +24,7 @@ public sealed record MovimientoDimensionado(
 
 /// <summary>
 /// <c>Campo</c> = nombre del campo de captura que causa el error (cuentaId, tipoDocumentoId, sucursalId, dim1Id, dim2Id, dim3Id,
-/// proyecto, clienteId, proveedorId, cuentaBancariaId),
+/// proyecto, clienteId, proveedorId, cuentaBancariaId; fechaContable para el periodo en el panel de validación, F1-CON-03),
 /// para que la pantalla lo muestre junto a él.
 /// </summary>
 public sealed record ErrorDimension(string Codigo, string Mensaje, string Campo, DimensionContable? Dimension = null);

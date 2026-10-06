@@ -2,6 +2,7 @@ using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.Periodos;
 using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Domain;
@@ -34,7 +35,10 @@ public sealed class MovimientoRequestValidator : AbstractValidator<MovimientoReq
     }
 }
 
-/// <summary>Valida sin guardar (panel «Probar movimiento»). El usuario debe poder operar la sucursal (403 si no).</summary>
+/// <summary>
+/// Valida sin guardar (panel «Probar movimiento»). El usuario debe poder operar la sucursal (403 si no). Un periodo que no admite
+/// movimientos (F1-CON-03) se muestra como un error más, en el campo <c>fechaContable</c>.
+/// </summary>
 public sealed record ValidarMovimientoDimensionesQuery(MovimientoRequest Movimiento) : IRequest<ValidacionDimensiones>;
 
 public sealed class ValidarMovimientoDimensionesValidator : AbstractValidator<ValidarMovimientoDimensionesQuery>
@@ -42,13 +46,18 @@ public sealed class ValidarMovimientoDimensionesValidator : AbstractValidator<Va
     public ValidarMovimientoDimensionesValidator() => RuleFor(q => q.Movimiento).SetValidator(new MovimientoRequestValidator());
 }
 
-public sealed class ValidarMovimientoDimensionesHandler(ValidadorDimensiones validador, AlcanceSucursalContable alcance)
+public sealed class ValidarMovimientoDimensionesHandler(
+    ValidadorDimensiones validador, AlcanceSucursalContable alcance, VerificadorPeriodoContable periodo)
     : IRequestHandler<ValidarMovimientoDimensionesQuery, ValidacionDimensiones>
 {
     public async Task<ValidacionDimensiones> Handle(ValidarMovimientoDimensionesQuery request, CancellationToken cancellationToken)
     {
-        await alcance.VerificarAsync(request.Movimiento.SucursalId, cancellationToken);
-        return await validador.ValidarAsync(request.Movimiento.Movimiento, cancellationToken);
+        var m = request.Movimiento;
+        await alcance.VerificarAsync(m.SucursalId, cancellationToken);
+        var v = await validador.ValidarAsync(m.Movimiento, cancellationToken);
+        return await periodo.RechazoAsync(m.FechaContable, m.Origen, cancellationToken) is { } rechazo
+            ? v with { Valido = false, Errores = [.. v.Errores, new ErrorDimension(rechazo.Code, rechazo.Message, "fechaContable")] }
+            : v;
     }
 }
 
@@ -67,6 +76,7 @@ public sealed record ConfirmacionMovimientoResult(bool Confirmado, ValidacionDim
 /// <summary>
 /// Valida y, si pasa, guarda el movimiento de PRUEBA con el snapshot de las reglas que lo validaron. Si no pasa, no escribe y
 /// devuelve los errores (el endpoint responde 422). No marca la cuenta como usada (evita bloquear cuentas reales, P20).
+/// Antes de validar, el periodo de la fecha contable debe admitir movimientos (F1-CON-03): si no, 422 <c>CONTAB_PERIODO_*</c>.
 /// </summary>
 // PLATFORM-TODO(<Polizas>): la póliza real sustituye a este comando al confirmar sus partidas.
 public sealed record ConfirmarMovimientoPruebaCommand(MovimientoRequest Movimiento) : IRequest<ConfirmacionMovimientoResult>;
@@ -77,7 +87,8 @@ public sealed class ConfirmarMovimientoPruebaValidator : AbstractValidator<Confi
 }
 
 public sealed class ConfirmarMovimientoPruebaHandler(
-    ContabilidadDbContext db, ValidadorDimensiones validador, AlcanceSucursalContable alcance, IClock clock, LecturaMovimientos lectura)
+    ContabilidadDbContext db, ValidadorDimensiones validador, AlcanceSucursalContable alcance, IClock clock, LecturaMovimientos lectura,
+    VerificadorPeriodoContable periodo)
     : IRequestHandler<ConfirmarMovimientoPruebaCommand, ConfirmacionMovimientoResult>
 {
     public const string ConsumidorMovimientoPrueba = "MOVIMIENTO_PRUEBA";
@@ -86,6 +97,9 @@ public sealed class ConfirmarMovimientoPruebaHandler(
     {
         var m = request.Movimiento;
         await alcance.VerificarAsync(m.SucursalId, cancellationToken);
+        // Candado de periodo (falla cerrada). Un cierre concurrente entre esta lectura y el guardado no se serializa aquí:
+        // PLATFORM-TODO(<Polizas>): la póliza real verifica el periodo bajo el mismo candado que el cierre.
+        await periodo.LanzarSiNoAdmiteAsync(m.FechaContable, m.Origen, cancellationToken);
         var v = await validador.ValidarAsync(m.Movimiento, cancellationToken);
         if (!v.Valido) return new(false, v, null);
 

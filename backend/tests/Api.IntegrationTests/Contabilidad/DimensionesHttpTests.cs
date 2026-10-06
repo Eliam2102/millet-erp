@@ -40,6 +40,7 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
     {
         var suf = Sufijo();
         var admin = await LoginAsync(factory);
+        await AsegurarPeriodosAbiertosAsync(admin, Hoy(), Hoy().AddDays(6)); // F1-CON-03: los movimientos exigen periodo abierto
 
         using var scope = factory.Services.CreateScope();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
