@@ -53,6 +53,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<ProductoAw> ProductosAw => Set<ProductoAw>();
     // ADM-07: variantes (medidas/composición) y registro de origen A+W de producto.
     public DbSet<ProductoAwVariante> ProductosAwVariantes => Set<ProductoAwVariante>();
+    public DbSet<ProductoAwComponente> ProductosAwComponentes => Set<ProductoAwComponente>();
     public DbSet<ProductoSincronizacionAw> ProductosSincronizacionAw => Set<ProductoSincronizacionAw>();
     public DbSet<Sucursal> Sucursales => Set<Sucursal>();
     // FAC-ING-PR2: catálogo administrable de canales de venta (reemplaza el
@@ -1155,6 +1156,11 @@ public sealed class CompartidoDbContext : BaseDbContext
         producto.Property(x => x.FraccionArancelaria).HasMaxLength(10);
         producto.Property(x => x.UnidadAduana).HasMaxLength(3);
         producto.Property(x => x.PesoUnitarioKg).HasPrecision(18, 6);
+        producto.Property(x => x.CodigoModelo).HasMaxLength(50);
+        producto.Property(x => x.Wgr).HasMaxLength(10);
+        producto.Property(x => x.WgrDescripcion).HasMaxLength(100);
+        producto.Property(x => x.Grupo).HasMaxLength(100);
+        producto.Property(x => x.Tipo).HasMaxLength(50);
         producto.Property(x => x.Origen).HasConversion<short>().IsRequired();
         producto.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
@@ -1178,6 +1184,12 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasForeignKey(v => v.ProductoAwId)
             .OnDelete(DeleteBehavior.Restrict);
         producto.Navigation(x => x.Variantes).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        producto.HasMany(x => x.Componentes)
+            .WithOne()
+            .HasForeignKey(c => c.ProductoAwId)
+            .OnDelete(DeleteBehavior.Cascade);
+        producto.Navigation(x => x.Componentes).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 
     /// <summary>
@@ -1199,6 +1211,18 @@ public sealed class CompartidoDbContext : BaseDbContext
         variante.Property(x => x.Composicion).HasMaxLength(200);
         variante.Property(x => x.Version).IsConcurrencyToken();
         variante.HasIndex(x => new { x.ProductoAwId, x.ClaveVariante }).IsUnique();
+
+        var componente = modelBuilder.Entity<ProductoAwComponente>();
+        componente.ToTable("producto_aw_componente", t =>
+            t.HasCheckConstraint("ck_producto_aw_componente_posicion",
+                "orden >= 1 AND nivel >= 1 AND (padre_orden IS NULL OR (padre_orden >= 1 AND padre_orden < orden)) AND (espesor_mm IS NULL OR espesor_mm > 0)"));
+        componente.HasKey(x => x.Id);
+        componente.Property(x => x.ComponenteRef).HasMaxLength(50).IsRequired();
+        componente.Property(x => x.Descripcion).HasMaxLength(254);
+        componente.Property(x => x.Tipo).HasMaxLength(50);
+        componente.Property(x => x.EspesorMm).HasPrecision(12, 3);
+        componente.Property(x => x.Version).IsConcurrencyToken();
+        componente.HasIndex(x => new { x.ProductoAwId, x.Orden }).IsUnique();
 
         var sync = modelBuilder.Entity<ProductoSincronizacionAw>();
         sync.ToTable("producto_sincronizacion_aw", t =>

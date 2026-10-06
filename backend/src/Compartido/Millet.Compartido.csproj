@@ -12,6 +12,8 @@
     <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
     <ProjectReference Include="..\DatosMaestros\Millet.DatosMaestros.csproj" />
     <ProjectReference Include="..\Almacen\Millet.Almacen.csproj" />
+    <!-- F1-CON-02: hospeda el adaptador del puerto de consumidor de Contabilidad (Contabilidad no referencia este proyecto). -->
+    <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />
   </ItemGroup>
 
   <ItemGroup>

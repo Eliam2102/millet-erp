@@ -51,6 +51,7 @@ export function ProductosAwLayout({
   const [descripcionInput, setDescripcionInput] = useState('');
   const [origen, setOrigen] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
+  const [tipo, setTipo] = useState<string>('');
   const [soloFiscalesIncompletos, setSoloFiscalesIncompletos] =
     useState(false);
 
@@ -65,6 +66,7 @@ export function ProductosAwLayout({
       estatus:
         estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       fiscalesIncompletos: soloFiscalesIncompletos ? true : undefined,
+      tipo: tipo !== '' ? tipo : undefined,
       limit: 200,
     }),
     [
@@ -72,6 +74,7 @@ export function ProductosAwLayout({
       descripcionDeb,
       origen,
       estatus,
+      tipo,
       soloFiscalesIncompletos,
     ],
   );
@@ -121,6 +124,8 @@ export function ProductosAwLayout({
           onOrigen={setOrigen}
           estatus={estatus}
           onEstatus={setEstatus}
+          tipo={tipo}
+          onTipo={setTipo}
           soloFiscalesIncompletos={soloFiscalesIncompletos}
           onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
         />
@@ -153,6 +158,9 @@ export function ProductosAwLayout({
   );
 }
 
+/** Tipos de A+W que se sincronizan, tal cual vienen del origen. */
+const TIPOS_AW = ['Vidrio plano', 'VTE', 'VLA', 'VC'] as const;
+
 interface FiltrosBloqueProps {
   referencia: string;
   onReferencia: (v: string) => void;
@@ -162,6 +170,8 @@ interface FiltrosBloqueProps {
   onOrigen: (v: string) => void;
   estatus: string;
   onEstatus: (v: string) => void;
+  tipo: string;
+  onTipo: (v: string) => void;
   soloFiscalesIncompletos: boolean;
   onSoloFiscalesIncompletos: (v: boolean) => void;
 }
@@ -175,6 +185,8 @@ function FiltrosBloque({
   onOrigen,
   estatus,
   onEstatus,
+  tipo,
+  onTipo,
   soloFiscalesIncompletos,
   onSoloFiscalesIncompletos,
 }: FiltrosBloqueProps) {
@@ -229,6 +241,22 @@ function FiltrosBloque({
           </SelectContent>
         </Select>
       </div>
+      <Select
+        value={tipo === '' ? 'all' : tipo}
+        onValueChange={(v) => onTipo(v === 'all' ? '' : v)}
+      >
+        <SelectTrigger className="h-8 text-xs" aria-label="Tipo">
+          <SelectValue placeholder="Tipo" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los tipos</SelectItem>
+          {TIPOS_AW.map((t) => (
+            <SelectItem key={t} value={t}>
+              {t}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {/* Bandeja de trabajo pre-timbrado: fiscalesIncompletos=true trae
           solo los productos sin claves SAT. */}
       <Button

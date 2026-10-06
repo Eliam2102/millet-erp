@@ -16,6 +16,9 @@ using Millet.CentrosCosto.Application;
 using Millet.CentrosCosto.Infrastructure;
 using Millet.CentrosCosto.Infrastructure.Persistence;
 using Millet.Compras.Application;
+using Millet.Contabilidad.Application;
+using Millet.Contabilidad.Infrastructure;
+using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.Compras.Application.CrearRequisicion;
 using Millet.Compras.Infrastructure;
 using Millet.Compras.Infrastructure.Stubs;
@@ -42,6 +45,7 @@ using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Integraciones.Aw.Infrastructure;
+using Millet.Integraciones.Aw.Infrastructure.Cambios;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
 using Millet.Integraciones.Aw.Infrastructure.Productos;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
@@ -597,7 +601,8 @@ builder.Services.AddMilletApplication(
     Millet.Facturacion.Application.AssemblyMarker.Assembly,
     CuentasPorCobrarAssemblyMarker.Assembly,
     TesoreriaAssemblyMarker.Assembly,
-    CentrosCostoAssemblyMarker.Assembly);
+    CentrosCostoAssemblyMarker.Assembly,
+    ContabilidadAssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
 // PR B foundation: IntegracionesAwOptions + repositorio + DbContext.
@@ -789,6 +794,25 @@ builder.Services.AddTesoreriaModule(builder.Configuration);
 // endpoints ni outbox todavía — CRUD/jerarquía entran en A2/A3.
 builder.Services.AddCentrosCostoModule();
 
+// === Módulo Contabilidad (F1-CON-01): catálogo contable ===
+// Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
+builder.Services.AddContabilidadModule(builder.Configuration);
+// F1-CON-02 (dimensiones contables): los puertos de consumidor de Contabilidad los hospedan los dueños del dato.
+// Centros (Dim1→Dim2→Dim3 de ADM-08) desde CentrosCosto; sucursales, pertenencia usuario↔sucursal, clientes y proveedores
+// desde Compartido; cuentas bancarias desde Tesorería.
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ICentroCostoContabilidadPort,
+    Millet.CentrosCosto.Infrastructure.PublicAdapters.ContabilidadCentroCostoAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ISucursalContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.SucursalContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ITerceroContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TerceroContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ICuentaBancariaContabilidadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.CuentaBancariaContabilidadAdapter>();
+
 // === Flujo 2 de Integraciones.Aw: ingesta de pedidos en firme (ADR-0048) ===
 // Adapters reales del reader/write-back sobre MILLET_INTEGRACION (tabla-puente
 // + vistas, docs/integration/04). DEBE ir DESPUÉS de AddFacturacionModule
@@ -808,6 +832,7 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 // simulada vacía (sin adaptador SQL, sin lecturas). Ver doc integration/05 §10.
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 builder.Services.AddIntegracionesAwProductos(builder.Configuration);
+builder.Services.AddIntegracionesAwCambios(builder.Configuration);
 
 // F2-PR2: worker de envío de CFDI por correo (drena bitacora_envio_correo,
 // genera PDF + adjunta XML, entrega vía INotificacionService [stub]).
@@ -1180,6 +1205,10 @@ builder.Services.AddDbContext<TesoreriaDbContext>((sp, opts) =>
 builder.Services.AddDbContext<CentrosCostoDbContext>((sp, opts) =>
     ConfigureMilletDbContext(opts, sp));
 
+// Contabilidad (F1-CON-01): sin outbox todavía — PLATFORM-TODO(<OutboxContabilidad>).
+builder.Services.AddDbContext<ContabilidadDbContext>((sp, opts) =>
+    ConfigureMilletDbContext(opts, sp));
+
 // === Manejo de errores: Problem Details vía IExceptionHandler ===
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -1209,6 +1238,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
         typeof(TesoreriaDbContext),
 
         typeof(CentrosCostoDbContext),
+        typeof(ContabilidadDbContext),
     },
 });
 
@@ -1293,6 +1323,11 @@ Millet.Api.Endpoints.CentrosCosto.CentrosCostoJerarquiaEndpoints.MapCentrosCosto
 
 // === Centros de Costo — alcance usuario→máquinas (CECO-PR6) ===
 Millet.Api.Endpoints.CentrosCosto.CentrosCostoAsignacionesEndpoints.MapCentrosCostoAsignacionesEndpoints(app);
+
+// === Contabilidad — catálogo de cuentas, importación y configuración de formato (F1-CON-01) ===
+Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadEndpoints(app);
+// === Contabilidad — reglas de dimensión, centros por sucursal y movimientos de prueba (F1-CON-02) ===
+Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);

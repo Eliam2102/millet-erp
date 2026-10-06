@@ -1,0 +1,25 @@
+# Sandbox local A+W (SQL Server 2022; la BD queda en COMPATIBILITY_LEVEL 130 = 2016). Puerto 14330 (el contenedor viejo 'sqlserver' usa 1433).
+# Credenciales: .env (ignorado); ver .env.example.
+services:
+  aw-sandbox:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: aw-sandbox
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_AGENT_ENABLED: "true"  # CDC necesita SQL Server Agent (jobs de captura)
+      MSSQL_SA_PASSWORD: ${AW_SANDBOX_PASSWORD:?define AW_SANDBOX_PASSWORD en .env}
+    ports:
+      - "127.0.0.1:${AW_SANDBOX_PORT:-14330}:1433"
+    volumes:
+      - aw_sandbox_data:/var/opt/mssql
+      - ./:/aw:ro
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+volumes:
+  aw_sandbox_data:
+    name: aw_sandbox_data

@@ -248,4 +248,57 @@ public class ProductoAwTests
         Assert.Equal(EstatusCatalogo.Activo, p.Estatus);
         Assert.Null(p.FechaBaja);
     }
+
+    // ── Composición y clasificación ─────────────────────────────────────
+
+    private static ProductoAwComponenteDato C(int orden, int nivel, int? padre, string r = "DEMO-C") =>
+        new(orden, nivel, padre, r, "DEMO", "Vidrio plano", null);
+
+    [Fact]
+    public void Should_ReemplazarComponentes_ActualizaPorOrden_AgregaYQuitaLosQueNoVienen()
+    {
+        var p = Crear();
+        p.ReemplazarComponentes([C(1, 1, null, "A"), C(2, 2, 1, "B"), C(3, 1, null, "C")]);
+        var id2 = p.Componentes.Single(c => c.Orden == 2).Id;
+
+        p.ReemplazarComponentes([C(1, 1, null, "A2"), C(2, 2, 1, "B")]);
+
+        Assert.Equal(2, p.Componentes.Count);
+        Assert.Equal("A2", p.Componentes.Single(c => c.Orden == 1).ComponenteRef);
+        Assert.Equal(id2, p.Componentes.Single(c => c.Orden == 2).Id);
+        Assert.All(p.Componentes, c => Assert.Equal(p.Id, c.ProductoAwId));
+        p.ReemplazarComponentes([]);
+        Assert.Empty(p.Componentes);
+    }
+
+    [Theory]
+    [InlineData(1, 1, 1)]   // padre = sí mismo
+    [InlineData(2, 2, 3)]   // padre posterior
+    [InlineData(1, 0, null)] // nivel 0
+    [InlineData(0, 1, null)] // orden 0
+    public void Should_RechazarComponente_ConPosicionInvalida_SinMutar(int orden, int nivel, int? padre)
+    {
+        var p = Crear();
+        p.ReemplazarComponentes([C(1, 1, null, "A")]);
+        Assert.Throws<BusinessRuleException>(() => p.ReemplazarComponentes([C(orden, nivel, padre)]));
+        Assert.Equal("A", Assert.Single(p.Componentes).ComponenteRef);
+    }
+
+    [Fact]
+    public void Should_RechazarComponentes_ConOrdenDuplicado()
+    {
+        var ex = Assert.Throws<BusinessRuleException>(() => Crear().ReemplazarComponentes([C(1, 1, null), C(1, 1, null)]));
+        Assert.Equal("PRODUCTO_AW_COMPONENTE_ORDEN_DUPLICADO", ex.Code);
+    }
+
+    [Fact]
+    public void Should_AplicarClasificacion_YRechazarExcesoDeLongitud()
+    {
+        var p = Crear();
+        p.AplicarClasificacion("VT6", "Vidrio templado claro", "VTE", "370", "VIDRIO TEMPLADO CONTROL SOLAR");
+        Assert.Equal(("VT6", "Vidrio templado claro", "VTE"), (p.CodigoModelo, p.Grupo, p.Tipo));
+        Assert.Equal(("370", "VIDRIO TEMPLADO CONTROL SOLAR"), (p.Wgr, p.WgrDescripcion));
+        Assert.Throws<BusinessRuleException>(() => p.AplicarClasificacion(null, null, null, new string('x', 11)));
+        Assert.Throws<BusinessRuleException>(() => p.AplicarClasificacion(new string('x', 51), null, null));
+    }
 }

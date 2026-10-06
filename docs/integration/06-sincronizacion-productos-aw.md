@@ -8,6 +8,8 @@
 
 ---
 
+> Sandbox local (sin Hybrid Connection): ver [07](07-sandbox-aw.md).
+
 ## 0. Limitación explícita: fixture ≠ integración real
 
 **Los fixtures de este contrato son sintéticos y NO demuestran integración real con A+W.** Prueban la forma esperada y la política de sincronización del lado ERP, nada más. La lectura real de productos contra A+W depende de:
@@ -43,10 +45,13 @@ Los ejemplos y fixtures usan datos 100 % sintéticos (`DEMO-P001`, `PRODUCTO DEM
 
 | Campo | Origen A+W | Dueño | Política |
 |---|---|---|---|
-| `ReferenciaExterna` | `BA_PRODUKTE.BA_PRODUKT` (entero, PK con 221 FKs). **No** `BA_MCODE`: es un código de familia y se repite (728 códigos en 3,223 productos). | A+W | Inmutable; llave. |
+| `ReferenciaExterna` | `BA_PRODUKTE.BA_PRODUKT` (entero, PK con 221 FKs). **No** `BA_MCODE`: es el código de modelo/marca (no la familia) y se repite (728 códigos en 3,223 productos). | A+W | Inmutable; llave. |
+| `Tipo` / `Grupo` | `BA_PRODUKTART` → `BA_PRODUKTGRP` (catálogos `KA_PRODUKTART`/`KA_PRODUKTGRP`, el grupo depende del tipo). **Es la familia de negocio.** | A+W | Se actualiza desde A+W; filtros `tipo`, `grupo` en el listado. |
+| `Wgr` / `WgrDescripcion` | `BA_WGR` + `KA_WGR.BEZ` (grupo de mercancía jerárquico: `3**` nivel 1, `37*` nivel 2, `370` hoja) | A+W | Filtro `wgr` exacto o por prefijo con `*`. |
+| `CodigoModelo` | `BA_MCODE` (marca/modelo, repetido entre productos) | A+W | Solo informativo. |
 | `Descripcion` | `BA_PRODUKTE_BEZ.BA_BEZ1`+`BA_BEZ2`+`BA_BEZ3` (idioma 0, unidas con espacio); respaldo `BA_MCODE` | A+W | Se actualiza desde A+W (máx. 254). |
 | `UnidadMedida` / `UnidadMedidaId` | `BA_PRODUKTE_BEZ.BA_MENGENEINH` (`m²`, `Pza`, `m lin.`, `Kg`, `m³`, `ltr`, `m`; `<indf>` = sin dato) | A+W + catálogo ERP | Se normaliza (`m²`→`M2`, `m lin.`→`M`, `ltr`→`L`, `m³`→`M3`, `<indf>`→null; **no** `ML`, que en el seed es mililitro) y se resuelve contra `UnidadMedida` (ADR-0046) y `MapeoUnidadSat`; `M2` (dimensión Área) y `M3` (Volumen, 1 m³ = 1000 L) existen en el catálogo; ver §6. |
-| Variantes: `alto_mm`, `ancho_mm`, `espesor_mm`, `composicion` | Una variante `BASE` por producto: espesor `BA_MASS_DICKE`, alto/ancho `BA_STD_HOEHE`/`BA_STD_BREITE` (0 = sin dato → nulo), composición: capas de `BA_STUKL` nivel 1 **con espesor** | A+W | Se actualizan desde A+W. Nulo != 0. A+W casi no modela variantes (`BA_STUKL.VARIANTE` en 11 filas): cada espesor es un producto distinto. |
+| Variantes: `alto_mm`, `ancho_mm`, `espesor_mm`, `composicion` | **Hoja entera:** una variante por medida de `SYSADM.BA_LAGMA` (`BA_BREITE` = ancho, `BA_HOEHE` = alto; solo ancho y alto > 0, sin duplicados), clave `ANCHOxALTO` (`1800x2600`). **Sin medidas en `BA_LAGMA`:** una variante `BASE` (alto/ancho de `BA_STD_HOEHE`/`BA_STD_BREITE`, 0 = sin dato → nulo). En ambos casos: espesor `BA_MASS_DICKE`; composición: capas de `BA_STUKL` nivel 1 **con espesor** | A+W | Se actualizan desde A+W. Nulo != 0. `BA_STD_*` viene en 0 para hoja entera; las medidas reales viven en `BA_LAGMA` (1,780 filas, 678 productos; `100010` tiene 21). Verificado contra el sandbox AW_FULL (2026-10-02, solo lectura). |
 | `ClaveProdServSat`, `ClaveUnidadSat`, `ObjetoImp`, tasas | No existen en A+W | Operador / Facturación | **Nunca se sobrescriben** desde A+W si el operador ya los completó. |
 | Datos de aduana (`FraccionArancelaria`, `UnidadAduana`, `PesoUnitarioKg`) | No existen en A+W (`KA_ZOLLNR_PROD` vacía). `BA_MASS_GEWICHT` es **kg/m²**, no peso unitario: no se sincroniza | Operador | Igual que fiscales: lo capturado no se pisa. |
 | `Estatus` / `FechaBaja` | `KZ_GESPERRT <> 0` = baja (criterio **por confirmar con Millet**; valores 0, 1 y 2). A+W no trae fecha de baja | Sincronización | Ver §7. |
@@ -58,7 +63,7 @@ Las medidas (`alto_mm`, `ancho_mm`, `espesor_mm`) son nullables: **nulo signific
 
 ## 5. Variantes y productos tratados
 
-- **Dos medidas del mismo código** = 1 `ProductoAw` con 2 `ProductoAwVariante`.
+- **Dos medidas del mismo código** = 1 `ProductoAw` con 2 `ProductoAwVariante` (hoja entera: una por fila de `BA_LAGMA`, clave `ANCHOxALTO`). **Límite conocido:** `AplicarVariantes` solo agrega/actualiza, nunca elimina; un producto ya sincronizado con la variante `BASE` la conserva junto a las nuevas medidas (aún no hay sincronización real; limpiar a mano o agregar baja de variantes si ocurre).
 - **Productos tratados** (templado, laminado) son productos con **códigos A+W distintos**; no hay herencia ni producto base. La composición es un **texto resumido de las capas de nivel 1 de `BA_STUKL` con espesor** (`6+0.89+6`, `3+12+3`); solo cuentan las capas con espesor (`BA_MASS_DICKE` > 0); las capas de proceso (`Proceso`, p. ej. canteado) y los kits (`Producto`) sin espesor se ignoran y esos productos quedan con composición nula. Solo 2,144 de 6,799 productos tienen lista de materiales; el resto queda con composición nula. `BA_PRODUKT_AUFBAU` **no** se usa: son cadenas por línea de documento, sin vínculo con el producto.
 
 ## 6. Unidad desconocida
@@ -153,6 +158,7 @@ El test `ProductosFixturesTests` valida solo la **forma** de los fixtures; el co
 
 - **O1A-AW-MAP:** esquema verificado (ver §0). Pendientes de Millet: tipos de `BA_PRODUKTART` que entran al catálogo (`TiposExcluidos`), significado de `KZ_GESPERRT`, si `BA_STUKL` es la composición oficial, y quién resuelve conflictos con productos manuales. Todo en `Documentos/ADM07_Preguntas_para_Eliam.md`.
 - **O1A-AW-INT:** lectura real vía Hybrid Connection.
+- **Pendientes de la revisión del documento de códigos del cliente (2026-10-02):** (1) árbol de piezas de insulados/laminados (código y descripción por línea de `BA_STUKL`, hoy solo se guarda el texto de espesores): requiere almacenar las líneas (migración), confirmar con Millet; (2) la fila "10MM CLARO 1100×2100" de su captura no está en `BA_LAGMA`: preguntar de dónde sale; (3) designación "H.E." (`BA_LAGMA.BA_BEZ`) vs descripción del maestro (`BEZ`); (4) existencias por lugar de almacenaje no se sincronizan (no-alcance).
 - Confirmar con Millet: criterio exacto de baja en A+W, catálogo de unidades A+W y su equivalencia SAT, si un mismo código puede llegar con medidas distintas por lote.
 - **PLATFORM-TODO(<AwProductosHybridConnection>):** el lector SQL (`AwProductosSqlOrigen`, solo `SELECT`, SQL Server 2016) **está construido y apagado por defecto**: `IntegracionesAw:Productos:OrigenHabilitado=true`, `Origen=Sql` y `ConnectionStrings:AwProductosDb` con TLS verificado (`Encrypt=True`, sin `TrustServerCertificate`). Falta O1A-AW-INT / A3 (ruta privada Azure → A+W y certificado TLS válido) y A4 (ventana para un barrido real). Con `Origen=Simulado` sigue el origen simulado (`AwProductosOrigenSimulado`, JSON con formato de fixtures). **Verificado hasta hoy:** las consultas del lector se ejecutaron en solo lectura contra `MILMAIN` (muestra acotada) y los tests unitarios cubren el mapeo; **no** se ha corrido un barrido real completo ni el adaptador de extremo a extremo. Filtro de tipos configurable: `TiposExcluidos` (decisión pendiente de Millet).
 
