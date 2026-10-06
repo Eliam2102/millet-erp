@@ -527,6 +527,33 @@ else
         Millet.Integraciones.Aw.Infrastructure.Stubs.LocalFilesystemBlobStub>();
 }
 
+// === Adjuntos genéricos (F1-ADM-11 G1.2): puerto de blob propio ===
+// PLATFORM-TODO(<UnificarBlobPorts>): conviven con los tres IAlmacenarBlobPort legados (Compras,
+// Almacén, Integraciones.Aw); migrarlos a IBlobStoragePort y retirar los duplicados.
+// Connection string: `Adjuntos:BlobStorage` con respaldo en la de Compras OC; ninguna = filesystem local.
+builder.Services
+    .AddOptions<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.SectionName));
+var adjuntosBlobConnString = builder.Configuration
+    .GetSection(Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.SectionName)
+    .GetValue<string>(nameof(Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.ConnectionString));
+if (string.IsNullOrWhiteSpace(adjuntosBlobConnString)) adjuntosBlobConnString = blobConnString;
+if (!string.IsNullOrWhiteSpace(adjuntosBlobConnString))
+{
+    // Cliente propio (no el compartido de DI) para respetar una cuenta distinta a la de Compras.
+    builder.Services.AddSingleton<Millet.SharedKernel.Application.Blob.IBlobStoragePort>(sp =>
+        new Millet.Compartido.Infrastructure.Blob.AzureBlobStoragePort(
+            new Azure.Storage.Blobs.BlobServiceClient(adjuntosBlobConnString),
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>>()));
+}
+else
+{
+    builder.Services.AddSingleton<
+        Millet.SharedKernel.Application.Blob.IBlobStoragePort,
+        Millet.Compartido.Infrastructure.Blob.LocalFilesystemBlobStoragePort>();
+}
+
 // === Compras OC: PDF real con QuestPDF (F6-PR3) ===
 // Reemplaza LocalPdfOrdenCompraStub por QuestPdfOrdenCompraGenerator con
 // layout institucional. El stub se conserva en el assembly para fixtures
