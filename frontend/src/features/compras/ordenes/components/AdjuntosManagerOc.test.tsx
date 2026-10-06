@@ -157,7 +157,7 @@ describe('<AdjuntosManagerOc> — pruebas de flujo y rechazos (F1-ADM-11, D3)', 
     mswServer.use(
       http.post('*/api/v1/compras/ordenes/:ocId/adjuntos', () => {
         uploadInvocado = true;
-        return HttpResponse.json({ adjuntoId: 'adj-new', blobUrl: 'blob://url' }, { status: 201 });
+        return HttpResponse.json({ adjuntoId: 'adj-new' }, { status: 201 });
       }),
     );
 
@@ -263,7 +263,6 @@ describe('<AdjuntosManagerOc> — pruebas de flujo y rechazos (F1-ADM-11, D3)', 
           id: 'adj-100',
           tipoDocumentoId: tipoCotizacionId,
           nombreArchivo: 'presupuesto_proveedor.pdf',
-          blobUrl: 'memory://blobs/adj-100_presupuesto_proveedor.pdf',
           contentType: 'application/pdf',
           tamanoBytes: 54321,
           fechaCarga: '2026-06-10T12:00:00Z',

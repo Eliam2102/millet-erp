@@ -65,8 +65,6 @@ export interface AdjuntoItem {
   id: string;
   tipoDocumentoId: string;
   nombreArchivo: string;
-  /** Solo OC (legacy). El servicio genérico NO expone blobUrl. */
-  blobUrl?: string;
   contentType: string;
   tamanoBytes: number;
   fechaCarga: string;
@@ -156,8 +154,7 @@ export interface AdjuntosManagerProps<
    * que se baja el CONTENIDO del adjunto (stream por backend, ADR-0024).
    * El manager lo consume vía <c>useContenidoAdjunto</c> y usa el object
    * URL resultante para el preview inline y el enlace de descarga. Si no
-   * se pasa, se cae al <c>blobUrl</c> crudo (legacy; <c>file://</c> en dev
-   * no es navegable). El caller OC inyecta
+   * se pasa, no hay preview ni descarga (los DTO ya no traen URL de blob). El caller OC inyecta
    * <c>/api/v1/compras/ordenes/{id}/adjuntos/{adjuntoId}/contenido</c>.
    */
   resolverContenidoUrl?: (adjunto: TItem) => string | null;
@@ -568,7 +565,7 @@ export function AdjuntosManager<
 
 interface AdjuntoFilaProps {
   adjunto: AdjuntoItem;
-  /** Endpoint autenticado del contenido; null = usar blobUrl crudo (legacy). */
+  /** Endpoint autenticado del contenido; null = sin preview ni descarga. */
   contenidoEndpoint: string | null;
   tipoDescripcion: string | null;
   tipoClave: string | null;
@@ -588,7 +585,7 @@ interface AdjuntoFilaProps {
  * poder llamar <c>useContenidoAdjunto</c> por adjunto sin violar las
  * reglas de hooks. Con <c>contenidoEndpoint</c>, baja el contenido por el
  * backend y usa el object URL (<c>blob:</c>) para el preview inline y la
- * descarga; nunca el blobUrl crudo (<c>file://</c> en dev no es navegable).
+ * descarga; los DTO no traen URL de blob.
  */
 function AdjuntoFila({
   adjunto: a,
@@ -614,9 +611,8 @@ function AdjuntoFila({
     return () => URL.revokeObjectURL(contenidoUrl);
   }, [contenidoUrl]);
   const isLoading = contenidoQuery.isLoading;
-  // Con resolver: object URL (o null mientras carga). Sin resolver:
-  // blobUrl crudo (legacy; https:// en prod, file:// en dev → no navegable).
-  const urlEfectiva = contenidoEndpoint ? contenidoUrl : (a.blobUrl ?? null);
+  // Object URL del contenido (null mientras carga o sin resolver).
+  const urlEfectiva = contenidoUrl;
 
   return (
     <li
