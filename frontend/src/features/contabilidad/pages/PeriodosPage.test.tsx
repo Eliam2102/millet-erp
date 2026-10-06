@@ -1,0 +1,137 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { mswServer } from '@/test/mocks/server';
+import { createQueryWrapper } from '@/test/test-query-client';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { PeriodosPage } from './PeriodosPage';
+
+const API = '*/api/v1/contabilidad/periodos';
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function periodo(numero: number, estado: string) {
+  const mes = String(Math.min(numero, 12)).padStart(2, '0');
+  return {
+    id: `p${numero}`, ejercicioId: 'e1', anio: 2026, numero, nombre: numero === 13 ? 'Ajustes de auditoría' : MESES[numero - 1],
+    fechaInicio: numero === 13 ? '2026-12-31' : `2026-${mes}-01`, fechaFin: numero === 13 ? '2026-12-31' : `2026-${mes}-28`,
+    estado, esAjuste: numero === 13, abiertoPor: estado === 'NoAbierto' ? null : 'fix.contador', abiertoEn: estado === 'NoAbierto' ? null : '2026-01-02T15:00:00Z',
+    cerradoPor: estado === 'Cerrado' ? 'fix.contador' : null, cerradoEn: estado === 'Cerrado' ? '2026-02-05T18:00:00Z' : null,
+    reabiertoPor: null, reabiertoEn: null, version: 3,
+  };
+}
+
+// Enero cerrado, febrero abierto, resto sin abrir.
+const EJERCICIO = {
+  id: 'e1', anio: 2026, version: 5,
+  periodos: Array.from({ length: 13 }, (_, i) => periodo(i + 1, i === 0 ? 'Cerrado' : i === 1 ? 'Abierto' : 'NoAbierto')),
+};
+
+function servidor(peticiones: unknown[] = []) {
+  mswServer.use(
+    http.get(`${API}/ejercicios`, () => HttpResponse.json([EJERCICIO])),
+    http.get(`${API}/:id/bitacora`, () => HttpResponse.json([])),
+    http.post(`${API}/:id/:accion`, async ({ request, params }) => {
+      peticiones.push({ id: params.id, accion: params.accion, body: await request.json(), ifMatch: request.headers.get('If-Match'), idem: !!request.headers.get('Idempotency-Key') });
+      return HttpResponse.json(periodo(2, 'Cerrado'));
+    }),
+  );
+}
+
+function conPermisos(...permisos: string[]) {
+  useAuthStore.setState({ permisos: [PermisosCanonicos.ContabilidadPeriodoLeer, ...permisos] });
+}
+
+async function fila(nombre: string) {
+  const celda = await screen.findByText(nombre);
+  return within(celda.closest('tr')!);
+}
+
+afterEach(() => useAuthStore.setState({ permisos: [] }));
+
+describe('<PeriodosPage>', () => {
+  it('solo lectura: muestra los 13 periodos con su estado y sin acciones', async () => {
+    servidor();
+    conPermisos();
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('13 · Ajustes de auditoría')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(14);
+    expect((await fila('1 · Enero')).getByText('Cerrado')).toBeInTheDocument();
+    expect((await fila('2 · Febrero')).getByText('Abierto')).toBeInTheDocument();
+    expect((await fila('3 · Marzo')).getByText('No abierto')).toBeInTheDocument();
+    for (const nombre of ['Abrir', 'Cerrar', 'Reabrir']) expect(screen.queryByRole('button', { name: nombre })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Nuevo ejercicio/ })).not.toBeInTheDocument();
+  });
+
+  it('cada botón aparece solo con su permiso y según el estado del periodo', async () => {
+    servidor();
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoCerrar);
+    const { unmount } = render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    expect((await fila('2 · Febrero')).getByRole('button', { name: 'Cerrar' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Cerrar' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Reabrir' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir' })).not.toBeInTheDocument();
+    unmount();
+
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoReabrir, PermisosCanonicos.ContabilidadPeriodoAdministrar);
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    expect((await fila('1 · Enero')).getByRole('button', { name: 'Reabrir' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cerrar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Nuevo ejercicio/ })).toBeInTheDocument();
+    expect((await fila('3 · Marzo')).getByRole('button', { name: 'Abrir' })).toBeEnabled();
+    // El 13 no se abre mientras diciembre no esté cerrado; el botón explica por qué.
+    expect((await fila('13 · Ajustes de auditoría')).getByRole('button', { name: 'Abrir' })).toHaveAttribute('title', expect.stringContaining('después de cerrar diciembre'));
+  });
+
+  it('cerrar exige motivo de al menos 10 caracteres y envía If-Match e Idempotency-Key', async () => {
+    const peticiones: unknown[] = [];
+    servidor(peticiones);
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoCerrar);
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    fireEvent.click((await fila('2 · Febrero')).getByRole('button', { name: 'Cerrar' }));
+    const dialogo = await screen.findByRole('dialog');
+    const confirmar = within(dialogo).getByRole('button', { name: 'Cerrar periodo' });
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'corto' } });
+    expect(confirmar).toBeDisabled();
+    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'Cierre mensual de febrero' } });
+    expect(confirmar).toBeEnabled();
+    fireEvent.click(confirmar);
+    await waitFor(() => expect(peticiones).toEqual([
+      { id: 'p2', accion: 'cerrar', body: { motivo: 'Cierre mensual de febrero' }, ifMatch: '"3"', idem: true },
+    ]));
+  });
+
+  it('reabrir avisa que no reabre el inventario y exige motivo', async () => {
+    servidor();
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoReabrir);
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    fireEvent.click((await fila('1 · Enero')).getByRole('button', { name: 'Reabrir' }));
+    const dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByRole('note')).toHaveTextContent('Reabrir la contabilidad no reabre el inventario');
+    expect(within(dialogo).getByRole('button', { name: 'Reabrir periodo' })).toBeDisabled();
+  });
+
+  it('409 por versión: pide recargar; 422: muestra el mensaje del servidor', async () => {
+    servidor();
+    mswServer.use(http.post(`${API}/:id/cerrar`, () => HttpResponse.json(
+      { type: 'x', title: 'Conflicto', status: 409, code: 'CONCURRENCY_CONFLICT' }, { status: 409 },
+    )));
+    conPermisos(PermisosCanonicos.ContabilidadPeriodoCerrar);
+    render(<PeriodosPage />, { wrapper: createQueryWrapper() });
+    fireEvent.click((await fila('2 · Febrero')).getByRole('button', { name: 'Cerrar' }));
+    let dialogo = await screen.findByRole('dialog');
+    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'Cierre mensual de febrero' } });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar periodo' }));
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent('Otro usuario modificó este periodo; recargue');
+    expect(within(dialogo).getByRole('button', { name: 'Recargar' })).toBeInTheDocument();
+
+    mswServer.use(http.post(`${API}/:id/cerrar`, () => HttpResponse.json(
+      { type: 'x', title: 'Regla', status: 422, code: 'CONTAB_PERIODO_ANTERIOR_ABIERTO', detail: 'Cierre primero el periodo 2026-01 (Enero): los periodos se cierran en orden.' },
+      { status: 422 },
+    )));
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar periodo' }));
+    dialogo = screen.getByRole('dialog');
+    await waitFor(() => expect(within(dialogo).getByRole('alert')).toHaveTextContent('los periodos se cierran en orden'));
+  });
+});
