@@ -213,7 +213,9 @@ public sealed class RegistrarPagoProveedorHandler
                     Moneda: movimiento.Moneda,
                     FechaPago: command.FechaValor,
                     MetodoPago: pasivo.MetodoPago,
-                    ReferenciaBancaria: movimiento.ReferenciaBancaria), cancellationToken);
+                    ReferenciaBancaria: movimiento.ReferenciaBancaria,
+                    CuentaBancariaId: movimiento.CuentaBancariaId,
+                    TipoCambio: pasivo.TipoCambio), cancellationToken);
             }
         }
 
