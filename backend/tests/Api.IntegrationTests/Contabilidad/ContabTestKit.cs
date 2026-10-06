@@ -161,6 +161,27 @@ internal static class ContabTestKit
         return v is null or DBNull ? default : (T)v;
     }
 
+    /// <summary>Verifica que cada fila FIX tenga una sola creación central, atribuida y con snapshot de negocio.</summary>
+    public static async Task AssertCreacionesAuditadasAsync(IServiceProvider sp, string tabla, string entidad,
+        string condicion, string campoSnapshot, int esperado, string actorTipo = "usuario")
+    {
+        var filtro = $"""
+            FROM core.audit_log a JOIN contabilidad.{tabla} r
+                ON a.entidad_id = r.id AND a.empresa_id = r.empresa_id
+            WHERE {condicion} AND a.modulo = 'Contabilidad' AND a.entidad = '{entidad}' AND a.operacion = 'crear'
+            """;
+        Assert.Equal(esperado, await Escalar<long>(sp, $"SELECT count(*) {filtro}"));
+        Assert.Equal(esperado, await Escalar<long>(sp, $"""
+            SELECT count(*) {filtro}
+                AND a.empresa_id = '{EmpresaBootstrapId}' AND a.timestamp IS NOT NULL
+                AND a.correlation_id IS NOT NULL AND a.actor_tipo = '{actorTipo}'
+                AND nullif(a.actor_nombre, '') IS NOT NULL
+                AND jsonb_typeof(a.cambios->'snapshot') = 'object'
+                AND a.cambios->'snapshot' ? '{campoSnapshot}'
+                {(actorTipo == "usuario" ? "AND a.usuario_id IS NOT NULL" : "")}
+            """));
+    }
+
     /// <summary>Borra todo lo creado por una prueba (por prefijo de código y fuente), de hojas a raíz (FK Restrict).</summary>
     public static async Task Limpiar(IServiceProvider sp, string sufijo)
     {

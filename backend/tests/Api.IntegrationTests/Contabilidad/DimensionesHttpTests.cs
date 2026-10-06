@@ -297,6 +297,8 @@ public class DimensionesHttpTests(WebApplicationFactory<Program> factory) : ICla
             var conf = await e.Admin.PostAsJsonAsync($"{Base}/movimientos-prueba", Mov(e, e.SucursalA, hoy, dim2: e.Dim2A));
             Assert.Equal(HttpStatusCode.Created, conf.StatusCode);
             var movId = Id(await Json(conf));
+            await AssertCreacionesAuditadasAsync(factory.Services, "reglas_dimension_uso", "ReglaDimensionUso",
+                $"r.regla_id = '{Id(r1)}' AND r.referencia = '{movId}'", "FechaContable", 1);
 
             // Una regla que ya validó un movimiento no se edita ni se borra: se cierra y se crea otra (más estricta) a partir de mañana.
             var usada = await Json(await e.Admin.GetAsync($"{Base}/reglas-dimension/{Id(r1)}"));

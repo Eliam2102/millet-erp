@@ -45,7 +45,7 @@ Unitarias: `backend/tests/Contabilidad.UnitTests/PeriodosTests.cs`. Frontend:
 |---|---|
 | Unitarias Contabilidad | 167/167, sin fallos ni pruebas omitidas; `dotnet test backend/tests/Contabilidad.UnitTests/Millet.Contabilidad.UnitTests.csproj --no-build --no-restore --nologo` |
 | Integración HTTP con PostgreSQL real | 60/60 de Contabilidad, sin fallos ni omitidas, duración 3 min 59 s; `./tools/validate-integration-isolated.sh --filter 'FullyQualifiedName~Contabilidad'` |
-| Guard de cobertura de auditoría | Falla por 4 entidades anteriores de CON-01/02: `CuentaContableOrigen`, `CuentaContableUso`, `ImportacionCatalogo`, `ReglaDimensionUso`. En ese corte, las 3 entidades nuevas de periodos declaraban `IAuditable`; ahora solo ejercicio y periodo son entidades persistidas |
+| Guard de cobertura de auditoría | En ese corte fallaba por 4 entidades anteriores de CON-01/02: `CuentaContableOrigen`, `CuentaContableUso`, `ImportacionCatalogo`, `ReglaDimensionUso`. Ver la corrección de cobertura al final de este documento |
 | Vitest de pantalla de periodos y permisos | 14/14, con `--testTimeout=15000`; incluye respuesta perdida/reintento con la misma clave, comando corregido con nueva clave y 403 en reapertura |
 | TypeScript, lint y build frontend | Correctos; lint sin errores, 10 advertencias previas en Administración. Build con advertencias previas de fuentes CSS y tamaño de chunks |
 | Build backend Debug | Solución compilada con 0 advertencias y 0 errores tras corregir CA1861 en las regresiones nuevas |
@@ -54,7 +54,7 @@ Unitarias: `backend/tests/Contabilidad.UnitTests/PeriodosTests.cs`. Frontend:
 
 El gate creó PostgreSQL temporal, aplicó los 13 contextos del manifiesto y retiró el contenedor al terminar. El filtro
 solo ejecutó Contabilidad en `Api.IntegrationTests`; Compras e Integraciones A+W no tenían coincidencias. No se acredita
-la suite de integración completa. El guard de auditoría se ejecutó aparte y conserva el fallo anterior indicado arriba.
+la suite de integración completa. En ese corte, el guard de auditoría se ejecutó aparte con el fallo indicado arriba.
 
 ## Migraciones y datos
 
@@ -171,7 +171,7 @@ Validación de esta corrección (2026-10-06):
 | API local después de reinicio | `/health/ready`: Healthy |
 
 El filtro de integración no acredita la suite completa de todos los módulos. Se conserva pendiente la inspección
-visual autenticada y la aceptación UAT, así como el fallo previo del guard de auditoría de CON-01/02.
+visual autenticada y la aceptación UAT. El fallo del guard registrado en ese corte se aborda en la corrección de cobertura posterior.
 
 La migración se aplicó a la base local con respaldo previo en `/tmp/f1-con-03-before-auditoria-central.dump`.
 La tabla específica ya no existe y se comprobaron 29 transiciones funcionales en la central. Una compilación
@@ -198,3 +198,30 @@ en una vista aislada. Esta comprobación no acredita acceso Entra ni aceptación
 La comprobación adicional `npm run typecheck:test` no pasa: reporta TS2345 en `src/lib/nav.test.ts:348`
 (string frente a la unión de permisos). Ese archivo y `nav.ts` no tienen cambios en esta corrección.
 El error no está en las pruebas nuevas del historial; el build de producción y las 17 pruebas ejecutadas sí pasan.
+
+## Corrección de cobertura de auditoría CON-01/02
+
+`CuentaContableOrigen`, `ImportacionCatalogo`, `CuentaContableUso` y `ReglaDimensionUso` declaran `IAuditable`.
+Son registros de negocio: procedencia del catálogo, lotes aplicados y usos que condicionan la edición de cuentas
+y reglas. No corresponde excluirlos como outbox o caché mediante `INotAudited` (ADR-0008).
+
+Se reutiliza `AuditSaveChangesInterceptor`: sus próximos cambios generan snapshot/diff en `core.audit_log`,
+con empresa, fecha, actor y correlación, dentro del mismo `SaveChanges` que guarda la entidad. No se modifica
+el esquema ni se crea otra migración. Esta corrección no reconstruye auditoría de operaciones anteriores.
+
+Se amplían las pruebas HTTP de importación y confirmación de movimiento, y la del comando interno idempotente
+de uso de cuenta. Comprueban registros centrales con snapshot de negocio y empresa correcta, actor usuario
+para requests HTTP y actor sistema para el comando ejecutado fuera de un request. Repetir el uso no duplica
+la fila de negocio ni su creación de auditoría.
+
+Validación de cobertura (2026-10-06):
+
+| Comprobación | Resultado |
+|---|---|
+| Unitarias Contabilidad | 167/167, sin fallos ni omitidas |
+| Integración con PostgreSQL temporal (13 contextos migrados) | 74/74 en `Api.IntegrationTests`, sin fallos ni omitidas, 4 min 1 s; `./tools/validate-integration-isolated.sh --filter 'FullyQualifiedName~Contabilidad\|FullyQualifiedName~AuditoriaEndpointsTests\|FullyQualifiedName~AuditableCoverageGuardTest'` |
+| Guard de cobertura de auditoría | Pasa (incluido en las 74); ya no reporta las 4 entidades de CON-01/02 |
+| `git diff --check` | Sin errores |
+
+Compras e Integraciones A+W no tenían pruebas que coincidieran con el filtro. No se acredita la suite de integración
+completa de todos los módulos.
