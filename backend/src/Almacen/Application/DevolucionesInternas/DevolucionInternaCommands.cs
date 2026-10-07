@@ -247,7 +247,9 @@ public sealed class AplicarDevolucionInternaHandler
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
 
-        // 6. Evento.
+        // 6. Evento (G1.6: almacén/sucursal del sub-almacén destino).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, request.SubAlmacenDestinoId, cancellationToken);
         await _events.PublishAsync(new DevolucionInternaAplicadaIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: DateTimeOffset.UtcNow,
@@ -257,7 +259,9 @@ public sealed class AplicarDevolucionInternaHandler
             SubAlmacenDestinoId: request.SubAlmacenDestinoId,
             EstadoMaterial: request.EstadoMaterial,
             CostoTotalRevertidoMxn: Math.Round(costoTotal, 2),
-            Lineas: payload), cancellationToken);
+            Lineas: payload,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

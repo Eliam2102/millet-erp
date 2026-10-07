@@ -30,6 +30,7 @@ import { Route as AppComprasAyudaRouteImport } from './routes/_app/compras/ayuda
 import { Route as AppContabilidadDimensionesRouteImport } from './routes/_app/contabilidad/dimensiones';
 import { Route as AppContabilidadImportacionRouteImport } from './routes/_app/contabilidad/importacion';
 import { Route as AppContabilidadMovimientosPruebaRouteImport } from './routes/_app/contabilidad/movimientos-prueba';
+import { Route as AppContabilidadPeriodosRouteImport } from './routes/_app/contabilidad/periodos';
 import { Route as AppCxcIndexRouteImport } from './routes/_app/cxc/index';
 import { Route as AppCxpIndexRouteImport } from './routes/_app/cxp/index';
 import { Route as AppCxpAnticiposRouteImport } from './routes/_app/cxp/anticipos';
@@ -278,6 +279,11 @@ const AppContabilidadMovimientosPruebaRoute =
     path: '/contabilidad/movimientos-prueba',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadPeriodosRoute = AppContabilidadPeriodosRouteImport.update({
+  id: '/contabilidad/periodos',
+  path: '/contabilidad/periodos',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppCxcIndexRoute = AppCxcIndexRouteImport.update({
   id: '/cxc/',
   path: '/cxc/',
@@ -1053,6 +1059,7 @@ export interface FileRoutesByFullPath {
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
+  '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
   '/cxp/revision': typeof AppCxpRevisionRoute;
@@ -1212,6 +1219,7 @@ export interface FileRoutesByTo {
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
+  '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/cxp/cfdis': typeof AppCxpCfdisRoute;
   '/cxp/revision': typeof AppCxpRevisionRoute;
@@ -1373,6 +1381,7 @@ export interface FileRoutesById {
   '/_app/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
   '/_app/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
   '/_app/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
+  '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/_app/cxp/anticipos': typeof AppCxpAnticiposRoute;
   '/_app/cxp/cfdis': typeof AppCxpCfdisRoute;
   '/_app/cxp/revision': typeof AppCxpRevisionRoute;
@@ -1534,6 +1543,7 @@ export interface FileRouteTypes {
     | '/contabilidad/dimensiones'
     | '/contabilidad/importacion'
     | '/contabilidad/movimientos-prueba'
+    | '/contabilidad/periodos'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
     | '/cxp/revision'
@@ -1693,6 +1703,7 @@ export interface FileRouteTypes {
     | '/contabilidad/dimensiones'
     | '/contabilidad/importacion'
     | '/contabilidad/movimientos-prueba'
+    | '/contabilidad/periodos'
     | '/cxp/anticipos'
     | '/cxp/cfdis'
     | '/cxp/revision'
@@ -1853,6 +1864,7 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/dimensiones'
     | '/_app/contabilidad/importacion'
     | '/_app/contabilidad/movimientos-prueba'
+    | '/_app/contabilidad/periodos'
     | '/_app/cxp/anticipos'
     | '/_app/cxp/cfdis'
     | '/_app/cxp/revision'
@@ -2148,6 +2160,13 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/movimientos-prueba';
       fullPath: '/contabilidad/movimientos-prueba';
       preLoaderRoute: typeof AppContabilidadMovimientosPruebaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/periodos': {
+      id: '/_app/contabilidad/periodos';
+      path: '/contabilidad/periodos';
+      fullPath: '/contabilidad/periodos';
+      preLoaderRoute: typeof AppContabilidadPeriodosRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxc/': {
@@ -3145,6 +3164,7 @@ interface AppRouteChildren {
   AppContabilidadDimensionesRoute: typeof AppContabilidadDimensionesRoute;
   AppContabilidadImportacionRoute: typeof AppContabilidadImportacionRoute;
   AppContabilidadMovimientosPruebaRoute: typeof AppContabilidadMovimientosPruebaRoute;
+  AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
   AppCxpAnticiposRoute: typeof AppCxpAnticiposRoute;
   AppCxpCfdisRoute: typeof AppCxpCfdisRoute;
   AppCxpRevisionRoute: typeof AppCxpRevisionRoute;
@@ -3302,6 +3322,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppContabilidadDimensionesRoute: AppContabilidadDimensionesRoute,
   AppContabilidadImportacionRoute: AppContabilidadImportacionRoute,
   AppContabilidadMovimientosPruebaRoute: AppContabilidadMovimientosPruebaRoute,
+  AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,
   AppCxpAnticiposRoute: AppCxpAnticiposRoute,
   AppCxpCfdisRoute: AppCxpCfdisRoute,
   AppCxpRevisionRoute: AppCxpRevisionRoute,

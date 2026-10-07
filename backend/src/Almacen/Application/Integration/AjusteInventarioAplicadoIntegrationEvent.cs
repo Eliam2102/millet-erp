@@ -21,7 +21,13 @@ public sealed record AjusteInventarioAplicadoIntegrationEvent(
     Guid ConteoId,
     decimal MontoNetoMxn,
     Guid AprobadorId,
-    IReadOnlyList<AjusteInventarioPayload> MovimientosGenerados)
+    IReadOnlyList<AjusteInventarioPayload> MovimientosGenerados,
+    // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
+    // CentroCostoId/Motivo: el conteo no los captura hoy; se publican null.
+    Guid? AlmacenId = null,
+    Guid? SucursalId = null,
+    Guid? CentroCostoId = null,
+    string? Motivo = null)
     : IntegrationEvent("almacen.ajuste_inventario.aplicado.v1", EmpresaId, OcurridoEn);
 
 public sealed record AjusteInventarioPayload(

@@ -178,6 +178,67 @@ export function useDesactivarProveedor() {
   });
 }
 
+export interface ValidarProveedorArgs {
+  id: string;
+  idempotencyKey?: string;
+}
+
+export function useValidarProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, ValidarProveedorArgs>({
+    mutationFn: async ({ id, idempotencyKey }) => {
+      await apiRequest<void>(
+        `/api/v1/datos-maestros/proveedores/${id}/validar`,
+        {
+          method: 'POST',
+          idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
+        },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedor(vars.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedores(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['adjuntos', 'proveedor', vars.id],
+      });
+    },
+  });
+}
+
+export interface RechazarProveedorArgs {
+  id: string;
+  motivo: string;
+  idempotencyKey?: string;
+}
+
+export function useRechazarProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, RechazarProveedorArgs>({
+    mutationFn: async ({ id, motivo, idempotencyKey }) => {
+      await apiRequest<void>(
+        `/api/v1/datos-maestros/proveedores/${id}/rechazar`,
+        {
+          method: 'POST',
+          body: { motivo },
+          idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
+        },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedor(vars.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedores(),
+      });
+    },
+  });
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function buildListarProveedoresPath(

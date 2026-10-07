@@ -48,11 +48,15 @@ const MODULOS: readonly string[] = [
   'Catalogos',
   'DatosMaestros',
   'Compartido',
+  'Contabilidad',
 ];
 
 const ACCIONES: readonly { label: string; value: string }[] = [
   { label: 'Crear', value: 'Crear' },
   { label: 'Actualizar', value: 'Actualizar' },
+  { label: 'Abrir periodo', value: 'abrir' },
+  { label: 'Cerrar periodo', value: 'cerrar' },
+  { label: 'Reabrir periodo', value: 'reabrir' },
   { label: 'Autorización', value: 'autorizacion' },
   { label: 'Desactivar', value: 'Desactivar' },
   { label: 'Reactivar', value: 'Reactivar' },

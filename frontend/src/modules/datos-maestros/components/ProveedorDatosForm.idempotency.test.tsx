@@ -28,6 +28,8 @@ const PROVEEDOR: ProveedorDetalle = {
   email: null,
   telefono: null,
   estatus: 0,
+  validadoEn: null,
+  motivoRechazo: null,
 };
 
 beforeEach(() => {

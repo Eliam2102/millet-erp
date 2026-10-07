@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
@@ -135,9 +136,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 $"No se encontró proveedor con id '{command.ProveedorId}'.");
         if (proveedor.Estatus != EstatusCatalogo.Activo)
         {
-            throw new BusinessRuleException(
-                "PROVEEDOR_INACTIVO",
-                $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus}.");
+            throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus}.");
         }
 
         // Folio atómico.

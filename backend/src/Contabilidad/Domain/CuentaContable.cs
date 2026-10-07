@@ -126,7 +126,7 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
 }
 
 /// <summary>Correspondencia (fuente, código de origen) → cuenta; permite reimportar sin duplicar (§4.2).</summary>
-public sealed class CuentaContableOrigen : BaseEntity, IPerteneceAEmpresa
+public sealed class CuentaContableOrigen : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
     public Guid EmpresaId { get; set; }
     public Guid CuentaId { get; private set; }
@@ -146,7 +146,7 @@ public sealed class CuentaContableOrigen : BaseEntity, IPerteneceAEmpresa
 }
 
 /// <summary>Lote de importación aplicado. La huella (sha256 de filas canónicas) da idempotencia por archivo.</summary>
-public sealed class ImportacionCatalogo : BaseEntity, IPerteneceAEmpresa
+public sealed class ImportacionCatalogo : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
     public Guid EmpresaId { get; set; }
     public string Fuente { get; private set; } = string.Empty;
@@ -181,7 +181,7 @@ public sealed class ImportacionCatalogo : BaseEntity, IPerteneceAEmpresa
 /// Una fila ⇒ la cuenta se considera usada (R8, P4). La escribe solo
 /// <c>RegistrarUsoCuentaCommand</c>; los consumidores nunca escriben aquí.
 /// </summary>
-public sealed class CuentaContableUso : BaseEntity, IPerteneceAEmpresa
+public sealed class CuentaContableUso : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
     public Guid EmpresaId { get; set; }
     public Guid CuentaId { get; private set; }

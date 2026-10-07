@@ -71,6 +71,8 @@ export interface ProveedorItem {
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
   estatus: EstatusCatalogo;
+  validadoEn?: string | null;
+  motivoRechazo?: string | null;
 }
 
 export interface ListarProveedoresResponse {
@@ -93,6 +95,8 @@ export interface ProveedorDetalle {
   email: string | null;
   telefono: string | null;
   estatus: EstatusCatalogo;
+  validadoEn: string | null;
+  motivoRechazo: string | null;
 }
 
 export interface CrearProveedorPayload {

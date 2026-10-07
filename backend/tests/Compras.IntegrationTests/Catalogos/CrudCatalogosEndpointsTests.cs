@@ -226,7 +226,7 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
     }
 
     [Fact]
-    public async Task CrearProveedor_RfcGenerico_RazonSocialDistinta_Queda_Activo()
+    public async Task CrearProveedor_RfcGenerico_RazonSocialDistinta_No_Se_Marca_Duplicado()
     {
         var client = await CreateSuperAdminClientAsync();
         var bodyUno = BuildProveedorBody(rfc: "XEXX010101000")
@@ -240,7 +240,8 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
 
         Assert.Equal(HttpStatusCode.Created, dos.StatusCode);
         var json = await ReadJsonAsync(dos);
-        Assert.Equal((int)EstatusCatalogo.Activo, json.GetProperty("estatus").GetInt32());
+        // G1.1: todo alta nace «En revisión»; el RFC genérico no lo marca como posible duplicado.
+        Assert.Equal((int)EstatusCatalogo.EnRevision, json.GetProperty("estatus").GetInt32());
         Assert.Equal(JsonValueKind.Null, json.GetProperty("posibleDuplicadoDeId").ValueKind);
     }
 
@@ -379,6 +380,7 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
         var crearProv = await client.PostAsJsonAsync(
             "/api/v1/catalogos/proveedores", BuildProveedorBody());
         var proveedorId = (await ReadJsonAsync(crearProv)).GetProperty("id").GetGuid();
+        await ValidarProveedorAsync(proveedorId);
 
         var crearRq = await client.PostAsJsonAsync(
             "/api/v1/compras/requisiciones",
@@ -408,6 +410,7 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
         var crearProv = await client.PostAsJsonAsync(
             "/api/v1/catalogos/proveedores", BuildProveedorBody());
         var proveedorId = (await ReadJsonAsync(crearProv)).GetProperty("id").GetGuid();
+        await ValidarProveedorAsync(proveedorId);
 
         var rqMid = await client.PostAsJsonAsync(
             "/api/v1/compras/requisiciones",
@@ -707,4 +710,17 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
         string? Categoria,
         decimal? PrecioReferenciaMonto,
         string? PrecioReferenciaMoneda);
+
+    /// <summary>
+    /// G1.1: el alta nace «En revisión» y CxP lo valida con su expediente completo. Estas pruebas no tratan del
+    /// expediente, así que aplican la misma transición de dominio (<see cref="Proveedor.Validar"/>) directo en la base.
+    /// </summary>
+    private async Task ValidarProveedorAsync(Guid proveedorId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
+        var proveedor = await db.Proveedores.IgnoreQueryFilters().FirstAsync(p => p.Id == proveedorId);
+        proveedor.Validar(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        await db.SaveChangesAsync();
+    }
 }

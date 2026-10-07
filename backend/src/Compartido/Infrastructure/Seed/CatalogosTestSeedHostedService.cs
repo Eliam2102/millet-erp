@@ -398,7 +398,8 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
     /// 5 proveedores de prueba con Guids deterministas (00000005-0001-...).
     /// Cubren los principales casos: persona moral nacional, persona
     /// física, mayorista, internacional (USD), inactivo (para tests
-    /// negativos).
+    /// negativos). Desde G1.1 un proveedor nuevo nace «En revisión»; los cuatro
+    /// primeros representan proveedores ya validados por CxP y declaran Activo.
     /// </summary>
     public static readonly Proveedor[] TestProveedores =
     [
@@ -408,14 +409,16 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             razonSocial: "Suministros Estándar SA de CV",
             rfc: "SES010101AAA",
             tipoPersona: TipoPersonaProveedor.Moral,
-            condicionesPagoDias: 30),
+            condicionesPagoDias: 30,
+            estatus: EstatusCatalogo.Activo),
         new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000002"),
             clave: "PROV-SVC",
             razonSocial: "Consultoría Técnica del Norte SC",
             rfc: "CTN020202BBB",
             tipoPersona: TipoPersonaProveedor.Moral,
-            condicionesPagoDias: 60),
+            condicionesPagoDias: 60,
+            estatus: EstatusCatalogo.Activo),
         new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000003"),
             clave: "PROV-MAY",
@@ -423,7 +426,8 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             rfc: "DMI030303CCC",
             tipoPersona: TipoPersonaProveedor.Moral,
             condicionesPagoDias: 45,
-            nombreComercial: "DiMa Insumos"),
+            nombreComercial: "DiMa Insumos",
+            estatus: EstatusCatalogo.Activo),
         new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000004"),
             clave: "PROV-INT",
@@ -431,7 +435,8 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             rfc: "GSC040404DDD",
             tipoPersona: TipoPersonaProveedor.Moral,
             condicionesPagoDias: 90,
-            monedaPreferidaId: Guid.Parse("00000001-0000-0000-0000-000000000002")), // USD
+            monedaPreferidaId: Guid.Parse("00000001-0000-0000-0000-000000000002"),
+            estatus: EstatusCatalogo.Activo), // USD
         new Proveedor(
             id: Guid.Parse("00000005-0001-0000-0000-000000000005"),
             clave: "PROV-INA",

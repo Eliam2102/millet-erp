@@ -1,5 +1,8 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 
 namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Configurations;
@@ -58,6 +61,17 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
 
         // TES-PR8 [T-G11]: PUE/PPD copiado del CFDI ligado en la captura.
         builder.Property(e => e.MetodoPago).HasMaxLength(3);
+
+        // G1.6 (P2): desglose de retenciones del CFDI.
+        builder.Property(e => e.RetencionesDetalle)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                s => s == null ? null : JsonSerializer.Deserialize<List<RetencionCfdi>>(s, (JsonSerializerOptions?)null),
+                new ValueComparer<List<RetencionCfdi>?>(
+                    (a, b) => a == null ? b == null : b != null && a.SequenceEqual(b),
+                    v => v == null ? 0 : v.Count,
+                    v => v == null ? null : v.ToList()));
 
         builder.Property(e => e.Subtotal).HasPrecision(18, 4).IsRequired();
         builder.Property(e => e.Descuentos).HasPrecision(18, 4).IsRequired();

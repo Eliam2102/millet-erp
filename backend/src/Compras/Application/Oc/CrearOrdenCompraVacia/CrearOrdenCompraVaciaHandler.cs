@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.Administracion.Application.Series;
@@ -102,9 +103,7 @@ public sealed class CrearOrdenCompraVaciaHandler
 
         if (proveedor.Estatus != EstatusCatalogo.Activo)
         {
-            throw new BusinessRuleException(
-                "PROVEEDOR_INACTIVO",
-                $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede usarse en OCs nuevas.");
+            throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede usarse en OCs nuevas.");
         }
 
         // F-Admin-PR6.2: intentar reservar el folio via el nuevo sistema

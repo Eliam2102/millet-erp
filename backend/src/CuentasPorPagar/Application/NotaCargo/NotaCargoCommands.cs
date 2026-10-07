@@ -149,7 +149,11 @@ public sealed class AutorizarNotaCargoHandler : IRequestHandler<AutorizarNotaCar
             ProveedorId: nota.ProveedorId,
             Monto: nota.Monto,
             FacturaOrigenId: nota.FacturaOrigenId,
-            OcurridoEn: ahora), cancellationToken);
+            OcurridoEn: ahora,
+            // G1.6: la nota de cargo no tiene UUID/subtotal/IVA/retenciones propios → null.
+            Moneda: nota.Moneda,
+            TipoCambio: nota.TipoCambio,
+            SucursalId: nota.SucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return new AutorizarNotaCargoResponse(nota.Id, nota.Estado, nota.Version);

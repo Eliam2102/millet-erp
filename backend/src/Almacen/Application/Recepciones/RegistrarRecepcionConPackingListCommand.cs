@@ -190,7 +190,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
                 MontoTotalMxn: Math.Round(input.Cantidad * costo, 2),
                 // PR4: bin N4 real de la línea (el guard ya garantizó que viene
                 // poblado y es válido para el sub-almacén).
-                UbicacionId: input.UbicacionId!.Value));
+                UbicacionId: input.UbicacionId!.Value,
+                SubAlmacenId: subLinea));
         }
 
         // Invariante 'un movimiento = un sub-almacén': el sub se deriva del bin
@@ -200,6 +201,10 @@ public sealed class RegistrarRecepcionConPackingListHandler
             throw new BusinessRuleException(
                 "RECEPCION_MULTI_SUBALMACEN",
                 "Todas las líneas de la recepción deben ir al mismo sub-almacén; hay bins de sub-almacenes distintos.");
+
+        // G1.6: almacén/sucursal del único sub-almacén derivado (una consulta).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, subsDerivados.Single(), cancellationToken);
 
         // 5. Reservar folio.
         var anio = request.FechaMovimiento.Year;
@@ -232,7 +237,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
             CfdiRecibidoId: null,
             CfdiUuidFiscal: null,
             Observaciones: request.Observaciones,
-            Lineas: payloadLineas), cancellationToken);
+            Lineas: payloadLineas,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

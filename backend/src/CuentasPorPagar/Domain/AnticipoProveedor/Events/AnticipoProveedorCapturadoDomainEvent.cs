@@ -13,4 +13,8 @@ public sealed record AnticipoProveedorCapturadoDomainEvent(
     Guid ProveedorId,
     decimal MontoEntregado,
     Guid? OrdenCompraId,
-    DateTimeOffset OcurridoEn) : INotification;
+    DateTimeOffset OcurridoEn,
+    // G1.6: opcionales al final.
+    Guid? CuentaBancariaId = null,
+    string? Moneda = null,
+    decimal? TipoCambio = null) : INotification;

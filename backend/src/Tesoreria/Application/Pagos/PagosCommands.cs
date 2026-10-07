@@ -6,6 +6,7 @@ using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
+using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.Application.Pagos;
@@ -73,6 +74,7 @@ public sealed class RegistrarPagoProveedorHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
     private readonly IPeriodoContablePort _periodoContable;
+    private readonly IProveedorBancoReadPort _proveedorBancoPort;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
 
@@ -81,11 +83,17 @@ public sealed class RegistrarPagoProveedorHandler
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IPeriodoContablePort periodoContable,
+        IProveedorBancoReadPort proveedorBancoPort,
         IIntegrationEventPublisher publisher,
         IClock clock)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _periodoContable = periodoContable; _publisher = publisher; _clock = clock;
+        _db = db;
+        _currentEmpresa = currentEmpresa;
+        _currentUser = currentUser;
+        _periodoContable = periodoContable;
+        _proveedorBancoPort = proveedorBancoPort;
+        _publisher = publisher;
+        _clock = clock;
     }
 
     public async Task<PagoProveedorResponse> Handle(
@@ -140,6 +148,29 @@ public sealed class RegistrarPagoProveedorHandler
             throw new BusinessRuleException("PAGO_MULTIPROVEEDOR",
                 "Un pago cubre pasivos de un solo proveedor; registra un pago por proveedor.");
         var proveedorId = proveedores[0];
+
+        // F1-ADM-05 G1.1 / Plano G1 §3.1: el proveedor debe estar Activo para recibir pagos.
+        // Si está EnRevision o Inactivo, se bloquea la operación (G1.1-b).
+        if (!hayInternos)
+        {
+            var infoProveedor = await _proveedorBancoPort.ObtenerAsync(proveedorId, cancellationToken);
+            if (infoProveedor is not null)
+            {
+                if (infoProveedor.EnRevision)
+                {
+                    throw new BusinessRuleException(
+                        "PROVEEDOR_EN_REVISION",
+                        $"El proveedor '{infoProveedor.RazonSocial}' está en revisión y no admite pagos.");
+                }
+
+                if (!infoProveedor.Activo)
+                {
+                    throw new BusinessRuleException(
+                        "PROVEEDOR_NO_ACTIVO",
+                        $"El proveedor '{infoProveedor.RazonSocial}' no está activo y no admite pagos.");
+                }
+            }
+        }
 
         // RN-3: la cuenta de egreso coincide en moneda con los pasivos
         // (cross-moneda bloqueado en MVP; T-G6).
@@ -213,7 +244,9 @@ public sealed class RegistrarPagoProveedorHandler
                     Moneda: movimiento.Moneda,
                     FechaPago: command.FechaValor,
                     MetodoPago: pasivo.MetodoPago,
-                    ReferenciaBancaria: movimiento.ReferenciaBancaria), cancellationToken);
+                    ReferenciaBancaria: movimiento.ReferenciaBancaria,
+                    CuentaBancariaId: movimiento.CuentaBancariaId,
+                    TipoCambio: pasivo.TipoCambio), cancellationToken);
             }
         }
 

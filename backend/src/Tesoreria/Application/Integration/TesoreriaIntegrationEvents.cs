@@ -24,6 +24,9 @@ namespace Millet.Tesoreria.Application.Integration;
 /// multi-pasivo (RN-4). <c>PagoId</c> = Id de la
 /// <c>AplicacionPagoProveedor</c>. Efecto en CxP: <c>RegistrarPago()</c> —
 /// pasa a <c>Pagada</c> solo con saldo 0.
+/// G1.6: <c>CuentaBancariaId</c> y <c>TipoCambio</c> (del pasivo; null si el
+/// pasivo no lo trae) se agregaron al final de forma compatible, sin subir
+/// versión, para la contabilización.
 /// </summary>
 public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     Guid EmpresaId,
@@ -34,7 +37,9 @@ public sealed record PagoFacturaProveedorAplicadoIntegrationEvent(
     string Moneda,
     DateOnly FechaPago,
     string? MetodoPago,
-    string? ReferenciaBancaria)
+    string? ReferenciaBancaria,
+    Guid? CuentaBancariaId = null,
+    decimal? TipoCambio = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.pago-factura-proveedor.aplicado.v1";

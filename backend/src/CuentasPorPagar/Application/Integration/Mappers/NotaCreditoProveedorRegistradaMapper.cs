@@ -24,7 +24,15 @@ public sealed class NotaCreditoProveedorRegistradaMapper
             ProveedorId: notification.ProveedorId,
             FacturaOrigenId: notification.FacturaOrigenId,
             TipoRelacionCfdi: notification.TipoRelacionCfdi,
-            Total: notification.Total);
+            Total: notification.Total,
+            Uuid: notification.Uuid,
+            Subtotal: notification.Subtotal,
+            Iva: notification.Iva,
+            RetencionesTotal: notification.RetencionesTotal,
+            Retenciones: notification.Retenciones?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
+            Moneda: notification.Moneda,
+            TipoCambio: notification.TipoCambio,
+            SucursalId: notification.SucursalId);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

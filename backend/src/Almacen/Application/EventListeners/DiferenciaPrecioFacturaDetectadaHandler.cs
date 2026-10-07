@@ -135,6 +135,10 @@ public sealed class DiferenciaPrecioFacturaDetectadaHandler
         var montoAjuste = Math.Round(cantidadRemanente * payload.DiferenciaUnitarioMxn, 2);
 
         var empresaId = recepcionConArticulo.EmpresaId;
+        var lineaRecepcion = recepcionConArticulo.Lineas.First(l => l.ArticuloId == payload.ArticuloId);
+        // G1.6: dimensiones contables desde el sub-almacén ya resuelto.
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, subAlmacenId, cancellationToken);
         var ocurrioEn = DateTimeOffset.UtcNow;
 
         await _events.PublishAsync(new EntradaInventarioValoradaIntegrationEvent(
@@ -148,13 +152,16 @@ public sealed class DiferenciaPrecioFacturaDetectadaHandler
             Lineas: new List<LineaValoradaPayload>
             {
                 new(
-                    LineaRecepcionId: recepcionConArticulo.Lineas
-                        .First(l => l.ArticuloId == payload.ArticuloId).Id,
+                    LineaRecepcionId: lineaRecepcion.Id,
                     ArticuloId: payload.ArticuloId,
                     Cantidad: cantidadRemanente,
                     CostoUnitarioMxn: costoUnitarioAjuste,
-                    MontoLineaMxn: montoAjuste),
-            }), cancellationToken);
+                    MontoLineaMxn: montoAjuste,
+                    SubAlmacenId: subAlmacenId,
+                    UbicacionId: lineaRecepcion.UbicacionId),
+            },
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         _db.Set<EventoProcesado>().Add(new EventoProcesado(
             eventoId: request.EventId,

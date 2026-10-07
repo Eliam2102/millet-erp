@@ -242,7 +242,9 @@ public sealed class LigarPagoACuentaHandler
             Moneda: movimiento.Moneda,
             FechaPago: movimiento.FechaValor,
             MetodoPago: pasivo.MetodoPago,
-            ReferenciaBancaria: movimiento.ReferenciaBancaria), cancellationToken);
+            ReferenciaBancaria: movimiento.ReferenciaBancaria,
+            CuentaBancariaId: movimiento.CuentaBancariaId,
+            TipoCambio: pasivo.TipoCambio), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

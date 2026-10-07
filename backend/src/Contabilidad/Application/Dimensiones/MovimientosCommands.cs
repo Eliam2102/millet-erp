@@ -2,6 +2,7 @@ using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Contabilidad.Application.Periodos;
 using Millet.Contabilidad.Application.Ports;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Domain;
@@ -34,7 +35,10 @@ public sealed class MovimientoRequestValidator : AbstractValidator<MovimientoReq
     }
 }
 
-/// <summary>Valida sin guardar (panel «Probar movimiento»). El usuario debe poder operar la sucursal (403 si no).</summary>
+/// <summary>
+/// Valida sin guardar (panel «Probar movimiento»). El usuario debe poder operar la sucursal (403 si no). Un periodo que no admite
+/// movimientos (F1-CON-03) se muestra como un error más, en el campo <c>fechaContable</c>.
+/// </summary>
 public sealed record ValidarMovimientoDimensionesQuery(MovimientoRequest Movimiento) : IRequest<ValidacionDimensiones>;
 
 public sealed class ValidarMovimientoDimensionesValidator : AbstractValidator<ValidarMovimientoDimensionesQuery>
@@ -42,13 +46,18 @@ public sealed class ValidarMovimientoDimensionesValidator : AbstractValidator<Va
     public ValidarMovimientoDimensionesValidator() => RuleFor(q => q.Movimiento).SetValidator(new MovimientoRequestValidator());
 }
 
-public sealed class ValidarMovimientoDimensionesHandler(ValidadorDimensiones validador, AlcanceSucursalContable alcance)
+public sealed class ValidarMovimientoDimensionesHandler(
+    ValidadorDimensiones validador, AlcanceSucursalContable alcance, VerificadorPeriodoContable periodo)
     : IRequestHandler<ValidarMovimientoDimensionesQuery, ValidacionDimensiones>
 {
     public async Task<ValidacionDimensiones> Handle(ValidarMovimientoDimensionesQuery request, CancellationToken cancellationToken)
     {
-        await alcance.VerificarAsync(request.Movimiento.SucursalId, cancellationToken);
-        return await validador.ValidarAsync(request.Movimiento.Movimiento, cancellationToken);
+        var m = request.Movimiento;
+        await alcance.VerificarAsync(m.SucursalId, cancellationToken);
+        var v = await validador.ValidarAsync(m.Movimiento, cancellationToken);
+        return await periodo.RechazoAsync(m.FechaContable, m.Origen, cancellationToken) is { } rechazo
+            ? v with { Valido = false, Errores = [.. v.Errores, new ErrorDimension(rechazo.Code, rechazo.Message, "fechaContable")] }
+            : v;
     }
 }
 
@@ -67,6 +76,7 @@ public sealed record ConfirmacionMovimientoResult(bool Confirmado, ValidacionDim
 /// <summary>
 /// Valida y, si pasa, guarda el movimiento de PRUEBA con el snapshot de las reglas que lo validaron. Si no pasa, no escribe y
 /// devuelve los errores (el endpoint responde 422). No marca la cuenta como usada (evita bloquear cuentas reales, P20).
+/// Antes de validar, el periodo de la fecha contable debe admitir movimientos (F1-CON-03): si no, 422 <c>CONTAB_PERIODO_*</c>.
 /// </summary>
 // PLATFORM-TODO(<Polizas>): la póliza real sustituye a este comando al confirmar sus partidas.
 public sealed record ConfirmarMovimientoPruebaCommand(MovimientoRequest Movimiento) : IRequest<ConfirmacionMovimientoResult>;
@@ -77,7 +87,8 @@ public sealed class ConfirmarMovimientoPruebaValidator : AbstractValidator<Confi
 }
 
 public sealed class ConfirmarMovimientoPruebaHandler(
-    ContabilidadDbContext db, ValidadorDimensiones validador, AlcanceSucursalContable alcance, IClock clock, LecturaMovimientos lectura)
+    ContabilidadDbContext db, ValidadorDimensiones validador, AlcanceSucursalContable alcance, IClock clock, LecturaMovimientos lectura,
+    VerificadorPeriodoContable periodo)
     : IRequestHandler<ConfirmarMovimientoPruebaCommand, ConfirmacionMovimientoResult>
 {
     public const string ConsumidorMovimientoPrueba = "MOVIMIENTO_PRUEBA";
@@ -86,22 +97,37 @@ public sealed class ConfirmarMovimientoPruebaHandler(
     {
         var m = request.Movimiento;
         await alcance.VerificarAsync(m.SucursalId, cancellationToken);
-        var v = await validador.ValidarAsync(m.Movimiento, cancellationToken);
-        if (!v.Valido) return new(false, v, null);
+        ConfirmacionMovimientoResult? resultado = null;
+        MovimientoDimensionPrueba? mov = null;
+        // Periodos antes que reglas: la lectura del estado y el guardado comparten la transacción de los cierres.
+        // Se adquiere el segundo candado en la misma transacción, sin abrir una transacción anidada.
+        await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaPeriodos.LockPeriodos, async ct =>
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({PoliticaReglas.LockReglas})", ct);
+            await periodo.LanzarSiNoAdmiteAsync(m.FechaContable, m.Origen, ct);
+            var v = await validador.ValidarAsync(m.Movimiento, ct);
+            if (!v.Valido)
+            {
+                resultado = new(false, v, null);
+                return;
+            }
 
-        var cuenta = await db.Cuentas.AsNoTracking().FirstAsync(c => c.Id == m.CuentaId, cancellationToken);
-        var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(t => t.Id == m.TipoDocumentoId, cancellationToken);
-        var mov = new MovimientoDimensionPrueba(Guid.CreateVersion7(), m.SucursalId, cuenta.Id, cuenta.Codigo, tipo.Id, tipo.Clave,
-            m.FechaContable, v.Centros.Dim1Id, v.Centros.Dim2Id, v.Centros.Dim3Id, m.Movimiento.Proyecto, m.ClienteId, m.ProveedorId,
-            m.CuentaBancariaId, string.IsNullOrWhiteSpace(m.Referencia) ? null : m.Referencia.Trim(),
-            JsonSerializer.Serialize(v.Requerimientos, LecturaMovimientos.Json), clock.UtcNow);
-        db.MovimientosPrueba.Add(mov);
-        // Uso de cada regla aplicada: desde ahora no se edita ni se borra (solo se cierra). Bajo el mismo candado que las
-        // escrituras de reglas, para que nadie edite una regla mientras se registra su primer uso.
-        foreach (var reglaId in v.Requerimientos.Where(r => r.ReglaId is not null).Select(r => r.ReglaId!.Value).Distinct())
-            db.ReglasDimensionUso.Add(new ReglaDimensionUso(Guid.CreateVersion7(), reglaId, ConsumidorMovimientoPrueba, mov.Id.ToString(), m.FechaContable));
-        await PostgresAdvisoryLock.ExecuteAsync(db, PoliticaReglas.LockReglas, ct => db.SaveChangesAsync(ct), cancellationToken);
-        return new(true, v, (await lectura.ResponsesAsync([mov], cancellationToken))[0]);
+            var cuenta = await db.Cuentas.AsNoTracking().FirstAsync(c => c.Id == m.CuentaId, ct);
+            var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(t => t.Id == m.TipoDocumentoId, ct);
+            mov = new MovimientoDimensionPrueba(Guid.CreateVersion7(), m.SucursalId, cuenta.Id, cuenta.Codigo, tipo.Id, tipo.Clave,
+                m.FechaContable, v.Centros.Dim1Id, v.Centros.Dim2Id, v.Centros.Dim3Id, m.Movimiento.Proyecto, m.ClienteId, m.ProveedorId,
+                m.CuentaBancariaId, string.IsNullOrWhiteSpace(m.Referencia) ? null : m.Referencia.Trim(),
+                JsonSerializer.Serialize(v.Requerimientos, LecturaMovimientos.Json), clock.UtcNow);
+            db.MovimientosPrueba.Add(mov);
+            // Los usos se guardan con el movimiento bajo el mismo candado que las escrituras de reglas.
+            foreach (var reglaId in v.Requerimientos.Where(r => r.ReglaId is not null).Select(r => r.ReglaId!.Value).Distinct())
+                db.ReglasDimensionUso.Add(new ReglaDimensionUso(Guid.CreateVersion7(), reglaId, ConsumidorMovimientoPrueba, mov.Id.ToString(), m.FechaContable));
+            await db.SaveChangesAsync(ct);
+            resultado = new(true, v, null);
+        }, cancellationToken);
+        return resultado!.Confirmado
+            ? resultado with { Movimiento = (await lectura.ResponsesAsync([mov!], cancellationToken))[0] }
+            : resultado;
     }
 }
 

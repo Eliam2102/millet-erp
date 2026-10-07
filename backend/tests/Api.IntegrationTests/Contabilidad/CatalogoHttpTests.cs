@@ -337,6 +337,8 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             Assert.False(await m.Send(new RegistrarUsoCuentaCommand(id, "FIX-X", "R1")));
             Assert.True(await m.Send(new RegistrarUsoCuentaCommand(id, "FIX-X", "R2")));
             Assert.Equal(2, await Contar(factory.Services, "cuentas_contables_uso", $"cuenta_id = '{id}'"));
+            await AssertCreacionesAuditadasAsync(factory.Services, "cuentas_contables_uso", "CuentaContableUso",
+                $"r.cuenta_id = '{id}'", "Referencia", 2, actorTipo: "sistema");
             // No hay ruta HTTP que escriba uso.
             var r = await c.PostAsJsonAsync($"{Base}/cuentas/{id}/uso", new { });
             Assert.True(r.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed);

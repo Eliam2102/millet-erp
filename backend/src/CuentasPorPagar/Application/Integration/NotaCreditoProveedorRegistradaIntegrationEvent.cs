@@ -14,5 +14,14 @@ public sealed record NotaCreditoProveedorRegistradaIntegrationEvent(
     Guid ProveedorId,
     Guid? FacturaOrigenId,
     int TipoRelacionCfdi,
-    decimal Total)
+    decimal Total,
+    // G1.6: bloque contable opcional (al final; JSON antiguo sin estos campos deserializa a null).
+    string? Uuid = null,
+    decimal? Subtotal = null,
+    decimal? Iva = null,
+    decimal? RetencionesTotal = null,
+    IReadOnlyList<RetencionDetallePayload>? Retenciones = null,
+    string? Moneda = null,
+    decimal? TipoCambio = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("cuentas_por_pagar.nota-credito.registrada.v1", EmpresaId, OcurridoEn);

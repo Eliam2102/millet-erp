@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure;
@@ -49,9 +50,7 @@ public sealed class ActualizarCabeceraOcHandler : IRequestHandler<ActualizarCabe
 
             if (proveedor.Estatus != EstatusCatalogo.Activo)
             {
-                throw new BusinessRuleException(
-                    "PROVEEDOR_INACTIVO",
-                    $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede usarse en OCs.");
+                throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede usarse en OCs.");
             }
         }
 

@@ -31,6 +31,10 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<CentroCorporativo> CentrosCorporativos => Set<CentroCorporativo>();
     public DbSet<MovimientoDimensionPrueba> MovimientosPrueba => Set<MovimientoDimensionPrueba>();
 
+    // F1-CON-03: periodos contables.
+    public DbSet<EjercicioContable> Ejercicios => Set<EjercicioContable>();
+    public DbSet<PeriodoContable> Periodos => Set<PeriodoContable>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);

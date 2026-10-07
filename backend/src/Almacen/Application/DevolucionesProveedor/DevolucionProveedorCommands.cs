@@ -431,7 +431,9 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
         // Marcar agregado DevolucionAProveedor como Registrada.
         dev.MarcarRegistrada(movId, folio.Valor);
 
-        // Publicar OcDevolucionRegistradaEvent.
+        // Publicar OcDevolucionRegistradaEvent (G1.6: almacén/sucursal del sub-almacén de salida).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, request.SubAlmacenId, cancellationToken);
         await _events.PublishAsync(new OcDevolucionRegistradaIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: DateTimeOffset.UtcNow,
@@ -443,7 +445,9 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
             OrdenCompraOrigenId: dev.OrdenCompraOrigenId,
             Motivo: dev.Motivo,
             MontoTotalMxn: Math.Round(montoTotal, 2),
-            Lineas: payload), cancellationToken);
+            Lineas: payload,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

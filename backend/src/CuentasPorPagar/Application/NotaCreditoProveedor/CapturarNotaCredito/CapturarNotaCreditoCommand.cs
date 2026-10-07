@@ -147,7 +147,14 @@ public sealed class CapturarNotaCreditoHandler
             FacturaOrigenId: nc.FacturaOrigenId,
             TipoRelacionCfdi: (int)nc.TipoRelacionCfdi,
             Total: nc.Total,
-            OcurridoEn: ahora), cancellationToken);
+            OcurridoEn: ahora,
+            // G1.6: la NC no tiene desglose de retenciones ni sucursal en el agregado → null.
+            Uuid: nc.UuidCfdi,
+            Subtotal: nc.Subtotal,
+            Iva: nc.ImpuestosTrasladados,
+            RetencionesTotal: nc.Retenciones,
+            Moneda: nc.Moneda,
+            TipoCambio: nc.TipoCambio), cancellationToken);
 
         // F6-PR3: ciclo bidireccional con Almacén — si la NC tiene
         // TipoRelacionCfdi=03 (Devolucion) y resolvimos la factura

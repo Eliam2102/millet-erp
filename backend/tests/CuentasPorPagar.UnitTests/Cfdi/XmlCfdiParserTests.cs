@@ -65,6 +65,26 @@ public sealed class XmlCfdiParserTests
     }
 
     [Fact]
+    public void Parsear_extrae_desglose_de_retenciones_y_null_si_ausente()
+    {
+        // G1.6 (P2): <cfdi:Impuestos>/<cfdi:Retenciones>/<cfdi:Retencion>.
+        var datos = _parser.Parsear(BuildCfdi(retenciones: """
+            <cfdi:Retenciones>
+              <cfdi:Retencion Impuesto="001" Importe="6.00" />
+              <cfdi:Retencion Impuesto="002" Importe="4.00" />
+            </cfdi:Retenciones>
+            """));
+        datos.Retenciones.Should().Be(10m);
+        datos.RetencionesDetalle.Should().BeEquivalentTo(new[]
+        {
+            new RetencionCfdi("001", null, 6m),
+            new RetencionCfdi("002", null, 4m),
+        });
+
+        _parser.Parsear(BuildCfdi()).RetencionesDetalle.Should().BeNull();
+    }
+
+    [Fact]
     public void Parsear_extrae_CfdiRelacionados_con_tipo_y_uuids()
     {
         // NC de proveedor (tipo E) con relación 01 hacia la factura origen.
@@ -182,7 +202,8 @@ public sealed class XmlCfdiParserTests
         string moneda = "MXN",
         string? tipoCambio = null,
         string? metodoPago = null,
-        string? cfdiRelacionados = null)
+        string? cfdiRelacionados = null,
+        string? retenciones = null)
     {
         var tcAttr = tipoCambio is null ? "" : $@" TipoCambio=""{tipoCambio}""";
         var mpAttr = metodoPago is null ? "" : $@" MetodoPago=""{metodoPago}""";
@@ -200,7 +221,9 @@ public sealed class XmlCfdiParserTests
                 <cfdi:Concepto ClaveProdServ="01010101" Cantidad="1" ClaveUnidad="E48"
                                Descripcion="Servicio de prueba" ValorUnitario="{subtotal}" Importe="{subtotal}" />
               </cfdi:Conceptos>
-              <cfdi:Impuestos TotalImpuestosTrasladados="{impuestos}" />
+              <cfdi:Impuestos TotalImpuestosTrasladados="{impuestos}"{(retenciones is null ? "" : " TotalImpuestosRetenidos=\"10.00\"")}>
+                {retenciones}
+              </cfdi:Impuestos>
               <cfdi:Complemento>
                 <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital"
                                           UUID="{uuid}" FechaTimbrado="{fecha}" />
