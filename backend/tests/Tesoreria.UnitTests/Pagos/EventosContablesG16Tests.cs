@@ -8,6 +8,7 @@ using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Pasivos;
 using Millet.Tesoreria.Domain.Ports;
+using Millet.Tesoreria.Domain.Ports.DatosMaestros;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.UnitTests.Pagos;
@@ -48,7 +49,7 @@ public sealed class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var publisher = new Captura();
 
-        await new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), publisher, new FakeClock())
+        await new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), new SinDatosDeProveedor(), publisher, new FakeClock())
             .Handle(new RegistrarPagoProveedorCommand(cuenta.Id, Fecha,
                 [new AplicacionPagoItem(pasivo.FacturaProveedorId, 400m)]), default);
 
@@ -105,6 +106,17 @@ public sealed class EventosContablesG16Tests
     private sealed class Abierto : IPeriodoContablePort
     {
         public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true);
+    }
+
+    /// <summary>G1.1: sin datos del proveedor el pago no se bloquea; esta prueba solo revisa los campos contables del evento.</summary>
+    private sealed class SinDatosDeProveedor : IProveedorBancoReadPort
+    {
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken) =>
+            Task.FromResult<ProveedorBancoDto?>(null);
+
+        public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(
+            IReadOnlyCollection<Guid> proveedorIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(new Dictionary<Guid, ProveedorBancoDto>());
     }
 
     private sealed class FakeClock : IClock
