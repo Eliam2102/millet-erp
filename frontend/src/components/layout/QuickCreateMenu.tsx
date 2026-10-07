@@ -180,8 +180,9 @@ export function QuickCreateMenu() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button size="icon" className="size-9" aria-label="Crear nuevo">
-          <Plus className="h-4 w-4" />
+        <Button aria-label="Crear nuevo">
+          <Plus size={14} strokeWidth={1.8} aria-hidden="true" />
+          <span className="hidden md:inline">Nuevo</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent

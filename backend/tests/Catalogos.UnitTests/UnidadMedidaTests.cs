@@ -15,6 +15,16 @@ public class UnidadMedidaTests
         new(Guid.NewGuid(), "PZA", "Pieza", DimensionUnidad.Conteo, 1m, 0, esBase: true);
 
     [Fact]
+    public void Constructor_AceptaDimensionArea()
+    {
+        var um = new UnidadMedida(
+            Guid.NewGuid(), "M2", "Metro cuadrado", DimensionUnidad.Area, 1m, 2, esBase: true);
+
+        um.Dimension.Should().Be(DimensionUnidad.Area);
+        ((short)DimensionUnidad.Area).Should().Be(5);
+    }
+
+    [Fact]
     public void Constructor_AsignaCampos()
     {
         var um = new UnidadMedida(

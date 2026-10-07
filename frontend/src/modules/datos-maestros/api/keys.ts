@@ -11,9 +11,11 @@
  */
 
 import type {
+  EstadoEjecucionSync,
   EstatusCatalogo,
   Naturaleza,
   OrigenMaster,
+  ResultadoSincronizacion,
   TipoPersonaProveedor,
 } from '@/modules/datos-maestros/api/types';
 
@@ -43,6 +45,14 @@ export interface ListarClientesFiltros {
   estatus?: EstatusCatalogo;
   /** true = bandeja de trabajo pre-timbrado (falta RFC/régimen/CP). */
   fiscalesIncompletos?: boolean;
+  referenciaExterna?: string;
+  resultadoSincronizacion?: ResultadoSincronizacion;
+  offset?: number;
+  limit?: number;
+}
+
+export interface ListarEjecucionesSyncFiltros {
+  estado?: EstadoEjecucionSync;
   offset?: number;
   limit?: number;
 }
@@ -54,6 +64,8 @@ export interface ListarProductosAwFiltros {
   estatus?: EstatusCatalogo;
   /** true = bandeja de trabajo pre-timbrado (faltan claves SAT). */
   fiscalesIncompletos?: boolean;
+  /** Tipo de A+W, igualdad exacta (Vidrio plano, VTE, VLA, VC). */
+  tipo?: string;
   offset?: number;
   limit?: number;
 }
@@ -81,9 +93,17 @@ export const datosMaestrosKeys = {
   cliente: (id: string) =>
     [...datosMaestrosKeys.clientes(), 'detail', id] as const,
 
+  clientesSync: () => [...datosMaestrosKeys.clientes(), 'sync'] as const,
+  clientesSyncList: (filtros: ListarEjecucionesSyncFiltros) =>
+    [...datosMaestrosKeys.clientesSync(), 'list', filtros] as const,
+  clienteSync: (id: string) =>
+    [...datosMaestrosKeys.clientesSync(), 'detail', id] as const,
+
   productosAw: () => [...datosMaestrosKeys.all, 'productos-aw'] as const,
   productosAwList: (filtros: ListarProductosAwFiltros) =>
     [...datosMaestrosKeys.productosAw(), 'list', filtros] as const,
   productoAw: (id: string) =>
     [...datosMaestrosKeys.productosAw(), 'detail', id] as const,
+  productoAwSync: (id: string) =>
+    [...datosMaestrosKeys.productosAw(), 'sync', id] as const,
 } as const;

@@ -22,6 +22,12 @@ import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
 import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import {
+  ProductoAwBajaAviso,
+  ProductoAwComposicion,
+  ProductoAwOrigenSection,
+  ProductoAwVariantesTable,
+} from '@/modules/datos-maestros/components/ProductoAwOrigenSection';
 import { ProductoAwDatosForm } from '@/modules/datos-maestros/components/ProductoAwDatosForm';
 import {
   EstatusCatalogoBadge,
@@ -143,7 +149,11 @@ export function ProductoAwDetalle() {
       </header>
 
       <div className="px-4 pt-4 pb-6">
+        <ProductoAwBajaAviso producto={producto} />
         <ProductoAwDatosForm producto={producto} />
+        <ProductoAwVariantesTable variantes={producto.variantes ?? []} unidadMedida={producto.unidadMedida} />
+        <ProductoAwComposicion componentes={producto.componentes ?? []} />
+        <ProductoAwOrigenSection producto={producto} />
       </div>
 
       <AlertDialog

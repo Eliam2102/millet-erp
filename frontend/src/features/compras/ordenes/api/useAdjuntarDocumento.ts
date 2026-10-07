@@ -9,8 +9,6 @@ import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
  */
 export interface AdjuntarDocumentoResponse {
   adjuntoId: string;
-  /** URL del blob (storage). */
-  blobUrl: string;
 }
 
 export interface AdjuntarDocumentoArgs {

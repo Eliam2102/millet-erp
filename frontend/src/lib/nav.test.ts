@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Inbox } from 'lucide-react';
 import {
+  contextoNavegacion,
   filtrarModuloPorPermisos,
   navSidebarItems,
   rutaPermitida,
@@ -119,7 +120,7 @@ describe('navSidebarItems', () => {
     ]);
   });
 
-  it('Facturación, CxC, Compras, Almacén, CxP, Tesorería y Centros de Costo son los módulos NO disabled (CeCo llegó con CECO-FE-PR1)', () => {
+  it('Facturación, CxC, Compras, Almacén, CxP, Tesorería, Centros de Costo y Contabilidad son los módulos NO disabled (Contabilidad llegó con F1-CON-01b)', () => {
     const modulos = navSidebarItems.filter((i) => i.kind === 'modulo');
     const habilitados = modulos.filter((m) => !m.disabled);
     expect(habilitados.map((m) => m.moduloId)).toEqual([
@@ -130,6 +131,7 @@ describe('navSidebarItems', () => {
       'cxp',
       'tesoreria',
       'centros-costo',
+      'contabilidad',
     ]);
   });
 
@@ -315,8 +317,40 @@ describe('visibilidad por permisos (sidebar y URLs)', () => {
     expect(rutaPermitida('/facturacion/ayuda', [P.FacturacionFacturasLeer])).toBe(true);
   });
 
-  it('URL: Inicio y rutas ajenas a los módulos no se bloquean aquí', () => {
+  it('URL: Inicio sigue disponible sin permisos de módulos', () => {
     expect(rutaPermitida('/', [])).toBe(true);
-    expect(rutaPermitida('/admin/identidad/settings', [])).toBe(true);
+  });
+
+  it('URL: configuración genérica exige un permiso administrativo del mismo módulo', () => {
+    expect(rutaPermitida('/admin/compras/settings', [])).toBe(false);
+    expect(rutaPermitida('/admin/compras/settings', [P.ComprasRequisicionesLeer])).toBe(false);
+    expect(rutaPermitida('/admin/compras/settings', [P.IdentidadUsuariosLeer])).toBe(false);
+    expect(rutaPermitida('/admin/compras/settings', [P.ComprasConfiguracionLeer])).toBe(true);
+    expect(rutaPermitida('/admin/compras/settings/', [P.ComprasConfiguracionLeer])).toBe(true);
+  });
+
+  it('URL: un módulo administrativo desconocido no concede acceso', () => {
+    expect(rutaPermitida('/admin/no-existe/settings', [P.ComprasConfiguracionLeer])).toBe(false);
+  });
+});
+
+describe('contextoNavegacion del shell', () => {
+  it('elige la pantalla más específica y limita el panel por permisos', () => {
+    const permisos = [
+      PermisosCanonicos.ComprasOrdenesLeer,
+      PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
+    ];
+    const contexto = contextoNavegacion('/compras/ordenes/pendientes-autorizacion', permisos);
+    expect(contexto?.card.to).toBe('/compras/ordenes/pendientes-autorizacion');
+    expect(
+      contexto?.modulo.secciones
+        .flatMap((s) => s.cards)
+        .every((c) => !c.permission || permisos.includes(c.permission)),
+    ).toBe(true);
+    expect(contextoNavegacion('/compras/ordenes', [])).toBeUndefined();
+    expect(contextoNavegacion('/compras/ordenes-ajenas', permisos)).toBeUndefined();
+    expect(contextoNavegacion('/compras/ordenes/oc-123', permisos)?.card.to).toBe(
+      '/compras/ordenes',
+    );
   });
 });

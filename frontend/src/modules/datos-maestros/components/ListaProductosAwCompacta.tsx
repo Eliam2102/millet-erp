@@ -75,6 +75,15 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
             completos={item.datosFiscalesCompletos}
             className="text-[10px] py-0"
           />
+          <span className="text-[10px] text-muted-foreground">
+            UC {item.unidadMedida}
+            {(item.numVariantes ?? 0) > 1 ? ` · ${item.numVariantes} medidas` : ''}
+          </span>
+          {(item.numComponentes ?? 0) > 0 && (
+            <span className="text-[10px] text-muted-foreground">
+              {item.numComponentes} piezas
+            </span>
+          )}
         </div>
       </Link>
     </li>

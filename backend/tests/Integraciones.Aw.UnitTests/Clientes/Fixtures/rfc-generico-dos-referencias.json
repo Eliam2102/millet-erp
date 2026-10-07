@@ -1,0 +1,85 @@
+{
+  "escenario": "rfc-generico-dos-referencias",
+  "descripcion": "Dos referencias distintas con RFC generico XAXX010101000: dos clientes, nunca se fusionan por RFC.",
+  "origen": {
+    "KU_KUNDEN": [
+      {
+        "ID": 2001,
+        "MANDANT": 1,
+        "NAME1": "CLIENTE DEMO 001",
+        "NAME2": null,
+        "NAME3": null,
+        "STRASSE": "CALLE DEMO 1",
+        "ORT": "CIUDAD DEMO",
+        "PLZ": "00000",
+        "PROVINZ": "DEMO",
+        "LAND": "MX",
+        "UST_ID": null,
+        "STEUERNUMMER": "XAXX010101000",
+        "TLF1": "5500000000",
+        "TLF2": null,
+        "MAIL": "demo@example.invalid",
+        "ZAHLBED": "CONTADO",
+        "WAEHRUNG": "PESOSMX",
+        "KREDIT_LIMIT": "1000.00",
+        "KREDIT_LIMIT1": null,
+        "KREDIT_LIMIT_NET": null,
+        "KZ_STATUS": 1,
+        "KZ_GESPERRT": 0,
+        "DATUM": "2026-09-01",
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      },
+      {
+        "ID": 2002,
+        "MANDANT": 1,
+        "NAME1": "CLIENTE DEMO 002",
+        "NAME2": null,
+        "NAME3": null,
+        "STRASSE": "CALLE DEMO 1",
+        "ORT": "CIUDAD DEMO",
+        "PLZ": "00000",
+        "PROVINZ": "DEMO",
+        "LAND": "MX",
+        "UST_ID": null,
+        "STEUERNUMMER": "XAXX010101000",
+        "TLF1": "5500000000",
+        "TLF2": null,
+        "MAIL": "demo@example.invalid",
+        "ZAHLBED": "CONTADO",
+        "WAEHRUNG": "PESOSMX",
+        "KREDIT_LIMIT": "1000.00",
+        "KREDIT_LIMIT1": null,
+        "KREDIT_LIMIT_NET": null,
+        "KZ_STATUS": 1,
+        "KZ_GESPERRT": 0,
+        "DATUM": "2026-09-01",
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ],
+    "KA_ZAHLBED": [
+      {
+        "BEZ": "CONTADO",
+        "NUMMER": 1,
+        "BRUTTOTAGE": 0
+      },
+      {
+        "BEZ": "REPARTO",
+        "NUMMER": 4,
+        "BRUTTOTAGE": 3
+      },
+      {
+        "BEZ": "60 DIAS",
+        "NUMMER": 6,
+        "BRUTTOTAGE": 60
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": false
+  },
+  "resultadoEsperado": {
+    "resultado": "Creado",
+    "clientesErp": 2,
+    "fusionPorRfc": false
+  }
+}

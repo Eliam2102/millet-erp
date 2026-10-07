@@ -172,6 +172,7 @@ export const DimensionUnidad = {
   Volumen: 2,
   Longitud: 3,
   Tiempo: 4,
+  Area: 5,
 } as const;
 export type DimensionUnidad =
   (typeof DimensionUnidad)[keyof typeof DimensionUnidad];
@@ -182,6 +183,7 @@ export const DIMENSION_UNIDAD_LABEL: Record<DimensionUnidad, string> = {
   [DimensionUnidad.Volumen]: 'Volumen',
   [DimensionUnidad.Longitud]: 'Longitud',
   [DimensionUnidad.Tiempo]: 'Tiempo',
+  [DimensionUnidad.Area]: 'Área',
 };
 
 export interface UnidadMedidaResponse {

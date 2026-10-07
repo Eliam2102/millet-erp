@@ -7,7 +7,7 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.DatosMaestros.Application.ProductosAw;
 
 /// <summary>
-/// Soft delete de producto A+W: <c>Estatus = Inactivo</c>. Idempotente.
+/// Soft delete de producto A+W: baja controlada (<c>Inactivo</c> + <c>FechaBaja</c>). Idempotente.
 /// Un pedido entrante que referencia un producto inactivo cae a la bandeja
 /// de excepciones de ingesta (no se re-provisiona en automático).
 /// </summary>
@@ -27,9 +27,9 @@ public sealed class DesactivarProductoAwHandler : IRequestHandler<DesactivarProd
                 "PRODUCTO_AW_NO_ENCONTRADO",
                 $"No existe producto A+W con id '{request.ProductoAwId}'.");
 
-        if (producto.Estatus != EstatusCatalogo.Inactivo)
+        if (producto.Estatus != EstatusCatalogo.Inactivo || producto.FechaBaja is null)
         {
-            producto.CambiarEstatus(EstatusCatalogo.Inactivo);
+            producto.DarDeBaja(DateTime.UtcNow);
             await _db.SaveChangesAsync(cancellationToken);
         }
     }

@@ -144,9 +144,9 @@ describe('<EstadoBadge> — situación de surtido (ADR-0043)', () => {
   // la fase calculada, PERO data-estado sigue siendo "EnSurtido" (invariante
   // no-breaking) y la situación se expone aparte en data-situacion.
   const casos: Array<[SituacionSurtido, string, string]> = [
-    [SituacionSurtido.EsperandoCompra, 'Esperando compra', 'bg-violet-100'],
-    [SituacionSurtido.ListoParaSurtir, 'Listo para surtir', 'bg-sky-100'],
-    [SituacionSurtido.SurtidoParcial, 'Surtido parcial', 'bg-fuchsia-100'],
+    [SituacionSurtido.EsperandoCompra, 'Esperando compra', 'bg-warning-bg'],
+    [SituacionSurtido.ListoParaSurtir, 'Listo para surtir', 'bg-info-bg'],
+    [SituacionSurtido.SurtidoParcial, 'Surtido parcial', 'bg-info-bg'],
   ];
   const KEYS: Record<SituacionSurtido, string> = {
     [SituacionSurtido.EsperandoCompra]: 'EsperandoCompra',

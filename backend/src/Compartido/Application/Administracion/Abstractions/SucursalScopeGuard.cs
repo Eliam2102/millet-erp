@@ -45,6 +45,7 @@ public static class SucursalScopeGuardPermisos
     public const string PuestosGestionar = "admin.sucursales.puestos-gestionar";
     public const string UsuariosGestionar = "admin.sucursales.usuarios-gestionar";
     public const string SeriesGlobalesGestionar = "admin.empresas.sucursales-gestionar";
+    public const string OrdenesCompraLeerTodas = "compras.ordenes.leer-todas-sucursales";
 }
 
 public static class SucursalScopeGuard

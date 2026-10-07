@@ -281,7 +281,7 @@ describe('Bloque 2 — adjuntos', () => {
 });
 
 describe('Bloque 3 — info logística e importación', () => {
-  it('Editar info logística: ✅ todo no-terminal · gateado por `crear` O `logistica`', () => {
+  it('Editar info logística: ✅ todo no-terminal · gateado solo por `logistica`', () => {
     expectarCeldas(
       accionEditarInfoLogistica,
       [PermisosCanonicos.ComprasOrdenesLogistica],
@@ -291,13 +291,11 @@ describe('Bloque 3 — info logística e importación', () => {
         { estado: EstadoOrdenCompra.Cerrada, visible: false },
       ],
     );
-    // El permiso `crear` también lo abre.
+    // `crear` NO basta: la API exige `logistica`.
     expectarCeldas(
       accionEditarInfoLogistica,
       [PermisosCanonicos.ComprasOrdenesCrear],
-      [
-        { estado: EstadoOrdenCompra.Autorizada, visible: true, habilitada: true },
-      ],
+      [{ estado: EstadoOrdenCompra.Autorizada, visible: false }],
     );
   });
 
@@ -310,16 +308,34 @@ describe('Bloque 3 — info logística e importación', () => {
     );
   });
 
-  it('Editar info importación (campos completos): ✅ Borrador/Rechazada SI esImportacion=true', () => {
+  it('Editar info importación: ❌ con `logistica` sin `crear` (la API exige `crear`)', () => {
     expectarCeldas(
       accionEditarInfoImportacion,
       [PermisosCanonicos.ComprasOrdenesLogistica],
+      [{ estado: EstadoOrdenCompra.Borrador, visible: false }],
+      { esImportacion: true },
+    );
+  });
+
+  it('Editar info importación (campos completos): ✅ Borrador/Rechazada SI esImportacion=true', () => {
+    expectarCeldas(
+      accionEditarInfoImportacion,
+      [PermisosCanonicos.ComprasOrdenesCrear],
       [
         { estado: EstadoOrdenCompra.Borrador, visible: true, habilitada: true },
         { estado: EstadoOrdenCompra.EnAutorizacionJefeCompras, visible: false },
         { estado: EstadoOrdenCompra.Autorizada, visible: false },
         { estado: EstadoOrdenCompra.Rechazada, visible: true, habilitada: true },
       ],
+      { esImportacion: true },
+    );
+  });
+
+  it('Editar NumeroPedimento: ❌ con `crear` sin `logistica` (la API exige `logistica`)', () => {
+    expectarCeldas(
+      accionEditarNumeroPedimentoImportacion,
+      [PermisosCanonicos.ComprasOrdenesCrear],
+      [{ estado: EstadoOrdenCompra.Autorizada, visible: false }],
       { esImportacion: true },
     );
   });

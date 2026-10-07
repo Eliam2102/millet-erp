@@ -1,0 +1,34 @@
+{
+  "escenario": "medida-nula-no-es-cero",
+  "descripcion": "Variante sin medidas informadas: nulo != 0, se conserva nulo.",
+  "origen": {
+    "vw_erp_articulo": [
+      {
+        "producto_ref": "DEMO-P011",
+        "descripcion": "PRODUCTO DEMO 001",
+        "unidad_medida": "M2",
+        "baja": false,
+        "variantes": [
+          {
+            "clave_variante": "V1",
+            "alto_mm": null,
+            "ancho_mm": null,
+            "espesor_mm": null,
+            "composicion": null
+          }
+        ],
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": false
+  },
+  "resultadoEsperado": {
+    "resultado": "Creado",
+    "altoMm": null,
+    "anchoMm": null,
+    "espesorMm": null,
+    "medidasCero": false
+  }
+}

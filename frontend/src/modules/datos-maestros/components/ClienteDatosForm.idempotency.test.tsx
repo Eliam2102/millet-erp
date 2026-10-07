@@ -41,6 +41,7 @@ const CLIENTE: ClienteDetalle = {
   domicilioExtranjeroCodigoPostal: null,
   datosFiscalesCompletos: true,
   estatus: 0,
+  version: 1,
 };
 
 beforeEach(() => {

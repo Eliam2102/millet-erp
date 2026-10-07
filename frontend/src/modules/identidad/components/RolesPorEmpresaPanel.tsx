@@ -13,7 +13,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { esApiError } from '@/lib/api';
-import { useRevocarAsignacion } from '@/modules/identidad/api';
+import {
+  usePermisosEfectivosUsuario,
+  useRevocarAsignacion,
+} from '@/modules/identidad/api';
 import type { AsignacionDetalleResponse } from '@/modules/identidad/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -57,6 +60,14 @@ export function RolesPorEmpresaPanel({
     currentUserId != null && currentUserId === usuarioId;
 
   const revocar = useRevocarAsignacion();
+  // Revocar el rol borra las excepciones de permisos de esa empresa (ADR-0053).
+  const efectivosRevocar = usePermisosEfectivosUsuario(
+    paraRevocar != null ? usuarioId : null,
+    paraRevocar?.empresaId ?? null,
+  );
+  const perdidos =
+    (efectivosRevocar.data?.concedidos ?? 0) +
+    (efectivosRevocar.data?.denegados ?? 0);
 
   function handleConfirmarRevocar() {
     if (revocar.isPending) return;
@@ -206,6 +217,12 @@ export function RolesPorEmpresaPanel({
               </span>
               ? El usuario perderá el acceso al recargar su sesión. La
               acción se puede revertir asignando el rol nuevamente.
+              {perdidos > 0 && (
+                <span className="mt-2 block font-medium text-amber-700">
+                  Se perderán {perdidos} permiso(s) personalizado(s) del usuario
+                  en esta empresa.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

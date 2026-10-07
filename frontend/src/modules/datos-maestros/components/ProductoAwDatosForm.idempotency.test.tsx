@@ -34,6 +34,7 @@ const PRODUCTO: ProductoAwDetalle = {
   origen: 1,
   datosFiscalesCompletos: false,
   estatus: 0,
+  version: 3,
 };
 
 beforeEach(() => {
@@ -115,6 +116,37 @@ describe('<ProductoAwDatosForm> — Idempotency-Key por submit (regresión Bug B
     expect(keys[0]).not.toBe(keys[1]);
   });
 
+  it('el PATCH manda If-Match con la versión del detalle y el form se reinicia al cambiar la versión', async () => {
+    let ifMatch: string | null = null;
+    mswServer.use(
+      http.patch(
+        '*/api/v1/datos-maestros/productos-aw/pa-1',
+        async ({ request }) => {
+          ifMatch = request.headers.get('If-Match');
+          return new HttpResponse(null, { status: 204 });
+        },
+      ),
+    );
+
+    const { rerender } = render(<ProductoAwDatosForm producto={PRODUCTO} />, {
+      wrapper: createQueryWrapper(),
+    });
+    // La sync cambió la descripción: llega el detalle con versión nueva.
+    rerender(
+      <ProductoAwDatosForm
+        producto={{ ...PRODUCTO, descripcion: 'Desde A+W', version: 4 }}
+      />,
+    );
+    const descripcion = (await screen.findByDisplayValue(
+      'Desde A+W',
+    )) as HTMLInputElement;
+
+    fireEvent.change(descripcion, { target: { value: 'Editada' } });
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    await waitFor(() => expect(ifMatch).toBe('"4"'));
+  });
+
   it('completar la clave prod/serv SAT (vía ClaveSatSelector) viaja en el PATCH', async () => {
     let body: Record<string, unknown> | null = null;
     mswServer.use(
@@ -156,5 +188,41 @@ describe('<ProductoAwDatosForm> — Idempotency-Key por submit (regresión Bug B
       // Sin categoría previa ni seleccionada → no limpiar.
       limpiarCategoria: false,
     });
+  });
+
+  it('producto de A+W: el form no muestra ni envía componentes ni clasificación (dueño A+W)', async () => {
+    let body: Record<string, unknown> | null = null;
+    mswServer.use(
+      http.patch(
+        '*/api/v1/datos-maestros/productos-aw/pa-1',
+        async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>;
+          return new HttpResponse(null, { status: 204 });
+        },
+      ),
+    );
+    const conComposicion: ProductoAwDetalle = {
+      ...PRODUCTO,
+      codigoModelo: 'DEMO-VT6',
+      wgr: '370',
+      grupo: 'DEMO grupo',
+      tipo: 'VTE',
+      componentes: [
+        { orden: 1, nivel: 1, padreOrden: null, componenteRef: 'DEMO-C1', descripcion: 'DEMO pieza', tipo: 'VTE', espesorMm: 6 },
+      ],
+    };
+    render(<ProductoAwDatosForm producto={conComposicion} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(screen.queryByText('DEMO-C1')).not.toBeInTheDocument();
+    expect(screen.queryByText('DEMO-VT6')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('Vidrio templado 6 mm'), {
+      target: { value: 'Editada' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(body).not.toBeNull());
+    for (const k of ['componentes', 'codigoModelo', 'grupo', 'tipo', 'wgr', 'wgrDescripcion'])
+      expect(body).not.toHaveProperty(k);
   });
 });

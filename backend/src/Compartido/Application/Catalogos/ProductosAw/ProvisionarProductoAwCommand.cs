@@ -1,7 +1,5 @@
 using FluentValidation;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 
 namespace Millet.DatosMaestros.Application.ProductosAw;
@@ -55,38 +53,23 @@ public sealed class ProvisionarProductoAwValidator
 public sealed class ProvisionarProductoAwHandler
     : IRequestHandler<ProvisionarProductoAwCommand, ProvisionarProductoAwResponse>
 {
-    private readonly CompartidoDbContext _db;
+    private readonly AplicarProductoAwService _aplicar;
 
-    public ProvisionarProductoAwHandler(CompartidoDbContext db) => _db = db;
+    public ProvisionarProductoAwHandler(AplicarProductoAwService aplicar) => _aplicar = aplicar;
 
     public async Task<ProvisionarProductoAwResponse> Handle(
         ProvisionarProductoAwCommand request, CancellationToken cancellationToken)
     {
-        var existente = await _db.ProductosAw
-            .FirstOrDefaultAsync(p => p.ReferenciaExterna == request.ReferenciaExterna, cancellationToken);
-        if (existente is not null)
-            return Respuesta(existente, creado: false);
+        // Mismo punto de escritura que la sincronización; SoloCrear = no toca un producto existente.
+        var r = await _aplicar.AplicarAsync(new AplicarProductoAwSnapshot(
+            request.ReferenciaExterna, request.Descripcion, request.UnidadMedida, Baja: false, [],
+            DateTime.UtcNow, VersionContrato: "pedido", VersionMapeo: "pedido",
+            ClaveUnidadSatSugerida: request.ClaveUnidadSatSugerida,
+            FraccionArancelaria: request.FraccionArancelaria,
+            PesoUnitarioKg: request.PesoUnitarioKg,
+            SoloCrear: true), cancellationToken);
 
-        // ADR-0046: si la unidad de A+W (M2/PZA/ML/KG) existe en el catálogo,
-        // se liga el FK; si no, queda el snapshot string y se reconcilia después.
-        var unidad = await _db.UnidadesMedida.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Codigo == request.UnidadMedida, cancellationToken);
-
-        var producto = new ProductoAw(
-            id: Guid.CreateVersion7(),
-            referenciaExterna: request.ReferenciaExterna,
-            descripcion: request.Descripcion,
-            unidadMedida: request.UnidadMedida,
-            origen: OrigenMaster.Aw,
-            unidadMedidaId: unidad?.Id,
-            claveUnidadSat: request.ClaveUnidadSatSugerida,
-            fraccionArancelaria: request.FraccionArancelaria,
-            pesoUnitarioKg: request.PesoUnitarioKg);
-
-        _db.ProductosAw.Add(producto);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return Respuesta(producto, creado: true);
+        return Respuesta(r.Producto!, creado: r.Accion == AplicarProductoAwAccion.Creado);
     }
 
     private static ProvisionarProductoAwResponse Respuesta(ProductoAw p, bool creado) => new(

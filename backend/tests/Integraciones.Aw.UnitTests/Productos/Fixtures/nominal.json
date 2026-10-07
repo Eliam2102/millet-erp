@@ -1,0 +1,33 @@
+{
+  "escenario": "nominal",
+  "descripcion": "Producto nuevo con unidad conocida: se crea ProductoAw con una variante.",
+  "origen": {
+    "vw_erp_articulo": [
+      {
+        "producto_ref": "DEMO-P001",
+        "descripcion": "PRODUCTO DEMO 001",
+        "unidad_medida": "M2",
+        "baja": false,
+        "variantes": [
+          {
+            "clave_variante": "V1",
+            "alto_mm": null,
+            "ancho_mm": null,
+            "espesor_mm": 6,
+            "composicion": "6mm"
+          }
+        ],
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": false
+  },
+  "resultadoEsperado": {
+    "resultado": "Creado",
+    "productos": 1,
+    "variantes": 1,
+    "unidadResuelta": "M2"
+  }
+}

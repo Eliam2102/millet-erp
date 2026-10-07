@@ -398,6 +398,26 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task Reservar_Con_Usuario_Sin_Permiso_Retorna_403()
+    {
+        // Usuario autenticado sin admin.series.gestionar: no puede consumir folios por HTTP.
+        var client = _factory.CreateClientWithIdempotency();
+        var token = await FakeLoginAsync(
+            client, "00000000-0000-0000-0000-0000000000f3", "sin-permisos-series@dev.local", "Sin Permisos");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+        {
+            EmpresaId = Guid.NewGuid(),
+            SucursalId = (Guid?)null,
+            TipoDocumento = 1,
+            FechaReferencia = "2026-05-14",
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
+    }
+
+    [Fact]
     public async Task Reservar_Sin_Serie_Configurada_Retorna_422()
     {
         var client = await CreateSuperAdminClientAsync();

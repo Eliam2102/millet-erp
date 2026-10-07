@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Boxes, Plus, TriangleAlert } from 'lucide-react';
+import { Boxes, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,6 +21,7 @@ import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ListaProductosAwCompacta } from '@/modules/datos-maestros/components/ListaProductosAwCompacta';
+import { SheetSincronizacionProductosAw } from '@/modules/datos-maestros/components/SheetSincronizacionProductosAw';
 import { useNuevoProductoAw } from '@/modules/datos-maestros/components/nuevo-producto-aw-context';
 import { cn } from '@/lib/utils';
 
@@ -45,10 +46,12 @@ export function ProductosAwLayout({
     PermisosCanonicos.DatosMaestrosProductosAwGestionar,
   );
 
+  const [syncAbierto, setSyncAbierto] = useState(false);
   const [referenciaInput, setReferenciaInput] = useState('');
   const [descripcionInput, setDescripcionInput] = useState('');
   const [origen, setOrigen] = useState<string>('');
   const [estatus, setEstatus] = useState<string>('');
+  const [tipo, setTipo] = useState<string>('');
   const [soloFiscalesIncompletos, setSoloFiscalesIncompletos] =
     useState(false);
 
@@ -63,6 +66,7 @@ export function ProductosAwLayout({
       estatus:
         estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
       fiscalesIncompletos: soloFiscalesIncompletos ? true : undefined,
+      tipo: tipo !== '' ? tipo : undefined,
       limit: 200,
     }),
     [
@@ -70,6 +74,7 @@ export function ProductosAwLayout({
       descripcionDeb,
       origen,
       estatus,
+      tipo,
       soloFiscalesIncompletos,
     ],
   );
@@ -94,12 +99,20 @@ export function ProductosAwLayout({
           <h1 className="text-xl font-semibold tracking-tight">
             Productos A+W
           </h1>
-          {canGestionar && (
-            <Button size="sm" onClick={() => nuevoProductoAw.abrir()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Nuevo
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {canGestionar && (
+              <Button size="sm" variant="outline" onClick={() => setSyncAbierto(true)}>
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Sincronizar con A+W
+              </Button>
+            )}
+            {canGestionar && (
+              <Button size="sm" onClick={() => nuevoProductoAw.abrir()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nuevo
+              </Button>
+            )}
+          </div>
         </div>
 
         <FiltrosBloque
@@ -111,6 +124,8 @@ export function ProductosAwLayout({
           onOrigen={setOrigen}
           estatus={estatus}
           onEstatus={setEstatus}
+          tipo={tipo}
+          onTipo={setTipo}
           soloFiscalesIncompletos={soloFiscalesIncompletos}
           onSoloFiscalesIncompletos={setSoloFiscalesIncompletos}
         />
@@ -135,9 +150,16 @@ export function ProductosAwLayout({
       >
         {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
       </section>
+
+      {canGestionar && (
+        <SheetSincronizacionProductosAw open={syncAbierto} onOpenChange={setSyncAbierto} />
+      )}
     </div>
   );
 }
+
+/** Tipos de A+W que se sincronizan, tal cual vienen del origen. */
+const TIPOS_AW = ['Vidrio plano', 'VTE', 'VLA', 'VC'] as const;
 
 interface FiltrosBloqueProps {
   referencia: string;
@@ -148,6 +170,8 @@ interface FiltrosBloqueProps {
   onOrigen: (v: string) => void;
   estatus: string;
   onEstatus: (v: string) => void;
+  tipo: string;
+  onTipo: (v: string) => void;
   soloFiscalesIncompletos: boolean;
   onSoloFiscalesIncompletos: (v: boolean) => void;
 }
@@ -161,6 +185,8 @@ function FiltrosBloque({
   onOrigen,
   estatus,
   onEstatus,
+  tipo,
+  onTipo,
   soloFiscalesIncompletos,
   onSoloFiscalesIncompletos,
 }: FiltrosBloqueProps) {
@@ -215,6 +241,22 @@ function FiltrosBloque({
           </SelectContent>
         </Select>
       </div>
+      <Select
+        value={tipo === '' ? 'all' : tipo}
+        onValueChange={(v) => onTipo(v === 'all' ? '' : v)}
+      >
+        <SelectTrigger className="h-8 text-xs" aria-label="Tipo">
+          <SelectValue placeholder="Tipo" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los tipos</SelectItem>
+          {TIPOS_AW.map((t) => (
+            <SelectItem key={t} value={t}>
+              {t}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {/* Bandeja de trabajo pre-timbrado: fiscalesIncompletos=true trae
           solo los productos sin claves SAT. */}
       <Button

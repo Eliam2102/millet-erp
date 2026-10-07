@@ -11,7 +11,9 @@ namespace Millet.DatosMaestros.Application.ProductosAw;
 /// Lista paginada de productos A+W (ADR-0048 D5). Filtros: referencia
 /// (substring), descripcion (substring con folding de acentos ADR-0045),
 /// origen, estatus y <c>fiscalesIncompletos</c> (bandeja de trabajo:
-/// productos sin claves SAT que bloquean timbrado).
+/// productos sin claves SAT que bloquean timbrado) y <c>tipo</c> (clasificación
+/// A+W, igualdad exacta), <c>grupo</c> (igualdad exacta, solo tiene sentido con su tipo) y <c>wgr</c>
+/// (grupo de mercancía: código exacto, o prefijo si termina en <c>*</c>, p. ej. <c>3**</c>, <c>37*</c>).
 /// </summary>
 public sealed record ListarProductosAwQuery(
     string? Referencia = null,
@@ -20,7 +22,10 @@ public sealed record ListarProductosAwQuery(
     EstatusCatalogo? Estatus = null,
     bool? FiscalesIncompletos = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<ListarProductosAwResponse>;
+    int Limit = 50,
+    string? Tipo = null,
+    string? Grupo = null,
+    string? Wgr = null) : IRequest<ListarProductosAwResponse>;
 
 public sealed record ProductoAwItem(
     Guid Id,
@@ -38,7 +43,14 @@ public sealed record ProductoAwItem(
     decimal? PesoUnitarioKg,
     OrigenMaster Origen,
     bool DatosFiscalesCompletos,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus,
+    DateTime? FechaBaja,
+    int NumVariantes,
+    string? Tipo,
+    int NumComponentes,
+    string? Grupo,
+    string? Wgr,
+    string? WgrDescripcion);
 
 public sealed record ListarProductosAwResponse(
     IReadOnlyList<ProductoAwItem> Items,
@@ -85,6 +97,18 @@ public sealed class ListarProductosAwHandler
                 : q.Where(p => p.ClaveProdServSat != null && p.ClaveUnidadSat != null);
         }
 
+        if (!string.IsNullOrWhiteSpace(query.Tipo))
+            q = q.Where(p => p.Tipo == query.Tipo);
+        if (!string.IsNullOrWhiteSpace(query.Grupo))
+            q = q.Where(p => p.Grupo == query.Grupo);
+        if (!string.IsNullOrWhiteSpace(query.Wgr))
+        {
+            // Jerarquía por comodín de KA_WGR: "3**" = nivel 1, "37*" = nivel 2, "370" = hoja.
+            var w = query.Wgr.Trim();
+            var prefijo = w.TrimEnd('*');
+            q = w.EndsWith('*') ? q.Where(p => p.Wgr != null && p.Wgr.StartsWith(prefijo)) : q.Where(p => p.Wgr == w);
+        }
+
         var total = await q.CountAsync(cancellationToken);
         var items = await q
             .OrderBy(p => p.ReferenciaExterna)
@@ -95,7 +119,7 @@ public sealed class ListarProductosAwHandler
                 p.ClaveUnidadSat, p.ObjetoImp, p.TasaIvaTraslado,
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.Origen,
                 p.ClaveProdServSat != null && p.ClaveUnidadSat != null,
-                p.Estatus))
+                p.Estatus, p.FechaBaja, p.Variantes.Count, p.Tipo, p.Componentes.Count, p.Grupo, p.Wgr, p.WgrDescripcion))
             .ToListAsync(cancellationToken);
 
         return new ListarProductosAwResponse(items, offset, limit, total);

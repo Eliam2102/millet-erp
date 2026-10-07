@@ -18,6 +18,8 @@ import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esApiError } from '@/lib/api';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { fetchCfdiDetalle } from '@/features/cxp/api/useCfdis';
 import { TipoCfdi, type CfdiListItem } from '@/features/cxp/api/types';
 
@@ -75,6 +77,9 @@ function ReppForm({
 
   const [cfdiSel, setCfdiSel] = useState<CfdiListItem | null>(null);
   const [cargarCfdiOpen, setCargarCfdiOpen] = useState(false);
+  const puedeCargarCfdi = useHasPermission(
+    PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
+  );
   const [uuid, setUuid] = useState('');
   const [fecha, setFecha] = useState(hoy);
 
@@ -148,14 +153,16 @@ function ReppForm({
             placeholder="Vincular complemento de pago…"
             className="flex-1"
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCargarCfdiOpen(true)}
-          >
-            <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
-            Cargar XML
-          </Button>
+          {puedeCargarCfdi && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCargarCfdiOpen(true)}
+            >
+              <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
+              Cargar XML
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           Al vincular se prellenan el UUID y la fecha desde el XML. Los

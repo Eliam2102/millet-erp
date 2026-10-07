@@ -54,7 +54,7 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
   useEffect(() => {
     form.reset(buildDefaults(producto));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [producto.id]);
+  }, [producto.id, producto.version]);
 
   function onSubmit(values: ActualizarProductoAwValues) {
     const claveProdServVacia =
@@ -74,6 +74,7 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
     actualizar.mutate(
       {
         id: producto.id,
+        version: producto.version,
         payload: {
           descripcion: values.descripcion,
           unidadMedidaId: values.unidadMedidaId,
@@ -116,6 +117,12 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
         },
         onError: (error) => {
           if (esApiError(error)) {
+            if (error.status === 409) {
+              toast.error(
+                'El producto cambió desde que lo abriste; se recargó con los datos vigentes. Revisa y vuelve a guardar.',
+              );
+              return;
+            }
             if (
               applyServerErrors(
                 form as unknown as Parameters<typeof applyServerErrors>[0],

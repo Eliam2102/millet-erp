@@ -20,6 +20,7 @@ export const PermisosCanonicos = {
   IdentidadUsuariosCrear: 'identidad.usuarios.crear',
   IdentidadUsuariosEditar: 'identidad.usuarios.editar',
   IdentidadUsuariosDesactivar: 'identidad.usuarios.desactivar',
+  IdentidadUsuariosGestionarPermisos: 'identidad.usuarios.gestionar-permisos',
   IdentidadRolesLeer: 'identidad.roles.leer',
   IdentidadRolesAdministrar: 'identidad.roles.administrar',
   IdentidadRolesCrear: 'identidad.roles.crear',
@@ -113,12 +114,23 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.bancarios-ver',
   DatosMaestrosProveedoresBancariosEditar:
     'datos_maestros.proveedores.bancarios-editar',
+  // Expediente documental del proveedor (F1-ADM-11 G1.2).
+  DatosMaestrosProveedoresAdjuntosVer:
+    'datos_maestros.proveedores.adjuntos-ver',
+  DatosMaestrosProveedoresAdjuntosSubir:
+    'datos_maestros.proveedores.adjuntos-subir',
+  DatosMaestrosProveedoresAdjuntosBaja:
+    'datos_maestros.proveedores.adjuntos-baja',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular
   // también para las mutaciones (no el grueso
   // compartido.catalogos.administrar).
   DatosMaestrosClientesGestionar: 'datos_maestros.clientes.gestionar',
+  // Sincronización de clientes desde A+W (F1-ADM-06).
+  DatosMaestrosClientesSincronizar: 'datos_maestros.clientes.sincronizar',
+  DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
+  DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
   DatosMaestrosProductosAwGestionar: 'datos_maestros.productos-aw.gestionar',
 
   // Administración — andamio mínimo del área /admin (F-Admin-PR1.2) y
@@ -375,6 +387,16 @@ export const PermisosCanonicos = {
   CentrosCostoCatalogoAdministrar: 'centros_costo.catalogo.administrar',
   CentrosCostoAsignacionesAdministrar: 'centros_costo.asignaciones.administrar',
   CentrosCostoDim3LeerTodos: 'centros_costo.dim3.leer-todos',
+
+  // Contabilidad (backend F1-CON-01). Namespace GUID 0000000d-*.
+  ContabilidadCatalogoLeer: 'contabilidad.catalogo.leer',
+  ContabilidadCatalogoAdministrar: 'contabilidad.catalogo.administrar',
+  ContabilidadCatalogoImportar: 'contabilidad.catalogo.importar',
+  // F1-CON-02: dimensiones contables (0000000d-0002) y movimientos (0000000d-0003).
+  ContabilidadDimensionesLeer: 'contabilidad.dimensiones.leer',
+  ContabilidadDimensionesAdministrar: 'contabilidad.dimensiones.administrar',
+  ContabilidadMovimientosValidar: 'contabilidad.movimientos.validar',
+  ContabilidadMovimientosGestionarTodasSucursales: 'contabilidad.movimientos.gestionar-todas-sucursales',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

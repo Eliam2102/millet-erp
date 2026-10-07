@@ -496,11 +496,16 @@ function Page403({
       `[OC] 403 en GET /api/v1/compras/ordenes/{id} — traceId=${error.traceId}`,
     );
   }
+  const description =
+    error.problem?.title && error.problem.title !== 'Forbidden'
+      ? error.problem.title
+      : 'Si crees que debería ser distinto, contacta a tu administrador.';
+
   return (
     <EmptyState
       icon={<Lock className="h-10 w-10" />}
       title="No tienes permiso para ver esta orden de compra."
-      description="Si crees que debería ser distinto, contacta a tu administrador."
+      description={description}
       action={
         <Button asChild variant="outline" size="sm">
           <Link to="/compras/ordenes" search={bandejaSearch}>

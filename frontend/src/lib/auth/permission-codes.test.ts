@@ -20,6 +20,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'identidad.usuarios.crear',
   'identidad.usuarios.editar',
   'identidad.usuarios.desactivar',
+  'identidad.usuarios.gestionar-permisos',
   'identidad.roles.leer',
   'identidad.roles.administrar',
   'identidad.roles.crear',
@@ -78,9 +79,15 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.gestionar',
   'datos_maestros.proveedores.bancarios-ver',
   'datos_maestros.proveedores.bancarios-editar',
+  'datos_maestros.proveedores.adjuntos-ver',
+  'datos_maestros.proveedores.adjuntos-subir',
+  'datos_maestros.proveedores.adjuntos-baja',
   'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
+  'datos_maestros.clientes.sincronizar',
+  'datos_maestros.clientes.origen-ver',
+  'datos_maestros.clientes.fiscal-editar',
   'datos_maestros.productos-aw.gestionar',
   // Administración — andamio /admin (F-Admin-PR1.2) y CRUDs (PR2.3+).
   'admin.empresas.leer',
@@ -251,6 +258,14 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'centros_costo.catalogo.administrar',
   'centros_costo.asignaciones.administrar',
   'centros_costo.dim3.leer-todos',
+  // Contabilidad (F1-CON-01)
+  'contabilidad.catalogo.leer',
+  'contabilidad.catalogo.administrar',
+  'contabilidad.catalogo.importar',
+  'contabilidad.dimensiones.leer',
+  'contabilidad.dimensiones.administrar',
+  'contabilidad.movimientos.validar',
+  'contabilidad.movimientos.gestionar-todas-sucursales',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

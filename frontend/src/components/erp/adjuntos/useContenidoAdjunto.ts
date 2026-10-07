@@ -10,8 +10,7 @@ import { apiFetch } from '@/lib/auth/api-client';
  * <para>Mismo patrón que <c>usePdfOrdenCompra</c>/<c>useValeBlob</c>: el
  * endpoint requiere Bearer, así que NO se puede pasar la URL del endpoint
  * directo a <c>&lt;embed&gt;</c> (el browser no agrega el header). Y NUNCA
- * se usa el blobUrl crudo del storage (<c>file://</c> en dev no es
- * navegable desde una página http). ADR-0024.</para>
+ * se expone la URL cruda del storage (los DTO ya no la traen). ADR-0024.</para>
  *
  * <para><c>gcTime: 0</c> — cada fila baja su propio adjunto y revoca el
  * object URL al desmontar (ver <c>AdjuntoFila</c>); sin cache evitamos

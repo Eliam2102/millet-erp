@@ -1,3 +1,5 @@
+import { Inbox, PieChart, Receipt, SlidersHorizontal } from 'lucide-react';
+import { useAdminAccess } from '@/lib/admin/use-admin-registry';
 import { Link, useLocation } from '@tanstack/react-router';
 import { sidebarItemsVisibles, type NavModulo } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -22,12 +24,14 @@ export interface SidebarNavProps {
    * (típicamente abrir el AppLauncher modal). */
   onModuloOpen: (modulo: NavModulo) => void;
   className?: string;
+  compact?: boolean;
 }
 
 export function SidebarNav({
   onLinkSelect,
   onModuloOpen,
   className,
+  compact = false,
 }: SidebarNavProps) {
   const { pathname } = useLocation();
   const permisos = useAuthStore((s) => s.permisos);
@@ -44,21 +48,96 @@ export function SidebarNav({
   // Solo lo que el usuario puede abrir: módulos sin cards permitidas y
   // placeholders no se muestran.
   const items = sidebarItemsVisibles(permisos);
+  const puedeVerAdmin = useAdminAccess();
+
+  if (compact) {
+    const orden = [
+      'compras',
+      'almacen',
+      'cxp',
+      'tesoreria',
+      'cxc',
+      'facturacion',
+      'centros-costo',
+      'contabilidad',
+      'reportes',
+    ];
+    const nombres: Record<string, string> = {
+      cxp: 'CxP',
+      cxc: 'CxC',
+      'centros-costo': 'C. Costo',
+      contabilidad: 'Contab.',
+    };
+    const iconos = { cxp: Receipt, cxc: Inbox, 'centros-costo': PieChart };
+    const railClass = (active: boolean) =>
+      cn(
+        'flex w-rail-item flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        active ? 'bg-rail-active text-white' : 'text-rail-fg hover:bg-rail-active hover:text-white',
+      );
+    const ordenados = [...items].sort(
+      (a, b) =>
+        (a.kind === 'link' ? -1 : orden.indexOf(a.moduloId)) -
+        (b.kind === 'link' ? -1 : orden.indexOf(b.moduloId)),
+    );
+    return (
+      <nav
+        aria-label="Módulos"
+        className="flex h-full w-rail flex-col items-center gap-1 overflow-y-auto bg-rail py-3"
+      >
+        {ordenados.map((item) => {
+          const Icon =
+            item.kind === 'modulo'
+              ? (iconos[item.moduloId as keyof typeof iconos] ?? item.icon)
+              : item.icon;
+          const active = item.kind === 'link' ? isLinkActive(item.to) : isModuloActive(item);
+          const content = (
+            <>
+              <Icon size={20} strokeWidth={1.6} aria-hidden="true" />
+              <span>
+                {item.kind === 'modulo' ? (nombres[item.moduloId] ?? item.label) : item.label}
+              </span>
+            </>
+          );
+          return item.kind === 'link' ? (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onLinkSelect}
+              aria-current={active ? 'page' : undefined}
+              className={railClass(active)}
+            >
+              {content}
+            </Link>
+          ) : (
+            <button
+              key={item.moduloId}
+              type="button"
+              onClick={() => onModuloOpen(item)}
+              aria-label={item.label}
+              aria-current={active ? 'true' : undefined}
+              className={railClass(active)}
+            >
+              {content}
+            </button>
+          );
+        })}
+        {puedeVerAdmin && (
+          <Link to="/admin" className={cn(railClass(isLinkActive('/admin')), 'mt-auto')}>
+            <SlidersHorizontal size={20} strokeWidth={1.6} aria-hidden="true" />
+            <span>Admin</span>
+          </Link>
+        )}
+      </nav>
+    );
+  }
 
   return (
-    <div
-      className={cn(
-        'flex h-full w-60 flex-col bg-sidebar text-sidebar-foreground',
-        className,
-      )}
-    >
+    <div className={cn('flex h-full w-60 flex-col bg-sidebar text-sidebar-foreground', className)}>
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
         <div className="flex h-7 w-7 items-center justify-center rounded bg-sidebar-accent text-xs font-bold text-white">
           M
         </div>
-        <span className="text-sm font-semibold tracking-wide text-white">
-          Millet ERP
-        </span>
+        <span className="text-sm font-semibold tracking-wide text-white">Millet ERP</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">

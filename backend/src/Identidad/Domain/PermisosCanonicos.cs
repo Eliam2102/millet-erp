@@ -23,6 +23,8 @@ public static class PermisosCanonicos
     public const string IdentidadUsuariosCrear = "identidad.usuarios.crear";
     public const string IdentidadUsuariosEditar = "identidad.usuarios.editar";
     public const string IdentidadUsuariosDesactivar = "identidad.usuarios.desactivar";
+    // Excepciones de permisos por (usuario, empresa) sobre el rol base (ADR-0053).
+    public const string IdentidadUsuariosGestionarPermisos = "identidad.usuarios.gestionar-permisos";
     public const string IdentidadRolesLeer = "identidad.roles.leer";
     // <c>IdentidadRolesAdministrar</c> es el permiso grueso heredado de F0
     // (cubre crear+editar+desactivar+asignar permisos en un solo bit). En
@@ -86,6 +88,7 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesCancelarDoble                    = "compras.ordenes.cancelar-doble";
     public const string ComprasOrdenesReportesPartidasAbiertas         = "compras.ordenes.reportes-partidas-abiertas";
     public const string ComprasOrdenesCerrarManual                     = "compras.ordenes.cerrar-manual";
+    public const string ComprasOrdenesLeerTodasSucursales              = "compras.ordenes.leer-todas-sucursales";
 
     // ----- Configuración del módulo Compras (Settings, decisión 2026-05-13) -----
     public const string ComprasConfiguracionLeer                       = "compras.configuracion.leer";
@@ -118,10 +121,18 @@ public static class PermisosCanonicos
     // (banco/CLABE/beneficiario).
     public const string DatosMaestrosProveedoresBancariosVer           = "datos_maestros.proveedores.bancarios-ver";
     public const string DatosMaestrosProveedoresBancariosEditar        = "datos_maestros.proveedores.bancarios-editar";
+    // F1-ADM-11 G1.2: expediente documental (adjuntos) del proveedor, por operación.
+    public const string DatosMaestrosProveedoresAdjuntosVer            = "datos_maestros.proveedores.adjuntos-ver";
+    public const string DatosMaestrosProveedoresAdjuntosSubir          = "datos_maestros.proveedores.adjuntos-subir";
+    public const string DatosMaestrosProveedoresAdjuntosBaja           = "datos_maestros.proveedores.adjuntos-baja";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
+    // F1-ADM-06: sincronización de clientes desde A+W.
+    public const string DatosMaestrosClientesSincronizar               = "datos_maestros.clientes.sincronizar";
+    public const string DatosMaestrosClientesOrigenVer                 = "datos_maestros.clientes.origen-ver";
+    public const string DatosMaestrosClientesFiscalEditar              = "datos_maestros.clientes.fiscal-editar";
     public const string DatosMaestrosProductosAwGestionar              = "datos_maestros.productos-aw.gestionar";
 
     // ----- Administración — andamio mínimo del área /admin (F-Admin-PR1.2) -----
@@ -453,6 +464,20 @@ public static class PermisosCanonicos
     public const string CentrosCostoAsignacionesAdministrar     = "centros_costo.asignaciones.administrar";
     public const string CentrosCostoDim3LeerTodos               = "centros_costo.dim3.leer-todos";
 
+    // ----- Contabilidad (F1-CON-01) -----
+    // Namespace GUID 0000000d-* reservado para el módulo Contabilidad. -0001 catálogo de cuentas.
+    // `importar` va aparte de `administrar`: es una operación masiva (carga/actualización por lote).
+    public const string ContabilidadCatalogoLeer                = "contabilidad.catalogo.leer";
+    public const string ContabilidadCatalogoAdministrar         = "contabilidad.catalogo.administrar";
+    public const string ContabilidadCatalogoImportar            = "contabilidad.catalogo.importar";
+    // F1-CON-02: -0002 dimensiones (reglas, tipos de documento, centros por sucursal), -0003 movimientos.
+    // `gestionar-todas-sucursales` es el bypass de alcance por sucursal (ADR-0051); su literal se duplica en
+    // Contabilidad.Application.Dimensiones.PermisosDimensiones (Contabilidad no referencia Identidad).
+    public const string ContabilidadDimensionesLeer                     = "contabilidad.dimensiones.leer";
+    public const string ContabilidadDimensionesAdministrar              = "contabilidad.dimensiones.administrar";
+    public const string ContabilidadMovimientosValidar                  = "contabilidad.movimientos.validar";
+    public const string ContabilidadMovimientosGestionarTodasSucursales = "contabilidad.movimientos.gestionar-todas-sucursales";
+
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
     /// Usado por la migration de seed y por el bootstrap del SuperAdmin
@@ -466,6 +491,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000002-0002-0000-0000-000000000002"), IdentidadUsuariosCrear,                       "Crear nuevos usuarios"),
         (Guid.Parse("00000002-0002-0000-0000-000000000003"), IdentidadUsuariosEditar,                      "Editar perfil y estado de usuarios"),
         (Guid.Parse("00000002-0002-0000-0000-00000000000d"), IdentidadUsuariosDesactivar,                  "Desactivar y reactivar usuarios (soft-delete)"),
+        (Guid.Parse("00000002-0002-0000-0000-00000000000e"), IdentidadUsuariosGestionarPermisos,           "Administrar excepciones de permisos (conceder/denegar) de un usuario por empresa"),
         (Guid.Parse("00000002-0002-0000-0000-000000000004"), IdentidadRolesLeer,                           "Listar y consultar roles"),
         (Guid.Parse("00000002-0002-0000-0000-000000000005"), IdentidadRolesAdministrar,                    "Crear, editar y desactivar roles"),
         (Guid.Parse("00000002-0002-0000-0000-000000000006"), IdentidadAsignacionesLeer,                    "Consultar asignaciones de roles a usuarios por empresa"),
@@ -500,6 +526,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-000000000009"), ComprasOrdenesCancelarDoble,                  "Cancelar órdenes de compra con recepciones parciales (doble firma)"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000a"), ComprasOrdenesReportesPartidasAbiertas,       "Consultar reporte de partidas abiertas de órdenes de compra"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000b"), ComprasOrdenesCerrarManual,                   "Cerrar órdenes de compra manualmente (servicios/residuales)"),
+        (Guid.Parse("00000003-0003-0000-0000-00000000000c"), ComprasOrdenesLeerTodasSucursales,            "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000004-0001-0000-0000-000000000001"), CompartidoCatalogosLeer,                      "Consultar catálogos cross-empresa (proveedores, artículos)"),
@@ -534,8 +561,14 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000001"), DatosMaestrosProveedoresGestionar,            "Crear, editar y desactivar proveedores del catálogo cross-empresa"),
         (Guid.Parse("00000004-0009-0000-0000-000000000002"), DatosMaestrosProveedoresBancariosVer,         "Consultar datos bancarios de proveedores (CLABE enmascarada)"),
         (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Cambiar banco, CLABE y beneficiario de proveedores"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000004"), DatosMaestrosProveedoresAdjuntosVer,          "Consultar y descargar los documentos del expediente de un proveedor"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000005"), DatosMaestrosProveedoresAdjuntosSubir,        "Adjuntar documentos al expediente de un proveedor"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000006"), DatosMaestrosProveedoresAdjuntosBaja,         "Dar de baja documentos del expediente de un proveedor y consultar su historial"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000003"), DatosMaestrosClientesOrigenVer,               "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)"),
+        (Guid.Parse("00000004-0011-0000-0000-000000000004"), DatosMaestrosClientesFiscalEditar,            "Modificar datos fiscales de clientes con origen A+W"),
         (Guid.Parse("00000004-0012-0000-0000-000000000001"), DatosMaestrosProductosAwGestionar,            "Crear, editar y desactivar productos de venta A+W del master cross-empresa (ADR-0048)"),
         // Cuentas por Pagar (F0-PR1). Namespace 00000007-*.
         (Guid.Parse("00000007-0001-0000-0000-000000000001"), CuentasPorPagarFacturasLeer,                 "Consultar facturas de proveedor (detalle y listados)"),
@@ -703,5 +736,14 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000c-0001-0000-0000-000000000002"), CentrosCostoCatalogoAdministrar,         "Crear, editar y desactivar niveles y grupos del catálogo de centros de costo"),
         (Guid.Parse("0000000c-0002-0000-0000-000000000001"), CentrosCostoAsignacionesAdministrar,     "Asignar y revocar alcance de centros de costo a usuarios (marcado por nivel o grupo, congelado en máquinas)"),
         (Guid.Parse("0000000c-0003-0000-0000-000000000001"), CentrosCostoDim3LeerTodos,               "Alcance total en centros de costo: ver todas las máquinas (Dim3) sin restricción de asignación"),
+
+        // Contabilidad (F1-CON-01). Namespace 0000000d-*.
+        (Guid.Parse("0000000d-0001-0000-0000-000000000001"), ContabilidadCatalogoLeer,                "Consultar el catálogo contable (cuentas, árbol, lotes de importación y validación de cuentas)"),
+        (Guid.Parse("0000000d-0001-0000-0000-000000000002"), ContabilidadCatalogoAdministrar,         "Crear, editar, desactivar y reactivar cuentas contables"),
+        (Guid.Parse("0000000d-0001-0000-0000-000000000003"), ContabilidadCatalogoImportar,            "Previsualizar, perfilar y aplicar importaciones del catálogo contable"),
+        (Guid.Parse("0000000d-0002-0000-0000-000000000001"), ContabilidadDimensionesLeer,             "Consultar reglas de dimensión, tipos de documento contable, centros por sucursal y movimientos de prueba"),
+        (Guid.Parse("0000000d-0002-0000-0000-000000000002"), ContabilidadDimensionesAdministrar,      "Configurar reglas de dimensión, tipos de documento contable y sucursales de cada centro de costo"),
+        (Guid.Parse("0000000d-0003-0000-0000-000000000001"), ContabilidadMovimientosValidar,          "Validar y confirmar movimientos contables de prueba contra las reglas de dimensión"),
+        (Guid.Parse("0000000d-0003-0000-0000-000000000002"), ContabilidadMovimientosGestionarTodasSucursales, "Operar movimientos contables de todas las sucursales sin estar asociado a cada una"),
     };
 }

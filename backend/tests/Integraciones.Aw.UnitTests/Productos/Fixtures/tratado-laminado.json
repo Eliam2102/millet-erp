@@ -1,0 +1,32 @@
+{
+  "escenario": "tratado-laminado",
+  "descripcion": "Producto tratado laminado: codigo A+W distinto, composicion como texto libre.",
+  "origen": {
+    "vw_erp_articulo": [
+      {
+        "producto_ref": "DEMO-P004-L",
+        "descripcion": "VIDRIO LAMINADO DEMO",
+        "unidad_medida": "M2",
+        "baja": false,
+        "variantes": [
+          {
+            "clave_variante": "V1",
+            "alto_mm": 1000,
+            "ancho_mm": 500,
+            "espesor_mm": 12.76,
+            "composicion": "6mm+PVB+6mm"
+          }
+        ],
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": false
+  },
+  "resultadoEsperado": {
+    "resultado": "Creado",
+    "productos": 1,
+    "composicion": "6mm+PVB+6mm"
+  }
+}

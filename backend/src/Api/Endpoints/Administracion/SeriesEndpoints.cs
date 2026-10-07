@@ -23,8 +23,8 @@ namespace Millet.Api.Endpoints.Administracion;
 ///   <item><c>POST   /api/v1/admin/series/{id}/desactivar</c> —
 ///         soft-delete del agregado (Idempotency-Key).</item>
 ///   <item><c>POST   /api/v1/admin/series/reservar</c> — reserva atómica
-///         (Idempotency-Key). Endpoint interno: solo
-///         <c>RequireAuthorization()</c> (cualquier usuario autenticado).</item>
+///         (Idempotency-Key). Exige <c>admin.series.gestionar</c>: los
+///         handlers de otros módulos reservan vía MediatR, no por HTTP.</item>
 /// </list>
 /// </summary>
 public static class SeriesEndpoints
@@ -152,7 +152,7 @@ public static class SeriesEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // --- RESERVAR (interno: requiere autenticación pero sin permiso específico) ---
+        // --- RESERVAR (los consumidores internos usan ReservarFolioCommand vía MediatR) ---
         group.MapPost("/reservar", async (
             [FromBody] ReservarFolioCommand command,
             SerieSucursalScope scope,
@@ -171,6 +171,7 @@ public static class SeriesEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         return app;

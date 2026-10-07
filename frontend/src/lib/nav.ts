@@ -18,6 +18,7 @@ import {
   Home,
   Inbox,
   Landmark,
+  FlaskConical,
   Layers,
   ListTree,
   Lock,
@@ -35,12 +36,14 @@ import {
   Sliders,
   Truck,
   Unlock,
+  Upload,
   Users,
   Warehouse,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { adminRegistry } from '@/lib/admin/registry';
 
 /**
  * <c>nav.ts</c> — un solo lugar donde se declara la navegación del ERP.
@@ -861,6 +864,56 @@ const moduloFacturacion: NavModulo = {
   ],
 };
 
+const moduloContabilidad: NavModulo = {
+  moduloId: 'contabilidad',
+  label: 'Contabilidad',
+  icon: BookOpen,
+  secciones: [
+    {
+      label: 'Catálogo',
+      cards: [
+        {
+          label: 'Catálogo de cuentas',
+          description:
+            'Árbol y lista de cuentas contables: consulta, alta, edición y baja lógica. Marca las cuentas pendientes de validación.',
+          to: '/contabilidad/catalogo',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ContabilidadCatalogoLeer,
+        },
+        {
+          label: 'Importación del catálogo',
+          description:
+            'Carga de un archivo .csv/.xlsx en 3 pasos: perfilado de solo lectura, vista previa y aplicación idempotente.',
+          to: '/contabilidad/importacion',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadCatalogoImportar,
+        },
+      ],
+    },
+    {
+      label: 'Dimensiones',
+      cards: [
+        {
+          label: 'Dimensiones contables',
+          description:
+            'Reglas de cuenta × tipo de documento × dimensión con vigencia, sucursales de cada centro de costo y tipos de documento.',
+          to: '/contabilidad/dimensiones',
+          icon: Layers,
+          permission: PermisosCanonicos.ContabilidadDimensionesLeer,
+        },
+        {
+          label: 'Probar movimientos',
+          description:
+            'Valida cuenta, tipo de documento y centros contra las reglas vigentes y registra movimientos de prueba.',
+          to: '/contabilidad/movimientos-prueba',
+          icon: FlaskConical,
+          permission: PermisosCanonicos.ContabilidadMovimientosValidar,
+        },
+      ],
+    },
+  ],
+};
+
 const modulos: readonly NavModulo[] = [
   moduloFacturacion,
   moduloCuentasPorCobrar,
@@ -870,7 +923,7 @@ const modulos: readonly NavModulo[] = [
   moduloTesoreria,
   moduloCentrosCosto,
   placeholderModulo('activos', 'Activos Fijos', Building2),
-  placeholderModulo('contabilidad', 'Contabilidad', BookOpen),
+  moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', BarChart3),
 ];
 
@@ -937,6 +990,21 @@ export function sidebarItemsVisibles(
   );
 }
 
+/** Contexto visual del shell, siempre limitado a las pantallas permitidas. */
+export function contextoNavegacion(pathname: string, permisos: readonly string[]) {
+  return sidebarItemsVisibles(permisos)
+    .filter((item): item is NavSidebarItem & NavModulo => item.kind === 'modulo')
+    .flatMap((item) => {
+      const modulo = filtrarModuloPorPermisos(item, permisos);
+      return modulo.secciones.flatMap((seccion) =>
+        seccion.cards
+          .filter((card) => contieneRuta(card.to, pathname))
+          .map((card) => ({ modulo, seccion, card })),
+      );
+    })
+    .sort((a, b) => b.card.to.length - a.card.to.length)[0];
+}
+
 /**
  * Rutas que no tienen card en el menú (se llega desde otra pantalla) pero
  * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.
@@ -950,17 +1018,40 @@ function contieneRuta(base: string, pathname: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
+/** Accesos del buscador: mismo catálogo y permisos que los menús. */
+export function accesosNavegacion(permisos: readonly string[]) {
+  const accesos = sidebarItemsVisibles(permisos).flatMap((item) =>
+    item.kind === 'link'
+      ? [{ ...item, description: 'Página de inicio', modulo: 'General' }]
+      : filtrarModuloPorPermisos(item, permisos).secciones.flatMap((seccion) =>
+          seccion.cards.map((card) => ({ ...card, modulo: item.label })),
+        ),
+  );
+  accesos.push(...adminRegistry
+    .filter((section) => permisos.includes(section.permisoRequerido))
+    .map((section) => ({ to: section.href, label: section.titulo, description: section.descripcion, modulo: 'Administración', icon: section.icon })));
+  return [...new Map(accesos.filter((acceso) => rutaPermitida(acceso.to, permisos)).map((acceso) => [acceso.to, acceso])).values()];
+}
+
 /**
  * ¿Puede el usuario abrir esta URL? Aplica el permiso de la card más
  * específica que contiene la ruta (<c>/compras/ordenes/123</c> → card
  * <c>/compras/ordenes</c>), así el sidebar y la URL directa usan la misma
  * regla. Sin card: la raíz de un módulo (<c>/tesoreria</c>, su ayuda) exige
- * ver ese módulo; el resto (Inicio, administración) lo decide su ruta.
+ * ver ese módulo. La configuración administrativa exige un permiso de
+ * su módulo en el registry; Inicio queda disponible para la sesión.
  *
  * <para>Es una guarda de navegación, no de seguridad: el backend valida
  * cada endpoint.</para>
  */
 export function rutaPermitida(pathname: string, permisos: readonly string[]): boolean {
+  const settingsModulo = pathname.match(/^\/admin\/([^/]+)\/settings(?:\/|$)/)?.[1];
+  if (settingsModulo !== undefined) {
+    return adminRegistry.some(
+      (section) => section.modulo === settingsModulo && permisos.includes(section.permisoRequerido),
+    );
+  }
+
   const candidatas = [
     ...modulos.flatMap((m) => m.secciones.flatMap((s) => s.cards)),
     ...rutasFueraDelMenu,

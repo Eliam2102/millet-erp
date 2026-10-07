@@ -169,6 +169,42 @@ canal/sucursal/comportamiento viven en configuración (si crecen, se promueven
 a tabla administrable); gaps G1–G13 requieren confirmación del equipo A+W
 (lista en el doc 04 y en la spec de customización).
 
+## Adenda — ADM-06 — Sincronización de clientes (extensión, 2026-09)
+
+**Estado**: implementado en la rama de ADM-06; conexión real a A+W pendiente.
+
+**Decisión.** `Integraciones.Aw` incorpora un lector de clientes de **solo
+lectura** sobre la base `MILMAIN` de A+W, con conexión y flags **independientes**
+del flujo de pedidos. Los nombres son los **implementados** (ver doc 05 §10):
+
+- `ConnectionStrings:AwClientesDb` (conexión propia; no se reutiliza
+  `ConnectionStrings:AwIntegracionDb`, que además registra adaptadores de
+  escritura).
+- `IntegracionesAw:Clientes` (flags separados para leer, aplicar y programar
+  el maestro). **Deshabilitado por defecto**.
+
+**Adaptador futuro.** Si la arquitectura general despliega `vw_erp_cliente` en
+`MILMAIN_INTEGRACION`, se agrega un adaptador de vista que cumple el **mismo
+contrato** de lectura; no cambia el dominio ni la aplicación.
+
+**Sin cambios en pedidos.** La tabla-puente `aw_solicitud_pedido`, sus vistas y
+los write-backs (D1–D3) permanecen intactos. Habilitar o configurar clientes no
+activa pedidos; los workers `Facturacion:Workers:AwSolicitudes` y
+`AwWriteBack` deben poder permanecer deshabilitados al probar clientes.
+
+**Seguridad.** Solo SELECT sobre las columnas/objetos necesarios; cuenta de
+servicio por canal técnico; TLS verificado (no se copia `Encrypt=False` de
+ejemplos históricos); sin secretos en repositorio ni en `appsettings`
+(Key Vault). Camino privado desde el entorno de ejecución (p. ej. Hybrid
+Connection) por confirmar; no se expone SQL a internet.
+
+**Consecuencias.** (+) ADM-06 avanza con fixtures sin bloquearse por la BD
+puente; el mismo contrato admite luego la vista. (-) Segundo punto de conexión a
+A+W que operar y monitorear; el endpoint/puerto efectivo de la instancia
+nombrada y el permiso de lectura siguen sin validar desde el entorno del ERP.
+Detalle del contrato y de la detección de cambios en
+[`docs/integration/05-sincronizacion-clientes-aw.md`](../integration/05-sincronizacion-clientes-aw.md).
+
 ## Referencias
 
 - [`docs/integration/04-ingesta-pedidos-facturacion.md`](../integration/04-ingesta-pedidos-facturacion.md) — contratos y flujo
@@ -176,3 +212,4 @@ a tabla administrable); gaps G1–G13 requieren confirmación del equipo A+W
 - [`docs/operacion/runbook-integracion-aw-pedidos.md`](../operacion/runbook-integracion-aw-pedidos.md) — DDL y operación
 - `docs/modulos/facturacion/01-diseno.md` §3 (Decisión 01-E), §5, §6.1, §9, §12.1
 - ADR-0046 (catálogos UM/Categoría), ADR-0009 (Outbox), ADR-0031 (PLATFORM-TODO)
+- [`docs/integration/05-sincronizacion-clientes-aw.md`](../integration/05-sincronizacion-clientes-aw.md) — sincronización de clientes (adenda ADM-06)

@@ -19,7 +19,7 @@ namespace Millet.Identidad.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("identidad")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -429,6 +429,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Desactivar y reactivar usuarios (soft-delete)",
+                            Modulo = "identidad",
+                            Recurso = "usuarios",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000002-0002-0000-0000-00000000000e"),
+                            Accion = "gestionar-permisos",
+                            Codigo = "identidad.usuarios.gestionar-permisos",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Administrar excepciones de permisos (conceder/denegar) de un usuario por empresa",
                             Modulo = "identidad",
                             Recurso = "usuarios",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -913,6 +927,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000003-0003-0000-0000-00000000000c"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "compras.ordenes.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa",
+                            Modulo = "compras",
+                            Recurso = "ordenes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000003-0004-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "compras.configuracion.leer",
@@ -1361,6 +1389,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000004-0009-0000-0000-000000000004"),
+                            Accion = "adjuntos-ver",
+                            Codigo = "datos_maestros.proveedores.adjuntos-ver",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar y descargar los documentos del expediente de un proveedor",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0009-0000-0000-000000000005"),
+                            Accion = "adjuntos-subir",
+                            Codigo = "datos_maestros.proveedores.adjuntos-subir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Adjuntar documentos al expediente de un proveedor",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0009-0000-0000-000000000006"),
+                            Accion = "adjuntos-baja",
+                            Codigo = "datos_maestros.proveedores.adjuntos-baja",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dar de baja documentos del expediente de un proveedor y consultar su historial",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000004-0010-0000-0000-000000000001"),
                             Accion = "gestionar",
                             Codigo = "datos_maestros.articulos.gestionar",
@@ -1381,6 +1451,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)",
+                            Modulo = "datos_maestros",
+                            Recurso = "clientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0011-0000-0000-000000000002"),
+                            Accion = "sincronizar",
+                            Codigo = "datos_maestros.clientes.sincronizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Iniciar y consultar la sincronización de clientes desde A+W",
+                            Modulo = "datos_maestros",
+                            Recurso = "clientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0011-0000-0000-000000000003"),
+                            Accion = "origen-ver",
+                            Codigo = "datos_maestros.clientes.origen-ver",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)",
+                            Modulo = "datos_maestros",
+                            Recurso = "clientes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0011-0000-0000-000000000004"),
+                            Accion = "fiscal-editar",
+                            Codigo = "datos_maestros.clientes.fiscal-editar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Modificar datos fiscales de clientes con origen A+W",
                             Modulo = "datos_maestros",
                             Recurso = "clientes",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -3486,6 +3598,104 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0001-0000-0000-000000000001"),
+                            Accion = "leer",
+                            Codigo = "contabilidad.catalogo.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar el catálogo contable (cuentas, árbol, lotes de importación y validación de cuentas)",
+                            Modulo = "contabilidad",
+                            Recurso = "catalogo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0001-0000-0000-000000000002"),
+                            Accion = "administrar",
+                            Codigo = "contabilidad.catalogo.administrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Crear, editar, desactivar y reactivar cuentas contables",
+                            Modulo = "contabilidad",
+                            Recurso = "catalogo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0001-0000-0000-000000000003"),
+                            Accion = "importar",
+                            Codigo = "contabilidad.catalogo.importar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Previsualizar, perfilar y aplicar importaciones del catálogo contable",
+                            Modulo = "contabilidad",
+                            Recurso = "catalogo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0002-0000-0000-000000000001"),
+                            Accion = "leer",
+                            Codigo = "contabilidad.dimensiones.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar reglas de dimensión, tipos de documento contable, centros por sucursal y movimientos de prueba",
+                            Modulo = "contabilidad",
+                            Recurso = "dimensiones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0002-0000-0000-000000000002"),
+                            Accion = "administrar",
+                            Codigo = "contabilidad.dimensiones.administrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Configurar reglas de dimensión, tipos de documento contable y sucursales de cada centro de costo",
+                            Modulo = "contabilidad",
+                            Recurso = "dimensiones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0003-0000-0000-000000000001"),
+                            Accion = "validar",
+                            Codigo = "contabilidad.movimientos.validar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Validar y confirmar movimientos contables de prueba contra las reglas de dimensión",
+                            Modulo = "contabilidad",
+                            Recurso = "movimientos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0003-0000-0000-000000000002"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "contabilidad.movimientos.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Operar movimientos contables de todas las sucursales sin estar asociado a cada una",
+                            Modulo = "contabilidad",
+                            Recurso = "movimientos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 
@@ -3894,6 +4104,79 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .HasDatabaseName("ix_usuario_empresa_roles_usuario_id_empresa_id_rol_id");
 
                     b.ToTable("usuario_empresa_roles", "identidad");
+                });
+
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioPermisoOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AsignadoPorUsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asignado_por_usuario_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<short>("Efecto")
+                        .HasColumnType("smallint")
+                        .HasColumnName("efecto");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<Guid>("PermisoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("permiso_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_usuario_permiso_overrides");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_usuario_permiso_overrides_empresa_id");
+
+                    b.HasIndex("PermisoId")
+                        .HasDatabaseName("ix_usuario_permiso_overrides_permiso_id");
+
+                    b.HasIndex("UsuarioId", "EmpresaId", "PermisoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_usuario_permiso_overrides_usuario_id_empresa_id_permiso_id");
+
+                    b.ToTable("usuario_permiso_overrides", "identidad");
                 });
 
             modelBuilder.Entity("Millet.Identidad.Domain.UsuarioPreferencia", b =>
@@ -4321,6 +4604,30 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_usuario_empresa_roles_usuarios_usuario_id");
+                });
+
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioPermisoOverride", b =>
+                {
+                    b.HasOne("Millet.Administracion.Domain.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_permiso_overrides_empresas_empresa_id");
+
+                    b.HasOne("Millet.Identidad.Domain.Permiso", null)
+                        .WithMany()
+                        .HasForeignKey("PermisoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_permiso_overrides_permisos_permiso_id");
+
+                    b.HasOne("Millet.Identidad.Domain.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_permiso_overrides_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Millet.Identidad.Domain.UsuarioPreferencia", b =>

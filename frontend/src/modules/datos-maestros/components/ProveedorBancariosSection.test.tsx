@@ -78,10 +78,23 @@ describe('<ProveedorBancariosSection>', () => {
     expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
   });
 
+  it('con bancarios-editar pero sin catalogos.administrar no ofrece Editar (la API lo rechaza)', async () => {
+    setPermisos([
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
+    ]);
+    render(<ProveedorBancariosSection proveedorId="p-1" />, {
+      wrapper: createQueryWrapper(),
+    });
+    await screen.findByText('BBVA México');
+    expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
+  });
+
   it('con bancarios-editar abre el form inline sin pre-llenar la CLABE', async () => {
     setPermisos([
       PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
       PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
+      PermisosCanonicos.CompartidoCatalogosAdministrar,
     ]);
     render(<ProveedorBancariosSection proveedorId="p-1" />, {
       wrapper: createQueryWrapper(),

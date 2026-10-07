@@ -236,8 +236,7 @@ export function accionRemoverAdjunto(
 /**
  * <b>Editar info logística</b> (dirección, transportista, guía,
  * instrucciones) — en cualquier estado no-terminal. Doc 05 §4.6:
- * info logística es editable post-aut sin re-auth. Permisos:
- * <c>crear</c> O <c>logistica</c> (perfil específico).
+ * info logística es editable post-aut sin re-auth. Permiso: <c>logistica</c> (igual que la API).
  */
 export function accionEditarInfoLogistica(
   oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
@@ -245,10 +244,7 @@ export function accionEditarInfoLogistica(
 ): AccionDisponible {
   return gatePermisos(
     permisos,
-    [
-      PermisosCanonicos.ComprasOrdenesCrear,
-      PermisosCanonicos.ComprasOrdenesLogistica,
-    ],
+    [PermisosCanonicos.ComprasOrdenesLogistica],
     oc.estado === EstadoOrdenCompra.Cerrada ||
       oc.estado === EstadoOrdenCompra.Cancelada
       ? OCULTO
@@ -259,8 +255,7 @@ export function accionEditarInfoLogistica(
 /**
  * <b>Editar info importación (campos completos)</b> — incoterm, país
  * origen, contenedor, ruta, semana, pedimento. Solo en
- * <c>Borrador</c>/<c>Rechazada</c>. Permisos: <c>crear</c> O
- * <c>logistica</c>. <c>NumeroPedimento</c> tiene su propia acción
+ * <c>Borrador</c>/<c>Rechazada</c>. Permiso: <c>crear</c> (igual que la API). <c>NumeroPedimento</c> tiene su propia acción
  * más permisiva (acción siguiente).
  *
  * <para>Si la OC NO es de importación (<c>esImportacion=false</c>),
@@ -273,10 +268,7 @@ export function accionEditarInfoImportacion(
   if (!oc.esImportacion) return OCULTO;
   return gatePermisos(
     permisos,
-    [
-      PermisosCanonicos.ComprasOrdenesCrear,
-      PermisosCanonicos.ComprasOrdenesLogistica,
-    ],
+    [PermisosCanonicos.ComprasOrdenesCrear],
     oc.estado === EstadoOrdenCompra.Borrador ||
       oc.estado === EstadoOrdenCompra.Rechazada
       ? HABILITADA
@@ -299,10 +291,7 @@ export function accionEditarNumeroPedimentoImportacion(
   if (!oc.esImportacion) return OCULTO;
   return gatePermisos(
     permisos,
-    [
-      PermisosCanonicos.ComprasOrdenesCrear,
-      PermisosCanonicos.ComprasOrdenesLogistica,
-    ],
+    [PermisosCanonicos.ComprasOrdenesLogistica],
     oc.estado === EstadoOrdenCompra.Cerrada ||
       oc.estado === EstadoOrdenCompra.Cancelada
       ? OCULTO

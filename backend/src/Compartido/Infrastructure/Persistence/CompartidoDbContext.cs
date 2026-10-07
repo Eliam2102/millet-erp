@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
+using Millet.SharedKernel.Domain.Adjuntos;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -46,9 +47,15 @@ public sealed class CompartidoDbContext : BaseDbContext
     // ADR-0048 D6: master de clientes (primer consumidor: Facturación vía
     // IClientesReadPort; nacen desde A+W por auto-provisión).
     public DbSet<Cliente> Clientes => Set<Cliente>();
+    // ADM-06: registro de origen A+W 1:1 con Cliente (valores crudos + control).
+    public DbSet<ClienteSincronizacionAw> ClientesSincronizacionAw => Set<ClienteSincronizacionAw>();
     // ADR-0048 D5: master de productos de venta manufacturados (A+W),
     // SEPARADO de Articulos (compras/almacén) a propósito.
     public DbSet<ProductoAw> ProductosAw => Set<ProductoAw>();
+    // ADM-07: variantes (medidas/composición) y registro de origen A+W de producto.
+    public DbSet<ProductoAwVariante> ProductosAwVariantes => Set<ProductoAwVariante>();
+    public DbSet<ProductoAwComponente> ProductosAwComponentes => Set<ProductoAwComponente>();
+    public DbSet<ProductoSincronizacionAw> ProductosSincronizacionAw => Set<ProductoSincronizacionAw>();
     public DbSet<Sucursal> Sucursales => Set<Sucursal>();
     // FAC-ING-PR2: catálogo administrable de canales de venta (reemplaza el
     // enum de Facturación). PK short asignada por la app; seed 1..10 espejo
@@ -107,6 +114,9 @@ public sealed class CompartidoDbContext : BaseDbContext
     // FormatoFecha, RedondeoMonetario, etc.) o por módulo (cuando Modulo
     // es no-null). Vive en compartido (PLATFORM-TODO Fase B → admin).
     public DbSet<ParametroGlobal> ParametrosGlobales => Set<ParametroGlobal>();
+    // F1-ADM-11 G1.2: servicio genérico de adjuntos (metadatos; el blob vive en storage).
+    public DbSet<Adjunto> Adjuntos => Set<Adjunto>();
+    public DbSet<AdjuntoTipoDocumento> AdjuntoTiposDocumento => Set<AdjuntoTipoDocumento>();
     public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -134,7 +144,9 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureProveedor(modelBuilder);
         ConfigureArticulo(modelBuilder);
         ConfigureCliente(modelBuilder);
+        ConfigureClienteSincronizacionAw(modelBuilder);
         ConfigureProductoAw(modelBuilder);
+        ConfigureProductoAwSincronizacion(modelBuilder);
         ConfigureSucursal(modelBuilder);
         ConfigureCanalVenta(modelBuilder);
         ConfigureDepartamento(modelBuilder);
@@ -157,7 +169,106 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureSerie(modelBuilder);
         ConfigureSecuenciaFolio(modelBuilder);
         ConfigureParametroGlobal(modelBuilder);
+        ConfigureAdjuntoTipoDocumento(modelBuilder);
+        ConfigureAdjunto(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
+    }
+
+    /// <summary>
+    /// F1-ADM-11 G1.2: tipos de documento por entidad dueña. Seed del
+    /// expediente de proveedor con ids deterministas en el rango
+    /// <c>00000011-0001-0000-0000-0000000000NN</c> (NN = 01..05; el bloque
+    /// <c>00000011-0001</c> queda reservado a tipos de adjunto de proveedor;
+    /// otros módulos usarán otro bloque, p. ej. <c>00000011-0002</c>).
+    /// Vigencias y obligatoriedad son de PRUEBA hasta que Millet las valide.
+    /// </summary>
+    private static void ConfigureAdjuntoTipoDocumento(ModelBuilder modelBuilder)
+    {
+        var tipo = modelBuilder.Entity<AdjuntoTipoDocumento>();
+        tipo.ToTable("adjunto_tipos_documento", t =>
+        {
+            t.HasCheckConstraint("ck_adjunto_tipos_documento_vigencia",
+                "vigencia_meses IS NULL OR vigencia_meses > 0");
+        });
+        tipo.HasKey(x => x.Id);
+        tipo.Property(x => x.TipoEntidad).HasMaxLength(60).IsRequired();
+        tipo.Property(x => x.Codigo).HasMaxLength(80).IsRequired();
+        tipo.Property(x => x.Nombre).HasMaxLength(200).IsRequired();
+        tipo.Property(x => x.Orden).IsRequired();
+        tipo.Property(x => x.Obligatorio).IsRequired();
+        tipo.Property(x => x.SoloPersonaMoral).IsRequired();
+        tipo.Property(x => x.Activo).IsRequired();
+        tipo.HasIndex(x => new { x.TipoEntidad, x.Codigo }).IsUnique();
+
+        var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        tipo.HasData(
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000004", "identificacion_representante_legal", "Identificación del representante legal", 4, null, false, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime));
+    }
+
+    private static object SeedTipoAdjuntoProveedor(
+        string id, string codigo, string nombre, int orden, int? vigenciaMeses, bool soloPersonaMoral,
+        DateTimeOffset seedTime) => new
+    {
+        Id = Guid.Parse(id),
+        TipoEntidad = "proveedor",
+        Codigo = codigo,
+        Nombre = nombre,
+        Orden = orden,
+        Obligatorio = true,
+        VigenciaMeses = vigenciaMeses,
+        SoloPersonaMoral = soloPersonaMoral,
+        Activo = true,
+        Version = 1,
+        CreatedAt = seedTime,
+        UpdatedAt = seedTime,
+        CreatedBy = (string?)"seed",
+        UpdatedBy = (string?)"seed",
+        DeletedAt = (DateTimeOffset?)null,
+    };
+
+    /// <summary>
+    /// F1-ADM-11 G1.2: metadatos de adjuntos genéricos. Sin FK a la entidad
+    /// dueña (genérico: <c>tipo_entidad</c> + <c>entidad_id</c>); FK solo al
+    /// catálogo de tipos. Baja lógica coherente por CHECK; el blob nunca se borra.
+    /// </summary>
+    private static void ConfigureAdjunto(ModelBuilder modelBuilder)
+    {
+        var adjunto = modelBuilder.Entity<Adjunto>();
+        adjunto.ToTable("adjuntos", t =>
+        {
+            t.HasCheckConstraint("ck_adjuntos_tamano_positivo", "tamano_bytes > 0");
+            t.HasCheckConstraint("ck_adjuntos_hash_sha256", "char_length(hash_sha256) = 64");
+            t.HasCheckConstraint("ck_adjuntos_baja_coherente",
+                "(baja_en IS NULL AND baja_por_id IS NULL AND baja_motivo IS NULL) " +
+                "OR (baja_en IS NOT NULL AND baja_por_id IS NOT NULL AND baja_motivo IS NOT NULL " +
+                "AND char_length(baja_motivo) BETWEEN 5 AND 500)");
+        });
+        adjunto.HasKey(x => x.Id);
+        adjunto.Ignore(x => x.AggregateRootId);
+        adjunto.Ignore(x => x.EstaDeBaja);
+        adjunto.Property(x => x.TipoEntidad).HasMaxLength(60).IsRequired();
+        adjunto.Property(x => x.EntidadId).IsRequired();
+        adjunto.Property(x => x.TipoDocumentoId).IsRequired();
+        adjunto.Property(x => x.NombreArchivo).HasMaxLength(255).IsRequired();
+        adjunto.Property(x => x.ContentType).HasMaxLength(120).IsRequired();
+        adjunto.Property(x => x.HashSha256).HasMaxLength(64).IsFixedLength().IsRequired();
+        adjunto.Property(x => x.BlobRef).HasMaxLength(500).IsRequired();
+        adjunto.Property(x => x.VigenteHasta).HasColumnType("date");
+        adjunto.Property(x => x.SubidoPorId).IsRequired();
+        adjunto.Property(x => x.SubidoEn).IsRequired();
+        adjunto.Property(x => x.BajaMotivo).HasMaxLength(500);
+
+        adjunto.HasIndex(x => new { x.TipoEntidad, x.EntidadId });
+        adjunto.HasIndex(x => new { x.EntidadId, x.TipoDocumentoId });
+
+        adjunto.HasOne<AdjuntoTipoDocumento>()
+            .WithMany()
+            .HasForeignKey(x => x.TipoDocumentoId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureIntegrationEventOutbox(ModelBuilder modelBuilder)
@@ -759,8 +870,8 @@ public sealed class CompartidoDbContext : BaseDbContext
 
     /// <summary>
     /// ADR-0046 Etapa 1a: catálogo de unidades de medida. Dimensión como
-    /// enum (check 0..4), <c>factor_a_base</c> &gt; 0, <c>decimales</c> 0..6,
-    /// <c>codigo</c> único. Seed de 10 unidades (5 dimensiones, base marcada
+    /// enum (check 0..5), <c>factor_a_base</c> &gt; 0, <c>decimales</c> 0..6,
+    /// <c>codigo</c> único. Seed de 12 unidades (6 dimensiones, base marcada
     /// con <c>es_base</c>). El FK desde <c>articulos</c> es Etapa 1b.
     /// </summary>
     private static void ConfigureUnidadMedida(ModelBuilder modelBuilder)
@@ -768,7 +879,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         var um = modelBuilder.Entity<UnidadMedida>();
         um.ToTable("unidades_medida", t =>
         {
-            t.HasCheckConstraint("ck_unidades_medida_dimension", "dimension BETWEEN 0 AND 4");
+            t.HasCheckConstraint("ck_unidades_medida_dimension", "dimension BETWEEN 0 AND 5");
             t.HasCheckConstraint("ck_unidades_medida_factor_positivo", "factor_a_base > 0");
             t.HasCheckConstraint("ck_unidades_medida_decimales", "decimales BETWEEN 0 AND 6");
             t.HasCheckConstraint("ck_unidades_medida_estatus", "estatus BETWEEN 0 AND 2");
@@ -801,7 +912,11 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedUnidadMedida("00000002-0007-0000-0000-000000000008", "CM", "Centímetro", DimensionUnidad.Longitud, 0.01m, 1, false, seedTime),
             SeedUnidadMedida("00000002-0007-0000-0000-000000000009", "MM", "Milímetro", DimensionUnidad.Longitud, 0.001m, 0, false, seedTime),
             // Tiempo (base HR)
-            SeedUnidadMedida("00000002-0007-0000-0000-00000000000a", "HR", "Hora", DimensionUnidad.Tiempo, 1m, 2, true, seedTime)
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000a", "HR", "Hora", DimensionUnidad.Tiempo, 1m, 2, true, seedTime),
+            // Área (base M2)
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000b", "M2", "Metro cuadrado", DimensionUnidad.Area, 1m, 2, true, seedTime),
+            // Volumen: M3 = 1000 L
+            SeedUnidadMedida("00000002-0007-0000-0000-00000000000c", "M3", "Metro cúbico", DimensionUnidad.Volumen, 1000m, 3, false, seedTime)
         );
     }
 
@@ -1062,6 +1177,50 @@ public sealed class CompartidoDbContext : BaseDbContext
     }
 
     /// <summary>
+    /// Configura <see cref="ClienteSincronizacionAw"/> (ADM-06): registro de
+    /// origen 1:1 con <see cref="Cliente"/>. FK RESTRICT; UNIQUE en cliente_id
+    /// y referencia_externa (la carrera de alta se resuelve por este índice).
+    /// </summary>
+    private static void ConfigureClienteSincronizacionAw(ModelBuilder modelBuilder)
+    {
+        var sync = modelBuilder.Entity<ClienteSincronizacionAw>();
+        sync.ToTable("cliente_sincronizacion_aw", t =>
+            t.HasCheckConstraint("ck_cliente_sincronizacion_aw_resultado", "resultado BETWEEN 0 AND 4"));
+        sync.HasKey(x => x.Id);
+        sync.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        sync.Property(x => x.Diferencias).HasMaxLength(2000);
+        sync.Property(x => x.NombreComercialOrigen).HasMaxLength(400);
+        sync.Property(x => x.DomicilioOrigenCalle).HasMaxLength(200);
+        sync.Property(x => x.DomicilioOrigenCiudad).HasMaxLength(100);
+        sync.Property(x => x.DomicilioOrigenCp).HasMaxLength(20);
+        sync.Property(x => x.DomicilioOrigenProvincia).HasMaxLength(100);
+        sync.Property(x => x.DomicilioOrigenPais).HasMaxLength(100);
+        sync.Property(x => x.CandidatoFiscalUstId).HasMaxLength(40);
+        sync.Property(x => x.CandidatoFiscalSteuernummer).HasMaxLength(40);
+        sync.Property(x => x.Telefono2Origen).HasMaxLength(50);
+        sync.Property(x => x.CondicionCodigoOrigen).HasMaxLength(50);
+        sync.Property(x => x.MonedaCodigoOrigen).HasMaxLength(20);
+        sync.Property(x => x.MonedaNormalizada).HasMaxLength(3);
+        sync.Property(x => x.CreditoReferenciaLimite).HasPrecision(18, 4);
+        sync.Property(x => x.CreditoReferenciaLimite1).HasPrecision(18, 4);
+        sync.Property(x => x.HashOrigen).HasMaxLength(64).IsRequired();
+        sync.Property(x => x.VersionContrato).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.VersionMapeo).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.Resultado).HasConversion<short>().IsRequired();
+        sync.Property(x => x.Error).HasMaxLength(1000);
+        sync.Property(x => x.Telefono2Origen).HasColumnName("telefono2_origen");
+        sync.Property(x => x.CreditoReferenciaLimite1).HasColumnName("credito_referencia_limite_1");
+        sync.Property(x => x.Version).IsConcurrencyToken();
+
+        sync.HasIndex(x => x.ClienteId).IsUnique();
+        sync.HasIndex(x => x.ReferenciaExterna).IsUnique();
+        sync.HasOne<Cliente>()
+            .WithMany()
+            .HasForeignKey(x => x.ClienteId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    /// <summary>
     /// Configura <see cref="ProductoAw"/> (ADR-0048 D5). Master de venta
     /// separado de <see cref="Articulo"/>. Sin seed — nace por
     /// auto-provisión. FKs opcionales a los catálogos de ADR-0046
@@ -1100,6 +1259,11 @@ public sealed class CompartidoDbContext : BaseDbContext
         producto.Property(x => x.FraccionArancelaria).HasMaxLength(10);
         producto.Property(x => x.UnidadAduana).HasMaxLength(3);
         producto.Property(x => x.PesoUnitarioKg).HasPrecision(18, 6);
+        producto.Property(x => x.CodigoModelo).HasMaxLength(50);
+        producto.Property(x => x.Wgr).HasMaxLength(10);
+        producto.Property(x => x.WgrDescripcion).HasMaxLength(100);
+        producto.Property(x => x.Grupo).HasMaxLength(100);
+        producto.Property(x => x.Tipo).HasMaxLength(50);
         producto.Property(x => x.Origen).HasConversion<short>().IsRequired();
         producto.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
@@ -1116,6 +1280,73 @@ public sealed class CompartidoDbContext : BaseDbContext
         producto.HasOne<CategoriaArticulo>()
             .WithMany()
             .HasForeignKey(x => x.CategoriaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        producto.HasMany(x => x.Variantes)
+            .WithOne()
+            .HasForeignKey(v => v.ProductoAwId)
+            .OnDelete(DeleteBehavior.Restrict);
+        producto.Navigation(x => x.Variantes).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        producto.HasMany(x => x.Componentes)
+            .WithOne()
+            .HasForeignKey(c => c.ProductoAwId)
+            .OnDelete(DeleteBehavior.Cascade);
+        producto.Navigation(x => x.Componentes).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+
+    /// <summary>
+    /// Configura <see cref="ProductoAwVariante"/> y <see cref="ProductoSincronizacionAw"/>
+    /// (ADM-07). Mismo patrón que <see cref="ClienteSincronizacionAw"/>: FK RESTRICT,
+    /// UNIQUE por producto y por referencia; variante UNIQUE (producto, clave).
+    /// </summary>
+    private static void ConfigureProductoAwSincronizacion(ModelBuilder modelBuilder)
+    {
+        var variante = modelBuilder.Entity<ProductoAwVariante>();
+        variante.ToTable("producto_aw_variante", t =>
+            t.HasCheckConstraint("ck_producto_aw_variante_medidas",
+                "(alto_mm IS NULL OR alto_mm > 0) AND (ancho_mm IS NULL OR ancho_mm > 0) AND (espesor_mm IS NULL OR espesor_mm > 0)"));
+        variante.HasKey(x => x.Id);
+        variante.Property(x => x.ClaveVariante).HasMaxLength(50).IsRequired();
+        variante.Property(x => x.AltoMm).HasPrecision(12, 3);
+        variante.Property(x => x.AnchoMm).HasPrecision(12, 3);
+        variante.Property(x => x.EspesorMm).HasPrecision(12, 3);
+        variante.Property(x => x.Composicion).HasMaxLength(200);
+        variante.Property(x => x.Version).IsConcurrencyToken();
+        variante.HasIndex(x => new { x.ProductoAwId, x.ClaveVariante }).IsUnique();
+
+        var componente = modelBuilder.Entity<ProductoAwComponente>();
+        componente.ToTable("producto_aw_componente", t =>
+            t.HasCheckConstraint("ck_producto_aw_componente_posicion",
+                "orden >= 1 AND nivel >= 1 AND (padre_orden IS NULL OR (padre_orden >= 1 AND padre_orden < orden)) AND (espesor_mm IS NULL OR espesor_mm > 0)"));
+        componente.HasKey(x => x.Id);
+        componente.Property(x => x.ComponenteRef).HasMaxLength(50).IsRequired();
+        componente.Property(x => x.Descripcion).HasMaxLength(254);
+        componente.Property(x => x.Tipo).HasMaxLength(50);
+        componente.Property(x => x.EspesorMm).HasPrecision(12, 3);
+        componente.Property(x => x.Version).IsConcurrencyToken();
+        componente.HasIndex(x => new { x.ProductoAwId, x.Orden }).IsUnique();
+
+        var sync = modelBuilder.Entity<ProductoSincronizacionAw>();
+        sync.ToTable("producto_sincronizacion_aw", t =>
+            t.HasCheckConstraint("ck_producto_sincronizacion_aw_resultado", "resultado BETWEEN 0 AND 4"));
+        sync.HasKey(x => x.Id);
+        sync.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        sync.Property(x => x.DescripcionOrigen).HasMaxLength(400);
+        sync.Property(x => x.UnidadOrigenCruda).HasMaxLength(50);
+        sync.Property(x => x.BajaOrigenCruda).HasMaxLength(20);
+        sync.Property(x => x.HashOrigen).HasMaxLength(64).IsRequired();
+        sync.Property(x => x.VersionContrato).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.VersionMapeo).HasMaxLength(20).IsRequired();
+        sync.Property(x => x.Resultado).HasConversion<short>().IsRequired();
+        sync.Property(x => x.Error).HasMaxLength(1000);
+        sync.Property(x => x.Diferencias).HasMaxLength(2000);
+        sync.Property(x => x.Version).IsConcurrencyToken();
+        sync.HasIndex(x => x.ProductoAwId).IsUnique();
+        sync.HasIndex(x => x.ReferenciaExterna).IsUnique();
+        sync.HasOne<ProductoAw>()
+            .WithMany()
+            .HasForeignKey(x => x.ProductoAwId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 

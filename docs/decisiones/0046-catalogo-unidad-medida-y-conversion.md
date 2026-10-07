@@ -46,12 +46,14 @@ en esta etapa).
 ### 1. Catálogo `compartido.unidades_medida` (Etapa 1a — este PR)
 
 Entidad `UnidadMedida`: `codigo` (único, inmutable), `nombre`, `dimension`
-(enum `Conteo/Peso/Volumen/Longitud/Tiempo`), `factor_a_base` (decimal &gt; 0),
+(enum `Conteo/Peso/Volumen/Longitud/Tiempo/Area`), `factor_a_base` (decimal &gt; 0),
 `decimales` (0..6), `es_base` (bool), `estatus` (`EstatusCatalogo`, igual que
 los demás catálogos editables). PK surrogate `Guid`
 (consistencia con `BaseEntity`: auditoría, concurrencia, soft-delete; y el FK
 futuro referencia el `Id`, no el código, permitiendo corregir códigos sin
-romper referencias). Seed de 10 unidades (5 dimensiones).
+romper referencias). Seed de 12 unidades (6 dimensiones).
+
+> **Nota (F1-ADM-07, 2026-10-01):** A+W envía `m²` y `m³`, que no existían. Se añade la dimensión `Area` (valor 5, base `M2`) y `M3` en `Volumen` (factor 1000 a `L`, 3 decimales); migración `UnidadMedidaAreaM2M3` (CHECK `dimension BETWEEN 0 AND 5` + 2 filas de seed). `ML` sigue siendo mililitro.
 
 ### 2. Conversión en DOS niveles
 

@@ -15,7 +15,8 @@
 #                                  IntegracionesAwDbContext,
 #                                  IntegracionesFiscalDbContext, AlmacenDbContext,
 #                                  CuentasPorPagarDbContext, FacturacionDbContext,
-#                                  CuentasPorCobrarDbContext, TesoreriaDbContext)
+#                                  CuentasPorCobrarDbContext, TesoreriaDbContext,
+#                                  CentrosCostoDbContext, ContabilidadDbContext)
 #                                  con la
 #                                  connection string leída de Key Vault vía OIDC
 #                                  (ADR-0029). Cada módulo nuevo debe agregarse
@@ -189,6 +190,7 @@ jobs:
         #   - CuentasPorCobrarDbContext          → Millet.CuentasPorCobrar.csproj
         #   - TesoreriaDbContext                 → Millet.Tesoreria.csproj
         #   - CentrosCostoDbContext              → Millet.CentrosCosto.csproj
+        #   - ContabilidadDbContext              → Millet.Contabilidad.csproj
         # Cada módulo nuevo que introduzca un DbContext debe agregarse al
         # bucle de abajo Y a MigrationsHealthCheckOptions.ContextTypes en
         # Program.cs (de lo contrario /health/ready reportará Unhealthy
@@ -207,7 +209,7 @@ jobs:
           PG_CONN: ${{ steps.get-pg-conn.outputs.pg_conn }}
         run: |
           set -e
-          for ctx in CompartidoDbContext CoreDbContext IdentidadDbContext ComprasDbContext IntegracionesAwDbContext IntegracionesFiscalDbContext AlmacenDbContext CuentasPorPagarDbContext FacturacionDbContext CuentasPorCobrarDbContext TesoreriaDbContext CentrosCostoDbContext; do
+          for ctx in CompartidoDbContext CoreDbContext IdentidadDbContext ComprasDbContext IntegracionesAwDbContext IntegracionesFiscalDbContext AlmacenDbContext CuentasPorPagarDbContext FacturacionDbContext CuentasPorCobrarDbContext TesoreriaDbContext CentrosCostoDbContext ContabilidadDbContext; do
             case "$ctx" in
               CompartidoDbContext)
                 proj="src/Compartido/Millet.Compartido.csproj"
@@ -244,6 +246,9 @@ jobs:
                 ;;
               CentrosCostoDbContext)
                 proj="src/CentrosCosto/Millet.CentrosCosto.csproj"
+                ;;
+              ContabilidadDbContext)
+                proj="src/Contabilidad/Millet.Contabilidad.csproj"
                 ;;
             esac
             echo "::group::Applying migrations for $ctx (project: $proj)"

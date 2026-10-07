@@ -1,0 +1,35 @@
+{
+  "escenario": "tratado-templado",
+  "descripcion": "Producto tratado templado: codigo A+W distinto, sin herencia ni producto base.",
+  "origen": {
+    "vw_erp_articulo": [
+      {
+        "producto_ref": "DEMO-P003-T",
+        "descripcion": "VIDRIO TEMPLADO DEMO",
+        "unidad_medida": "M2",
+        "baja": false,
+        "variantes": [
+          {
+            "clave_variante": "V1",
+            "alto_mm": 1000,
+            "ancho_mm": 500,
+            "espesor_mm": 6,
+            "composicion": "6mm templado"
+          }
+        ],
+        "TRANSACTION_TIME": "2026-09-01T10:00:00"
+      }
+    ]
+  },
+  "estadoErpPrevio": {
+    "existe": true,
+    "referenciaExterna": "DEMO-P003",
+    "activo": true
+  },
+  "resultadoEsperado": {
+    "resultado": "Creado",
+    "productos": 1,
+    "productoBase": null,
+    "relacionConOtroProducto": false
+  }
+}
