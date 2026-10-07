@@ -11,7 +11,7 @@
 Los datos de ejercicio y apertura usados para demostrar este plan son **de prueba** (`FIX-`/DEMO).
 El año natural y los 13 periodos son reglas recibidas; la apertura de los meses DEMO no acredita el calendario operativo.
 Contrato: [10-contrato-api-periodos.md](10-contrato-api-periodos.md). Avance, resultados y límites:
-[11-evidencia-f1-con-03.md](11-evidencia-f1-con-03.md). Decisión propuesta: [ADR-0058](../../decisiones/0058-periodos-contables-y-contrato-de-consulta.md).
+[11-evidencia-f1-con-03.md](11-evidencia-f1-con-03.md). Decisión propuesta: [ADR-0059](../../decisiones/0059-periodos-contables-y-contrato-de-consulta.md).
 
 ---
 
@@ -228,7 +228,7 @@ resolución de fecha → periodo, motivo obligatorio, cierre secuencial, reapert
 3. **Contrato y consumidores** — `IPeriodoContableConsultaPort`, verificador, conexión en movimiento de prueba y panel.
 4. **Pruebas de integración** — casos 1–9.
 5. **UI** — pantalla, diálogo, bitácora, navegación.
-6. **Documentación y evidencia** — `10-contrato-api-periodos.md`, ADR-0058 (periodos contables: estados, periodo 13, contrato
+6. **Documentación y evidencia** — `10-contrato-api-periodos.md`, ADR-0059 (periodos contables: estados, periodo 13, contrato
    de consulta y falla cerrada), `11-evidencia-f1-con-03.md` (consumidores conectados/pendientes, capturas UI/API), nota en
    la bóveda de Obsidian. PR con «F1-CON-03» en el título.
 

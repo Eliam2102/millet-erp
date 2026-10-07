@@ -65,7 +65,7 @@ Reabrir contabilidad no altera el cierre de inventario (D18).
 `POST /api/v1/contabilidad/movimientos/validar` devuelve 200 con `valido=false` y el error de periodo en `fechaContable`.
 
 Los NoOp de Facturación, Tesorería y Almacén siguen pendientes de C1.2. El puerto es de lectura y no publica eventos.
-Consulte [evidencia y pendientes](11-evidencia-f1-con-03.md) y [ADR-0058](../../decisiones/0058-periodos-contables-y-contrato-de-consulta.md).
+Consulte [evidencia y pendientes](11-evidencia-f1-con-03.md) y [ADR-0059](../../decisiones/0059-periodos-contables-y-contrato-de-consulta.md).
 
 ## Persistencia del historial
 

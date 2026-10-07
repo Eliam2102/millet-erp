@@ -123,6 +123,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Contabilidad.UnitTests", "C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Millet.Contabilidad.UnitTests", "tests\Contabilidad.UnitTests\Millet.Contabilidad.UnitTests.csproj", "{79638DB8-7485-4073-8F37-C75A43171107}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Compartido.UnitTests", "Compartido.UnitTests", "{55F15905-B09E-31F5-56B2-BC5D2B3ACCBA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Millet.Compartido.UnitTests", "tests\Compartido.UnitTests\Millet.Compartido.UnitTests.csproj", "{FE8A0D65-E38C-424A-8D14-2E553C9233AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -529,6 +533,18 @@ Global
 		{79638DB8-7485-4073-8F37-C75A43171107}.Release|x64.Build.0 = Release|Any CPU
 		{79638DB8-7485-4073-8F37-C75A43171107}.Release|x86.ActiveCfg = Release|Any CPU
 		{79638DB8-7485-4073-8F37-C75A43171107}.Release|x86.Build.0 = Release|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Debug|x64.Build.0 = Debug|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Debug|x86.Build.0 = Debug|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Release|x64.ActiveCfg = Release|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Release|x64.Build.0 = Release|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Release|x86.ActiveCfg = Release|Any CPU
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -588,5 +604,7 @@ Global
 		{4BAC289B-9D69-4F65-A643-4FDBD05990D8} = {23240281-620F-8295-E1FB-A5AF9B14A551}
 		{A91B284F-4EDC-1648-B181-686A94F30FAE} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{79638DB8-7485-4073-8F37-C75A43171107} = {A91B284F-4EDC-1648-B181-686A94F30FAE}
+		{55F15905-B09E-31F5-56B2-BC5D2B3ACCBA} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{FE8A0D65-E38C-424A-8D14-2E553C9233AF} = {55F15905-B09E-31F5-56B2-BC5D2B3ACCBA}
 	EndGlobalSection
 EndGlobal

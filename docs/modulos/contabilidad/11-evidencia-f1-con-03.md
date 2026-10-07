@@ -16,7 +16,7 @@
 | `2e33e71` | Pruebas de integración HTTP |
 | `7238361` | Pantalla, diálogos, bitácora y pruebas frontend |
 
-La reanudación añade [contrato API](10-contrato-api-periodos.md), [ADR-0058](../../decisiones/0058-periodos-contables-y-contrato-de-consulta.md)
+La reanudación añade [contrato API](10-contrato-api-periodos.md), [ADR-0059](../../decisiones/0059-periodos-contables-y-contrato-de-consulta.md)
 y esta evidencia; actualiza el plan para distinguir lo implementado de lo validado. También revisa la carrera entre cierre
 y registro del movimiento, la validación de consulta de estado y la conservación de claves de idempotencia ante respuestas
 perdidas. Sus resultados se registran en la sección de validación al terminar los checks.

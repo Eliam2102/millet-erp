@@ -25,6 +25,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
 import { ProveedorBancariosSection } from '@/modules/datos-maestros/components/ProveedorBancariosSection';
+import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
 
 /**
  * Detalle de proveedor (P3 del patrón cross-módulo). Header en flow
@@ -32,7 +33,8 @@ import { ProveedorBancariosSection } from '@/modules/datos-maestros/components/P
  * acción Desactivar (si activo) + botón cerrar. Sin tabs porque son
  * pocas secciones — se renderizan directamente
  * <see cref="ProveedorDatosForm"/> y, si el usuario tiene el permiso
- * <c>bancarios-ver</c> (F1-ADM-05), <see cref="ProveedorBancariosSection"/>.
+ * <c>bancarios-ver</c> (F1-ADM-05), <see cref="ProveedorBancariosSection"/> y, con <c>adjuntos-ver</c>
+ * (F1-ADM-11 G1.2), <see cref="ProveedorExpedienteSection"/>.
  *
  * <para>Lee <c>$id</c> con la forma estricta
  * <c>useParams({ from: '/_app/admin/datos-maestros/proveedores/$id' })</c>
@@ -148,6 +150,7 @@ export function ProveedorDetalle() {
       <div className="px-4 pt-4 pb-6">
         <ProveedorDatosForm proveedor={proveedor} />
         <ProveedorBancariosSection proveedorId={proveedor.id} />
+        <ProveedorExpedienteSection proveedorId={proveedor.id} />
       </div>
 
       <AlertDialog

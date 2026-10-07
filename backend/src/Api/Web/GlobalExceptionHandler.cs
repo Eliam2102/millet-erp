@@ -118,6 +118,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             // Sincronización de productos A+W (ADM-07): mismos códigos estables, prefijo AW_PRODUCTOS_.
             Millet.Integraciones.Aw.Application.Productos.AwProductosSyncException apse
                 => CreateProblem("AW_PRODUCTOS_" + apse.Code.ToUpperInvariant(), apse.Message, AwClientesStatus(apse.Code), httpContext, traceId),
+            BadHttpRequestException bhre => CreateProblem("BAD_REQUEST", bhre.Message, bhre.StatusCode, httpContext, traceId),
             DomainException de => CreateProblem(de.Code, de.Message, StatusCodes.Status400BadRequest, httpContext, traceId),
             _ => CreateProblem(
                 "INTERNAL_ERROR",

@@ -414,6 +414,12 @@ builder.Services.AddScoped<
     Millet.Compras.Domain.Ports.DatosMaestros.IProveedorReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.ProveedorReadAdapter>();
 
+// === Adjuntos: política de formato y tamaño (F1-ADM-11, configuración de prueba) ===
+builder.Services
+    .AddOptions<Millet.SharedKernel.Application.Adjuntos.AdjuntosPoliticaOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.SharedKernel.Application.Adjuntos.AdjuntosPoliticaOptions.SectionName));
+
 // === Compras OC: blob storage (F2-PR4 stub, F10-PR3 real con Azure) ===
 // Si `Compras:Oc:BlobStorage:ConnectionString` está configurado (viene
 // de Key Vault en QA/Prod), se usa Azure Blob real con BlobServiceClient.
@@ -520,6 +526,52 @@ else
         Millet.Integraciones.Aw.Domain.Ports.Blob.IAlmacenarBlobPort,
         Millet.Integraciones.Aw.Infrastructure.Stubs.LocalFilesystemBlobStub>();
 }
+
+// === Adjuntos genéricos (F1-ADM-11 G1.2): puerto de blob propio ===
+// PLATFORM-TODO(<UnificarBlobPorts>): conviven con los tres IAlmacenarBlobPort legados (Compras,
+// Almacén, Integraciones.Aw); migrarlos a IBlobStoragePort y retirar los duplicados.
+// Connection string: `Adjuntos:BlobStorage` con respaldo en la de Compras OC; ninguna = filesystem local.
+builder.Services
+    .AddOptions<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.SectionName));
+var adjuntosBlobConnString = builder.Configuration
+    .GetSection(Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.SectionName)
+    .GetValue<string>(nameof(Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.ConnectionString));
+if (string.IsNullOrWhiteSpace(adjuntosBlobConnString)) adjuntosBlobConnString = blobConnString;
+if (!string.IsNullOrWhiteSpace(adjuntosBlobConnString))
+{
+    // Cliente propio (no el compartido de DI) para respetar una cuenta distinta a la de Compras.
+    builder.Services.AddSingleton<Millet.SharedKernel.Application.Blob.IBlobStoragePort>(sp =>
+        new Millet.Compartido.Infrastructure.Blob.AzureBlobStoragePort(
+            new Azure.Storage.Blobs.BlobServiceClient(adjuntosBlobConnString),
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>>()));
+}
+else
+{
+    builder.Services.AddSingleton<
+        Millet.SharedKernel.Application.Blob.IBlobStoragePort,
+        Millet.Compartido.Infrastructure.Blob.LocalFilesystemBlobStoragePort>();
+}
+
+// === Adjuntos genéricos (F1-ADM-11 G1.2): autorización heredada del padre y enlace temporal ===
+// Cada módulo que adjunta archivos registra aquí su IAdjuntoPropietario (primero: Proveedor).
+// PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
+builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
+builder.Services.AddScoped<
+    Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
+    Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
+builder.Services
+    .AddOptions<Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions.SectionName));
+// Lectura del expediente para CxP (G1.1/CA2.2: validar antes de pasar a Activo); aún sin consumidor.
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+builder.Services.AddSingleton<
+    Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
+    Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
 
 // === Compras OC: PDF real con QuestPDF (F6-PR3) ===
 // Reemplaza LocalPdfOrdenCompraStub por QuestPdfOrdenCompraGenerator con

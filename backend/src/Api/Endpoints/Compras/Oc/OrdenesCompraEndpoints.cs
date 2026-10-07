@@ -1,8 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.SharedKernel.Application.Adjuntos;
 using Millet.Compras.Application.Oc.ActualizarCabecera;
 using Millet.Compras.Application.Oc.ActualizarContactoProveedor;
 using Millet.Compras.Application.Oc.ActualizarInformacionImportacion;
@@ -184,10 +188,17 @@ public static class OrdenesCompraEndpoints
 
         group.MapGet("/{id:guid}", async (
             Guid id,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IMediator mediator,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             var response = await mediator.Send(new ObtenerOrdenCompraPorIdQuery(id), cancellationToken);
             // ETag con Version (cuidado §2.4 [P1]). El cliente devuelve
             // este valor en If-Match al hacer mutaciones futuras.
@@ -1155,9 +1166,15 @@ public static class OrdenesCompraEndpoints
             Guid id,
             Guid adjuntoId,
             ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IAlmacenarBlobPort blobPort,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             var adjunto = await db.AdjuntosOc
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
@@ -1194,10 +1211,21 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromForm] Guid tipoDocumentoId,
             IFormFile archivo,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            IOptions<AdjuntosPoliticaOptions> politicaOptions,
             IMediator mediator,
             IAlmacenarBlobPort blob,
+            ILoggerFactory loggerFactory,
             CancellationToken cancellationToken) =>
         {
+            // 1. Autorización comprobada contra el documento padre
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
+            // 2. Validación de archivo (presencia, formato, MIME, tamaño y firma) ANTES de tocar el storage
             if (archivo is null || archivo.Length == 0)
             {
                 throw new BusinessRuleException(
@@ -1205,10 +1233,23 @@ public static class OrdenesCompraEndpoints
                     "Debe enviarse un archivo en el campo 'archivo' del multipart.");
             }
 
-            // Subir blob primero. El blobId se usa también como adjuntoId
-            // para que la URL sea reproducible. Si la persistencia de la
-            // metadata falla luego, queda un blob huérfano que un proceso
-            // de limpieza recoge (post-MVP).
+            var nombreArchivoLimpio = Path.GetFileName(archivo.FileName);
+            var contentType = archivo.ContentType ?? "application/octet-stream";
+
+            byte[] cabecera = new byte[8];
+            int bytesLeidos;
+            await using (var previewStream = archivo.OpenReadStream())
+            {
+                bytesLeidos = await previewStream.ReadAsync(cabecera.AsMemory(0, 8), cancellationToken);
+            }
+
+            politicaOptions.Value.ValidarInstancia(
+                nombreArchivoLimpio,
+                contentType,
+                archivo.Length,
+                cabecera.AsSpan(0, bytesLeidos));
+
+            // 3. Subir blob físico
             var adjuntoId = Guid.CreateVersion7();
             string blobUrl;
             await using (var stream = archivo.OpenReadStream())
@@ -1216,20 +1257,42 @@ public static class OrdenesCompraEndpoints
                 blobUrl = await blob.SubirAsync(
                     adjuntoId,
                     stream,
-                    archivo.ContentType ?? "application/octet-stream",
-                    archivo.FileName,
+                    contentType,
+                    nombreArchivoLimpio,
                     cancellationToken);
             }
 
-            var response = await mediator.Send(
-                new AdjuntarDocumentoCommand(
-                    OrdenCompraId: id,
-                    TipoDocumentoId: tipoDocumentoId,
-                    NombreArchivo: archivo.FileName,
-                    BlobUrl: blobUrl,
-                    ContentType: archivo.ContentType ?? "application/octet-stream",
-                    TamañoBytes: archivo.Length),
-                cancellationToken);
+            // 4. Persistir metadata en BD con compensación: si falla, se elimina el blob físico
+            AdjuntarDocumentoResponse response;
+            try
+            {
+                response = await mediator.Send(
+                    new AdjuntarDocumentoCommand(
+                        OrdenCompraId: id,
+                        TipoDocumentoId: tipoDocumentoId,
+                        NombreArchivo: nombreArchivoLimpio,
+                        BlobUrl: blobUrl,
+                        ContentType: contentType,
+                        TamañoBytes: archivo.Length),
+                    cancellationToken);
+            }
+            catch (Exception)
+            {
+                try
+                {
+                    await blob.EliminarAsync(blobUrl, CancellationToken.None);
+                }
+                catch (Exception elimEx)
+                {
+                    var logger = loggerFactory.CreateLogger("OrdenesCompraEndpoints");
+                    logger.LogWarning(
+                        elimEx,
+                        "Fallo al compensar (eliminar) blob huérfano en {BlobUrl} para OC {OrdenCompraId}",
+                        blobUrl,
+                        id);
+                }
+                throw;
+            }
 
             return Results.Created($"/api/v1/compras/ordenes/{id}/adjuntos/{response.AdjuntoId}", response);
         })
@@ -1258,9 +1321,16 @@ public static class OrdenesCompraEndpoints
         group.MapDelete("/{id:guid}/adjuntos/{adjuntoId:guid}", async (
             Guid id,
             Guid adjuntoId,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             await mediator.Send(new RemoverAdjuntoCommand(id, adjuntoId), cancellationToken);
             return Results.NoContent();
         })
