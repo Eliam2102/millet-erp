@@ -210,9 +210,12 @@ public sealed class AlmacenEventListenerWorker : BackgroundService
                 // pero Compras no consume todavía (saldos / cierres).
                 // Loggeamos + marca de idempotencia para mantener el
                 // outbox limpio.
+                // G1.6 (E13): nombres reales de Almacén (guion bajo en el
+                // agregado, punto como separador); antes eran inexistentes.
                 case "almacen.saldo.proyectado.v1":
-                case "almacen.entrada-inventario.valorada.v1":
-                case "almacen.salida-inventario.aplicada.v1":
+                case "almacen.entrada_inventario.valorada.v1":
+                case "almacen.ajuste_inventario.aplicado.v1":
+                case "almacen.devolucion_interna.aplicada.v1":
                 {
                     _logger.LogInformation(
                         "Evento Almacén informativo recibido por Compras (sin efecto). EventType={EventType} EventId={EventId}",

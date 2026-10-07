@@ -195,6 +195,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             }
             factura.AsignarMetodoPago(cfdi?.MetodoPago);
         }
+        factura.AsignarRetencionesDetalle(command.RetencionesDetalle);
 
         _db.FacturasProveedor.Add(factura);
 
@@ -220,17 +221,34 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             var lineasAcumuladasOc = await CalcularAcumuladosPorLineaOcAsync(
                 factura.Lineas, factura.Id, cancellationToken);
 
+            // G1.6 (P3): CeCo por línea = el de la línea de OC enlazada; en
+            // cabecera solo si todas las líneas coinciden.
+            var lineasEvento = factura.Lineas
+                .OrderBy(l => l.Posicion)
+                .Select(l => new LineaFacturada(
+                    l.Id, l.LineaOcId, l.Cantidad, l.Importe,
+                    CentroCostoId: oc.Lineas.FirstOrDefault(x => x.Id == l.LineaOcId)?.CentroCostoId))
+                .ToList();
+            var cecos = lineasEvento.Select(l => l.CentroCostoId).Distinct().ToList();
+
             await _mediator.Publish(new FacturaProveedorRegistradaDomainEvent(
                 EmpresaId: empresaId,
                 FacturaProveedorId: factura.Id,
                 OrdenCompraId: command.OrdenCompraId,
                 TotalFactura: factura.Total,
-                Lineas: factura.Lineas
-                    .OrderBy(l => l.Posicion)
-                    .Select(l => new LineaFacturada(l.Id, l.LineaOcId, l.Cantidad, l.Importe))
-                    .ToList(),
+                Lineas: lineasEvento,
                 LineasAcumuladasOc: lineasAcumuladasOc,
-                OcurridoEn: ahora), cancellationToken);
+                OcurridoEn: ahora,
+                ProveedorId: factura.ProveedorId,
+                Uuid: factura.UuidCfdi,
+                Subtotal: factura.Subtotal,
+                Iva: factura.ImpuestosTrasladados,
+                RetencionesTotal: factura.Retenciones,
+                Retenciones: factura.RetencionesDetalle,
+                Moneda: factura.Moneda,
+                TipoCambio: factura.TipoCambio,
+                SucursalId: factura.SucursalId,
+                CentroCostoId: cecos.Count == 1 ? cecos[0] : null), cancellationToken);
 
             // GAP-3 (§3.bis.5): dentro de tolerancia pero con diferencia
             // de precio unitario por línea, en OC variante B (recepción

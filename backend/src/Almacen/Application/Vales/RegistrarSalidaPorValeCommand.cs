@@ -112,6 +112,9 @@ public sealed class RegistrarSalidaPorValeHandler
                 "sub-almacén. Revisa los bins elegidos.");
         }
         var subAlmacenId = subsDerivados[0];
+        // G1.6: dimensiones contables del evento (una consulta).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, subAlmacenId, cancellationToken);
 
         // F7-PR3 (A18): si hay bloqueo activo de salidas para el sub DERIVADO, rechazar.
         var bloqueado = await _db.Set<Domain.Conteos.BloqueoInventario>()
@@ -241,7 +244,9 @@ public sealed class RegistrarSalidaPorValeHandler
             EsPorVale: true,
             PersonaDestinatariaId: request.PersonaDestinatariaId,
             ValeBlobRef: request.ValeBlobRef,
-            Lineas: payloadLineas), cancellationToken);
+            Lineas: payloadLineas,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

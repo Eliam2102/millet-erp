@@ -227,7 +227,8 @@ public sealed class RegistrarRecepcionConFacturaHandler
                 MontoTotalMxn: Math.Round(input.Cantidad * costo, 2),
                 // PR4: bin N4 real de la línea (el guard de arriba ya garantizó
                 // que viene poblado y es válido para el sub-almacén).
-                UbicacionId: input.UbicacionId!.Value));
+                UbicacionId: input.UbicacionId!.Value,
+                SubAlmacenId: subLinea));
         }
 
         // Invariante 'un movimiento = un sub-almacén': antes lo garantizaba el
@@ -238,6 +239,10 @@ public sealed class RegistrarRecepcionConFacturaHandler
             throw new BusinessRuleException(
                 "RECEPCION_MULTI_SUBALMACEN",
                 "Todas las líneas de la recepción deben ir al mismo sub-almacén; hay bins de sub-almacenes distintos.");
+
+        // G1.6: almacén/sucursal del único sub-almacén derivado (una consulta).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, subsDerivados.Single(), cancellationToken);
 
         // 5. Reservar folio atómicamente. El UPSERT en folio_secuencias_movimiento
         //    con SELECT ... FOR UPDATE (lo hace EF + el lock del INSERT/UPDATE)
@@ -272,7 +277,9 @@ public sealed class RegistrarRecepcionConFacturaHandler
             CfdiRecibidoId: request.CfdiRecibidoId,
             CfdiUuidFiscal: movimiento.CfdiUuidFiscal,
             Observaciones: request.Observaciones,
-            Lineas: payloadLineas), cancellationToken);
+            Lineas: payloadLineas,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         // 8. SaveChanges: dispara el trigger PG que actualiza saldos +
         //    el interceptor del outbox que persiste el evento. Todo en
