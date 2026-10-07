@@ -17,5 +17,8 @@ public sealed class AnticipoProveedorCapturadoMapper : INotificationHandler<Anti
             AnticipoId: notification.AnticipoId,
             ProveedorId: notification.ProveedorId,
             MontoEntregado: notification.MontoEntregado,
-            OrdenCompraId: notification.OrdenCompraId), cancellationToken);
+            OrdenCompraId: notification.OrdenCompraId,
+            CuentaBancariaId: notification.CuentaBancariaId,
+            Moneda: notification.Moneda,
+            TipoCambio: notification.TipoCambio), cancellationToken);
 }

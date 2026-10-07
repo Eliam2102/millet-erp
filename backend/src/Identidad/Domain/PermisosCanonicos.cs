@@ -125,6 +125,8 @@ public static class PermisosCanonicos
     public const string DatosMaestrosProveedoresAdjuntosVer            = "datos_maestros.proveedores.adjuntos-ver";
     public const string DatosMaestrosProveedoresAdjuntosSubir          = "datos_maestros.proveedores.adjuntos-subir";
     public const string DatosMaestrosProveedoresAdjuntosBaja           = "datos_maestros.proveedores.adjuntos-baja";
+    // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
+    public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
@@ -477,6 +479,12 @@ public static class PermisosCanonicos
     public const string ContabilidadDimensionesAdministrar              = "contabilidad.dimensiones.administrar";
     public const string ContabilidadMovimientosValidar                  = "contabilidad.movimientos.validar";
     public const string ContabilidadMovimientosGestionarTodasSucursales = "contabilidad.movimientos.gestionar-todas-sucursales";
+    // F1-CON-03: -0004 periodos contables. `cerrar` y `reabrir` separados (C1.1): reabrir es la autorización de mayor nivel.
+    // El periodo es de la empresa, no de una sucursal: sin permiso de bypass (ADR-0051 no aplica).
+    public const string ContabilidadPeriodoLeer                         = "contabilidad.periodo.leer";
+    public const string ContabilidadPeriodoAdministrar                  = "contabilidad.periodo.administrar";
+    public const string ContabilidadPeriodoCerrar                       = "contabilidad.periodo.cerrar";
+    public const string ContabilidadPeriodoReabrir                      = "contabilidad.periodo.reabrir";
 
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
@@ -564,6 +572,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000004"), DatosMaestrosProveedoresAdjuntosVer,          "Consultar y descargar los documentos del expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000005"), DatosMaestrosProveedoresAdjuntosSubir,        "Adjuntar documentos al expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000006"), DatosMaestrosProveedoresAdjuntosBaja,         "Dar de baja documentos del expediente de un proveedor y consultar su historial"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000007"), DatosMaestrosProveedoresValidar,              "Validar o rechazar el expediente documental del proveedor para activación en el ERP"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
@@ -745,5 +754,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0002-0000-0000-000000000002"), ContabilidadDimensionesAdministrar,      "Configurar reglas de dimensión, tipos de documento contable y sucursales de cada centro de costo"),
         (Guid.Parse("0000000d-0003-0000-0000-000000000001"), ContabilidadMovimientosValidar,          "Validar y confirmar movimientos contables de prueba contra las reglas de dimensión"),
         (Guid.Parse("0000000d-0003-0000-0000-000000000002"), ContabilidadMovimientosGestionarTodasSucursales, "Operar movimientos contables de todas las sucursales sin estar asociado a cada una"),
+        (Guid.Parse("0000000d-0004-0000-0000-000000000001"), ContabilidadPeriodoLeer,                "Consultar ejercicios, periodos contables, su estado y su bitácora"),
+        (Guid.Parse("0000000d-0004-0000-0000-000000000002"), ContabilidadPeriodoAdministrar,         "Crear ejercicios contables y abrir sus periodos"),
+        (Guid.Parse("0000000d-0004-0000-0000-000000000003"), ContabilidadPeriodoCerrar,              "Cerrar periodos contables con motivo"),
+        (Guid.Parse("0000000d-0004-0000-0000-000000000004"), ContabilidadPeriodoReabrir,             "Reabrir periodos contables cerrados con motivo (autorización de mayor nivel)"),
     };
 }

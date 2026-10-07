@@ -26,7 +26,10 @@ public sealed record OcDevolucionRegistradaIntegrationEvent(
     Guid? OrdenCompraOrigenId,
     string Motivo,
     decimal MontoTotalMxn,
-    IReadOnlyList<LineaDevolucionProveedorPayload> Lineas)
+    IReadOnlyList<LineaDevolucionProveedorPayload> Lineas,
+    // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
+    Guid? AlmacenId = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("almacen.oc_devolucion.registrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>

@@ -66,6 +66,10 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.Equal(1, await Contar(factory.Services, "importaciones_catalogo", $"fuente = 'FIX-{suf}-F'"));
             var detalle = await Obtener(c, items[1].GetProperty("id").GetGuid());
             Assert.Equal("O-2", detalle.GetProperty("origenes")[0].GetProperty("codigoOrigen").GetString());
+            await AssertCreacionesAuditadasAsync(factory.Services, "cuentas_contables_origen", "CuentaContableOrigen",
+                $"r.fuente = 'FIX-{suf}-F'", "CodigoOrigen", 3);
+            await AssertCreacionesAuditadasAsync(factory.Services, "importaciones_catalogo", "ImportacionCatalogo",
+                $"r.fuente = 'FIX-{suf}-F'", "HuellaSha256", 1);
         }
         finally { await Limpiar(factory.Services, suf); }
     }

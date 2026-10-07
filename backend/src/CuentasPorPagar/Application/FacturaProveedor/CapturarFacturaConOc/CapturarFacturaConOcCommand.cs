@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 
 namespace Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaConOc;
@@ -42,7 +43,9 @@ public sealed record CapturarFacturaConOcCommand(
     decimal ImpuestosTrasladados,
     decimal Retenciones,
     decimal Total,
-    IReadOnlyList<CapturarFacturaConOcLinea> Lineas) : IRequest<CapturarFacturaConOcResponse>;
+    IReadOnlyList<CapturarFacturaConOcLinea> Lineas,
+    // G1.6 (P2): desglose de retenciones del CFDI (ObtenerCfdiParseado). Null en captura manual.
+    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null) : IRequest<CapturarFacturaConOcResponse>;
 
 public sealed record CapturarFacturaConOcLinea(
     Guid? ArticuloId,
@@ -78,6 +81,11 @@ public sealed class CapturarFacturaConOcValidator : AbstractValidator<CapturarFa
         RuleFor(c => c.Descuentos).GreaterThanOrEqualTo(0);
         RuleFor(c => c.ImpuestosTrasladados).GreaterThanOrEqualTo(0);
         RuleFor(c => c.Retenciones).GreaterThanOrEqualTo(0);
+        RuleForEach(c => c.RetencionesDetalle).ChildRules(r =>
+        {
+            r.RuleFor(x => x.Impuesto).NotEmpty().MaximumLength(3);
+            r.RuleFor(x => x.Importe).GreaterThanOrEqualTo(0);
+        });
         RuleFor(c => c.Lineas).NotEmpty().WithMessage("La factura debe tener al menos una línea.");
         RuleForEach(c => c.Lineas).ChildRules(l =>
         {

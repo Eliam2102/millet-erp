@@ -40,7 +40,10 @@ public sealed record OcRecepcionRegistradaIntegrationEvent(
     // la recepción con el CfdiRecibido cuando el XML llegue por su canal.
     string? CfdiUuidFiscal,
     string? Observaciones,
-    IReadOnlyList<LineaRecepcionPayload> Lineas)
+    IReadOnlyList<LineaRecepcionPayload> Lineas,
+    // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
+    Guid? AlmacenId = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("almacen.oc_recepcion.registrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -67,4 +70,6 @@ public sealed record LineaRecepcionPayload(
     decimal Cantidad,
     decimal CostoUnitarioMxn,
     decimal MontoTotalMxn,
-    Guid UbicacionId);
+    Guid UbicacionId,
+    // G1.6: sub-almacén derivado del bin (aditivo).
+    Guid? SubAlmacenId = null);

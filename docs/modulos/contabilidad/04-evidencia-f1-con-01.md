@@ -46,7 +46,7 @@ El Down de la migración de permisos de Identidad falla mientras existan filas e
 | 5 | Jerarquía por segmentos; segmentos no numéricos = etiquetas; ancho preservado al poner ceros (⇒ `…005` deduce `…000`) | `FormatoCatalogo.PadrePorSegmentos`, `Jerarquia:Modo` | Configuración / un método |
 | 6 | Código con patrón permisivo `^[A-Z0-9][A-Z0-9.-]*$`, 1–30; sin relleno de ceros | `CatalogoOpciones.AplicarDefaults` | Configuración |
 | 7 | Herencia de naturaleza apagada (R5); `NivelMaximo` 10 | `HerenciaNaturaleza` | Configuración |
-| 8 | Cuentas de control: lista vacía; orígenes permitidos AuxiliarCxC→Clientes, AuxiliarCxP→Proveedores | `CuentasControl`, `OrigenesControl` | Configuración |
+| 8 | Cuentas de control: lista vacía en el repositorio; orígenes permitidos AuxiliarCxC→Clientes, AuxiliarCxP→Proveedores. **C1.0 (06-oct): propuesta de 19 cuentas sobre el catálogo de Laura, aplicada por variables de ambiente** (no en `appsettings`, para no alterar las pruebas). Ver [09](09-c1-0-cuentas-control-y-carga-del-catalogo.md) | `CuentasControl`, `OrigenesControl` | Configuración |
 | 9 | «No afectable por asiento manual» NO implementada (P17 abierta) | — | Añadir booleano si se confirma |
 | 10 | Código inmutable por edición e importación (origen con código distinto ⇒ error `CONTAB_IMPORT_ORIGEN_CODIGO_DISTINTO`) | handlers/`ImportadorCatalogo` | Decisión de producto |
 | 11 | Celda vacía en importación conserva el valor existente (no se puede vaciar por importación) | `ImportadorCatalogo` | Cambiar la regla de fusión |
