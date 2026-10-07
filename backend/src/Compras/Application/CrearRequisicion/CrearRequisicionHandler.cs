@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Application.Folios;
 using Millet.Compras.Domain;
@@ -98,9 +99,7 @@ public sealed class CrearRequisicionHandler : IRequestHandler<CrearRequisicionCo
 
             if (prov.Estatus != EstatusCatalogo.Activo)
             {
-                throw new BusinessRuleException(
-                    "PROVEEDOR_INACTIVO",
-                    $"El proveedor '{prov.Clave}' está {prov.Estatus} y no puede sugerirse en RQs nuevas.");
+                throw ProveedorNoUtilizable.Error(prov.Clave, prov.Estatus, $"El proveedor '{prov.Clave}' está {prov.Estatus} y no puede sugerirse en RQs nuevas.");
             }
         }
 

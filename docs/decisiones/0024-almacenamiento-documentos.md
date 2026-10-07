@@ -223,6 +223,9 @@ SAS para volumen, stream para adjuntos visibles en la UI.
 > el front consuma el object URL en vez del `blobRef` crudo. No se abordan
 > en este PR (alcance: solo Compras OC).
 
+> ### Addendum F1-ADM-11 (2026-10): Contrato de Adjuntos con Control de Acceso por Documento Padre
+> A partir de la tarea F1-ADM-11, la autorización de adjuntos de negocio se deriva estrictamente del agregado padre en BD (autorización por sucursal con `SucursalScopeGuard` y bypass `{modulo}.{recurso}.leer-todas-sucursales`, ADR-0051). La subida atómica valida acceso y formato/tamaño/firma (`AdjuntosPoliticaOptions`) ANTES de escribir en storage, compensando con eliminación del blob físico si la inserción en BD falla. Para el contrato y directrices para módulos futuros, consultar [docs/modulos/administracion/adm-11-contrato-adjuntos.md](../modulos/administracion/adm-11-contrato-adjuntos.md).
+
 ### Acceso desde frontend — patrón de upload
 
 Patrón inverso para subidas de usuario:
@@ -521,3 +524,7 @@ también se requiere permiso `fiscal.cfdi.timbrar` o equivalente.
 - Antivirus scanning con Azure Defender for Storage
 - Estrategia de backup adicional (snapshots, replicación cross-region)
 - Política específica para documentos con datos personales sensibles (LFPDPPP)
+
+## Addendum 2026-10-06 (F1-ADM-11 G1.2)
+
+Los adjuntos de entidades de negocio (primero: expediente del proveedor) usan el servicio genérico de [ADR-0058](./0058-servicio-generico-de-adjuntos.md): puerto `IBlobStoragePort`, contenedor `adjuntos`, `BlobRef` interno nunca expuesto y descarga solo por endpoint autenticado o enlace temporal propio (token de 60 s) en lugar de URL SAS. Esta decisión de `IDocumentStorage` y SAS no se modifica para los documentos fiscales; el uso de SAS para adjuntos queda descartado en el ADR-0058.

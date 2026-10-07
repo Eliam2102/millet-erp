@@ -72,6 +72,6 @@ public sealed class AdjuntarDocumentoHandler
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new AdjuntarDocumentoResponse(adjunto.Id, adjunto.BlobUrl, adjunto.FechaCarga);
+        return new AdjuntarDocumentoResponse(adjunto.Id, adjunto.FechaCarga);
     }
 }

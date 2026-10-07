@@ -94,9 +94,30 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         //        del three-way match). El Validator no tiene oc.Lineas; aquí sí.
         LineaOcPertenenciaGuard.Validar(command.Lineas, oc.Lineas, oc.Folio);
 
-        // 2) Resolver la tolerancia del proveedor (snapshot al momento
-        //    de captura, §3.bis.3).
+        // 2) Resolver el proveedor y validar estatus operativo (F1-ADM-05 G1.1 / Plano G1 §3.1).
+        //    Un proveedor EnRevision o Inactivo no admite captura de factura ni pago.
         var proveedor = await _proveedorPort.ObtenerAsync(command.ProveedorId, cancellationToken);
+        if (proveedor is null)
+        {
+            throw new EntityNotFoundException(
+                "PROVEEDOR_NO_ENCONTRADO",
+                $"No se encontró el proveedor '{command.ProveedorId}' en Datos Maestros.");
+        }
+
+        if (proveedor.EnRevision)
+        {
+            throw new BusinessRuleException(
+                "PROVEEDOR_EN_REVISION",
+                $"El proveedor '{proveedor.RazonSocial}' está en revisión y no admite captura de facturas.");
+        }
+
+        if (!proveedor.Activo)
+        {
+            throw new BusinessRuleException(
+                "PROVEEDOR_NO_ACTIVO",
+                $"El proveedor '{proveedor.RazonSocial}' no está activo y no admite captura de facturas.");
+        }
+
         var tolerancia = ResolverTolerancia(proveedor);
 
         // 3) Calcular diferencia (factura.Total vs oc.Total).

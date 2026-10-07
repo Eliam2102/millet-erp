@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Domain;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
+using Millet.SharedKernel.Domain.Adjuntos;
 using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -113,6 +114,9 @@ public sealed class CompartidoDbContext : BaseDbContext
     // FormatoFecha, RedondeoMonetario, etc.) o por módulo (cuando Modulo
     // es no-null). Vive en compartido (PLATFORM-TODO Fase B → admin).
     public DbSet<ParametroGlobal> ParametrosGlobales => Set<ParametroGlobal>();
+    // F1-ADM-11 G1.2: servicio genérico de adjuntos (metadatos; el blob vive en storage).
+    public DbSet<Adjunto> Adjuntos => Set<Adjunto>();
+    public DbSet<AdjuntoTipoDocumento> AdjuntoTiposDocumento => Set<AdjuntoTipoDocumento>();
     public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -165,7 +169,106 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureSerie(modelBuilder);
         ConfigureSecuenciaFolio(modelBuilder);
         ConfigureParametroGlobal(modelBuilder);
+        ConfigureAdjuntoTipoDocumento(modelBuilder);
+        ConfigureAdjunto(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
+    }
+
+    /// <summary>
+    /// F1-ADM-11 G1.2: tipos de documento por entidad dueña. Seed del
+    /// expediente de proveedor con ids deterministas en el rango
+    /// <c>00000011-0001-0000-0000-0000000000NN</c> (NN = 01..05; el bloque
+    /// <c>00000011-0001</c> queda reservado a tipos de adjunto de proveedor;
+    /// otros módulos usarán otro bloque, p. ej. <c>00000011-0002</c>).
+    /// Vigencias y obligatoriedad son de PRUEBA hasta que Millet las valide.
+    /// </summary>
+    private static void ConfigureAdjuntoTipoDocumento(ModelBuilder modelBuilder)
+    {
+        var tipo = modelBuilder.Entity<AdjuntoTipoDocumento>();
+        tipo.ToTable("adjunto_tipos_documento", t =>
+        {
+            t.HasCheckConstraint("ck_adjunto_tipos_documento_vigencia",
+                "vigencia_meses IS NULL OR vigencia_meses > 0");
+        });
+        tipo.HasKey(x => x.Id);
+        tipo.Property(x => x.TipoEntidad).HasMaxLength(60).IsRequired();
+        tipo.Property(x => x.Codigo).HasMaxLength(80).IsRequired();
+        tipo.Property(x => x.Nombre).HasMaxLength(200).IsRequired();
+        tipo.Property(x => x.Orden).IsRequired();
+        tipo.Property(x => x.Obligatorio).IsRequired();
+        tipo.Property(x => x.SoloPersonaMoral).IsRequired();
+        tipo.Property(x => x.Activo).IsRequired();
+        tipo.HasIndex(x => new { x.TipoEntidad, x.Codigo }).IsUnique();
+
+        var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        tipo.HasData(
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000004", "identificacion_representante_legal", "Identificación del representante legal", 4, null, false, seedTime),
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime));
+    }
+
+    private static object SeedTipoAdjuntoProveedor(
+        string id, string codigo, string nombre, int orden, int? vigenciaMeses, bool soloPersonaMoral,
+        DateTimeOffset seedTime) => new
+    {
+        Id = Guid.Parse(id),
+        TipoEntidad = "proveedor",
+        Codigo = codigo,
+        Nombre = nombre,
+        Orden = orden,
+        Obligatorio = true,
+        VigenciaMeses = vigenciaMeses,
+        SoloPersonaMoral = soloPersonaMoral,
+        Activo = true,
+        Version = 1,
+        CreatedAt = seedTime,
+        UpdatedAt = seedTime,
+        CreatedBy = (string?)"seed",
+        UpdatedBy = (string?)"seed",
+        DeletedAt = (DateTimeOffset?)null,
+    };
+
+    /// <summary>
+    /// F1-ADM-11 G1.2: metadatos de adjuntos genéricos. Sin FK a la entidad
+    /// dueña (genérico: <c>tipo_entidad</c> + <c>entidad_id</c>); FK solo al
+    /// catálogo de tipos. Baja lógica coherente por CHECK; el blob nunca se borra.
+    /// </summary>
+    private static void ConfigureAdjunto(ModelBuilder modelBuilder)
+    {
+        var adjunto = modelBuilder.Entity<Adjunto>();
+        adjunto.ToTable("adjuntos", t =>
+        {
+            t.HasCheckConstraint("ck_adjuntos_tamano_positivo", "tamano_bytes > 0");
+            t.HasCheckConstraint("ck_adjuntos_hash_sha256", "char_length(hash_sha256) = 64");
+            t.HasCheckConstraint("ck_adjuntos_baja_coherente",
+                "(baja_en IS NULL AND baja_por_id IS NULL AND baja_motivo IS NULL) " +
+                "OR (baja_en IS NOT NULL AND baja_por_id IS NOT NULL AND baja_motivo IS NOT NULL " +
+                "AND char_length(baja_motivo) BETWEEN 5 AND 500)");
+        });
+        adjunto.HasKey(x => x.Id);
+        adjunto.Ignore(x => x.AggregateRootId);
+        adjunto.Ignore(x => x.EstaDeBaja);
+        adjunto.Property(x => x.TipoEntidad).HasMaxLength(60).IsRequired();
+        adjunto.Property(x => x.EntidadId).IsRequired();
+        adjunto.Property(x => x.TipoDocumentoId).IsRequired();
+        adjunto.Property(x => x.NombreArchivo).HasMaxLength(255).IsRequired();
+        adjunto.Property(x => x.ContentType).HasMaxLength(120).IsRequired();
+        adjunto.Property(x => x.HashSha256).HasMaxLength(64).IsFixedLength().IsRequired();
+        adjunto.Property(x => x.BlobRef).HasMaxLength(500).IsRequired();
+        adjunto.Property(x => x.VigenteHasta).HasColumnType("date");
+        adjunto.Property(x => x.SubidoPorId).IsRequired();
+        adjunto.Property(x => x.SubidoEn).IsRequired();
+        adjunto.Property(x => x.BajaMotivo).HasMaxLength(500);
+
+        adjunto.HasIndex(x => new { x.TipoEntidad, x.EntidadId });
+        adjunto.HasIndex(x => new { x.EntidadId, x.TipoDocumentoId });
+
+        adjunto.HasOne<AdjuntoTipoDocumento>()
+            .WithMany()
+            .HasForeignKey(x => x.TipoDocumentoId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureIntegrationEventOutbox(ModelBuilder modelBuilder)
@@ -953,6 +1056,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Banco).HasMaxLength(120);
         proveedor.Property(x => x.Clabe).HasMaxLength(18);
         proveedor.Property(x => x.Beneficiario).HasMaxLength(254);
+        // F1-ADM-05 G1.1: validación CxP y motivo de rechazo.
+        proveedor.Property(x => x.ValidadoPorId);
+        proveedor.Property(x => x.ValidadoEn);
+        proveedor.Property(x => x.MotivoRechazo).HasMaxLength(500);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
         // F1-ADM-05: RFC único salvo genéricos SAT (público en general),

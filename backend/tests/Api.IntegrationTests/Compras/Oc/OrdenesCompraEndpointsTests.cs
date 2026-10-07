@@ -174,6 +174,29 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task Crear_Con_Proveedor_En_Revision_Retorna_422_Con_Codigo_Propio()
+    {
+        // G1.1: el proveedor recién dado de alta nace «En revisión» y no se usa en OCs hasta que CxP lo valide.
+        var client = await CreateSuperAdminClientAsync();
+        var clave = $"REV{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var alta = await client.PostAsJsonAsync("/api/v1/catalogos/proveedores", new
+        {
+            clave,
+            razonSocial = $"Proveedor en revision {clave} SA de CV",
+            rfc = $"RVO{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+            tipoPersona = 0,
+            condicionesPagoDias = 30,
+        });
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var proveedorId = (await ReadJsonAsync(alta)).GetProperty("id").GetGuid();
+
+        var response = await client.PostAsJsonAsync(EndpointBase, ValidBody() with { ProveedorId = proveedorId });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("PROVEEDOR_EN_REVISION", (await ReadJsonAsync(response)).GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Crear_Sin_Rq_Previa_Sin_Motivo_Retorna_400()
     {
         var client = await CreateSuperAdminClientAsync();

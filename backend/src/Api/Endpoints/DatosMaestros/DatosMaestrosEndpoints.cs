@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Endpoints.CentrosCosto;
 using Millet.Api.Web;
 using Millet.Catalogos.Domain;
+using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Articulos;
 using Millet.DatosMaestros.Application.Clientes;
@@ -47,6 +49,14 @@ public static class DatosMaestrosEndpoints
     {
         var proveedores = app.MapGroup("/api/v1/datos-maestros/proveedores")
             .WithTags("DatosMaestros");
+        // Expediente documental del proveedor (F1-ADM-11 G1.2): rutas genéricas de adjuntos.
+        proveedores.MapGroup("/{id:guid}").MapAdjuntos(
+            Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario.Tipo,
+            PermisosCanonicos.DatosMaestrosProveedoresAdjuntosVer,
+            PermisosCanonicos.DatosMaestrosProveedoresAdjuntosSubir,
+            PermisosCanonicos.DatosMaestrosProveedoresAdjuntosBaja);
+        app.MapAdjuntosGenerales();
+
         var articulos = app.MapGroup("/api/v1/datos-maestros/articulos")
             .WithTags("DatosMaestros");
 
@@ -90,7 +100,8 @@ public static class DatosMaestrosEndpoints
             return Results.Ok(new ProveedorDetalle(
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial,
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
-                p.Email, p.Telefono, p.Estatus));
+                p.Email, p.Telefono, p.Estatus,
+                p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -99,6 +110,47 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // F1-ADM-05 G1.1: Validación de proveedor por CxP (comprobando expediente de G1.2)
+        proveedores.MapPost("/{id:guid}/validar", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(new ValidarProveedorCommand(id), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("ValidarProveedorDatosMaestros")
+        .WithSummary("Validar y activar proveedor con expediente completo (F1-ADM-05 G1.1)")
+        .WithDescription("Pasa al proveedor de EnRevision a Activo si su expediente documental cumple los requisitos. Exclusivo para CxP con permiso datos_maestros.proveedores.validar.")
+        .Produces<ValidarProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // F1-ADM-05 G1.1: Rechazo de proveedor por CxP con motivo obligatorio
+        proveedores.MapPost("/{id:guid}/rechazar", async (
+            Guid id,
+            [FromBody] RechazarProveedorRequest body,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var response = await mediator.Send(new RechazarProveedorCommand(id, body.Motivo), ct);
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("RechazarProveedorDatosMaestros")
+        .WithSummary("Rechazar proveedor en revisión (F1-ADM-05 G1.1)")
+        .WithDescription("Rechaza un proveedor en revisión con motivo obligatorio (5 a 500 caracteres), pasando su estatus a Inactivo.")
+        .Produces<RechazarProveedorResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         proveedores.MapGet("/{id:guid}/datos-bancarios", async (
             Guid id,
@@ -719,7 +771,12 @@ public static class DatosMaestrosEndpoints
         Guid? MonedaPreferidaId,
         string? Email,
         string? Telefono,
-        EstatusCatalogo Estatus);
+        EstatusCatalogo Estatus,
+        Guid? ValidadoPorId = null,
+        DateTimeOffset? ValidadoEn = null,
+        string? MotivoRechazo = null);
+
+    public sealed record RechazarProveedorRequest(string Motivo);
 
     /// <summary>
     /// Respuesta de <c>GET /datos-maestros/proveedores/{id}/datos-bancarios</c>
