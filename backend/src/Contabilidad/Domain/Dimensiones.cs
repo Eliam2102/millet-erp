@@ -122,7 +122,7 @@ public sealed class ReglaDimension : BaseEntity, IAuditable, IPerteneceAEmpresa
 /// Mismo patrón que <see cref="CuentaContableUso"/>.
 /// </summary>
 // PLATFORM-TODO(<Polizas>): la póliza real registra aquí el uso de las reglas con que confirma cada partida.
-public sealed class ReglaDimensionUso : BaseEntity, IPerteneceAEmpresa
+public sealed class ReglaDimensionUso : BaseEntity, IPerteneceAEmpresa, INotAudited
 {
     public Guid EmpresaId { get; set; }
     public Guid ReglaId { get; private set; }
