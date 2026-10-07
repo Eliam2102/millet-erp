@@ -28,6 +28,7 @@ import { Route as AppCentrosCostoConfiguracionRouteImport } from './routes/_app/
 import { Route as AppComprasIndexRouteImport } from './routes/_app/compras/index';
 import { Route as AppComprasAyudaRouteImport } from './routes/_app/compras/ayuda';
 import { Route as AppContabilidadDimensionesRouteImport } from './routes/_app/contabilidad/dimensiones';
+import { Route as AppContabilidadPeriodosRouteImport } from './routes/_app/contabilidad/periodos';
 import { Route as AppContabilidadImportacionRouteImport } from './routes/_app/contabilidad/importacion';
 import { Route as AppContabilidadMovimientosPruebaRouteImport } from './routes/_app/contabilidad/movimientos-prueba';
 import { Route as AppCxcIndexRouteImport } from './routes/_app/cxc/index';
@@ -264,6 +265,12 @@ const AppContabilidadDimensionesRoute =
   AppContabilidadDimensionesRouteImport.update({
     id: '/contabilidad/dimensiones',
     path: '/contabilidad/dimensiones',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPeriodosRoute =
+  AppContabilidadPeriodosRouteImport.update({
+    id: '/contabilidad/periodos',
+    path: '/contabilidad/periodos',
     getParentRoute: () => AppRoute,
   } as any);
 const AppContabilidadImportacionRoute =
@@ -1051,6 +1058,7 @@ export interface FileRoutesByFullPath {
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
+  '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
@@ -1210,6 +1218,7 @@ export interface FileRoutesByTo {
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
+  '/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
   '/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/cxp/anticipos': typeof AppCxpAnticiposRoute;
@@ -1371,6 +1380,7 @@ export interface FileRoutesById {
   '/_app/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
   '/_app/compras/ayuda': typeof AppComprasAyudaRoute;
   '/_app/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
+  '/_app/contabilidad/periodos': typeof AppContabilidadPeriodosRoute;
   '/_app/contabilidad/importacion': typeof AppContabilidadImportacionRoute;
   '/_app/contabilidad/movimientos-prueba': typeof AppContabilidadMovimientosPruebaRoute;
   '/_app/cxp/anticipos': typeof AppCxpAnticiposRoute;
@@ -1532,6 +1542,7 @@ export interface FileRouteTypes {
     | '/centros-costo/configuracion'
     | '/compras/ayuda'
     | '/contabilidad/dimensiones'
+    | '/contabilidad/periodos'
     | '/contabilidad/importacion'
     | '/contabilidad/movimientos-prueba'
     | '/cxp/anticipos'
@@ -1691,6 +1702,7 @@ export interface FileRouteTypes {
     | '/centros-costo/configuracion'
     | '/compras/ayuda'
     | '/contabilidad/dimensiones'
+    | '/contabilidad/periodos'
     | '/contabilidad/importacion'
     | '/contabilidad/movimientos-prueba'
     | '/cxp/anticipos'
@@ -1851,6 +1863,7 @@ export interface FileRouteTypes {
     | '/_app/centros-costo/configuracion'
     | '/_app/compras/ayuda'
     | '/_app/contabilidad/dimensiones'
+    | '/_app/contabilidad/periodos'
     | '/_app/contabilidad/importacion'
     | '/_app/contabilidad/movimientos-prueba'
     | '/_app/cxp/anticipos'
@@ -2134,6 +2147,13 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/dimensiones';
       fullPath: '/contabilidad/dimensiones';
       preLoaderRoute: typeof AppContabilidadDimensionesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/periodos': {
+      id: '/_app/contabilidad/periodos';
+      path: '/contabilidad/periodos';
+      fullPath: '/contabilidad/periodos';
+      preLoaderRoute: typeof AppContabilidadPeriodosRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/contabilidad/importacion': {
@@ -3143,6 +3163,7 @@ interface AppRouteChildren {
   AppCentrosCostoConfiguracionRoute: typeof AppCentrosCostoConfiguracionRoute;
   AppComprasAyudaRoute: typeof AppComprasAyudaRoute;
   AppContabilidadDimensionesRoute: typeof AppContabilidadDimensionesRoute;
+  AppContabilidadPeriodosRoute: typeof AppContabilidadPeriodosRoute;
   AppContabilidadImportacionRoute: typeof AppContabilidadImportacionRoute;
   AppContabilidadMovimientosPruebaRoute: typeof AppContabilidadMovimientosPruebaRoute;
   AppCxpAnticiposRoute: typeof AppCxpAnticiposRoute;
@@ -3300,6 +3321,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCentrosCostoConfiguracionRoute: AppCentrosCostoConfiguracionRoute,
   AppComprasAyudaRoute: AppComprasAyudaRoute,
   AppContabilidadDimensionesRoute: AppContabilidadDimensionesRoute,
+  AppContabilidadPeriodosRoute: AppContabilidadPeriodosRoute,
   AppContabilidadImportacionRoute: AppContabilidadImportacionRoute,
   AppContabilidadMovimientosPruebaRoute: AppContabilidadMovimientosPruebaRoute,
   AppCxpAnticiposRoute: AppCxpAnticiposRoute,

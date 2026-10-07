@@ -911,6 +911,19 @@ const moduloContabilidad: NavModulo = {
         },
       ],
     },
+    {
+      label: 'Periodos',
+      cards: [
+        {
+          label: 'Periodos contables',
+          description:
+            'Los 13 periodos de cada ejercicio: crear el ejercicio, cerrar y reabrir con motivo, e historial de cada acción.',
+          to: '/contabilidad/periodos',
+          icon: Lock,
+          permission: PermisosCanonicos.ContabilidadPeriodoLeer,
+        },
+      ],
+    },
   ],
 };
 

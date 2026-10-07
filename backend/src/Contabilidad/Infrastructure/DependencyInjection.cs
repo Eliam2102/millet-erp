@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddSingleton<IValidateOptions<CatalogoOpciones>, CatalogoOpcionesValidator>();
         services.AddSingleton(sp => new FormatoCatalogo(sp.GetRequiredService<IOptions<CatalogoOpciones>>().Value));
         services.AddScoped<ICuentaContableReadPort, CuentaContableReadAdapter>();
+        services.AddScoped<IPeriodoContableReadPort, PeriodoContableReadAdapter>();
 
         // F1-CON-02: reglas de dimensión. Los puertos ICentroCostoContabilidadPort e ISucursalContabilidadPort los
         // implementan sus dueños (CentrosCosto, Compartido) y se cablean en Program.cs.
