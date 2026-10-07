@@ -17,8 +17,13 @@ public sealed class TestConexionPacHandlerTests
     /// <c>NotImplementedException</c> — los demás métodos no se usan
     /// desde el handler de test conexión.
     /// </summary>
-    private sealed class StubSdk : IFiscalApiSdkClient
+    private sealed class StubSdk : IFiscalApiSdkClient, IPacCandidatoProbe
     {
+        public Task<PingResultDto> ProbarAsync(string url, string key, CancellationToken ct)
+        {
+            UltimaEmpresa = EmpresaId;
+            return Task.FromResult(Resultado);
+        }
         public Guid UltimaEmpresa { get; private set; }
         public PingResultDto Resultado { get; set; } = new(true, 200, "OK", 12, default);
 
@@ -63,7 +68,7 @@ public sealed class TestConexionPacHandlerTests
     {
         var db = InMemoryFiscalDb.Create();
         var sdk = new StubSdk();
-        var handler = new TestConexionPacHandler(sdk);
+        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
 
         var response = await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi,
@@ -92,7 +97,7 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(true, 200, "OK", 50, Ahora) };
-        var handler = new TestConexionPacHandler(sdk);
+        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
 
         await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi,
@@ -120,7 +125,7 @@ public sealed class TestConexionPacHandlerTests
         await db.SaveChangesAsync();
 
         var sdk = new StubSdk { Resultado = new(false, 401, "Unauthorized", 30, Ahora) };
-        var handler = new TestConexionPacHandler(sdk);
+        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
 
         var response = await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi, null, null, null),
@@ -140,7 +145,7 @@ public sealed class TestConexionPacHandlerTests
     public async Task Ping_fallido_normaliza_mensaje_accionable(int statusCode, string mensaje)
     {
         var sdk = new StubSdk { Resultado = new(false, statusCode, "detalle interno", 30, Ahora) };
-        var handler = new TestConexionPacHandler(sdk);
+        var handler = new TestConexionPacHandler(sdk, InMemoryFiscalDb.Create(), InMemoryFiscalDb.Cipher(), sdk);
 
         var response = await handler.Handle(
             new TestConexionPacCommand(EmpresaId, ProveedorPac.FiscalApi, null, null, null),

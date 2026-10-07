@@ -33,6 +33,7 @@ public sealed class GuardarConfiguracionPacHandler
     private readonly IConfiguracionPacResolver _resolver;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IClock _clock;
+    private readonly IPacCandidatoProbe _probe;
 
     public GuardarConfiguracionPacHandler(
         IntegracionesFiscalDbContext db,
@@ -40,7 +41,8 @@ public sealed class GuardarConfiguracionPacHandler
         IIntegrationEventPublisher publisher,
         IConfiguracionPacResolver resolver,
         ICurrentEmpresaContext currentEmpresa,
-        IClock clock)
+        IClock clock,
+        IPacCandidatoProbe probe)
     {
         _db = db;
         _cipher = cipher;
@@ -48,6 +50,7 @@ public sealed class GuardarConfiguracionPacHandler
         _resolver = resolver;
         _currentEmpresa = currentEmpresa;
         _clock = clock;
+        _probe = probe;
     }
 
     public async Task<ConfiguracionPacResponse> Handle(
@@ -65,6 +68,8 @@ public sealed class GuardarConfiguracionPacHandler
                 nameof(ConfiguracionPac), empresaActual, command.EmpresaId);
         }
 
+        if (command.Proveedor != ProveedorPac.FiscalApi)
+            throw new BusinessRuleException("CONFIG_PAC_PROVEEDOR_INVALIDO", "Solo FiscalAPI está habilitado.");
         var ahora = _clock.UtcNow;
 
         var existente = await _db.ConfiguracionesPac
@@ -99,12 +104,12 @@ public sealed class GuardarConfiguracionPacHandler
 
             if (!command.Activo) config.Desactivar();
 
-            _db.ConfiguracionesPac.Add(config);
+
             rotacion = true; // alta = rotación inicial
         }
         else
         {
-            config = existente;
+            config = existente.CopiarCandidato();
 
             if (command.VersionEsperada != config.Version)
                 throw new ConcurrencyException(nameof(ConfiguracionPac), config.Id);
@@ -162,7 +167,26 @@ public sealed class GuardarConfiguracionPacHandler
             }
         }
 
+        // P01: prueba obligatoria del candidato exacto en servidor antes de escribir.
+        // No se acepta un booleano ni una prueba anterior del navegador.
+        // Una configuración inactiva no timbra: desactivarla (PAC caído o
+        // llave comprometida) no puede depender de que el PAC responda.
+        if (config.Activo)
+        {
+            var prueba = await _probe.ProbarAsync(config.BaseUrl, _cipher.Decrypt(config.ApiKeyCifrado), ct);
+            if (!prueba.Exitosa)
+                throw new BusinessRuleException("CONFIG_PAC_CONEXION_RECHAZADA",
+                    TestConexionPac.TestConexionPacHandler.MensajePara(prueba));
+        }
+
+        if (existente is null) _db.ConfiguracionesPac.Add(config);
+        else
+        {
+            _db.Entry(existente).CurrentValues.SetValues(config);
+            existente.ConfigurarIdentidadesSandbox(config.EmisorSandbox, config.ReceptorSandbox);
+        }
         await _db.SaveChangesAsync(ct);
+        if (existente is not null) config = existente;
 
         // Invalidar cache del resolver: el próximo ping/descarga ve los
         // datos frescos sin esperar al TTL de 60s.

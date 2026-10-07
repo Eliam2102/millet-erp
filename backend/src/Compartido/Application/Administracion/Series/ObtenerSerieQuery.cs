@@ -51,13 +51,13 @@ public sealed class ObtenerSerieHandler
             .Select(x => (long?)x.UltimoNumero)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var siguiente = (ultimo ?? 0) + 1;
+        var siguiente = (ultimo ?? (serie.FolioInicial - 1)) + 1;
         var preview = FormatearFolio(serie, periodo, siguiente);
 
         var dto = new SerieResponse(
             serie.Id, serie.EmpresaId, serie.SucursalId, serie.TipoDocumento,
             serie.Prefijo, serie.Sufijo, serie.ReinicioPeriodo,
-            serie.Activa, serie.Version);
+            serie.Activa, serie.Version, serie.FolioInicial);
 
         return new SerieDetalleResponse(dto, preview);
     }

@@ -692,6 +692,51 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(N, numeros.Distinct().Count());
     }
 
+    [Fact]
+    public async Task Serie_fiscal_continua_inicial_prioridad_e_inmutabilidad()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        var created = await client.PostAsJsonAsync(EndpointBase, new
+        {
+            EmpresaId = EmpresaBootstrapId, SucursalId = sucursal, TipoDocumento = 2,
+            Prefijo = "DEMO", ReinicioPeriodo = 0, FolioInicial = 8201,
+        });
+        created.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(created)).GetProperty("id").GetGuid();
+        var preview = await client.GetAsync($"{EndpointBase}/{id}");
+        Assert.Equal("DEMO-008201", (await ReadJsonAsync(preview)).GetProperty("proximoFolioPreview").GetString());
+        async Task<JsonElement> Reserva(string fecha)
+        {
+            var result = await client.PostAsJsonAsync($"{EndpointBase}/reservar", new
+            { EmpresaId = EmpresaBootstrapId, SucursalId = sucursal, TipoDocumento = 2, FechaReferencia = fecha });
+            result.EnsureSuccessStatusCode();
+            return await ReadJsonAsync(result);
+        }
+        var first = await Reserva("2026-12-31");
+        Assert.Equal(8201, first.GetProperty("numero").GetInt64());
+        Assert.Equal(id, first.GetProperty("serieId").GetGuid());
+        Assert.Equal(8202, (await Reserva("2027-01-01")).GetProperty("numero").GetInt64());
+        var edit = await PatchSerieAsync(client, id, await ObtenerVersionSerieAsync(client, id), new { Prefijo = "OTRA" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, edit.StatusCode);
+        Assert.Equal("SERIE_USADA_INMUTABLE", (await ReadJsonAsync(edit)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Altas_fiscales_concurrentes_solo_crean_una_serie_activa()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => client.PostAsJsonAsync(EndpointBase, new
+        {
+            EmpresaId = EmpresaBootstrapId, SucursalId = sucursal, TipoDocumento = 5,
+            Prefijo = RandomPrefijo(), ReinicioPeriodo = 0,
+        })));
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Created);
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Conflict);
+    }
+
+
     // --- Helpers ---
 
     private static string RandomPrefijo()

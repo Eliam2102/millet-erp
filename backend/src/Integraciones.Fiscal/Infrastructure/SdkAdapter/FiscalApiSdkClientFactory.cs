@@ -44,7 +44,7 @@ public sealed class FiscalApiSdkClientFactory : IFiscalApiSdkClientFactory
 
         // Cache key incluye empresa + un hash de la api key (sin
         // material crudo) para que el cache se invalide al rotar.
-        var cacheKey = $"{empresaId}:{config.ApiKey.GetHashCode()}";
+        var cacheKey = $"{empresaId}:{config.BaseUrl}:{Cifrado.FiscalSecretCipher.HashForChangeDetection(config.ApiKey)}";
 
         return _cache.GetOrAdd(cacheKey, _ =>
         {

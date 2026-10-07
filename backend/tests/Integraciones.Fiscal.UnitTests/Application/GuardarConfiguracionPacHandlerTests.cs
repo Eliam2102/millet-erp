@@ -9,6 +9,17 @@ namespace Millet.Integraciones.Fiscal.UnitTests.Application;
 
 public sealed class GuardarConfiguracionPacHandlerTests
 {
+    private sealed class Probe : Millet.Integraciones.Fiscal.Domain.Ports.IPacCandidatoProbe
+    {
+        public bool Exitosa { get; set; } = true;
+        public string? UltimaKey { get; private set; }
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.PingResultDto> ProbarAsync(string url, string key, CancellationToken ct)
+            {
+                UltimaKey = key;
+                return Task.FromResult(new Millet.Integraciones.Fiscal.Domain.Ports.PingResultDto(Exitosa, Exitosa ? 200 : 401, "DEMO", 1, Ahora));
+            }
+    }
+
     private static readonly Guid EmpresaId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly DateTimeOffset Ahora = new(2026, 5, 25, 12, 0, 0, TimeSpan.Zero);
 
@@ -25,7 +36,7 @@ public sealed class GuardarConfiguracionPacHandlerTests
                     InMemoryFiscalDb.CapturingPublisher Publisher,
                     FiscalSecretCipher Cipher,
                     InMemoryFiscalDb.TrackingResolver Resolver)
-        Build(Guid? empresaActual = null)
+        Build(Guid? empresaActual = null, Probe? probe = null)
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -33,8 +44,40 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var resolver = new InMemoryFiscalDb.TrackingResolver();
         var empresa = new InMemoryFiscalDb.FakeEmpresaContext(empresaActual ?? EmpresaId);
         var clock = new InMemoryFiscalDb.FakeClock(Ahora);
-        var handler = new GuardarConfiguracionPacHandler(db, cipher, publisher, resolver, empresa, clock);
+        var handler = new GuardarConfiguracionPacHandler(db, cipher, publisher, resolver, empresa, clock, probe ?? new Probe());
         return (handler, db, publisher, cipher, resolver);
+    }
+
+    [Fact]
+    public async Task Candidato_rechazado_no_crea_configuracion_ni_publica()
+    {
+        var probe = new Probe { Exitosa = false };
+        var (handler, db, publisher, _, resolver) = Build(probe: probe);
+        var action = () => handler.Handle(NewCommand("DEMO-invalid"), CancellationToken.None);
+        await action.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CONFIG_PAC_CONEXION_RECHAZADA");
+        db.ConfiguracionesPac.Count().Should().Be(0);
+        publisher.Published.Should().BeEmpty();
+        probe.UltimaKey.Should().Be("DEMO-invalid");
+    }
+
+    [Fact]
+    public async Task Rotacion_rechazada_conserva_configuracion_y_cifrado_anterior()
+    {
+        var probe = new Probe();
+        var (handler, db, publisher, cipher, _) = Build(probe: probe);
+        await handler.Handle(NewCommand("DEMO-original"), CancellationToken.None);
+        var original = db.ConfiguracionesPac.Single();
+        var version = original.Version;
+        var encrypted = original.ApiKeyCifrado.ToArray();
+        probe.Exitosa = false;
+        var action = () => handler.Handle(NewCommand("DEMO-rechazada") with
+            { BaseUrl = "https://test.fiscalapi.com", VersionEsperada = version }, CancellationToken.None);
+        await action.Should().ThrowAsync<BusinessRuleException>();
+        db.ConfiguracionesPac.Single().ApiKeyCifrado.Should().Equal(encrypted);
+        original.BaseUrl.Should().Be("https://live.fiscalapi.com");
+        original.Version.Should().Be(version);
+        publisher.Published.Should().HaveCount(1);
+        probe.UltimaKey.Should().Be("DEMO-rechazada");
     }
 
     [Fact]
@@ -140,6 +183,37 @@ public sealed class GuardarConfiguracionPacHandlerTests
         await handler.Handle(NewCommand(apiKey: null) with
             { Activo = false, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
 
+        db.ConfiguracionesPac.Single().Activo.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Desactivar_no_requiere_conexion_exitosa()
+    {
+        var probe = new Probe();
+        var (handler, db, _, _, _) = Build(probe: probe);
+        await handler.Handle(NewCommand(), CancellationToken.None);
+        probe.Exitosa = false;
+
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Activo = false, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
+
+        db.ConfiguracionesPac.Single().Activo.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Reactivar_con_conexion_fallida_es_rechazado()
+    {
+        var probe = new Probe();
+        var (handler, db, _, _, _) = Build(probe: probe);
+        await handler.Handle(NewCommand(), CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Activo = false, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
+        probe.Exitosa = false;
+
+        var action = () => handler.Handle(NewCommand(apiKey: null) with
+            { Activo = true, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
+
+        await action.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CONFIG_PAC_CONEXION_RECHAZADA");
         db.ConfiguracionesPac.Single().Activo.Should().BeFalse();
     }
 

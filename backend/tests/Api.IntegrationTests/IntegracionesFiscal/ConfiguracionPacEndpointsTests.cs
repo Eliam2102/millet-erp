@@ -22,7 +22,12 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
     private const string Base = "/api/v1/integraciones/fiscal/configuracion";
     private readonly WebApplicationFactory<Program> _factory;
 
-    public ConfiguracionPacEndpointsTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public ConfiguracionPacEndpointsTests(WebApplicationFactory<Program> factory)
+        => _factory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IPacCandidatoProbe>();
+            services.AddSingleton<IPacCandidatoProbe>(new StubSdk());
+        }));
 
     [Fact]
     public async Task Get_sin_token_retorna_401()
@@ -175,11 +180,56 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
         Assert.Equal("https://live.fiscalapi.com", (await ReadJsonAsync(persisted)).GetProperty("baseUrl").GetString());
     }
 
+    [Fact]
+    public async Task Credenciales_rechazadas_no_rotan_y_replay_no_vuelve_a_probar()
+    {
+        var probe = new StubSdk();
+        await using var factory = FactoryWith(probe);
+        var client = await CreateClientAsync(PermisosCanonicos.IntegracionesFiscalLeer,
+            PermisosCanonicos.IntegracionesFiscalAdministrar, factory: factory);
+        (await PutCurrentAsync(client, factory: factory)).EnsureSuccessStatusCode();
+        var before = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+        probe.Resultado = new(false, 401, "detalle secreto DEMO", 2, DateTimeOffset.UtcNow);
+        var rejected = await PutCurrentAsync(client, new
+            { baseUrl = "https://live.fiscalapi.com", apiKey = "DEMO-rechazada", activo = true }, factory);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, rejected.StatusCode);
+        var json = await rejected.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("DEMO-rechazada", json);
+        Assert.DoesNotContain("detalle secreto", json);
+        var after = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+        Assert.Equal(before, after);
+        probe.Resultado = new(true, 200, "DEMO", 1, DateTimeOffset.UtcNow);
+        var key = Guid.NewGuid().ToString("D");
+        var first = await PutAsync(client, key);
+        first.EnsureSuccessStatusCode();
+        var calls = probe.PingCount;
+        (await PutAsync(client, key)).EnsureSuccessStatusCode();
+        Assert.Equal(calls, probe.PingCount);
+    }
+
+    [Fact]
+    public async Task Probar_candidato_usa_key_nueva_sin_guardar()
+    {
+        var probe = new StubSdk();
+        await using var factory = FactoryWith(probe);
+        var client = await CreateClientAsync(PermisosCanonicos.IntegracionesFiscalLeer,
+            PermisosCanonicos.IntegracionesFiscalAdministrar, factory: factory);
+        var before = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+        var response = await client.PostAsJsonAsync($"{Base}/{EmpresaId}/1/test", new
+            { baseUrl = "https://test.fiscalapi.com", apiKey = "DEMO-candidata" });
+        response.EnsureSuccessStatusCode();
+        Assert.Equal(1, probe.PingCount);
+        var after = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+        Assert.Equal(before, after);
+    }
+
     private WebApplicationFactory<Program> FactoryWith(StubSdk sdk) =>
         _factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
             services.RemoveAll<IFiscalApiSdkClient>();
             services.AddSingleton<IFiscalApiSdkClient>(sdk);
+            services.RemoveAll<IPacCandidatoProbe>();
+            services.AddSingleton<IPacCandidatoProbe>(sdk);
         }));
 
     private async Task<HttpClient> CreateClientAsync(
@@ -295,10 +345,15 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
         return doc.RootElement.Clone();
     }
 
-    private sealed class StubSdk : IFiscalApiSdkClient
+    private sealed class StubSdk : IFiscalApiSdkClient, IPacCandidatoProbe
     {
+        public Task<PingResultDto> ProbarAsync(string url, string key, CancellationToken ct)
+        {
+            PingCount++;
+            return Task.FromResult(Resultado);
+        }
         public int PingCount { get; private set; }
-        public PingResultDto Resultado { get; init; } = new(true, 200, "Conexión disponible", 7, DateTimeOffset.UtcNow);
+        public PingResultDto Resultado { get; set; } = new(true, 200, "Conexión disponible", 7, DateTimeOffset.UtcNow);
         public Task<PingResultDto> PingAsync(Guid empresaId, CancellationToken cancellationToken)
         {
             PingCount++;

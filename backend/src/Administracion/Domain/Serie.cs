@@ -41,6 +41,8 @@ public sealed class Serie : BaseEntity, IAuditable, IPerteneceAEmpresa
     public string Prefijo { get; private set; } = string.Empty;
     public string? Sufijo { get; private set; }
     public ReinicioPeriodo ReinicioPeriodo { get; private set; }
+    public long FolioInicial { get; private set; } = 1;
+    public static bool EsFiscal(TipoDocumentoSerie tipo) => tipo is TipoDocumentoSerie.Cfdi or TipoDocumentoSerie.NotaCredito or TipoDocumentoSerie.FacturaAnticipo;
     public bool Activa { get; private set; } = true;
 
     private Serie() { } // EF Core
@@ -52,13 +54,19 @@ public sealed class Serie : BaseEntity, IAuditable, IPerteneceAEmpresa
         TipoDocumentoSerie tipoDocumento,
         string prefijo,
         string? sufijo,
-        ReinicioPeriodo reinicioPeriodo) : base(id)
+        ReinicioPeriodo reinicioPeriodo,
+        long folioInicial = 1) : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("SERIE_ID_INVALIDO", "El id es obligatorio.");
         if (empresaId == Guid.Empty)
             throw new BusinessRuleException("SERIE_EMPRESA_INVALIDA",
                 "EmpresaId es obligatorio.");
+        if (folioInicial < 1 || folioInicial == long.MaxValue)
+            throw new BusinessRuleException("SERIE_FOLIO_INICIAL_INVALIDO", "El folio inicial debe ser positivo y permitir la siguiente reserva.");
+        if (EsFiscal(tipoDocumento) && reinicioPeriodo != ReinicioPeriodo.None)
+            throw new BusinessRuleException("SERIE_FISCAL_SIN_REINICIO", "Las series fiscales mantienen continuidad sin reinicio de periodo.");
+        FolioInicial = folioInicial;
         ValidarPrefijo(prefijo);
         ValidarSufijo(sufijo);
 

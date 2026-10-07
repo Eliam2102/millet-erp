@@ -123,6 +123,8 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
     /// Rota el ApiKey (y opcionalmente la BaseUrl). Idempotente: si
     /// <paramref name="apiKeyHash"/> coincide con el actual, no toca nada.
     /// </summary>
+    internal ConfiguracionPac CopiarCandidato() => (ConfiguracionPac)MemberwiseClone();
+
     public void RotarApiKey(byte[] nuevoCifrado, string nuevoHash, DateTimeOffset ahora)
     {
         ValidarApiKey(nuevoCifrado, nuevoHash);
