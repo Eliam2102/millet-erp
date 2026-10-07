@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Endpoints.CentrosCosto;
 using Millet.Api.Web;
 using Millet.Catalogos.Domain;
@@ -47,6 +48,14 @@ public static class DatosMaestrosEndpoints
     {
         var proveedores = app.MapGroup("/api/v1/datos-maestros/proveedores")
             .WithTags("DatosMaestros");
+        // Expediente documental del proveedor (F1-ADM-11 G1.2): rutas genéricas de adjuntos.
+        proveedores.MapGroup("/{id:guid}").MapAdjuntos(
+            Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario.Tipo,
+            PermisosCanonicos.DatosMaestrosProveedoresAdjuntosVer,
+            PermisosCanonicos.DatosMaestrosProveedoresAdjuntosSubir,
+            PermisosCanonicos.DatosMaestrosProveedoresAdjuntosBaja);
+        app.MapAdjuntosGenerales();
+
         var articulos = app.MapGroup("/api/v1/datos-maestros/articulos")
             .WithTags("DatosMaestros");
 

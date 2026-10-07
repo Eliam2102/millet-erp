@@ -4836,6 +4836,299 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         });
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.Adjunto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("BajaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("baja_en");
+
+                    b.Property<string>("BajaMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("baja_motivo");
+
+                    b.Property<Guid?>("BajaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("baja_por_id");
+
+                    b.Property<string>("BlobRef")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("blob_ref");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("EntidadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entidad_id");
+
+                    b.Property<string>("HashSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("hash_sha256")
+                        .IsFixedLength();
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nombre_archivo");
+
+                    b.Property<DateTimeOffset>("SubidoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("subido_en");
+
+                    b.Property<Guid>("SubidoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subido_por_id");
+
+                    b.Property<long>("TamanoBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("tamano_bytes");
+
+                    b.Property<Guid>("TipoDocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tipo_documento_id");
+
+                    b.Property<string>("TipoEntidad")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tipo_entidad");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<DateOnly?>("VigenteHasta")
+                        .HasColumnType("date")
+                        .HasColumnName("vigente_hasta");
+
+                    b.HasKey("Id")
+                        .HasName("pk_adjuntos");
+
+                    b.HasIndex("TipoDocumentoId")
+                        .HasDatabaseName("ix_adjuntos_tipo_documento_id");
+
+                    b.HasIndex("EntidadId", "TipoDocumentoId")
+                        .HasDatabaseName("ix_adjuntos_entidad_id_tipo_documento_id");
+
+                    b.HasIndex("TipoEntidad", "EntidadId")
+                        .HasDatabaseName("ix_adjuntos_tipo_entidad_entidad_id");
+
+                    b.ToTable("adjuntos", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_adjuntos_baja_coherente", "(baja_en IS NULL AND baja_por_id IS NULL AND baja_motivo IS NULL) OR (baja_en IS NOT NULL AND baja_por_id IS NOT NULL AND baja_motivo IS NOT NULL AND char_length(baja_motivo) BETWEEN 5 AND 500)");
+
+                            t.HasCheckConstraint("ck_adjuntos_hash_sha256", "char_length(hash_sha256) = 64");
+
+                            t.HasCheckConstraint("ck_adjuntos_tamano_positivo", "tamano_bytes > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activo");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("nombre");
+
+                    b.Property<bool>("Obligatorio")
+                        .HasColumnType("boolean")
+                        .HasColumnName("obligatorio");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("integer")
+                        .HasColumnName("orden");
+
+                    b.Property<bool>("SoloPersonaMoral")
+                        .HasColumnType("boolean")
+                        .HasColumnName("solo_persona_moral");
+
+                    b.Property<string>("TipoEntidad")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tipo_entidad");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<int?>("VigenciaMeses")
+                        .HasColumnType("integer")
+                        .HasColumnName("vigencia_meses");
+
+                    b.HasKey("Id")
+                        .HasName("pk_adjunto_tipos_documento");
+
+                    b.HasIndex("TipoEntidad", "Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_adjunto_tipos_documento_tipo_entidad_codigo");
+
+                    b.ToTable("adjunto_tipos_documento", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_adjunto_tipos_documento_vigencia", "vigencia_meses IS NULL OR vigencia_meses > 0");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000001"),
+                            Activo = true,
+                            Codigo = "constancia_situacion_fiscal",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Constancia de situación fiscal",
+                            Obligatorio = true,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1,
+                            VigenciaMeses = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000002"),
+                            Activo = true,
+                            Codigo = "contrato",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Contrato",
+                            Obligatorio = true,
+                            Orden = 2,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000003"),
+                            Activo = true,
+                            Codigo = "acta_constitutiva",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Acta constitutiva",
+                            Obligatorio = true,
+                            Orden = 3,
+                            SoloPersonaMoral = true,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000004"),
+                            Activo = true,
+                            Codigo = "identificacion_representante_legal",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Identificación del representante legal",
+                            Obligatorio = true,
+                            Orden = 4,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000005"),
+                            Activo = true,
+                            Codigo = "comprobante_domicilio",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Comprobante de domicilio",
+                            Obligatorio = true,
+                            Orden = 5,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1,
+                            VigenciaMeses = 3
+                        });
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Audit.AuditLogEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5258,6 +5551,16 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_producto_sincronizacion_aw_producto_aw_producto_aw_id");
+                });
+
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.Adjunto", b =>
+                {
+                    b.HasOne("Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento", null)
+                        .WithMany()
+                        .HasForeignKey("TipoDocumentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_adjuntos_adjunto_tipos_documento_tipo_documento_id");
                 });
 
             modelBuilder.Entity("Millet.DatosMaestros.Domain.ProductoAw", b =>
