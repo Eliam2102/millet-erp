@@ -161,8 +161,7 @@ public sealed class EmitirFacturaAnticipoHandler
 
         // F10-PR1: evento de integración (asiento de anticipo MXP/USD).
         if (factura.Estado == EstadoTimbrado.Timbrado)
-            await _eventos.PublishAsync(new FacturaAnticipoTimbradaIntegrationEvent(
-                factura.EmpresaId, ahora, factura.Id, anticipo.Id, factura.Uuid!, factura.Total, factura.Moneda),
+            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaAnticipoTimbrada(factura, ahora, anticipo.ClienteId),
                 cancellationToken);
 
         _db.FacturasAnticipo.Add(factura);

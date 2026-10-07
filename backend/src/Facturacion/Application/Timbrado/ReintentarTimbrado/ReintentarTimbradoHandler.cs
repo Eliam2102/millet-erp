@@ -52,6 +52,7 @@ public sealed class ReintentarTimbradoHandler
     private readonly IIntegrationEventPublisher _eventos;
     private readonly IContabilidadAsientoPort _contabilidad;
     private readonly IClock _clock;
+    private readonly IProductosReadPort? _productos;
 
     public ReintentarTimbradoHandler(
         FacturacionDbContext db,
@@ -61,7 +62,10 @@ public sealed class ReintentarTimbradoHandler
         ICfdiRepositorioPort cfdiRepo,
         IIntegrationEventPublisher eventos,
         IContabilidadAsientoPort contabilidad,
-        IClock clock)
+        IClock clock,
+        // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
+        // romper composiciones existentes (sin puerto, TipoProducto = null).
+        IProductosReadPort? productos = null)
     {
         _db = db;
         _sender = sender;
@@ -71,6 +75,7 @@ public sealed class ReintentarTimbradoHandler
         _eventos = eventos;
         _contabilidad = contabilidad;
         _clock = clock;
+        _productos = productos;
     }
 
     public async Task<ReintentarTimbradoResponse> Handle(
@@ -157,9 +162,8 @@ public sealed class ReintentarTimbradoHandler
         // asiento + pedido + write-back A+W) que el intento fallido omitió.
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
-            await _eventos.PublishAsync(new FacturaVentaTimbradaIntegrationEvent(
-                factura.EmpresaId, ahora, factura.Id, factura.Uuid!, factura.Total, factura.Moneda, factura.PedidoFacturableId,
-                factura.ReceptorRfc, factura.ReceptorNombre, factura.Folio, factura.MetodoPago, factura.FechaTimbrado),
+            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
+                factura, ahora, tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, ct)),
                 ct);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda,
@@ -225,8 +229,7 @@ public sealed class ReintentarTimbradoHandler
                     "ANTICIPO_NO_ENCONTRADO",
                     $"No existe el anticipo de la factura de anticipo {factura.Id}.");
 
-            await _eventos.PublishAsync(new FacturaAnticipoTimbradaIntegrationEvent(
-                factura.EmpresaId, ahora, factura.Id, anticipo.Id, factura.Uuid!, factura.Total, factura.Moneda),
+            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaAnticipoTimbrada(factura, ahora, anticipo.ClienteId),
                 ct);
         }
 
@@ -247,9 +250,7 @@ public sealed class ReintentarTimbradoHandler
 
         if (nc.Estado == EstadoTimbrado.Timbrado)
         {
-            await _eventos.PublishAsync(new NotaCreditoTimbradaIntegrationEvent(
-                nc.EmpresaId, ahora, nc.Id, nc.Motivo.ToString(), nc.Uuid!, nc.Total,
-                nc.FacturaRelacionadaId, nc.AnticipoOrigenId), ct);
+            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora), ct);
         }
 
         return nameof(NotaCredito);

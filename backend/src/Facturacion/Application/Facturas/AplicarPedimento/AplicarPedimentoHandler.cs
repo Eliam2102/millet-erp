@@ -28,10 +28,14 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
     private readonly ICfdiRepositorioPort _cfdiRepo;
     private readonly IIntegrationEventPublisher _eventos;
     private readonly IClock _clock;
+    private readonly IProductosReadPort? _productos;
 
     public AplicarPedimentoHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
-        ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock)
+        ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock,
+        // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
+        // romper composiciones existentes (sin puerto, TipoProducto = null).
+        IProductosReadPort? productos = null)
     {
         _db = db;
         _sender = sender;
@@ -40,6 +44,7 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         _cfdiRepo = cfdiRepo;
         _eventos = eventos;
         _clock = clock;
+        _productos = productos;
     }
 
     public async Task<AplicarPedimentoResponse> Handle(AplicarPedimentoCommand command, CancellationToken cancellationToken)
@@ -67,9 +72,8 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
 
         // F10-PR1: evento de factura timbrada (tras aplicar el pedimento).
         if (factura.Estado == EstadoTimbrado.Timbrado)
-            await _eventos.PublishAsync(new FacturaVentaTimbradaIntegrationEvent(
-                factura.EmpresaId, ahora, factura.Id, factura.Uuid!, factura.Total, factura.Moneda, factura.PedidoFacturableId,
-                factura.ReceptorRfc, factura.ReceptorNombre, factura.Folio, factura.MetodoPago, factura.FechaTimbrado),
+            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
+                factura, ahora, tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
                 cancellationToken);
 
         // RANURA-PR2: la factura retenida por pedimento no alcanzó a emitir

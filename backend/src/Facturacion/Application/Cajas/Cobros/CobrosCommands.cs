@@ -214,7 +214,11 @@ internal static class CobroMostradorRegistrador
         await eventos.PublishAsync(new CobroMostradorRegistradoIntegrationEvent(
             empresaId, ahora, cobro.Id, sesion.Id, sesion.CajaId, comprobante.Id,
             comprobante.Tipo.ToString(), cobro.Origen.ToString(), cobro.Total,
-            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe)).ToList()),
+            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe)).ToList(),
+            SucursalId: comprobante.SucursalId,
+            Moneda: comprobante.Moneda,
+            TipoCambio: comprobante.TipoCambio,
+            IvaCobrado: EventosContablesFacturacion.IvaCobrado(comprobante, cobro.Total)),
             cancellationToken);
 
         return cobro;

@@ -48,6 +48,7 @@ public sealed class EmitirFacturaVentaHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
+    private readonly IProductosReadPort? _productos;
 
     public EmitirFacturaVentaHandler(
         FacturacionDbContext db,
@@ -61,7 +62,10 @@ public sealed class EmitirFacturaVentaHandler
         IContabilidadAsientoPort contabilidad,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock)
+        IClock clock,
+        // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
+        // romper composiciones existentes (sin puerto, TipoProducto = null).
+        IProductosReadPort? productos = null)
     {
         _db = db;
         _sender = sender;
@@ -75,6 +79,7 @@ public sealed class EmitirFacturaVentaHandler
         _empresa = empresa;
         _user = user;
         _clock = clock;
+        _productos = productos;
     }
 
     public async Task<EmitirFacturaVentaResponse> Handle(
@@ -256,9 +261,9 @@ public sealed class EmitirFacturaVentaHandler
         // misma TX vía el interceptor). Solo si quedó Timbrada.
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
-            await _eventos.PublishAsync(new FacturaVentaTimbradaIntegrationEvent(
-                factura.EmpresaId, ahora, factura.Id, factura.Uuid!, factura.Total, factura.Moneda, factura.PedidoFacturableId,
-                factura.ReceptorRfc, factura.ReceptorNombre, factura.Folio, factura.MetodoPago, factura.FechaTimbrado),
+            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
+                factura, ahora, pedido?.ClienteId,
+                await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
                 cancellationToken);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda, anio, mes), cancellationToken);
@@ -469,8 +474,8 @@ public sealed class EmitirFacturaVentaHandler
             _db.NotasCredito.Add(nc);
 
             // F10-PR1: evento de NC de amortización timbrada.
-            await _eventos.PublishAsync(new NotaCreditoTimbradaIntegrationEvent(
-                nc.EmpresaId, ahora, nc.Id, nc.Motivo.ToString(), nc.Uuid!, nc.Total, factura.Id, a.Anticipo.Id),
+            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
+                nc, ahora, factura.Id, a.Anticipo.Id, a.Anticipo.ClienteId),
                 cancellationToken);
 
             emitidas.Add(new NotaCreditoAmortizacionEmitida(
