@@ -47,7 +47,8 @@ describe('<AdjuntosManagerOc> — pruebas de flujo y rechazos (F1-ADM-11, D3)', 
   const ocId = '00000000-0000-0000-0000-000000000001';
   const tipoCotizacionId = '00000003-0003-0010-0000-000000000001';
 
-  const ocBase: OrdenCompraDetalleResponse = {
+  // Solo los campos que usa AdjuntosManagerOc; mismo patrón parcial que EditorLineas.cc.test.tsx.
+  const ocBase = {
     id: ocId,
     empresaId: '00000003-0000-0000-0000-000000000001',
     folio: 'OC-2026-000001',
@@ -81,10 +82,9 @@ describe('<AdjuntosManagerOc> — pruebas de flujo y rechazos (F1-ADM-11, D3)', 
     version: 1,
     lineas: [],
     adjuntos: [],
-    eventos: [],
     createdAt: '2026-05-09T10:00:00Z',
     updatedAt: '2026-05-09T10:00:00Z',
-  };
+  } as unknown as OrdenCompraDetalleResponse;
 
   beforeAll(() => {
     URL.createObjectURL = vi.fn(() => 'blob:mock-object-url');
