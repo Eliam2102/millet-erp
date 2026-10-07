@@ -93,7 +93,7 @@ describe('<ConfiguracionPacForm> — modo sandbox', () => {
     expect(baseUrl.value).toBe('https://live.fiscalapi.com');
   });
 
-  it('Probar conexión se deshabilita con cambios sin guardar (usa la config persistida)', () => {
+  it('Probar conexión permite probar una key nueva antes de guardar', () => {
     render(<ConfiguracionPacForm empresaId="e-1" existing={existing} />, {
       wrapper: createQueryWrapper(),
     });
@@ -102,12 +102,12 @@ describe('<ConfiguracionPacForm> — modo sandbox', () => {
     // Config guardada + form pristine → habilitado.
     expect(probar).toBeEnabled();
 
-    // Pegar una key nueva (sin guardar) → deshabilitado + hint de guardar.
+    // Una key nueva se prueba sin persistirla.
     fireEvent.change(screen.getByLabelText(/^API Key/i), {
       target: { value: 'sk_test_nueva' },
     });
-    expect(probar).toBeDisabled();
-    expect(screen.getByText(/guarda primero/i)).toBeInTheDocument();
+    expect(probar).toBeEnabled();
+    expect(screen.getByText(/credenciales capturadas sin guardarlas/i)).toBeInTheDocument();
   });
 });
 

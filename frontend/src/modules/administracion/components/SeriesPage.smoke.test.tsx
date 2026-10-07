@@ -120,7 +120,7 @@ describe('<SeriesPage> — smoke', () => {
     ).toBeInTheDocument();
   });
 
-  it('al hacer click en Editar despliega el inline form (border amber)', async () => {
+  it('al hacer click en Editar despliega el inline form (borde warning)', async () => {
     mswServer.use(
       http.get('*/api/v1/admin/series', () =>
         HttpResponse.json({ items: [SERIE_OC], total: 1 }),
@@ -158,9 +158,9 @@ describe('<SeriesPage> — smoke', () => {
       ).toBeInTheDocument(),
     );
 
-    // Border amber (clase del form).
+    // Borde warning del design system (patrón de edición inline).
     const inlineForm = container.querySelector('form[aria-label*="Editar serie"]');
-    expect(inlineForm?.className).toMatch(/border-amber/);
+    expect(inlineForm?.className).toMatch(/border-warning/);
   });
 
   it('EmptyState aparece cuando no hay series', async () => {

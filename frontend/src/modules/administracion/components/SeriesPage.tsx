@@ -489,7 +489,7 @@ function SeriesTabla({
                   </tr>
                   {editando && (
                     <tr>
-                      <td colSpan={8} className="bg-amber-50/40 p-3">
+                      <td colSpan={8} className="bg-warning-note-bg p-3">
                         <SerieFilaEditable
                           serie={serie}
                           onCancel={() => setEditandoId(null)}

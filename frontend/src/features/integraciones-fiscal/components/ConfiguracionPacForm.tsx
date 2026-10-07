@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   applyServerErrors,
   esApiError,
-  useFormIdempotencyKey,
+  useBodyScopedIdempotencyKey,
 } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -39,11 +39,7 @@ import {
  * (existing != null): apiKey vacío = no rotar; con valor = rota.
  * </para>
  *
- * <para>El botón "Probar conexión" prueba la configuración PERSISTIDA
- * (desde PR-13 el SDK resuelve credenciales por empresa internamente;
- * los campos transitorios del payload se ignoran). Flujo correcto:
- * guardar primero, probar después — el botón se deshabilita con
- * cambios sin guardar para hacerlo evidente (FAC-DET-PR6).</para>
+ * Probar conexión usa el candidato; guardar lo verifica de nuevo en el servidor.
  */
 export interface ConfiguracionPacFormProps {
   empresaId: string;
@@ -83,7 +79,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
   const canAdministrar = useHasPermission(PermisosCanonicos.IntegracionesFiscalAdministrar);
   const guardar = useGuardarConfiguracionPac();
   const test = useTestConexionPac();
-  const idempotencyKey = useFormIdempotencyKey();
+  const keyFor = useBodyScopedIdempotencyKey();
 
   const defaultValues: GuardarConfiguracionPacValues = existing
     ? {
@@ -169,16 +165,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
     }
   }
 
-  // El test de conexión usa la configuración PERSISTIDA (ver doc del
-  // componente): con cambios sin guardar (form dirty, key pegada sin
-  // guardar, o configuración aún no creada) probaría otra cosa distinta
-  // de lo que el usuario ve — se deshabilita para forzar guardar→probar.
-  const hayCambiosSinGuardar =
-    existing == null ||
-    form.formState.isDirty ||
-    apiKeyDraft.trim() !== '' ||
-    csdDraftCompleto ||
-    csdDraftParcial;
+  const faltanCredenciales = !existing?.apiKeyConfigured && apiKeyDraft.trim() === '';
 
   function onSubmit(values: GuardarConfiguracionPacValues) {
     if (csdDraftParcial) {
@@ -219,7 +206,9 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
           receptorSandbox,
           csd: csdPayload,
         },
-        idempotencyKey,
+        idempotencyKey: keyFor({ empresaId, version: existing?.version,
+          baseUrl: values.baseUrl, apiKey: apiKeyDraft, activo: values.activo,
+          emisorSandbox, receptorSandbox, csd: csdPayload }),
       },
       {
         onSuccess: () => {
@@ -353,7 +342,7 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
                 variant="outline"
                 size="sm"
                 onClick={handleTest}
-                disabled={test.isPending || !canAdministrar || hayCambiosSinGuardar}
+                disabled={test.isPending || guardar.isPending || !canAdministrar || faltanCredenciales}
               >
                 {test.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 Probar conexión
@@ -366,9 +355,9 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {hayCambiosSinGuardar
-                ? 'Guarda primero — la prueba usa la configuración guardada, no lo capturado en el form.'
-                : 'Prueba la configuración guardada contra FiscalAPI.'}
+              {faltanCredenciales
+                ? 'Captura la API key antes de probar la conexión.'
+                : 'Prueba las credenciales capturadas sin guardarlas.'}
             </p>
           </div>
         </section>
@@ -460,19 +449,19 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
             // Estado prominente: los inputs de archivo NUNCA se re-hidratan
             // (los secretos no regresan al navegador) — esta línea es la
             // única evidencia visible de que el CSD quedó registrado.
-            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
-              <span className="font-medium text-emerald-700 dark:text-emerald-400">
+            <div className="rounded-md bg-success-bg px-3 py-2 text-sm">
+              <span className="font-medium text-success-fg">
                 ✓ CSD configurado y validado
               </span>
               {existing.csdEstado ? (
                 <Badge
-                  variant="outline"
-                  className={
+                  className="ml-2"
+                  variant={
                     existing.csdEstado === 'Vigente'
-                      ? 'ml-2 border-emerald-500 text-emerald-700 dark:text-emerald-400'
+                      ? 'success'
                       : existing.csdEstado === 'ProximoAVencer'
-                        ? 'ml-2 border-amber-500 text-amber-700 dark:text-amber-400'
-                        : 'ml-2 border-destructive text-destructive'
+                        ? 'warning'
+                        : 'danger'
                   }
                 >
                   {existing.csdEstado === 'ProximoAVencer'
@@ -563,8 +552,9 @@ export function ConfiguracionPacForm({ empresaId, existing }: ConfiguracionPacFo
           </div>
         </section>
 
+        <p className="text-xs text-ink-muted">Antes de guardar se verificará la conexión. Si falla, se conserva la configuración anterior.</p>
         <div className="flex justify-end gap-2 border-t pt-4">
-          <Button type="submit" disabled={guardar.isPending}>
+          <Button type="submit" disabled={guardar.isPending || test.isPending || faltanCredenciales}>
             {guardar.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             {existing ? 'Guardar cambios' : 'Crear configuración'}
           </Button>

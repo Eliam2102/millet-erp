@@ -178,7 +178,7 @@ export function SerieFilaEditable({
           }
         }}
         className={cn(
-          'space-y-3 rounded-md border border-dashed border-amber-400 bg-amber-50/40 p-3',
+          'space-y-3 rounded-md border border-dashed border-warning bg-warning-note-bg p-3',
         )}
         aria-label={`Editar serie ${serie.prefijo}`}
       >
@@ -336,7 +336,7 @@ function Field({ label, required, hint, error, className, children }: FieldProps
       <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
@@ -346,7 +346,7 @@ function Field({ label, required, hint, error, className, children }: FieldProps
         <p className="text-xs text-muted-foreground">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
