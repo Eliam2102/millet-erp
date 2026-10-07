@@ -162,6 +162,46 @@ function FiltrosBloque({
 }: FiltrosBloqueProps) {
   return (
     <div className="space-y-2 rounded-md border bg-muted/20 p-2">
+      {/* Filtro rápido / bandeja: Todos / Por validar / Activos */}
+      <div className="flex rounded-md bg-muted p-0.5 text-xs">
+        <button
+          type="button"
+          onClick={() => onEstatus('')}
+          className={cn(
+            'flex-1 rounded-sm px-2 py-1 font-medium transition-all text-center',
+            estatus === ''
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Todos
+        </button>
+        <button
+          type="button"
+          onClick={() => onEstatus(String(EstatusCatalogo.EnRevision))}
+          className={cn(
+            'flex-1 rounded-sm px-2 py-1 font-medium transition-all text-center',
+            estatus === String(EstatusCatalogo.EnRevision)
+              ? 'bg-amber-500/20 text-amber-800 dark:text-amber-200 font-semibold shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Por validar
+        </button>
+        <button
+          type="button"
+          onClick={() => onEstatus(String(EstatusCatalogo.Activo))}
+          className={cn(
+            'flex-1 rounded-sm px-2 py-1 font-medium transition-all text-center',
+            estatus === String(EstatusCatalogo.Activo)
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Activos
+        </button>
+      </div>
+
       <UppercaseInput
         placeholder="RFC…"
         value={rfc}

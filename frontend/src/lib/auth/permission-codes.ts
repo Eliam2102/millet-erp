@@ -121,6 +121,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.adjuntos-subir',
   DatosMaestrosProveedoresAdjuntosBaja:
     'datos_maestros.proveedores.adjuntos-baja',
+  // Validación de proveedores por CxP (F1-ADM-05 G1.1).
+  DatosMaestrosProveedoresValidar:
+    'datos_maestros.proveedores.validar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular
@@ -397,6 +400,11 @@ export const PermisosCanonicos = {
   ContabilidadDimensionesAdministrar: 'contabilidad.dimensiones.administrar',
   ContabilidadMovimientosValidar: 'contabilidad.movimientos.validar',
   ContabilidadMovimientosGestionarTodasSucursales: 'contabilidad.movimientos.gestionar-todas-sucursales',
+  // F1-CON-03: periodos contables (0000000d-0004).
+  ContabilidadPeriodoLeer: 'contabilidad.periodo.leer',
+  ContabilidadPeriodoAdministrar: 'contabilidad.periodo.administrar',
+  ContabilidadPeriodoCerrar: 'contabilidad.periodo.cerrar',
+  ContabilidadPeriodoReabrir: 'contabilidad.periodo.reabrir',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

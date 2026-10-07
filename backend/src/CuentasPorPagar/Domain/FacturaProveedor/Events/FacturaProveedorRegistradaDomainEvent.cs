@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.CuentasPorPagar.Domain.Cfdi;
 
 namespace Millet.CuentasPorPagar.Domain.FacturaProveedor.Events;
 
@@ -27,13 +28,25 @@ public sealed record FacturaProveedorRegistradaDomainEvent(
     decimal TotalFactura,
     IReadOnlyList<LineaFacturada> Lineas,
     IReadOnlyList<LineaOcAcumulada> LineasAcumuladasOc,
-    DateTimeOffset OcurridoEn) : INotification;
+    DateTimeOffset OcurridoEn,
+    // G1.6: bloque contable opcional (al final, compatible con constructores existentes).
+    Guid? ProveedorId = null,
+    string? Uuid = null,
+    decimal? Subtotal = null,
+    decimal? Iva = null,
+    decimal? RetencionesTotal = null,
+    IReadOnlyList<RetencionCfdi>? Retenciones = null,
+    string? Moneda = null,
+    decimal? TipoCambio = null,
+    Guid? SucursalId = null,
+    Guid? CentroCostoId = null) : INotification;
 
 public sealed record LineaFacturada(
     Guid LineaFacturaId,
     Guid? LineaOcId,
     decimal Cantidad,
-    decimal Importe);
+    decimal Importe,
+    Guid? CentroCostoId = null);
 
 public sealed record LineaOcAcumulada(
     Guid LineaOcId,

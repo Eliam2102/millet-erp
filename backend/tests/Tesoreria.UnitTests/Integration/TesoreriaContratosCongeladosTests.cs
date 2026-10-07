@@ -14,6 +14,8 @@ namespace Millet.Tesoreria.UnitTests.Integration;
 /// se deserializa con las MISMAS opciones del listener de CxP
 /// (case-insensitive). Si cualquiera de los dos lados cambia nombres o
 /// tipos, esto rompe en CI antes de divergir en runtime.
+/// G1.6: <c>CuentaBancariaId</c> y <c>TipoCambio</c> de aplicado.v1 se
+/// agregaron al final de forma compatible (opcionales, sin subir versión).
 /// </summary>
 public sealed class TesoreriaContratosCongeladosTests
 {
@@ -45,16 +47,35 @@ public sealed class TesoreriaContratosCongeladosTests
             Moneda: "MXN",
             FechaPago: new DateOnly(2026, 7, 15),
             MetodoPago: "PPD",
-            ReferenciaBancaria: "SPEI-00123");
+            ReferenciaBancaria: "SPEI-00123",
+            CuentaBancariaId: Guid.NewGuid(),
+            TipoCambio: 17.2345m);
 
         var espejo = RoundTrip<PagoFacturaProveedorPayload>(evento);
 
         espejo.Should().BeEquivalentTo(new PagoFacturaProveedorPayload(
             evento.EmpresaId, evento.OcurridoEn, evento.FacturaProveedorId,
             evento.PagoId, evento.Monto, evento.Moneda, evento.FechaPago,
-            evento.MetodoPago, evento.ReferenciaBancaria));
+            evento.MetodoPago, evento.ReferenciaBancaria,
+            evento.CuentaBancariaId, evento.TipoCambio));
 
         evento.EventType.Should().Be(CxpHandlers.PagoFacturaProveedorAplicadoHandler.EventType);
+    }
+
+    [Fact]
+    public void Aplicado_v1_payload_viejo_sin_campos_G16_se_lee_con_null()
+    {
+        var json = """
+            {"EmpresaId":"11111111-1111-1111-1111-111111111111","OcurridoEn":"2026-07-15T18:30:00+00:00",
+             "FacturaProveedorId":"22222222-2222-2222-2222-222222222222","PagoId":"33333333-3333-3333-3333-333333333333",
+             "Monto":10.5,"Moneda":"MXN","FechaPago":"2026-07-15","MetodoPago":"PPD","ReferenciaBancaria":null}
+            """;
+
+        var espejo = JsonSerializer.Deserialize<PagoFacturaProveedorPayload>(json, ListenerJson)!;
+
+        espejo.Monto.Should().Be(10.5m);
+        espejo.CuentaBancariaId.Should().BeNull();
+        espejo.TipoCambio.Should().BeNull();
     }
 
     [Fact]

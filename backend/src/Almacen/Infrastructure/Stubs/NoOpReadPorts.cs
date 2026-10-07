@@ -322,9 +322,11 @@ public sealed class NoOpConceptoContableReadPort : IConceptoContableReadPort
 }
 
 /// <summary>
-/// PLATFORM-TODO(&lt;PeriodoContableReadAdapter&gt;): adapter real cuando
-/// exista el módulo Finanzas con calendario fiscal central. Reemplaza
-/// este stub al cablear el wiring real.
+/// PLATFORM-TODO(&lt;PeriodoContableReadAdapter&gt;): adapter real hacia
+/// <c>Millet.Contabilidad.Application.PublicPorts.IPeriodoContableConsultaPort</c>
+/// (publicado en F1-CON-03; el cambio de este NoOp es C1.2). El periodo
+/// contable NO sustituye a <c>almacen.periodos_cerrados</c>: reabrir
+/// Contabilidad no reabre el inventario (D18).
 ///
 /// <para>
 /// Comportamiento del stub: siempre retorna <c>true</c> (periodo abierto).

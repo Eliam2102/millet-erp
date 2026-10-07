@@ -29,7 +29,10 @@ public sealed record EntradaInventarioValoradaIntegrationEvent(
     decimal MontoTotalMxn,
     bool EsAjuste,
     string ConceptoContableSugerido,
-    IReadOnlyList<LineaValoradaPayload> Lineas)
+    IReadOnlyList<LineaValoradaPayload> Lineas,
+    // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
+    Guid? AlmacenId = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("almacen.entrada_inventario.valorada.v1", EmpresaId, OcurridoEn);
 
 public sealed record LineaValoradaPayload(
@@ -37,4 +40,7 @@ public sealed record LineaValoradaPayload(
     Guid ArticuloId,
     decimal Cantidad,
     decimal CostoUnitarioMxn,
-    decimal MontoLineaMxn);
+    decimal MontoLineaMxn,
+    // G1.6: dimensiones contables opcionales (aditivas).
+    Guid? SubAlmacenId = null,
+    Guid? UbicacionId = null);

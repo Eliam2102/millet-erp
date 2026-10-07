@@ -7,6 +7,7 @@ import {
   BookOpen,
   Boxes,
   Building2,
+  CalendarRange,
   CheckSquare,
   ClipboardCheck,
   ClipboardList,
@@ -908,6 +909,19 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/movimientos-prueba',
           icon: FlaskConical,
           permission: PermisosCanonicos.ContabilidadMovimientosValidar,
+        },
+      ],
+    },
+    {
+      label: 'Periodos',
+      cards: [
+        {
+          label: 'Periodos contables',
+          description:
+            'Ejercicio con 12 periodos y el 13 de ajustes: apertura, cierre y reapertura con motivo y bitácora.',
+          to: '/contabilidad/periodos',
+          icon: CalendarRange,
+          permission: PermisosCanonicos.ContabilidadPeriodoLeer,
         },
       ],
     },

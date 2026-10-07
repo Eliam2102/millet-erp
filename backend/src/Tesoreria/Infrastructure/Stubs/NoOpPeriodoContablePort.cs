@@ -4,8 +4,9 @@ using Millet.Tesoreria.Domain.Ports;
 namespace Millet.Tesoreria.Infrastructure.Stubs;
 
 /// <summary>
-/// PLATFORM-TODO(&lt;PeriodoContableCerrado&gt;): adapter real cuando exista
-/// el módulo Contabilidad con el calendario fiscal central. Comportamiento
+/// PLATFORM-TODO(&lt;PeriodoContableCerrado&gt;): adapter real hacia
+/// <c>Millet.Contabilidad.Application.PublicPorts.IPeriodoContableConsultaPort</c>
+/// (publicado en F1-CON-03; el cambio de este NoOp es C1.2). Comportamiento
 /// del stub: siempre "abierto" (true) — mismo criterio que el NoOp de
 /// Facturación; mientras tanto los no-aplicados al cierre se reportan
 /// explícitamente (levantamiento §3.4 paso 5).

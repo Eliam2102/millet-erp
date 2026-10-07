@@ -166,6 +166,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
                 "mismo sub-almacén. Revisa los bins elegidos.");
         }
         var subAlmacenId = subsDerivados[0];
+        // G1.6: dimensiones contables del evento (una consulta).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, subAlmacenId, cancellationToken);
 
         // F7-PR3 (A18): si hay bloqueo activo de salidas para el sub DERIVADO,
         // rechazar — está en conteo anual.
@@ -319,7 +322,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
             EsPorVale: false,
             PersonaDestinatariaId: request.PersonaDestinatariaId,
             ValeBlobRef: null,
-            Lineas: payloadLineas), cancellationToken);
+            Lineas: payloadLineas,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         // 8. SaveChanges — todo en la misma TX. El trigger PG valida saldo
         //    suficiente y aborta la TX si insuficiente (SALDO_INSUFICIENTE).

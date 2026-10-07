@@ -336,7 +336,7 @@ describe('visibilidad por permisos (sidebar y URLs)', () => {
 
 describe('contextoNavegacion del shell', () => {
   it('elige la pantalla más específica y limita el panel por permisos', () => {
-    const permisos = [
+    const permisos: string[] = [
       PermisosCanonicos.ComprasOrdenesLeer,
       PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
     ];
