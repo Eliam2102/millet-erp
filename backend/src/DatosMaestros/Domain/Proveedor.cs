@@ -30,7 +30,15 @@ public sealed class Proveedor : BaseEntity, IAuditable
     public Guid? MonedaPreferidaId { get; private set; }
     public string? Email { get; private set; }
     public string? Telefono { get; private set; }
-    public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
+    public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.EnRevision;
+
+    // ----- Validación CxP y Expediente (F1-ADM-05 G1.1) -----
+    /// <summary>Usuario de CxP o Admin que validó o rechazó al proveedor.</summary>
+    public Guid? ValidadoPorId { get; private set; }
+    /// <summary>Fecha y hora de la validación o rechazo.</summary>
+    public DateTimeOffset? ValidadoEn { get; private set; }
+    /// <summary>Motivo obligatorio en caso de rechazo del proveedor.</summary>
+    public string? MotivoRechazo { get; private set; }
 
     // ----- Datos bancarios para pago (TES-PR3, T-G1) -----
     // Tesorería los resuelve vía IProveedorBancoReadPort para ejecutar la
@@ -64,7 +72,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
         string razonSocial,
         string rfc,
         TipoPersonaProveedor tipoPersona,
-        EstatusCatalogo estatus = EstatusCatalogo.Activo,
+        EstatusCatalogo estatus = EstatusCatalogo.EnRevision,
         string? claveLegacy = null,
         string? nombreComercial = null,
         short? condicionesPagoDias = null,
@@ -204,4 +212,49 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// método directamente.
     /// </summary>
     public void CambiarEstatus(EstatusCatalogo nuevoEstatus) => Estatus = nuevoEstatus;
+
+    /// <summary>
+    /// Valida el proveedor en revisión tras comprobar la completitud de su expediente (F1-ADM-05 G1.1).
+    /// Pasa de EnRevision a Activo.
+    /// </summary>
+    public void Validar(Guid validadorId, DateTimeOffset fecha)
+    {
+        if (Estatus != EstatusCatalogo.EnRevision)
+        {
+            throw new BusinessRuleException(
+                "PROVEEDOR_NO_EN_REVISION",
+                $"Solo se pueden validar proveedores en estado 'EnRevision'. Estado actual: '{Estatus}'.");
+        }
+
+        Estatus = EstatusCatalogo.Activo;
+        ValidadoPorId = validadorId;
+        ValidadoEn = fecha;
+        MotivoRechazo = null;
+    }
+
+    /// <summary>
+    /// Rechaza el proveedor en revisión por inconsistencias documentales o fiscales (F1-ADM-05 G1.1).
+    /// Pasa de EnRevision a Inactivo con motivo obligatorio (5 a 500 caracteres).
+    /// </summary>
+    public void Rechazar(Guid validadorId, string motivo, DateTimeOffset fecha)
+    {
+        if (Estatus != EstatusCatalogo.EnRevision)
+        {
+            throw new BusinessRuleException(
+                "PROVEEDOR_NO_EN_REVISION",
+                $"Solo se pueden rechazar proveedores en estado 'EnRevision'. Estado actual: '{Estatus}'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length < 5 || motivo.Trim().Length > 500)
+        {
+            throw new BusinessRuleException(
+                "PROVEEDOR_MOTIVO_RECHAZO_INVALIDO",
+                "El motivo de rechazo es requerido y debe tener entre 5 y 500 caracteres.");
+        }
+
+        Estatus = EstatusCatalogo.Inactivo;
+        ValidadoPorId = validadorId;
+        ValidadoEn = fecha;
+        MotivoRechazo = motivo.Trim();
+    }
 }

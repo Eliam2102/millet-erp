@@ -24,7 +24,10 @@ public sealed record DevolucionInternaAplicadaIntegrationEvent(
     Guid SubAlmacenDestinoId,
     string EstadoMaterial,
     decimal CostoTotalRevertidoMxn,
-    IReadOnlyList<LineaDevolucionPayload> Lineas)
+    IReadOnlyList<LineaDevolucionPayload> Lineas,
+    // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
+    Guid? AlmacenId = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("almacen.devolucion_interna.aplicada.v1", EmpresaId, OcurridoEn);
 
 public sealed record LineaDevolucionPayload(

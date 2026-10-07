@@ -4768,6 +4768,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("moneda_preferida_id");
 
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_rechazo");
+
                     b.Property<string>("NombreComercial")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
@@ -4801,6 +4806,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
+
+                    b.Property<DateTimeOffset?>("ValidadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("validado_en");
+
+                    b.Property<Guid?>("ValidadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("validado_por_id");
 
                     b.Property<int>("Version")
                         .IsConcurrencyToken()

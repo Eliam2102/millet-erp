@@ -109,6 +109,19 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         if (!string.IsNullOrEmpty(v)) MetodoPago = v;
     }
 
+    /// <summary>
+    /// Desglose de retenciones del CFDI (G1.6 P2), jsonb. Null si la
+    /// factura es manual/sin CFDI; <see cref="Retenciones"/> siempre
+    /// guarda el total.
+    /// </summary>
+    public List<RetencionCfdi>? RetencionesDetalle { get; private set; }
+
+    /// <summary>Asigna el desglose de retenciones del CFDI (G1.6). No-op con null/vacío.</summary>
+    public void AsignarRetencionesDetalle(IReadOnlyList<RetencionCfdi>? detalle)
+    {
+        if (detalle is { Count: > 0 }) RetencionesDetalle = [.. detalle];
+    }
+
     // ---- Cancelación ----
     public MotivoCancelacion? MotivoDeCancelacion { get; private set; }
     public string? MotivoCancelacionTexto { get; private set; }
