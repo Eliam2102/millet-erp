@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure;
@@ -92,9 +93,7 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
                 $"Proveedor '{oc.ProveedorId}' no encontrado.");
         if (proveedor.Estatus != EstatusCatalogo.Activo)
         {
-            throw new BusinessRuleException(
-                "PROVEEDOR_INACTIVO",
-                $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede enviarse a autorización.");
+            throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede enviarse a autorización.");
         }
 
         // C11: cotización adjunta o excepción + correo.

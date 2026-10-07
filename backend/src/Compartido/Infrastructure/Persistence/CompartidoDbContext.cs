@@ -1056,6 +1056,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Banco).HasMaxLength(120);
         proveedor.Property(x => x.Clabe).HasMaxLength(18);
         proveedor.Property(x => x.Beneficiario).HasMaxLength(254);
+        // F1-ADM-05 G1.1: validación CxP y motivo de rechazo.
+        proveedor.Property(x => x.ValidadoPorId);
+        proveedor.Property(x => x.ValidadoEn);
+        proveedor.Property(x => x.MotivoRechazo).HasMaxLength(500);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
         // F1-ADM-05: RFC único salvo genéricos SAT (público en general),
