@@ -74,13 +74,27 @@ function ItemCompacto({ item, activo }: ItemCompactoProps) {
 
 function EstatusBadge({ estatus }: { estatus: number }) {
   if (estatus === EstatusCatalogo.Activo) {
-    return <Badge variant="secondary">Activo</Badge>;
+    return (
+      <Badge
+        variant="secondary"
+        className="border-emerald-500/30 bg-emerald-500/15 text-xs text-emerald-700 dark:text-emerald-400"
+      >
+        Activo
+      </Badge>
+    );
   }
   if (estatus === EstatusCatalogo.EnRevision) {
-    return <Badge variant="outline">En revisión</Badge>;
+    return (
+      <Badge
+        variant="outline"
+        className="border-amber-400 bg-amber-500/15 text-xs font-medium text-amber-700 dark:border-amber-600 dark:text-amber-300"
+      >
+        En revisión
+      </Badge>
+    );
   }
   return (
-    <Badge variant="outline" className="text-muted-foreground">
+    <Badge variant="outline" className="text-xs text-muted-foreground">
       Inactivo
     </Badge>
   );

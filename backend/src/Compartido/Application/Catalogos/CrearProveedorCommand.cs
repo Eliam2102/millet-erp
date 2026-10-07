@@ -89,9 +89,9 @@ public sealed class CrearProveedorHandler
         // RFC único (F1-ADM-05), excepto genéricos SAT: cualquier estatus
         // cuenta como duplicado. RFC genérico + misma razón social no se
         // rechaza ni se fusiona: se crea en EnRevision para que alguien lo
-        // valide a mano (Compras ya bloquea no-activos en RQ/OC).
+        // F1-ADM-05 G1.1: todo proveedor nuevo nace en EnRevision (Compras solicita, CxP valida).
         var rfcNormalizado = request.Rfc.Trim().ToUpperInvariant();
-        var estatus = EstatusCatalogo.Activo;
+        var estatus = EstatusCatalogo.EnRevision;
         Guid? posibleDuplicadoDeId = null;
 
         if (!Proveedor.EsRfcGenerico(rfcNormalizado))

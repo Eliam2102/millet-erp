@@ -14,7 +14,7 @@ public class ProveedorTests
         string razonSocial = "Empresa SA",
         string rfc = "EMP010101AAA",
         TipoPersonaProveedor tipoPersona = TipoPersonaProveedor.Moral,
-        EstatusCatalogo estatus = EstatusCatalogo.Activo,
+        EstatusCatalogo estatus = EstatusCatalogo.EnRevision,
         short? condicionesPagoDias = null) =>
         new(
             id: Guid.CreateVersion7(),
@@ -26,10 +26,19 @@ public class ProveedorTests
             condicionesPagoDias: condicionesPagoDias);
 
     [Fact]
-    public void Should_Create_WithDefaultActivo()
+    public void Should_Create_WithDefaultEnRevision()
     {
-        var p = Crear();
-        Assert.Equal(EstatusCatalogo.Activo, p.Estatus);
+        var p = new Proveedor(
+            id: Guid.CreateVersion7(),
+            clave: "PROV-TEST",
+            razonSocial: "Proveedor En Revision SA",
+            rfc: "PER010101AAA",
+            tipoPersona: TipoPersonaProveedor.Moral);
+
+        Assert.Equal(EstatusCatalogo.EnRevision, p.Estatus);
+        Assert.Null(p.ValidadoPorId);
+        Assert.Null(p.ValidadoEn);
+        Assert.Null(p.MotivoRechazo);
     }
 
     [Theory]
@@ -124,5 +133,75 @@ public class ProveedorTests
     public void EsRfcGenerico_Should_Return_False_Para_RfcNormal()
     {
         Assert.False(Proveedor.EsRfcGenerico("EMP010101AAA"));
+    }
+
+    // --- Validación y Rechazo por CxP (G1.1) ---
+
+    [Fact]
+    public void Validar_Should_TransitionToActivo_AndSetAuditoria()
+    {
+        var p = Crear(estatus: EstatusCatalogo.EnRevision);
+        var validadorId = Guid.CreateVersion7();
+        var fecha = DateTimeOffset.UtcNow;
+
+        p.Validar(validadorId, fecha);
+
+        Assert.Equal(EstatusCatalogo.Activo, p.Estatus);
+        Assert.Equal(validadorId, p.ValidadoPorId);
+        Assert.Equal(fecha, p.ValidadoEn);
+        Assert.Null(p.MotivoRechazo);
+    }
+
+    [Fact]
+    public void Validar_Should_Throw_When_NotEnRevision()
+    {
+        var p = Crear(estatus: EstatusCatalogo.Activo);
+        var ex = Assert.Throws<BusinessRuleException>(() => p.Validar(Guid.CreateVersion7(), DateTimeOffset.UtcNow));
+        Assert.Equal("PROVEEDOR_NO_EN_REVISION", ex.Code);
+    }
+
+    [Theory]
+    [InlineData("Expediente completo y validado por CxP")]
+    [InlineData("12345")]
+    public void Rechazar_Should_TransitionToInactivo_AndSetMotivo(string motivo)
+    {
+        var p = Crear(estatus: EstatusCatalogo.EnRevision);
+        var validadorId = Guid.CreateVersion7();
+        var fecha = DateTimeOffset.UtcNow;
+
+        p.Rechazar(validadorId, motivo, fecha);
+
+        Assert.Equal(EstatusCatalogo.Inactivo, p.Estatus);
+        Assert.Equal(motivo.Trim(), p.MotivoRechazo);
+        Assert.Equal(validadorId, p.ValidadoPorId);
+        Assert.Equal(fecha, p.ValidadoEn);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1234")] // Menos de 5 caracteres
+    public void Rechazar_Should_Throw_When_MotivoDemasiadoCorto(string motivo)
+    {
+        var p = Crear(estatus: EstatusCatalogo.EnRevision);
+        var ex = Assert.Throws<BusinessRuleException>(() => p.Rechazar(Guid.CreateVersion7(), motivo, DateTimeOffset.UtcNow));
+        Assert.Equal("PROVEEDOR_MOTIVO_RECHAZO_INVALIDO", ex.Code);
+    }
+
+    [Fact]
+    public void Rechazar_Should_Throw_When_MotivoDemasiadoLargo()
+    {
+        var p = Crear(estatus: EstatusCatalogo.EnRevision);
+        var motivoLargo = new string('A', 501);
+        var ex = Assert.Throws<BusinessRuleException>(() => p.Rechazar(Guid.CreateVersion7(), motivoLargo, DateTimeOffset.UtcNow));
+        Assert.Equal("PROVEEDOR_MOTIVO_RECHAZO_INVALIDO", ex.Code);
+    }
+
+    [Fact]
+    public void Rechazar_Should_Throw_When_NotEnRevision()
+    {
+        var p = Crear(estatus: EstatusCatalogo.Inactivo);
+        var ex = Assert.Throws<BusinessRuleException>(() => p.Rechazar(Guid.CreateVersion7(), "Motivo de rechazo válido", DateTimeOffset.UtcNow));
+        Assert.Equal("PROVEEDOR_NO_EN_REVISION", ex.Code);
     }
 }
