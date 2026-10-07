@@ -22,6 +22,9 @@ namespace Millet.Identidad.Application.Roles;
 ///         <see cref="PermisoIds"/> no existe en <c>identidad.permisos</c>.</item>
 ///   <item>Publica <see cref="RolPermisosActualizadosEvent"/> via
 ///         <see cref="IIntegrationEventPublisher"/>.</item>
+///   <item>U1.0: si la matriz cambió, invalida el cache de permisos de
+///         cada usuario con el rol (en cada empresa donde lo tiene) para
+///         que la siguiente petición ya responda 403.</item>
 /// </list>
 /// </summary>
 public sealed record AsignarPermisosARolCommand(
@@ -45,15 +48,18 @@ public sealed class AsignarPermisosARolHandler
     private readonly IdentidadDbContext _db;
     private readonly IIntegrationEventPublisher _events;
     private readonly IClock _clock;
+    private readonly IPermissionCache _permissionCache;
 
     public AsignarPermisosARolHandler(
         IdentidadDbContext db,
         IIntegrationEventPublisher events,
-        IClock clock)
+        IClock clock,
+        IPermissionCache permissionCache)
     {
         _db = db;
         _events = events;
         _clock = clock;
+        _permissionCache = permissionCache;
     }
 
     public async Task<RolResponse> Handle(
@@ -117,6 +123,19 @@ public sealed class AsignarPermisosARolHandler
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (aRemover.Count > 0 || aAgregar.Count > 0)
+        {
+            // Sin filtro de empresa: el rol es global y sus asignaciones
+            // viven en varias empresas. Invalidar de más solo fuerza recarga.
+            var afectados = await _db.UsuarioEmpresaRoles.IgnoreQueryFilters().AsNoTracking()
+                .Where(uer => uer.RolId == command.RolId)
+                .Select(uer => new { uer.UsuarioId, uer.EmpresaId })
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            foreach (var a in afectados)
+                await _permissionCache.InvalidateAsync(a.UsuarioId, a.EmpresaId, cancellationToken);
+        }
 
         // PLATFORM-TODO(<AdminOutbox>): IdentidadDbContext no tiene el
         // OutboxSaveChangesInterceptor wireado. El evento se encola al
