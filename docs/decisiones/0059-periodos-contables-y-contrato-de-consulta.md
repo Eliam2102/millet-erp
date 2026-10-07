@@ -1,4 +1,4 @@
-# ADR-0058: Periodos contables, estados y contrato de consulta
+# ADR-0059: Periodos contables, estados y contrato de consulta
 
 - **Estado**: Propuesta (pendiente de ratificación del owner)
 - **Fecha**: 2026-10-06
