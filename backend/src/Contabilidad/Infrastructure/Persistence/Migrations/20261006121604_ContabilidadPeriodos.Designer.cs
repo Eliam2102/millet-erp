@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ContabilidadDbContext))]
-    partial class ContabilidadDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261006121604_ContabilidadPeriodos")]
+    partial class ContabilidadPeriodos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -702,6 +705,95 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Contabilidad.Domain.PeriodoContableBitacora", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<short>("Accion")
+                        .HasColumnType("smallint")
+                        .HasColumnName("accion");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<short>("EstadoAnterior")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado_anterior");
+
+                    b.Property<short>("EstadoNuevo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado_nuevo");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<DateTimeOffset>("OcurridoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ocurrido_en");
+
+                    b.Property<Guid>("PeriodoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("periodo_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<string>("UsuarioNombre")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("usuario_nombre");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<int>("VersionResultante")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_resultante");
+
+                    b.HasKey("Id")
+                        .HasName("pk_periodos_contables_bitacora");
+
+                    b.HasIndex("PeriodoId", "VersionResultante")
+                        .IsUnique()
+                        .HasDatabaseName("ux_periodos_contables_bitacora_version");
+
+                    b.ToTable("periodos_contables_bitacora", "contabilidad", t =>
+                        {
+                            t.HasCheckConstraint("ck_periodos_contables_bitacora_accion", "accion BETWEEN 1 AND 3");
+
+                            t.HasCheckConstraint("ck_periodos_contables_bitacora_motivo", "motivo IS NULL OR char_length(motivo) <= 500");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Contabilidad.Domain.ReglaDimension", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1175,6 +1267,16 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_periodos_contables_ejercicios_contables_ejercicio_id");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.PeriodoContableBitacora", b =>
+                {
+                    b.HasOne("Millet.Contabilidad.Domain.PeriodoContable", null)
+                        .WithMany()
+                        .HasForeignKey("PeriodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_periodos_contables_bitacora_periodos_periodo_id");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.ReglaDimension", b =>

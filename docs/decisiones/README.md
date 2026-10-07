@@ -115,6 +115,7 @@ qué un sistema es como es.
 | [0056](./0056-importacion-de-catalogo-huella-idempotencia-perfilado-y-configuracion.md) | Importación de catálogo: huella, idempotencia, perfilado y formato por configuración | Propuesta |
 | [0057](./0057-reglas-de-dimension-contable-con-vigencia.md) | Reglas de dimensión contable con vigencia y alcance de centros por sucursal | Propuesta |
 | [0058](./0058-servicio-generico-de-adjuntos.md) | Servicio genérico de adjuntos con metadatos, vigencia y enlace temporal | Propuesta |
+| [0059](./0059-periodos-contables-y-contrato-de-consulta.md) | Periodos contables, estados y contrato de consulta | Propuesta |
 
 ## Backlog explícito (decisiones pendientes que NO deben olvidarse)
 

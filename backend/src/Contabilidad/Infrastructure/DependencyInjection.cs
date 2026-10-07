@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Millet.Contabilidad.Application;
 using Millet.Contabilidad.Application.Dimensiones;
+using Millet.Contabilidad.Application.Periodos;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Infrastructure.PublicAdapters;
 
@@ -36,6 +37,10 @@ public static class DependencyInjection
         services.AddScoped<IDimensionContableValidacionPort>(sp => sp.GetRequiredService<ValidadorDimensiones>());
         services.AddScoped<AlcanceSucursalContable>();
         services.AddScoped<LecturaMovimientos>();
+
+        // F1-CON-03: contrato público de consulta de periodo y candado de movimientos (falla cerrada, D9).
+        services.AddScoped<IPeriodoContableConsultaPort, PeriodoContableConsultaAdapter>();
+        services.AddScoped<VerificadorPeriodoContable>();
         return services;
     }
 
