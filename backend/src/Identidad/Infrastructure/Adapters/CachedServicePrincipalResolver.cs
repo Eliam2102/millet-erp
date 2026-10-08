@@ -11,10 +11,10 @@ namespace Millet.Identidad.Infrastructure.Adapters;
 ///
 /// <para>
 /// <b>TTL = 5 minutos.</b> Se aplica a todos los resultados (Found,
-/// NotFound, Disabled). Cambios al SP en BD (Activo, permisos) propagan
-/// hasta 5 min después; cambios urgentes requieren restart del App
-/// Service. Endpoint admin para invalidación granular queda como
-/// <c>PLATFORM-TODO(&lt;SpCacheInvalidation&gt;)</c>.
+/// NotFound, Disabled). Cambios de rol, de permisos o de estado del
+/// usuario expiran todo el cache al instante vía
+/// <see cref="ServicePrincipalCacheSignal"/> (U1.0); el TTL solo cubre
+/// cambios hechos fuera de esos comandos (p. ej. bootstrap del catálogo).
 /// </para>
 ///
 /// <para>
@@ -40,11 +40,13 @@ public sealed class CachedServicePrincipalResolver : IServicePrincipalResolver
     private readonly IServicePrincipalResolver _inner;
     private readonly IMemoryCache _cache;
     private readonly TimeSpan _ttl;
+    private readonly ServicePrincipalCacheSignal? _signal;
 
     public CachedServicePrincipalResolver(
         IServicePrincipalResolver inner,
-        IMemoryCache cache)
-        : this(inner, cache, DefaultTtl)
+        IMemoryCache cache,
+        ServicePrincipalCacheSignal? signal = null)
+        : this(inner, cache, DefaultTtl, signal)
     {
     }
 
@@ -54,11 +56,13 @@ public sealed class CachedServicePrincipalResolver : IServicePrincipalResolver
     public CachedServicePrincipalResolver(
         IServicePrincipalResolver inner,
         IMemoryCache cache,
-        TimeSpan ttl)
+        TimeSpan ttl,
+        ServicePrincipalCacheSignal? signal = null)
     {
         _inner = inner;
         _cache = cache;
         _ttl = ttl;
+        _signal = signal;
     }
 
     public async Task<ServicePrincipalResolutionResult> ResolveAsync(
@@ -73,7 +77,10 @@ public sealed class CachedServicePrincipalResolver : IServicePrincipalResolver
         }
 
         var fresh = await _inner.ResolveAsync(entraAppId, entraObjectId, cancellationToken);
-        _cache.Set(key, fresh, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = _ttl });
+        var options = new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = _ttl };
+        if (_signal is not null)
+            options.AddExpirationToken(_signal.Token);
+        _cache.Set(key, fresh, options);
         return fresh;
     }
 }

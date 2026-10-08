@@ -177,10 +177,12 @@ identificada.
 ### 3.3 Stale auth window de 5 min — **riesgo conocido**
 
 El `CachedServicePrincipalResolver` cachea Found/NotFound/Disabled por
-5 min. Cambios al SP en BD (Activo, permisos) propagan hasta 5 min
-después. Para acción urgente: **restart del App Service** (limpia el
-IMemoryCache singleton del proceso). Endpoint admin para invalidación
-granular queda como `PLATFORM-TODO(<SpCacheInvalidation>)`.
+5 min. Desde U1.0, toda invalidación de permisos (asignar/revocar rol,
+cambiar la matriz de un rol, overrides, desactivar/reactivar usuario)
+expira el cache completo de SPs vía `ServicePrincipalCacheSignal`, así
+que esos cambios surten efecto en la siguiente petición. El TTL solo
+cubre cambios hechos fuera de esos comandos (bootstrap del catálogo).
+`PLATFORM-TODO(<SpCacheInvalidation>)` queda cerrado sin endpoint admin.
 
 ### 3.4 Cache también de NotFound/Disabled
 
@@ -201,7 +203,7 @@ inline en el código + entry aquí.
 | `<MultiTenantSpResolution>` | `DefaultServicePrincipalResolver.ResolveAsync` (parámetro `entraObjectId` discardeado) | Multi-tenant (validar `oid` del token contra el persistido). |
 | `<EntraIdResolverServicio>` | _NO introducido en este PR_ | El bootstrap NO valida contra Microsoft Graph que el AppId existe en el tenant antes de persistir. Queda implícito como deuda; agregar el TODO cuando la integración con Graph esté en scope. |
 | `<UsuarioServicioAdminUI>` | _NO introducido en este PR_ | Endpoints CRUD admin para SPs (hoy solo se gestionan desde appsettings/KV). Marcar cuando se diseñe el módulo de admin. |
-| `<SpCacheInvalidation>` | `CachedServicePrincipalResolver` (XML doc) | Endpoint admin para invalidación en caliente del cache. |
+| ~~`<SpCacheInvalidation>`~~ | `CachedServicePrincipalResolver` (XML doc) | ✅ Cerrado en U1.0: invalidación automática con `ServicePrincipalCacheSignal`; no requiere endpoint admin. |
 
 > **Nota:** los TODOs `<EntraIdResolverServicio>` y `<UsuarioServicioAdminUI>` se mencionan en este RESUMEN pero NO se marcaron en código fuente porque no hay un sitio natural sin agregar comentarios "fantasma". Cuando lleguen los PRs respectivos, se introducirán inline.
 
