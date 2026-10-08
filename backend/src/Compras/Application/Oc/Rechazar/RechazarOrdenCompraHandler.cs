@@ -89,7 +89,7 @@ public sealed class RechazarOrdenCompraHandler : IRequestHandler<RechazarOrdenCo
             motivoRechazoTexto: command.MotivoRechazoTexto,
             notas: command.Notas);
 
-        await _db.SaveChangesAsync(cancellationToken);
         await _publisher.Publish(evento, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

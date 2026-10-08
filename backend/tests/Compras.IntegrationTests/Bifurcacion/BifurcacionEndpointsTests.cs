@@ -57,6 +57,32 @@ public class BifurcacionEndpointsTests : IClassFixture<StubsWebApplicationFactor
         _factory = factory;
     }
 
+    [Fact]
+    public async Task AutorizarRequisicion_PersisteExactamenteUnEventoEnOutbox()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var rqId = await CrearTransmitirAsync(client, ArticuloSeedId, 10m);
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{rqId}/autorizaciones",
+            new { Nivel = 1, Notas = (string?)null });
+        response.EnsureSuccessStatusCode();
+
+        // Scope nuevo: no drenar accidentalmente el buffer del request.
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<Millet.SharedKernel.Application.ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        var filas = await db.OutboxEntries.AsNoTracking()
+            .Where(e => e.EventType == "compras.requisicion.autorizada.v1")
+            .ToListAsync();
+        Assert.Single(filas, e =>
+        {
+            using var payload = JsonDocument.Parse(e.Payload);
+            return payload.RootElement.GetProperty("RequisicionId").GetGuid() == rqId;
+        });
+        Assert.Equal(EstadoRequisicion.EnSurtido,
+            (await db.Requisiciones.AsNoTracking().SingleAsync(r => r.Id == rqId)).Estado);
+    }
+
     // REGRESIÓN PRE-EXISTENTE: stub→adapter real (PR #293/#301).
     // Ver doc 01 §13 Rev. 21 hallazgo lateral C (patrón sistémico en
     // Bifurcación; la causa raíz técnica está documentada en B).

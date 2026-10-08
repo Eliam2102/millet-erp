@@ -46,6 +46,12 @@ public sealed class OcDevolucionRegistradaListener
             notification.CantidadAcumuladaAjustada,
             notification.OcurridoEn);
 
+        if (resultado.Reabrierta is { } reabierta)
+        {
+            await _publisher.Publish(reabierta, cancellationToken);
+        }
+
+        // ADR-0009: incluir cierre/reapertura en la transacción del cambio.
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
@@ -54,10 +60,5 @@ public sealed class OcDevolucionRegistradaListener
             notification.LineaOrdenCompraId,
             notification.CantidadAcumuladaAjustada,
             resultado.Reabrierta is not null);
-
-        if (resultado.Reabrierta is { } reabierta)
-        {
-            await _publisher.Publish(reabierta, cancellationToken);
-        }
     }
 }

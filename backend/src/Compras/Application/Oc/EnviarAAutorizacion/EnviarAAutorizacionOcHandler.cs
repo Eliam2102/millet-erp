@@ -146,7 +146,7 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
 
         // Transición + emisión de evento.
         var evento = oc.EnviarAAutorizacion(_clock.UtcNow);
-        await _db.SaveChangesAsync(cancellationToken);
         await _publisher.Publish(evento, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }
