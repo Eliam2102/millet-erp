@@ -203,6 +203,23 @@ var outboxConnString =
     ?? builder.Configuration["Facturacion:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["ServiceBus:ConnectionString"];
 
+// Interruptor del Service Bus: "Azure" (por defecto) usa la conexión de
+// arriba, la del namespace que crea infra/modules/servicebus.bicep;
+// "EmuladorLocal" usa el emulador de tools/servicebus-emulator para que los
+// módulos se pasen eventos en una sola computadora. Solo en Development.
+if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", StringComparison.OrdinalIgnoreCase))
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "ServiceBus:Modo=EmuladorLocal solo se permite en Development.");
+    }
+
+    // Cadena pública documentada por Microsoft para el emulador; no es un secreto.
+    outboxConnString =
+        "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
+}
+
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddSingleton(_ => new Azure.Messaging.ServiceBus.ServiceBusClient(outboxConnString));
