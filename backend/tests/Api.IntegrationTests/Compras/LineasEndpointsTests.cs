@@ -2,8 +2,16 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Millet.Api.IntegrationTests.Fixtures;
+using Millet.CentrosCosto.Application.Catalogo;
+using Millet.CentrosCosto.Infrastructure.Persistence;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Compras;
 
@@ -20,6 +28,7 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 {
     private const string SuperAdminOid = "dev-superadmin";
     private const string SinPermisosOid = "test-no-perms";
+    private static readonly Guid EmpresaInicialId = Guid.Parse("00000003-0000-0000-0000-000000000001");
 
     // F7-PR1: articuloId del seed test data — la validación cross-table
     // requiere un articulo activo del catálogo compartido.
@@ -268,7 +277,197 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
+    // --------- G1.11: Validar Centro de Costo (CeCo) al agregar / actualizar ---------
+
+    [Fact]
+    public async Task Agregar_Linea_Con_CentroCosto_Inactivo_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var requisicionId = await CrearRequisicionAsync(client);
+        var dim3InactivaId = await CrearDim3InactivaAsync();
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{requisicionId}/lineas",
+            ValidLineaRequestBody() with { CentroCostoId = dim3InactivaId });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("centro de costo inactivo", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Agregar_Linea_Con_CentroCosto_FueraDeAlcance_Retorna_422()
+    {
+        // Usuario con permisos para crear y editar requisiciones, pero SIN centros_costo.dim3.leer-todos
+        // y sin asignaciones en centros_costo.asignaciones.
+        var client = await CreateClientConPermisosAsync(
+            "compras.requisiciones.crear",
+            "compras.requisiciones.editar");
+        var requisicionId = await CrearRequisicionAsync(client);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{requisicionId}/lineas",
+            ValidLineaRequestBody() with { CentroCostoId = CentroCostoSeedId });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("centro de costo fuera de su alcance", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Agregar_Linea_Con_CentroCosto_Inexistente_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var requisicionId = await CrearRequisicionAsync(client);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{requisicionId}/lineas",
+            ValidLineaRequestBody() with { CentroCostoId = Guid.NewGuid() });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("el centro de costo no existe", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Actualizar_Linea_Con_CentroCosto_Inexistente_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var requisicionId = await CrearRequisicionAsync(client);
+        var lineaId = await AgregarLineaAsync(client, requisicionId);
+
+        var body = new
+        {
+            ArticuloId = ArticuloSeedId,
+            Cantidad = 15m,
+            UnidadMedida = "PZA",
+            PrecioEstimadoMonto = 20m,
+            PrecioEstimadoMoneda = "MXN",
+            CentroCostoId = Guid.NewGuid(),
+        };
+
+        var response = await client.PatchAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{requisicionId}/lineas/{lineaId}",
+            body);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("el centro de costo no existe", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Actualizar_Linea_Con_CentroCosto_Inactivo_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var requisicionId = await CrearRequisicionAsync(client);
+        var lineaId = await AgregarLineaAsync(client, requisicionId);
+        var dim3InactivaId = await CrearDim3InactivaAsync();
+
+        var body = new
+        {
+            ArticuloId = ArticuloSeedId,
+            Cantidad = 15m,
+            UnidadMedida = "PZA",
+            PrecioEstimadoMonto = 20m,
+            PrecioEstimadoMoneda = "MXN",
+            CentroCostoId = dim3InactivaId,
+        };
+
+        var response = await client.PatchAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{requisicionId}/lineas/{lineaId}",
+            body);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("centro de costo inactivo", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Actualizar_Linea_Con_CentroCosto_FueraDeAlcance_Retorna_422()
+    {
+        var admin = await CreateSuperAdminClientAsync();
+        var requisicionId = await CrearRequisicionAsync(admin);
+        var lineaId = await AgregarLineaAsync(admin, requisicionId);
+
+        var client = await CreateClientConPermisosAsync(
+            "compras.requisiciones.crear",
+            "compras.requisiciones.editar");
+
+        var body = new
+        {
+            ArticuloId = ArticuloSeedId,
+            Cantidad = 15m,
+            UnidadMedida = "PZA",
+            PrecioEstimadoMonto = 20m,
+            PrecioEstimadoMoneda = "MXN",
+            CentroCostoId = CentroCostoSeedId,
+        };
+
+        var response = await client.PatchAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{requisicionId}/lineas/{lineaId}",
+            body);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var json = await ReadJsonAsync(response);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("centro de costo fuera de su alcance", json.GetProperty("detail").GetString());
+    }
+
     // --------- Helpers ---------
+
+    private async Task<Guid> CrearDim3InactivaAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var db = scope.ServiceProvider.GetRequiredService<CentrosCostoDbContext>();
+
+        var sufijo = $"{Guid.NewGuid():N}"[..6].ToUpperInvariant();
+        var grupo3 = await mediator.Send(new CrearGrupoDim3Command($"G3-{sufijo}"));
+        var dim2Id = Guid.Parse("0000000c-0004-0000-0000-000000000045");
+        var dim3 = await mediator.Send(new CrearDim3Command(dim2Id, $"INA{sufijo[..4]}", $"Inactiva {sufijo}", grupo3.Id));
+        var version = (await db.Dim3s.AsNoTracking().FirstAsync(d => d.Id == dim3.Id)).Version;
+        await mediator.Send(new CambiarEstatusDim3Command(dim3.Id, version, Activar: false));
+        return dim3.Id;
+    }
+
+    private async Task<HttpClient> CreateClientConPermisosAsync(params string[] codigosPermiso)
+    {
+        var sufijo = Guid.NewGuid().ToString("N")[..8];
+        var oid = $"test-user-{sufijo}";
+        var usuarioId = Guid.CreateVersion7();
+        var rolId = Guid.CreateVersion7();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
+            using var bypass = empresaContext.Bypass();
+
+            identidad.Roles.Add(new Rol(rolId, $"rol-{sufijo}", $"Rol Test {sufijo}", false, "Rol de prueba"));
+            foreach (var codigo in codigosPermiso)
+            {
+                var permisoId = await identidad.Permisos.AsNoTracking()
+                    .Where(p => p.Codigo == codigo).Select(p => p.Id).SingleAsync();
+                identidad.RolPermisos.Add(new RolPermiso(Guid.CreateVersion7(), rolId, permisoId));
+            }
+
+            identidad.Usuarios.Add(new Usuario(usuarioId, oid, $"{oid}@test.local", "Usuario Prueba Alcance"));
+            identidad.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
+            identidad.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(
+                Guid.CreateVersion7(), usuarioId, EmpresaInicialId, rolId, asignadoPorUsuarioId: null));
+            await identidad.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithIdempotency();
+        var token = await FakeLoginAsync(client, oid, $"{oid}@test.local", "Usuario Prueba Alcance");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {

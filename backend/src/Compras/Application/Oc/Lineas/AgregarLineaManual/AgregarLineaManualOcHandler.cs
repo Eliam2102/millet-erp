@@ -20,15 +20,18 @@ public sealed class AgregarLineaManualOcHandler
     private readonly ComprasDbContext _db;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IArticuloReadPort _articulos;
+    private readonly Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort _dim3ElegibilidadPort;
 
     public AgregarLineaManualOcHandler(
         ComprasDbContext db,
         IDecimalesUnidadGuard decimalesGuard,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort)
     {
         _db = db;
         _decimalesGuard = decimalesGuard;
         _articulos = articulos;
+        _dim3ElegibilidadPort = dim3ElegibilidadPort;
     }
 
     public async Task<AgregarLineaManualOcResponse> Handle(
@@ -64,6 +67,17 @@ public sealed class AgregarLineaManualOcHandler
             [command.ArticuloId], cancellationToken);
         var esServicio = articulos.TryGetValue(command.ArticuloId, out var articulo)
             && articulo.EsServicio;
+
+        // G1.11 / ADR-0050 §2: línea manual de OC es captura proxy por comprador.
+        // Valida existe + activo, SIN alcance.
+        if (command.CentroCostoId is Guid ccId)
+        {
+            await CentroCostoLineaGuard.ValidarAsync(
+                _dim3ElegibilidadPort,
+                ccId,
+                aplicarAlcance: false,
+                cancellationToken);
+        }
 
         var linea = oc.AgregarLineaManual(
             lineaId: Guid.CreateVersion7(),
