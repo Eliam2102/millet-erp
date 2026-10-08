@@ -141,8 +141,6 @@ public sealed class OcRecepcionEnAlmacenHandler
             EventType,
             $"Recepcion={p.RecepcionId} OC={p.OrdenCompraId} Lineas={p.Lineas.Count}"));
 
-        await _db.SaveChangesAsync(cancellationToken);
-
         // OrdenCompraCerradaEvent puede emitirse varias veces si múltiples
         // líneas cierran su contador en el mismo evento; el agregado
         // garantiza que solo la primera dispara la transición (idempotente
@@ -152,6 +150,8 @@ public sealed class OcRecepcionEnAlmacenHandler
         {
             await _publisher.Publish(cerrada, cancellationToken);
         }
+
+        await _db.SaveChangesAsync(cancellationToken);
 
         // Actualización RQ best-effort. Si la RQ no está en EnSurtido
         // (rare — debería estarlo si la OC tomó líneas de la RQ), el

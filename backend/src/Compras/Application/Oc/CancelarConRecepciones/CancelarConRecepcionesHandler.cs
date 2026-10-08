@@ -107,9 +107,9 @@ public sealed class CancelarConRecepcionesHandler : IRequestHandler<CancelarConR
             }
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
-
+        // ADR-0009: cambio de estado y evento se persisten juntos.
         await _publisher.Publish(resultado.EventoCancelada, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
 
         foreach (var liberacion in resultado.LiberacionesParciales)
         {

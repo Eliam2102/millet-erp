@@ -11,7 +11,7 @@ namespace Millet.Compras.Application.Oc.CerrarManual;
 /// líneas, invoca <see cref="Millet.Compras.Domain.Oc.OrdenCompra.CerrarManual"/>
 /// (que valida Estado == Autorizada), persiste y publica el
 /// <see cref="Millet.Compras.Domain.Oc.Events.OrdenCompraCerradaEvent"/>
-/// devuelto — mismo evento y mismo patrón post-SaveChanges que el cierre
+/// devuelto — mismo evento y publicación antes de SaveChanges que el cierre
 /// automático de los listeners de la triada.
 /// </summary>
 public sealed class CerrarManualOcHandler : IRequestHandler<CerrarManualOcCommand>
@@ -40,7 +40,7 @@ public sealed class CerrarManualOcHandler : IRequestHandler<CerrarManualOcComman
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}' en la empresa actual.");
 
         var cerrada = oc.CerrarManual(_clock.UtcNow);
-        await _db.SaveChangesAsync(cancellationToken);
         await _publisher.Publish(cerrada, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }
