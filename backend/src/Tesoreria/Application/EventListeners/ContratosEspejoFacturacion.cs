@@ -48,7 +48,8 @@ public sealed record ReciboPagoTimbradoPayload(
     Guid ReciboPagoId,
     string Uuid,
     decimal ImporteTotalPago,
-    IReadOnlyList<ReppFacturaPagadaPayload> FacturasPagadas)
+    IReadOnlyList<ReppFacturaPagadaPayload> FacturasPagadas,
+    Guid? MovimientoBancarioId = null)
 {
     public const string EventType = "facturacion.recibo-pago.timbrado.v1";
 }

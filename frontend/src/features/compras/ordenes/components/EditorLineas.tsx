@@ -32,6 +32,7 @@ import { LineaDesdeRqBadge } from '@/features/compras/ordenes/components/LineaDe
 import { useArticulos, mapById } from '@/features/catalogos/api';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
+import { etiquetaDescuento } from '../lib/subtotal-linea';
 
 /**
  * <c>&lt;EditorLineas/&gt;</c> — tabla de líneas con add/edit/delete
@@ -417,6 +418,9 @@ function FilaLinea({
       </td>
       <td className="px-3 py-2 text-right tabular-nums font-medium">
         {linea.subtotalLinea.toFixed(2)}
+        <p className="text-xs font-normal text-ink-muted">
+          {etiquetaDescuento(linea.descuentoTipo, linea.descuentoValor)}
+        </p>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
         {linea.ivaImporte.toFixed(2)}

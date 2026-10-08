@@ -49,5 +49,6 @@ internal static class TestAssemblyInit
         // F2 (Parte F): idem Api.IntegrationTests — la fase de datos demo
         // del seed de Compartido no corre en tests.
         Environment.SetEnvironmentVariable("Seed__DatosDemo__Habilitado", "false");
+        Environment.SetEnvironmentVariable("Seed__DemoSesion__Habilitado", "false");
     }
 }

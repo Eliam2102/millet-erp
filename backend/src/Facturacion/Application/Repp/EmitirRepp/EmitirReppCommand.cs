@@ -20,10 +20,13 @@ public sealed record EmitirReppCommand(
     // CAJAS-PR2 ([Decisión 12-D]): dimensión de la Capa A; null = sin canal
     // (cobro bancario/administrativo) → bucket "Sin asignar".
     short? CanalVentaId = null,
-    // PR gemelo TES-PR7: empresa para invocaciones fuera de un request HTTP
-    // (TesoreriaEventListenerWorker). El claim del JWT SIEMPRE tiene
+    // Empresa para invocaciones internas fuera de un request HTTP.
+    // El listener de Tesorería solo crea pendientes. El claim del JWT tiene
     // precedencia — un caller HTTP no puede cruzar de empresa por body.
-    Guid? EmpresaId = null) : IRequest<EmitirReppResponse>;
+    Guid? EmpresaId = null) : IRequest<EmitirReppResponse>
+{
+    internal Millet.Facturacion.Domain.Repp.ReppPendiente? Pendiente { get; init; }
+}
 
 /// <summary>Factura cubierta por el pago, con el importe aplicado (en la moneda de la factura).</summary>
 public sealed record ReppFacturaPago(Guid FacturaVentaId, decimal ImportePagado);

@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +36,44 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
     {
         var response = await _factory.CreateClient().GetAsync($"{Base}/{EmpresaId}/1");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_con_fiel_rechaza_sin_rotar_configuracion_existente()
+    {
+        // Usuario seed: no se crean roles ni entradas de catálogos compartidos.
+        var client = _factory.CreateClientWithIdempotency();
+        var login = await client.PostAsJsonAsync("/api/dev/fake-login", new
+        {
+            EntraOid = "dev-superadmin", Email = "dev-superadmin@dev.local",
+            Nombre = "SuperAdmin", EmpresaId = (Guid?)null,
+        });
+        login.EnsureSuccessStatusCode();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            (await ReadJsonAsync(login)).GetProperty("accessToken").GetString());
+        var antes = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+        using var rsa = RSA.Create(2048);
+        var request = new CertificateRequest("CN=FIX FIEL sin OU", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var cert = request.Create(request.SubjectName,
+            X509SignatureGenerator.CreateForRSA(rsa, RSASignaturePadding.Pkcs1),
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1), RandomNumberGenerator.GetBytes(16));
+        var response = await PutCurrentAsync(client, new
+        {
+            baseUrl = "https://test.fiscalapi.com", apiKey = "dummy-not-a-secret", activo = true,
+            csd = new
+            {
+                certificadoBase64 = Convert.ToBase64String(cert.Export(X509ContentType.Cert)),
+                llavePrivadaBase64 = Convert.ToBase64String(rsa.ExportEncryptedPkcs8PrivateKey("prueba",
+                    new PbeParameters(PbeEncryptionAlgorithm.Aes256Cbc, HashAlgorithmName.SHA256, 10000))),
+                password = "prueba",
+            },
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var error = await ReadJsonAsync(response);
+        Assert.Equal("CONFIG_PAC_CSD_ES_FIEL", error.GetProperty("code").GetString());
+        Assert.Contains("Este archivo es una e.firma (FIEL), no un sello digital (CSD)", error.GetProperty("detail").GetString());
+        var despues = await (await client.GetAsync($"{Base}/{EmpresaId}/1")).Content.ReadAsStringAsync();
+        Assert.Equal(antes, despues);
     }
 
     [Fact]

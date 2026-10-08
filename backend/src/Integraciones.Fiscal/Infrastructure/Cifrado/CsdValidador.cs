@@ -1,3 +1,4 @@
+using System.Formats.Asn1;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Millet.SharedKernel.Application.Exceptions;
@@ -12,6 +13,7 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Cifrado;
 /// FACANT-2026-000002). Verifica, en orden:
 /// <list type="number">
 ///   <item>El .cer parsea como certificado X.509 (DER del SAT).</item>
+///   <item>El subject contiene OU de sucursal/unidad (CSD del SAT, no FIEL).</item>
 ///   <item>La contraseña abre la llave privada (PKCS#8 cifrado — formato
 ///   estándar de los .key del SAT).</item>
 ///   <item>La llave corresponde al certificado (misma llave pública).</item>
@@ -49,6 +51,11 @@ public static class CsdValidador
                 "El archivo .cer no es un certificado X.509 válido. Verifica que sea el .cer del CSD (no el .key).");
         }
 
+        using var certificado = cert;
+        if (!TieneUnidadOrganizativa(cert.SubjectName))
+            throw new BusinessRuleException("CONFIG_PAC_CSD_ES_FIEL",
+                "Este archivo es una e.firma (FIEL), no un sello digital (CSD)");
+
         using var rsa = RSA.Create();
         try
         {
@@ -83,6 +90,28 @@ public static class CsdValidador
         }
 
         return new VigenciaCsd(notBefore, notAfter);
+    }
+
+    private static bool TieneUnidadOrganizativa(X500DistinguishedName subject)
+    {
+        // Leer el OID real evita confundir un CN que contenga el texto "OU="
+        // con una unidad organizativa, y admite RDN con varios atributos.
+        var nombre = new AsnReader(subject.RawData, AsnEncodingRules.DER).ReadSequence();
+        while (nombre.HasData)
+        {
+            var rdn = nombre.ReadSetOf();
+            while (rdn.HasData)
+            {
+                var atributo = rdn.ReadSequence();
+                var oid = atributo.ReadObjectIdentifier();
+                if (oid == "2.5.4.11")
+                {
+                    var valor = atributo.ReadCharacterString((UniversalTagNumber)atributo.PeekTag().TagValue);
+                    if (!string.IsNullOrWhiteSpace(valor)) return true;
+                }
+            }
+        }
+        return false;
     }
 }
 

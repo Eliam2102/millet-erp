@@ -155,6 +155,22 @@ public sealed class DepositosListenerHandlersTests
         (await db.EventosProcesados.AnyAsync(e => e.EventoId == eventoId)).Should().BeTrue();
     }
 
+    [Fact]
+    public async Task Repp_de_bandeja_conserva_movimiento_aunque_se_corrija_la_relacion()
+    {
+        using var db = CrearDbContext();
+        var proyector = new ProyectarPropuestaAplicacionHandler(db, new FakeClock(Ahora));
+        await proyector.Handle(new ProyectarPropuestaAplicacionCommand(Guid.NewGuid(), Propuesta()), default);
+        var deposito = await db.DepositosConfirmacion.SingleAsync();
+        ConfirmarDirecto(deposito);
+        await db.SaveChangesAsync();
+        var handler = new MarcarReppTimbradoHandler(db, new FakeClock(Ahora), NullLogger<MarcarReppTimbradoHandler>.Instance);
+        await handler.Handle(new MarcarReppTimbradoCommand(Guid.NewGuid(), new ReciboPagoTimbradoPayload(
+            EmpresaId, Ahora, Guid.NewGuid(), "UUID-REVISION", 7_500m,
+            [new ReppFacturaPagadaPayload(Guid.NewGuid(), 7_500m)], deposito.MovimientoId)), default);
+        deposito.ReppTimbrado.Should().BeTrue();
+    }
+
     // ------------------------------------------------------------ helpers
 
     private static void ConfirmarDirecto(DepositoConfirmacion deposito)

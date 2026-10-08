@@ -24,6 +24,7 @@ namespace Millet.Facturacion.Application.NotasCredito.EmitirNotaCreditoBonificac
 public sealed class EmitirNotaCreditoBonificacionHandler
     : IRequestHandler<EmitirNotaCreditoBonificacionCommand, EmitirNotaCreditoBonificacionResponse>
 {
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -43,8 +44,9 @@ public sealed class EmitirNotaCreditoBonificacionHandler
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock)
+        IClock clock, ValidadorReceptorFiscal receptorFiscal)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -85,6 +87,8 @@ public sealed class EmitirNotaCreditoBonificacionHandler
             throw new BusinessRuleException(
                 "PERIODO_CERRADO",
                 $"El período contable {anio}-{mes:D2} está cerrado; no se puede emitir.");
+
+        await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
 
         var reserva = await _sender.Send(
             new ReservarFolioCommand(

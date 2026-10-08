@@ -37,6 +37,8 @@ public sealed class OcMapsterConfig : IRegister
         // Mapster construye por constructor y .Ignore sobre un parámetro del
         // ctor desbalancea los argumentos — "Incorrect number of arguments").
         config.NewConfig<LineaOrdenCompra, LineaOrdenCompraResponse>()
+            .Map(dest => dest.DescuentoTipo, src => src.Descuento.Tipo)
+            .Map(dest => dest.DescuentoValor, src => src.Descuento.Valor)
             .Map(dest => dest.RequisicionFolio, src => (string?)null)
             // ADR-0042 addendum: etiqueta del artículo resuelta por el handler
             // tras el map (batch IArticuloReadPort). Null explícito.

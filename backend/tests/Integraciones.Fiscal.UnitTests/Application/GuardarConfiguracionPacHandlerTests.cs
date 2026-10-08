@@ -312,6 +312,20 @@ public sealed class GuardarConfiguracionPacHandlerTests
 
     private static readonly CsdDto CsdEku = CrearCsdDto("12345678a");
 
+    [Fact]
+    public async Task Guardar_fiel_no_persiste_configuracion_ni_publica_eventos()
+    {
+        var (handler, db, publisher, _, _) = Build();
+        var (cer, key, pass) = Infrastructure.CsdTestFactory.Crear(
+            notBefore: Ahora.AddDays(-1), notAfter: Ahora.AddYears(1), subject: "CN=FIX FIEL");
+        var act = () => handler.Handle(NewCommand() with { Csd = new CsdDto(cer, key, pass) }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "CONFIG_PAC_CSD_ES_FIEL");
+        db.ConfiguracionesPac.Should().BeEmpty();
+        publisher.Published.Should().BeEmpty();
+    }
+
     private static CsdDto CrearCsdDto(string password)
     {
         var (cer, key, pass) = Infrastructure.CsdTestFactory.Crear(

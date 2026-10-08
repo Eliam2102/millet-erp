@@ -113,6 +113,7 @@ public sealed class CrearEmpresaHandler
             empresa.TasaIvaDefault,
             empresa.CodigoPostal,
             empresa.Activa,
-            empresa.Version);
+            empresa.Version,
+            empresa.Calle, empresa.NumeroExterior, empresa.NumeroInterior, empresa.Colonia, empresa.Ciudad, empresa.Municipio, empresa.Estado, empresa.Pais);
     }
 }

@@ -58,6 +58,7 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
     /// service).
     /// </summary>
     private readonly bool _datosDemoHabilitado;
+    private readonly bool _demoSesionHabilitado;
 
     public CatalogosTestSeedHostedService(
         IServiceScopeFactory scopeFactory,
@@ -68,6 +69,8 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
         _scopeFactory = scopeFactory;
         _environment = environment;
         _datosDemoHabilitado = configuration.GetValue<bool>("Seed:DatosDemo:Habilitado");
+        _demoSesionHabilitado = environment.IsDevelopment()
+            && configuration.GetValue<bool>("Seed:DemoSesion:Habilitado");
         _logger = logger;
     }
 
@@ -93,8 +96,13 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
             SeedLockId,
             async ct =>
             {
-                await SeedProveedoresAsync(db, ct);
-                await SeedArticulosAsync(db, ct);
+                // Decisión 07-oct: la sesión conserva la organización canónica,
+                // pero sus proveedores y artículos los crea el sembrador DEMO.
+                if (!_demoSesionHabilitado)
+                {
+                    await SeedProveedoresAsync(db, ct);
+                    await SeedArticulosAsync(db, ct);
+                }
                 await SeedSucursalesAsync(db, ct);
                 await SeedDepartamentosAsync(db, ct);
                 await SeedAsignacionesSucursalDepartamentoAsync(db, ct);

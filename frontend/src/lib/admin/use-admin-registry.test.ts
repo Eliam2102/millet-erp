@@ -4,6 +4,7 @@ import {
   useAdminAccess,
   useAdminRegistry,
 } from '@/lib/admin/use-admin-registry';
+import { rutaPermitida } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
@@ -65,4 +66,17 @@ describe('useAdminRegistry / useAdminAccess', () => {
     const conPermisos = renderHook(() => useAdminAccess());
     expect(conPermisos.result.current).toBe(true);
   });
+});
+
+it('Mi empresa comparte permiso entre tarjeta y ruta directa', () => {
+  const escenarios: string[][] = [[], [PermisosCanonicos.AdminEmpresasLeer], [PermisosCanonicos.AdminEmpresasEditar]];
+  for (const permisos of escenarios) {
+    useAuthStore.setState({ permisos });
+    const { result, unmount } = renderHook(() => useAdminRegistry());
+    const visible = result.current.some((card) => card.href === '/admin/mi-empresa');
+    expect(visible).toBe(permisos.includes(PermisosCanonicos.AdminEmpresasLeer));
+    expect(rutaPermitida('/admin/mi-empresa', permisos)).toBe(visible);
+    unmount();
+  }
+  useAuthStore.getState().clearSession();
 });

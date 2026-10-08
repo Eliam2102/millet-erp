@@ -25,19 +25,30 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
     private readonly IFacturacionAnticiposReadPort _anticipos;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
+    private readonly IReppPendientesReadPort? _repp;
 
     public EstadoCuentaClienteHandler(
         CuentasPorCobrarDbContext db,
         IFacturacionAnticiposReadPort anticipos,
         IClienteReadPort clientes,
-        IClock clock)
+        IClock clock, IReppPendientesReadPort? repp = null)
     {
-        _db = db; _anticipos = anticipos; _clientes = clientes; _clock = clock;
+        _db = db; _anticipos = anticipos; _clientes = clientes; _clock = clock; _repp = repp;
     }
 
     public async Task<ReporteJsonResponse> Handle(
         EstadoCuentaClienteQuery query, CancellationToken cancellationToken)
     {
+        if (_repp is not null)
+        {
+            var estado = await _repp.ConsultarAsync(query.ClienteId, cancellationToken);
+            var reflejados = await _db.MovimientosCartera.AsNoTracking()
+                .Where(m => estado.RecibosEmitidos.Contains(m.OrigenComprobanteId))
+                .Select(m => m.OrigenComprobanteId).Distinct().ToListAsync(cancellationToken);
+            if (estado.TienePendientes || estado.RecibosEmitidos.Except(reflejados).Any())
+                throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("ESTADO_CUENTA_REPP_PENDIENTE",
+                    "Hay pagos confirmados pendientes de REP o de reflejarse en cartera. Completa su revisión antes de emitir el estado de cuenta.");
+        }
         var facturas = await _db.FacturasCartera.AsNoTracking()
             .Where(f => f.ClienteId == query.ClienteId
                      && f.Estado != EstadoFacturaCartera.Cancelada)

@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { EditorLineas } from '@/features/compras/ordenes/components/EditorLineas';
 import { useAuthStore } from '@/lib/auth/auth-store';
-import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
+import { DescuentoTipo, EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import type {
   LineaOrdenCompraResponse,
   OrdenCompraDetalleResponse,
@@ -92,6 +92,18 @@ afterEach(() => {
 });
 
 describe('<EditorLineas> (OC) — columna CC-Máquina (Fase E PR3)', () => {
+  it.each([
+    [DescuentoTipo.Monto, 0, 100, 'Sin descuento'],
+    [DescuentoTipo.Monto, 10, 90, 'Descuento: $10.00'],
+    [DescuentoTipo.Porcentaje, 10, 90, 'Descuento: 10.00 %'],
+  ] as const)('explica el subtotal de 10 × $10 con descuento %s / %s', (tipo, valor, subtotal, etiqueta) => {
+    render(<EditorLineas oc={makeOc([makeLinea({ cantidad: 10, precioUnitario: 10,
+      descuentoTipo: tipo, descuentoValor: valor, subtotalLinea: subtotal })])} />,
+    { wrapper: createQueryWrapper() });
+    const fila = screen.getByText(etiqueta).closest('tr');
+    expect(fila).not.toBeNull();
+    expect(within(fila!).getByText(subtotal.toFixed(2))).toBeInTheDocument();
+  });
   it('encabezado CC-Máquina presente', () => {
     render(<EditorLineas oc={makeOc([makeLinea()])} />, {
       wrapper: createQueryWrapper(),

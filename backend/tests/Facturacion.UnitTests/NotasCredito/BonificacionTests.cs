@@ -46,7 +46,7 @@ public sealed class BonificacionTests
         new(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
             new FakePeriodoContablePort(periodoAbierto), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeEmpresaContext(empresaId),
-            new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     // ---- Dominio ----
 

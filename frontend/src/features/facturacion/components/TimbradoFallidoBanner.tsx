@@ -1,3 +1,4 @@
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
@@ -90,6 +91,7 @@ export function TimbradoFallidoBanner({
           }
         },
         onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
           toast.error(
             esApiError(error)
               ? error.problem.detail ?? error.problem.title
@@ -112,6 +114,7 @@ export function TimbradoFallidoBanner({
           );
         },
         onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
           toast.error(
             esApiError(error)
               ? error.problem.detail ?? error.problem.title

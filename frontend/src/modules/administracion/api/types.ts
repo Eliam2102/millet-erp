@@ -17,6 +17,14 @@ export type EstatusCatalogo =
   (typeof EstatusCatalogo)[keyof typeof EstatusCatalogo];
 
 export interface EmpresaResponse {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  pais?: string | null;
   id: string;
   rfc: string;
   razonSocial: string;
@@ -184,6 +192,15 @@ export interface CrearEmpresaCommand {
 }
 
 export interface ActualizarEmpresaPayload {
+  calle?: string | null;
+  numeroExterior?: string | null;
+  numeroInterior?: string | null;
+  colonia?: string | null;
+  ciudad?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  pais?: string | null;
+  limpiarNumeroInterior?: boolean;
   razonSocial?: string | null;
   nombreComercial?: string | null;
   regimenFiscal?: string | null;

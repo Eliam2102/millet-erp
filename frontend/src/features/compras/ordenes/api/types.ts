@@ -308,6 +308,8 @@ export interface AdjuntoOcResponse {
  * manual creada en una OC <c>SinRequisicionPrevia</c>.</para>
  */
 export interface LineaOrdenCompraResponse {
+  descuentoTipo?: DescuentoTipo;
+  descuentoValor?: number;
   id: string;
   posicion: number;
   articuloId: string;

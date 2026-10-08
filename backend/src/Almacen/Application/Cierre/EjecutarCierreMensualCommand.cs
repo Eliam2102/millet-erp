@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Movimientos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -125,6 +126,24 @@ public sealed class EjecutarCierreMensualHandler
 /// </summary>
 public static class PeriodoCerradoValidator
 {
+    /// <summary>Los dos candados son independientes; abrir Contabilidad no elimina el cierre de inventario (D18).</summary>
+    public static async Task LanzarSiCerradoAsync(
+        AlmacenDbContext db,
+        Guid empresaId,
+        DateOnly fechaMovimiento,
+        IPeriodoContableReadPort periodoContable,
+        CancellationToken cancellationToken)
+    {
+        await LanzarSiCerradoAsync(db, empresaId, fechaMovimiento, cancellationToken);
+        if (!await periodoContable.EstaAbiertoAsync(fechaMovimiento.Year, fechaMovimiento.Month, cancellationToken))
+        {
+            throw new BusinessRuleException(
+                "PERIODO_CONTABLE_NO_ADMITE",
+                $"El periodo {fechaMovimiento.Year:0000}-{fechaMovimiento.Month:00} está cerrado o no está abierto en Contabilidad; " +
+                "no se registran movimientos de almacén con esa fecha.");
+        }
+    }
+
     public static async Task LanzarSiCerradoAsync(
         AlmacenDbContext db,
         Guid empresaId,

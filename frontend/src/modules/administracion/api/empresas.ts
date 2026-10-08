@@ -89,16 +89,17 @@ export function useCrearEmpresa() {
 export interface ActualizarEmpresaArgs {
   id: string;
   payload: ActualizarEmpresaPayload;
+  version: number;
   idempotencyKey: string;
 }
 
 export function useActualizarEmpresa() {
   const queryClient = useQueryClient();
   return useMutation<EmpresaResponse, Error, ActualizarEmpresaArgs>({
-    mutationFn: async ({ id, payload, idempotencyKey }) => {
+    mutationFn: async ({ id, payload, version, idempotencyKey }) => {
       const { data } = await apiRequest<EmpresaResponse>(
         `/api/v1/admin/empresas/${id}`,
-        { method: 'PATCH', body: payload, idempotencyKey },
+        { method: 'PATCH', body: payload, ifMatch: String(version), idempotencyKey },
       );
       return data;
     },

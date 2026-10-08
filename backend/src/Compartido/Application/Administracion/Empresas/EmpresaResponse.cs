@@ -14,4 +14,12 @@ public sealed record EmpresaResponse(
     decimal? TasaIvaDefault,
     string? CodigoPostal,
     bool Activa,
-    int Version);
+    int Version,
+    string? Calle = null,
+    string? NumeroExterior = null,
+    string? NumeroInterior = null,
+    string? Colonia = null,
+    string? Ciudad = null,
+    string? Municipio = null,
+    string? Estado = null,
+    string? Pais = null);

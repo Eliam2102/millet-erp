@@ -13,13 +13,8 @@ namespace Millet.Tesoreria.Application.EventListeners;
 // TES-PR7 (§3.3 paso 4): al timbrarse el REPP, la confirmación de depósito
 // que lo originó queda fiscalmente cubierta (repp_timbrado=true).
 //
-// Correlación: el evento de Facturación no trae MovimientoBancarioId ni
-// PropuestaId (nació para CxC), así que se correlaciona por el desglose
-// exacto (FacturaVentaId, ImportePagado) contra el FacturasJson de las
-// confirmaciones pendientes de timbrado. La MAYORÍA de los REPP (emisión
-// manual, cobros de mostrador) no corresponden a ninguna confirmación —
-// se completan sin efecto, no es error. Si hubiera más de un candidato
-// idéntico (parcialidades gemelas), se marca el más antiguo y se loggea.
+// La bandeja manual publica el movimiento de origen: conserva la correlación
+// aunque Facturación corrija las facturas. Eventos anteriores usan el desglose.
 // ============================================================================
 
 public sealed record MarcarReppTimbradoCommand(
@@ -61,7 +56,9 @@ public sealed class MarcarReppTimbradoHandler : IRequestHandler<MarcarReppTimbra
             .OrderBy(x => x.FacturaVentaId)
             .ToList();
 
-        var matches = candidatas.Where(d => DesgloseCoincide(d.FacturasJson, objetivo)).ToList();
+        var matches = p.MovimientoBancarioId is Guid movimientoId
+            ? candidatas.Where(d => d.MovimientoId == movimientoId).ToList()
+            : candidatas.Where(d => DesgloseCoincide(d.FacturasJson, objetivo)).ToList();
 
         if (matches.Count > 0)
         {

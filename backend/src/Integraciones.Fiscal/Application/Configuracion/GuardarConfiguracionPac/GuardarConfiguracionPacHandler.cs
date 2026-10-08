@@ -144,17 +144,14 @@ public sealed class GuardarConfiguracionPacHandler
         // valor = capturar/rotar, idempotente por hash combinado).
         if (command.Csd is { } csd)
         {
+            // Validar también si coincide con el material guardado: una FIEL
+            // aceptada antes de esta regla no debe eludirla por su hash.
+            var vigencia = CsdValidador.Validar(
+                csd.CertificadoBase64, csd.LlavePrivadaBase64, csd.Password, ahora);
             var csdHash = FiscalSecretCipher.HashForChangeDetection(
                 $"{csd.CertificadoBase64}|{csd.LlavePrivadaBase64}|{csd.Password}");
             if (csdHash != config.CsdHash)
             {
-                // Rechaza AQUÍ el trío inválido (password que no abre la
-                // llave, .cer/.key de pares distintos, cert vencido) — sin
-                // esto el error aparece hasta el timbrado (incidente
-                // 2026-07-11: "The .KEY's password is incorrect").
-                var vigencia = CsdValidador.Validar(
-                    csd.CertificadoBase64, csd.LlavePrivadaBase64, csd.Password, ahora);
-
                 config.ConfigurarCsd(
                     certificadoCifrado: _cipher.Encrypt(csd.CertificadoBase64),
                     llavePrivadaCifrada: _cipher.Encrypt(csd.LlavePrivadaBase64),

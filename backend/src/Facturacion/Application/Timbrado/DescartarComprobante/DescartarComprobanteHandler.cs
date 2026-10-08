@@ -84,6 +84,8 @@ public sealed class DescartarComprobanteHandler
                 break;
         }
 
+        var pendiente = await _db.ReppPendientes.SingleOrDefaultAsync(p => p.IntentoReciboPagoId == comprobante.Id, cancellationToken);
+        pendiente?.LiberarIntentoDescartado();
         await _db.SaveChangesAsync(cancellationToken);
 
         return new DescartarComprobanteResponse(

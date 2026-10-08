@@ -1,4 +1,6 @@
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -33,6 +35,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import type { EmitirFacturaPrefill } from './prefill';
 import { nullIfEmpty, valoresIniciales } from './valores';
+import { resultadoEmision } from './resultado-emision';
 import { TabEncabezado } from './TabEncabezado';
 import { TabPosiciones } from './TabPosiciones';
 import { TabTotales, type AnticipoAmortizar } from './TabTotales';
@@ -123,7 +126,7 @@ export function EmitirFacturaForm(props: EmitirFacturaFormProps) {
       </div>
     );
   }
-  return <FormInner {...props} emisor={defaults.data} />;
+  return <FormInner key={props.prefill?.pedidoFacturableId ?? 'manual'} {...props} emisor={defaults.data} />;
 }
 
 function FormInner({
@@ -133,6 +136,7 @@ function FormInner({
   emisor,
 }: EmitirFacturaFormProps & { emisor: EmisorDefaultsResponse }) {
   const idempotencyKey = useFormIdempotencyKey();
+  const navigate = useNavigate();
   const emitir = useEmitirFactura();
   // Detallado pt. 2: el receptor es SIEMPRE de solo lectura (fijo del
   // master de clientes); este permiso solo controla el CTA al catálogo
@@ -270,12 +274,8 @@ function FormInner({
           receptorRegimenFiscal: values.receptorRegimenFiscal,
           receptorCodigoPostal: values.receptorCodigoPostal,
           receptorUsoCfdi: values.receptorUsoCfdi,
-          // País derivado (sin campo en el form): MEX salvo exportación
-          // CCE, donde manda el país de residencia del receptor.
-          receptorPais: (esCce
-            ? values.cceReceptorPaisResidencia?.trim() || 'MEX'
-            : 'MEX'
-          ).toUpperCase(),
+          // Conserva el país del cliente extranjero aunque la operación no lleve CCE.
+          receptorPais: (values.cceReceptorPaisResidencia?.trim() || 'MEX').toUpperCase(),
           rfcEmisor: values.rfcEmisor.toUpperCase(),
           regimenFiscalEmisor: values.regimenFiscalEmisor,
           metodoPago: values.metodoPago,
@@ -288,6 +288,7 @@ function FormInner({
           obraId: null,
           obraNombre: nullIfEmpty(values.obraNombre),
           facturaAgrupada: false,
+          clienteId,
           pedidoFacturableId: prefill?.pedidoFacturableId ?? null,
           anticipos:
             anticipos.filter((a) => a.anticipoId.trim().length > 0).length > 0
@@ -340,14 +341,23 @@ function FormInner({
       },
       {
         onSuccess: (res) => {
-          toast.success(
-            res.uuid
-              ? `Factura ${res.folio} timbrada · UUID ${res.uuid.slice(0, 8)}…`
-              : `Factura ${res.folio} emitida (${res.estado})`,
-          );
+          const aviso = resultadoEmision(res);
+          toast[aviso.tipo](aviso.titulo, {
+            description: aviso.descripcion,
+            ...(aviso.reintentable ? {
+              duration: Infinity,
+              action: {
+                label: 'Reintentar timbrado',
+                onClick: () => void navigate({
+                  to: '/facturacion/facturas/$id', params: { id: res.id },
+                }),
+              },
+            } : {}),
+          });
           onSuccess(res);
         },
         onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
           if (esApiError(error)) {
             if (
               applyServerErrors(

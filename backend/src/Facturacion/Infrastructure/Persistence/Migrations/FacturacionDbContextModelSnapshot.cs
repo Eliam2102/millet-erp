@@ -19,7 +19,7 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("facturacion")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -2825,6 +2825,161 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.ToTable("recibo_pago_factura_impuesto", "facturacion");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Repp.ReppPendiente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("CuentaBancariaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cuenta_bancaria_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateOnly>("FechaLimite")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_limite");
+
+                    b.Property<DateOnly>("FechaValor")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_valor");
+
+                    b.Property<string>("FormaPago")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("forma_pago");
+
+                    b.Property<Guid?>("IntentoReciboPagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("intento_recibo_pago_id");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("monto");
+
+                    b.Property<string>("MotivoDescarte")
+                        .HasColumnType("text")
+                        .HasColumnName("motivo_descarte");
+
+                    b.Property<Guid>("MovimientoBancarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_bancario_id");
+
+                    b.Property<Guid?>("PropuestaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("propuesta_id");
+
+                    b.Property<Guid?>("ReciboPagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recibo_pago_id");
+
+                    b.Property<string>("Referencia")
+                        .HasColumnType("text")
+                        .HasColumnName("referencia");
+
+                    b.Property<bool>("Revisado")
+                        .HasColumnType("boolean")
+                        .HasColumnName("revisado");
+
+                    b.Property<string>("UltimoErrorCodigo")
+                        .HasColumnType("text")
+                        .HasColumnName("ultimo_error_codigo");
+
+                    b.Property<string>("UltimoErrorMensaje")
+                        .HasColumnType("text")
+                        .HasColumnName("ultimo_error_mensaje");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_repp_pendiente");
+
+                    b.HasIndex("IntentoReciboPagoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_repp_pendiente_intento_recibo_pago_id");
+
+                    b.HasIndex("MovimientoBancarioId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_repp_pendiente_movimiento_bancario_id");
+
+                    b.HasIndex("EmpresaId", "Estado", "FechaLimite")
+                        .HasDatabaseName("ix_repp_pendiente_empresa_id_estado_fecha_limite");
+
+                    b.ToTable("repp_pendiente", "facturacion");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Repp.ReppPendienteFactura", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("FacturaVentaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_venta_id");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("importe");
+
+                    b.Property<Guid>("ReppPendienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("repp_pendiente_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_repp_pendiente_factura");
+
+                    b.HasIndex("ReppPendienteId")
+                        .HasDatabaseName("ix_repp_pendiente_factura_repp_pendiente_id");
+
+                    b.ToTable("repp_pendiente_factura", "facturacion");
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Audit.AuditLogEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2834,6 +2989,23 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
+
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
 
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
@@ -2857,6 +3029,12 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -2886,12 +3064,21 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");
@@ -3412,6 +3599,16 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_recibo_pago_factura_impuesto_recibo_pago_factura_recibo_pag");
                 });
 
+            modelBuilder.Entity("Millet.Facturacion.Domain.Repp.ReppPendienteFactura", b =>
+                {
+                    b.HasOne("Millet.Facturacion.Domain.Repp.ReppPendiente", null)
+                        .WithMany("Facturas")
+                        .HasForeignKey("ReppPendienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_repp_pendiente_factura_repp_pendientes_repp_pendiente_id");
+                });
+
             modelBuilder.Entity("Millet.Facturacion.Domain.Anticipos.FacturaAnticipo", b =>
                 {
                     b.HasOne("Millet.Facturacion.Domain.Comprobantes.Comprobante", null)
@@ -3504,6 +3701,11 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Millet.Facturacion.Domain.Repp.ReciboPagoFactura", b =>
                 {
                     b.Navigation("Impuestos");
+                });
+
+            modelBuilder.Entity("Millet.Facturacion.Domain.Repp.ReppPendiente", b =>
+                {
+                    b.Navigation("Facturas");
                 });
 
             modelBuilder.Entity("Millet.Facturacion.Domain.CartaPorte.CartaPorte", b =>

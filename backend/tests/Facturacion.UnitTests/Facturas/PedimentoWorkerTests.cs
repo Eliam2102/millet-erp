@@ -52,6 +52,7 @@ public sealed class PedimentoWorkerTests
         services.AddSingleton<ICurrentEmpresaContext>(new FakeEmpresaContext(empresaId));
         services.AddSingleton<IAuditOriginContext, AuditOriginContext>();
         services.AddDbContext<FacturacionDbContext>(o => o.UseInMemoryDatabase(dbName));
+        services.AddScoped(sp => ReceptorFiscalTestFactory.Crear(sp.GetRequiredService<FacturacionDbContext>()));
         services.AddSingleton<IPeriodoContablePort>(new FakePeriodoContablePort());
         services.AddSingleton<ICfdiTimbradoPort>(new FakeFiscalApiClient());
         services.AddSingleton<ICfdiRepositorioPort>(new FakeCfdiRepositorioPort());

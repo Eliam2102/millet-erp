@@ -17,14 +17,21 @@ import type { AdminSection } from '@/lib/admin/registry';
  * folios, UF-Admin-PR7 cierra el módulo con Parámetros y Auditoría.
  * Todas linkean a UIs dedicadas (<c>displayMode: 'custom'</c>).
  *
- * <para>Millet opera con una sola razón social (ADR-0051) — "Empresas"
- * ya no es un eje de navegación propio; Sucursales y Departamentos lo
- * reemplazan como las cards de "Organización". El detalle de la
- * empresa (RFC, régimen fiscal) sigue existiendo en
- * <c>/admin/empresas/$id</c> pero solo alcanzable desde el link
- * "avanzado" de esas dos páginas — no tiene card propia.</para>
+ * Mi empresa expone la configuración fiscal de la única razón social.
  */
 export const administracionAdminCards: readonly AdminSection[] = [
+  {
+    id: 'admin-mi-empresa',
+    modulo: 'admin',
+    titulo: 'Mi empresa',
+    descripcion: 'Datos fiscales, facturación y sucursales de Millet.',
+    icon: Building2,
+    href: '/admin/mi-empresa',
+    permisoRequerido: PermisosCanonicos.AdminEmpresasLeer,
+    orden: 5,
+    grupo: 'organizacion',
+    displayMode: 'custom',
+  },
   {
     id: 'admin-sucursales',
     modulo: 'admin',

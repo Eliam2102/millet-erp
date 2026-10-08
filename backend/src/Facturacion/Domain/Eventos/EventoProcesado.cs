@@ -6,9 +6,9 @@ namespace Millet.Facturacion.Domain.Eventos;
 /// Marca de idempotencia para eventos de integración consumidos
 /// cross-módulo (réplica del patrón CxP F5-PR1 / CxC CXC-PR3 / Tesorería
 /// TES-PR3). Primer listener del módulo: <c>TesoreriaEventListenerWorker</c>
-/// (pago-cliente.confirmado → EmitirRepp). Una fila por
+/// (pago-cliente.confirmado → pendiente REP). Una fila por
 /// <c>(EventoId, EventoTipo)</c>; la constraint única garantiza que
-/// re-entregas at-least-once del Service Bus no emitan dos REPP.
+/// re-entregas at-least-once del Service Bus no creen dos pendientes.
 ///
 /// <para>
 /// Marcada <see cref="INotAudited"/>: es ruido de tabla operativa (ADR-0008,
