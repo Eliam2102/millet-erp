@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Compras.Application.Autorizar;
@@ -15,6 +16,7 @@ using Millet.Compras.Application.ObtenerRequisicionPorId;
 using Millet.Compras.Application.PreviewCubrimiento;
 using Millet.Compras.Application.Rechazar;
 using Millet.Compras.Domain;
+using Millet.Compras.Infrastructure;
 using Millet.Identidad.Application;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
@@ -103,9 +105,14 @@ public static class RequisicionesEndpoints
         group.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
             var response = await mediator.Send(new ObtenerRequisicionPorIdQuery(id), cancellationToken);
             // ETag con Version (cuidado §2.4 [P1]). El cliente devuelve
             // este valor en If-Match al hacer mutaciones futuras.
@@ -132,8 +139,13 @@ public static class RequisicionesEndpoints
         group.MapGet("/{id:guid}/cubrimiento-estimado", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
             var response = await mediator.Send(
                 new PreviewCubrimientoQuery(id), cancellationToken);
             return Results.Ok(response);
@@ -534,8 +546,13 @@ public static class RequisicionesEndpoints
         group.MapGet("/{id:guid}/historico", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
             var response = await mediator.Send(
                 new Millet.Compras.Application.Historico.ObtenerHistoricoQuery(id),
                 cancellationToken);
