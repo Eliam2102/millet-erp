@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import { CanalCobranza, ResultadoCobranza } from '@/features/cxc/api/types';
 
 /**
@@ -12,7 +13,7 @@ const resultadoValues = Object.values(ResultadoCobranza) as [number, ...number[]
 
 export const GestionCobranzaSchema = z
   .object({
-    clienteId: z.string().uuid('Selecciona un cliente'),
+    clienteId: zId('Selecciona un cliente'),
     canal: z.number().refine((v) => canalValues.includes(v), 'Selecciona el canal'),
     resultado: z
       .number()

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import { MONEDAS_LINEA_CREDITO } from '@/features/cxc/api/types';
 
 /**
@@ -12,16 +13,16 @@ export const DecidirLiberacionSchema = z.object({
     .string()
     .min(1, 'El folio del pedido es obligatorio')
     .max(40, 'Máximo 40 caracteres'),
-  clienteId: z.string().uuid('Selecciona un cliente'),
+  clienteId: zId('Selecciona un cliente'),
   moneda: z.enum(MONEDAS_LINEA_CREDITO),
   montoPedido: z.number().positive('El monto del pedido debe ser > 0'),
-  overrideId: z.string().uuid().nullable(),
+  overrideId: zId().nullable(),
 });
 
 export type DecidirLiberacionValues = z.infer<typeof DecidirLiberacionSchema>;
 
 export const NuevaAutorizacionSchema = z.object({
-  beneficiarioUsuarioId: z.string().uuid('Selecciona al beneficiario'),
+  beneficiarioUsuarioId: zId('Selecciona al beneficiario'),
   motivo: z
     .string()
     .min(1, 'El motivo es obligatorio')

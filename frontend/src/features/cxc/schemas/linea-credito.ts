@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import {
   CLASIFICACIONES_CREDITO,
   MONEDAS_LINEA_CREDITO,
@@ -17,7 +18,7 @@ const origenValues = Object.values(OrigenLineaCredito) as [number, ...number[]];
 export const SIN_CLASIFICACION = '__sin__';
 
 export const NuevaLineaCreditoSchema = z.object({
-  clienteId: z.string().uuid('Selecciona un cliente'),
+  clienteId: zId('Selecciona un cliente'),
   moneda: z.enum(MONEDAS_LINEA_CREDITO),
   limite: z.number().positive('El límite de crédito debe ser > 0'),
   origen: z

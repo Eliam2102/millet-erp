@@ -84,6 +84,29 @@ describe('EmitirFacturaLineaSchema', () => {
 });
 
 describe('EmitirFacturaSchema', () => {
+  it('acepta el GUID sembrado de la sucursal MID', () => {
+    const sucursalId = '00000005-0003-0000-0000-000000000001';
+    const result = EmitirFacturaSchema.safeParse({ ...facturaValida, sucursalId });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.sucursalId).toBe(sucursalId);
+  });
+
+  it('rechaza una sucursal que no es GUID y conserva el mensaje del campo', () => {
+    const result = EmitirFacturaSchema.safeParse({
+      ...facturaValida,
+      sucursalId: 'no-es-un-guid',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual([
+        expect.objectContaining({
+          path: ['sucursalId'],
+          message: 'Selecciona una sucursal',
+        }),
+      ]);
+    }
+  });
+
   it('acepta una factura válida', () => {
     expect(EmitirFacturaSchema.safeParse(facturaValida).success).toBe(true);
   });

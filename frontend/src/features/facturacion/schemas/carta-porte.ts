@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 
 /**
  * Schema del form "Nueva Carta Porte" (3.1, FE-F8). Tipo "T" (traslado,
@@ -17,7 +18,7 @@ export const CartaPorteMercanciaSchema = z.object({
 
 export const CartaPorteSchema = z.object({
   tipoCfdi: z.enum(['T', 'I']),
-  sucursalId: z.string().uuid('Selecciona una sucursal'),
+  sucursalId: zId('Selecciona una sucursal'),
   // Receptor
   receptorRfc: z.string().min(12, 'RFC del receptor').max(13),
   receptorNombre: z.string().min(1, 'Nombre / razón social').max(254),
@@ -43,8 +44,8 @@ export const CartaPorteSchema = z.object({
     .string()
     .regex(/^[A-Za-z]{3}$/, 'Clave SAT c_Estado de 3 letras (ej. QUE)'),
   distanciaKm: z.number().positive('La distancia debe ser mayor a 0'),
-  vehiculoId: z.string().uuid('Selecciona un vehículo'),
-  operadorId: z.string().uuid('Selecciona un operador'),
+  vehiculoId: zId('Selecciona un vehículo'),
+  operadorId: zId('Selecciona un operador'),
   fechaSalida: z.string().min(1, 'Fecha de salida requerida'),
   fechaLlegadaEstimada: z.string().min(1, 'Fecha de llegada requerida'),
   // Tipo I: servicio facturado
@@ -62,7 +63,7 @@ export type CartaPorteValues = z.infer<typeof CartaPorteSchema>;
  */
 export const SiguienteTramoSchema = z.object({
   tipoCfdi: z.enum(['T', 'I']),
-  sucursalId: z.string().uuid('Selecciona una sucursal'),
+  sucursalId: zId('Selecciona una sucursal'),
   origen: z.string().min(1, 'Origen del tramo').max(254),
   destino: z.string().min(1, 'Destino del tramo').max(254),
   // F12-PR3: el tramo nuevo tiene origen/destino propios — domicilio SAT.
@@ -75,8 +76,8 @@ export const SiguienteTramoSchema = z.object({
     .string()
     .regex(/^[A-Za-z]{3}$/, 'Clave SAT c_Estado de 3 letras (ej. QUE)'),
   distanciaKm: z.number().positive('La distancia debe ser mayor a 0'),
-  vehiculoId: z.string().uuid('Selecciona un vehículo'),
-  operadorId: z.string().uuid('Selecciona un operador'),
+  vehiculoId: zId('Selecciona un vehículo'),
+  operadorId: zId('Selecciona un operador'),
   fechaSalida: z.string().min(1, 'Fecha de salida requerida'),
   fechaLlegadaEstimada: z.string().min(1, 'Fecha de llegada requerida'),
   montoServicio: z.number().min(0, 'El monto no puede ser negativo'),
