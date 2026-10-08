@@ -6,9 +6,8 @@ namespace Millet.Facturacion.Application.Timbrado;
 
 /// <summary>
 /// Resuelve el snapshot del emisor al emitir un comprobante NUEVO (F12-PR1):
-/// RFC y régimen vienen del comando (prellenados por el FE desde
-/// emisor-defaults, FAC-UX-PR1); razón social y CP fiscal (LugarExpedicion)
-/// se leen del master de la empresa vía <see cref="IEmpresaFiscalReadPort"/>.
+/// RFC, razón social, régimen y CP fiscal (LugarExpedicion) se leen del
+/// master de la empresa vía <see cref="IEmpresaFiscalReadPort"/>.
 /// Falla ANTES de reservar folio si la empresa no tiene CP capturado
 /// (<c>EMISOR_SIN_LUGAR_EXPEDICION</c>) — no se queman folios ni timbres.
 ///
@@ -20,8 +19,6 @@ public static class EmisorSnapshot
     public static async Task<DatosFiscalesEmisor> ResolverAsync(
         IEmpresaFiscalReadPort empresas,
         Guid empresaId,
-        string rfcEmisor,
-        string regimenFiscalEmisor,
         CancellationToken cancellationToken)
     {
         var lectura = await empresas.ObtenerAsync(empresaId, cancellationToken)
@@ -30,9 +27,9 @@ public static class EmisorSnapshot
                 $"La empresa '{empresaId}' no existe o está inactiva.");
 
         return new DatosFiscalesEmisor(
-            Rfc: rfcEmisor,
+            Rfc: lectura.Rfc,
             Nombre: lectura.RazonSocial,
-            RegimenFiscal: regimenFiscalEmisor,
+            RegimenFiscal: lectura.RegimenFiscal,
             LugarExpedicion: lectura.CodigoPostal ?? string.Empty).Validar();
     }
 }

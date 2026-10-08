@@ -23,6 +23,15 @@ public sealed class UsuarioSucursalReadAdapter : IUsuarioSucursalReadPort
 
     public UsuarioSucursalReadAdapter(IdentidadDbContext db) => _db = db;
 
+    public async Task<IReadOnlyList<Guid>> ListarIdsAsync(
+        Guid usuarioId, CancellationToken cancellationToken)
+    {
+        return await _db.UsuarioSucursales.AsNoTracking()
+            .Where(a => a.UsuarioId == usuarioId && a.Estatus == EstatusCatalogo.Activo)
+            .Select(a => a.SucursalId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> EstaAsociadoAsync(
         Guid usuarioId, Guid sucursalId, CancellationToken cancellationToken)
     {

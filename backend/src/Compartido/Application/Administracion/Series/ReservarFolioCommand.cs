@@ -57,34 +57,69 @@ public sealed class ReservarFolioHandler
     : IRequestHandler<ReservarFolioCommand, ReservarFolioResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
+    private readonly Millet.SharedKernel.Application.IClock _clock;
 
-    public ReservarFolioHandler(CompartidoDbContext db) => _db = db;
+    public ReservarFolioHandler(CompartidoDbContext db, SerieSucursalScope scope, Millet.SharedKernel.Application.IClock clock)
+    {
+        _db = db;
+        _scope = scope;
+        _clock = clock;
+    }
 
     public async Task<ReservarFolioResponse> Handle(
         ReservarFolioCommand command, CancellationToken cancellationToken)
     {
+        _scope.VerificarEmpresa(command.EmpresaId);
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted, cancellationToken);
+
         // Resolver la Serie activa. Estrategia: buscar primero con
         // SucursalId del request; si no hay, caer al match cross-sucursal
         // (SucursalId IS NULL). Permite que una empresa tenga una serie
         // específica por sucursal y un fallback general.
-        Serie? serie = null;
+        Guid? serieId = null;
         if (command.SucursalId is Guid sucId)
         {
-            serie = await _db.Series.AsNoTracking()
-                .FirstOrDefaultAsync(s =>
-                    s.EmpresaId == command.EmpresaId
-                    && s.SucursalId == sucId
-                    && s.TipoDocumento == command.TipoDocumento
-                    && s.Activa,
-                    cancellationToken);
+            const string sqlSucursal = """
+                SELECT id AS "Value"
+                FROM compartido.series
+                WHERE empresa_id = {0}
+                  AND sucursal_id = {1}
+                  AND tipo_documento = {2}
+                  AND activa
+                ORDER BY id
+                LIMIT 2
+                FOR UPDATE
+                """;
+            var candidatas = await _db.Database.SqlQueryRaw<Guid>(
+                sqlSucursal, command.EmpresaId, sucId, (short)command.TipoDocumento).ToListAsync(cancellationToken);
+            if (candidatas.Count > 1) throw new BusinessRuleException("SERIE_AMBIGUA", "Hay varias series activas. Corrige el catálogo antes de reservar.");
+            serieId = candidatas.Count == 1 ? candidatas[0] : null;
         }
-        serie ??= await _db.Series.AsNoTracking()
-            .FirstOrDefaultAsync(s =>
-                s.EmpresaId == command.EmpresaId
-                && s.SucursalId == null
-                && s.TipoDocumento == command.TipoDocumento
-                && s.Activa,
-                cancellationToken);
+        if (serieId is null || serieId == Guid.Empty)
+        {
+            const string sqlGlobal = """
+                SELECT id AS "Value"
+                FROM compartido.series
+                WHERE empresa_id = {0}
+                  AND sucursal_id IS NULL
+                  AND tipo_documento = {1}
+                  AND activa
+                ORDER BY id
+                LIMIT 2
+                FOR UPDATE
+                """;
+            var candidatas = await _db.Database.SqlQueryRaw<Guid>(
+                sqlGlobal, command.EmpresaId, (short)command.TipoDocumento).ToListAsync(cancellationToken);
+            if (candidatas.Count > 1) throw new BusinessRuleException("SERIE_AMBIGUA", "Hay varias series globales activas. Corrige el catálogo antes de reservar.");
+            serieId = candidatas.Count == 1 ? candidatas[0] : null;
+        }
+
+        var serie = serieId is Guid id && id != Guid.Empty
+            ? await _db.Series.AsNoTracking().SingleAsync(s => s.Id == id, cancellationToken)
+            : null;
 
         if (serie is null)
         {
@@ -96,6 +131,10 @@ public sealed class ReservarFolioHandler
                 "Configúrala en Administración → Series.");
         }
 
+        if (Serie.EsFiscal(serie.TipoDocumento) && serie.ReinicioPeriodo != ReinicioPeriodo.None)
+            throw new BusinessRuleException("SERIE_FISCAL_CONTINUIDAD_PENDIENTE",
+                "La serie fiscal heredada tiene reinicio. Fiscal debe conciliar su continuidad y configurar un reemplazo antes de reservar.");
+
         var periodoClave = Serie.CalcularPeriodoClave(serie.ReinicioPeriodo, command.FechaReferencia);
 
         // Reserva atómica vía UPSERT con RETURNING (mismo patrón que
@@ -105,7 +144,7 @@ public sealed class ReservarFolioHandler
         // no existe, la INSERT crea con ultimo_numero=1 y retorna 1; si
         // ya existe, la UPDATE incrementa y retorna el nuevo valor.
         var nuevoId = Guid.CreateVersion7();
-        var nowUtc = DateTimeOffset.UtcNow;
+        var nowUtc = _clock.UtcNow;
         const string seedBy = "reservar-folio";
 
         // UPSERT con RETURNING. EF Core trata params como object[]; los
@@ -117,7 +156,7 @@ public sealed class ReservarFolioHandler
                 (id, serie_id, periodo_clave, ultimo_numero,
                  version, created_at, updated_at, created_by, updated_by, deleted_at)
             VALUES
-                ({{0}}, {{1}}, {{2}}, 1, 1, {{3}}, {{3}}, {{4}}, {{4}}, NULL)
+                ({{0}}, {{1}}, {{2}}, {{5}}, 1, {{3}}, {{3}}, {{4}}, {{4}}, NULL)
             ON CONFLICT (serie_id, periodo_clave) DO UPDATE
               SET ultimo_numero = compartido.secuencias_folio.ultimo_numero + 1,
                   updated_at = {{3}},
@@ -126,12 +165,13 @@ public sealed class ReservarFolioHandler
         ";
 
         var result = await _db.Database
-            .SqlQueryRaw<long>(sql, nuevoId, serie.Id, periodoClave, nowUtc, (object)seedBy)
+            .SqlQueryRaw<long>(sql, nuevoId, serie.Id, periodoClave, nowUtc, (object)seedBy, serie.FolioInicial)
             .ToListAsync(cancellationToken);
         var numero = result.Single();
 
         var folio = FormatearFolio(serie, periodoClave, numero);
-        return new ReservarFolioResponse(folio, numero, periodoClave);
+        await transaction.CommitAsync(cancellationToken);
+        return new ReservarFolioResponse(folio, numero, periodoClave, serie.Id);
     }
 
     internal static string FormatearFolio(Serie serie, string periodoClave, long numero)

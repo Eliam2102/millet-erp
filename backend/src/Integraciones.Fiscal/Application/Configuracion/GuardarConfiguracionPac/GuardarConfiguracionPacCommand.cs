@@ -33,6 +33,7 @@ public sealed record GuardarConfiguracionPacCommand(
     string BaseUrl,
     string? ApiKey,
     bool Activo,
+    int? VersionEsperada = null,
     IdentidadSandboxDto? EmisorSandbox = null,
     IdentidadSandboxDto? ReceptorSandbox = null,
     CsdDto? Csd = null) : IRequest<ConfiguracionPacResponse>;

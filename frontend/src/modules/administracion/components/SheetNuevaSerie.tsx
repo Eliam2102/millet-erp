@@ -172,6 +172,7 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
   const form = useForm<CrearSerieValues>({
     resolver: zodResolver(CrearSerieSchema),
     defaultValues: {
+      folioInicial: 1,
       empresaId: '',
       sucursalId: null,
       tipoDocumento: TipoDocumentoSerie.OrdenCompra,
@@ -184,6 +185,12 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
   // useWatch (estable, suscripción granular). form.watch dispara el
   // lint react-hooks/incompatible-library.
   const empresaId = useWatch({ control: form.control, name: 'empresaId' });
+  const tipoDocumento = useWatch({ control: form.control, name: 'tipoDocumento' });
+  const esFiscal = [TipoDocumentoSerie.Cfdi, TipoDocumentoSerie.NotaCredito, TipoDocumentoSerie.FacturaAnticipo].includes(tipoDocumento as 2 | 3 | 5);
+  useEffect(() => {
+    if (esFiscal) form.setValue('reinicioPeriodo', ReinicioPeriodo.None, { shouldDirty: true });
+  }, [esFiscal, form]);
+  const folioInicial = useWatch({ control: form.control, name: 'folioInicial' });
   const prefijo = useWatch({ control: form.control, name: 'prefijo' });
   const sufijo = useWatch({ control: form.control, name: 'sufijo' });
   const reinicio = useWatch({
@@ -211,13 +218,14 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
   }, [empresaId]);
   const previewFolio =
     prefijo.length > 0
-      ? previewFolioAproximado(prefijo, sufijo, reinicio)
+      ? previewFolioAproximado(prefijo, sufijo, reinicio, folioInicial)
       : '—';
 
   function onSubmit(values: CrearSerieValues) {
     crear.mutate(
       {
         command: {
+          folioInicial: values.folioInicial,
           empresaId: values.empresaId,
           sucursalId: values.sucursalId,
           tipoDocumento: values.tipoDocumento,
@@ -275,6 +283,12 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
       noValidate
       className="space-y-4 rounded-md border bg-card p-4"
     >
+      <div className="space-y-1.5">
+        <label htmlFor="folio-inicial" className="text-xs font-medium text-ink-strong">Folio inicial</label>
+        <Input id="folio-inicial" type="number" min={1} {...form.register('folioInicial', { valueAsNumber: true })} />
+        <p className="text-xs text-ink-muted">Captura el siguiente folio autorizado. Después de reservar, solo avanza.</p>
+        {form.formState.errors.folioInicial && <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.folioInicial.message}</p>}
+      </div>
       <FormRow
         label="Empresa"
         required
@@ -427,7 +441,7 @@ function NuevaSerieForm({ onClose, onDirtyChange }: NuevaSerieFormProps) {
               aria-label="Reinicio de periodo"
               className="space-y-2"
             >
-              {REINICIO_OPTIONS.map((value) => {
+              {(esFiscal ? [ReinicioPeriodo.None] : REINICIO_OPTIONS).map((value) => {
                 const checked = field.value === value;
                 return (
                   <label
@@ -500,7 +514,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
@@ -510,7 +524,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
         <p className="text-xs text-muted-foreground">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

@@ -42,8 +42,9 @@ export function previewFolioAproximado(
   prefijo: string,
   sufijo: string | null,
   reinicioPeriodo: ReinicioPeriodo,
+  folioInicial = 1,
 ): string {
-  const num = '000001';
+  const num = String(folioInicial).padStart(6, '0');
   if (reinicioPeriodo === ReinicioPeriodo.None) {
     return `${prefijo}${sufijo ?? ''}-${num}`;
   }

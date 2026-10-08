@@ -99,7 +99,7 @@ public sealed class EmitirFacturaAnticipoHandler
 
         // 2.bis F12-PR1: snapshot del emisor (falla sin CP fiscal, sin quemar folio).
         var emisor = await EmisorSnapshot.ResolverAsync(
-            _empresasFiscal, empresaId, command.RfcEmisor, command.RegimenFiscalEmisor, cancellationToken);
+            _empresasFiscal, empresaId, cancellationToken);
 
         // 3. Reserva atómica de folio de la serie de anticipos (FANT).
         var reserva = await _sender.Send(

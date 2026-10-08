@@ -382,6 +382,13 @@ public sealed class CompartidoDbContext : BaseDbContext
         serie.Property(x => x.Sufijo).HasMaxLength(10);
         serie.Property(x => x.ReinicioPeriodo).HasConversion<short>().IsRequired();
         serie.Property(x => x.Activa).IsRequired();
+        serie.Property(x => x.FolioInicial).HasDefaultValue(1L).IsRequired();
+        serie.HasIndex(x => new { x.EmpresaId, x.SucursalId, x.TipoDocumento })
+            .HasDatabaseName("ix_series_fiscal_activa_sucursal").IsUnique()
+            .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5)");
+        serie.HasIndex(x => new { x.EmpresaId, x.TipoDocumento })
+            .HasDatabaseName("ix_series_fiscal_activa_global").IsUnique()
+            .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5)");
 
         // Índice único compuesto. Para que los NULLs de SucursalId/Sufijo
         // no salten el unique de PostgreSQL, usamos COALESCE a sentinels.

@@ -53,7 +53,7 @@ public sealed class ConfiguracionPacResolverTests
             id: Guid.NewGuid(),
             empresaId: EmpresaId,
             proveedor: ProveedorPac.FiscalApi,
-            baseUrl: "https://api.fiscalapi.com",
+            baseUrl: "https://live.fiscalapi.com",
             apiKeyCifrado: cipher.Encrypt("secret-123"),
             apiKeyHash: FiscalSecretCipher.HashForChangeDetection("secret-123"),
             ahora: Ahora);
@@ -81,7 +81,7 @@ public sealed class ConfiguracionPacResolverTests
 
         result.Should().NotBeNull();
         result!.ApiKey.Should().Be("secret-123");
-        result.BaseUrl.Should().Be("https://api.fiscalapi.com");
+        result.BaseUrl.Should().Be("https://live.fiscalapi.com");
         result.Activo.Should().BeTrue();
     }
 

@@ -904,6 +904,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<long>("FolioInicial")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("folio_inicial");
+
                     b.Property<string>("Prefijo")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -942,6 +948,16 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                     b.HasKey("Id")
                         .HasName("pk_series");
+
+                    b.HasIndex("EmpresaId", "TipoDocumento")
+                        .IsUnique()
+                        .HasDatabaseName("ix_series_fiscal_activa_global")
+                        .HasFilter("activa AND sucursal_id IS NULL AND tipo_documento IN (2, 3, 5)");
+
+                    b.HasIndex("EmpresaId", "SucursalId", "TipoDocumento")
+                        .IsUnique()
+                        .HasDatabaseName("ix_series_fiscal_activa_sucursal")
+                        .HasFilter("activa AND sucursal_id IS NOT NULL AND tipo_documento IN (2, 3, 5)");
 
                     b.HasIndex("EmpresaId", "TipoDocumento", "Activa")
                         .HasDatabaseName("ix_series_empresa_id_tipo_documento_activa");

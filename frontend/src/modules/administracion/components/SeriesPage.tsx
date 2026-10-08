@@ -28,6 +28,7 @@ import {
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useSucursales } from '@/features/catalogos/api';
 import {
   useDesactivarSerie,
   useEmpresas,
@@ -75,17 +76,20 @@ export function SeriesPage() {
   );
   const nueva = useNuevaSerie();
   const empresasQuery = useEmpresas({ limit: 200 });
+  const sucursalesQuery = useSucursales();
   const empresas = useMemo(
     () => empresasQuery.data?.items ?? [],
     [empresasQuery.data],
   );
 
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [sucursalId, setSucursalId] = useState<string | null>(null);
   const [tipoDoc, setTipoDoc] = useState<TipoDocumentoSerie | null>(null);
   const [offset, setOffset] = useState(0);
 
   const seriesQuery = useSeries({
     empresaId: empresaId ?? undefined,
+    sucursalId: sucursalId ?? undefined,
     tipoDocumento: tipoDoc ?? undefined,
     offset,
     limit: PAGE_LIMIT,
@@ -96,6 +100,14 @@ export function SeriesPage() {
     [seriesQuery.data],
   );
   const total = seriesQuery.data?.total ?? 0;
+  const sucursales = useMemo(
+    () => sucursalesQuery.data?.items ?? [],
+    [sucursalesQuery.data],
+  );
+  const sucursalesMap = useMemo(
+    () => new Map(sucursales.map((s) => [s.id, s.nombre])),
+    [sucursales],
+  );
   const empresasMap = useMemo(() => {
     const m = new Map<string, { rfc: string; razonSocial: string }>();
     for (const e of empresas) {
@@ -106,10 +118,11 @@ export function SeriesPage() {
 
   const limpiarFiltros = () => {
     setEmpresaId(null);
+    setSucursalId(null);
     setTipoDoc(null);
     setOffset(0);
   };
-  const hayFiltro = empresaId != null || tipoDoc != null;
+  const hayFiltro = empresaId != null || sucursalId != null || tipoDoc != null;
 
   return (
     <div className="space-y-4 p-4">
@@ -132,6 +145,29 @@ export function SeriesPage() {
       </header>
 
       <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Sucursal
+          </label>
+          <Select
+            value={sucursalId ?? TODOS}
+            onValueChange={(v) => {
+              setSucursalId(v === TODOS ? null : v);
+              setOffset(0);
+            }}
+          >
+            <SelectTrigger className="h-9 w-56">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todas</SelectItem>
+              {sucursales.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">
             Empresa
@@ -199,6 +235,7 @@ export function SeriesPage() {
       <SeriesTabla
         items={items}
         empresasMap={empresasMap}
+        sucursalesMap={sucursalesMap}
         isLoading={seriesQuery.isLoading}
         isError={seriesQuery.isError}
         error={seriesQuery.error}
@@ -242,6 +279,7 @@ export function SeriesPage() {
 interface SeriesTablaProps {
   items: readonly SerieResponse[];
   empresasMap: Map<string, { rfc: string; razonSocial: string }>;
+  sucursalesMap: Map<string, string>;
   isLoading: boolean;
   isError: boolean;
   error: unknown;
@@ -253,6 +291,7 @@ interface SeriesTablaProps {
 function SeriesTabla({
   items,
   empresasMap,
+  sucursalesMap,
   isLoading,
   isError,
   error,
@@ -310,8 +349,10 @@ function SeriesTabla({
   }
 
   function handleConfirmarDesactivar(id: string) {
+    const serie = items.find((item) => item.id === id);
+    if (serie == null) return;
     desactivar.mutate(
-      { id, idempotencyKey },
+      { id, versionEsperada: serie.version, idempotencyKey },
       {
         onSuccess: () => {
           toast.success('Serie desactivada');
@@ -341,6 +382,9 @@ function SeriesTabla({
             <tr>
               <th scope="col" className="px-3 py-2 text-left">
                 Empresa
+              </th>
+              <th scope="col" className="px-3 py-2 text-left">
+                Sucursal
               </th>
               <th scope="col" className="px-3 py-2 text-left">
                 Tipo documento
@@ -378,6 +422,11 @@ function SeriesTabla({
                           {empresa.razonSocial}
                         </div>
                       )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {serie.sucursalId == null
+                        ? 'Global'
+                        : (sucursalesMap.get(serie.sucursalId) ?? serie.sucursalId)}
                     </td>
                     <td className="px-3 py-2">
                       {TIPO_DOCUMENTO_LABEL[serie.tipoDocumento]}
@@ -440,7 +489,7 @@ function SeriesTabla({
                   </tr>
                   {editando && (
                     <tr>
-                      <td colSpan={7} className="bg-amber-50/40 p-3">
+                      <td colSpan={8} className="bg-warning-note-bg p-3">
                         <SerieFilaEditable
                           serie={serie}
                           onCancel={() => setEditandoId(null)}

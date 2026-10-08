@@ -22,11 +22,13 @@ public sealed class ObtenerSerieHandler
 {
     private readonly CompartidoDbContext _db;
     private readonly IClock _clock;
+    private readonly SerieSucursalScope _scope;
 
-    public ObtenerSerieHandler(CompartidoDbContext db, IClock clock)
+    public ObtenerSerieHandler(CompartidoDbContext db, IClock clock, SerieSucursalScope scope)
     {
         _db = db;
         _clock = clock;
+        _scope = scope;
     }
 
     public async Task<SerieDetalleResponse> Handle(
@@ -38,6 +40,9 @@ public sealed class ObtenerSerieHandler
                 "SERIE_NO_ENCONTRADA",
                 $"No existe serie con id '{query.Id}'.");
 
+        if (serie.SucursalId is not null)
+            await _scope.VerificarAsync(serie.SucursalId, cancellationToken);
+
         var fechaHoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
         var periodo = Serie.CalcularPeriodoClave(serie.ReinicioPeriodo, fechaHoy);
 
@@ -46,13 +51,13 @@ public sealed class ObtenerSerieHandler
             .Select(x => (long?)x.UltimoNumero)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var siguiente = (ultimo ?? 0) + 1;
+        var siguiente = (ultimo ?? (serie.FolioInicial - 1)) + 1;
         var preview = FormatearFolio(serie, periodo, siguiente);
 
         var dto = new SerieResponse(
             serie.Id, serie.EmpresaId, serie.SucursalId, serie.TipoDocumento,
             serie.Prefijo, serie.Sufijo, serie.ReinicioPeriodo,
-            serie.Activa, serie.Version);
+            serie.Activa, serie.Version, serie.FolioInicial);
 
         return new SerieDetalleResponse(dto, preview);
     }

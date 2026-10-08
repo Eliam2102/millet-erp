@@ -79,6 +79,8 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
     public string? CsdHash { get; private set; }
 
     public DateTimeOffset? CsdActualizadoAt { get; private set; }
+    public DateTimeOffset? CsdNotBefore { get; private set; }
+    public DateTimeOffset? CsdNotAfter { get; private set; }
 
     /// <summary>Las tres piezas del CSD están capturadas — condición para timbrar por valores.</summary>
     public bool CsdConfigurado =>
@@ -121,6 +123,8 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
     /// Rota el ApiKey (y opcionalmente la BaseUrl). Idempotente: si
     /// <paramref name="apiKeyHash"/> coincide con el actual, no toca nada.
     /// </summary>
+    internal ConfiguracionPac CopiarCandidato() => (ConfiguracionPac)MemberwiseClone();
+
     public void RotarApiKey(byte[] nuevoCifrado, string nuevoHash, DateTimeOffset ahora)
     {
         ValidarApiKey(nuevoCifrado, nuevoHash);
@@ -182,7 +186,9 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         byte[] llavePrivadaCifrada,
         byte[] passwordCifrado,
         string hash,
-        DateTimeOffset ahora)
+        DateTimeOffset ahora,
+        DateTimeOffset notBefore,
+        DateTimeOffset notAfter)
     {
         if (certificadoCifrado is not { Length: > 0 }
             || llavePrivadaCifrada is not { Length: > 0 }
@@ -192,6 +198,9 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         if (string.IsNullOrWhiteSpace(hash) || hash.Length != 64)
             throw new BusinessRuleException("CONFIG_PAC_CSD_HASH_INVALIDO",
                 "CsdHash debe ser SHA256 hex de 64 caracteres.");
+        if (notAfter <= notBefore)
+            throw new BusinessRuleException("CONFIG_PAC_CSD_VIGENCIA_INVALIDA",
+                "La vigencia del CSD es inválida.");
 
         if (hash == CsdHash) return; // idempotente
 
@@ -200,6 +209,16 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         CsdPasswordCifrado = passwordCifrado;
         CsdHash = hash;
         CsdActualizadoAt = ahora;
+        CsdNotBefore = notBefore;
+        CsdNotAfter = notAfter;
+    }
+
+    /// <summary>Estado derivado; se considera próximo a vencer durante sus últimos 30 días.</summary>
+    public EstadoCsd? ObtenerEstadoCsd(DateTimeOffset ahora)
+    {
+        if (!CsdConfigurado || CsdNotBefore is null || CsdNotAfter is null) return null;
+        if (ahora < CsdNotBefore || ahora > CsdNotAfter) return EstadoCsd.Vencido;
+        return CsdNotAfter <= ahora.AddDays(30) ? EstadoCsd.ProximoAVencer : EstadoCsd.Vigente;
     }
 
     /// <summary>Elimina el CSD capturado (p.ej. credencial comprometida). Idempotente.</summary>
@@ -210,6 +229,8 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         CsdPasswordCifrado = null;
         CsdHash = null;
         CsdActualizadoAt = null;
+        CsdNotBefore = null;
+        CsdNotAfter = null;
     }
 
     /// <summary>Activa la configuración. Idempotente.</summary>
@@ -224,15 +245,21 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
         UltimaTestConexionExitosa = exitosa;
     }
 
-    private static void ValidarBaseUrl(string baseUrl)
+    public static void ValidarBaseUrl(string baseUrl)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new BusinessRuleException("CONFIG_PAC_BASE_URL_INVALIDA",
                 "BaseUrl es requerida.");
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri)
-            || (uri.Scheme is not "http" and not "https"))
+            || uri.Scheme != Uri.UriSchemeHttps
+            || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || uri.AbsolutePath != "/"
+            || !string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment)
+            || (uri.Host != "test.fiscalapi.com" && uri.Host != "live.fiscalapi.com"))
             throw new BusinessRuleException("CONFIG_PAC_BASE_URL_INVALIDA",
-                "BaseUrl debe ser una URI absoluta http o https.");
+                "BaseUrl debe ser un origen HTTPS oficial de FiscalAPI (test o live).");
         if (baseUrl.Length > 500)
             throw new BusinessRuleException("CONFIG_PAC_BASE_URL_INVALIDA",
                 "BaseUrl excede 500 caracteres.");
@@ -247,4 +274,11 @@ public sealed class ConfiguracionPac : BaseEntity, IPerteneceAEmpresa, IAuditabl
             throw new BusinessRuleException("CONFIG_PAC_APIKEY_HASH_INVALIDO",
                 "ApiKeyHash debe ser SHA256 hex de 64 caracteres.");
     }
+}
+
+public enum EstadoCsd
+{
+    Vigente,
+    ProximoAVencer,
+    Vencido
 }

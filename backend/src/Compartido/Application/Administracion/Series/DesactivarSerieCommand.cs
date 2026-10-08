@@ -9,14 +9,19 @@ namespace Millet.Administracion.Application.Series;
 /// Desactiva una <see cref="Domain.Serie"/> (F-Admin-PR6.1). Idempotente:
 /// si ya está inactiva, no-op.
 /// </summary>
-public sealed record DesactivarSerieCommand(Guid Id) : IRequest<SerieResponse>;
+public sealed record DesactivarSerieCommand(Guid Id, int VersionEsperada) : IRequest<SerieResponse>;
 
 public sealed class DesactivarSerieHandler
     : IRequestHandler<DesactivarSerieCommand, SerieResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
 
-    public DesactivarSerieHandler(CompartidoDbContext db) => _db = db;
+    public DesactivarSerieHandler(CompartidoDbContext db, SerieSucursalScope scope)
+    {
+        _db = db;
+        _scope = scope;
+    }
 
     public async Task<SerieResponse> Handle(
         DesactivarSerieCommand command, CancellationToken cancellationToken)
@@ -26,6 +31,11 @@ public sealed class DesactivarSerieHandler
             ?? throw new EntityNotFoundException(
                 "SERIE_NO_ENCONTRADA",
                 $"No existe serie con id '{command.Id}'.");
+
+        await _scope.VerificarAsync(serie.SucursalId, cancellationToken);
+
+        if (serie.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(Domain.Serie), serie.Id);
 
         if (serie.Activa)
         {
