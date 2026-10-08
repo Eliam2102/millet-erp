@@ -131,7 +131,14 @@ builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<ICurrentEmpresaContext, CurrentEmpresaContext>();
 builder.Services.AddScoped<IAuditOriginContext, AuditOriginContext>();
 builder.Services.AddScoped<IAuditCorrelationContext, AuditCorrelationContext>();
-builder.Services.AddSingleton<IPermissionCache, InMemoryPermissionCache>();
+// U1.0: el decorator expira también el cache de service principals en
+// cada invalidación de permisos.
+builder.Services.AddSingleton<Millet.Identidad.Infrastructure.Adapters.ServicePrincipalCacheSignal>();
+builder.Services.AddSingleton<InMemoryPermissionCache>();
+builder.Services.AddSingleton<IPermissionCache>(sp =>
+    new Millet.Identidad.Infrastructure.Adapters.ServicePrincipalAwarePermissionCache(
+        sp.GetRequiredService<InMemoryPermissionCache>(),
+        sp.GetRequiredService<Millet.Identidad.Infrastructure.Adapters.ServicePrincipalCacheSignal>()));
 
 // === IIntegrationEventPublisher (F6-PR1, ADR-0009): Outbox real ===
 // El publisher encola al buffer scoped; el OutboxSaveChangesInterceptor
