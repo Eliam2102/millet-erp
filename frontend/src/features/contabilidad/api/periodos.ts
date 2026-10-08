@@ -64,8 +64,9 @@ function useInvalidar() {
   return () => void qc.invalidateQueries({ queryKey: periodoKeys.all });
 }
 
-export function useEjercicios() {
+export function useEjercicios(options: { enabled?: boolean; retry?: number; staleTime?: number } = {}) {
   return useQuery({
+    ...options,
     queryKey: periodoKeys.ejercicios,
     queryFn: async ({ signal }) => (await apiRequest<EjercicioContable[]>(`${BASE}/ejercicios`, { signal })).data,
   });
