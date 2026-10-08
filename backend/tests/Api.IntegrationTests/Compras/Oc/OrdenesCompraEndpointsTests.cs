@@ -68,6 +68,36 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
 
     // --------- POST /api/v1/compras/ordenes ---------
 
+    [Theory]
+    [InlineData(0, 10, 90)]
+    [InlineData(1, 10, 90)]
+    [InlineData(1, 0, 100)]
+    public async Task Detalle_expone_descuento_y_subtotal_de_diez_por_diez(int tipo, decimal descuento, decimal subtotal)
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var creada = await client.PostAsJsonAsync(EndpointBase, ValidBody() with
+        {
+            SinRequisicionPrevia = true, MotivoSinRequisicion = "FIX regresión descuento de línea",
+        });
+        creada.EnsureSuccessStatusCode();
+        var ocId = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+        var agregada = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/lineas", new
+        {
+            ArticuloId = Guid.Parse("00000007-0001-0000-0000-000000000001"),
+            Cantidad = 10m, PrecioUnitario = 10m, UnidadMedida = "PZA",
+            DepartamentoSolicitanteId = Guid.Parse("00000004-0001-0000-0000-000000000001"),
+            DescuentoTipo = tipo, DescuentoValor = descuento,
+            CentroCostoId = CentroCostoSeedId,
+        });
+        Assert.Equal(HttpStatusCode.Created, agregada.StatusCode);
+        var consulta = await client.GetAsync($"{EndpointBase}/{ocId}");
+        consulta.EnsureSuccessStatusCode();
+        var linea = (await ReadJsonAsync(consulta)).GetProperty("lineas").EnumerateArray().Single();
+        Assert.Equal(tipo, linea.GetProperty("descuentoTipo").GetInt32());
+        Assert.Equal(descuento, linea.GetProperty("descuentoValor").GetDecimal());
+        Assert.Equal(subtotal, linea.GetProperty("subtotalLinea").GetDecimal());
+    }
+
     [Fact]
     public async Task Crear_Sin_Token_Retorna_401()
     {

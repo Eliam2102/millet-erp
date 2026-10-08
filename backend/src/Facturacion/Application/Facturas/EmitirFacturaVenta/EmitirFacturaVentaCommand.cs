@@ -103,7 +103,9 @@ public sealed record EmitirFacturaVentaResponse(
     int Version,
     IReadOnlyList<NotaCreditoAmortizacionEmitida>? NotasCreditoAmortizacion = null,
     // RANURA-PR2: NC automática de la ranura del pedido A+W (relación 01).
-    Millet.Facturacion.Application.NotasCredito.NotaCreditoRanuraEmitida? NotaCreditoRanura = null);
+    Millet.Facturacion.Application.NotasCredito.NotaCreditoRanuraEmitida? NotaCreditoRanura = null,
+    string? TimbradoErrorCodigo = null,
+    string? TimbradoErrorMensaje = null);
 
 /// <summary>NC de amortización autogenerada al emitir la factura con anticipos (F4-PR2).</summary>
 public sealed record NotaCreditoAmortizacionEmitida(

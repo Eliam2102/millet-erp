@@ -5,6 +5,7 @@ import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { LineaInlineFormOc } from '@/features/compras/ordenes/components/LineaInlineFormOc';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { DescuentoTipo } from '@/features/compras/ordenes/api/types';
 import type {
   LineaOrdenCompraResponse,
   OrdenCompraDetalleResponse,
@@ -71,6 +72,20 @@ beforeEach(() => {
 });
 
 describe('<LineaInlineFormOc> — CC-Máquina condicional (Fase E PR3)', () => {
+  it('al editar conserva el descuento guardado y muestra $90 para 10 × $10', async () => {
+    let enviado: Record<string, unknown> | undefined;
+    mswServer.use(http.patch('*/api/v1/compras/ordenes/oc-1/lineas/l-1', async ({ request }) => {
+      enviado = await request.json() as Record<string, unknown>;
+      return HttpResponse.json({}, { status: 200 });
+    }));
+    render(<LineaInlineFormOc oc={OC} linea={lineaHeredada({ cantidad: 10, precioUnitario: 10,
+      descuentoTipo: DescuentoTipo.Monto, descuentoValor: 10 })} onCancel={() => {}} />,
+    { wrapper: createQueryWrapper() });
+    expect(screen.getByText('90.00')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(enviado).toMatchObject({ descuentoTipo: DescuentoTipo.Monto, descuentoValor: 10 }));
+  });
+
   it('línea manual (modo agregar): muestra el picker ABIERTO, no el display bloqueado', () => {
     render(<LineaInlineFormOc oc={OC} onCancel={() => {}} />, {
       wrapper: createQueryWrapper(),

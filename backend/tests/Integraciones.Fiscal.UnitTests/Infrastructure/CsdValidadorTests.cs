@@ -14,14 +14,19 @@ internal static class CsdTestFactory
     public static (string CerBase64, string KeyBase64, string Password) Crear(
         string password = "12345678a",
         DateTimeOffset? notBefore = null,
-        DateTimeOffset? notAfter = null)
+        DateTimeOffset? notAfter = null,
+        string subject = "CN=EKU9003173C9, OU=Sucursal de prueba")
     {
         using var rsa = RSA.Create(2048);
         var req = new CertificateRequest(
-            "CN=EKU9003173C9", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        using var cert = req.CreateSelfSigned(
+            subject, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        // Solo se exporta el certificado público; no asociar la llave al
+        // certificado evita depender del llavero del sistema operativo.
+        using var cert = req.Create(req.SubjectName,
+            X509SignatureGenerator.CreateForRSA(rsa, RSASignaturePadding.Pkcs1),
             notBefore ?? DateTimeOffset.UtcNow.AddDays(-1),
-            notAfter ?? DateTimeOffset.UtcNow.AddYears(4));
+            notAfter ?? DateTimeOffset.UtcNow.AddYears(4),
+            RandomNumberGenerator.GetBytes(16));
 
         var cerBase64 = Convert.ToBase64String(cert.Export(X509ContentType.Cert));
         var keyBase64 = Convert.ToBase64String(rsa.ExportEncryptedPkcs8PrivateKey(
@@ -34,6 +39,20 @@ internal static class CsdTestFactory
 public sealed class CsdValidadorTests
 {
     private static readonly DateTimeOffset Ahora = DateTimeOffset.UtcNow;
+
+    [Theory]
+    [InlineData("CN=EKU9003173C9")]
+    [InlineData("CN=\"Contribuyente, OU=Sucursal falsa\"")]
+    [InlineData("CN=EKU9003173C9, OU=\" \"")]
+    public void Fiel_sin_unidad_real_es_rechazada_antes_de_abrir_la_llave(string subject)
+    {
+        var (cer, key, _) = CsdTestFactory.Crear(subject: subject);
+        var act = () => CsdValidador.Validar(cer, key, "incorrecta", Ahora);
+
+        var error = act.Should().Throw<BusinessRuleException>().Which;
+        error.Code.Should().Be("CONFIG_PAC_CSD_ES_FIEL");
+        error.Message.Should().Be("Este archivo es una e.firma (FIEL), no un sello digital (CSD)");
+    }
 
     [Fact]
     public void Csd_valido_pasa()

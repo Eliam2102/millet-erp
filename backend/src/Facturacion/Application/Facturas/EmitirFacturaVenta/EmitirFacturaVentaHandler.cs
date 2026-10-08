@@ -298,7 +298,9 @@ public sealed class EmitirFacturaVentaHandler
             Total: factura.Total,
             Version: factura.Version,
             NotasCreditoAmortizacion: ncResp.Count > 0 ? ncResp : null,
-            NotaCreditoRanura: ncRanura);
+            NotaCreditoRanura: ncRanura,
+            TimbradoErrorCodigo: factura.TimbradoErrorCodigo,
+            TimbradoErrorMensaje: factura.TimbradoErrorMensaje);
     }
 
     /// <summary>

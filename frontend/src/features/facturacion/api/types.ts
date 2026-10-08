@@ -977,6 +977,8 @@ export interface EmitirFacturaVentaResponse {
   folio: string;
   total: number;
   version: number;
+  timbradoErrorCodigo?: string | null;
+  timbradoErrorMensaje?: string | null;
   /**
    * RANURA-PR2: NC automática de la ranura del pedido A+W (relación 01),
    * emitida y timbrada junto con la factura. null/ausente = sin ranura.
