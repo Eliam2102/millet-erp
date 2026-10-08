@@ -5,10 +5,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { http, HttpResponse } from 'msw';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
-import { accesosNavegacion, rutaPermitida } from '@/lib/nav';
+import { rutaPermitida } from '@/lib/nav';
 import { mswServer } from '@/test/mocks/server';
 import { createTestQueryClient } from '@/test/test-query-client';
-import { prioridadAccesos } from '../config';
+import { modulosInicio } from '../modulos';
 import { AccesosRapidos } from './AccesosRapidos';
 import { PanelInicio } from './PanelInicio';
 
@@ -99,55 +99,51 @@ function responder(path: string, total: number) {
   );
 }
 function pendientes() {
-  return within(screen.getByRole('region', { name: 'Mis pendientes' }));
+  return within(screen.getByRole('region', { name: 'Requiere tu acción' }));
 }
-function fila(titulo: string) {
-  return pendientes().getByRole('link', { name: new RegExp(`^${titulo}:`) });
+function indicadores() {
+  return within(screen.getByRole('region', { name: 'Indicadores' }));
+}
+async function fila(titulo: string) {
+  return pendientes().findByRole('link', { name: new RegExp(`^${titulo}:`) });
 }
 
-describe('PanelInicio', () => {
+describe('PanelInicio v2', () => {
   it('es el componente registrado en la ruta de inicio', async () => {
-    // Carga la ruta real sin incorporar todo routeTree.gen al proyecto TS de tests.
     const { Route } = await vi.importActual<{ Route: { options: { component: unknown } } }>(
       '@/routes/_app/index',
     );
     expect(Route.options.component).toBe(PanelInicio);
   });
-  it('solo consulta y muestra filas permitidas de CxP y depósitos', async () => {
+  it('solo consulta y muestra KPI y filas permitidos', async () => {
     responder(facturas, 7);
     responder(depositos, 3);
     montar(permisosDosFilas);
-    expect(await within(fila('Facturas en revisión')).findByText('7')).toBeInTheDocument();
-    expect(await within(fila('Depósitos por confirmar')).findByText('3')).toBeInTheDocument();
-    expect(
-      pendientes()
-        .getAllByRole('link')
-        .map((link) => link.getAttribute('aria-label')),
-    ).toEqual([
-      'Facturas en revisión: 7 pendientes',
-      'Depósitos por confirmar: 3 pendientes',
-      'Facturas vencidas: Abrir',
-    ]);
+    expect(await within(await fila('Facturas en revisión')).findByText('7')).toBeInTheDocument();
+    expect(await within(await fila('Depósitos por confirmar')).findByText('3')).toBeInTheDocument();
+    expect(pendientes().getAllByRole('link')).toHaveLength(2);
+    expect(indicadores().getAllByRole('link')).toHaveLength(2);
+    expect(indicadores().getByText('7')).toBeInTheDocument();
+    expect(indicadores().getByText('3')).toBeInTheDocument();
     for (const modulo of ['Compras', 'Almacén', 'CxC', 'Proveedores', 'Contabilidad'])
       expect(pendientes().queryByText(modulo)).not.toBeInTheDocument();
     expect(solicitudes.map((url) => url.pathname).sort()).toEqual([facturas, depositos].sort());
+    expect(screen.queryByRole('region', { name: 'Recientes' })).not.toBeInTheDocument();
   });
-  it('sin permisos no tiene filas ni HTTP y muestra exactamente los accesos disponibles', async () => {
+  it('sin permisos no tiene filas ni HTTP y usa módulos permitidos', async () => {
     montar();
     await act(async () => {});
-    expect(pendientes().getByText('Sin pendientes para tu rol')).toBeInTheDocument();
+    expect(pendientes().getByText('No tienes pendientes')).toBeInTheDocument();
     expect(pendientes().queryAllByRole('listitem')).toHaveLength(0);
-    const accesos = within(screen.getByRole('region', { name: 'Accesos rápidos' }));
-    const esperados = accesosNavegacion([]).filter(({ to }) => to !== '/');
-    expect(accesos.queryAllByRole('link').map((link) => link.getAttribute('href'))).toEqual(
-      esperados.map(({ to }) => to),
+    expect(indicadores().queryAllByRole('link')).toHaveLength(0);
+    const modulos = within(screen.getByRole('region', { name: 'Módulos' }));
+    expect(modulos.queryAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(
+      modulosInicio([]).map((a) => a.to),
     );
-    if (!esperados.length)
-      expect(accesos.getByText('No hay accesos disponibles para tu rol.')).toBeInTheDocument();
     expect(solicitudes).toHaveLength(0);
     expect(client.getQueryCache().getAll()).toHaveLength(0);
   });
-  it('aísla el error 500 y reintenta conservando encabezado y otra fila', async () => {
+  it('aísla error 500 y permite reintentar sin romper el resto', async () => {
     mswServer.use(
       http.get(`*${facturas}`, () =>
         HttpResponse.json({ title: 'Error', status: 500 }, { status: 500 }),
@@ -155,29 +151,28 @@ describe('PanelInicio', () => {
     );
     responder(depositos, 3);
     montar(permisosDosFilas);
-    expect(
-      await within(fila('Facturas en revisión')).findByText('No se pudo cargar'),
-    ).toBeInTheDocument();
-    expect(within(fila('Depósitos por confirmar')).getByText('3')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Mis pendientes' })).toBeInTheDocument();
+    const boton = await screen.findByRole('button', { name: 'Reintentar Facturas en revisión' });
+    expect(within(await fila('Depósitos por confirmar')).getByText('3')).toBeInTheDocument();
+    expect(indicadores().getByText('No se pudo cargar')).toBeInTheDocument();
+    expect(pendientes().queryByText('No tienes pendientes')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       /^(Buenos días|Buenas tardes|Buenas noches), Ana$/,
     );
     responder(facturas, 9);
-    fireEvent.click(screen.getByRole('button', { name: 'Reintentar Facturas en revisión' }));
-    expect(await within(fila('Facturas en revisión')).findByText('9')).toBeInTheDocument();
+    fireEvent.click(boton);
+    expect(within(await fila('Facturas en revisión')).getByText('9')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument();
-    expect(within(fila('Depósitos por confirmar')).getByText('3')).toBeInTheDocument();
   });
-  it('conteo cero muestra Sin pendientes', async () => {
+  it('conteo cero deja la bandeja vacía y un KPI normal sin tag', async () => {
     responder(depositos, 0);
     montar([P.TesoreriaDepositosConfirmar]);
-    expect(
-      await within(fila('Depósitos por confirmar')).findByText('Sin pendientes'),
-    ).toBeInTheDocument();
-    expect(within(fila('Depósitos por confirmar')).queryByText('0')).not.toBeInTheDocument();
+    expect(await pendientes().findByText('No tienes pendientes')).toBeInTheDocument();
+    expect(pendientes().queryAllByRole('link')).toHaveLength(0);
+    expect(indicadores().getByText('0')).toBeInTheDocument();
+    expect(indicadores().queryByText('Atención')).not.toBeInTheDocument();
+    expect(indicadores().queryByText('Crítico')).not.toBeInTheDocument();
   });
-  it('tiene aria-busy sin número mientras la respuesta está pendiente', async () => {
+  it('muestra carga sin inventar un número o un estado vacío', async () => {
     let resolver!: () => void;
     const respuesta = new Promise<void>((resolve) => {
       resolver = resolve;
@@ -191,16 +186,13 @@ describe('PanelInicio', () => {
     montar([P.TesoreriaDepositosConfirmar]);
     try {
       await waitFor(() => expect(solicitudes).toHaveLength(1));
-      expect(fila('Depósitos por confirmar')).toHaveAttribute('aria-busy', 'true');
-      expect(fila('Depósitos por confirmar')).toHaveAccessibleName(
-        'Depósitos por confirmar: Cargando',
-      );
-      expect(within(fila('Depósitos por confirmar')).queryByText(/^\d+$/)).not.toBeInTheDocument();
+      expect(indicadores().getByRole('link')).toHaveAttribute('aria-busy', 'true');
+      expect(indicadores().queryByText(/^\d+$/)).not.toBeInTheDocument();
+      expect(pendientes().queryByText('No tienes pendientes')).not.toBeInTheDocument();
     } finally {
       resolver();
     }
-    expect(await within(fila('Depósitos por confirmar')).findByText('6')).toBeInTheDocument();
-    expect(fila('Depósitos por confirmar')).not.toHaveAttribute('aria-busy');
+    expect(within(await fila('Depósitos por confirmar')).getByText('6')).toBeInTheDocument();
   });
   it.each([
     { niveles: [P.ComprasRequisicionesAutorizarNivel1], nivel: '1' },
@@ -209,71 +201,132 @@ describe('PanelInicio', () => {
       niveles: [P.ComprasRequisicionesAutorizarNivel1, P.ComprasRequisicionesAutorizarNivel2],
       nivel: null,
     },
-  ])('filtra petición y enlace de requisiciones por nivel $nivel', async ({ niveles, nivel }) => {
+  ])('filtra petición y enlaces de requisiciones por nivel $nivel', async ({ niveles, nivel }) => {
     responder(requisiciones, 4);
     montar([P.ComprasRequisicionesLeer, ...niveles]);
-    expect(await within(fila('Requisiciones por autorizar')).findByText('4')).toBeInTheDocument();
+    const link = await fila('Requisiciones por autorizar');
     expect(solicitudes).toHaveLength(1);
-    expect(solicitudes[0].pathname).toBe(requisiciones);
     expect(Object.fromEntries(solicitudes[0].searchParams)).toEqual({
       offset: '0',
       limit: '1',
       ...(nivel ? { nivelPendiente: nivel } : {}),
     });
-    expect(fila('Requisiciones por autorizar')).toHaveAttribute(
-      'href',
-      `/compras/pendientes${nivel ? `?nivelPendiente=${nivel}` : ''}`,
-    );
+    const href = `/compras/pendientes${nivel ? `?nivelPendiente=${nivel}` : ''}`;
+    expect(link).toHaveAttribute('href', href);
+    expect(indicadores().getByRole('link')).toHaveAttribute('href', href);
   });
-  it('OC envía page=1 y pageSize=1 y muestra totalCount', async () => {
+  it('OC usa totalCount, FIFO y antigüedad urgente con danger y ring crítico', async () => {
+    const fecha = new Date(Date.now() - 9 * 86400000).toISOString();
     mswServer.use(
       http.get(`*${ordenes}`, () =>
-        HttpResponse.json({ items: [], totalCount: 12, page: 1, pageSize: 1 }),
+        HttpResponse.json({
+          items: [{ fechaDocumento: fecha }],
+          totalCount: 12,
+          page: 1,
+          pageSize: 1,
+        }),
       ),
     );
     montar([P.ComprasOrdenesLeer, P.ComprasOrdenesAutorizarNivel1]);
-    expect(await within(fila('OC por autorizar')).findByText('12')).toBeInTheDocument();
-    expect(solicitudes).toHaveLength(1);
-    expect(solicitudes[0].pathname).toBe(ordenes);
+    const link = await fila('OC por autorizar');
+    expect(within(link).getByText('12')).toBeInTheDocument();
+    expect(within(link).getByText('hace 9 días')).toHaveClass('text-danger-fg', 'font-medium');
+    expect(indicadores().getByText('Crítico')).toBeInTheDocument();
+    expect(indicadores().getByRole('link').parentElement).toHaveClass('ring-danger-ring');
     expect(Object.fromEntries(solicitudes[0].searchParams)).toEqual({
       page: '1',
       pageSize: '1',
       nivel: 'Nivel1',
     });
   });
-  it('muestra primer nombre y empresa activa sin datos de sesión', () => {
+  it('no usa fechas de una API que entrega el más reciente primero', async () => {
+    mswServer.use(
+      http.get(`*${depositos}`, () =>
+        HttpResponse.json({ items: [{ createdAt: '2020-01-01' }], total: 1 }),
+      ),
+    );
+    montar([P.TesoreriaDepositosConfirmar]);
+    const link = await fila('Depósitos por confirmar');
+    expect(link).not.toHaveTextContent(/hace|ayer|hoy/);
+  });
+  it('elige cuatro KPI por prioridad entre cinco elegibles, conservando todas las filas positivas', async () => {
+    responder(facturas, 1);
+    responder(depositos, 11);
+    responder(requisiciones, 2);
+    mswServer.use(http.get(`*${ordenes}`, () => HttpResponse.json({ items: [], totalCount: 26 })));
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/partidas-abiertas/kpis', () =>
+        HttpResponse.json({ countPartidasAbiertas: 7, countAtrasadas: 1 }),
+      ),
+    );
+    montar([
+      ...permisosDosFilas,
+      P.ComprasRequisicionesLeer,
+      P.ComprasRequisicionesAutorizarNivel1,
+      P.ComprasOrdenesLeer,
+      P.ComprasOrdenesAutorizarNivel1,
+      P.ComprasOrdenesReportesPartidasAbiertas,
+    ]);
+    await waitFor(() => expect(pendientes().getAllByRole('link')).toHaveLength(5));
+    const links = indicadores().getAllByRole('link');
+    expect(links).toHaveLength(4);
+    expect(links.map((l) => l.getAttribute('aria-label')?.split(':')[0])).toEqual([
+      'OC por autorizar',
+      'Depósitos por confirmar',
+      'Partidas abiertas',
+      'Requisiciones por autorizar',
+    ]);
+    expect(indicadores().queryByText('Facturas en revisión')).not.toBeInTheDocument();
+  });
+  it('muestra el nombre y empresa; no inventa rol ni expone datos de sesión', () => {
     montar();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       /^(Buenos días|Buenas tardes|Buenas noches), Ana$/,
     );
     expect(screen.getByText('Vidrios Demo SA de CV')).toBeInTheDocument();
-    expect(screen.queryByText('Otra empresa ficticia')).not.toBeInTheDocument();
-    expect(document.body).not.toHaveTextContent(
-      /Sesión activa|OID|User ID|oid-privado-test|ana@example.test|María/,
-    );
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('[ROL]')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/OID|oid-privado-test|ana@example.test|María/);
   });
-  it('alerta cuando empresas está vacío', () => {
+  it('conserva la alerta cuando no hay empresas', () => {
     useAuthStore.setState({ empresas: [], currentEmpresaId: null });
     montar();
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Cuenta activa sin asignaciones de empresa o rol',
     );
   });
-  it('limita accesos a ocho, ordenados por prioridad y permitidos', () => {
+  it('presenta una tarjeta por módulo, con rutas permitidas', () => {
     const permisos = Object.values(P);
     useAuthStore.setState({ permisos });
     render(<AccesosRapidos />);
-    const disponibles = accesosNavegacion(permisos).filter(({ to }) => to !== '/');
-    expect(disponibles.length).toBeGreaterThan(8);
-    const prioritarios = prioridadAccesos.filter((to) =>
-      disponibles.some((acceso) => acceso.to === to),
-    );
-    expect(prioritarios.length).toBeGreaterThanOrEqual(8);
+    const esperados = modulosInicio(permisos);
     const enlaces = screen.getAllByRole('link');
-    expect(enlaces).toHaveLength(8);
-    expect(enlaces.map((link) => link.getAttribute('href'))).toEqual(prioritarios.slice(0, 8));
-    for (const link of enlaces)
-      expect(rutaPermitida(link.getAttribute('href')!, permisos)).toBe(true);
+    expect(enlaces.map((l) => l.getAttribute('href'))).toEqual(esperados.map((a) => a.to));
+    expect(new Set(esperados.map((a) => a.modulo)).size).toBe(enlaces.length);
+    for (const l of enlaces) expect(rutaPermitida(l.getAttribute('href')!, permisos)).toBe(true);
+  });
+  it('consulta Recientes por usuario y empresa solo con permiso de auditoría', async () => {
+    mswServer.use(
+      http.get('*/api/v1/admin/auditoria', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'evento',
+              entidadEtiqueta: 'OC-PRUEBA',
+              resumen: 'Autorizó la orden',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+          total: 1,
+        }),
+      ),
+    );
+    montar([P.AdminAuditoriaLeer]);
+    const recientes = within(screen.getByRole('region', { name: 'Recientes' }));
+    expect(await recientes.findByText('OC-PRUEBA')).toHaveClass('font-mono', 'text-brand');
+    expect(recientes.getByText('Autorizó la orden')).toBeInTheDocument();
+    expect(solicitudes).toHaveLength(1);
+    expect(solicitudes[0].searchParams.get('usuarioId')).toBe('oid-privado-test');
+    expect(solicitudes[0].searchParams.get('empresaId')).toBe('empresa-activa');
+    expect(solicitudes[0].searchParams.get('limit')).toBe('4');
   });
 });
