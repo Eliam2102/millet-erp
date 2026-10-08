@@ -1,4 +1,7 @@
+using Millet.Almacen.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Cierre;
+using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Application.Recepciones;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Ports;
@@ -30,9 +33,9 @@ public class RegistrarRecepcionMultiSubAlmacenTests
         return db;
     }
 
-    private static RegistrarRecepcionConFacturaHandler NuevoHandler(AlmacenDbContext db) =>
-        new(db, new FakeOc(), new FakeArticulos(), new FakeEvents(),
-            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales());
+    private static RegistrarRecepcionConFacturaHandler NuevoHandler(AlmacenDbContext db, bool contabilidadAbierta = true, FakeEvents? events = null) =>
+        new(db, new FakeOc(), new FakeArticulos(), events ?? new FakeEvents(),
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(contabilidadAbierta));
 
     private static RegistrarRecepcionConFacturaCommand Comando(
         params (Guid articuloId, Guid ubicacionId)[] lineas) => new(
@@ -91,6 +94,51 @@ public class RegistrarRecepcionMultiSubAlmacenTests
         resp.Folio.Should().NotBeNullOrWhiteSpace();
     }
 
+    [Fact]
+    public async Task Recepcion_en_septiembre_contable_cerrado_rechaza_sin_movimientos_ni_eventos()
+    {
+        await using var db = NuevaDb();
+        var events = new FakeEvents();
+        var cmd = Comando((Guid.NewGuid(), Guid.NewGuid())) with { FechaMovimiento = new DateOnly(2026, 9, 15) };
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            NuevoHandler(db, contabilidadAbierta: false, events: events).Handle(cmd, default));
+
+        ex.Code.Should().Be("PERIODO_CONTABLE_NO_ADMITE");
+        ex.Message.Should().Be("El periodo 2026-09 está cerrado o no está abierto en Contabilidad; no se registran movimientos de almacén con esa fecha.");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+        db.ChangeTracker.HasChanges().Should().BeFalse();
+        events.Publicados.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Recepcion_con_contabilidad_abierta_sigue_bloqueada_por_cierre_de_inventario_D18()
+    {
+        await using var db = NuevaDb();
+        db.PeriodosCerrados.Add(new PeriodoCerrado(Guid.NewGuid(), EmpresaId, 2026, 9, Guid.NewGuid()));
+        await db.SaveChangesAsync();
+        var events = new FakeEvents();
+        var cmd = Comando((Guid.NewGuid(), Guid.NewGuid())) with { FechaMovimiento = new DateOnly(2026, 9, 15) };
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            NuevoHandler(db, contabilidadAbierta: true, events: events).Handle(cmd, default));
+
+        ex.Code.Should().Be("PERIODO_CERRADO");
+        (await db.Movimientos.CountAsync()).Should().Be(0);
+        events.Publicados.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Cierre_mensual_de_inventario_no_depende_del_calendario_contable()
+    {
+        await using var db = NuevaDb();
+        var handler = new EjecutarCierreMensualHandler(db, new FakeUser(), new FakeEmpresa(EmpresaId));
+
+        await handler.Handle(new EjecutarCierreMensualCommand(2026, 9), default);
+
+        (await db.PeriodosCerrados.SingleAsync()).Mes.Should().Be(9);
+    }
+
     // ─── Fakes ───────────────────────────────────────────────────────────────
 
     private sealed class FakeEmpresa(Guid current) : ICurrentEmpresaContext
@@ -124,7 +172,12 @@ public class RegistrarRecepcionMultiSubAlmacenTests
 
     private sealed class FakeEvents : IIntegrationEventPublisher
     {
-        public Task PublishAsync(object integrationEvent, CancellationToken ct) => Task.CompletedTask;
+        public int Publicados { get; private set; }
+        public Task PublishAsync(object integrationEvent, CancellationToken ct)
+        {
+            Publicados++;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeUser : ICurrentUserContext

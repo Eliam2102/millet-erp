@@ -8,7 +8,7 @@ namespace Millet.Contabilidad.Application.PublicPorts;
 /// La empresa sale de <c>ICurrentEmpresaContext</c>. Solo lectura. Para rechazar un movimiento usar
 /// <c>VerificadorPeriodoContable</c>, que aplica la falla cerrada (D9): inexistente, no abierto o cerrado no admiten movimientos.
 /// </summary>
-// PLATFORM-TODO(C1.2): Facturación, Tesorería y Almacén sustituyen sus NoOpPeriodoContable*Port por un adaptador delgado hacia aquí.
+// PLATFORM-TODO(C1.2): Facturación y Tesorería sustituyen sus NoOpPeriodoContable*Port por un adaptador delgado hacia aquí.
 public interface IPeriodoContableConsultaPort
 {
     Task<EstadoPeriodoContable> ConsultarPorFechaAsync(DateOnly fecha, CancellationToken ct);
