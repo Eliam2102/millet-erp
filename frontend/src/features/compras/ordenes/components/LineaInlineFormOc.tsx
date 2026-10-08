@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/incompatible-library -- react-hook-form watch alimenta validación dinámica; React Compiler omite su memoización de forma segura. */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm, useWatch, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -45,6 +45,7 @@ import { LineaDesdeRqBadge } from '@/features/compras/ordenes/components/LineaDe
 import { Dim3Picker } from '@/features/centros-costo/components/Dim3Picker';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
+import { subtotalLinea } from '../lib/subtotal-linea';
 
 /**
  * <c>&lt;LineaInlineFormOc/&gt;</c> — form expandible inline (sin modal)
@@ -94,8 +95,8 @@ function buildValuesFromLinea(
     unidadMedida: linea.unidadMedida,
     precioUnitario: linea.precioUnitario,
     departamentoSolicitanteId: linea.departamentoSolicitanteId,
-    descuentoTipo: null,
-    descuentoValor: null,
+    descuentoTipo: linea.descuentoTipo ?? null,
+    descuentoValor: linea.descuentoValor ?? null,
     indicadorImpuestos: null,
     descripcionExtendida: linea.descripcionExtendida ?? null,
     fechaEntregaLinea: linea.fechaEntregaLinea
@@ -666,19 +667,18 @@ function FieldInline({
 }
 
 /**
- * <c>&lt;SubtotalPreview/&gt;</c> — calcula <c>cantidad * precio</c>
- * client-side para preview en el form. Tras el submit, el backend
- * recalcula con descuento + redondeo banker's.
+ * Vista previa con descuento y redondeo al par, igual que el dominio.
  */
 function SubtotalPreview({
   control,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  control: any;
+  control: Control<AgregarLineaManualValues>;
 }) {
   const cantidad = useWatch({ control, name: 'cantidad' }) ?? 0;
   const precio = useWatch({ control, name: 'precioUnitario' }) ?? 0;
-  const subtotal = (Number(cantidad) || 0) * (Number(precio) || 0);
+  const tipo = useWatch({ control, name: 'descuentoTipo' });
+  const valor = useWatch({ control, name: 'descuentoValor' });
+  const subtotal = subtotalLinea(cantidad, precio, tipo, valor);
   return (
     <div className="rounded-md border bg-muted/30 px-3 py-1.5 text-sm tabular-nums">
       {subtotal.toFixed(2)}

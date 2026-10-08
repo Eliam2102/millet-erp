@@ -6,6 +6,11 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EmitirFacturaForm } from './EmitirFacturaForm';
+import { toast } from 'sonner';
+import type { EmitirFacturaPrefill } from './prefill';
+
+const navegar = vi.hoisted(() => vi.fn());
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 // Selectores de catálogo stubbeados: el smoke valida la estructura de
 // pestañas del form, no los combobox de catálogos (B16 incluidos).
@@ -21,6 +26,7 @@ vi.mock('@/components/erp/selectors/MonedaSelector', () => ({
 // El CTA "Corregir en catálogo" y el banner de bloqueo usan <Link/>; el
 // smoke corre sin RouterProvider (mismo patrón que DetallePedido.smoke).
 vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navegar,
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }));
 
@@ -47,6 +53,7 @@ function setPermisos(permisos: string[]) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mswServer.use(
     http.get('*/api/v1/facturacion/emisor-defaults', () =>
       HttpResponse.json(EMISOR),
@@ -74,6 +81,55 @@ afterEach(() => {
 });
 
 describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
+  const pedido = (id: string, obraNombre: string, valorUnitario: number): EmitirFacturaPrefill => ({
+    pedidoFacturableId: id,
+    receptorNombre: 'Cliente de prueba', receptorRfc: 'XAXX010101000',
+    receptorRegimenFiscal: '616', receptorCodigoPostal: '76000',
+    obraNombre,
+    lineas: [{ productoId: null, claveProdServSat: '43211701', descripcion: `Vidrio ${id}`,
+      claveUnidadSat: 'H87', cantidad: 1, valorUnitario, descuento: 0,
+      requierePedimento: false, tasaIvaTraslado: 0.16 }],
+  });
+
+  it('cambia de PED-1002 a PED-1001 sin conservar obra ni total del pedido anterior', async () => {
+    const onSuccess = vi.fn();
+    const onCancel = vi.fn();
+    const { rerender } = render(<EmitirFacturaForm
+      prefill={pedido('p-2', 'Torre Cancún – Fase 1', 87000)} onSuccess={onSuccess} onCancel={onCancel} />,
+    { wrapper: createQueryWrapper() });
+    await screen.findByDisplayValue('Torre Cancún – Fase 1');
+    expect(screen.getAllByText('100920.00 MXN').length).toBeGreaterThan(0);
+
+    rerender(<EmitirFacturaForm prefill={pedido('p-1', 'Obra PED-1001', 4000)} onSuccess={onSuccess} onCancel={onCancel} />);
+    expect(await screen.findByDisplayValue('Obra PED-1001')).toBeInTheDocument();
+    expect(screen.getAllByText('4640.00 MXN').length).toBeGreaterThan(0);
+    expect(screen.queryByDisplayValue('Torre Cancún – Fase 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Vidrio p-2')).not.toBeInTheDocument();
+    expect(screen.queryByText('100920.00 MXN')).not.toBeInTheDocument();
+  });
+
+  it.each(['403', '400'])('un HTTP 201 con rechazo PAC %s muestra error y acceso al reintento', async (codigo) => {
+    const onSuccess = vi.fn();
+    mswServer.use(http.post('*/api/v1/facturacion/facturas/', () => HttpResponse.json({
+      id: 'f-fallida', folio: 'FA-1', total: 4640, version: 1, estado: 'TimbradoFallido', uuid: null,
+      timbradoErrorCodigo: codigo, timbradoErrorMensaje: 'No encontrado en lista LCO',
+    }, { status: 201 })));
+    render(<EmitirFacturaForm prefill={pedido('11111111-1111-4111-8111-111111111111', 'Obra', 4000)}
+      onSuccess={onSuccess} onCancel={() => {}} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('No se pudo timbrar la factura FA-1', expect.objectContaining({
+      description: `${codigo}: No encontrado en lista LCO`,
+      action: expect.objectContaining({ label: 'Reintentar timbrado' }),
+    })));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'f-fallida' }));
+    const opciones = vi.mocked(toast.error).mock.calls[0][1];
+    if (opciones?.action && typeof opciones.action === 'object' && 'onClick' in opciones.action) {
+      opciones.action.onClick({} as React.MouseEvent<HTMLButtonElement>);
+    }
+    expect(navegar).toHaveBeenCalledWith({ to: '/facturacion/facturas/$id', params: { id: 'f-fallida' } });
+  });
+
   it('renderiza las 3 pestañas con TODO el contenido montado (forceMount) y el emisor prellenado', async () => {
     render(<EmitirFacturaForm onSuccess={() => {}} onCancel={() => {}} />, {
       wrapper: createQueryWrapper(),
