@@ -51,6 +51,8 @@ export const PermisosCanonicos = {
     'compras.requisiciones.seleccionar-requisitante',
   ComprasRequisicionesVerTodosDepartamentos:
     'compras.requisiciones.ver-todos-departamentos',
+  ComprasRequisicionesLeerTodasSucursales:
+    'compras.requisiciones.leer-todas-sucursales',
 
   // Compras — Administración de aprobadores (UF6-PR1)
   ComprasAprobadoresAdministrar: 'compras.aprobadores.administrar',

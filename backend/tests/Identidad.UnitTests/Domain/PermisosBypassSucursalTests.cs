@@ -12,5 +12,8 @@ public sealed class PermisosBypassSucursalTests
 
         Assert.Contains(SucursalScopeGuardPermisos.OrdenesCompraLeerTodas, codigos);
         Assert.Equal(PermisosCanonicos.ComprasOrdenesLeerTodasSucursales, SucursalScopeGuardPermisos.OrdenesCompraLeerTodas);
+
+        Assert.Contains(SucursalScopeGuardPermisos.RequisicionesLeerTodas, codigos);
+        Assert.Equal(PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales, SucursalScopeGuardPermisos.RequisicionesLeerTodas);
     }
 }

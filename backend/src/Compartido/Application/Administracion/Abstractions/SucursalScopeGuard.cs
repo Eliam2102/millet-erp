@@ -46,6 +46,9 @@ public static class SucursalScopeGuardPermisos
     public const string UsuariosGestionar = "admin.sucursales.usuarios-gestionar";
     public const string SeriesGlobalesGestionar = "admin.empresas.sucursales-gestionar";
     public const string OrdenesCompraLeerTodas = "compras.ordenes.leer-todas-sucursales";
+
+    /// <summary>Equivale a <c>PermisosCanonicos.ComprasRequisicionesLeerTodasSucursales</c> (literal para no depender de Identidad).</summary>
+    public const string RequisicionesLeerTodas = "compras.requisiciones.leer-todas-sucursales";
 }
 
 public static class SucursalScopeGuard
