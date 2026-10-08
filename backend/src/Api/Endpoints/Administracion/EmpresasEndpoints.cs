@@ -85,10 +85,12 @@ public static class EmpresasEndpoints
         // --- DETALLE ---
         group.MapGet("/{id:guid}", async (
             Guid id,
+            HttpResponse httpResponse,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var response = await mediator.Send(new ObtenerEmpresaQuery(id), ct);
+            httpResponse.Headers.ETag = $"\"{response.Empresa.Version}\"";
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminEmpresasLeer)
@@ -103,9 +105,18 @@ public static class EmpresasEndpoints
         group.MapPatch("/{id:guid}", async (
             Guid id,
             [FromBody] ActualizarEmpresaPayload payload,
+            [FromHeader(Name = "If-Match")] string? ifMatch,
+            HttpResponse httpResponse,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            if (ifMatch is null || ifMatch.Length < 3 || ifMatch[0] != '"' || ifMatch[^1] != '"'
+                || !int.TryParse(ifMatch[1..^1], out var version) || version < 0)
+                return Results.Problem(statusCode: StatusCodes.Status428PreconditionRequired,
+                    title: "Se requiere la versión de la empresa",
+                    detail: "Recarga Mi empresa y envía su ETag en If-Match.",
+                    extensions: new Dictionary<string, object?> { ["code"] = "IF_MATCH_REQUIRED" });
+
             var command = new ActualizarEmpresaCommand(
                 id,
                 payload.RazonSocial,
@@ -114,14 +125,20 @@ public static class EmpresasEndpoints
                 payload.LimpiarNombreComercial ?? false,
                 payload.TasaIvaDefault,
                 payload.LimpiarTasaIvaDefault ?? false,
-                payload.CodigoPostal);
+                payload.CodigoPostal,
+                version,
+                payload.Calle, payload.NumeroExterior, payload.NumeroInterior, payload.Colonia, payload.Ciudad, payload.Municipio, payload.Estado, payload.Pais,
+                payload.LimpiarNumeroInterior ?? false);
             var response = await mediator.Send(command, ct);
+            httpResponse.Headers.ETag = $"\"{response.Version}\"";
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminEmpresasEditar)
         .WithName("ActualizarEmpresa")
-        .WithSummary("PATCH parcial sobre empresa")
+        .WithSummary("PATCH parcial sobre empresa (ETag/If-Match obligatorio)")
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired)
         .Produces<EmpresaResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -222,7 +239,16 @@ public static class EmpresasEndpoints
         bool? LimpiarNombreComercial,
         decimal? TasaIvaDefault = null,
         bool? LimpiarTasaIvaDefault = null,
-        string? CodigoPostal = null);
+        string? CodigoPostal = null,
+        string? Calle = null,
+        string? NumeroExterior = null,
+        string? NumeroInterior = null,
+        string? Colonia = null,
+        string? Ciudad = null,
+        string? Municipio = null,
+        string? Estado = null,
+        string? Pais = null,
+        bool? LimpiarNumeroInterior = null);
 
     /// <summary>Payload del PATCH /sucursales/{id}. <c>ClaveAw</c> es la
     /// clave con la que A+W refiere la sucursal (ingesta de pedidos,
