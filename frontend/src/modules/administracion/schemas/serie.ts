@@ -49,6 +49,7 @@ const tipoDocumentoSchema = z.union([
 ]);
 
 export const CrearSerieSchema = z.object({
+  folioInicial: z.number().int().min(1, "Debe ser positivo").max(Number.MAX_SAFE_INTEGER),
   empresaId: z.string().regex(UUID_SHAPE_RE, 'Empresa inválida'),
   sucursalId: z.string().regex(UUID_SHAPE_RE, 'Sucursal inválida').nullable(),
   tipoDocumento: tipoDocumentoSchema,

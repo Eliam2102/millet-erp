@@ -277,6 +277,7 @@ export interface SerieResponse {
   reinicioPeriodo: ReinicioPeriodo;
   activa: boolean;
   version: number;
+  folioInicial?: number;
 }
 
 export interface SerieDetalleResponse {
@@ -301,6 +302,7 @@ export interface CrearSerieCommand {
   prefijo: string;
   sufijo: string | null;
   reinicioPeriodo: ReinicioPeriodo;
+  folioInicial?: number;
 }
 
 /**

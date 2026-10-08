@@ -25,13 +25,15 @@ public sealed record CrearSerieCommand(
     TipoDocumentoSerie TipoDocumento,
     string Prefijo,
     string? Sufijo,
-    ReinicioPeriodo ReinicioPeriodo) : IRequest<SerieResponse>;
+    ReinicioPeriodo ReinicioPeriodo,
+    long FolioInicial = 1) : IRequest<SerieResponse>;
 
 public sealed class CrearSerieValidator : AbstractValidator<CrearSerieCommand>
 {
     public CrearSerieValidator()
     {
         RuleFor(c => c.EmpresaId).NotEmpty();
+        RuleFor(c => c.FolioInicial).GreaterThan(0).LessThan(long.MaxValue);
         RuleFor(c => c.Prefijo).NotEmpty().MaximumLength(10);
         RuleFor(c => c.Sufijo!).MaximumLength(10).When(c => c.Sufijo is not null);
         RuleFor(c => c.TipoDocumento).IsInEnum();
@@ -43,12 +45,20 @@ public sealed class CrearSerieHandler
     : IRequestHandler<CrearSerieCommand, SerieResponse>
 {
     private readonly CompartidoDbContext _db;
+    private readonly SerieSucursalScope _scope;
 
-    public CrearSerieHandler(CompartidoDbContext db) => _db = db;
+    public CrearSerieHandler(CompartidoDbContext db, SerieSucursalScope scope)
+    {
+        _db = db;
+        _scope = scope;
+    }
 
     public async Task<SerieResponse> Handle(
         CrearSerieCommand command, CancellationToken cancellationToken)
     {
+        _scope.VerificarEmpresa(command.EmpresaId);
+        await _scope.VerificarAsync(command.SucursalId, cancellationToken);
+
         // Verificar existencia de empresa.
         var empresaExiste = await _db.Empresas.AsNoTracking()
             .AnyAsync(e => e.Id == command.EmpresaId, cancellationToken);
@@ -58,6 +68,11 @@ public sealed class CrearSerieHandler
                 "EMPRESA_NO_ENCONTRADA",
                 $"No existe empresa con id '{command.EmpresaId}'.");
         }
+
+        if (Serie.EsFiscal(command.TipoDocumento) && await _db.Series.AsNoTracking().AnyAsync(
+            s => s.EmpresaId == command.EmpresaId && s.SucursalId == command.SucursalId
+                && s.TipoDocumento == command.TipoDocumento && s.Activa, cancellationToken))
+            throw new ConflictException("SERIE_ACTIVA_DUPLICADA", "Ya existe una serie fiscal activa para esa sucursal y tipo. Desactívala antes de crear su reemplazo.");
 
         var sufijoNorm = command.Sufijo;
         var duplicada = await _db.Series.AsNoTracking()
@@ -86,10 +101,15 @@ public sealed class CrearSerieHandler
             command.TipoDocumento,
             command.Prefijo,
             command.Sufijo,
-            command.ReinicioPeriodo);
+            command.ReinicioPeriodo, command.FolioInicial);
 
         _db.Series.Add(serie);
-        await _db.SaveChangesAsync(cancellationToken);
+        try { await _db.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException
+            { SqlState: "23505", ConstraintName: "ix_series_fiscal_activa_sucursal" or "ix_series_fiscal_activa_global" })
+        {
+            throw new ConflictException("SERIE_ACTIVA_DUPLICADA", "Otra solicitud creó una serie fiscal activa para esa sucursal y tipo.");
+        }
 
         return Map(serie);
     }
@@ -103,5 +123,5 @@ public sealed class CrearSerieHandler
         s.Sufijo,
         s.ReinicioPeriodo,
         s.Activa,
-        s.Version);
+        s.Version, s.FolioInicial);
 }
