@@ -788,6 +788,13 @@ const moduloFacturacion: NavModulo = {
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
         {
+          label: 'Pendientes de REP',
+          description: 'Revisión de pagos bancarios y emisión manual de complementos de pago.',
+          to: '/facturacion/repp/pendientes',
+          icon: HandCoins,
+          permission: PermisosCanonicos.FacturacionFacturasLeer,
+        },
+        {
           label: 'Complementos de pago (REPP)',
           description:
             'Recibos electrónicos de pago (Pago 2.0). Emisión multi-factura y consulta de facturas cubiertas.',

@@ -55,7 +55,7 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
     public async Task<EmitirReppResponse> Handle(EmitirReppCommand command, CancellationToken cancellationToken)
     {
         // El claim del request gana; command.EmpresaId solo aplica en
-        // invocaciones sin HTTP (listener de Tesorería, PR gemelo TES-PR7).
+        // invocaciones internas sin HTTP; Tesorería solo crea pendientes.
         if ((_empresa.Current ?? command.EmpresaId) is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
 
@@ -166,8 +166,10 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
                 repp.EmpresaId, ahora, repp.Id, repp.Uuid!, repp.ImporteTotalPago,
                 repp.FacturasPagadas.Sum(f => f.GananciaPerdidaCambiaria),
                 repp.FacturasPagadas.Select(f => new ReppFacturaPagadaDetalle(
-                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList()), cancellationToken);
+                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList(),
+                command.Pendiente?.MovimientoBancarioId), cancellationToken);
 
+        command.Pendiente?.RegistrarIntento(repp);
         _db.RecibosPago.Add(repp);
         await _db.SaveChangesAsync(cancellationToken);
 
