@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Exceptions;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -51,17 +52,39 @@ public class EventosContablesG16Tests
         return db;
     }
 
-    [Fact]
-    public async Task Recepcion_variante_A_publica_almacen_sucursal_y_subalmacen_por_linea()
+    private static async Task<bool> VerificarPeriodoAsync(
+        Func<Task> registrar, bool periodoAbierto, AlmacenDbContext db, CapturaEventos events)
+    {
+        if (periodoAbierto)
+        {
+            await registrar();
+            return true;
+        }
+
+        var movimientosAntes = await db.Movimientos.CountAsync();
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(registrar);
+        ex.Code.Should().Be("PERIODO_CONTABLE_NO_ADMITE");
+        events.Eventos.Should().BeEmpty();
+        (await db.Movimientos.CountAsync()).Should().Be(movimientosAntes);
+        db.ChangeTracker.HasChanges().Should().BeFalse();
+        return false;
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Recepcion_variante_A_publica_almacen_sucursal_y_subalmacen_por_linea(bool periodoAbierto)
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
         var h = new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales());
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
 
-        await h.Handle(new RegistrarRecepcionConFacturaCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
+        Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConFacturaCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             Guid.NewGuid(), null, null,
             [new RegistrarRecepcionLineaInput(ArticuloId, null, 5m, null, null, BinId)]), default);
+
+        if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
         var e = events.Unico<OcRecepcionRegistradaIntegrationEvent>();
         e.AlmacenId.Should().Be(AlmacenId);
@@ -69,17 +92,21 @@ public class EventosContablesG16Tests
         e.Lineas.Single().SubAlmacenId.Should().Be(SubId);
     }
 
-    [Fact]
-    public async Task Recepcion_variante_B_publica_almacen_sucursal_y_subalmacen_por_linea()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Recepcion_variante_B_publica_almacen_sucursal_y_subalmacen_por_linea(bool periodoAbierto)
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
         var h = new RegistrarRecepcionConPackingListHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales());
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
 
-        await h.Handle(new RegistrarRecepcionConPackingListCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
+        Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConPackingListCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             "blob://pl", null,
             [new RegistrarRecepcionLineaInput(ArticuloId, null, 5m, null, null, BinId)]), default);
+
+        if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
         var e = events.Unico<OcRecepcionRegistradaIntegrationEvent>();
         e.AlmacenId.Should().Be(AlmacenId);
@@ -87,32 +114,40 @@ public class EventosContablesG16Tests
         e.Lineas.Single().SubAlmacenId.Should().Be(SubId);
     }
 
-    [Fact]
-    public async Task Salida_con_requisicion_publica_almacen_y_sucursal()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Salida_con_requisicion_publica_almacen_y_sucursal(bool periodoAbierto)
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
         var h = new RegistrarSalidaConRequisicionHandler(db, new FakeRq(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales());
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
 
-        await h.Handle(new RegistrarSalidaConRequisicionCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
+        Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaConRequisicionCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             null, null,
             [new RegistrarSalidaLineaInput(ArticuloId, null, 1m, null, null, null, null, BinId)]), default);
+
+        if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
         var e = events.Unico<SalidaRequisicionRegistradaIntegrationEvent>();
         e.AlmacenId.Should().Be(AlmacenId);
         e.SucursalId.Should().Be(SucursalId);
     }
 
-    [Fact]
-    public async Task Salida_por_vale_publica_almacen_y_sucursal()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Salida_por_vale_publica_almacen_y_sucursal(bool periodoAbierto)
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
-        var h = new RegistrarSalidaPorValeHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales());
+        var h = new RegistrarSalidaPorValeHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
 
-        await h.Handle(new RegistrarSalidaPorValeCommand(new DateOnly(2026, 5, 23), "blob://vale", null, null,
+        Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaPorValeCommand(new DateOnly(2026, 5, 23), "blob://vale", null, null,
             [new RegistrarSalidaLineaInput(ArticuloId, null, 1m, null, null, null, null, BinId)]), default);
+
+        if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
         var e = events.Unico<SalidaRequisicionRegistradaIntegrationEvent>();
         e.AlmacenId.Should().Be(AlmacenId);
@@ -152,7 +187,7 @@ public class EventosContablesG16Tests
         var events = new CapturaEventos();
         // Recepción real (misma BD) y saldo remanente para que el handler valore.
         await new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales())
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true))
             .Handle(new RegistrarRecepcionConFacturaCommand(ocId, new DateOnly(2026, 5, 23), Guid.NewGuid(),
                 null, null, [new RegistrarRecepcionLineaInput(ArticuloId, null, 5m, null, null, BinId)]), default);
         db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 5m, 10m));
@@ -172,8 +207,10 @@ public class EventosContablesG16Tests
         e.Lineas.Single().UbicacionId.Should().Be(BinId);
     }
 
-    [Fact]
-    public async Task Devolucion_interna_publica_almacen_y_sucursal_del_subalmacen_destino()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Devolucion_interna_publica_almacen_y_sucursal_del_subalmacen_destino(bool periodoAbierto)
     {
         await using var db = await NuevaDbAsync();
         var mov = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.SalidaConsumo, EmpresaId,
@@ -185,9 +222,11 @@ public class EventosContablesG16Tests
         await db.SaveChangesAsync();
 
         var events = new CapturaEventos();
-        await new AplicarDevolucionInternaHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales())
+        Func<Task> registrar = async () => await new AplicarDevolucionInternaHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto))
             .Handle(new AplicarDevolucionInternaCommand(mov.Id, SubId, new DateOnly(2026, 6, 1), "Integro",
                 "test", null, [new DevolucionInternaLineaInput(lineaSalidaId, 2m, BinId)]), default);
+
+        if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
         var e = events.Unico<DevolucionInternaAplicadaIntegrationEvent>();
         e.AlmacenId.Should().Be(AlmacenId);

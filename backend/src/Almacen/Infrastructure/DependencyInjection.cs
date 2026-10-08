@@ -45,7 +45,7 @@ public static class DependencyInjection
         // Fase E PR5: display del CC-Máquina en salidas. NoOp por defecto; el
         // adapter real (delega en CentrosCosto.IDim3ReadPort) se cablea en Program.cs.
         services.AddScoped<ICentroCostoReadPort, NoOpCentroCostoReadPort>();
-        services.AddScoped<IPeriodoContableReadPort, NoOpPeriodoContableReadPort>();
+        services.AddScoped<IPeriodoContableReadPort, PeriodoContableReadAdapter>();
 
         // F2-PR2: Open Host Service público (Compras/Requisiciones lo consumen
         // para validar stock + reemplazar el stub InMemoryConsultarStockPort).

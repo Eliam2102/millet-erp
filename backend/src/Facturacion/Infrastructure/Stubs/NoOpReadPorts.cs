@@ -24,6 +24,8 @@ namespace Millet.Facturacion.Infrastructure.Stubs;
 /// stub: siempre "abierto" (true) — preserva la operación durante el desarrollo
 /// y mitiga el candado de período (D13) con validación manual hasta el wireup.
 /// </summary>
+// PLATFORM-TODO(C1.2): conectar el puerto público de Contabilidad y sembrar periodos en las suites (D9).
+// Revisar la fecha efectiva de Facturación (D13) antes de activar la falla cerrada.
 public sealed class NoOpPeriodoContablePort : IPeriodoContablePort
 {
     private readonly ILogger<NoOpPeriodoContablePort> _logger;

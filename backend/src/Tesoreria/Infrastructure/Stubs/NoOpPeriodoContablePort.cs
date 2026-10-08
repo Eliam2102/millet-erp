@@ -11,6 +11,7 @@ namespace Millet.Tesoreria.Infrastructure.Stubs;
 /// Facturación; mientras tanto los no-aplicados al cierre se reportan
 /// explícitamente (levantamiento §3.4 paso 5).
 /// </summary>
+// PLATFORM-TODO(C1.2): conectar el puerto público de Contabilidad y sembrar periodos en las suites (D9).
 public sealed class NoOpPeriodoContablePort : IPeriodoContablePort
 {
     private readonly ILogger<NoOpPeriodoContablePort> _logger;
