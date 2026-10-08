@@ -46,7 +46,8 @@ public sealed record EmitirFacturaVentaCommand(
     Guid? AutorizacionId = null,
     // Pedido facturable de origen (B2, FE-F1). Si viene, el pedido debe estar
     // Importado; al emitir queda Facturado (re-facturable sólo tras cancelar).
-    Guid? PedidoFacturableId = null) : IRequest<EmitirFacturaVentaResponse>;
+    Guid? PedidoFacturableId = null,
+    Guid? ClienteId = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe);

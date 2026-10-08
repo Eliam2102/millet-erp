@@ -44,6 +44,7 @@ public sealed class ReintentarTimbradoHandler
     private static readonly string[] CodigosAmbiguos =
         ["PAC_TIMEOUT", "PAC_SIN_RESPUESTA", "PAC_RESPUESTA_INCOMPLETA"];
 
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -61,8 +62,9 @@ public sealed class ReintentarTimbradoHandler
         ICfdiRepositorioPort cfdiRepo,
         IIntegrationEventPublisher eventos,
         IContabilidadAsientoPort contabilidad,
-        IClock clock)
+        IClock clock, ValidadorReceptorFiscal receptorFiscal)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -106,6 +108,7 @@ public sealed class ReintentarTimbradoHandler
                 "PERIODO_CERRADO",
                 $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
 
+        await _receptorFiscal.ValidarComprobanteAsync(comprobante, ct);
         comprobante.ReabrirParaReintentoTimbrado();
 
         var tipo = comprobante switch
@@ -197,7 +200,7 @@ public sealed class ReintentarTimbradoHandler
             // Timbrada. Idempotente si ya existe una NC de ranura vigente.
             await NcRanuraEmisor.EmitirSiAplicaAsync(
                 _db, _sender, _fiscal, _cfdiRepo, _eventos,
-                factura, pedido, usuarioEmisorId: null, ahora, ct);
+                factura, pedido, usuarioEmisorId: null, ahora, _receptorFiscal, ct);
         }
 
         return nameof(FacturaVenta);
