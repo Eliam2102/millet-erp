@@ -71,6 +71,33 @@ public sealed class EstadoCuentaClienteTests
         response.Filas.Should().ContainSingle().Which["tipo"].Should().Be("Factura");
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public async Task Espera_REP_y_movimiento_reflejado_antes_de_emitir_estado(bool pendiente, bool reflejado)
+    {
+        using var db = CrearDbContext();
+        var recibo = Guid.NewGuid();
+        if (reflejado)
+        {
+            db.MovimientosCartera.Add(new MovimientoCartera(Guid.NewGuid(), Guid.NewGuid(),
+                TipoMovimientoCartera.Pago, recibo, 100, Ahora));
+            await db.SaveChangesAsync();
+        }
+        var handler = new EstadoCuentaClienteHandler(db, new FakePort([]), new FakeClientePort(),
+            new FakeClock(), new FakeReppPort(new(pendiente, [recibo])));
+        var accion = () => handler.Handle(new(ClienteId), default);
+        if (!pendiente && reflejado) await accion.Should().NotThrowAsync();
+        else (await accion.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>())
+            .Which.Code.Should().Be("ESTADO_CUENTA_REPP_PENDIENTE");
+    }
+
+    private sealed class FakeReppPort(ReppClienteEstado estado) : IReppPendientesReadPort
+    {
+        public Task<ReppClienteEstado> ConsultarAsync(Guid clienteId, CancellationToken cancellationToken) => Task.FromResult(estado);
+    }
+
     private static CuentasPorCobrarDbContext CrearDbContext()
     {
         var options = new DbContextOptionsBuilder<CuentasPorCobrarDbContext>()

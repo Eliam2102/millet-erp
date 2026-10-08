@@ -272,15 +272,17 @@ public sealed class ReintentarTimbradoHandler
             repp, CfdiEmisionBuilder.DesdeReciboPago(repp, ahora),
             _fiscal, _cfdiRepo, ahora, ct);
 
+        var pendiente = await _db.ReppPendientes.SingleOrDefaultAsync(p => p.IntentoReciboPagoId == repp.Id, ct);
         if (repp.Estado == EstadoTimbrado.Timbrado)
         {
             await _eventos.PublishAsync(new ReciboPagoTimbradoIntegrationEvent(
                 repp.EmpresaId, ahora, repp.Id, repp.Uuid!, repp.ImporteTotalPago,
                 repp.FacturasPagadas.Sum(f => f.GananciaPerdidaCambiaria),
                 repp.FacturasPagadas.Select(f => new ReppFacturaPagadaDetalle(
-                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList()), ct);
+                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList(), pendiente?.MovimientoBancarioId), ct);
         }
 
+        pendiente?.RegistrarIntento(repp);
         return nameof(ReciboPago);
     }
 

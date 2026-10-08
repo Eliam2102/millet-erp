@@ -93,6 +93,7 @@ import { Route as AppAdminAuditoriaIndexRouteImport } from './routes/_app/admin/
 import { Route as AppTesoreriaReportesFlujoEfectivoRouteImport } from './routes/_app/tesoreria/reportes/flujo-efectivo';
 import { Route as AppTesoreriaReportesAuxiliarBancosRouteImport } from './routes/_app/tesoreria/reportes/auxiliar-bancos';
 import { Route as AppTesoreriaMovimientosIdRouteImport } from './routes/_app/tesoreria/movimientos/$id';
+import { Route as AppFacturacionReppPendientesRouteImport } from './routes/_app/facturacion/repp/pendientes';
 import { Route as AppFacturacionReppIdRouteImport } from './routes/_app/facturacion/repp/$id';
 import { Route as AppFacturacionReportesLiquidacionCajaRouteImport } from './routes/_app/facturacion/reportes/liquidacion-caja';
 import { Route as AppFacturacionReportesEstadosAnticiposRouteImport } from './routes/_app/facturacion/reportes/estados-anticipos';
@@ -620,6 +621,12 @@ const AppTesoreriaMovimientosIdRoute =
     path: '/tesoreria/movimientos/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppFacturacionReppPendientesRoute =
+  AppFacturacionReppPendientesRouteImport.update({
+    id: '/facturacion/repp/pendientes',
+    path: '/facturacion/repp/pendientes',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionReppIdRoute = AppFacturacionReppIdRouteImport.update({
   id: '/facturacion/repp/$id',
   path: '/facturacion/repp/$id',
@@ -1120,6 +1127,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
+  '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
   '/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
   '/tesoreria/reportes/flujo-efectivo': typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -1280,6 +1288,7 @@ export interface FileRoutesByTo {
   '/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
+  '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
   '/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
   '/tesoreria/reportes/flujo-efectivo': typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -1442,6 +1451,7 @@ export interface FileRoutesById {
   '/_app/facturacion/reportes/estados-anticipos': typeof AppFacturacionReportesEstadosAnticiposRoute;
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/_app/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
+  '/_app/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
   '/_app/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/_app/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
   '/_app/tesoreria/reportes/flujo-efectivo': typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -1604,6 +1614,7 @@ export interface FileRouteTypes {
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
+    | '/facturacion/repp/pendientes'
     | '/tesoreria/movimientos/$id'
     | '/tesoreria/reportes/auxiliar-bancos'
     | '/tesoreria/reportes/flujo-efectivo'
@@ -1764,6 +1775,7 @@ export interface FileRouteTypes {
     | '/facturacion/reportes/estados-anticipos'
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
+    | '/facturacion/repp/pendientes'
     | '/tesoreria/movimientos/$id'
     | '/tesoreria/reportes/auxiliar-bancos'
     | '/tesoreria/reportes/flujo-efectivo'
@@ -1925,6 +1937,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/reportes/estados-anticipos'
     | '/_app/facturacion/reportes/liquidacion-caja'
     | '/_app/facturacion/repp/$id'
+    | '/_app/facturacion/repp/pendientes'
     | '/_app/tesoreria/movimientos/$id'
     | '/_app/tesoreria/reportes/auxiliar-bancos'
     | '/_app/tesoreria/reportes/flujo-efectivo'
@@ -2603,6 +2616,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaMovimientosIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/facturacion/repp/pendientes': {
+      id: '/_app/facturacion/repp/pendientes';
+      path: '/facturacion/repp/pendientes';
+      fullPath: '/facturacion/repp/pendientes';
+      preLoaderRoute: typeof AppFacturacionReppPendientesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/facturacion/repp/$id': {
       id: '/_app/facturacion/repp/$id';
       path: '/facturacion/repp/$id';
@@ -3225,6 +3245,7 @@ interface AppRouteChildren {
   AppFacturacionReportesEstadosAnticiposRoute: typeof AppFacturacionReportesEstadosAnticiposRoute;
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
   AppFacturacionReppIdRoute: typeof AppFacturacionReppIdRoute;
+  AppFacturacionReppPendientesRoute: typeof AppFacturacionReppPendientesRoute;
   AppTesoreriaMovimientosIdRoute: typeof AppTesoreriaMovimientosIdRoute;
   AppTesoreriaReportesAuxiliarBancosRoute: typeof AppTesoreriaReportesAuxiliarBancosRoute;
   AppTesoreriaReportesFlujoEfectivoRoute: typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -3388,6 +3409,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFacturacionReportesLiquidacionCajaRoute:
     AppFacturacionReportesLiquidacionCajaRoute,
   AppFacturacionReppIdRoute: AppFacturacionReppIdRoute,
+  AppFacturacionReppPendientesRoute: AppFacturacionReppPendientesRoute,
   AppTesoreriaMovimientosIdRoute: AppTesoreriaMovimientosIdRoute,
   AppTesoreriaReportesAuxiliarBancosRoute:
     AppTesoreriaReportesAuxiliarBancosRoute,

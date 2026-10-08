@@ -12,7 +12,7 @@ namespace Millet.Facturacion.Application.EventListeners;
 // El payload NO trae datos bancarios del cliente (cuidados-infra §4 de
 // Tesorería): `Referencia` es la referencia del movimiento en el banco de
 // Millet. Tampoco trae SucursalId — la sucursal emisora del REPP
-// automático se resuelve por configuración (ReppAutomaticoOptions).
+// bancario se resuelve al emitir manualmente por configuración (ReppAutomaticoOptions).
 // ============================================================================
 
 /// <summary>Factura cubierta por el depósito confirmado (espejo de <c>PagoClienteFacturaAplicada</c>).</summary>
@@ -24,8 +24,7 @@ public sealed record PagoClienteFacturaAplicadaPayload(
 /// Espejo de <c>tesoreria.pago-cliente.confirmado.v1</c> (TES-PR7, §3.3
 /// del levantamiento de Tesorería): el hecho bancario de un cobro de
 /// cliente quedó confirmado contra la propuesta de CxC. Facturación lo
-/// consume para emitir el REPP — cierra
-/// PLATFORM-TODO(&lt;PagoClienteConfirmado&gt;); CxC aplica a cartera al
+/// consume para crear un pendiente de revisión; CxC aplica a cartera al
 /// consumir <c>recibo-pago.timbrado.v1</c>.
 /// </summary>
 public sealed record PagoClienteConfirmadoPayload(
