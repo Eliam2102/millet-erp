@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
 
 /**
@@ -10,7 +11,7 @@ import { ComportamientoFiscal } from '@/features/facturacion/api/types';
  * RegimenFiscalEmisor / Moneda contra los catálogos SAT.
  */
 export const EmitirFacturaLineaSchema = z.object({
-  productoId: z.string().uuid().nullable(),
+  productoId: zId().nullable(),
   claveProdServSat: z.string().min(1, 'Clave SAT requerida').max(10),
   descripcion: z.string().min(1, 'Describe el concepto').max(1000),
   claveUnidadSat: z.string().min(1, 'Unidad SAT requerida').max(10),
@@ -43,7 +44,7 @@ const comportamientoValues = Object.values(ComportamientoFiscal) as [
 ];
 
 export const EmitirFacturaSchema = z.object({
-  sucursalId: z.string().uuid('Selecciona una sucursal'),
+  sucursalId: zId('Selecciona una sucursal'),
   // Emisor
   rfcEmisor: z.string().min(12, 'RFC del emisor').max(13),
   regimenFiscalEmisor: z.string().min(1, 'Régimen fiscal del emisor').max(5),

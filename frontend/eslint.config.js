@@ -61,6 +61,10 @@ export default defineConfig([
       'no-restricted-syntax': [
         'error',
         {
+          selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='uuid']",
+          message: 'Usa zId de @/lib/z-id: los GUID sembrados no requieren versión ni variante UUID.',
+        },
+        {
           selector:
             "Literal[value=/Dimensi[oó]n [123]|Grupo dimensi[oó]n [23]/]",
           message:

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import { ComportamientoFiscal } from '@/features/facturacion/api/types';
 
 /**
@@ -13,7 +14,7 @@ import { ComportamientoFiscal } from '@/features/facturacion/api/types';
  * el form.</para>
  */
 export const PedidoLineaSchema = z.object({
-  productoId: z.string().uuid().nullable(),
+  productoId: zId().nullable(),
   productoDescripcion: z
     .string()
     .min(1, 'Describe el producto o servicio')
@@ -35,8 +36,8 @@ const comportamientoValues = Object.values(ComportamientoFiscal) as [
 
 export const PedidoManualSchema = z.object({
   numeroPedido: z.string().max(50).nullable(),
-  sucursalId: z.string().uuid('Selecciona una sucursal'),
-  clienteId: z.string().uuid('ClienteId debe ser un GUID válido'),
+  sucursalId: zId('Selecciona una sucursal'),
+  clienteId: zId('ClienteId debe ser un GUID válido'),
   clienteNombre: z
     .string()
     .min(1, 'Captura el nombre o razón social del cliente')

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import { TipoAnticipo } from '@/features/facturacion/api/types';
 
 /**
@@ -10,8 +11,8 @@ import { TipoAnticipo } from '@/features/facturacion/api/types';
 const tipoValues = Object.values(TipoAnticipo) as [number, ...number[]];
 
 export const AnticipoSchema = z.object({
-  sucursalId: z.string().uuid('Selecciona una sucursal'),
-  clienteId: z.string().uuid('ClienteId debe ser un GUID válido'),
+  sucursalId: zId('Selecciona una sucursal'),
+  clienteId: zId('ClienteId debe ser un GUID válido'),
   // Receptor (nominal)
   receptorRfc: z.string().min(12, 'RFC del receptor').max(13),
   receptorNombre: z.string().min(1, 'Nombre / razón social').max(254),
