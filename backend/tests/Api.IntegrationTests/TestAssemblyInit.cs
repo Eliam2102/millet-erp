@@ -79,5 +79,6 @@ internal static class TestAssemblyInit
         // datos demo, que no son deterministas frente a los asserts de
         // conteo de la suite.
         Environment.SetEnvironmentVariable("Seed__DatosDemo__Habilitado", "false");
+        Environment.SetEnvironmentVariable("Seed__DemoSesion__Habilitado", "false");
     }
 }

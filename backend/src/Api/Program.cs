@@ -1058,6 +1058,8 @@ builder.Services.AddMilletAuth(builder.Configuration);
 // empresa ya existe. Auto-excluido en Production.
 builder.Services.AddHostedService<
     Millet.Compras.Infrastructure.Seed.ComprasTestSeedHostedService>();
+// Después de los catálogos canónicos y del bootstrap de identidad.
+builder.Services.AddHostedService<Millet.Api.Seed.DemoSesionSeedHostedService>();
 
 // === SignalR + Azure SignalR backplane (CollaborationHub, ADR-0001 + ADR-0012 Capa 2) ===
 // En QA/Prod la connection string viene de Key Vault (App Setting
