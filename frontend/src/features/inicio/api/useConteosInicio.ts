@@ -31,6 +31,8 @@ import type { ConteoId } from '../config';
 export interface ConteoInicio {
   total: number;
   atrasadas?: number;
+  /** Solo cuando el endpoint garantiza orden FIFO con página de un registro. */
+  fechaMasAntigua?: string;
 }
 
 function consulta<T>(
@@ -87,13 +89,13 @@ export function useConteosInicio(ids: readonly ConteoId[], permisos: readonly st
       comprasKeys.pendientesAutorizacion(rq),
       '/api/v1/compras/pendientes-autorizacion',
       rq,
-      total,
+      (data) => ({ total: data.total, fechaMasAntigua: data.items[0]?.fechaSolicitud }),
     ),
     ordenes: consulta<ListarOrdenesCompraResponse>(
       ordenesKeys.pendientes(nivelOrden ?? 'todos'),
       '/api/v1/compras/ordenes/pendientes-autorizacion',
       { page: 1, pageSize: 1, nivel: nivelOrden },
-      (data) => ({ total: data.totalCount }),
+      (data) => ({ total: data.totalCount, fechaMasAntigua: data.items[0]?.fechaDocumento }),
     ),
     abiertas: consulta<KpisPartidasAbiertasResponse>(
       [...ordenesKeys.all, 'partidas-abiertas', 'kpis'],
@@ -123,7 +125,7 @@ export function useConteosInicio(ids: readonly ConteoId[], permisos: readonly st
       tesoreriaKeys.pagosCuenta(),
       '/api/v1/tesoreria/pagos-cuenta',
       { incluirParciales: true, ...pagina },
-      total,
+      (data) => ({ total: data.total, fechaMasAntigua: data.items[0]?.fechaValor }),
     ),
     depositos: consulta<TesoreriaResponse<DepositoConfirmacionResponse>>(
       tesoreriaKeys.depositos(),

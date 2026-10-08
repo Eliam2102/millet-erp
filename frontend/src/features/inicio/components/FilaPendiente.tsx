@@ -1,104 +1,46 @@
-import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { PendienteConfig } from '../config';
-import type { ConteoInicio } from '../api/useConteosInicio';
+import type { IndicadorInicio } from '../api/useResumenInicio';
 
-export interface EstadoFila {
-  isPending: boolean;
-  isError: boolean;
-  isFetching: boolean;
-  refetch: () => unknown;
-}
-
-export function FilaPendiente({
-  fila,
-  query,
-  conteo,
-  estado,
-  etiquetaEstado,
-}: {
-  fila: PendienteConfig;
-  query?: EstadoFila;
-  conteo?: ConteoInicio;
-  estado?: ReactNode;
-  etiquetaEstado?: string;
-}) {
-  const cargando = query?.isPending;
-  const error = query?.isError;
-  const etiqueta = cargando
-    ? 'Cargando'
-    : error
-      ? 'No se pudo cargar'
-      : (etiquetaEstado ??
-        (conteo ? (conteo.total > 0 ? `${conteo.total} pendientes` : 'Sin pendientes') : 'Abrir'));
+export function FilaPendiente({ item }: { item: IndicadorInicio }) {
+  const { fila, prioridad } = item;
   return (
-    <li className="flex flex-wrap items-center border-t border-line-row">
+    <li className="border-t border-line-row">
       <Link
         to={fila.to}
         search={fila.search ?? {}}
-        aria-label={`${fila.titulo}: ${etiqueta}`}
-        aria-busy={cargando || undefined}
-        className="flex min-h-16 min-w-0 flex-1 flex-wrap items-center gap-3 rounded-md px-4 py-3 text-ink hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        aria-label={`${fila.titulo}: ${prioridad.motivo}`}
+        className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-x-3 gap-y-1 rounded-md px-4 py-3 text-ink hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand xl:grid-cols-[104px_minmax(0,1fr)_auto_84px_16px]"
       >
         <Badge
           variant="neutral"
-          className="rounded-sm bg-surface-muted text-2xs text-ink-strong sm:w-26 sm:shrink-0"
+          className="w-fit rounded-sm bg-surface-muted text-2xs font-medium text-ink-strong xl:w-26"
         >
           {fila.modulo}
         </Badge>
-        <div className="min-w-0 flex-1 basis-32">
-          <p className="text-sm font-medium">{fila.titulo}</p>
-          <p className="text-xs text-ink-muted">{fila.descripcion}</p>
-        </div>
-        <div className="ml-auto text-right">
-          {cargando ? (
-            <Skeleton className="h-5 w-16 bg-surface-muted" />
-          ) : error ? (
-            <span className="text-xs text-danger-fg">No se pudo cargar</span>
-          ) : (
-            (estado ??
-            (conteo && conteo.total > 0 ? (
-              <span className="text-lg font-semibold tabular-nums">{conteo.total}</span>
-            ) : (
-              <span className="text-xs text-ink-muted">{etiqueta}</span>
-            )))
-          )}
-          {!cargando && !error && conteo?.atrasadas !== undefined && (
-            <p
-              className={
-                conteo.atrasadas > 0
-                  ? 'text-xs tabular-nums text-danger-fg font-medium'
-                  : 'text-xs tabular-nums text-ink-muted'
-              }
-            >
-              {conteo.atrasadas} atrasadas
-            </p>
-          )}
-        </div>
+        <span className="col-start-1 row-start-2 min-w-0 xl:col-start-2 xl:row-start-1">
+          <span className="block truncate text-sm font-medium" title={fila.titulo}>
+            {fila.titulo}
+          </span>
+          <span className="block truncate text-xs text-ink-muted" title={fila.descripcion}>
+            {fila.descripcion}
+          </span>
+        </span>
+        <span className="col-start-2 row-start-2 text-right text-2xl font-semibold tabular-nums xl:col-start-3 xl:row-start-1">
+          {prioridad.total}
+        </span>
+        <span
+          className={`col-start-2 row-start-1 whitespace-nowrap text-right text-xs xl:col-start-4 ${prioridad.urgente ? 'text-danger-fg font-medium' : 'text-ink-muted'}`}
+        >
+          {prioridad.antiguedad}
+        </span>
         <ChevronRight
           aria-hidden="true"
-          className="size-4 shrink-0 text-ink-subtle"
+          className="col-start-3 row-span-2 row-start-1 size-4 text-ink-subtle xl:col-start-5 xl:row-span-1"
           strokeWidth={1.6}
         />
       </Link>
-      {error && query && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="m-3"
-          disabled={query.isFetching}
-          aria-label={`Reintentar ${fila.titulo}`}
-          onClick={() => {
-            void query.refetch();
-          }}
-        >
-          Reintentar
-        </Button>
-      )}
     </li>
   );
 }

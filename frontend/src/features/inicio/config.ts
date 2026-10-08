@@ -48,8 +48,8 @@ export const pendientes: readonly PendienteConfig[] = [
   {
     id: 'abiertas',
     modulo: 'Compras',
-    titulo: 'Órdenes abiertas',
-    descripcion: 'Órdenes de compra con operaciones pendientes.',
+    titulo: 'Partidas abiertas',
+    descripcion: 'Partidas de compra con operaciones pendientes.',
     to: '/compras/ordenes/partidas-abiertas',
     conteo: 'abiertas',
     permisos: [P.ComprasOrdenesReportesPartidasAbiertas],

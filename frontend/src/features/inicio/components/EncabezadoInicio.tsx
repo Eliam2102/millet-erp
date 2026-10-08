@@ -11,13 +11,20 @@ export function EncabezadoInicio() {
   const hora = ahora.getHours();
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
   return (
-    <header className="space-y-1">
-      <p className="text-xs text-ink-muted">{format(ahora, 'EEEE, d MMM yyyy', { locale: es })}</p>
-      <h1 className="text-2xl font-semibold text-ink">
-        {saludo}, {nombre?.trim().split(/\s+/)[0] || 'Usuario'}
-      </h1>
-      <p className="text-sm text-ink-muted">
-        {empresa?.razonSocial ?? 'Sin empresa activa seleccionada'}
+    <header className="flex flex-wrap items-center justify-between gap-3 lg:col-span-2">
+      <div className="space-y-1">
+        <p className="text-xs text-ink-muted">
+          {format(ahora, 'EEEE, d MMM yyyy', { locale: es })}
+        </p>
+        <h1 className="text-4xl font-semibold text-ink">
+          {saludo}, {nombre?.trim().split(/\s+/)[0] || 'Usuario'}
+        </h1>
+        <p className="text-sm text-ink-muted">
+          {empresa?.razonSocial ?? 'Sin empresa activa seleccionada'}
+        </p>
+      </div>
+      <p className="text-xs text-ink-muted">
+        Rol: <span className="font-medium text-ink-secondary">[ROL]</span>
       </p>
     </header>
   );

@@ -65,7 +65,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             onMenuClick={() => setMobileOpen(true)}
             onExpandPanel={contexto && !showPanel ? () => setCollapsedModule(null) : undefined}
           />
-          <main className="relative min-h-[calc(100vh-3.5rem)] px-4 py-5 md:px-6">
+          <main
+            className={`relative min-h-[calc(100vh-3.5rem)] ${pathname === '/' ? '' : 'px-4 py-5 md:px-6'}`}
+          >
             {children}
             {isSwitchingEmpresa && (
               <div
