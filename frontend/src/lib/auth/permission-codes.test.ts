@@ -45,6 +45,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.requisiciones.editar-de-otros-usuarios',
   'compras.requisiciones.seleccionar-requisitante',
   'compras.requisiciones.ver-todos-departamentos',
+  'compras.requisiciones.leer-todas-sucursales',
   // Compras — Aprobadores
   'compras.aprobadores.administrar',
   // Compras — Órdenes de compra (10 permisos canónicos del submódulo OC,
@@ -294,11 +295,11 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 26 permisos (12 de RQ + 1 de aprobadores + 10 de OC + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 27 permisos (13 de RQ + 1 de aprobadores + 10 de OC + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(26);
+    expect(delModulo).toHaveLength(27);
   });
 
   it('formato modulo.recurso.accion (entre 3 y 4 segmentos)', () => {
