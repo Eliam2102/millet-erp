@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Administracion.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Domain.Audit;
 
 namespace Millet.Api.IntegrationTests.Administracion;
 
@@ -154,6 +155,8 @@ public class EmpresasEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var createdBody = await ReadJsonAsync(created);
         var id = createdBody.GetProperty("id").GetGuid();
 
+        var detalleAntes = await client.GetAsync($"{EndpointBase}/{id}");
+        client.DefaultRequestHeaders.IfMatch.Add(detalleAntes.Headers.ETag!);
         var patched = await client.PatchAsJsonAsync($"{EndpointBase}/{id}", new
         {
             RazonSocial = "Razón Social Actualizada",
@@ -383,6 +386,86 @@ public class EmpresasEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         Assert.Equal("EMPRESA_TIENE_SUCURSALES_ACTIVAS",
             (await ReadJsonAsync(response)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task MiEmpresa_Edita_CP_Y_Domicilio_Con_ETag_Idempotencia_Y_Bitacora()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var creada = await client.PostAsJsonAsync(EndpointBase, new
+        {
+            Id = Guid.Empty, Rfc = RandomRfc(), RazonSocial = "Mi empresa prueba", RegimenFiscal = "601",
+        });
+        creada.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+        try
+        {
+            var detalle = await client.GetAsync($"{EndpointBase}/{id}");
+            detalle.EnsureSuccessStatusCode();
+            Assert.NotNull(detalle.Headers.ETag);
+            var etag = detalle.Headers.ETag!.Tag;
+            var key = Guid.NewGuid().ToString();
+            async Task<HttpResponseMessage> Editar(string? version, string operationKey) {
+                using var request = new HttpRequestMessage(HttpMethod.Patch, $"{EndpointBase}/{id}")
+                {
+                    Content = JsonContent.Create(new { CodigoPostal = "97000", Calle = "Calle fiscal de prueba", NumeroInterior = "2" }),
+                };
+                request.Headers.Add("Idempotency-Key", operationKey);
+                if (version is not null) request.Headers.TryAddWithoutValidation("If-Match", version);
+                return await client.SendAsync(request);
+            }
+
+            Assert.Equal(HttpStatusCode.PreconditionRequired, (await Editar(null, Guid.NewGuid().ToString())).StatusCode);
+            Assert.Equal(HttpStatusCode.PreconditionRequired, (await Editar("incorrecto", Guid.NewGuid().ToString())).StatusCode);
+            using var sinIdempotencia = _factory.CreateClient();
+            sinIdempotencia.DefaultRequestHeaders.Authorization = client.DefaultRequestHeaders.Authorization;
+            sinIdempotencia.DefaultRequestHeaders.IfMatch.Add(detalle.Headers.ETag!);
+            Assert.Equal(HttpStatusCode.BadRequest,
+                (await sinIdempotencia.PatchAsJsonAsync($"{EndpointBase}/{id}", new { CodigoPostal = "97000" })).StatusCode);
+            var patch = await Editar(etag, key);
+            Assert.Equal(HttpStatusCode.OK, patch.StatusCode);
+            Assert.NotEqual(etag, patch.Headers.ETag?.Tag);
+            var replay = await Editar(etag, key);
+            Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+            Assert.Equal(patch.Headers.ETag, replay.Headers.ETag);
+            Assert.Equal(HttpStatusCode.Conflict, (await Editar(etag, Guid.NewGuid().ToString())).StatusCode);
+
+            var actual = (await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{id}"))).GetProperty("empresa");
+            Assert.Equal("97000", actual.GetProperty("codigoPostal").GetString());
+            Assert.Equal("Calle fiscal de prueba", actual.GetProperty("calle").GetString());
+            Assert.Equal("2", actual.GetProperty("numeroInterior").GetString());
+
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var cambios = await db.Set<AuditLogEntry>().AsNoTracking()
+                .Where(a => a.Entidad == "Empresa" && a.EntidadId == id && a.Operacion == "actualizar").ToListAsync();
+            var cambio = Assert.Single(cambios);
+            Assert.NotNull(cambio.UsuarioId);
+            Assert.Contains("CodigoPostal", cambio.Cambios);
+            Assert.Contains("97000", cambio.Cambios);
+        }
+        finally
+        {
+            // No alterar los conteos de catálogos de las otras suites.
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var empresa = await db.Empresas.SingleAsync(e => e.Id == id);
+            db.Empresas.Remove(empresa);
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task MiEmpresa_Sin_Permiso_No_Lee_Ni_Edita_403()
+    {
+        var client = _factory.CreateClientWithIdempotency();
+        var token = await FakeLoginAsync(client, "test-no-perms", "noperms@test.local", "Sin Permisos");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var path = $"{EndpointBase}/{EmpresaInicialId}";
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("If-Match", "\"1\"");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.PatchAsJsonAsync(path, new { CodigoPostal = "97000" })).StatusCode);
     }
 
     // --- Helpers ---

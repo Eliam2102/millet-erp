@@ -36,6 +36,6 @@ public sealed class EmisorSnapshotTests
 
         var error = await act.Should().ThrowAsync<BusinessRuleException>();
         error.Which.Code.Should().Be("EMISOR_SIN_LUGAR_EXPEDICION");
-        error.Which.Message.Should().Contain("Administración → Empresas");
+        error.Which.Message.Should().Contain("Administración → Mi empresa");
     }
 }

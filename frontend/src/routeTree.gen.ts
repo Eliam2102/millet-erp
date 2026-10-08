@@ -40,6 +40,7 @@ import { Route as AppAlmacenReordenRouteImport } from './routes/_app/almacen/reo
 import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/cierre-mes';
 import { Route as AppAlmacenAsignacionesRouteImport } from './routes/_app/almacen/asignaciones';
 import { Route as AppAlmacenAlmacenesRouteImport } from './routes/_app/almacen/almacenes';
+import { Route as AppAdminMiEmpresaRouteImport } from './routes/_app/admin/mi-empresa';
 import { Route as AppTesoreriaReppIndexRouteImport } from './routes/_app/tesoreria/repp/index';
 import { Route as AppTesoreriaPagosIndexRouteImport } from './routes/_app/tesoreria/pagos/index';
 import { Route as AppTesoreriaPagosCuentaIndexRouteImport } from './routes/_app/tesoreria/pagos-cuenta/index';
@@ -328,6 +329,11 @@ const AppAlmacenAsignacionesRoute = AppAlmacenAsignacionesRouteImport.update({
 const AppAlmacenAlmacenesRoute = AppAlmacenAlmacenesRouteImport.update({
   id: '/almacen/almacenes',
   path: '/almacen/almacenes',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAdminMiEmpresaRoute = AppAdminMiEmpresaRouteImport.update({
+  id: '/admin/mi-empresa',
+  path: '/admin/mi-empresa',
   getParentRoute: () => AppRoute,
 } as any);
 const AppTesoreriaReppIndexRoute = AppTesoreriaReppIndexRouteImport.update({
@@ -1052,6 +1058,7 @@ const AppAdminCatalogosMonedasIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute;
   '/login': typeof LoginRoute;
+  '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
@@ -1213,6 +1220,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute;
   '/': typeof AppIndexRoute;
+  '/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
@@ -1376,6 +1384,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren;
   '/login': typeof LoginRoute;
   '/_app/': typeof AppIndexRoute;
+  '/_app/admin/mi-empresa': typeof AppAdminMiEmpresaRoute;
   '/_app/almacen/almacenes': typeof AppAlmacenAlmacenesRoute;
   '/_app/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/_app/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
@@ -1539,6 +1548,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/admin/mi-empresa'
     | '/almacen/almacenes'
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
@@ -1700,6 +1710,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/'
+    | '/admin/mi-empresa'
     | '/almacen/almacenes'
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
@@ -1862,6 +1873,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/'
+    | '/_app/admin/mi-empresa'
     | '/_app/almacen/almacenes'
     | '/_app/almacen/asignaciones'
     | '/_app/almacen/cierre-mes'
@@ -2243,6 +2255,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/almacenes';
       fullPath: '/almacen/almacenes';
       preLoaderRoute: typeof AppAlmacenAlmacenesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/admin/mi-empresa': {
+      id: '/_app/admin/mi-empresa';
+      path: '/admin/mi-empresa';
+      fullPath: '/admin/mi-empresa';
+      preLoaderRoute: typeof AppAdminMiEmpresaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/tesoreria/repp/': {
@@ -3170,6 +3189,7 @@ const AppAlmacenInventariosIdRouteWithChildren =
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute;
+  AppAdminMiEmpresaRoute: typeof AppAdminMiEmpresaRoute;
   AppAlmacenAlmacenesRoute: typeof AppAlmacenAlmacenesRoute;
   AppAlmacenAsignacionesRoute: typeof AppAlmacenAsignacionesRoute;
   AppAlmacenCierreMesRoute: typeof AppAlmacenCierreMesRoute;
@@ -3329,6 +3349,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppAdminMiEmpresaRoute: AppAdminMiEmpresaRoute,
   AppAlmacenAlmacenesRoute: AppAlmacenAlmacenesRoute,
   AppAlmacenAsignacionesRoute: AppAlmacenAsignacionesRoute,
   AppAlmacenCierreMesRoute: AppAlmacenCierreMesRoute,
