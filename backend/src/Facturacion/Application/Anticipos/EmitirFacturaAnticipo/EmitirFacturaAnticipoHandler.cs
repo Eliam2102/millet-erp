@@ -28,6 +28,7 @@ namespace Millet.Facturacion.Application.Anticipos.EmitirFacturaAnticipo;
 public sealed class EmitirFacturaAnticipoHandler
     : IRequestHandler<EmitirFacturaAnticipoCommand, EmitirFacturaAnticipoResponse>
 {
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -51,8 +52,9 @@ public sealed class EmitirFacturaAnticipoHandler
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock)
+        IClock clock, ValidadorReceptorFiscal receptorFiscal)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -102,6 +104,8 @@ public sealed class EmitirFacturaAnticipoHandler
             _empresasFiscal, empresaId, cancellationToken);
 
         // 3. Reserva atómica de folio de la serie de anticipos (FANT).
+        await _receptorFiscal.ValidarAsync(receptor, emisor, command.ClienteId, cancellationToken);
+
         var reserva = await _sender.Send(
             new ReservarFolioCommand(
                 empresaId,
@@ -190,8 +194,6 @@ public sealed class EmitirFacturaAnticipoHandler
             throw new BusinessRuleException("MONEDA_INVALIDA", $"La moneda '{command.Moneda}' no existe en el catálogo SAT.");
         if (!await _catalogos.ExisteFormaPagoAsync(command.FormaPago, cancellationToken))
             throw new BusinessRuleException("FORMA_PAGO_INVALIDA", $"La forma de pago '{command.FormaPago}' no existe en el catálogo SAT.");
-        if (!await _catalogos.ExisteUsoCfdiAsync(command.ReceptorUsoCfdi, cancellationToken))
-            throw new BusinessRuleException("USO_CFDI_INVALIDO", $"El uso CFDI '{command.ReceptorUsoCfdi}' no existe en el catálogo SAT.");
         if (!await _catalogos.ExisteRegimenFiscalAsync(command.RegimenFiscalEmisor, cancellationToken))
             throw new BusinessRuleException("REGIMEN_EMISOR_INVALIDO", $"El régimen fiscal del emisor '{command.RegimenFiscalEmisor}' no existe en el catálogo SAT.");
     }

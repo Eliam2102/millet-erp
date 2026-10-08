@@ -26,7 +26,7 @@ public sealed class EmitirFacturaVentaHandlerTests
         ReceptorRfc: "XAXX010101000",
         ReceptorNombre: "Público en general",
         ReceptorRegimenFiscal: "616",
-        ReceptorCodigoPostal: "97000",
+        ReceptorCodigoPostal: "76120",
         ReceptorUsoCfdi: "S01",
         ReceptorPais: "MEX",
         RfcEmisor: "AAA010101AAA",
@@ -60,7 +60,7 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora));
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, "XAXX010101000", "616", "76120"));
 
     [Fact]
     public async Task Handle_emite_factura_timbrada_con_uuid_fake()
@@ -177,7 +177,7 @@ public sealed class EmitirFacturaVentaHandlerTests
             new FakeContabilidadAsientoPort(),
             new FakeEmpresaContext(current: null),
             new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora));
+            new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db, "XAXX010101000", "616", "76120"));
 
         var act = () => handler.Handle(Command(), CancellationToken.None);
 

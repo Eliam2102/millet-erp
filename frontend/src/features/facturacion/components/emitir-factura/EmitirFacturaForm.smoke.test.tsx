@@ -390,4 +390,24 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(screen.queryByText('Clave SAT *')).not.toBeInTheDocument();
     expect(screen.getByText('Falta en el catálogo')).toBeInTheDocument();
   });
+  it('envía ClienteId al emitir desde el cliente seleccionado', async () => {
+    const clienteId = '00000003-0000-0000-0000-000000000001';
+    const solicitudes: unknown[] = [];
+    mswServer.use(http.post('*/api/v1/facturacion/facturas', async ({ request }) => {
+      solicitudes.push(await request.json());
+      return HttpResponse.json({ code: 'RECEPTOR_FISCAL_INVALIDO', title: 'Corrige el receptor',
+        status: 422, clienteId, campos: [{ campo: 'codigoPostalFiscal', motivo: 'Falta el CP fiscal en el maestro.' }] }, { status: 422 });
+    }));
+    setPermisos([PermisosCanonicos.FacturacionFacturasEmitir]);
+    render(<EmitirFacturaForm prefill={{
+      pedidoFacturableId: '00000003-0000-0000-0000-000000000002', clienteId,
+      receptorNombre: 'CLIENTE FICTICIO', receptorRfc: 'AAA010101AAA',
+      receptorRegimenFiscal: '601', receptorCodigoPostal: '97000', receptorUsoCfdi: 'G03',
+      lineas: [{ productoId: null, claveProdServSat: '01010101', descripcion: 'Vidrio prueba',
+        claveUnidadSat: 'H87', cantidad: 1, valorUnitario: 100, descuento: 0, requierePedimento: false, tasaIvaTraslado: 0.16 }],
+    }} onSuccess={() => {}} onCancel={() => {}} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: /Emitir y timbrar/i }));
+    await waitFor(() => expect(solicitudes).toEqual([expect.objectContaining({ clienteId })]));
+  });
+
 });

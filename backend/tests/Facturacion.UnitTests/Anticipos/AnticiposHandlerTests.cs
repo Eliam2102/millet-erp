@@ -48,7 +48,7 @@ public sealed class AnticiposHandlerTests
         ObraId: null,
         ObraNombre: "Obra Norte");
 
-    private static EmitirFacturaAnticipoHandler EmitirHandler(FacturacionDbContext db, Guid empresaId, bool periodoAbierto = true) =>
+    private static EmitirFacturaAnticipoHandler EmitirHandler(FacturacionDbContext db, Guid empresaId, bool periodoAbierto = true, bool receptorGenerico = false) =>
         new(
             db,
             new FakeSender(new ReservarFolioResponse("FANT-000001", 1, "")),
@@ -60,7 +60,9 @@ public sealed class AnticiposHandlerTests
             new FakeIntegrationEventPublisher(),
             new FakeEmpresaContext(empresaId),
             new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora));
+            new FakeClock(Ahora), receptorGenerico
+                ? ReceptorFiscalTestFactory.Crear(db, "XAXX010101000", "616", "76120")
+                : ReceptorFiscalTestFactory.Crear(db));
 
     /// <summary>Siembra una FacturaVenta timbrada del RFC indicado para poder vincular.</summary>
     private static async Task<FacturaVenta> SembrarFacturaVentaTimbradaAsync(
@@ -128,7 +130,8 @@ public sealed class AnticiposHandlerTests
         var empresaId = Guid.NewGuid();
         using var db = NewDb(empresaId);
 
-        var act = () => EmitirHandler(db, empresaId).Handle(Command(rfc: "XAXX010101000"), CancellationToken.None);
+        var act = () => EmitirHandler(db, empresaId, receptorGenerico: true).Handle(
+            Command(rfc: "XAXX010101000") with { ReceptorRegimenFiscal = "616", ReceptorCodigoPostal = "76120", ReceptorUsoCfdi = "S01" }, CancellationToken.None);
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_RECEPTOR_GENERICO");
     }

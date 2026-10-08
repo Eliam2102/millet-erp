@@ -35,10 +35,10 @@ public sealed class EventosTests
             db, new FakeSender(new ReservarFolioResponse("F-1", 1, "")), new FakePeriodoContablePort(),
             new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            eventos, contabilidad, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            eventos, contabilidad, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
         await handler.Handle(new EmitirFacturaVentaCommand(
-            Guid.NewGuid(), "XAXX010101000", "Público", "616", "97000", "S01", "MEX",
+            Guid.NewGuid(), "XAXX010101000", "Público", "616", "76120", "S01", "MEX",
             "BBB010101BBB", "601", "PUE", "01", "MXN", null,
             (short)1, ComportamientoFiscal.MostradorInmediato, null, null, false,
             [new EmitirFacturaVentaLinea(null, "01010101", "P", "H87", 1m, 100m, 0m, "02", 0.16m, null, null)]),
@@ -59,7 +59,7 @@ public sealed class EventosTests
             db, new FakeSender(new ReservarFolioResponse("FANT-1", 1, "")), new FakePeriodoContablePort(),
             new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            eventos, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            eventos, new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
         await handler.Handle(new EmitirFacturaAnticipoCommand(
             Guid.NewGuid(), Guid.NewGuid(), "AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX",
