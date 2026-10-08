@@ -6,6 +6,7 @@ import { createQueryWrapper } from '@/test/test-query-client';
 import { ProveedorBancariosSection } from '@/modules/datos-maestros/components/ProveedorBancariosSection';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import type { ActualizarDatosBancariosProveedorPayload } from '@/modules/datos-maestros/api/types';
 
 /**
  * F1-ADM-05 — sección "Datos bancarios" del detalle de proveedor:
@@ -78,7 +79,7 @@ describe('<ProveedorBancariosSection>', () => {
     expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
   });
 
-  it('con bancarios-editar pero sin catalogos.administrar no ofrece Editar (la API lo rechaza)', async () => {
+  it('con bancarios-editar pero sin catalogos.administrar sí ofrece Editar (endpoint dedicado G1.9)', async () => {
     setPermisos([
       PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
       PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
@@ -87,14 +88,13 @@ describe('<ProveedorBancariosSection>', () => {
       wrapper: createQueryWrapper(),
     });
     await screen.findByText('BBVA México');
-    expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /editar/i })).toBeInTheDocument();
   });
 
   it('con bancarios-editar abre el form inline sin pre-llenar la CLABE', async () => {
     setPermisos([
       PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
       PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
-      PermisosCanonicos.CompartidoCatalogosAdministrar,
     ]);
     render(<ProveedorBancariosSection proveedorId="p-1" />, {
       wrapper: createQueryWrapper(),
@@ -112,5 +112,41 @@ describe('<ProveedorBancariosSection>', () => {
     expect(
       screen.getByText(/quitar la clabe registrada \(\*\*\*\*9719\)/i),
     ).toBeInTheDocument();
+  });
+
+  it('guarda cambios bancarios vía PATCH /api/v1/datos-maestros/proveedores/{id}/datos-bancarios', async () => {
+    let patchLlamado = false;
+    let payloadRecibido: ActualizarDatosBancariosProveedorPayload | null = null;
+
+    mswServer.use(
+      http.patch(
+        '*/api/v1/datos-maestros/proveedores/p-1/datos-bancarios',
+        async ({ request }) => {
+          patchLlamado = true;
+          payloadRecibido = (await request.json()) as ActualizarDatosBancariosProveedorPayload;
+          return new HttpResponse(null, { status: 204 });
+        },
+      ),
+    );
+
+    setPermisos([
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
+    ]);
+    render(<ProveedorBancariosSection proveedorId="p-1" />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    const editarBtn = await screen.findByRole('button', { name: /editar/i });
+    fireEvent.click(editarBtn);
+
+    const bancoInput = screen.getByDisplayValue('BBVA México');
+    fireEvent.change(bancoInput, { target: { value: 'Santander' } });
+
+    const guardarBtn = screen.getByRole('button', { name: /guardar cambios/i });
+    fireEvent.click(guardarBtn);
+
+    await waitFor(() => expect(patchLlamado).toBe(true));
+    expect((payloadRecibido as ActualizarDatosBancariosProveedorPayload | null)?.banco).toBe('Santander');
   });
 });

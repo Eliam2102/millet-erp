@@ -206,6 +206,30 @@ public class CrudCatalogosEndpointsTests : IClassFixture<StubsWebApplicationFact
     }
 
     [Fact]
+    public async Task CrearProveedor_DosAltasConcurrentes_MismoRfc_Retorna_201_Y_409()
+    {
+        var client1 = await CreateSuperAdminClientAsync();
+        var client2 = await CreateSuperAdminClientAsync();
+        var rfc = $"TST{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+
+        var body1 = BuildProveedorBody(rfc: rfc);
+        var body2 = BuildProveedorBody(rfc: rfc);
+
+        var task1 = client1.PostAsJsonAsync("/api/v1/catalogos/proveedores", body1);
+        var task2 = client2.PostAsJsonAsync("/api/v1/catalogos/proveedores", body2);
+
+        var responses = await Task.WhenAll(task1, task2);
+
+        var statusCodes = responses.Select(r => r.StatusCode).ToList();
+        Assert.Contains(HttpStatusCode.Created, statusCodes);
+        Assert.Contains(HttpStatusCode.Conflict, statusCodes);
+
+        var conflictResp = responses.Single(r => r.StatusCode == HttpStatusCode.Conflict);
+        var json = await ReadJsonAsync(conflictResp);
+        Assert.Equal("PROVEEDOR_RFC_DUPLICADO", json.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task CrearProveedor_RfcGenerico_MismaRazonSocial_Queda_EnRevision()
     {
         var client = await CreateSuperAdminClientAsync();

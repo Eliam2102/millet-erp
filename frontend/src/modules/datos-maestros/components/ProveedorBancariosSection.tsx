@@ -11,11 +11,11 @@ import {
 } from '@/modules/catalogos/components/InlineFormShell';
 import { esApiError } from '@/lib/api';
 import {
-  useActualizarProveedor,
+  useActualizarDatosBancariosProveedor,
   useProveedorDatosBancarios,
 } from '@/modules/datos-maestros/api';
 import type { ProveedorDatosBancarios } from '@/modules/datos-maestros/api/types';
-import { useHasAllPermissions, useHasPermission } from '@/lib/auth/useHasPermission';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
@@ -42,11 +42,10 @@ export function ProveedorBancariosSection({
   const canVer = useHasPermission(
     PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
   );
-  // El guardado va por PATCH /catalogos/proveedores/{id}: la API exige catalogos.administrar.
-  const canEditar = useHasAllPermissions([
+  // G1.9 / F1-ADM-05: edición de datos bancarios depende únicamente de bancarios-editar.
+  const canEditar = useHasPermission(
     PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
-    PermisosCanonicos.CompartidoCatalogosAdministrar,
-  ]);
+  );
   const [editando, setEditando] = useState(false);
   const query = useProveedorDatosBancarios(canVer ? proveedorId : null);
 
@@ -136,7 +135,7 @@ function ProveedorBancariosForm({
   onCancel,
   onSaved,
 }: ProveedorBancariosFormProps) {
-  const actualizar = useActualizarProveedor();
+  const actualizar = useActualizarDatosBancariosProveedor();
   const [banco, setBanco] = useState(datos.banco ?? '');
   const [beneficiario, setBeneficiario] = useState(datos.beneficiario ?? '');
   // CLABE nunca se pre-llena (llega enmascarada/es sensible): vacío = no

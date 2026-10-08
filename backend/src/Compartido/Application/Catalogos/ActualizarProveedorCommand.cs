@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -24,19 +25,19 @@ namespace Millet.DatosMaestros.Application.Catalogos;
 /// </summary>
 public sealed record ActualizarProveedorCommand(
     Guid ProveedorId,
-    string? RazonSocial,
-    string? NombreComercial,
-    string? Rfc,
-    TipoPersonaProveedor? TipoPersona,
-    short? CondicionesPagoDias,
-    Guid? MonedaPreferidaId,
-    string? Email,
-    string? Telefono,
-    bool LimpiarNombreComercial,
-    bool LimpiarCondicionesPago,
-    bool LimpiarMonedaPreferida,
-    bool LimpiarEmail,
-    bool LimpiarTelefono,
+    string? RazonSocial = null,
+    string? NombreComercial = null,
+    string? Rfc = null,
+    TipoPersonaProveedor? TipoPersona = null,
+    short? CondicionesPagoDias = null,
+    Guid? MonedaPreferidaId = null,
+    string? Email = null,
+    string? Telefono = null,
+    bool LimpiarNombreComercial = false,
+    bool LimpiarCondicionesPago = false,
+    bool LimpiarMonedaPreferida = false,
+    bool LimpiarEmail = false,
+    bool LimpiarTelefono = false,
     string? Banco = null,
     string? Clabe = null,
     string? Beneficiario = null,
@@ -79,11 +80,22 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
 
     private readonly CompartidoDbContext _db;
     private readonly ICurrentUserPermissions _permissions;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly ICurrentEmpresaContext _empresa;
+    private readonly IAuditLogWriter _audit;
 
-    public ActualizarProveedorHandler(CompartidoDbContext db, ICurrentUserPermissions permissions)
+    public ActualizarProveedorHandler(
+        CompartidoDbContext db,
+        ICurrentUserPermissions permissions,
+        ICurrentUserContext currentUser,
+        ICurrentEmpresaContext empresa,
+        IAuditLogWriter audit)
     {
         _db = db;
         _permissions = permissions;
+        _currentUser = currentUser;
+        _empresa = empresa;
+        _audit = audit;
     }
 
     public async Task Handle(ActualizarProveedorCommand request, CancellationToken cancellationToken)
@@ -147,6 +159,10 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
             }
         }
 
+        var bancoAntes = proveedor.Banco;
+        var clabeAntes = proveedor.Clabe;
+        var beneficiarioAntes = proveedor.Beneficiario;
+
         proveedor.ActualizarDatos(
             razonSocial: request.RazonSocial,
             nombreComercial: request.NombreComercial,
@@ -169,5 +185,44 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
             limpiarBeneficiario: request.LimpiarBeneficiario);
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // G1.9 / F1-ADM-05: si cambiaron datos bancarios, auditar evento explícito
+        // con CLABE anterior/nueva enmascaradas (nunca la CLABE completa).
+        var cambioBanco = bancoAntes != proveedor.Banco;
+        var cambioClabe = clabeAntes != proveedor.Clabe;
+        var cambioBeneficiario = beneficiarioAntes != proveedor.Beneficiario;
+
+        if (cambioBanco || cambioClabe || cambioBeneficiario)
+        {
+            await _audit.RegistrarAsync(
+                operacion: "proveedor.bancarios-cambiados",
+                modulo: "DatosMaestros",
+                entidad: "Proveedor",
+                entidadId: proveedor.Id,
+                aggregateRootId: proveedor.Id,
+                actorNombre: _currentUser.UserName ?? "Usuario",
+                actorTipo: "usuario",
+                actorEmail: _currentUser.Email,
+                entidadEtiqueta: $"{proveedor.Clave} · {proveedor.RazonSocial}",
+                resumen: $"Datos bancarios del proveedor {proveedor.Clave} modificados (CLABE: {Mascara(clabeAntes) ?? "sin-asignar"} → {Mascara(proveedor.Clabe) ?? "sin-asignar"}).",
+                usuarioId: _currentUser.UserId,
+                empresaId: _empresa.Current,
+                cambios: JsonSerializer.Serialize(new
+                {
+                    banco = new { antes = bancoAntes, despues = proveedor.Banco },
+                    clabe = new { antes = Mascara(clabeAntes), despues = Mascara(proveedor.Clabe) },
+                    beneficiario = new { antes = beneficiarioAntes, despues = proveedor.Beneficiario },
+                }),
+                cancellationToken: cancellationToken);
+        }
+    }
+
+    private static string? Mascara(string? v)
+    {
+        if (v is null) return null;
+        var s = v.Trim();
+        return s.Length <= 4
+            ? new string('*', s.Length)
+            : string.Concat(new string('*', s.Length - 4), s.AsSpan(s.Length - 4));
     }
 }

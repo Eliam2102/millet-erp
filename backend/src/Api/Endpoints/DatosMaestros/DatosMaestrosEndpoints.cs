@@ -10,6 +10,7 @@ using Millet.Catalogos.Domain;
 using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Articulos;
+using Millet.DatosMaestros.Application.Catalogos;
 using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Application.ProductosAw;
 using Millet.DatosMaestros.Application.Proveedores;
@@ -180,6 +181,39 @@ public static class DatosMaestrosEndpoints
             "`tesoreria.movimientos.ver-cuenta-completa` (PII, ADR-0018), en " +
             "cuyo caso `clabeCompleta = true` y viene sin enmascarar.")
         .Produces<ProveedorDatosBancarios>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        proveedores.MapPatch("/{id:guid}/datos-bancarios", async (
+            Guid id,
+            [FromBody] ActualizarDatosBancariosRequest body,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            await mediator.Send(
+                new ActualizarProveedorCommand(
+                    ProveedorId: id,
+                    Banco: body.Banco,
+                    Clabe: body.Clabe,
+                    Beneficiario: body.Beneficiario,
+                    LimpiarBanco: body.LimpiarBanco ?? false,
+                    LimpiarClabe: body.LimpiarClabe ?? false,
+                    LimpiarBeneficiario: body.LimpiarBeneficiario ?? false),
+                ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar)
+        .WithName("ActualizarProveedorDatosBancarios")
+        .WithSummary("Actualizar datos bancarios de proveedor (F1-ADM-05 / G1.9)")
+        .WithDescription(
+            "Edición de banco, CLABE y beneficiario por rol Tesorería (o con permiso `bancarios-editar`). " +
+            "No requiere `compartido.catalogos.administrar`. CLABE nunca se devuelve ni se registra completa; " +
+            "header `Idempotency-Key` obligatorio.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
@@ -788,4 +822,15 @@ public static class DatosMaestrosEndpoints
         string? Clabe,
         string? Beneficiario,
         bool ClabeCompleta);
+
+    /// <summary>
+    /// Payload de <c>PATCH /datos-maestros/proveedores/{id}/datos-bancarios</c> (G1.9 / F1-ADM-05).
+    /// </summary>
+    public sealed record ActualizarDatosBancariosRequest(
+        string? Banco,
+        string? Clabe,
+        string? Beneficiario,
+        bool? LimpiarBanco,
+        bool? LimpiarClabe,
+        bool? LimpiarBeneficiario);
 }

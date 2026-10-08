@@ -150,17 +150,19 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
     }
 
     /// <summary>
-    /// Seed de los 6 roles MVP adicionales al super-admin (F-Admin-PR3.3,
-    /// A2 cerrada 2026-05-13). Cada rol agrupa un subset de permisos
-    /// canónicos por área de responsabilidad:
+    /// Seed de los 8 roles MVP adicionales al super-admin (F-Admin-PR3.3,
+    /// A2 cerrada 2026-05-13; G1.9 / F1-ADM-05): 9 roles MVP en total.
+    /// Cada rol agrupa un subset de permisos canónicos por área de responsabilidad:
     ///
     /// <list type="bullet">
     ///   <item><b>Administrador de identidad</b>: <c>identidad.*</c></item>
     ///   <item><b>Administrador organizacional</b>: <c>admin.empresas.*</c>, <c>admin.departamentos.*</c></item>
     ///   <item><b>Administrador de catálogos</b>: <c>compartido.catalogos.*</c></item>
-    ///   <item><b>Administrador de datos maestros</b>: <c>compartido.catalogos.*</c> (Proveedor/Artículo viven en catálogos hoy)</item>
+    ///   <item><b>Administrador de datos maestros</b>: <c>compartido.catalogos.*</c>, <c>datos_maestros.*</c> (excepto <c>bancarios-editar</c>)</item>
     ///   <item><b>Auditor</b>: <c>admin.auditoria.leer</c> + <c>infra.audit_log.leer</c> + todos los <c>.leer</c> del sistema (read-only)</item>
     ///   <item><b>Administrador Compras</b>: <c>compras.configuracion.*</c></item>
+    ///   <item><b>Cuentas por Pagar</b>: <c>datos_maestros.proveedores.bancarios-ver</c>, <c>datos_maestros.proveedores.validar</c>, <c>datos_maestros.proveedores.gestionar</c></item>
+    ///   <item><b>Tesorería</b>: <c>datos_maestros.proveedores.bancarios-ver</c>, <c>datos_maestros.proveedores.bancarios-editar</c>, <c>datos_maestros.proveedores.gestionar</c></item>
     /// </list>
     ///
     /// Idempotente: usa GUIDs deterministas y verifica existencia antes
@@ -218,8 +220,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "admin-datos-maestros",
                 "Administrador de Datos Maestros",
                 "Gestión de proveedores y artículos (catálogos operativos).",
+                // G1.9 / V44: solo Tesorería edita datos bancarios
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
-                     || p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
+                     || (p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar)
             ),
             (
                 Guid.Parse("00000002-0003-0000-0000-000000000006"),
@@ -236,6 +240,24 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Administrador Compras",
                 "Configuración del módulo Compras de la empresa actual.",
                 p => p.Codigo.StartsWith("compras.configuracion", StringComparison.Ordinal)
+            ),
+            (
+                Guid.Parse("00000002-0003-0000-0000-000000000008"),
+                "cxp",
+                "Cuentas por Pagar",
+                "Revisión y validación de proveedores; consulta de datos bancarios enmascarados.",
+                p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresValidar
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
+            ),
+            (
+                Guid.Parse("00000002-0003-0000-0000-000000000009"),
+                "tesoreria",
+                "Tesorería",
+                "Consulta y edición de datos bancarios de proveedores para pago.",
+                p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
             ),
         };
 
