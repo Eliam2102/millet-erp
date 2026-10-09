@@ -23,6 +23,7 @@ import { AdjuntarEvidenciaSheet } from '@/features/cxp/components/AdjuntarEviden
 import { EvidenciasList } from '@/features/cxp/components/EvidenciasList';
 import { cn } from '@/lib/utils';
 import { EditarDatosP8 } from '@/features/cxp/components/EditarDatosP8';
+import { formatearFecha } from '@/features/cxp/lib/formato';
 
 /**
  * <c>P2 — Detalle de Factura de Proveedor</c> (doc 07 §FE-F2-PR1).
@@ -137,9 +138,9 @@ export function FacturaDetallePage() {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Fecha documento: {formatearFecha(query.data.fechaDocumento)} · Contabilización:{' '}
-              {formatearFecha(query.data.fechaContabilizacion)} · Vence:{' '}
-              {query.data.fechaVencimiento}
+              Fecha documento: {formatearFecha(query.data.fechaDocumento)} ·
+              Contabilización: {formatearFecha(query.data.fechaContabilizacion)}{' '}
+              · Vence: {formatearFecha(query.data.fechaVencimiento)}
             </p>
           </header>
 
@@ -424,14 +425,3 @@ function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps
   );
 }
 
-function formatearFecha(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
