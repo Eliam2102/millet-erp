@@ -63,7 +63,6 @@ import {
   useDraftPersist,
   useDraftRecovery,
 } from '@/features/compras/lib/draft-storage';
-import { HistorialComprasProveedor } from '@/features/compras/ordenes/components/HistorialComprasProveedor';
 import { UploadCorreoAutorizacion } from '@/features/compras/ordenes/components/UploadCorreoAutorizacion';
 
 /**
@@ -187,7 +186,6 @@ export function SheetNuevaOC({
   // Watch fields via useWatch (estable, suscripción granular). El
   // form.watch() de RHF dispara re-renders extra y trigger el lint
   // react-hooks/incompatible-library.
-  const proveedorId = useWatch({ control: form.control, name: 'proveedorId' });
   const sucursalDestinoId = useWatch({
     control: form.control,
     name: 'sucursalDestinoId',
@@ -533,7 +531,7 @@ export function SheetNuevaOC({
           </div>
         )}
 
-        {/* Sección Proveedor (con panel historial al lado) */}
+        {/* Sección Proveedor */}
         <div className="grid gap-3 md:grid-cols-2">
           <Controller
             control={form.control}
@@ -547,7 +545,6 @@ export function SheetNuevaOC({
               </FieldGroup>
             )}
           />
-          <HistorialComprasProveedor proveedorId={proveedorId || null} />
         </div>
 
         {/* Sección Org (sucursal + almacén) */}
