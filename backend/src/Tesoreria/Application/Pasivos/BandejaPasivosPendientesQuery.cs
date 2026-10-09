@@ -76,7 +76,7 @@ public sealed class BandejaPasivosPendientesHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.PasivosPendientesPago.AsNoTracking();
+        var q = _db.PasivosPendientesPago.AsNoTracking().Where(p => !p.PagoBloqueado);
         if (query.SoloConSaldo) q = q.Where(p => p.SaldoPendiente > 0);
         if (!string.IsNullOrWhiteSpace(query.TipoBeneficiario))
             q = q.Where(p => p.TipoBeneficiario == query.TipoBeneficiario);

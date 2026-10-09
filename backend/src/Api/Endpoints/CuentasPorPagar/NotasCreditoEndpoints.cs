@@ -1,3 +1,4 @@
+using Millet.CuentasPorPagar.Application.NotaCargo;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ namespace Millet.Api.Endpoints.CuentasPorPagar;
 /// </summary>
 public static class NotasCreditoEndpoints
 {
+    public sealed record CancelarDocumentoBody(string Motivo);
     public static IEndpointRouteBuilder MapNotasCreditoEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app
@@ -83,7 +85,7 @@ public static class NotasCreditoEndpoints
             }
 
             var response = await mediator.Send(
-                new VincularFacturaNotaCreditoCommand(id, v, request.FacturaOrigenId),
+                new VincularFacturaNotaCreditoCommand(id, v, request.FacturaOrigenId, request.ExcepcionRelacion, request.MotivoExcepcion),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -115,9 +117,19 @@ public static class NotasCreditoEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{id:guid}/cancelar", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? version,
+            [FromBody] CancelarDocumentoBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
+            await mediator.Send(new CancelarDocumentoP4Command(TipoDocumentoP4.NotaCredito, id, v, body.Motivo), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+          .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarNotasCreditoCapturar)
+          .ProducesProblem(422).ProducesProblem(409).ProducesProblem(428);
+
         return app;
 
     }
 
-    public sealed record VincularFacturaRequest(Guid FacturaOrigenId);
+    public sealed record VincularFacturaRequest(Guid FacturaOrigenId, bool ExcepcionRelacion = false, string? MotivoExcepcion = null);
 }

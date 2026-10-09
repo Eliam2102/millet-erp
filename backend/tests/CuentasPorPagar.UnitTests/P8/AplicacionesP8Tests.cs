@@ -34,7 +34,7 @@ public sealed class AplicacionesP8Tests
         a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
         var pub = new Publicador(a.Db); var mapper = new PasivoAutorizadoParaPagoMapper(pub, a.Db, new ElegibilidadFacturaService(a.Db, a));
         await new AplicarNotaCargoHandler(a.Db, a, a, mapper).Handle(new(cargo.Id, cargo.Version), default);
-        f.SaldoPendiente.Should().Be(900); f.NcAplicadasTotal.Should().Be(100);
+        f.SaldoPendiente.Should().Be(900); f.CargosAplicadosTotal.Should().Be(100); f.NcAplicadasTotal.Should().Be(0);
         (await a.Db.MovimientosPasivo.SingleAsync()).Tipo.Should().Be(TipoMovimientoPasivo.NotaCargo);
         pub.Eventos.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(900);
     }
@@ -65,9 +65,9 @@ public sealed class AplicacionesP8Tests
         var mapper = new PasivoAutorizadoParaPagoMapper(new Publicador(a.Db), a.Db, new ElegibilidadFacturaService(a.Db, a));
         var handler = new AplicarNotaCreditoAFacturaHandler(a.Db, mapper, a);
         await handler.Handle(new(f.Id, f.Version, nc.Id, nc.Version, 50), default);
-        f.NcAplicadasTotal.Should().Be(50); f.SaldoPendiente.Should().Be(950);
+        f.NcAplicadasTotal.Should().Be(historialCargo ? 0 : 50); f.SaldoPendiente.Should().Be(950);
         await handler.Handle(new(f.Id, f.Version, nc.Id, nc.Version, 50), default);
-        f.NcAplicadasTotal.Should().Be(100); f.SaldoPendiente.Should().Be(900);
+        f.NcAplicadasTotal.Should().Be(historialCargo ? 50 : 100); f.SaldoPendiente.Should().Be(900);
     }
     [Fact]
     public async Task Historial_anterior_sin_fecha_no_inventa_saldos_del_corte()

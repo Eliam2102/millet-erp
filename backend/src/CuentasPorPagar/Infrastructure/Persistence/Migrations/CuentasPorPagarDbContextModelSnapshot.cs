@@ -206,8 +206,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Serie")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
+                        .HasMaxLength(25)
+                        .HasColumnType("character varying(25)")
                         .HasColumnName("serie");
 
                     b.Property<decimal?>("TipoCambio")
@@ -254,6 +254,61 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
                         });
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.AnticipoProveedor.ConfiguracionAnticipoProveedor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<string>("Serie")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("character varying(25)")
+                        .HasColumnName("serie");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_configuraciones_anticipo_proveedor");
+
+                    b.HasIndex("EmpresaId", "ProveedorId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_configuraciones_anticipo_proveedor_empresa_id_proveedor_id");
+
+                    b.ToTable("configuraciones_anticipo_proveedor", "cuentas_por_pagar");
                 });
 
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.Catalogos.AprobadorLimite", b =>
@@ -1424,6 +1479,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("anticipo_aplicado_total");
 
+                    b.Property<decimal>("CargosAplicadosTotal")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("cargos_aplicados_total");
+
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
@@ -1634,14 +1694,14 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProveedorId", "FechaVencimiento")
                         .HasDatabaseName("ix_facturas_proveedor_saldo")
-                        .HasFilter("estado IN (1, 3) AND (total - anticipo_aplicado_total - nc_aplicadas_total - importe_pagado) > 0");
+                        .HasFilter("estado IN (1, 3) AND (total - anticipo_aplicado_total - nc_aplicadas_total - cargos_aplicados_total - importe_pagado) > 0");
 
                     b.HasIndex("EmpresaId", "Estado", "FechaDocumento")
                         .HasDatabaseName("ix_facturas_proveedor_bandeja");
 
                     b.ToTable("facturas_proveedor", "cuentas_por_pagar", t =>
                         {
-                            t.HasCheckConstraint("ck_facturas_proveedor_saldo_no_negativo", "total - anticipo_aplicado_total - nc_aplicadas_total - importe_pagado >= 0");
+                            t.HasCheckConstraint("ck_facturas_proveedor_saldo_no_negativo", "total - anticipo_aplicado_total - nc_aplicadas_total - cargos_aplicados_total - importe_pagado >= 0");
 
                             t.HasCheckConstraint("ck_facturas_proveedor_total_positivo", "total > 0");
                         });
@@ -2068,6 +2128,80 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.ToTable("movimientos_pasivo", "cuentas_por_pagar");
                 });
 
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.PagoProveedorLocal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<decimal>("CubiertoRepp")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("cubierto_repp");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<DateOnly>("FechaPago")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_pago");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("importe");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pago_id");
+
+                    b.Property<bool>("Revertido")
+                        .HasColumnType("boolean")
+                        .HasColumnName("revertido");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pagos_proveedor_local");
+
+                    b.HasIndex("FacturaProveedorId")
+                        .HasDatabaseName("ix_pagos_proveedor_local_factura_proveedor_id");
+
+                    b.HasIndex("EmpresaId", "PagoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_pagos_proveedor_local_empresa_id_pago_id");
+
+                    b.ToTable("pagos_proveedor_local", "cuentas_por_pagar");
+                });
+
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.NotaCargo.FolioSecuenciaNotaCargo", b =>
                 {
                     b.Property<Guid>("EmpresaId")
@@ -2246,6 +2380,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AnticipoOrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anticipo_origen_id");
+
                     b.Property<Guid?>("CapturadoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("capturado_por");
@@ -2319,6 +2457,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_cancelacion");
+
+                    b.Property<string>("MotivoExcepcionRelacion")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_excepcion_relacion");
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uuid")

@@ -31,7 +31,7 @@ public sealed record NotaCreditoListItemResponse(
     EstadoNotaCredito Estado,
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042).
-    string? ProveedorNombre = null);
+    string? ProveedorNombre = null, decimal CargoReconocidoPendiente = 0);
 
 public sealed class ListarNotasCreditoHandler
     : IRequestHandler<ListarNotasCreditoQuery, PagedResponse<NotaCreditoListItemResponse>>
@@ -81,7 +81,7 @@ public sealed class ListarNotasCreditoHandler
                 n.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null))
+                null, 0))
             .ToListAsync(cancellationToken);
 
         // Etiqueta del proveedor en batch sobre los ids distintos de la
@@ -97,6 +97,10 @@ public sealed class ListarNotasCreditoHandler
                 .ToList();
         }
 
+        var ncIds = items.Select(i => i.Id).ToArray();
+        var cargos = await _db.NotasCargo.AsNoTracking().Where(c => c.NotaCreditoProveedorId != null && ncIds.Contains(c.NotaCreditoProveedorId.Value)).ToListAsync(cancellationToken);
+        items = items.Select(i => i with { CargoReconocidoPendiente = Math.Max(0,
+            (cargos.FirstOrDefault(c => c.NotaCreditoProveedorId == i.Id)?.Monto ?? 0) - (i.Total - i.SaldoPorAplicar)) }).ToList();
         return new PagedResponse<NotaCreditoListItemResponse>(items, offset, limit, total);
     }
 }

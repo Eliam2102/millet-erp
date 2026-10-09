@@ -1192,6 +1192,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("monto_total");
 
+                    b.Property<string>("MotivoBloqueo")
+                        .HasColumnType("text")
+                        .HasColumnName("motivo_bloqueo");
+
                     b.Property<Guid?>("OrdenCompraId")
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");
@@ -1205,6 +1209,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("origen_tipo");
+
+                    b.Property<bool>("PagoBloqueado")
+                        .HasColumnType("boolean")
+                        .HasColumnName("pago_bloqueado");
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uuid")
@@ -1229,6 +1237,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasPrecision(12, 6)
                         .HasColumnType("numeric(12,6)")
                         .HasColumnName("tipo_cambio");
+
+                    b.Property<DateTimeOffset?>("UltimoCambioCxp")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultimo_cambio_cxp");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1267,6 +1279,67 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_pasivo_pendiente_saldo_no_negativo", "saldo_pendiente >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Repp.ReppPagoProveedor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("importe");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pago_id");
+
+                    b.Property<Guid>("ReppId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("repp_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_repp_pagos_proveedor");
+
+                    b.HasIndex("PagoId")
+                        .HasDatabaseName("ix_repp_pagos_proveedor_pago_id");
+
+                    b.HasIndex("ReppId", "PagoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_repp_pagos_proveedor_repp_id_pago_id");
+
+                    b.ToTable("repp_pagos_proveedor", "tesoreria");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Repp.ReppProveedorRecibido", b =>
@@ -1407,6 +1480,23 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_movimiento_bancario_cuenta_bancaria_cuenta_bancaria_id");
+                });
+
+            modelBuilder.Entity("Millet.Tesoreria.Domain.Repp.ReppPagoProveedor", b =>
+                {
+                    b.HasOne("Millet.Tesoreria.Domain.Movimientos.AplicacionPagoProveedor", null)
+                        .WithMany()
+                        .HasForeignKey("PagoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_repp_pagos_proveedor_aplicacion_pago_proveedor_pago_id");
+
+                    b.HasOne("Millet.Tesoreria.Domain.Repp.ReppProveedorRecibido", null)
+                        .WithMany()
+                        .HasForeignKey("ReppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_repp_pagos_proveedor_repp_proveedor_recibido_repp_id");
                 });
 
             modelBuilder.Entity("Millet.Tesoreria.Domain.Corridas.CorridaPago", b =>

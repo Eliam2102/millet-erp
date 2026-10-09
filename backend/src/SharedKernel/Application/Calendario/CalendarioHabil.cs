@@ -25,6 +25,14 @@ public static class CalendarioHabil
         }
     }
 
+    // Excluye el día del pago; incluye el día de evaluación solo si es hábil.
+    public static int ContarDias(DateOnly desde, DateOnly hasta, IReadOnlySet<DateOnly> festivos)
+    {
+        var dias = 0;
+        for (var f = desde.AddDays(1); f <= hasta; f = f.AddDays(1))
+            if (f.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && !festivos.Contains(f)) dias++;
+        return dias;
+    }
     public static DateTimeOffset SumarHoras(DateOnly fecha, int horas, IReadOnlySet<DateOnly> festivos, TimeZoneInfo zona)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(horas);
