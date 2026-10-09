@@ -228,6 +228,9 @@ export function useCancelarCobro() {
       void queryClient.invalidateQueries({
         queryKey: facturacionKeys.cobros(cobro.cajaSesionId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: facturacionKeys.facturaById(cobro.comprobanteId),
+      });
     },
   });
 }

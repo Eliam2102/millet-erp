@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CancelarComprobanteForm } from '@/features/facturacion/components/CancelarComprobanteForm';
-import { RegistrarCobroCard } from '@/features/facturacion/components/RegistrarCobroCard';
+import { CobroFacturaPanel } from '@/features/facturacion/components/CobroFacturaPanel';
 import { TimbradoFallidoBanner } from '@/features/facturacion/components/TimbradoFallidoBanner';
 import { IntentosTimbradoPanel } from '@/features/facturacion/components/IntentosTimbradoPanel';
 import { TrazabilidadFacturacion } from '@/features/facturacion/components/TrazabilidadFacturacion';
@@ -238,6 +238,7 @@ function Contenido({
           </div>
         </Dato>
         <Dato label="Moneda">{f.moneda}</Dato>
+        <Dato label="Método de pago">{f.metodoPago ?? 'Por confirmar'}</Dato>
         <Dato label="Fecha de timbrado">
           {f.fechaTimbrado ? new Date(f.fechaTimbrado).toLocaleString('es-MX') : '—'}
         </Dato>
@@ -393,26 +394,7 @@ function Contenido({
         </section>
       )}
 
-      {/* ── Cobro de mostrador (CAJAS-PR6, [Decisión 12-E]). El monto a
-          cobrar es el neto de NC ([Decisión 13-K]); el backend lo valida. */}
-      {vigente && (f.totalPorCobrar ?? f.total) > 0 && (
-        <section className="space-y-2" data-print="hidden">
-          <RegistrarCobroCard
-            comprobanteId={f.id}
-            folio={f.folio}
-            total={f.totalPorCobrar ?? f.total}
-            moneda={f.moneda}
-          />
-        </section>
-      )}
-      {vigente && (f.totalAcreditado ?? 0) > 0 && (f.totalPorCobrar ?? f.total) <= 0 && (
-        <p
-          className="rounded-md border border-dashed px-3 py-3 text-center text-xs text-muted-foreground"
-          data-print="hidden"
-        >
-          Sin monto por cobrar: las notas de crédito acreditan el total de la factura.
-        </p>
-      )}
+      <CobroFacturaPanel factura={f} />
 
       {/* ── Trazabilidad documento-céntrica (ANT-PR3, doc 13) ───── */}
       <TrazabilidadFacturacion raiz="comprobante" id={f.id} />

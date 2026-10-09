@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
+using Millet.Facturacion.Application.Cajas.Cobros;
+using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
@@ -42,7 +44,18 @@ public sealed record ComprobanteDetalleResponse(
     // de anticipos relación 07 y NC generales) y el monto que queda por cobrar.
     decimal TotalAcreditado = 0m,
     decimal TotalPorCobrar = 0m,
-    IReadOnlyList<NotaCreditoAplicadaDetalle>? NotasCreditoAplicadas = null);
+    IReadOnlyList<NotaCreditoAplicadaDetalle>? NotasCreditoAplicadas = null,
+    string? MetodoPago = null,
+    CobroFacturaDetalle? CobroMostrador = null,
+    decimal PagadoPorRep = 0m);
+
+/// <summary>Cobro vigente de la factura, con la sesión donde se registró.</summary>
+public sealed record CobroFacturaDetalle(
+    Guid Id, DateTimeOffset FechaCobro, Guid UsuarioCobradorId, decimal Total,
+    IReadOnlyList<CobroFormaPagoItem> FormasPago, CobroCajaSesionDetalle Sesion);
+
+public sealed record CobroCajaSesionDetalle(
+    Guid Id, Guid CajaId, string CajaNombre, DateOnly DiaOperacion, string Estado);
 
 /// <summary>NC timbrada que acredita a la factura ([Decisión 13-K]).</summary>
 public sealed record NotaCreditoAplicadaDetalle(
@@ -132,6 +145,39 @@ public sealed class ComprobanteDetalleHandler
             .ToList();
         var totalAcreditado = ncAplicadas.Sum(n => n.Total);
 
+        // Solo el cobro Registrado descuenta; cancelarlo restaura el saldo.
+        var cobro = f.MetodoPago == "PUE"
+            ? await _db.CobrosMostrador.AsNoTracking().Include(c => c.FormasPago)
+                .SingleOrDefaultAsync(c => c.ComprobanteId == f.Id
+                    && c.Estado == EstadoCobroMostrador.Registrado, cancellationToken)
+            : null;
+        CobroFacturaDetalle? cobroDetalle = null;
+        if (cobro is not null)
+        {
+            var sesion = await _db.CajaSesiones.AsNoTracking()
+                .Join(_db.Cajas.AsNoTracking(), s => s.CajaId, c => c.Id,
+                    (s, c) => new { s.Id, s.CajaId, CajaNombre = c.Nombre, s.DiaOperacion, s.Estado })
+                .SingleAsync(s => s.Id == cobro.CajaSesionId, cancellationToken);
+            cobroDetalle = new CobroFacturaDetalle(
+                cobro.Id, cobro.FechaCobro, cobro.UsuarioCobradorId, cobro.Total,
+                cobro.FormasPago.OrderBy(p => p.FormaPago).ThenBy(p => p.Id)
+                    .Select(p => new CobroFormaPagoItem(p.FormaPago, p.Importe, p.Referencia)).ToList(),
+                new CobroCajaSesionDetalle(sesion.Id, sesion.CajaId, sesion.CajaNombre,
+                    sesion.DiaOperacion, sesion.Estado.ToString()));
+        }
+
+        // PagosVigentes también reserva saldo para REP pendientes/fallidos.
+        // El detalle solo muestra pago confirmado por timbre, sin alterar esa reserva.
+        // Solicitar cancelación no revierte el pago hasta que el REP quede Cancelado.
+        var pagadoPorRep = f.MetodoPago == "PPD"
+            ? await _db.RecibosPago.AsNoTracking()
+                .Where(r => r.Estado == EstadoTimbrado.Timbrado
+                    || r.Estado == EstadoTimbrado.CancelacionPendiente)
+                .SelectMany(r => r.FacturasPagadas)
+                .Where(p => p.FacturaVentaId == f.Id)
+                .SumAsync(p => p.ImportePagado, cancellationToken)
+            : 0m;
+
         return new ComprobanteDetalleResponse(
             f.Id, f.Tipo.ToString(), f.Folio, f.Estado.ToString(), f.Uuid,
             f.ReceptorRfc, f.ReceptorNombre, f.Moneda,
@@ -139,7 +185,10 @@ public sealed class ComprobanteDetalleHandler
             f.FechaTimbrado, f.Version, lineas, relaciones,
             f.TimbradoErrorCodigo, f.TimbradoErrorMensaje, f.FolioPac,
             TotalAcreditado: totalAcreditado,
-            TotalPorCobrar: f.Total - totalAcreditado,
-            NotasCreditoAplicadas: ncAplicadas);
+            TotalPorCobrar: f.Total - totalAcreditado - (cobro?.Total ?? pagadoPorRep),
+            NotasCreditoAplicadas: ncAplicadas,
+            MetodoPago: f.MetodoPago,
+            CobroMostrador: cobroDetalle,
+            PagadoPorRep: pagadoPorRep);
     }
 }
