@@ -1,3 +1,4 @@
+import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -163,6 +164,7 @@ export function AnticiposPage() {
                 <th className="px-3 py-2 text-right">Amortizado</th>
                 <th className="px-3 py-2 text-right">Saldo</th>
                 <th className="px-3 py-2 text-left">Estado</th>
+                <th className="px-3 py-2 text-left">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -193,6 +195,7 @@ export function AnticiposPage() {
                   <td className="px-3 py-2">
                     <EstadoAnticipoChip estado={a.estado} />
                   </td>
+                  <td className="px-3 py-2"><DocumentoP4Acciones tipo="anticipos" documento={a} /></td>
                 </tr>
               ))}
             </tbody>

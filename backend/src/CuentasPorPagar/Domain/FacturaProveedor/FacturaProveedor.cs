@@ -99,10 +99,11 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     // ---- Aplicaciones acumuladas (F6+) ----
     public decimal AnticipoAplicadoTotal { get; private set; }
     public decimal NcAplicadasTotal { get; private set; }
+    public decimal CargosAplicadosTotal { get; private set; }
     public decimal ImportePagado { get; private set; }
 
     /// <summary>Saldo pendiente = Total − Anticipos − NCs − Pagado. Calculado, persistido.</summary>
-    public decimal SaldoPendiente => Total - AnticipoAplicadoTotal - NcAplicadasTotal - ImportePagado;
+    public decimal SaldoPendiente => Total - AnticipoAplicadoTotal - NcAplicadasTotal - CargosAplicadosTotal - ImportePagado;
 
     /// <summary>
     /// F9-PR1: indica si Tesorería confirmó que el complemento de pago
@@ -110,6 +111,16 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// motivo de revisión "Falta complemento de pago" pueda liberarse.
     /// </summary>
     public bool ReppRecibido { get; private set; }
+    public static readonly Guid MotivoFaltaReppId = Guid.Parse("00000007-1001-0000-0000-000000000009");
+    public void ActualizarReppRecibido(bool completo, DateTimeOffset ahora)
+    {
+        ReppRecibido = completo;
+        if (!completo || !EnRevision || MotivoRevisionId != MotivoFaltaReppId) return;
+        var anterior = Estado;
+        Estado = SaldoPendiente == 0 ? EstadoPasivo.Pagada : EstadoPasivo.Autorizada;
+        EnRevision = false; MotivoRevisionId = null; DependenciaRevisoraId = null; FechaEntradaRevision = null;
+        RegistrarTransicion(anterior, Estado, ahora, "REPP del proveedor recibido y validado; liberado FALTA_REPP", null);
+    }
 
     /// <summary>
     /// MetodoPago SAT (PUE/PPD) del CFDI de la factura (TES-PR8, [T-G11]).
@@ -455,7 +466,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Guid? usuarioId,
         DateTimeOffset ahora)
     {
-        if (Estado is EstadoPasivo.Pagada or EstadoPasivo.Cancelada)
+        if (Estado == EstadoPasivo.Cancelada || (Estado == EstadoPasivo.Pagada &&
+            (motivoRevisionId != MotivoFaltaReppId || MetodoPago != "PPD" || ImportePagado <= 0 || ReppRecibido)))
         {
             throw new BusinessRuleException(
                 "FACTURA_NO_ENVIABLE_A_REVISION",
@@ -494,8 +506,10 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 "La acción tomada es obligatoria al liberar revisión.");
         }
 
+        if (MotivoRevisionId == MotivoFaltaReppId && !ReppRecibido)
+            throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra y valida los complementos pendientes en Tesorería antes de liberar este motivo.");
         var anterior = Estado;
-        Estado = EstadoPasivo.Capturada;
+        Estado = SaldoPendiente == 0 && ImportePagado > 0 ? EstadoPasivo.Pagada : EstadoPasivo.Capturada;
         EnRevision = false;
         MotivoRevisionId = null;
         DependenciaRevisoraId = null;
@@ -557,9 +571,9 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// CFDI (la TC ya pagó al proveedor) — el flujo normal lo dispara
     /// vía evento desde Tesorería en F9-PR1.
     /// </summary>
-    public void RegistrarPago(decimal monto, DateTimeOffset ahora, string observacion)
+    public void RegistrarPago(decimal monto, DateTimeOffset ahora, string observacion, bool confirmadoPorTesoreria = false)
     {
-        if (Estado is not EstadoPasivo.Autorizada)
+        if (Estado != EstadoPasivo.Autorizada && !(confirmadoPorTesoreria && Estado == EstadoPasivo.EnRevision))
         {
             throw new BusinessRuleException(
                 "FACTURA_NO_PAGABLE",
@@ -575,7 +589,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
         ImportePagado += monto;
         _movimientos.Add(new(Id, null, TipoMovimientoPasivo.Pago, DateOnly.FromDateTime(ahora.UtcDateTime), monto));
-        if (SaldoPendiente == 0m)
+        if (SaldoPendiente == 0m && Estado != EstadoPasivo.EnRevision)
         {
             var anterior = Estado;
             Estado = EstadoPasivo.Pagada;
@@ -591,7 +605,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// </summary>
     public void RevertirPago(decimal monto, DateTimeOffset ahora, string observacion)
     {
-        if (Estado is not (EstadoPasivo.Pagada or EstadoPasivo.Autorizada))
+        if (Estado is not (EstadoPasivo.Pagada or EstadoPasivo.Autorizada or EstadoPasivo.EnRevision))
         {
             throw new BusinessRuleException(
                 "FACTURA_NO_REVERTIBLE",
@@ -640,6 +654,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Solo facturas en Capturada o EnRevision pueden autorizarse (actual: {Estado}).");
         }
 
+        if (EnRevision && MotivoRevisionId == MotivoFaltaReppId && !ReppRecibido)
+            throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra los complementos pendientes en Tesorería antes de volver a autorizar.");
         var anterior = Estado;
         Estado = EstadoPasivo.Autorizada;
         EnRevision = false;
@@ -680,8 +696,10 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
     public void AplicarNotaCargo(decimal monto, Guid notaCargoId, DateOnly fecha)
     {
-        AplicarNotaCredito(monto, fecha, notaCargoId);
-        _movimientos[^1] = new(Id, notaCargoId, TipoMovimientoPasivo.NotaCargo, fecha, monto);
+        if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada || monto <= 0 || monto > SaldoPendiente)
+            throw new BusinessRuleException("NCG_SALDO_INVALIDO", "La nota de cargo requiere una factura vigente con saldo suficiente.");
+        CargosAplicadosTotal += monto;
+        _movimientos.Add(new(Id, notaCargoId, TipoMovimientoPasivo.NotaCargo, fecha, monto));
     }
 
     private void AsegurarMutable(string operacion)

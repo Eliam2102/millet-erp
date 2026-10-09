@@ -47,11 +47,15 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         DbContextOptions<CuentasPorPagarDbContext> options,
         ICurrentEmpresaContext empresaContext,
         Domain.Ports.Contabilidad.IPeriodoContablePort periodos,
-        IClock clock) : base(options, empresaContext)
-    { _periodos = new(periodos); _clock = clock; }
+        IClock clock, IIntegrationEventPublisher? publisher = null) : base(options, empresaContext)
+    { _periodos = new(periodos); _clock = clock; _publisher = publisher; }
+
+    private readonly IIntegrationEventPublisher? _publisher;
+    public DbSet<ConfiguracionAnticipoProveedor> ConfiguracionesAnticipoProveedor => Set<ConfiguracionAnticipoProveedor>();
 
     private readonly Application.Periodos.PeriodoCerradoValidator _periodos;
     private readonly IClock _clock;
+    public DbSet<PagoProveedorLocal> PagosProveedorLocal => Set<PagoProveedorLocal>();
     public DbSet<MovimientoPasivo> MovimientosPasivo => Set<MovimientoPasivo>();
     public DbSet<Domain.Catalogos.RetencionConcepto> RetencionesConcepto => Set<Domain.Catalogos.RetencionConcepto>();
 
@@ -61,14 +65,41 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
     {
         ChangeTracker.DetectChanges();
         var fechas = FechasContables().Distinct().ToArray();
-        if (fechas.Length == 0) return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        var nuevosUuid = ChangeTracker.Entries().Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity switch { FacturaProveedor f => f.UuidCfdi, NotaCreditoProveedor n => n.UuidCfdi, AnticipoProveedor a => a.UuidCfdi, _ => null })
+            .Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u!.Trim().ToUpperInvariant()).ToArray();
+        // P3 libera el CFDI al rechazar por tolerancia: su recaptura como factura es un reintento,
+        // no un consumo nuevo entre tipos. Una NC o un anticipo nunca obtiene esta excepción.
+        var cfdisRetomados = ChangeTracker.Entries<FacturaProveedor>().Where(e => e.State == EntityState.Added && e.Entity.CfdiRecibidoId != null)
+            .Select(e => e.Entity.CfdiRecibidoId!.Value).ToArray();
         // Mismo candado de ADR-0059: cierre y persistencia se serializan hasta commit.
         const long lockPeriodos = 0x0D03_0001;
         await using var tx = Database.IsRelational() && Database.CurrentTransaction is null
             ? await Database.BeginTransactionAsync(cancellationToken) : null;
         if (Database.IsRelational())
             await Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({lockPeriodos})", cancellationToken);
+        if (nuevosUuid.Length > 0)
+        {
+            if (Database.IsRelational())
+                await Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({0x503455554944L})", cancellationToken);
+            // PostgreSQL traduce ToUpper() a upper(); los UUID solo contienen caracteres ASCII.
+#pragma warning disable CA1311, CA1304
+            if (nuevosUuid.Distinct().Count() != nuevosUuid.Length ||
+                await FacturasProveedor.IgnoreQueryFilters().AnyAsync(f => nuevosUuid.Contains(f.UuidCfdi!.ToUpper()) &&
+                    !(f.Estado == EstadoPasivo.Cancelada && f.MotivoDeCancelacion == MotivoCancelacion.RechazadaPorTolerancia && f.CfdiRecibidoId != null && cfdisRetomados.Contains(f.CfdiRecibidoId.Value)), cancellationToken) ||
+                await NotasCreditoProveedor.IgnoreQueryFilters().AnyAsync(n => nuevosUuid.Contains(n.UuidCfdi.ToUpper()), cancellationToken) ||
+                await AnticiposProveedor.IgnoreQueryFilters().AnyAsync(a => nuevosUuid.Contains(a.UuidCfdi.ToUpper()), cancellationToken))
+                throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CXP_UUID_DUPLICADO", "El UUID ya está consumido por una factura, una NC o un anticipo. No puede capturarse otra vez.");
+        }
+#pragma warning restore CA1311, CA1304
         await _periodos.ValidarAsync(fechas, cancellationToken);
+        if (_publisher is not null)
+            foreach (var e in ChangeTracker.Entries<FacturaProveedor>().Where(e => e.State == EntityState.Modified &&
+                e.Property(f => f.Estado).OriginalValue == EstadoPasivo.Autorizada &&
+                e.Entity.Estado is EstadoPasivo.EnRevision or EstadoPasivo.Cancelada))
+                await _publisher.PublishAsync(new Application.Integration.PasivoRetiradoDePagoIntegrationEvent(
+                    e.Entity.EmpresaId, _clock.UtcNow, e.Entity.Id, e.Entity.ProveedorId, e.Entity.Moneda,
+                    e.Entity.Estado == EstadoPasivo.Cancelada ? "Factura cancelada en CxP" : "Factura enviada a revisión en CxP"), cancellationToken);
         foreach (var entry in ChangeTracker.Entries<FacturaProveedor>().Where(e =>
             e.State == EntityState.Added || e.Property(f => f.ConceptoRetencion).IsModified))
         {
@@ -200,6 +231,12 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CfdiRecibidoConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaProveedorConfiguration());
+        modelBuilder.Entity<PagoProveedorLocal>(b =>
+        {
+            b.ToTable("pagos_proveedor_local"); b.HasKey(x => x.Id); b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Importe).HasPrecision(18, 4); b.Property(x => x.CubiertoRepp).HasPrecision(18, 4);
+            b.HasIndex(x => new { x.EmpresaId, x.PagoId }).IsUnique(); b.HasIndex(x => x.FacturaProveedorId);
+        });
         modelBuilder.ApplyConfiguration(new RetencionConceptoConfiguration());
         modelBuilder.Entity<MovimientoPasivo>(b =>
         {
@@ -211,9 +248,16 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new MotivoRevisionConfiguration());
         modelBuilder.ApplyConfiguration(new EvidenciaAutorizacionConfiguration());
         modelBuilder.ApplyConfiguration(new NotaCreditoProveedorConfiguration());
+        modelBuilder.Entity<NotaCreditoProveedor>().Property(n => n.MotivoExcepcionRelacion).HasMaxLength(400);
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
         modelBuilder.ApplyConfiguration(new RecepcionOcLocalConfiguration());
         modelBuilder.ApplyConfiguration(new AnticipoProveedorConfiguration());
+        modelBuilder.Entity<ConfiguracionAnticipoProveedor>(b =>
+        {
+            b.ToTable("configuraciones_anticipo_proveedor"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever(); b.Property(x => x.Serie).HasMaxLength(25);
+            b.HasIndex(x => new { x.EmpresaId, x.ProveedorId }).IsUnique();
+        });
         modelBuilder.ApplyConfiguration(new NotaCargoConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaNotaCargoConfiguration());
         modelBuilder.ApplyConfiguration(new ComprobacionGastosConfiguration());

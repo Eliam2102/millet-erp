@@ -473,7 +473,8 @@ export function useRegistrarReppRecibido() {
         facturaProveedorId: string;
         uuidComplemento: string;
         fechaComplemento: string;
-        xmlBase64?: string;
+        xmlBase64: string;
+        pagos: { pagoId: string; importe: number }[];
       };
       idempotencyKey: string;
     }) => {

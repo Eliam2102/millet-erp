@@ -1,3 +1,4 @@
+import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,8 @@ export function NotaCreditoDetallePage() {
               {formatearFechaHora(query.data.fechaCaptura)}
             </p>
           </header>
+
+          <DocumentoP4Acciones tipo="notas-credito" documento={query.data} />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo

@@ -145,7 +145,9 @@ public sealed record ReppProveedorRecibidoPayload(
     DateTimeOffset OcurridoEn,
     Guid FacturaProveedorId,
     string UuidComplementoPago,
-    DateTimeOffset FechaComplemento);
+    DateTimeOffset FechaComplemento, IReadOnlyList<ReppPagoPayload>? Pagos = null);
+
+public sealed record ReppPagoPayload(Guid PagoId, decimal Importe);
 
 /// <summary>Espejo de <c>tesoreria.cancelacion-pasivo.solicitada.v1</c>.</summary>
 public sealed record CancelacionPasivoSolicitadaPayload(

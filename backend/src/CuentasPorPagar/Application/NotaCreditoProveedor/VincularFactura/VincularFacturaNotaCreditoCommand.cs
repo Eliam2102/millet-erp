@@ -18,7 +18,7 @@ namespace Millet.CuentasPorPagar.Application.NotaCreditoProveedor.VincularFactur
 public sealed record VincularFacturaNotaCreditoCommand(
     Guid Id,
     int VersionEsperada,
-    Guid FacturaOrigenId) : IRequest<VincularFacturaNotaCreditoResponse>;
+    Guid FacturaOrigenId, bool ExcepcionRelacion = false, string? MotivoExcepcion = null) : IRequest<VincularFacturaNotaCreditoResponse>;
 
 public sealed record VincularFacturaNotaCreditoResponse(
     Guid Id,
@@ -33,6 +33,7 @@ public sealed class VincularFacturaNotaCreditoValidator : AbstractValidator<Vinc
         RuleFor(c => c.Id).NotEmpty();
         RuleFor(c => c.FacturaOrigenId).NotEmpty();
         RuleFor(c => c.VersionEsperada).GreaterThanOrEqualTo(0);
+        RuleFor(c => c.MotivoExcepcion).NotEmpty().MaximumLength(400).When(c => c.ExcepcionRelacion);
     }
 }
 
@@ -66,7 +67,7 @@ public sealed class VincularFacturaNotaCreditoHandler
         var factura = await _db.FacturasProveedor
             .AsNoTracking()
             .Where(f => f.Id == command.FacturaOrigenId)
-            .Select(f => new { f.Id, f.ProveedorId })
+            .Select(f => new { f.Id, f.ProveedorId, f.UuidCfdi, f.Moneda })
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new EntityNotFoundException(
                 "FACTURA_ORIGEN_NO_ENCONTRADA",
@@ -79,6 +80,16 @@ public sealed class VincularFacturaNotaCreditoHandler
                 "La factura origen y la NC pertenecen a proveedores distintos.");
         }
 
+        if (factura.Moneda != nc.Moneda)
+            throw new BusinessRuleException("NC_MONEDA_DISTINTA", "La NC y la factura deben tener la misma moneda.");
+        if (nc.TipoRelacionCfdi == TipoRelacionCfdi.AmortizacionAnticipo)
+            throw new BusinessRuleException("NC_RELACION_ANTICIPO", "La NC tipo 07 debe vincularse al CFDI del anticipo.");
+        if (!string.Equals(factura.UuidCfdi, nc.UuidRelacionCfdi, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!command.ExcepcionRelacion || string.IsNullOrWhiteSpace(command.MotivoExcepcion))
+                throw new BusinessRuleException("NC_UUID_RELACION_DISTINTO", "El UUID de la factura no coincide con la relación de la NC. Registra una excepción explícita con motivo para continuar.");
+            nc.RegistrarExcepcionRelacion(command.MotivoExcepcion);
+        }
         var ahora = _clock.UtcNow;
         nc.VincularFacturaOrigen(command.FacturaOrigenId, ahora);
 
@@ -100,6 +111,7 @@ public sealed class VincularFacturaNotaCreditoHandler
             Moneda: nc.Moneda,
             TipoCambio: nc.TipoCambio), cancellationToken);
 
+        await new NotaCargo.FormalizacionNotaCargoService(_db, _mediator).IntentarAsync(nc, ahora, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new VincularFacturaNotaCreditoResponse(nc.Id, nc.Estado, nc.FacturaOrigenId!.Value, nc.Version);

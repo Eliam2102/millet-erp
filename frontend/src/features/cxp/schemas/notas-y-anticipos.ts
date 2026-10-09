@@ -48,8 +48,8 @@ export const CapturarAnticipoSchema = z.object({
   serie: z
     .string()
     .trim()
-    .min(1, 'Serie obligatoria (típicamente FANT).')
-    .max(20),
+    .min(1, 'Serie obligatoria (FANT por omisión).')
+    .max(25),
   folioProveedor: z.string().trim().max(50).nullable(),
   fechaCfdi: z.string().regex(DATE_ONLY_RE, 'Formato YYYY-MM-DD.'),
   moneda: z.string().trim().length(3),
