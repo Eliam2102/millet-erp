@@ -267,6 +267,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // Contabilidad (F1-CON-01)
   'contabilidad.catalogo.leer',
   'contabilidad.catalogo.administrar',
+  'contabilidad.catalogo.autorizar',
   'contabilidad.catalogo.importar',
   'contabilidad.dimensiones.leer',
   'contabilidad.dimensiones.administrar',

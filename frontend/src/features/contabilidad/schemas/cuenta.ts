@@ -7,6 +7,7 @@ export const CuentaSchema = z.object({
   nombre: z.string().trim().min(1, 'El nombre es requerido.').max(254, 'Máximo 254 caracteres.'),
   padreId: z.string(), // '' = sin padre (raíz)
   naturaleza: z.enum(['', 'Deudora', 'Acreedora']), // '' = pendiente de validación
+  noAfectableManual: z.boolean(),
   cuentaControl: z.enum(['Ninguna', 'Clientes', 'Deudores', 'Proveedores', 'Acreedores']),
   rubroId: z.string(), // '' = sin rubro (solo aplica a cuentas de nivel 1)
   codigoAgrupador: z.string().trim().max(30, 'Máximo 30 caracteres.'),
@@ -21,6 +22,7 @@ export const VALORES_VACIOS: CuentaValues = {
   padreId: '',
   naturaleza: '',
   cuentaControl: 'Ninguna',
+  noAfectableManual: false,
   rubroId: '',
   codigoAgrupador: '',
   grupoReporte: '',
@@ -38,6 +40,7 @@ export function aBody(v: CuentaValues, conCodigo: boolean): CuentaBody {
     naturaleza: v.naturaleza || null,
     tipo: null,
     cuentaControl: v.cuentaControl,
+    noAfectableManual: v.noAfectableManual,
     codigoAgrupador: v.codigoAgrupador.trim() || null,
     grupoReporte: v.grupoReporte.trim() || null,
     rubroId: v.padreId ? null : v.rubroId || null,

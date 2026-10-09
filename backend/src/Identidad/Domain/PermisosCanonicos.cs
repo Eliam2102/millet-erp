@@ -477,6 +477,7 @@ public static class PermisosCanonicos
     // `importar` va aparte de `administrar`: es una operación masiva (carga/actualización por lote).
     public const string ContabilidadCatalogoLeer                = "contabilidad.catalogo.leer";
     public const string ContabilidadCatalogoAdministrar         = "contabilidad.catalogo.administrar";
+    public const string ContabilidadCatalogoAutorizar = "contabilidad.catalogo.autorizar";
     public const string ContabilidadCatalogoImportar            = "contabilidad.catalogo.importar";
     // F1-CON-02: -0002 dimensiones (reglas, tipos de documento, centros por sucursal), -0003 movimientos.
     // `gestionar-todas-sucursales` es el bypass de alcance por sucursal (ADR-0051); su literal se duplica en
@@ -760,6 +761,7 @@ public static class PermisosCanonicos
         // Contabilidad (F1-CON-01). Namespace 0000000d-*.
         (Guid.Parse("0000000d-0001-0000-0000-000000000001"), ContabilidadCatalogoLeer,                "Consultar el catálogo contable (cuentas, árbol, lotes de importación y validación de cuentas)"),
         (Guid.Parse("0000000d-0001-0000-0000-000000000002"), ContabilidadCatalogoAdministrar,         "Crear, editar, desactivar y reactivar cuentas contables"),
+        (Guid.Parse("0000000d-0001-0000-0000-000000000004"), ContabilidadCatalogoAutorizar, "Autorizar o rechazar solicitudes del catálogo contable (DAF)"),
         (Guid.Parse("0000000d-0001-0000-0000-000000000003"), ContabilidadCatalogoImportar,            "Previsualizar, perfilar y aplicar importaciones del catálogo contable"),
         (Guid.Parse("0000000d-0002-0000-0000-000000000001"), ContabilidadDimensionesLeer,             "Consultar reglas de dimensión, tipos de documento contable, centros por sucursal y movimientos de prueba"),
         (Guid.Parse("0000000d-0002-0000-0000-000000000002"), ContabilidadDimensionesAdministrar,      "Configurar reglas de dimensión, tipos de documento contable y sucursales de cada centro de costo"),

@@ -17,11 +17,11 @@ public sealed class CuentaContableReadAdapter(ContabilidadDbContext db, FormatoC
     public async Task<CuentaContableValidacion> ValidarParaMovimientoAsync(string codigoCuenta, OrigenMovimiento origen, CancellationToken ct)
     {
         var codigo = FormatoCatalogo.Codigo(codigoCuenta) ?? string.Empty;
-        return Validar(await db.Cuentas.AsNoTracking().FirstOrDefaultAsync(c => c.Codigo == codigo, ct), origen);
+        return Validar(await db.Cuentas.AsNoTracking().FirstOrDefaultAsync(c => c.Codigo == codigo, ct), origen, formato);
     }
 
     public async Task<CuentaContableValidacion> ValidarParaMovimientoAsync(Guid cuentaId, OrigenMovimiento origen, CancellationToken ct) =>
-        Validar(await db.Cuentas.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cuentaId, ct), origen);
+        Validar(await db.Cuentas.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cuentaId, ct), origen, formato);
 
     public async Task<CuentaContableLectura?> ObtenerAsync(Guid cuentaId, CancellationToken ct)
     {
@@ -29,7 +29,7 @@ public sealed class CuentaContableReadAdapter(ContabilidadDbContext db, FormatoC
         return c is null ? null : Lectura(c);
     }
 
-    private CuentaContableValidacion Validar(CuentaContable? c, OrigenMovimiento origen)
+    internal static CuentaContableValidacion Validar(CuentaContable? c, OrigenMovimiento origen, FormatoCatalogo formato)
     {
         if (c is null) return new(false, MotivoRechazoCuenta.NoExiste, null);
         var l = Lectura(c);
@@ -38,16 +38,17 @@ public sealed class CuentaContableReadAdapter(ContabilidadDbContext db, FormatoC
             : !c.Activa ? MotivoRechazoCuenta.Inactiva
             : c.PendienteValidacion ? MotivoRechazoCuenta.PendienteValidacion
             : c.Tipo != TipoCuenta.Afectable ? MotivoRechazoCuenta.Titulo
-            : c.CuentaControl != CuentaControl.Ninguna && !OrigenPermitido(c.CuentaControl, origen) ? MotivoRechazoCuenta.ControlSoloAuxiliar
+            : c.NoAfectableManual && origen == OrigenMovimiento.Manual ? MotivoRechazoCuenta.NoAfectableManual
+            : c.CuentaControl != CuentaControl.Ninguna && !OrigenPermitido(c.CuentaControl, origen, formato) ? MotivoRechazoCuenta.ControlSoloAuxiliar
             : null;
         return new(motivo is null, motivo, l);
     }
 
     /// <summary>P23: la captura manual nunca afecta una cuenta colectiva, diga lo que diga la configuración.</summary>
-    private bool OrigenPermitido(CuentaControl control, OrigenMovimiento origen) =>
+    private static bool OrigenPermitido(CuentaControl control, OrigenMovimiento origen, FormatoCatalogo formato) =>
         origen != OrigenMovimiento.Manual
         && (formato.Opciones.OrigenesControl.GetValueOrDefault(control.ToString())?.Contains(origen.ToString()) ?? false);
 
     private static CuentaContableLectura Lectura(CuentaContable c) =>
-        new(c.Id, c.Codigo, c.Nombre, c.Naturaleza, c.Tipo, c.Activa, c.CuentaControl, c.PendienteValidacion);
+        new(c.Id, c.Codigo, c.Nombre, c.Naturaleza, c.Tipo, c.Activa, c.CuentaControl, c.PendienteValidacion, c.NoAfectableManual);
 }

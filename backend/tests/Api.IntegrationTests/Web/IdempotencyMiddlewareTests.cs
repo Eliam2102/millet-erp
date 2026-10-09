@@ -4,6 +4,10 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Millet.SharedKernel.Application.Idempotency;
+using Millet.SharedKernel.Infrastructure.Persistence;
 
 namespace Millet.Api.IntegrationTests.Web;
 
@@ -44,6 +48,34 @@ public class IdempotencyMiddlewareTests : IClassFixture<WebApplicationFactory<Pr
         var secondJson = await ReadJsonAsync(second);
         Assert.Equal(firstCount, secondJson.GetProperty("count").GetInt32());
         Assert.Equal(firstPayload, secondJson.GetProperty("payload").GetString());
+        Assert.Equal(await first.Content.ReadAsByteArrayAsync(), await second.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task P9_PostgreSQL_conserva_bytes_espacios_orden_y_escapes_del_cuerpo()
+    {
+        const string cuerpo = "{\n  \"z\":\"México\",\"a\":\"\\u00e9\",\"importe\":1.00\n}";
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+        var key = new IdempotencyKey
+        {
+            Key = NewIdempotencyKey(), EmpresaId = Guid.NewGuid(), UsuarioId = Guid.NewGuid(),
+            HttpMethod = "POST", Path = "/api/v1/contabilidad/cuentas", RequestBodyHash = new string('a', 64),
+            Status = IdempotencyStatuses.Completed, ResponseStatusCode = 202, ResponseBody = cuerpo,
+            CorrelationId = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow,
+        };
+        try
+        {
+            db.IdempotencyKeys.Add(key);
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+            var guardada = await db.IdempotencyKeys.AsNoTracking().SingleAsync(x => x.Key == key.Key);
+            Assert.Equal(Encoding.UTF8.GetBytes(cuerpo), Encoding.UTF8.GetBytes(guardada.ResponseBody!));
+        }
+        finally
+        {
+            await db.IdempotencyKeys.Where(x => x.Key == key.Key).ExecuteDeleteAsync();
+        }
     }
 
     [Fact]

@@ -34,7 +34,7 @@ describe('<CuentaForm> alta', () => {
 
   it('cuenta padre: un solo combobox busca títulos activos y guarda el padre elegido', async () => {
     const titulo = { id: 't1', codigo: 'FIX-100', nombre: 'FIX Bancos', padreId: null, nivel: 1, naturaleza: 'Deudora', tipo: 'Titulo',
-      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1 };
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', noAfectableManual: false, codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1 };
     const consultas: URLSearchParams[] = [];
     let body: unknown = null;
     mswServer.use(
@@ -65,7 +65,7 @@ describe('<CuentaForm> alta', () => {
     fireEvent.click(await screen.findByText('FIX Bancos'));
     expect(screen.getByLabelText('Cuenta padre')).toHaveTextContent('FIX-100 — FIX Bancos');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     await waitFor(() => expect(body).toMatchObject({ padreId: 't1' }));
     // El código que el usuario ya había escrito NO se pisa con la sugerencia.
     expect(body).toMatchObject({ codigo: 'FIX-001' });
@@ -73,7 +73,7 @@ describe('<CuentaForm> alta', () => {
 
   it('opción 2: al elegir el padre se sugiere el siguiente código (editable) y se envía tal cual', async () => {
     const titulo = { id: 't1', codigo: 'FIX-100.10.00.00', nombre: 'FIX Bancos', padreId: null, nivel: 1, naturaleza: 'Deudora', tipo: 'Titulo',
-      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1 };
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', noAfectableManual: false, codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1 };
     let pedido: string | null = null;
     let body: unknown = null;
     mswServer.use(
@@ -98,13 +98,13 @@ describe('<CuentaForm> alta', () => {
     expect(screen.getByText('Sugerido según la cuenta padre; puedes cambiarlo.')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Nombre/), { target: { value: 'FIX Banco Centro' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     await waitFor(() => expect(body).toMatchObject({ codigo: 'FIX-100.10.03.00', padreId: 't1', nombre: 'FIX Banco Centro' }));
   });
 
   it('opción 2: si no se puede sugerir, explica el motivo y el código queda para escribirlo', async () => {
     const titulo = { id: 't1', codigo: 'FIX-4', nombre: 'FIX Raiz libre', padreId: null, nivel: 1, naturaleza: null, tipo: 'Titulo',
-      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: true, version: 1 };
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', noAfectableManual: false, codigoAgrupador: null, grupoReporte: null, pendienteValidacion: true, version: 1 };
     mswServer.use(
       http.get('*/api/v1/contabilidad/cuentas', () => HttpResponse.json({ items: [titulo], total: 1, offset: 0, limit: 50 })),
       http.get('*/api/v1/contabilidad/cuentas/siguiente-codigo', () =>
@@ -122,7 +122,7 @@ describe('<CuentaForm> alta', () => {
       problem(422, { code: 'CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA', detail: 'El código FIX-001 no corresponde a la cuenta padre FIX-100.' })));
     render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
     llenar();
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     expect((await screen.findAllByText(/no corresponde a la cuenta padre/)).length).toBeGreaterThan(0);
     expect(screen.getByLabelText(/^Código\*?$/)).toHaveValue('FIX-001');
   });
@@ -131,7 +131,7 @@ describe('<CuentaForm> alta', () => {
     const post = vi.fn();
     mswServer.use(http.post('*/api/v1/contabilidad/cuentas', () => { post(); return HttpResponse.json({}, { status: 201 }); }));
     render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     expect(await screen.findByText('El código es requerido.')).toBeInTheDocument();
     expect(post).not.toHaveBeenCalled();
   });
@@ -143,7 +143,7 @@ describe('<CuentaForm> alta', () => {
     render(<CuentaForm onGuardada={onGuardada} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
     llenar();
     fireEvent.change(screen.getByLabelText(/Grupo de reporte/), { target: { value: 'FIX-GRUPO' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
 
     expect((await screen.findAllByText(/caracteres no permitidos/)).length).toBeGreaterThan(0);
     expect(screen.getByLabelText(/^Código\*?$/)).toHaveValue('FIX-001');
@@ -153,34 +153,35 @@ describe('<CuentaForm> alta', () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('guardando: botón bloqueado; guardado: toast solo tras 201 y Idempotency-Key, naturaleza/tipo pendientes como null', async () => {
+  it('guardando: botón bloqueado; guardado: toast solo tras 202 y Idempotency-Key, naturaleza/tipo pendientes como null', async () => {
     let liberar!: () => void;
     const gate = new Promise<void>((r) => (liberar = r));
     let capturado: { key: string | null; body: unknown } | null = null;
     mswServer.use(http.post('*/api/v1/contabilidad/cuentas', async ({ request }) => {
       capturado = { key: request.headers.get('Idempotency-Key'), body: await request.json() };
       await gate;
-      return HttpResponse.json({ id: 'n', codigo: 'FIX-001', version: 1 }, { status: 201 });
+      return HttpResponse.json({ id: 'n', codigo: 'FIX-001', version: 0, solicitudId: 'solicitud-p9' }, { status: 202 });
     }));
     const onGuardada = vi.fn();
     render(<CuentaForm onGuardada={onGuardada} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
     llenar();
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'No afectable por asiento manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
 
     const guardando = await screen.findByRole('button', { name: 'Guardando…' });
     expect(guardando).toBeDisabled();
     expect(toast.success).not.toHaveBeenCalled(); // nada optimista
 
     liberar();
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Cuenta creada'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Solicitud pendiente de autorización del DAF'));
     expect(onGuardada).toHaveBeenCalled();
     expect(capturado!.key).toBeTruthy();
-    expect(capturado!.body).toMatchObject({ codigo: 'FIX-001', nombre: 'FIX Caja', naturaleza: null, tipo: null, padreId: null });
+    expect(capturado!.body).toMatchObject({ codigo: 'FIX-001', nombre: 'FIX Caja', naturaleza: null, tipo: null, noAfectableManual: true, padreId: null });
   });
 
   it('P19: el tipo es informativo y cambia con la cuenta padre; no se envía', async () => {
     const cuentaPadre = { id: 't1', codigo: 'FIX-100', nombre: 'FIX Bancos', padreId: null, nivel: 1, naturaleza: 'Deudora', tipo: 'Titulo',
-      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false,
+      estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', noAfectableManual: false, codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false,
       version: 1, clase: 'Cuenta', rubroId: null };
     mswServer.use(
       http.get('*/api/v1/contabilidad/cuentas', () => HttpResponse.json({ items: [cuentaPadre], total: 1, offset: 0, limit: 50 })),
@@ -205,7 +206,7 @@ describe('<CuentaForm> alta', () => {
     let body: Record<string, unknown> | null = null;
     mswServer.use(http.post('*/api/v1/contabilidad/cuentas', async ({ request }) => {
       body = (await request.json()) as Record<string, unknown>;
-      return HttpResponse.json({ id: 'n', codigo: 'FIX-001', version: 1 }, { status: 201 });
+      return HttpResponse.json({ id: 'n', codigo: 'FIX-001', version: 0, solicitudId: 'solicitud-p9' }, { status: 202 });
     }));
     render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
     const select = screen.getByLabelText('Cuenta colectiva');
@@ -219,7 +220,7 @@ describe('<CuentaForm> alta', () => {
     expect(screen.getByText(/no admite captura manual/)).toBeInTheDocument();
     llenar();
     fireEvent.change(select, { target: { value: 'Deudores' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     await waitFor(() => expect(body).toMatchObject({ cuentaControl: 'Deudores', tipo: null, rubroId: null }));
   });
 
@@ -227,9 +228,9 @@ describe('<CuentaForm> alta', () => {
     mswServer.use(http.post('*/api/v1/contabilidad/cuentas', () => problem(500, { title: 'Boom' })));
     render(<CuentaForm onGuardada={vi.fn()} onCancelar={vi.fn()} />, { wrapper: createQueryWrapper() });
     llenar();
-    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     expect(await screen.findByText(/Tus datos se conservan: reintenta/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Nombre/)).toHaveValue('FIX Caja');
-    expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Solicitar autorización' })).toBeEnabled();
   });
 });

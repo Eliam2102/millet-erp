@@ -194,3 +194,24 @@ export function useAplicarImportacion() {
     onSuccess: invalidar,
   });
 }
+
+export function useSolicitudesCatalogo(estado: string, offset: number) {
+  return useQuery({
+    queryKey: ['contabilidad', 'solicitudes', estado, offset],
+    queryFn: async ({ signal }) => (await apiRequest<{
+      items: import('./types').SolicitudCatalogo[]; total: number;
+    }>(`${BASE}/solicitudes${qs({ estado: estado || undefined, offset, limit: 10 })}`, { signal })).data,
+  });
+}
+
+export function useResolverSolicitudCatalogo() {
+  const invalidar = useInvalidar();
+  return useMutation({
+    mutationFn: async (a: { id: string; version: number; autorizar: boolean; motivo?: string }) =>
+      (await apiRequest<import('./types').SolicitudCatalogo>(`${BASE}/solicitudes/${a.id}/resolver`, {
+        method: 'POST', body: { autorizar: a.autorizar, motivo: a.motivo },
+        ifMatch: String(a.version), idempotencyKey: crypto.randomUUID(),
+      })).data,
+    onSuccess: invalidar,
+  });
+}

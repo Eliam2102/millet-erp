@@ -88,3 +88,28 @@ public sealed class CuentaContableUsoConfiguration : IEntityTypeConfiguration<Cu
         builder.HasOne<CuentaContable>().WithMany().HasForeignKey(x => x.CuentaId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+public sealed class SolicitudCatalogoConfiguration : IEntityTypeConfiguration<SolicitudCatalogo>
+{
+    public void Configure(EntityTypeBuilder<SolicitudCatalogo> builder)
+    {
+        builder.ToTable("solicitudes_catalogo");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Operacion).HasMaxLength(30);
+        builder.Property(x => x.Estado).HasMaxLength(20);
+        builder.Property(x => x.ComandoJson).HasColumnType("jsonb");
+        builder.Property(x => x.CambiosJson).HasColumnType("jsonb");
+        builder.Property(x => x.HuellaImportacion).HasMaxLength(64);
+        builder.Property(x => x.CodigoAlta).HasMaxLength(30);
+        builder.HasIndex(x => new { x.EmpresaId, x.CodigoAlta }).IsUnique()
+            .HasFilter("estado = 'Pendiente' AND codigo_alta IS NOT NULL").HasDatabaseName("ux_p9_alta_pendiente");
+        builder.HasIndex(x => new { x.EmpresaId, x.HuellaImportacion }).IsUnique()
+            .HasFilter("estado = 'Pendiente' AND huella_importacion IS NOT NULL").HasDatabaseName("ux_p9_importacion_pendiente");
+        builder.Property(x => x.HuellaCatalogo).HasMaxLength(64);
+        builder.Property(x => x.PreparadaPor).HasMaxLength(256);
+        builder.Property(x => x.ResueltaPor).HasMaxLength(256);
+        builder.Property(x => x.MotivoRechazo).HasMaxLength(1000);
+        builder.HasIndex(x => new { x.EmpresaId, x.Estado, x.PreparadaEn });
+    }
+}

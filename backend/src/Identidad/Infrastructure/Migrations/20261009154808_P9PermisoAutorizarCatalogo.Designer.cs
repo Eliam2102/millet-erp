@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Identidad.Infrastructure;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Identidad.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentidadDbContext))]
-    partial class IdentidadDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009154808_P9PermisoAutorizarCatalogo")]
+    partial class P9PermisoAutorizarCatalogo
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1445,20 +1448,6 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
-                            Id = new Guid("00000004-0009-0000-0000-000000000008"),
-                            Accion = "tolerancia-editar",
-                            Codigo = "datos_maestros.proveedores.tolerancia-editar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Editar tolerancia factura contra OC en pesos del proveedor",
-                            Modulo = "datos_maestros",
-                            Recurso = "proveedores",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
                             Id = new Guid("00000004-0009-0000-0000-000000000007"),
                             Accion = "validar",
                             Codigo = "datos_maestros.proveedores.validar",
@@ -2055,48 +2044,6 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Ajustar tolerancia de conciliación por proveedor (restringido)",
                             Modulo = "cuentas_por_pagar",
                             Recurso = "proveedores",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000007-000a-0000-0000-000000000101"),
-                            Accion = "administrar",
-                            Codigo = "cuentas_por_pagar.retenciones.administrar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Administrar retenciones por concepto con motivo y auditoría",
-                            Modulo = "cuentas_por_pagar",
-                            Recurso = "retenciones",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000007-000a-0000-0000-000000000102"),
-                            Accion = "leer",
-                            Codigo = "cuentas_por_pagar.retenciones.leer",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Consultar retenciones y propuestas del catálogo fiscal",
-                            Modulo = "cuentas_por_pagar",
-                            Recurso = "retenciones",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000007-000a-0000-0000-000000000103"),
-                            Accion = "leer-todas-sucursales",
-                            Codigo = "cuentas_por_pagar.reportes.leer-todas-sucursales",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Consultar reportes de CxP de todas las sucursales",
-                            Modulo = "cuentas_por_pagar",
-                            Recurso = "reportes",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

@@ -24,6 +24,7 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<CatalogoOpciones>, CatalogoOpcionesValidator>();
         services.AddSingleton(sp => new FormatoCatalogo(sp.GetRequiredService<IOptions<CatalogoOpciones>>().Value));
+        services.AddScoped<Millet.Contabilidad.Application.Catalogo.SolicitudesCatalogo>();
         services.AddScoped<ICuentaContableReadPort, CuentaContableReadAdapter>();
 
         // F1-CON-02: reglas de dimensión. Los puertos ICentroCostoContabilidadPort e ISucursalContabilidadPort los
