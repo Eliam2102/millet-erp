@@ -75,7 +75,21 @@ public sealed class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory)
         var documento = datos.Ajenos[tipo];
         using var request = new HttpRequestMessage(new HttpMethod(metodo), Ruta(tipo, documento) + sufijo.Replace("{linea}", Guid.NewGuid().ToString()));
         request.Headers.Add("X-Expected-Version", "1");
-        if (metodo is not ("DELETE" or "GET")) request.Content = JsonContent.Create(new { Nivel = 1, Motivo = "Prueba P6", MotivoTexto = "Prueba P6", Observaciones = "No cambiar", Descripcion = "No cambiar" });
+        // El cuerpo debe ser válido para cada ruta: si no, el 400/415 del enlace del modelo ocultaría el control de sucursal.
+        if (tipo == "factura" && sufijo == "/cancelar")
+            request.Content = JsonContent.Create(new { motivo = (int)Millet.CuentasPorPagar.Domain.FacturaProveedor.MotivoCancelacion.ErrorCaptura, texto = "Prueba P6" });
+        else if (tipo == "factura" && sufijo == "/evidencias")
+        {
+            var multipart = new MultipartFormDataContent();
+            var archivo = new ByteArrayContent("%PDF-1.4 prueba P6"u8.ToArray());
+            archivo.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+            multipart.Add(archivo, "archivo", "evidencia-p6.pdf");
+            multipart.Add(new StringContent(((int)default(Millet.CuentasPorPagar.Domain.Evidencias.TipoEvidencia)).ToString()), "tipo");
+            multipart.Add(new StringContent("Prueba P6"), "comentario");
+            multipart.Add(new StringContent(((int)default(Millet.CuentasPorPagar.Domain.Evidencias.EstadoFirmaFisica)).ToString()), "estadoFirmaFisica");
+            request.Content = multipart;
+        }
+        else if (metodo is not ("DELETE" or "GET")) request.Content = JsonContent.Create(new { Nivel = 1, Motivo = "Prueba P6", MotivoTexto = "Prueba P6", Observaciones = "No cambiar", Descripcion = "No cambiar" });
         Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.SendAsync(request)).StatusCode);
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -147,8 +161,10 @@ public sealed class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.GetAsync(Ruta(tipo, datos.Ajenos[tipo]) + sufijo)).StatusCode);
         if (sufijo is not ("/pdf" or "/xml" or "/parseado"))
         {
-            Assert.Equal(HttpStatusCode.OK, (await datos.Operativo.GetAsync(Ruta(tipo, datos.Propios[tipo]) + sufijo)).StatusCode);
-            Assert.Equal(HttpStatusCode.OK, (await datos.Corporativo.GetAsync(Ruta(tipo, datos.Ajenos[tipo]) + sufijo)).StatusCode);
+            // «/origen» de una OC sin requisición responde 204: lo que importa es que no sea 403.
+            var permitidos = sufijo == "/origen" ? new[] { HttpStatusCode.OK, HttpStatusCode.NoContent } : new[] { HttpStatusCode.OK };
+            Assert.Contains((await datos.Operativo.GetAsync(Ruta(tipo, datos.Propios[tipo]) + sufijo)).StatusCode, permitidos);
+            Assert.Contains((await datos.Corporativo.GetAsync(Ruta(tipo, datos.Ajenos[tipo]) + sufijo)).StatusCode, permitidos);
         }
     }
 
