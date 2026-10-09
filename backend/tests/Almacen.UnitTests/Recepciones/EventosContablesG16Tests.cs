@@ -161,7 +161,7 @@ public class EventosContablesG16Tests
         var conteo = new ConteoInventario(Guid.NewGuid(), EmpresaId, TipoConteo.Rotativo,
             new DateOnly(2026, 5, 25), Guid.NewGuid(), SubId);
         conteo.AgregarLinea(new LineaConteo(Guid.NewGuid(), conteo.Id, ArticuloId, SubId, BinId, 100m, 50m));
-        conteo.Iniciar();
+        conteo.Iniciar(new Millet.Almacen.Domain.Conteos.ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         conteo.Lineas.Single().Capturar(95m, Guid.NewGuid());
         conteo.EnviarAConciliacion();
         conteo.Aprobar(Guid.NewGuid());

@@ -207,7 +207,7 @@ public sealed class P3FacturaConOcTests
         (await a.Elegibilidad.CalcularAsync(f2, default)).ElegiblePendiente.Should().Be(40);
     }
 
-    private sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage
+    private sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage, Millet.CuentasPorPagar.Domain.Ports.Administracion.IToleranciaGeneralReadPort
     {
         public Guid? Current { get; } = Guid.NewGuid();
         public bool IsBypassed => false;
@@ -248,7 +248,7 @@ public sealed class P3FacturaConOcTests
                 .AddSingleton<INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>>(new FacturaProveedorRechazadaPorToleranciaMapper(Eventos))
                 .AddSingleton<INotificationHandler<NotaCreditoProveedorRegistradaDomainEvent>>(new NotaCreditoProveedorRegistradaMapper(Eventos))
                 .BuildServiceProvider();
-            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this);
+            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this, this);
             Elegibilidad = new(Db, this);
             Recepciones = new(Db, this, NullLogger<OcRecepcionRegistradaHandler>.Instance, new(Eventos, Db, Elegibilidad));
         }
@@ -260,6 +260,7 @@ public sealed class P3FacturaConOcTests
             new(2026, 10, 9), true, null, null, [new(Guid.NewGuid(), LineaId, _oc.Lineas[0].ArticuloId, "H87", cantidad, 20, cantidad * 20)]));
         public void ActualizarRecibido(decimal cantidad) => _oc = _oc with { Lineas = [_oc.Lineas[0] with { CantidadRecibida = cantidad }] };
         public Task RecibirAsync(decimal cantidad) => Recepciones.Handle(Recepcion(cantidad), default);
+        public Task<decimal> ObtenerMontoMxnAsync(CancellationToken cancellationToken) => Task.FromResult(0.99m);
         public async Task<CfdiRecibido> CfdiAsync(decimal subtotal, decimal iva, decimal retenido, decimal total, bool egreso = false, string? relacionado = null, decimal cantidad = 10)
         {
             var uuid = Guid.NewGuid().ToString().ToUpperInvariant();

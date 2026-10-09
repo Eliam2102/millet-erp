@@ -19,17 +19,12 @@ namespace Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaCon
 /// §3.bis.5 del 01-diseno). Implementa el flujo "Factura con OC" del
 /// MVP — la base de la mayoría de las facturas de Millet.
 ///
-/// <para>
-/// **Default global de tolerancia** (§3.bis.3): si el proveedor no tiene
-/// tolerancia configurada, se usa $0.99 MXP absoluto. Esto es un
-/// parámetro de Administración (<c>cuentas_por_pagar.tolerancia_default_mxp</c>)
-/// — en F3-PR1 vive como constante; cuando exista el endpoint de
-/// parámetros globales se mueve.
-/// </para>
+/// La tolerancia del proveedor prevalece sobre el parámetro global de Administración.
+/// El valor utilizado se conserva como foto en la factura.
 /// </summary>
 public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFacturaConOcCommand, CapturarFacturaConOcResponse>
 {
-    public const decimal ToleranciaDefaultMxp = 0.99m;
+    private readonly Domain.Ports.Administracion.IToleranciaGeneralReadPort _toleranciaGeneral;
 
     private readonly CuentasPorPagarDbContext _db;
     private readonly IComprasOcReadPort _ocPort;
@@ -48,7 +43,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         IXmlCfdiParser parser,
         ICurrentEmpresaContext currentEmpresa,
         IMediator mediator,
-        IClock clock)
+        IClock clock,
+        Domain.Ports.Administracion.IToleranciaGeneralReadPort toleranciaGeneral)
     {
         _db = db;
         _ocPort = ocPort;
@@ -58,6 +54,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         _currentEmpresa = currentEmpresa;
         _mediator = mediator;
         _clock = clock;
+        _toleranciaGeneral = toleranciaGeneral;
     }
 
     public async Task<CapturarFacturaConOcResponse> Handle(
@@ -147,7 +144,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 $"El proveedor '{proveedor.RazonSocial}' no está activo y no admite captura de facturas.");
         }
 
-        var tolerancia = ResolverTolerancia(proveedor);
+        var tolerancia = await ResolverToleranciaAsync(proveedor, cancellationToken);
 
         var cfdi = command.CfdiRecibidoId is Guid cfdiId
             ? await LeerCfdiAsync(cfdiId, TipoCfdi.Ingreso, proveedor.Rfc, command.Moneda, cancellationToken)
@@ -412,18 +409,16 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         return datos;
     }
 
-    internal static Tolerancia ResolverTolerancia(ProveedorDto? proveedor)
+    private async Task<Tolerancia> ResolverToleranciaAsync(ProveedorDto proveedor, CancellationToken cancellationToken)
     {
-        if (proveedor?.Tolerancia is null)
-        {
-            return Tolerancia.MontoAbsoluto(ToleranciaDefaultMxp);
-        }
+        if (proveedor.Tolerancia is null)
+            return Tolerancia.MontoAbsoluto(await _toleranciaGeneral.ObtenerMontoMxnAsync(cancellationToken));
 
         return proveedor.Tolerancia.Tipo switch
         {
             ToleranciaTipo.MontoAbsoluto => Tolerancia.MontoAbsoluto(proveedor.Tolerancia.Valor),
-            ToleranciaTipo.Porcentaje    => Tolerancia.Porcentaje(proveedor.Tolerancia.Valor),
-            _ => Tolerancia.MontoAbsoluto(ToleranciaDefaultMxp),
+            ToleranciaTipo.Porcentaje => Tolerancia.Porcentaje(proveedor.Tolerancia.Valor),
+            _ => throw new BusinessRuleException("TOLERANCIA_TIPO_INVALIDO", "El tipo de tolerancia no es válido."),
         };
     }
 }

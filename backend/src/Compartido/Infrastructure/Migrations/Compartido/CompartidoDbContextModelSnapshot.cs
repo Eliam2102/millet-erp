@@ -636,6 +636,62 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasData(
                         new
                         {
+                            Id = new Guid("00000006-0001-0000-0000-000000000009"),
+                            Clave = "almacen.conteo-variacion-pct-recuento",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Exige recuento cuando la diferencia en cantidad supera este porcentaje. Aplica a conteos nuevos al iniciarlos.",
+                            Modulo = "almacen",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "5",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0001-0000-0000-000000000006"),
+                            Clave = "almacen.conteo-variacion-valor-recuento",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Exige recuento cuando el valor de la diferencia supera este importe en MXN. Aplica a conteos nuevos al iniciarlos.",
+                            Modulo = "almacen",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "1000",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0001-0000-0000-000000000007"),
+                            Clave = "almacen.conteo-nivel1-maximo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Importe máximo en MXN que puede aprobar el almacenista, incluido este monto. Debe ser menor que el máximo del Nivel 2.",
+                            Modulo = "almacen",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "1000",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0001-0000-0000-000000000008"),
+                            Clave = "almacen.conteo-nivel2-maximo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Importe máximo en MXN que puede aprobar el supervisor, incluido este monto. Por encima aprueba el Jefe de Almacén y se avisa a Finanzas.",
+                            Modulo = "almacen",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "10000",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000006-0001-0000-0000-000000000001"),
                             Clave = "system.timezone-default",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -684,6 +740,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Valor = "es-MX",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0001-0000-0000-000000000005"),
+                            Clave = "cxp.tolerancia-factura-contra-oc-mxn",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.",
+                            Modulo = "cxp",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "0.99",
                             Version = 1
                         });
                 });
@@ -4815,6 +4885,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("tipo_persona");
 
+                    b.Property<decimal?>("ToleranciaFacturaContraOcMxn")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("tolerancia_factura_contra_oc_mxn");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -4862,6 +4937,8 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             t.HasCheckConstraint("ck_proveedores_rfc_longitud", "char_length(rfc) BETWEEN 12 AND 13");
 
                             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
+
+                            t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
                         });
                 });
 

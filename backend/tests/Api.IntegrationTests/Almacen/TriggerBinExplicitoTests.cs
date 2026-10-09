@@ -188,7 +188,7 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
             using (empresaCtx.Bypass())
             {
                 await db.SaveChangesAsync();
-                await new IniciarConteoHandler(db).Handle(
+                await new IniciarConteoHandler(db, scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider>()).Handle(
                     new IniciarConteoCommand(conteoId), CancellationToken.None);
             }
 
@@ -396,7 +396,7 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
             using (empresaCtx.Bypass())
             {
                 await db.SaveChangesAsync();
-                await new IniciarConteoHandler(db).Handle(
+                await new IniciarConteoHandler(db, scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider>()).Handle(
                     new IniciarConteoCommand(conteoId), CancellationToken.None);
 
                 // Snapshot: una línea, la del rack (la ÚNICA vacía no genera línea).

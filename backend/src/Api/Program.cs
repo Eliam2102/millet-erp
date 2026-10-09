@@ -707,6 +707,8 @@ builder.Services.AddScoped<
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider,
+    Millet.Compartido.Infrastructure.PublicAdapters.ConteoUmbralesProvider>();
 
 // === Almacén cross-module ports (read-side síncrono) → adapters reales ===
 // Reemplaza los NoOpComprasOcReadPort / NoOpComprasRequisicionReadPort que

@@ -87,3 +87,14 @@ export function actualizarParametroSchema(tipo: TipoParametro) {
 export type ActualizarParametroValues = z.infer<
   ReturnType<typeof actualizarParametroSchema>
 >;
+
+const NOMBRES_UMBRALES: Readonly<Record<string, string>> = {
+  'almacen.conteo-variacion-pct-recuento': 'Diferencia en cantidad que exige recuento (%)',
+  'almacen.conteo-variacion-valor-recuento': 'Diferencia en valor que exige recuento (MXN)',
+  'almacen.conteo-nivel1-maximo': 'Máximo para aprobación del Nivel 1 (MXN)',
+  'almacen.conteo-nivel2-maximo': 'Máximo para aprobación del Nivel 2 (MXN)',
+};
+
+export function nombreParametro(clave: string): string {
+  return NOMBRES_UMBRALES[clave] ?? clave;
+}
