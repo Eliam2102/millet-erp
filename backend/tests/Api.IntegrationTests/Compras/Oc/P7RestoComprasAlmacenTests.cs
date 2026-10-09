@@ -138,16 +138,51 @@ public partial class OrdenesCompraEndpointsTests
             creadaOc.EnsureSuccessStatusCode();
             var ocId = (await ReadJsonAsync(creadaOc)).GetProperty("ordenCompraId").GetGuid();
             Assert.Equal(8, (await db.OrdenesCompra.AsNoTracking().Include(o => o.Lineas).SingleAsync(o => o.Id == ocId)).Lineas.Single().Cantidad);
+            // El POST compromete la RQ y aumenta su versión en otro scope.
+            // La instancia de preparación sigue obsoleta; reutilizarla para
+            // cancelar simularía dos unidades de trabajo superpuestas.
+            var comprometida = await db.Requisiciones.AsNoTracking().SingleAsync(r => r.Id == rqs[0].Id);
+            Assert.Equal(ocId, comprometida.ComprometidaEnOcId);
+            Assert.True(comprometida.Version > rqs[0].Version);
+            Assert.Null(rqs[0].ComprometidaEnOcId);
             Assert.Equal(habilitado ? 2 : 0, await almDb.ApartadosRequisicion.Where(a => a.RequisicionId == rqs[0].Id).SumAsync(a => a.Pendiente));
             await Handler().Handle(new(rqs[1].Id, NivelAutorizacion.Nivel1), default);
             Assert.Equal(habilitado ? 0 : 2, rqs[1].Lineas.Single().CantidadDeAlmacen);
             Assert.Equal(habilitado ? 10 : 8, rqs[1].Lineas.Single().CantidadDeCompra);
-            var cancelar = await db.MotivosRechazo.FirstAsync(m => m.Activo && (m.AplicaA & MotivoRechazoAplicaA.Cancelacion) != 0);
-            await new CancelarRequisicionHandler(db, sp.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>()).Handle(new(rqs[0].Id, cancelar.Id, "DEMO P7 cancelar"), default);
-            Assert.Equal(0, await almDb.ApartadosRequisicion.Where(a => a.RequisicionId == rqs[0].Id).SumAsync(a => a.Pendiente));
-            var cierre = await db.MotivosRechazo.FirstAsync(m => m.Activo && (m.AplicaA & MotivoRechazoAplicaA.CierreManual) != 0);
-            await new CerrarManualRequisicionHandler(db, sp.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>()).Handle(new(rqs[1].Id, cierre.Id, "DEMO P7 cerrar"), default);
-            Assert.Equal(0, await almDb.ApartadosRequisicion.Where(a => a.RequisicionId == rqs[1].Id).SumAsync(a => a.Pendiente));
+            // Cada comando obtiene contextos y mediator nuevos, igual que una
+            // petición de producción; no se desactiva la concurrencia optimista.
+            using (var cancelacion = _factory.Services.CreateScope())
+            {
+                var servicios = cancelacion.ServiceProvider;
+                using var libre = servicios.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var compras = servicios.GetRequiredService<ComprasDbContext>();
+                var cancelar = await compras.MotivosRechazo.FirstAsync(m => m.Activo && (m.AplicaA & MotivoRechazoAplicaA.Cancelacion) != 0);
+                await new CancelarRequisicionHandler(compras, servicios.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), servicios.GetRequiredService<IClock>(), servicios.GetRequiredService<TransaccionApartadosRq>())
+                    .Handle(new(rqs[0].Id, cancelar.Id, "DEMO P7 cancelar"), default);
+            }
+            using (var cierreManual = _factory.Services.CreateScope())
+            {
+                var servicios = cierreManual.ServiceProvider;
+                using var libre = servicios.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var compras = servicios.GetRequiredService<ComprasDbContext>();
+                var cierre = await compras.MotivosRechazo.FirstAsync(m => m.Activo && (m.AplicaA & MotivoRechazoAplicaA.CierreManual) != 0);
+                await new CerrarManualRequisicionHandler(compras, servicios.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), servicios.GetRequiredService<IClock>(), servicios.GetRequiredService<TransaccionApartadosRq>())
+                    .Handle(new(rqs[1].Id, cierre.Id, "DEMO P7 cerrar"), default);
+            }
+            using (var verificacion = _factory.Services.CreateScope())
+            {
+                var servicios = verificacion.ServiceProvider;
+                using var libre = servicios.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var compras = servicios.GetRequiredService<ComprasDbContext>();
+                var almacen = servicios.GetRequiredService<AlmacenDbContext>();
+                var cancelada = await compras.Requisiciones.AsNoTracking().SingleAsync(r => r.Id == rqs[0].Id);
+                Assert.Equal(EstadoRequisicion.Cancelada, cancelada.Estado);
+                Assert.True(cancelada.Version > comprometida.Version);
+                Assert.Equal(EstadoRequisicion.CerradaSinSurtir, (await compras.Requisiciones.AsNoTracking().SingleAsync(r => r.Id == rqs[1].Id)).Estado);
+                Assert.Equal(0, await almacen.ApartadosRequisicion.Where(a => a.RequisicionId == rqs[0].Id || a.RequisicionId == rqs[1].Id).SumAsync(a => a.Pendiente));
+                Assert.Equal(2, (await almacen.SaldosInventario.SingleAsync(s => s.UbicacionId == bin.Id)).Cantidad);
+                Assert.Equal(2, (await servicios.GetRequiredService<IConsultarStockPort>().ConsultarPorSucursalAsync(sucursal, art, default)).Disponible);
+            }
 
         }
         finally

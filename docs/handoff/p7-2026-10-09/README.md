@@ -1,6 +1,6 @@
 # P7 · Compras y Almacén · entrega local del 09-oct-2026
 
-> Informe histórico de la primera corrida. Claude incorporó posteriormente P7 y `main` en `893f096`/`cb76942`. Para el estado actual, las correcciones de la adenda y la validación posterior, ver [Revisión de la adenda](REVISION-ADENDA.md). Las cifras y límites que siguen describen aquella primera corrida.
+> Informe histórico de la primera corrida. Claude incorporó posteriormente P7 y `main` en `893f096`/`cb76942` y las primeras correcciones en `6b0e610`. Para el estado actual y el fallo de cancelación, ver [Revisión de la adenda 2](REVISION-ADENDA-2.md); las correcciones anteriores están en [Revisión de la adenda](REVISION-ADENDA.md). Las cifras y límites que siguen describen aquella primera corrida.
 
 **Estado:** construcción local de los puntos 1–6 y 8; ADM-08 pendiente de decisión. P7 **no está cerrado**: falta conciliación con el main que avanzó durante la sesión, integración PostgreSQL y ADM-08. No hay commit, push, despliegue ni aceptación de Millet.
 
