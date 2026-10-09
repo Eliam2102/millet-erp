@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.CuentasPorPagar.Application.Reportes.AuxiliarProveedores;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -120,30 +121,21 @@ public static class ReportesEndpoints
         .Produces<ReporteJsonResponse>(StatusCodes.Status200OK);
 
         group.MapGet("/pasivos-obras", async (
-            [FromQuery] Guid sucursalId,
-            [FromQuery] DateOnly? fechaCorte,
-            [FromQuery] Guid? proveedorId,
-            IMediator mediator,
-            CancellationToken cancellationToken) =>
-        {
-            if (sucursalId == Guid.Empty)
-            {
-                return Results.Problem(
-                    title: "sucursalId requerido",
-                    detail: "El parámetro sucursalId es obligatorio (identifica la obra/sucursal).",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
+            [FromQuery] Guid? sucursalId, [FromQuery] DateOnly? fechaCorte,
+            [FromQuery] Guid? proveedorId, [FromQuery] string? obra,
+            IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(
+                new PasivosObrasQuery(sucursalId, fechaCorte, proveedorId, obra), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReportesCartera)
+            .WithName("ReportePasivosObras").WithSummary("Pasivos por obra a una fecha; sucursal y obra son filtros independientes")
+            .Produces<ReporteJsonResponse>();
 
-            var response = await mediator.Send(
-                new PasivosObrasQuery(sucursalId, fechaCorte, proveedorId),
-                cancellationToken);
-            return Results.Ok(response);
-        })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReportesCartera)
-        .WithName("ReportePasivosObras")
-        .WithSummary("Pasivos por sucursal/obra — para integración con módulo Obras futuro")
-        .Produces<ReporteJsonResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
+        group.MapGet("/auxiliar-proveedores", async (
+            [FromQuery] DateOnly? fechaCorte, [FromQuery] Guid? proveedorId, [FromQuery] Guid? sucursalId,
+            IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(
+                new AuxiliarProveedoresQuery(fechaCorte, proveedorId, sucursalId), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarReportesCartera)
+            .WithName("ReporteAuxiliarProveedores").WithSummary("Auxiliar de proveedores por moneda a una fecha")
+            .Produces<ReporteJsonResponse>();
 
         return app;
     }

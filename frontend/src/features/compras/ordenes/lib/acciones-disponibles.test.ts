@@ -457,14 +457,14 @@ describe('Bloque 5 — cancelación + duplicación', () => {
   it('Cancelar doble firma: ✅ SOLO Autorizada CON recepciones', () => {
     expectarCeldas(
       accionCancelarDobleFirma,
-      [PermisosCanonicos.ComprasOrdenesCancelarDoble],
+      [PermisosCanonicos.ComprasOrdenesCancelarDoble, PermisosCanonicos.ComprasOrdenesAutorizarNivel1],
       [{ estado: EstadoOrdenCompra.Autorizada, visible: true, habilitada: true }],
       { subEstadoRecepcion: SubEstadoRecepcion.Completa },
     );
     // Sin recepciones → oculto (cancelar 1 firma cubre).
     expectarCeldas(
       accionCancelarDobleFirma,
-      [PermisosCanonicos.ComprasOrdenesCancelarDoble],
+      [PermisosCanonicos.ComprasOrdenesCancelarDoble, PermisosCanonicos.ComprasOrdenesAutorizarNivel1],
       [{ estado: EstadoOrdenCompra.Autorizada, visible: false }],
       { subEstadoRecepcion: SubEstadoRecepcion.SinRecepcion },
     );
@@ -483,7 +483,37 @@ describe('Bloque 5 — cancelación + duplicación', () => {
       ],
     );
   });
+
+  it('Duplicar rechazada con RQ explica que debe corregirse sin comprometer otra OC', () => {
+    const oc = makeOc({ estado: EstadoOrdenCompra.Rechazada, lineas: [lineaParaDuplicar('linea-rq', 4)] });
+    const accion = accionDuplicarOc(oc, [PermisosCanonicos.ComprasOrdenesCrear]);
+    expect(accion.visible).toBe(true);
+    expect(accion.habilitada).toBe(false);
+    expect(accion.motivoDeshabilitada).toContain('vuelve a enviarla a autorización');
+    expect(accionDuplicarOc(oc, []).visible).toBe(false);
+  });
+
+  it('Duplicar cancelada requiere cantidades no recibidas', () => {
+    const oc = makeOc({ estado: EstadoOrdenCompra.Cancelada, lineas: [lineaParaDuplicar('linea-rq', 10)] });
+    expect(accionDuplicarOc(oc, PERMISOS_TODOS).habilitada).toBe(false);
+    oc.lineas[0].cantidadRecibida = 4;
+    expect(accionDuplicarOc(oc, PERMISOS_TODOS).habilitada).toBe(true);
+    oc.estado = EstadoOrdenCompra.Rechazada;
+    oc.lineas[0].lineaRequisicionId = null;
+    expect(accionDuplicarOc(oc, PERMISOS_TODOS).habilitada).toBe(true);
+  });
 });
+
+function lineaParaDuplicar(lineaRequisicionId: string, cantidadRecibida: number): OrdenCompraDetalleResponse['lineas'][number] {
+  return {
+    id: 'linea-oc', posicion: 1, articuloId: 'articulo', articuloClave: null, articuloNombre: null,
+    descripcionExtendida: null, cantidad: 10, unidadMedida: 'PZA', precioUnitario: 100,
+    ivaImporte: 0, retencionIsr: null, subtotalLinea: 1000, departamentoSolicitanteId: 'departamento',
+    centroCostoId: 'ceco', centroCostoClave: null, centroCostoNombre: null, requisicionId: 'rq',
+    lineaRequisicionId, requisicionFolio: null, fechaEntregaLinea: null, cantidadRecibida,
+    cantidadFacturada: 0, textoAdicional: null,
+  };
+}
 
 describe('Bloque 6 — read-only / utilities', () => {
   const PERMS_LEER = [PermisosCanonicos.ComprasOrdenesLeer];

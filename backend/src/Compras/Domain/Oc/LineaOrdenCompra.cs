@@ -269,6 +269,10 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
                 "No se pueden modificar campos estructurales de una línea con recepción o facturación.");
         }
 
+        if (LineaRequisicionId.HasValue && articuloId.HasValue && articuloId != ArticuloId)
+            throw new BusinessRuleException("OC_LINEA_RQ_ARTICULO_FIJO",
+                "El artículo de una línea heredada de requisición no se puede cambiar.");
+
         if (articuloId is Guid a)
         {
             if (a == Guid.Empty)

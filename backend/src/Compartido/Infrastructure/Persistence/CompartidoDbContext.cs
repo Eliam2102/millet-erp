@@ -311,6 +311,22 @@ public sealed class CompartidoDbContext : BaseDbContext
         parametro.Property(x => x.Modulo).HasMaxLength(50);
         parametro.Property(x => x.Descripcion).HasMaxLength(500).IsRequired();
 
+        var umbralesTime = new DateTimeOffset(2026, 10, 8, 0, 0, 0, TimeSpan.Zero);
+        parametro.HasData(
+            SeedParametro("00000006-0001-0000-0000-000000000009",
+                "almacen.conteo-variacion-pct-recuento", "5", TipoParametro.Numero,
+                "Exige recuento cuando la diferencia en cantidad supera este porcentaje. Aplica a conteos nuevos al iniciarlos.", umbralesTime, "almacen"),
+            SeedParametro("00000006-0001-0000-0000-000000000006",
+                "almacen.conteo-variacion-valor-recuento", "1000", TipoParametro.Numero,
+                "Exige recuento cuando el valor de la diferencia supera este importe en MXN. Aplica a conteos nuevos al iniciarlos.", umbralesTime, "almacen"),
+            SeedParametro("00000006-0001-0000-0000-000000000007",
+                "almacen.conteo-nivel1-maximo", "1000", TipoParametro.Numero,
+                "Importe máximo en MXN que puede aprobar el almacenista, incluido este monto. Debe ser menor que el máximo del Nivel 2.", umbralesTime, "almacen"),
+            SeedParametro("00000006-0001-0000-0000-000000000008",
+                "almacen.conteo-nivel2-maximo", "10000", TipoParametro.Numero,
+                "Importe máximo en MXN que puede aprobar el supervisor, incluido este monto. Por encima aprueba el Jefe de Almacén y se avisa a Finanzas.", umbralesTime, "almacen")
+        );
+
         // Seeds default (F-Admin-PR7.1): 4 parámetros del sistema.
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         parametro.HasData(
@@ -325,19 +341,26 @@ public sealed class CompartidoDbContext : BaseDbContext
                 "Número de decimales para montos monetarios MXN.", seedTime),
             SeedParametro("00000006-0001-0000-0000-000000000004", "system.idioma-default",
                 "es-MX", TipoParametro.Texto,
-                "Idioma por defecto del sistema (BCP 47).", seedTime)
+                "Idioma por defecto del sistema (BCP 47).", seedTime),
+            SeedParametro("00000006-0001-0000-0000-000000000005", ToleranciaFacturaContraOcParametro.Clave,
+                "0.99", TipoParametro.Numero,
+                "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.", seedTime, "cxp"),
+            SeedParametro("00000006-0001-0000-0000-00000000000a",
+                Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos,
+                Millet.SharedKernel.Application.Calendario.CalendarioHabil.FestivosIniciales, TipoParametro.Json,
+                "Descansos obligatorios LFT art. 74 de 2026 y 2027: dato a validar por Millet. Agregar fechas electorales aplicables. Lista JSON AAAA-MM-DD.", seedTime)
         );
     }
 
     private static object SeedParametro(
         string id, string clave, string valor, TipoParametro tipo,
-        string descripcion, DateTimeOffset seedTime) => new
+        string descripcion, DateTimeOffset seedTime, string? modulo = null) => new
         {
             Id = Guid.Parse(id),
             Clave = clave,
             Valor = valor,
             Tipo = tipo,
-            Modulo = (string?)null,
+            Modulo = modulo,
             Descripcion = descripcion,
             Version = 1,
             CreatedAt = seedTime,
@@ -522,7 +545,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         impuesto.HasIndex(x => new { x.Activo, x.VigenteDesde, x.VigenteHasta });
     }
 
-    private static object SeedFormaPago(string id, string clave, string descripcion, DateTimeOffset seedTime) => new
+    private static object SeedFormaPago(string id, string clave, string descripcion, DateTimeOffset seedTime, string? modulo = null) => new
     {
         Id = Guid.Parse(id),
         ClaveSat = clave,
@@ -1043,6 +1066,7 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_proveedores_condiciones_pago", "condiciones_pago_dias IS NULL OR condiciones_pago_dias BETWEEN 0 AND 365");
             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
+            t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
             // TES-PR3 [T-G1]: datos bancarios para pago.
             t.HasCheckConstraint("ck_proveedores_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
         });
@@ -1064,6 +1088,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Clabe).HasMaxLength(18);
         proveedor.Property(x => x.Beneficiario).HasMaxLength(254);
         // F1-ADM-05 G1.1: validación CxP y motivo de rechazo.
+        proveedor.Property(x => x.ToleranciaFacturaContraOcMxn).HasPrecision(18, 4);
         proveedor.Property(x => x.ValidadoPorId);
         proveedor.Property(x => x.ValidadoEn);
         proveedor.Property(x => x.MotivoRechazo).HasMaxLength(500);

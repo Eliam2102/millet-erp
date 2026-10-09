@@ -6,27 +6,9 @@ using Millet.Compras.Infrastructure;
 namespace Millet.Compras.Infrastructure.PublicAdapters;
 
 /// <summary>
-/// Adapter productivo del puerto <see cref="IComprasRequisicionReadPort"/>
-/// declarado en <c>Almacen.Domain.Ports</c>. Reemplaza el
-/// <c>NoOpComprasRequisicionReadPort</c> de Almacén
-/// (PLATFORM-TODO &lt;ComprasRqReadAdapter&gt;).
-///
-/// <para>Lectura cross-módulo via <see cref="ComprasDbContext"/> con
-/// <c>AsNoTracking</c>. Filtra por estados que aceptan surtido
-/// (<see cref="EstadoRequisicion.Autorizada"/>,
-/// <see cref="EstadoRequisicion.EnSurtido"/>). El estado "Surtida"
-/// se deriva del cubrimiento — el handler de Almacén pasa la RQ pero
-/// rechaza si la línea ya está cubierta.</para>
-///
-/// <para><b>Mapeo línea</b>:</para>
-/// <list>
-///   <item><c>CantidadSurtida</c> = <see cref="LineaRequisicion.CantidadDeAlmacen"/>:
-///     lo que el almacén ya entregó. (No incluye CantidadDeCompra, que se
-///     surte vía OC y entra como recepción, no como salida.)</item>
-///   <item><c>ProyectoId</c> = <c>null</c>: el dominio actual de LineaRequisicion
-///     no tracquea proyecto por línea (solo centroCostoId). Cuando se
-///     introduzca, este mapping se actualizará.</item>
-/// </list>
+/// Lectura de Compras para Almacén. Null significa documento inexistente;
+/// el estado se devuelve siempre para que el consumidor aplique su regla
+/// (recepción/surtido o consulta histórica de una devolución).
 /// </summary>
 public sealed class ComprasRequisicionReadAdapter : IComprasRequisicionReadPort
 {
@@ -46,15 +28,6 @@ public sealed class ComprasRequisicionReadAdapter : IComprasRequisicionReadPort
 
         if (rq is null) return null;
 
-        // Solo aceptamos RQs autorizadas o en surtido. Borrador /
-        // EnAutorizacion / Cerrada / Cancelada / Rechazada / Eliminada
-        // no aceptan salidas.
-        if (rq.Estado != EstadoRequisicion.Autorizada
-            && rq.Estado != EstadoRequisicion.EnSurtido)
-        {
-            return null;
-        }
-
         var lineas = rq.Lineas
             .Select(l => new RequisicionLineaLectura(
                 LineaId: l.Id,
@@ -63,7 +36,8 @@ public sealed class ComprasRequisicionReadAdapter : IComprasRequisicionReadPort
                 CantidadSolicitada: l.Cantidad,
                 CantidadSurtida: l.CantidadDeAlmacen,
                 CentroCostoId: l.CentroCostoId,
-                ProyectoId: null))
+                ProyectoId: null,
+                CantidadDisponibleEntregar: l.CantidadPendienteEntregar))
             .ToList();
 
         return new RequisicionLectura(
@@ -89,7 +63,7 @@ public sealed class ComprasRequisicionReadAdapter : IComprasRequisicionReadPort
         var distinct = rqIds.Distinct().ToArray();
 
         // Lectura de presentación: state-agnostic a propósito (NO filtra por
-        // estado, a diferencia de ObtenerAsync). El folio debe resolver aunque
+        // estado). El folio debe resolver aunque
         // la RQ ya esté Surtida/Cerrada para mostrarlo en salidas históricas.
         //
         // Se proyecta el VO Folio (HasConversion ↔ columna string) y se lee

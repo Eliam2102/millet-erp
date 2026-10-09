@@ -41,7 +41,8 @@ public sealed record DatosCfdiParseados(
     IReadOnlyList<CfdiRelacionadosParseados>? CfdiRelacionados = null,
     // G1.6 (P2): desglose de <cfdi:Impuestos>/<cfdi:Retenciones> del
     // Comprobante. Nullable: XML sin retenciones parsea sin romper.
-    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null);
+    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
+    decimal Descuentos = 0m);
 
 /// <summary>
 /// Retención del comprobante: <c>Impuesto</c> = código SAT (001 ISR,

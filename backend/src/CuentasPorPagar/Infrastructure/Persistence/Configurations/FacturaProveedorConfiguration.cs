@@ -48,6 +48,11 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
 
         builder.Property(e => e.ProveedorId).IsRequired();
         builder.Property(e => e.SucursalId).IsRequired();
+        builder.Property(e => e.Obra).HasMaxLength(120);
+        builder.Property(e => e.ConceptoRetencion).HasMaxLength(80);
+        builder.Property(e => e.AlertaRetenciones).HasMaxLength(1000);
+        builder.HasMany(e => e.Movimientos).WithOne().HasForeignKey(m => m.FacturaProveedorId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(e => e.Movimientos).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(e => e.FolioProveedor).HasMaxLength(40);
         builder.Property(e => e.SerieProveedor).HasMaxLength(25);

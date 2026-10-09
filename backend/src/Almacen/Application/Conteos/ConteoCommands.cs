@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Conteos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -71,7 +72,13 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
 {
     private readonly AlmacenDbContext _db;
 
-    public IniciarConteoHandler(AlmacenDbContext db) => _db = db;
+    private readonly IConteoUmbralesProvider _umbrales;
+
+    public IniciarConteoHandler(AlmacenDbContext db, IConteoUmbralesProvider umbrales)
+    {
+        _db = db;
+        _umbrales = umbrales;
+    }
 
     public async Task Handle(IniciarConteoCommand request, CancellationToken cancellationToken)
     {
@@ -120,7 +127,7 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
                 "No hay saldos para el sub-almacén; el conteo no se puede iniciar vacío.");
         }
 
-        conteo.Iniciar();
+        conteo.Iniciar(await _umbrales.ObtenerAsync(cancellationToken));
 
         // F7-PR3 (A18): si es Anual, crea bloqueos para los sub-almacenes
         // afectados (salidas rechazadas durante el conteo).

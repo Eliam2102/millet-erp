@@ -109,20 +109,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
     {
         // 1. Validar OC.
         var oc = await _ocPort.ObtenerAsync(request.OrdenCompraId, cancellationToken);
-        if (oc is not null)
-        {
-            if (!string.Equals(oc.Estado, "Autorizada", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(oc.Estado, "Recibida", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_OC_NO_AUTORIZADA",
-                    $"La OC '{oc.Folio}' está en estado '{oc.Estado}'; no acepta recepción.");
-            }
-        }
+        var lineasOc = await RecepcionOcGuard.ValidarAsync(oc, request.Lineas, _articuloPort, cancellationToken);
 
-        // 3. Construir movimiento. El sub-almacén ya no viene en cabecera: se
-        //    deriva del bin de cada línea (guard en el loop); la FK del bin
-        //    cubre la existencia.
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
 
@@ -167,7 +155,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
                 _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken);
             subsDerivados.Add(subLinea);
 
-            var (costo, um, lineaOcId) = await ResolverCostoYUmAsync(oc, input, cancellationToken);
+            var origen = lineasOc[input.LineaOcId!.Value];
+            var (costo, um, lineaOcId) = (origen.PrecioUnitarioMxn, origen.UnidadMedida, origen.LineaId);
 
             var lineaId = Guid.CreateVersion7();
             var linea = new LineaMovimiento(
@@ -180,7 +169,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
                 costoUnitarioMxn: costo,
                 ubicacionReferencia: input.UbicacionReferencia,
                 comentarioLinea: input.Comentario,
-                ubicacionId: input.UbicacionId);
+                ubicacionId: input.UbicacionId,
+                lineaOcId: lineaOcId);
             movimiento.AgregarLinea(linea);
 
             payloadLineas.Add(new LineaRecepcionPayload(
@@ -249,47 +239,4 @@ public sealed class RegistrarRecepcionConPackingListHandler
         return new RegistrarRecepcionResponse(movimientoId, folio.Valor);
     }
 
-    private async Task<(decimal costoMxn, string unidadMedida, Guid? lineaOcId)>
-        ResolverCostoYUmAsync(
-            OcLectura? oc,
-            RegistrarRecepcionLineaInput input,
-            CancellationToken cancellationToken)
-    {
-        if (oc is not null && input.LineaOcId is Guid lineaOcId)
-        {
-            var lineaOc = oc.Lineas.FirstOrDefault(l => l.LineaId == lineaOcId)
-                ?? throw new EntityNotFoundException(
-                    "LINEA_OC_NO_ENCONTRADA",
-                    $"No existe línea '{lineaOcId}' en la OC '{oc.Folio}'.");
-            if (lineaOc.ArticuloId != input.ArticuloId)
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE",
-                    "El artículo de la línea recibida no coincide con la línea de OC.");
-            }
-            var maxTolerable = lineaOc.CantidadSolicitada - lineaOc.CantidadRecibida;
-            var articulo = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
-            var tolerancia = articulo?.ToleranciaCantidadPorcentaje ?? 0m;
-            maxTolerable += lineaOc.CantidadSolicitada * (tolerancia / 100m);
-            if (input.Cantidad > maxTolerable)
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_EXCEDE_TOLERANCIA",
-                    $"Cantidad recibida {input.Cantidad} excede el saldo+tolerancia ({maxTolerable}) de la línea OC '{lineaOcId}'.");
-            }
-            return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOcId);
-        }
-
-        if (oc is not null)
-        {
-            var lineaOc = oc.Lineas.FirstOrDefault(l => l.ArticuloId == input.ArticuloId);
-            if (lineaOc is not null)
-            {
-                return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOc.LineaId);
-            }
-        }
-
-        var articulo2 = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
-        return (0m, articulo2?.UnidadMedida ?? "PZA", null);
-    }
 }

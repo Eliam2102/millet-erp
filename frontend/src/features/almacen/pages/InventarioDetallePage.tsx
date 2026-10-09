@@ -31,7 +31,7 @@ import {
   TipoConteo,
   TipoConteoLabels,
 } from '@/features/almacen/api/types';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -64,9 +64,11 @@ export function InventarioDetallePage() {
   const puedeCapturar = useHasPermission(
     PermisosCanonicos.AlmacenInventariosCapturar,
   );
-  const puedeAprobar = useHasPermission(
+  const puedeAprobar = useHasAnyPermission([
     PermisosCanonicos.AlmacenInventariosAprobarNivel1,
-  );
+    PermisosCanonicos.AlmacenInventariosAprobarNivel2,
+    PermisosCanonicos.AlmacenInventariosAprobarNivel3,
+  ]);
 
   const iniciar = useIniciarConteo();
   const enviarAConciliacion = useEnviarConteoAConciliacion();

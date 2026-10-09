@@ -44,6 +44,10 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
     // acumule CantidadEntregada por línea de RQ (canal de entrega).
     public Guid? LineaRqId { get; private set; }
 
+    // Trazabilidad de recepción y devolución interna; null en otros tipos e históricos sin enlace.
+    public Guid? LineaOcId { get; private set; }
+    public Guid? LineaSalidaOrigenId { get; private set; }
+
     // F7: cantidades capturadas en conteo físico (para movimientos AjustePositivo/Negativo).
     public decimal? CantidadTeoricaAlContar { get; private set; }
     public decimal? CantidadRealContada { get; private set; }
@@ -77,7 +81,9 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         string? ubicacionReferencia = null,
         string? comentarioLinea = null,
         Guid? lineaRqId = null,
-        Guid? ubicacionId = null) : base(id)
+        Guid? ubicacionId = null,
+        Guid? lineaOcId = null,
+        Guid? lineaSalidaOrigenId = null) : base(id)
     {
         if (movimientoId == Guid.Empty)
             throw new BusinessRuleException("LINEA_MOV_SIN_PADRE",
@@ -110,6 +116,8 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         ComentarioLinea = comentarioLinea;
         LineaRqId = lineaRqId;
         UbicacionId = ubicacionId;
+        LineaOcId = lineaOcId;
+        LineaSalidaOrigenId = lineaSalidaOrigenId;
     }
 
     /// <summary>

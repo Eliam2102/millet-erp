@@ -1,3 +1,6 @@
+using Millet.Compras.Infrastructure;
+using Millet.Compras.Domain.Oc;
+using Millet.SharedKernel.Application;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -25,9 +28,21 @@ public sealed class RecepcionPeriodoContableTests(WebApplicationFactory<Program>
         await using var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, EmpresaBootstrapId, anio);
         await calendario.SembrarAsync(mesAbierto: 10, cerrarAnteriores: true);
         using var admin = await LoginAsync(factory);
-        var ocId = Guid.NewGuid();
+        var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var oc = P1DocumentosValidosTests.NuevaOc(EstadoOrdenCompra.Autorizada);
+        var articuloId = Guid.NewGuid();
+        var lineaId = Guid.NewGuid();
+        typeof(OrdenCompra).GetProperty(nameof(OrdenCompra.Estado))!.SetValue(oc, EstadoOrdenCompra.Borrador);
+        oc.AgregarLineaManual(lineaId, articuloId, 10, "PZA", 25, Guid.NewGuid());
+        typeof(OrdenCompra).GetProperty(nameof(OrdenCompra.Estado))!.SetValue(oc, EstadoOrdenCompra.Autorizada);
+        compras.OrdenesCompra.Add(oc);
+        await compras.SaveChangesAsync();
+        var ocId = oc.Id;
+        try
+        {
         var fecha = new DateOnly(anio, 9, 15);
-        RegistrarRecepcionLineaInput[] lineas = [new(Guid.NewGuid(), null, 1m, null, null, Guid.NewGuid())];
+        RegistrarRecepcionLineaInput[] lineas = [new(articuloId, lineaId, 1m, null, null, Guid.NewGuid())];
 
         using var response = packingList
             ? await admin.PostAsJsonAsync("/api/v1/almacen/recepciones/packing-list",
@@ -41,5 +56,11 @@ public sealed class RecepcionPeriodoContableTests(WebApplicationFactory<Program>
         Assert.Equal($"El periodo {anio}-09 está cerrado o no está abierto en Contabilidad; no se registran movimientos de almacén con esa fecha.",
             problem.GetProperty("detail").GetString());
         Assert.False(await db.Movimientos.IgnoreQueryFilters().AnyAsync(m => m.OcId == ocId));
+        }
+        finally
+        {
+            compras.ChangeTracker.Clear();
+            await compras.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM compras.ordenes_compra WHERE id = {ocId}");
+        }
     }
 }

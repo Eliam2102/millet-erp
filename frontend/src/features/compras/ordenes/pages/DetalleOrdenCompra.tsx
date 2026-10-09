@@ -1,3 +1,4 @@
+import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { Compass, GitBranch, Inbox, Lock, Printer, X } from 'lucide-react';
@@ -24,6 +25,7 @@ import { AdjuntosManagerOc } from '@/features/compras/ordenes/components/Adjunto
 import { AsideListOcsHermanas } from '@/features/compras/ordenes/components/AsideListOcsHermanas';
 import { EditorLineas } from '@/features/compras/ordenes/components/EditorLineas';
 import { StepperAutorizacionOc } from '@/features/compras/ordenes/components/StepperAutorizacionOc';
+import { HistorialFirmasOc } from '@/features/compras/ordenes/components/HistorialFirmasOc';
 import { SubEstadosBar } from '@/features/compras/ordenes/components/SubEstadosBar';
 import { TabInformacion } from '@/features/compras/ordenes/components/TabInformacion';
 import { TabPdf } from '@/features/compras/ordenes/components/TabPdf';
@@ -239,6 +241,7 @@ export function DetalleOrdenCompra() {
         />
 
         <StepperAutorizacionOc estado={oc.estado} />
+        <CancelacionOcPanel oc={oc} />
 
         {/* UF5-PR2: aside de la cadena de duplicación. Solo aparece
             si la OC actual es duplicada (tiene oc_origen_id) o es
@@ -255,12 +258,15 @@ export function DetalleOrdenCompra() {
           adjuntos={<AdjuntosManagerOc oc={oc} />}
           pdf={<TabPdf oc={oc} />}
           autorizacion={
+            <>
+            <HistorialFirmasOc oc={oc} resolverNombre={resolverNombre} />
             <TimelineOrdenCompra
               ocId={oc.id}
               filtroEntidad="AutorizacionOC"
               emptyTitle="Sin eventos de autorización"
               emptyDescription="Cuando esta OC sea aprobada o rechazada en N1 o N2, los eventos individuales aparecerán aquí (con fecha, autorizador y notas por nivel)."
             />
+            </>
           }
           historial={<TimelineOrdenCompra ocId={oc.id} />}
         />

@@ -43,9 +43,7 @@ export interface ReporteShellShape {
   totales: Record<string, number> | null;
 }
 
-export function backendToShellShape(
-  data: BackendReporteResponse,
-): ReporteShellShape {
+export function backendToShellShape(data: BackendReporteResponse): ReporteShellShape {
   const filtrosAplicados: Record<string, string | null> = {};
   for (const f of data.filtrosAplicados) {
     filtrosAplicados[f.label] = f.valor;
@@ -67,11 +65,35 @@ export function backendToShellShape(
     columnas: data.columnas.map((c) => ({
       clave: c.key,
       etiqueta: c.label,
-      tipo: mapTipo(c.tipo),
+      // ReporteShell usa MXN al formatear 'moneda'. Con una columna de moneda,
+      // mostramos el importe numérico y conservamos su divisa explícita en cada fila.
+      tipo:
+        c.tipo === 4 && data.columnas.some((col) => col.key === 'moneda')
+          ? 'numero'
+          : mapTipo(c.tipo),
       alineacion: null,
       anchoPx: null,
     })),
-    filas: data.filas,
+    filas: [...data.filas, ...filasTotalesMoneda(data.totales)],
     totales: Object.keys(totales).length > 0 ? totales : null,
   };
+}
+
+/** Filas de resumen por moneda: se conservan en pantalla, PDF y Excel sin sumar MXN y USD. */
+export function filasTotalesMoneda(
+  totales: Record<string, unknown> | null,
+): Record<string, unknown>[] {
+  if (!Array.isArray(totales?.por_moneda)) return [];
+  return totales.por_moneda
+    .filter(
+      (t): t is Record<string, unknown> =>
+        typeof t === 'object' && t !== null && !Array.isArray(t) && 'moneda' in t,
+    )
+    .map((t) => ({
+      ...t,
+      proveedor_nombre: `Total ${String(t.moneda)}`,
+      rfc: '',
+      obra: '',
+      en_revision: null,
+    }));
 }
