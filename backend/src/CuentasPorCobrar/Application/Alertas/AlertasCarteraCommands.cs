@@ -38,7 +38,13 @@ public sealed record ListarAlertasCarteraQuery(
     Guid? ClienteId = null,
     TipoAlertaCartera? Tipo = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<AlertaCarteraResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<AlertaCarteraResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public string TipoDocumento => "alerta_cartera";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarAlertasCarteraHandler
     : IRequestHandler<ListarAlertasCarteraQuery, PagedResponse<AlertaCarteraResponse>>
@@ -52,7 +58,8 @@ public sealed class ListarAlertasCarteraHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.AlertasCartera.AsNoTracking();
+        var q = _db.AlertasCartera
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.Atendida is bool at) q = q.Where(a => a.Atendida == at);
         if (query.ClienteId is Guid c) q = q.Where(a => a.ClienteId == c);
         if (query.Tipo is TipoAlertaCartera t) q = q.Where(a => a.Tipo == t);

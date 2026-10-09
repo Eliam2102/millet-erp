@@ -43,6 +43,7 @@ public sealed class ListarPendientesAutorizacionOcHandler
         };
 
         var query = _db.OrdenesCompra
+            .Where(x => request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalDestinoId))
             .AsNoTracking()
             .Where(o => estadosPendientes.Contains(o.Estado));
 

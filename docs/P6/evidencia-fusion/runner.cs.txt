@@ -1,0 +1,21 @@
+using System.Runtime.Loader;
+using Xunit.Runners;
+var assemblyPath = Path.GetFullPath(args[0]);
+AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", Path.GetDirectoryName(assemblyPath) + Path.DirectorySeparatorChar);
+var dependencyResolver = new AssemblyDependencyResolver(assemblyPath);
+AssemblyLoadContext.Default.Resolving += (context, name) => {
+    var path = dependencyResolver.ResolveAssemblyToPath(name)
+        ?? Path.Combine(Path.GetDirectoryName(assemblyPath)!, name.Name + ".dll");
+    return File.Exists(path) ? context.LoadFromAssemblyPath(path) : null;
+};
+using var done = new ManualResetEvent(false);
+using var runner = AssemblyRunner.WithoutAppDomain(assemblyPath);
+var failures = 0;
+var errors = 0;
+runner.OnTestFailed = info => Console.WriteLine($"FAIL {info.TestDisplayName}: {info.ExceptionMessage}\n{info.ExceptionStackTrace}");
+runner.OnErrorMessage = info => { Interlocked.Increment(ref errors); Console.WriteLine($"ERROR {info.ExceptionMessage}"); };
+runner.OnExecutionComplete = info => { failures = info.TestsFailed; Console.WriteLine($"TOTAL={info.TotalTests} FAIL={info.TestsFailed} SKIP={info.TestsSkipped} TIME={info.ExecutionTime}"); done.Set(); };
+runner.Start();
+if (!done.WaitOne(TimeSpan.FromMinutes(5))) { Console.WriteLine("ERROR timeout"); return 2; }
+while (runner.Status != AssemblyRunnerStatus.Idle) await Task.Delay(10);
+return failures == 0 && errors == 0 ? 0 : 1;

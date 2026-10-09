@@ -1,0 +1,21 @@
+# Adenda PostgreSQL · causas y correcciones del 9-oct
+
+Corrida aportada por Claude: API **861 aprobadas, 105 fallidas, 966 total**; A+W y Compras de integración en verde. Es evidencia anterior a esta continuación. La repetición del gate completo tras estos cambios está **Por confirmar**: este sandbox no tiene acceso al socket Docker. No se presenta la compilación como resultado HTTP.
+
+| Fallo reportado | Causa verificada en código | Corrección |
+|---|---|---|
+| 98 casos de `P6SucursalEndpointsTests.PrepararAsync` | La comprobación de caja chica omitía `destinoReposicion`; el dominio exige ese dato. Todas las teorías compartían esa preparación. | Fixture con `CuentaSucursal`, coherente con la reposición emitida. Se conserva intacta la regla `COMP_DESTINO_REPOSICION_REQUERIDO`. |
+| CSV filtrado de `AuditoriaEndpointsTests` | La aserción ejecutaba `Cambios.Contains(marcador)` en SQL sobre `jsonb`; PostgreSQL no define `jsonb ~~ jsonb`. La respuesta CSV ya había superado sus aserciones antes de llegar al check de bitácora. | Filtrar por operación/empresa en SQL, materializar y comprobar el contenido JSON en memoria. No se cambia la consulta productiva ni el exportador. |
+| Desactivar 02 de `P6FormasPagoTests` | La comprobación de bitácora ejecutaba `Cambios.Contains("Activa")` sobre `jsonb`: `jsonb ~~ unknown`. Se alcanzaba después de validar el rechazo de Caja/Facturación. | Materializar registros filtrados por entidad/ID y comprobar el cambio en memoria. Se conserva la restauración de 02 en `finally`. |
+| Admin organizacional: 403 de empresa | El fixture guardaba `UsuarioEmpresaRol`, entidad de empresa, sin contexto/bypass; fallaba antes del login. | Bypass limitado al seed del fixture. No se relaja el interceptor de empresa ni los permisos de producción. |
+| Agregar/actualizar RQ con CeCo fuera de alcance: debía ser 422 `CECO_INVALIDO` | El usuario de prueba tenía permisos de operación, pero ninguna asociación `UsuarioSucursal`. El guard consulta `RQ.SucursalId`, no el CeCo; el 403 era territorial y correcto para ese fixture. | Asociar el usuario a MID del documento; no asignarle CeCo ni permiso `centros_costo.dim3.leer-todos`. El handler conserva G1.11 y el 422 esperado. Resultado PostgreSQL pendiente. |
+| Línea manual de OC: debía ser 201 ADR-0050 | Mismo usuario sin sucursal. Además `SucursalIdFija` era un GUID histórico que no corresponde a una sucursal del seed; no servía para crear una asociación válida con FK. | Usar `TestComprasFixtures.SucursalMid` y asociar el usuario a ella. Se conserva captura por proxy sin conceder alcance CeCo ni cambiar su lógica. Resultado PostgreSQL pendiente. |
+| Bypass corporativo de adjuntos OC: 403 | El cambio P6 había sustituido el bypass previo de adjuntos por `gestionar-todas-sucursales`. El perfil del contrato existente tenía `leer-todas-sucursales` y permiso de adjuntar. | Restaurar el guard territorial previo de subir/remover adjuntos, por instrucción expresa de la adenda. Se conserva el permiso independiente de subir/eliminar. Se amplía la regresión a eliminar el adjunto con ese bypass; las demás escrituras de OC siguen usando gestión corporativa. |
+
+Los tres nombres específicos de P6 (listados, escritura válida y adjuntos por permiso) también caían en la preparación compartida de caja chica: no tenían evidencia de fallo HTTP independiente. Se conserva y amplía su cobertura; su resultado posterior depende del gate.
+
+Se agregaron casos de escritura ajena para notas de líneas RQ y rechazo de propuesta CxC. El fixture aislado de la demo ahora comprueba login y acceso HTTP con el rol Compras: RQ/OC MID permitidas, OC MTY 403 y ausente del listado. El seed ya tiene sucursales válidas en RQ/OC/pedidos y asociaciones por usuario; no se añadió bypass a perfiles operativos.
+
+`P6DesignTimeDbContexts.cs` sigue leyendo `ConnectionStrings__Postgres` del entorno. Las comprobaciones de modelo EF de Identidad y Compartido no detectaron cambios pendientes. No se aplicaron migraciones en este sandbox.
+
+Siguiente acción: Claude debe ejecutar `./tools/validate-integration-isolated.sh` **completo, sin filtros**, desde este worktree; reportar A+W, Compras y API con aprobadas/fallidas/omitidas. Si persiste algún rojo, entregar el error y su stack antes de fusionar. Después corresponde el ensayo con Millet y Entra/Graph reales.

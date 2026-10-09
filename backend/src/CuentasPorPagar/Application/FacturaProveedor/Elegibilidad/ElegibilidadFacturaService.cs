@@ -14,7 +14,7 @@ public sealed class ElegibilidadFacturaService(CuentasPorPagarDbContext db, ICom
 
     public async Task<ResultadoElegibilidad> CalcularAsync(Factura factura, CancellationToken ct, bool considerarRecepcionesLocales = false)
     {
-        var neto = factura.Total - factura.NcAplicadasTotal;
+        var neto = factura.Total - factura.NcAplicadasTotal - factura.CargosAplicadosTotal;
         if (factura.Estado == EstadoPasivo.Cancelada) return new(0, 0, 0);
         if (factura.OrdenCompraId is not Guid ocId)
             return new(neto, Math.Max(0, factura.SaldoPendiente), 0);

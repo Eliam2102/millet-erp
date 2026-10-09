@@ -259,7 +259,13 @@ public sealed record ListarPropuestasAplicacionQuery(
     EstadoPropuestaAplicacion? Estado = null,
     Guid? ClienteId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<PropuestaAplicacionResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<PropuestaAplicacionResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public string TipoDocumento => "propuesta_cxc";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarPropuestasAplicacionHandler
     : IRequestHandler<ListarPropuestasAplicacionQuery, PagedResponse<PropuestaAplicacionResponse>>
@@ -273,7 +279,8 @@ public sealed class ListarPropuestasAplicacionHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.PropuestasAplicacionPago.AsNoTracking().Include(p => p.Facturas).AsQueryable();
+        var q = _db.PropuestasAplicacionPago
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking().Include(p => p.Facturas).AsQueryable();
         if (query.Estado is EstadoPropuestaAplicacion e) q = q.Where(p => p.Estado == e);
         if (query.ClienteId is Guid c) q = q.Where(p => p.ClienteId == c);
 

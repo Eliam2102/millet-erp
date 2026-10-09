@@ -30,7 +30,8 @@ public sealed class ListarOrdenesCompraHandler
             _ => request.PageSize,
         };
 
-        var query = _db.OrdenesCompra.AsNoTracking();
+        var query = _db.OrdenesCompra
+            .Where(x => request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalDestinoId)).AsNoTracking();
 
         if (request.Estado is { } estado)
         {

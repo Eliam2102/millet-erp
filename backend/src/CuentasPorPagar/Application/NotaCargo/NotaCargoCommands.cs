@@ -162,7 +162,7 @@ public sealed class AutorizarNotaCargoHandler : IRequestHandler<AutorizarNotaCar
 
 // -----------------------------------------------------------------
 
-public sealed record AplicarNotaCargoCommand(Guid Id, int VersionEsperada) : IRequest<AplicarNotaCargoResponse>;
+public sealed record AplicarNotaCargoCommand(Guid Id, int VersionEsperada, Guid? FacturaOrigenId = null) : IRequest<AplicarNotaCargoResponse>;
 
 public sealed record AplicarNotaCargoResponse(Guid Id, EstadoNotaCargo Estado, int Version);
 
@@ -196,6 +196,7 @@ public sealed class AplicarNotaCargoHandler : IRequestHandler<AplicarNotaCargoCo
         if (nota.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(NotaCargo), nota.Id);
 
+        if (command.FacturaOrigenId is Guid elegida) nota.VincularFactura(elegida);
         if (nota.FacturaOrigenId is not Guid facturaId)
             throw new BusinessRuleException("NCG_FACTURA_REQUERIDA", "Vincula la nota de cargo a la factura antes de aplicarla.");
         var factura = await _db.FacturasProveedor.FirstOrDefaultAsync(f => f.Id == facturaId, cancellationToken)

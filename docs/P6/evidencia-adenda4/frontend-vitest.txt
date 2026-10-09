@@ -1,0 +1,12 @@
+ ✓ src/features/cxc/lib/reporte-cxc-adapter.test.ts > adaptarReporteCxc > totales null se mantiene null 0ms
+ ✓ src/modules/datos-maestros/api/clientes.aplanar.test.ts > aplanarDetalle > expone los contadores y el estado del resumen anidado del backend 2ms
+ ✓ src/features/almacen/lib/estado-regularizacion.test.ts > regularización de vales > pendiente true, vencido true 1ms
+ ✓ src/features/almacen/lib/estado-regularizacion.test.ts > regularización de vales > pendiente true, vencido false 0ms
+ ✓ src/features/almacen/lib/estado-regularizacion.test.ts > regularización de vales > pendiente false, vencido true 0ms
+ ✓ src/features/almacen/lib/estado-regularizacion.test.ts > regularización de vales > pendiente false, vencido false 0ms
+
+ Test Files  361 passed (361)
+      Tests  2078 passed (2078)
+   Start at  15:04:08
+   Duration  115.54s (transform 19.08s, setup 35.29s, import 474.97s, tests 141.68s, environment 222.39s)
+

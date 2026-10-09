@@ -27,6 +27,7 @@ public static class ComprobacionesEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/comprobaciones")
+            .WithDocumentoSucursalScope("comprobacion", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -52,8 +53,10 @@ public static class ComprobacionesEndpoints
         group.MapPost("/caja-chica", async (
             [FromBody] CrearComprobacionCajaChicaCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(command.SucursalId, "cuentas_por_pagar.documentos.gestionar-todas-sucursales", cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/comprobaciones/{response.Id}", response);
         })
@@ -137,8 +140,13 @@ public static class ComprobacionesEndpoints
         group.MapPost("/aduanales", async (
             [FromBody] CrearComprobacionAduanalesCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(command.SucursalId, "cuentas_por_pagar.documentos.gestionar-todas-sucursales", cancellationToken);
+            foreach (var facturaId in command.FacturaProveedorIds ?? [])
+                await scope.VerificarAsync("factura_proveedor", facturaId,
+                    PermisosCanonicos.CuentasPorPagarFacturasGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/comprobaciones/{response.Id}", response);
         })

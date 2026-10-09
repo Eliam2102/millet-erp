@@ -44,6 +44,7 @@ public sealed class ListarPendientesAutorizacionHandler
         var limit = query.Limit <= 0 ? 50 : Math.Min(query.Limit, LimiteMaximo);
 
         IQueryable<Requisicion> q = _db.Requisiciones
+            .Where(x => query.SucursalesPermitidas == null || (query.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalId))
             .AsNoTracking()
             .Where(r => r.Estado == EstadoRequisicion.EnAutorizacion);
 

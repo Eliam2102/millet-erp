@@ -119,6 +119,7 @@ public static class AuthExtensions
 
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
+        services.AddScoped<Millet.Identidad.Application.Ports.IEntraGruposReadPort, GraphEntraGruposReader>();
         services.AddScoped<LoginOrchestrator>();
 
         // RBAC granular (ADR-0007). El policy provider construye policies

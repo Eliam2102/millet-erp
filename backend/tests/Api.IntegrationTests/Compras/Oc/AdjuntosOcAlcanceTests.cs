@@ -114,6 +114,7 @@ public class AdjuntosOcAlcanceTests : IClassFixture<WebApplicationFactory<Progra
         // Usuario sin asociación a sucursales, pero con permiso de bypass compras.ordenes.leer-todas-sucursales
         var (clienteCorp, _) = await CreateUsuarioConPermisosAsync(
             PermisosCanonicos.ComprasOrdenesLeer,
+            PermisosCanonicos.ComprasOrdenesCrear,
             PermisosCanonicos.ComprasOrdenesAdjuntar,
             PermisosCanonicos.ComprasOrdenesLeerTodasSucursales);
 
@@ -131,6 +132,8 @@ public class AdjuntosOcAlcanceTests : IClassFixture<WebApplicationFactory<Progra
         // Contenido exitoso
         var contenidoResp = await clienteCorp.GetAsync($"{EndpointBase}/{ocBId}/adjuntos/{adjuntoId}/contenido");
         Assert.Equal(HttpStatusCode.OK, contenidoResp.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await clienteCorp.DeleteAsync($"{EndpointBase}/{ocBId}/adjuntos/{adjuntoId}")).StatusCode);
     }
 
     [Fact]

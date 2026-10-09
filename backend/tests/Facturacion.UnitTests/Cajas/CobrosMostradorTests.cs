@@ -80,7 +80,7 @@ public sealed class CobrosMostradorTests
         IAlcanceCajaEvaluator? alcance = null,
         Guid? usuario = null) =>
         new(db, new FakeEmpresaContext(Empresa), new FakeUserContext(usuario ?? Cajero), new FakeClock(Ahora),
-            new FakeSucursalesReadPort(), alcance ?? new FakeAlcanceCajaEvaluator(), eventos ?? new FakeIntegrationEventPublisher());
+            new FakeSucursalesReadPort(), alcance ?? new FakeAlcanceCajaEvaluator(), eventos ?? new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort());
 
     private static CancelarCobroMostradorHandler CancelarHandler(
         FacturacionDbContext db,

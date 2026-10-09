@@ -58,6 +58,19 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
     public bool EsInterno => TipoBeneficiario != BeneficiarioProveedor;
 
     public DateTimeOffset RecibidoEn { get; private set; }
+    public bool PagoBloqueado { get; private set; }
+    public string? MotivoBloqueo { get; private set; }
+    public DateTimeOffset? UltimoCambioCxp { get; private set; }
+    public void RetirarDePago(string motivo, DateTimeOffset ocurridoEn)
+    {
+        if (UltimoCambioCxp > ocurridoEn) return;
+        PagoBloqueado = true; MotivoBloqueo = motivo; UltimoCambioCxp = ocurridoEn;
+    }
+    public bool AceptarAutorizacion(DateTimeOffset ocurridoEn)
+    {
+        if (UltimoCambioCxp > ocurridoEn || (UltimoCambioCxp == ocurridoEn && PagoBloqueado)) return false;
+        PagoBloqueado = false; MotivoBloqueo = null; UltimoCambioCxp = ocurridoEn; return true;
+    }
 
     private PasivoPendientePago() { }
 
@@ -158,6 +171,7 @@ public sealed class PasivoPendientePago : BaseEntity, IPerteneceAEmpresa, IAudit
     /// </summary>
     public void AplicarPago(decimal importe)
     {
+        if (PagoBloqueado) throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", $"CxP bloqueó el pago: {MotivoBloqueo}. La factura debe volver a autorizarse en CxP.");
         if (importe <= 0)
             throw new BusinessRuleException("PASIVO_IMPORTE_INVALIDO",
                 "El importe a aplicar debe ser mayor a cero.");

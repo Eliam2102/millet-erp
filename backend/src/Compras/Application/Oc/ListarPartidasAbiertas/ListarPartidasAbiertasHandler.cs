@@ -49,6 +49,7 @@ public sealed class ListarPartidasAbiertasHandler
         var hoy = _clock.HoyLocal();
 
         var query = _db.OrdenesCompra
+            .Where(x => request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalDestinoId))
             .AsNoTracking()
             .Where(o => !EstadosTerminales.Contains(o.Estado))
             .Where(o =>

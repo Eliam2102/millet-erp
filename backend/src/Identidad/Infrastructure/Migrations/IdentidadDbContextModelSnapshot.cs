@@ -353,6 +353,244 @@ namespace Millet.Identidad.Infrastructure.Migrations
                     b.HasData(
                         new
                         {
+                            Id = new Guid("00000006-0006-0006-0006-000000000020"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "cuentas_por_pagar.documentos.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar documentos de CxP de todas las sucursales",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "documentos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000021"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "cuentas_por_pagar.documentos.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Operar documentos de CxP de todas las sucursales",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "documentos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000001"),
+                            Accion = "gestionar",
+                            Codigo = "catalogos.formas-pago.gestionar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Habilitar y deshabilitar formas de pago SAT",
+                            Modulo = "catalogos",
+                            Recurso = "formas-pago",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000002"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "compras.requisiciones.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Operar requisiciones de todas las sucursales",
+                            Modulo = "compras",
+                            Recurso = "requisiciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000003"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "compras.ordenes.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Operar órdenes de compra de todas las sucursales",
+                            Modulo = "compras",
+                            Recurso = "ordenes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000004"),
+                            Accion = "adjuntos-ver",
+                            Codigo = "compras.requisiciones.adjuntos-ver",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar adjuntos de requisiciones",
+                            Modulo = "compras",
+                            Recurso = "requisiciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000005"),
+                            Accion = "adjuntos-subir",
+                            Codigo = "compras.requisiciones.adjuntos-subir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Subir adjuntos de requisiciones",
+                            Modulo = "compras",
+                            Recurso = "requisiciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000006"),
+                            Accion = "adjuntos-baja",
+                            Codigo = "compras.requisiciones.adjuntos-baja",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dar de baja adjuntos de requisiciones",
+                            Modulo = "compras",
+                            Recurso = "requisiciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000007"),
+                            Accion = "adjuntos-ver",
+                            Codigo = "cuentas_por_pagar.facturas.adjuntos-ver",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar adjuntos de facturas de proveedor",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "facturas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000008"),
+                            Accion = "adjuntos-subir",
+                            Codigo = "cuentas_por_pagar.facturas.adjuntos-subir",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Subir adjuntos de facturas de proveedor",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "facturas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000009"),
+                            Accion = "adjuntos-baja",
+                            Codigo = "cuentas_por_pagar.facturas.adjuntos-baja",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Dar de baja adjuntos de facturas de proveedor",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "facturas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-00000000000a"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "cuentas_por_pagar.facturas.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Leer facturas de proveedor de todas las sucursales",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "facturas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-00000000000b"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "cuentas_por_pagar.facturas.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Gestionar facturas de proveedor de todas las sucursales",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "facturas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-00000000000c"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "cuentas_por_cobrar.cartera.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Leer cartera de todas las sucursales",
+                            Modulo = "cuentas_por_cobrar",
+                            Recurso = "cartera",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-00000000000d"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "cuentas_por_cobrar.cartera.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Gestionar cartera de todas las sucursales",
+                            Modulo = "cuentas_por_cobrar",
+                            Recurso = "cartera",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-00000000000e"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "tesoreria.documentos.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Leer documentos de Tesorería de todas las sucursales",
+                            Modulo = "tesoreria",
+                            Recurso = "documentos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-00000000000f"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "tesoreria.documentos.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Gestionar documentos de Tesorería de todas las sucursales",
+                            Modulo = "tesoreria",
+                            Recurso = "documentos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000002-0001-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "infra.health.leer",
@@ -4260,6 +4498,23 @@ namespace Millet.Identidad.Infrastructure.Migrations
                     b.ToTable("usuario_empresa_roles", "identidad");
                 });
 
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioGrupoEntraId", b =>
+                {
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<string>("ObjectId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("object_id");
+
+                    b.HasKey("UsuarioId", "ObjectId")
+                        .HasName("pk_usuario_grupos_entra_id");
+
+                    b.ToTable("usuario_grupos_entra_id", "identidad");
+                });
+
             modelBuilder.Entity("Millet.Identidad.Domain.UsuarioPermisoOverride", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4758,6 +5013,16 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_usuario_empresa_roles_usuarios_usuario_id");
+                });
+
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioGrupoEntraId", b =>
+                {
+                    b.HasOne("Millet.Identidad.Domain.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_grupos_entra_id_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Millet.Identidad.Domain.UsuarioPermisoOverride", b =>

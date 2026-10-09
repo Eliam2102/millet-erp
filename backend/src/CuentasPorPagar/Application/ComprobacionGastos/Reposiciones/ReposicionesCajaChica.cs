@@ -273,7 +273,13 @@ public sealed class ConfigurarReposicionCajaHandler
 // ------------------------------------------------------------------ Queries
 
 public sealed record ListarReposicionesQuery(
-    Guid? SucursalId, int Offset, int Limit) : IRequest<PagedResponse<ReposicionListItemResponse>>;
+    Guid? SucursalId, int Offset, int Limit) : IRequest<PagedResponse<ReposicionListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "reposicion_caja";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record ReposicionListItemResponse(
     Guid Id,
@@ -296,7 +302,8 @@ public sealed class ListarReposicionesHandler
     public async Task<PagedResponse<ReposicionListItemResponse>> Handle(
         ListarReposicionesQuery query, CancellationToken cancellationToken)
     {
-        var q = _db.ReposicionesCajaChica.AsNoTracking();
+        var q = _db.ReposicionesCajaChica
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.SucursalId is Guid sucursalId)
             q = q.Where(r => r.SucursalId == sucursalId);
 
@@ -313,7 +320,13 @@ public sealed class ListarReposicionesHandler
     }
 }
 
-public sealed record ListarSaldosPendientesQuery() : IRequest<IReadOnlyList<SaldoPendienteResponse>>;
+public sealed record ListarSaldosPendientesQuery() : IRequest<IReadOnlyList<SaldoPendienteResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "comprobacion";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record SaldoPendienteResponse(
     Guid SucursalId,
@@ -334,6 +347,7 @@ public sealed class ListarSaldosPendientesHandler
         ListarSaldosPendientesQuery query, CancellationToken cancellationToken)
     {
         var saldos = await _db.ComprobacionesGastos
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id))
             .AsNoTracking()
             .Where(c => c.Tipo == TipoComprobacionGastos.ReembolsoCajaChica
                 && c.Estado == EstadoComprobacionGastos.Aplicada

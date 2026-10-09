@@ -12,7 +12,13 @@ public sealed record ListarNotasCreditoQuery(
     Guid? ProveedorId = null,
     Guid? FacturaOrigenId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<NotaCreditoListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<NotaCreditoListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "nota_credito_proveedor";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record NotaCreditoListItemResponse(
     Guid Id,
@@ -31,7 +37,7 @@ public sealed record NotaCreditoListItemResponse(
     EstadoNotaCredito Estado,
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042).
-    string? ProveedorNombre = null);
+    string? ProveedorNombre = null, decimal CargoReconocidoPendiente = 0);
 
 public sealed class ListarNotasCreditoHandler
     : IRequestHandler<ListarNotasCreditoQuery, PagedResponse<NotaCreditoListItemResponse>>
@@ -52,7 +58,8 @@ public sealed class ListarNotasCreditoHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.NotasCreditoProveedor.AsNoTracking();
+        var q = _db.NotasCreditoProveedor.AsNoTracking()
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id));
         if (query.Estado is EstadoNotaCredito e) q = q.Where(n => n.Estado == e);
         if (query.ProveedorId is Guid p) q = q.Where(n => n.ProveedorId == p);
         if (query.FacturaOrigenId is Guid f) q = q.Where(n => n.FacturaOrigenId == f);
@@ -81,7 +88,7 @@ public sealed class ListarNotasCreditoHandler
                 n.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null))
+                null, 0))
             .ToListAsync(cancellationToken);
 
         // Etiqueta del proveedor en batch sobre los ids distintos de la
@@ -97,6 +104,10 @@ public sealed class ListarNotasCreditoHandler
                 .ToList();
         }
 
+        var ncIds = items.Select(i => i.Id).ToArray();
+        var cargos = await _db.NotasCargo.AsNoTracking().Where(c => c.NotaCreditoProveedorId != null && ncIds.Contains(c.NotaCreditoProveedorId.Value)).ToListAsync(cancellationToken);
+        items = items.Select(i => i with { CargoReconocidoPendiente = Math.Max(0,
+            (cargos.FirstOrDefault(c => c.NotaCreditoProveedorId == i.Id)?.Monto ?? 0) - (i.Total - i.SaldoPorAplicar)) }).ToList();
         return new PagedResponse<NotaCreditoListItemResponse>(items, offset, limit, total);
     }
 }

@@ -20,7 +20,13 @@ namespace Millet.Tesoreria.Application.Reportes;
 public sealed record AuxiliarBancosReporteQuery(
     Guid CuentaBancariaId,
     DateOnly Desde,
-    DateOnly Hasta) : IRequest<ReporteJsonResponse>;
+    DateOnly Hasta) : IRequest<ReporteJsonResponse>, IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "cuenta_bancaria";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class AuxiliarBancosReporteValidator : AbstractValidator<AuxiliarBancosReporteQuery>
 {
@@ -47,6 +53,7 @@ public sealed class AuxiliarBancosReporteHandler
         AuxiliarBancosReporteQuery query, CancellationToken cancellationToken)
     {
         var cuenta = await _db.CuentasBancarias.AsNoTracking()
+            .Where(c => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(c.Id))
             .FirstOrDefaultAsync(c => c.Id == query.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
                 $"No se encontró la cuenta bancaria '{query.CuentaBancariaId}'.");

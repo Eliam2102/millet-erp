@@ -10,7 +10,13 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.CuentasPorPagar.Application.Reportes.AntiguedadAnticipos;
 
-public sealed record AntiguedadAnticiposProveedoresQuery(DateOnly? FechaCorte = null, Guid? ProveedorId = null) : IRequest<ReporteJsonResponse>;
+public sealed record AntiguedadAnticiposProveedoresQuery(DateOnly? FechaCorte = null, Guid? ProveedorId = null) : IRequest<ReporteJsonResponse>, IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "anticipo_proveedor";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 public sealed class AntiguedadAnticiposProveedoresValidator : AbstractValidator<AntiguedadAnticiposProveedoresQuery>
 {
     public AntiguedadAnticiposProveedoresValidator()
@@ -26,7 +32,8 @@ public sealed class AntiguedadAnticiposProveedoresHandler(CuentasPorPagarDbConte
     {
         var corte = q.FechaCorte ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
         var fin = SaldosHistoricos.FinExclusivo(corte);
-        var anticipos = db.AnticiposProveedor.AsNoTracking().Where(a => a.FechaCfdi < fin &&
+        var anticipos = db.AnticiposProveedor.AsNoTracking()
+            .Where(a => q.DocumentosPermitidos == null || (q.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(a.Id)).Where(a => a.FechaCfdi < fin &&
             (a.FechaCancelacion == null || a.FechaCancelacion >= fin));
         if (q.ProveedorId is Guid p) anticipos = anticipos.Where(a => a.ProveedorId == p);
         var datos = await anticipos.ToListAsync(cancellationToken);

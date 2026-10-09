@@ -18,7 +18,11 @@ public sealed record ListarUltimas100ComprasQuery(
     Guid ArticuloId,
     Guid? ProveedorId = null,
     DateOnly? FechaDesde = null,
-    decimal? CantidadMinima = null) : IRequest<ListarUltimas100ComprasResponse>;
+    decimal? CantidadMinima = null) : IRequest<ListarUltimas100ComprasResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "compras.ordenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record ListarUltimas100ComprasResponse(
     IReadOnlyList<CompraMaterialResumen> Items);

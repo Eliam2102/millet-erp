@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { mswServer } from '@/test/mocks/server';
 import { FacturaDetallePage } from './FacturaDetallePage';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -32,10 +34,18 @@ vi.mock('@/features/cxp/components/LiberarRevisionSheet', () => ({ LiberarRevisi
 vi.mock('@/features/cxp/components/AdjuntarEvidenciaSheet', () => ({ AdjuntarEvidenciaSheet: () => null }));
 vi.mock('@/features/cxp/components/EvidenciasList', () => ({ EvidenciasList: () => null }));
 
+beforeEach(() => {
+  mswServer.use(
+    http.get('/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
+      HttpResponse.json([])),
+    http.get('/api/v1/adjuntos/tipos', () => HttpResponse.json([])),
+  );
+});
+
 function importe(label: string) { return screen.getByText(label).nextElementSibling?.textContent; }
 
 describe('P3: detalle fiscal y recepción', () => {
-  it('presenta ISR, IVA retenido, total, elegible y retenido por separado', () => {
+  it('presenta ISR, IVA retenido, total, elegible y retenido por separado', async () => {
     escenario.cancelada = false;
     render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
     expect(importe('ISR retenido')).toContain('20.00');
@@ -43,6 +53,7 @@ describe('P3: detalle fiscal y recepción', () => {
     expect(importe('Elegible para pago')).toContain('158.94');
     expect(importe('Retenido por falta de recepción')).toContain('39.73');
     expect(importe('Total')).toContain('198.67');
+    expect(await screen.findByRole('region', { name: 'Adjuntos' })).toBeInTheDocument();
   });
   it('muestra la línea y el dato rechazado y no permite forzar la autorización', () => {
     escenario.cancelada = true;

@@ -13,7 +13,8 @@ namespace Millet.Api.Auth;
 /// estándar OIDC. <see cref="Email"/> y <see cref="Name"/> son tolerantes a
 /// nulls; auto-provisión rellena con valores razonables si vienen vacíos.
 /// </summary>
-public sealed record EntraTokenClaims(string Oid, string? Email, string? Name);
+public sealed record EntraTokenClaims(string Oid, string? Email, string? Name,
+    IReadOnlyList<string>? Groups = null, bool GroupsOverage = false);
 
 /// <summary>
 /// Datos extraídos de un token de Entra validado que pertenece a un
@@ -135,7 +136,8 @@ public sealed class EntraTokenValidator : IEntraTokenValidator
             ?? identity.FindFirst("upn")?.Value;
         var name = identity.FindFirst("name")?.Value;
 
-        return new EntraTokenClaims(oid, email, name);
+        var grupos = EntraGruposClaims.Leer(identity);
+        return new EntraTokenClaims(oid, email, name, grupos.Grupos, grupos.Overage);
     }
 
     /// <summary>
@@ -237,4 +239,28 @@ public sealed class EntraTokenValidator : IEntraTokenValidator
             new HttpDocumentRetriever { RequireHttps = true });
     }
 
+}
+
+/// <summary>Solo se invoca sobre la identidad de un token cuya firma, emisor y audiencia ya se validaron.</summary>
+public static class EntraGruposClaims
+{
+    public static (IReadOnlyList<string> Grupos, bool Overage) Leer(System.Security.Claims.ClaimsIdentity identidad)
+    {
+        var overage = identidad.HasClaim(c => c.Type == "hasgroups" && string.Equals(c.Value, "true", StringComparison.OrdinalIgnoreCase));
+        foreach (var claim in identidad.FindAll("_claim_names"))
+        {
+            try
+            {
+                using var json = System.Text.Json.JsonDocument.Parse(claim.Value);
+                if (json.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                    throw new UnauthorizedAccessException("La marca de grupos de Microsoft no es válida. Inicia sesión de nuevo.");
+                overage |= json.RootElement.TryGetProperty("groups", out _);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                throw new UnauthorizedAccessException("La marca de grupos de Microsoft no es válida. Inicia sesión de nuevo.");
+            }
+        }
+        return (identidad.FindAll("groups").Select(c => c.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), overage);
+    }
 }

@@ -42,10 +42,9 @@ public sealed class AnticipoProveedorAggregateTests
     }
 
     [Fact]
-    public void Capturar_rechaza_serie_diferente_a_FANT()
+    public void Capturar_acepta_serie_del_proveedor_D9()
     {
-        var act = () => Capturar(serie: "FAC");
-        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "ANTICIPO_SERIE_INVALIDA");
+        Capturar(serie: "FAC").Serie.Should().Be("FAC");
     }
 
     [Fact]

@@ -25,7 +25,7 @@ internal static class OcSucursalScope
         ICurrentUserContext currentUser,
         ICurrentUserPermissions permisos,
         IUsuarioSucursalReadPort usuarioSucursales,
-        CancellationToken ct)
+        CancellationToken ct, bool escritura = false)
     {
         var sucursalId = await db.OrdenesCompra.AsNoTracking()
             .Where(o => o.Id == ordenCompraId)
@@ -37,7 +37,7 @@ internal static class OcSucursalScope
 
         await SucursalScopeGuard.VerificarAsync(
             currentUser.UserId,
-            SucursalScopeGuardPermisos.OrdenesCompraLeerTodas,
+            escritura ? "compras.ordenes.gestionar-todas-sucursales" : SucursalScopeGuardPermisos.OrdenesCompraLeerTodas,
             permisos,
             (uid, c) => usuarioSucursales.EstaAsociadoAsync(uid, sucursalId, c),
             ct);

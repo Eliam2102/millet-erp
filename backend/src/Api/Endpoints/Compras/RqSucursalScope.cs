@@ -24,7 +24,7 @@ internal static class RqSucursalScope
         ICurrentUserContext currentUser,
         ICurrentUserPermissions permisos,
         IUsuarioSucursalReadPort usuarioSucursales,
-        CancellationToken ct)
+        CancellationToken ct, bool escritura = false)
     {
         var sucursalId = await db.Requisiciones.AsNoTracking()
             .Where(r => r.Id == requisicionId)
@@ -36,7 +36,7 @@ internal static class RqSucursalScope
 
         await SucursalScopeGuard.VerificarAsync(
             currentUser.UserId,
-            SucursalScopeGuardPermisos.RequisicionesLeerTodas,
+            escritura ? "compras.requisiciones.gestionar-todas-sucursales" : SucursalScopeGuardPermisos.RequisicionesLeerTodas,
             permisos,
             (uid, c) => usuarioSucursales.EstaAsociadoAsync(uid, sucursalId, c),
             ct);

@@ -5166,6 +5166,38 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasData(
                         new
                         {
+                            Id = new Guid("00000011-0006-0000-0000-000000000001"),
+                            Activo = true,
+                            Codigo = "soporte",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Documento de soporte",
+                            Obligatorio = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "requisicion",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0006-0000-0000-000000000002"),
+                            Activo = true,
+                            Codigo = "soporte",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Documento de soporte",
+                            Obligatorio = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "factura_proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000011-0001-0000-0000-000000000001"),
                             Activo = true,
                             Codigo = "constancia_situacion_fiscal",

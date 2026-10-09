@@ -28,6 +28,11 @@ public sealed class ReppProveedorRecibido : BaseEntity, IPerteneceAEmpresa, IAud
     public DateTimeOffset RegistradoEn { get; private set; }
 
     private ReppProveedorRecibido() { }
+    public void CompletarXmlAnterior(string blobRef)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(blobRef);
+        XmlBlobRef = blobRef;
+    }
 
     public static ReppProveedorRecibido Registrar(
         Guid empresaId,

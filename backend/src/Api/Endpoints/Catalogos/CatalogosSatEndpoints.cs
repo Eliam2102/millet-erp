@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Millet.Api.Auth;
+using Millet.Api.Web;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
@@ -8,7 +9,7 @@ using Millet.Identidad.Domain;
 namespace Millet.Api.Endpoints.Catalogos;
 
 /// <summary>
-/// Endpoints HTTP read-only para catálogos SAT cross-empresa
+/// Endpoints HTTP de lectura y habilitación administrativa para catálogos SAT cross-empresa
 /// (F-Admin-PR5.3):
 /// <list type="bullet">
 ///   <item><c>GET /api/v1/catalogos/formas-pago</c> — c_FormaPago SAT (22 entries).</item>
@@ -17,7 +18,7 @@ namespace Millet.Api.Endpoints.Catalogos;
 ///
 /// <para>
 /// Read-mostly: actualizaciones via migraciones aditivas cuando SAT
-/// publica versiones nuevas. Sin CRUD UI. Permiso:
+/// publica versiones nuevas. La habilitación de formas de pago usa catalogos.formas-pago.gestionar. Permiso de lectura:
 /// <c>compartido.catalogos.leer</c>. Sin paginación (catálogos
 /// pequeños y fijos). <c>regimenes-fiscales</c> ya existe en
 /// <see cref="CatalogosOcEndpoints"/>.
@@ -46,6 +47,22 @@ public static class CatalogosSatEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/formas-pago/administracion", async (CompartidoDbContext db, CancellationToken ct) =>
+            Results.Ok(await db.FormasPago.AsNoTracking().OrderBy(x => x.ClaveSat)
+                .Select(x => new FormaPagoItem(x.Id, x.ClaveSat, x.Descripcion, x.Activa)).ToListAsync(ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CatalogosFormasPagoGestionar)
+            .WithName("ListarFormasPagoAdministracion");
+
+        group.MapPatch("/formas-pago/{id:guid}/estado", async (Guid id, FormaPagoEstado body,
+            MediatR.IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new Millet.Compartido.Application.CatalogosSat.CambiarEstadoFormaPagoCommand(id, body.Activa), ct);
+            return Results.NoContent();
+        })
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CatalogosFormasPagoGestionar)
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .WithName("CambiarEstadoFormaPago");
+
         group.MapGet("/usos-cfdi", async (
             CompartidoDbContext db, CancellationToken ct) =>
         {
@@ -66,6 +83,7 @@ public static class CatalogosSatEndpoints
         return app;
     }
 
+    public sealed record FormaPagoEstado(bool Activa);
     public sealed record FormaPagoItem(Guid Id, string ClaveSat, string Descripcion, bool Activa);
     public sealed record UsoCfdiItem(
         Guid Id, string ClaveSat, string Descripcion,

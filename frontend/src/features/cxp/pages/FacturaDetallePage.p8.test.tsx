@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { mswServer } from '@/test/mocks/server';
 import { FacturaDetallePage } from './FacturaDetallePage';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -74,16 +76,25 @@ vi.mock('@/features/cxp/components/AdjuntarEvidenciaSheet', () => ({
 }));
 vi.mock('@/features/cxp/components/EvidenciasList', () => ({ EvidenciasList: () => null }));
 
+beforeEach(() => {
+  mswServer.use(
+    http.get('/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
+      HttpResponse.json([])),
+    http.get('/api/v1/adjuntos/tipos', () => HttpResponse.json([])),
+  );
+});
+
 function importe(label: string) {
   return screen.getByText(label).nextElementSibling?.textContent;
 }
 
 describe('P8: alerta fiscal y obra en detalle', () => {
-  it('muestra obra y alerta del CFDI sin ocultar la factura', () => {
+  it('muestra obra y alerta del CFDI sin ocultar la factura', async () => {
     escenario.cancelada = false;
     render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
     expect(screen.getByText('FIX-OBRA-A')).toBeInTheDocument();
     expect(screen.getByText(/Las retenciones del CFDI difieren del catálogo/)).toBeInTheDocument();
     expect(importe('Saldo pendiente')).toContain('198.67');
+    expect(await screen.findByRole('region', { name: 'Adjuntos' })).toBeInTheDocument();
   });
 });

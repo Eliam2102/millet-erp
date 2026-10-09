@@ -28,6 +28,7 @@ public sealed class IdentidadDbContext : BaseDbContext
     public DbSet<Rol> Roles => Set<Rol>();
     public DbSet<Permiso> Permisos => Set<Permiso>();
     public DbSet<RolPermiso> RolPermisos => Set<RolPermiso>();
+    public DbSet<UsuarioGrupoEntraId> UsuarioGruposEntraId => Set<UsuarioGrupoEntraId>();
     public DbSet<RolGrupoEntraId> RolGruposEntraId => Set<RolGrupoEntraId>();
     public DbSet<UsuarioEmpresaRol> UsuarioEmpresaRoles => Set<UsuarioEmpresaRol>();
     public DbSet<RestriccionRol> RestriccionesRol => Set<RestriccionRol>();
@@ -54,6 +55,11 @@ public sealed class IdentidadDbContext : BaseDbContext
         ConfigurePermiso(modelBuilder);
         ConfigureRolPermiso(modelBuilder);
         ConfigureRolGrupoEntraId(modelBuilder);
+        var ug = modelBuilder.Entity<UsuarioGrupoEntraId>();
+        ug.ToTable("usuario_grupos_entra_id");
+        ug.HasKey(x => new { x.UsuarioId, x.ObjectId });
+        ug.Property(x => x.ObjectId).HasMaxLength(100);
+        ug.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
         ConfigureUsuarioEmpresaRol(modelBuilder);
         ConfigureRestriccionRol(modelBuilder);
         ConfigureUsuarioPreferencia(modelBuilder);
