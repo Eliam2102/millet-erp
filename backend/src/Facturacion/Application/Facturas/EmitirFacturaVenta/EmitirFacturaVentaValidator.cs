@@ -14,12 +14,6 @@ public sealed class EmitirFacturaVentaValidator : AbstractValidator<EmitirFactur
     {
         RuleFor(c => c.SucursalId).NotEmpty();
 
-        RuleFor(c => c.ReceptorRfc).NotEmpty().MaximumLength(13);
-        RuleFor(c => c.ReceptorNombre).NotEmpty().MaximumLength(254);
-        RuleFor(c => c.ReceptorRegimenFiscal).NotEmpty().MaximumLength(5);
-        RuleFor(c => c.ReceptorCodigoPostal).NotEmpty().MaximumLength(10);
-        RuleFor(c => c.ReceptorUsoCfdi).NotEmpty().MaximumLength(5);
-        RuleFor(c => c.ReceptorPais).NotEmpty().MaximumLength(5);
 
         RuleFor(c => c.RfcEmisor).NotEmpty().MaximumLength(13);
         RuleFor(c => c.RegimenFiscalEmisor).NotEmpty().MaximumLength(5);

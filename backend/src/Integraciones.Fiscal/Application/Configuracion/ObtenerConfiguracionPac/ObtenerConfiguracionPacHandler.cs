@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Integraciones.Fiscal.Application.Configuracion.GuardarConfiguracionPac;
 using Millet.Integraciones.Fiscal.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Integraciones.Fiscal.Application.Configuracion.ObtenerConfiguracionPac;
 
@@ -9,10 +10,12 @@ public sealed class ObtenerConfiguracionPacHandler
     : IRequestHandler<ObtenerConfiguracionPacQuery, ConfiguracionPacResponse?>
 {
     private readonly IntegracionesFiscalDbContext _db;
+    private readonly IClock _clock;
 
-    public ObtenerConfiguracionPacHandler(IntegracionesFiscalDbContext db)
+    public ObtenerConfiguracionPacHandler(IntegracionesFiscalDbContext db, IClock clock)
     {
         _db = db;
+        _clock = clock;
     }
 
     public async Task<ConfiguracionPacResponse?> Handle(
@@ -29,6 +32,6 @@ public sealed class ObtenerConfiguracionPacHandler
                 x => x.EmpresaId == query.EmpresaId && x.Proveedor == query.Proveedor,
                 cancellationToken);
 
-        return c is null ? null : GuardarConfiguracionPacHandler.MapToResponse(c);
+        return c is null ? null : GuardarConfiguracionPacHandler.MapToResponse(c, _clock.UtcNow);
     }
 }

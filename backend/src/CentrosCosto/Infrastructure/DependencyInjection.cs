@@ -32,6 +32,12 @@ public static class DependencyInjection
             Application.PublicPorts.IDim3ReadPort,
             Infrastructure.PublicAdapters.Dim3ReadAdapter>();
 
+        // Port PÚBLICO de elegibilidad (G1.11 / ADR-0050): evalúa si un CC-Máquina
+        // existe, está activo y (si aplica) en alcance al guardar en Compras.
+        services.AddScoped<
+            Application.PublicPorts.IDim3ElegibilidadPort,
+            Infrastructure.PublicAdapters.Dim3ElegibilidadAdapter>();
+
         return services;
     }
 }

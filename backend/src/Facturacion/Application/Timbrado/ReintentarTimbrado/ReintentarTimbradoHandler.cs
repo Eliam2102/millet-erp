@@ -44,6 +44,7 @@ public sealed class ReintentarTimbradoHandler
     private static readonly string[] CodigosAmbiguos =
         ["PAC_TIMEOUT", "PAC_SIN_RESPUESTA", "PAC_RESPUESTA_INCOMPLETA"];
 
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -62,11 +63,12 @@ public sealed class ReintentarTimbradoHandler
         ICfdiRepositorioPort cfdiRepo,
         IIntegrationEventPublisher eventos,
         IContabilidadAsientoPort contabilidad,
-        IClock clock,
+        IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
         IProductosReadPort? productos = null)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -111,6 +113,7 @@ public sealed class ReintentarTimbradoHandler
                 "PERIODO_CERRADO",
                 $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
 
+        await _receptorFiscal.ValidarComprobanteAsync(comprobante, ct);
         comprobante.ReabrirParaReintentoTimbrado();
 
         var tipo = comprobante switch
@@ -201,7 +204,7 @@ public sealed class ReintentarTimbradoHandler
             // Timbrada. Idempotente si ya existe una NC de ranura vigente.
             await NcRanuraEmisor.EmitirSiAplicaAsync(
                 _db, _sender, _fiscal, _cfdiRepo, _eventos,
-                factura, pedido, usuarioEmisorId: null, ahora, ct);
+                factura, pedido, usuarioEmisorId: null, ahora, _receptorFiscal, ct);
         }
 
         return nameof(FacturaVenta);
@@ -270,15 +273,17 @@ public sealed class ReintentarTimbradoHandler
             repp, CfdiEmisionBuilder.DesdeReciboPago(repp, ahora),
             _fiscal, _cfdiRepo, ahora, ct);
 
+        var pendiente = await _db.ReppPendientes.SingleOrDefaultAsync(p => p.IntentoReciboPagoId == repp.Id, ct);
         if (repp.Estado == EstadoTimbrado.Timbrado)
         {
             await _eventos.PublishAsync(new ReciboPagoTimbradoIntegrationEvent(
                 repp.EmpresaId, ahora, repp.Id, repp.Uuid!, repp.ImporteTotalPago,
                 repp.FacturasPagadas.Sum(f => f.GananciaPerdidaCambiaria),
                 repp.FacturasPagadas.Select(f => new ReppFacturaPagadaDetalle(
-                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList()), ct);
+                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList(), pendiente?.MovimientoBancarioId), ct);
         }
 
+        pendiente?.RegistrarIntento(repp);
         return nameof(ReciboPago);
     }
 

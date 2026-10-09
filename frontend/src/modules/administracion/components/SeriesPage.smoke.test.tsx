@@ -53,6 +53,11 @@ const EMPRESA_E1 = {
 };
 
 beforeEach(() => {
+  mswServer.use(
+    http.get('*/api/v1/catalogos/sucursales', () =>
+      HttpResponse.json({ items: [], total: 0 }),
+    ),
+  );
   useAuthStore.setState({
     status: 'authenticated',
     accessToken: 'test-token',
@@ -108,13 +113,14 @@ describe('<SeriesPage> — smoke', () => {
     expect(screen.getByText('Anual')).toBeInTheDocument();
     // Estatus activa.
     expect(screen.getByText('Activa')).toBeInTheDocument();
+    expect(screen.getByText('Global')).toBeInTheDocument();
     // Botón "Nueva serie" (puede aparecer en header y empty state — basta con uno).
     expect(
       screen.getAllByRole('button', { name: /nueva serie/i })[0],
     ).toBeInTheDocument();
   });
 
-  it('al hacer click en Editar despliega el inline form (border amber)', async () => {
+  it('al hacer click en Editar despliega el inline form (borde warning)', async () => {
     mswServer.use(
       http.get('*/api/v1/admin/series', () =>
         HttpResponse.json({ items: [SERIE_OC], total: 1 }),
@@ -152,9 +158,9 @@ describe('<SeriesPage> — smoke', () => {
       ).toBeInTheDocument(),
     );
 
-    // Border amber (clase del form).
+    // Borde warning del design system (patrón de edición inline).
     const inlineForm = container.querySelector('form[aria-label*="Editar serie"]');
-    expect(inlineForm?.className).toMatch(/border-amber/);
+    expect(inlineForm?.className).toMatch(/border-warning/);
   });
 
   it('EmptyState aparece cuando no hay series', async () => {

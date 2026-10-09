@@ -2,15 +2,20 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Catalogos.Domain;
+using Millet.CentrosCosto.Application.Catalogo;
+using Millet.CentrosCosto.Infrastructure.Persistence;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
 using Millet.Compras.Infrastructure;
 using Millet.DatosMaestros.Domain;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Domain;
 
@@ -49,6 +54,11 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
     private static readonly Guid ProveedorInactivoId = Guid.Parse("00000005-0001-0000-0000-000000000005");
     private static readonly Guid ProveedorInexistenteId = Guid.Parse("00000005-0001-0000-0000-FFFFFFFFFFFF");
 
+    // Dim3s reales del seed de CentrosCosto (SiembraCatalogoSql: ADCHS01, ADCIR01).
+    private static readonly Guid CentroCostoSeedId = Guid.Parse("0000000c-0005-0000-0000-000000000001");
+    private static readonly Guid CentroCostoSeedId2 = Guid.Parse("0000000c-0005-0000-0000-000000000002");
+    private static readonly Guid EmpresaInicialId = Guid.Parse("00000003-0000-0000-0000-000000000001");
+
     private readonly WebApplicationFactory<Program> _factory;
 
     public OrdenesCompraEndpointsTests(WebApplicationFactory<Program> factory)
@@ -57,6 +67,36 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
     }
 
     // --------- POST /api/v1/compras/ordenes ---------
+
+    [Theory]
+    [InlineData(0, 10, 90)]
+    [InlineData(1, 10, 90)]
+    [InlineData(1, 0, 100)]
+    public async Task Detalle_expone_descuento_y_subtotal_de_diez_por_diez(int tipo, decimal descuento, decimal subtotal)
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var creada = await client.PostAsJsonAsync(EndpointBase, ValidBody() with
+        {
+            SinRequisicionPrevia = true, MotivoSinRequisicion = "FIX regresión descuento de línea",
+        });
+        creada.EnsureSuccessStatusCode();
+        var ocId = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+        var agregada = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/lineas", new
+        {
+            ArticuloId = Guid.Parse("00000007-0001-0000-0000-000000000001"),
+            Cantidad = 10m, PrecioUnitario = 10m, UnidadMedida = "PZA",
+            DepartamentoSolicitanteId = Guid.Parse("00000004-0001-0000-0000-000000000001"),
+            DescuentoTipo = tipo, DescuentoValor = descuento,
+            CentroCostoId = CentroCostoSeedId,
+        });
+        Assert.Equal(HttpStatusCode.Created, agregada.StatusCode);
+        var consulta = await client.GetAsync($"{EndpointBase}/{ocId}");
+        consulta.EnsureSuccessStatusCode();
+        var linea = (await ReadJsonAsync(consulta)).GetProperty("lineas").EnumerateArray().Single();
+        Assert.Equal(tipo, linea.GetProperty("descuentoTipo").GetInt32());
+        Assert.Equal(descuento, linea.GetProperty("descuentoValor").GetDecimal());
+        Assert.Equal(subtotal, linea.GetProperty("subtotalLinea").GetDecimal());
+    }
 
     [Fact]
     public async Task Crear_Sin_Token_Retorna_401()
@@ -762,7 +802,7 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
             DescripcionExtendida = (string?)null,
             FechaEntregaLinea = (DateTimeOffset?)null,
             // Fase E PR3.1: el CC-Máquina es requerido en la línea manual.
-            CentroCostoId = Guid.Parse("0c000000-0000-0000-0000-000000000001"),
+            CentroCostoId = CentroCostoSeedId,
             TextoAdicional = (string?)null,
         };
 
@@ -794,7 +834,7 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
     public async Task AgregarLineaManual_ConCentroCosto_Persiste()
     {
         var client = await CreateSuperAdminClientAsync();
-        var ccId = Guid.Parse("0c000000-0000-0000-0000-000000000001");
+        var ccId = CentroCostoSeedId;
 
         var ocBody = ValidBody() with
         {
@@ -819,8 +859,8 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
     public async Task ActualizarLineaManual_CambiaCentroCosto_Persiste()
     {
         var client = await CreateSuperAdminClientAsync();
-        var ccInicial = Guid.Parse("0c000000-0000-0000-0000-000000000001");
-        var ccNuevo = Guid.Parse("0c000000-0000-0000-0000-000000000002");
+        var ccInicial = CentroCostoSeedId;
+        var ccNuevo = CentroCostoSeedId2;
 
         var ocBody = ValidBody() with
         {
@@ -924,7 +964,7 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
         // así que el PATCH parcial (null = "no tocar") no se rompe — cambiar
         // solo el precio de una línea que ya trae CC sigue funcionando.
         var client = await CreateSuperAdminClientAsync();
-        var ccId = Guid.Parse("0c000000-0000-0000-0000-000000000001");
+        var ccId = CentroCostoSeedId;
 
         var ocBody = ValidBody() with
         {
@@ -960,7 +1000,7 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
         // OC duplicada nacería con líneas manuales en null — saltándose el
         // obligatorio y perdiendo el dato del origen en silencio.
         var client = await CreateSuperAdminClientAsync();
-        var ccId = Guid.Parse("0c000000-0000-0000-0000-000000000001");
+        var ccId = CentroCostoSeedId;
 
         var ocBody = ValidBody() with
         {
@@ -1004,6 +1044,188 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
         var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{nuevaOcId}"));
         var lineaDuplicada = detalle.GetProperty("lineas").EnumerateArray().Single();
         Assert.Equal(ccId, lineaDuplicada.GetProperty("centroCostoId").GetGuid());
+    }
+
+    // ─── G1.11: Validar Centro de Costo (CeCo) en líneas manuales de OC ───
+
+    [Fact]
+    public async Task AgregarLineaManual_CentroCostoInexistente_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ocBody = ValidBody() with
+        {
+            SinRequisicionPrevia = true,
+            MotivoSinRequisicion = "Integration CeCo inexistente",
+        };
+        var ocId = (await ReadJsonAsync(await client.PostAsJsonAsync(EndpointBase, ocBody)))
+            .GetProperty("id").GetGuid();
+
+        var lineaResp = await client.PostAsJsonAsync(
+            $"{EndpointBase}/{ocId}/lineas",
+            LineaManualBody(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, lineaResp.StatusCode);
+        var json = await ReadJsonAsync(lineaResp);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("el centro de costo no existe", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task AgregarLineaManual_CentroCostoInactivo_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var dim3InactivaId = await CrearDim3InactivaAsync();
+
+        var ocBody = ValidBody() with
+        {
+            SinRequisicionPrevia = true,
+            MotivoSinRequisicion = "Integration CeCo inactivo",
+        };
+        var ocId = (await ReadJsonAsync(await client.PostAsJsonAsync(EndpointBase, ocBody)))
+            .GetProperty("id").GetGuid();
+
+        var lineaResp = await client.PostAsJsonAsync(
+            $"{EndpointBase}/{ocId}/lineas",
+            LineaManualBody(dim3InactivaId));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, lineaResp.StatusCode);
+        var json = await ReadJsonAsync(lineaResp);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("centro de costo inactivo", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task ActualizarLineaManual_CentroCostoInexistente_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var ocBody = ValidBody() with
+        {
+            SinRequisicionPrevia = true,
+            MotivoSinRequisicion = "Integration PATCH CeCo inexistente",
+        };
+        var ocId = (await ReadJsonAsync(await client.PostAsJsonAsync(EndpointBase, ocBody)))
+            .GetProperty("id").GetGuid();
+
+        var lineaResp = await client.PostAsJsonAsync(
+            $"{EndpointBase}/{ocId}/lineas",
+            LineaManualBody(CentroCostoSeedId));
+        Assert.Equal(HttpStatusCode.Created, lineaResp.StatusCode);
+        var lineaId = (await ReadJsonAsync(lineaResp)).GetProperty("lineaId").GetGuid();
+
+        var patchResp = await client.PatchAsJsonAsync(
+            $"{EndpointBase}/{ocId}/lineas/{lineaId}",
+            new { CentroCostoId = Guid.NewGuid() });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, patchResp.StatusCode);
+        var json = await ReadJsonAsync(patchResp);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("el centro de costo no existe", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task ActualizarLineaManual_CentroCostoInactivo_Retorna_422()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var dim3InactivaId = await CrearDim3InactivaAsync();
+
+        var ocBody = ValidBody() with
+        {
+            SinRequisicionPrevia = true,
+            MotivoSinRequisicion = "Integration PATCH CeCo inactivo",
+        };
+        var ocId = (await ReadJsonAsync(await client.PostAsJsonAsync(EndpointBase, ocBody)))
+            .GetProperty("id").GetGuid();
+
+        var lineaResp = await client.PostAsJsonAsync(
+            $"{EndpointBase}/{ocId}/lineas",
+            LineaManualBody(CentroCostoSeedId));
+        Assert.Equal(HttpStatusCode.Created, lineaResp.StatusCode);
+        var lineaId = (await ReadJsonAsync(lineaResp)).GetProperty("lineaId").GetGuid();
+
+        var patchResp = await client.PatchAsJsonAsync(
+            $"{EndpointBase}/{ocId}/lineas/{lineaId}",
+            new { CentroCostoId = dim3InactivaId });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, patchResp.StatusCode);
+        var json = await ReadJsonAsync(patchResp);
+        Assert.Equal("CECO_INVALIDO", json.GetProperty("code").GetString());
+        Assert.Contains("centro de costo inactivo", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task AgregarLineaManual_CentroCostoActivo_FueraDeAlcance_Retorna_201_ADR0050()
+    {
+        // G1.11 / ADR-0050 §2: la captura por proxy (comprador en línea manual de OC)
+        // NO evalúa alcance del usuario. Un comprador sin centros_costo.dim3.leer-todos
+        // y sin asignación sobre CentroCostoSeedId puede guardarlo si existe y está activo.
+        var client = await CreateClientConPermisosAsync(
+            "compras.ordenes.crear",
+            "compras.ordenes.crear-sin-rq",
+            "compras.ordenes.leer");
+
+        var ocBody = ValidBody() with
+        {
+            SinRequisicionPrevia = true,
+            MotivoSinRequisicion = "Integration Proxy OC ADR0050",
+        };
+        var ocResp = await client.PostAsJsonAsync(EndpointBase, ocBody);
+        Assert.Equal(HttpStatusCode.Created, ocResp.StatusCode);
+        var ocId = (await ReadJsonAsync(ocResp)).GetProperty("id").GetGuid();
+
+        var lineaResp = await client.PostAsJsonAsync(
+            $"{EndpointBase}/{ocId}/lineas",
+            LineaManualBody(CentroCostoSeedId));
+
+        Assert.Equal(HttpStatusCode.Created, lineaResp.StatusCode);
+    }
+
+    private async Task<Guid> CrearDim3InactivaAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var db = scope.ServiceProvider.GetRequiredService<CentrosCostoDbContext>();
+
+        var sufijo = $"{Guid.NewGuid():N}"[..6].ToUpperInvariant();
+        var grupo3 = await mediator.Send(new CrearGrupoDim3Command($"G3-{sufijo}"));
+        var dim2Id = Guid.Parse("0000000c-0004-0000-0000-000000000045");
+        var dim3 = await mediator.Send(new CrearDim3Command(dim2Id, $"INA{sufijo[..4]}", $"Inactiva {sufijo}", grupo3.Id));
+        var version = (await db.Dim3s.AsNoTracking().FirstAsync(d => d.Id == dim3.Id)).Version;
+        await mediator.Send(new CambiarEstatusDim3Command(dim3.Id, version, Activar: false));
+        return dim3.Id;
+    }
+
+    private async Task<HttpClient> CreateClientConPermisosAsync(params string[] codigosPermiso)
+    {
+        var sufijo = Guid.NewGuid().ToString("N")[..8];
+        var oid = $"test-user-{sufijo}";
+        var usuarioId = Guid.CreateVersion7();
+        var rolId = Guid.CreateVersion7();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var empresaContext = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
+            using var bypass = empresaContext.Bypass();
+
+            identidad.Roles.Add(new Rol(rolId, $"rol-{sufijo}", $"Rol Test {sufijo}", false, "Rol de prueba"));
+            foreach (var codigo in codigosPermiso)
+            {
+                var permisoId = await identidad.Permisos.AsNoTracking()
+                    .Where(p => p.Codigo == codigo).Select(p => p.Id).SingleAsync();
+                identidad.RolPermisos.Add(new RolPermiso(Guid.CreateVersion7(), rolId, permisoId));
+            }
+
+            identidad.Usuarios.Add(new Usuario(usuarioId, oid, $"{oid}@test.local", "Usuario Prueba Proxy OC"));
+            identidad.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
+            identidad.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(
+                Guid.CreateVersion7(), usuarioId, EmpresaInicialId, rolId, asignadoPorUsuarioId: null));
+            await identidad.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithIdempotency();
+        var token = await FakeLoginAsync(client, oid, $"{oid}@test.local", "Usuario Prueba Proxy OC");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     /// <summary>Body de POST /lineas con ids del seed + el CC-Máquina indicado.</summary>

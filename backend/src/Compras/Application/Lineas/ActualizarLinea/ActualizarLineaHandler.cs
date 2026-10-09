@@ -18,15 +18,18 @@ public sealed class ActualizarLineaHandler : IRequestHandler<ActualizarLineaComm
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort _dim3ElegibilidadPort;
 
     public ActualizarLineaHandler(
         ComprasDbContext db,
         CompartidoDbContext compartido,
-        IDecimalesUnidadGuard decimalesGuard)
+        IDecimalesUnidadGuard decimalesGuard,
+        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort)
     {
         _db = db;
         _compartido = compartido;
         _decimalesGuard = decimalesGuard;
+        _dim3ElegibilidadPort = dim3ElegibilidadPort;
     }
 
     public async Task<Unit> Handle(ActualizarLineaCommand command, CancellationToken cancellationToken)
@@ -58,6 +61,17 @@ public sealed class ActualizarLineaHandler : IRequestHandler<ActualizarLineaComm
         await _decimalesGuard.ValidarAsync(
             new[] { new CantidadAValidar(command.ArticuloId, command.Cantidad, command.UnidadMedida) },
             cancellationToken);
+
+        // G1.11 / ADR-0050 §1: línea de RQ es captura del dueño del gasto.
+        // Valida existe + activo + en alcance del usuario actual.
+        if (command.CentroCostoId is Guid centroCostoId)
+        {
+            await CentroCostoLineaGuard.ValidarAsync(
+                _dim3ElegibilidadPort,
+                centroCostoId,
+                aplicarAlcance: true,
+                cancellationToken);
+        }
 
         requisicion.ActualizarLineaEstructural(
             lineaId: command.LineaId,

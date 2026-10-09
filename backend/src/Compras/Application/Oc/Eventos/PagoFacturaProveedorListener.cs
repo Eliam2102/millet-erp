@@ -43,15 +43,6 @@ public sealed class PagoFacturaProveedorListener
             notification.MontoPagadoAcumulado,
             notification.OcurridoEn);
 
-        await _db.SaveChangesAsync(cancellationToken);
-
-        _logger.LogInformation(
-            "Pago aplicado. OcId={OcId} MontoAcumulado={Monto} Cerrada={Cerrada} Reabierta={Reabierta}",
-            notification.OrdenCompraId,
-            notification.MontoPagadoAcumulado,
-            resultado.Cerrada is not null,
-            resultado.Reabrierta is not null);
-
         if (resultado.Cerrada is { } cerrada)
         {
             await _publisher.Publish(cerrada, cancellationToken);
@@ -60,5 +51,15 @@ public sealed class PagoFacturaProveedorListener
         {
             await _publisher.Publish(reabierta, cancellationToken);
         }
+
+        // ADR-0009: incluir cierre/reapertura en la transacción del cambio.
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Pago aplicado. OcId={OcId} MontoAcumulado={Monto} Cerrada={Cerrada} Reabierta={Reabierta}",
+            notification.OrdenCompraId,
+            notification.MontoPagadoAcumulado,
+            resultado.Cerrada is not null,
+            resultado.Reabrierta is not null);
     }
 }

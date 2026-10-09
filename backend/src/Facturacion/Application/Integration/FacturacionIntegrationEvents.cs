@@ -125,7 +125,8 @@ public sealed record ReciboPagoTimbradoIntegrationEvent(
     string Uuid,
     decimal ImporteTotalPago,
     decimal GananciaPerdidaCambiaria,
-    IReadOnlyList<ReppFacturaPagadaDetalle> FacturasPagadas)
+    IReadOnlyList<ReppFacturaPagadaDetalle> FacturasPagadas,
+    Guid? MovimientoBancarioId = null)
     : IntegrationEvent("facturacion.recibo-pago.timbrado.v1", EmpresaId, OcurridoEn);
 
 // ---- Comprobante cancelado (reversa fiscal/financiera) ----

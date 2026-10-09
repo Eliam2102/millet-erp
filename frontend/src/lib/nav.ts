@@ -788,6 +788,13 @@ const moduloFacturacion: NavModulo = {
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
         {
+          label: 'Pendientes de REP',
+          description: 'Revisión de pagos bancarios y emisión manual de complementos de pago.',
+          to: '/facturacion/repp/pendientes',
+          icon: HandCoins,
+          permission: PermisosCanonicos.FacturacionFacturasLeer,
+        },
+        {
           label: 'Complementos de pago (REPP)',
           description:
             'Recibos electrónicos de pago (Pago 2.0). Emisión multi-factura y consulta de facturas cubiertas.',
@@ -1024,6 +1031,7 @@ export function contextoNavegacion(pathname: string, permisos: readonly string[]
  * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.
  */
 const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissionsAny'>[] = [
+  { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
 ];

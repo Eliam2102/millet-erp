@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain.Oc;
-using Millet.Compras.Domain.Oc.Events;
 using Millet.Compras.Domain.Ports.Blob;
 using Millet.Compras.Domain.Ports.Pdf;
 using Millet.Compras.Infrastructure;
@@ -13,21 +12,19 @@ namespace Millet.Compras.Application.Oc.Eventos;
 
 /// <summary>
 /// Listener in-proc (F6-PR1) que reacciona a
-/// <see cref="OrdenCompraAutorizadaEvent"/>: genera el PDF institucional
+/// <see cref="OrdenCompraAutorizadaPersistida"/>: genera el PDF institucional
 /// vía <see cref="IGenerarPdfOrdenCompraPort"/>, sube los bytes al blob
 /// storage y persiste la fila <see cref="OrdenCompraPdf"/>. Si ya existía
 /// un PDF previo (re-autorización tras rechazo), se reemplaza (PUT
 /// semantics).
 ///
 /// <para>
-/// Corre síncrono dentro del flujo MediatR: el handler de
-/// <c>AutorizarOrdenCompra</c> ya hizo <c>SaveChanges</c> y publicó el
-/// evento; este listener corre en la misma TX request si la
-/// implementación de <c>IPublisher</c> es síncrona (default MediatR).
+/// Se publica después de persistir la autorización y su outbox. El guardado
+/// del PDF es independiente y no participa en la persistencia del evento.
 /// </para>
 /// </summary>
 public sealed class OrdenCompraAutorizadaPdfListener
-    : INotificationHandler<OrdenCompraAutorizadaEvent>
+    : INotificationHandler<OrdenCompraAutorizadaPersistida>
 {
     private readonly ComprasDbContext _db;
     private readonly IGenerarPdfOrdenCompraPort _pdfPort;
@@ -49,7 +46,7 @@ public sealed class OrdenCompraAutorizadaPdfListener
         _logger = logger;
     }
 
-    public async Task Handle(OrdenCompraAutorizadaEvent notification, CancellationToken cancellationToken)
+    public async Task Handle(OrdenCompraAutorizadaPersistida notification, CancellationToken cancellationToken)
     {
         var oc = await _db.OrdenesCompra
             .Include(o => o.Lineas)

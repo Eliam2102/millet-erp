@@ -1,17 +1,9 @@
 namespace Millet.Almacen.Domain.Ports;
 
 /// <summary>
-/// Puerto de lectura hacia Finanzas (futuro) para verificar si un periodo
-/// contable está abierto. Lo invocan TODOS los handlers de movimientos
-/// con <c>fecha_movimiento</c> retroactiva — si el periodo está cerrado,
-/// rechazan con 422 (cuidado §6.1 del 04-cuidados-infra).
-///
-/// <para>
-/// Almacén también mantiene su propia tabla <c>almacen.periodos_cerrados</c>
-/// (F8-PR2) sincronizada con el calendario fiscal. Este puerto sirve para
-/// validación cross-módulo cuando Finanzas exista; mientras tanto la
-/// implementación NoOp siempre retorna "abierto".
-/// </para>
+/// Consulta si el periodo existe y está abierto en Contabilidad (D9).
+/// Los movimientos verifican además el cierre propio de inventario:
+/// reabrir Contabilidad no reabre Almacén (D18).
 /// </summary>
 public interface IPeriodoContableReadPort
 {

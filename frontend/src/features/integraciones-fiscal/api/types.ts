@@ -49,6 +49,9 @@ export interface ConfiguracionPacResponse {
   /** Las tres piezas del CSD (cer + key + password) están capturadas. */
   csdConfigurado: boolean;
   csdActualizadoAt: string | null;
+  csdNotBefore: string | null;
+  csdNotAfter: string | null;
+  csdEstado: 'Vigente' | 'ProximoAVencer' | 'Vencido' | null;
   createdAt: string;
   updatedAt: string;
   version: number;

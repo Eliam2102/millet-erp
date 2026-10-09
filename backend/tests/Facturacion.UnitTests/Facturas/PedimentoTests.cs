@@ -72,7 +72,7 @@ public sealed class PedimentoTests
             new FakePeriodoContablePort(), new FakeCatalogosSatReadPort(), new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
-            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(), new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaVentaCommand Command(bool requierePedimento) => new(
         Guid.NewGuid(), "AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX",
@@ -117,7 +117,7 @@ public sealed class PedimentoTests
 
         var handler = new AplicarPedimentoHandler(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
             new FakePeriodoContablePort(), new FakeFiscalApiClient(),
-            new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeClock(Ahora));
+            new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
         var resp = await handler.Handle(
             new AplicarPedimentoCommand(factura.Id, "15  47  3001  0001234", new DateOnly(2026, 5, 20), "ID-1"),
             CancellationToken.None);
@@ -138,7 +138,7 @@ public sealed class PedimentoTests
 
         var handler = new AplicarPedimentoHandler(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
             new FakePeriodoContablePort(), new FakeFiscalApiClient(),
-            new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeClock(Ahora));
+            new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
         var act = () => handler.Handle(new AplicarPedimentoCommand(factura.Id, "PED-1", null, null), CancellationToken.None);
 
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "FACTURA_NO_PENDIENTE_PEDIMENTO");

@@ -36,6 +36,7 @@ namespace Millet.Facturacion.Application.Facturas.EmitirFacturaVenta;
 public sealed class EmitirFacturaVentaHandler
     : IRequestHandler<EmitirFacturaVentaCommand, EmitirFacturaVentaResponse>
 {
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -62,11 +63,12 @@ public sealed class EmitirFacturaVentaHandler
         IContabilidadAsientoPort contabilidad,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock,
+        IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
         IProductosReadPort? productos = null)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -116,7 +118,7 @@ public sealed class EmitirFacturaVentaHandler
         // 2.bis F12-PR1: snapshot del emisor (razón social + LugarExpedicion del
         // master). Falla aquí si la empresa no tiene CP fiscal — sin quemar folio.
         var emisor = await EmisorSnapshot.ResolverAsync(
-            _empresasFiscal, empresaId, command.RfcEmisor, command.RegimenFiscalEmisor, cancellationToken);
+            _empresasFiscal, empresaId, cancellationToken);
 
         // 3. F4-PR2: cargar y validar los anticipos a amortizar ANTES de timbrar —
         // la relación 07 va en el XML (inmutable) y un saldo insuficiente debe
@@ -129,6 +131,14 @@ public sealed class EmitirFacturaVentaHandler
 
         // 3.ter B2: si se emite desde un pedido, debe estar Importado (re-facturable).
         var pedido = await CargarYValidarPedidoAsync(command, cancellationToken);
+
+        if (pedido is not null && command.ClienteId is { } clienteId && clienteId != pedido.ClienteId)
+            throw new ReceptorFiscalInvalidoException(
+                [new("clienteId", "El cliente seleccionado no corresponde al cliente del pedido; recarga el pedido.")], pedido.ClienteId);
+
+        await _receptorFiscal.ValidarAsync(receptor, emisor, command.ClienteId ?? pedido?.ClienteId,
+            cancellationToken, exportacionConCce: command.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
+            numRegIdTrib: command.Cce?.ReceptorNumRegIdTrib, paisResidencia: command.Cce?.ReceptorPaisResidencia);
 
         // 4. Reserva atómica de folio (Cfdi) vía Compartido.Series.
         var reserva = await _sender.Send(
@@ -255,7 +265,7 @@ public sealed class EmitirFacturaVentaHandler
         // no timbra, NcRanuraEmisor lanza (rollback total, como amortización).
         var ncRanura = await NcRanuraEmisor.EmitirSiAplicaAsync(
             _db, _sender, _fiscal, _cfdiRepo, _eventos,
-            factura, pedido, _user.UserId, ahora, cancellationToken);
+            factura, pedido, _user.UserId, ahora, _receptorFiscal, cancellationToken);
 
         // 9. F10-PR1: evento de integración + asiento contable (al Outbox en la
         // misma TX vía el interceptor). Solo si quedó Timbrada.
@@ -303,7 +313,9 @@ public sealed class EmitirFacturaVentaHandler
             Total: factura.Total,
             Version: factura.Version,
             NotasCreditoAmortizacion: ncResp.Count > 0 ? ncResp : null,
-            NotaCreditoRanura: ncRanura);
+            NotaCreditoRanura: ncRanura,
+            TimbradoErrorCodigo: factura.TimbradoErrorCodigo,
+            TimbradoErrorMensaje: factura.TimbradoErrorMensaje);
     }
 
     /// <summary>
@@ -500,8 +512,6 @@ public sealed class EmitirFacturaVentaHandler
             throw new BusinessRuleException("MONEDA_INVALIDA", $"La moneda '{command.Moneda}' no existe en el catálogo SAT.");
         if (!await _catalogos.ExisteFormaPagoAsync(command.FormaPago, cancellationToken))
             throw new BusinessRuleException("FORMA_PAGO_INVALIDA", $"La forma de pago '{command.FormaPago}' no existe en el catálogo SAT.");
-        if (!await _catalogos.ExisteUsoCfdiAsync(command.ReceptorUsoCfdi, cancellationToken))
-            throw new BusinessRuleException("USO_CFDI_INVALIDO", $"El uso CFDI '{command.ReceptorUsoCfdi}' no existe en el catálogo SAT.");
         if (!await _catalogos.ExisteRegimenFiscalAsync(command.RegimenFiscalEmisor, cancellationToken))
             throw new BusinessRuleException("REGIMEN_EMISOR_INVALIDO", $"El régimen fiscal del emisor '{command.RegimenFiscalEmisor}' no existe en el catálogo SAT.");
     }

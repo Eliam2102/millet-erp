@@ -16,7 +16,8 @@ public sealed record SerieResponse(
     string? Sufijo,
     ReinicioPeriodo ReinicioPeriodo,
     bool Activa,
-    int Version);
+    int Version,
+    long FolioInicial = 1);
 
 /// <summary>
 /// Detalle de serie con preview del próximo folio (F-Admin-PR6.1). El
@@ -32,4 +33,5 @@ public sealed record SerieDetalleResponse(
 public sealed record ReservarFolioResponse(
     string Folio,
     long Numero,
-    string PeriodoClave);
+    string PeriodoClave,
+    Guid? SerieId = null);

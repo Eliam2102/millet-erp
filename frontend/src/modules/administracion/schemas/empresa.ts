@@ -21,15 +21,8 @@ export const CrearEmpresaSchema = z.object({
     .toUpperCase()
     .min(12, 'El RFC debe tener 12 o 13 caracteres')
     .max(13, 'El RFC debe tener 12 o 13 caracteres')
-    .regex(
-      RFC_RE,
-      'Formato de RFC inválido (solo mayúsculas, dígitos, & y Ñ)',
-    ),
-  razonSocial: z
-    .string()
-    .trim()
-    .min(1, 'Razón social requerida')
-    .max(254, 'Máximo 254 caracteres'),
+    .regex(RFC_RE, 'Formato de RFC inválido (solo mayúsculas, dígitos, & y Ñ)'),
+  razonSocial: z.string().trim().min(1, 'Razón social requerida').max(254, 'Máximo 254 caracteres'),
   regimenFiscal: z
     .string()
     .trim()
@@ -51,11 +44,26 @@ export type CrearEmpresaValues = z.infer<typeof CrearEmpresaSchema>;
  * presente, mantenemos las mismas validaciones de longitud.
  */
 export const ActualizarEmpresaSchema = z.object({
-  razonSocial: z
+  calle: z.string().trim().min(1, 'Campo requerido').max(254, 'Texto demasiado largo').optional(),
+  numeroExterior: z
     .string()
     .trim()
-    .min(1, 'Razón social requerida')
-    .max(254, 'Máximo 254 caracteres'),
+    .min(1, 'Campo requerido')
+    .max(20, 'Texto demasiado largo')
+    .optional(),
+  numeroInterior: z.string().trim().max(20, 'Texto demasiado largo').optional(),
+  colonia: z.string().trim().min(1, 'Campo requerido').max(254, 'Texto demasiado largo').optional(),
+  ciudad: z.string().trim().min(1, 'Campo requerido').max(100, 'Texto demasiado largo').optional(),
+  municipio: z
+    .string()
+    .trim()
+    .min(1, 'Campo requerido')
+    .max(100, 'Texto demasiado largo')
+    .optional(),
+  estado: z.string().trim().min(1, 'Campo requerido').max(100, 'Texto demasiado largo').optional(),
+  pais: z.string().trim().min(1, 'Campo requerido').max(100, 'Texto demasiado largo').optional(),
+
+  razonSocial: z.string().trim().min(1, 'Razón social requerida').max(254, 'Máximo 254 caracteres'),
   regimenFiscal: z
     .string()
     .trim()
@@ -68,11 +76,7 @@ export const ActualizarEmpresaSchema = z.object({
     .nullable()
     .transform((v) => (v != null && v.length === 0 ? null : v)),
   // IVA default para captura manual en Facturación (FAC-DET-PR2/PR3).
-  tasaIvaDefault: z
-    .number()
-    .min(0, 'Mínimo 0')
-    .max(1, 'Máximo 1 (fracción, ej. 0.16)')
-    .nullable(),
+  tasaIvaDefault: z.number().min(0, 'Mínimo 0').max(1, 'Máximo 1 (fracción, ej. 0.16)').nullable(),
   // CP fiscal = LugarExpedicion del CFDI 4.0 (F12-PR1). null = sin capturar
   // (la emisión de CFDI falla hasta capturarlo); el form mapea '' → null.
   codigoPostal: z

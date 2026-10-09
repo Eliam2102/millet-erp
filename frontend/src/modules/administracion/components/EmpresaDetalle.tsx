@@ -19,6 +19,7 @@ import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EmpresaDatosForm } from '@/modules/administracion/components/EmpresaDatosForm';
+import { MiEmpresaContenido } from './MiEmpresaContenido';
 import { toast } from 'sonner';
 import type { EmpresaResponse } from '@/modules/administracion/api/types';
 
@@ -37,6 +38,10 @@ import type { EmpresaResponse } from '@/modules/administracion/api/types';
  */
 export function EmpresaDetalle() {
   const { id } = useParams({ from: '/_app/admin/empresas/$id' });
+  return <EmpresaDetallePorId id={id} />;
+}
+
+export function EmpresaDetallePorId({ id, miEmpresa = false }: { id: string; miEmpresa?: boolean }) {
   const empresaQuery = useEmpresa(id);
   const [confirmDesactivar, setConfirmDesactivar] = useState(false);
 
@@ -63,6 +68,8 @@ export function EmpresaDetalle() {
       </div>
     );
   }
+
+  if (miEmpresa) return <MiEmpresaContenido detalle={empresaQuery.data} />;
 
   const { empresa } = empresaQuery.data;
 
@@ -167,7 +174,7 @@ function EmpresaDetalleContenido({
       </header>
 
       <div className="px-4 pt-4 pb-6">
-        <EmpresaDatosForm empresa={empresa} />
+        <EmpresaDatosForm key={empresa.id} empresa={empresa} />
       </div>
 
       <AlertDialog

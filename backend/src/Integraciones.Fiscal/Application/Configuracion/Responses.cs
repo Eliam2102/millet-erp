@@ -24,6 +24,9 @@ public sealed record ConfiguracionPacResponse(
     IdentidadSandboxDto? ReceptorSandbox,
     bool CsdConfigurado,
     DateTimeOffset? CsdActualizadoAt,
+    DateTimeOffset? CsdNotBefore,
+    DateTimeOffset? CsdNotAfter,
+    string? CsdEstado,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     int Version);

@@ -24,6 +24,7 @@ namespace Millet.Facturacion.Application.Repp.EmitirRepp;
 /// </summary>
 public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, EmitirReppResponse>
 {
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -37,8 +38,9 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
     public EmitirReppHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
         ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, ICurrentEmpresaContext empresa,
-        ICurrentUserContext user, IClock clock)
+        ICurrentUserContext user, IClock clock, ValidadorReceptorFiscal receptorFiscal)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -53,7 +55,7 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
     public async Task<EmitirReppResponse> Handle(EmitirReppCommand command, CancellationToken cancellationToken)
     {
         // El claim del request gana; command.EmpresaId solo aplica en
-        // invocaciones sin HTTP (listener de Tesorería, PR gemelo TES-PR7).
+        // invocaciones internas sin HTTP; Tesorería solo crea pendientes.
         if ((_empresa.Current ?? command.EmpresaId) is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "No hay empresa seleccionada en el contexto del request.");
 
@@ -89,6 +91,8 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
             receptorFactura.ReceptorRfc, receptorFactura.ReceptorNombre, receptorFactura.ReceptorRegimenFiscal,
             receptorFactura.ReceptorCodigoPostal, receptorFactura.ReceptorUsoCfdi, receptorFactura.ReceptorPais,
             receptorFactura.ReceptorEsGenerico);
+
+        await _receptorFiscal.ValidarComprobanteAsync(receptorFactura, cancellationToken, esRep: true);
 
         var reserva = await _sender.Send(
             new ReservarFolioCommand(empresaId, command.SucursalId, TipoDocumentoSerie.Cfdi, DateOnly.FromDateTime(ahora.UtcDateTime)),
@@ -162,8 +166,10 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
                 repp.EmpresaId, ahora, repp.Id, repp.Uuid!, repp.ImporteTotalPago,
                 repp.FacturasPagadas.Sum(f => f.GananciaPerdidaCambiaria),
                 repp.FacturasPagadas.Select(f => new ReppFacturaPagadaDetalle(
-                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList()), cancellationToken);
+                    f.FacturaVentaId, f.ImportePagado, f.NumParcialidad, f.MonedaFactura, f.SaldoInsoluto)).ToList(),
+                command.Pendiente?.MovimientoBancarioId), cancellationToken);
 
+        command.Pendiente?.RegistrarIntento(repp);
         _db.RecibosPago.Add(repp);
         await _db.SaveChangesAsync(cancellationToken);
 

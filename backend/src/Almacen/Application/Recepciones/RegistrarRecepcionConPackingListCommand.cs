@@ -81,6 +81,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
 
     public RegistrarRecepcionConPackingListHandler(
@@ -90,7 +91,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
-        IDecimalesUnidadGuard decimalesGuard)
+        IDecimalesUnidadGuard decimalesGuard,
+        IPeriodoContableReadPort periodoContable)
     {
         _db = db;
         _ocPort = ocPort;
@@ -99,6 +101,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
+        _periodoContable = periodoContable;
     }
 
     public async Task<RegistrarRecepcionResponse> Handle(
@@ -125,7 +128,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
 
         // F8-PR2: validar periodo cerrado.
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
-            _db, empresaId, request.FechaMovimiento, cancellationToken);
+            _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
