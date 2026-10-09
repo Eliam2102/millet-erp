@@ -15,7 +15,7 @@ namespace Millet.CuentasPorCobrar.Application.AplicacionPagos;
 // ============================================================================
 // CXC-PR7: propuesta de aplicación de pago. CxC propone el matching
 // depósito↔facturas desde el remittance; Ingresos confirma/rechaza
-// (interino A2). La tolerancia no fiscal es parámetro por moneda
+// contra el banco. La tolerancia no fiscal es parámetro por moneda
 // (CuentasPorCobrar:AplicacionPagos) — el default MXN es PROVISIONAL
 // hasta que fiscal cierre la definición (gate <$50 USD sin CFDI).
 // ============================================================================
@@ -57,7 +57,9 @@ public sealed record PropuestaAplicacionResponse(
     Guid? ResueltaPor,
     DateTimeOffset? ResueltaEn,
     IReadOnlyList<PropuestaFacturaResponse> Facturas,
-    int Version);
+    int Version,
+    Guid? PropuestoPor = null,
+    decimal SaldoAFavorPorIdentificar = 0);
 
 internal static class PropuestaAplicacionMapper
 {
@@ -73,7 +75,7 @@ internal static class PropuestaAplicacionMapper
                 f.FacturaCarteraId, f.FacturaUuid,
                 folios.TryGetValue(f.FacturaCarteraId, out var folio) ? folio : null,
                 f.ImporteAplicado, f.NumParcialidad)).ToList(),
-            p.Version);
+            p.Version, p.PropuestoPor, p.SaldoAFavorPorIdentificar);
 
     public static async Task<PropuestaAplicacionResponse> ToResponseAsync(
         CuentasPorCobrarDbContext db, PropuestaAplicacionPago p, CancellationToken ct) =>
@@ -133,6 +135,7 @@ public sealed class CrearPropuestaAplicacionHandler
     private readonly IIntegrationEventPublisher _eventos;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly AplicacionPagosOptions _options;
+    private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
 
     public CrearPropuestaAplicacionHandler(
@@ -140,8 +143,9 @@ public sealed class CrearPropuestaAplicacionHandler
         IIntegrationEventPublisher eventos,
         ICurrentEmpresaContext currentEmpresa,
         IOptions<AplicacionPagosOptions> options,
-        IClock clock)
+        IClock clock, ICurrentUserContext currentUser)
     {
+        _currentUser = currentUser;
         _db = db; _eventos = eventos; _currentEmpresa = currentEmpresa;
         _options = options.Value; _clock = clock;
     }
@@ -153,6 +157,18 @@ public sealed class CrearPropuestaAplicacionHandler
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada.");
 
+        if (_currentUser.UserId is not Guid usuarioId || usuarioId == Guid.Empty)
+            throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se pudo identificar a quien propone el cobro.");
+
+        // Serializa las reservas concurrentes de las mismas facturas en PostgreSQL.
+        await using var transaction = _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
+        if (_db.Database.IsRelational())
+            foreach (var uuid in command.Facturas.Select(f => f.FacturaUuid).Distinct().Order())
+                await _db.FacturasCartera.FromSqlInterpolated(
+                    $"SELECT * FROM cuentas_por_cobrar.factura_cartera WHERE empresa_id = {empresaId} AND uuid = {uuid} FOR UPDATE")
+                    .ToListAsync(cancellationToken);
+
         // Matching contra la proyección de cartera: cada UUID del remittance
         // debe ser una factura viva del cliente en la moneda del depósito y
         // con saldo suficiente para el importe propuesto.
@@ -160,6 +176,15 @@ public sealed class CrearPropuestaAplicacionHandler
         var facturas = await _db.FacturasCartera
             .Where(f => uuids.Contains(f.Uuid))
             .ToDictionaryAsync(f => f.Uuid, cancellationToken);
+
+        var reservas = await _db.PropuestasAplicacionPago
+            .Where(p => p.Estado == EstadoPropuestaAplicacion.Propuesta ||
+                (p.Estado == EstadoPropuestaAplicacion.Confirmada && !p.ReppTimbrado))
+            .SelectMany(p => p.Facturas)
+            .Where(f => uuids.Contains(f.FacturaUuid))
+            .GroupBy(f => f.FacturaCarteraId)
+            .Select(g => new { Id = g.Key, Importe = g.Sum(f => f.ImporteAplicado) })
+            .ToDictionaryAsync(x => x.Id, x => x.Importe, cancellationToken);
 
         var lineas = new List<(string, Guid, decimal, int?)>();
         foreach (var l in command.Facturas)
@@ -176,9 +201,10 @@ public sealed class CrearPropuestaAplicacionHandler
             if (f.Estado is not (EstadoFacturaCartera.Abierta or EstadoFacturaCartera.Parcial))
                 throw new BusinessRuleException("PAP_FACTURA_NO_COBRABLE",
                     $"La factura {f.Folio} no está cobrable (estado: {f.Estado}).");
-            if (l.ImporteAplicado > f.SaldoPendiente)
+            var disponible = f.SaldoPendiente - reservas.GetValueOrDefault(f.Id);
+            if (l.ImporteAplicado > disponible)
                 throw new BusinessRuleException("PAP_IMPORTE_EXCEDE_SALDO",
-                    $"El importe {l.ImporteAplicado} excede el saldo pendiente ({f.SaldoPendiente}) de la factura {f.Folio}.");
+                    $"El importe {l.ImporteAplicado} excede el saldo disponible ({disponible}) después de otras propuestas de la factura {f.Folio}.");
 
             lineas.Add((l.FacturaUuid, f.Id, l.ImporteAplicado, l.NumParcialidad));
         }
@@ -193,7 +219,7 @@ public sealed class CrearPropuestaAplicacionHandler
             moneda: command.Moneda,
             remittanceRef: command.RemittanceRef,
             lineas: lineas,
-            toleranciaNoFiscal: tolerancia);
+            toleranciaNoFiscal: tolerancia, propuestoPor: usuarioId);
 
         _db.PropuestasAplicacionPago.Add(propuesta);
 
@@ -207,6 +233,8 @@ public sealed class CrearPropuestaAplicacionHandler
             Moneda: propuesta.Moneda,
             AjusteNoFiscal: propuesta.AjusteNoFiscal,
             NumeroFacturas: propuesta.Facturas.Count,
+            PropuestoPor: usuarioId,
+            SaldoAFavorPorIdentificar: propuesta.SaldoAFavorPorIdentificar,
             // TES-PR7: FacturaVentaId (no FacturaCarteraId) — es el id que
             // Facturación entiende cuando Tesorería confirma el depósito.
             Facturas: propuesta.Facturas
@@ -219,91 +247,9 @@ public sealed class CrearPropuestaAplicacionHandler
                 .ToList()), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return PropuestaAplicacionMapper.ToResponse(
             propuesta, facturas.Values.ToDictionary(f => f.Id, f => f.Folio));
-    }
-}
-
-// --------------------------------------------------- Confirmar / Rechazar (interino A2)
-
-public sealed record ConfirmarPropuestaAplicacionCommand(Guid Id, int VersionEsperada)
-    : IRequest<PropuestaAplicacionResponse>;
-
-public sealed class ConfirmarPropuestaAplicacionHandler
-    : IRequestHandler<ConfirmarPropuestaAplicacionCommand, PropuestaAplicacionResponse>
-{
-    private readonly CuentasPorCobrarDbContext _db;
-    private readonly ICurrentUserContext _currentUser;
-    private readonly IClock _clock;
-
-    public ConfirmarPropuestaAplicacionHandler(
-        CuentasPorCobrarDbContext db, ICurrentUserContext currentUser, IClock clock)
-    {
-        _db = db; _currentUser = currentUser; _clock = clock;
-    }
-
-    public async Task<PropuestaAplicacionResponse> Handle(
-        ConfirmarPropuestaAplicacionCommand command, CancellationToken cancellationToken)
-    {
-        if (_currentUser.UserId is not Guid usuarioId)
-            throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se pudo identificar al usuario.");
-
-        var p = await CargarAsync(_db, command.Id, cancellationToken);
-        if (p.Version != command.VersionEsperada)
-            throw new ConcurrencyException(nameof(PropuestaAplicacionPago), p.Id);
-
-        p.Confirmar(usuarioId, _clock.UtcNow);
-        await _db.SaveChangesAsync(cancellationToken);
-        return await PropuestaAplicacionMapper.ToResponseAsync(_db, p, cancellationToken);
-    }
-
-    internal static async Task<PropuestaAplicacionPago> CargarAsync(
-        CuentasPorCobrarDbContext db, Guid id, CancellationToken ct) =>
-        await db.PropuestasAplicacionPago
-            .Include(x => x.Facturas)
-            .FirstOrDefaultAsync(x => x.Id == id, ct)
-        ?? throw new EntityNotFoundException("PAP_NO_ENCONTRADA",
-            $"No se encontró la propuesta '{id}'.");
-}
-
-public sealed record RechazarPropuestaAplicacionCommand(Guid Id, int VersionEsperada, string Motivo)
-    : IRequest<PropuestaAplicacionResponse>;
-
-public sealed class RechazarPropuestaAplicacionValidator : AbstractValidator<RechazarPropuestaAplicacionCommand>
-{
-    public RechazarPropuestaAplicacionValidator()
-    {
-        RuleFor(c => c.Id).NotEmpty();
-        RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
-    }
-}
-
-public sealed class RechazarPropuestaAplicacionHandler
-    : IRequestHandler<RechazarPropuestaAplicacionCommand, PropuestaAplicacionResponse>
-{
-    private readonly CuentasPorCobrarDbContext _db;
-    private readonly ICurrentUserContext _currentUser;
-    private readonly IClock _clock;
-
-    public RechazarPropuestaAplicacionHandler(
-        CuentasPorCobrarDbContext db, ICurrentUserContext currentUser, IClock clock)
-    {
-        _db = db; _currentUser = currentUser; _clock = clock;
-    }
-
-    public async Task<PropuestaAplicacionResponse> Handle(
-        RechazarPropuestaAplicacionCommand command, CancellationToken cancellationToken)
-    {
-        if (_currentUser.UserId is not Guid usuarioId)
-            throw new ForbiddenException("USUARIO_NO_IDENTIFICADO", "No se pudo identificar al usuario.");
-
-        var p = await ConfirmarPropuestaAplicacionHandler.CargarAsync(_db, command.Id, cancellationToken);
-        if (p.Version != command.VersionEsperada)
-            throw new ConcurrencyException(nameof(PropuestaAplicacionPago), p.Id);
-
-        p.Rechazar(usuarioId, command.Motivo, _clock.UtcNow);
-        await _db.SaveChangesAsync(cancellationToken);
-        return await PropuestaAplicacionMapper.ToResponseAsync(_db, p, cancellationToken);
     }
 }
 
@@ -355,7 +301,9 @@ public sealed class ObtenerPropuestaAplicacionHandler
     public async Task<PropuestaAplicacionResponse> Handle(
         ObtenerPropuestaAplicacionQuery query, CancellationToken cancellationToken)
     {
-        var p = await ConfirmarPropuestaAplicacionHandler.CargarAsync(_db, query.Id, cancellationToken);
+        var p = await _db.PropuestasAplicacionPago.Include(p => p.Facturas)
+            .FirstOrDefaultAsync(p => p.Id == query.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("PAP_NO_ENCONTRADA", "No se encontró la propuesta.");
         return await PropuestaAplicacionMapper.ToResponseAsync(_db, p, cancellationToken);
     }
 }

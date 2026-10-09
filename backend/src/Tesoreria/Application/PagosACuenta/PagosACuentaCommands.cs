@@ -52,6 +52,7 @@ public sealed class RegistrarPagoACuentaValidator : AbstractValidator<RegistrarP
     {
         RuleFor(c => c.CuentaBancariaId).NotEmpty();
         RuleFor(c => c.Monto).GreaterThan(0);
+        RuleFor(c => c.ProveedorId).NotEmpty().WithMessage("Selecciona el proveedor del pago a cuenta.");
         RuleFor(c => c.FechaValor).NotEmpty();
         RuleFor(c => c.Motivo).NotEmpty().MaximumLength(400);
         RuleFor(c => c.ReferenciaBancaria).MaximumLength(120);
@@ -93,6 +94,9 @@ public sealed class RegistrarPagoACuentaHandler
             ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
                 $"No se encontró la cuenta bancaria '{command.CuentaBancariaId}'.");
 
+        if (command.ConceptoId is Guid conceptoId && !await _db.ConceptosMovimiento.AnyAsync(c => c.Id == conceptoId && c.Activo, cancellationToken))
+            throw new BusinessRuleException("MOV_CONCEPTO_INVALIDO", "Selecciona un concepto activo.");
+
         var abierto = await _periodoContable.EstaAbiertoAsync(
             command.FechaValor.Year, command.FechaValor.Month, cancellationToken);
         if (!abierto)
@@ -108,7 +112,8 @@ public sealed class RegistrarPagoACuentaHandler
                     m.BeneficiarioRef == proveedorId
                     && m.BeneficiarioTipo == BeneficiarioTipo.Proveedor
                     && m.Sentido == SentidoMovimiento.Egreso
-                    && m.EstadoAplicacion == EstadoAplicacionMovimiento.NoAplicado
+                    && (m.EstadoAplicacion == EstadoAplicacionMovimiento.NoAplicado || m.EstadoAplicacion == EstadoAplicacionMovimiento.AplicadoParcial)
+                    && m.MotivoNoAplicado != null
                     && m.ContramovimientoDe == null,
                 cancellationToken);
             if (yaHayAbierto)

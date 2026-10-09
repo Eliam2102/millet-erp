@@ -1,3 +1,4 @@
+import { diferenciaDeposito } from '../lib/diferencia-deposito';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -97,21 +98,9 @@ export function NuevaPropuestaAplicacion({
     () => Array.from(seleccion.values()).reduce((a, b) => a + b, 0),
     [seleccion],
   );
-  // Redondeo a centavos: sumaAplicada es una suma de floats; sin redondear,
-  // 50.05 + 50.05 vs 100.10 puede dar ±1e-13 y disparar excedente/ajuste
-  // falsos ante un match exacto.
-  const diferencia =
-    Math.round(((montoDeposito || 0) - sumaAplicada) * 100) / 100;
-  const toleranciaLista = tolerancias.isSuccess;
   const tolerancia = tolerancias.data?.[moneda] ?? 0;
-  // Un depósito corto (diferencia < 0) necesita la tolerancia para decidir
-  // ajuste-no-fiscal vs excede. Si aún no cargó (o falló), NO se trata como
-  // "excede con tolerancia 0" (bloqueo engañoso): se bloquea con aviso.
-  const faltaTolerancia = diferencia < 0 && !toleranciaLista;
-  const esAjusteNoFiscal =
-    toleranciaLista && diferencia < 0 && Math.abs(diferencia) < tolerancia;
-  const excedeTolerancia =
-    toleranciaLista && diferencia < 0 && Math.abs(diferencia) >= tolerancia;
+  const { diferencia, faltaTolerancia, esAjusteNoFiscal, excedeTolerancia } =
+    diferenciaDeposito(montoDeposito || 0, sumaAplicada, tolerancias.isSuccess ? tolerancia : null);
   const depositoExcedente = diferencia > 0 && seleccion.size > 0;
   const importesInvalidos =
     Array.from(seleccion.entries()).some(([uuid, imp]) => {
@@ -125,7 +114,6 @@ export function NuevaPropuestaAplicacion({
     seleccion.size > 0 &&
     !importesInvalidos &&
     !excedeTolerancia &&
-    !depositoExcedente &&
     !faltaTolerancia &&
     (montoDeposito || 0) > 0;
 
@@ -308,10 +296,10 @@ export function NuevaPropuestaAplicacion({
       <section
         className={cn(
           'space-y-1 rounded-md border px-4 py-3 text-sm',
-          excedeTolerancia || depositoExcedente
+          excedeTolerancia
             ? 'border-destructive/50 bg-destructive/5'
             : esAjusteNoFiscal
-              ? 'border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30'
+              ? 'border-line bg-warning-bg'
               : 'bg-muted/30',
         )}
         aria-live="polite"
@@ -323,7 +311,7 @@ export function NuevaPropuestaAplicacion({
             <span
               className={cn(
                 diferencia !== 0 && 'font-semibold',
-                (excedeTolerancia || depositoExcedente) && 'text-destructive',
+                (excedeTolerancia) && 'text-destructive',
               )}
             >
               {formatoMonto(diferencia, moneda)}
@@ -332,8 +320,8 @@ export function NuevaPropuestaAplicacion({
         </div>
         {depositoExcedente && (
           <p className="text-xs text-destructive">
-            El depósito excede la suma aplicada — un excedente no es ajuste
-            no fiscal; captúralo como anticipo o corrige el desglose.
+            El excedente quedará como saldo a favor por identificar del cliente
+            cuando Tesorería confirme el depósito.
           </p>
         )}
         {excedeTolerancia && (

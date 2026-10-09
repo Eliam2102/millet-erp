@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging.Abstractions;
 using Millet.CuentasPorCobrar.Application.AplicacionPagos;
 using Millet.CuentasPorCobrar.Application.Integration;
+using Millet.CuentasPorCobrar.Application.EventListeners;
 using Millet.CuentasPorCobrar.Domain.AplicacionPagos;
 using Millet.CuentasPorCobrar.Domain.Cartera;
 using Millet.CuentasPorCobrar.Infrastructure.Persistence;
@@ -22,7 +24,7 @@ public sealed class PropuestaAplicacionAggregateTests
         decimal tolerancia = 50m) =>
         PropuestaAplicacionPago.Crear(
             Guid.NewGuid(), Guid.NewGuid(), "DEP-123", montoDeposito, "USD",
-            remittance, lineas ?? UnaLinea, tolerancia);
+            remittance, lineas ?? UnaLinea, tolerancia, Guid.NewGuid());
 
     [Fact]
     public void Crear_cuadrada_sin_ajuste_OK()
@@ -50,8 +52,9 @@ public sealed class PropuestaAplicacionAggregateTests
     [Fact]
     public void Deposito_excedente_no_es_ajuste()
     {
-        var act = () => Crear(montoDeposito: 10_100m);
-        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "PAP_DEPOSITO_EXCEDENTE");
+        var propuesta = Crear(montoDeposito: 10_100m);
+        propuesta.AjusteNoFiscal.Should().Be(0);
+        propuesta.SaldoAFavorPorIdentificar.Should().Be(100m);
     }
 
     [Fact]
@@ -159,6 +162,78 @@ public sealed class CrearPropuestaAplicacionHandlerTests
             .Where(e => e.Code == "PAP_FACTURA_DE_OTRO_CLIENTE");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Reservas_pendientes_o_confirmadas_sin_rep_no_exceden_saldo(bool confirmar)
+    {
+        using var db = CrearDbContext(); AgregarFactura(db, "reserva", 1000); await db.SaveChangesAsync();
+        var primera = await Handle(db, new FakePublisher(), Comando(700, [new("reserva", 700, null)]));
+        var resolver = new ResolverPropuestaTesoreriaHandler(db, new FakeClock());
+        if (confirmar)
+            await resolver.Handle(new(Guid.NewGuid(), EmpresaId, primera.Id, Guid.NewGuid(), Ahora, Guid.NewGuid(), null), default);
+        var segunda = () => Handle(db, new FakePublisher(), Comando(400, [new("reserva", 400, null)]));
+        await segunda.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "PAP_IMPORTE_EXCEDE_SALDO");
+    }
+
+    [Fact]
+    public async Task Rechazo_de_tesoreria_libera_reserva_y_permite_nueva_propuesta()
+    {
+        using var db = CrearDbContext(); AgregarFactura(db, "rechazo", 1000); await db.SaveChangesAsync();
+        var primera = await Handle(db, new FakePublisher(), Comando(1000, [new("rechazo", 1000, null)]));
+        var resolver = new ResolverPropuestaTesoreriaHandler(db, new FakeClock());
+        var rechazo = new ResolverPropuestaTesoreriaCommand(Guid.NewGuid(), EmpresaId, primera.Id, Guid.NewGuid(), Ahora, null, "No existe depósito");
+        await resolver.Handle(rechazo, default); await resolver.Handle(rechazo, default);
+        (await db.PropuestasAplicacionPago.FindAsync(primera.Id))!.Estado.Should().Be(EstadoPropuestaAplicacion.Rechazada);
+        var nueva = await Handle(db, new FakePublisher(), Comando(1100, [new("rechazo", 1000, null)]));
+        nueva.SaldoAFavorPorIdentificar.Should().Be(100);
+        nueva.Id.Should().NotBe(primera.Id);
+        db.EventosProcesados.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Confirmacion_de_tesoreria_es_idempotente_y_no_aplica_cartera()
+    {
+        using var db = CrearDbContext(); var factura = AgregarFactura(db, "confirma", 1000); await db.SaveChangesAsync();
+        var primera = await Handle(db, new FakePublisher(), Comando(1000, [new("confirma", 1000, null)]));
+        var resolver = new ResolverPropuestaTesoreriaHandler(db, new FakeClock());
+        var confirmar = new ResolverPropuestaTesoreriaCommand(Guid.NewGuid(), EmpresaId, primera.Id, Guid.NewGuid(), Ahora, Guid.NewGuid(), null);
+        await resolver.Handle(confirmar, default); await resolver.Handle(confirmar, default);
+        var propuesta = (await db.PropuestasAplicacionPago.FindAsync(primera.Id))!;
+        propuesta.Estado.Should().Be(EstadoPropuestaAplicacion.Confirmada);
+        propuesta.MovimientoBancarioId.Should().Be(confirmar.MovimientoBancarioId);
+        factura.SaldoPendiente.Should().Be(1000);
+        db.EventosProcesados.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Confirmacion_del_proponente_se_rechaza()
+    {
+        using var db = CrearDbContext(); AgregarFactura(db, "autoconfirma", 1000); await db.SaveChangesAsync();
+        var primera = await Handle(db, new FakePublisher(), Comando(1000, [new("autoconfirma", 1000, null)]));
+        var act = () => new ResolverPropuestaTesoreriaHandler(db, new FakeClock()).Handle(
+            new(Guid.NewGuid(), EmpresaId, primera.Id, primera.PropuestoPor!.Value, Ahora, Guid.NewGuid(), null), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEP_MISMO_USUARIO");
+    }
+
+    [Fact]
+    public async Task Rep_timbrado_libera_reserva_sin_descontar_dos_veces()
+    {
+        using var db = CrearDbContext(); var factura = AgregarFactura(db, "rep", 1000); await db.SaveChangesAsync();
+        var primera = await Handle(db, new FakePublisher(), Comando(700, [new("rep", 700, 1)]));
+        var movimiento = Guid.NewGuid();
+        await new ResolverPropuestaTesoreriaHandler(db, new FakeClock()).Handle(
+            new(Guid.NewGuid(), EmpresaId, primera.Id, Guid.NewGuid(), Ahora, movimiento, null), default);
+        var recibo = new ReciboPagoTimbradoCommand(Guid.NewGuid(), new(EmpresaId, Ahora, Guid.NewGuid(), "REP-P5", 700, 0,
+            [new(factura.FacturaVentaId, 700, 1, "MXN", 300)], movimiento));
+        var timbrado = new ReciboPagoTimbradoHandler(db, new FakeClock(), NullLogger<ReciboPagoTimbradoHandler>.Instance);
+        await timbrado.Handle(recibo, default); await timbrado.Handle(recibo, default);
+        factura.SaldoPendiente.Should().Be(300);
+        (await db.PropuestasAplicacionPago.FindAsync(primera.Id))!.ReppTimbrado.Should().BeTrue();
+        var segunda = await Handle(db, new FakePublisher(), Comando(300, [new("rep", 300, 2)]));
+        segunda.Estado.Should().Be(EstadoPropuestaAplicacion.Propuesta);
+    }
+
     // --------------------------------------------------- helpers
 
     private static CrearPropuestaAplicacionCommand Comando(
@@ -170,7 +245,7 @@ public sealed class CrearPropuestaAplicacionHandlerTests
     {
         var handler = new CrearPropuestaAplicacionHandler(
             db, publisher, new FakeEmpresaContext(EmpresaId),
-            Options.Create(new AplicacionPagosOptions()), new FakeClock());
+            Options.Create(new AplicacionPagosOptions()), new FakeClock(), new FakeUser());
         return await handler.Handle(command, CancellationToken.None);
     }
 
@@ -190,6 +265,12 @@ public sealed class CrearPropuestaAplicacionHandlerTests
             .UseInMemoryDatabase(databaseName: $"cxc_pap_{Guid.NewGuid()}")
             .Options;
         return new CuentasPorCobrarDbContext(options, new FakeEmpresaContext(EmpresaId));
+    }
+
+    private sealed class FakeUser : ICurrentUserContext
+    {
+        public Guid? UserId => Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
+        public string? UserName => "Proponente de prueba";
     }
 
     private sealed class FakePublisher : IIntegrationEventPublisher

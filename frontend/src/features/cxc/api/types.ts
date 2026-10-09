@@ -332,6 +332,8 @@ export interface PropuestaAplicacionResponse {
   remittanceRef: string;
   /** Diferencia depósito − Σ importes; solo ≤ 0 y dentro de tolerancia. */
   ajusteNoFiscal: number;
+  propuestoPor?: string | null;
+  saldoAFavorPorIdentificar?: number;
   estado: EstadoPropuestaAplicacion;
   motivoRechazo: string | null;
   resueltaPor: string | null;
