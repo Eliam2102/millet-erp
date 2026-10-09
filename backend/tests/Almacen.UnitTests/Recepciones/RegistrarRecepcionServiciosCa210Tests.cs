@@ -7,6 +7,7 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Application.Integration;
 using Millet.SharedKernel.Application.UnidadesMedida;
+using Millet.Almacen.UnitTests.TestSupport;
 
 namespace Millet.Almacen.UnitTests.Recepciones;
 
@@ -213,7 +214,7 @@ public class RegistrarRecepcionServiciosCa210Tests
         var fakeOc = new FakeOcConFisico(ocId, artFisico, lineaFisicaId);
         return new RegistrarRecepcionConFacturaHandler(
             db, fakeOc, new FakeArticulos(), new FakeEvents(),
-            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales());
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true));
     }
 
     private static RegistrarRecepcionConPackingListHandler NuevoPackingListHandler(
@@ -222,7 +223,7 @@ public class RegistrarRecepcionServiciosCa210Tests
         var fakeOc = new FakeOcConFisico(ocId, artFisico, lineaFisicaId);
         return new RegistrarRecepcionConPackingListHandler(
             db, fakeOc, new FakeArticulos(), new FakeEvents(),
-            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales());
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true));
     }
 
     private sealed class FakeOcConFisico(Guid ocId, Guid artFisicoId, Guid lineaFisicaId) : IComprasOcReadPort
