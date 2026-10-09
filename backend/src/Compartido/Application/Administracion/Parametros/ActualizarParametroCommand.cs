@@ -44,6 +44,9 @@ public sealed class ActualizarParametroHandler
         ActualizarParametroCommand command,
         CancellationToken cancellationToken)
     {
+        if (ParametrosUmbralesConteo.Claves.Contains(command.Clave))
+            return await ActualizarUmbralAsync(command, cancellationToken);
+
         var row = await _db.ParametrosGlobales
             .FirstOrDefaultAsync(p => p.Clave == command.Clave, cancellationToken)
             ?? throw new EntityNotFoundException(
@@ -60,4 +63,29 @@ public sealed class ActualizarParametroHandler
         return new ParametroResponse(
             row.Id, row.Clave, row.Valor, row.Tipo, row.Modulo, row.Descripcion, row.Version);
     }
+
+    private async Task<ParametroResponse> ActualizarUmbralAsync(
+        ActualizarParametroCommand command, CancellationToken cancellationToken)
+    {
+        // Serializa los PATCH de la política completa: dos cambios simultáneos
+        // no pueden validar contra límites antiguos y dejar Nivel 1 >= Nivel 2.
+        await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var claves = ParametrosUmbralesConteo.Claves.ToArray();
+        var filas = await _db.ParametrosGlobales.FromSqlInterpolated($"""
+            SELECT * FROM compartido.parametros_globales
+            WHERE clave = ANY ({claves}) ORDER BY clave FOR UPDATE
+            """).ToListAsync(cancellationToken);
+        var row = filas.SingleOrDefault(p => p.Clave == command.Clave)
+            ?? throw new EntityNotFoundException("PARAMETRO_GLOBAL_NO_ENCONTRADO",
+                $"No existe un parámetro global con clave '{command.Clave}'.");
+        var valores = filas.ToDictionary(p => p.Clave, p => p.Valor);
+        valores[command.Clave] = command.Valor;
+        ParametrosUmbralesConteo.Leer(valores);
+        row.ActualizarValor(command.Valor);
+        await _db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+        return new ParametroResponse(
+            row.Id, row.Clave, row.Valor, row.Tipo, row.Modulo, row.Descripcion, row.Version);
+    }
+
 }

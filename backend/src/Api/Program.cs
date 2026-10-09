@@ -711,6 +711,8 @@ builder.Services.AddScoped<Millet.SharedKernel.Application.Calendario.ICalendari
     Millet.Compartido.Infrastructure.Calendario.CalendarioHabilService>();
 builder.Services.AddScoped<Millet.Almacen.Domain.Ports.ICentroCostoElegibilidadPort,
     Millet.Api.Adapters.AlmacenCentroCostoElegibilidadAdapter>();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider,
+    Millet.Compartido.Infrastructure.PublicAdapters.ConteoUmbralesProvider>();
 
 // === Almacén cross-module ports (read-side síncrono) → adapters reales ===
 // Reemplaza los NoOpComprasOcReadPort / NoOpComprasRequisicionReadPort que
@@ -861,6 +863,7 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
 // el publisher de los 4 eventos espejo congelados en TES-PR4. Ver
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones

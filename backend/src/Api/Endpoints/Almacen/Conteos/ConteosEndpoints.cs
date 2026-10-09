@@ -114,11 +114,16 @@ public static class ConteosEndpoints
         // Permiso distinto: aprobar-nivel1+ requerido. El contador NO puede
         // acceder a este endpoint.
         group.MapGet("/{id:guid}/comparacion", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, IMediator mediator, Millet.SharedKernel.Application.ICurrentUserPermissions permisos, CancellationToken ct) =>
         {
+            if (!await permisos.TieneAsync(PermisosCanonicos.AlmacenInventariosAprobarNivel1, ct)
+                && !await permisos.TieneAsync(PermisosCanonicos.AlmacenInventariosAprobarNivel2, ct)
+                && !await permisos.TieneAsync(PermisosCanonicos.AlmacenInventariosAprobarNivel3, ct))
+                throw new Millet.SharedKernel.Application.Exceptions.ForbiddenException(
+                    "CONTEO_COMPARACION_NO_AUTORIZADA", "Se requiere permiso de aprobación para consultar las diferencias del conteo.");
             return Results.Ok(await mediator.Send(new ListarLineasComparacionQuery(id), ct));
         })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosAprobarNivel1)
+        .RequireAuthorization()
         .WithName("ListarLineasComparacion")
         .WithSummary("Comparación teórico vs real (aprobador). Endpoint distinto al de captura — captura sin sesgo (A6).")
         .Produces<IReadOnlyList<LineaConteoComparacionDto>>(StatusCodes.Status200OK);

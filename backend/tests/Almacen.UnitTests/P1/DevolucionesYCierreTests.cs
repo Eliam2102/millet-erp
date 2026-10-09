@@ -158,7 +158,7 @@ public sealed class DevolucionesYCierreTests
         var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
         var conteo = new ConteoInventario(Guid.NewGuid(), P1Fixture.EmpresaId, TipoConteo.Rotativo, hoy, Guid.NewGuid(), f.SubId);
         conteo.AgregarLinea(new LineaConteo(Guid.NewGuid(), conteo.Id, f.ArticuloId, f.SubId, f.BinId, 10, 25));
-        conteo.Iniciar(); conteo.Lineas.Single().Capturar(9, Guid.NewGuid());
+        conteo.Iniciar(new(5, 1000, 1000, 10000)); conteo.Lineas.Single().Capturar(9, Guid.NewGuid());
         conteo.EnviarAConciliacion(); conteo.Aprobar(Guid.NewGuid());
         f.Db.Set<ConteoInventario>().Add(conteo);
         f.Db.Set<PeriodoCerrado>().Add(new(Guid.NewGuid(), P1Fixture.EmpresaId, hoy.Year, hoy.Month, P1Fixture.EmpresaId));

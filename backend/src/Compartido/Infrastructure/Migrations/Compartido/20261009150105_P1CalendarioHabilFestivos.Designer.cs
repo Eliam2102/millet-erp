@@ -691,7 +691,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
-                            Id = new Guid("00000006-0001-0000-0000-000000000005"),
+                            Id = new Guid("00000006-0001-0000-0000-00000000000a"),
                             Clave = "system.dias-festivos",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",

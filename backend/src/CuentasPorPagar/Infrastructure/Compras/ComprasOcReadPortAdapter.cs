@@ -87,7 +87,10 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
                 PrecioUnitario: l.PrecioUnitario,
                 CantidadFacturada: l.CantidadFacturada,
                 CantidadRecibida: l.CantidadRecibida,
-                CentroCostoId: l.CentroCostoId))
+                CentroCostoId: l.CentroCostoId,
+                BaseNetaUnitaria: l.Cantidad == 0 ? 0 : l.SubtotalLinea / l.Cantidad *
+                    (totales.SubtotalAntesDescuento == 0 ? 1 :
+                        1 - totales.DescuentoGlobalAplicado / totales.SubtotalAntesDescuento)))
             .ToList();
 
         return new OrdenCompraDto(
@@ -98,6 +101,7 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
             SucursalId: oc.SucursalDestinoId,
             Total: totales.TotalAPagar,
             Estado: oc.Estado.ToString(),
-            Lineas: lineas);
+            Lineas: lineas,
+            Moneda: oc.Moneda);
     }
 }

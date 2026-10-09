@@ -15,5 +15,6 @@ public sealed record FacturaProveedorRechazadaPorToleranciaIntegrationEvent(
     decimal TotalFactura,
     decimal TotalOc,
     decimal Diferencia,
-    string ToleranciaAplicada)
+    string ToleranciaAplicada,
+    string? Motivo = null)
     : IntegrationEvent("cuentas_por_pagar.factura.rechazada-por-tolerancia.v1", EmpresaId, OcurridoEn);

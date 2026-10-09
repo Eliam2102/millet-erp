@@ -671,6 +671,14 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("tipo");
 
+                    b.Property<decimal>("UmbralNivel1Maximo")
+                        .HasColumnType("numeric")
+                        .HasColumnName("umbral_nivel1maximo");
+
+                    b.Property<decimal>("UmbralNivel2Maximo")
+                        .HasColumnType("numeric")
+                        .HasColumnName("umbral_nivel2maximo");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -678,6 +686,14 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
+
+                    b.Property<decimal>("VariacionPctParaRecuento")
+                        .HasColumnType("numeric")
+                        .HasColumnName("variacion_pct_para_recuento");
+
+                    b.Property<decimal>("VariacionValorParaRecuento")
+                        .HasColumnType("numeric")
+                        .HasColumnName("variacion_valor_para_recuento");
 
                     b.Property<int>("Version")
                         .IsConcurrencyToken()

@@ -113,12 +113,14 @@ import { Route as AppCxpReportesTcPendientesRouteImport } from './routes/_app/cx
 import { Route as AppCxpReportesTcRouteImport } from './routes/_app/cxp/reportes.tc';
 import { Route as AppCxpReportesPasivosObrasRouteImport } from './routes/_app/cxp/reportes.pasivos-obras';
 import { Route as AppCxpReportesCarteraRouteImport } from './routes/_app/cxp/reportes.cartera';
+import { Route as AppCxpReportesAuxiliarRouteImport } from './routes/_app/cxp/reportes.auxiliar';
 import { Route as AppCxpReportesAntiguedadAnticiposRouteImport } from './routes/_app/cxp/reportes.antiguedad-anticipos';
 import { Route as AppCxpReportesAntiguedadRouteImport } from './routes/_app/cxp/reportes.antiguedad';
 import { Route as AppCxpNotasCreditoIdRouteImport } from './routes/_app/cxp/notas-credito/$id';
 import { Route as AppCxpNotasCargoIdRouteImport } from './routes/_app/cxp/notas-cargo/$id';
 import { Route as AppCxpFacturasIdRouteImport } from './routes/_app/cxp/facturas/$id';
 import { Route as AppCxpComprobacionesIdRouteImport } from './routes/_app/cxp/comprobaciones/$id';
+import { Route as AppCxpAdminRetencionesRouteImport } from './routes/_app/cxp/admin.retenciones';
 import { Route as AppCxpAdminReposicionesRouteImport } from './routes/_app/cxp/admin.reposiciones';
 import { Route as AppCxpAdminPoliticasViaticosRouteImport } from './routes/_app/cxp/admin.politicas-viaticos';
 import { Route as AppCxpAdminAprobadoresRouteImport } from './routes/_app/cxp/admin.aprobadores';
@@ -732,6 +734,11 @@ const AppCxpReportesCarteraRoute = AppCxpReportesCarteraRouteImport.update({
   path: '/cxp/reportes/cartera',
   getParentRoute: () => AppRoute,
 } as any);
+const AppCxpReportesAuxiliarRoute = AppCxpReportesAuxiliarRouteImport.update({
+  id: '/cxp/reportes/auxiliar',
+  path: '/cxp/reportes/auxiliar',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppCxpReportesAntiguedadAnticiposRoute =
   AppCxpReportesAntiguedadAnticiposRouteImport.update({
     id: '/cxp/reportes/antiguedad-anticipos',
@@ -762,6 +769,11 @@ const AppCxpFacturasIdRoute = AppCxpFacturasIdRouteImport.update({
 const AppCxpComprobacionesIdRoute = AppCxpComprobacionesIdRouteImport.update({
   id: '/cxp/comprobaciones/$id',
   path: '/cxp/comprobaciones/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppCxpAdminRetencionesRoute = AppCxpAdminRetencionesRouteImport.update({
+  id: '/cxp/admin/retenciones',
+  path: '/cxp/admin/retenciones',
   getParentRoute: () => AppRoute,
 } as any);
 const AppCxpAdminReposicionesRoute = AppCxpAdminReposicionesRouteImport.update({
@@ -1110,12 +1122,14 @@ export interface FileRoutesByFullPath {
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
   '/cxp/admin/politicas-viaticos': typeof AppCxpAdminPoliticasViaticosRoute;
   '/cxp/admin/reposiciones': typeof AppCxpAdminReposicionesRoute;
+  '/cxp/admin/retenciones': typeof AppCxpAdminRetencionesRoute;
   '/cxp/comprobaciones/$id': typeof AppCxpComprobacionesIdRoute;
   '/cxp/facturas/$id': typeof AppCxpFacturasIdRoute;
   '/cxp/notas-cargo/$id': typeof AppCxpNotasCargoIdRoute;
   '/cxp/notas-credito/$id': typeof AppCxpNotasCreditoIdRoute;
   '/cxp/reportes/antiguedad': typeof AppCxpReportesAntiguedadRoute;
   '/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
+  '/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
   '/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
@@ -1272,12 +1286,14 @@ export interface FileRoutesByTo {
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
   '/cxp/admin/politicas-viaticos': typeof AppCxpAdminPoliticasViaticosRoute;
   '/cxp/admin/reposiciones': typeof AppCxpAdminReposicionesRoute;
+  '/cxp/admin/retenciones': typeof AppCxpAdminRetencionesRoute;
   '/cxp/comprobaciones/$id': typeof AppCxpComprobacionesIdRoute;
   '/cxp/facturas/$id': typeof AppCxpFacturasIdRoute;
   '/cxp/notas-cargo/$id': typeof AppCxpNotasCargoIdRoute;
   '/cxp/notas-credito/$id': typeof AppCxpNotasCreditoIdRoute;
   '/cxp/reportes/antiguedad': typeof AppCxpReportesAntiguedadRoute;
   '/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
+  '/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
   '/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
@@ -1436,12 +1452,14 @@ export interface FileRoutesById {
   '/_app/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
   '/_app/cxp/admin/politicas-viaticos': typeof AppCxpAdminPoliticasViaticosRoute;
   '/_app/cxp/admin/reposiciones': typeof AppCxpAdminReposicionesRoute;
+  '/_app/cxp/admin/retenciones': typeof AppCxpAdminRetencionesRoute;
   '/_app/cxp/comprobaciones/$id': typeof AppCxpComprobacionesIdRoute;
   '/_app/cxp/facturas/$id': typeof AppCxpFacturasIdRoute;
   '/_app/cxp/notas-cargo/$id': typeof AppCxpNotasCargoIdRoute;
   '/_app/cxp/notas-credito/$id': typeof AppCxpNotasCreditoIdRoute;
   '/_app/cxp/reportes/antiguedad': typeof AppCxpReportesAntiguedadRoute;
   '/_app/cxp/reportes/antiguedad-anticipos': typeof AppCxpReportesAntiguedadAnticiposRoute;
+  '/_app/cxp/reportes/auxiliar': typeof AppCxpReportesAuxiliarRoute;
   '/_app/cxp/reportes/cartera': typeof AppCxpReportesCarteraRoute;
   '/_app/cxp/reportes/pasivos-obras': typeof AppCxpReportesPasivosObrasRoute;
   '/_app/cxp/reportes/tc': typeof AppCxpReportesTcRoute;
@@ -1600,12 +1618,14 @@ export interface FileRouteTypes {
     | '/cxp/admin/aprobadores'
     | '/cxp/admin/politicas-viaticos'
     | '/cxp/admin/reposiciones'
+    | '/cxp/admin/retenciones'
     | '/cxp/comprobaciones/$id'
     | '/cxp/facturas/$id'
     | '/cxp/notas-cargo/$id'
     | '/cxp/notas-credito/$id'
     | '/cxp/reportes/antiguedad'
     | '/cxp/reportes/antiguedad-anticipos'
+    | '/cxp/reportes/auxiliar'
     | '/cxp/reportes/cartera'
     | '/cxp/reportes/pasivos-obras'
     | '/cxp/reportes/tc'
@@ -1762,12 +1782,14 @@ export interface FileRouteTypes {
     | '/cxp/admin/aprobadores'
     | '/cxp/admin/politicas-viaticos'
     | '/cxp/admin/reposiciones'
+    | '/cxp/admin/retenciones'
     | '/cxp/comprobaciones/$id'
     | '/cxp/facturas/$id'
     | '/cxp/notas-cargo/$id'
     | '/cxp/notas-credito/$id'
     | '/cxp/reportes/antiguedad'
     | '/cxp/reportes/antiguedad-anticipos'
+    | '/cxp/reportes/auxiliar'
     | '/cxp/reportes/cartera'
     | '/cxp/reportes/pasivos-obras'
     | '/cxp/reportes/tc'
@@ -1925,12 +1947,14 @@ export interface FileRouteTypes {
     | '/_app/cxp/admin/aprobadores'
     | '/_app/cxp/admin/politicas-viaticos'
     | '/_app/cxp/admin/reposiciones'
+    | '/_app/cxp/admin/retenciones'
     | '/_app/cxp/comprobaciones/$id'
     | '/_app/cxp/facturas/$id'
     | '/_app/cxp/notas-cargo/$id'
     | '/_app/cxp/notas-credito/$id'
     | '/_app/cxp/reportes/antiguedad'
     | '/_app/cxp/reportes/antiguedad-anticipos'
+    | '/_app/cxp/reportes/auxiliar'
     | '/_app/cxp/reportes/cartera'
     | '/_app/cxp/reportes/pasivos-obras'
     | '/_app/cxp/reportes/tc'
@@ -2768,6 +2792,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCxpReportesCarteraRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/cxp/reportes/auxiliar': {
+      id: '/_app/cxp/reportes/auxiliar';
+      path: '/cxp/reportes/auxiliar';
+      fullPath: '/cxp/reportes/auxiliar';
+      preLoaderRoute: typeof AppCxpReportesAuxiliarRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/cxp/reportes/antiguedad-anticipos': {
       id: '/_app/cxp/reportes/antiguedad-anticipos';
       path: '/cxp/reportes/antiguedad-anticipos';
@@ -2808,6 +2839,13 @@ declare module '@tanstack/react-router' {
       path: '/cxp/comprobaciones/$id';
       fullPath: '/cxp/comprobaciones/$id';
       preLoaderRoute: typeof AppCxpComprobacionesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/cxp/admin/retenciones': {
+      id: '/_app/cxp/admin/retenciones';
+      path: '/cxp/admin/retenciones';
+      fullPath: '/cxp/admin/retenciones';
+      preLoaderRoute: typeof AppCxpAdminRetencionesRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxp/admin/reposiciones': {
@@ -3241,12 +3279,14 @@ interface AppRouteChildren {
   AppCxpAdminAprobadoresRoute: typeof AppCxpAdminAprobadoresRoute;
   AppCxpAdminPoliticasViaticosRoute: typeof AppCxpAdminPoliticasViaticosRoute;
   AppCxpAdminReposicionesRoute: typeof AppCxpAdminReposicionesRoute;
+  AppCxpAdminRetencionesRoute: typeof AppCxpAdminRetencionesRoute;
   AppCxpComprobacionesIdRoute: typeof AppCxpComprobacionesIdRoute;
   AppCxpFacturasIdRoute: typeof AppCxpFacturasIdRoute;
   AppCxpNotasCargoIdRoute: typeof AppCxpNotasCargoIdRoute;
   AppCxpNotasCreditoIdRoute: typeof AppCxpNotasCreditoIdRoute;
   AppCxpReportesAntiguedadRoute: typeof AppCxpReportesAntiguedadRoute;
   AppCxpReportesAntiguedadAnticiposRoute: typeof AppCxpReportesAntiguedadAnticiposRoute;
+  AppCxpReportesAuxiliarRoute: typeof AppCxpReportesAuxiliarRoute;
   AppCxpReportesCarteraRoute: typeof AppCxpReportesCarteraRoute;
   AppCxpReportesPasivosObrasRoute: typeof AppCxpReportesPasivosObrasRoute;
   AppCxpReportesTcRoute: typeof AppCxpReportesTcRoute;
@@ -3403,6 +3443,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxpAdminAprobadoresRoute: AppCxpAdminAprobadoresRoute,
   AppCxpAdminPoliticasViaticosRoute: AppCxpAdminPoliticasViaticosRoute,
   AppCxpAdminReposicionesRoute: AppCxpAdminReposicionesRoute,
+  AppCxpAdminRetencionesRoute: AppCxpAdminRetencionesRoute,
   AppCxpComprobacionesIdRoute: AppCxpComprobacionesIdRoute,
   AppCxpFacturasIdRoute: AppCxpFacturasIdRoute,
   AppCxpNotasCargoIdRoute: AppCxpNotasCargoIdRoute,
@@ -3410,6 +3451,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCxpReportesAntiguedadRoute: AppCxpReportesAntiguedadRoute,
   AppCxpReportesAntiguedadAnticiposRoute:
     AppCxpReportesAntiguedadAnticiposRoute,
+  AppCxpReportesAuxiliarRoute: AppCxpReportesAuxiliarRoute,
   AppCxpReportesCarteraRoute: AppCxpReportesCarteraRoute,
   AppCxpReportesPasivosObrasRoute: AppCxpReportesPasivosObrasRoute,
   AppCxpReportesTcRoute: AppCxpReportesTcRoute,

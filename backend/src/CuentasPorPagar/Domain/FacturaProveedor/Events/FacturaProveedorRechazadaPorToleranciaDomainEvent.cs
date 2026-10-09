@@ -18,4 +18,5 @@ public sealed record FacturaProveedorRechazadaPorToleranciaDomainEvent(
     decimal TotalOc,
     decimal Diferencia,
     string ToleranciaAplicada,
-    DateTimeOffset OcurridoEn) : INotification;
+    DateTimeOffset OcurridoEn,
+    string? Motivo = null) : INotification;

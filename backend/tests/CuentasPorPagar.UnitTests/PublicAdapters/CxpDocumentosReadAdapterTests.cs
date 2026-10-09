@@ -105,7 +105,7 @@ public class CxpDocumentosReadAdapterTests
         var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>()
             .UseInMemoryDatabase($"cxp-documentos-adapter-{Guid.NewGuid():N}")
             .Options;
-        return new CuentasPorPagarDbContext(options, new BypassedEmpresaContext());
+        return new CuentasPorPagarDbContext(options, new BypassedEmpresaContext(), new P8.PeriodoAbiertoStub(), new P8.PeriodoAbiertoStub());
     }
 
     private static Domain.FacturaProveedor.FacturaProveedor CrearFactura(

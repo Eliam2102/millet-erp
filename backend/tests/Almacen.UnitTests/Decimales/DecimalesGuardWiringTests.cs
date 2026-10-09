@@ -116,7 +116,7 @@ public class DecimalesGuardWiringTests
             subAlmacenId: subAlmacenId, ubicacionId: Guid.NewGuid(),
             cantidadTeorica: 100m, costoPromedioSnapshot: 50m);
         conteo.AgregarLinea(linea);
-        conteo.Iniciar(); // → EnCurso (snapshot)
+        conteo.Iniciar(new Millet.Almacen.Domain.Conteos.ConteoUmbrales(5m, 1000m, 1000m, 10000m)); // → EnCurso (snapshot)
         db.Set<ConteoInventario>().Add(conteo);
         await db.SaveChangesAsync();
         return (db, conteo.Id, linea.Id);
