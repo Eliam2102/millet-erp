@@ -389,3 +389,27 @@ Evidencia de esta ejecución: [resumen](P6b-P7-resumen.md) y [logs](evidencia-p6
 Las unitarias se ejecutaron con xUnit en proceso (`XunitFrontController`, sin AppDomain), cargando dependencias y bibliotecas nativas desde cada suite. El ejecutor temporal se conserva como fuente en la evidencia; no se cambia el runner del repositorio. El primer intento con el runner anterior no resolvía las DLL de Compras/Almacén ni la biblioteca nativa de PDF; el ejecutor corregido pasó las suites completas. VSTest se anuló antes de ejecutar pruebas por `SocketException (13): Permission denied`. El descubrimiento de integración cargó las pruebas nuevas, **sin ejecutarlas ni abrir una base** (las teorías con `MemberData` quedan para ejecución).
 
 No se hizo commit ni push en esta continuación. La bóveda Obsidian está fuera del alcance de escritura; el resumen local incluye el texto pendiente de trasladar a su ficha/Bitácora cuando Claude verifique PostgreSQL.
+
+## Continuación P6b · adenda 2 de integración
+
+Revisión sobre `15439be`, rama `fix/P6b-sucursal-rutas-p4`: el worktree llegó limpio, con P4/P7 ya guardados. El cotejo actual confirma las **133 rutas literales CxP/Tesorería** sin ausencias en las tablas. Se preservan permiso de operación antes de sucursal, alcance corporativo para documentos sin origen y la excepción de serie por proveedor (GET `anticipos.leer`, PUT `anticipos.capturar`, sin filtro territorial).
+
+La revisión completa de las familias de recepción/salida/vale/reorden y trazabilidad identifica cuatro rutas adicionales ausentes de la tabla anterior, preexistentes a P7:
+
+| Método | Ruta | Control y decisión |
+|---|---|---|
+| POST | `/api/v1/almacen/recepciones/packing-list/blob` | Carga previa a crear el documento; exige `almacen.entradas.registrar`. No recibe sucursal ni ID de recepción. La creación de recepción valida OC y bins antes de consumir la referencia. |
+| POST | `/api/v1/almacen/salidas/vale/blob` | Carga previa a crear la salida; exige `almacen.salidas.por-vale`. No recibe sucursal ni ID de salida. El registro posterior del vale valida sus bins. |
+| GET | `/api/v1/almacen/salidas/dim3/buscar` | Selector abierto de catálogo para captura por proxy (ADR-0050), con permiso `almacen.salidas.por-vale`; conserva su excepción explícita, sin filtro territorial de documentos. |
+| GET | `/api/v1/almacen/salidas/{id:guid}/vale` | Descarga de documento persistido: se agrega guarda `salida_almacen`, bypass `almacen.salidas.leer-todas-sucursales`, después de la policy `almacen.salidas.leer-todas` y antes de consultar el vale o abrir su contenido. |
+
+La descarga del vale era una omisión adicional de alcance en una ruta anterior a P7. Se reutiliza la misma guarda del detalle de salida; no cambian almacenamiento, contenido, descarga, estados ni reglas de negocio de P4/P7.
+
+### Corrección del fixture y regresiones
+
+- La limpieza de Outbox de Almacén/CxP/Tesorería y la foto de estado de P6b dejan de traducir `Payload.Contains` a `LIKE` sobre `jsonb`. Se proyectan `Id`/`Payload`, se buscan referencias en memoria y se elimina por IDs. No cambia el tipo de columna ni las migraciones.
+- Tres regresiones PostgreSQL verifican JSON anidado, referencias duplicadas, limpieza vacía, eliminación del evento propio y conservación de eventos ajenos. Se mantiene la regresión de preparación fallida y preservación de roles del sistema.
+- Las dos pruebas OC reportadas usan una referencia exclusiva para seleccionar sus documentos, evitando depender de la primera página de datos compartidos. El diff de producción confirma que P6 solo añadió el filtro antes del conteo y mantuvo `FechaDocumento DESC`, `Folio DESC`, `Skip` y `Take`.
+- Una regresión con el fixture P6 verifica totales, páginas de tamaño 1, exclusión de OC ajena y orden corporativo. La descarga de vale se incorpora a las teorías de 403 ajeno/éxito propio/corporativo y de prioridad del permiso, más dos casos de contenido y `download`. El fixture sustituye Blob Storage por un PDF ficticio en memoria; estas pruebas no acreditan integración Azure.
+
+Resultados y logs actuales: [P6b-adenda2-resumen.md](P6b-adenda2-resumen.md) y [evidencia-p6b-adenda2](evidencia-p6b-adenda2/cotejo-rutas.txt). El rojo/verde PostgreSQL completo posterior a esta corrección sigue **Por confirmar** hasta ejecutar `tools/validate-integration-isolated.sh` fuera del bloqueo Docker del sandbox. La reproducción con usuarios reales Cancún/Circuito sigue pendiente; las integraciones utilizan sucursales ficticias del seed P6.

@@ -120,8 +120,10 @@ public static class ValeBlobEndpoints
             bool? download,
             AlmacenDbContext db,
             IAlmacenarBlobPort blob,
+            DocumentoSucursalScope documentos,
             CancellationToken cancellationToken) =>
         {
+            await documentos.VerificarAsync("salida_almacen", id, PermisosCanonicos.AlmacenSalidasLeerTodasSucursales, cancellationToken);
             var salida = await db.Movimientos
                 .AsNoTracking()
                 .Where(m => m.Id == id

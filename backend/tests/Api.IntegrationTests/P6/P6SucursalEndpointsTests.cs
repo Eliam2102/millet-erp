@@ -25,6 +25,7 @@ using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure.Outbox;
 using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Pasivos;
 using Millet.Tesoreria.Infrastructure.Persistence;
@@ -195,6 +196,79 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
         Assert.Equal(antes.Oc, despues.Oc);
         Assert.Equal(antes.Roles, despues.Roles);
         Assert.Equal(antes.PermisosSistema, despues.PermisosSistema);
+    }
+
+    [Theory]
+    [InlineData("almacen")]
+    [InlineData("tesoreria")]
+    [InlineData("cuentas-por-pagar")]
+    public async Task Limpieza_Outbox_jsonb_elimina_solo_eventos_del_fixture(string modulo)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        DbContext db = modulo switch
+        {
+            "almacen" => scope.ServiceProvider.GetRequiredService<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>(),
+            "tesoreria" => scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>(),
+            _ => scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>(),
+        };
+        var documento = Guid.NewGuid();
+        var otroDocumento = Guid.NewGuid();
+        var relacionado = new IntegrationEventOutboxEntry(Guid.NewGuid(), "p6.prueba.v1",
+            JsonSerializer.Serialize(new { aplicaciones = new[] { new { facturaProveedorId = documento } } }), DateTimeOffset.UtcNow, Empresa);
+        var ajeno = new IntegrationEventOutboxEntry(Guid.NewGuid(), "p6.prueba.v1",
+            JsonSerializer.Serialize(new { facturaProveedorId = otroDocumento }), DateTimeOffset.UtcNow, Empresa);
+        var idsPrueba = new[] { relacionado.Id, ajeno.Id };
+        var outbox = db.Set<IntegrationEventOutboxEntry>();
+        try
+        {
+            outbox.AddRange(relacionado, ajeno);
+            await db.SaveChangesAsync();
+            Assert.Equal(new[] { relacionado.Id }, await IdsOutboxAsync(outbox, [documento, documento]));
+            await LimpiarOutboxAsync(outbox, []);
+            Assert.Equal(2, await outbox.CountAsync(x => idsPrueba.Contains(x.Id)));
+            await LimpiarOutboxAsync(outbox, [documento]);
+            Assert.False(await outbox.AnyAsync(x => x.Id == relacionado.Id));
+            Assert.True(await outbox.AnyAsync(x => x.Id == ajeno.Id));
+            Assert.Empty(await IdsOutboxAsync(outbox, [documento]));
+        }
+        finally
+        {
+            await outbox.Where(x => idsPrueba.Contains(x.Id)).ExecuteDeleteAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Listado_OC_filtra_sucursal_antes_de_conteo_y_pagina_y_conserva_orden_por_folio()
+    {
+        await using var datos = await PrepararAsync();
+        var referencia = $"P6-PAGINA-{Guid.NewGuid():N}";
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var ids = new[] { datos.Propios["oc"], datos.Ajenos["oc"] };
+            foreach (var oc in await db.OrdenesCompra.Where(x => ids.Contains(x.Id)).ToListAsync())
+                oc.ActualizarReferenciaProveedor(referencia);
+            await db.SaveChangesAsync();
+        }
+        async Task<JsonElement> PaginaAsync(HttpClient client, int pagina)
+        {
+            using var respuesta = await client.GetAsync($"/api/v1/compras/ordenes?referenciaProveedor={referencia}&page={pagina}&pageSize=1");
+            Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+            return await respuesta.Content.ReadFromJsonAsync<JsonElement>();
+        }
+        var propia = await PaginaAsync(datos.Operativo, 1);
+        Assert.Equal(1, propia.GetProperty("totalCount").GetInt32());
+        Assert.Equal(datos.Propios["oc"], Assert.Single(propia.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
+        Assert.Empty((await PaginaAsync(datos.Operativo, 2)).GetProperty("items").EnumerateArray());
+        // Misma fecha, folio PBB > PAA: la corporativa conserva ambas páginas y su orden DESC.
+        var primera = await PaginaAsync(datos.Corporativo, 1);
+        var segunda = await PaginaAsync(datos.Corporativo, 2);
+        Assert.Equal(2, primera.GetProperty("totalCount").GetInt32());
+        Assert.Equal(2, segunda.GetProperty("totalCount").GetInt32());
+        Assert.Equal(datos.Ajenos["oc"], Assert.Single(primera.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
+        Assert.Equal(datos.Propios["oc"], Assert.Single(segunda.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
     }
 
     [Fact]
@@ -489,8 +563,7 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
             var bins = Ids("bin_p7");
             var almacenMovIds = Ids("recepcion_p7").Concat(Ids("vale_p7")).ToArray();
             await almacen.Movimientos.Where(m => almacenMovIds.Contains(m.Id) || m.Lineas.Any(l => bins.Contains(l.UbicacionId ?? Guid.Empty))).ExecuteDeleteAsync();
-            foreach (var documento in Ids("oc").Concat(Ids("rq")).Concat(articuloIdsP7))
-                await almacen.OutboxEntries.Where(o => o.Payload.Contains(documento.ToString())).ExecuteDeleteAsync();
+            await LimpiarOutboxAsync(almacen.OutboxEntries, ocIds.Concat(rqIds).Concat(articuloIdsP7));
             await almacen.ConfiguracionesReorden.Where(c => articuloIdsP7.Contains(c.ArticuloId)).ExecuteDeleteAsync();
             await almacen.SaldosInventario.Where(x => bins.Contains(x.UbicacionId)).ExecuteDeleteAsync();
             await almacen.AsignacionesArticuloUbicacion.Where(x => bins.Contains(x.UbicacionId)).ExecuteDeleteAsync();
@@ -500,15 +573,13 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
             await scope.ServiceProvider.GetRequiredService<CompartidoDbContext>().Articulos.Where(x => articuloIdsP7.Contains(x.Id)).ExecuteDeleteAsync();
             var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
             await tes.ReppsProveedorRecibidos.Where(x => facturaIds.Contains(x.FacturaProveedorId)).ExecuteDeleteAsync();
-            foreach (var facturaId in facturaIds)
-                await tes.OutboxEntries.Where(x => x.Payload.Contains(facturaId.ToString())).ExecuteDeleteAsync();
+            await LimpiarOutboxAsync(tes.OutboxEntries, facturaIds);
             await tes.AplicacionesPagoProveedor.Where(x => pagoIds.Contains(x.Id)).ExecuteDeleteAsync();
             await tes.MovimientosBancarios.Where(x => movimientoIds.Contains(x.Id)).ExecuteDeleteAsync();
             await tes.CuentasBancarias.Where(x => cuentaIds.Contains(x.Id)).ExecuteDeleteAsync();
             var cfdiIds = Ids("cfdi"); var tarjetaIds = Ids("tarjeta"); var movimientosTcIds = Ids("movimiento_tc");
             var cxp = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
-            foreach (var facturaId in facturaIds)
-                await cxp.OutboxEntries.Where(x => x.Payload.Contains(facturaId.ToString())).ExecuteDeleteAsync();
+            await LimpiarOutboxAsync(cxp.OutboxEntries, facturaIds);
             await cxp.MovimientosTarjetaCredito.Where(x => movimientosTcIds.Contains(x.Id)).ExecuteDeleteAsync();
             await cxp.TarjetasCredito.Where(x => tarjetaIds.Contains(x.Id)).ExecuteDeleteAsync();
             await cxp.AnticiposProveedor.Where(x => anticipoIds.Contains(x.Id)).ExecuteDeleteAsync();
@@ -540,6 +611,25 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
             operativo?.Dispose(); corporativo?.Dispose();
         }
     }
+
+    private static async Task<Guid[]> IdsOutboxAsync(
+        DbSet<IntegrationEventOutboxEntry> outbox, IEnumerable<Guid> documentos)
+    {
+        var referencias = documentos.Distinct().Select(id => id.ToString()).ToArray();
+        if (referencias.Length == 0) return [];
+        // Payload es jsonb: Contains debe ejecutarse en memoria, nunca como LIKE en PostgreSQL.
+        var filas = await outbox.AsNoTracking().Select(x => new { x.Id, x.Payload }).ToListAsync();
+        return filas.Where(x => referencias.Any(id => x.Payload.Contains(id, StringComparison.Ordinal)))
+            .Select(x => x.Id).ToArray();
+    }
+
+    private static async Task LimpiarOutboxAsync(
+        DbSet<IntegrationEventOutboxEntry> outbox, IEnumerable<Guid> documentos)
+    {
+        var ids = await IdsOutboxAsync(outbox, documentos);
+        if (ids.Length > 0)
+            await outbox.Where(x => ids.Contains(x.Id)).ExecuteDeleteAsync();
+    }
 }
 
 /// <summary>Host compartido solo por esta suite: el aislamiento de periodos no afecta a las pruebas P8.</summary>
@@ -554,7 +644,21 @@ public sealed class P6SucursalEndpointsFactory : WebApplicationFactory<Program>
             services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
             services.RemoveAll<Millet.Almacen.Domain.Ports.IPeriodoContableReadPort>();
             services.AddScoped<Millet.Almacen.Domain.Ports.IPeriodoContableReadPort, PeriodoAlmacenAbierto>();
+            // El fixture territorial usa un vale ficticio; no accede a Blob Storage externo.
+            services.RemoveAll<Millet.Almacen.Domain.Ports.Blob.IAlmacenarBlobPort>();
+            services.AddScoped<Millet.Almacen.Domain.Ports.Blob.IAlmacenarBlobPort, BlobAlmacenP6>();
         });
+    }
+
+    private sealed class BlobAlmacenP6 : Millet.Almacen.Domain.Ports.Blob.IAlmacenarBlobPort
+    {
+        public Task<string> SubirAsync(Guid id, Stream contenido, string tipo, string nombre, CancellationToken ct)
+            => Task.FromResult($"p6-fixture://{id}");
+        public Task<Stream> ObtenerStreamAsync(string url, CancellationToken ct)
+            => Task.FromResult<Stream>(new MemoryStream("%PDF-1.4 vale ficticio P6"u8.ToArray()));
+        public async Task<Millet.Almacen.Domain.Ports.Blob.BlobDescriptor> ObtenerDescriptorAsync(string url, CancellationToken ct)
+            => new(await ObtenerStreamAsync(url, ct), "application/pdf", "vale-p6.pdf");
+        public Task EliminarAsync(string url, CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class PeriodoAlmacenAbierto : Millet.Almacen.Domain.Ports.IPeriodoContableReadPort

@@ -30,6 +30,7 @@ public sealed partial class P6SucursalEndpointsTests
     {
         { "recepcion-detalle", PermisosCanonicos.AlmacenEntradasLeer },
         { "salida-detalle", PermisosCanonicos.AlmacenSalidasLeerTodas },
+        { "vale-detalle", PermisosCanonicos.AlmacenSalidasLeerTodas },
         { "recepcion-factura", PermisosCanonicos.AlmacenEntradasRegistrar },
         { "recepcion-packing", PermisosCanonicos.AlmacenEntradasRegistrar },
         { "salida-rq", PermisosCanonicos.AlmacenSalidasRegistrar },
@@ -80,6 +81,22 @@ public sealed partial class P6SucursalEndpointsTests
         using var response = await EnviarP7Async(datos.Operativo, ruta, datos.Ajenos);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.DoesNotContain("SUCURSAL_NO_ASOCIADA", await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Vale_archivo_propio_y_corporativo_conserva_contenido_y_descarga(bool descargar)
+    {
+        await using var datos = await PrepararP7ScopeAsync();
+        foreach (var (cliente, mapa) in new[] { (datos.Operativo, datos.Propios), (datos.Corporativo, datos.Ajenos) })
+        {
+            using var respuesta = await cliente.GetAsync($"/api/v1/almacen/salidas/{mapa["vale_p7"]}/vale?download={descargar}");
+            Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+            Assert.Equal("application/pdf", respuesta.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("%PDF-1.4 vale ficticio P6", await respuesta.Content.ReadAsStringAsync());
+            Assert.Equal(descargar ? "attachment" : null, respuesta.Content.Headers.ContentDisposition?.DispositionType);
+        }
     }
 
     [Theory]
@@ -192,6 +209,7 @@ public sealed partial class P6SucursalEndpointsTests
         {
             "recepcion-detalle" => client.GetAsync($"/api/v1/almacen/recepciones/{d["recepcion_p7"]}"),
             "salida-detalle" => client.GetAsync($"/api/v1/almacen/salidas/{d["vale_p7"]}"),
+            "vale-detalle" => client.GetAsync($"/api/v1/almacen/salidas/{d["vale_p7"]}/vale"),
             "recepcion-factura" => client.PostAsJsonAsync("/api/v1/almacen/recepciones/", new RegistrarRecepcionConFacturaCommand(d["oc"], new(2026, 10, 9), null, Guid.NewGuid().ToString(), "DEMO P6b", entradas)),
             "recepcion-packing" => client.PostAsJsonAsync("/api/v1/almacen/recepciones/packing-list", new RegistrarRecepcionConPackingListCommand(d["oc"], new(2026, 10, 9), "DEMO-P6b.pdf", null, entradas)),
             "salida-rq" => client.PostAsJsonAsync("/api/v1/almacen/salidas/", new RegistrarSalidaConRequisicionCommand(d["rq"], new(2026, 10, 9), null, "DEMO P6b", salidas)),

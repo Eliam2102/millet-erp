@@ -1,0 +1,14 @@
+diff --git a/backend/src/Compras/Application/Oc/ListarOrdenesCompra/ListarOrdenesCompraHandler.cs b/backend/src/Compras/Application/Oc/ListarOrdenesCompra/ListarOrdenesCompraHandler.cs
+index 7b9d30c..47ab182 100644
+--- a/backend/src/Compras/Application/Oc/ListarOrdenesCompra/ListarOrdenesCompraHandler.cs
++++ b/backend/src/Compras/Application/Oc/ListarOrdenesCompra/ListarOrdenesCompraHandler.cs
+@@ -30,7 +30,8 @@ public sealed class ListarOrdenesCompraHandler
+             _ => request.PageSize,
+         };
+ 
+-        var query = _db.OrdenesCompra.AsNoTracking();
++        var query = _db.OrdenesCompra
++            .Where(x => request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalDestinoId)).AsNoTracking();
+ 
+         if (request.Estado is { } estado)
+         {

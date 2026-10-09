@@ -374,7 +374,7 @@ public sealed partial class P6SucursalEndpointsTests
             Anticipos = await db.AnticiposProveedor.AsNoTracking().Where(x => ids.Contains(x.Id)).Select(x => new { x.Id, x.Version, x.Estado, x.MontoAmortizado }).OrderBy(x => x.Id).ToArrayAsync(),
             Notas = await db.NotasCreditoProveedor.AsNoTracking().Where(x => ids.Contains(x.Id)).Select(x => new { x.Id, x.Version, x.Estado, x.MontoAplicado, x.FacturaOrigenId }).OrderBy(x => x.Id).ToArrayAsync(),
             Cargo = await db.NotasCargo.AsNoTracking().Where(x => x.Id == mapa["nota_cargo"]).Select(x => new { x.Version, x.Estado, x.NotaCreditoProveedorId }).SingleAsync(),
-            Outbox = await tes.OutboxEntries.CountAsync(x => x.Payload.Contains(factura.ToString())),
+            Outbox = (await IdsOutboxAsync(tes.OutboxEntries, [factura])).Length,
         });
     }
 
