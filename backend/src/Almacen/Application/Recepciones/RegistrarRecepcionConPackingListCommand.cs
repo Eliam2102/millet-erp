@@ -284,6 +284,11 @@ public sealed class RegistrarRecepcionConPackingListHandler
             {
                 return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOc.LineaId);
             }
+
+            // CA2.10: si la OC es conocida, no se permite recibir un artículo que no esté en sus líneas recibibles (p. ej. servicios).
+            throw new BusinessRuleException(
+                "RECEPCION_ARTICULO_NO_EN_OC",
+                $"El artículo '{input.ArticuloId}' no pertenece a las líneas recibibles de la OC '{oc.Folio}'.");
         }
 
         var articulo2 = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);

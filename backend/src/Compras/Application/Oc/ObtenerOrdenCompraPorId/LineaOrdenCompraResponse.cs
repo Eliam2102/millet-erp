@@ -61,4 +61,6 @@ public sealed record LineaOrdenCompraResponse(
     DateTimeOffset? FechaEntregaLinea,
     decimal CantidadRecibida,
     decimal CantidadFacturada,
-    string? TextoAdicional);
+    string? TextoAdicional,
+    // GAP-9 / CA2.10: los servicios no se reciben en Almacén; el form de recepción los omite.
+    bool EsServicio = false);

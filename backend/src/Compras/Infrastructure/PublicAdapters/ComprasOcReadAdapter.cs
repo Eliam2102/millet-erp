@@ -64,7 +64,9 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort
 
         var conversionMxn = ConvertirAMxn(oc.Moneda, oc.TipoCambio);
 
+        // GAP-9 / CA2.10: los servicios no se reciben en Almacén.
         var lineas = oc.Lineas
+            .Where(l => !l.EsServicio)
             .Select(l => new OcLineaLectura(
                 LineaId: l.Id,
                 ArticuloId: l.ArticuloId,
