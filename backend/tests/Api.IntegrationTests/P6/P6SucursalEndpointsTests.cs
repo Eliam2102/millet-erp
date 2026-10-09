@@ -2,9 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Api.Auth.Models;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
@@ -29,7 +32,7 @@ using Millet.Tesoreria.Infrastructure.Persistence;
 namespace Millet.Api.IntegrationTests.P6;
 
 /// <summary>Documentos propios/ajenos sobre PostgreSQL. Usa sucursales del seed; no modifica catálogos compartidos.</summary>
-public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public sealed class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory) : IClassFixture<P6SucursalEndpointsFactory>
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private static readonly Guid Propia = Guid.Parse("00000005-0003-0000-0000-000000000001");
@@ -147,6 +150,35 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
             Assert.Equal(HttpStatusCode.OK, (await datos.Operativo.GetAsync(Ruta(tipo, datos.Propios[tipo]) + sufijo)).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await datos.Corporativo.GetAsync(Ruta(tipo, datos.Ajenos[tipo]) + sufijo)).StatusCode);
         }
+    }
+
+    [Fact]
+    public async Task Preparacion_fallida_limpia_documentos_y_rol_temporal_y_conserva_roles_del_sistema()
+    {
+        async Task<(Guid[] Rq, Guid[] Oc, Guid[] Roles, Guid[] PermisosSistema)> EstadoAsync()
+        {
+            using var scope = factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            return (
+                await compras.Requisiciones.OrderBy(x => x.Id).Select(x => x.Id).ToArrayAsync(),
+                await compras.OrdenesCompra.OrderBy(x => x.Id).Select(x => x.Id).ToArrayAsync(),
+                await identidad.Roles.OrderBy(x => x.Id).Select(x => x.Id).ToArrayAsync(),
+                await identidad.RolPermisos.Where(x => identidad.Roles.Any(r => r.Id == x.RolId && r.EsDelSistema))
+                    .OrderBy(x => x.Id).Select(x => x.Id).ToArrayAsync());
+        }
+
+        // El host ya arrancó antes de la foto: el bootstrap no entra en la comparación.
+        var antes = await EstadoAsync();
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => PrepararAsync(
+            () => throw new InvalidOperationException("Fallo de preparación simulado P6")));
+        Assert.Equal("Fallo de preparación simulado P6", error.Message);
+        var despues = await EstadoAsync();
+        Assert.Equal(antes.Rq, despues.Rq);
+        Assert.Equal(antes.Oc, despues.Oc);
+        Assert.Equal(antes.Roles, despues.Roles);
+        Assert.Equal(antes.PermisosSistema, despues.PermisosSistema);
     }
 
     [Fact]
@@ -296,91 +328,108 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
         "pago" => "/api/v1/tesoreria/pagos", _ => throw new ArgumentException(tipo),
     }) + (id is null ? "" : $"/{id}");
 
-    private async Task<Datos> PrepararAsync()
+    private async Task<Datos> PrepararAsync(Action? despuesDeGuardarCompras = null)
     {
         var usuarioId = Guid.CreateVersion7(); var rolId = Guid.CreateVersion7(); var oid = $"p6-scope-{usuarioId:N}";
-        using (var scope = factory.Services.CreateScope())
+        var datos = new Datos(factory, usuarioId, rolId);
+        try
         {
-            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
-            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            db.Roles.Add(new Rol(rolId, oid, "Operativo P6"));
-            foreach (var permiso in await db.Permisos.Where(x => !x.Codigo.EndsWith("todas-sucursales")).ToListAsync())
-                db.RolPermisos.Add(new RolPermiso(Guid.CreateVersion7(), rolId, permiso.Id));
-            db.Usuarios.Add(new Usuario(usuarioId, oid, $"{oid}@test.local", "Operativo P6"));
-            db.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
-            db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Guid.CreateVersion7(), usuarioId, Empresa, rolId, null));
-            db.UsuarioSucursales.Add(new UsuarioSucursal(Guid.CreateVersion7(), usuarioId, Propia, Empresa));
-            await db.SaveChangesAsync();
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+                using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                db.Roles.Add(new Rol(rolId, oid, "Operativo P6"));
+                foreach (var permiso in await db.Permisos.Where(x => !x.Codigo.EndsWith("todas-sucursales")).ToListAsync())
+                    db.RolPermisos.Add(new RolPermiso(Guid.CreateVersion7(), rolId, permiso.Id));
+                db.Usuarios.Add(new Usuario(usuarioId, oid, $"{oid}@test.local", "Operativo P6"));
+                db.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
+                db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Guid.CreateVersion7(), usuarioId, Empresa, rolId, null));
+                db.UsuarioSucursales.Add(new UsuarioSucursal(Guid.CreateVersion7(), usuarioId, Propia, Empresa));
+                await db.SaveChangesAsync();
+            }
+            datos.Operativo = await LoginAsync(oid, "Operativo P6");
+            datos.Corporativo = await LoginAsync("dev-superadmin", "Super Admin Dev");
+            foreach (var sucursal in new[] { Propia, Ajena })
+            {
+                using var scope = factory.Services.CreateScope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+                var numero = Random.Shared.Next(100000, 999999); var prefix = sucursal == Propia ? "PAA" : "PBB";
+                var rq = new Requisicion(Guid.CreateVersion7(), Empresa, Millet.Compras.Domain.Folio.Parse($"{prefix}2026-{numero}"), 2026,
+                    Clasificacion.OrdenCompra, sucursal, Guid.Parse("00000005-0004-0000-0000-000000000001"), null, usuarioId, usuarioId, Prioridad.Normal, DateTimeOffset.UtcNow);
+                var oc = new OrdenCompra(Guid.CreateVersion7(), Empresa, Millet.Compras.Domain.Oc.Folio.Parse($"OC-{prefix}2026-{numero}"), 2026,
+                    Proveedor, sucursal, Guid.NewGuid(), Guid.NewGuid(), usuarioId, usuarioId, DateOnly.FromDateTime(DateTime.UtcNow));
+                var mapa = sucursal == Propia ? datos.Propios : datos.Ajenos;
+                mapa.Add("rq", rq.Id); mapa.Add("oc", oc.Id);
+                compras.AddRange(rq, oc); await compras.SaveChangesAsync();
+                despuesDeGuardarCompras?.Invoke();
+                var cxp = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>(); var ahora = DateTimeOffset.UtcNow;
+                var cfdi = CfdiRecibido.Ingresar(Empresa, UuidCfdi.Parse(Guid.NewGuid().ToString()), RfcMexicano.Parse("PRO010101AAA"), RfcMexicano.Parse("MIL010101AAA"),
+                    TipoCfdi.Ingreso, $"{prefix}-{numero}", "P6", ahora, 116m, 100m, 16m, 0m, "MXN", null, CanalOrigenCfdi.CargaManual, ahora,
+                    "p6-blob-de-prueba", null, "p6-hash-de-prueba");
+                cxp.CfdisRecibidos.Add(cfdi);
+                mapa.Add("cfdi", cfdi.Id);
+                var factura = FacturaProveedor.CapturarSinOc(Empresa, cfdi.Id, cfdi.UuidCfdi.Valor, Proveedor, sucursal, $"{prefix}-{numero}", null,
+                    ahora, ahora, DateOnly.FromDateTime(ahora.DateTime).AddDays(30), "MXN", null, 100m, 0m, 16m, 0m, 116m, "Prueba P6", ahora);
+                cxp.FacturasProveedor.Add(factura);
+                mapa.Add("factura", factura.Id);
+                var anticipo = Millet.CuentasPorPagar.Domain.AnticipoProveedor.AnticipoProveedor.Capturar(Empresa, null, Guid.NewGuid().ToString(), Proveedor,
+                    Millet.CuentasPorPagar.Domain.AnticipoProveedor.AnticipoProveedor.SerieEstandar, null, ahora, "MXN", null, 100m, oc.Id, usuarioId, ahora);
+                var notaCredito = Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.NotaCreditoProveedor.Capturar(Empresa, null, Guid.NewGuid().ToString(), Proveedor, null, null,
+                    ahora, "MXN", null, 10m, 0m, 0m, 10m, Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoNotaCredito.Descuento,
+                    Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), factura.Id, usuarioId, ahora);
+                var notaCargo = Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo.Crear(Empresa,
+                    Millet.CuentasPorPagar.Domain.NotaCargo.FolioInternoNotaCargo.FromAnioSecuencial(2026, numero), Proveedor, sucursal, "Cargo de prueba", null, 10m, "MXN", null, factura.Id, null, usuarioId, ahora);
+                var comprobacion = Millet.CuentasPorPagar.Domain.ComprobacionGastos.ComprobacionGastos.Crear(Empresa,
+                    Millet.CuentasPorPagar.Domain.ComprobacionGastos.TipoComprobacionGastos.ReembolsoCajaChica, sucursal, usuarioId,
+                    DateOnly.FromDateTime(ahora.DateTime), DateOnly.FromDateTime(ahora.DateTime), "MXN", "Prueba P6", ahora,
+                    destinoReposicion: Millet.CuentasPorPagar.Domain.ComprobacionGastos.DestinoReposicionCaja.CuentaSucursal);
+                var reposicion = Millet.CuentasPorPagar.Domain.ComprobacionGastos.ReposicionCajaChica.Emitir(Empresa, sucursal,
+                    Millet.CuentasPorPagar.Domain.ComprobacionGastos.DestinoReposicionCaja.CuentaSucursal, sucursal, "MXN", 100m, 1, true, usuarioId, ahora);
+                var tarjeta = Millet.CuentasPorPagar.Domain.TarjetaCredito.Tarjeta.Crear(Empresa, "Emisora de prueba P6", "AMEX_MX",
+                    Millet.CuentasPorPagar.Domain.TarjetaCredito.NumeroTarjetaEnmascarado.FromUltimosCuatro("1234"), $"Tarjeta P6 {prefix}-{numero}", usuarioId, Proveedor,
+                    10000m, "MXN", 15, 20, new DateOnly(2026, 1, 1));
+                var movimientoTc = Millet.CuentasPorPagar.Domain.TarjetaCredito.MovimientoTarjetaCredito.CapturarCompraConCfdi(Empresa, tarjeta, usuarioId,
+                    DateOnly.FromDateTime(ahora.DateTime), 116m, "MXN", null, "Comercio de prueba P6", null, cfdi.Id, factura.Id, Proveedor, "Prueba P6");
+                mapa.Add("tarjeta", tarjeta.Id); mapa.Add("movimiento_tc", movimientoTc.Id);
+                mapa.Add("anticipo", anticipo.Id); mapa.Add("nota_credito", notaCredito.Id); mapa.Add("nota_cargo", notaCargo.Id);
+                mapa.Add("comprobacion", comprobacion.Id); mapa.Add("reposicion", reposicion.Id);
+                cxp.AddRange(anticipo, notaCredito, notaCargo, comprobacion, reposicion, tarjeta, movimientoTc); await cxp.SaveChangesAsync();
+                var facturacion = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+                var venta = FacturaVenta.CrearBorrador(Empresa, $"{prefix}-{numero}", 1, sucursal, null, null,
+                    new DatosFiscalesReceptor("XAXX010101000", "Prueba P6", "616", "97000", "S01", "MEX", true),
+                    new DatosFiscalesEmisor("MIL010101AAA", "Prueba P6", "601", "97000"), "PUE", "01", "MXN", null, 2026, 10, 1,
+                    ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+                mapa.Add("venta", venta.Id);
+                facturacion.FacturasVenta.Add(venta); await facturacion.SaveChangesAsync();
+                var cxc = scope.ServiceProvider.GetRequiredService<CuentasPorCobrarDbContext>();
+                var cartera = FacturaCartera.Crear(Empresa, venta.Id, datos.ClienteId, "XAXX010101000", "Cliente prueba", Guid.NewGuid().ToString(), $"{prefix}-{numero}", 116m, "MXN", "PPD", ahora, ahora.AddDays(30));
+                mapa.Add("cartera", cartera.Id);
+                cxc.FacturasCartera.Add(cartera); await cxc.SaveChangesAsync();
+                var propuesta = PropuestaAplicacionPago.Crear(Empresa, datos.ClienteId, $"{prefix}-{numero}", 116m, "MXN", "Remittance P6",
+                    [(cartera.Uuid, cartera.Id, 116m, 1)], 1000m);
+                mapa.Add("propuesta", propuesta.Id);
+                cxc.PropuestasAplicacionPago.Add(propuesta); await cxc.SaveChangesAsync();
+                var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+                var cuenta = new Millet.Tesoreria.Domain.Cuentas.CuentaBancaria(Empresa, "Banco de prueba P6",
+                    Random.Shared.NextInt64(100000000000000000, 999999999999999999).ToString(System.Globalization.CultureInfo.InvariantCulture), null, "MXN");
+                var movimiento = Millet.Tesoreria.Domain.Movimientos.MovimientoBancario.RegistrarPagoProveedor(Empresa, cuenta, Proveedor, 116m,
+                    DateOnly.FromDateTime(ahora.DateTime), "Prueba P6", null, usuarioId, ahora);
+                var pago = new Millet.Tesoreria.Domain.Movimientos.AplicacionPagoProveedor(movimiento.Id, factura.Id, Proveedor, 116m, ahora);
+                tes.AddRange(cuenta, movimiento, pago);
+                var deposito = DepositoConfirmacion.CrearDesdePropuesta(Empresa, propuesta.Id, datos.ClienteId, $"{prefix}-{numero}", 116m, "MXN", "[]");
+                var pasivo = new PasivoPendientePago(Empresa, factura.Id, Proveedor, null, 116m, 116m, "MXN", null, DateOnly.FromDateTime(ahora.DateTime).AddDays(30), null, factura.FolioProveedor, ahora);
+                mapa.Add("movimiento", movimiento.Id); mapa.Add("pago", pago.Id); mapa.Add("cuenta", cuenta.Id);
+                mapa.Add("deposito", deposito.Id); mapa.Add("pasivo", pasivo.Id);
+                tes.AddRange(deposito, pasivo); await tes.SaveChangesAsync();
+            }
+            return datos;
         }
-        var datos = new Datos(factory, await LoginAsync(oid, "Operativo P6"), await LoginAsync("dev-superadmin", "Super Admin Dev"), usuarioId, rolId);
-        foreach (var sucursal in new[] { Propia, Ajena })
+        catch
         {
-            using var scope = factory.Services.CreateScope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
-            var numero = Random.Shared.Next(100000, 999999); var prefix = sucursal == Propia ? "PAA" : "PBB";
-            var rq = new Requisicion(Guid.CreateVersion7(), Empresa, Millet.Compras.Domain.Folio.Parse($"{prefix}2026-{numero}"), 2026,
-                Clasificacion.OrdenCompra, sucursal, Guid.Parse("00000005-0004-0000-0000-000000000001"), null, usuarioId, usuarioId, Prioridad.Normal, DateTimeOffset.UtcNow);
-            var oc = new OrdenCompra(Guid.CreateVersion7(), Empresa, Millet.Compras.Domain.Oc.Folio.Parse($"OC-{prefix}2026-{numero}"), 2026,
-                Proveedor, sucursal, Guid.NewGuid(), Guid.NewGuid(), usuarioId, usuarioId, DateOnly.FromDateTime(DateTime.UtcNow));
-            compras.AddRange(rq, oc); await compras.SaveChangesAsync();
-            var cxp = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>(); var ahora = DateTimeOffset.UtcNow;
-            var cfdi = CfdiRecibido.Ingresar(Empresa, UuidCfdi.Parse(Guid.NewGuid().ToString()), RfcMexicano.Parse("PRO010101AAA"), RfcMexicano.Parse("MIL010101AAA"),
-                TipoCfdi.Ingreso, $"{prefix}-{numero}", "P6", ahora, 116m, 100m, 16m, 0m, "MXN", null, CanalOrigenCfdi.CargaManual, ahora,
-                "p6-blob-de-prueba", null, "p6-hash-de-prueba");
-            cxp.CfdisRecibidos.Add(cfdi);
-            var factura = FacturaProveedor.CapturarSinOc(Empresa, cfdi.Id, cfdi.UuidCfdi.Valor, Proveedor, sucursal, $"{prefix}-{numero}", null,
-                ahora, ahora, DateOnly.FromDateTime(ahora.DateTime).AddDays(30), "MXN", null, 100m, 0m, 16m, 0m, 116m, "Prueba P6", ahora);
-            cxp.FacturasProveedor.Add(factura);
-            var anticipo = Millet.CuentasPorPagar.Domain.AnticipoProveedor.AnticipoProveedor.Capturar(Empresa, null, Guid.NewGuid().ToString(), Proveedor,
-                Millet.CuentasPorPagar.Domain.AnticipoProveedor.AnticipoProveedor.SerieEstandar, null, ahora, "MXN", null, 100m, oc.Id, usuarioId, ahora);
-            var notaCredito = Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.NotaCreditoProveedor.Capturar(Empresa, null, Guid.NewGuid().ToString(), Proveedor, null, null,
-                ahora, "MXN", null, 10m, 0m, 0m, 10m, Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoNotaCredito.Descuento,
-                Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), factura.Id, usuarioId, ahora);
-            var notaCargo = Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo.Crear(Empresa,
-                Millet.CuentasPorPagar.Domain.NotaCargo.FolioInternoNotaCargo.FromAnioSecuencial(2026, numero), Proveedor, sucursal, "Cargo de prueba", null, 10m, "MXN", null, factura.Id, null, usuarioId, ahora);
-            var comprobacion = Millet.CuentasPorPagar.Domain.ComprobacionGastos.ComprobacionGastos.Crear(Empresa,
-                Millet.CuentasPorPagar.Domain.ComprobacionGastos.TipoComprobacionGastos.ReembolsoCajaChica, sucursal, usuarioId,
-                DateOnly.FromDateTime(ahora.DateTime), DateOnly.FromDateTime(ahora.DateTime), "MXN", "Prueba P6", ahora,
-                destinoReposicion: Millet.CuentasPorPagar.Domain.ComprobacionGastos.DestinoReposicionCaja.CuentaSucursal);
-            var reposicion = Millet.CuentasPorPagar.Domain.ComprobacionGastos.ReposicionCajaChica.Emitir(Empresa, sucursal,
-                Millet.CuentasPorPagar.Domain.ComprobacionGastos.DestinoReposicionCaja.CuentaSucursal, sucursal, "MXN", 100m, 1, true, usuarioId, ahora);
-            var tarjeta = Millet.CuentasPorPagar.Domain.TarjetaCredito.Tarjeta.Crear(Empresa, "Emisora de prueba P6", "AMEX_MX",
-                Millet.CuentasPorPagar.Domain.TarjetaCredito.NumeroTarjetaEnmascarado.FromUltimosCuatro("1234"), $"Tarjeta P6 {prefix}-{numero}", usuarioId, Proveedor,
-                10000m, "MXN", 15, 20, new DateOnly(2026, 1, 1));
-            var movimientoTc = Millet.CuentasPorPagar.Domain.TarjetaCredito.MovimientoTarjetaCredito.CapturarCompraConCfdi(Empresa, tarjeta, usuarioId,
-                DateOnly.FromDateTime(ahora.DateTime), 116m, "MXN", null, "Comercio de prueba P6", null, cfdi.Id, factura.Id, Proveedor, "Prueba P6");
-            cxp.AddRange(anticipo, notaCredito, notaCargo, comprobacion, reposicion, tarjeta, movimientoTc); await cxp.SaveChangesAsync();
-            var facturacion = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
-            var venta = FacturaVenta.CrearBorrador(Empresa, $"{prefix}-{numero}", 1, sucursal, null, null,
-                new DatosFiscalesReceptor("XAXX010101000", "Prueba P6", "616", "97000", "S01", "MEX", true),
-                new DatosFiscalesEmisor("MIL010101AAA", "Prueba P6", "601", "97000"), "PUE", "01", "MXN", null, 2026, 10, 1,
-                ComportamientoFiscal.MostradorInmediato, null, null, null, false);
-            facturacion.FacturasVenta.Add(venta); await facturacion.SaveChangesAsync();
-            var cxc = scope.ServiceProvider.GetRequiredService<CuentasPorCobrarDbContext>();
-            var cartera = FacturaCartera.Crear(Empresa, venta.Id, datos.ClienteId, "XAXX010101000", "Cliente prueba", Guid.NewGuid().ToString(), $"{prefix}-{numero}", 116m, "MXN", "PPD", ahora, ahora.AddDays(30));
-            cxc.FacturasCartera.Add(cartera); await cxc.SaveChangesAsync();
-            var propuesta = PropuestaAplicacionPago.Crear(Empresa, datos.ClienteId, $"{prefix}-{numero}", 116m, "MXN", "Remittance P6",
-                [(cartera.Uuid, cartera.Id, 116m, 1)], 1000m);
-            cxc.PropuestasAplicacionPago.Add(propuesta); await cxc.SaveChangesAsync();
-            var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
-            var cuenta = new Millet.Tesoreria.Domain.Cuentas.CuentaBancaria(Empresa, "Banco de prueba P6",
-                Random.Shared.NextInt64(100000000000000000, 999999999999999999).ToString(System.Globalization.CultureInfo.InvariantCulture), null, "MXN");
-            var movimiento = Millet.Tesoreria.Domain.Movimientos.MovimientoBancario.RegistrarPagoProveedor(Empresa, cuenta, Proveedor, 116m,
-                DateOnly.FromDateTime(ahora.DateTime), "Prueba P6", null, usuarioId, ahora);
-            var pago = new Millet.Tesoreria.Domain.Movimientos.AplicacionPagoProveedor(movimiento.Id, factura.Id, Proveedor, 116m, ahora);
-            tes.AddRange(cuenta, movimiento, pago);
-            var deposito = DepositoConfirmacion.CrearDesdePropuesta(Empresa, propuesta.Id, datos.ClienteId, $"{prefix}-{numero}", 116m, "MXN", "[]");
-            var pasivo = new PasivoPendientePago(Empresa, factura.Id, Proveedor, null, 116m, 116m, "MXN", null, DateOnly.FromDateTime(ahora.DateTime).AddDays(30), null, factura.FolioProveedor, ahora);
-            tes.AddRange(deposito, pasivo); await tes.SaveChangesAsync();
-            var mapa = sucursal == Propia ? datos.Propios : datos.Ajenos;
-            mapa.Add("rq", rq.Id); mapa.Add("oc", oc.Id); mapa.Add("factura", factura.Id); mapa.Add("cartera", cartera.Id);
-            mapa.Add("cfdi", cfdi.Id); mapa.Add("tarjeta", tarjeta.Id); mapa.Add("movimiento_tc", movimientoTc.Id);
-            mapa.Add("anticipo", anticipo.Id); mapa.Add("nota_credito", notaCredito.Id); mapa.Add("nota_cargo", notaCargo.Id);
-            mapa.Add("comprobacion", comprobacion.Id); mapa.Add("reposicion", reposicion.Id);
-            mapa.Add("movimiento", movimiento.Id); mapa.Add("pago", pago.Id); mapa.Add("cuenta", cuenta.Id);
-            mapa.Add("venta", venta.Id); mapa.Add("propuesta", propuesta.Id); mapa.Add("deposito", deposito.Id); mapa.Add("pasivo", pasivo.Id);
+            // Una preparación fallida también debe limpiar lo ya persistido.
+            await datos.DisposeAsync();
+            throw;
         }
-        return datos;
     }
     private async Task<HttpClient> LoginAsync(string oid, string nombre)
     {
@@ -390,15 +439,19 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await response.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken);
         return client;
     }
-    private sealed class Datos(WebApplicationFactory<Program> factory, HttpClient operativo, HttpClient corporativo, Guid usuarioId, Guid rolId) : IAsyncDisposable
+    private sealed class Datos(WebApplicationFactory<Program> factory, Guid usuarioId, Guid rolId) : IAsyncDisposable
     {
-        public HttpClient Operativo => operativo; public HttpClient Corporativo => corporativo;
+        private HttpClient? operativo;
+        private HttpClient? corporativo;
+        public HttpClient Operativo { get => operativo ?? throw new InvalidOperationException("Falta iniciar sesión operativa del fixture P6."); set => operativo = value; }
+        public HttpClient Corporativo { get => corporativo ?? throw new InvalidOperationException("Falta iniciar sesión corporativa del fixture P6."); set => corporativo = value; }
         public Guid UsuarioId => usuarioId; public Guid RolId => rolId; public Guid ClienteId { get; } = Guid.NewGuid();
         public Dictionary<string, Guid> Propios { get; } = []; public Dictionary<string, Guid> Ajenos { get; } = [];
         public async ValueTask DisposeAsync()
         {
             using var scope = factory.Services.CreateScope(); using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-            var mapas = new[] { Propios, Ajenos }; Guid[] Ids(string tipo) => mapas.Select(x => x[tipo]).ToArray();
+            var mapas = new[] { Propios, Ajenos };
+            Guid[] Ids(string tipo) => mapas.Where(x => x.ContainsKey(tipo)).Select(x => x[tipo]).ToArray();
             var depositoIds = Ids("deposito");
             var pasivoIds = Ids("pasivo");
             var propuestaIds = Ids("propuesta");
@@ -449,7 +502,26 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
             await identidad.Usuarios.Where(x => x.Id == usuarioId).ExecuteDeleteAsync();
             await identidad.RolPermisos.Where(x => x.RolId == rolId).ExecuteDeleteAsync();
             await identidad.Roles.Where(x => x.Id == rolId).ExecuteDeleteAsync();
-            operativo.Dispose(); corporativo.Dispose();
+            operativo?.Dispose(); corporativo?.Dispose();
         }
+    }
+}
+
+/// <summary>Host compartido solo por esta suite: el aislamiento de periodos no afecta a las pruebas P8.</summary>
+public sealed class P6SucursalEndpointsFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureTestServices(services =>
+        {
+            // Este fixture mide alcance territorial; el candado contable se prueba en P8.
+            services.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
+            services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
+        });
+    }
+
+    private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort
+    {
+        public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);
     }
 }

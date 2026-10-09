@@ -173,3 +173,12 @@ Cambios locales sobre `4bf1690`, en `fix/P6-acceso-y-sucursal`. Incluye el traba
 - [docs/P6/fallos-integracion-09oct.md](../../docs/P6/fallos-integracion-09oct.md)
 - [docs/P6/inventario-sucursales.md](../../docs/P6/inventario-sucursales.md)
 - [docs/P6/validacion-local.md](../../docs/P6/validacion-local.md)
+# Continuación de la adenda 4 · 9-oct-2026
+
+Cambios de código sobre `fa4c0df`:
+
+- `backend/tests/Api.IntegrationTests/P6/P6SucursalEndpointsTests.cs`: host exclusivo con periodo admitido, limpieza de preparación parcial y regresión.
+- `backend/tests/Api.IntegrationTests/Identidad/BootstrapRolesMvpTests.cs`: paginación completa y regresión con 101 roles temporales.
+- `backend/tests/Api.IntegrationTests/IntegracionesFiscal/ConfiguracionPacEndpointsTests.cs`: limpieza de roles y usuarios propios ADM-09.
+
+Documentación de esta ronda: `adenda4-integracion-09oct.md`, encabezado vigente de `RESUMEN.md`, este manifest, incremento de `actualizacion-boveda.md` y `evidencia-adenda4/`. El manifest anterior conserva el alcance de la construcción P6 original. No se editaron archivos de producción en esta ronda.

@@ -1,0 +1,36 @@
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-P6-ADM/frontend/src/modules/administracion/components/EmpleadoInlineForm.tsx
+  651:29  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-P6-ADM/frontend/src/modules/administracion/components/EmpleadoInlineForm.tsx:651:29
+  649 |                   }
+  650 |                 }}
+> 651 |                 sucursalId={form.watch('sucursalId') || undefined}
+      |                             ^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.
+  652 |                 className="w-full"
+  653 |               />
+  654 |             )}  react-hooks/incompatible-library
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-P6-ADM/frontend/src/modules/administracion/components/EmpleadosPage.tsx
+  163:9  warning  The 'empleados' logical expression could make the dependencies of useMemo Hook (at line 246) change on every render. To fix this, wrap the initialization of 'empleados' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  163:9  warning  The 'empleados' logical expression could make the dependencies of useMemo Hook (at line 294) change on every render. To fix this, wrap the initialization of 'empleados' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-P6-ADM/frontend/src/modules/administracion/components/SucursalDepartamentosTab.tsx
+  43:9  warning  The 'asignados' logical expression could make the dependencies of useMemo Hook (at line 53) change on every render. To fix this, wrap the initialization of 'asignados' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-P6-ADM/frontend/src/modules/administracion/components/SucursalOrganizacionTab.tsx
+  89:9  warning  The 'deptosAsignados' logical expression could make the dependencies of useMemo Hook (at line 112) change on every render. To fix this, wrap the initialization of 'deptosAsignados' in its own useMemo() Hook    react-hooks/exhaustive-deps
+  89:9  warning  The 'deptosAsignados' logical expression could make the dependencies of useMemo Hook (at line 122) change on every render. To fix this, wrap the initialization of 'deptosAsignados' in its own useMemo() Hook    react-hooks/exhaustive-deps
+  90:9  warning  The 'puestosAsignados' logical expression could make the dependencies of useMemo Hook (at line 101) change on every render. To fix this, wrap the initialization of 'puestosAsignados' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  90:9  warning  The 'puestosAsignados' logical expression could make the dependencies of useMemo Hook (at line 128) change on every render. To fix this, wrap the initialization of 'puestosAsignados' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-P6-ADM/frontend/src/modules/administracion/components/SucursalPuestosTab.tsx
+  65:9  warning  The 'asignados' logical expression could make the dependencies of useMemo Hook (at line 99) change on every render. To fix this, wrap the initialization of 'asignados' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/eliamcv/Documents/Vidrios millet/millet_erp-P6-ADM/frontend/src/modules/administracion/components/SucursalUsuariosTab.tsx
+  42:9  warning  The 'asignados' logical expression could make the dependencies of useMemo Hook (at line 52) change on every render. To fix this, wrap the initialization of 'asignados' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+✖ 10 problems (0 errors, 10 warnings)
+
