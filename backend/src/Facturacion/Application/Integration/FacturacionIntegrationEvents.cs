@@ -27,8 +27,41 @@ public sealed record FacturaVentaTimbradaIntegrationEvent(
     string ReceptorNombre,
     string Folio,
     string MetodoPago,
-    DateTimeOffset? FechaTimbrado)
+    DateTimeOffset? FechaTimbrado,
+    // U1.6: bloque contable opcional (al final; JSON antiguo sin estos campos
+    // deserializa a null). Mismos nombres que G1.6 en CxP/Almacén/Tesorería.
+    decimal? Subtotal = null,
+    decimal? Descuento = null,
+    decimal? Iva = null,
+    decimal? RetencionesTotal = null,
+    IReadOnlyList<RetencionContablePayload>? Retenciones = null,
+    Guid? SucursalId = null,
+    Guid? ClienteId = null,
+    decimal? TipoCambio = null,
+    DateOnly? FechaContable = null,
+    IReadOnlyList<FacturaLineaContablePayload>? Lineas = null)
     : IntegrationEvent("facturacion.factura-venta.timbrada.v1", EmpresaId, OcurridoEn);
+
+/// <summary>
+/// Retención del CFDI (U1.6, misma forma que <c>RetencionDetallePayload</c>
+/// de G1.6): <c>Impuesto</c> = código SAT (001 ISR, 002 IVA); <c>Tasa</c> null
+/// a nivel comprobante.
+/// </summary>
+public sealed record RetencionContablePayload(string Impuesto, decimal? Tasa, decimal Importe);
+
+/// <summary>
+/// Línea de factura para separar ventas por tipo de producto (U1.6).
+/// <c>Importe</c> es el del CFDI (antes de descuento); base = Importe − Descuento.
+/// <c>TipoProducto</c> es el tipo A+W del producto (ADM-07) mientras se cierra
+/// el catálogo contable de tipos con Contabilidad.
+/// </summary>
+public sealed record FacturaLineaContablePayload(
+    Guid? ProductoId,
+    string ClaveProdServSat,
+    string? TipoProducto,
+    decimal Importe,
+    decimal Descuento,
+    decimal Iva);
 
 // ---- Factura de anticipo timbrada (asiento de anticipo MXP/USD) ----
 public sealed record FacturaAnticipoTimbradaIntegrationEvent(
@@ -38,7 +71,14 @@ public sealed record FacturaAnticipoTimbradaIntegrationEvent(
     Guid AnticipoId,
     string Uuid,
     decimal Total,
-    string Moneda)
+    string Moneda,
+    // U1.6: bloque contable opcional (al final).
+    decimal? Subtotal = null,
+    decimal? Iva = null,
+    Guid? SucursalId = null,
+    Guid? ClienteId = null,
+    decimal? TipoCambio = null,
+    DateOnly? FechaContable = null)
     : IntegrationEvent("facturacion.factura-anticipo.timbrada.v1", EmpresaId, OcurridoEn);
 
 // ---- Nota de crédito timbrada (amortización / bonificación) ----
@@ -50,7 +90,16 @@ public sealed record NotaCreditoTimbradaIntegrationEvent(
     string Uuid,
     decimal Total,
     Guid? FacturaRelacionadaId,
-    Guid? AnticipoOrigenId)
+    Guid? AnticipoOrigenId,
+    // U1.6: bloque contable opcional (al final). La NC de Ranura se
+    // contabiliza como descuento sobre ventas (Plano C1 #9) con este desglose.
+    decimal? Subtotal = null,
+    decimal? Iva = null,
+    Guid? SucursalId = null,
+    Guid? ClienteId = null,
+    string? Moneda = null,
+    decimal? TipoCambio = null,
+    DateOnly? FechaContable = null)
     : IntegrationEvent("facturacion.nota-credito.timbrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
@@ -140,7 +189,14 @@ public sealed record CobroMostradorRegistradoIntegrationEvent(
     string TipoComprobante,
     string Origen,
     decimal Total,
-    IReadOnlyList<CobroFormaPagoAplicada> FormasPago)
+    IReadOnlyList<CobroFormaPagoAplicada> FormasPago,
+    // U1.6: bloque contable opcional (al final). IvaCobrado solo cuando el
+    // comprobante cobrado es una factura (proporcional al cobro); null en REPP.
+    Guid? SucursalId = null,
+    Guid? ClienteId = null,
+    string? Moneda = null,
+    decimal? TipoCambio = null,
+    decimal? IvaCobrado = null)
     : IntegrationEvent("facturacion.cobro-mostrador.registrado.v1", EmpresaId, OcurridoEn);
 
 // ---- Cobro de mostrador cancelado (reversa en sesión abierta o ajuste pendiente [12-C]) ----

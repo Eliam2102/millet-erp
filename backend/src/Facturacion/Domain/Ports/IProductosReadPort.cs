@@ -67,4 +67,6 @@ public sealed record ProductoFiscalLectura(
     decimal? TasaIvaTraslado,
     decimal? TasaRetencionIva,
     decimal? TasaRetencionIsr,
-    string Origen);
+    string Origen,
+    // U1.6: tipo A+W del producto (ADM-07) para separar ventas en el evento contable.
+    string? Tipo = null);

@@ -37,12 +37,18 @@ public sealed class FakePeriodoContablePort(bool abierto = true) : IPeriodoConta
 }
 
 /// <summary>Catálogos SAT configurable (todo válido por default).</summary>
-public sealed class FakeCatalogosSatReadPort(bool todoValido = true) : ICatalogosSatReadPort
+public sealed class FakeCatalogosSatReadPort(bool todoValido = true, decimal? tipoCambio = 20m) : ICatalogosSatReadPort
 {
     public Task<bool> ExisteFormaPagoAsync(string claveSat, CancellationToken cancellationToken) => Task.FromResult(todoValido);
     public Task<bool> ExisteUsoCfdiAsync(string claveSat, CancellationToken cancellationToken) => Task.FromResult(todoValido);
     public Task<bool> ExisteRegimenFiscalAsync(string codigo, CancellationToken cancellationToken) => Task.FromResult(todoValido);
     public Task<bool> ExisteMonedaAsync(string codigo, CancellationToken cancellationToken) => Task.FromResult(todoValido);
+    public (string Moneda, DateOnly Fecha)? ConsultaTipoCambio { get; private set; }
+    public Task<decimal?> TipoCambioAsync(string moneda, DateOnly fecha, CancellationToken cancellationToken)
+    {
+        ConsultaTipoCambio = (moneda, fecha);
+        return Task.FromResult(tipoCambio);
+    }
 }
 
 /// <summary>Stub del PAC que devuelve un timbre fake (camino feliz por default). Captura la última emisión para asserts.</summary>

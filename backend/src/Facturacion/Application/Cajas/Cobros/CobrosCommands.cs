@@ -5,6 +5,8 @@ using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Cajas.Sesiones;
 using Millet.Facturacion.Application.Facturas;
 using Millet.Facturacion.Application.Integration;
+using Millet.Facturacion.Domain.Anticipos;
+using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Ports;
@@ -215,10 +217,17 @@ internal static class CobroMostradorRegistrador
         // Única vía de escritura de Comprobante.CajaId (§6).
         comprobante.AsignarCajaCobro(sesion.CajaId);
 
+        var clienteId = await ClienteContableFacturacion.ResolverAsync(db, comprobante, cancellationToken);
+
         await eventos.PublishAsync(new CobroMostradorRegistradoIntegrationEvent(
             empresaId, ahora, cobro.Id, sesion.Id, sesion.CajaId, comprobante.Id,
             comprobante.Tipo.ToString(), cobro.Origen.ToString(), cobro.Total,
-            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe)).ToList()),
+            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe)).ToList(),
+            SucursalId: comprobante.SucursalId,
+            ClienteId: clienteId,
+            Moneda: comprobante.Moneda,
+            TipoCambio: comprobante.TipoCambio,
+            IvaCobrado: EventosContablesFacturacion.IvaCobrado(comprobante, cobro.Total)),
             cancellationToken);
 
         return cobro;

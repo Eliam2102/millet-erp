@@ -22,4 +22,7 @@ public interface ICatalogosSatReadPort
 
     /// <summary>¿Existe una moneda SAT activa con este código ISO 4217 (MXN, USD, …)?</summary>
     Task<bool> ExisteMonedaAsync(string codigo, CancellationToken cancellationToken);
+
+    /// <summary>TC registrado para el día de emisión; null si falta en Catálogos.</summary>
+    Task<decimal?> TipoCambioAsync(string moneda, DateOnly fecha, CancellationToken cancellationToken);
 }
