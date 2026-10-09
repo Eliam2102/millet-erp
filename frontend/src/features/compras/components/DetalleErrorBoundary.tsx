@@ -70,11 +70,18 @@ function Page403({
     error.problem,
   );
 
+  // Alcance por sucursal (ADR-0051): mensaje específico, sin revelar contenido.
+  const porSucursal = error.code === 'SUCURSAL_NO_ASOCIADA';
+
   return (
     <div className="space-y-4">
       <EmptyState
         icon={<Lock className="h-12 w-12" />}
-        title="No tienes permiso para ver esta requisición."
+        title={
+          porSucursal
+            ? 'No tienes acceso a los datos de esta sucursal.'
+            : 'No tienes permiso para ver esta requisición.'
+        }
         description={
           'Si crees que es un error, contacta a tu administrador.' +
           (error.traceId ? ` Código de soporte: ${error.traceId}.` : '')

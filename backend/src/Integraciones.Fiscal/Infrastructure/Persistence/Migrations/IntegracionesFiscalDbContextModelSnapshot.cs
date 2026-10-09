@@ -150,6 +150,14 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("csd_actualizado_at");
 
+                    b.Property<DateTimeOffset?>("CsdNotAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("csd_not_after");
+
+                    b.Property<DateTimeOffset?>("CsdNotBefore")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("csd_not_before");
+
                     b.Property<byte[]>("CsdCertificadoCifrado")
                         .HasColumnType("bytea")
                         .HasColumnName("csd_certificado_cifrado");

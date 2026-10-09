@@ -131,7 +131,14 @@ builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<ICurrentEmpresaContext, CurrentEmpresaContext>();
 builder.Services.AddScoped<IAuditOriginContext, AuditOriginContext>();
 builder.Services.AddScoped<IAuditCorrelationContext, AuditCorrelationContext>();
-builder.Services.AddSingleton<IPermissionCache, InMemoryPermissionCache>();
+// U1.0: el decorator expira también el cache de service principals en
+// cada invalidación de permisos.
+builder.Services.AddSingleton<Millet.Identidad.Infrastructure.Adapters.ServicePrincipalCacheSignal>();
+builder.Services.AddSingleton<InMemoryPermissionCache>();
+builder.Services.AddSingleton<IPermissionCache>(sp =>
+    new Millet.Identidad.Infrastructure.Adapters.ServicePrincipalAwarePermissionCache(
+        sp.GetRequiredService<InMemoryPermissionCache>(),
+        sp.GetRequiredService<Millet.Identidad.Infrastructure.Adapters.ServicePrincipalCacheSignal>()));
 
 // === IIntegrationEventPublisher (F6-PR1, ADR-0009): Outbox real ===
 // El publisher encola al buffer scoped; el OutboxSaveChangesInterceptor
@@ -202,6 +209,23 @@ var outboxConnString =
     ?? builder.Configuration["CuentasPorPagar:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["Facturacion:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["ServiceBus:ConnectionString"];
+
+// Interruptor del Service Bus: "Azure" (por defecto) usa la conexión de
+// arriba, la del namespace que crea infra/modules/servicebus.bicep;
+// "EmuladorLocal" usa el emulador de tools/servicebus-emulator para que los
+// módulos se pasen eventos en una sola computadora. Solo en Development.
+if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", StringComparison.OrdinalIgnoreCase))
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "ServiceBus:Modo=EmuladorLocal solo se permite en Development.");
+    }
+
+    // Cadena pública documentada por Microsoft para el emulador; no es un secreto.
+    outboxConnString =
+        "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
+}
 
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
@@ -796,6 +820,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.Administracion.Application.Series.SerieSucursalScope>();
 
 // IRolReadPort (F1-ADM-01.4): lectura cross-módulo de roles para validación
 // de RolSugeridoId en Puesto. Adapter hospedado en Identidad.
@@ -1033,6 +1058,8 @@ builder.Services.AddMilletAuth(builder.Configuration);
 // empresa ya existe. Auto-excluido en Production.
 builder.Services.AddHostedService<
     Millet.Compras.Infrastructure.Seed.ComprasTestSeedHostedService>();
+// Después de los catálogos canónicos y del bootstrap de identidad.
+builder.Services.AddHostedService<Millet.Api.Seed.DemoSesionSeedHostedService>();
 
 // === SignalR + Azure SignalR backplane (CollaborationHub, ADR-0001 + ADR-0012 Capa 2) ===
 // En QA/Prod la connection string viene de Key Vault (App Setting

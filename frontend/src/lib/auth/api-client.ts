@@ -1,10 +1,12 @@
 import { apiBaseUrl } from '@/lib/auth/config';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import type { MeResponse } from '@/lib/auth/types';
 
 /**
  * Wrapper de <c>fetch</c> que inyecta <c>Authorization: Bearer &lt;jwt&gt;</c>
  * automáticamente desde el auth store. En 401, limpia la sesión local
- * (UI re-renderiza al LoginScreen).
+ * (UI re-renderiza al LoginScreen). En 403 recarga los permisos vigentes
+ * (U1.0) para que la UI oculte acciones retiradas sin esperar otro login.
  *
  * Uso: <c>apiFetch('/api/auth/me')</c> o <c>apiFetch('/api/auth/cambiar-empresa', { method: 'POST', body: JSON.stringify({...}) })</c>.
  */
@@ -36,7 +38,37 @@ export async function apiFetch(
     useAuthStore.getState().clearSession();
   }
 
+  // Los endpoints de auth tienen su propio manejo (p. ej. 403 USUARIO_INACTIVO)
+  // y /me es el propio refresco: excluirlos evita bucles.
+  if (response.status === 403 && token && !path.includes('/api/auth/')) {
+    void refrescarPermisos();
+  }
+
   return response;
+}
+
+let refrescoEnCurso: Promise<void> | null = null;
+
+/**
+ * U1.0: recarga los permisos de la empresa actual desde <c>GET /api/auth/me</c>
+ * (el backend ya invalidó su cache al cambiar el rol). Una sola petición
+ * aunque lleguen varios 403 a la vez; si falla, el store queda como estaba.
+ */
+export function refrescarPermisos(): Promise<void> {
+  refrescoEnCurso ??= (async () => {
+    try {
+      const response = await apiFetch('/api/auth/me');
+      if (response.ok) {
+        const me = (await response.json()) as MeResponse;
+        useAuthStore.getState().updatePermisos(me.permisos);
+      }
+    } catch {
+      // Best-effort: el backend sigue siendo quien autoriza.
+    } finally {
+      refrescoEnCurso = null;
+    }
+  })();
+  return refrescoEnCurso;
 }
 
 /**

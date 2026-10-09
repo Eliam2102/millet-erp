@@ -304,6 +304,9 @@ public class BandejasEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         identidad.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuario.Id));
         identidad.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(
             Guid.CreateVersion7(), usuario.Id, EmpresaInicialId, rolId, asignadoPorUsuarioId: null));
+        // Alcance por sucursal (ADR-0051): las RQ de estas pruebas viven en MID.
+        identidad.UsuarioSucursales.Add(new UsuarioSucursal(
+            Guid.CreateVersion7(), usuario.Id, TestComprasFixtures.SucursalMid, EmpresaInicialId));
 
         await identidad.SaveChangesAsync();
         return oid;

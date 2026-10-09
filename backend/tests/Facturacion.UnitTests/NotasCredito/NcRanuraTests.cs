@@ -83,7 +83,7 @@ public sealed class NcRanuraTests
             new FakeCatalogosSatReadPort(), new FakeFiscalUuidsUnicos(), new FakeCfdiRepositorioPort(),
             new FakeEmpresaFiscalReadPort(new EmpresaFiscalLectura(empresaId, "MIL010101AAA", "Millet", "601", 0.16m, "76120")),
             new FakeIntegrationEventPublisher(), new FakeContabilidadAsientoPort(),
-            new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora));
+            new FakeEmpresaContext(empresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     private static EmitirFacturaVentaCommand Command(Guid? pedidoId) => new(
         Guid.NewGuid(), "AAA010101AAA", "Cliente", "601", "97000", "G03", "MEX",
@@ -148,7 +148,7 @@ public sealed class NcRanuraTests
         var segunda = await NcRanuraEmisor.EmitirSiAplicaAsync(
             db, new FakeSenderFoliosUnicos(), new FakeFiscalUuidsUnicos(), new FakeCfdiRepositorioPort(),
             new FakeIntegrationEventPublisher(), factura, pedido: null, usuarioEmisorId: null,
-            Ahora, CancellationToken.None);
+            Ahora, ReceptorFiscalTestFactory.Crear(db), CancellationToken.None);
 
         segunda.Should().BeNull();
         (await db.NotasCredito.CountAsync()).Should().Be(1);
@@ -167,7 +167,7 @@ public sealed class NcRanuraTests
         var r = await NcRanuraEmisor.EmitirSiAplicaAsync(
             db, new FakeSenderFoliosUnicos(), new FakeFiscalUuidsUnicos(), new FakeCfdiRepositorioPort(),
             new FakeIntegrationEventPublisher(), fv, pedido: null, usuarioEmisorId: null,
-            Ahora, CancellationToken.None);
+            Ahora, ReceptorFiscalTestFactory.Crear(db), CancellationToken.None);
 
         r.Should().BeNull();
         (await db.NotasCredito.CountAsync()).Should().Be(0);

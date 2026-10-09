@@ -5,6 +5,7 @@ import {
   type ListarProveedoresFiltros,
 } from '@/modules/datos-maestros/api/keys';
 import type {
+  ActualizarDatosBancariosProveedorPayload,
   ActualizarProveedorPayload,
   CrearProveedorPayload,
   CrearProveedorResponse,
@@ -25,6 +26,9 @@ import type {
  *   <item><c>GET    /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
  *         — banco/CLABE (enmascarada)/beneficiario (F1-ADM-05). Permiso
  *         <c>datos_maestros.proveedores.bancarios-ver</c>.</item>
+ *   <item><c>PATCH  /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
+ *         — edición de datos bancarios (F1-ADM-05 / G1.9). Permiso
+ *         <c>datos_maestros.proveedores.bancarios-editar</c>.</item>
  *   <item><c>POST   /api/v1/catalogos/proveedores</c> — alta legacy B.5.
  *         Permiso <c>compartido.catalogos.administrar</c>.</item>
  *   <item><c>PATCH  /api/v1/catalogos/proveedores/{id}</c> — patch parcial.</item>
@@ -138,6 +142,39 @@ export function useActualizarProveedor() {
         body: payload,
         idempotencyKey,
       });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedor(vars.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedorDatosBancarios(vars.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedores(),
+      });
+    },
+  });
+}
+
+export interface ActualizarDatosBancariosProveedorArgs {
+  id: string;
+  payload: ActualizarDatosBancariosProveedorPayload;
+  idempotencyKey: string;
+}
+
+export function useActualizarDatosBancariosProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, ActualizarDatosBancariosProveedorArgs>({
+    mutationFn: async ({ id, payload, idempotencyKey }) => {
+      await apiRequest<void>(
+        `/api/v1/datos-maestros/proveedores/${id}/datos-bancarios`,
+        {
+          method: 'PATCH',
+          body: payload,
+          idempotencyKey,
+        },
+      );
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({

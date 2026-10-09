@@ -1,3 +1,4 @@
+using Millet.Almacen.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Conteos;
 using Millet.Almacen.Application.DevolucionesInternas;
@@ -189,7 +190,7 @@ public class DecimalesGuardWiringTests
     }
 
     private static AplicarDevolucionInternaHandler HandlerP3(AlmacenDbContext db) =>
-        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), GuardReal());
+        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), GuardReal(), new PeriodoContableStub(true));
 
     private static AplicarDevolucionInternaCommand CmdP3(Guid salidaId, Guid lineaSalidaId, Guid subDestinoId, Guid ubicacionId, decimal cantidad) =>
         new(SalidaOrigenId: salidaId, SubAlmacenDestinoId: subDestinoId,

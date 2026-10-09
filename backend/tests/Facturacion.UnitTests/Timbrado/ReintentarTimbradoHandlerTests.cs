@@ -114,7 +114,7 @@ public sealed class ReintentarTimbradoHandlerTests
         new(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
             new FakePeriodoContablePort(periodoAbierto), fiscal ?? new FakeFiscalApiClient(),
             new FakeCfdiRepositorioPort(), eventos ?? new FakeIntegrationEventPublisher(),
-            contabilidad ?? new FakeContabilidadAsientoPort(), new FakeClock(Ahora));
+            contabilidad ?? new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
     [Fact]
     public async Task Reintento_exitoso_timbra_mismo_folio_limpia_error_y_publica_efectos()
@@ -317,4 +317,23 @@ public sealed class ReintentarTimbradoHandlerTests
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("COMPROBANTE_NO_REINTENTABLE");
     }
+    [Fact]
+    public async Task Receptor_invalido_impide_reintento_sin_PAC_ni_cambio_de_estado()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var factura = CrearFacturaFallida(db, empresaId);
+        db.Entry(factura).Property(f => f.ReceptorCodigoPostal).CurrentValue = "";
+        await db.SaveChangesAsync();
+        var pac = new FakeFiscalApiClient();
+
+        var act = () => Handler(db, fiscal: pac).Handle(new ReintentarTimbradoCommand(factura.Id), CancellationToken.None);
+
+        var error = await act.Should().ThrowAsync<Millet.Facturacion.Application.Timbrado.ReceptorFiscalInvalidoException>();
+        error.Which.Campos.Should().Contain(c => c.Campo == "codigoPostalFiscal");
+        factura.Estado.Should().Be(EstadoTimbrado.TimbradoFallido);
+        pac.UltimaEmision.Should().BeNull();
+        db.BitacorasIntentoTimbrado.Should().BeEmpty();
+    }
+
 }

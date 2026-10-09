@@ -10,6 +10,24 @@ namespace Millet.Compras.UnitTests.Oc.Domain;
 /// </summary>
 public class LineaOrdenCompraTests
 {
+    [Theory]
+    [InlineData(DescuentoTipo.Monto, 0, 100)]
+    [InlineData(DescuentoTipo.Monto, 10, 90)]
+    [InlineData(DescuentoTipo.Porcentaje, 10, 90)]
+    public void Diez_por_diez_con_descuento_se_explica_en_el_dto(
+        DescuentoTipo tipo, decimal valor, decimal esperado)
+    {
+        var linea = NewLinea(cantidad: 10m, precioUnitario: 10m,
+            descuento: new DescuentoLinea(tipo, valor));
+        var config = new Mapster.TypeAdapterConfig();
+        new Millet.Compras.Application.Oc.OcMapsterConfig().Register(config);
+        var dto = Mapster.TypeAdapter.Adapt<Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId.LineaOrdenCompraResponse>(linea, config);
+
+        Assert.Equal(esperado, linea.SubtotalLinea);
+        Assert.Equal(esperado, dto.SubtotalLinea);
+        Assert.Equal(tipo, dto.DescuentoTipo);
+        Assert.Equal(valor, dto.DescuentoValor);
+    }
     private static LineaOrdenCompra NewLinea(
         Guid? id = null,
         Guid? ordenCompraId = null,

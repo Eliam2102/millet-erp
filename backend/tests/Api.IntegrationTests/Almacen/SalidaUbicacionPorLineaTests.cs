@@ -254,7 +254,8 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
         Guid SubAlmacenId,
         Guid UnicaId,
         Guid RackId,
-        Guid ArticuloId);
+        Guid ArticuloId,
+        IPeriodoContableReadPort Periodos);
 
     private async Task EjecutarConFixtureAsync(
         Func<AlmacenDbContext, ICurrentEmpresaContext, Ctx, Task> cuerpo)
@@ -263,14 +264,19 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var empresaCtx = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
 
+        var empresaId = Guid.NewGuid();
+        await using var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, empresaId, Fecha.Year);
+        await calendario.SembrarAsync(Fecha.Month);
+
         var ctx = new Ctx(
-            EmpresaId: Guid.NewGuid(),
+            EmpresaId: empresaId,
             UserId: Guid.NewGuid(),
             AlmacenId: Guid.NewGuid(),
             SubAlmacenId: Guid.NewGuid(),
             UnicaId: Guid.NewGuid(),
             RackId: Guid.NewGuid(),
-            ArticuloId: Guid.NewGuid());
+            ArticuloId: Guid.NewGuid(),
+            Periodos: calendario.Port);
         var clave = $"P5{Guid.NewGuid():N}".Substring(0, 12);
 
         try
@@ -335,12 +341,12 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
     private static RegistrarSalidaConRequisicionHandler HandlerRq(
         AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
         new(db, new RqPortNulo(), eventos, new FakeUserCtx(ctx.UserId),
-            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo());
+            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos);
 
     private static RegistrarSalidaPorValeHandler HandlerVale(
         AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
         new(db, eventos, new FakeUserCtx(ctx.UserId),
-            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo());
+            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos);
 
     private static RegistrarSalidaConRequisicionCommand ComandoRq(Ctx ctx, Guid? ubicacionId) =>
         new(RequisicionId: Guid.NewGuid(),

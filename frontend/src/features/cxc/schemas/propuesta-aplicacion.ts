@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import { MONEDAS_LINEA_CREDITO } from '@/features/cxc/api/types';
 
 /**
@@ -9,7 +10,7 @@ import { MONEDAS_LINEA_CREDITO } from '@/features/cxc/api/types';
  * <c>PAP_*</c> del agregado).
  */
 export const PropuestaAplicacionSchema = z.object({
-  clienteId: z.string().uuid('Selecciona un cliente'),
+  clienteId: zId('Selecciona un cliente'),
   depositoRef: z
     .string()
     .min(1, 'La referencia del depósito es obligatoria')

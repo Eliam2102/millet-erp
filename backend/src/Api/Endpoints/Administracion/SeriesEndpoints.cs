@@ -39,6 +39,7 @@ public static class SeriesEndpoints
         group.MapGet("/", async (
             [FromQuery] Guid? empresaId,
             [FromQuery] TipoDocumentoSerie? tipoDocumento,
+            [FromQuery] Guid? sucursalId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -48,6 +49,7 @@ public static class SeriesEndpoints
                 new ListarSeriesQuery(
                     EmpresaId: empresaId,
                     TipoDocumento: tipoDocumento,
+                    SucursalId: sucursalId,
                     Offset: offset ?? 0,
                     Limit: limit ?? 50),
                 ct);
@@ -101,12 +103,16 @@ public static class SeriesEndpoints
         // --- PATCH ---
         group.MapPatch("/{id:guid}", async (
             Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] ActualizarSeriePayload payload,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            if (expectedVersion is not int version)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
             var command = new ActualizarSerieCommand(
                 id,
+                version,
                 payload.Prefijo,
                 payload.Sufijo,
                 payload.ReinicioPeriodo,
@@ -128,10 +134,13 @@ public static class SeriesEndpoints
         // --- DESACTIVAR ---
         group.MapPost("/{id:guid}/desactivar", async (
             Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             IMediator mediator,
             CancellationToken ct) =>
         {
-            var response = await mediator.Send(new DesactivarSerieCommand(id), ct);
+            if (expectedVersion is not int version)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            var response = await mediator.Send(new DesactivarSerieCommand(id, version), ct);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -146,9 +155,11 @@ public static class SeriesEndpoints
         // --- RESERVAR (los consumidores internos usan ReservarFolioCommand vía MediatR) ---
         group.MapPost("/reservar", async (
             [FromBody] ReservarFolioCommand command,
+            SerieSucursalScope scope,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await scope.VerificarAsync(command.SucursalId, ct);
             var response = await mediator.Send(command, ct);
             return Results.Ok(response);
         })

@@ -12,7 +12,7 @@ public sealed class ConfiguracionPacTests
 
     private static ConfiguracionPac NewDefault() =>
         new(Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", CifradoSample, HashSample, Ahora);
+            "https://live.fiscalapi.com", CifradoSample, HashSample, Ahora);
 
     [Fact]
     public void Constructor_marca_activo_y_setea_ultima_rotacion()
@@ -28,7 +28,7 @@ public sealed class ConfiguracionPacTests
     {
         var act = () => new ConfiguracionPac(
             Guid.NewGuid(), Guid.Empty, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", CifradoSample, HashSample, Ahora);
+            "https://live.fiscalapi.com", CifradoSample, HashSample, Ahora);
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_EMPRESA_INVALIDA");
@@ -39,6 +39,15 @@ public sealed class ConfiguracionPacTests
     [InlineData("   ")]
     [InlineData("not-a-url")]
     [InlineData("ftp://api.fiscalapi.com")]
+    [InlineData("http://test.fiscalapi.com")]
+    [InlineData("https://localhost")]
+    [InlineData("https://127.0.0.1")]
+    [InlineData("https://[::1]")]
+    [InlineData("https://test.fiscalapi.com.evil.example")]
+    [InlineData("https://user@test.fiscalapi.com")]
+    [InlineData("https://test.fiscalapi.com/api")]
+    [InlineData("https://test.fiscalapi.com?redirect=http://localhost")]
+    [InlineData("https://live.fiscalapi.com:8443")]
     public void Constructor_rechaza_base_url_invalida(string baseUrl)
     {
         var act = () => new ConfiguracionPac(
@@ -49,12 +58,25 @@ public sealed class ConfiguracionPacTests
             .Which.Code.Should().Be("CONFIG_PAC_BASE_URL_INVALIDA");
     }
 
+    [Theory]
+    [InlineData("https://test.fiscalapi.com")]
+    [InlineData("https://test.fiscalapi.com/")]
+    [InlineData("https://live.fiscalapi.com")]
+    public void Constructor_acepta_origen_oficial_https(string baseUrl)
+    {
+        var act = () => new ConfiguracionPac(
+            Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
+            baseUrl, CifradoSample, HashSample, Ahora);
+
+        act.Should().NotThrow();
+    }
+
     [Fact]
     public void Constructor_rechaza_apikey_cifrado_vacio()
     {
         var act = () => new ConfiguracionPac(
             Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", [], HashSample, Ahora);
+            "https://live.fiscalapi.com", [], HashSample, Ahora);
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_APIKEY_INVALIDA");
@@ -68,7 +90,7 @@ public sealed class ConfiguracionPacTests
     {
         var act = () => new ConfiguracionPac(
             Guid.NewGuid(), EmpresaId, ProveedorPac.FiscalApi,
-            "https://api.fiscalapi.com", CifradoSample, hash, Ahora);
+            "https://live.fiscalapi.com", CifradoSample, hash, Ahora);
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_APIKEY_HASH_INVALIDO");
@@ -232,7 +254,7 @@ public sealed class ConfiguracionPacTests
         var cfg = NewDefault();
         cfg.CsdConfigurado.Should().BeFalse();
 
-        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora);
+        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora, Ahora.AddDays(-1), Ahora.AddYears(1));
 
         cfg.CsdConfigurado.Should().BeTrue();
         cfg.CsdHash.Should().Be(HashSample);
@@ -243,9 +265,9 @@ public sealed class ConfiguracionPacTests
     public void ConfigurarCsd_es_idempotente_cuando_hash_coincide()
     {
         var cfg = NewDefault();
-        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora);
+        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora, Ahora.AddDays(-1), Ahora.AddYears(1));
 
-        cfg.ConfigurarCsd([0xFF], [0xFF], [0xFF], HashSample, Ahora.AddDays(1));
+        cfg.ConfigurarCsd([0xFF], [0xFF], [0xFF], HashSample, Ahora.AddDays(1), Ahora, Ahora.AddYears(2));
 
         cfg.CsdCertificadoCifrado.Should().Equal([0xA1]); // no re-cifra
         cfg.CsdActualizadoAt.Should().Be(Ahora);
@@ -255,13 +277,30 @@ public sealed class ConfiguracionPacTests
     public void ConfigurarCsd_rota_cuando_hash_difiere()
     {
         var cfg = NewDefault();
-        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora);
+        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora, Ahora.AddDays(-1), Ahora.AddYears(1));
 
-        cfg.ConfigurarCsd([0xD4], [0xE5], [0xF6], OtroHash, Ahora.AddDays(1));
+        cfg.ConfigurarCsd([0xD4], [0xE5], [0xF6], OtroHash, Ahora.AddDays(1), Ahora, Ahora.AddYears(2));
 
         cfg.CsdCertificadoCifrado.Should().Equal([0xD4]);
         cfg.CsdHash.Should().Be(OtroHash);
         cfg.CsdActualizadoAt.Should().Be(Ahora.AddDays(1));
+        cfg.CsdNotBefore.Should().Be(Ahora);
+        cfg.CsdNotAfter.Should().Be(Ahora.AddYears(2));
+    }
+
+    [Theory]
+    [InlineData(31, EstadoCsd.Vigente)]
+    [InlineData(30, EstadoCsd.ProximoAVencer)]
+    [InlineData(0, EstadoCsd.ProximoAVencer)]
+    [InlineData(-1, EstadoCsd.Vencido)]
+    public void Estado_csd_se_deriva_con_umbral_de_30_dias(int diasRestantes, EstadoCsd esperado)
+    {
+        var cfg = NewDefault();
+        cfg.ConfigurarCsd(
+            [0xA1], [0xB2], [0xC3], HashSample, Ahora,
+            Ahora.AddYears(-1), Ahora.AddDays(diasRestantes));
+
+        cfg.ObtenerEstadoCsd(Ahora).Should().Be(esperado);
     }
 
     [Fact]
@@ -269,7 +308,7 @@ public sealed class ConfiguracionPacTests
     {
         var cfg = NewDefault();
 
-        var act = () => cfg.ConfigurarCsd([0xA1], [], [0xC3], HashSample, Ahora);
+        var act = () => cfg.ConfigurarCsd([0xA1], [], [0xC3], HashSample, Ahora, Ahora, Ahora.AddYears(1));
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_CSD_INCOMPLETO");
@@ -280,7 +319,7 @@ public sealed class ConfiguracionPacTests
     {
         var cfg = NewDefault();
 
-        var act = () => cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], "corto", Ahora);
+        var act = () => cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], "corto", Ahora, Ahora, Ahora.AddYears(1));
 
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONFIG_PAC_CSD_HASH_INVALIDO");
@@ -290,7 +329,7 @@ public sealed class ConfiguracionPacTests
     public void LimpiarCsd_borra_todo_y_es_idempotente()
     {
         var cfg = NewDefault();
-        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora);
+        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora, Ahora.AddDays(-1), Ahora.AddYears(1));
 
         cfg.LimpiarCsd();
         cfg.LimpiarCsd();
@@ -301,6 +340,8 @@ public sealed class ConfiguracionPacTests
         cfg.CsdPasswordCifrado.Should().BeNull();
         cfg.CsdHash.Should().BeNull();
         cfg.CsdActualizadoAt.Should().BeNull();
+        cfg.CsdNotBefore.Should().BeNull();
+        cfg.CsdNotAfter.Should().BeNull();
     }
 
     [Fact]
@@ -310,7 +351,7 @@ public sealed class ConfiguracionPacTests
         // salir de sandbox: en live se rota al CSD real (un CSD de prueba
         // en live falla visible en el PAC, nunca silencioso).
         var cfg = NewSandbox();
-        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora);
+        cfg.ConfigurarCsd([0xA1], [0xB2], [0xC3], HashSample, Ahora, Ahora.AddDays(-1), Ahora.AddYears(1));
 
         cfg.ActualizarBaseUrl("https://live.fiscalapi.com");
 

@@ -46,7 +46,8 @@ public sealed record EmitirFacturaVentaCommand(
     Guid? AutorizacionId = null,
     // Pedido facturable de origen (B2, FE-F1). Si viene, el pedido debe estar
     // Importado; al emitir queda Facturado (re-facturable sólo tras cancelar).
-    Guid? PedidoFacturableId = null) : IRequest<EmitirFacturaVentaResponse>;
+    Guid? PedidoFacturableId = null,
+    Guid? ClienteId = null) : IRequest<EmitirFacturaVentaResponse>;
 
 /// <summary>Anticipo a amortizar contra la factura final, con el importe a aplicar.</summary>
 public sealed record AnticipoAAmortizar(Guid AnticipoId, decimal Importe);
@@ -103,7 +104,9 @@ public sealed record EmitirFacturaVentaResponse(
     int Version,
     IReadOnlyList<NotaCreditoAmortizacionEmitida>? NotasCreditoAmortizacion = null,
     // RANURA-PR2: NC automática de la ranura del pedido A+W (relación 01).
-    Millet.Facturacion.Application.NotasCredito.NotaCreditoRanuraEmitida? NotaCreditoRanura = null);
+    Millet.Facturacion.Application.NotasCredito.NotaCreditoRanuraEmitida? NotaCreditoRanura = null,
+    string? TimbradoErrorCodigo = null,
+    string? TimbradoErrorMensaje = null);
 
 /// <summary>NC de amortización autogenerada al emitir la factura con anticipos (F4-PR2).</summary>
 public sealed record NotaCreditoAmortizacionEmitida(

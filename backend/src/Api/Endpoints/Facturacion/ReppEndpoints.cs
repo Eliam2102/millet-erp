@@ -6,25 +6,14 @@ using Millet.Api.Web;
 using Millet.Facturacion.Application.Comprobantes.Queries;
 using Millet.Facturacion.Application.Repp.EmitirRepp;
 using Millet.Facturacion.Application.Repp.Queries;
+using Millet.Facturacion.Application.Repp.Pendientes;
+using Millet.Facturacion.Domain.Repp;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Identidad.Domain;
 
 namespace Millet.Api.Endpoints.Facturacion;
 
-/// <summary>
-/// Endpoints de complementos de pago (REPP) del módulo Facturación (F6).
-/// <c>/api/v1/facturacion/repp</c>.
-///
-/// <para>
-/// La automatización (emitir el REPP al confirmarse un cobro vía
-/// <c>pago-cliente.confirmado.v1</c> de Tesorería) quedó cableada en
-/// <c>TesoreriaEventListenerWorker</c> — cerró
-/// PLATFORM-TODO(&lt;PagoClienteConfirmado&gt;) (TES-PR7 + PR gemelo). Este
-/// endpoint manual sigue vivo como fallback: cobros sin propuesta CxC,
-/// eventos pre-extensión sin desglose de facturas y errores de negocio del
-/// flujo automático (marcados en <c>facturacion.evento_procesado</c>).
-/// </para>
-/// </summary>
+/// <summary>Emisión manual de REP y bandeja de pagos bancarios confirmados pendientes de revisión.</summary>
 public static class ReppEndpoints
 {
     public static IEndpointRouteBuilder MapFacturacionReppEndpoints(this IEndpointRouteBuilder app)
@@ -116,6 +105,39 @@ public static class ReppEndpoints
         .Produces<IReadOnlyList<FacturaCobrablePpdItem>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        var pendientes = group.MapGroup("/pendientes");
+        var emitir = PermissionPolicyProvider.Prefix + PermisosCanonicos.FacturacionReppEmitir;
+        pendientes.MapGet("/", async ([FromQuery] EstadoReppPendiente? estado, [FromQuery] string? indicador,
+            [FromQuery] int? offset, [FromQuery] int? limit, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ReppPendientesQuery(estado, indicador, offset ?? 0, limit ?? 10), ct)))
+            .RequireAuthorization(leer).WithName("ListarReppPendientes");
+        pendientes.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ReppPendienteQuery(id), ct)))
+            .RequireAuthorization(leer).WithName("ConsultarReppPendiente");
+        pendientes.MapPut("/{id:guid}", async (Guid id, RevisarReppPendienteBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new RevisarReppPendienteCommand(id, body.FormaPago, body.Facturas), ct);
+            return Results.NoContent();
+        }).RequireAuthorization(emitir).WithName("RevisarReppPendiente");
+        pendientes.MapPost("/{id:guid}/emitir", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            var result = await mediator.Send(new EmitirReppPendienteCommand(id), ct);
+            return result.Emitido ? Results.Ok(result) : Results.Problem(
+                title: "No se pudo emitir el REP", detail: result.Mensaje,
+                statusCode: StatusCodes.Status422UnprocessableEntity,
+                extensions: new Dictionary<string, object?> { ["code"] = result.Codigo, ["pendienteId"] = result.Id, ["reciboPagoId"] = result.ReciboPagoId });
+        }).RequireAuthorization(emitir).WithMetadata(new RequireIdempotencyKeyAttribute()).WithName("EmitirReppPendiente");
+        pendientes.MapPost("/emitir-lote", async (EmitirReppPendientesLoteCommand command, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(command, ct)))
+            .RequireAuthorization(emitir).WithMetadata(new RequireIdempotencyKeyAttribute()).WithName("EmitirReppPendientesLote");
+        pendientes.MapPost("/{id:guid}/descartar", async (Guid id, DescartarReppPendienteBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new DescartarReppPendienteCommand(id, body.Motivo), ct);
+            return Results.NoContent();
+        }).RequireAuthorization(emitir).WithName("DescartarReppPendiente");
         return app;
     }
 }
+
+public sealed record RevisarReppPendienteBody(string FormaPago, IReadOnlyList<RelacionRepp> Facturas);
+public sealed record DescartarReppPendienteBody(string Motivo);

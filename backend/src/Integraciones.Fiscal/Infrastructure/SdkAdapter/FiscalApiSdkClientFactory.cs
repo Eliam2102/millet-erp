@@ -3,6 +3,7 @@ using Fiscalapi.Common;
 using Fiscalapi.Services;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Fiscal.Domain;
+using Millet.Integraciones.Fiscal.Domain.Exceptions;
 using Millet.Integraciones.Fiscal.Domain.Ports;
 using SdkClient = Fiscalapi.Abstractions.IFiscalApiClient;
 
@@ -31,25 +32,25 @@ public sealed class FiscalApiSdkClientFactory : IFiscalApiSdkClientFactory
     {
         var opts = _options.CurrentValue;
         if (opts.Disabled)
-            throw new InvalidOperationException(
-                "FiscalApiSdkAdapter está deshabilitado (FiscalApiSdkAdapterOptions.Disabled=true).");
+            throw new IntegracionFiscalNoHabilitadaException(
+                "FiscalApiSdkAdapter está deshabilitado (IntegracionesFiscal:Sdk:Disabled=true).");
         if (string.IsNullOrWhiteSpace(opts.TenantKey))
-            throw new InvalidOperationException(
+            throw new IntegracionFiscalNoHabilitadaException(
                 "FiscalApiSdkAdapter requiere TenantKey configurado (IntegracionesFiscal:Sdk:TenantKey).");
 
         var config = await _resolver.ResolverAsync(empresaId, ProveedorPac.FiscalApi, cancellationToken)
-            ?? throw new InvalidOperationException(
-                $"No hay configuración PAC activa para empresa {empresaId}.");
+            ?? throw new ConfiguracionPacNoDisponibleException(empresaId);
+        ConfiguracionPac.ValidarBaseUrl(config.BaseUrl);
 
         // Cache key incluye empresa + un hash de la api key (sin
         // material crudo) para que el cache se invalide al rotar.
-        var cacheKey = $"{empresaId}:{config.ApiKey.GetHashCode()}";
+        var cacheKey = $"{empresaId}:{config.BaseUrl}:{Cifrado.FiscalSecretCipher.HashForChangeDetection(config.ApiKey)}";
 
         return _cache.GetOrAdd(cacheKey, _ =>
         {
             var settings = new FiscalapiSettings
             {
-                ApiUrl     = string.IsNullOrWhiteSpace(config.BaseUrl) ? opts.BaseUrl : config.BaseUrl,
+                ApiUrl     = config.BaseUrl,
                 ApiKey     = config.ApiKey,
                 ApiVersion = opts.ApiVersion,
                 Tenant     = opts.TenantKey,

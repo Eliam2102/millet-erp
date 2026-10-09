@@ -220,6 +220,8 @@ describe('useActualizarEmpresa', () => {
     let bodyVisto: unknown = null;
     mswServer.use(
       http.patch('*/api/v1/admin/empresas/e-1', async ({ request }) => {
+        expect(request.headers.get('If-Match')).toBe('"2"');
+        expect(request.headers.get('Idempotency-Key')).toBe('idem-patch');
         bodyVisto = await request.json();
         return HttpResponse.json(makeEmpresa({ razonSocial: 'Nuevo nombre' }));
       }),
@@ -234,6 +236,7 @@ describe('useActualizarEmpresa', () => {
 
     result.current.mutate({
       id: 'e-1',
+      version: 2,
       payload: { razonSocial: 'Nuevo nombre' },
       idempotencyKey: 'idem-patch',
     });

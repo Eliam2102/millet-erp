@@ -57,6 +57,21 @@ describe('<DetalleErrorBoundary>', () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
+  it('403 SUCURSAL_NO_ASOCIADA: muestra mensaje de alcance por sucursal', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(
+      <DetalleErrorBoundary error={buildError(403, 'SUCURSAL_NO_ASOCIADA')} />,
+    );
+
+    expect(
+      screen.getByText(/no tienes acceso a los datos de esta sucursal/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /volver a bandeja/i }),
+    ).toBeInTheDocument();
+  });
+
   it('404: muestra página neutra "no existe o no pertenece a tu empresa"', () => {
     render(<DetalleErrorBoundary error={buildError(404)} />);
     expect(

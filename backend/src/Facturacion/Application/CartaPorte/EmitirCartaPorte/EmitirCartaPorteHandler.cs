@@ -59,7 +59,7 @@ public sealed class EmitirCartaPorteHandler : IRequestHandler<EmitirCartaPorteCo
 
         // F12-PR1: snapshot del emisor (falla sin CP fiscal, sin quemar folio).
         var emisor = await EmisorSnapshot.ResolverAsync(
-            _empresasFiscal, empresaId, command.RfcEmisor, command.RegimenFiscalEmisor, cancellationToken);
+            _empresasFiscal, empresaId, cancellationToken);
 
         var tipoCfdi = command.TipoCfdi == "T" ? TipoComprobante.Traslado : TipoComprobante.Ingreso;
 

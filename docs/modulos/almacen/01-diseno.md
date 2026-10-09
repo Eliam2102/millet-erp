@@ -522,7 +522,7 @@ EF Core (ADR-0005). La migración inicial incluye seeds de:
 | `IEmpleadoReadPort` | ✅ `Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter` sobre `compartido.empleados` (ADM-PR2, doc 10 de Administración) | Catálogo de empleados (responsables de conteos, solicitante de devolución interna). El destinatario de salidas sigue por `IUsuarioReadPort` (ADR-0042) |
 | `ITipoCambioReadPort` | Adapter en `Administracion.Infrastructure` | T/C del día (ADR-0014) |
 | `IConceptoContableReadPort` | Adapter en `Contabilidad.Infrastructure` (stub) | Mapeo concepto → cuenta |
-| `IPeriodoContableReadPort` | Adapter en `Finanzas.Infrastructure` (stub) | Verificar periodo abierto al registrar fecha pasada |
+| `IPeriodoContableReadPort` | `Almacen.Infrastructure.PublicAdapters.PeriodoContableReadAdapter` → `Contabilidad.Application.PublicPorts.IPeriodoContableConsultaPort` | C1.2: solo periodo existente y abierto; conserva el cierre propio de inventario (D18) |
 
 ### 6.2 Puertos públicos (Almacén expone a otros módulos)
 
@@ -864,7 +864,7 @@ Ver §14 del [00-levantamiento](00-levantamiento.md#14-dependencias-de-plataform
 - `NoOpComprasRequisicionReadPort` — fixture. `PLATFORM-TODO(<ComprasRqReadPort>)`.
 - `NoOpCxpEventConsumer` — registra eventos consumidos en log. `PLATFORM-TODO(<CxpEvents>)`.
 - `NoOpContabilidadEventPublisher` — loggea sin emitir. `PLATFORM-TODO(<ContabilidadEvents>)`.
-- `NoOpPeriodoContableReadPort` — siempre retorna "abierto". `PLATFORM-TODO(<PeriodoContable>)`.
+- C1.2 (07-oct-2026, implementación local): retirado `NoOpPeriodoContableReadPort`; el adaptador real se registra en `Almacen/Infrastructure/DependencyInjection.cs`. Recepciones con factura/packing list, salidas con requisición/vale y devoluciones internas comprueban ambos cierres. El cierre mensual de inventario no consulta Contabilidad. Evidencia y pendientes: [entrega C1.2](02-c12-periodo-contable-entrega.md).
 
 Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/Almacen`.
 

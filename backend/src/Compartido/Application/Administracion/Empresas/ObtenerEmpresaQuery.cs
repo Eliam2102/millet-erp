@@ -55,7 +55,8 @@ public sealed class ObtenerEmpresaHandler
         var empresaDto = new EmpresaResponse(
             empresa.Id, empresa.Rfc, empresa.RazonSocial,
             empresa.NombreComercial, empresa.RegimenFiscal,
-            empresa.TasaIvaDefault, empresa.CodigoPostal, empresa.Activa, empresa.Version);
+            empresa.TasaIvaDefault, empresa.CodigoPostal, empresa.Activa, empresa.Version,
+            empresa.Calle, empresa.NumeroExterior, empresa.NumeroInterior, empresa.Colonia, empresa.Ciudad, empresa.Municipio, empresa.Estado, empresa.Pais);
 
         return new EmpresaDetalleResponse(empresaDto, sucursales, departamentos);
     }
