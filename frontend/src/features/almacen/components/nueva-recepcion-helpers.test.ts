@@ -53,6 +53,14 @@ describe('construirFilas', () => {
     });
   });
 
+  it('omite las líneas de servicio (CA2.10)', () => {
+    const filas = construirFilas([
+      lineaOc({ id: 'a', articuloClave: 'ART-FIS' }),
+      lineaOc({ id: 'b', articuloClave: 'SER95000', esServicio: true }),
+    ]);
+    expect(filas.map((f) => f.lineaOcId)).toEqual(['a']);
+  });
+
   it('filtra líneas ya completas (pendiente = 0)', () => {
     const filas = construirFilas([
       lineaOc({ cantidad: 10, cantidadRecibida: 10 }),

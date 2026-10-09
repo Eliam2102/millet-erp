@@ -713,10 +713,15 @@ function LineasDesdeOc({
   }
 
   if (filas.length === 0) {
+    // CA2.10: una OC solo de servicios no tiene nada que recibir en Almacén.
+    const soloServicios =
+      (ocQuery.data?.lineas.length ?? 0) > 0 &&
+      ocQuery.data?.lineas.every((l) => l.esServicio);
     return (
       <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-        Esta OC no tiene líneas pendientes de recepción — todas ya
-        fueron recibidas en su totalidad.
+        {soloServicios
+          ? 'Esta OC solo tiene servicios — los servicios no se reciben en Almacén ni generan existencia.'
+          : 'Esta OC no tiene líneas pendientes de recepción — todas ya fueron recibidas en su totalidad.'}
       </section>
     );
   }
