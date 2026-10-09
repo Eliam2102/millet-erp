@@ -32,7 +32,7 @@ public sealed record MovimientoBancarioResponse(
     string? MotivoNoAplicado,
     Guid CreadoPor,
     DateTimeOffset CreadoEn,
-    int Version);
+    int Version, string? MotivoReversa = null, string? MotivoReclasificacion = null);
 
 internal static class MovimientoBancarioMapper
 {
@@ -40,7 +40,7 @@ internal static class MovimientoBancarioMapper
         new(m.Id, m.CuentaBancariaId, m.Sentido, m.Monto, m.Moneda, m.FechaValor,
             m.ReferenciaBancaria, m.ConceptoId, conceptoNombre, m.EstadoAplicacion,
             m.EstadoConciliacion, m.BeneficiarioTipo, m.BeneficiarioRef,
-            m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version);
+            m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version, m.MotivoReversa, m.MotivoReclasificacion);
 }
 
 // --------------------------------------------------- Libro (bandeja paginada)
@@ -117,7 +117,7 @@ public sealed record AplicacionMovimientoDto(
     decimal ImporteAplicado,
     bool Revertida,
     Guid? CorridaId,
-    DateTimeOffset CreadoEn);
+    DateTimeOffset CreadoEn, string? MotivoReversa = null);
 
 /// <summary>
 /// Detalle del movimiento (TES-FE-PR2): el response base + sus
@@ -158,7 +158,7 @@ public sealed class MovimientoDetalleHandler : IRequestHandler<MovimientoDetalle
             .OrderBy(a => a.CreadoEn)
             .Select(a => new AplicacionMovimientoDto(
                 a.Id, a.FacturaProveedorId, a.ProveedorId,
-                a.ImporteAplicado, a.Revertida, a.CorridaId, a.CreadoEn))
+                a.ImporteAplicado, a.Revertida, a.CorridaId, a.CreadoEn, a.MotivoReversa))
             .ToListAsync(cancellationToken);
 
         var contramovimientos = await _db.MovimientosBancarios.AsNoTracking()

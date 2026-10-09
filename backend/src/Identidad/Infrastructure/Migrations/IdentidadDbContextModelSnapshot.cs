@@ -1683,6 +1683,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000004-0009-0000-0000-000000000008"),
+                            Accion = "tolerancia-editar",
+                            Codigo = "datos_maestros.proveedores.tolerancia-editar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Editar tolerancia factura contra OC en pesos del proveedor",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000004-0009-0000-0000-000000000007"),
                             Accion = "validar",
                             Codigo = "datos_maestros.proveedores.validar",
@@ -2279,6 +2293,48 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Ajustar tolerancia de conciliación por proveedor (restringido)",
                             Modulo = "cuentas_por_pagar",
                             Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000101"),
+                            Accion = "administrar",
+                            Codigo = "cuentas_por_pagar.retenciones.administrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Administrar retenciones por concepto con motivo y auditoría",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "retenciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000102"),
+                            Accion = "leer",
+                            Codigo = "cuentas_por_pagar.retenciones.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar retenciones y propuestas del catálogo fiscal",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "retenciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000103"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "cuentas_por_pagar.reportes.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar reportes de CxP de todas las sucursales",
+                            Modulo = "cuentas_por_pagar",
+                            Recurso = "reportes",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
@@ -3887,6 +3943,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
                             Descripcion = "Crear, editar, desactivar y reactivar cuentas contables",
+                            Modulo = "contabilidad",
+                            Recurso = "catalogo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0001-0000-0000-000000000004"),
+                            Accion = "autorizar",
+                            Codigo = "contabilidad.catalogo.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar solicitudes del catálogo contable (DAF)",
                             Modulo = "contabilidad",
                             Recurso = "catalogo",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

@@ -27,15 +27,25 @@ public sealed class TesoreriaSucursalReadAdapter(TesoreriaDbContext db, ICxpSucu
             cajaId is Guid c ? sesiones.GetValueOrDefault(c) ?? Array.Empty<Guid>() : Array.Empty<Guid>();
         if (tipo == "deposito") return depositos.Select(x => new DocumentoSucursales(x.Id,
             SucursalesDeposito(x.PropuestaCxcId, x.CajaSesionId))).ToArray();
-        if (tipo == "movimiento_bancario")
+        if (tipo is "movimiento_bancario" or "cuenta_bancaria")
         {
-            var movimientos = await db.MovimientosBancarios.AsNoTracking().Select(x => new { x.Id, x.ContramovimientoDe }).ToListAsync(ct);
-            return movimientos.Select(x => {
+            var movimientos = await db.MovimientosBancarios.AsNoTracking().Select(x => new { x.Id, x.ContramovimientoDe, x.CuentaBancariaId }).ToListAsync(ct);
+            var alcances = movimientos.Select(x => {
                 var origenes = aplicaciones.Where(a => a.MovimientoId == x.Id || a.MovimientoId == x.ContramovimientoDe)
                     .Select(a => facturas.GetValueOrDefault(a.FacturaProveedorId) ?? Array.Empty<Guid>())
                     .Concat(depositos.Where(d => d.MovimientoId == x.Id || (x.ContramovimientoDe != null && d.MovimientoId == x.ContramovimientoDe))
                         .Select(d => SucursalesDeposito(d.PropuestaCxcId, d.CajaSesionId))).ToArray();
                 return new DocumentoSucursales(x.Id, origenes.Length == 0 || origenes.Any(o => o.Count == 0)
+                    ? Array.Empty<Guid>() : origenes.SelectMany(o => o).Distinct().ToArray());
+            }).ToArray();
+            if (tipo == "movimiento_bancario") return alcances;
+            // Los reportes P5 incluyen el saldo de la cuenta completa. Exigen acceso
+            // a todos sus movimientos; un origen indeterminado requiere corporativo.
+            var cuentas = await db.CuentasBancarias.AsNoTracking().Select(c => c.Id).ToListAsync(ct);
+            var porMovimiento = alcances.ToDictionary(x => x.Id, x => x.Sucursales);
+            return cuentas.Select(id => {
+                var origenes = movimientos.Where(m => m.CuentaBancariaId == id).Select(m => porMovimiento[m.Id]).ToArray();
+                return new DocumentoSucursales(id, origenes.Length == 0 || origenes.Any(o => o.Count == 0)
                     ? Array.Empty<Guid>() : origenes.SelectMany(o => o).Distinct().ToArray());
             }).ToArray();
         }

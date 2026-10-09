@@ -39,10 +39,11 @@ public sealed class AplicarAnticipoAFacturaHandler
 {
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
+    private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
 
-    public AplicarAnticipoAFacturaHandler(CuentasPorPagarDbContext db, IClock clock)
+    public AplicarAnticipoAFacturaHandler(CuentasPorPagarDbContext db, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos)
     {
-        _db = db; _clock = clock;
+        _db = db; _clock = clock; _pasivos = pasivos;
     }
 
     public async Task<AplicarAnticipoAFacturaResponse> Handle(
@@ -71,10 +72,15 @@ public sealed class AplicarAnticipoAFacturaHandler
                 "El anticipo y la factura pertenecen a proveedores distintos.");
         }
 
+        if (anticipo.Moneda != factura.Moneda)
+            throw new BusinessRuleException("ANTICIPO_MONEDA_DISTINTA", "El anticipo y la factura deben tener la misma moneda.");
         var ahora = _clock.UtcNow;
         anticipo.Amortizar(command.Monto, ahora);
-        factura.AplicarAnticipo(command.Monto);
+        factura.AplicarAnticipo(command.Monto, DateOnly.FromDateTime(ahora.UtcDateTime), anticipo.Id);
 
+        if (factura.Estado == EstadoPasivo.Autorizada)
+            await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
+                factura.EmpresaId, factura.Id, factura.OrdenCompraId, ahora), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new AplicarAnticipoAFacturaResponse(

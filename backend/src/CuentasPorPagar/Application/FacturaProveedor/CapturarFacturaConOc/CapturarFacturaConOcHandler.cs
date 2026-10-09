@@ -2,7 +2,9 @@ using MediatR;
 using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor.Events;
-using Millet.CuentasPorPagar.Domain.Ports.Almacen;
+using Millet.CuentasPorPagar.Domain.NotaCreditoProveedor;
+using Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.Events;
+using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Domain.Ports.Compras;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
@@ -17,22 +19,18 @@ namespace Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaCon
 /// §3.bis.5 del 01-diseno). Implementa el flujo "Factura con OC" del
 /// MVP — la base de la mayoría de las facturas de Millet.
 ///
-/// <para>
-/// **Default global de tolerancia** (§3.bis.3): si el proveedor no tiene
-/// tolerancia configurada, se usa $0.99 MXP absoluto. Esto es un
-/// parámetro de Administración (<c>cuentas_por_pagar.tolerancia_default_mxp</c>)
-/// — en F3-PR1 vive como constante; cuando exista el endpoint de
-/// parámetros globales se mueve.
-/// </para>
+/// La tolerancia del proveedor prevalece sobre el parámetro global de Administración.
+/// El valor utilizado se conserva como foto en la factura.
 /// </summary>
 public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFacturaConOcCommand, CapturarFacturaConOcResponse>
 {
-    public const decimal ToleranciaDefaultMxp = 0.99m;
+    private readonly Domain.Ports.Administracion.IToleranciaGeneralReadPort _toleranciaGeneral;
 
     private readonly CuentasPorPagarDbContext _db;
     private readonly IComprasOcReadPort _ocPort;
     private readonly IProveedorReadPort _proveedorPort;
-    private readonly IAlmacenRecepcionReadPort _recepcionPort;
+    private readonly ICfdiBlobStorage _blobs;
+    private readonly IXmlCfdiParser _parser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IMediator _mediator;
     private readonly IClock _clock;
@@ -41,23 +39,37 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         CuentasPorPagarDbContext db,
         IComprasOcReadPort ocPort,
         IProveedorReadPort proveedorPort,
-        IAlmacenRecepcionReadPort recepcionPort,
+        ICfdiBlobStorage blobs,
+        IXmlCfdiParser parser,
         ICurrentEmpresaContext currentEmpresa,
         IMediator mediator,
-        IClock clock)
+        IClock clock,
+        Domain.Ports.Administracion.IToleranciaGeneralReadPort toleranciaGeneral)
     {
         _db = db;
         _ocPort = ocPort;
         _proveedorPort = proveedorPort;
-        _recepcionPort = recepcionPort;
+        _blobs = blobs;
+        _parser = parser;
         _currentEmpresa = currentEmpresa;
         _mediator = mediator;
         _clock = clock;
+        _toleranciaGeneral = toleranciaGeneral;
     }
 
     public async Task<CapturarFacturaConOcResponse> Handle(
         CapturarFacturaConOcCommand command,
         CancellationToken cancellationToken)
+    {
+        if (!_db.Database.IsRelational()) return await CapturarAsync(command, cancellationToken);
+        CapturarFacturaConOcResponse? resultado = null;
+        await PostgresAdvisoryLock.ExecuteAsync(_db, BitConverter.ToInt64(command.OrdenCompraId.ToByteArray()),
+            async ct => resultado = await CapturarAsync(command, ct), cancellationToken);
+        return resultado!;
+    }
+
+    private async Task<CapturarFacturaConOcResponse> CapturarAsync(
+        CapturarFacturaConOcCommand command, CancellationToken cancellationToken)
     {
         if (_currentEmpresa.Current is not Guid empresaId)
         {
@@ -65,6 +77,15 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 "EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
+
+        // CFDI/NC compartidos entre intentos de distintas OC: orden estable de locks, misma transacción.
+        if (_db.Database.IsRelational())
+            foreach (var id in (command.NotasCredito ?? []).Select(n => n.CfdiRecibidoId)
+                .Concat(command.CfdiRecibidoId is Guid fiscalId ? [fiscalId] : Array.Empty<Guid>()).Distinct().Order())
+            {
+                var llave = BitConverter.ToInt64(id.ToByteArray());
+                await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({llave})", cancellationToken);
+            }
 
         // 1) Resolver la OC.
         var oc = await _ocPort.ObtenerAsync(command.OrdenCompraId, cancellationToken)
@@ -88,6 +109,11 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 "OC_PROVEEDOR_MISMATCH",
                 $"La OC '{oc.Folio}' pertenece al proveedor {oc.ProveedorId}, pero la factura indica {command.ProveedorId}.");
         }
+
+        if (oc.SucursalId != command.SucursalId)
+            throw new BusinessRuleException("OC_SUCURSAL_DISTINTA", "La sucursal de la factura debe coincidir con la OC.");
+        if (oc.Moneda != command.Moneda)
+            throw new BusinessRuleException("OC_MONEDA_DISTINTA", "La moneda de la factura debe coincidir con la OC para conciliar sus precios.");
 
         // 1.bis) Guarda de pertenencia: las líneas de factura con LineaOcId
         //        deben referenciar una línea de ESTA OC (atribución por línea
@@ -118,10 +144,49 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 $"El proveedor '{proveedor.RazonSocial}' no está activo y no admite captura de facturas.");
         }
 
-        var tolerancia = ResolverTolerancia(proveedor);
+        var tolerancia = await ResolverToleranciaAsync(proveedor, cancellationToken);
 
-        // 3) Calcular diferencia (factura.Total vs oc.Total).
-        var diferencia = command.Total - oc.Total;
+        var cfdi = command.CfdiRecibidoId is Guid cfdiId
+            ? await LeerCfdiAsync(cfdiId, TipoCfdi.Ingreso, proveedor.Rfc, command.Moneda, cancellationToken)
+            : null;
+        var xml = cfdi is null ? null : await LeerXmlAsync(cfdi, cancellationToken);
+        if (xml is not null && !string.Equals(xml.UuidCfdi, command.UuidCfdi, StringComparison.OrdinalIgnoreCase))
+            throw new BusinessRuleException("CFDI_UUID_DISTINTO", "El UUID capturado no coincide con el XML ligado.");
+        if (xml is not null && (xml.TipoCambio ?? 1) != (command.TipoCambio ?? 1))
+            throw new BusinessRuleException("CFDI_TIPO_CAMBIO_DISTINTO", "El tipo de cambio capturado debe coincidir con el XML ligado.");
+        var uuidNormalizado = command.UuidCfdi?.Trim().ToUpperInvariant();
+        if (!string.IsNullOrWhiteSpace(command.UuidCfdi) && await _db.FacturasProveedor.AnyAsync(
+            f => f.UuidCfdi == uuidNormalizado && f.Estado != EstadoPasivo.Cancelada, cancellationToken))
+            throw new BusinessRuleException("FACTURA_DUPLICADA", "El CFDI ya tiene una factura vigente.");
+
+        var notas = new List<(CfdiRecibido Cfdi, DatosCfdiParseados Xml)>();
+        foreach (var adjunta in command.NotasCredito ?? [])
+        {
+            if (xml is null) throw new BusinessRuleException("NC_REQUIERE_CFDI", "Liga el CFDI de la factura para adjuntar sus notas de crédito.");
+            var documento = await LeerCfdiAsync(adjunta.CfdiRecibidoId, TipoCfdi.Egreso, proveedor.Rfc, command.Moneda, cancellationToken);
+            var datos = await LeerXmlAsync(documento, cancellationToken);
+            var uuidNcNormalizado = datos.UuidCfdi.Trim().ToUpperInvariant();
+            if (notas.Any(n => n.Cfdi.Id == documento.Id) || await _db.NotasCreditoProveedor.AnyAsync(n => n.UuidCfdi == uuidNcNormalizado, cancellationToken))
+                throw new BusinessRuleException("NC_DUPLICADA", "La nota de crédito ya fue capturada o está adjunta dos veces.");
+            if (datos.CfdiRelacionados is not { Count: > 0 } || datos.CfdiRelacionados.Any(r => r.TipoRelacion != "01" ||
+                    r.Uuids.Count != 1 || !string.Equals(r.Uuids[0], xml.UuidCfdi, StringComparison.OrdinalIgnoreCase)))
+                throw new BusinessRuleException("NC_RELACION_INVALIDA", "La NC debe tener relación 01 exclusivamente con esta factura.");
+            if (datos.RfcReceptor != xml.RfcReceptor || datos.TipoCambio != xml.TipoCambio)
+                throw new BusinessRuleException("NC_DATOS_DISTINTOS", "La NC debe tener el mismo receptor y tipo de cambio de la factura.");
+            if (adjunta.Lineas.Count == 0 || adjunta.Lineas.Any(l => l.Base <= 0) ||
+                !tolerancia.Pasa(adjunta.Lineas.Sum(l => l.Base) - (datos.Subtotal - datos.Descuentos), datos.Subtotal) ||
+                !tolerancia.Pasa(datos.Total - (datos.Subtotal - datos.Descuentos + datos.ImpuestosTrasladados - datos.Retenciones), datos.Total))
+                throw new BusinessRuleException("NC_IMPORTES_INVALIDOS", "La base asignada a las líneas debe cuadrar con el XML de la NC, y su neto fiscal debe ser correcto.");
+            notas.Add((documento, datos));
+        }
+        var previas = await _db.FacturasProveedor.Where(f => f.OrdenCompraId == oc.Id && f.Estado != EstadoPasivo.Cancelada)
+            .SelectMany(f => f.Lineas).Where(l => l.LineaOcId != null)
+            .GroupBy(l => l.LineaOcId!.Value).Select(g => new { Id = g.Key, Cantidad = g.Sum(l => l.Cantidad) })
+            .ToDictionaryAsync(l => l.Id, l => l.Cantidad, cancellationToken);
+        var conciliacion = ConciliacionFacturaOc.Conciliar(command, oc, tolerancia, previas, xml);
+        var diferencia = conciliacion.Diferencia;
+        if (notas.Sum(n => n.Xml.Total) > command.Total)
+            throw new BusinessRuleException("NC_EXCEDE_FACTURA", "Las notas de crédito exceden el total de la factura.");
         var redondeo = 0m;
 
         // 4) Construir la factura. Si pasa tolerancia → Capturada con
@@ -133,7 +198,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
         var factura = global::Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor.CapturarConOc(
             empresaId: empresaId,
             cfdiRecibidoId: command.CfdiRecibidoId,
-            uuidCfdi: command.UuidCfdi,
+            uuidCfdi: uuidNormalizado,
             proveedorId: command.ProveedorId,
             sucursalId: command.SucursalId,
             folioProveedor: command.FolioProveedor,
@@ -155,6 +220,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             redondeoAplicado: redondeo,
             ahora: ahora);
 
+        factura.AsignarDatosP8(command.Obra, command.ConceptoRetencion);
+
         // 5) Líneas.
         foreach (var l in command.Lineas)
         {
@@ -174,28 +241,38 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
 
         // 6) Si la diferencia no pasa tolerancia, cancela. El evento
         //    de rechazo lo emite F3-PR2 (suscripción de Compras).
-        if (!tolerancia.Pasa(diferencia, oc.Total))
+        if (conciliacion.Motivo is not null)
         {
             factura.Cancelar(
                 motivo: MotivoCancelacion.RechazadaPorTolerancia,
-                texto: $"Diferencia {diferencia:N4} contra OC {oc.Folio} (total OC {oc.Total:N4}) excede tolerancia {tolerancia.Tipo} {tolerancia.Valor}.",
+                texto: conciliacion.Motivo,
                 usuarioId: null,
                 ahora: ahora);
         }
 
-        // 7) Si el CFDI viene referenciado, marcar como convertido y copiar
-        //    su MetodoPago al pasivo (TES-PR8 [T-G11] — de aquí viaja a
-        //    Tesorería en pasivo.autorizado-para-pago.v1).
-        if (command.CfdiRecibidoId is Guid cfdiId)
+        if (factura.Estado != EstadoPasivo.Cancelada)
         {
-            var cfdi = await _db.CfdisRecibidos.FirstOrDefaultAsync(c => c.Id == cfdiId, cancellationToken);
-            if (cfdi is not null && cfdi.Estado == EstadoCfdiRecibido.PorProcesar)
+            cfdi?.MarcarConvertidoEnPasivo(factura.Id);
+            foreach (var (documento, datos) in notas)
             {
-                cfdi.MarcarConvertidoEnPasivo(factura.Id);
+                var nc = global::Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.NotaCreditoProveedor.Capturar(
+                    empresaId, documento.Id, datos.UuidCfdi, command.ProveedorId, datos.Folio, datos.Serie,
+                    datos.FechaCfdi, datos.Moneda, datos.TipoCambio, datos.Subtotal - datos.Descuentos,
+                    datos.ImpuestosTrasladados, datos.Retenciones, datos.Total, TipoNotaCredito.Descuento,
+                    TipoRelacionCfdi.NotaCredito, xml!.UuidCfdi, factura.Id, null, ahora);
+                nc.AplicarMonto(datos.Total);
+                factura.AplicarNotaCredito(datos.Total, DateOnly.FromDateTime(ahora.UtcDateTime), nc.Id);
+                documento.MarcarConvertidoEnPasivo(nc.Id);
+                _db.NotasCreditoProveedor.Add(nc);
+                await _mediator.Publish(new NotaCreditoProveedorRegistradaDomainEvent(
+                    empresaId, nc.Id, nc.ProveedorId, factura.Id, 1, nc.Total, ahora,
+                    Uuid: nc.UuidCfdi, Subtotal: nc.Subtotal, Iva: nc.ImpuestosTrasladados,
+                    RetencionesTotal: nc.Retenciones, Retenciones: datos.RetencionesDetalle,
+                    Moneda: nc.Moneda, TipoCambio: nc.TipoCambio, SucursalId: factura.SucursalId), cancellationToken);
             }
-            factura.AsignarMetodoPago(cfdi?.MetodoPago);
         }
-        factura.AsignarRetencionesDetalle(command.RetencionesDetalle);
+        factura.AsignarMetodoPago(cfdi?.MetodoPago);
+        factura.AsignarRetencionesDetalle(xml is null ? command.RetencionesDetalle : xml.RetencionesDetalle);
 
         _db.FacturasProveedor.Add(factura);
 
@@ -214,7 +291,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 TotalOc: oc.Total,
                 Diferencia: Math.Abs(diferencia),
                 ToleranciaAplicada: $"{tolerancia.Tipo}:{tolerancia.Valor}",
-                OcurridoEn: ahora), cancellationToken);
+                OcurridoEn: ahora, Motivo: factura.MotivoCancelacionTexto), cancellationToken);
         }
         else
         {
@@ -250,36 +327,6 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                 SucursalId: factura.SucursalId,
                 CentroCostoId: cecos.Count == 1 ? cecos[0] : null), cancellationToken);
 
-            // GAP-3 (§3.bis.5): dentro de tolerancia pero con diferencia
-            // de precio unitario por línea, en OC variante B (recepción
-            // con factura pendiente) → notificar a Almacén para que
-            // re-valorice el remanente en stock. Uno por artículo.
-            var recepcion = await _recepcionPort.ObtenerRecepcionDeOcAsync(
-                command.OrdenCompraId, cancellationToken);
-            if (recepcion?.FacturaPendiente == true)
-            {
-                foreach (var lineaFactura in factura.Lineas)
-                {
-                    if (lineaFactura.LineaOcId is not { } lineaOcId) continue;
-                    var lineaOc = oc.Lineas.FirstOrDefault(x => x.Id == lineaOcId);
-                    if (lineaOc is null) continue;
-
-                    var diferenciaUnitaria = lineaFactura.PrecioUnitario - lineaOc.PrecioUnitario;
-                    if (diferenciaUnitaria == 0m) continue;
-
-                    await _mediator.Publish(new DiferenciaPrecioFacturaDetectadaDomainEvent(
-                        EmpresaId: empresaId,
-                        FacturaProveedorId: factura.Id,
-                        OrdenCompraId: command.OrdenCompraId,
-                        ArticuloId: lineaOc.ArticuloId,
-                        CantidadFacturada: lineaFactura.Cantidad,
-                        PrecioFacturaUnitarioMxn: lineaFactura.PrecioUnitario,
-                        PrecioOcUnitarioMxn: lineaOc.PrecioUnitario,
-                        DiferenciaUnitarioMxn: diferenciaUnitaria,
-                        MontoDiferenciaTotalMxn: Math.Round(diferenciaUnitaria * lineaFactura.Cantidad, 2),
-                        OcurridoEn: ahora), cancellationToken);
-                }
-            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -290,7 +337,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             DiferenciaContraOc: factura.DiferenciaContraOc,
             SaldoPendiente: factura.SaldoPendiente,
             MotivoCancelacion: factura.MotivoDeCancelacion,
-            Version: factura.Version);
+            Version: factura.Version,
+            MotivoCancelacionTexto: factura.MotivoCancelacionTexto);
     }
 
     /// <summary>
@@ -339,18 +387,38 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             .ToList();
     }
 
-    internal static Tolerancia ResolverTolerancia(ProveedorDto? proveedor)
+    private async Task<CfdiRecibido> LeerCfdiAsync(Guid id, TipoCfdi tipo, string rfc, string moneda, CancellationToken ct)
     {
-        if (proveedor?.Tolerancia is null)
-        {
-            return Tolerancia.MontoAbsoluto(ToleranciaDefaultMxp);
-        }
+        var cfdi = await _db.CfdisRecibidos.FirstOrDefaultAsync(c => c.Id == id, ct)
+            ?? throw new EntityNotFoundException("CFDI_NO_ENCONTRADO", "No se encontró el CFDI ligado.");
+        if (cfdi.Estado != EstadoCfdiRecibido.PorProcesar || cfdi.Tipo != tipo ||
+            !string.Equals(cfdi.RfcEmisor.Valor, rfc, StringComparison.OrdinalIgnoreCase) || cfdi.Moneda != moneda)
+            throw new BusinessRuleException("CFDI_NO_UTILIZABLE", "El CFDI debe estar por procesar y coincidir en tipo, proveedor y moneda.");
+        return cfdi;
+    }
+
+    private async Task<DatosCfdiParseados> LeerXmlAsync(CfdiRecibido cfdi, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(cfdi.XmlBlobRef)) throw new BusinessRuleException("CFDI_SIN_XML", "El CFDI no tiene XML almacenado.");
+        await using var stream = await _blobs.LeerXmlAsync(cfdi.XmlBlobRef, ct)
+            ?? throw new BusinessRuleException("CFDI_XML_NO_DISPONIBLE", "No se pudo leer el XML ligado.");
+        var datos = _parser.Parsear(stream);
+        if (!string.Equals(datos.UuidCfdi, cfdi.UuidCfdi.Valor, StringComparison.OrdinalIgnoreCase) ||
+            datos.RfcEmisor != cfdi.RfcEmisor.Valor || datos.Tipo != cfdi.Tipo || datos.Moneda != cfdi.Moneda)
+            throw new BusinessRuleException("CFDI_XML_DISTINTO", "El XML almacenado no corresponde al CFDI seleccionado.");
+        return datos;
+    }
+
+    private async Task<Tolerancia> ResolverToleranciaAsync(ProveedorDto proveedor, CancellationToken cancellationToken)
+    {
+        if (proveedor.Tolerancia is null)
+            return Tolerancia.MontoAbsoluto(await _toleranciaGeneral.ObtenerMontoMxnAsync(cancellationToken));
 
         return proveedor.Tolerancia.Tipo switch
         {
             ToleranciaTipo.MontoAbsoluto => Tolerancia.MontoAbsoluto(proveedor.Tolerancia.Valor),
-            ToleranciaTipo.Porcentaje    => Tolerancia.Porcentaje(proveedor.Tolerancia.Valor),
-            _ => Tolerancia.MontoAbsoluto(ToleranciaDefaultMxp),
+            ToleranciaTipo.Porcentaje => Tolerancia.Porcentaje(proveedor.Tolerancia.Valor),
+            _ => throw new BusinessRuleException("TOLERANCIA_TIPO_INVALIDO", "El tipo de tolerancia no es válido."),
         };
     }
 }

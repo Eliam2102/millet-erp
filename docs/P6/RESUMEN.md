@@ -1,3 +1,5 @@
+> **Continuación de la fusión con main (09-oct):** ver [fusion-main-09oct.md](fusion-main-09oct.md) para el estado y la validación vigentes. Claude ya hizo el commit P6 `535c905`; la fusión de `b72f990` tiene los siete conflictos resueltos en archivos, pero sigue pendiente en el índice porque el sandbox impide `git add` y `git commit`. Las referencias a trabajo sin commit y resultados de abajo son el corte anterior, conservado como historia. No acredita integración PostgreSQL ni aceptación Millet.
+
 # Resumen de P6 — auditoría 9-oct-2026
 
 **Estado:** continuación del 9-oct: correcciones de la adenda, implementación local y compilación/unitarias en verde. La corrida PostgreSQL aportada por Claude fue **861 aprobadas / 105 fallidas / 966 total**; el resultado después de estas correcciones está **Por confirmar**. Integración PostgreSQL, Entra/Graph real y aceptación en vivo Millet: **Por confirmar**. No constituye cierre de las 30 funciones del proyecto ni aceptación del cliente.

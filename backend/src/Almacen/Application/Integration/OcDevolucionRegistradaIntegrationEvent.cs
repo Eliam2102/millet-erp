@@ -33,12 +33,10 @@ public sealed record OcDevolucionRegistradaIntegrationEvent(
     : IntegrationEvent("almacen.oc_devolucion.registrada.v1", EmpresaId, OcurridoEn);
 
 /// <summary>
-/// GAP-5 (verificación e2e 2026-07-15): <c>LineaOcId</c> es la línea de
-/// OC afectada, resuelta por artículo contra la OC de origen vía
-/// <c>IComprasOcReadPort</c> al registrar la salida (mismo criterio que
-/// la recepción). Compras la usa para decrementar
-/// <c>CantidadRecibida</c>; NULL cuando no hay OC de origen o el
-/// artículo no matchea (Compras omite la línea).
+/// <c>LineaOcId</c> se toma de la línea de recepción origen verificada,
+/// preservando la correspondencia aun si la OC repite un artículo.
+/// Compras la usa para decrementar <c>CantidadRecibida</c>.
+/// Puede ser NULL en recepciones históricas sin referencia por línea.
 /// </summary>
 public sealed record LineaDevolucionProveedorPayload(
     Guid LineaDevolucionId,

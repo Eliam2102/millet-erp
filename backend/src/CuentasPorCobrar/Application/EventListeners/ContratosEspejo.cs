@@ -40,7 +40,7 @@ public sealed record ReciboPagoTimbradoPayload(
     string Uuid,
     decimal ImporteTotalPago,
     decimal GananciaPerdidaCambiaria,
-    IReadOnlyList<ReppFacturaPagadaPayload>? FacturasPagadas);
+    IReadOnlyList<ReppFacturaPagadaPayload>? FacturasPagadas, Guid? MovimientoBancarioId = null);
 
 public sealed record CobroMostradorRegistradoPayload(
     Guid EmpresaId,

@@ -47,7 +47,7 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
         { "oc", "PATCH", "/referencia-proveedor" }, { "oc", "PATCH", "/contacto-proveedor" },
         { "oc", "PATCH", "/informacion-logistica" }, { "oc", "PATCH", "/informacion-importacion" },
         { "oc", "POST", "/transmitir" }, { "oc", "POST", "/cerrar-manual" }, { "oc", "POST", "/autorizaciones" },
-        { "oc", "POST", "/cancelar" }, { "oc", "POST", "/cancelar-con-recepciones" }, { "oc", "POST", "/rechazar" },
+        { "oc", "POST", "/cancelar" }, { "oc", "POST", "/resolver-cancelacion" }, { "oc", "POST", "/cancelar-con-recepciones" }, { "oc", "POST", "/rechazar" },
         { "oc", "PATCH", "/numero-pedimento" }, { "oc", "POST", "/lineas/desde-requisicion" },
         { "factura", "GET", "/evidencias" }, { "factura", "POST", "/evidencias" },
         { "cfdi", "POST", "/descartar" }, { "cfdi", "POST", "/marcar-duplicado" },
@@ -57,11 +57,10 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
         { "comprobacion", "POST", "/enviar-revision" }, { "comprobacion", "POST", "/autorizar" },
         { "comprobacion", "POST", "/aplicar" }, { "comprobacion", "POST", "/autorizar-nivel1" },
         { "comprobacion", "POST", "/autorizar-nivel2" }, { "comprobacion", "POST", "/rechazar" },
-        { "pago", "POST", "/revertir" },
+        { "pago", "POST", "/revertir" }, { "movimiento", "POST", "/reclasificar" },
         { "factura", "PATCH", "" }, { "factura", "POST", "/enviar-revision" }, { "factura", "POST", "/liberar-revision" },
         { "factura", "POST", "/autorizar" }, { "factura", "POST", "/cancelar" },
         { "factura", "POST", "/aplicar-nc" }, { "factura", "POST", "/aplicar-anticipo" },
-        { "propuesta", "POST", "/confirmar" }, { "propuesta", "POST", "/rechazar" },
         { "deposito", "POST", "/confirmar" }, { "deposito", "POST", "/rechazar" },
     };
 
@@ -132,6 +131,42 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
         var cartera = await datos.Operativo.GetStringAsync($"/api/v1/cuentas-por-cobrar/cartera/facturas-abiertas?clienteId={datos.ClienteId}");
         Assert.Contains(datos.Propios["cartera"].ToString(), cartera);
         Assert.DoesNotContain(datos.Ajenos["cartera"].ToString(), cartera);
+    }
+
+    [Fact]
+    public async Task Desligar_aplicacion_ajena_exige_sucursal_antes_de_modificar()
+    {
+        await using var datos = await PrepararAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/v1/tesoreria/pagos-cuenta/{datos.Ajenos["movimiento"]}/aplicaciones/{datos.Ajenos["pago"]}/desligar")
+        { Content = JsonContent.Create(new { Motivo = "Prueba P6" }) };
+        Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.SendAsync(request)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("flujo-efectivo")]
+    [InlineData("auxiliar-bancos")]
+    public async Task Reportes_bancarios_ajenos_403_propios_y_corporativos_permitidos(string reporte)
+    {
+        await using var datos = await PrepararAsync();
+        string RutaReporte(Guid cuenta) => $"/api/v1/tesoreria/reportes/{reporte}?cuentaBancariaId={cuenta}&desde=2026-01-01&hasta=2026-12-31";
+        Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.GetAsync(RutaReporte(datos.Ajenos["cuenta"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await datos.Operativo.GetAsync(RutaReporte(datos.Propios["cuenta"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await datos.Corporativo.GetAsync(RutaReporte(datos.Ajenos["cuenta"]))).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("antiguedad-saldos")]
+    [InlineData("cartera")]
+    [InlineData("pasivos-obras")]
+    [InlineData("auxiliar-proveedores")]
+    public async Task Reportes_P8_conservan_filtro_y_bypass_de_sucursal(string reporte)
+    {
+        await using var datos = await PrepararAsync();
+        string RutaReporte(Guid sucursal) => $"/api/v1/cuentas-por-pagar/reportes/{reporte}?sucursalId={sucursal}&fechaCorte=2026-12-31";
+        Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.GetAsync(RutaReporte(Ajena))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await datos.Operativo.GetAsync(RutaReporte(Propia))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await datos.Corporativo.GetAsync(RutaReporte(Ajena))).StatusCode);
     }
 
     [Theory]

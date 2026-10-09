@@ -37,6 +37,7 @@ export const BandejaOcSearchSchema = z.object({
       z.literal(EstadoOrdenCompra.Cerrada),
       z.literal(EstadoOrdenCompra.Cancelada),
       z.literal(EstadoOrdenCompra.Rechazada),
+      z.literal(EstadoOrdenCompra.CancelacionSolicitada),
     ])
     .optional(),
   subEstadoRecepcion: z

@@ -29,6 +29,7 @@ public sealed class AplicacionPagoProveedor : BaseEntity, IAuditable
     public Guid? CorridaId { get; private set; }
 
     /// <summary>Marca de reversa (RN-10): nada se borra; el contramovimiento vive en <c>MovimientoBancario</c>.</summary>
+    public string? MotivoReversa { get; private set; }
     public bool Revertida { get; private set; }
 
     public DateTimeOffset CreadoEn { get; private set; }
@@ -64,11 +65,14 @@ public sealed class AplicacionPagoProveedor : BaseEntity, IAuditable
     }
 
     /// <summary>Marca de reversa (RN-10): nada se borra; el contramovimiento compensa.</summary>
-    public void Revertir()
+    public void Revertir(string motivo)
     {
         if (Revertida)
             throw new BusinessRuleException("APL_YA_REVERTIDA",
                 $"La aplicación '{Id}' ya fue revertida.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("APL_MOTIVO_REVERSA_VACIO", "Indica el motivo de la reversa o de desligar el pago.");
+        MotivoReversa = motivo.Trim();
         Revertida = true;
     }
 }

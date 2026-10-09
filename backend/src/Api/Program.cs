@@ -272,6 +272,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // anticipos informativos). Subscription `cuentas-por-cobrar-subscription`
     // en topic `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.CuentasPorCobrar.Infrastructure.Workers.FacturacionEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.CuentasPorCobrar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 
     // TES-PR3: listener Service Bus de eventos de CxP → proyección
     // pasivo_pendiente_pago (bandeja de egresos de Tesorería). Subscription
@@ -709,6 +710,12 @@ builder.Services.AddScoped<
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Calendario.ICalendarioHabil,
+    Millet.Compartido.Infrastructure.Calendario.CalendarioHabilService>();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.ICentroCostoElegibilidadPort,
+    Millet.Api.Adapters.AlmacenCentroCostoElegibilidadAdapter>();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider,
+    Millet.Compartido.Infrastructure.PublicAdapters.ConteoUmbralesProvider>();
 
 // === Almacén cross-module ports (read-side síncrono) → adapters reales ===
 // Reemplaza los NoOpComprasOcReadPort / NoOpComprasRequisicionReadPort que
@@ -723,7 +730,7 @@ builder.Services.AddAlmacenModule();
 //   esté Autorizada y resuelven costo unitario desde la línea de OC
 //   (convertido a MXN si la OC es en moneda extranjera).
 // - <ComprasRqReadAdapter>: handlers de salida ahora validan que la RQ
-//   esté Autorizada / EnSurtido y leen articulo + cantidad solicitada por
+//   esté Autorizada / EnSurtido y leen artículo + cantidad disponible para entregar por
 //   línea para verificar match.
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasOcReadPort,
@@ -859,6 +866,7 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
 // el publisher de los 4 eventos espejo congelados en TES-PR4. Ver
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -1649,6 +1657,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.MovimientosEndpoints.MapTesoreriaMovimientosEndpoints(app);
 
 // === Tesorería — Bandeja de pasivos pendientes de pago (TES-PR3) ===

@@ -23,7 +23,7 @@ public sealed class AdjuntosP6Tests
     {
         var propia = Guid.NewGuid(); var ajena = Guid.NewGuid();
         using var compras = new ComprasDbContext(new DbContextOptionsBuilder<ComprasDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new Empresa());
-        using var cxp = new CuentasPorPagarDbContext(new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new Empresa());
+        using var cxp = CxpP6TestContext.Crear(new Empresa());
         var permisos = new Permisos();
         IAdjuntoPropietario propietario = tipo == "requisicion"
             ? new RequisicionAdjuntoPropietario(compras, new Usuario(), permisos, new Sucursales(propia))

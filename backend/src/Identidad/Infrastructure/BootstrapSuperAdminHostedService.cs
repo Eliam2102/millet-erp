@@ -150,8 +150,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
     }
 
     /// <summary>
-    /// Seed de los 8 roles MVP adicionales al super-admin (F-Admin-PR3.3,
-    /// A2 cerrada 2026-05-13; G1.9 / F1-ADM-05): 9 roles MVP en total.
+    /// Seed de roles MVP adicionales al super-admin (F-Admin-PR3.3,
+    /// A2 cerrada 2026-05-13; G1.9 / F1-ADM-05; P9 agrega el DAF).
     /// Cada rol agrupa un subset de permisos canónicos por área de responsabilidad:
     ///
     /// <list type="bullet">
@@ -222,10 +222,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "admin-datos-maestros",
                 "Administrador de Datos Maestros",
                 "Gestión de proveedores y artículos (catálogos operativos).",
-                // G1.9 / V44: solo Tesorería edita datos bancarios
+                // G1.9 / G1.13: edición de datos bancarios y tolerancia reservada a sus áreas.
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
                      || (p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
-                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar)
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar)
             ),
             (
                 Guid.Parse("00000002-0003-0000-0000-000000000006"),
@@ -247,9 +248,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 Guid.Parse("00000002-0003-0000-0000-000000000008"),
                 "cxp",
                 "Cuentas por Pagar",
-                "Revisión y validación de proveedores; consulta de datos bancarios enmascarados.",
+                "Revisión, validación y tolerancia de proveedores; consulta de datos bancarios enmascarados.",
                 p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresValidar
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
             ),
             (
@@ -263,6 +265,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
             ),
         };
 
+        rolesDefinicion = [.. rolesDefinicion,
+            (Guid.Parse("0000000d-0001-0001-0000-000000000001"), "direccion-administracion-finanzas",
+                "Dirección de Administración y Finanzas", "Autoriza solicitudes del catálogo contable (R27/D14).",
+                p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar)];
         foreach (var def in rolesDefinicion)
         {
             var rol = await db.Roles

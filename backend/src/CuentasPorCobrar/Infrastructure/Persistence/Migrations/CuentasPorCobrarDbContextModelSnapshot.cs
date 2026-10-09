@@ -19,7 +19,7 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("cuentas_por_cobrar")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -241,11 +241,23 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_rechazo");
 
+                    b.Property<Guid?>("MovimientoBancarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_bancario_id");
+
+                    b.Property<Guid?>("PropuestoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("propuesto_por");
+
                     b.Property<string>("RemittanceRef")
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
                         .HasColumnName("remittance_ref");
+
+                    b.Property<bool>("ReppTimbrado")
+                        .HasColumnType("boolean")
+                        .HasColumnName("repp_timbrado");
 
                     b.Property<DateTimeOffset?>("ResueltaEn")
                         .HasColumnType("timestamp with time zone")
@@ -254,6 +266,11 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ResueltaPor")
                         .HasColumnType("uuid")
                         .HasColumnName("resuelta_por");
+
+                    b.Property<decimal>("SaldoAFavorPorIdentificar")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldo_a_favor_por_identificar");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1079,6 +1096,23 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -1101,6 +1135,12 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -1130,12 +1170,21 @@ namespace Millet.CuentasPorCobrar.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");

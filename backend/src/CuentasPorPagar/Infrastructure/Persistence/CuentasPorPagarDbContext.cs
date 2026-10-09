@@ -45,7 +45,77 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
 
     public CuentasPorPagarDbContext(
         DbContextOptions<CuentasPorPagarDbContext> options,
-        ICurrentEmpresaContext empresaContext) : base(options, empresaContext) { }
+        ICurrentEmpresaContext empresaContext,
+        Domain.Ports.Contabilidad.IPeriodoContablePort periodos,
+        IClock clock) : base(options, empresaContext)
+    { _periodos = new(periodos); _clock = clock; }
+
+    private readonly Application.Periodos.PeriodoCerradoValidator _periodos;
+    private readonly IClock _clock;
+    public DbSet<MovimientoPasivo> MovimientosPasivo => Set<MovimientoPasivo>();
+    public DbSet<Domain.Catalogos.RetencionConcepto> RetencionesConcepto => Set<Domain.Catalogos.RetencionConcepto>();
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => SaveChangesAsync(true, cancellationToken);
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ChangeTracker.DetectChanges();
+        var fechas = FechasContables().Distinct().ToArray();
+        if (fechas.Length == 0) return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        // Mismo candado de ADR-0059: cierre y persistencia se serializan hasta commit.
+        const long lockPeriodos = 0x0D03_0001;
+        await using var tx = Database.IsRelational() && Database.CurrentTransaction is null
+            ? await Database.BeginTransactionAsync(cancellationToken) : null;
+        if (Database.IsRelational())
+            await Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({lockPeriodos})", cancellationToken);
+        await _periodos.ValidarAsync(fechas, cancellationToken);
+        foreach (var entry in ChangeTracker.Entries<FacturaProveedor>().Where(e =>
+            e.State == EntityState.Added || e.Property(f => f.ConceptoRetencion).IsModified))
+        {
+            var f = entry.Entity;
+            var reglas = await RetencionesConcepto.AsNoTracking().Where(r => r.Activa && r.Concepto == f.ConceptoRetencion).ToListAsync(cancellationToken);
+            f.AsignarAlertaRetenciones(Domain.Catalogos.ComparadorRetenciones.Alerta(
+                f.ConceptoRetencion, f.Subtotal - f.Descuentos, f.Retenciones, f.RetencionesDetalle, reglas));
+        }
+        var resultado = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
+        return resultado;
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ChangeTracker.DetectChanges();
+        if (FechasContables().Any())
+            throw new InvalidOperationException("Los movimientos de CxP requieren SaveChangesAsync para verificar el periodo contable.");
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    private IEnumerable<DateOnly> FechasContables()
+    {
+        var hoy = DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+        foreach (var e in ChangeTracker.Entries<FacturaProveedor>())
+        {
+            if (e.State == EntityState.Added || e.Property(f => f.FechaContabilizacion).IsModified ||
+                e.Property(f => f.Obra).IsModified || e.Property(f => f.ConceptoRetencion).IsModified ||
+                (e.Property(f => f.Estado).IsModified && e.Entity.Estado is EstadoPasivo.Autorizada or EstadoPasivo.Cancelada))
+            {
+                yield return DateOnly.FromDateTime(e.Entity.FechaContabilizacion.UtcDateTime);
+                if (e.State != EntityState.Added && e.Property(f => f.FechaContabilizacion).IsModified)
+                    yield return DateOnly.FromDateTime(e.Property(f => f.FechaContabilizacion).OriginalValue.UtcDateTime);
+            }
+        }
+        foreach (var e in ChangeTracker.Entries<MovimientoPasivo>().Where(e => e.State == EntityState.Added))
+            yield return e.Entity.Fecha;
+        foreach (var e in ChangeTracker.Entries<AnticipoProveedor>())
+            if (e.State == EntityState.Added) yield return DateOnly.FromDateTime(e.Entity.FechaCfdi.UtcDateTime);
+            else if (e.Property(a => a.Estado).IsModified || e.Property(a => a.MontoAmortizado).IsModified) yield return hoy;
+        foreach (var e in ChangeTracker.Entries<NotaCreditoProveedor>())
+            if (e.State == EntityState.Added) yield return DateOnly.FromDateTime(e.Entity.FechaCfdi.UtcDateTime);
+            else if (e.Property(n => n.Estado).IsModified || e.Property(n => n.MontoAplicado).IsModified) yield return hoy;
+        foreach (var e in ChangeTracker.Entries<NotaCargo>())
+            if (e.State == EntityState.Added) yield return DateOnly.FromDateTime(e.Entity.FechaCreacion.UtcDateTime);
+            else if (e.Property(n => n.Estado).IsModified) yield return hoy;
+    }
 
     /// <summary>CFDIs recibidos en el ERP por cualquier canal (§4.1 del 00-levantamiento, F1-PR1).</summary>
     public DbSet<CfdiRecibido> CfdisRecibidos => Set<CfdiRecibido>();
@@ -130,6 +200,12 @@ public sealed class CuentasPorPagarDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new CfdiRecibidoConfiguration());
         modelBuilder.ApplyConfiguration(new FacturaProveedorConfiguration());
+        modelBuilder.ApplyConfiguration(new RetencionConceptoConfiguration());
+        modelBuilder.Entity<MovimientoPasivo>(b =>
+        {
+            b.ToTable("movimientos_pasivo"); b.HasKey(m => m.Id); b.Property(m => m.Id).ValueGeneratedNever();
+            b.Property(m => m.Monto).HasPrecision(18, 4); b.HasIndex(m => new { m.FacturaProveedorId, m.Fecha });
+        });
         modelBuilder.ApplyConfiguration(new LineaFacturaProveedorConfiguration());
         modelBuilder.ApplyConfiguration(new BitacoraEstadoFacturaConfiguration());
         modelBuilder.ApplyConfiguration(new MotivoRevisionConfiguration());

@@ -19,7 +19,7 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("core")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -66,7 +66,7 @@ namespace Millet.SharedKernel.Infrastructure.Persistence.Migrations.Core
                         .HasColumnName("request_body_hash");
 
                     b.Property<string>("ResponseBody")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("text")
                         .HasColumnName("response_body");
 
                     b.Property<bool>("ResponseBodyTruncated")

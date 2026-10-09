@@ -6,7 +6,6 @@ using Millet.Contabilidad.Domain;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
-using Npgsql;
 
 namespace Millet.Contabilidad.Application.Importacion;
 
@@ -19,7 +18,7 @@ public sealed record VistaPreviaResponse(
     ResumenImportacion Resumen, string Huella, bool PuedeAplicar, IReadOnlyList<ErrorFila> Archivo, IReadOnlyList<FilaResultado> Filas);
 
 public sealed record AplicarImportacionResultado(
-    bool Aplicado, bool Idempotente, ImportacionLoteDto? Lote, IReadOnlyList<ErrorFila> Errores);
+    bool Aplicado, bool Idempotente, ImportacionLoteDto? Lote, IReadOnlyList<ErrorFila> Errores, Guid? SolicitudId = null);
 
 /// <summary>Carga (solo lectura) y análisis comunes a vista previa, perfilado y aplicar.</summary>
 internal static class AnalisisImportacion
@@ -37,7 +36,7 @@ internal static class AnalisisImportacion
         var ex = new ExistenteCatalogo(
             [.. cuentas.Select(c => new CuentaExistente(c.Id, c.Codigo, c.Nombre, c.PadreId is { } p ? porId[p] : null,
                 c.Naturaleza, c.Tipo, c.CuentaControl, c.CodigoAgrupador, c.GrupoReporte, c.Activa, usadas.Contains(c.Id),
-                c.Clase, c.RubroId is { } r ? porId[r] : null))],
+                c.Clase, c.RubroId is { } r ? porId[r] : null, c.NoAfectableManual))],
             origenes);
         var fuente = FormatoCatalogo.Texto(request.Fuente)?.ToUpperInvariant();
         return (new ImportadorCatalogo(formato).Analizar(tabla, fuente, ex), formato);
@@ -91,7 +90,7 @@ public sealed record AplicarImportacionCommand(ImportacionRequest Cuerpo) : IReq
 
 public sealed class AplicarImportacionHandler(
     ContabilidadDbContext db, FormatoCatalogo formato, ICurrentUserContext usuario, IClock clock,
-    ILogger<AplicarImportacionHandler> log)
+    ILogger<AplicarImportacionHandler> log, SolicitudesCatalogo solicitudes)
     : IRequestHandler<AplicarImportacionCommand, AplicarImportacionResultado>
 {
     public async Task<AplicarImportacionResultado> Handle(AplicarImportacionCommand request, CancellationToken cancellationToken)
@@ -108,11 +107,15 @@ public sealed class AplicarImportacionHandler(
             log.LogInformation("Importación de catálogo rechazada: errores={Errores}", a.Hallazgos.Count(h => h.Severidad == "Error"));
             return new(false, false, null, [.. a.Hallazgos.Where(h => h.Severidad == "Error")]);
         }
-        return await PersistirAsync(a, request.Cuerpo, cancellationToken);
+        var pendiente = await db.SolicitudesCatalogo.AsNoTracking().FirstOrDefaultAsync(s => s.HuellaImportacion == a.Huella && s.Estado == "Pendiente", cancellationToken);
+        if (pendiente is not null) return new(false, false, null, [], pendiente.Id);
+        var (resultado, solicitudId) = await solicitudes.PrepararAsync(request,
+            () => PersistirAsync(a, request.Cuerpo, cancellationToken), cancellationToken, a.Huella);
+        return resultado with { Aplicado = false, Lote = null, SolicitudId = solicitudId };
     }
 
     /// <summary>Una sola transacción (un SaveChanges). Visible para pruebas con análisis "viejo" (carrera).</summary>
-    internal async Task<AplicarImportacionResultado> PersistirAsync(ResultadoAnalisis a, ImportacionRequest request, CancellationToken cancellationToken)
+    internal async Task<AplicarImportacionResultado> PersistirAsync(ResultadoAnalisis a, ImportacionRequest request, CancellationToken cancellationToken, IReadOnlyDictionary<string, Guid>? idsPropuestos = null)
     {
         var entidades = await db.Cuentas.ToDictionaryAsync(x => x.Codigo, cancellationToken);
         var ids = entidades.ToDictionary(e => e.Key, e => e.Value.Id);
@@ -121,16 +124,16 @@ public sealed class AplicarImportacionHandler(
             a.Filas.Count, a.Filas.Count(f => f.Accion == Accion.Crear), a.Filas.Count(f => f.Accion == Accion.Actualizar),
             a.Filas.Count(f => f.Accion == Accion.SinCambios), clock.UtcNow, usuario.UserName ?? usuario.Email);
 
-        foreach (var f in a.Filas.Where(f => f.Accion == Accion.Crear)) ids[f.Codigo!] = Guid.CreateVersion7();
+        foreach (var f in a.Filas.Where(f => f.Accion == Accion.Crear)) ids[f.Codigo!] = idsPropuestos?.GetValueOrDefault(f.Codigo!) ?? Guid.CreateVersion7();
         var enArchivo = a.Filas.Select(f => f.Codigo!).ToHashSet();
         foreach (var f in a.Filas.Where(f => f.Accion is Accion.Crear or Accion.Actualizar))
         {
             Guid? padre = f.PadreCodigo is null ? null : ids[f.PadreCodigo];
             var cuenta = f.Accion == Accion.Crear
                 ? db.Cuentas.Add(new CuentaContable(ids[f.Codigo!], f.Codigo!, f.Nombre!, padre, f.Nivel, f.Naturaleza, f.Tipo,
-                    f.Control, f.Agrupador, f.Grupo, f.Clase)).Entity
+                    f.Control, f.Agrupador, f.Grupo, f.Clase, f.NoAfectableManual)).Entity
                 : entidades[f.Codigo!];
-            if (f.Accion == Accion.Actualizar) cuenta.Editar(f.Nombre!, padre, f.Nivel, f.Naturaleza, f.Tipo, f.Control, f.Agrupador, f.Grupo);
+            if (f.Accion == Accion.Actualizar) cuenta.Editar(f.Nombre!, padre, f.Nivel, f.Naturaleza, f.Tipo, f.Control, f.Agrupador, f.Grupo, f.NoAfectableManual);
             cuenta.AsignarRubro(f.RubroCodigo is null ? null : ids[f.RubroCodigo]);
         }
         // P20: cuentas existentes afectables que reciben hijas en este archivo pasan a acumular.
@@ -142,18 +145,6 @@ public sealed class AplicarImportacionHandler(
             if (a.NivelesCalculados.TryGetValue(codigo, out var nivel) && nivel > 0 && nivel != entidad.Nivel) entidad.FijarNivel(nivel);
         db.Importaciones.Add(lote);
 
-        try { await db.SaveChangesAsync(cancellationToken); }
-        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        {
-            // Otra importación ganó la carrera: si es el mismo archivo, se responde como idempotente.
-            db.ChangeTracker.Clear();
-            var ganador = await LoteAsync(a.Huella, cancellationToken);
-            if (ganador is not null) return new(false, true, ganador, []);
-            throw new ConflictException("CONTAB_IMPORT_CONFLICTO_CONCURRENTE",
-                "Otra operación modificó el catálogo mientras se aplicaba la importación; vuelva a generar la vista previa.");
-        }
-        log.LogInformation("Importación de catálogo aplicada: filas={Filas} creadas={Creadas} actualizadas={Actualizadas} sinCambios={SinCambios}",
-            lote.TotalFilas, lote.Creadas, lote.Actualizadas, lote.SinCambios);
         return new(true, false, Dto(lote), []);
     }
 

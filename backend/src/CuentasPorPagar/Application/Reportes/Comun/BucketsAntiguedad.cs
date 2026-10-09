@@ -7,6 +7,7 @@ namespace Millet.CuentasPorPagar.Application.Reportes.Comun;
 /// </summary>
 public static class BucketsAntiguedad
 {
+    public const string BucketPorVencer = "por_vencer";
     public const string Bucket0a30      = "b0_30";
     public const string Bucket31a60     = "b31_60";
     public const string Bucket61a90     = "b61_90";
@@ -19,7 +20,7 @@ public static class BucketsAntiguedad
     ///
     /// <para>
     /// Días &gt; 0 = factura vencida. Días &lt; 0 = factura todavía en
-    /// plazo (cae en bucket 0-30 por convención del reporte). Días == 0
+    /// plazo (por vencer). Días == 0
     /// = vence hoy (bucket 0-30).
     /// </para>
     /// </summary>
@@ -28,6 +29,7 @@ public static class BucketsAntiguedad
         var dias = fechaCorte.DayNumber - fechaVencimiento.DayNumber;
         return dias switch
         {
+            < 0 => BucketPorVencer,
             <= 30 => Bucket0a30,
             <= 60 => Bucket31a60,
             <= 90 => Bucket61a90,

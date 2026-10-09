@@ -33,11 +33,12 @@ public sealed class ListarPendientesAutorizacionOcHandler
         var estadosPendientes = request.Nivel switch
         {
             NivelAutorizacion.Nivel1 => new[] { EstadoOrdenCompra.EnAutorizacionJefeCompras },
-            NivelAutorizacion.Nivel2 => new[] { EstadoOrdenCompra.EnAutorizacionDireccion },
+            NivelAutorizacion.Nivel2 => new[] { EstadoOrdenCompra.EnAutorizacionDireccion, EstadoOrdenCompra.CancelacionSolicitada },
             _ => new[]
             {
                 EstadoOrdenCompra.EnAutorizacionJefeCompras,
                 EstadoOrdenCompra.EnAutorizacionDireccion,
+                EstadoOrdenCompra.CancelacionSolicitada,
             },
         };
 

@@ -71,7 +71,8 @@ public sealed class DemoSesionSeedTests
                 var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
                 Assert.False(await identidad.Usuarios.AnyAsync(u => u.Email == "compras-demo@example.invalid"));
                 // Simula exclusivamente en el fixture la identidad que el usuario ya
-                // creó al iniciar sesión. El sembrador nunca inserta usuarios.
+                // creó al iniciar sesión. El sembrador no inserta usuarios reales;
+                // sus tres identidades P2 están etiquetadas como DEMO.
                 identidad.Usuarios.Add(new Usuario(DemoSesionSeedHostedService.Id("DEMO-USUARIO-FIXTURE"),
                     Guid.NewGuid().ToString(), "compras-demo@example.invalid", "DEMO Compras", esCuentaTecnica: true));
                 await identidad.SaveChangesAsync();
@@ -194,6 +195,29 @@ public sealed class DemoSesionSeedTests
         Assert.Equal(SubEstadoRecepcion.SinRecepcion, oc.SubEstadoRecepcion);
         Assert.Equal(2, oc.Adjuntos.Count);
         Assert.Equal(2, oc.Autorizaciones.Count);
+        Assert.Equal(DemoSesionSeedHostedService.CapturistaComprasDemoId, oc.CompradorTitularId);
+        Assert.Equal(DemoSesionSeedHostedService.JefeComprasDemoId,
+            Assert.Single(oc.Autorizaciones, a => a.Nivel == Millet.Compras.Domain.NivelAutorizacion.Nivel1).UsuarioId);
+        Assert.Equal(DemoSesionSeedHostedService.DireccionDemoId,
+            Assert.Single(oc.Autorizaciones, a => a.Nivel == Millet.Compras.Domain.NivelAutorizacion.Nivel2).UsuarioId);
+        var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        foreach (var (id, rol) in new[]
+        {
+            (DemoSesionSeedHostedService.CapturistaComprasDemoId, "Capturista Compras"),
+            (DemoSesionSeedHostedService.JefeComprasDemoId, "Jefe Compras"),
+            (DemoSesionSeedHostedService.DireccionDemoId, "Dirección"),
+        })
+        {
+            var usuario = await identidad.Usuarios.SingleAsync(u => u.Id == id);
+            Assert.True(usuario.Activo);
+            Assert.True(usuario.EsCuentaTecnica);
+            Assert.False(usuario.TieneOidPendiente);
+            Assert.StartsWith("DEMO", usuario.Nombre);
+            Assert.Equal(DemoSesionSeedHostedService.Id("DEMO-ROL-" + rol),
+                (await identidad.UsuarioEmpresaRoles.SingleAsync(a => a.UsuarioId == id && a.EmpresaId == empresa.Id)).RolId);
+            Assert.Equal(rol == "Capturista Compras" ? 1 : 3,
+                await identidad.UsuarioSucursales.CountAsync(a => a.UsuarioId == id && a.EmpresaId == empresa.Id));
+        }
         Assert.Equal(10m, Assert.Single(oc.Lineas).Cantidad);
         Assert.Equal(0m, Assert.Single(oc.Lineas).CantidadRecibida);
         foreach (var adjunto in oc.Adjuntos)
@@ -212,7 +236,7 @@ public sealed class DemoSesionSeedTests
         Assert.Equal(13, periodos.Count);
         Assert.All(periodos.Where(p => p.Numero <= 9), p => Assert.Equal(EstadoPeriodo.Cerrado, p.Estado));
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
-        Assert.Equal(5, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
         Assert.Equal(2, await compras.OrdenesCompra.CountAsync());
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());

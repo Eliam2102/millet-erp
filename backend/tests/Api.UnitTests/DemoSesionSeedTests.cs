@@ -14,6 +14,19 @@ namespace Millet.Api.UnitTests;
 public sealed class DemoSesionSeedTests
 {
     [Theory]
+    [InlineData("Capturista Compras", false, false)]
+    [InlineData("Jefe Compras", true, false)]
+    [InlineData("Dirección", false, true)]
+    public void FirmantesDemo_TienenIdentidadesDistintas_YPermisoDeSuNivel(string rol, bool n1, bool n2)
+    {
+        Assert.Equal(n1, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesAutorizarNivel1));
+        Assert.Equal(n2, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesAutorizarNivel2));
+        Assert.False(DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesLeerTodasSucursales));
+        Assert.Equal(3, new[] { DemoSesionSeedHostedService.CapturistaComprasDemoId,
+            DemoSesionSeedHostedService.JefeComprasDemoId, DemoSesionSeedHostedService.DireccionDemoId }.Distinct().Count());
+    }
+
+    [Theory]
     [InlineData("Development", false)]
     [InlineData("Production", false)]
     [InlineData("Production", true)]
@@ -57,10 +70,20 @@ public sealed class DemoSesionSeedTests
         var r = DemoSesionSeedHostedService.CatalogoDemo();
         var resultado = new ImportadorCatalogo(new FormatoCatalogo(opciones)).Analizar(LectorTabla.Leer(r), r.Fuente, ExistenteCatalogo.Vacio);
         Assert.True(resultado.PuedeAplicar, string.Join(";", resultado.Hallazgos.Select(h => h.Mensaje)));
-        Assert.Equal(5, resultado.Filas.Count);
+        Assert.Equal(7, resultado.Filas.Count);
+        Assert.Equal(3, resultado.Filas.Count(f => f.NoAfectableManual));
         Assert.Contains(resultado.Filas, f => f.Control == CuentaControl.Clientes && f.Tipo == TipoCuenta.Afectable);
         Assert.Contains(resultado.Filas, f => f.Naturaleza is null);
         Assert.All(resultado.Filas, f => Assert.StartsWith("DEMO-", f.CodigoOrigen));
+    }
+
+    [Fact]
+    public void P9_DAF_autoriza_y_contador_solo_prepara()
+    {
+        Assert.True(DemoSesionSeedHostedService.PermisoDelRol("DAF", PermisosCanonicos.ContabilidadCatalogoAutorizar));
+        Assert.True(DemoSesionSeedHostedService.PermisoDelRol("DAF", PermisosCanonicos.ContabilidadCatalogoLeer));
+        Assert.False(DemoSesionSeedHostedService.PermisoDelRol("Contabilidad", PermisosCanonicos.ContabilidadCatalogoAutorizar));
+        Assert.True(DemoSesionSeedHostedService.PermisoDelRol("Contabilidad", PermisosCanonicos.ContabilidadCatalogoAdministrar));
     }
 
     [Fact]

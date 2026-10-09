@@ -26,7 +26,7 @@ public sealed record AplicacionPagoResponse(
     Guid PagoId,
     Guid FacturaProveedorId,
     decimal Importe,
-    bool Revertida);
+    bool Revertida, string? MotivoReversa = null);
 
 public sealed record PagoProveedorResponse(
     Guid MovimientoId,
@@ -75,6 +75,7 @@ public sealed class RegistrarPagoProveedorHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IPeriodoContablePort _periodoContable;
     private readonly IProveedorBancoReadPort _proveedorBancoPort;
+    private readonly IElegibleFacturaReadPort _elegible;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
 
@@ -84,6 +85,7 @@ public sealed class RegistrarPagoProveedorHandler
         ICurrentUserContext currentUser,
         IPeriodoContablePort periodoContable,
         IProveedorBancoReadPort proveedorBancoPort,
+        IElegibleFacturaReadPort elegible,
         IIntegrationEventPublisher publisher,
         IClock clock)
     {
@@ -92,12 +94,23 @@ public sealed class RegistrarPagoProveedorHandler
         _currentUser = currentUser;
         _periodoContable = periodoContable;
         _proveedorBancoPort = proveedorBancoPort;
+        _elegible = elegible;
         _publisher = publisher;
         _clock = clock;
     }
 
     public async Task<PagoProveedorResponse> Handle(
         RegistrarPagoProveedorCommand command, CancellationToken cancellationToken)
+    {
+        if (!_db.Database.IsRelational()) return await RegistrarAsync(command, cancellationToken);
+        PagoProveedorResponse? resultado = null;
+        // Serializa pagos manuales: el saldo local y los pagos aún no proyectados se comprueban bajo el mismo lock.
+        await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db, 0x50335F5041474F,
+            async ct => resultado = await RegistrarAsync(command, ct), cancellationToken);
+        return resultado!;
+    }
+
+    private async Task<PagoProveedorResponse> RegistrarAsync(RegistrarPagoProveedorCommand command, CancellationToken cancellationToken)
     {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
@@ -112,6 +125,9 @@ public sealed class RegistrarPagoProveedorHandler
                 $"No se encontró la cuenta bancaria '{command.CuentaBancariaId}'.");
 
         // RN-8: candado de período (stub hoy).
+        if (command.ConceptoId is Guid conceptoId && !await _db.ConceptosMovimiento.AnyAsync(c => c.Id == conceptoId && c.Activo, cancellationToken))
+            throw new BusinessRuleException("MOV_CONCEPTO_INVALIDO", "Selecciona un concepto activo.");
+
         var abierto = await _periodoContable.EstaAbiertoAsync(
             command.FechaValor.Year, command.FechaValor.Month, cancellationToken);
         if (!abierto)
@@ -182,6 +198,17 @@ public sealed class RegistrarPagoProveedorHandler
             throw new BusinessRuleException("PAGO_CROSS_MONEDA",
                 $"La cuenta es {cuenta.Moneda} y hay pasivos en {string.Join(", ", monedasDistintas)} (RN-3; cross-moneda fuera del MVP).");
 
+        foreach (var grupo in command.Aplicaciones.GroupBy(a => a.FacturaProveedorId))
+        {
+            if (pasivos[grupo.Key].EsInterno) continue;
+            var limite = await _elegible.ObtenerLimiteAcumuladoAsync(grupo.Key, cancellationToken);
+            var pagado = await _db.AplicacionesPagoProveedor.Where(a => a.FacturaProveedorId == grupo.Key && !a.Revertida)
+                .SumAsync(a => a.ImporteAplicado, cancellationToken);
+            var disponible = Math.Max(0, limite - pagado);
+            if (grupo.Sum(a => a.Importe) > disponible)
+                throw new BusinessRuleException("PAGO_EXCEDE_ELEGIBLE",
+                    $"Solo {disponible:N2} es elegible para pago de la factura {grupo.Key}. El resto está retenido hasta recibir la mercancía; registra como máximo ese importe.");
+        }
         var ahora = _clock.UtcNow;
         var monto = command.Aplicaciones.Sum(a => a.Importe);
 
@@ -327,13 +354,16 @@ public sealed class RevertirPagoProveedorHandler
             throw new BusinessRuleException("MOV_PERIODO_CERRADO",
                 $"El período {fechaReversa.Year}/{fechaReversa.Month:00} está cerrado.");
 
+        if (movimiento.MotivoNoAplicado is not null)
+            throw new BusinessRuleException("PAGO_CUENTA_USAR_DESLIGAR", "Este es un pago a cuenta. Usa Desligar para corregir su aplicación sin registrar un ingreso bancario.");
+
         // RN-10: marca + contramovimiento; nada se borra.
-        aplicacion.Revertir();
+        aplicacion.Revertir(command.Motivo);
         var contramovimiento = movimiento.CrearContramovimiento(
             importe: aplicacion.ImporteAplicado,
             fechaValor: fechaReversa,
             creadoPor: usuarioId,
-            ahora: ahora);
+            ahora: ahora, motivo: command.Motivo);
         _db.MovimientosBancarios.Add(contramovimiento);
 
         // El pasivo regresa a la bandeja con el saldo restaurado (si CxP
@@ -366,7 +396,7 @@ public sealed class RevertirPagoProveedorHandler
             movimiento.Id, movimiento.CuentaBancariaId, aplicacion.ProveedorId,
             movimiento.Monto, movimiento.Moneda, movimiento.FechaValor,
             movimiento.ReferenciaBancaria,
-            [new AplicacionPagoResponse(aplicacion.Id, aplicacion.FacturaProveedorId, aplicacion.ImporteAplicado, aplicacion.Revertida)]);
+            [new AplicacionPagoResponse(aplicacion.Id, aplicacion.FacturaProveedorId, aplicacion.ImporteAplicado, aplicacion.Revertida, aplicacion.MotivoReversa)]);
     }
 }
 

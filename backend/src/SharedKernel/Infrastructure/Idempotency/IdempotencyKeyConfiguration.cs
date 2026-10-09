@@ -31,7 +31,8 @@ internal sealed class IdempotencyKeyConfiguration : IEntityTypeConfiguration<Ide
         builder.Property(x => x.RequestBodyHash).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
         builder.Property(x => x.ResponseStatusCode);
-        builder.Property(x => x.ResponseBody).HasColumnType("jsonb");
+        // El replay conserva el texto original; jsonb cambia espacios y orden de propiedades.
+        builder.Property(x => x.ResponseBody).HasColumnType("text");
         builder.Property(x => x.ResponseHeaders).HasColumnType("jsonb");
         builder.Property(x => x.ResponseBodyTruncated).HasDefaultValue(false);
         builder.Property(x => x.CorrelationId).IsRequired();

@@ -66,25 +66,24 @@ export function ConfirmDuplicarDialog({
           <DialogDescription>
             Crea una nueva OC en <strong>Borrador</strong> heredando datos
             de esta OC <strong>{ocEstadoLabel}</strong>. Trazabilidad: la
-            nueva OC tendrá <code>oc_origen_id</code> apuntando a esta.
+            nueva OC conservará la referencia a esta orden.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 text-sm">
           {/* Lista de qué se copia */}
-          <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3">
-            <h3 className="mb-2 flex items-center gap-1.5 font-medium text-emerald-900">
+          <div className="rounded-md border border-line bg-success-bg p-3">
+            <h3 className="mb-2 flex items-center gap-1.5 font-medium text-success-fg">
               <Check className="h-4 w-4" />
               Se copia a la nueva OC
             </h3>
-            <ul className="space-y-1 text-emerald-900">
+            <ul className="space-y-1 text-success-fg">
               <ItemList ok>
                 Cabecera (proveedor, sucursal, almacén, condiciones,
                 moneda, banderas, observaciones)
               </ItemList>
               <ItemList ok>
-                Líneas como <strong>manuales</strong> (sin FK a RQ — el
-                comprador re-selecciona si aplica)
+                Solo cantidades no recibidas, conservando su requisición de origen cuando corresponda
               </ItemList>
               <ItemList ok>
                 Información de logística (dirección, transportista, guía)
@@ -99,21 +98,19 @@ export function ConfirmDuplicarDialog({
           </div>
 
           {/* Lista de qué NO se copia */}
-          <div className="rounded-md border border-rose-300 bg-rose-50 p-3">
-            <h3 className="mb-2 flex items-center gap-1.5 font-medium text-rose-900">
+          <div className="rounded-md border border-line bg-surface-muted p-3">
+            <h3 className="mb-2 flex items-center gap-1.5 font-medium text-ink-secondary">
               <X className="h-4 w-4" />
               NO se copia
             </h3>
-            <ul className="space-y-1 text-rose-900">
+            <ul className="space-y-1 text-ink-secondary">
               <ItemList>Adjuntos (cotización, ficha técnica, etc.)</ItemList>
               <ItemList>Autorizaciones (firmas N1/N2)</ItemList>
               <ItemList>Sub-estados (recepción, facturación, pago)</ItemList>
               <ItemList>
                 Motivo de rechazo/cancelación de la OC origen
               </ItemList>
-              <ItemList>
-                Vínculos a RQs (las líneas heredadas se vuelven manuales)
-              </ItemList>
+              <ItemList>Cantidades ya recibidas</ItemList>
             </ul>
           </div>
         </div>

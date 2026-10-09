@@ -717,6 +717,35 @@ resource tesoreriaEventsFacturacionSubscriptionFilter 'Microsoft.ServiceBus/name
   }
 }
 
+// Subscription consumida por CxC TesoreriaEventListenerWorker (P5, 09-oct-2026):
+// la confirmación o el rechazo de Tesorería actualizan la propuesta de aplicación
+// de CxC («CxC propone, Tesorería confirma», R12/CA7.8).
+// Referencia: backend/src/CuentasPorCobrar/Infrastructure/Workers/TesoreriaEventListenerWorker.cs
+resource tesoreriaEventsCxcSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: tesoreriaEventsTopic
+  name: 'cuentas-por-cobrar-tesoreria-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource tesoreriaEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: tesoreriaEventsCxcSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.propuesta-aplicacion.rechazada.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
 // ============================================================================
 // Outputs
 // ============================================================================

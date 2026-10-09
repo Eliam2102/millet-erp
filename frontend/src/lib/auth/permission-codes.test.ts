@@ -84,6 +84,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.adjuntos-subir',
   'datos_maestros.proveedores.adjuntos-baja',
   'datos_maestros.proveedores.validar',
+  'datos_maestros.proveedores.tolerancia-editar',
   'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
@@ -143,6 +144,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.ubicaciones.leer',
   'almacen.ubicaciones.administrar',
 
+  'cuentas_por_pagar.retenciones.leer',
+  'cuentas_por_pagar.retenciones.administrar',
+  'cuentas_por_pagar.reportes.leer-todas-sucursales',
   // Cuentas por Pagar (FE-F0+)
   'cuentas_por_pagar.facturas.leer',
   'cuentas_por_pagar.facturas.capturar',
@@ -263,6 +267,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // Contabilidad (F1-CON-01)
   'contabilidad.catalogo.leer',
   'contabilidad.catalogo.administrar',
+  'contabilidad.catalogo.autorizar',
   'contabilidad.catalogo.importar',
   'contabilidad.dimensiones.leer',
   'contabilidad.dimensiones.administrar',

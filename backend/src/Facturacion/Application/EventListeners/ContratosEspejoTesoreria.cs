@@ -38,7 +38,7 @@ public sealed record PagoClienteConfirmadoPayload(
     string Moneda,
     DateOnly FechaValor,
     string? Referencia,
-    IReadOnlyList<PagoClienteFacturaAplicadaPayload> Facturas)
+    IReadOnlyList<PagoClienteFacturaAplicadaPayload> Facturas, decimal SaldoAFavorPorIdentificar = 0)
 {
     public const string EventType = "tesoreria.pago-cliente.confirmado.v1";
 }

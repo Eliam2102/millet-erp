@@ -41,7 +41,7 @@ public sealed class OrganizacionP6Tests
     {
         var empresa = new EmpresaContext(); var usuario = new Usuario();
         using var catalogos = Compartido(empresa);
-        using var cxp = new CuentasPorPagarDbContext(new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, empresa);
+        using var cxp = CxpP6TestContext.Crear(empresa);
         var jefe = new Empleado(Guid.NewGuid(), empresa.Current!.Value, "P6", "Jefe sin acceso");
         catalogos.Empleados.Add(jefe); await catalogos.SaveChangesAsync();
         var ahora = DateTimeOffset.UtcNow;

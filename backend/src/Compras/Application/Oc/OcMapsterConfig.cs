@@ -19,6 +19,12 @@ public sealed class OcMapsterConfig : IRegister
         // el subconfig de abajo (Mapster los proyecta automáticamente
         // al detectar la collection en el destino).
         config.NewConfig<OrdenCompra, OrdenCompraResponse>()
+            // Las propiedades init del historial hacen que Mapster deje de
+            // reconocer el record posicional. Seleccionar su constructor explícitamente.
+            .MapToConstructor(true)
+            // El handler compone estos historiales y enriquece los motivos.
+            .Ignore(dest => dest.Autorizaciones)
+            .Ignore(dest => dest.SolicitudesCancelacion)
             .Map(dest => dest.Folio, src => src.Folio.Valor)
             // ADR-0042 addendum: etiqueta del proveedor resuelta por el handler
             // tras el map (batch IProveedorReadPort). Null explícito (record posicional).

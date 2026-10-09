@@ -9,10 +9,8 @@ namespace Millet.Api.Endpoints.Almacen.Conteos;
 
 /// <summary>
 /// Endpoints del flujo de aprobación + aplicación de conteos (F7-PR2).
-/// Bajo <c>/api/v1/almacen/conteos/{id}/...</c>. Permisos diferenciados
-/// por monto (A8) cuando F9 introduzca la política completa; en F7-PR2
-/// se exige <c>aprobar-nivel1</c> base y se documenta el incremento
-/// por monto en docs/runbook.
+/// Bajo <c>/api/v1/almacen/conteos/{id}/...</c>. La aprobación valida
+/// los permisos efectivos por monto y foto de umbrales dentro del handler.
 /// </summary>
 public static class AprobacionEndpoints
 {
@@ -48,7 +46,7 @@ public static class AprobacionEndpoints
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosCapturar)
         .WithTags("Almacen")
         .WithName("EvaluarVariacionesConteo")
-        .WithSummary("Aplica reglas A7 (variación > 5% o > $1K) y marca líneas que requieren recuento")
+        .WithSummary("Aplica los umbrales de recuento guardados al iniciar y marca líneas que requieren recuento")
         .Produces(StatusCodes.Status200OK);
 
         // POST /{id}/lineas/{lineaId}/aprobar-individualmente
@@ -74,11 +72,12 @@ public static class AprobacionEndpoints
             await mediator.Send(new AprobarConteoCommand(id), ct);
             return Results.NoContent();
         })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosAprobarNivel1)
+        .RequireAuthorization()
         .WithTags("Almacen")
         .WithName("AprobarConteo")
         .WithSummary("Aprobar conteo (A8 — política por monto). Requiere todas las líneas conflictivas resueltas (recuento o aprobación individual).")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // POST /{id}/rechazar

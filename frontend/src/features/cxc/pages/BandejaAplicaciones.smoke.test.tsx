@@ -145,7 +145,7 @@ describe('<BandejaAplicaciones> — smoke', () => {
 });
 
 describe('<DetalleAplicacion> — smoke', () => {
-  it('pendiente: matching + acciones de Ingresos', async () => {
+  it('pendiente: matching y resolución exclusiva de Tesorería', async () => {
     mswServer.use(
       http.get(`${BASE}/pap-1`, () => HttpResponse.json(propuesta)),
     );
@@ -156,8 +156,9 @@ describe('<DetalleAplicacion> — smoke', () => {
     expect(screen.queryByText(/uuid-0001/)).not.toBeInTheDocument();
     expect(screen.getByText(/parc\. 2/)).toBeInTheDocument();
     expect(screen.getAllByText(/ajuste no fiscal/i).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /Confirmar/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Rechazar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Confirmar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Rechazar/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Tesorería confirma o rechaza/)).toBeInTheDocument();
   });
 
   it('rechazada: banner con motivo y sin acciones', async () => {
@@ -177,7 +178,7 @@ describe('<DetalleAplicacion> — smoke', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('sin permiso confirmar: sin acciones de Ingresos', async () => {
+  it('consulta de CxC sin acciones de resolución', async () => {
     useAuthStore.setState({
       permisos: [
         'cuentas_por_cobrar.aplicacion-pago.proponer',

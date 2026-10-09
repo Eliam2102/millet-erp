@@ -1124,7 +1124,7 @@ public static class OrdenesCompraEndpoints
                     "El usuario no tiene una empresa seleccionada en el JWT actual.");
             }
 
-            // F5-PR4: 3 permisos requeridos (doble firma).
+            // P2: primera firma, jefe de Compras.
             var permisos = await permissionCache.GetAsync(userId, empresaId, cancellationToken);
             if (permisos is null)
             {
@@ -1134,16 +1134,14 @@ public static class OrdenesCompraEndpoints
 
             string[] requeridos =
             [
-                PermisosCanonicos.ComprasOrdenesCancelarDoble,
                 PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
-                PermisosCanonicos.ComprasOrdenesAutorizarNivel2,
             ];
             var faltantes = requeridos.Where(p => !permisos.Contains(p)).ToList();
             if (faltantes.Count > 0)
             {
                 throw new ForbiddenException(
                     "OC_CANCELAR_DOBLE_DENEGADO",
-                    $"Cancelar OC con recepciones parciales requiere 3 permisos; faltan: {string.Join(", ", faltantes)}.");
+                    "Para solicitar la cancelación necesitas permiso de autorización de primer nivel de Compras.");
             }
 
             await mediator.Send(
@@ -1154,23 +1152,30 @@ public static class OrdenesCompraEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization()
         .WithName("CancelarOrdenCompraConRecepciones")
-        .WithSummary("Cancelar OC con recepciones parciales (F5-PR4)")
-        .WithDescription(
-            "Cancela una OC que tiene recepciones parciales o completas. " +
-            "Las cantidades ya recibidas permanecen en las líneas (trazabilidad " +
-            "contable). Para cada línea con RQ asociada y saldo no recibido, " +
-            "libera la cantidad no recibida al pool de la RQ origen vía " +
-            "`LineaRqLiberadaEvent`. Requiere **3 permisos** (doble firma): " +
-            "`compras.ordenes.cancelar-doble`, `compras.ordenes.autorizar-nivel1`, " +
-            "`compras.ordenes.autorizar-nivel2`. Header `Idempotency-Key` " +
-            "obligatorio.")
-        .WithDescription(
-            "Permitido desde cualquier estado no terminal mientras " +
-            "`subEstadoRecepcion = SinRecepcion`. Si hay recepciones " +
-            "parciales, requiere doble autorización — entra en F5-PR4. " +
-            "El motivo debe aplicar al flujo de cancelación (bitmask 4). " +
-            "Si el motivo `permiteTextoLibre`, el texto es obligatorio. " +
-            "Header `Idempotency-Key` obligatorio.")
+        .WithSummary("Solicitar cancelación de OC con recepciones (firma N1)")
+        .WithDescription("Registra la primera firma y bloquea recepción y facturación hasta que Dirección confirme o rechace. Requiere motivo e Idempotency-Key.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/resolver-cancelacion", async (
+            Guid id, [FromBody] ResolverCancelacionOcRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            await mediator.Send(new ResolverCancelacionOcCommand(id, body.Confirmar, body.Motivo), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesAutorizarNivel2)
+        .WithName("ResolverCancelacionOrdenCompra")
+        .WithSummary("Confirmar o rechazar cancelación de OC (firma de Dirección)")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -1593,4 +1598,5 @@ public static class OrdenesCompraEndpoints
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
+    public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
 }

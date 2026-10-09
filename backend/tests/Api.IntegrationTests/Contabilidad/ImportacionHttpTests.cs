@@ -5,6 +5,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Millet.Contabilidad.Application;
 using Millet.Contabilidad.Application.Catalogo;
 using Millet.Contabilidad.Application.Importacion;
@@ -30,7 +31,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
 
     private static async Task<JsonElement> Post(HttpClient c, string ruta, object body, HttpStatusCode esperado)
     {
-        var r = await c.PostAsJsonAsync($"{Base}{ruta}", body);
+        var r = await c.PostCatalogoYAutorizarAsync($"{Base}{ruta}", body);
         Assert.Equal(esperado, r.StatusCode);
         return await Json(r);
     }
@@ -104,7 +105,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
         try
         {
             var c = await LoginAsync(factory);
-            var r = await c.PostAsJsonAsync($"{Base}/importaciones", Req(Feliz(suf), suf, new string('a', 64)));
+            var r = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Req(Feliz(suf), suf, new string('a', 64)));
             Assert.Equal(HttpStatusCode.Conflict, r.StatusCode);
             Assert.Equal("CONTAB_IMPORT_HUELLA_NO_COINCIDE", await Code(r));
             Assert.Equal(0, await Contar(factory.Services, "cuentas_contables", $"codigo LIKE 'FIX-{suf}-%'"));
@@ -125,7 +126,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
                 + $"{Codigo(suf, "100.10.00.00")};H;Deudora;Afectable;O-2\n"
                 + $"{Codigo(suf, "100.20.00.00")};H2;Inventada;Afectable;O-3\n";
             var antes = await TotalFilasModulo();
-            var r = await c.PostAsJsonAsync($"{Base}/importaciones", Req(csv, suf));
+            var r = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Req(csv, suf));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
             var p = await Json(r);
             Assert.Equal("CONTAB_IMPORT_FILAS_CON_ERRORES", p.GetProperty("code").GetString());
@@ -152,10 +153,10 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             var a = Codigo(suf, "1");
             var b = Codigo(suf, "2");
             var ciclo = "codigo;nombre;codigo_padre;naturaleza;tipo_cuenta\n" + $"{a};A;{b};Deudora;Titulo\n{b};B;{a};Deudora;Titulo\n";
-            var r1 = await Json(await c.PostAsJsonAsync($"{Base}/importaciones", Req(ciclo, suf)));
+            var r1 = await Json(await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Req(ciclo, suf)));
             Assert.Contains(r1.GetProperty("errores").EnumerateArray(), e => e.GetProperty("codigo").GetString() == "CONTAB_IMPORT_CICLO");
             var dup = "codigo;nombre\n" + $"{a};A\n{a};A otra\n";
-            var r2 = await Json(await c.PostAsJsonAsync($"{Base}/importaciones", Req(dup, suf)));
+            var r2 = await Json(await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Req(dup, suf)));
             Assert.Contains(r2.GetProperty("errores").EnumerateArray(), e => e.GetProperty("codigo").GetString() == "CONTAB_IMPORT_CODIGO_DUPLICADO_EN_ARCHIVO");
             Assert.Equal(0, await Contar(factory.Services, "cuentas_contables", $"codigo LIKE 'FIX-{suf}-%'"));
         }
@@ -196,7 +197,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.False(vp.GetProperty("puedeAplicar").GetBoolean());
             Assert.Equal(vp.GetProperty("huella").GetString(), perfil.GetProperty("resumen").GetProperty("huella").GetString());
             Assert.Equal(vp.GetProperty("resumen").GetProperty("rechazadas").GetInt32(), perfil.GetProperty("resumen").GetProperty("acciones").GetProperty("Rechazar").GetInt32());
-            var aplicar = await c.PostAsJsonAsync($"{Base}/importaciones", Req(csv, suf));
+            var aplicar = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Req(csv, suf));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, aplicar.StatusCode);
         }
         finally { await Limpiar(factory.Services, suf); }
@@ -262,7 +263,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
 
             // Lo ausente del archivo NO se desactiva; un cambio de naturaleza sobre la cuenta usada se rechaza.
             var cambia = "codigo;nombre;naturaleza;tipo_cuenta\n" + $"{Codigo(suf, "100.10.00.00")};FIX Hoja 1;Acreedora;Afectable\n";
-            var rechazo = await c.PostAsJsonAsync($"{Base}/importaciones", Req(cambia, suf));
+            var rechazo = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Req(cambia, suf));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, rechazo.StatusCode);
             Assert.Contains((await Json(rechazo)).GetProperty("errores").EnumerateArray(), e => e.GetProperty("codigo").GetString() == "CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO");
             Assert.Equal("Deudora", (await Obtener(c, hoja1)).GetProperty("naturaleza").GetString());
@@ -280,7 +281,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
     }
 
     [Fact]
-    public async Task Dos_importaciones_simultaneas_del_mismo_archivo_dejan_un_solo_lote_y_nunca_un_500()
+    public async Task Dos_importaciones_simultaneas_del_mismo_archivo_dejan_un_solo_lote_pendiente_y_nunca_un_500()
     {
         var suf = Sufijo();
         try
@@ -290,8 +291,17 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             var rs = await Task.WhenAll(
                 a.PostAsJsonAsync($"{Base}/importaciones", Req(Feliz(suf), suf)),
                 b.PostAsJsonAsync($"{Base}/importaciones", Req(Feliz(suf), suf)));
-            Assert.All(rs, r => Assert.True(r.StatusCode is HttpStatusCode.Created or HttpStatusCode.OK, $"estado inesperado {r.StatusCode}"));
-            Assert.Contains(rs, r => r.StatusCode == HttpStatusCode.Created);
+            Assert.All(rs, r => Assert.Equal(HttpStatusCode.Accepted, r.StatusCode));
+            foreach (var respuesta in rs)
+                Assert.NotEmpty(await respuesta.Content.ReadAsByteArrayAsync());
+            var sid = (await Json(rs[0])).GetProperty("solicitudId").GetGuid();
+            Assert.Equal(sid, (await Json(rs[1])).GetProperty("solicitudId").GetGuid());
+            Assert.Equal(1, await Contar(factory.Services, "solicitudes_catalogo", $"id = '{sid}' AND estado = 'Pendiente'"));
+            Assert.Equal(1, await Contar(factory.Services, "solicitudes_catalogo", $"comando_json->'cuerpo'->>'fuente' = 'FIX-{suf}-F'"));
+            Assert.Equal(0, await Contar(factory.Services, "cuentas_contables", $"codigo LIKE 'FIX-{suf}-%'"));
+            Assert.Equal(0, await Contar(factory.Services, "importaciones_catalogo", $"fuente = 'FIX-{suf}-F'"));
+            Assert.Equal(0, await Contar(factory.Services, "cuentas_contables_origen", $"fuente = 'FIX-{suf}-F'"));
+            await AutorizarRespuesta(a, rs[0], $"{Base}/importaciones", HttpMethod.Post);
             Assert.Equal(3, await Contar(factory.Services, "cuentas_contables", $"codigo LIKE 'FIX-{suf}-%'"));
             Assert.Equal(1, await Contar(factory.Services, "importaciones_catalogo", $"fuente = 'FIX-{suf}-F'"));
             Assert.Equal(3, await Contar(factory.Services, "cuentas_contables_origen", $"fuente = 'FIX-{suf}-F'"));
@@ -325,8 +335,8 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             // Persistir el análisis viejo de X choca con el índice único del código de la raíz: el SaveChanges
             // ÚNICO falla y NO debe quedar H1, H2, sus orígenes ni el lote de X (rollback total).
             var handler = ActivatorUtilities.CreateInstance<AplicarImportacionHandler>(sp);
-            var ex = await Assert.ThrowsAsync<ConflictException>(() => handler.PersistirAsync(analisisX, peticionX, default));
-            Assert.Equal("CONTAB_IMPORT_CONFLICTO_CONCURRENTE", ex.Code);
+            await handler.PersistirAsync(analisisX, peticionX, default);
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
             Assert.Equal(1, await Contar(factory.Services, "cuentas_contables", $"codigo LIKE 'FIX-{suf}-%'"));
             Assert.Equal(1, await Contar(factory.Services, "cuentas_contables_origen", $"fuente = 'FIX-{suf}-F'"));
             Assert.Equal(1, await Contar(factory.Services, "importaciones_catalogo", $"fuente = 'FIX-{suf}-F'"));
@@ -363,7 +373,7 @@ public class ImportacionHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.True(tVista < TimeSpan.FromSeconds(30) && tPerfil < TimeSpan.FromSeconds(30) && tAplicar < TimeSpan.FromSeconds(60),
                 $"presupuesto excedido: {tVista}, {tPerfil}, {tAplicar}");
 
-            var de = await c.PostAsJsonAsync($"{Base}/importaciones", Req(Fix.Volumen(5001, $"FIX-{suf}"), suf));
+            var de = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Req(Fix.Volumen(5001, $"FIX-{suf}"), suf));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, de.StatusCode);
             Assert.Equal("CONTAB_IMPORT_LIMITE_FILAS", await Code(de));
         }

@@ -1,6 +1,6 @@
 # Inventario de separación por sucursal P6
 
-Corte revisado: `4bf1690` (HEAD/main del worktree). Este documento describe controles de código; la ejecución PostgreSQL y la aceptación Millet están **Por confirmar**.
+Corte original: `4bf1690`. Revisión de continuación: fusión pendiente de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5); ver `fusion-main-09oct.md`. Este documento describe controles de código; la ejecución PostgreSQL y la aceptación Millet están **Por confirmar**.
 
 ## Regla y permisos
 
@@ -14,7 +14,7 @@ Los permisos de operación conservan su autorización habitual. Leer documentos 
 |---|---|---|---|
 | Requisición | RQ.SucursalId | Bandeja y pendientes | Cabecera, líneas, transmitir, firmas, rechazo, eliminación, cancelación, cierre y adjuntos |
 | Orden de compra | OC.SucursalDestinoId | Bandeja, pendientes, partidas abiertas, KPI, hermanas, selector RQ, historial de material | Alta, duplicación, origen, detalle, PDF, cabecera, líneas, datos del proveedor/logística/importación, transmisión, autorización, cierre, cancelaciones, rechazo, adjuntos existentes y pedimento |
-| Factura de proveedor | Factura.SucursalId | Bandeja, revisión y reportes antigüedad/cartera/pasivos-obras | Captura valida destino y OC; detalle, edición, revisión, autorización, cancelación, aplicación NC/anticipo, evidencias y adjuntos |
+| Factura de proveedor | Factura.SucursalId | Bandeja, revisión y reportes antigüedad/cartera/pasivos-obras/auxiliar-proveedores | Captura valida destino y OC; detalle, edición, revisión, autorización, cancelación, aplicación NC/anticipo, evidencias y adjuntos |
 | Nota de cargo | Sucursal propia o factura origen | Bandeja | Alta, autorización, aplicación y detalle; alta valida también factura origen |
 | Nota de crédito proveedor | Factura origen | Bandeja | Captura, vínculo y detalle; vínculo valida ambos documentos |
 | Anticipo proveedor | OC origen | Bandeja e informe de antigüedad | Captura valida OC; aplicación valida factura y anticipo |
@@ -25,12 +25,13 @@ Los permisos de operación conservan su autorización habitual. Leer documentos 
 | Estado de cuenta TC | Factura agregada y todos los movimientos vinculados | Bandeja e informe consolidado | Archivo, conciliación, match, captura retroactiva, cierre y pago; match valida también el movimiento destino |
 | Cartera CxC | Factura de venta origen | Facturas abiertas, saldo neto, antigüedad y estado de cuenta | La consulta global de crédito exige todas las sucursales de la cartera del cliente |
 | Anticipos cliente | Comprobante de anticipo | Anticipos y estado de cuenta | Se conserva la lógica de saldo y compensación; se agrega metadata de sucursal al puerto existente |
-| Propuesta CxC | Todas sus facturas de cartera | Bandeja | Alta valida cada factura; detalle, confirmación y rechazo |
+| Propuesta CxC | Todas sus facturas de cartera | Bandeja | Alta valida cada factura y detalle. P5 mueve confirmación/rechazo a depósitos de Tesorería |
 | Cobranza y alertas | Sucursales de la cartera del cliente | Bandejas | Registrar seguimiento y atender alerta requieren el alcance correspondiente |
 | Pasivo pendiente | Factura proveedor o reposición origen | Bandeja y REPP pendientes | Solicitud de cancelación valida la factura |
 | Pago proveedor | Factura de cada aplicación | Se refleja en movimientos/reportes | Registro valida todas las aplicaciones; reversa valida su documento |
 | Depósito | Propuesta CxC o sesión de caja | Bandeja | Confirmación/rechazo; confirmación valida también el movimiento bancario |
-| Movimiento bancario | Aplicaciones a facturas y depósitos ligados; reversa hereda origen | Bandeja, auxiliar de bancos y flujo de efectivo | Detalle e ingreso; sin origen verificable exige corporativo |
+| Movimiento bancario | Aplicaciones a facturas y depósitos ligados; reversa hereda origen | Bandeja | Detalle, ingreso y reclasificación; sin origen verificable exige corporativo |
+| Reportes bancarios P5 | Todas las sucursales de todos los movimientos de la cuenta | Auxiliar y flujo filtran cuentas completas antes de saldos/totales | Cuenta mixta requiere acceso a todas sus sucursales; cuenta vacía o con movimiento sin origen requiere corporativo. Se conserva cálculo de saldo inicial/final de P5 |
 | Pago a cuenta | Movimiento bancario origen | Bandeja (los globales sin origen solo corporativo) | Alta corporativa cuando no hay origen; ligar valida movimiento y factura |
 | REPP recibido | Factura proveedor | Pendientes filtrados por pasivos | Registro valida factura |
 | Trazabilidad | Cada nodo RQ/OC/factura/pago | Árbol comprobado antes de responder | Se comprueba raíz y todos los nodos relacionados |
@@ -191,8 +192,6 @@ Tabla de rutas literales (el permiso/guarda de grupo aplica a todas sus rutas). 
 | GET | `/api/v1/cuentas-por-cobrar/propuestas-aplicacion` | [CuentasPorCobrar/PropuestasAplicacionEndpoints.cs:42](../../backend/src/Api/Endpoints/CuentasPorCobrar/PropuestasAplicacionEndpoints.cs#L42) |
 | GET | `/api/v1/cuentas-por-cobrar/propuestas-aplicacion/{id:guid}` | [CuentasPorCobrar/PropuestasAplicacionEndpoints.cs:59](../../backend/src/Api/Endpoints/CuentasPorCobrar/PropuestasAplicacionEndpoints.cs#L59) |
 | POST | `/api/v1/cuentas-por-cobrar/propuestas-aplicacion` | [CuentasPorCobrar/PropuestasAplicacionEndpoints.cs:72](../../backend/src/Api/Endpoints/CuentasPorCobrar/PropuestasAplicacionEndpoints.cs#L72) |
-| POST | `/api/v1/cuentas-por-cobrar/propuestas-aplicacion/{id:guid}/confirmar` | [CuentasPorCobrar/PropuestasAplicacionEndpoints.cs:97](../../backend/src/Api/Endpoints/CuentasPorCobrar/PropuestasAplicacionEndpoints.cs#L97) |
-| POST | `/api/v1/cuentas-por-cobrar/propuestas-aplicacion/{id:guid}/rechazar` | [CuentasPorCobrar/PropuestasAplicacionEndpoints.cs:116](../../backend/src/Api/Endpoints/CuentasPorCobrar/PropuestasAplicacionEndpoints.cs#L116) |
 | GET | `/api/v1/cuentas-por-cobrar/credito-disponible/{clienteId:guid}` | [CuentasPorCobrar/CreditoDisponibleEndpoints.cs:20](../../backend/src/Api/Endpoints/CuentasPorCobrar/CreditoDisponibleEndpoints.cs#L20) |
 | GET | `/api/v1/tesoreria/pasivos-pendientes` | [Tesoreria/PasivosEndpoints.cs:29](../../backend/src/Api/Endpoints/Tesoreria/PasivosEndpoints.cs#L29) |
 | POST | `/api/v1/tesoreria/pasivos-pendientes/{facturaProveedorId:guid}/solicitar-cancelacion` | [Tesoreria/PasivosEndpoints.cs:58](../../backend/src/Api/Endpoints/Tesoreria/PasivosEndpoints.cs#L58) |
@@ -219,3 +218,16 @@ La plataforma genérica agrega, para RQ y factura de proveedor: `POST /{id}/adju
 `P6SucursalEndpointsTests` contiene casos por ruta para lecturas, escrituras y altas: documento de otra sucursal → 403; listados → se excluye el ID ajeno; lectura corporativa → ambos documentos; escritura propia/corporativa válida de RQ → persiste el cambio. Los archivos de prueba y referencias adicionales están en `RESUMEN.md`.
 
 Se reutilizan sucursales y proveedor del seed; las cuentas y tarjetas ficticias se limpian. Las pruebas con PostgreSQL están escritas y compiladas, **no verdes aquí**. El filtro por empresa se conserva en todos los puertos. Los casos usan dos sucursales del seed; la reproducción con los usuarios reales Cancún/Circuito permanece pendiente de la sesión Millet.
+
+## Rutas incorporadas por main y revisadas en esta continuación
+
+| Método | Ruta | Control confirmado en código |
+|---|---|---|
+| POST | `/api/v1/compras/ordenes/{id:guid}/resolver-cancelacion` | Guarda de escritura OC agregada; firma de Dirección y resolución P2 intactas |
+| POST | `/api/v1/tesoreria/movimientos/{id:guid}/reclasificar` | Hereda filtro de endpoint del grupo `movimiento_bancario`; solo se añadió regresión |
+| POST | `/api/v1/tesoreria/pagos-cuenta/{movimientoId:guid}/aplicaciones/{aplicacionId:guid}/desligar` | Hereda guarda del movimiento padre; handler comprueba que la aplicación pertenezca a ese movimiento |
+| GET | `/api/v1/cuentas-por-pagar/reportes/auxiliar-proveedores` | `SaldosHistoricos` de P8 aplica asociación/bypass `cuentas_por_pagar.reportes.leer-todas-sucursales` |
+| GET | `/api/v1/tesoreria/reportes/auxiliar-bancos` | Guarda por cuenta y filtro CQRS; valida todos los orígenes antes de mostrar el saldo completo |
+| GET | `/api/v1/tesoreria/reportes/flujo-efectivo` | Filtro de cuentas antes de calcular saldos iniciales/finales; una cuenta solicitada explícitamente valida su alcance |
+
+Las rutas de confirmación/rechazo bajo propuestas de CxC fueron retiradas por P5; sus operaciones permanecen en `/tesoreria/depositos/{id}/confirmar` y `/rechazar`, con la guarda P6 del grupo. Los catálogos nuevos de conceptos y retenciones y la captura de saldo inicial de una cuenta maestra conservan sus permisos de administración, por alcance de empresa. Los reportes históricos de P8 usan su permiso corporativo específico; no se sustituyó por el de facturas ni se duplicó su lector.

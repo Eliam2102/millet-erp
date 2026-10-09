@@ -105,6 +105,8 @@ export function textoValidacion(r: ValidacionMovimiento, origen: OrigenMovimient
       return 'La cuenta está inactiva.';
     case 'PendienteValidacion':
       return 'La cuenta está pendiente de validación (falta indicar si es deudora o acreedora).';
+    case 'NoAfectableManual':
+      return 'La cuenta no admite asientos manuales. Utiliza el movimiento del módulo correspondiente.';
     case 'ControlSoloAuxiliar':
       return `Es una cuenta colectiva de ${(r.cuenta?.cuentaControl ?? 'clientes o proveedores').toLowerCase()}; solo se afecta desde su módulo, que lleva el detalle por persona.`;
     case 'Rubro':

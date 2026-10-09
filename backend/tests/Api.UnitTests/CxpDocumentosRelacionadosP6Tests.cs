@@ -17,8 +17,7 @@ public sealed class CxpDocumentosRelacionadosP6Tests
     public async Task Cfdi_y_movimiento_TC_heredan_sucursal_de_factura_y_filtran_antes_de_totalizar()
     {
         var empresa = new Empresa();
-        using var db = new CuentasPorPagarDbContext(new DbContextOptionsBuilder<CuentasPorPagarDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, empresa);
+        using var db = CxpP6TestContext.Crear(empresa);
         var propia = Guid.NewGuid(); var ajena = Guid.NewGuid(); var ahora = DateTimeOffset.UtcNow;
         foreach (var sucursal in new[] { propia, ajena })
         {

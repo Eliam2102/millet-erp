@@ -378,6 +378,9 @@ export interface RegistrarRecepcionResponse {
 // ─── Salidas (FE-F3-PR1) ────────────────────────────────────────────────────
 
 export interface SalidaListItem {
+  pendienteRegularizacion: boolean;
+  fechaLimiteRegularizacion: string | null;
+  vencido: boolean;
   id: string;
   folio: string;
   fechaMovimiento: string;
@@ -426,6 +429,9 @@ export interface SalidaLineaItem {
 }
 
 export interface SalidaDetalle {
+  pendienteRegularizacion: boolean;
+  fechaLimiteRegularizacion: string | null;
+  vencido: boolean;
   id: string;
   folio: string;
   fechaMovimiento: string;

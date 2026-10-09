@@ -13,18 +13,17 @@ namespace Millet.Tesoreria.Application.Reportes;
 // ============================================================================
 // TES-PR10: auxiliar de bancos por cuenta/período (§7 del levantamiento,
 // TES-6) — reemplaza el export semanal de SAP. Libro cronológico con saldo
-// acumulado. ⚠️ El acumulado arranca del neto de movimientos del sistema
-// anteriores al período: los saldos iniciales reales por cuenta llegan con
-// la conciliación (PR-9, gate T-G8).
+// acumulado. El acumulado incluye el saldo inicial capturado por cuenta
+// más el neto de movimientos anteriores al período (P5).
 // ============================================================================
 
 public sealed record AuxiliarBancosReporteQuery(
     Guid CuentaBancariaId,
     DateOnly Desde,
-    DateOnly Hasta) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+    DateOnly Hasta) : IRequest<ReporteJsonResponse>, IDocumentoScopedQuery
 {
     public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
-    public string TipoDocumento => "movimiento_bancario";
+    public string TipoDocumento => "cuenta_bancaria";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
     public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
 }
@@ -54,20 +53,23 @@ public sealed class AuxiliarBancosReporteHandler
         AuxiliarBancosReporteQuery query, CancellationToken cancellationToken)
     {
         var cuenta = await _db.CuentasBancarias.AsNoTracking()
+            .Where(c => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(c.Id))
             .FirstOrDefaultAsync(c => c.Id == query.CuentaBancariaId, cancellationToken)
             ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
                 $"No se encontró la cuenta bancaria '{query.CuentaBancariaId}'.");
 
-        // Saldo de arranque = neto de movimientos del sistema previos al
-        // período (sin saldo inicial bancario hasta T-G8/PR-9).
-        var saldoInicial = await _db.MovimientosBancarios
-            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
+        // Saldo de arranque = saldo inicial más el neto de movimientos
+        // del sistema previos al período.
+        var saldoInicial = await _db.MovimientosBancarios.AsNoTracking()
             .Where(m => m.CuentaBancariaId == cuenta.Id && m.FechaValor < query.Desde)
             .SumAsync(m => (decimal?)(m.Sentido == SentidoMovimiento.Ingreso ? m.Monto : -m.Monto),
                 cancellationToken) ?? 0m;
 
-        var movimientos = await _db.MovimientosBancarios
-            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
+        saldoInicial += cuenta.SaldoInicial ?? 0m;
+        if (cuenta.FechaCorteSaldoInicial >= query.Desde)
+            throw new BusinessRuleException("FLUJO_ANTERIOR_AL_CORTE", "El inicio del reporte debe ser posterior al corte del saldo inicial.");
+
+        var movimientos = await _db.MovimientosBancarios.AsNoTracking()
             .Where(m => m.CuentaBancariaId == cuenta.Id
                         && m.FechaValor >= query.Desde && m.FechaValor <= query.Hasta)
             .OrderBy(m => m.FechaValor).ThenBy(m => m.CreadoEn)
@@ -113,7 +115,7 @@ public sealed class AuxiliarBancosReporteHandler
                 new("Cuenta", $"{cuenta.Banco} {Clabe.Enmascarar(cuenta.NumeroCuenta)}"),
                 new("Del", query.Desde.ToString("yyyy-MM-dd")),
                 new("Al", query.Hasta.ToString("yyyy-MM-dd")),
-                new("Saldo previo (movimientos del sistema)", saldoInicial.ToString("N2")),
+                new("Saldo previo (saldo inicial y movimientos)", saldoInicial.ToString("N2")),
             ],
             Columnas:
             [
