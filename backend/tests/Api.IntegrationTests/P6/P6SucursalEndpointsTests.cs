@@ -418,7 +418,7 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
         "pago" => "/api/v1/tesoreria/pagos", _ => throw new ArgumentException(tipo),
     }) + (id is null ? "" : $"/{id}");
 
-    private async Task<Datos> PrepararAsync(Action? despuesDeGuardarCompras = null)
+    private async Task<Datos> PrepararAsync(Action? despuesDeGuardarCompras = null, bool notaCargoSinFacturaOrigen = false)
     {
         var usuarioId = Guid.CreateVersion7(); var rolId = Guid.CreateVersion7(); var oid = $"p6-scope-{usuarioId:N}";
         var datos = new Datos(factory, usuarioId, rolId);
@@ -468,7 +468,8 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
                     ahora, "MXN", null, 10m, 0m, 0m, 10m, Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoNotaCredito.Descuento,
                     Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoRelacionCfdi.NotaCredito, factura.UuidCfdi!, factura.Id, usuarioId, ahora);
                 var notaCargo = Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo.Crear(Empresa,
-                    Millet.CuentasPorPagar.Domain.NotaCargo.FolioInternoNotaCargo.FromAnioSecuencial(2026, numero), Proveedor, sucursal, "Cargo de prueba", null, 10m, "MXN", null, factura.Id, null, usuarioId, ahora);
+                    Millet.CuentasPorPagar.Domain.NotaCargo.FolioInternoNotaCargo.FromAnioSecuencial(2026, numero), Proveedor, sucursal, "Cargo de prueba", null, 10m, "MXN", null,
+                    notaCargoSinFacturaOrigen ? null : factura.Id, null, usuarioId, ahora);
                 var comprobacion = Millet.CuentasPorPagar.Domain.ComprobacionGastos.ComprobacionGastos.Crear(Empresa,
                     Millet.CuentasPorPagar.Domain.ComprobacionGastos.TipoComprobacionGastos.ReembolsoCajaChica, sucursal, usuarioId,
                     DateOnly.FromDateTime(ahora.DateTime), DateOnly.FromDateTime(ahora.DateTime), "MXN", "Prueba P6", ahora,

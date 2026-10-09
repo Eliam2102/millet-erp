@@ -74,21 +74,26 @@ public sealed partial class P6SucursalEndpointsTests
     [Fact]
     public async Task P6b_aplicar_cargo_sin_factura_en_body_valida_la_factura_persistida()
     {
-        await using var datos = await PrepararP6bAsync("aplicar");
+        await using var datos = await PrepararP6bAsync("aplicar", notaCargoSinFacturaOrigen: true);
         using (var scope = factory.Services.CreateScope())
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var db = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
-            (await db.NotasCargo.FindAsync(datos.Propios["nota_cargo"]))!.VincularFactura(datos.Ajenos["factura"]);
+            var cargo = (await db.NotasCargo.FindAsync(datos.Propios["nota_cargo"]))!;
+            Assert.Null(cargo.FacturaOrigenId);
+            cargo.VincularFactura(datos.Ajenos["factura"]);
             await db.SaveChangesAsync();
         }
         var antes = await EstadoP6bAsync(datos.Ajenos);
+        var propioAntes = await EstadoP6bAsync(datos.Propios);
         using var request = new HttpRequestMessage(HttpMethod.Post, Ruta("nota_cargo", datos.Propios["nota_cargo"]) + "/aplicar")
         { Content = JsonContent.Create(new { }) };
         request.Headers.Add("X-Expected-Version", (await VersionP6bAsync("nota_cargo", datos.Propios["nota_cargo"])).ToString());
         using var response = await datos.Operativo.SendAsync(request);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("SUCURSAL_NO_ASOCIADA", await response.Content.ReadAsStringAsync());
         Assert.Equal(antes, await EstadoP6bAsync(datos.Ajenos));
+        Assert.Equal(propioAntes, await EstadoP6bAsync(datos.Propios));
     }
 
     [Fact]
@@ -278,9 +283,9 @@ public sealed partial class P6SucursalEndpointsTests
         public Task<Stream?> LeerXmlAsync(string blobRef, CancellationToken cancellationToken) => Task.FromResult<Stream?>(null);
     }
 
-    private async Task<Datos> PrepararP6bAsync(string accion)
+    private async Task<Datos> PrepararP6bAsync(string accion, bool notaCargoSinFacturaOrigen = false)
     {
-        var datos = await PrepararAsync();
+        var datos = await PrepararAsync(notaCargoSinFacturaOrigen: notaCargoSinFacturaOrigen);
         try
         {
             using var scope = factory.Services.CreateScope();
@@ -373,7 +378,7 @@ public sealed partial class P6SucursalEndpointsTests
             Factura = await db.FacturasProveedor.AsNoTracking().Where(x => x.Id == factura).Select(x => new { x.Version, x.Estado, x.SaldoPendiente }).SingleAsync(),
             Anticipos = await db.AnticiposProveedor.AsNoTracking().Where(x => ids.Contains(x.Id)).Select(x => new { x.Id, x.Version, x.Estado, x.MontoAmortizado }).OrderBy(x => x.Id).ToArrayAsync(),
             Notas = await db.NotasCreditoProveedor.AsNoTracking().Where(x => ids.Contains(x.Id)).Select(x => new { x.Id, x.Version, x.Estado, x.MontoAplicado, x.FacturaOrigenId }).OrderBy(x => x.Id).ToArrayAsync(),
-            Cargo = await db.NotasCargo.AsNoTracking().Where(x => x.Id == mapa["nota_cargo"]).Select(x => new { x.Version, x.Estado, x.NotaCreditoProveedorId }).SingleAsync(),
+            Cargo = await db.NotasCargo.AsNoTracking().Where(x => x.Id == mapa["nota_cargo"]).Select(x => new { x.Version, x.Estado, x.FacturaOrigenId, x.NotaCreditoProveedorId }).SingleAsync(),
             Outbox = (await IdsOutboxAsync(tes.OutboxEntries, [factura])).Length,
         });
     }

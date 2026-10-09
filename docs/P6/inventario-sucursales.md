@@ -1,6 +1,6 @@
 # Inventario de separación por sucursal P6
 
-Corte original: `4bf1690`. Revisión P6: fusión `687fe82` de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5) más correcciones de la [adenda 3](adenda3-integracion-09oct.md). El seguimiento P6b sobre `main` local `ea7bce2` se documenta al final. Este documento describe controles de código; el verde PostgreSQL posterior a estas correcciones y la aceptación Millet están **Por confirmar**.
+Corte original: `4bf1690`. Revisión P6: fusión `687fe82` de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5) más correcciones de la [adenda 3](adenda3-integracion-09oct.md). El seguimiento P6b sobre `main` local `ea7bce2` se documenta al final; la última [continuación P6b/adenda 3](P6b-adenda3-resumen.md) revisa `7aeec1d`. Este documento describe controles de código; el verde PostgreSQL posterior a estas correcciones y la aceptación Millet están **Por confirmar**.
 
 ## Regla y permisos
 
@@ -413,3 +413,12 @@ La descarga del vale era una omisión adicional de alcance en una ruta anterior 
 - Una regresión con el fixture P6 verifica totales, páginas de tamaño 1, exclusión de OC ajena y orden corporativo. La descarga de vale se incorpora a las teorías de 403 ajeno/éxito propio/corporativo y de prioridad del permiso, más dos casos de contenido y `download`. El fixture sustituye Blob Storage por un PDF ficticio en memoria; estas pruebas no acreditan integración Azure.
 
 Resultados y logs actuales: [P6b-adenda2-resumen.md](P6b-adenda2-resumen.md) y [evidencia-p6b-adenda2](evidencia-p6b-adenda2/cotejo-rutas.txt). El rojo/verde PostgreSQL completo posterior a esta corrección sigue **Por confirmar** hasta ejecutar `tools/validate-integration-isolated.sh` fuera del bloqueo Docker del sandbox. La reproducción con usuarios reales Cancún/Circuito sigue pendiente; las integraciones utilizan sucursales ficticias del seed P6.
+
+
+## Continuación P6b · adenda 3 de integración sobre `7aeec1d`
+
+El worktree llegó limpio; las correcciones anteriores estaban guardadas. Se repitió el cotejo actual: **133 rutas CxP/Tesorería y 19 de las familias Almacén/trazabilidad revisadas por P7**, **152 en total, 0 ausencias**. No hay rutas nuevas en esta continuación. Serie por proveedor, permiso antes de sucursal, filtro antes de conteo/paginación y validación de cada nodo del árbol conservan sus controles existentes.
+
+Se corrigió la preparación de las integraciones: OC con capturista, firmante N1 y firmante N2 distintos, siguiendo el patrón de las pruebas P2; nota de cargo sin factura inicial para el caso que vincula una factura ajena y envía body vacío. La regresión comprueba el 403 territorial y que no cambien documentos propios/ajenos, incluido el vínculo persistido. No se relajan reglas ni se cambia producción.
+
+Compilación completa: 0 errores/advertencias; unitarias revisadas: 1,720 verdes; tipos frontend: verdes; lint: 0 errores/10 advertencias existentes; Vitest: 364 archivos/2,085 pruebas verdes. Integraciones PostgreSQL posteriores a la corrección: **Por confirmar**, por bloqueo del socket Docker del sandbox. [Resumen y siguiente acción para Claude](P6b-adenda3-resumen.md) · [cotejo actual por ruta](evidencia-p6b-adenda3/cotejo-rutas.txt). Sin commit ni push, conforme a las reglas comunes vigentes.

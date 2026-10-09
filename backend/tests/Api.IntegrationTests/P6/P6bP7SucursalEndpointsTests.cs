@@ -230,6 +230,10 @@ public sealed partial class P6SucursalEndpointsTests
         var datos = await PrepararAsync();
         try
         {
+            // Identidades ficticias de firma, como en las pruebas P2: el capturista,
+            // N1 y N2 deben ser distintos. No dependen del seed opcional de la demo.
+            var jefeComprasId = Guid.CreateVersion7();
+            var direccionId = Guid.CreateVersion7();
             foreach (var (d, sucursal) in new[] { (datos.Propios, Propia), (datos.Ajenos, Ajena) })
             {
                 using var scope = factory.Services.CreateScope();
@@ -261,8 +265,8 @@ public sealed partial class P6SucursalEndpointsTests
                 // Vincula el árbol RQ → OC sin ejecutar ni alterar la bifurcación P7.
                 oc.AgregarLineaDesdeRequisicion(lineaOc, art.Id, 10, "PZA", 10, rq.DepartamentoId, rq.Id, lineaRq);
                 oc.EnviarAAutorizacion(DateTimeOffset.UtcNow);
-                oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, datos.UsuarioId, DateTimeOffset.UtcNow);
-                oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, datos.UsuarioId, DateTimeOffset.UtcNow);
+                oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, jefeComprasId, DateTimeOffset.UtcNow);
+                oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, direccionId, DateTimeOffset.UtcNow);
                 d.Add("linea_oc_p7", lineaOc); d.Add("linea_rq_p7", lineaRq);
                 await compras.SaveChangesAsync();
                 var rec = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.EntradaCompra, Empresa, new(2026, 10, 9));
