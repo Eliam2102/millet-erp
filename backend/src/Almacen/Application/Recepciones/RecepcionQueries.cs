@@ -62,7 +62,7 @@ public sealed record RecepcionLineaItem(
     decimal Cantidad,
     string UnidadMedida,
     decimal CostoUnitarioMxn,
-    decimal MontoTotalMxn);
+    decimal MontoTotalMxn, decimal? CantidadCapturada = null, string? UnidadCapturada = null);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -249,7 +249,7 @@ public sealed class ObtenerRecepcionPorIdHandler
                         l.Id, l.Posicion, l.ArticuloId,
                         art?.Clave, art?.Descripcion,
                         l.Cantidad, l.UnidadMedida,
-                        l.CostoUnitarioMxn, l.MontoTotalMxn);
+                        l.CostoUnitarioMxn, l.MontoTotalMxn, l.CantidadCapturada, l.UnidadCapturada);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,

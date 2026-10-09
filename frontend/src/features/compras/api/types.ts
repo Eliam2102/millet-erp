@@ -319,6 +319,7 @@ export interface RequisicionListItemResponse {
  * mutaciones (ver <c>useRequisicion</c>).</para>
  */
 export interface RequisicionResponse {
+  obra?: string | null;
   id: string;
   empresaId: string;
   folio: string;

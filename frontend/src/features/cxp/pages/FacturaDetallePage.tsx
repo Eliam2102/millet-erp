@@ -1,3 +1,5 @@
+import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
+import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { AplicarDocumentoFacturaSheet } from '@/features/cxp/components/AplicarDocumentoFacturaSheet';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
@@ -84,6 +86,7 @@ export function FacturaDetallePage() {
 
   return (
     <div className="space-y-4">
+      {query.data && <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.FacturaProveedor} id={id} />}
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/facturas" search={{}}>

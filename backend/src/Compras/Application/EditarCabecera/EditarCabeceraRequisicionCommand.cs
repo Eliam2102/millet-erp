@@ -18,4 +18,4 @@ public sealed record EditarCabeceraRequisicionCommand(
     Clasificacion? Clasificacion,
     bool LimpiarDescripcion,
     bool LimpiarFechaEntregaDeseada,
-    bool LimpiarProveedorSugeridoId) : IRequest;
+    bool LimpiarProveedorSugeridoId, string? Obra = null, bool LimpiarObra = false) : IRequest;

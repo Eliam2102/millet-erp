@@ -67,6 +67,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             t.HasCheckConstraint("ck_oc_sub_pago", "sub_estado_pago BETWEEN 0 AND 2");
         });
 
+        builder.Property(x => x.Obra).HasMaxLength(120);
         builder.HasKey(o => o.Id);
 
         builder.Property(o => o.EmpresaId).IsRequired();

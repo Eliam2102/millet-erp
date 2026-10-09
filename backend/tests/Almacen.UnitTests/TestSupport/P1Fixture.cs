@@ -34,6 +34,7 @@ internal sealed class P1Fixture : IAsyncDisposable
         Db.SubAlmacenes.Add(new SubAlmacen(SubId, alm.Id, "P1", "Revisión P1", TipoSubAlmacen.MaterialEnRevision));
         Db.Ubicaciones.Add(new Ubicacion(BinId, SubId, "R1", "Rack P1"));
         Db.AsignacionesArticuloUbicacion.Add(new AsignacionArticuloUbicacion(Guid.NewGuid(), BinId, ArticuloId));
+        Db.SaldosInventario.Add(new Millet.Almacen.Domain.Saldos.SaldoInventario(BinId, SubId, ArticuloId, 100, 25));
         Db.SaveChanges();
         Oc = new(new(DocumentoId, "OC-P1", Guid.NewGuid(), EmpresaId, "Autorizada", [new(LineaId, ArticuloId, "PZA", 10, 0, 25)]));
         Rq = new(new(DocumentoId, "RQ-P1", EmpresaId, Guid.NewGuid(), alm.Id, null, "EnSurtido", [new(LineaId, ArticuloId, "PZA", 10, 0, null, null, 10)]));

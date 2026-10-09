@@ -29,7 +29,7 @@ public sealed record OrdenCompraDto(
     decimal Total,
     string Estado,
     IReadOnlyList<LineaOcDto> Lineas,
-    string Moneda = "MXN");
+    string Moneda = "MXN", string? Obra = null);
 
 public sealed record LineaOcDto(
     Guid Id,

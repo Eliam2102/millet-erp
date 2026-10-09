@@ -36,7 +36,7 @@ public class RegistrarRecepcionMultiSubAlmacenTests
 
     private static RegistrarRecepcionConFacturaHandler NuevoHandler(AlmacenDbContext db, bool contabilidadAbierta = true, FakeEvents? events = null) =>
         new(db, new FakeOc(), new FakeArticulos(), events ?? new FakeEvents(),
-            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(contabilidadAbierta));
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(contabilidadAbierta), new P7Support.Conversion());
 
     private static RegistrarRecepcionConFacturaCommand Comando(
         params (Guid articuloId, Guid ubicacionId)[] lineas) => new(

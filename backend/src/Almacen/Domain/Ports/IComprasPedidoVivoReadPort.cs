@@ -31,6 +31,11 @@ public interface IComprasPedidoVivoReadPort
     /// <paramref name="pares"/> solicitados. Un par sin nada vivo no aparece en el
     /// diccionario (el consumidor asume 0).
     /// </summary>
+    // P7: demanda manual sin almacén explícito, agregada una vez por sucursal.
+    Task<IReadOnlyDictionary<PedidoVivoSucursalClave, decimal>> ObtenerVivoManualAsync(
+        IReadOnlyCollection<PedidoVivoSucursalClave> pares, CancellationToken ct)
+        => Task.FromResult<IReadOnlyDictionary<PedidoVivoSucursalClave, decimal>>(new Dictionary<PedidoVivoSucursalClave, decimal>());
+
     Task<IReadOnlyDictionary<PedidoVivoClave, decimal>> ObtenerVivoDeSistemaAsync(
         IReadOnlyCollection<PedidoVivoClave> pares,
         CancellationToken cancellationToken);
@@ -38,3 +43,5 @@ public interface IComprasPedidoVivoReadPort
 
 /// <summary>Clave de agregación del "vivo": artículo + almacén (Nivel 2).</summary>
 public readonly record struct PedidoVivoClave(Guid ArticuloId, Guid AlmacenId);
+
+public readonly record struct PedidoVivoSucursalClave(Guid ArticuloId, Guid SucursalId);

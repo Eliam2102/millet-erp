@@ -92,7 +92,7 @@ public sealed record SalidaLineaItem(
     // "No catalogado".
     string? CentroCostoClave,
     string? CentroCostoNombre,
-    Guid? ProyectoId);
+    Guid? ProyectoId, decimal? CantidadCapturada = null, string? UnidadCapturada = null);
 
 public sealed record ListarSalidasQuery(
     EstadoMovimiento? Estado,
@@ -111,7 +111,7 @@ public sealed record ListarSalidasQuery(
     bool? NoRegularizados,
     int Offset,
     int Limit,
-    bool? SoloVencidos = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>;
+    bool? SoloVencidos = null, bool? SoloPorVencer = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>;
 
 public sealed class ListarSalidasHandler
     : IRequestHandler<ListarSalidasQuery, AlmacenPagedResponse<SalidaListItem>>
@@ -156,6 +156,11 @@ public sealed class ListarSalidasHandler
         var ahora = DateTimeOffset.UtcNow;
         if (request.SoloVencidos is true)
             query = query.Where(m => m.PendienteRegularizacion && m.FechaLimiteRegularizacion <= ahora);
+        if (request.SoloPorVencer is true)
+        {
+            var horizonte = ahora.AddHours(24);
+            query = query.Where(m => m.PendienteRegularizacion && m.FechaLimiteRegularizacion > ahora && m.FechaLimiteRegularizacion <= horizonte);
+        }
         var total = await query.CountAsync(cancellationToken);
         var items = await query
             .OrderByDescending(m => m.FechaMovimiento).ThenByDescending(m => m.FechaRegistro)
@@ -296,7 +301,7 @@ public sealed class ObtenerSalidaPorIdHandler
                     l.Cantidad, l.UnidadMedida,
                     l.CostoUnitarioMxn, l.MontoTotalMxn,
                     l.CentroCostoId, CentroCostoClave: null, CentroCostoNombre: null,
-                    l.ProyectoId);
+                    l.ProyectoId, l.CantidadCapturada, l.UnidadCapturada);
             })
             .ToList();
 

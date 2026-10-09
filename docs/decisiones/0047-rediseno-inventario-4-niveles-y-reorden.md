@@ -1,5 +1,7 @@
 # ADR-0047: Rediseño de inventario a 4 niveles con asignación artículo-ubicación y reorden automático
 
+> **Enmienda P7 (09-oct-2026):** ADR-0061 reemplaza la decisión de no apartar existencia al autorizar RQ y la política de disparo de reorden. Se conserva la jerarquía física, bins y triggers. Confirmación con Millet: Por confirmar.
+
 - **Estado**: Aceptada (enmendada 2026-07-06 — el reorden sube a Nivel 1/2; ver Enmienda)
 - **Fecha**: 2026-07-03 (refinado 2026-07-03: cut a 7 PRs — captura de bin real partida a PR7)
 - **Decisores**: Eduardo Paredes (owner), Victor

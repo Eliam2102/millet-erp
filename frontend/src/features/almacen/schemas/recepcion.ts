@@ -38,6 +38,7 @@ export const FilaRecepcionSchema = z
     articuloNombre: z.string().nullish(),
     posicion: z.number().int(),
     unidadMedida: z.string(),
+    unidadCapturada: z.string().max(20).nullish(),
     cantidadSolicitada: z.number(),
     cantidadYaRecibida: z.number(),
     pendiente: z.number(),
@@ -71,7 +72,7 @@ export const FilaRecepcionSchema = z
       });
     }
     const max = v.pendiente * (1 + TOLERANCIA_RECEPCION_DEFAULT);
-    if (v.cantidad > max) {
+    if (!v.unidadCapturada?.trim() && v.cantidad > max) {
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],

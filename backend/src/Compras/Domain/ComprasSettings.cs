@@ -37,6 +37,9 @@ public sealed class ComprasSettings : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
 
+    public bool ApartarExistenciaAlAutorizar { get; private set; } = true;
+    public void EstablecerApartarExistenciaAlAutorizar(bool valor) => ApartarExistenciaAlAutorizar = valor;
+
     public bool AutoGenerarOcAlAutorizar { get; private set; }
 
     /// <summary>Constructor de EF Core.</summary>

@@ -35,6 +35,7 @@ public sealed class ConfiguracionReordenConfiguration
         builder.Property(x => x.ArticuloId).IsRequired();
         builder.Property(x => x.Nivel).HasConversion<short>().IsRequired();
         builder.Property(x => x.EntidadId).IsRequired();
+        builder.Property(x => x.CantidadFija).HasPrecision(14, 4);
         builder.Property(x => x.Minimo).HasPrecision(14, 4).IsRequired();
         builder.Property(x => x.Maximo).HasPrecision(14, 4).IsRequired();
         builder.Property(x => x.PuntoReorden).HasPrecision(14, 4).IsRequired();

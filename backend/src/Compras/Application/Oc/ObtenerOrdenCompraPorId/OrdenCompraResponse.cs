@@ -93,6 +93,7 @@ public sealed record OrdenCompraResponse(
     decimal GastosAdicionales,
     decimal Redondeo)
 {
+    public string? Obra { get; init; }
     public int CicloAutorizacion { get; init; }
     public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];
     public IReadOnlyList<SolicitudCancelacionOcResponse> SolicitudesCancelacion { get; init; } = [];

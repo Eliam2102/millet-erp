@@ -189,6 +189,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             lineasDeCompra.Select(l => l.ArticuloId).Distinct().ToArray(),
             cancellationToken);
 
+        oc.HeredarObra(rq.Obra);
+
         foreach (var lineaRq in lineasDeCompra)
         {
             oc.AgregarLineaDesdeRequisicion(

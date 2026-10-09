@@ -454,6 +454,11 @@ export function NuevaRequisicion({
           />
         </FormRow>
 
+        <FormRow label="Obra (opcional)" error={form.formState.errors.obra?.message}>
+          <Controller name="obra" control={form.control} render={({ field }) => (
+            <Input {...field} value={field.value ?? ''} maxLength={120} placeholder="Nombre o referencia de la obra" />
+          )} />
+        </FormRow>
         {/* Descripción (full-width) */}
         <div className="md:col-span-2">
           <FormRow
@@ -617,5 +622,6 @@ function buildEmptyValues(): CrearRequisicionValues {
     fechaEntregaDeseada: null,
     proveedorSugeridoId: null,
     descripcion: null,
+    obra: null,
   } as CrearRequisicionValues;
 }

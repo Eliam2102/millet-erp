@@ -20,9 +20,7 @@ namespace Millet.Compras.Application.Oc.EnviarAAutorizacion;
 /// validaciones pre-auth del §7.1:
 /// <list type="number">
 ///   <item>C10 — proveedor activo en <c>compartido.proveedores</c>.</item>
-///   <item>C11 — cotización adjunta (tipo <c>cotizacion</c>) **o**
-///         excepción <see cref="OrdenCompra.CotizacionExcepcionada"/> +
-///         adjunto tipo <c>correo_autorizacion</c>.</item>
+///   <item>C11 — cotización adjunta obligatoria (D4, P7).</item>
 ///   <item>Si <see cref="OrdenCompra.EsImportacion"/> = true: adjunto
 ///         tipo <c>ficha_tecnica</c>.</item>
 ///   <item>Si <see cref="OrdenCompra.SinRequisicionPrevia"/> = true:
@@ -96,24 +94,12 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
             throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede enviarse a autorización.");
         }
 
-        // C11: cotización adjunta o excepción + correo.
+        // D4 (P7): el correo de autorización no sustituye la cotización.
         var tieneCotizacion = oc.Adjuntos.Any(a => a.TipoDocumentoId == idCotizacion);
         var tieneCorreoAutorizacion = oc.Adjuntos.Any(a => a.TipoDocumentoId == idCorreoAutorizacion);
         if (!tieneCotizacion)
-        {
-            if (!oc.CotizacionExcepcionada)
-            {
-                throw new BusinessRuleException(
-                    "OC_COTIZACION_REQUERIDA",
-                    "Antes de enviar a autorización, la OC requiere un adjunto tipo 'cotizacion' o activar CotizacionExcepcionada con correo de autorización.");
-            }
-            if (!tieneCorreoAutorizacion)
-            {
-                throw new BusinessRuleException(
-                    "OC_EXCEPCION_COTIZACION_SIN_CORREO",
-                    "CotizacionExcepcionada exige un adjunto tipo 'correo_autorizacion'.");
-            }
-        }
+            throw new BusinessRuleException("OC_COTIZACION_REQUERIDA",
+                "Adjunta la cotización antes de enviar la orden de compra a autorización.");
 
         // Ficha técnica si importación.
         if (oc.EsImportacion)
@@ -133,7 +119,7 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
             if (string.IsNullOrWhiteSpace(oc.MotivoSinRequisicion))
             {
                 throw new BusinessRuleException(
-                    "OC_SIN_RQ_MOTIVO_REQUERIDO",
+                    "OC_MOTIVO_SIN_RQ_REQUERIDO",
                     "OC sin requisición previa requiere capturar MotivoSinRequisicion.");
             }
             if (!tieneCorreoAutorizacion)

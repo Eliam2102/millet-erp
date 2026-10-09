@@ -1,3 +1,5 @@
+import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
+import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { ReclasificarMovimiento } from '../components/ReclasificarMovimiento';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -227,6 +229,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
                       {a.motivoReversa && <p className="text-xs text-ink-muted">{a.motivoReversa}</p>}
                     </td>
                     <td className="px-3 py-2 text-right">
+                      <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.PagoProveedor} id={a.pagoId} />
                       {(esPagoACuenta ? puedeDesligar : puedeRevertir) && !a.revertida && (
                         <Button
                           variant="outline"
