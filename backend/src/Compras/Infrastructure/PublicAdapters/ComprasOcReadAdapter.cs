@@ -27,10 +27,6 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort
             .FirstOrDefaultAsync(o => o.Id == ocId, cancellationToken);
 
         if (oc is null) return null;
-        if (oc.Estado == EstadoOrdenCompra.CancelacionSolicitada)
-            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException(
-                "OC_CANCELACION_SOLICITADA",
-                "La OC tiene una cancelación solicitada. Dirección debe resolverla antes de recibir mercancía.");
 
         var conversionMxn = ConvertirAMxn(oc.Moneda, oc.TipoCambio);
 
