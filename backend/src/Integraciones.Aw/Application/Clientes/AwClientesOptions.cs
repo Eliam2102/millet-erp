@@ -1,6 +1,7 @@
 namespace Millet.Integraciones.Aw.Application.Clientes;
 
-public enum AwClientesOrigenTipo { Simulado, Sql }
+/// <summary><c>Postgres</c> = origen de demo (tablas <c>aw_origen.*</c>, <c>tools/aw-origen-demo</c>), no A+W.</summary>
+public enum AwClientesOrigenTipo { Simulado, Sql, Postgres }
 
 /// <summary>
 /// Opciones de la sincronización de clientes A+W (ADM-06, doc integration/05 §10).

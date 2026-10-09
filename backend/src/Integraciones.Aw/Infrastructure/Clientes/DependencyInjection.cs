@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Workers;
+using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
@@ -36,6 +37,15 @@ public static class ClientesDependencyInjection
                     sp.GetRequiredService<IOptions<AwClientesOptions>>(),
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AwClientesSqlOrigen>>()));
             }
+        }
+        else if (opciones.Origen == AwClientesOrigenTipo.Postgres)
+        {
+            var cs = configuration.GetConnectionString(AwOrigenPg.ConnectionStringName);
+            if (!string.IsNullOrWhiteSpace(cs))
+                services.AddSingleton<IAwClientesOrigen>(sp => new AwClientesPgOrigen(
+                    new AwOrigenPg.Fabrica(cs),
+                    sp.GetRequiredService<IOptions<AwClientesOptions>>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AwClientesPgOrigen>>()));
         }
         else
         {

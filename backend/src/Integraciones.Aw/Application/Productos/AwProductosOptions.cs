@@ -1,6 +1,7 @@
 namespace Millet.Integraciones.Aw.Application.Productos;
 
-public enum AwProductosOrigenTipo { Simulado, Sql }
+/// <summary><c>Postgres</c> = origen de demo (tablas <c>aw_origen.*</c>, <c>tools/aw-origen-demo</c>), no A+W.</summary>
+public enum AwProductosOrigenTipo { Simulado, Sql, Postgres }
 
 /// <summary>
 /// Opciones de la sincronización de productos A+W (ADM-07, doc integration/06).

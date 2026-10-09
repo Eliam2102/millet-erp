@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Productos;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
+using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Productos;
 
@@ -39,6 +40,15 @@ public static class ProductosDependencyInjection
                         sp.GetRequiredService<IOptions<AwProductosOptions>>(),
                         sp.GetRequiredService<ILogger<AwProductosSqlOrigen>>()));
                 }
+            }
+            else if (opciones.Origen == AwProductosOrigenTipo.Postgres)
+            {
+                var cs = configuration.GetConnectionString(AwOrigenPg.ConnectionStringName);
+                if (!string.IsNullOrWhiteSpace(cs))
+                    services.AddSingleton<IAwProductosOrigen>(sp => new AwProductosPgOrigen(
+                        new AwOrigenPg.Fabrica(cs),
+                        sp.GetRequiredService<IOptions<AwProductosOptions>>(),
+                        sp.GetRequiredService<ILogger<AwProductosPgOrigen>>()));
             }
             else if (!string.IsNullOrWhiteSpace(opciones.ArchivoSimulado))
                 services.AddSingleton<IAwProductosOrigen>(_ => AwProductosOrigenSimulado.DesdeArchivo(opciones.ArchivoSimulado!));

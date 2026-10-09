@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Ports;
+using Npgsql;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -168,6 +169,28 @@ internal static class SqlPlumbing
             logger.LogWarning(ex, "[Pedidos.SqlPlumbing] SQL error op={Op} #{Number}", operacion, ex.Number);
             throw new AwReaderException(
                 $"SQL Server error (#{ex.Number}): {ex.Message}",
+                kind: "connection", isTransient: true, inner: ex);
+        }
+        // Origen demo en PostgreSQL (Infrastructure/OrigenPg): mismas categorías que SQL Server.
+        catch (PostgresException ex) when (ex.SqlState is "28P01" or "28000")
+        {
+            logger.LogError(ex, "[Pedidos.SqlPlumbing] auth failure op={Op} {State}", operacion, ex.SqlState);
+            throw new AwReaderException(
+                $"PostgreSQL auth failed ({ex.SqlState}): {ex.Message}",
+                kind: "auth", isTransient: false, inner: ex);
+        }
+        catch (Exception ex) when (ex is PostgresException { SqlState: "57014" } or NpgsqlException { InnerException: TimeoutException })
+        {
+            logger.LogWarning(ex, "[Pedidos.SqlPlumbing] timeout op={Op}", operacion);
+            throw new AwReaderException(
+                $"SQL query timeout ({options.SqlQueryTimeoutSeconds}s).",
+                kind: "timeout", isTransient: true, inner: ex);
+        }
+        catch (NpgsqlException ex)
+        {
+            logger.LogWarning(ex, "[Pedidos.SqlPlumbing] PostgreSQL error op={Op}", operacion);
+            throw new AwReaderException(
+                $"PostgreSQL error: {ex.Message}",
                 kind: "connection", isTransient: true, inner: ex);
         }
         catch (InvalidOperationException ex)

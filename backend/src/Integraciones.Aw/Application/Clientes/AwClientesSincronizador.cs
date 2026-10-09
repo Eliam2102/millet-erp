@@ -221,5 +221,6 @@ public sealed class AwClientesSincronizador
     private IAwClientesOrigen ObtenerOrigen() =>
         _sp.GetService<IAwClientesOrigen>()
         ?? throw new AwClientesSyncException("origen_sin_configurar",
-            $"Origen '{_options.Origen}' sin adaptador: falta ConnectionStrings:{AwClientesOptions.ConnectionStringName}.");
+            $"Origen '{_options.Origen}' sin adaptador: falta ConnectionStrings:" +
+            (_options.Origen == AwClientesOrigenTipo.Postgres ? "AwOrigenPgDb" : AwClientesOptions.ConnectionStringName) + ".");
 }
