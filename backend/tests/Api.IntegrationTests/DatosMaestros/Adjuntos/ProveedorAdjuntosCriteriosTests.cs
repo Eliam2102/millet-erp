@@ -139,7 +139,9 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
             Assert.Single(Directory.GetFiles(raiz, "*", SearchOption.AllDirectories));
 
             const string motivo = "Documento sustituido por una version vigente";
-            var antes = DateTimeOffset.UtcNow.AddSeconds(-5);
+            // La bitácora toma la hora del reloj de prueba (congelado al crear el ambiente), no la hora real:
+            // compararla contra DateTimeOffset.UtcNow fallaba si la preparación tardaba más de 5 s.
+            var antes = amb.Reloj.UtcNow.AddSeconds(-5);
             var baja = new HttpRequestMessage(HttpMethod.Delete, $"{Base}/{prov}/adjuntos/{adjuntoId}")
             {
                 Content = JsonContent.Create(new { motivo }),

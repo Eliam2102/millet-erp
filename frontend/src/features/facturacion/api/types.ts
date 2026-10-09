@@ -1097,10 +1097,29 @@ export interface ComprobanteDetalleResponse {
   folioPac: string | null;
   /** [Decisión 13-K] Total acreditado por NC timbradas (amortización de anticipos + NC generales). */
   totalAcreditado: number;
-  /** [Decisión 13-K] Monto por cobrar: total − totalAcreditado. */
+  metodoPago: string;
+  cobroMostrador: CobroFacturaDetalle | null;
+  /** Importe en moneda de la factura, aplicado por REP timbrados. */
+  pagadoPorRep: number;
+  /** Total − NC timbradas − cobro vigente (PUE) o REP timbrados (PPD). */
   totalPorCobrar: number;
   /** [Decisión 13-K] NC timbradas que acreditan a esta factura. */
   notasCreditoAplicadas: NotaCreditoAplicadaDetalle[] | null;
+}
+
+export interface CobroFacturaDetalle {
+  id: string;
+  fechaCobro: string;
+  usuarioCobradorId: string;
+  total: number;
+  formasPago: { formaPago: string; importe: number; referencia: string | null }[];
+  sesion: {
+    id: string;
+    cajaId: string;
+    cajaNombre: string;
+    diaOperacion: string;
+    estado: string;
+  };
 }
 
 /** NC timbrada que acredita a la factura ([Decisión 13-K]). */
