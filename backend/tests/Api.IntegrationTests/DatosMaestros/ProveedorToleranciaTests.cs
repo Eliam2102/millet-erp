@@ -72,7 +72,13 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
     public async Task Captura_CubreCA23_CA86_G113a_G113d_YCambioGeneralEnSiguienteFactura()
     {
         var oc = new OcDemo();
-        var ambiente = new AdjuntosProveedorAmbiente(factory, services => services.AddSingleton<IComprasOcReadPort>(oc));
+        // La prueba mide la tolerancia, no el candado de periodo (P8): el periodo se da por abierto
+        // para no depender de que otra prueba haya abierto el mes en la base compartida.
+        var ambiente = new AdjuntosProveedorAmbiente(factory, services =>
+        {
+            services.AddSingleton<IComprasOcReadPort>(oc);
+            services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
+        });
         var proveedorId = await ambiente.SeedProveedorAsync();
         oc.ProveedorId = proveedorId;
         var admin = await ambiente.SuperAdminAsync();
@@ -165,5 +171,10 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
             new(id, "OC-DEMO-G113", ProveedorId, AdjuntosProveedorAmbiente.EmpresaInicialId, SucursalId, 10000, "Autorizada",
                 [new(id, ArticuloId, 1, 10000, 0, 1)]));
         public Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(Guid id, CancellationToken ct) => Task.FromResult<IReadOnlyList<OrdenCompraDto>>([]);
+    }
+
+    private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort
+    {
+        public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);
     }
 }
