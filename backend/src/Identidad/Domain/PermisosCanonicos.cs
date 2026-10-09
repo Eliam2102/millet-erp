@@ -126,6 +126,8 @@ public static class PermisosCanonicos
     public const string DatosMaestrosProveedoresAdjuntosVer            = "datos_maestros.proveedores.adjuntos-ver";
     public const string DatosMaestrosProveedoresAdjuntosSubir          = "datos_maestros.proveedores.adjuntos-subir";
     public const string DatosMaestrosProveedoresAdjuntosBaja           = "datos_maestros.proveedores.adjuntos-baja";
+    // G1.13: solo CxP configura la tolerancia en pesos del proveedor.
+    public const string DatosMaestrosProveedoresToleranciaEditar       = "datos_maestros.proveedores.tolerancia-editar";
     // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
     public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
@@ -574,6 +576,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000004"), DatosMaestrosProveedoresAdjuntosVer,          "Consultar y descargar los documentos del expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000005"), DatosMaestrosProveedoresAdjuntosSubir,        "Adjuntar documentos al expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000006"), DatosMaestrosProveedoresAdjuntosBaja,         "Dar de baja documentos del expediente de un proveedor y consultar su historial"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000008"), DatosMaestrosProveedoresToleranciaEditar, "Editar tolerancia factura contra OC en pesos del proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000007"), DatosMaestrosProveedoresValidar,              "Validar o rechazar el expediente documental del proveedor para activación en el ERP"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),

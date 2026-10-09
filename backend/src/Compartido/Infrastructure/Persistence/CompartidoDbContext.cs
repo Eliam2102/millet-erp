@@ -325,19 +325,22 @@ public sealed class CompartidoDbContext : BaseDbContext
                 "Número de decimales para montos monetarios MXN.", seedTime),
             SeedParametro("00000006-0001-0000-0000-000000000004", "system.idioma-default",
                 "es-MX", TipoParametro.Texto,
-                "Idioma por defecto del sistema (BCP 47).", seedTime)
+                "Idioma por defecto del sistema (BCP 47).", seedTime),
+            SeedParametro("00000006-0001-0000-0000-000000000005", ToleranciaFacturaContraOcParametro.Clave,
+                "0.99", TipoParametro.Numero,
+                "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.", seedTime, "cxp")
         );
     }
 
     private static object SeedParametro(
         string id, string clave, string valor, TipoParametro tipo,
-        string descripcion, DateTimeOffset seedTime) => new
+        string descripcion, DateTimeOffset seedTime, string? modulo = null) => new
         {
             Id = Guid.Parse(id),
             Clave = clave,
             Valor = valor,
             Tipo = tipo,
-            Modulo = (string?)null,
+            Modulo = modulo,
             Descripcion = descripcion,
             Version = 1,
             CreatedAt = seedTime,
@@ -1043,6 +1046,7 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_proveedores_condiciones_pago", "condiciones_pago_dias IS NULL OR condiciones_pago_dias BETWEEN 0 AND 365");
             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
+            t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
             // TES-PR3 [T-G1]: datos bancarios para pago.
             t.HasCheckConstraint("ck_proveedores_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
         });
@@ -1064,6 +1068,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Clabe).HasMaxLength(18);
         proveedor.Property(x => x.Beneficiario).HasMaxLength(254);
         // F1-ADM-05 G1.1: validación CxP y motivo de rechazo.
+        proveedor.Property(x => x.ToleranciaFacturaContraOcMxn).HasPrecision(18, 4);
         proveedor.Property(x => x.ValidadoPorId);
         proveedor.Property(x => x.ValidadoEn);
         proveedor.Property(x => x.MotivoRechazo).HasMaxLength(500);
