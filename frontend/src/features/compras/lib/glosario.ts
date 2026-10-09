@@ -58,7 +58,8 @@ export type EstadoOrdenCompra =
   | 'Autorizada'
   | 'Cerrada'
   | 'Cancelada'
-  | 'Rechazada';
+  | 'Rechazada'
+  | 'CancelacionSolicitada';
 
 /**
  * Términos transversales del módulo Compras (no-enum, mezcla RQ + OC)
@@ -135,6 +136,9 @@ export const ESTADOS: Record<EstadoRequisicion, DefinicionTerm> = {
 };
 
 export const ESTADOS_OC: Record<EstadoOrdenCompra, DefinicionTerm> = {
+  CancelacionSolicitada: {
+    resumen: 'Jefe de Compras solicitó la cancelación. Dirección debe confirmar o rechazar con una persona distinta. La recepción y facturación están bloqueadas.',
+  },
   Borrador: {
     resumen:
       'La OC se está editando y aún no se ha enviado a autorización. El comprador puede agregar/quitar líneas, cambiar la cabecera y adjuntar documentos.',
@@ -161,7 +165,7 @@ export const ESTADOS_OC: Record<EstadoOrdenCompra, DefinicionTerm> = {
   },
   Rechazada: {
     resumen:
-      'Algún autorizador (N1 o N2) rechazó la OC con un motivo. El comprador puede editar y re-transmitir, o duplicarla si prefiere arrancar limpia.',
+      'Algún autorizador (N1 o N2) rechazó la OC con un motivo. El comprador puede editar y reenviar. Si tiene requisiciones vinculadas, debe cancelarla antes de duplicar.',
   },
 };
 

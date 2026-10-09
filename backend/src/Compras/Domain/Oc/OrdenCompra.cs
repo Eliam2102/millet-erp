@@ -97,6 +97,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public DateOnly? FechaEntregaEsperada { get; private set; }
 
     public EstadoOrdenCompra Estado { get; private set; }
+    /// <summary>Cada reenvío tras rechazo abre un ciclo nuevo; las firmas anteriores se conservan.</summary>
+    public int CicloAutorizacion { get; private set; } = 1;
     public SubEstadoRecepcion SubEstadoRecepcion { get; private set; }
     public SubEstadoFacturacion SubEstadoFacturacion { get; private set; }
     public SubEstadoPago SubEstadoPago { get; private set; }
@@ -232,6 +234,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     private readonly List<AutorizacionOC> _autorizaciones = [];
     public IReadOnlyCollection<AutorizacionOC> Autorizaciones => _autorizaciones.AsReadOnly();
+
+    private readonly List<SolicitudCancelacionOc> _solicitudesCancelacion = [];
+    public IReadOnlyCollection<SolicitudCancelacionOc> SolicitudesCancelacion => _solicitudesCancelacion.AsReadOnly();
 
     /// <summary>Constructor para EF Core.</summary>
     private OrdenCompra() { }
@@ -979,6 +984,10 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 "La OC todavía tiene campos TBD en la cabecera (proveedor / condiciones / uso / almacén). Completar antes de transmitir.");
         }
 
+        if (Estado == EstadoOrdenCompra.Rechazada)
+            CicloAutorizacion++;
+        MotivoRechazoId = null;
+        MotivoRechazoTexto = null;
         Estado = EstadoOrdenCompra.EnAutorizacionJefeCompras;
 
         return new Events.OrdenCompraEnviadaAAutorizacionEvent(
@@ -1024,7 +1033,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 $"No se puede autorizar {nivel} en estado {Estado}; estado esperado: {estadoEsperado}.");
         }
 
-        if (_autorizaciones.Any(a =>
+        var firmasVigentes = _autorizaciones.Where(a => a.Ciclo == CicloAutorizacion).ToList();
+        if (firmasVigentes.Any(a =>
             a.Nivel == nivel && a.Resultado == ResultadoAutorizacionOc.Autorizado))
         {
             throw new BusinessRuleException(
@@ -1035,7 +1045,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // N2 requiere N1 autorizada previa (defense in depth — el estado
         // ya lo garantiza por la state machine).
         if (nivel == NivelAutorizacion.Nivel2
-            && !_autorizaciones.Any(a =>
+            && !firmasVigentes.Any(a =>
                 a.Nivel == NivelAutorizacion.Nivel1 && a.Resultado == ResultadoAutorizacionOc.Autorizado))
         {
             throw new BusinessRuleException(
@@ -1043,12 +1053,22 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 "Nivel2 requiere que primero exista Nivel1 autorizada.");
         }
 
+        if (usuarioId == CompradorTitularId)
+            throw new BusinessRuleException("OC_AUTOAUTORIZACION",
+                "Quien capturó la orden de compra no puede autorizarla en ningún nivel.");
+        if (nivel == NivelAutorizacion.Nivel2 && firmasVigentes.Any(a =>
+                a.Nivel == NivelAutorizacion.Nivel1 && a.Resultado == ResultadoAutorizacionOc.Autorizado
+                && a.UsuarioId == usuarioId))
+            throw new BusinessRuleException("OC_FIRMA_MISMA_PERSONA",
+                "La segunda firma debe ser de una persona distinta a la que firmó el primer nivel.");
+
         var autorizacion = new AutorizacionOC(
             id: autorizacionId,
             ordenCompraId: Id,
             nivel: nivel,
             usuarioId: usuarioId,
             fechaHora: fechaHora,
+            ciclo: CicloAutorizacion,
             notas: notas);
         _autorizaciones.Add(autorizacion);
 
@@ -1122,6 +1142,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             nivel: nivel,
             usuarioId: usuarioId,
             fechaHora: fechaHora,
+            ciclo: CicloAutorizacion,
             motivoRechazoId: motivoRechazoId,
             motivoRechazoTexto: motivoRechazoTexto,
             notas: notas);
@@ -1216,84 +1237,49 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         return new CancelarResultado(evento, rqsALiberar);
     }
 
-    /// <summary>
-    /// Cancela una OC que tiene <see cref="SubEstadoRecepcion.Parcial"/>
-    /// o <see cref="SubEstadoRecepcion.Completa"/> en recepción (F5-PR4).
-    /// Las cantidades ya recibidas permanecen en las líneas (no se
-    /// decrementan) para preservar la trazabilidad contable. Para cada
-    /// línea con RQ asociada y <c>cantidad_recibida &lt; cantidad</c>,
-    /// se reporta una <see cref="LineaRqLiberacionParcial"/> con la
-    /// <c>cantidad_no_recibida</c>; el handler emite un
-    /// <see cref="Events.LineaRqLiberadaEvent"/> con esa cantidad.
-    ///
-    /// <para>
-    /// Líneas con <c>cantidad_recibida == cantidad</c> NO generan
-    /// liberación (no hay nada que devolver al pool de RQ). La RQ
-    /// asociada solo se libera de la OC si tiene al menos una línea
-    /// parcialmente liberada — caso opuesto, queda comprometida
-    /// históricamente con esta OC ya cancelada (trazabilidad).
-    /// </para>
-    ///
-    /// <para>
-    /// La validación de doble autorización (3 permisos requeridos) la
-    /// hace el endpoint API antes de invocar este método. El agregado
-    /// solo valida invariantes propias (no terminal + motivo).
-    /// </para>
-    /// </summary>
-    public CancelarConRecepcionesResultado CancelarConRecepcionesParciales(
-        Guid usuarioId,
-        DateTimeOffset fechaHora,
-        Guid motivoCancelacionId,
-        string? motivoCancelacionTexto = null)
+    /// <summary>Primera firma de cancelación: conserva el estado previo y bloquea nuevos movimientos.</summary>
+    public void SolicitarCancelacionConRecepciones(Guid usuarioId, DateTimeOffset fechaHora,
+        Guid motivoCancelacionId, string motivo)
     {
-        if (EstadosTerminales.Contains(Estado))
-        {
-            throw new BusinessRuleException(
-                "OC_CANCELAR_ESTADO_TERMINAL",
-                $"No se puede cancelar una OC en estado terminal (actual: {Estado}).");
-        }
+        if (Estado != EstadoOrdenCompra.Autorizada || !_lineas.Any(l => l.CantidadRecibida > 0))
+            throw new BusinessRuleException("OC_CANCELACION_ESTADO_INVALIDO",
+                "Solo se puede solicitar esta cancelación para una OC autorizada con recepciones.");
+        _solicitudesCancelacion.Add(new SolicitudCancelacionOc(
+            Guid.CreateVersion7(), Id, Estado, usuarioId, fechaHora, motivoCancelacionId, motivo));
+        Estado = EstadoOrdenCompra.CancelacionSolicitada;
+    }
 
-        if (motivoCancelacionId == Guid.Empty)
-        {
-            throw new BusinessRuleException(
-                "OC_CANCELAR_MOTIVO_REQUERIDO",
-                "El motivo de cancelación es requerido.");
-        }
-
-        if (motivoCancelacionTexto is { Length: > 500 })
-        {
-            throw new BusinessRuleException(
-                "OC_CANCELAR_TEXTO_DEMASIADO_LARGO",
-                "El texto del motivo no puede exceder 500 caracteres.");
-        }
-
-        var estadoPrevio = Estado;
+    public CancelarConRecepcionesResultado ConfirmarCancelacionConRecepciones(
+        Guid usuarioId, DateTimeOffset fechaHora, string motivo)
+    {
+        var solicitud = SolicitudPendiente();
+        solicitud.Resolver(usuarioId, fechaHora, true, motivo);
         Estado = EstadoOrdenCompra.Cancelada;
-        MotivoCancelacionId = motivoCancelacionId;
-        MotivoCancelacion = motivoCancelacionTexto;
-
-        // Recolectar liberaciones parciales: solo líneas con RQ y saldo
-        // no recibido > 0.
+        MotivoCancelacionId = solicitud.MotivoCancelacionId;
+        MotivoCancelacion = solicitud.MotivoSolicitud;
         var liberaciones = _lineas
             .Where(l => l.RequisicionId.HasValue && l.Cantidad > l.CantidadRecibida)
-            .Select(l => new LineaRqLiberacionParcial(
-                RequisicionId: l.RequisicionId!.Value,
-                LineaOrdenCompraId: l.Id,
-                CantidadLiberada: l.Cantidad - l.CantidadRecibida))
-            .ToList();
-
-        var evento = new Events.OrdenCompraCanceladaEvent(
-            OrdenCompraId: Id,
-            EmpresaId: EmpresaId,
-            Folio: Folio.Valor,
-            EstadoPrevio: estadoPrevio,
-            MotivoCancelacionId: motivoCancelacionId,
-            MotivoCancelacionTexto: motivoCancelacionTexto,
-            CompradorTitularId: CompradorTitularId,
-            UsuarioCanceladorId: usuarioId,
-            OcurridoEn: fechaHora);
-
+            .Select(l => new LineaRqLiberacionParcial(l.RequisicionId!.Value, l.Id,
+                l.Cantidad - l.CantidadRecibida)).ToList();
+        var evento = new Events.OrdenCompraCanceladaEvent(Id, EmpresaId, Folio.Valor,
+            solicitud.EstadoAnterior, solicitud.MotivoCancelacionId, solicitud.MotivoSolicitud,
+            CompradorTitularId, usuarioId, fechaHora);
         return new CancelarConRecepcionesResultado(evento, liberaciones);
+    }
+
+    public void RechazarCancelacion(Guid usuarioId, DateTimeOffset fechaHora, string motivo)
+    {
+        var solicitud = SolicitudPendiente();
+        solicitud.Resolver(usuarioId, fechaHora, false, motivo);
+        Estado = solicitud.EstadoAnterior;
+    }
+
+    private SolicitudCancelacionOc SolicitudPendiente()
+    {
+        if (Estado != EstadoOrdenCompra.CancelacionSolicitada)
+            throw new BusinessRuleException("OC_CANCELACION_NO_SOLICITADA",
+                "La orden de compra no tiene una solicitud de cancelación pendiente.");
+        return _solicitudesCancelacion.Single(s => s.FechaResolucion == null);
     }
 
     /// <summary>

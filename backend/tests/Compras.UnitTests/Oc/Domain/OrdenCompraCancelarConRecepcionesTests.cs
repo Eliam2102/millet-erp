@@ -54,10 +54,11 @@ public class OrdenCompraCancelarConRecepcionesTests
         var oc = NewOcAutorizadaDesdeRq();
         var linea = oc.Lineas.First(); // cantidad = 10, recibida = 0
 
-        var resultado = oc.CancelarConRecepcionesParciales(
+        Solicitar(oc);
+        var resultado = oc.ConfirmarCancelacionConRecepciones(
             usuarioId: Guid.CreateVersion7(),
             fechaHora: DateTimeOffset.UtcNow,
-            motivoCancelacionId: Guid.CreateVersion7());
+            motivo: "Confirmación de Dirección");
 
         var liberacion = resultado.LiberacionesParciales.First(l => l.LineaOrdenCompraId == linea.Id);
         Assert.Equal(10m, liberacion.CantidadLiberada);
@@ -71,10 +72,11 @@ public class OrdenCompraCancelarConRecepcionesTests
         var lineaA = lineas[0]; // cantidad 10
         oc.RegistrarRecepcionLinea(lineaA.Id, 4m, DateTimeOffset.UtcNow);
 
-        var resultado = oc.CancelarConRecepcionesParciales(
+        Solicitar(oc);
+        var resultado = oc.ConfirmarCancelacionConRecepciones(
             usuarioId: Guid.CreateVersion7(),
             fechaHora: DateTimeOffset.UtcNow,
-            motivoCancelacionId: Guid.CreateVersion7());
+            motivo: "Confirmación de Dirección");
 
         var liberacionA = resultado.LiberacionesParciales.First(l => l.LineaOrdenCompraId == lineaA.Id);
         Assert.Equal(6m, liberacionA.CantidadLiberada);
@@ -89,10 +91,11 @@ public class OrdenCompraCancelarConRecepcionesTests
         var lineaA = lineas[0]; // cantidad 10
         oc.RegistrarRecepcionLinea(lineaA.Id, 10m, DateTimeOffset.UtcNow);
 
-        var resultado = oc.CancelarConRecepcionesParciales(
+        Solicitar(oc);
+        var resultado = oc.ConfirmarCancelacionConRecepciones(
             usuarioId: Guid.CreateVersion7(),
             fechaHora: DateTimeOffset.UtcNow,
-            motivoCancelacionId: Guid.CreateVersion7());
+            motivo: "Confirmación de Dirección");
 
         // La línea totalmente recibida no genera liberación.
         Assert.DoesNotContain(resultado.LiberacionesParciales,
@@ -129,10 +132,11 @@ public class OrdenCompraCancelarConRecepcionesTests
         oc.Autorizar(Guid.CreateVersion7(), NivelAutorizacion.Nivel2, Guid.CreateVersion7(), ahora);
         oc.RegistrarRecepcionLinea(oc.Lineas.First().Id, 1m, ahora);
 
-        var resultado = oc.CancelarConRecepcionesParciales(
+        Solicitar(oc);
+        var resultado = oc.ConfirmarCancelacionConRecepciones(
             usuarioId: Guid.CreateVersion7(),
             fechaHora: DateTimeOffset.UtcNow,
-            motivoCancelacionId: Guid.CreateVersion7());
+            motivo: "Confirmación de Dirección");
 
         Assert.Empty(resultado.LiberacionesParciales);
         Assert.Equal(EstadoOrdenCompra.Cancelada, oc.Estado);
@@ -146,10 +150,11 @@ public class OrdenCompraCancelarConRecepcionesTests
         oc.RegistrarRecepcionLinea(lineas[0].Id, 4m, DateTimeOffset.UtcNow);
         oc.RegistrarRecepcionLinea(lineas[1].Id, 5m, DateTimeOffset.UtcNow); // 100% recibido
 
-        oc.CancelarConRecepcionesParciales(
+        Solicitar(oc);
+        oc.ConfirmarCancelacionConRecepciones(
             usuarioId: Guid.CreateVersion7(),
             fechaHora: DateTimeOffset.UtcNow,
-            motivoCancelacionId: Guid.CreateVersion7());
+            motivo: "Confirmación de Dirección");
 
         // Trazabilidad contable: las cantidades recibidas NO se decrementan.
         Assert.Equal(4m, oc.Lineas.First(l => l.Id == lineas[0].Id).CantidadRecibida);
@@ -160,28 +165,35 @@ public class OrdenCompraCancelarConRecepcionesTests
     public void Cancelar_EstadoTerminal_Lanza()
     {
         var oc = NewOcAutorizadaDesdeRq();
-        oc.CancelarConRecepcionesParciales(
+        Solicitar(oc);
+        oc.ConfirmarCancelacionConRecepciones(
             usuarioId: Guid.CreateVersion7(),
             fechaHora: DateTimeOffset.UtcNow,
-            motivoCancelacionId: Guid.CreateVersion7());
+            motivo: "Confirmación de Dirección");
 
         var ex = Assert.Throws<BusinessRuleException>(() =>
-            oc.CancelarConRecepcionesParciales(
+            oc.ConfirmarCancelacionConRecepciones(
                 usuarioId: Guid.CreateVersion7(),
                 fechaHora: DateTimeOffset.UtcNow,
-                motivoCancelacionId: Guid.CreateVersion7()));
-        Assert.Equal("OC_CANCELAR_ESTADO_TERMINAL", ex.Code);
+                motivo: "Confirmación de Dirección"));
+        Assert.Equal("OC_CANCELACION_NO_SOLICITADA", ex.Code);
     }
 
     [Fact]
-    public void Cancelar_MotivoVacio_Lanza()
+    public void Solicitar_MotivoVacio_Lanza()
     {
         var oc = NewOcAutorizadaDesdeRq();
-        var ex = Assert.Throws<BusinessRuleException>(() =>
-            oc.CancelarConRecepcionesParciales(
-                usuarioId: Guid.CreateVersion7(),
-                fechaHora: DateTimeOffset.UtcNow,
-                motivoCancelacionId: Guid.Empty));
+        oc.RegistrarRecepcionLinea(oc.Lineas.First().Id, 1, DateTimeOffset.UtcNow);
+        var ex = Assert.Throws<BusinessRuleException>(() => oc.SolicitarCancelacionConRecepciones(
+            Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.Empty, "Motivo"));
         Assert.Equal("OC_CANCELAR_MOTIVO_REQUERIDO", ex.Code);
+    }
+
+    private static void Solicitar(OrdenCompra oc)
+    {
+        if (!oc.Lineas.Any(l => l.CantidadRecibida > 0))
+            oc.RegistrarRecepcionLinea(oc.Lineas.Last().Id, 1, DateTimeOffset.UtcNow);
+        oc.SolicitarCancelacionConRecepciones(Guid.NewGuid(), DateTimeOffset.UtcNow,
+            Guid.NewGuid(), "Solicitud del jefe de Compras");
     }
 }

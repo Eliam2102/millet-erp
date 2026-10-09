@@ -29,6 +29,7 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
 
     public async Task Handle(ActualizarLineaOcCommand command, CancellationToken cancellationToken)
     {
+        await using var tx = await SaldoCompraRq.BloquearAsync(_db, cancellationToken);
         var oc = await _db.OrdenesCompra
             .Include(o => o.Lineas)
             .FirstOrDefaultAsync(o => o.Id == command.OrdenCompraId, cancellationToken)
@@ -37,6 +38,12 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}' en la empresa actual.");
 
         var lineaActual = oc.Lineas.FirstOrDefault(l => l.Id == command.LineaId);
+
+        if (lineaActual?.LineaRequisicionId is Guid lineaRqId && command.Cantidad is decimal nuevaCantidad)
+        {
+            var saldos = await SaldoCompraRq.ObtenerAsync(_db, [lineaRqId], cancellationToken, lineaActual.Id);
+            SaldoCompraRq.Validar(nuevaCantidad, saldos.GetValueOrDefault(lineaRqId));
+        }
 
         // ADR-0046 Etapa 2: si el PATCH cambia la cantidad, valida sus decimales
         // contra la unidad del artículo. El articuloId puede venir en el comando
@@ -107,5 +114,6 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             centroCostoId: command.CentroCostoId);
 
         await _db.SaveChangesAsync(cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
     }
 }

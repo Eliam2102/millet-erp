@@ -1,3 +1,4 @@
+using Millet.CentrosCosto.Application.PublicPorts;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Application;
@@ -10,13 +11,7 @@ using Serilog.Context;
 
 namespace Millet.Compras.Application.Oc.DuplicarOrdenCompra;
 
-/// <summary>
-/// Handler de <see cref="DuplicarOrdenCompraCommand"/> (F6-PR2).
-/// Valida estado origen (Cancelada o Rechazada), genera folio nuevo,
-/// crea OC en Borrador con cabecera heredada + líneas manuales (sin FK
-/// a RQ), setea <c>OcOrigenId</c> + publica
-/// <see cref="OrdenCompraDuplicadaEvent"/>.
-/// </summary>
+/// <summary>Duplica el faltante no recibido y conserva el vínculo a RQ para consumir su saldo.</summary>
 public sealed class DuplicarOrdenCompraHandler
     : IRequestHandler<DuplicarOrdenCompraCommand, DuplicarOrdenCompraResponse>
 {
@@ -26,6 +21,7 @@ public sealed class DuplicarOrdenCompraHandler
         EstadoOrdenCompra.Rechazada,
     ];
 
+    private readonly IDim3ElegibilidadPort _dim3;
     private readonly ComprasDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
@@ -34,12 +30,14 @@ public sealed class DuplicarOrdenCompraHandler
 
     public DuplicarOrdenCompraHandler(
         ComprasDbContext db,
+        IDim3ElegibilidadPort dim3,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IClock clock,
         IPublisher publisher)
     {
         _db = db;
+        _dim3 = dim3;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _clock = clock;
@@ -64,6 +62,8 @@ public sealed class DuplicarOrdenCompraHandler
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
 
+        await using var tx = await SaldoCompraRq.BloquearAsync(_db, cancellationToken);
+
         var origen = await _db.OrdenesCompra
             .Include(o => o.Lineas)
             .FirstOrDefaultAsync(o => o.Id == command.OrdenCompraOrigenId, cancellationToken)
@@ -78,14 +78,37 @@ public sealed class DuplicarOrdenCompraHandler
                 $"Solo se pueden duplicar OCs Canceladas o Rechazadas (origen: {origen.Estado}).");
         }
 
+        var lineasPendientes = origen.Lineas.Where(l => l.Cantidad > l.CantidadRecibida)
+            .OrderBy(l => l.Posicion).ToList();
+        if (lineasPendientes.Count == 0)
+            throw new BusinessRuleException("OC_SIN_SALDO_PARA_DUPLICAR", "La orden ya fue recibida por completo; no hay cantidades pendientes para duplicar.");
+        if (origen.Estado == EstadoOrdenCompra.Rechazada && origen.Lineas.Any(l => l.LineaRequisicionId.HasValue))
+            throw new BusinessRuleException("OC_RECHAZADA_RQ_COMPROMETIDA",
+                "La OC rechazada conserva el compromiso de la requisición y no puede duplicarse. Corrige esta OC y vuelve a enviarla a autorización.");
+        var saldos = await SaldoCompraRq.ObtenerAsync(_db,
+            lineasPendientes.Where(l => l.LineaRequisicionId.HasValue).Select(l => l.LineaRequisicionId!.Value), cancellationToken);
+        var rqIds = lineasPendientes.Where(l => l.RequisicionId.HasValue).Select(l => l.RequisicionId!.Value).Distinct().ToArray();
+        var rqs = await _db.Requisiciones.Where(r => rqIds.Contains(r.Id)).ToListAsync(cancellationToken);
+        if (rqs.Any(r => r.ComprometidaEnOcId.HasValue))
+            throw new BusinessRuleException("RQ_YA_COMPROMETIDA", "Una requisición de la OC ya está comprometida en otra orden de compra.");
+        foreach (var linea in lineasPendientes)
+        {
+            if (linea.CentroCostoId is not Guid ccId)
+                throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente y dentro de tu alcance.");
+            await CentroCostoLineaGuard.ValidarAsync(_dim3, ccId, aplicarAlcance: true, cancellationToken);
+            if (linea.LineaRequisicionId is Guid rqLineaId)
+            {
+                SaldoCompraRq.Validar(linea.Cantidad - linea.CantidadRecibida, saldos.GetValueOrDefault(rqLineaId));
+                saldos[rqLineaId] -= linea.Cantidad - linea.CantidadRecibida;
+            }
+        }
+
         var siguiente = await GetNextFolioSequenceAsync(
             empresaId, origen.SucursalDestinoId, command.FolioAnio, cancellationToken);
         var folioStr = $"OC-{command.SucursalCodigo}{command.FolioAnio}-{siguiente:D6}";
         var folio = Folio.Parse(folioStr);
 
-        // Cabecera heredada. SinRequisicionPrevia=true porque las líneas
-        // se copian como manuales — las RQs originales ya fueron liberadas
-        // al cancelar la OC origen.
+        // Conserva los vínculos a RQ para consumir el saldo del faltante.
         var motivoSinRq = $"Duplicada de OC {origen.Folio.Valor}";
         var nueva = new OrdenCompra(
             id: Guid.CreateVersion7(),
@@ -101,7 +124,7 @@ public sealed class DuplicarOrdenCompraHandler
             fechaDocumento: command.FechaDocumento,
             moneda: origen.Moneda,
             tipoCambio: origen.TipoCambio,
-            sinRequisicionPrevia: true,
+            sinRequisicionPrevia: origen.SinRequisicionPrevia,
             esImportacion: origen.EsImportacion,
             cotizacionExcepcionada: false,
             observaciones: origen.Observaciones,
@@ -119,34 +142,24 @@ public sealed class DuplicarOrdenCompraHandler
             nueva.ActualizarInformacionImportacion(imp);
         }
 
-        // Líneas como manuales: sin requisicionId / lineaRequisicionId.
-        // El comprador re-selecciona si quiere consolidar nuevas RQs.
-        foreach (var lineaOrigen in origen.Lineas.OrderBy(l => l.Posicion))
+        foreach (var linea in lineasPendientes)
         {
-            nueva.AgregarLineaManual(
-                lineaId: Guid.CreateVersion7(),
-                articuloId: lineaOrigen.ArticuloId,
-                cantidad: lineaOrigen.Cantidad,
-                unidadMedida: lineaOrigen.UnidadMedida,
-                precioUnitario: lineaOrigen.PrecioUnitario,
-                departamentoSolicitanteId: lineaOrigen.DepartamentoSolicitanteId,
-                descuento: lineaOrigen.Descuento,
-                indicadorImpuestos: lineaOrigen.IndicadorImpuestos,
-                descripcionExtendida: lineaOrigen.DescripcionExtendida,
-                fechaEntregaLinea: lineaOrigen.FechaEntregaLinea,
-                textoAdicional: lineaOrigen.TextoAdicional,
-                // GAP-9: heredar el snapshot de naturaleza de la línea origen.
-                esServicio: lineaOrigen.EsServicio,
-                // Fase E PR3.1: copiar el CC-Máquina. Sin esto la duplicada
-                // nacía con CC null saltándose el obligatorio (se crea por
-                // dominio, no por el comando validado) y perdía el dato en
-                // silencio. La línea origen heredada se copia como manual, y
-                // su CC pasa a ser editable — correcto: ya no cuelga de la RQ.
-                centroCostoId: lineaOrigen.CentroCostoId);
+            var cantidad = linea.Cantidad - linea.CantidadRecibida;
+            if (linea.RequisicionId is Guid rqId && linea.LineaRequisicionId is Guid lineaRqId)
+                nueva.AgregarLineaDesdeRequisicion(Guid.CreateVersion7(), linea.ArticuloId,
+                    cantidad, linea.UnidadMedida, linea.PrecioUnitario, linea.DepartamentoSolicitanteId,
+                    rqId, lineaRqId, linea.Descuento, linea.IndicadorImpuestos,
+                    linea.DescripcionExtendida, linea.FechaEntregaLinea, linea.TextoAdicional,
+                    linea.EsServicio, linea.CentroCostoId);
+            else
+                nueva.AgregarLineaManual(Guid.CreateVersion7(), linea.ArticuloId,
+                    cantidad, linea.UnidadMedida, linea.PrecioUnitario, linea.DepartamentoSolicitanteId,
+                    linea.Descuento, linea.IndicadorImpuestos, linea.DescripcionExtendida,
+                    linea.FechaEntregaLinea, linea.TextoAdicional, linea.EsServicio, linea.CentroCostoId);
         }
+        foreach (var rq in rqs) rq.ComprometerEnOc(nueva.Id);
 
         _db.OrdenesCompra.Add(nueva);
-        await _db.SaveChangesAsync(cancellationToken);
 
         await _publisher.Publish(
             new OrdenCompraDuplicadaEvent(
@@ -158,6 +171,9 @@ public sealed class DuplicarOrdenCompraHandler
                 CompradorTitularId: userId,
                 OcurridoEn: _clock.UtcNow),
             cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
 
         return new DuplicarOrdenCompraResponse(
             OrdenCompraNuevaId: nueva.Id,
