@@ -484,6 +484,20 @@ public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory 
             var movimientoIds = Ids("movimiento");
             var pagoIds = Ids("pago");
             var cuentaIds = Ids("cuenta");
+            var almacen = scope.ServiceProvider.GetRequiredService<Millet.Almacen.Infrastructure.Persistence.AlmacenDbContext>();
+            var articuloIdsP7 = Ids("articulo_p7").Concat(Ids("articulo_crear_p7")).ToArray(); var subIdsP7 = Ids("sub_p7"); var almIdsP7 = Ids("almacen_p7");
+            var bins = Ids("bin_p7");
+            var almacenMovIds = Ids("recepcion_p7").Concat(Ids("vale_p7")).ToArray();
+            await almacen.Movimientos.Where(m => almacenMovIds.Contains(m.Id) || m.Lineas.Any(l => bins.Contains(l.UbicacionId ?? Guid.Empty))).ExecuteDeleteAsync();
+            foreach (var documento in Ids("oc").Concat(Ids("rq")).Concat(articuloIdsP7))
+                await almacen.OutboxEntries.Where(o => o.Payload.Contains(documento.ToString())).ExecuteDeleteAsync();
+            await almacen.ConfiguracionesReorden.Where(c => articuloIdsP7.Contains(c.ArticuloId)).ExecuteDeleteAsync();
+            await almacen.SaldosInventario.Where(x => bins.Contains(x.UbicacionId)).ExecuteDeleteAsync();
+            await almacen.AsignacionesArticuloUbicacion.Where(x => bins.Contains(x.UbicacionId)).ExecuteDeleteAsync();
+            await almacen.Ubicaciones.Where(x => bins.Contains(x.Id)).ExecuteDeleteAsync();
+            await almacen.SubAlmacenes.Where(x => subIdsP7.Contains(x.Id)).ExecuteDeleteAsync();
+            await almacen.Almacenes.Where(x => almIdsP7.Contains(x.Id)).ExecuteDeleteAsync();
+            await scope.ServiceProvider.GetRequiredService<CompartidoDbContext>().Articulos.Where(x => articuloIdsP7.Contains(x.Id)).ExecuteDeleteAsync();
             var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
             await tes.ReppsProveedorRecibidos.Where(x => facturaIds.Contains(x.FacturaProveedorId)).ExecuteDeleteAsync();
             foreach (var facturaId in facturaIds)
@@ -538,7 +552,14 @@ public sealed class P6SucursalEndpointsFactory : WebApplicationFactory<Program>
             // Este fixture mide alcance territorial; el candado contable se prueba en P8.
             services.RemoveAll<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort>();
             services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort, PeriodoAbierto>();
+            services.RemoveAll<Millet.Almacen.Domain.Ports.IPeriodoContableReadPort>();
+            services.AddScoped<Millet.Almacen.Domain.Ports.IPeriodoContableReadPort, PeriodoAlmacenAbierto>();
         });
+    }
+
+    private sealed class PeriodoAlmacenAbierto : Millet.Almacen.Domain.Ports.IPeriodoContableReadPort
+    {
+        public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true);
     }
 
     private sealed class PeriodoAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort

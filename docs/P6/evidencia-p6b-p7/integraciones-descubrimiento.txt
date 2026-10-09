@@ -1,0 +1,18 @@
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_por_ruta_ajeno_403_sin_mutar_propio_y_corporativo_exitosos
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_permiso_de_operacion_se_exige_antes_de_sucursal
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_bandejas_y_avisos_no_muestran_ajenos(recurso: "recepciones", llave: "recepcion_p7")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_bandejas_y_avisos_no_muestran_ajenos(recurso: "salidas", llave: "vale_p7")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_bandejas_y_avisos_no_muestran_ajenos(recurso: "reorden", llave: "config_p7")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_arbol_valida_todas_las_entradas_y_cada_nodo_relacionado(tipo: Requisicion, llave: "rq")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_arbol_valida_todas_las_entradas_y_cada_nodo_relacionado(tipo: OrdenCompra, llave: "oc")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_arbol_valida_todas_las_entradas_y_cada_nodo_relacionado(tipo: Recepcion, llave: "recepcion_p7")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_arbol_valida_todas_las_entradas_y_cada_nodo_relacionado(tipo: FacturaProveedor, llave: "factura")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_arbol_valida_todas_las_entradas_y_cada_nodo_relacionado(tipo: PagoProveedor, llave: "pago")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_alta_con_documento_propio_y_bin_ajeno_es_403(ruta: "recepcion-packing")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_alta_con_documento_propio_y_bin_ajeno_es_403(ruta: "recepcion-factura")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_alta_con_documento_propio_y_bin_ajeno_es_403(ruta: "salida-rq")
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_recepcion_sin_lineas_exige_corporativo_en_detalle_y_arbol(arbol: False)
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_recepcion_sin_lineas_exige_corporativo_en_detalle_y_arbol(arbol: True)
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_recepcion_con_OC_propia_y_CFDI_ajeno_es_403
+Millet.Api.IntegrationTests.P6.P6SucursalEndpointsTests.P7_obra_de_RQ_conserva_guarda_P6_y_edita_propias_y_corporativas
+P7_DESCUBIERTOS=17; NO_EJECUTADOS

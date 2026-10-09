@@ -5,6 +5,7 @@ public interface IDocumentoSucursalReadPort
 {
     Task<IReadOnlyList<DocumentoSucursales>> ListarAsync(string tipo, CancellationToken ct);
 }
+public interface IAlmacenSucursalReadPort : IDocumentoSucursalReadPort;
 public interface IComprasSucursalReadPort : IDocumentoSucursalReadPort;
 public interface IFacturacionSucursalReadPort : IDocumentoSucursalReadPort;
 public interface ICxpSucursalReadPort : IDocumentoSucursalReadPort;

@@ -36,7 +36,7 @@ Los permisos de operación conservan su autorización habitual. Leer documentos 
 | Reportes bancarios P5 | Todas las sucursales de todos los movimientos de la cuenta | Auxiliar y flujo filtran cuentas completas antes de saldos/totales | Cuenta mixta requiere acceso a todas sus sucursales; cuenta vacía o con movimiento sin origen requiere corporativo. Se conserva cálculo de saldo inicial/final de P5 |
 | Pago a cuenta | Movimiento bancario origen | Bandeja (los globales sin origen solo corporativo) | Alta corporativa cuando no hay origen; ligar valida movimiento y factura |
 | REPP recibido | Factura proveedor | Pendientes filtrados por pasivos | Registro valida factura |
-| Trazabilidad | Cada nodo RQ/OC/factura/pago | Árbol comprobado antes de responder | Se comprueba raíz y todos los nodos relacionados |
+| Trazabilidad | Cada nodo RQ/OC/recepción/factura/pago | Árbol comprobado antes de responder | Se comprueba raíz y todos los nodos relacionados |
 
 ## Documentos sin origen verificable y catálogos
 
@@ -322,3 +322,70 @@ Resultados locales P6b (09-oct-2026):
 VSTest abortó antes de ejecutar las unitarias con `SocketException (13): Permission denied`: el sandbox bloquea su socket local. Los resultados unitarios de la tabla se obtuvieron ejecutando **xUnit en proceso**, mediante `AssemblyRunner.WithoutAppDomain` del paquete ya restaurado `xunit.runner.visualstudio`, sobre las DLL compiladas. El ejecutor temporal está en `/tmp/p6b-runner`; no modifica el runner del repositorio. No hubo pruebas fallidas ni omitidas en esas ejecuciones. Esto no sustituye el verde PostgreSQL requerido.
 
 La base Obsidian está fuera del alcance de escritura de este sandbox. Esta sección conserva el cierre local y su evidencia para trasladar a la ficha/Bitácora pertinente cuando se valide la integración. No se modificaron tareas externas, no se publicaron documentos y no se hizo commit ni push.
+
+
+## Adenda P6b · cobertura de P7 sobre `b8cceaa`
+
+La continuación comenzó con el worktree limpio: P4 ya estaba en `a40b134` y P7 (#70, `be819ad`) integrado por `b8cceaa`. No se revirtió ni rehízo P4. El diff de `a40b134` a esta base no cambia rutas CxP/Tesorería: siguen vigentes las 37 ausencias y las decisiones de la sección P4, incluida la serie por proveedor (permiso de operación propio, configuración sin sucursal). El cotejo actual resuelve 133 rutas literales CxP/Tesorería: 37 ausentes de las tablas anteriores a P6b y 0 sin fila en el inventario actualizado. Se normalizan nombres de parámetros y la barra final; las rutas genéricas de adjuntos siguen documentadas aparte.
+
+P7 no añadió una ruta HTTP literal: modificó el PATCH de obra de RQ, los filtros de avisos de salidas y el alcance del árbol, además de handlers y DTOs de recepción/salida/reorden. El cotejo de esas capacidades encontró **14 rutas existentes de Almacén ausentes del inventario P6**, sin guarda/filtro territorial; el árbol ya estaba inventariado pero omitía el tipo `Recepcion`. Se incorporan las 14 y se completa la guarda del árbol. Las demás carpetas de Almacén no forman parte de esta revisión acotada a P7; no se declara aislamiento de todo el módulo.
+
+### Rutas incorporadas/revisadas
+
+| Método | Ruta | Control P6b/P7 |
+|---|---|---|
+| GET | `/api/v1/almacen/recepciones/` | Permiso de entradas; `IDocumentoScopedQuery` filtra IDs antes de conteo/paginación. |
+| GET | `/api/v1/almacen/recepciones/{id:guid}` | Permiso de entradas; guarda del movimiento persistido. |
+| POST | `/api/v1/almacen/recepciones/` | Permiso de registrar entradas; guarda OC, cada bin y CFDI del cuerpo si se proporciona. |
+| POST | `/api/v1/almacen/recepciones/packing-list` | Permiso de registrar entradas; guarda OC y cada bin antes del handler P7. |
+| GET | `/api/v1/almacen/salidas/` | Permiso de salidas; filtro de IDs antes de conteo/paginación y avisos `soloVencidos`/`soloPorVencer`. |
+| GET | `/api/v1/almacen/salidas/{id:guid}` | Permiso de salidas; guarda del movimiento persistido. |
+| POST | `/api/v1/almacen/salidas/` | Permiso de registrar salidas; guarda RQ y cada bin del cuerpo. |
+| POST | `/api/v1/almacen/salidas/vale` | Permiso de vale; guarda cada bin del cuerpo. |
+| POST | `/api/v1/almacen/salidas/{id:guid}/regularizar` | Permiso de vale; guarda movimiento y RQ regularizadora antes del handler. |
+| GET | `/api/v1/almacen/reorden/` | Permiso de lectura de reorden; filtro de IDs antes de conteo/paginación. |
+| GET | `/api/v1/almacen/reorden/{id:guid}` | Permiso de lectura de reorden; guarda N1 por sucursal, N2 por almacén persistido. |
+| POST | `/api/v1/almacen/reorden/` | Permiso de administrar reorden; guarda entidad N1/N2 del cuerpo. |
+| PATCH | `/api/v1/almacen/reorden/{id:guid}` | Permiso de administrar reorden; guarda entidad persistida, conserva la llave inmutable. |
+| POST | `/api/v1/almacen/reorden/{id:guid}/desactivar` | Permiso de administrar reorden; guarda entidad persistida. |
+| GET | `/api/v1/compras/trazabilidad/arbol-documentos` | Policy `compras.ordenes.leer` primero; verifica raíz y todos los ascendentes/descendentes RQ/OC/recepción/factura/pago antes de responder. Árbol mixto → 403 completo, igual que P6. |
+| PATCH | `/api/v1/compras/requisiciones/{id:guid}` | Obra conserva permiso y guarda de escritura de RQ existentes; se agrega regresión con cambio persistido. |
+
+Fuentes: `RecepcionesEndpoints.cs`, `SalidasEndpoints.cs`, `ValesEndpoints.cs`, `AlmacenReordenEndpoints.cs`, `ArbolDocumentosEndpoint.cs` y los tres handlers de listado modificados.
+
+### Origen territorial y permisos
+
+`AlmacenSucursalReadAdapter` implementa el puerto público `IAlmacenSucursalReadPort`, reutilizado por `DocumentoSucursalScope` y `SucursalScopeQueryBehavior`. Para movimientos, resuelve **todas** las ubicaciones → sub-almacén → almacén → sucursal y reúne las sucursales de OC, RQ, RQ regularizadora, factura y CFDI vinculados mediante puertos públicos de lectura. Si no hay líneas, o falta un bin u origen persistido no se infiere alcance: documento sin origen verificable → solo corporativo. No basta un bin propio si otro origen es ajeno. El UUID capturado manualmente no se usa para inventar una sucursal.
+
+Reorden sí tiene destino territorial: N1 referencia sucursal; N2 referencia almacén. La cantidad fija de P7 conserva su cálculo. El motor `EvaluarReordenQuery`/`GenerarBorradoresReordenCommand` solo tiene consumidores internos (no ruta HTTP) y conserva el barrido del worker sin JWT. Apartados se manipulan desde autorización/cancelación/cierre de RQ y surtido: las rutas RQ/OC mantienen P6, y las entradas de surtido ahora verifican RQ y bins. La conversión de unidades no tiene una ruta nueva: sigue dentro de los handlers P7, después del control de acceso.
+
+Se agregan seis permisos canónicos y una migración de Identidad (sin tablas nuevas): `almacen.{entradas,salidas,reorden}.{leer,gestionar}-todas-sucursales`. El permiso histórico `almacen.salidas.leer-todas` sigue siendo la capacidad de lectura; **no** es el bypass territorial. Lectura corporativa no concede gestión corporativa. La migración siembra permisos, no los asigna a roles operativos; el super-admin sigue el bootstrap existente.
+
+### Pruebas nuevas y límites
+
+`P6bP7SucursalEndpointsTests.cs` reutiliza la clase y fixture P6 con periodo abierto también para Almacén. Cubre cada detalle/alta/mutación (403 ajeno sin cambios y 2xx propio/corporativo), permisos antes de sucursal, bandejas/avisos, los cinco orígenes del árbol con un nodo relacionado ajeno, alta con bin/CFDI ajeno, recepción sin líneas y obra de RQ. Usa sucursales ficticias del seed `MID`/`MTY`; no representa ejecución con los usuarios reales de Cancún/Circuito. Los catálogos exclusivos, movimientos, saldos, asignaciones, configuraciones y Outbox se limpian por IDs. Ningún catálogo compartido queda alterado tras la prueba.
+
+`SucursalP6bTests` agrega 10 casos unitarios: bin y origen propio/ajeno/roto, movimientos sin líneas, destino N2, factura/CFDI ajenos y filtro antes de totales/paginación para recepción/salida/reorden. Los demás controles/validaciones/eventos y la lógica de negocio de P4/P7 se conservan.
+
+Integración PostgreSQL desechable y rojo/verde completo: **Por confirmar**. El sandbox bloquea el socket Docker y VSTest; las integraciones se dejan escritas y compiladas para que Claude ejecute `tools/validate-integration-isolated.sh` completo. No equivale a aceptación Millet.
+
+### Resultados locales de la adenda P7 · 09-oct-2026
+
+Evidencia de esta ejecución: [resumen](P6b-P7-resumen.md) y [logs](evidencia-p6b-p7/archivos-cambiados.txt).
+
+| Verificación | Resultado |
+|---|---|
+| Build completo de `Millet.sln` con `--no-restore -m:1 -p:UseSharedCompilation=false -nodeReuse:false -p:NuGetAudit=false` | 0 errores, 0 advertencias; integra las pruebas P6/P6b/P7 y la migración nueva. |
+| Almacén / Compras / CxP / Tesorería unitarias | 326 / 565 / 444 / 132 verdes. |
+| API / Identidad / Compartido unitarias | 40 / 113 / 100 verdes. |
+| Total unitarias ejecutadas | 1,720; 0 fallidas, 0 omitidas. |
+| `npx tsc --noEmit -p tsconfig.json` y `npm run -s typecheck:test` | Ambos código de salida 0. |
+| `npm run -s lint` | 0 errores, 10 advertencias existentes; salida 0. |
+| `npx vitest run` | 364 archivos, 2,085 pruebas verdes; salida 0. |
+| Modelo de Identidad respecto de la última migración | Sin cambios pendientes (`has-pending-model-changes`). |
+| Cotejo literal CxP/Tesorería | 133 rutas; 0 ausencias en inventario actualizado. |
+| `git diff --check` | Sin errores. |
+
+Las unitarias se ejecutaron con xUnit en proceso (`XunitFrontController`, sin AppDomain), cargando dependencias y bibliotecas nativas desde cada suite. El ejecutor temporal se conserva como fuente en la evidencia; no se cambia el runner del repositorio. El primer intento con el runner anterior no resolvía las DLL de Compras/Almacén ni la biblioteca nativa de PDF; el ejecutor corregido pasó las suites completas. VSTest se anuló antes de ejecutar pruebas por `SocketException (13): Permission denied`. El descubrimiento de integración cargó las pruebas nuevas, **sin ejecutarlas ni abrir una base** (las teorías con `MemberData` quedan para ejecución).
+
+No se hizo commit ni push en esta continuación. La bóveda Obsidian está fuera del alcance de escritura; el resumen local incluye el texto pendiente de trasladar a su ficha/Bitácora cuando Claude verifique PostgreSQL.

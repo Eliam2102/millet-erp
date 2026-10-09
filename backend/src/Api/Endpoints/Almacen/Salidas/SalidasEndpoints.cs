@@ -57,9 +57,11 @@ public static class SalidasEndpoints
         // --- Obtener Salida por Id ---
         group.MapGet("/{id:guid}", async (
             Guid id,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("salida_almacen", id, PermisosCanonicos.AlmacenSalidasLeerTodasSucursales, ct);
             var detalle = await mediator.Send(new ObtenerSalidaPorIdQuery(id), ct);
             return detalle is null ? Results.NotFound() : Results.Ok(detalle);
         })
@@ -72,9 +74,13 @@ public static class SalidasEndpoints
         // --- Registrar Salida Variante A (con RQ) ---
         group.MapPost("/", async (
             RegistrarSalidaConRequisicionCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("requisicion", command.RequisicionId, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
+            foreach (var bin in (command.Lineas ?? []).Select(l => l.UbicacionId).OfType<Guid>().Distinct())
+                await documentos.VerificarAsync("ubicacion_almacen", bin, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/salidas/{response.SalidaId}",

@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
@@ -71,7 +72,13 @@ public sealed record ListarRecepcionesQuery(
     DateOnly? Desde,
     DateOnly? Hasta,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<RecepcionListItem>>;
+    int Limit) : IRequest<AlmacenPagedResponse<RecepcionListItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "recepcion";
+    public string PermisoTodasSucursales => "almacen.entradas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarRecepcionesHandler
     : IRequestHandler<ListarRecepcionesQuery, AlmacenPagedResponse<RecepcionListItem>>
@@ -90,6 +97,7 @@ public sealed class ListarRecepcionesHandler
     {
         IQueryable<MovimientoInventario> query = _db.Movimientos.AsNoTracking()
             .Where(m => m.Tipo == TipoMovimiento.EntradaCompra);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
         if (request.Estado is EstadoMovimiento e) query = query.Where(m => m.Estado == e);
         // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
         if (request.SubAlmacenId is Guid sid)

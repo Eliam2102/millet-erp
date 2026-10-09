@@ -15,6 +15,13 @@ namespace Millet.Identidad.Domain;
 public static class PermisosCanonicos
 {
     // ----- Infraestructura (transversal) -----
+    public const string AlmacenEntradasLeerTodasSucursales = "almacen.entradas.leer-todas-sucursales";
+    public const string AlmacenEntradasGestionarTodasSucursales = "almacen.entradas.gestionar-todas-sucursales";
+    public const string AlmacenSalidasLeerTodasSucursales = "almacen.salidas.leer-todas-sucursales";
+    public const string AlmacenSalidasGestionarTodasSucursales = "almacen.salidas.gestionar-todas-sucursales";
+    public const string AlmacenReordenLeerTodasSucursales = "almacen.reorden.leer-todas-sucursales";
+    public const string AlmacenReordenGestionarTodasSucursales = "almacen.reorden.gestionar-todas-sucursales";
+
     public const string CuentasPorPagarDocumentosLeerTodasSucursales = "cuentas_por_pagar.documentos.leer-todas-sucursales";
     public const string CuentasPorPagarDocumentosGestionarTodasSucursales = "cuentas_por_pagar.documentos.gestionar-todas-sucursales";
     public const string CatalogosFormasPagoGestionar = "catalogos.formas-pago.gestionar";
@@ -518,6 +525,12 @@ public static class PermisosCanonicos
     /// </summary>
     public static IReadOnlyList<(Guid Id, string Codigo, string Descripcion)> Todos { get; } = new[]
     {
+        (Guid.Parse("00000006-0006-0006-0006-000000000030"), AlmacenEntradasLeerTodasSucursales, "Consultar entradas de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000031"), AlmacenEntradasGestionarTodasSucursales, "Operar entradas de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000032"), AlmacenSalidasLeerTodasSucursales, "Consultar salidas de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000033"), AlmacenSalidasGestionarTodasSucursales, "Operar salidas de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000034"), AlmacenReordenLeerTodasSucursales, "Consultar reorden de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000035"), AlmacenReordenGestionarTodasSucursales, "Operar reorden de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000020"), CuentasPorPagarDocumentosLeerTodasSucursales, "Consultar documentos de CxP de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000021"), CuentasPorPagarDocumentosGestionarTodasSucursales, "Operar documentos de CxP de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000001"), CatalogosFormasPagoGestionar, "Habilitar y deshabilitar formas de pago SAT"),
