@@ -179,11 +179,14 @@ public sealed class P5ReglasHandlersTests
     { var c = new CuentaBancaria(Empresa, "Banco ficticio P5", "1234567890", null, moneda); db.CuentasBancarias.Add(c); return c; }
     private static PasivoPendientePago Pasivo(TesoreriaDbContext db)
     { var p = new PasivoPendientePago(Empresa, Guid.NewGuid(), Guid.NewGuid(), null, 1000, 1000, "MXN", null, Fecha, null, "P5", Ahora, "PUE"); db.PasivosPendientesPago.Add(p); return p; }
-    private static RegistrarPagoProveedorHandler Pago(TesoreriaDbContext db, Publicador eventos) => new(db, new EmpresaContext(), new User(), new Periodo(), new Proveedores(), eventos, new Clock());
+    private static RegistrarPagoProveedorHandler Pago(TesoreriaDbContext db, Publicador eventos) => new(db, new EmpresaContext(), new User(), new Periodo(), new Proveedores(), new ElegibleSinLimite(), eventos, new Clock());
     private sealed class EmpresaContext : ICurrentEmpresaContext
     { public Guid? Current => Empresa; public bool IsBypassed => false; public IDisposable Bypass() => new Noop(); private sealed class Noop : IDisposable { public void Dispose() { } } }
     private sealed class User : ICurrentUserContext { public Guid? UserId => Usuario; public string? UserName => "Prueba P5"; }
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => Ahora; }
+    // P3: Tesorería no paga más que el elegible; estas pruebas no lo limitan.
+    private sealed class ElegibleSinLimite : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort
+    { public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(decimal.MaxValue); }
     private sealed class Permisos(bool permitir) : ICurrentUserPermissions { public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) => ValueTask.FromResult(permitir); }
     private sealed class Periodo : IPeriodoContablePort { public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true); }
     private sealed class Proveedores : IProveedorBancoReadPort
