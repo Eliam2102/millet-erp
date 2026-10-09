@@ -72,4 +72,13 @@ public sealed class CompartidoCatalogosSatReadAdapter : ICatalogosSatReadPort
             .AsNoTracking()
             .AnyAsync(m => m.Codigo == normalizado && m.Activa, cancellationToken);
     }
+
+    public Task<decimal?> TipoCambioAsync(string moneda, DateOnly fecha, CancellationToken cancellationToken)
+    {
+        var codigo = moneda.ToUpperInvariant();
+        return (from tc in _db.TiposCambio.AsNoTracking()
+                join m in _db.Monedas.AsNoTracking() on tc.MonedaId equals m.Id
+                where m.Codigo == codigo && m.Activa && tc.Fecha == fecha
+                select (decimal?)tc.ValorEnMxn).SingleOrDefaultAsync(cancellationToken);
+    }
 }
