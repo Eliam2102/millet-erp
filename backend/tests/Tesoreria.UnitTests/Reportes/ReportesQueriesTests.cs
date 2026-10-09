@@ -32,10 +32,11 @@ public sealed class ReportesQueriesTests
 
         reporte.Titulo.Should().Be("Flujo de efectivo");
         reporte.GeneradoEn.Should().Be(Ahora);
-        reporte.Columnas.Should().HaveCount(6);
-        reporte.Filas.Should().HaveCount(1); // (Sin concepto) MXN agregado
-        reporte.Filas[0]["ingresos"].Should().Be(15_000m);
-        reporte.Totales!["neto"].Should().Be(15_000m);
+        reporte.Columnas.Should().HaveCount(7);
+        reporte.Filas.Should().HaveCount(4); // inicial, detalle, final y total MXN
+        reporte.Filas[1]["ingresos"].Should().Be(15_000m);
+        reporte.Totales.Should().BeNull();
+        reporte.Filas.Single(f => (string?)f["tipo"] == "total")["neto"].Should().Be(15_000m);
         reporte.FiltrosAplicados.Should().Contain(f => f.Label == "Del" && f.Valor == "2026-07-01");
     }
 

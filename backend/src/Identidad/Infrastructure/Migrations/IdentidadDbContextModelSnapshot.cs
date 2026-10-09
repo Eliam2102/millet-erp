@@ -3713,6 +3713,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("0000000d-0001-0000-0000-000000000004"),
+                            Accion = "autorizar",
+                            Codigo = "contabilidad.catalogo.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar solicitudes del catálogo contable (DAF)",
+                            Modulo = "contabilidad",
+                            Recurso = "catalogo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("0000000d-0001-0000-0000-000000000003"),
                             Accion = "importar",
                             Codigo = "contabilidad.catalogo.importar",

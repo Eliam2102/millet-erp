@@ -34,7 +34,7 @@ public sealed class IdempotencyKey
     public int? ResponseStatusCode { get; set; }
 
     /// <summary>
-    /// Response body serializado a JSON. Null si <see cref="ResponseBodyTruncated"/>
+    /// Cuerpo JSON original, sin normalizar, para repetir sus bytes UTF-8. Null si <see cref="ResponseBodyTruncated"/>
     /// o si la respuesta original no tenía body (p. ej. 204).
     /// </summary>
     public string? ResponseBody { get; set; }

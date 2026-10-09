@@ -13,9 +13,8 @@ namespace Millet.Tesoreria.Application.Reportes;
 // ============================================================================
 // TES-PR10: auxiliar de bancos por cuenta/período (§7 del levantamiento,
 // TES-6) — reemplaza el export semanal de SAP. Libro cronológico con saldo
-// acumulado. ⚠️ El acumulado arranca del neto de movimientos del sistema
-// anteriores al período: los saldos iniciales reales por cuenta llegan con
-// la conciliación (PR-9, gate T-G8).
+// acumulado. El acumulado incluye el saldo inicial capturado por cuenta
+// más el neto de movimientos anteriores al período (P5).
 // ============================================================================
 
 public sealed record AuxiliarBancosReporteQuery(
@@ -52,12 +51,16 @@ public sealed class AuxiliarBancosReporteHandler
             ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
                 $"No se encontró la cuenta bancaria '{query.CuentaBancariaId}'.");
 
-        // Saldo de arranque = neto de movimientos del sistema previos al
-        // período (sin saldo inicial bancario hasta T-G8/PR-9).
+        // Saldo de arranque = saldo inicial más el neto de movimientos
+        // del sistema previos al período.
         var saldoInicial = await _db.MovimientosBancarios.AsNoTracking()
             .Where(m => m.CuentaBancariaId == cuenta.Id && m.FechaValor < query.Desde)
             .SumAsync(m => (decimal?)(m.Sentido == SentidoMovimiento.Ingreso ? m.Monto : -m.Monto),
                 cancellationToken) ?? 0m;
+
+        saldoInicial += cuenta.SaldoInicial ?? 0m;
+        if (cuenta.FechaCorteSaldoInicial >= query.Desde)
+            throw new BusinessRuleException("FLUJO_ANTERIOR_AL_CORTE", "El inicio del reporte debe ser posterior al corte del saldo inicial.");
 
         var movimientos = await _db.MovimientosBancarios.AsNoTracking()
             .Where(m => m.CuentaBancariaId == cuenta.Id
@@ -105,7 +108,7 @@ public sealed class AuxiliarBancosReporteHandler
                 new("Cuenta", $"{cuenta.Banco} {Clabe.Enmascarar(cuenta.NumeroCuenta)}"),
                 new("Del", query.Desde.ToString("yyyy-MM-dd")),
                 new("Al", query.Hasta.ToString("yyyy-MM-dd")),
-                new("Saldo previo (movimientos del sistema)", saldoInicial.ToString("N2")),
+                new("Saldo previo (saldo inicial y movimientos)", saldoInicial.ToString("N2")),
             ],
             Columnas:
             [

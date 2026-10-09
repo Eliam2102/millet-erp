@@ -92,7 +92,7 @@ describe('<ImportacionPage>', () => {
     expect(screen.getByText(/El padre FIX-999 no existe/)).toBeInTheDocument();
     expect(screen.getByText(/Agrega la cuenta padre al archivo/)).toBeInTheDocument();
     expect(screen.getByText(/Pídela a Contabilidad/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Aplicar importación' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Solicitar autorización del lote' })).toBeDisabled();
     // Lenguaje de usuario: título legible y nombre de columna legible; nunca el código interno ni la columna técnica.
     expect(screen.getByText(/Cuenta padre inexistente \(columna «Cuenta padre»\)/)).toBeInTheDocument();
     expect(screen.getByText(/Dato pendiente de validación \(columna «Naturaleza»\)/)).toBeInTheDocument();
@@ -120,13 +120,13 @@ describe('<ImportacionPage>', () => {
     render(<ImportacionPage />, { wrapper: createQueryWrapper() });
     await subir();
     fireEvent.click(await screen.findByRole('button', { name: 'Continuar a la vista previa' }));
-    const aplicar = await screen.findByRole('button', { name: 'Aplicar importación' });
+    const aplicar = await screen.findByRole('button', { name: 'Solicitar autorización del lote' });
     expect(aplicar).toBeEnabled();
     expect(toast.success).not.toHaveBeenCalled();
     fireEvent.click(aplicar);
 
-    expect(await screen.findByText('Importación aplicada.')).toBeInTheDocument();
-    expect(toast.success).toHaveBeenCalledWith('Importación aplicada');
+    expect(await screen.findByText('Solicitud pendiente. El catálogo no cambia hasta que el DAF autorice.')).toBeInTheDocument();
+    expect(toast.success).toHaveBeenCalledWith('Solicitud de importación pendiente del DAF');
     expect(capturado!.key).toBeTruthy();
     expect(capturado!.body.huella).toBe('h2');
     expect(capturado!.body.csvBase64).toBeTruthy();
@@ -141,7 +141,7 @@ describe('<ImportacionPage>', () => {
     render(<ImportacionPage />, { wrapper: createQueryWrapper() });
     await subir();
     fireEvent.click(await screen.findByRole('button', { name: 'Continuar a la vista previa' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Aplicar importación' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Solicitar autorización del lote' }));
     expect(await screen.findByText(/Idempotente: ya aplicado/)).toBeInTheDocument();
   });
 
@@ -156,9 +156,9 @@ describe('<ImportacionPage>', () => {
     render(<ImportacionPage />, { wrapper: createQueryWrapper() });
     await subir();
     fireEvent.click(await screen.findByRole('button', { name: 'Continuar a la vista previa' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Aplicar importación' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Solicitar autorización del lote' }));
     expect(await screen.findByText(/Fila 7: Fila 7 inválida\./)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Aplicar importación' })).toBeEnabled(); // sigue en el paso 3 para reintentar
+    expect(screen.getByRole('button', { name: 'Solicitar autorización del lote' })).toBeEnabled(); // sigue en el paso 3 para reintentar
     expect(toast.success).not.toHaveBeenCalled();
   });
 
@@ -249,7 +249,7 @@ describe('<ImportacionPage>', () => {
       expect(await screen.findByText('Omitida (título de reporte)')).toBeInTheDocument();
       expect(screen.getByText(/Fila de título de reporte \(sin código\)/)).toBeInTheDocument();
       expect(screen.getByText('Títulos omitidos').nextSibling).toHaveTextContent('2');
-      expect(screen.getByRole('button', { name: 'Aplicar importación' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Solicitar autorización del lote' })).toBeEnabled();
     });
 
     it('una sola hoja con encabezado en la fila 1: sin selector ni paso extra', async () => {

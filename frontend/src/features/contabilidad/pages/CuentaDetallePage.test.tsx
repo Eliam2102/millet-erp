@@ -18,7 +18,7 @@ const ADMIN = 'contabilidad.catalogo.administrar';
 
 const cuenta = (o: Record<string, unknown> = {}) => ({
   id: 'c1', codigo: 'FIX-110', nombre: 'FIX Caja', padreId: 'c0', nivel: 2, naturaleza: 'Deudora', tipo: 'Afectable',
-  estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null,
+  estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', noAfectableManual: false, codigoAgrupador: null, grupoReporte: null,
   pendienteValidacion: false, version: 3, usada: false, origenes: [{ fuente: 'FIX-SAP', codigoOrigen: 'S-110' }], ...o,
 });
 const padre = { ...cuenta({ id: 'c0', codigo: 'FIX-100', nombre: 'FIX Activo', padreId: null, nivel: 1, tipo: 'Titulo' }) };
@@ -104,8 +104,8 @@ describe('<CuentaDetallePage>', () => {
     put(() => HttpResponse.json(cuenta({ nombre: 'FIX Caja 2', version: 4 }), { headers: { ETag: '"4"' } }));
     await abrirEdicion();
     fireEvent.change(screen.getByLabelText(/Nombre/), { target: { value: 'FIX Caja 2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Cuenta actualizada'));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Solicitud pendiente de autorización del DAF'));
     expect(puts[0].ifMatch).toBe('"3"');
     expect(puts[0].key).toBeTruthy();
     // El tipo no se envía (lo calcula el sistema).
@@ -118,7 +118,7 @@ describe('<CuentaDetallePage>', () => {
     await abrirEdicion();
     fireEvent.change(screen.getByLabelText(/Nombre/), { target: { value: 'FIX Borrador' } });
     fireEvent.change(screen.getByLabelText('Naturaleza'), { target: { value: 'Acreedora' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     expect((await screen.findAllByText(/alteraría saldos/)).length).toBeGreaterThan(0);
     expect(screen.getByLabelText(/Nombre/)).toHaveValue('FIX Borrador');
     expect(toast.success).not.toHaveBeenCalled();
@@ -129,7 +129,7 @@ describe('<CuentaDetallePage>', () => {
     put(() => problem(409, { code: 'CONCURRENCY_CONFLICT', title: 'Conflicto de concurrencia' }));
     await abrirEdicion();
     fireEvent.change(screen.getByLabelText(/Nombre/), { target: { value: 'FIX Mi borrador' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
 
     const refrescar = await screen.findByRole('button', { name: 'Refrescar y revisar' });
     expect(puts).toHaveLength(1);
@@ -148,7 +148,7 @@ describe('<CuentaDetallePage>', () => {
     instalar();
     put(() => problem(428, { title: 'If-Match requerido' }));
     await abrirEdicion();
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     expect(await screen.findByRole('button', { name: 'Refrescar y revisar' })).toBeInTheDocument();
   });
 
@@ -163,8 +163,8 @@ describe('<CuentaDetallePage>', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Desactivar' }));
     expect(await screen.findByText(/Nada se borra/)).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Desactivar' }).at(-1)!);
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Cuenta desactivada'));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Solicitud pendiente de autorización del DAF'));
     expect(ifMatch).toBe('"3"');
   });
 
@@ -174,7 +174,7 @@ describe('<CuentaDetallePage>', () => {
       problem(422, { code: 'CONTAB_CUENTA_BAJA_CON_HIJAS_ACTIVAS', detail: 'Tiene hijas activas.' })));
     render(<CuentaDetallePage id="c1" />, { wrapper: createQueryWrapper() });
     fireEvent.click(await screen.findByRole('button', { name: 'Desactivar' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Desactivar' }).at(-1)!);
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar autorización' }));
     expect(await screen.findByText('Tiene hijas activas.')).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
   });

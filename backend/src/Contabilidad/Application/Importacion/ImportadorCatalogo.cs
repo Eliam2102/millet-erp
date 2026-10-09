@@ -18,7 +18,7 @@ public sealed record ErrorFila(int Fila, string? Columna, string Codigo, string 
 public sealed record CuentaExistente(
     Guid Id, string Codigo, string Nombre, string? PadreCodigo, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
     CuentaControl Control, string? Agrupador, string? Grupo, bool Activa, bool Usada,
-    ClaseCuenta Clase = ClaseCuenta.Cuenta, string? RubroCodigo = null);
+    ClaseCuenta Clase = ClaseCuenta.Cuenta, string? RubroCodigo = null, bool NoAfectableManual = false);
 
 /// <summary>Foto del catálogo de la empresa. <c>OrigenACodigo</c>: (fuente, código de origen) → código de cuenta.</summary>
 public sealed record ExistenteCatalogo(
@@ -45,6 +45,7 @@ public sealed class FilaAnalizada
     public string? Agrupador { get; set; }
     public string? Grupo { get; set; }
     public Guid? ExistenteId { get; set; }
+    public bool NoAfectableManual { get; set; }
     public bool OrigenNuevo { get; set; }
     public int Nivel { get; set; }
     // Para el perfilado (conteos; nunca se exportan valores de celdas)
@@ -309,7 +310,15 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
 
             huella.Append(string.Join('\u001f', fila.Fuente, fila.CodigoOrigen, codigo, nombre, padre,
                 fila.Naturaleza?.ToString() ?? fila.NaturalezaTxt, fila.Tipo?.ToString() ?? fila.TipoTxt,
-                fila.Control, fila.Agrupador, fila.Grupo, fila.NivelContableTxt, fila.Clase)).Append('\n');
+                fila.Control, fila.Agrupador, fila.Grupo, fila.NivelContableTxt, fila.Clase));
+            // Mantiene la huella de archivos históricos sin la columna; una marca explícita sí cambia el lote.
+            if (C("no_afectable_manual") is { } marcaManual)
+            {
+                var normalizada = FormatoCatalogo.NormalizarCabecera(marcaManual);
+                huella.Append('\u001f').Append(normalizada is "si" or "true" or "1" ? "manual:1"
+                    : normalizada is "no" or "false" or "0" ? "manual:0" : "manual:" + normalizada);
+            }
+            huella.Append('\n');
 
             // Duplicados dentro del archivo
             if (codigo is not null && !porCodigo.TryAdd(codigo, fila))
@@ -345,6 +354,12 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
             fila.OrigenNuevo = fila.CodigoOrigen is not null && !ex.OrigenACodigo.ContainsKey((fila.Fuente, fila.CodigoOrigen));
 
             // No destructivo: celda vacía conserva el valor existente.
+            var manual = C("no_afectable_manual");
+            fila.NoAfectableManual = manual is null ? actual?.NoAfectableManual ?? false
+                : FormatoCatalogo.NormalizarCabecera(manual) is "si" or "true" or "1";
+            if (manual is not null && FormatoCatalogo.NormalizarCabecera(manual) is not ("si" or "no" or "true" or "false" or "1" or "0"))
+                fila.Errores.Add(Err(num, "no_afectable_manual", "CONTAB_IMPORT_BOOLEANO_INVALIDO", "Error",
+                    "No afectable por asiento manual debe ser Sí/No, true/false o 1/0."));
             fila.Naturaleza ??= actual?.Naturaleza;
             fila.Tipo ??= actual?.Tipo;
             if (controlCol is null && !controlCfg.ContainsKey(codigo)) fila.Control = actual?.Control ?? CuentaControl.Ninguna;
@@ -492,7 +507,7 @@ public sealed class ImportadorCatalogo(FormatoCatalogo f)
                 continue;
             }
             var sensible = actual.PadreCodigo != fila.PadreCodigo || actual.Naturaleza != fila.Naturaleza || actual.Tipo != fila.Tipo;
-            var distinto = sensible || actual.Nombre != fila.Nombre || actual.Control != fila.Control
+            var distinto = actual.NoAfectableManual != fila.NoAfectableManual || sensible || actual.Nombre != fila.Nombre || actual.Control != fila.Control
                 || actual.Agrupador != fila.Agrupador || actual.Grupo != fila.Grupo || actual.RubroCodigo != fila.RubroCodigo;
             if (sensible && usoSubarbol.Contains(actual.Codigo))
             {

@@ -39,7 +39,7 @@ public sealed record PropuestaAplicacionCreadaPayload(
     string Moneda,
     decimal AjusteNoFiscal,
     int NumeroFacturas,
-    IReadOnlyList<PropuestaFacturaPayload>? Facturas)
+    IReadOnlyList<PropuestaFacturaPayload>? Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0)
 {
     public const string EventType = "cuentas_por_cobrar.propuesta-aplicacion.creada.v1";
 }

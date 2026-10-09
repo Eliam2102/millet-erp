@@ -26,7 +26,7 @@ public sealed record AplicacionPagoResponse(
     Guid PagoId,
     Guid FacturaProveedorId,
     decimal Importe,
-    bool Revertida);
+    bool Revertida, string? MotivoReversa = null);
 
 public sealed record PagoProveedorResponse(
     Guid MovimientoId,
@@ -125,6 +125,9 @@ public sealed class RegistrarPagoProveedorHandler
                 $"No se encontró la cuenta bancaria '{command.CuentaBancariaId}'.");
 
         // RN-8: candado de período (stub hoy).
+        if (command.ConceptoId is Guid conceptoId && !await _db.ConceptosMovimiento.AnyAsync(c => c.Id == conceptoId && c.Activo, cancellationToken))
+            throw new BusinessRuleException("MOV_CONCEPTO_INVALIDO", "Selecciona un concepto activo.");
+
         var abierto = await _periodoContable.EstaAbiertoAsync(
             command.FechaValor.Year, command.FechaValor.Month, cancellationToken);
         if (!abierto)
@@ -355,13 +358,16 @@ public sealed class RevertirPagoProveedorHandler
             throw new BusinessRuleException("MOV_PERIODO_CERRADO",
                 $"El período {fechaReversa.Year}/{fechaReversa.Month:00} está cerrado.");
 
+        if (movimiento.MotivoNoAplicado is not null)
+            throw new BusinessRuleException("PAGO_CUENTA_USAR_DESLIGAR", "Este es un pago a cuenta. Usa Desligar para corregir su aplicación sin registrar un ingreso bancario.");
+
         // RN-10: marca + contramovimiento; nada se borra.
-        aplicacion.Revertir();
+        aplicacion.Revertir(command.Motivo);
         var contramovimiento = movimiento.CrearContramovimiento(
             importe: aplicacion.ImporteAplicado,
             fechaValor: fechaReversa,
             creadoPor: usuarioId,
-            ahora: ahora);
+            ahora: ahora, motivo: command.Motivo);
         _db.MovimientosBancarios.Add(contramovimiento);
 
         // El pasivo regresa a la bandeja con el saldo restaurado (si CxP
@@ -394,7 +400,7 @@ public sealed class RevertirPagoProveedorHandler
             movimiento.Id, movimiento.CuentaBancariaId, aplicacion.ProveedorId,
             movimiento.Monto, movimiento.Moneda, movimiento.FechaValor,
             movimiento.ReferenciaBancaria,
-            [new AplicacionPagoResponse(aplicacion.Id, aplicacion.FacturaProveedorId, aplicacion.ImporteAplicado, aplicacion.Revertida)]);
+            [new AplicacionPagoResponse(aplicacion.Id, aplicacion.FacturaProveedorId, aplicacion.ImporteAplicado, aplicacion.Revertida, aplicacion.MotivoReversa)]);
     }
 }
 

@@ -391,6 +391,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<bool>("EsEjemplo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("es_ejemplo");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -430,6 +434,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Pago a proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -442,6 +447,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Cobro de cliente",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -454,6 +460,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Depósito de caja",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -466,6 +473,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Comisión bancaria",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -478,6 +486,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Impuestos",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -490,6 +499,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Nómina",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -502,6 +512,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Traspaso entre cuentas propias",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -514,6 +525,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)2,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Compra de activo fijo",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -526,6 +538,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)2,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Venta de activo fijo",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -538,6 +551,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)3,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Intereses ganados",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -550,6 +564,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)3,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Intereses y gastos financieros",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -562,6 +577,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)3,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Disposición de crédito",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -574,6 +590,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                             ClasificacionFlujo = (short)3,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
+                            EsEjemplo = true,
                             Nombre = "Pago de crédito",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
@@ -623,11 +640,30 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<DateOnly?>("FechaCorteSaldoInicial")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_corte_saldo_inicial");
+
+                    b.Property<string>("Finalidad")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("finalidad");
+
+                    b.Property<string>("Firmantes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("firmantes");
+
                     b.Property<string>("Moneda")
                         .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")
                         .HasColumnName("moneda");
+
+                    b.Property<string>("MotivoSaldoInicial")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_saldo_inicial");
 
                     b.Property<string>("NumeroCuenta")
                         .IsRequired()
@@ -639,6 +675,21 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("perfil_extracto");
+
+                    b.Property<decimal?>("SaldoInicial")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldo_inicial");
+
+                    b.Property<string>("Sucursal")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("sucursal");
+
+                    b.Property<string>("Titular")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("titular");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -730,6 +781,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("propuesta_cxc_id");
 
+                    b.Property<Guid?>("PropuestoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("propuesto_por");
+
                     b.Property<bool>("ReppTimbrado")
                         .HasColumnType("boolean")
                         .HasColumnName("repp_timbrado");
@@ -741,6 +796,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ResueltaPor")
                         .HasColumnType("uuid")
                         .HasColumnName("resuelta_por");
+
+                    b.Property<decimal>("SaldoAFavorPorIdentificar")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldo_a_favor_por_identificar");
 
                     b.Property<Guid?>("SolicitudViaticosId")
                         .HasColumnType("uuid")
@@ -886,6 +946,11 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("importe_aplicado");
 
+                    b.Property<string>("MotivoReversa")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_reversa");
+
                     b.Property<Guid>("MovimientoId")
                         .HasColumnType("uuid")
                         .HasColumnName("movimiento_id");
@@ -922,7 +987,8 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MovimientoId", "FacturaProveedorId")
                         .IsUnique()
-                        .HasDatabaseName("ux_aplicacion_pago_movimiento_factura");
+                        .HasDatabaseName("ux_aplicacion_pago_movimiento_factura")
+                        .HasFilter("NOT revertida");
 
                     b.ToTable("aplicacion_pago_proveedor", "tesoreria", t =>
                         {
@@ -1008,6 +1074,16 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_no_aplicado");
 
+                    b.Property<string>("MotivoReclasificacion")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_reclasificacion");
+
+                    b.Property<string>("MotivoReversa")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_reversa");
+
                     b.Property<string>("ReferenciaBancaria")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -1045,7 +1121,7 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.HasIndex("EmpresaId", "BeneficiarioRef")
                         .IsUnique()
                         .HasDatabaseName("ux_pago_cuenta_abierto")
-                        .HasFilter("sentido = 2 AND estado_aplicacion = 1 AND beneficiario_tipo = 1 AND contramovimiento_de IS NULL");
+                        .HasFilter("sentido = 2 AND estado_aplicacion IN (1, 2) AND beneficiario_tipo = 1 AND contramovimiento_de IS NULL AND motivo_no_aplicado IS NOT NULL");
 
                     b.ToTable("movimiento_bancario", "tesoreria", t =>
                         {

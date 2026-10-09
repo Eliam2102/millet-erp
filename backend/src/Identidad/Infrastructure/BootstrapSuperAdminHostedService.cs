@@ -150,8 +150,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
     }
 
     /// <summary>
-    /// Seed de los 8 roles MVP adicionales al super-admin (F-Admin-PR3.3,
-    /// A2 cerrada 2026-05-13; G1.9 / F1-ADM-05): 9 roles MVP en total.
+    /// Seed de roles MVP adicionales al super-admin (F-Admin-PR3.3,
+    /// A2 cerrada 2026-05-13; G1.9 / F1-ADM-05; P9 agrega el DAF).
     /// Cada rol agrupa un subset de permisos canónicos por área de responsabilidad:
     ///
     /// <list type="bullet">
@@ -263,6 +263,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
             ),
         };
 
+        rolesDefinicion = [.. rolesDefinicion,
+            (Guid.Parse("0000000d-0001-0001-0000-000000000001"), "direccion-administracion-finanzas",
+                "Dirección de Administración y Finanzas", "Autoriza solicitudes del catálogo contable (R27/D14).",
+                p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar)];
         foreach (var def in rolesDefinicion)
         {
             var rol = await db.Roles

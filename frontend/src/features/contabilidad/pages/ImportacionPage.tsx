@@ -16,7 +16,7 @@ import { VistaPreviaTabla } from '../components/VistaPreviaTabla';
 import { ArchivoInvalidoError, abrirArchivo, hojaSugerida, prepararHoja, type AliasColumnas, type HojaXlsx } from '../lib/archivo';
 import { SELECT_CLASS } from '../lib/estilos';
 
-const PASOS = ['1. Archivo', '2. Perfilado', '3. Vista previa y aplicar'] as const;
+const PASOS = ['1. Archivo', '2. Perfilado', '3. Vista previa y solicitar'] as const;
 
 function mensajeError(e: unknown): string {
   if (e instanceof ArchivoInvalidoError) return e.message;
@@ -125,7 +125,7 @@ export function ImportacionPage() {
       // Toast SOLO tras 2xx.
       onSuccess: (r) => {
         setResultado(r);
-        toast.success(r.idempotente ? 'Archivo ya aplicado: no hubo cambios' : 'Importación aplicada');
+        toast.success(r.idempotente ? 'Archivo ya aplicado: no hubo cambios' : 'Solicitud de importación pendiente del DAF');
       },
       onError: (e) => {
         if (esApiError(e) && e.code === 'CONTAB_IMPORT_FILAS_CON_ERRORES') {
@@ -146,7 +146,7 @@ export function ImportacionPage() {
       </Link>
       <div>
         <h1 className="text-3xl font-semibold">Importación del catálogo</h1>
-        <p className="text-sm text-ink-muted">Carga un archivo de cuentas en 3 pasos: perfilado de solo lectura, vista previa y aplicación idempotente.</p>
+        <p className="text-sm text-ink-muted">Carga un archivo de cuentas en 3 pasos: perfilado de solo lectura, vista previa y solicitud de autorización del lote.</p>
       </div>
       <ol className="flex flex-wrap gap-2 text-sm" aria-label="Pasos">
         {PASOS.map((p, i) => (
@@ -164,6 +164,9 @@ export function ImportacionPage() {
         <section className="space-y-3">
           <p className="text-sm text-ink-muted">
             Archivo de texto plano (.csv UTF-8 o .xlsx) con los códigos como TEXTO y sin saldos. Primero se perfila (solo lectura).
+          </p>
+          <p className="text-sm text-ink-muted">
+            Columna opcional «no_afectable_manual»: Sí/No, true/false o 1/0. Si está vacía o no existe, conserva la marca de las cuentas vigentes.
           </p>
           <Input
             type="file"
@@ -221,7 +224,7 @@ export function ImportacionPage() {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="lg" onClick={() => setPaso(1)} disabled={ocupado}>Volver al perfilado</Button>
             <Button size="lg" onClick={confirmarAplicar} disabled={hayErrores || ocupado} title={hayErrores ? 'El archivo tiene errores: corrígelos y vuelve a generar la vista previa.' : undefined}>
-              {aplicar.isPending ? 'Aplicando…' : 'Aplicar importación'}
+              {aplicar.isPending ? 'Preparando…' : 'Solicitar autorización del lote'}
             </Button>
             {hayErrores && <span className="text-xs text-ink-muted">Corrige los errores del archivo para poder aplicar.</span>}
           </div>
@@ -233,7 +236,7 @@ export function ImportacionPage() {
           {resultado.idempotente ? (
             <p className="font-medium">Idempotente: ya aplicado. Este archivo ya se había importado; no se modificó nada.</p>
           ) : (
-            <p className="font-medium">Importación aplicada.</p>
+            <p className="font-medium">Solicitud pendiente. El catálogo no cambia hasta que el DAF autorice.</p>
           )}
           {resultado.lote && (
             <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

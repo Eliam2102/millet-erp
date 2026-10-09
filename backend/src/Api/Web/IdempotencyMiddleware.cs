@@ -380,8 +380,8 @@ public sealed class IdempotencyMiddleware
         CancellationToken ct)
     {
         // ExecuteUpdate evita problemas de mapping de DBNull con
-        // ExecuteSqlRaw + Npgsql; EF infiere el cast a jsonb por la
-        // configuración de la columna.
+        // ExecuteSqlRaw + Npgsql; el cuerpo se guarda como text sin normalizar
+        // y solo los headers se guardan como jsonb.
         await db.IdempotencyKeys
             .Where(x => x.EmpresaId == row.EmpresaId && x.UsuarioId == row.UsuarioId && x.Key == row.Key
                 && x.HttpMethod == row.HttpMethod && x.Path == row.Path)

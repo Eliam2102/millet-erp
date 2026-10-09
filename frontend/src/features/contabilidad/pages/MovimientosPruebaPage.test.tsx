@@ -9,7 +9,7 @@ import { MovimientosPruebaPage } from './MovimientosPruebaPage';
 const API = '*/api/v1/contabilidad';
 const cuenta = {
   id: 'c1', codigo: 'FIX-501.01', nombre: 'FIX Mantenimiento', padreId: 'p', nivel: 2, naturaleza: 'Deudora', tipo: 'Afectable',
-  estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1,
+  estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', noAfectableManual: false, codigoAgrupador: null, grupoReporte: null, pendienteValidacion: false, version: 1,
   clase: 'Cuenta', rubroId: null,
 };
 const req = (dimension: string, requerimiento: string, reglaId: string | null = null) => ({

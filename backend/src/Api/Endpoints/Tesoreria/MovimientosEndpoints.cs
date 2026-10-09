@@ -18,6 +18,7 @@ namespace Millet.Api.Endpoints.Tesoreria;
 /// </summary>
 public static class MovimientosEndpoints
 {
+    public sealed record ReclasificarBody(Guid ConceptoId, string Motivo);
     public static IEndpointRouteBuilder MapTesoreriaMovimientosEndpoints(this IEndpointRouteBuilder app)
     {
         var movimientos = app
@@ -77,6 +78,15 @@ public static class MovimientosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        movimientos.MapPost("/{id:guid}/reclasificar", async (Guid id,
+            [FromBody] ReclasificarBody body, [FromHeader(Name = "X-Expected-Version")] int? version,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
+            await mediator.Send(new ReclasificarMovimientoCommand(id, body.ConceptoId, body.Motivo, v), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosRegistrar);
         return app;
     }
 }

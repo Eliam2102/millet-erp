@@ -70,7 +70,7 @@ public static class CuentasEndpoints
             var response = await mediator.Send(
                 new ActualizarCuentaBancariaCommand(
                     id, body.Banco, body.Moneda, body.Clabe, body.LimpiarClabe,
-                    body.CuentaContableRef, body.PerfilExtracto, v),
+                    body.CuentaContableRef, body.PerfilExtracto, v, body.Sucursal, body.Finalidad, body.Titular, body.Firmantes),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -106,6 +106,16 @@ public static class CuentasEndpoints
         .Produces<CuentaSaldoResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        cuentas.MapPost("/{id:guid}/saldo-inicial", async (Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? version, [FromBody] SaldoInicialBody body,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
+            await mediator.Send(new RegistrarSaldoInicialCommand(id, body.Saldo, body.FechaCorte, body.Motivo, v), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaCuentasAdministrar)
+        .WithName("RegistrarSaldoInicialCuenta").ProducesValidationProblem().ProducesProblem(422);
         return app;
     }
 
@@ -120,11 +130,13 @@ public static class CuentasEndpoints
         return Results.Ok(response);
     }
 
+    public sealed record SaldoInicialBody(decimal Saldo, DateOnly FechaCorte, string Motivo);
+
     public sealed record ActualizarCuentaBody(
         string Banco,
         string Moneda,
         string? Clabe,
         bool LimpiarClabe,
         string? CuentaContableRef,
-        string? PerfilExtracto);
+        string? PerfilExtracto, string? Sucursal = null, string? Finalidad = null, string? Titular = null, string? Firmantes = null);
 }
