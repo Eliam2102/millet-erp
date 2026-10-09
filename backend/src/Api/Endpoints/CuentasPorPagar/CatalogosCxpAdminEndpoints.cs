@@ -22,6 +22,7 @@ public static class CatalogosCxpAdminEndpoints
 {
     public static IEndpointRouteBuilder MapCatalogosCxpAdminEndpoints(this IEndpointRouteBuilder app)
     {
+        MapRetenciones(app);
         // -------- Aprobadores con límite --------
         var aprobadores = app
             .MapGroup("/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites")
@@ -160,4 +161,31 @@ public static class CatalogosCxpAdminEndpoints
     public sealed record ActualizarAprobadorBody(decimal MontoMax, string Moneda);
     public sealed record CerrarAprobadorBody(DateOnly Fecha);
     public sealed record ActualizarPoliticaBody(decimal MontoMaxDia, int DiasMax, string Moneda);
+    private static void MapRetenciones(IEndpointRouteBuilder app)
+    {
+        var g = app.MapGroup("/api/v1/cuentas-por-pagar/catalogos/retenciones").WithTags("CuentasPorPagar").RequireAuthorization();
+        g.MapGet("/", async (IMediator m, CancellationToken ct) => Results.Ok(await m.Send(new
+            Millet.CuentasPorPagar.Application.Catalogos.Retenciones.ListarRetencionesQuery(), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarRetencionesLeer);
+        g.MapGet("/propuesta", async ([FromQuery] string concepto, [FromQuery] decimal baseNeta, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new Millet.CuentasPorPagar.Application.Catalogos.Retenciones.ProponerRetencionesQuery(concepto, baseNeta), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarRetencionesLeer);
+        g.MapPost("/", async ([FromBody] RetencionBody b, IMediator m, CancellationToken ct) =>
+        {
+            var r = await m.Send(new Millet.CuentasPorPagar.Application.Catalogos.Retenciones.GuardarRetencionCommand(
+                null, null, b.Concepto, b.Descripcion, b.Impuesto, b.Tasa, b.Fuente, b.Activa, b.Motivo), ct);
+            return Results.Created($"/api/v1/cuentas-por-pagar/catalogos/retenciones/{r.Id}", r);
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+          .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarRetencionesAdministrar);
+        g.MapPut("/{id:guid}", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? version,
+            [FromBody] RetencionBody b, IMediator m, CancellationToken ct) =>
+        {
+            if (version is null) return Results.Problem(statusCode: 428, title: "X-Expected-Version requerido");
+            return Results.Ok(await m.Send(new Millet.CuentasPorPagar.Application.Catalogos.Retenciones.GuardarRetencionCommand(
+                id, version, b.Concepto, b.Descripcion, b.Impuesto, b.Tasa, b.Fuente, b.Activa, b.Motivo), ct));
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+          .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarRetencionesAdministrar);
+    }
+    public sealed record RetencionBody(string Concepto, string Descripcion, string Impuesto, decimal Tasa,
+        string Fuente, bool Activa, string Motivo);
 }

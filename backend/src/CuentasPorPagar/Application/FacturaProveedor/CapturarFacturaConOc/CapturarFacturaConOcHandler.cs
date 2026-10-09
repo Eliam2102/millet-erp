@@ -220,6 +220,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             redondeoAplicado: redondeo,
             ahora: ahora);
 
+        factura.AsignarDatosP8(command.Obra, command.ConceptoRetencion);
+
         // 5) Líneas.
         foreach (var l in command.Lineas)
         {
@@ -259,7 +261,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
                     datos.ImpuestosTrasladados, datos.Retenciones, datos.Total, TipoNotaCredito.Descuento,
                     TipoRelacionCfdi.NotaCredito, xml!.UuidCfdi, factura.Id, null, ahora);
                 nc.AplicarMonto(datos.Total);
-                factura.AplicarNotaCredito(datos.Total);
+                factura.AplicarNotaCredito(datos.Total, DateOnly.FromDateTime(ahora.UtcDateTime), nc.Id);
                 documento.MarcarConvertidoEnPasivo(nc.Id);
                 _db.NotasCreditoProveedor.Add(nc);
                 await _mediator.Publish(new NotaCreditoProveedorRegistradaDomainEvent(

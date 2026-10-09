@@ -18,35 +18,32 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  applyServerErrors,
-  esApiError,
-  useFormIdempotencyKey,
-} from '@/lib/api';
-import {
-  CapturarFacturaSchema,
-  type CapturarFacturaValues,
-} from '@/features/cxp/schemas/factura';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { CapturarFacturaSchema, type CapturarFacturaValues } from '@/features/cxp/schemas/factura';
 import { useCapturarFacturaConOc } from '@/features/cxp/api/useFacturas';
-import {
-  EstadoPasivo,
-  MotivoCancelacion,
-  type CfdiListItem,
-} from '@/features/cxp/api/types';
+import { EstadoPasivo, MotivoCancelacion, type CfdiListItem } from '@/features/cxp/api/types';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { useCfdiParseado } from '@/features/cxp/api/useCfdis';
-import {
-  abrirPdfCfdi,
-  descargarXmlCfdi,
-} from '@/features/cxp/lib/cfdi-archivos';
-import {
-  ArticuloSelector,
-  LineaOcSelector,
-  OrdenCompraSelector,
-} from '@/components/erp';
+import { abrirPdfCfdi, descargarXmlCfdi } from '@/features/cxp/lib/cfdi-archivos';
+import { ArticuloSelector, LineaOcSelector, OrdenCompraSelector } from '@/components/erp';
 import { mapById, useSucursales } from '@/features/catalogos/api';
 import { resetLineaOcIds } from '@/features/cxp/lib/reset-linea-oc';
 import { cn } from '@/lib/utils';
+import { useRetenciones } from '@/features/cxp/api/useRetenciones';
+import {
+  proponerRetenciones,
+  totalRetenciones,
+  alertaRetenciones,
+} from '@/features/cxp/lib/retenciones-p8';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 /**
  * <c>&lt;CapturarFacturaSheet/&gt;</c> — slide-from-right para capturar
@@ -131,18 +128,13 @@ export function CapturarFacturaSheet({
   // Sucursal: catálogo eager (carga completa) → mapById robusto, sin cap.
   // Su etiqueta read-only no tiene el bug del proveedor.
   const sucursalesQuery = useSucursales();
-  const sucursalesMap = useMemo(
-    () => mapById(sucursalesQuery.data?.items),
-    [sucursalesQuery.data],
-  );
+  const sucursalesMap = useMemo(() => mapById(sucursalesQuery.data?.items), [sucursalesQuery.data]);
 
   // Nombre del proveedor de la OC elegida: lo trae el resumen
   // (proveedorNombre, resuelto server-side, ADR-0042) y lo guardamos del
   // onSelect. Ya NO se resuelve contra un catálogo capado a 500 (causa del
   // bug de GUID en proveedores fuera del tope).
-  const [proveedorNombreSel, setProveedorNombreSel] = useState<string | null>(
-    null,
-  );
+  const [proveedorNombreSel, setProveedorNombreSel] = useState<string | null>(null);
 
   // CFDI vinculado desde el picker interno (cuando el sheet se abre sin
   // cfdiPreseleccionado, i.e. desde la bandeja de Facturas). Guarda el item
@@ -208,12 +200,18 @@ export function CapturarFacturaSheet({
   });
   const notasCredito = useWatch({ control: form.control, name: 'notasCredito' }) ?? [];
   const lineasActuales = useWatch({ control: form.control, name: 'lineas' });
+  const puedeLeerRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesLeer);
+  const catalogo = useRetenciones(open && puedeLeerRetenciones);
+  const conceptoRetencion = useWatch({ control: form.control, name: 'conceptoRetencion' }) ?? '';
+  const baseRetencion =
+    useWatch({ control: form.control, name: 'subtotal' }) -
+    useWatch({ control: form.control, name: 'descuentos' });
+  const totalRetenido = useWatch({ control: form.control, name: 'retenciones' });
+  const propuesta = proponerRetenciones(baseRetencion, conceptoRetencion, catalogo.data ?? []);
   const retencionesXml = desgloseRetenciones(cfdiParseadoQuery.data?.retencionesDetalle);
   const proveedorIdSel = useWatch({ control: form.control, name: 'proveedorId' });
   const sucursalIdSel = useWatch({ control: form.control, name: 'sucursalId' });
-  const proveedorLabel = proveedorIdSel
-    ? (proveedorNombreSel ?? proveedorIdSel)
-    : '';
+  const proveedorLabel = proveedorIdSel ? (proveedorNombreSel ?? proveedorIdSel) : '';
   const sucursalSel = sucursalIdSel ? sucursalesMap.get(sucursalIdSel) : undefined;
   const sucursalLabel = sucursalIdSel
     ? sucursalSel
@@ -238,7 +236,9 @@ export function CapturarFacturaSheet({
       {
         command: {
           ...values,
-          retencionesDetalle: cfdiParseadoQuery.data?.retencionesDetalle ?? null,
+          retencionesDetalle:
+            cfdiParseadoQuery.data?.retencionesDetalle ??
+            (!cfdiBase && !alertaRetenciones(totalRetenido, propuesta) ? propuesta : null),
           fechaDocumento: toIso(values.fechaDocumento),
           fechaContabilizacion: toIso(values.fechaContabilizacion),
           tipoCambio: values.tipoCambio ?? null,
@@ -267,7 +267,9 @@ export function CapturarFacturaSheet({
             response.motivoCancelacion === MotivoCancelacion.RechazadaPorTolerancia
           ) {
             toast.warning('Factura cancelada por diferencia en la conciliación', {
-              description: response.motivoCancelacionTexto ?? `Diferencia contra OC: ${response.diferenciaContraOc.toFixed(2)}. La factura se cancela automáticamente.`,
+              description:
+                response.motivoCancelacionTexto ??
+                `Diferencia contra OC: ${response.diferenciaContraOc.toFixed(2)}. La factura se cancela automáticamente.`,
             });
           } else {
             toast.success('Factura capturada');
@@ -281,17 +283,12 @@ export function CapturarFacturaSheet({
         onError: (error) => {
           if (esApiError(error)) {
             if (
-              applyServerErrors(
-                form as unknown as Parameters<typeof applyServerErrors>[0],
-                error,
-              )
+              applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)
             ) {
               return;
             }
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: error.traceId ? `Código: ${error.traceId}` : undefined,
             });
             return;
           }
@@ -309,9 +306,8 @@ export function CapturarFacturaSheet({
         <SheetHeader>
           <SheetTitle>Capturar factura desde OC</SheetTitle>
           <SheetDescription>
-            Concilia un CFDI recibido con una OC autorizada. El backend valida
-            tolerancia del proveedor; si excede, la factura se cancela
-            automáticamente.
+            Concilia un CFDI recibido con una OC autorizada. El backend valida tolerancia del
+            proveedor; si excede, la factura se cancela automáticamente.
           </SheetDescription>
         </SheetHeader>
 
@@ -321,14 +317,9 @@ export function CapturarFacturaSheet({
         >
           {/* Columna izquierda: metadata del CFDI seleccionado */}
           <aside className="space-y-2 rounded-md border bg-muted/30 p-3 text-xs">
-            <p className="font-semibold uppercase tracking-wide text-muted-foreground">
-              CFDI base
-            </p>
+            <p className="font-semibold uppercase tracking-wide text-muted-foreground">CFDI base</p>
             {!cfdiPreseleccionado && (
-              <CfdiPorProcesarPicker
-                value={cfdiSel?.id ?? null}
-                onSelect={vincularCfdi}
-              />
+              <CfdiPorProcesarPicker value={cfdiSel?.id ?? null} onSelect={vincularCfdi} />
             )}
             {cfdiBase ? (
               <dl className="space-y-1">
@@ -341,10 +332,7 @@ export function CapturarFacturaSheet({
                       : (cfdiBase.folio ?? '—')
                   }
                 />
-                <Metadato
-                  label="Fecha CFDI"
-                  valor={cfdiBase.fechaCfdi.slice(0, 10)}
-                />
+                <Metadato label="Fecha CFDI" valor={cfdiBase.fechaCfdi.slice(0, 10)} />
                 <Metadato
                   label="Total CFDI"
                   valor={`${cfdiBase.total.toFixed(2)} ${cfdiBase.moneda}`}
@@ -352,9 +340,8 @@ export function CapturarFacturaSheet({
               </dl>
             ) : (
               <p className="text-muted-foreground italic">
-                Sin CFDI base. Vincula uno con el selector de arriba, captura
-                manualmente, o inicia desde la bandeja de CFDIs con la acción
-                "Capturar factura".
+                Sin CFDI base. Vincula uno con el selector de arriba, captura manualmente, o inicia
+                desde la bandeja de CFDIs con la acción "Capturar factura".
               </p>
             )}
             {cfdiBase && (
@@ -364,13 +351,10 @@ export function CapturarFacturaSheet({
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    descargarXmlCfdi(cfdiBase.id, cfdiBase.uuidCfdi).catch(
-                      (error) =>
-                        toast.error(
-                          esApiError(error)
-                            ? error.problem.title
-                            : 'Error al descargar el XML.',
-                        ),
+                    descargarXmlCfdi(cfdiBase.id, cfdiBase.uuidCfdi).catch((error) =>
+                      toast.error(
+                        esApiError(error) ? error.problem.title : 'Error al descargar el XML.',
+                      ),
                     )
                   }
                 >
@@ -383,9 +367,7 @@ export function CapturarFacturaSheet({
                   onClick={() =>
                     abrirPdfCfdi(cfdiBase.id).catch((error) =>
                       toast.error(
-                        esApiError(error)
-                          ? error.problem.title
-                          : 'Error al abrir el PDF.',
+                        esApiError(error) ? error.problem.title : 'Error al abrir el PDF.',
                       ),
                     )
                   }
@@ -458,10 +440,7 @@ export function CapturarFacturaSheet({
                   aria-label="Proveedor derivado de la orden de compra"
                 />
               </Campo>
-              <Campo
-                label="Sucursal (de la OC)"
-                error={form.formState.errors.sucursalId?.message}
-              >
+              <Campo label="Sucursal (de la OC)" error={form.formState.errors.sucursalId?.message}>
                 <Input
                   value={sucursalLabel}
                   placeholder="Se deriva de la OC"
@@ -470,11 +449,7 @@ export function CapturarFacturaSheet({
                   aria-label="Sucursal derivada de la orden de compra"
                 />
               </Campo>
-              <Campo
-                label="Moneda"
-                error={form.formState.errors.moneda?.message}
-                required
-              >
+              <Campo label="Moneda" error={form.formState.errors.moneda?.message} required>
                 <Input
                   placeholder="MXN"
                   maxLength={3}
@@ -484,16 +459,10 @@ export function CapturarFacturaSheet({
                   })}
                 />
               </Campo>
-              <Campo
-                label="Serie"
-                error={form.formState.errors.serieProveedor?.message}
-              >
+              <Campo label="Serie" error={form.formState.errors.serieProveedor?.message}>
                 <Input placeholder="A" {...form.register('serieProveedor')} />
               </Campo>
-              <Campo
-                label="Folio"
-                error={form.formState.errors.folioProveedor?.message}
-              >
+              <Campo label="Folio" error={form.formState.errors.folioProveedor?.message}>
                 <Input placeholder="12345" {...form.register('folioProveedor')} />
               </Campo>
               <Campo
@@ -508,10 +477,7 @@ export function CapturarFacturaSheet({
                 error={form.formState.errors.fechaContabilizacion?.message}
                 required
               >
-                <Input
-                  type="date"
-                  {...form.register('fechaContabilizacion')}
-                />
+                <Input type="date" {...form.register('fechaContabilizacion')} />
               </Campo>
               <Campo
                 label="Fecha vencimiento"
@@ -520,10 +486,7 @@ export function CapturarFacturaSheet({
               >
                 <Input type="date" {...form.register('fechaVencimiento')} />
               </Campo>
-              <Campo
-                label="Tipo de cambio"
-                error={form.formState.errors.tipoCambio?.message}
-              >
+              <Campo label="Tipo de cambio" error={form.formState.errors.tipoCambio?.message}>
                 <Input
                   type="number"
                   step="0.0001"
@@ -535,22 +498,16 @@ export function CapturarFacturaSheet({
             </section>
 
             <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              <Campo
-                label="Subtotal"
-                error={form.formState.errors.subtotal?.message}
-                required
-              >
+              <Campo label="Subtotal" error={form.formState.errors.subtotal?.message} required>
                 <Input
                   type="number"
                   step="0.01"
                   min="0"
+                  aria-label="Subtotal"
                   {...form.register('subtotal', { valueAsNumber: true })}
                 />
               </Campo>
-              <Campo
-                label="Descuentos"
-                error={form.formState.errors.descuentos?.message}
-              >
+              <Campo label="Descuentos" error={form.formState.errors.descuentos?.message}>
                 <Input
                   type="number"
                   step="0.01"
@@ -571,22 +528,16 @@ export function CapturarFacturaSheet({
                   })}
                 />
               </Campo>
-              <Campo
-                label="Retenciones"
-                error={form.formState.errors.retenciones?.message}
-              >
+              <Campo label="Retenciones" error={form.formState.errors.retenciones?.message}>
                 <Input
                   type="number"
                   step="0.01"
                   min="0"
+                  aria-label="Retenciones"
                   {...form.register('retenciones', { valueAsNumber: true })}
                 />
               </Campo>
-              <Campo
-                label="Total"
-                error={form.formState.errors.total?.message}
-                required
-              >
+              <Campo label="Total" error={form.formState.errors.total?.message} required>
                 <Input
                   type="number"
                   step="0.01"
@@ -596,22 +547,84 @@ export function CapturarFacturaSheet({
               </Campo>
             </section>
 
+            <section className="space-y-3">
+              <div>
+                <Label htmlFor="captura-obra">Obra</Label>
+                <Input id="captura-obra" maxLength={120} {...form.register('obra')} />
+                <p className="text-xs text-ink-muted">
+                  Registra la obra a la que corresponde el pasivo.
+                </p>
+              </div>
+              <Label htmlFor="captura-concepto">Concepto fiscal de retención</Label>
+              <Select
+                value={conceptoRetencion || 'sin-concepto'}
+                onValueChange={(v) =>
+                  form.setValue('conceptoRetencion', v === 'sin-concepto' ? null : v)
+                }
+              >
+                <SelectTrigger id="captura-concepto">
+                  <SelectValue placeholder="Selecciona concepto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sin-concepto">Sin concepto: por confirmar</SelectItem>
+                  {[...new Set(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto))].map(
+                    (c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-ink-muted">Supuesto SAT, valida Fiscal (D03).</p>
+              {catalogo.isError && (
+                <p role="alert" className="text-warning-note-fg">
+                  No se pudo consultar el catálogo fiscal. La captura puede continuar; revisa con
+                  Fiscal.
+                </p>
+              )}
+              {propuesta.length > 0 && (
+                <p className="tabular-nums">
+                  Retención propuesta: {totalRetenciones(propuesta).toFixed(2)}{' '}
+                  {form.getValues('moneda')}
+                </p>
+              )}
+              {!cfdiBase && propuesta.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const retencion = totalRetenciones(propuesta);
+                    form.setValue('retenciones', retencion);
+                    form.setValue(
+                      'total',
+                      Math.round(
+                        (baseRetencion + form.getValues('impuestosTrasladados') - retencion) * 100,
+                      ) / 100,
+                    );
+                  }}
+                >
+                  Usar retención propuesta
+                </Button>
+              )}
+              {alertaRetenciones(totalRetenido, propuesta) && (
+                <p
+                  role="note"
+                  className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg"
+                >
+                  Las retenciones difieren del catálogo. Revisa con Fiscal; puedes continuar la
+                  captura.
+                </p>
+              )}
+            </section>
             <section className="space-y-2">
               <header className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">
-                  Líneas ({fields.length})
-                </h3>
+                <h3 className="text-sm font-medium">Líneas ({fields.length})</h3>
                 <div className="flex items-center gap-1">
                   {(cfdiParseadoQuery.data?.lineas.length ?? 0) > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={importarLineasCfdi}
-                    >
+                    <Button type="button" variant="outline" size="sm" onClick={importarLineasCfdi}>
                       <Download className="mr-1 h-3 w-3" />
-                      Importar {cfdiParseadoQuery.data!.lineas.length} línea(s)
-                      del CFDI
+                      Importar {cfdiParseadoQuery.data!.lineas.length} línea(s) del CFDI
                     </Button>
                   )}
                   <Button
@@ -644,21 +657,30 @@ export function CapturarFacturaSheet({
               </div>
 
               {form.formState.errors.lineas?.message && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.lineas.message}
-                </p>
+                <p className="text-xs text-destructive">{form.formState.errors.lineas.message}</p>
               )}
             </section>
 
             <div className="px-4 pb-4">
               <NotasCreditoAdjuntas
                 value={notasCredito}
-                onChange={notas => form.setValue('notasCredito', notas, { shouldDirty: true, shouldValidate: true })}
+                onChange={(notas) =>
+                  form.setValue('notasCredito', notas, { shouldDirty: true, shouldValidate: true })
+                }
                 lineas={lineasActuales}
                 facturaLigada={Boolean(cfdiBase)}
               />
-              {cfdiParseadoQuery.data && <p className="mt-2 text-xs text-ink-muted tabular-nums">ISR retenido: {retencionesXml.isr.toFixed(2)} · IVA retenido: {retencionesXml.iva.toFixed(2)}</p>}
-              {form.formState.errors.notasCredito && <p role="alert" className="text-xs text-danger-fg">Asigna la base de cada NC a las líneas que compensa.</p>}
+              {cfdiParseadoQuery.data && (
+                <p className="mt-2 text-xs text-ink-muted tabular-nums">
+                  ISR retenido: {retencionesXml.isr.toFixed(2)} · IVA retenido:{' '}
+                  {retencionesXml.iva.toFixed(2)}
+                </p>
+              )}
+              {form.formState.errors.notasCredito && (
+                <p role="alert" className="text-xs text-danger-fg">
+                  Asigna la base de cada NC a las líneas que compensa.
+                </p>
+              )}
             </div>
             <SheetFooter className="px-0">
               <Button
@@ -760,15 +782,11 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
                 onSelect={(articulo) => {
                   // Heredar la descripción del catálogo solo si el campo
                   // sigue vacío — no pisar lo que el usuario ya tecleó.
-                  const desc = form.getValues(
-                    `lineas.${index}.descripcion` as const,
-                  );
+                  const desc = form.getValues(`lineas.${index}.descripcion` as const);
                   if (!desc) {
-                    form.setValue(
-                      `lineas.${index}.descripcion` as const,
-                      articulo.nombre,
-                      { shouldValidate: true },
-                    );
+                    form.setValue(`lineas.${index}.descripcion` as const, articulo.nombre, {
+                      shouldValidate: true,
+                    });
                   }
                 }}
                 className="w-full"
@@ -783,9 +801,7 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
             {...form.register(`lineas.${index}.descripcion` as const)}
           />
           {lineaErrors?.descripcion && (
-            <p className="text-xs text-destructive">
-              {lineaErrors.descripcion.message}
-            </p>
+            <p className="text-xs text-destructive">{lineaErrors.descripcion.message}</p>
           )}
         </div>
         <div className="sm:col-span-2">
@@ -854,7 +870,9 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
             )}
           />
           {form.formState.errors.lineas?.[index]?.lineaOcId && (
-            <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.lineas[index]?.lineaOcId?.message}</p>
+            <p role="alert" className="text-xs text-danger-fg">
+              {form.formState.errors.lineas[index]?.lineaOcId?.message}
+            </p>
           )}
         </div>
         <div className="flex items-end sm:col-span-2">

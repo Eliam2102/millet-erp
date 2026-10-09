@@ -144,6 +144,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.ubicaciones.leer',
   'almacen.ubicaciones.administrar',
 
+  'cuentas_por_pagar.retenciones.leer',
+  'cuentas_por_pagar.retenciones.administrar',
+  'cuentas_por_pagar.reportes.leer-todas-sucursales',
   // Cuentas por Pagar (FE-F0+)
   'cuentas_por_pagar.facturas.leer',
   'cuentas_por_pagar.facturas.capturar',

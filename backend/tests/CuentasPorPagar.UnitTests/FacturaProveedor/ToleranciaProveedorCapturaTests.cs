@@ -121,7 +121,8 @@ public sealed class ToleranciaProveedorCapturaTests
         public Entorno()
         {
             Maestros = new(new DbContextOptionsBuilder<CompartidoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Empresa);
-            Cxp = new(new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Empresa);
+            Cxp = new(new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Empresa,
+                new P8.PeriodoAbiertoStub(), new P8.PeriodoAbiertoStub());
             _oc = new(new(Guid.NewGuid(), "OC-DEMO-TOL", Proveedor.Id, Empresa.Current!.Value, Guid.NewGuid(), 10000, "Autorizada",
                 [new(LineaOcId, ArticuloId, 1, 10000, 0, 1)]));
             Eventos = new(Cxp);

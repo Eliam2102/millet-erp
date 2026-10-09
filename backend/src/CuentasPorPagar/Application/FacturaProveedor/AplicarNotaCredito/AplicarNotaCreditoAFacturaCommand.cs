@@ -78,8 +78,19 @@ public sealed class AplicarNotaCreditoAFacturaHandler
 
         // Las dos transiciones del agregado (factura y NC) son
         // atómicas dentro del mismo SaveChanges.
+        if (nc.Moneda != factura.Moneda)
+            throw new BusinessRuleException("NC_MONEDA_DISTINTA", "La NC y la factura deben tener la misma moneda.");
+        var cargo = await _db.NotasCargo.AsNoTracking().FirstOrDefaultAsync(
+            n => n.NotaCreditoProveedorId == nc.Id && n.FacturaOrigenId == factura.Id, cancellationToken);
+        // La NC fiscal formaliza el cargo ya aplicado; no descuenta dos veces el mismo pasivo.
+        var cargoAplicado = cargo is null ? 0 : await _db.MovimientosPasivo
+            .Where(m => m.FacturaProveedorId == factura.Id && m.DocumentoId == cargo.Id && m.Tipo == TipoMovimientoPasivo.NotaCargo)
+            .SumAsync(m => m.Monto, cancellationToken);
+        var reconocido = cargoAplicado == 0 ? 0 :
+            Math.Min(nc.MontoAplicado + command.Monto, cargoAplicado) - Math.Min(nc.MontoAplicado, cargoAplicado);
         nc.AplicarMonto(command.Monto);
-        factura.AplicarNotaCredito(command.Monto);
+        if (command.Monto > reconocido)
+            factura.AplicarNotaCredito(command.Monto - reconocido, DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime), nc.Id);
 
         if (factura.Estado == EstadoPasivo.Autorizada)
             await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(

@@ -54,7 +54,7 @@ public sealed class AplicarNcYAnticipoTests
     public void AplicarNotaCredito_decrementa_saldo_pendiente()
     {
         var f = CapturarFactura(total: 1160m);
-        f.AplicarNotaCredito(300m);
+        f.AplicarNotaCredito(300m, DateOnly.FromDateTime(DateTime.UtcNow));
 
         f.NcAplicadasTotal.Should().Be(300m);
         f.SaldoPendiente.Should().Be(860m);
@@ -64,8 +64,8 @@ public sealed class AplicarNcYAnticipoTests
     public void AplicarNotaCredito_acumula_aplicaciones_sucesivas()
     {
         var f = CapturarFactura(total: 1160m);
-        f.AplicarNotaCredito(300m);
-        f.AplicarNotaCredito(200m);
+        f.AplicarNotaCredito(300m, DateOnly.FromDateTime(DateTime.UtcNow));
+        f.AplicarNotaCredito(200m, DateOnly.FromDateTime(DateTime.UtcNow));
         f.NcAplicadasTotal.Should().Be(500m);
         f.SaldoPendiente.Should().Be(660m);
     }
@@ -74,7 +74,7 @@ public sealed class AplicarNcYAnticipoTests
     public void AplicarNotaCredito_no_puede_dejar_saldo_negativo()
     {
         var f = CapturarFactura(total: 100m);
-        var act = () => f.AplicarNotaCredito(101m);
+        var act = () => f.AplicarNotaCredito(101m, DateOnly.FromDateTime(DateTime.UtcNow));
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "APLICACION_EXCEDE_SALDO");
     }
 
@@ -82,7 +82,7 @@ public sealed class AplicarNcYAnticipoTests
     public void AplicarNotaCredito_rechaza_monto_no_positivo()
     {
         var f = CapturarFactura();
-        var act = () => f.AplicarNotaCredito(0m);
+        var act = () => f.AplicarNotaCredito(0m, DateOnly.FromDateTime(DateTime.UtcNow));
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "APLICACION_MONTO_INVALIDO");
     }
 
@@ -91,7 +91,7 @@ public sealed class AplicarNcYAnticipoTests
     {
         var f = CapturarFactura();
         f.Cancelar(MotivoCancelacion.ErrorCaptura, texto: null, usuarioId: null, ahora: DateTimeOffset.UtcNow);
-        var act = () => f.AplicarNotaCredito(100m);
+        var act = () => f.AplicarNotaCredito(100m, DateOnly.FromDateTime(DateTime.UtcNow));
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "FACTURA_NO_ACEPTA_NC");
     }
 
@@ -101,7 +101,7 @@ public sealed class AplicarNcYAnticipoTests
     public void AplicarAnticipo_decrementa_saldo_pendiente()
     {
         var f = CapturarFactura(total: 1160m);
-        f.AplicarAnticipo(400m);
+        f.AplicarAnticipo(400m, DateOnly.FromDateTime(DateTime.UtcNow));
         f.AnticipoAplicadoTotal.Should().Be(400m);
         f.SaldoPendiente.Should().Be(760m);
     }
@@ -110,7 +110,7 @@ public sealed class AplicarNcYAnticipoTests
     public void AplicarAnticipo_no_puede_dejar_saldo_negativo()
     {
         var f = CapturarFactura(total: 100m);
-        var act = () => f.AplicarAnticipo(101m);
+        var act = () => f.AplicarAnticipo(101m, DateOnly.FromDateTime(DateTime.UtcNow));
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "APLICACION_EXCEDE_SALDO");
     }
 
@@ -118,8 +118,8 @@ public sealed class AplicarNcYAnticipoTests
     public void AplicarAnticipo_y_AplicarNc_se_combinan_correctamente()
     {
         var f = CapturarFactura(total: 1000m);
-        f.AplicarAnticipo(300m);
-        f.AplicarNotaCredito(200m);
+        f.AplicarAnticipo(300m, DateOnly.FromDateTime(DateTime.UtcNow));
+        f.AplicarNotaCredito(200m, DateOnly.FromDateTime(DateTime.UtcNow));
         f.SaldoPendiente.Should().Be(500m);
     }
 
