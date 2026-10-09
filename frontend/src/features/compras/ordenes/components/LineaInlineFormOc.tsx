@@ -266,7 +266,11 @@ export function LineaInlineFormOc({
 
   return (
     <form
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={form.handleSubmit(onSubmit, (errs) => {
+        // Si el error cae en un campo del bloque colapsado, ábrelo para que sea visible.
+        if (errs.departamentoSolicitanteId || errs.descuentoTipo || errs.descuentoValor
+          || errs.descripcionExtendida || errs.textoAdicional) setDetallesAbiertos(true);
+      })}
       noValidate
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !isPending) {

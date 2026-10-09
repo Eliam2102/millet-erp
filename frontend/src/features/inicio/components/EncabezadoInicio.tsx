@@ -23,9 +23,6 @@ export function EncabezadoInicio() {
           {empresa?.razonSocial ?? 'Sin empresa activa seleccionada'}
         </p>
       </div>
-      <p className="text-xs text-ink-muted">
-        Rol: <span className="font-medium text-ink-secondary">[ROL]</span>
-      </p>
     </header>
   );
 }

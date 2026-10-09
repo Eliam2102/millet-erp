@@ -284,7 +284,7 @@ describe('PanelInicio v2', () => {
       /^(Buenos días|Buenas tardes|Buenas noches), Ana$/,
     );
     expect(screen.getByText('Vidrios Demo SA de CV')).toBeInTheDocument();
-    expect(screen.getByText('[ROL]')).toBeInTheDocument();
+    expect(screen.queryByText('[ROL]')).not.toBeInTheDocument(); // sin rol real en sesión: no se muestra marcador
     expect(document.body).not.toHaveTextContent(/OID|oid-privado-test|ana@example.test|María/);
   });
   it('conserva la alerta cuando no hay empresas', () => {
