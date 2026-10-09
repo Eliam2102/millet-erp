@@ -313,7 +313,7 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         var umbralesTime = new DateTimeOffset(2026, 10, 8, 0, 0, 0, TimeSpan.Zero);
         parametro.HasData(
-            SeedParametro("00000006-0001-0000-0000-000000000005",
+            SeedParametro("00000006-0001-0000-0000-000000000009",
                 "almacen.conteo-variacion-pct-recuento", "5", TipoParametro.Numero,
                 "Exige recuento cuando la diferencia en cantidad supera este porcentaje. Aplica a conteos nuevos al iniciarlos.", umbralesTime, "almacen"),
             SeedParametro("00000006-0001-0000-0000-000000000006",
