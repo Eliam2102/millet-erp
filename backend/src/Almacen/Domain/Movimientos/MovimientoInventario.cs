@@ -235,8 +235,14 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
         if (Tipo == TipoMovimiento.SalidaPorVale)
         {
             PendienteRegularizacion = true;
-            FechaLimiteRegularizacion = DateTimeOffset.UtcNow.AddHours(48); // A14
         }
+    }
+
+    public void EstablecerPlazoRegularizacion(DateTimeOffset limite)
+    {
+        if (Tipo != TipoMovimiento.SalidaPorVale || !PendienteRegularizacion)
+            throw new BusinessRuleException("MOV_NO_VALE", "El plazo corresponde a un vale pendiente de regularización.");
+        FechaLimiteRegularizacion = limite;
     }
 
     public void RegularizarVale(Guid rqRegularizadoraId)

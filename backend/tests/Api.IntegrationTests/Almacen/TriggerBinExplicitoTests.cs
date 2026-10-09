@@ -414,8 +414,11 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
                 conteoTracked.Aprobar(Guid.NewGuid());
                 await db.SaveChangesAsync();
 
+                var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+                await using var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, empresaId, hoy.Year);
+                await calendario.SembrarAsync(hoy.Month);
                 var resp = await new AplicarConteoHandler(
-                    db, new NoOpEvents(), new FakeUserCtx(userId), new FakeEmpresaCtx(empresaId))
+                    db, new NoOpEvents(), new FakeUserCtx(userId), new FakeEmpresaCtx(empresaId), calendario.Port)
                     .Handle(new AplicarConteoCommand(conteoId), CancellationToken.None);
                 Assert.Equal(1, resp.MovimientosGenerados);
 

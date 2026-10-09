@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application.Calendario;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,7 @@ namespace Millet.Almacen.Application.Vales;
 /// <summary>
 /// F5-PR1: registra una <b>salida urgente por vale</b> (Variante B —
 /// el solicitante no tuvo tiempo de tramitar RQ). Marca el movimiento
-/// con <c>pendiente_regularizacion=true</c> y <c>fecha_limite=+48h</c>
+/// con <c>pendiente_regularizacion=true</c> y <c>fecha_limite=48 horas hábiles desde FechaMovimiento</c>
 /// (A14). Publica <c>SalidaRequisicionRegistradaEvent</c> con
 /// <c>EsPorVale=true</c> y <c>RqId=null</c>.
 ///
@@ -30,7 +31,7 @@ namespace Millet.Almacen.Application.Vales;
 /// </summary>
 // Salida-por-línea (vale): el sub-almacén ya NO viaja en la cabecera. Se DERIVA
 // del bin (Ubicacion.SubAlmacenId) de las líneas, obligatorio. Mismo molde que la
-// salida-con-RQ (#724). RegularizarSalidaPorVale NO se toca (flag-flip puro).
+// salida-con-RQ (#724). La regularización valida la RQ antes de vincularla.
 public sealed record RegistrarSalidaPorValeCommand(
     DateOnly FechaMovimiento,
     string ValeBlobRef,
@@ -71,6 +72,8 @@ public sealed class RegistrarSalidaPorValeHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly ICalendarioHabil _calendario;
+    private readonly ICentroCostoElegibilidadPort _centros;
 
     public RegistrarSalidaPorValeHandler(
         AlmacenDbContext db,
@@ -78,7 +81,9 @@ public sealed class RegistrarSalidaPorValeHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable)
+        IPeriodoContableReadPort periodoContable,
+        ICalendarioHabil calendario,
+        ICentroCostoElegibilidadPort centros)
     {
         _db = db;
         _events = events;
@@ -86,6 +91,8 @@ public sealed class RegistrarSalidaPorValeHandler
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
         _periodoContable = periodoContable;
+        _calendario = calendario;
+        _centros = centros;
     }
 
     public async Task<RegistrarSalidaResponse> Handle(
@@ -146,6 +153,10 @@ public sealed class RegistrarSalidaPorValeHandler
             request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad)),
             cancellationToken);
 
+        foreach (var centro in request.Lineas.Select(l => l.CentroCostoId).OfType<Guid>().Distinct())
+            await _centros.ValidarAsync(centro, cancellationToken);
+        var limite = await _calendario.SumarHorasAsync(request.FechaMovimiento, 48, cancellationToken);
+
         var movimientoId = Guid.CreateVersion7();
         var movimiento = new MovimientoInventario(
             id: movimientoId,
@@ -153,7 +164,7 @@ public sealed class RegistrarSalidaPorValeHandler
             empresaId: empresaId,
             fechaMovimiento: request.FechaMovimiento);
 
-        // Vincular salida vale (marca pendiente_regularizacion + fecha_limite=+48h).
+        // Vincular salida vale (marca pendiente_regularizacion + fecha_limite=48 horas hábiles desde FechaMovimiento).
         typeof(MovimientoInventario)
             .GetMethod("VincularSalida", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(movimiento, new object?[]
@@ -162,6 +173,8 @@ public sealed class RegistrarSalidaPorValeHandler
                 request.ValeBlobRef,
                 request.PersonaDestinatariaId,
             });
+
+        movimiento.EstablecerPlazoRegularizacion(limite);
 
         if (!string.IsNullOrWhiteSpace(request.Observaciones))
         {
@@ -262,7 +275,7 @@ public sealed class RegistrarSalidaPorValeHandler
 
 /// <summary>
 /// Vincula una RQ posterior al vale, cumpliendo la regularización en
-/// 48h (A14). El movimiento permanece registrado; solo cambia el flag
+/// 48 horas hábiles (A14). El movimiento permanece registrado; solo cambia el flag
 /// <c>pendiente_regularizacion → false</c> y se vincula
 /// <c>rq_regularizadora_id</c>.
 /// </summary>
@@ -285,17 +298,29 @@ public sealed class RegularizarSalidaPorValeHandler
 {
     private readonly AlmacenDbContext _db;
 
-    public RegularizarSalidaPorValeHandler(AlmacenDbContext db) => _db = db;
+    private readonly IComprasRequisicionReadPort _rqPort;
+
+    public RegularizarSalidaPorValeHandler(AlmacenDbContext db, IComprasRequisicionReadPort rqPort)
+    {
+        _db = db;
+        _rqPort = rqPort;
+    }
 
     public async Task Handle(
         RegularizarSalidaPorValeCommand request, CancellationToken cancellationToken)
     {
-        var mov = await _db.Movimientos
+        var mov = await _db.Movimientos.Include(m => m.Lineas)
             .FirstOrDefaultAsync(m => m.Id == request.MovimientoValeId, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "VALE_NO_ENCONTRADO",
                 $"No existe movimiento con id '{request.MovimientoValeId}'.");
 
+        var rq = await _rqPort.ObtenerAsync(request.RqRegularizadoraId, cancellationToken);
+        if (rq is null || rq.Estado is not ("Autorizada" or "EnSurtido")
+            || mov.Lineas.GroupBy(l => l.ArticuloId).Any(g =>
+                g.Sum(l => l.Cantidad) > rq.Lineas.Where(l => l.ArticuloId == g.Key).Sum(l => l.CantidadDisponibleEntregar)))
+            throw new BusinessRuleException("VALE_RQ_REGULARIZADORA_INVALIDA",
+                "La requisición regularizadora debe existir, estar autorizada o en surtido y cubrir todos los artículos y cantidades del vale.");
         mov.RegularizarVale(request.RqRegularizadoraId);
         await _db.SaveChangesAsync(cancellationToken);
     }

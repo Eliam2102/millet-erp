@@ -39,7 +39,10 @@ public sealed record SalidaListItem(
     /// bandeja lo muestra como "Vale · {folio}" para distinguirlo de una
     /// RQ directa. Null si el vale no se ha regularizado.
     /// </summary>
-    string? RqRegularizadoraFolio = null);
+    string? RqRegularizadoraFolio = null,
+    bool PendienteRegularizacion = false,
+    DateTimeOffset? FechaLimiteRegularizacion = null,
+    bool Vencido = false);
 
 public sealed record SalidaDetalle(
     Guid Id,
@@ -67,7 +70,10 @@ public sealed record SalidaDetalle(
     /// </summary>
     Guid? RqRegularizadoraId,
     string? RqRegularizadoraFolio,
-    IReadOnlyList<SalidaLineaItem> Lineas);
+    IReadOnlyList<SalidaLineaItem> Lineas,
+    bool PendienteRegularizacion = false,
+    DateTimeOffset? FechaLimiteRegularizacion = null,
+    bool Vencido = false);
 
 public sealed record SalidaLineaItem(
     Guid Id,
@@ -104,7 +110,8 @@ public sealed record ListarSalidasQuery(
     /// </summary>
     bool? NoRegularizados,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<SalidaListItem>>;
+    int Limit,
+    bool? SoloVencidos = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>;
 
 public sealed class ListarSalidasHandler
     : IRequestHandler<ListarSalidasQuery, AlmacenPagedResponse<SalidaListItem>>
@@ -143,9 +150,12 @@ public sealed class ListarSalidasHandler
             // no pasa SoloVales=true.
             query = query.Where(m =>
                 m.Tipo == TipoMovimiento.SalidaPorVale
-                && m.RqRegularizadoraId == null);
+                && m.PendienteRegularizacion);
         }
 
+        var ahora = DateTimeOffset.UtcNow;
+        if (request.SoloVencidos is true)
+            query = query.Where(m => m.PendienteRegularizacion && m.FechaLimiteRegularizacion <= ahora);
         var total = await query.CountAsync(cancellationToken);
         var items = await query
             .OrderByDescending(m => m.FechaMovimiento).ThenByDescending(m => m.FechaRegistro)
@@ -166,7 +176,10 @@ public sealed class ListarSalidasHandler
                 m.Estado,
                 m.RqRegularizadoraId,
                 null,
-                null))
+                null,
+                m.PendienteRegularizacion,
+                m.FechaLimiteRegularizacion,
+                m.PendienteRegularizacion && m.FechaLimiteRegularizacion <= ahora))
             .ToListAsync(cancellationToken);
 
         // Folios de RQ en batch (ADR-0042): una sola llamada con los ids
@@ -317,7 +330,10 @@ public sealed class ObtenerSalidaPorIdHandler
             RqRegularizadoraId: mov.RqRegularizadoraId,
             RqRegularizadoraFolio: mov.RqRegularizadoraId is Guid rrId
                 && folios.TryGetValue(rrId, out var rf) ? rf : null,
-            Lineas: lineas);
+            Lineas: lineas,
+            PendienteRegularizacion: mov.PendienteRegularizacion,
+            FechaLimiteRegularizacion: mov.FechaLimiteRegularizacion,
+            Vencido: mov.PendienteRegularizacion && mov.FechaLimiteRegularizacion <= DateTimeOffset.UtcNow);
     }
 
     /// <summary>
