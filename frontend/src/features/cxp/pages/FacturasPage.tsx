@@ -32,6 +32,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoPasivoChip } from '@/features/cxp/components/EstadoPasivoChip';
 import { CapturarFacturaSheet } from '@/features/cxp/components/CapturarFacturaSheet';
 import type { FacturasSearch } from '@/features/cxp/lib/facturas-search-schema';
+import { formatearFecha } from '@/features/cxp/lib/formato';
 
 const FROM = '/_app/cxp/facturas/' as const;
 const SENTINEL_ALL = '__all__';
@@ -394,14 +395,3 @@ function formatearMonto(v: number, moneda: string): string {
   }
 }
 
-function formatearFecha(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
