@@ -12,7 +12,13 @@ public sealed record ListarAnticiposQuery(
     Guid? ProveedorId = null,
     Guid? OrdenCompraId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<AnticipoListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<AnticipoListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "anticipo_proveedor";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record AnticipoListItemResponse(
     Guid Id,
@@ -50,7 +56,8 @@ public sealed class ListarAnticiposHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.AnticiposProveedor.AsNoTracking();
+        var q = _db.AnticiposProveedor.AsNoTracking()
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id));
         if (query.Estado is EstadoAnticipo e) q = q.Where(a => a.Estado == e);
         if (query.ProveedorId is Guid p) q = q.Where(a => a.ProveedorId == p);
         if (query.OrdenCompraId is Guid o) q = q.Where(a => a.OrdenCompraId == o);

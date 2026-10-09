@@ -506,7 +506,7 @@ public sealed class EmitirFacturaVentaHandler
         if (!await _catalogos.ExisteMonedaAsync(command.Moneda, cancellationToken))
             throw new BusinessRuleException("MONEDA_INVALIDA", $"La moneda '{command.Moneda}' no existe en el catálogo SAT.");
         if (!await _catalogos.ExisteFormaPagoAsync(command.FormaPago, cancellationToken))
-            throw new BusinessRuleException("FORMA_PAGO_INVALIDA", $"La forma de pago '{command.FormaPago}' no existe en el catálogo SAT.");
+            throw new BusinessRuleException("FORMA_PAGO_INVALIDA", $"La forma de pago '{command.FormaPago}' no existe o está desactivada en el catálogo SAT. Selecciona una forma de pago activa.");
         if (!await _catalogos.ExisteRegimenFiscalAsync(command.RegimenFiscalEmisor, cancellationToken))
             throw new BusinessRuleException("REGIMEN_EMISOR_INVALIDO", $"El régimen fiscal del emisor '{command.RegimenFiscalEmisor}' no existe en el catálogo SAT.");
     }

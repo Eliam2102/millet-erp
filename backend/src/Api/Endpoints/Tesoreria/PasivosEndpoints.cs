@@ -1,3 +1,4 @@
+using Millet.Api.Web;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ public static class PasivosEndpoints
     {
         var pasivos = app
             .MapGroup("/api/v1/tesoreria/pasivos-pendientes")
+            .WithDocumentoSucursalScope("factura_proveedor", "tesoreria.documentos", "facturaProveedorId")
             .WithTags("Tesoreria")
             .RequireAuthorization();
 

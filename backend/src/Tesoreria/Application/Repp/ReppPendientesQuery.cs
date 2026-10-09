@@ -38,7 +38,13 @@ public sealed record ReppPendientesQuery(
     bool SoloVencidos = false,
     bool IncluirSinMetodo = true,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<ReppPendienteResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<ReppPendienteResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "pasivo";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ReppPendientesHandler
     : IRequestHandler<ReppPendientesQuery, PagedResponse<ReppPendienteResponse>>
@@ -66,7 +72,8 @@ public sealed class ReppPendientesHandler
 
         var q = _db.AplicacionesPagoProveedor.AsNoTracking().Where(a => !a.Revertida)
             .Join(_db.MovimientosBancarios.AsNoTracking(), a => a.MovimientoId, m => m.Id, (a, m) => new { a, m })
-            .Join(_db.PasivosPendientesPago.AsNoTracking(), x => x.a.FacturaProveedorId, p => p.FacturaProveedorId,
+            .Join(_db.PasivosPendientesPago.AsNoTracking()
+                    .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)), x => x.a.FacturaProveedorId, p => p.FacturaProveedorId,
                 (x, p) => new { PagoId = x.a.Id, x.a.FacturaProveedorId, p.ProveedorId, p.FolioProveedor, p.UuidCfdi, p.MetodoPago,
                     MontoPagado = x.a.ImporteAplicado, x.m.Moneda, FechaPrimerPago = x.m.FechaValor,
                     Cubierto = _db.ReppPagosProveedor.Where(r => r.PagoId == x.a.Id).Sum(r => (decimal?)r.Importe) ?? 0 });

@@ -53,7 +53,13 @@ public sealed record MovimientosBancariosQuery(
     DateOnly? Desde = null,
     DateOnly? Hasta = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<MovimientoBancarioResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<MovimientoBancarioResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "movimiento_bancario";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class MovimientosBancariosHandler
     : IRequestHandler<MovimientosBancariosQuery, PagedResponse<MovimientoBancarioResponse>>
@@ -67,7 +73,8 @@ public sealed class MovimientosBancariosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.MovimientosBancarios.AsNoTracking();
+        var q = _db.MovimientosBancarios
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.CuentaBancariaId is Guid cuenta) q = q.Where(m => m.CuentaBancariaId == cuenta);
         if (query.Sentido is SentidoMovimiento s) q = q.Where(m => m.Sentido == s);
         if (query.EstadoAplicacion is EstadoAplicacionMovimiento ea) q = q.Where(m => m.EstadoAplicacion == ea);

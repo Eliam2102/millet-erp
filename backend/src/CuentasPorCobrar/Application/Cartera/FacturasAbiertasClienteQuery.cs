@@ -27,7 +27,13 @@ public sealed record FacturaAbiertaDto(
 
 public sealed record FacturasAbiertasClienteQuery(
     Guid ClienteId,
-    string? Moneda = null) : IRequest<IReadOnlyList<FacturaAbiertaDto>>;
+    string? Moneda = null) : IRequest<IReadOnlyList<FacturaAbiertaDto>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public string TipoDocumento => "factura_cartera";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class FacturasAbiertasClienteHandler
     : IRequestHandler<FacturasAbiertasClienteQuery, IReadOnlyList<FacturaAbiertaDto>>
@@ -38,7 +44,8 @@ public sealed class FacturasAbiertasClienteHandler
     public async Task<IReadOnlyList<FacturaAbiertaDto>> Handle(
         FacturasAbiertasClienteQuery query, CancellationToken cancellationToken)
     {
-        var q = _db.FacturasCartera.AsNoTracking()
+        var q = _db.FacturasCartera
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(f => f.ClienteId == query.ClienteId
                      && (f.Estado == EstadoFacturaCartera.Abierta
                       || f.Estado == EstadoFacturaCartera.Parcial));

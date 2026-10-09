@@ -27,7 +27,11 @@ public sealed record ListarOrdenesCompraQuery(
     DateOnly? FechaDocumentoHasta = null,
     string? ReferenciaProveedor = null,
     int Page = 1,
-    int PageSize = 50) : IRequest<ListarOrdenesCompraResponse>;
+    int PageSize = 50) : IRequest<ListarOrdenesCompraResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "compras.ordenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record ListarOrdenesCompraResponse(
     IReadOnlyList<OrdenCompraResumen> Items,

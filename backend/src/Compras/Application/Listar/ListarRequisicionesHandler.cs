@@ -44,7 +44,8 @@ public sealed class ListarRequisicionesHandler
         var offset = query.Offset < 0 ? 0 : query.Offset;
         var limit = query.Limit <= 0 ? 50 : Math.Min(query.Limit, LimiteMaximo);
 
-        IQueryable<Requisicion> q = _db.Requisiciones.AsNoTracking();
+        IQueryable<Requisicion> q = _db.Requisiciones
+            .Where(x => query.SucursalesPermitidas == null || (query.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalId)).AsNoTracking();
 
         if (query.Estado is EstadoRequisicion estado)
         {

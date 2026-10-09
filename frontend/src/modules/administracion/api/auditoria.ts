@@ -1,9 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
-import {
-  adminKeys,
-  type ConsultarBitacoraFiltros,
-} from '@/modules/administracion/api/keys';
+import { adminKeys, type ConsultarBitacoraFiltros } from '@/modules/administracion/api/keys';
 import type { ConsultarBitacoraResponse } from '@/modules/administracion/api/types';
 
 /**
@@ -35,7 +32,7 @@ export function useAuditoria(filtros: ConsultarBitacoraFiltros) {
   });
 }
 
-function buildAuditoriaPath(filtros: ConsultarBitacoraFiltros): string {
+export function buildAuditoriaPath(filtros: ConsultarBitacoraFiltros): string {
   const params = new URLSearchParams();
   params.set('desde', filtros.desde);
   params.set('hasta', filtros.hasta);
@@ -63,4 +60,14 @@ function buildAuditoriaPath(filtros: ConsultarBitacoraFiltros): string {
   if (filtros.offset != null) params.set('offset', String(filtros.offset));
   if (filtros.limit != null) params.set('limit', String(filtros.limit));
   return `/api/v1/admin/auditoria?${params.toString()}`;
+}
+
+export async function exportarAuditoria(filtros: ConsultarBitacoraFiltros): Promise<Blob> {
+  const { apiFetch } = await import('@/lib/auth/api-client');
+  const response = await apiFetch(
+    buildAuditoriaPath(filtros).replace('auditoria?', 'auditoria/exportar?'),
+  );
+  if (!response.ok)
+    throw new Error('No se pudo exportar la bitácora. Revisa el rango y tus permisos.');
+  return response.blob();
 }

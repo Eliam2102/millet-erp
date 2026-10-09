@@ -1,3 +1,7 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Millet.Api.Auth.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -86,6 +90,25 @@ public sealed class DemoSesionSeedTests
                 var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
                 Assert.Equal("MID", (await compartido.Sucursales.SingleAsync(s => s.Id == alcance.SucursalId)).Clave);
                 Assert.Single(await identidad.Usuarios.Where(u => u.Email == "compras-demo@example.invalid").ToListAsync());
+                // P6: verifica el recorrido HTTP con el perfil DEMO real del seed, sin bypass territorial.
+                var usuario = await identidad.Usuarios.SingleAsync(u => u.Id == id);
+                using var client = factory.CreateClientWithIdempotency();
+                var loginRes = await client.PostAsJsonAsync("/api/dev/fake-login", new
+                {
+                    usuario.EntraOid, usuario.Email, usuario.Nombre,
+                });
+                loginRes.EnsureSuccessStatusCode();
+                var login = (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!;
+                Assert.DoesNotContain(PermisosCanonicos.ComprasOrdenesLeerTodasSucursales, login.Permisos);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.AccessToken);
+                var midId = DemoSesionSeedHostedService.Id("DEMO-OC-MID");
+                var mtyId = DemoSesionSeedHostedService.Id("DEMO-OC-MTY");
+                Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/v1/compras/ordenes/{midId}")).StatusCode);
+                Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/v1/compras/ordenes/{mtyId}")).StatusCode);
+                Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/v1/compras/requisiciones/{DemoSesionSeedHostedService.Id("DEMO-RQ-MID")}")).StatusCode);
+                var listaOc = await client.GetStringAsync("/api/v1/compras/ordenes?limit=200");
+                Assert.Contains(midId.ToString(), listaOc);
+                Assert.DoesNotContain(mtyId.ToString(), listaOc);
                 // Repetición después de operar: el seed no deshace la recepción parcial.
                 var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
                 var oc = await compras.OrdenesCompra.Include(o => o.Lineas).SingleAsync(o => o.ReferenciaProveedor == "DEMO-OC-MID");

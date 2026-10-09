@@ -17,7 +17,11 @@ public sealed record FacturasEnRevisionPorAreaQuery(
     Guid DependenciaRevisoraId,
     Guid? MotivoRevisionId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<FacturaEnRevisionResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<FacturaEnRevisionResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record FacturaEnRevisionResponse(
     Guid Id,
@@ -49,7 +53,8 @@ public sealed class FacturasEnRevisionPorAreaHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.FacturasProveedor.AsNoTracking()
+        var q = _db.FacturasProveedor
+            .Where(x => query.SucursalesPermitidas == null || query.SucursalesPermitidas.Contains(x.SucursalId)).AsNoTracking()
             .Where(f => f.EnRevision && f.DependenciaRevisoraId == query.DependenciaRevisoraId);
 
         if (query.MotivoRevisionId is Guid m)

@@ -12,7 +12,11 @@ public sealed record ListarFacturasQuery(
     Guid? ProveedorId = null,
     Guid? SucursalId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<FacturaListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<FacturaListItemResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record FacturaListItemResponse(
     Guid Id,
@@ -50,7 +54,8 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.FacturasProveedor.AsNoTracking();
+        var q = _db.FacturasProveedor
+            .Where(x => query.SucursalesPermitidas == null || query.SucursalesPermitidas.Contains(x.SucursalId)).AsNoTracking();
         if (query.Estado is EstadoPasivo e) q = q.Where(f => f.Estado == e);
         if (query.ProveedorId is Guid p) q = q.Where(f => f.ProveedorId == p);
         if (query.SucursalId is Guid s) q = q.Where(f => f.SucursalId == s);

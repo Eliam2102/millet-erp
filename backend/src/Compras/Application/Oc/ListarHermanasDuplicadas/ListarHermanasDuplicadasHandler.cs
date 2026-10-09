@@ -19,6 +19,7 @@ public sealed class ListarHermanasDuplicadasHandler
         ListarHermanasDuplicadasQuery request, CancellationToken cancellationToken)
     {
         var hermanas = await _db.OrdenesCompra
+            .Where(x => request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalDestinoId))
             .AsNoTracking()
             .Where(o => o.OcOrigenId == request.OrdenCompraOrigenId)
             .OrderByDescending(o => o.FechaDocumento)

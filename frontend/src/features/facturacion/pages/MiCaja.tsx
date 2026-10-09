@@ -34,6 +34,8 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
+import { formasPagoCaja, formasPagoVigentes } from '@/features/facturacion/lib/formas-pago-caja';
 
 /** Tipos de movimiento manual (espejo de TipoCajaMovimiento backend). */
 const TIPO_DEPOSITO = 2;
@@ -354,6 +356,8 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   const [search, setSearch] = useState('');
   const cobrables = useComprobantesCobrables(search.trim() === '' ? null : search.trim());
   const liquidar = useLiquidarRuta();
+  const catalogo = useFormasPago();
+  const disponibles = formasPagoCaja(catalogo.data ?? []);
   const idempotencyKey = useFormIdempotencyKey();
 
   // Selección: comprobanteId → forma de pago (la ruta se cobra completa por
@@ -362,6 +366,10 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
 
   const items = cobrables.data ?? [];
   const seleccionados = items.filter((c) => seleccion[c.comprobanteId] != null);
+  const vigentes = formasPagoVigentes(
+    seleccionados.map((c) => seleccion[c.comprobanteId]),
+    disponibles,
+  );
   const total = seleccionados.reduce((s, c) => s + c.total, 0);
 
   function alternar(comprobanteId: string) {
@@ -376,6 +384,10 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   function onRegistrar() {
     if (seleccionados.length === 0) {
       toast.error('Selecciona al menos un comprobante de la ruta.');
+      return;
+    }
+    if (!vigentes) {
+      toast.error('Selecciona formas de pago SAT activas para los comprobantes de la ruta.');
       return;
     }
     liquidar.mutate(
@@ -487,7 +499,7 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(ETIQUETA_FORMA).map(([clave, nombre]) => (
+                            {disponibles.map(({ claveSat: clave, descripcion: nombre }) => (
                               <SelectItem key={clave} value={clave}>
                                 {nombre}
                               </SelectItem>
@@ -516,7 +528,8 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <Button
           size="sm"
           onClick={onRegistrar}
-          disabled={liquidar.isPending || seleccionados.length === 0}
+          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes}
+          title={!vigentes ? 'Selecciona formas de pago SAT activas.' : undefined}
         >
           Registrar liquidación
         </Button>
@@ -527,14 +540,21 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
 
 function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void }) {
   const registrar = useRegistrarMovimiento();
+  const catalogo = useFormasPago();
+  const disponibles = formasPagoCaja(catalogo.data ?? []);
   const idempotencyKey = useFormIdempotencyKey();
   const [tipo, setTipo] = useState(String(TIPO_DEPOSITO));
   const [formaPago, setFormaPago] = useState('01');
+  const vigente = formasPagoVigentes([formaPago], disponibles);
   const [importe, setImporte] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [referencia, setReferencia] = useState('');
 
   function onGuardar() {
+    if (!vigente) {
+      toast.error('Selecciona una forma de pago SAT activa.');
+      return;
+    }
     const monto = Number(importe);
     if (Number.isNaN(monto) || monto <= 0) {
       toast.error('El importe debe ser mayor que cero.');
@@ -587,7 +607,7 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(ETIQUETA_FORMA).map(([clave, nombre]) => (
+            {disponibles.map(({ claveSat: clave, descripcion: nombre }) => (
               <SelectItem key={clave} value={clave}>
                 {nombre}
               </SelectItem>
@@ -628,7 +648,12 @@ function MovimientoInlineForm(props: { sesionId: string; onCerrar: () => void })
         <Button size="sm" variant="ghost" onClick={props.onCerrar}>
           Cancelar
         </Button>
-        <Button size="sm" onClick={onGuardar} disabled={registrar.isPending}>
+        <Button
+          size="sm"
+          onClick={onGuardar}
+          disabled={registrar.isPending || !vigente}
+          title={!vigente ? 'Selecciona una forma de pago SAT activa.' : undefined}
+        >
           Guardar
         </Button>
       </div>

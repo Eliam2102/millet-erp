@@ -11,7 +11,13 @@ using Millet.Tesoreria.Infrastructure.Persistence;
 namespace Millet.Tesoreria.Application.Reportes;
 
 public sealed record FlujoEfectivoReporteQuery(DateOnly Desde, DateOnly Hasta,
-    Guid? CuentaBancariaId = null, string? Moneda = null) : IRequest<ReporteJsonResponse>;
+    Guid? CuentaBancariaId = null, string? Moneda = null) : IRequest<ReporteJsonResponse>, IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "cuenta_bancaria";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 public sealed class FlujoEfectivoReporteValidator : AbstractValidator<FlujoEfectivoReporteQuery>
 {
     public FlujoEfectivoReporteValidator()
@@ -27,6 +33,7 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
     public async Task<ReporteJsonResponse> Handle(FlujoEfectivoReporteQuery query, CancellationToken cancellationToken)
     {
         var cuentas = await db.CuentasBancarias.AsNoTracking()
+            .Where(c => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(c.Id))
             .Where(c => (query.CuentaBancariaId == null || c.Id == query.CuentaBancariaId) &&
                 (query.Moneda == null || c.Moneda == query.Moneda))
             .OrderBy(c => c.Moneda).ThenBy(c => c.Banco).ToListAsync(cancellationToken);

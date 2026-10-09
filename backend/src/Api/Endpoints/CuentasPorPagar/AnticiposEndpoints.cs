@@ -51,9 +51,13 @@ public static class AnticiposEndpoints
 
         group.MapPost("/", async (
             [FromBody] CapturarAnticipoCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            if (command.OrdenCompraId is Guid ocId)
+                await scope.VerificarAsync("orden_compra", ocId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
+            else await scope.VerificarSucursalAsync(null, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/anticipos/{response.Id}", response);
         })

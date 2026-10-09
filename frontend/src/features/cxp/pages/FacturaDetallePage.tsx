@@ -1,3 +1,4 @@
+import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { AplicarDocumentoFacturaSheet } from '@/features/cxp/components/AplicarDocumentoFacturaSheet';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { useState } from 'react';
@@ -296,6 +297,7 @@ export function FacturaDetallePage() {
             </dl>
           </section>
 
+          <DocumentoAdjuntosSection base={`/api/v1/cuentas-por-pagar/facturas/${query.data.id}`} tipo="factura_proveedor" permiso="cuentas_por_pagar.facturas" />
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Líneas ({query.data.lineas.length})

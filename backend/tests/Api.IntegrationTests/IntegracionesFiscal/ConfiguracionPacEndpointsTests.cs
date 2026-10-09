@@ -18,11 +18,13 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.IntegracionesFiscal;
 
-public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private static readonly Guid EmpresaId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private const string Base = "/api/v1/integraciones/fiscal/configuracion";
     private readonly WebApplicationFactory<Program> _factory;
+    private readonly HashSet<string> _usuariosTemporales = [];
+    private readonly HashSet<Guid> _rolesTemporales = [];
 
     public ConfiguracionPacEndpointsTests(WebApplicationFactory<Program> factory)
         => _factory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
@@ -30,6 +32,31 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
             services.RemoveAll<IPacCandidatoProbe>();
             services.AddSingleton<IPacCandidatoProbe>(new StubSdk());
         }));
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        try
+        {
+            if (_usuariosTemporales.Count == 0) return;
+            using var scope = _factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var oids = _usuariosTemporales.ToArray();
+            var roles = _rolesTemporales.ToArray();
+            var usuarios = await db.Usuarios.Where(u => oids.Contains(u.EntraOid)).Select(u => u.Id).ToArrayAsync();
+            await db.UsuarioEmpresaRoles.Where(x => usuarios.Contains(x.UsuarioId)).ExecuteDeleteAsync();
+            await db.UsuarioPreferencias.Where(x => usuarios.Contains(x.UsuarioId)).ExecuteDeleteAsync();
+            await db.Usuarios.Where(x => usuarios.Contains(x.Id)).ExecuteDeleteAsync();
+            await db.RolPermisos.Where(x => roles.Contains(x.RolId)).ExecuteDeleteAsync();
+            await db.Roles.Where(x => roles.Contains(x.Id)).ExecuteDeleteAsync();
+        }
+        finally
+        {
+            await _factory.DisposeAsync();
+        }
+    }
 
     [Fact]
     public async Task Get_sin_token_retorna_401()
@@ -280,6 +307,7 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
     {
         factory ??= _factory;
         var oid = $"adm09-{Guid.NewGuid():N}";
+        _usuariosTemporales.Add(oid);
         if (permiso1 is not null)
         {
             using var scope = factory.Services.CreateScope();
@@ -287,6 +315,7 @@ public sealed class ConfiguracionPacEndpointsTests : IClassFixture<WebApplicatio
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
             var userId = Guid.CreateVersion7();
             var roleId = Guid.CreateVersion7();
+            _rolesTemporales.Add(roleId);
             db.Roles.Add(new Rol(roleId, oid, "Rol temporal ADM-09"));
             foreach (var codigo in new[] { permiso1, permiso2 }.Where(x => x is not null))
             {

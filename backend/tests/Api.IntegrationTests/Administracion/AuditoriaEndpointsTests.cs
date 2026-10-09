@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.SharedKernel.Domain.Audit;
 using Millet.SharedKernel.Infrastructure.Persistence;
@@ -24,6 +25,48 @@ public class AuditoriaEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     public AuditoriaEndpointsTests(WebApplicationFactory<Program> factory)
     {
         _factory = factory;
+    }
+
+    [Fact]
+    public async Task Exportar_csv_respeta_filtros_empresa_y_pagina_completa_y_registra_exportacion()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var marcador = $"P6-CSV-{Guid.NewGuid():N}";
+        var empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+            for (var i = 0; i < 205; i++) db.AuditLog.Add(new AuditLogEntry
+            {
+                Id = Guid.CreateVersion7(), Timestamp = DateTimeOffset.UtcNow, EmpresaId = empresa,
+                Modulo = "QA", Entidad = marcador, Operacion = "crear", Cambios = "{}",
+                ActorNombre = "P6 Actor", ActorTipo = "usuario", EntidadEtiqueta = marcador,
+                Resumen = $"Registro-exportable-{i}", CorrelationId = Guid.NewGuid(),
+            });
+            db.AuditLog.Add(new AuditLogEntry
+            {
+                Id = Guid.CreateVersion7(), Timestamp = DateTimeOffset.UtcNow, EmpresaId = Guid.NewGuid(),
+                Modulo = "QA", Entidad = marcador, Operacion = "crear", Cambios = "{}",
+                ActorNombre = "P6 Actor", ActorTipo = "usuario", EntidadEtiqueta = marcador,
+                Resumen = "OTRA-EMPRESA-NO-EXPORTAR", CorrelationId = Guid.NewGuid(),
+            });
+            await db.SaveChangesAsync();
+        }
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var response = await client.GetAsync($"{EndpointBase}/exportar?desde={hoy.AddDays(-1):yyyy-MM-dd}&hasta={hoy:yyyy-MM-dd}&recurso={marcador}&modulo=QA&accion=crear&actorTipo=usuario&q=Registro-exportable");
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);
+        Assert.NotNull(response.Content.Headers.ContentDisposition?.FileNameStar);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal(new byte[] { 239, 187, 191 }, bytes[..3]);
+        var csv = System.Text.Encoding.UTF8.GetString(bytes);
+        Assert.Equal(205, csv.Split("Registro-exportable-").Length - 1);
+        Assert.DoesNotContain("OTRA-EMPRESA", csv);
+        using var comprobacion = _factory.Services.CreateScope();
+        var audit = comprobacion.ServiceProvider.GetRequiredService<CoreDbContext>();
+        var exportaciones = await audit.AuditLog.AsNoTracking()
+            .Where(x => x.Operacion == "exportar" && x.EmpresaId == empresa).ToListAsync();
+        Assert.Contains(exportaciones, x => x.Cambios.Contains(marcador, StringComparison.Ordinal));
     }
 
     [Fact]

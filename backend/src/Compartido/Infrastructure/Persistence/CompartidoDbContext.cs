@@ -202,6 +202,8 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         tipo.HasData(
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),

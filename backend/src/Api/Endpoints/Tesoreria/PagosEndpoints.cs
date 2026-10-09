@@ -20,14 +20,20 @@ public static class PagosEndpoints
     {
         var pagos = app
             .MapGroup("/api/v1/tesoreria/pagos")
+            .WithDocumentoSucursalScope("pago_proveedor", "tesoreria.documentos", "pagoId")
             .WithTags("Tesoreria")
             .RequireAuthorization();
 
         pagos.MapPost("/", async (
             [FromBody] RegistrarPagoProveedorCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            foreach (var aplicacion in command.Aplicaciones ?? [])
+                await scope.VerificarAsync("factura_proveedor", aplicacion.FacturaProveedorId,
+                    PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/tesoreria/movimientos/{response.MovimientoId}", response);
         })

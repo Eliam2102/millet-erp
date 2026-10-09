@@ -24,6 +24,7 @@ public sealed class ListarUltimas100ComprasHandler
         var query = from linea in _db.LineasOrdenCompra.AsNoTracking()
                     join oc in _db.OrdenesCompra.AsNoTracking() on linea.OrdenCompraId equals oc.Id
                     where linea.ArticuloId == request.ArticuloId
+                        && (request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(oc.SucursalDestinoId))
                     select new { linea, oc };
 
         if (request.ProveedorId is Guid p)
