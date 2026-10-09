@@ -1,6 +1,7 @@
 using MediatR;
 using Millet.Administracion.Application.Series;
 using Millet.Administracion.Domain;
+using Millet.Facturacion.Application.Facturas;
 using Millet.Facturacion.Application.Integration;
 using Millet.Facturacion.Application.Timbrado;
 using Millet.Facturacion.Domain.Anticipos;
@@ -89,6 +90,8 @@ public sealed class EmitirFacturaAnticipoHandler
 
         // 2. Validación local de catálogos SAT (no quemar timbres en error corregible).
         await ValidarCatalogosSatAsync(command, cancellationToken);
+        await TipoCambioFactura.ValidarAsync(
+            _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
         var receptor = new DatosFiscalesReceptor(
             Rfc: command.ReceptorRfc,

@@ -213,20 +213,7 @@ internal static class CobroMostradorRegistrador
         // Única vía de escritura de Comprobante.CajaId (§6).
         comprobante.AsignarCajaCobro(sesion.CajaId);
 
-        // CXC-PR3: el comprobante conserva el RFC; el cliente solo se infiere
-        // desde agregados del propio módulo, sin consultar otros módulos.
-        Guid? clienteId = comprobante switch
-        {
-            FacturaVenta { PedidoFacturableId: Guid pedidoId } => await db.PedidosFacturables.AsNoTracking()
-                .Where(p => p.Id == pedidoId)
-                .Select(p => (Guid?)p.ClienteId)
-                .FirstOrDefaultAsync(cancellationToken),
-            FacturaAnticipo anticipo => await db.Anticipos.AsNoTracking()
-                .Where(a => a.Id == anticipo.AnticipoId)
-                .Select(a => (Guid?)a.ClienteId)
-                .FirstOrDefaultAsync(cancellationToken),
-            _ => null
-        };
+        var clienteId = await ClienteContableFacturacion.ResolverAsync(db, comprobante, cancellationToken);
 
         await eventos.PublishAsync(new CobroMostradorRegistradoIntegrationEvent(
             empresaId, ahora, cobro.Id, sesion.Id, sesion.CajaId, comprobante.Id,

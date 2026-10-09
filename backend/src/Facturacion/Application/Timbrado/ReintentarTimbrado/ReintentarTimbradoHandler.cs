@@ -166,7 +166,8 @@ public sealed class ReintentarTimbradoHandler
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
-                factura, ahora, tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, ct)),
+                factura, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, ct),
+                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, ct)),
                 ct);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda,
@@ -253,7 +254,8 @@ public sealed class ReintentarTimbradoHandler
 
         if (nc.Estado == EstadoTimbrado.Timbrado)
         {
-            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora), ct);
+            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
+                nc, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, nc, ct)), ct);
         }
 
         return nameof(NotaCredito);

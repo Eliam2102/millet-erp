@@ -135,7 +135,8 @@ public sealed class EmitirNotaCreditoBonificacionHandler
 
         // F10-PR1: evento de NC de bonificación timbrada.
         if (nc.Estado == EstadoTimbrado.Timbrado)
-            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora, factura.Id),
+            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
+                nc, ahora, factura.Id, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, cancellationToken)),
                 cancellationToken);
 
         _db.NotasCredito.Add(nc);

@@ -105,6 +105,8 @@ public sealed class EmitirFacturaVentaHandler
 
         // 2. Validación local previa de catálogos SAT.
         await ValidarCatalogosSatAsync(command, cancellationToken);
+        await TipoCambioFactura.ValidarAsync(
+            _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
         var receptor = new DatosFiscalesReceptor(
             Rfc: command.ReceptorRfc,
@@ -272,7 +274,7 @@ public sealed class EmitirFacturaVentaHandler
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
             await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
-                factura, ahora, pedido?.ClienteId,
+                factura, ahora, command.ClienteId ?? pedido?.ClienteId,
                 await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
                 cancellationToken);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(

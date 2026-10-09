@@ -136,7 +136,7 @@ public static class NcRanuraEmisor
 
         db.NotasCredito.Add(nc);
 
-        await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora, factura.Id),
+        await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora, factura.Id, clienteId: pedido.ClienteId),
             cancellationToken);
 
         return new NotaCreditoRanuraEmitida(nc.Id, nc.Folio, nc.Uuid, nc.Total);
