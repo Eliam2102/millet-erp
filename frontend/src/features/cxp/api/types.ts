@@ -222,6 +222,7 @@ export const MotivoCancelacionLabels: Record<MotivoCancelacion, string> = {
 };
 
 export interface FacturaListItem {
+  uuidCfdi?: string | null;
   id: string;
   proveedorId: string;
   sucursalId: string;
@@ -284,6 +285,7 @@ export interface FacturaDetalle {
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;
   ncAplicadasTotal: number;
+  cargosAplicadosTotal?: number;
   importePagado: number;
   saldoPendiente: number;
   motivoCancelacion: MotivoCancelacion | null;
@@ -528,6 +530,7 @@ export interface NotaCreditoListItem {
   uuidRelacionCfdi: string;
   facturaOrigenId: string | null;
   saldoPorAplicar: number;
+  cargoReconocidoPendiente?: number;
   estado: EstadoNotaCredito;
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
@@ -559,6 +562,7 @@ export interface NotaCreditoDetalle {
   facturaOrigenId: string | null;
   montoAplicado: number;
   saldoPorAplicar: number;
+  cargoReconocidoPendiente?: number;
   estado: EstadoNotaCredito;
   fechaCaptura: string;
   fechaMatch: string | null;
@@ -598,6 +602,8 @@ export interface CapturarNotaCreditoResponse {
 
 export interface VincularFacturaNotaCreditoCommand {
   facturaOrigenId: string;
+  excepcionRelacion?: boolean;
+  motivoExcepcion?: string;
 }
 
 export interface VincularFacturaNotaCreditoResponse {
@@ -673,7 +679,7 @@ export type EstadoNotaCargo = (typeof EstadoNotaCargo)[keyof typeof EstadoNotaCa
 export const EstadoNotaCargoLabels: Record<EstadoNotaCargo, string> = {
   [EstadoNotaCargo.Borrador]: 'Borrador',
   [EstadoNotaCargo.Autorizada]: 'Autorizada',
-  [EstadoNotaCargo.Aplicada]: 'Aplicada',
+  [EstadoNotaCargo.Aplicada]: 'Aplicada sin formalizar',
   [EstadoNotaCargo.Formalizada]: 'Formalizada',
   [EstadoNotaCargo.Cancelada]: 'Cancelada',
 };

@@ -71,7 +71,7 @@ public sealed class FacturasEnRevisionPorAreaHandler
                 f.FechaDocumento,
                 f.FechaVencimiento,
                 f.Total,
-                f.Total - f.AnticipoAplicadoTotal - f.NcAplicadasTotal - f.ImportePagado,
+                f.Total - f.AnticipoAplicadoTotal - f.NcAplicadasTotal - f.CargosAplicadosTotal - f.ImportePagado,
                 f.Moneda,
                 f.MotivoRevisionId!.Value,
                 f.FechaEntradaRevision!.Value,

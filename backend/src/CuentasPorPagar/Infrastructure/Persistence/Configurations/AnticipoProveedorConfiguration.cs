@@ -23,7 +23,7 @@ public sealed class AnticipoProveedorConfiguration : IEntityTypeConfiguration<An
 
         builder.Property(e => e.UuidCfdi).HasMaxLength(36).IsRequired();
         builder.Property(e => e.ProveedorId).IsRequired();
-        builder.Property(e => e.Serie).HasMaxLength(10).IsRequired();
+        builder.Property(e => e.Serie).HasMaxLength(25).IsRequired();
         builder.Property(e => e.FolioProveedor).HasMaxLength(40);
 
         builder.Property(e => e.FechaCfdi).IsRequired();

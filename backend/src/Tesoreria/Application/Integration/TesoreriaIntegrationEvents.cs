@@ -97,12 +97,14 @@ public sealed record PagoFacturaProveedorRevertidoIntegrationEvent(
 /// Efecto en CxP: <c>MarcarReppRecibido()</c> — libera el motivo de
 /// revisión <c>FALTA_REPP</c>.
 /// </summary>
+public sealed record ReppPagoDetalle(Guid PagoId, decimal Importe);
+
 public sealed record ReppProveedorRecibidoIntegrationEvent(
     Guid EmpresaId,
     DateTimeOffset OcurridoEn,
     Guid FacturaProveedorId,
     string UuidComplementoPago,
-    DateTimeOffset FechaComplemento)
+    DateTimeOffset FechaComplemento, IReadOnlyList<ReppPagoDetalle>? Pagos = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.repp-proveedor.recibido.v1";

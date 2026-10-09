@@ -38,7 +38,7 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
             .Select(p => new ProveedorBancoDto(
                 p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario,
                 p.Estatus == EstatusCatalogo.Activo,
-                p.Estatus == EstatusCatalogo.EnRevision))
+                p.Estatus == EstatusCatalogo.EnRevision, p.Rfc))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -54,7 +54,7 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
             .Select(p => new ProveedorBancoDto(
                 p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario,
                 p.Estatus == EstatusCatalogo.Activo,
-                p.Estatus == EstatusCatalogo.EnRevision))
+                p.Estatus == EstatusCatalogo.EnRevision, p.Rfc))
             .ToDictionaryAsync(p => p.Id, cancellationToken);
     }
 }

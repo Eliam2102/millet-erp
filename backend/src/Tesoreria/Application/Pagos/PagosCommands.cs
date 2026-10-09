@@ -198,7 +198,11 @@ public sealed class RegistrarPagoProveedorHandler
         foreach (var grupo in command.Aplicaciones.GroupBy(a => a.FacturaProveedorId))
         {
             if (pasivos[grupo.Key].EsInterno) continue;
+            if (pasivos[grupo.Key].PagoBloqueado)
+                throw new BusinessRuleException("PASIVO_NO_AUTORIZADO_CXP", "CxP retiró la autorización del pasivo. Debe autorizarse de nuevo antes de pagar.");
             var limite = await _elegible.ObtenerLimiteAcumuladoAsync(grupo.Key, cancellationToken);
+            if (limite <= 0)
+                throw new BusinessRuleException("PASIVO_NO_PAGABLE_CXP", "CxP no autoriza un importe pagable para esta factura. Revisa su estado y saldo en CxP.");
             var pagado = await _db.AplicacionesPagoProveedor.Where(a => a.FacturaProveedorId == grupo.Key && !a.Revertida)
                 .SumAsync(a => a.ImporteAplicado, cancellationToken);
             var disponible = Math.Max(0, limite - pagado);

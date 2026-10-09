@@ -28,12 +28,13 @@ public sealed class PagoFacturaProveedorAplicadoHandler : IRequestHandler<PagoFa
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
     private readonly ILogger<PagoFacturaProveedorAplicadoHandler> _logger;
+    private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper? _pasivos;
 
     public PagoFacturaProveedorAplicadoHandler(
         CuentasPorPagarDbContext db, IClock clock, IPublisher publisher,
-        ILogger<PagoFacturaProveedorAplicadoHandler> logger)
+        ILogger<PagoFacturaProveedorAplicadoHandler> logger, Integration.Mappers.PasivoAutorizadoParaPagoMapper? pasivos = null)
     {
-        _db = db; _clock = clock; _publisher = publisher; _logger = logger;
+        _db = db; _clock = clock; _publisher = publisher; _logger = logger; _pasivos = pasivos;
     }
 
     public async Task Handle(PagoFacturaProveedorAplicadoCommand request, CancellationToken cancellationToken)
@@ -57,10 +58,21 @@ public sealed class PagoFacturaProveedorAplicadoHandler : IRequestHandler<PagoFa
             return;
         }
 
+        var estadoAnterior = factura.Estado;
         factura.RegistrarPago(
             monto: p.Monto,
             ahora: new DateTimeOffset(p.FechaPago.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)),
-            observacion: $"Pago Tesorería {p.PagoId} ref={p.ReferenciaBancaria ?? "-"}");
+            observacion: $"Pago Tesorería {p.PagoId} ref={p.ReferenciaBancaria ?? "-"}", confirmadoPorTesoreria: true);
+
+        var pagoLocal = await _db.PagosProveedorLocal.FirstOrDefaultAsync(x => x.PagoId == p.PagoId, cancellationToken);
+        if (pagoLocal is null) _db.PagosProveedorLocal.Add(new(factura.EmpresaId, factura.Id, p.PagoId, p.Monto, p.FechaPago));
+        else pagoLocal.Confirmar(p.Monto, p.FechaPago);
+        var pagosActuales = await _db.PagosProveedorLocal.Where(x => x.FacturaProveedorId == factura.Id && !x.Revertido).ToListAsync(cancellationToken);
+        pagosActuales = pagosActuales.Concat(_db.PagosProveedorLocal.Local.Where(x => x.FacturaProveedorId == factura.Id && !x.Revertido)).DistinctBy(x => x.PagoId).ToList();
+        factura.ActualizarReppRecibido(pagosActuales.Count > 0 && pagosActuales.All(x => x.Importe > 0 && x.CubiertoRepp >= x.Importe), _clock.UtcNow);
+
+        if (estadoAnterior == EstadoPasivo.EnRevision && factura.Estado == EstadoPasivo.Autorizada && _pasivos is not null)
+            await _pasivos.Handle(new FacturaProveedorAutorizadaDomainEvent(factura.EmpresaId, factura.Id, factura.OrdenCompraId, _clock.UtcNow), cancellationToken);
 
         // Propaga el acumulado pagado hacia Compras (sub-estado Pago de la
         // OC → cierre automático). El mapper publica al outbox en la misma
@@ -133,6 +145,8 @@ public sealed class PagoFacturaProveedorRevertidoHandler : IRequestHandler<PagoF
                 ahora: new DateTimeOffset(p.FechaReversa.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)),
                 observacion: $"Reverso pago Tesorería ({p.Motivo})");
 
+            var pagoLocal = await _db.PagosProveedorLocal.FirstOrDefaultAsync(x => x.PagoId == p.PagoOriginalId, cancellationToken);
+            pagoLocal?.Revertir();
             // Propaga el acumulado reducido hacia Compras: RegistrarPago
             // es un set — la OC baja su sub-estado Pago y reabre si estaba
             // Cerrada (F5-PR1 ya lo soporta).
@@ -165,12 +179,13 @@ public sealed class ReppProveedorRecibidoHandler : IRequestHandler<ReppProveedor
 
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
+    private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper? _pasivos;
     private readonly ILogger<ReppProveedorRecibidoHandler> _logger;
 
     public ReppProveedorRecibidoHandler(
-        CuentasPorPagarDbContext db, IClock clock, ILogger<ReppProveedorRecibidoHandler> logger)
+        CuentasPorPagarDbContext db, IClock clock, ILogger<ReppProveedorRecibidoHandler> logger, Integration.Mappers.PasivoAutorizadoParaPagoMapper? pasivos = null)
     {
-        _db = db; _clock = clock; _logger = logger;
+        _db = db; _clock = clock; _logger = logger; _pasivos = pasivos;
     }
 
     public async Task Handle(ReppProveedorRecibidoCommand request, CancellationToken cancellationToken)
@@ -184,9 +199,25 @@ public sealed class ReppProveedorRecibidoHandler : IRequestHandler<ReppProveedor
             .FirstOrDefaultAsync(f => f.Id == p.FacturaProveedorId, cancellationToken);
         if (factura is not null)
         {
-            factura.MarcarReppRecibido();
+            foreach (var cobertura in p.Pagos ?? [])
+            {
+                var pago = await _db.PagosProveedorLocal.FirstOrDefaultAsync(x => x.PagoId == cobertura.PagoId, cancellationToken);
+                if (pago is null)
+                {
+                    pago = new(factura.EmpresaId, factura.Id, cobertura.PagoId, 0, DateOnly.FromDateTime(p.FechaComplemento.UtcDateTime));
+                    _db.PagosProveedorLocal.Add(pago);
+                }
+                if (pago.FacturaProveedorId != factura.Id) throw new InvalidOperationException("El REPP no corresponde a la factura del pago.");
+                pago.Cubrir(cobertura.Importe);
+            }
+            var pagos = await _db.PagosProveedorLocal.Where(x => x.FacturaProveedorId == factura.Id && !x.Revertido).ToListAsync(cancellationToken);
+            pagos = pagos.Concat(_db.PagosProveedorLocal.Local.Where(x => x.FacturaProveedorId == factura.Id && !x.Revertido)).DistinctBy(x => x.PagoId).ToList();
+            // Eventos históricos sin desglose no acreditan pagos posteriores ni liberan por sí solos FALTA_REPP.
+            factura.ActualizarReppRecibido(pagos.Count > 0 && pagos.All(x => x.Importe > 0 && x.CubiertoRepp >= x.Importe), _clock.UtcNow);
         }
 
+        if (factura?.Estado == EstadoPasivo.Autorizada && factura.ReppRecibido && _pasivos is not null)
+            await _pasivos.Handle(new FacturaProveedorAutorizadaDomainEvent(factura.EmpresaId, factura.Id, factura.OrdenCompraId, _clock.UtcNow), cancellationToken);
         _db.EventosProcesados.Add(new EventoProcesado(
             eventoId: request.EventId,
             eventoTipo: EventType,

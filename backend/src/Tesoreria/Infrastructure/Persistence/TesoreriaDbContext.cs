@@ -56,6 +56,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
     public DbSet<DepositoConfirmacion> DepositosConfirmacion => Set<DepositoConfirmacion>();
 
     /// <summary>REPP recibidos de proveedor — registro inmutable (PR-8).</summary>
+    public DbSet<ReppPagoProveedor> ReppPagosProveedor => Set<ReppPagoProveedor>();
     public DbSet<ReppProveedorRecibido> ReppsProveedorRecibidos => Set<ReppProveedorRecibido>();
 
     /// <summary>Marcas de idempotencia para integration events consumidos (PR-3/PR-7).</summary>
@@ -85,6 +86,13 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new CorridaPagoLineaConfiguration());
         modelBuilder.ApplyConfiguration(new DepositoConfirmacionConfiguration());
         modelBuilder.ApplyConfiguration(new ReppProveedorRecibidoConfiguration());
+        modelBuilder.Entity<ReppPagoProveedor>(b =>
+        {
+            b.ToTable("repp_pagos_proveedor"); b.HasKey(x => x.Id); b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Importe).HasPrecision(18, 4); b.HasIndex(x => new { x.ReppId, x.PagoId }).IsUnique();
+            b.HasOne<ReppProveedorRecibido>().WithMany().HasForeignKey(x => x.ReppId);
+            b.HasOne<AplicacionPagoProveedor>().WithMany().HasForeignKey(x => x.PagoId);
+        });
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());
     }
 }

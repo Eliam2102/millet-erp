@@ -49,6 +49,15 @@ public sealed class NotaCreditoProveedor : BaseEntity, IPerteneceAEmpresa, IFisc
 
     /// <summary>FK a la factura origen una vez se resuelva. NULL en EnEspera (A19).</summary>
     public Guid? FacturaOrigenId { get; private set; }
+    public Guid? AnticipoOrigenId { get; private set; }
+    public string? MotivoExcepcionRelacion { get; private set; }
+    public void RegistrarExcepcionRelacion(string motivo) => MotivoExcepcionRelacion = motivo.Trim();
+    public void VincularAnticipoOrigen(Guid id, DateTimeOffset ahora)
+    {
+        if (TipoRelacionCfdi != TipoRelacionCfdi.AmortizacionAnticipo || Estado != EstadoNotaCredito.EnEspera)
+            throw new BusinessRuleException("NC_ANTICIPO_NO_VINCULABLE", "Solo una NC tipo 07 en espera puede vincularse al anticipo.");
+        AnticipoOrigenId = id; Estado = EstadoNotaCredito.Abierta; FechaMatch = ahora;
+    }
 
     /// <summary>Monto ya aplicado al saldo de la factura origen (F6-PR2). 0 mientras esté Abierta o EnEspera.</summary>
     public decimal MontoAplicado { get; private set; }
@@ -224,7 +233,8 @@ public sealed class NotaCreditoProveedor : BaseEntity, IPerteneceAEmpresa, IFisc
 
     public void Cancelar(string motivo, DateTimeOffset ahora)
     {
-        if (Estado is EstadoNotaCredito.Aplicada)
+        if (FechaCancelacion is not null) throw new BusinessRuleException("DOCUMENTO_YA_CANCELADO", "El documento ya está cancelado.");
+        if (Estado is EstadoNotaCredito.Aplicada || MontoAplicado > 0)
         {
             throw new BusinessRuleException(
                 "NC_APLICADA_NO_CANCELABLE",

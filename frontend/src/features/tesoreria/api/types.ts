@@ -334,6 +334,8 @@ export interface DepositoConfirmacionResponse {
 
 /** Mirror de `ReppPendienteResponse` (GET /tesoreria/repp-pendientes, TES-PR8). */
 export interface ReppPendienteResponse {
+  pagoId: string;
+  importePendiente: number;
   facturaProveedorId: string;
   proveedorId: string;
   proveedorClave: string | null;

@@ -30,7 +30,7 @@ public sealed record FacturaListItemResponse(
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042); null si el
     // id no resuelve — el FE degrada al GUID abreviado.
-    string? ProveedorNombre = null);
+    string? ProveedorNombre = null, string? UuidCfdi = null);
 
 public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery, PagedResponse<FacturaListItemResponse>>
 {
@@ -70,14 +70,14 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
                 f.FechaDocumento,
                 f.FechaVencimiento,
                 f.Total,
-                f.Total - f.AnticipoAplicadoTotal - f.NcAplicadasTotal - f.ImportePagado,
+                f.Total - f.AnticipoAplicadoTotal - f.NcAplicadasTotal - f.CargosAplicadosTotal - f.ImportePagado,
                 f.Moneda,
                 f.Estado,
                 f.OrdenCompraId,
                 f.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null))
+                null, f.UuidCfdi))
             .ToListAsync(cancellationToken);
 
         // Enriquecer etiqueta del proveedor en batch sobre los ids DISTINTOS

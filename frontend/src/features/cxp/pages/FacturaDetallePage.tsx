@@ -1,3 +1,4 @@
+import { AplicarDocumentoFacturaSheet } from '@/features/cxp/components/AplicarDocumentoFacturaSheet';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
@@ -49,6 +50,9 @@ export function FacturaDetallePage() {
   const puedeLiberarRevision = useHasPermission(
     PermisosCanonicos.CuentasPorPagarFacturasLiberarRevision,
   );
+  const [aplicacion, setAplicacion] = useState<'anticipo' | 'nc' | null>(null);
+  const puedeAplicarAnticipo = useHasPermission(PermisosCanonicos.CuentasPorPagarAnticiposCapturar);
+  const puedeAplicarNc = useHasPermission(PermisosCanonicos.CuentasPorPagarNotasCreditoCapturar);
   const [cancelarAbierto, setCancelarAbierto] = useState(false);
   const [enviarRevisionAbierto, setEnviarRevisionAbierto] = useState(false);
   const [liberarRevisionAbierto, setLiberarRevisionAbierto] = useState(false);
@@ -140,6 +144,10 @@ export function FacturaDetallePage() {
             className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2"
             data-print="hidden"
           >
+            {query.data.estado !== EstadoPasivo.Cancelada && query.data.estado !== EstadoPasivo.Pagada && query.data.saldoPendiente > 0 && <>
+              {puedeAplicarAnticipo && <Button variant="secondary" size="sm" onClick={() => setAplicacion('anticipo')}>Aplicar anticipo</Button>}
+              {puedeAplicarNc && <Button variant="secondary" size="sm" onClick={() => setAplicacion('nc')}>Aplicar NC</Button>}
+            </>}
             {query.data.estado === EstadoPasivo.Capturada && puedeAutorizar && (
               <Button
                 variant="default"
@@ -151,7 +159,7 @@ export function FacturaDetallePage() {
                 Autorizar
               </Button>
             )}
-            {query.data.estado === EstadoPasivo.Capturada &&
+            {(query.data.estado === EstadoPasivo.Capturada || query.data.estado === EstadoPasivo.Autorizada) &&
               !query.data.enRevision &&
               puedeEnviarRevision && (
                 <Button variant="outline" size="sm" onClick={() => setEnviarRevisionAbierto(true)}>
@@ -277,6 +285,7 @@ export function FacturaDetallePage() {
                 m={query.data.moneda}
               />
               <Importe label="NC aplicadas" v={query.data.ncAplicadasTotal} m={query.data.moneda} />
+              <Importe label="Cargos aplicados" v={query.data.cargosAplicadosTotal ?? 0} m={query.data.moneda} />
               <Importe label="Pagado" v={query.data.importePagado} m={query.data.moneda} />
               <Importe
                 label="Saldo pendiente"
@@ -332,6 +341,7 @@ export function FacturaDetallePage() {
             <EvidenciasList facturaId={query.data.id} />
           </section>
 
+          <AplicarDocumentoFacturaSheet factura={query.data} tipo={aplicacion} onClose={() => setAplicacion(null)} />
           <CancelarFacturaSheet
             open={cancelarAbierto}
             onOpenChange={setCancelarAbierto}

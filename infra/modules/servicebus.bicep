@@ -472,7 +472,7 @@ resource cxpEventsTesoreriaSubscriptionFilter 'Microsoft.ServiceBus/namespaces/t
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.deposito-viaticos.esperado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.pasivo.retirado-de-pago.v1\', \'cuentas_por_pagar.deposito-viaticos.esperado.v1\')'
       compatibilityLevel: 20
     }
   }
