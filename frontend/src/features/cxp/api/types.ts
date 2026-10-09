@@ -73,7 +73,12 @@ export interface CfdiListItem {
 }
 
 /** Respuesta de GET /cfdis/{id}/parseado — XML re-parseado on-demand. */
+export interface NotaCreditoAdjunta { cfdiRecibidoId: string; lineas: { lineaOcId: string; base: number }[] }
+export interface RetencionCfdi { impuesto: string; tasa: number | null; importe: number }
+
 export interface CfdiParseado {
+  descuentos?: number;
+  retencionesDetalle?: RetencionCfdi[] | null;
   id: string;
   uuidCfdi: string;
   total: number;
@@ -246,6 +251,9 @@ export interface FacturaLinea {
 }
 
 export interface FacturaDetalle {
+  elegible: number;
+  retenido: number;
+  retencionesDetalle?: RetencionCfdi[] | null;
   id: string;
   empresaId: string;
   cfdiRecibidoId: string | null;
@@ -296,6 +304,8 @@ export interface CapturarFacturaConOcLinea {
 }
 
 export interface CapturarFacturaConOcCommand {
+  notasCredito?: NotaCreditoAdjunta[];
+  retencionesDetalle?: RetencionCfdi[] | null;
   ordenCompraId: string;
   proveedorId: string;
   sucursalId: string;
@@ -317,6 +327,7 @@ export interface CapturarFacturaConOcCommand {
 }
 
 export interface CapturarFacturaConOcResponse {
+  motivoCancelacionTexto?: string | null;
   id: string;
   estado: EstadoPasivo;
   diferenciaContraOc: number;

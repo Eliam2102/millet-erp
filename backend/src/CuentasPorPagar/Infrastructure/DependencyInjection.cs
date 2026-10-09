@@ -137,6 +137,8 @@ public static class DependencyInjection
             Millet.CuentasPorPagar.Domain.Ports.TarjetaCredito.IConciliacionAutomaticaService,
             TarjetaCredito.ConciliacionAutomaticaService>();
 
+        services.AddScoped<Application.FacturaProveedor.Elegibilidad.ElegibilidadFacturaService>();
+        services.AddScoped<Application.Integration.Mappers.PasivoAutorizadoParaPagoMapper>();
         return services;
     }
 }

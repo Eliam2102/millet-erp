@@ -180,7 +180,7 @@ public class EventosContablesG16Tests
     }
 
     [Fact]
-    public async Task Entrada_valorada_por_diferencia_de_precio_publica_dimensiones()
+    public async Task D18_diferencia_de_precio_no_crea_movimientos_ni_eventos_de_valoracion()
     {
         await using var db = await NuevaDbAsync();
         var ocId = Guid.NewGuid();
@@ -194,17 +194,15 @@ public class EventosContablesG16Tests
         await db.SaveChangesAsync();
         events.Eventos.Clear();
 
-        await new DiferenciaPrecioFacturaDetectadaHandler(db, events,
+        var movimientosAntes = await db.Movimientos.CountAsync();
+        await new DiferenciaPrecioFacturaDetectadaHandler(db,
                 NullLogger<DiferenciaPrecioFacturaDetectadaHandler>.Instance)
             .Handle(new DiferenciaPrecioFacturaDetectadaCommand(Guid.NewGuid(),
                 new DiferenciaPrecioFacturaDetectadaPayload(EmpresaId, DateTimeOffset.UtcNow,
                     Guid.NewGuid(), ocId, ArticuloId, 5m, 11m, 10m, 1m, 5m)), default);
 
-        var e = events.Unico<EntradaInventarioValoradaIntegrationEvent>();
-        e.AlmacenId.Should().Be(AlmacenId);
-        e.SucursalId.Should().Be(SucursalId);
-        e.Lineas.Single().SubAlmacenId.Should().Be(SubId);
-        e.Lineas.Single().UbicacionId.Should().Be(BinId);
+        events.Eventos.Should().BeEmpty();
+        (await db.Movimientos.CountAsync()).Should().Be(movimientosAntes);
     }
 
     [Theory]

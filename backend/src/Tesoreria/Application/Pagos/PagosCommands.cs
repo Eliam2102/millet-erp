@@ -75,6 +75,7 @@ public sealed class RegistrarPagoProveedorHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IPeriodoContablePort _periodoContable;
     private readonly IProveedorBancoReadPort _proveedorBancoPort;
+    private readonly IElegibleFacturaReadPort _elegible;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
 
@@ -84,6 +85,7 @@ public sealed class RegistrarPagoProveedorHandler
         ICurrentUserContext currentUser,
         IPeriodoContablePort periodoContable,
         IProveedorBancoReadPort proveedorBancoPort,
+        IElegibleFacturaReadPort elegible,
         IIntegrationEventPublisher publisher,
         IClock clock)
     {
@@ -92,12 +94,23 @@ public sealed class RegistrarPagoProveedorHandler
         _currentUser = currentUser;
         _periodoContable = periodoContable;
         _proveedorBancoPort = proveedorBancoPort;
+        _elegible = elegible;
         _publisher = publisher;
         _clock = clock;
     }
 
     public async Task<PagoProveedorResponse> Handle(
         RegistrarPagoProveedorCommand command, CancellationToken cancellationToken)
+    {
+        if (!_db.Database.IsRelational()) return await RegistrarAsync(command, cancellationToken);
+        PagoProveedorResponse? resultado = null;
+        // Serializa pagos manuales: el saldo local y los pagos aún no proyectados se comprueban bajo el mismo lock.
+        await Millet.SharedKernel.Infrastructure.Persistence.PostgresAdvisoryLock.ExecuteAsync(_db, 0x50335F5041474F,
+            async ct => resultado = await RegistrarAsync(command, ct), cancellationToken);
+        return resultado!;
+    }
+
+    private async Task<PagoProveedorResponse> RegistrarAsync(RegistrarPagoProveedorCommand command, CancellationToken cancellationToken)
     {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
@@ -182,6 +195,17 @@ public sealed class RegistrarPagoProveedorHandler
             throw new BusinessRuleException("PAGO_CROSS_MONEDA",
                 $"La cuenta es {cuenta.Moneda} y hay pasivos en {string.Join(", ", monedasDistintas)} (RN-3; cross-moneda fuera del MVP).");
 
+        foreach (var grupo in command.Aplicaciones.GroupBy(a => a.FacturaProveedorId))
+        {
+            if (pasivos[grupo.Key].EsInterno) continue;
+            var limite = await _elegible.ObtenerLimiteAcumuladoAsync(grupo.Key, cancellationToken);
+            var pagado = await _db.AplicacionesPagoProveedor.Where(a => a.FacturaProveedorId == grupo.Key && !a.Revertida)
+                .SumAsync(a => a.ImporteAplicado, cancellationToken);
+            var disponible = Math.Max(0, limite - pagado);
+            if (grupo.Sum(a => a.Importe) > disponible)
+                throw new BusinessRuleException("PAGO_EXCEDE_ELEGIBLE",
+                    $"Solo {disponible:N2} es elegible para pago de la factura {grupo.Key}. El resto está retenido hasta recibir la mercancía; registra como máximo ese importe.");
+        }
         var ahora = _clock.UtcNow;
         var monto = command.Aplicaciones.Sum(a => a.Importe);
 

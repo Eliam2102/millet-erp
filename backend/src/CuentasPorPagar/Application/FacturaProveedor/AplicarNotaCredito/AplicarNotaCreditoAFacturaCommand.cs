@@ -37,8 +37,11 @@ public sealed class AplicarNotaCreditoAFacturaHandler
     : IRequestHandler<AplicarNotaCreditoAFacturaCommand, AplicarNotaCreditoAFacturaResponse>
 {
     private readonly CuentasPorPagarDbContext _db;
+    private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
+    private readonly Millet.SharedKernel.Application.IClock _clock;
 
-    public AplicarNotaCreditoAFacturaHandler(CuentasPorPagarDbContext db) { _db = db; }
+    public AplicarNotaCreditoAFacturaHandler(CuentasPorPagarDbContext db, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos, Millet.SharedKernel.Application.IClock clock)
+    { _db = db; _pasivos = pasivos; _clock = clock; }
 
     public async Task<AplicarNotaCreditoAFacturaResponse> Handle(
         AplicarNotaCreditoAFacturaCommand command, CancellationToken cancellationToken)
@@ -78,6 +81,9 @@ public sealed class AplicarNotaCreditoAFacturaHandler
         nc.AplicarMonto(command.Monto);
         factura.AplicarNotaCredito(command.Monto);
 
+        if (factura.Estado == EstadoPasivo.Autorizada)
+            await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
+                factura.EmpresaId, factura.Id, factura.OrdenCompraId, _clock.UtcNow), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new AplicarNotaCreditoAFacturaResponse(
