@@ -175,7 +175,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('cuentas_por_pagar.factura.registrada.v1', 'cuentas_por_pagar.factura.cancelada.v1', 'cuentas_por_pagar.factura.autorizada.v1', 'cuentas_por_pagar.factura.rechazada-por-tolerancia.v1', 'cuentas_por_pagar.factura.diferencia-precio-detectada.v1', 'cuentas_por_pagar.nota-credito.registrada.v1', 'cuentas_por_pagar.nota-cargo.autorizada.v1', 'cuentas_por_pagar.anticipo.capturado.v1', 'cuentas_por_pagar.pasivo.autorizado-para-pago.v1', 'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1')"
+                        "SqlExpression": "user.EventType IN ('cuentas_por_pagar.factura.registrada.v1', 'cuentas_por_pagar.factura.cancelada.v1', 'cuentas_por_pagar.factura.autorizada.v1', 'cuentas_por_pagar.factura.pago-aplicado.v1', 'cuentas_por_pagar.factura.rechazada-por-tolerancia.v1', 'cuentas_por_pagar.factura.diferencia-precio-detectada.v1', 'cuentas_por_pagar.nota-credito.registrada.v1', 'cuentas_por_pagar.nota-cargo.autorizada.v1', 'cuentas_por_pagar.anticipo.capturado.v1', 'cuentas_por_pagar.pasivo.autorizado-para-pago.v1', 'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1')"
                       }
                     }
                   }
