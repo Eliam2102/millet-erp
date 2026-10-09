@@ -144,7 +144,7 @@ public class ListarLineasConteoHandlerTests
 
         if (capturar)
         {
-            conteo.Iniciar();
+            conteo.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
             lineaCapturable.Capturar(30m, capturadoPor: Guid.NewGuid());
         }
 

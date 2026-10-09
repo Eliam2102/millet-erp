@@ -311,6 +311,22 @@ public sealed class CompartidoDbContext : BaseDbContext
         parametro.Property(x => x.Modulo).HasMaxLength(50);
         parametro.Property(x => x.Descripcion).HasMaxLength(500).IsRequired();
 
+        var umbralesTime = new DateTimeOffset(2026, 10, 8, 0, 0, 0, TimeSpan.Zero);
+        parametro.HasData(
+            SeedParametro("00000006-0001-0000-0000-000000000005",
+                "almacen.conteo-variacion-pct-recuento", "5", TipoParametro.Numero,
+                "Exige recuento cuando la diferencia en cantidad supera este porcentaje. Aplica a conteos nuevos al iniciarlos.", umbralesTime, "almacen"),
+            SeedParametro("00000006-0001-0000-0000-000000000006",
+                "almacen.conteo-variacion-valor-recuento", "1000", TipoParametro.Numero,
+                "Exige recuento cuando el valor de la diferencia supera este importe en MXN. Aplica a conteos nuevos al iniciarlos.", umbralesTime, "almacen"),
+            SeedParametro("00000006-0001-0000-0000-000000000007",
+                "almacen.conteo-nivel1-maximo", "1000", TipoParametro.Numero,
+                "Importe máximo en MXN que puede aprobar el almacenista, incluido este monto. Debe ser menor que el máximo del Nivel 2.", umbralesTime, "almacen"),
+            SeedParametro("00000006-0001-0000-0000-000000000008",
+                "almacen.conteo-nivel2-maximo", "10000", TipoParametro.Numero,
+                "Importe máximo en MXN que puede aprobar el supervisor, incluido este monto. Por encima aprueba el Jefe de Almacén y se avisa a Finanzas.", umbralesTime, "almacen")
+        );
+
         // Seeds default (F-Admin-PR7.1): 4 parámetros del sistema.
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         parametro.HasData(
@@ -525,7 +541,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         impuesto.HasIndex(x => new { x.Activo, x.VigenteDesde, x.VigenteHasta });
     }
 
-    private static object SeedFormaPago(string id, string clave, string descripcion, DateTimeOffset seedTime) => new
+    private static object SeedFormaPago(string id, string clave, string descripcion, DateTimeOffset seedTime, string? modulo = null) => new
     {
         Id = Guid.Parse(id),
         ClaveSat = clave,

@@ -208,3 +208,46 @@ describe('<ParametrosPage> — smoke', () => {
     );
   });
 });
+
+const UMBRALES = [
+  ['almacen.conteo-variacion-pct-recuento', '5', 'Diferencia en cantidad que exige recuento (%)'],
+  ['almacen.conteo-variacion-valor-recuento', '1000', 'Diferencia en valor que exige recuento (MXN)'],
+  ['almacen.conteo-nivel1-maximo', '1000', 'Máximo para aprobación del Nivel 1 (MXN)'],
+  ['almacen.conteo-nivel2-maximo', '10000', 'Máximo para aprobación del Nivel 2 (MXN)'],
+] as const;
+
+it('muestra umbrales globales con nombres accesibles y guarda Nivel 2 sin desplegar', async () => {
+  const items = UMBRALES.map(([clave, valor], i) => ({
+    id: `umbral-${i}`, clave, valor, tipo: 1, modulo: 'almacen',
+    descripcion: 'Aplica al iniciar un conteo.', version: 1,
+  }));
+  let guardado = '';
+  mswServer.use(
+    http.get('*/api/v1/admin/parametros', () => HttpResponse.json({ items })),
+    http.patch('*/api/v1/admin/parametros/almacen.conteo-nivel2-maximo', async ({ request }) => {
+      const body = await request.json() as { valor: string };
+      guardado = body.valor;
+      return HttpResponse.json({ ...items[3], valor: body.valor, version: 2 });
+    }),
+  );
+  render(<ParametrosPage />, { wrapper: createQueryWrapper() });
+  for (const [, valor, nombre] of UMBRALES) {
+    expect(await screen.findByLabelText(nombre)).toHaveValue(Number(valor));
+  }
+  expect(screen.getByRole('note')).toHaveTextContent('los conteos en curso conservan sus valores');
+  const input = screen.getByLabelText(UMBRALES[3][2]);
+  fireEvent.change(input, { target: { value: '15000' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Guardar' })[3]);
+  await waitFor(() => expect(guardado).toBe('15000'));
+});
+
+it('impide editar los umbrales sin admin.parametros.editar', async () => {
+  useAuthStore.setState({ permisos: [PermisosCanonicos.AdminParametrosLeer] });
+  mswServer.use(http.get('*/api/v1/admin/parametros', () => HttpResponse.json({ items: [{
+    id: 'umbral-1', clave: UMBRALES[0][0], valor: '5', tipo: 1,
+    modulo: 'almacen', descripcion: 'Diferencia para recuento.', version: 1,
+  }] })));
+  render(<ParametrosPage />, { wrapper: createQueryWrapper() });
+  expect(await screen.findByLabelText(UMBRALES[0][2])).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeInTheDocument();
+});

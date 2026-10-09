@@ -1,0 +1,2 @@
+npx tsc --noEmit -p tsconfig.json: código de salida 0, sin diagnósticos.
+npm run -s typecheck:test: código de salida 0, sin diagnósticos.
