@@ -2,7 +2,7 @@ using Millet.SharedKernel.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.CuentasPorPagar.Domain.FacturaProveedor;
 /// <summary>Proyección del pago y de su cobertura fiscal; PagoId es la aplicación de Tesorería.</summary>
-public sealed class PagoProveedorLocal : BaseEntity, IPerteneceAEmpresa
+public sealed class PagoProveedorLocal : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid FacturaProveedorId { get; private set; }

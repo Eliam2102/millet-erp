@@ -1,6 +1,6 @@
 using Millet.SharedKernel.Domain;
 namespace Millet.Tesoreria.Domain.Repp;
-public sealed class ReppPagoProveedor : BaseEntity, IPerteneceAEmpresa
+public sealed class ReppPagoProveedor : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
     public Guid ReppId { get; private set; }
