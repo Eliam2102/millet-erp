@@ -115,6 +115,7 @@ export function CuentaDetallePage({ id }: { id: string }) {
           <Dato k="Naturaleza">{cuenta.naturaleza ?? (esRubro ? '—' : PENDIENTE)}</Dato>
           <Dato k="Tipo">{esRubro ? 'Rubro de reporte (no recibe movimientos)' : cuenta.tipo === null ? PENDIENTE : ETIQUETA_TIPO[cuenta.tipo]}</Dato>
           <Dato k="Estatus">{cuenta.estatus}</Dato>
+          <Dato k="No afectable por asiento manual">{cuenta.noAfectableManual ? 'Sí' : 'No'}</Dato>
           <Dato k="Cuenta colectiva">{ETIQUETA_COLECTIVA[cuenta.cuentaControl] ?? cuenta.cuentaControl}</Dato>
           {!esRubro && cuenta.padreId === null && (
             <Dato k="Rubro de reporte">

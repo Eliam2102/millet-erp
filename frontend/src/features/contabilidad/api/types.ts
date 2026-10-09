@@ -10,7 +10,7 @@ export type CuentaControl = 'Ninguna' | 'Clientes' | 'Deudores' | 'Proveedores' 
 /** P24: un rubro es una agrupación de reporte fuera del árbol de niveles. */
 export type ClaseCuenta = 'Cuenta' | 'Rubro';
 export type OrigenMovimiento = 'Manual' | 'AuxiliarCxC' | 'AuxiliarCxP';
-export type MotivoRechazo = 'NoExiste' | 'Titulo' | 'Inactiva' | 'ControlSoloAuxiliar' | 'PendienteValidacion' | 'Rubro';
+export type MotivoRechazo = 'NoExiste' | 'Titulo' | 'Inactiva' | 'ControlSoloAuxiliar' | 'PendienteValidacion' | 'Rubro' | 'NoAfectableManual';
 export type FiltroEstatus = '' | 'Activo' | 'Inactivo';
 
 export interface OrigenCuenta {
@@ -35,6 +35,7 @@ export interface Cuenta {
   estatus: string;
   activa: boolean;
   cuentaControl: CuentaControl;
+  noAfectableManual: boolean;
   codigoAgrupador: string | null;
   grupoReporte: string | null;
   pendienteValidacion: boolean;
@@ -84,6 +85,7 @@ export interface CuentaBody {
   naturaleza: Naturaleza | null;
   tipo: TipoCuenta | null;
   cuentaControl: CuentaControl;
+  noAfectableManual: boolean;
   codigoAgrupador: string | null;
   grupoReporte: string | null;
   rubroId: string | null;
@@ -167,6 +169,7 @@ export interface LoteImportacion {
 }
 
 export interface ResultadoAplicar {
+  solicitudId?: string | null;
   idempotente: boolean;
   lote: LoteImportacion | null;
 }
@@ -179,4 +182,20 @@ export interface CuerpoImportacion {
   columnas?: string[];
   filas?: (string | null)[][];
   huella?: string;
+}
+
+export interface CambioCuenta { antes: Cuenta | null; despues: Cuenta }
+export interface SolicitudCatalogo {
+  id: string;
+  operacion: 'Alta' | 'Cambio' | 'Baja' | 'Reactivacion' | 'Importacion';
+  estado: 'Pendiente' | 'Autorizada' | 'Rechazada';
+  preparadaPorId: string;
+  preparadaPor: string;
+  preparadaEn: string;
+  resueltaPorId: string | null;
+  resueltaPor: string | null;
+  resueltaEn: string | null;
+  motivoRechazo: string | null;
+  version: number;
+  cambios: CambioCuenta[];
 }

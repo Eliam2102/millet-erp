@@ -1,4 +1,9 @@
 using System.Net.Http.Headers;
+using System.Net;
+using System.Runtime.CompilerServices;
+using Millet.Contabilidad.Application.Catalogo;
+using Millet.Contabilidad.Domain;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
@@ -9,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Contabilidad;
@@ -26,6 +32,9 @@ internal sealed class EmpresaDecorada(ICurrentEmpresaContext inner) : ICurrentEm
 /// <summary>Utilidades compartidas de las pruebas de Contabilidad (HTTP real + Postgres real). Datos FIX-*.</summary>
 internal static class ContabTestKit
 {
+    private sealed record IdentidadPrueba(Guid UsuarioId, Guid RolId);
+    private static readonly ConditionalWeakTable<HttpClient, IdentidadPrueba> Identidades = new();
+    private static readonly ConditionalWeakTable<HttpClient, WebApplicationFactory<Program>> Fabricas = new();
     public static readonly Guid EmpresaBootstrapId = Guid.Parse("00000003-0000-0000-0000-000000000001");
     public static AsyncLocal<Guid?> Sobre => EmpresaDecorada.Sobre;
     public const string Base = "/api/v1/contabilidad";
@@ -50,7 +59,8 @@ internal static class ContabTestKit
 
     public static async Task<JsonElement> Json(HttpResponseMessage r)
     {
-        using var doc = await JsonDocument.ParseAsync(await r.Content.ReadAsStreamAsync());
+        // HttpContent conserva los bytes; leer su stream otra vez empieza al final.
+        using var doc = JsonDocument.Parse(await r.Content.ReadAsByteArrayAsync());
         return doc.RootElement.Clone();
     }
 
@@ -65,6 +75,7 @@ internal static class ContabTestKit
         });
         resp.EnsureSuccessStatusCode();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await Json(resp)).GetProperty("accessToken").GetString());
+        Fabricas.Add(client, f);
         return client;
     }
 
@@ -84,7 +95,24 @@ internal static class ContabTestKit
         (await admin.PutAsJsonAsync($"/api/v1/identidad/roles/{rolId}/permisos", new { PermisoIds = ids })).EnsureSuccessStatusCode();
         (await admin.PostAsJsonAsync($"/api/v1/identidad/usuarios/{usuarioId}/asignaciones",
             new { EmpresaId = EmpresaBootstrapId, RolId = rolId })).EnsureSuccessStatusCode();
-        return await LoginAsync(f, oid, email);
+        var autenticado = await LoginAsync(f, oid, email);
+        Identidades.Add(autenticado, new(usuarioId, rolId));
+        return autenticado;
+    }
+
+    public static async Task LimpiarClienteAsync(HttpClient cliente)
+    {
+        if (!Identidades.TryGetValue(cliente, out var identidad)) return;
+        using var scope = Fabricas.GetValue(cliente, _ => throw new InvalidOperationException()).Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        await db.UsuarioEmpresaRoles.Where(a => a.UsuarioId == identidad.UsuarioId).ExecuteDeleteAsync();
+        await db.UsuarioPreferencias.Where(a => a.UsuarioId == identidad.UsuarioId).ExecuteDeleteAsync();
+        await db.Usuarios.Where(u => u.Id == identidad.UsuarioId).ExecuteDeleteAsync();
+        await db.RolPermisos.Where(p => p.RolId == identidad.RolId).ExecuteDeleteAsync();
+        await db.Roles.Where(r => r.Id == identidad.RolId).ExecuteDeleteAsync();
+        Identidades.Remove(cliente);
+        cliente.Dispose();
     }
 
     public static async Task<HttpResponseMessage> Send(HttpClient c, HttpMethod m, string url, object? body = null, string? ifMatch = null)
@@ -92,7 +120,7 @@ internal static class ContabTestKit
         using var req = new HttpRequestMessage(m, url);
         if (body is not null) req.Content = JsonContent.Create(body);
         if (ifMatch is not null) req.Headers.TryAddWithoutValidation("If-Match", ifMatch);
-        return await c.SendAsync(req);
+        return await AutorizarRespuesta(c, await c.SendAsync(req), url, m);
     }
 
     public static string Etag(JsonElement cuenta) => $"\"{cuenta.GetProperty("version").GetInt32()}\"";
@@ -100,9 +128,54 @@ internal static class ContabTestKit
     public static async Task<JsonElement> CrearCuenta(HttpClient c, string codigo, string nombre = "FIX cuenta", Guid? padreId = null,
         string? naturaleza = "Deudora", string? tipo = "Afectable", string control = "Ninguna")
     {
-        var r = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo, nombre, padreId, naturaleza, tipo, cuentaControl = control });
+        var r = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo, nombre, padreId, naturaleza, tipo, cuentaControl = control });
         Assert.Equal(System.Net.HttpStatusCode.Created, r.StatusCode);
         return await Json(r);
+    }
+
+    // Las suites anteriores prueban reglas del catálogo vigente. Este helper recorre explícitamente
+    // solicitud -> otro usuario DAF -> lectura vigente. P9SolicitudesHttpTests usa HTTP crudo para el contrato 202.
+    public static async Task<HttpResponseMessage> AutorizarRespuesta(HttpClient c, HttpResponseMessage respuesta, string url, HttpMethod metodo)
+    {
+        if (respuesta.StatusCode != HttpStatusCode.Accepted) return respuesta;
+        var propuesta = await Json(respuesta);
+        if (!propuesta.TryGetProperty("solicitudId", out var sid) || sid.ValueKind != JsonValueKind.String) return respuesta;
+        var f = Fabricas.GetValue(c, _ => throw new InvalidOperationException("Cliente sin fábrica de prueba."));
+        var daf = await ClienteConPermisosAsync(f,
+            PermisosCanonicos.ContabilidadCatalogoLeer, PermisosCanonicos.ContabilidadCatalogoAutorizar);
+        try
+        {
+            var solicitud = await Json(await daf.GetAsync($"{Base}/solicitudes/{sid.GetGuid()}"));
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{Base}/solicitudes/{sid.GetGuid()}/resolver")
+            { Content = JsonContent.Create(new { autorizar = true }) };
+            req.Headers.TryAddWithoutValidation("If-Match", Etag(solicitud));
+            var autorizada = await daf.SendAsync(req);
+            if (autorizada.StatusCode != HttpStatusCode.OK) return autorizada;
+            var resolucion = await Json(autorizada);
+            object resultado;
+            if (url.EndsWith("/importaciones", StringComparison.Ordinal))
+                resultado = new { idempotente = false, lote = resolucion.GetProperty("lote") };
+            else resultado = await Obtener(c, propuesta.GetProperty("id").GetGuid());
+            var r = new HttpResponseMessage(metodo == HttpMethod.Post && (url.EndsWith("/cuentas", StringComparison.Ordinal)
+                || url.EndsWith("/importaciones", StringComparison.Ordinal)) ? HttpStatusCode.Created : HttpStatusCode.OK)
+            { Content = JsonContent.Create(resultado) };
+            if (resultado is JsonElement cuenta)
+            {
+                r.Headers.TryAddWithoutValidation("ETag", Etag(cuenta));
+                r.Headers.Location = new Uri($"{Base}/cuentas/{cuenta.GetProperty("id").GetGuid()}", UriKind.Relative);
+            }
+            return r;
+        }
+        finally { await LimpiarClienteAsync(daf); }
+    }
+
+    public static async Task<CuentaResponse> CrearVigente(IServiceProvider sp, CrearCuentaCommand command)
+    {
+        var db = sp.GetRequiredService<ContabilidadDbContext>();
+        var handler = ActivatorUtilities.CreateInstance<CrearCuentaHandler>(sp);
+        var propuesta = await handler.AplicarAsync(command, default);
+        await db.SaveChangesAsync();
+        return CuentaResponse.De(await db.Cuentas.SingleAsync(c => c.Id == propuesta.Id));
     }
 
     public static async Task<JsonElement> Obtener(HttpClient c, Guid id)
@@ -188,6 +261,7 @@ internal static class ContabTestKit
         using var scope = sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ContabilidadDbContext>();
         var like = $"FIX-{sufijo}-%";
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.solicitudes_catalogo WHERE comando_json::text LIKE {0} OR cambios_json::text LIKE {0}", $"%FIX-{sufijo}%");
         await db.Database.ExecuteSqlRawAsync("UPDATE contabilidad.cuentas_contables SET rubro_id = NULL WHERE codigo LIKE {0}", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.cuentas_contables_uso WHERE cuenta_id IN (SELECT id FROM contabilidad.cuentas_contables WHERE codigo LIKE {0})", like);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM contabilidad.cuentas_contables_origen WHERE cuenta_id IN (SELECT id FROM contabilidad.cuentas_contables WHERE codigo LIKE {0})", like);
@@ -199,5 +273,8 @@ internal static class ContabTestKit
 
 internal static class Ext
 {
+    public static async Task<HttpResponseMessage> PostCatalogoYAutorizarAsync<T>(this HttpClient c, string url, T body) =>
+        await ContabTestKit.AutorizarRespuesta(c, await c.PostAsJsonAsync(url, body), url, HttpMethod.Post);
+
     public static T Also<T>(this T x, Action<T> a) { a(x); return x; }
 }

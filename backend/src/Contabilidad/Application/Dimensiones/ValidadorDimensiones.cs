@@ -33,7 +33,7 @@ public sealed class ValidadorDimensiones(
 
         // 1. Cuenta (mismas reglas que el puerto de CON-01).
         var cuenta = await cuentas.ValidarParaMovimientoAsync(m.CuentaId, m.Origen, ct);
-        if (!cuenta.Valida) errores.Add(new("CONTAB_DIM_CUENTA_NO_VALIDA", MensajeCuenta(cuenta), "cuentaId"));
+        if (!cuenta.Valida) errores.Add(new(cuenta.Codigo ?? "CONTAB_DIM_CUENTA_NO_VALIDA", MensajeCuenta(cuenta), "cuentaId"));
 
         // 2. Tipo de documento.
         var tipo = await db.TiposDocumento.AsNoTracking().FirstOrDefaultAsync(t => t.Id == m.TipoDocumentoId, ct);
@@ -276,6 +276,7 @@ public sealed class ValidadorDimensiones(
             MotivoRechazoCuenta.Inactiva => $"La cuenta {c} está dada de baja.",
             MotivoRechazoCuenta.PendienteValidacion => $"La cuenta {c} está pendiente de validación por Contabilidad (sin naturaleza).",
             MotivoRechazoCuenta.Titulo => $"La cuenta {c} acumula (tiene cuentas debajo) y no recibe movimientos.",
+            MotivoRechazoCuenta.NoAfectableManual => $"La cuenta {c} no admite asientos manuales. Utilice el movimiento del módulo correspondiente.",
             MotivoRechazoCuenta.ControlSoloAuxiliar => $"La cuenta {c} es colectiva: solo se afecta desde su módulo.",
             _ => $"La cuenta {c} no acepta movimientos.",
         };

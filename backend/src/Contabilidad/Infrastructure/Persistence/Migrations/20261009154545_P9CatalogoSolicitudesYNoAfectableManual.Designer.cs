@@ -3,6 +3,7 @@ using System;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Millet.Contabilidad.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ContabilidadDbContext))]
-    partial class ContabilidadDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009154545_P9CatalogoSolicitudesYNoAfectableManual")]
+    partial class P9CatalogoSolicitudesYNoAfectableManual
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -881,11 +884,6 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("cambios_json");
 
-                    b.Property<string>("CodigoAlta")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("codigo_alta");
-
                     b.Property<string>("ComandoJson")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -977,11 +975,6 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_solicitudes_catalogo");
-
-                    b.HasIndex("EmpresaId", "CodigoAlta")
-                        .IsUnique()
-                        .HasDatabaseName("ux_p9_alta_pendiente")
-                        .HasFilter("estado = 'Pendiente' AND codigo_alta IS NOT NULL");
 
                     b.HasIndex("EmpresaId", "HuellaImportacion")
                         .IsUnique()

@@ -396,6 +396,7 @@ export const PermisosCanonicos = {
   // Contabilidad (backend F1-CON-01). Namespace GUID 0000000d-*.
   ContabilidadCatalogoLeer: 'contabilidad.catalogo.leer',
   ContabilidadCatalogoAdministrar: 'contabilidad.catalogo.administrar',
+  ContabilidadCatalogoAutorizar: 'contabilidad.catalogo.autorizar',
   ContabilidadCatalogoImportar: 'contabilidad.catalogo.importar',
   // F1-CON-02: dimensiones contables (0000000d-0002) y movimientos (0000000d-0003).
   ContabilidadDimensionesLeer: 'contabilidad.dimensiones.leer',

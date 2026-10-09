@@ -31,19 +31,20 @@ public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClass
             var puerto = scope.ServiceProvider.GetRequiredService<ICuentaContableReadPort>();
 
             // P19: la raíz (nivel 1) acumula; sus hijas sin hijas son afectables (el tipo enviado se ignora).
-            var titulo = await m.Send(Nueva(Codigo(suf, "1"), TipoCuenta.Afectable));
+            var titulo = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1"), TipoCuenta.Afectable));
             Assert.Equal(TipoCuenta.Titulo, titulo.Tipo);
             var raiz = titulo.Id;
-            var ok = await m.Send(Nueva(Codigo(suf, "1.1"), TipoCuenta.Titulo, padre: raiz));
+            var ok = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.1"), TipoCuenta.Titulo, padre: raiz));
             Assert.Equal(TipoCuenta.Afectable, ok.Tipo);
-            var inactiva = await m.Send(Nueva(Codigo(suf, "1.3"), padre: raiz));
-            await m.Send(new DesactivarCuentaCommand(inactiva.Id, inactiva.Version));
-            var sinTipo = await m.Send(Nueva(Codigo(suf, "1.4"), tipo: null, padre: raiz));
-            var pendienteNat = await m.Send(Nueva(Codigo(suf, "1.5"), nat: null, padre: raiz));
-            var clientes = await m.Send(Nueva(Codigo(suf, "1.6"), control: CuentaControl.Clientes, padre: raiz));
-            var proveedores = await m.Send(Nueva(Codigo(suf, "1.7"), control: CuentaControl.Proveedores, padre: raiz));
-            var deudores = await m.Send(Nueva(Codigo(suf, "1.8"), control: CuentaControl.Deudores, padre: raiz));
-            var acreedores = await m.Send(Nueva(Codigo(suf, "1.9"), control: CuentaControl.Acreedores, padre: raiz));
+            var inactiva = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.3"), padre: raiz));
+            await ActivatorUtilities.CreateInstance<DesactivarCuentaHandler>(scope.ServiceProvider).AplicarAsync(new DesactivarCuentaCommand(inactiva.Id, inactiva.Version), default);
+            await scope.ServiceProvider.GetRequiredService<Millet.Contabilidad.Infrastructure.Persistence.ContabilidadDbContext>().SaveChangesAsync();
+            var sinTipo = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.4"), tipo: null, padre: raiz));
+            var pendienteNat = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.5"), nat: null, padre: raiz));
+            var clientes = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.6"), control: CuentaControl.Clientes, padre: raiz));
+            var proveedores = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.7"), control: CuentaControl.Proveedores, padre: raiz));
+            var deudores = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.8"), control: CuentaControl.Deudores, padre: raiz));
+            var acreedores = await CrearVigente(scope.ServiceProvider, Nueva(Codigo(suf, "1.9"), control: CuentaControl.Acreedores, padre: raiz));
 
             // acepta activa + afectable (por código y por id; el código se normaliza)
             var v = await puerto.ValidarParaMovimientoAsync(Codigo(suf, "1.1").ToLowerInvariant(), OrigenMovimiento.Manual, default);
@@ -90,7 +91,7 @@ public class PuertoLecturaTests(WebApplicationFactory<Program> factory) : IClass
             Guid id;
             using (var a = factory.ConEmpresa(EmpresaBootstrapId))
             using (var sa = a.Services.CreateScope())
-                id = (await sa.ServiceProvider.GetRequiredService<IMediator>().Send(Nueva(Codigo(suf, "1")))).Id;
+                id = (await CrearVigente(sa.ServiceProvider, Nueva(Codigo(suf, "1")))).Id;
 
             using var b = factory.ConEmpresa(Guid.NewGuid());
             using var sb = b.Services.CreateScope();

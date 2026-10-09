@@ -29,7 +29,7 @@ export function ConfirmarEstatusCuenta({ cuenta, accion, onClose }: Props) {
     setMensaje(null);
     cambiar.mutate({ id: cuenta.id, accion }, {
       onSuccess: () => {
-        toast.success(baja ? 'Cuenta desactivada' : 'Cuenta reactivada');
+        toast.success('Solicitud pendiente de autorización del DAF');
         onClose();
       },
       onError: (error) => {
@@ -47,6 +47,7 @@ export function ConfirmarEstatusCuenta({ cuenta, accion, onClose }: Props) {
           <AlertDialogTitle>{baja ? 'Desactivar' : 'Reactivar'} cuenta</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-2">
+              <p>El cambio se aplicará después de la autorización del DAF.</p>
               <p className="font-medium">{cuenta.codigo} — {cuenta.nombre}</p>
               {baja ? (
                 <ul className="list-disc space-y-1 pl-5">
@@ -67,7 +68,7 @@ export function ConfirmarEstatusCuenta({ cuenta, accion, onClose }: Props) {
         <AlertDialogFooter>
           <AlertDialogCancel disabled={cambiar.isPending}>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmar(); }} disabled={cambiar.isPending}>
-            {cambiar.isPending ? 'Aplicando…' : baja ? 'Desactivar' : 'Reactivar'}
+            {cambiar.isPending ? 'Preparando…' : 'Solicitar autorización'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

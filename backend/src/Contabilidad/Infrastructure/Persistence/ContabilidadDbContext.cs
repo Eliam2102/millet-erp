@@ -18,6 +18,7 @@ public sealed class ContabilidadDbContext : BaseDbContext
         DbContextOptions<ContabilidadDbContext> options,
         ICurrentEmpresaContext empresaContext) : base(options, empresaContext) { }
 
+    public DbSet<SolicitudCatalogo> SolicitudesCatalogo => Set<SolicitudCatalogo>();
     public DbSet<CuentaContable> Cuentas => Set<CuentaContable>();
     public DbSet<CuentaContableOrigen> Origenes => Set<CuentaContableOrigen>();
     public DbSet<ImportacionCatalogo> Importaciones => Set<ImportacionCatalogo>();
