@@ -27,6 +27,8 @@ public sealed class ReceptorFiscalTests
     [InlineData("CN01", "601", false)]
     [InlineData("P01", "601", false)]
     [InlineData("G03", "999", false)]
+    [InlineData("G02", "616", true)]
+    [InlineData("G01", "616", false)]
     public void Compatibilidad_respeta_matriz(string uso, string regimen, bool esperado) =>
         CompatibilidadUsoRegimen.EsCompatible(uso, regimen).Should().Be(esperado);
 
@@ -38,6 +40,35 @@ public sealed class ReceptorFiscalTests
     public void CA2_6_CA6_4_U19b(string cp, string regimen, string campo) =>
         ValidacionReceptorFiscal.Validar(Receptor with { CodigoPostal = cp, RegimenFiscal = regimen }, "97000", true, true)
             .Should().Contain(e => e.Campo == campo);
+
+    [Fact]
+    public void CN01_se_rechaza_por_ser_exclusivo_de_nomina() =>
+        ValidacionReceptorFiscal.Validar(Receptor with { Rfc = "DEMO010101AB1", RegimenFiscal = "605", UsoCfdi = "CN01" }, "97000", true, true)
+            .Should().ContainSingle(e => e.Campo == "usoCfdi" && e.Motivo.Contains("nómina"));
+
+    [Theory]
+    [InlineData("AAA010101AAA", "605", "S01")]   // moral con régimen exclusivo de física
+    [InlineData("DEMO010101AB1", "601", "S01")]  // física con régimen exclusivo de moral
+    public void Regimen_debe_corresponder_al_tipo_de_persona(string rfc, string regimen, string uso) =>
+        ValidacionReceptorFiscal.Validar(Receptor with { Rfc = rfc, RegimenFiscal = regimen, UsoCfdi = uso }, "97000", true, true)
+            .Should().ContainSingle(e => e.Campo == "regimenFiscal");
+
+    [Fact]
+    public void Persona_moral_no_puede_usar_deducciones_personales() =>
+        ValidacionReceptorFiscal.Validar(Receptor with { UsoCfdi = "D01" }, "97000", true, true)
+            .Should().Contain(e => e.Campo == "usoCfdi" && e.Motivo.Contains("personas físicas"));
+
+    [Theory]
+    [InlineData("AAA010101AAA")]
+    [InlineData("DEMO010101AB1")]
+    public void Regimen_626_aplica_a_ambas_personas(string rfc) =>
+        ValidacionReceptorFiscal.Validar(Receptor with { Rfc = rfc, RegimenFiscal = "626", UsoCfdi = "G03" }, "97000", true, true)
+            .Should().BeEmpty();
+
+    [Fact]
+    public void G02_con_616_para_persona_fisica_pasa() =>
+        ValidacionReceptorFiscal.Validar(Receptor with { Rfc = "DEMO010101AB1", RegimenFiscal = "616", UsoCfdi = "G02" }, "97000", true, true)
+            .Should().BeEmpty();
 
     [Fact]
     public void U19a_publico_general_valido_pasa() =>
@@ -83,7 +114,8 @@ public sealed class ReceptorFiscalTests
 
     [Fact]
     public void Rep_valida_CP01_en_lugar_del_uso_original() =>
-        ValidacionReceptorFiscal.Validar(Receptor with { RegimenFiscal = "605", UsoCfdi = "G03" }, "97000", true, true, esRep: true)
+        // 605 es de persona física (c_RegimenFiscal): RFC de 13 caracteres.
+        ValidacionReceptorFiscal.Validar(Receptor with { Rfc = "DEMO010101AB1", RegimenFiscal = "605", UsoCfdi = "G03" }, "97000", true, true, esRep: true)
             .Should().BeEmpty();
 
     [Theory]
