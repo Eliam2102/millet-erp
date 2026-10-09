@@ -131,7 +131,7 @@ public sealed class FiscalCfdiReceiverAdapterTests
         var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
-        var db = new CuentasPorPagarDbContext(options, new BypassedEmpresaContext());
+        var db = new CuentasPorPagarDbContext(options, new BypassedEmpresaContext(), new P8.PeriodoAbiertoStub(), new P8.PeriodoAbiertoStub());
         var clock = new FakeClock(Ahora);
         var parser = parserFactory?.Invoke() ?? new CannedParser();
         var blob = new StubCfdiBlobStorage();

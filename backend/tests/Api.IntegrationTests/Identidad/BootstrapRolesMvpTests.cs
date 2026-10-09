@@ -179,6 +179,7 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
 
         Assert.Contains(bancariosVerId, cxpPermisoIds);
         Assert.Contains(validarId, cxpPermisoIds);
+        Assert.Contains(Guid.Parse("00000004-0009-0000-0000-000000000008"), cxpPermisoIds);
         Assert.Contains(proveedoresGestionarId, cxpPermisoIds);
         Assert.DoesNotContain(bancariosEditarId, cxpPermisoIds);
         Assert.DoesNotContain(catalogosAdministrarId, cxpPermisoIds);
@@ -196,6 +197,7 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains(proveedoresGestionarId, tesoreriaPermisoIds);
         Assert.DoesNotContain(catalogosAdministrarId, tesoreriaPermisoIds);
         Assert.DoesNotContain(validarId, tesoreriaPermisoIds);
+        Assert.DoesNotContain(Guid.Parse("00000004-0009-0000-0000-000000000008"), tesoreriaPermisoIds);
 
         // admin-datos-maestros: contiene bancarios-ver y NO bancarios-editar (H5 / V44)
         var datosMaestrosId = await GetRolIdByCodigoAsync(client, "admin-datos-maestros");
@@ -207,6 +209,7 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
 
         Assert.Contains(bancariosVerId, datosMaestrosPermisoIds);
         Assert.DoesNotContain(bancariosEditarId, datosMaestrosPermisoIds);
+        Assert.DoesNotContain(Guid.Parse("00000004-0009-0000-0000-000000000008"), datosMaestrosPermisoIds);
     }
 
     [Fact]

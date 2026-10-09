@@ -121,12 +121,14 @@ public static class DependencyInjection
         services.AddScoped<IDependenciaRevisoraReadPort, NoOpDependenciaRevisoraReadPort>();
         services.AddScoped<ITipoCambioReadPort, NoOpTipoCambioReadPort>();
         services.AddScoped<IProveedorReadPort, Adapters.ProveedorReadPortAdapter>();
+        services.AddScoped<Domain.Ports.Administracion.IToleranciaGeneralReadPort, Adapters.ToleranciaGeneralReadPortAdapter>();
         services.AddScoped<IArticuloReadPort, NoOpArticuloReadPort>();
         // F5-PR1: ComprasOcReadPort y AlmacenRecepcionReadPort tienen
         // adapter real ahora; los NoOp* se conservan en código pero
         // dejan de wirearse en runtime.
         services.AddScoped<IComprasOcReadPort, Compras.ComprasOcReadPortAdapter>();
         services.AddScoped<IConceptoContableReadPort, NoOpConceptoContableReadPort>();
+        services.AddScoped<IPeriodoContablePort, Adapters.PeriodoContableAdapter>();
         services.AddScoped<IAlmacenRecepcionReadPort, Almacen.AlmacenRecepcionReadPortAdapter>();
 
         // F7-PR5: parser de estados de cuenta TC + algoritmo de conciliación.
@@ -137,6 +139,9 @@ public static class DependencyInjection
             Millet.CuentasPorPagar.Domain.Ports.TarjetaCredito.IConciliacionAutomaticaService,
             TarjetaCredito.ConciliacionAutomaticaService>();
 
+        services.AddScoped<Application.Reportes.Comun.SaldosHistoricos>();
+        services.AddScoped<Application.FacturaProveedor.Elegibilidad.ElegibilidadFacturaService>();
+        services.AddScoped<Application.Integration.Mappers.PasivoAutorizadoParaPagoMapper>();
         return services;
     }
 }

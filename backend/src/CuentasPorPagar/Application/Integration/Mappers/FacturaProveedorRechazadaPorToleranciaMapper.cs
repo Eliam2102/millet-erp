@@ -25,7 +25,8 @@ public sealed class FacturaProveedorRechazadaPorToleranciaMapper
             TotalFactura: notification.TotalFactura,
             TotalOc: notification.TotalOc,
             Diferencia: notification.Diferencia,
-            ToleranciaAplicada: notification.ToleranciaAplicada);
+            ToleranciaAplicada: notification.ToleranciaAplicada,
+            Motivo: notification.Motivo);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

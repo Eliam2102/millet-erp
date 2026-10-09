@@ -36,14 +36,15 @@ public sealed class OcRecepcionRegistradaHandler : IRequestHandler<OcRecepcionRe
 
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
+    private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
     private readonly ILogger<OcRecepcionRegistradaHandler> _logger;
 
     public OcRecepcionRegistradaHandler(
         CuentasPorPagarDbContext db,
         IClock clock,
-        ILogger<OcRecepcionRegistradaHandler> logger)
+        ILogger<OcRecepcionRegistradaHandler> logger, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos)
     {
-        _db = db; _clock = clock; _logger = logger;
+        _db = db; _clock = clock; _logger = logger; _pasivos = pasivos;
     }
 
     public async Task Handle(OcRecepcionRegistradaCommand request, CancellationToken cancellationToken)
@@ -95,6 +96,11 @@ public sealed class OcRecepcionRegistradaHandler : IRequestHandler<OcRecepcionRe
             procesadoEn: ahora,
             detalle: $"Recepcion={p.RecepcionId} OC={p.OrdenCompraId} FacturaPendiente={p.FacturaPendiente}"));
 
+        var facturas = await _db.FacturasProveedor.Where(f => f.OrdenCompraId == p.OrdenCompraId &&
+            f.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada).ToListAsync(cancellationToken);
+        foreach (var f in facturas)
+            await _pasivos.PublicarAsync(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
+                f.EmpresaId, f.Id, f.OrdenCompraId, ahora), cancellationToken, considerarRecepcionesLocales: true);
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

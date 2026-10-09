@@ -3,7 +3,6 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useParams } from '@tanstack/react-router';
 import {
-  AlertTriangle,
   ArrowLeft,
   Calculator,
   Check,
@@ -67,9 +66,9 @@ import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { VariacionBadge } from '@/features/almacen/components/VariacionBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
+import { montoNetoConteo } from '@/features/almacen/lib/monto-neto-conteo';
 
 const FROM = '/_app/almacen/inventarios/$id/aprobacion' as const;
-const UMBRAL_MUY_GRANDE_MXN = 10_000;
 
 /**
  * <c>P10 — Aprobación de conteo</c> (doc 07 §FE-F5-PR2, doc 00 §A7-A8).
@@ -109,15 +108,10 @@ export function AprobacionConteoPage() {
 
   const aplicarIdempotencyKey = useFormIdempotencyKey();
 
-  const totalVariacionAbs = useMemo(() => {
-    const items = comparacionQuery.data ?? [];
-    return items.reduce(
-      (acc, l) => acc + Math.abs(l.variacionValorMxn ?? 0),
-      0,
-    );
-  }, [comparacionQuery.data]);
-
-  const tieneVariacionMuyGrande = totalVariacionAbs >= UMBRAL_MUY_GRANDE_MXN;
+  const montoNeto = useMemo(
+    () => montoNetoConteo(comparacionQuery.data ?? []),
+    [comparacionQuery.data],
+  );
 
   function ejecutarEvaluar() {
     if (!id) return;
@@ -232,16 +226,11 @@ export function AprobacionConteoPage() {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Variación total absoluta:{' '}
+              Monto neto del ajuste:{' '}
               <span className="font-mono font-semibold">
-                {formatearMonto(totalVariacionAbs)}
+                {formatearMonto(montoNeto)}
               </span>
-              {tieneVariacionMuyGrande && (
-                <span className="ml-2 inline-flex items-center gap-1 text-rose-700">
-                  <AlertTriangle className="h-3 w-3" />
-                  Excede umbral $10K — requiere aprobación elevada (A8)
-                </span>
-              )}
+
             </p>
 
             <div className="flex flex-wrap gap-2">
@@ -327,13 +316,10 @@ export function AprobacionConteoPage() {
               Confirmas tu aprobación. Todas las líneas deben estar resueltas
               (recuento o aprobadas individualmente). El conteo pasará a
               estado <b>Aprobado</b> y podrás aplicarlo después.
-              {tieneVariacionMuyGrande && (
-                <span className="mt-2 block text-rose-700">
-                  <b>Variación total ≥ $10K</b>: este conteo cae en el
-                  umbral A8 de "aprobación elevada". Confirma que tienes el
-                  rol/permiso adecuado antes de continuar.
-                </span>
-              )}
+              <span className="mt-2 block text-ink-secondary">
+                El nivel requerido depende del monto neto y de los umbrales
+                guardados al iniciar este conteo. El Nivel 3 genera un aviso a Finanzas.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -820,7 +806,7 @@ function RechazarConteoDialog({
 function manejarError(error: unknown) {
   if (esApiError(error)) {
     toast.error(error.problem.title, {
-      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      description: error.problem.detail ?? (error.traceId ? `Código: ${error.traceId}` : undefined),
     });
     return;
   }

@@ -20,6 +20,9 @@ const PERSONA_ID = '019e70cf-aaaa-bbbb-cccc-00000ace19c6';
 
 function salida(over: Partial<SalidaDetalle> = {}): SalidaDetalle {
   return {
+    pendienteRegularizacion: false,
+    fechaLimiteRegularizacion: null,
+    vencido: false,
     id: 's-1',
     folio: 'M-SAL2026-000002',
     fechaMovimiento: '2026-06-01',

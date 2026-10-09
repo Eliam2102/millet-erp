@@ -5,13 +5,13 @@ namespace Millet.CuentasPorPagar.UnitTests.Reportes;
 /// <summary>
 /// F8-PR1: tests del cálculo de buckets de antigüedad de saldos.
 /// Convención del módulo: días = fechaCorte - fechaVencimiento;
-/// negativo (no vencida) cae en 0-30.
+/// negativo (no vencida) cae en por vencer.
 /// </summary>
 public sealed class BucketsAntiguedadTests
 {
     [Theory]
-    [InlineData(-30, "b0_30")]
-    [InlineData(-1,  "b0_30")]
+    [InlineData(-30, "por_vencer")]
+    [InlineData(-1,  "por_vencer")]
     [InlineData(0,   "b0_30")]
     [InlineData(1,   "b0_30")]
     [InlineData(30,  "b0_30")]
@@ -31,13 +31,13 @@ public sealed class BucketsAntiguedadTests
     }
 
     [Fact]
-    public void CalcularBucket_factura_no_vencida_cae_en_0_30()
+    public void CalcularBucket_factura_no_vencida_cae_en_por_vencer()
     {
         var corte = new DateOnly(2026, 5, 31);
         var vencimientoFuturo = new DateOnly(2026, 6, 15); // 15 días en el futuro
 
         var bucket = BucketsAntiguedad.CalcularBucket(vencimientoFuturo, corte);
-        bucket.Should().Be(BucketsAntiguedad.Bucket0a30);
+        bucket.Should().Be(BucketsAntiguedad.BucketPorVencer);
     }
 
     [Fact]

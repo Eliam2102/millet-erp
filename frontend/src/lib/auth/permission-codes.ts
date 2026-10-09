@@ -123,7 +123,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.adjuntos-subir',
   DatosMaestrosProveedoresAdjuntosBaja:
     'datos_maestros.proveedores.adjuntos-baja',
-  // Validación de proveedores por CxP (F1-ADM-05 G1.1).
+  // Tolerancia y validación de proveedores por CxP (G1.13 / G1.1).
+  DatosMaestrosProveedoresToleranciaEditar:
+    'datos_maestros.proveedores.tolerancia-editar',
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
@@ -285,6 +287,9 @@ export const PermisosCanonicos = {
   CuentasPorPagarProveedoresAjustarTolerancia:
     'cuentas_por_pagar.proveedores.ajustar-tolerancia',
 
+  CuentasPorPagarRetencionesAdministrar: 'cuentas_por_pagar.retenciones.administrar',
+  CuentasPorPagarRetencionesLeer: 'cuentas_por_pagar.retenciones.leer',
+  CuentasPorPagarReportesLeerTodasSucursales: 'cuentas_por_pagar.reportes.leer-todas-sucursales',
   CuentasPorPagarReportesCartera: 'cuentas_por_pagar.reportes.cartera',
   CuentasPorPagarReportesAntiguedad: 'cuentas_por_pagar.reportes.antiguedad',
   CuentasPorPagarReportesDiot: 'cuentas_por_pagar.reportes.diot',

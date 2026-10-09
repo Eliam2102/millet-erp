@@ -49,6 +49,7 @@ public class ParametrosEndpointsTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("system.formato-fecha", claves);
         Assert.Contains("system.redondeo-monetario", claves);
         Assert.Contains("system.idioma-default", claves);
+        Assert.Contains("system.dias-festivos", claves);
     }
 
     [Fact]
@@ -99,6 +100,18 @@ public class ParametrosEndpointsTests : IClassFixture<WebApplicationFactory<Prog
             $"{EndpointBase}/no.existe.parametro",
             new { Valor = "x" });
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("[\"2026-02-30\"]")]
+    public async Task P1_Festivos_invalidos_retornan_422_sin_modificar_parametro(string valor)
+    {
+        using var client = await CreateSuperAdminClientAsync();
+        using var response = await client.PatchAsJsonAsync($"{EndpointBase}/system.dias-festivos", new { Valor = valor });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.Equal("CALENDARIO_FESTIVOS_INVALIDOS", body.GetProperty("code").GetString());
     }
 
     private async Task<HttpClient> CreateSuperAdminClientAsync()

@@ -72,19 +72,13 @@ export const useReporteAntiguedadSaldos = makeReporteHook<{
   fechaCorte?: string;
   proveedorId?: string;
   sucursalId?: string;
-}>(
-  'antiguedad-saldos',
-  '/api/v1/cuentas-por-pagar/reportes/antiguedad-saldos',
-);
+}>('antiguedad-saldos', '/api/v1/cuentas-por-pagar/reportes/antiguedad-saldos');
 
 // Antigüedad de anticipos
 export const useReporteAntiguedadAnticipos = makeReporteHook<{
   fechaCorte?: string;
   proveedorId?: string;
-}>(
-  'antiguedad-anticipos',
-  '/api/v1/cuentas-por-pagar/reportes/antiguedad-anticipos',
-);
+}>('antiguedad-anticipos', '/api/v1/cuentas-por-pagar/reportes/antiguedad-anticipos');
 
 // Cartera por categoría de revisión
 export const useReporteCartera = makeReporteHook<{
@@ -100,10 +94,7 @@ export const useReporteMovimientosTcPendientes = makeReporteHook<{
   usuarioQueUsoId?: string;
   fechaDesde?: string;
   fechaHasta?: string;
-}>(
-  'movimientos-tc-pendientes',
-  '/api/v1/cuentas-por-pagar/reportes/movimientos-tc-pendientes',
-);
+}>('movimientos-tc-pendientes', '/api/v1/cuentas-por-pagar/reportes/movimientos-tc-pendientes');
 
 // Estados de cuenta TC consolidado
 export const useReporteEstadosCuentaTcConsolidado = makeReporteHook<{
@@ -118,7 +109,14 @@ export const useReporteEstadosCuentaTcConsolidado = makeReporteHook<{
 
 // Pasivos por obra
 export const useReportePasivosObras = makeReporteHook<{
-  sucursalId: string;
+  sucursalId?: string;
+  obra?: string;
   fechaCorte?: string;
   proveedorId?: string;
 }>('pasivos-obras', '/api/v1/cuentas-por-pagar/reportes/pasivos-obras');
+
+export const useReporteAuxiliar = makeReporteHook<{
+  fechaCorte?: string;
+  proveedorId?: string;
+  sucursalId?: string;
+}>('auxiliar-proveedores', '/api/v1/cuentas-por-pagar/reportes/auxiliar-proveedores');
