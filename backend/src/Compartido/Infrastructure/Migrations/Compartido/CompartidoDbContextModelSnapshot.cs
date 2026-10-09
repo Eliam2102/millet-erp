@@ -636,7 +636,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasData(
                         new
                         {
-                            Id = new Guid("00000006-0001-0000-0000-000000000005"),
+                            Id = new Guid("00000006-0001-0000-0000-000000000009"),
                             Clave = "almacen.conteo-variacion-pct-recuento",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
