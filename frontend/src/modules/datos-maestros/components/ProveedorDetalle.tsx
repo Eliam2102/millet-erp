@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
 import {
   CheckCircle2,
@@ -302,6 +303,7 @@ export function ProveedorDetalle() {
         )}
 
         <ProveedorDatosForm proveedor={proveedor} />
+        <ProveedorToleranciaSection key={proveedor.id} proveedorId={proveedor.id} montoMxn={proveedor.toleranciaFacturaContraOcMxn} />
         <ProveedorBancariosSection proveedorId={proveedor.id} />
         <ProveedorExpedienteSection proveedorId={proveedor.id} />
       </div>
