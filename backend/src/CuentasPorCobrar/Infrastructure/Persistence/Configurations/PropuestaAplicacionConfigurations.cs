@@ -26,6 +26,8 @@ public sealed class PropuestaAplicacionPagoConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.Id).ValueGeneratedNever();
 
         builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.PropuestoPor);
+        builder.Property(e => e.SaldoAFavorPorIdentificar).HasPrecision(18, 2);
         builder.Property(e => e.ClienteId).IsRequired();
         builder.Property(e => e.DepositoRef).HasMaxLength(80).IsRequired();
         builder.Property(e => e.MontoDeposito).HasPrecision(14, 2).IsRequired();

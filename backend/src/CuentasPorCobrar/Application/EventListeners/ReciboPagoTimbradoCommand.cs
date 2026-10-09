@@ -55,6 +55,13 @@ public sealed class ReciboPagoTimbradoHandler : IRequestHandler<ReciboPagoTimbra
         }
 
         var p = request.Payload;
+        if (p.MovimientoBancarioId is Guid movimientoId)
+        {
+            var propuesta = await _db.PropuestasAplicacionPago.FirstOrDefaultAsync(
+                x => x.EmpresaId == p.EmpresaId && x.MovimientoBancarioId == movimientoId, cancellationToken)
+                ?? throw new EntityNotFoundException("PAP_CONFIRMACION_PENDIENTE", "La confirmación de Tesorería todavía no se ha recibido; se reintentará el REP.");
+            propuesta.MarcarReppTimbrado();
+        }
         var desglose = p.FacturasPagadas ?? [];
         var aplicadas = 0;
 

@@ -65,12 +65,18 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             .AsNoTracking()
             .Include(o => o.Lineas)
             .Include(o => o.Adjuntos)
+            .Include(o => o.SolicitudesCancelacion)
+            .Include(o => o.Autorizaciones)
             .FirstOrDefaultAsync(o => o.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{query.Id}' en la empresa actual.");
 
         var response = _mapper.Map<OrdenCompraResponse>(oc);
+        var motivoIds = oc.Autorizaciones.Where(a => a.MotivoRechazoId.HasValue)
+            .Select(a => a.MotivoRechazoId!.Value).Distinct().ToArray();
+        var motivos = await _db.MotivosRechazo.AsNoTracking().Where(m => motivoIds.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id, m => m.Descripcion, cancellationToken);
 
         // Etiqueta de proveedor (cabecera) — batch de 1 id.
         var proveedores = await _proveedores.ObtenerPorIdsAsync(
@@ -107,6 +113,15 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             ProveedorRazonSocial = prov?.RazonSocial,
             ProveedorClave = prov?.Clave,
             Lineas = lineas,
+            CicloAutorizacion = oc.CicloAutorizacion,
+            Autorizaciones = oc.Autorizaciones.OrderBy(a => a.Ciclo).ThenBy(a => a.FechaHora)
+                .Select(a => new AutorizacionOcResponse(a.Id, a.Ciclo, a.Nivel, a.Resultado,
+                    a.UsuarioId, a.FechaHora, a.MotivoRechazoId, a.MotivoRechazoTexto, a.Notas)
+                { MotivoRechazoNombre = a.MotivoRechazoId is Guid motivoId ? motivos.GetValueOrDefault(motivoId) : null }).ToList(),
+            SolicitudesCancelacion = oc.SolicitudesCancelacion.OrderBy(s => s.FechaSolicitud)
+                .Select(s => new SolicitudCancelacionOcResponse(s.Id, s.SolicitanteId,
+                    s.FechaSolicitud, s.MotivoCancelacionId, s.MotivoSolicitud,
+                    s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)).ToList(),
         };
     }
 

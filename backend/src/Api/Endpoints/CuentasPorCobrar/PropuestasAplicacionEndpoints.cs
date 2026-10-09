@@ -13,9 +13,7 @@ namespace Millet.Api.Endpoints.CuentasPorCobrar;
 /// <summary>
 /// Endpoints de propuestas de aplicación de pago (CXC-PR7, §11 del
 /// 01-diseño). CxC propone (permiso <c>aplicacion-pago.proponer</c>);
-/// Ingresos confirma/rechaza (permiso <c>aplicacion-pago.confirmar</c>,
-/// interino A2 hasta que exista el emisor real de
-/// <c>PagoClienteConfirmadoEvent</c>).
+/// Tesorería confirma o rechaza y CxC consume la resolución por eventos.
 /// </summary>
 public static class PropuestasAplicacionEndpoints
 {
@@ -82,47 +80,7 @@ public static class PropuestasAplicacionEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        propuestas.MapPost("/{id:guid}/confirmar", async (
-            Guid id,
-            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
-            IMediator mediator,
-            CancellationToken cancellationToken) =>
-        {
-            if (expectedVersion is not int v)
-                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
-
-            var response = await mediator.Send(new ConfirmarPropuestaAplicacionCommand(id, v), cancellationToken);
-            return Results.Ok(response);
-        })
-        .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
-        .WithName("ConfirmarPropuestaAplicacion")
-        .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-
-        propuestas.MapPost("/{id:guid}/rechazar", async (
-            Guid id,
-            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
-            [FromBody] RechazarBody body,
-            IMediator mediator,
-            CancellationToken cancellationToken) =>
-        {
-            if (expectedVersion is not int v)
-                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
-
-            var response = await mediator.Send(new RechazarPropuestaAplicacionCommand(id, v, body.Motivo), cancellationToken);
-            return Results.Ok(response);
-        })
-        .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
-        .WithName("RechazarPropuestaAplicacion")
-        .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-
         return app;
     }
 
-    public sealed record RechazarBody(string Motivo);
 }

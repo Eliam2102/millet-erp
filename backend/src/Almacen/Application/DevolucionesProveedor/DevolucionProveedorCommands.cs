@@ -36,6 +36,7 @@ public sealed record DevolucionProveedorLineaInput(
     Guid ArticuloId,
     decimal Cantidad,
     string UnidadMedida,
+    // Compatibilidad con clientes anteriores: el handler ignora este valor y usa la recepción.
     decimal CostoUnitarioMxn,
     Guid? LineaRecepcionOrigenId);
 
@@ -47,6 +48,7 @@ public sealed class IniciarDevolucionAProveedorValidator
     public IniciarDevolucionAProveedorValidator()
     {
         RuleFor(c => c.ProveedorId).NotEqual(Guid.Empty);
+        RuleFor(c => c.RecepcionOrigenId).NotNull().NotEqual(Guid.Empty);
         RuleFor(c => c.Motivo).NotEmpty().MaximumLength(1000);
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(l =>
@@ -54,7 +56,7 @@ public sealed class IniciarDevolucionAProveedorValidator
             l.RuleFor(x => x.ArticuloId).NotEqual(Guid.Empty);
             l.RuleFor(x => x.Cantidad).GreaterThan(0);
             l.RuleFor(x => x.UnidadMedida).NotEmpty().MaximumLength(20);
-            l.RuleFor(x => x.CostoUnitarioMxn).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.LineaRecepcionOrigenId).NotNull().NotEqual(Guid.Empty);
         });
     }
 }
@@ -66,13 +68,15 @@ public sealed class IniciarDevolucionAProveedorHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IComprasOcReadPort _ocPort;
 
     public IniciarDevolucionAProveedorHandler(
         AlmacenDbContext db, ICurrentUserContext currentUser, ICurrentEmpresaContext currentEmpresa,
-        IDecimalesUnidadGuard decimalesGuard)
+        IDecimalesUnidadGuard decimalesGuard, IComprasOcReadPort ocPort)
     {
         _db = db; _currentUser = currentUser; _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
+        _ocPort = ocPort;
     }
 
     public async Task<IniciarDevolucionAProveedorResponse> Handle(
@@ -82,6 +86,12 @@ public sealed class IniciarDevolucionAProveedorHandler
             "DEV_PROV_SIN_EMPRESA", "El contexto de empresa es requerido.");
         var solicitadaPor = _currentUser.UserId ?? throw new BusinessRuleException(
             "DEV_PROV_SIN_USUARIO", "Se requiere usuario autenticado.");
+
+        await using var transaccion = await DevolucionOrigenLock.AbrirAsync(_db, request.RecepcionOrigenId, cancellationToken);
+        var recepcion = await DevolucionProveedorOrigenGuard.ValidarAsync(_db, _ocPort,
+            request.RecepcionOrigenId, request.ProveedorId,
+            request.Lineas.Select(l => new LineaOrigenDevolucion(l.LineaRecepcionOrigenId, l.ArticuloId, l.Cantidad)).ToArray(),
+            null, cancellationToken);
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
@@ -98,25 +108,27 @@ public sealed class IniciarDevolucionAProveedorHandler
             solicitadaPor: solicitadaPor,
             recepcionOrigenId: request.RecepcionOrigenId,
             facturaProveedorOrigenId: request.FacturaProveedorOrigenId,
-            ordenCompraOrigenId: request.OrdenCompraOrigenId,
+            ordenCompraOrigenId: recepcion.OcId,
             subAlmacenOrigenId: request.SubAlmacenOrigenId);
 
         var posicion = 1;
         foreach (var input in request.Lineas)
         {
+            var origen = recepcion.Lineas.Single(l => l.Id == input.LineaRecepcionOrigenId);
             devolucion.AgregarLinea(new LineaDevolucionProveedor(
                 id: Guid.CreateVersion7(),
                 devolucionId: id,
                 posicion: posicion++,
                 articuloId: input.ArticuloId,
                 cantidad: input.Cantidad,
-                unidadMedida: input.UnidadMedida,
-                costoUnitarioMxn: input.CostoUnitarioMxn,
+                unidadMedida: origen.UnidadMedida,
+                costoUnitarioMxn: origen.CostoUnitarioMxn,
                 lineaRecepcionOrigenId: input.LineaRecepcionOrigenId));
         }
 
         _db.Set<DevolucionAProveedor>().Add(devolucion);
         await _db.SaveChangesAsync(cancellationToken);
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
         return new IniciarDevolucionAProveedorResponse(id);
     }
 }
@@ -303,14 +315,17 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IComprasOcReadPort _ocPort;
+    private readonly IPeriodoContableReadPort _periodoContable;
 
     public RegistrarSalidaDevolucionAProveedorHandler(
         AlmacenDbContext db,
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
-        IComprasOcReadPort ocPort)
+        IComprasOcReadPort ocPort,
+        IPeriodoContableReadPort periodoContable)
     {
+        _periodoContable = periodoContable;
         _db = db; _events = events; _currentUser = currentUser; _currentEmpresa = currentEmpresa;
         _ocPort = ocPort;
     }
@@ -334,6 +349,14 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
             "DEV_PROV_SIN_EMPRESA", "El contexto de empresa es requerido.");
         var registradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
             "DEV_PROV_SIN_USUARIO", "Se requiere usuario autenticado.");
+
+        await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
+            _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
+        await using var transaccion = await DevolucionOrigenLock.AbrirAsync(_db, dev.RecepcionOrigenId, cancellationToken);
+        var recepcion = await DevolucionProveedorOrigenGuard.ValidarAsync(_db, _ocPort,
+            dev.RecepcionOrigenId, dev.ProveedorId,
+            dev.Lineas.Select(l => new LineaOrigenDevolucion(l.LineaRecepcionOrigenId, l.ArticuloId, l.Cantidad)).ToArray(),
+            dev.Id, cancellationToken);
 
         // Crear movimiento físico tipo SalidaPorDevolucionAProveedor.
         var movId = Guid.CreateVersion7();
@@ -364,23 +387,12 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
             .Select(u => (Guid?)u.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        // GAP-5: resolver la línea de OC por artículo contra la OC de
-        // origen (mismo criterio que la recepción, paso 2 del resolver).
-        // Compras usa LineaOcId para decrementar CantidadRecibida; si no
-        // hay OC de origen o el artículo no matchea, viaja NULL y Compras
-        // omite la línea.
-        IReadOnlyList<OcLineaLectura> lineasOc = Array.Empty<OcLineaLectura>();
-        if (dev.OrdenCompraOrigenId is Guid ordenCompraOrigenId)
-        {
-            var oc = await _ocPort.ObtenerAsync(ordenCompraOrigenId, cancellationToken);
-            lineasOc = oc?.Lineas ?? Array.Empty<OcLineaLectura>();
-        }
-
         var posicion = 1;
         var payload = new List<LineaDevolucionProveedorPayload>(dev.Lineas.Count);
         decimal montoTotal = 0m;
         foreach (var linea in dev.Lineas.OrderBy(l => l.Posicion))
         {
+            var origen = recepcion.Lineas.Single(l => l.Id == linea.LineaRecepcionOrigenId);
             var movLineaId = Guid.CreateVersion7();
             var ubicacionLinea = binPorLinea.TryGetValue(linea.Id, out var ubi)
                 ? ubi
@@ -396,20 +408,20 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
                 articuloId: linea.ArticuloId,
                 cantidad: linea.Cantidad,
                 unidadMedida: linea.UnidadMedida,
-                costoUnitarioMxn: linea.CostoUnitarioMxn, // A10 — snapshot recepción origen
+                costoUnitarioMxn: origen.CostoUnitarioMxn, // Costo histórico verificado contra la recepción.
                 ubicacionId: ubicacionLinea);
             movimiento.AgregarLinea(movLinea);
 
             payload.Add(new LineaDevolucionProveedorPayload(
                 LineaDevolucionId: linea.Id,
                 LineaRecepcionOrigenId: linea.LineaRecepcionOrigenId,
-                LineaOcId: lineasOc.FirstOrDefault(l => l.ArticuloId == linea.ArticuloId)?.LineaId,
+                LineaOcId: origen.LineaOcId,
                 ArticuloId: linea.ArticuloId,
                 UnidadMedida: linea.UnidadMedida,
                 Cantidad: linea.Cantidad,
-                CostoUnitarioMxn: linea.CostoUnitarioMxn,
-                MontoTotalMxn: linea.MontoTotalMxn));
-            montoTotal += linea.MontoTotalMxn;
+                CostoUnitarioMxn: origen.CostoUnitarioMxn,
+                MontoTotalMxn: Math.Round(linea.Cantidad * origen.CostoUnitarioMxn, 2)));
+            montoTotal += Math.Round(linea.Cantidad * origen.CostoUnitarioMxn, 2);
         }
 
         // Folio + Registrar.
@@ -451,6 +463,7 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
         return new RegistrarSalidaDevolucionAProveedorResponse(dev.Id, movId, folio.Valor);
     }
 }

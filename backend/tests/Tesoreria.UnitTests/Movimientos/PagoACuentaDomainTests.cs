@@ -36,12 +36,10 @@ public sealed class PagoACuentaDomainTests
     }
 
     [Fact]
-    public void RegistrarPagoACuenta_sin_proveedor_es_beneficiario_otro()
+    public void RegistrarPagoACuenta_sin_proveedor_se_rechaza()
     {
-        var m = PagoACuenta(proveedorId: null);
-
-        m.BeneficiarioTipo.Should().Be(BeneficiarioTipo.Otro);
-        m.BeneficiarioRef.Should().BeNull();
+        var act = () => PagoACuenta(proveedorId: null);
+        act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("MOV_PROVEEDOR_VACIO");
     }
 
     [Theory]
@@ -49,7 +47,7 @@ public sealed class PagoACuentaDomainTests
     [InlineData("   ")]
     public void RegistrarPagoACuenta_sin_motivo_truena(string motivo)
     {
-        var act = () => PagoACuenta(motivo: motivo);
+        var act = () => PagoACuenta(Guid.NewGuid(), motivo: motivo);
 
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("MOV_MOTIVO_OBLIGATORIO");
     }
@@ -75,7 +73,7 @@ public sealed class PagoACuentaDomainTests
     [InlineData(5_000.01)]
     public void ActualizarEstadoAplicacion_fuera_de_rango_truena(decimal suma)
     {
-        var act = () => PagoACuenta(monto: 5_000m).ActualizarEstadoAplicacion(suma);
+        var act = () => PagoACuenta(Guid.NewGuid(), monto: 5_000m).ActualizarEstadoAplicacion(suma);
 
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("MOV_APLICACION_EXCEDE_MONTO");
     }

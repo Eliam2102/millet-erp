@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <DefineConstants>$(DefineConstants);P3_POSTGRES</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\CuentasPorPagar.UnitTests\FacturaProveedor\P3FacturaConOcTests.cs" Link="CuentasPorPagar\P3FacturaConOcTests.cs" />
     <!-- Fixtures FIX-* (datos ficticios) compartidos con Contabilidad.UnitTests. -->
     <Compile Include="..\Contabilidad.UnitTests\Fixtures\FixturesCatalogo.cs" Link="Contabilidad\Fixtures\FixturesCatalogo.cs" />
   </ItemGroup>

@@ -36,6 +36,14 @@ public sealed class CuentaBancaria : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// <summary>Perfil de parser de extracto asociado (§3.5; se usa desde PR-9).</summary>
     public string? PerfilExtracto { get; private set; }
 
+    public string? Sucursal { get; private set; }
+    public string? Finalidad { get; private set; }
+    public string? Titular { get; private set; }
+    public string? Firmantes { get; private set; }
+    public decimal? SaldoInicial { get; private set; }
+    public DateOnly? FechaCorteSaldoInicial { get; private set; }
+    public string? MotivoSaldoInicial { get; private set; }
+
     public bool Activa { get; private set; } = true;
 
     private CuentaBancaria() { }
@@ -77,6 +85,27 @@ public sealed class CuentaBancaria : BaseEntity, IPerteneceAEmpresa, IAuditable
     /// <summary>Reemplaza la CLABE (valida el VO) o la limpia con null.</summary>
     public void CambiarClabe(string? clabe) =>
         Clabe = clabe is null ? null : Cuentas.Clabe.Crear(clabe).Valor;
+
+    public void ActualizarInventario(string? sucursal, string? finalidad, string? titular, string? firmantes)
+    {
+        Sucursal = sucursal?.Trim(); Finalidad = finalidad?.Trim();
+        Titular = titular?.Trim(); Firmantes = firmantes?.Trim();
+    }
+
+    public void RegistrarSaldoInicial(decimal saldo, DateOnly fechaCorte, string motivo)
+    {
+        if (SaldoInicial is not null)
+            throw new BusinessRuleException("CTA_SALDO_INICIAL_YA_REGISTRADO", "El saldo inicial ya fue registrado. No puede capturarse de nuevo.");
+        if (fechaCorte == default || string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("CTA_SALDO_INICIAL_INVALIDO", "Indica la fecha de corte y el motivo del saldo inicial.");
+        SaldoInicial = saldo; FechaCorteSaldoInicial = fechaCorte; MotivoSaldoInicial = motivo.Trim();
+    }
+
+    public void ValidarFechaMovimiento(DateOnly fecha)
+    {
+        if (FechaCorteSaldoInicial is DateOnly corte && fecha <= corte)
+            throw new BusinessRuleException("MOV_ANTERIOR_AL_CORTE", "La fecha del movimiento debe ser posterior al corte del saldo inicial de la cuenta.");
+    }
 
     public void Activar() => Activa = true;
 

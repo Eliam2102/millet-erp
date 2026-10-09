@@ -3,6 +3,8 @@ import { Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { nombreParametro } from '@/modules/administracion/schemas/parametro';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -17,7 +19,7 @@ import {
   ErrorState,
   TableSkeleton,
 } from '@/components/erp';
-import { esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import {
@@ -118,6 +120,14 @@ export function ParametrosPage() {
         </div>
       </div>
 
+      {items.some((p) => p.clave.startsWith('almacen.conteo-')) && (
+        <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2.5 text-xs text-warning-note-fg">
+          Los umbrales de inventario son iguales para todos los almacenes. Los cambios
+          aplican al iniciar un conteo; los conteos en curso conservan sus valores.
+          Los montos y su aplicación global están por confirmar con Finanzas de Millet.
+        </p>
+      )}
+
       <ParametrosLista
         items={items}
         isLoading={query.isLoading}
@@ -193,7 +203,7 @@ interface ParametroFilaProps {
 function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
   const [valor, setValor] = useState(parametro.valor);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const idempotencyKey = useFormIdempotencyKey();
+  const keyFor = useBodyScopedIdempotencyKey();
   const actualizar = useActualizarParametro();
 
   const dirty = valor !== parametro.valor;
@@ -214,12 +224,12 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
       {
         clave: parametro.clave,
         payload: { valor: result.data.valor },
-        idempotencyKey,
+        idempotencyKey: keyFor({ clave: parametro.clave, valor: result.data.valor }),
       },
       {
         onSuccess: (data) => {
           setValor(data.valor);
-          toast.success(`${parametro.clave} actualizado`);
+          toast.success(`${nombreParametro(parametro.clave)} actualizado`);
         },
         onError: (err) => {
           if (esApiError(err)) {
@@ -242,9 +252,9 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <code className="font-mono text-sm font-semibold">
-              {parametro.clave}
-            </code>
+            <Label htmlFor={`parametro-input-${parametro.clave}`} className="text-sm font-semibold">
+              {nombreParametro(parametro.clave)}
+            </Label>
             <Badge variant="secondary">{TIPO_LABEL[parametro.tipo]}</Badge>
             {parametro.modulo != null && (
               <Badge variant="outline">{parametro.modulo}</Badge>
@@ -295,6 +305,7 @@ function ParametroFila({ parametro, canEditar }: ParametroFilaProps) {
                 size="sm"
                 onClick={guardar}
                 disabled={!dirty || actualizar.isPending}
+                title={actualizar.isPending ? 'Guardando el cambio' : !dirty ? 'Modifica el valor para guardar' : undefined}
               >
                 {actualizar.isPending ? 'Guardando…' : 'Guardar'}
               </Button>

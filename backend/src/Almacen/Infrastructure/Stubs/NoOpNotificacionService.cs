@@ -18,6 +18,16 @@ public sealed class NoOpNotificacionService : INotificacionService
         _logger = logger;
     }
 
+    public Task NotificarAjusteNivel3AprobadoAsync(
+        AvisoAjusteNivel3 aviso, CancellationToken cancellationToken)
+    {
+        _logger.LogWarning(
+            "[NoOpNotificacionService] Aviso a Finanzas pendiente de canal real. " +
+            "Conteo={ConteoId} MontoNetoMxn={MontoNetoMxn} Aprobador={AprobadorId} Fecha={Fecha}",
+            aviso.ConteoId, aviso.MontoNetoMxn, aviso.AprobadorId, aviso.Fecha);
+        return Task.CompletedTask;
+    }
+
     public Task NotificarValeSinRegularizarAsync(
         Guid movimientoValeId,
         string folioVale,

@@ -116,6 +116,7 @@ qué un sistema es como es.
 | [0057](./0057-reglas-de-dimension-contable-con-vigencia.md) | Reglas de dimensión contable con vigencia y alcance de centros por sucursal | Propuesta |
 | [0058](./0058-servicio-generico-de-adjuntos.md) | Servicio genérico de adjuntos con metadatos, vigencia y enlace temporal | Propuesta |
 | [0059](./0059-periodos-contables-y-contrato-de-consulta.md) | Periodos contables, estados y contrato de consulta | Propuesta |
+| [0060](./0060-factura-exacta-sin-revaluacion.md) | Factura de proveedor exacta por línea (D18/D19), sin revaluación por precio | Propuesta |
 
 ## Backlog explícito (decisiones pendientes que NO deben olvidarse)
 

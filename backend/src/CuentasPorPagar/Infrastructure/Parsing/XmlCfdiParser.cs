@@ -126,7 +126,8 @@ public sealed class XmlCfdiParser : IXmlCfdiParser
             Lineas: lineas,
             MetodoPago: AttrOrNull(comprobante, "MetodoPago"),
             CfdiRelacionados: relacionados,
-            RetencionesDetalle: ParseRetenciones(comprobante));
+            RetencionesDetalle: ParseRetenciones(comprobante),
+            Descuentos: ParseDecimalOrNull(AttrOrNull(comprobante, "Descuento")) ?? 0m);
     }
 
     private static List<RetencionCfdi>? ParseRetenciones(XElement comprobante)

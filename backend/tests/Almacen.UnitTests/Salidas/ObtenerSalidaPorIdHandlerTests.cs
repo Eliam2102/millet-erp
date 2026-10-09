@@ -96,6 +96,30 @@ public class ObtenerSalidaPorIdHandlerTests
 
     // ─── Infra de test ───
 
+    [Fact]
+    public async Task Detalle_expone_vencimiento_y_actualiza_estado_tras_regularizar()
+    {
+        await using var f = new P1Fixture();
+        var vale = await f.MovimientoAsync(TipoMovimiento.SalidaPorVale);
+        var limite = DateTimeOffset.UtcNow.AddDays(-2);
+        vale.EstablecerPlazoRegularizacion(limite);
+        await f.Db.SaveChangesAsync();
+        var handler = new ObtenerSalidaPorIdHandler(f.Db, new FakeArticuloReadPort(), f.Rq,
+            new FakeUsuarioReadPort(), new FakeCentroCostoReadPort());
+
+        var pendiente = (await handler.Handle(new(vale.Id), default))!;
+        pendiente.PendienteRegularizacion.Should().BeTrue();
+        pendiente.Vencido.Should().BeTrue();
+        pendiente.FechaLimiteRegularizacion.Should().Be(limite);
+
+        await new Millet.Almacen.Application.Vales.RegularizarSalidaPorValeHandler(f.Db, f.Rq)
+            .Handle(new(vale.Id, f.DocumentoId), default);
+        var regularizado = (await handler.Handle(new(vale.Id), default))!;
+        regularizado.PendienteRegularizacion.Should().BeFalse();
+        regularizado.Vencido.Should().BeFalse();
+        regularizado.FechaLimiteRegularizacion.Should().Be(limite);
+    }
+
     private static ArticuloLectura Art(Guid id, string clave, string descripcion) =>
         new(id, clave, descripcion, "PZA", null, null, true);
 

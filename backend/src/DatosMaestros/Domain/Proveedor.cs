@@ -32,6 +32,20 @@ public sealed class Proveedor : BaseEntity, IAuditable
     public string? Telefono { get; private set; }
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.EnRevision;
 
+    /// <summary>Diferencia máxima factura contra OC en MXN; null usa el parámetro general.</summary>
+    public decimal? ToleranciaFacturaContraOcMxn { get; private set; }
+
+    public void ActualizarToleranciaFacturaContraOc(decimal? monto)
+    {
+        if (monto < 0)
+            throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_NEGATIVA",
+                "La tolerancia factura contra OC no puede ser negativa.");
+        if (monto > 99999999999999.9999m || (monto.HasValue && decimal.Round(monto.Value, 4) != monto.Value))
+            throw new BusinessRuleException("PROVEEDOR_TOLERANCIA_PRECISION",
+                "La tolerancia admite hasta 14 enteros y 4 decimales, igual que la foto en la factura.");
+        ToleranciaFacturaContraOcMxn = monto;
+    }
+
     // ----- Validación CxP y Expediente (F1-ADM-05 G1.1) -----
     /// <summary>Usuario de CxP o Admin que validó o rechazó al proveedor.</summary>
     public Guid? ValidadoPorId { get; private set; }

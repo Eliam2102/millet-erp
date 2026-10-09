@@ -14,8 +14,8 @@ namespace Millet.Compras.Infrastructure.Oc.Configurations;
 ///   <item>CHECK <c>ck_oc_autorizaciones_motivo</c>: si resultado=2
 ///         (Rechazado), motivo_rechazo_id no null.</item>
 ///   <item>UNIQUE PARCIAL <c>uq_oc_autorizaciones_autorizado</c>:
-///         <c>(orden_compra_id, nivel) WHERE resultado = 1</c> —
-///         garantiza una sola autorización exitosa por nivel. Rechazos
+///         <c>(orden_compra_id, ciclo, nivel) WHERE resultado = 1</c> —
+///         garantiza una sola autorización exitosa por nivel y ciclo. Rechazos
 ///         múltiples permitidos.</item>
 ///   <item>Índice <c>ix_oc_autorizaciones_usuario</c>.</item>
 /// </list>
@@ -44,6 +44,7 @@ public sealed class AutorizacionOcConfiguration : IEntityTypeConfiguration<Autor
         builder.Property(a => a.Id).ValueGeneratedNever();
 
         builder.Property(a => a.OrdenCompraId).IsRequired();
+        builder.Property(a => a.Ciclo).HasDefaultValue(1).IsRequired();
 
         builder.Property(a => a.Nivel)
             .HasConversion<short>()
@@ -61,8 +62,8 @@ public sealed class AutorizacionOcConfiguration : IEntityTypeConfiguration<Autor
         builder.Property(a => a.Notas).HasColumnType("text");
 
         // UNIQUE parcial §10.1: garantiza una sola fila autorizada por
-        // (oc, nivel). Rechazos no participan — pueden repetirse.
-        builder.HasIndex(a => new { a.OrdenCompraId, a.Nivel })
+        // (oc, ciclo, nivel). Rechazos no participan — pueden repetirse.
+        builder.HasIndex(a => new { a.OrdenCompraId, a.Ciclo, a.Nivel })
             .IsUnique()
             .HasFilter("resultado = 1")
             .HasDatabaseName("uq_oc_autorizaciones_autorizado");

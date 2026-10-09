@@ -14,6 +14,19 @@ namespace Millet.Api.UnitTests;
 public sealed class DemoSesionSeedTests
 {
     [Theory]
+    [InlineData("Capturista Compras", false, false)]
+    [InlineData("Jefe Compras", true, false)]
+    [InlineData("Dirección", false, true)]
+    public void FirmantesDemo_TienenIdentidadesDistintas_YPermisoDeSuNivel(string rol, bool n1, bool n2)
+    {
+        Assert.Equal(n1, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesAutorizarNivel1));
+        Assert.Equal(n2, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesAutorizarNivel2));
+        Assert.False(DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesLeerTodasSucursales));
+        Assert.Equal(3, new[] { DemoSesionSeedHostedService.CapturistaComprasDemoId,
+            DemoSesionSeedHostedService.JefeComprasDemoId, DemoSesionSeedHostedService.DireccionDemoId }.Distinct().Count());
+    }
+
+    [Theory]
     [InlineData("Development", false)]
     [InlineData("Production", false)]
     [InlineData("Production", true)]

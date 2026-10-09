@@ -7,6 +7,8 @@ import {
   type PasivosFiltros,
 } from './keys';
 import type {
+  ConceptoResponse,
+  ClasificacionFlujo,
   AplicacionPagoItem,
   BeneficiarioTipo,
   CuentaSaldoResponse,
@@ -57,6 +59,10 @@ export function useCrearCuentaBancaria() {
         moneda: string;
         cuentaContableRef?: string;
         perfilExtracto?: string;
+        sucursal?: string;
+        finalidad?: string;
+        titular?: string;
+        firmantes?: string;
       };
       idempotencyKey: string;
     }) => {
@@ -90,6 +96,10 @@ export function useActualizarCuentaBancaria() {
         limpiarClabe: boolean;
         cuentaContableRef?: string;
         perfilExtracto?: string;
+        sucursal?: string;
+        finalidad?: string;
+        titular?: string;
+        firmantes?: string;
       };
       versionEsperada: number;
       idempotencyKey: string;
@@ -610,5 +620,61 @@ export function useSolicitarCancelacionPasivo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tesoreriaKeys.all });
     },
+  });
+}
+
+export function useConceptos(incluirInactivos = false) {
+  return useQuery({
+    queryKey: [...tesoreriaKeys.all, 'conceptos', incluirInactivos],
+    queryFn: async ({ signal }) => (await apiRequest<ConceptoResponse[]>(`${BASE}/conceptos?incluirInactivos=${incluirInactivos}`, { signal })).data,
+  });
+}
+export function useGuardarConcepto() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id?: string; nombre: string; clasificacionFlujo: ClasificacionFlujo; activo: boolean; version?: number; idempotencyKey: string }) => {
+      const { data } = await apiRequest<ConceptoResponse>(`${BASE}/conceptos${args.id ? `/${args.id}` : ''}`, {
+        method: args.id ? 'PUT' : 'POST', body: { nombre: args.nombre, clasificacionFlujo: args.clasificacionFlujo, activo: args.activo },
+        headers: args.version != null ? { 'X-Expected-Version': String(args.version) } : undefined,
+        idempotencyKey: args.idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+export function useReclasificarMovimiento() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; conceptoId: string; motivo: string; version: number; idempotencyKey: string }) => {
+      await apiRequest<void>(`${BASE}/movimientos/${args.movimientoId}/reclasificar`, {
+        method: 'POST', body: { conceptoId: args.conceptoId, motivo: args.motivo },
+        headers: { 'X-Expected-Version': String(args.version) }, idempotencyKey: args.idempotencyKey,
+      });
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+export function useDesligarPagoACuenta() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { movimientoId: string; pagoId: string; motivo: string; idempotencyKey: string }) => {
+      await apiRequest<void>(`${BASE}/pagos-cuenta/${args.movimientoId}/aplicaciones/${args.pagoId}/desligar`, {
+        method: 'POST', body: { motivo: args.motivo }, idempotencyKey: args.idempotencyKey,
+      });
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
+  });
+}
+export function useRegistrarSaldoInicial() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { cuentaId: string; saldo: number; fechaCorte: string; motivo: string; version: number; idempotencyKey: string }) => {
+      await apiRequest<void>(`${BASE}/cuentas/${args.cuentaId}/saldo-inicial`, {
+        method: 'POST', body: { saldo: args.saldo, fechaCorte: args.fechaCorte, motivo: args.motivo },
+        headers: { 'X-Expected-Version': String(args.version) }, idempotencyKey: args.idempotencyKey,
+      });
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: tesoreriaKeys.all }),
   });
 }

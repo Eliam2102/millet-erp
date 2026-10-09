@@ -116,7 +116,7 @@ function FormBody({
       () => ({
         proveedorId: '',
         motivo: '',
-        recepcionOrigenId: null,
+        recepcionOrigenId: '',
         facturaProveedorOrigenId: null,
         ordenCompraOrigenId: null,
         subAlmacenOrigenId: null,
@@ -126,7 +126,7 @@ function FormBody({
             cantidad: 1,
             unidadMedida: 'PZA',
             costoUnitarioMxn: 0,
-            lineaRecepcionOrigenId: null,
+            lineaRecepcionOrigenId: '',
           },
         ],
       }),
@@ -173,15 +173,15 @@ function FormBody({
   }, [recepcionQuery.data, recepcionIdWatched, form]);
 
   function handleRecepcionChange(id: string | null) {
-    form.setValue('recepcionOrigenId', id, { shouldDirty: true });
+    form.setValue('recepcionOrigenId', id ?? '', { shouldDirty: true });
     // Las refs de línea apuntaban a la recepción anterior — limpiarlas.
     form.getValues('lineas').forEach((_, i) => {
-      form.setValue(`lineas.${i}.lineaRecepcionOrigenId`, null);
+      form.setValue(`lineas.${i}.lineaRecepcionOrigenId`, '');
     });
   }
 
   function handleSelectLineaRecepcion(index: number, lineaId: string | null) {
-    form.setValue(`lineas.${index}.lineaRecepcionOrigenId`, lineaId, {
+    form.setValue(`lineas.${index}.lineaRecepcionOrigenId`, lineaId ?? '', {
       shouldDirty: true,
     });
     if (!lineaId) return;
@@ -331,7 +331,8 @@ function FormBody({
           </Field>
 
           <Field
-            label="Recepción origen (opcional)"
+            label="Recepción origen"
+            required
             error={form.formState.errors.recepcionOrigenId?.message}
           >
             <Controller
@@ -399,7 +400,7 @@ function FormBody({
                   cantidad: 1,
                   unidadMedida: 'PZA',
                   costoUnitarioMxn: 0,
-                  lineaRecepcionOrigenId: null,
+                  lineaRecepcionOrigenId: '',
                 })
               }
             >
@@ -523,7 +524,8 @@ function LineaForm({
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <div className="md:col-span-2">
           <Field
-            label="Línea de recepción origen (opcional)"
+            label="Línea de recepción origen"
+            required
             error={errors?.lineaRecepcionOrigenId?.message}
           >
             <Controller
@@ -547,7 +549,7 @@ function LineaForm({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={SIN_LINEA}>Sin línea origen</SelectItem>
+                    <SelectItem value={SIN_LINEA}>Selecciona la línea origen</SelectItem>
                     {(lineasRecepcion ?? []).map((l) => (
                       <SelectItem key={l.id} value={l.id}>
                         {etiquetaLinea(l)}
@@ -566,6 +568,7 @@ function LineaForm({
             control={control}
             render={({ field }) => (
               <ArticuloSelector
+                disabled
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
               />
@@ -608,14 +611,15 @@ function LineaForm({
                 {...field}
                 value={field.value ?? ''}
                 maxLength={20}
-                placeholder="PZA / KG / L…"
+                readOnly
+                placeholder="Se toma de la recepción"
               />
             )}
           />
         </Field>
 
         <Field
-          label="Costo unitario MXN"
+          label="Costo de la recepción (MXN)"
           required
           error={errors?.costoUnitarioMxn?.message}
         >
@@ -629,11 +633,8 @@ function LineaForm({
                 step="0.01"
                 min="0"
                 value={field.value ?? ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === '' ? '' : Number(e.target.value),
-                  )
-                }
+                readOnly
+                aria-label="Costo de la recepción original"
               />
             )}
           />

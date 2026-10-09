@@ -1,3 +1,4 @@
+using Millet.Almacen.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.DevolucionesProveedor;
 using Millet.Almacen.Domain.Catalogo;
@@ -91,7 +92,7 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
     // ─────────────────────────── Fixture ───────────────────────────
 
     private static RegistrarSalidaDevolucionAProveedorHandler Handler(AlmacenDbContext db) =>
-        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), new OcPortNulo());
+        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), new OcPortNulo(), new PeriodoContableStub(true));
 
     private static async Task<(Guid SubId, Guid UnicaId, Guid RackId)> SembrarSubConUnicaAsync(
         AlmacenDbContext db, bool conUnica)
@@ -121,7 +122,7 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
         var dev = new DevolucionAProveedor(
             id: Guid.NewGuid(),
             empresaId: EmpresaId,
-            proveedorId: Guid.NewGuid(),
+            proveedorId: EmpresaId,
             motivo: "Material no conforme",
             solicitadaPor: UserId,
             recepcionOrigenId: Guid.NewGuid(),
@@ -131,6 +132,14 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
             id: Guid.NewGuid(), devolucionId: dev.Id, posicion: 1,
             articuloId: Guid.NewGuid(), cantidad: 5m, unidadMedida: "PZA",
             costoUnitarioMxn: 100m));
+        var linea = dev.Lineas.Single();
+        var origen = new MovimientoInventario(dev.RecepcionOrigenId!.Value, TipoMovimiento.EntradaCompra, EmpresaId, new DateOnly(2027, 3, 1));
+        origen.VincularRecepcionVarianteA(Guid.NewGuid(), null, Guid.NewGuid(), null);
+        var recibida = new LineaMovimiento(Guid.NewGuid(), origen.Id, 1, linea.ArticuloId, 10, "PZA", 100, ubicacionId: Guid.NewGuid());
+        origen.AgregarLinea(recibida);
+        origen.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, 2027, 100), UserId);
+        typeof(LineaDevolucionProveedor).GetProperty(nameof(LineaDevolucionProveedor.LineaRecepcionOrigenId))!.SetValue(linea, recibida.Id);
+        db.Movimientos.Add(origen);
         dev.AgregarEvidencia(new EvidenciaDevolucionProveedor(
             id: Guid.NewGuid(), devolucionId: dev.Id, tipoEvidencia: "Foto",
             nombreArchivo: "e.jpg", blobRef: "blob://e.jpg"));
@@ -167,7 +176,7 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
     private sealed class OcPortNulo : IComprasOcReadPort
     {
         public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) =>
-            Task.FromResult<OcLectura?>(null);
+            Task.FromResult<OcLectura?>(new(ocId, "OC-P1", EmpresaId, EmpresaId, "Cerrada", []));
 
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
             IReadOnlyCollection<Guid> ocIds, CancellationToken ct) =>

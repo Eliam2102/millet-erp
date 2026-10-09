@@ -13,9 +13,10 @@ import { Input } from '@/components/ui/input';
 import {
   useActualizarCuentaBancaria,
   useCrearCuentaBancaria,
+  useRegistrarSaldoInicial,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaSaldoResponse } from '@/features/tesoreria/api/types';
-import { esApiError } from '@/lib/api';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export interface CuentaBancariaSheetProps {
   /** true = sheet visible. En modo edición además viene `cuenta`. */
@@ -38,7 +39,7 @@ const MONEDA_REGEX = /^[A-Za-z]{3}$/;
 export function CuentaBancariaSheet({ open, cuenta, onOpenChange }: CuentaBancariaSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
         {/* key remonta el form al cambiar de cuenta (o alta): el estado
             inicial se deriva de props sin efectos. */}
         {open && (
@@ -62,8 +63,14 @@ function CuentaBancariaForm({
 }) {
   const crear = useCrearCuentaBancaria();
   const actualizar = useActualizarCuentaBancaria();
+  const registrarSaldo = useRegistrarSaldoInicial();
+  const keyFor = useBodyScopedIdempotencyKey();
+  const [saldo, setSaldo] = useState('');
+  const [corte, setCorte] = useState('');
+  const [motivoSaldo, setMotivoSaldo] = useState('');
+  const [inventario, setInventario] = useState({ sucursal: cuenta?.sucursal ?? '', finalidad: cuenta?.finalidad ?? '', titular: cuenta?.titular ?? '', firmantes: cuenta?.firmantes ?? '' });
   const esEdicion = cuenta != null;
-  const pendiente = crear.isPending || actualizar.isPending;
+  const pendiente = crear.isPending || actualizar.isPending || registrarSaldo.isPending;
 
   const [banco, setBanco] = useState(cuenta?.banco ?? '');
   const [numeroCuenta, setNumeroCuenta] = useState(cuenta?.numeroCuenta ?? '');
@@ -95,6 +102,7 @@ function CuentaBancariaForm({
       crear.mutate(
         {
           command: {
+            ...inventario,
             banco: banco.trim(),
             numeroCuenta: numeroCuenta.trim(),
             clabe: clabe.trim() === '' ? undefined : clabe.trim(),
@@ -121,6 +129,7 @@ function CuentaBancariaForm({
       {
         cuentaId: cuenta.id,
         body: {
+          ...inventario,
           banco: banco.trim(),
           moneda: moneda.trim().toUpperCase(),
           clabe: clabe.trim() === '' ? undefined : clabe.trim(),
@@ -203,7 +212,7 @@ function CuentaBancariaForm({
             disabled={limpiarClabe}
           />
           {!clabeValida && (
-            <p className="text-xs text-rose-600">
+            <p className="text-xs text-danger-fg">
               La CLABE son 18 dígitos (se valida el dígito de control al guardar).
             </p>
           )}
@@ -269,6 +278,32 @@ function CuentaBancariaForm({
           </p>
         </div>
 
+        {(['sucursal', 'finalidad', 'titular', 'firmantes'] as const).map(campo => (
+          <div key={campo} className="space-y-1">
+            <label htmlFor={`cta-${campo}`} className="text-xs text-ink-muted">{{ sucursal: 'Sucursal', finalidad: 'Finalidad', titular: 'Titular', firmantes: 'Firmantes' }[campo]}</label>
+            <Input id={`cta-${campo}`} value={inventario[campo]} maxLength={campo === 'firmantes' ? 1000 : campo === 'finalidad' ? 400 : campo === 'titular' ? 200 : 120}
+              onChange={e => setInventario({ ...inventario, [campo]: e.target.value })} />
+          </div>
+        ))}
+        {cuenta && <section className="space-y-2 rounded-lg bg-surface-subtle p-3">
+          <h2 className="text-sm font-semibold">Saldo inicial</h2>
+          {cuenta.saldoInicial != null ? <p className="text-sm tabular-nums">{cuenta.saldoInicial.toLocaleString('es-MX', { style: 'currency', currency: cuenta.moneda })} · Corte: {cuenta.fechaCorteSaldoInicial}</p> : <>
+            <p className="text-xs text-ink-muted">Captura única. El saldo corresponde al cierre del día de corte, anterior al primer movimiento.</p>
+            <label htmlFor="cta-saldo" className="text-xs">Saldo al corte</label>
+            <Input id="cta-saldo" type="number" step="0.01" value={saldo} onChange={e => setSaldo(e.target.value)} />
+            <label htmlFor="cta-corte" className="text-xs">Fecha de corte</label>
+            <Input id="cta-corte" type="date" value={corte} onChange={e => setCorte(e.target.value)} />
+            <label htmlFor="cta-motivo-saldo" className="text-xs">Motivo y referencia del saldo</label>
+            <Input id="cta-motivo-saldo" maxLength={400} value={motivoSaldo} onChange={e => setMotivoSaldo(e.target.value)} />
+            <Button variant="outline" disabled={registrarSaldo.isPending || saldo === '' || !Number.isFinite(Number(saldo)) || !corte || !motivoSaldo.trim()} onClick={() => {
+              const command = { cuentaId: cuenta.id, saldo: Number(saldo), fechaCorte: corte, motivo: motivoSaldo.trim(), version: cuenta.version };
+              registrarSaldo.mutate({ ...command, idempotencyKey: keyFor(command) }, {
+                onSuccess: () => { toast.success('Saldo inicial registrado'); onOpenChange(false); },
+                onError: e => onError(e, 'No se pudo registrar el saldo inicial'),
+              });
+            }}>Registrar saldo inicial</Button>
+          </>}
+        </section>}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pendiente}>
             Cancelar

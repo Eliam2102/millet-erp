@@ -7,9 +7,21 @@ namespace Millet.Api.Seed;
 
 public sealed partial class DemoSesionSeedHostedService
 {
+    public static readonly Guid CapturistaComprasDemoId = Id("DEMO-USUARIO-CAPTURISTA-COMPRAS");
+    public static readonly Guid JefeComprasDemoId = Id("DEMO-USUARIO-JEFE-COMPRAS");
+    public static readonly Guid DireccionDemoId = Id("DEMO-USUARIO-DIRECCION");
+
     public static bool PermisoDelRol(string rol, string codigo)
     {
         if (rol == "Administrador") return true;
+        if (rol is "Capturista Compras" or "Jefe Compras" or "Dirección")
+        {
+            if (codigo == PermisosCanonicos.ComprasOrdenesAutorizarNivel1)
+                return rol == "Jefe Compras";
+            if (codigo == PermisosCanonicos.ComprasOrdenesAutorizarNivel2)
+                return rol == "Dirección";
+            return PermisoDelRol("Compras", codigo);
+        }
         // Ningún perfil operativo gana bypass territorial, identidad ni administración
         // de roles por el hecho de tener acceso a su módulo.
         if (codigo.Contains("todas-sucursales", StringComparison.Ordinal)) return false;
@@ -37,7 +49,8 @@ public sealed partial class DemoSesionSeedHostedService
         var db = sp.GetRequiredService<IdentidadDbContext>();
         var sucursales = await sp.GetRequiredService<CompartidoDbContext>().Sucursales
             .Where(s => s.EmpresaId == EmpresaId).ToDictionaryAsync(s => s.Clave, ct);
-        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Contabilidad", "DAF", "Administrador" })
+        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Contabilidad", "DAF", "Administrador",
+            "Capturista Compras", "Jefe Compras", "Dirección" })
         {
             var codigo = "DEMO-ROL-" + nombre;
             var rol = await db.Roles.SingleOrDefaultAsync(r => r.Codigo == codigo, ct);
@@ -51,6 +64,29 @@ public sealed partial class DemoSesionSeedHostedService
             db.RolPermisos.RemoveRange(actuales.Where(p => !permisos.Contains(p.PermisoId)));
             foreach (var permiso in permisos.Except(actuales.Select(p => p.PermisoId)))
                 db.RolPermisos.Add(new RolPermiso(Id($"{codigo}/{permiso}"), rol.Id, permiso));
+        }
+        await db.SaveChangesAsync(ct);
+
+        // Identidades ficticias locales de la sesión; no provisiona cuentas en Entra.
+        // Separarlas del actor técnico conserva las reglas P2 al sembrar las OCs.
+        foreach (var (id, clave, nombre, rol) in new[]
+        {
+            (CapturistaComprasDemoId, "capturista-compras", "DEMO Capturista Compras", "Capturista Compras"),
+            (JefeComprasDemoId, "jefe-compras", "DEMO Jefe de Compras", "Jefe Compras"),
+            (DireccionDemoId, "direccion", "DEMO Dirección", "Dirección"),
+        })
+        {
+            if (!await db.Usuarios.AnyAsync(u => u.Id == id, ct))
+                db.Usuarios.Add(new Usuario(id, "demo-sesion-" + clave,
+                    clave + "@example.invalid", nombre, esCuentaTecnica: true));
+            var rolId = Id("DEMO-ROL-" + rol);
+            if (!await db.UsuarioEmpresaRoles.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.RolId == rolId, ct))
+                db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{id}/{rolId}"), id, EmpresaId, rolId));
+            foreach (var sucursal in sucursales.Values.Where(s => rol != "Capturista Compras" || s.Clave == "MID"))
+            {
+                if (!await db.UsuarioSucursales.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.SucursalId == sucursal.Id, ct))
+                    db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{id}/{sucursal.Id}"), id, sucursal.Id, EmpresaId));
+            }
         }
         await db.SaveChangesAsync(ct);
 

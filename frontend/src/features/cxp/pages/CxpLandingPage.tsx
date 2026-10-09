@@ -44,8 +44,8 @@ export function CxpLandingPage() {
           Cuentas por Pagar
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ciclo del pasivo proveedor: CFDIs, facturas, notas de crédito,
-          comprobaciones, viáticos, tarjetas corporativas y reportes.
+          Ciclo del pasivo proveedor: CFDIs, facturas, notas de crédito, comprobaciones, viáticos,
+          tarjetas corporativas y reportes.
         </p>
       </header>
 
@@ -54,8 +54,8 @@ export function CxpLandingPage() {
           className="rounded-md bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground"
           data-testid="cxp-sin-cards"
         >
-          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu
-          administrador para que te asigne los permisos correspondientes.
+          Sin pantallas disponibles para tu rol en este módulo. Contacta a tu administrador para que
+          te asigne los permisos correspondientes.
         </div>
       )}
 
@@ -99,24 +99,21 @@ const moduloCxpLanding: NavModulo = {
       cards: [
         {
           label: 'CFDIs recibidos',
-          description:
-            'Bandeja de CFDIs recibidos. Marcar duplicados, descartar y abrir captura.',
+          description: 'Bandeja de CFDIs recibidos. Marcar duplicados, descartar y abrir captura.',
           to: '/cxp/cfdis',
           icon: FileBadge,
           permission: PermisosCanonicos.CuentasPorPagarCfdisLeer,
         },
         {
           label: 'Facturas',
-          description:
-            'Bandeja general — captura, conciliación, revisión y autorización.',
+          description: 'Bandeja general — captura, conciliación, revisión y autorización.',
           to: '/cxp/facturas',
           icon: ReceiptText,
           permission: PermisosCanonicos.CuentasPorPagarFacturasLeer,
         },
         {
           label: 'Revisión por área',
-          description:
-            'Facturas asignadas a tu área en espera de liberación. Indicadores de SLA.',
+          description: 'Facturas asignadas a tu área en espera de liberación. Indicadores de SLA.',
           to: '/cxp/revision',
           icon: Inbox,
           permission: PermisosCanonicos.CuentasPorPagarFacturasLiberarRevision,
@@ -147,8 +144,7 @@ const moduloCxpLanding: NavModulo = {
         },
         {
           label: 'Comprobaciones',
-          description:
-            'Caja Chica y Aduanales (doble autorización Comercio Exterior + DF).',
+          description: 'Caja Chica y Aduanales (doble autorización Comercio Exterior + DF).',
           to: '/cxp/comprobaciones',
           icon: ClipboardCheck,
           permission: PermisosCanonicos.CuentasPorPagarComprobacionesLeer,
@@ -163,8 +159,7 @@ const moduloCxpLanding: NavModulo = {
         },
         {
           label: 'Tarjetas de crédito',
-          description:
-            'TC empresariales: movimientos, conciliación con estado de cuenta y cierre.',
+          description: 'TC empresariales: movimientos, conciliación con estado de cuenta y cierre.',
           to: '/cxp/tc',
           icon: CreditCard,
           permission: PermisosCanonicos.CuentasPorPagarTcLeer,
@@ -183,9 +178,15 @@ const moduloCxpLanding: NavModulo = {
           permission: PermisosCanonicos.CuentasPorPagarReportesAntiguedad,
         },
         {
+          label: 'Auxiliar de proveedores',
+          description: 'Saldo por proveedor y moneda a una fecha.',
+          to: '/cxp/reportes/auxiliar',
+          icon: BarChart3,
+          permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
+        },
+        {
           label: 'Cartera por proveedor',
-          description:
-            'Saldo total y por bucket por proveedor. Drill-down a facturas vivas.',
+          description: 'Saldo total y por bucket por proveedor. Drill-down a facturas vivas.',
           to: '/cxp/reportes/cartera',
           icon: Wallet,
           permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
@@ -204,22 +205,26 @@ const moduloCxpLanding: NavModulo = {
       label: 'Configuración',
       cards: [
         {
+          label: 'Retenciones por concepto',
+          description: 'Propuestas SAT y ajustes de Fiscal.',
+          to: '/cxp/admin/retenciones',
+          icon: Sliders,
+          permission: PermisosCanonicos.CuentasPorPagarRetencionesLeer,
+        },
+        {
           label: 'Aprobadores',
           description:
             'Catálogo de aprobadores con monto máximo por tipo de gasto (Caja chica / Viáticos / TC / Otros sin OC).',
           to: '/cxp/admin/aprobadores',
           icon: Users,
-          permission:
-            PermisosCanonicos.CuentasPorPagarCatalogosAprobadoresAdministrar,
+          permission: PermisosCanonicos.CuentasPorPagarCatalogosAprobadoresAdministrar,
         },
         {
           label: 'Políticas de viáticos',
-          description:
-            'Tabuladores por puesto y destino (Nacional / Internacional).',
+          description: 'Tabuladores por puesto y destino (Nacional / Internacional).',
           to: '/cxp/admin/politicas-viaticos',
           icon: Sliders,
-          permission:
-            PermisosCanonicos.CuentasPorPagarCatalogosPoliticasAdministrar,
+          permission: PermisosCanonicos.CuentasPorPagarCatalogosPoliticasAdministrar,
         },
         // PLATFORM-TODO(<CxpTolerancias>): vivirá en Datos Maestros.
       ],
