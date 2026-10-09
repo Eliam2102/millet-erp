@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
@@ -24,11 +25,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Adapters;
 /// <list>
 ///   <item><c>EnRevision</c> = <see cref="Millet.DatosMaestros.Domain.Proveedor.Estatus"/> == <see cref="EstatusCatalogo.EnRevision"/>.</item>
 ///   <item><c>Activo</c> = <c>Estatus</c> == <see cref="EstatusCatalogo.Activo"/>.</item>
-///   <item><c>Tolerancia</c> = <c>null</c>: <see cref="Millet.DatosMaestros.Domain.Proveedor"/>
-///   aún no modela tolerancia por proveedor (PLATFORM-TODO
-///   &lt;CxpTolerancias&gt; — feature deferred). Los handlers degradan a la
-///   tolerancia default global del módulo. Cuando entre la migración
-///   aditiva, este mapping se actualiza sin contrato break.</item>
+///   <item><c>Tolerancia</c> = monto en pesos configurado en el proveedor, o null para usar la general.</item>
 /// </list>
 /// </summary>
 public sealed class ProveedorReadPortAdapter : IProveedorReadPort
@@ -55,7 +52,9 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Id,
                 p.Rfc,
                 p.RazonSocial,
-                null,
+                p.ToleranciaFacturaContraOcMxn.HasValue
+                    ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
+                    : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo))
             .FirstOrDefaultAsync(cancellationToken);
@@ -78,7 +77,9 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                 p.Id,
                 p.Rfc,
                 p.RazonSocial,
-                null,
+                p.ToleranciaFacturaContraOcMxn.HasValue
+                    ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
+                    : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
                 p.Estatus == EstatusCatalogo.Activo))
             .FirstOrDefaultAsync(cancellationToken);

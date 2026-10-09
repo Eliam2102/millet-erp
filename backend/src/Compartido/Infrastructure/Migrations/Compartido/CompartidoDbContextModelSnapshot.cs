@@ -741,6 +741,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             UpdatedBy = "seed",
                             Valor = "es-MX",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0001-0000-0000-000000000005"),
+                            Clave = "cxp.tolerancia-factura-contra-oc-mxn",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.",
+                            Modulo = "cxp",
+                            Tipo = (short)1,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "0.99",
+                            Version = 1
                         });
                 });
 
@@ -4871,6 +4885,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("tipo_persona");
 
+                    b.Property<decimal?>("ToleranciaFacturaContraOcMxn")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("tolerancia_factura_contra_oc_mxn");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -4918,6 +4937,8 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             t.HasCheckConstraint("ck_proveedores_rfc_longitud", "char_length(rfc) BETWEEN 12 AND 13");
 
                             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
+
+                            t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
                         });
                 });
 

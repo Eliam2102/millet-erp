@@ -220,10 +220,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "admin-datos-maestros",
                 "Administrador de Datos Maestros",
                 "Gestión de proveedores y artículos (catálogos operativos).",
-                // G1.9 / V44: solo Tesorería edita datos bancarios
+                // G1.9 / G1.13: edición de datos bancarios y tolerancia reservada a sus áreas.
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
                      || (p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
-                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar)
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar)
             ),
             (
                 Guid.Parse("00000002-0003-0000-0000-000000000006"),
@@ -245,9 +246,10 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 Guid.Parse("00000002-0003-0000-0000-000000000008"),
                 "cxp",
                 "Cuentas por Pagar",
-                "Revisión y validación de proveedores; consulta de datos bancarios enmascarados.",
+                "Revisión, validación y tolerancia de proveedores; consulta de datos bancarios enmascarados.",
                 p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresValidar
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar
                      || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
             ),
             (

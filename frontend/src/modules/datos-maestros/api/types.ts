@@ -95,6 +95,7 @@ export interface ProveedorDetalle {
   email: string | null;
   telefono: string | null;
   estatus: EstatusCatalogo;
+  toleranciaFacturaContraOcMxn: number | null;
   validadoEn: string | null;
   motivoRechazo: string | null;
 }

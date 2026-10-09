@@ -123,7 +123,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.adjuntos-subir',
   DatosMaestrosProveedoresAdjuntosBaja:
     'datos_maestros.proveedores.adjuntos-baja',
-  // Validación de proveedores por CxP (F1-ADM-05 G1.1).
+  // Tolerancia y validación de proveedores por CxP (G1.13 / G1.1).
+  DatosMaestrosProveedoresToleranciaEditar:
+    'datos_maestros.proveedores.tolerancia-editar',
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
