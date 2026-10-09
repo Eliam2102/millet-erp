@@ -1,3 +1,9 @@
+using Millet.Compras.Domain;
+using Millet.Compras.Domain.Matriz;
+using Millet.Compras.Infrastructure;
+using Millet.Compras.Infrastructure.PublicAdapters;
+using Millet.SharedKernel.Domain;
+using Millet.SharedKernel.Application.Calendario;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -141,7 +147,7 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
 
             var eventos = new CapturaEventos();
             var cmd = new RegistrarSalidaConRequisicionCommand(
-                RequisicionId: Guid.NewGuid(),
+                RequisicionId: ctx.RqId,
                 FechaMovimiento: Fecha,
                 PersonaDestinatariaId: null,
                 Observaciones: "PR5 multi-sub",
@@ -255,7 +261,12 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
         Guid UnicaId,
         Guid RackId,
         Guid ArticuloId,
-        IPeriodoContableReadPort Periodos);
+        IPeriodoContableReadPort Periodos,
+        Guid RqId,
+        Guid LineaRqId,
+        IComprasRequisicionReadPort RqPort,
+        ICalendarioHabil Calendario,
+        ICentroCostoElegibilidadPort Centros);
 
     private async Task EjecutarConFixtureAsync(
         Func<AlmacenDbContext, ICurrentEmpresaContext, Ctx, Task> cuerpo)
@@ -264,6 +275,7 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var empresaCtx = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
 
+        var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
         var empresaId = Guid.NewGuid();
         await using var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, empresaId, Fecha.Year);
         await calendario.SembrarAsync(Fecha.Month);
@@ -276,7 +288,11 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
             UnicaId: Guid.NewGuid(),
             RackId: Guid.NewGuid(),
             ArticuloId: Guid.NewGuid(),
-            Periodos: calendario.Port);
+            Periodos: calendario.Port,
+            RqId: Guid.NewGuid(), LineaRqId: Guid.NewGuid(),
+            RqPort: new ComprasRequisicionReadAdapter(compras),
+            Calendario: scope.ServiceProvider.GetRequiredService<ICalendarioHabil>(),
+            Centros: scope.ServiceProvider.GetRequiredService<ICentroCostoElegibilidadPort>());
         var clave = $"P5{Guid.NewGuid():N}".Substring(0, 12);
 
         try
@@ -286,11 +302,23 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
             // es sintético: sin bypass el filtro global bloquea el SaveChanges.
             using (empresaCtx.Bypass())
             {
+                var rq = new Requisicion(ctx.RqId, ctx.EmpresaId,
+                    Folio.Parse($"FIX2027-{Random.Shared.Next(100000, 999999)}"), 2027,
+                    Clasificacion.MateriaPrima, Guid.NewGuid(), Guid.NewGuid(), ctx.AlmacenId,
+                    ctx.UserId, ctx.UserId, Prioridad.Normal, DateTimeOffset.UtcNow);
+                rq.AgregarLinea(ctx.LineaRqId, ctx.ArticuloId, CantidadInicial, "PZA", Money.Mxn(CostoRack));
+                rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
+                rq.RegistrarAutorizacion(Guid.NewGuid(), NivelAutorizacion.Nivel1, ctx.UserId, DateTimeOffset.UtcNow, RequiereNivel.SoloN1);
+                rq.RegistrarCubrimiento([new CubrimientoLinea(ctx.LineaRqId, CantidadInicial, 0)], DateTimeOffset.UtcNow);
+                compras.Requisiciones.Add(rq);
+                await compras.SaveChangesAsync();
                 await cuerpo(db, empresaCtx, ctx);
             }
         }
         finally
         {
+            compras.ChangeTracker.Clear();
+            await compras.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM compras.requisiciones WHERE id = {ctx.RqId}");
             db.ChangeTracker.Clear();
             // PR6a: el movimiento ya no lleva sub en cabecera; se borra vía la
             // ubicación de sus líneas.
@@ -340,16 +368,16 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
 
     private static RegistrarSalidaConRequisicionHandler HandlerRq(
         AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
-        new(db, new RqPortNulo(), eventos, new FakeUserCtx(ctx.UserId),
+        new(db, ctx.RqPort, eventos, new FakeUserCtx(ctx.UserId),
             new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos);
 
     private static RegistrarSalidaPorValeHandler HandlerVale(
         AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
         new(db, eventos, new FakeUserCtx(ctx.UserId),
-            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos);
+            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos, ctx.Calendario, ctx.Centros);
 
     private static RegistrarSalidaConRequisicionCommand ComandoRq(Ctx ctx, Guid? ubicacionId) =>
-        new(RequisicionId: Guid.NewGuid(),
+        new(RequisicionId: ctx.RqId,
             FechaMovimiento: Fecha,
             PersonaDestinatariaId: null,
             Observaciones: "PR5 regresión",
@@ -364,7 +392,7 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
 
     private static RegistrarSalidaLineaInput LineaInput(Ctx ctx, Guid? ubicacionId) =>
         new(ArticuloId: ctx.ArticuloId,
-            LineaRqId: null,
+            LineaRqId: ctx.LineaRqId,
             Cantidad: CantidadSalida,
             CentroCostoId: null,
             ProyectoId: null,
@@ -406,21 +434,6 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
 
         public LineaSalidaPayload UnicaLineaDeSalida() =>
             UnicoEventoDeSalida().Lineas.Single();
-    }
-
-    /// <summary>
-    /// Devuelve null: el handler trata la RQ inexistente como "no valida
-    /// estado" y sigue. Aísla el test del módulo Compras.
-    /// </summary>
-    private sealed class RqPortNulo : IComprasRequisicionReadPort
-    {
-        public Task<RequisicionLectura?> ObtenerAsync(Guid rqId, CancellationToken ct) =>
-            Task.FromResult<RequisicionLectura?>(null);
-
-        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
-            IReadOnlyCollection<Guid> rqIds, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, string>>(
-                new Dictionary<Guid, string>());
     }
 
     /// <summary>ADR-0046 se prueba en su propia suite; aquí no debe interferir.</summary>

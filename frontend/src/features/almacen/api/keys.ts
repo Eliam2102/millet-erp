@@ -45,6 +45,7 @@ export interface ListarSalidasFiltros {
    * el caller no lo pase.
    */
   noRegularizados?: boolean;
+  soloVencidos?: boolean;
   offset?: number;
   limit?: number;
 }

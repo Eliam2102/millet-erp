@@ -1303,9 +1303,17 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("linea_factura_id");
 
+                    b.Property<Guid?>("LineaOcId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_oc_id");
+
                     b.Property<Guid?>("LineaRqId")
                         .HasColumnType("uuid")
                         .HasColumnName("linea_rq_id");
+
+                    b.Property<Guid?>("LineaSalidaOrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_salida_origen_id");
 
                     b.Property<string>("MonedaOriginal")
                         .IsRequired()
@@ -1368,6 +1376,12 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ArticuloId")
                         .HasDatabaseName("ix_lineas_movimiento_articulo_id");
+
+                    b.HasIndex("LineaOcId")
+                        .HasDatabaseName("ix_lineas_movimiento_linea_oc_id");
+
+                    b.HasIndex("LineaSalidaOrigenId")
+                        .HasDatabaseName("ix_lineas_movimiento_linea_salida_origen_id");
 
                     b.HasIndex("MovimientoId")
                         .HasDatabaseName("ix_lineas_movimiento_movimiento_id");

@@ -122,26 +122,8 @@ public sealed class RegistrarSalidaConRequisicionHandler
     public async Task<RegistrarSalidaResponse> Handle(
         RegistrarSalidaConRequisicionCommand request, CancellationToken cancellationToken)
     {
-        // 1. Validar RQ. Stub NoOp acepta cualquier id en F0-PR1; el adapter
-        //    real (ComprasRequisicionReadAdapter) ya gatea por estado y devuelve
-        //    null salvo {Autorizada, EnSurtido}, así que si llega no-null la RQ
-        //    acepta surtido.
         var rq = await _rqPort.ObtenerAsync(request.RequisicionId, cancellationToken);
-        if (rq is not null)
-        {
-            // ADR-0043 #3 (conmutación): el único estado de surtido vivo es
-            // EnSurtido (la autorización + cubrimiento siempre desemboca ahí;
-            // tras #3 también el caso 100% stock). Los strings viejos "Aprobada"
-            // y "ParcialmenteSurtida" no existían en EstadoRequisicion — eran
-            // letra muerta. Se compara contra el nombre del enum (cross-módulo:
-            // el puerto expone Estado como string, sin acoplar el enum de Compras).
-            if (!string.Equals(rq.Estado, "EnSurtido", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BusinessRuleException(
-                    "SALIDA_RQ_NO_APROBADA",
-                    $"La RQ '{rq.Folio}' está en estado '{rq.Estado}'; no acepta salida.");
-            }
-        }
+        SalidaRqGuard.Validar(rq, request.Lineas);
 
         // 2. Salida-por-línea C2: el sub-almacén ya NO viene en la cabecera — se
         //    DERIVA del bin de cada línea. El validator exige UbicacionId por
@@ -248,7 +230,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
                     s => s.UbicacionId == ubicacionLinea && s.ArticuloId == input.ArticuloId,
                     cancellationToken);
             var costoSnapshot = saldo?.CostoPromedioMxn ?? 0m;
-            var um = rq?.Lineas.FirstOrDefault(l => l.ArticuloId == input.ArticuloId)?.UnidadMedida
+            var um = rq!.Lineas.First(l => l.LineaId == input.LineaRqId).UnidadMedida
                 ?? "PZA";
 
             // Fase E PR5: el CC-Máquina de la salida-con-RQ es AUTORITATIVO del

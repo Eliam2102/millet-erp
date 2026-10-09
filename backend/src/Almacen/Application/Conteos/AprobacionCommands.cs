@@ -268,15 +268,18 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly Millet.Almacen.Domain.Ports.IPeriodoContableReadPort _periodoContable;
 
     public AplicarConteoHandler(
         AlmacenDbContext db,
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
-        ICurrentEmpresaContext currentEmpresa)
+        ICurrentEmpresaContext currentEmpresa,
+        Millet.Almacen.Domain.Ports.IPeriodoContableReadPort periodoContable)
     {
         _db = db; _events = events;
         _currentUser = currentUser; _currentEmpresa = currentEmpresa;
+        _periodoContable = periodoContable;
     }
 
     public async Task<AplicarConteoResponse> Handle(
@@ -294,6 +297,7 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             "CONTEO_SIN_USUARIO", "Se requiere usuario autenticado.");
 
         var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
+        await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(_db, empresaId, fecha, _periodoContable, cancellationToken);
         var anio = fecha.Year;
 
         // Reservar secuencias (una sola vez para AjustePositivo y AjusteNegativo).

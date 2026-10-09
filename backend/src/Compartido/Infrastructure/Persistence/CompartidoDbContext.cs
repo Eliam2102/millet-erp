@@ -344,7 +344,11 @@ public sealed class CompartidoDbContext : BaseDbContext
                 "Idioma por defecto del sistema (BCP 47).", seedTime),
             SeedParametro("00000006-0001-0000-0000-000000000005", ToleranciaFacturaContraOcParametro.Clave,
                 "0.99", TipoParametro.Numero,
-                "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.", seedTime, "cxp")
+                "Tolerancia factura contra OC (MXN) cuando el proveedor no tiene una propia. Sin opción de forzar el rechazo.", seedTime, "cxp"),
+            SeedParametro("00000006-0001-0000-0000-00000000000a",
+                Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos,
+                Millet.SharedKernel.Application.Calendario.CalendarioHabil.FestivosIniciales, TipoParametro.Json,
+                "Descansos obligatorios LFT art. 74 de 2026 y 2027: dato a validar por Millet. Agregar fechas electorales aplicables. Lista JSON AAAA-MM-DD.", seedTime)
         );
     }
 

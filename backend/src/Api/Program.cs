@@ -707,6 +707,10 @@ builder.Services.AddScoped<
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Calendario.ICalendarioHabil,
+    Millet.Compartido.Infrastructure.Calendario.CalendarioHabilService>();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.ICentroCostoElegibilidadPort,
+    Millet.Api.Adapters.AlmacenCentroCostoElegibilidadAdapter>();
 builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider,
     Millet.Compartido.Infrastructure.PublicAdapters.ConteoUmbralesProvider>();
 
@@ -723,7 +727,7 @@ builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider,
 //   esté Autorizada y resuelven costo unitario desde la línea de OC
 //   (convertido a MXN si la OC es en moneda extranjera).
 // - <ComprasRqReadAdapter>: handlers de salida ahora validan que la RQ
-//   esté Autorizada / EnSurtido y leen articulo + cantidad solicitada por
+//   esté Autorizada / EnSurtido y leen artículo + cantidad disponible para entregar por
 //   línea para verificar match.
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasOcReadPort,

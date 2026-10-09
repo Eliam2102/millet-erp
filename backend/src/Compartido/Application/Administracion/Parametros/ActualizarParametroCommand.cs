@@ -54,6 +54,8 @@ public sealed class ActualizarParametroHandler
                 $"No existe un parámetro global con clave '{command.Clave}'.");
 
         // El dominio valida que el valor parsee según el Tipo.
+        if (command.Clave == Millet.SharedKernel.Application.Calendario.CalendarioHabil.ClaveFestivos)
+            _ = Millet.SharedKernel.Application.Calendario.CalendarioHabil.LeerFestivos(command.Valor);
         row.ActualizarValor(command.Valor);
 
         await _db.SaveChangesAsync(cancellationToken);
