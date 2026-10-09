@@ -15,6 +15,26 @@ namespace Millet.Almacen.UnitTests.P7;
 public sealed class ReglasP7Tests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Recepcion_en_periodo_contable_cerrado_rechaza_antes_de_consultar_conversion(bool packing)
+    {
+        await using var f = new P1Fixture();
+        var conversion = new ConversionNoDisponible();
+        RegistrarRecepcionLineaInput[] lineas = [new(f.ArticuloId, f.LineaId, 1, null, null, f.BinId)];
+        Func<Task> recibir = packing
+            ? () => new RegistrarRecepcionConPackingListHandler(f.Db, f.Oc, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(false), conversion)
+                .Handle(new(f.DocumentoId, P1Fixture.Fecha, "DEMO-P7.pdf", null, lineas), default)
+            : () => new RegistrarRecepcionConFacturaHandler(f.Db, f.Oc, new P1Fixture.Articulos(), f.Events, f.Context, f.Context, f.Guard, new PeriodoContableStub(false), conversion)
+                .Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(recibir);
+        ex.Code.Should().Be("PERIODO_CONTABLE_NO_ADMITE");
+        conversion.Llamadas.Should().Be(0);
+        (await f.Db.Movimientos.AnyAsync()).Should().BeFalse();
+        f.Events.Items.Should().BeEmpty();
+    }
+
+    [Theory]
     [InlineData(6, 0, null, 0)]
     [InlineData(3, 3, null, 0)]
     [InlineData(5, 0, null, 15)]
@@ -139,6 +159,15 @@ public sealed class ReglasP7Tests
         public decimal Manual { get; set; }
         public Task<IReadOnlyDictionary<PedidoVivoClave, decimal>> ObtenerVivoDeSistemaAsync(IReadOnlyCollection<PedidoVivoClave> pares, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<PedidoVivoClave, decimal>>(new Dictionary<PedidoVivoClave, decimal>());
         public Task<IReadOnlyDictionary<PedidoVivoSucursalClave, decimal>> ObtenerVivoManualAsync(IReadOnlyCollection<PedidoVivoSucursalClave> pares, CancellationToken ct) => Task.FromResult<IReadOnlyDictionary<PedidoVivoSucursalClave, decimal>>(pares.ToDictionary(p => p, _ => Manual));
+    }
+    private sealed class ConversionNoDisponible : IConversionUnidadPort
+    {
+        public int Llamadas { get; private set; }
+        public Task<ConversionUnidad> ConvertirAsync(Guid articuloId, decimal cantidad, string? unidadCapturada, string unidadDocumento, CancellationToken ct)
+        {
+            Llamadas++;
+            throw new EntityNotFoundException("ARTICULO_NO_ENCONTRADO", "Artículo DEMO inexistente.");
+        }
     }
     private sealed class CrearP7 : IComprasCrearRqSistemaPort
     {

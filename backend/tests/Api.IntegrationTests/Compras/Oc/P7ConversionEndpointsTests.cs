@@ -30,6 +30,7 @@ public partial class OrdenesCompraEndpointsTests
         var compras = sp.GetRequiredService<ComprasDbContext>();
         var almacen = sp.GetRequiredService<AlmacenDbContext>();
         var pza = await catalogos.UnidadesMedida.SingleAsync(u => u.Codigo == "PZA");
+        // La clave conserva la capitalización admitida por el catálogo.
         var caja = new UnidadMedida(Guid.NewGuid(), $"P7C{Guid.NewGuid():N}"[..16], "DEMO P7 Caja de 12", DimensionUnidad.Conteo, 12, 0, false);
         var articulo = new Articulo(Guid.NewGuid(), $"P7A{Guid.NewGuid():N}"[..16], "DEMO P7 conversión", "PZA", unidadMedidaId: pza.Id);
         var alm = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), $"P7M{Guid.NewGuid():N}"[..16], "DEMO P7", SucursalIdFija);
@@ -52,10 +53,12 @@ public partial class OrdenesCompraEndpointsTests
             oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel1, Guid.NewGuid(), DateTimeOffset.UtcNow);
             oc.Autorizar(Guid.NewGuid(), NivelAutorizacion.Nivel2, Guid.NewGuid(), DateTimeOffset.UtcNow);
             await compras.SaveChangesAsync();
+            Assert.Equal(EstadoOrdenCompra.Autorizada, oc.Estado);
             var recibida = await client.PostAsJsonAsync("/api/v1/almacen/recepciones/packing-list",
                 new RegistrarRecepcionConPackingListCommand(ocId, new(2026, 10, 9), "blob://DEMO/P7", null,
                     [new RegistrarRecepcionLineaInput(articulo.Id, lineaOc, 2, null, null, bin.Id, caja.Codigo)]));
-            recibida.EnsureSuccessStatusCode();
+            Assert.True(recibida.IsSuccessStatusCode,
+                $"Recepción DEMO P7: {(int)recibida.StatusCode} {await recibida.Content.ReadAsStringAsync()}");
             var recepcionId = (await ReadJsonAsync(recibida)).GetProperty("recepcionId").GetGuid();
             var linea = (await almacen.Movimientos.AsNoTracking().Include(m => m.Lineas).SingleAsync(m => m.Id == recepcionId)).Lineas.Single();
             Assert.Equal(24, linea.Cantidad); Assert.Equal("PZA", linea.UnidadMedida);
@@ -64,14 +67,15 @@ public partial class OrdenesCompraEndpointsTests
             var salida = await client.PostAsJsonAsync("/api/v1/almacen/salidas/vale",
                 new RegistrarSalidaPorValeCommand(new(2026, 10, 9), "blob://DEMO/P7-vale", null, "DEMO P7",
                     [new RegistrarSalidaLineaInput(articulo.Id, null, 1, CentroCostoSeedId, null, null, null, bin.Id, caja.Codigo)]));
-            salida.EnsureSuccessStatusCode();
+            Assert.True(salida.IsSuccessStatusCode,
+                $"Salida DEMO P7: {(int)salida.StatusCode} {await salida.Content.ReadAsStringAsync()}");
             var salidaId = (await ReadJsonAsync(salida)).GetProperty("salidaId").GetGuid();
             var vale = await almacen.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Id == salidaId);
             Assert.Equal(12, vale.Lineas.Single().Cantidad); Assert.Equal(1, vale.Lineas.Single().CantidadCapturada);
             Assert.Equal(12, (await almacen.SaldosInventario.AsNoTracking().SingleAsync(s => s.UbicacionId == bin.Id && s.ArticuloId == articulo.Id)).Cantidad);
             vale.EstablecerPlazoRegularizacion(DateTimeOffset.UtcNow.AddHours(-1));
             await almacen.SaveChangesAsync();
-            var aviso = await client.GetAsync("/api/v1/almacen/salidas/?soloVales=true&soloPendientesRegularizacion=true&soloVencidos=true&limit=500");
+            var aviso = await client.GetAsync("/api/v1/almacen/salidas/?soloVales=true&noRegularizados=true&soloVencidos=true&limit=500");
             aviso.EnsureSuccessStatusCode();
             Assert.Contains((await ReadJsonAsync(aviso)).GetProperty("items").EnumerateArray(), i => i.GetProperty("id").GetGuid() == salidaId);
         }

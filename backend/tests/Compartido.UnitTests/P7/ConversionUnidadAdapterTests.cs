@@ -10,12 +10,14 @@ public sealed class ConversionUnidadAdapterTests
 {
     [Theory]
     [InlineData("CAJA", "PZA", 2, 24, 24)]
+    [InlineData("CajaDemo", "PZA", 2, 24, 24)]
     [InlineData("PZA", "CAJA", 24, 24, 2)]
     public async Task Usa_factor_catalogado_y_conserva_unidades_de_documento(string capturada, string documento, decimal cantidad, decimal enBase, decimal enDocumento)
     {
         await using var db = NuevaDb();
         var pieza = new UnidadMedida(Guid.NewGuid(), "PZA", "Pieza DEMO", DimensionUnidad.Conteo, 1, 0, true);
-        var caja = new UnidadMedida(Guid.NewGuid(), "CAJA", "Caja de 12 DEMO", DimensionUnidad.Conteo, 12, 0, false);
+        var codigoCaja = documento == "PZA" ? capturada : "CAJA";
+        var caja = new UnidadMedida(Guid.NewGuid(), codigoCaja, "Caja de 12 DEMO", DimensionUnidad.Conteo, 12, 0, false);
         var articulo = new Articulo(Guid.NewGuid(), "P7-DEMO", "Artículo DEMO", "PZA", unidadMedidaId: pieza.Id);
         db.AddRange(pieza, caja, articulo); await db.SaveChangesAsync();
         var resultado = await new ConversionUnidadAdapter(db).ConvertirAsync(articulo.Id, cantidad, capturada, documento, default);

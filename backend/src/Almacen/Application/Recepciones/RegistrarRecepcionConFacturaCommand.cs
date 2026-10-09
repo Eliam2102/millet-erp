@@ -138,6 +138,14 @@ public sealed class RegistrarRecepcionConFacturaHandler
         var oc = await _ocPort.ObtenerAsync(request.OrdenCompraId, cancellationToken);
         // Primero valida identidad/estado; después aplica el techo a cantidades equivalentes.
         await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), _articuloPort, cancellationToken);
+        // El cierre se rechaza antes de consultar equivalencias o ubicaciones (P1/P7).
+        var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
+            "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
+
+        // F8-PR2: validar periodo cerrado (cross-cutting §6.1).
+        await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
+            _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
+
         var conversiones = new List<ConversionUnidad>();
         foreach (var input in request.Lineas)
             conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
@@ -149,13 +157,6 @@ public sealed class RegistrarRecepcionConFacturaHandler
         //    El sub-almacén ya no viene en cabecera: se deriva del bin de cada
         //    línea (ver el guard en el loop) y el chequeo de existencia lo cubre
         //    la FK del bin.
-        var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
-            "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
-
-        // F8-PR2: validar periodo cerrado (cross-cutting §6.1).
-        await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
-            _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
-
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(

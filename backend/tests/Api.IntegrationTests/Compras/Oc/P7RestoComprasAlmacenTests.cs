@@ -44,23 +44,32 @@ public partial class OrdenesCompraEndpointsTests
         var db = sp.GetRequiredService<ComprasDbContext>();
         var oc = await db.OrdenesCompra.Include(o => o.Adjuntos).SingleAsync(o => o.Id == id);
         AgregarLineaP2(oc);
-        // Simula documento histórico incompleto: el constructor nuevo ya impide el motivo vacío.
-        if (caso == "motivo") db.Entry(oc).Property(o => o.MotivoSinRequisicion).CurrentValue = null;
         foreach (var tipo in await db.TiposDocumentoOc.Where(t => t.Clave == "cotizacion" || t.Clave == "correo_autorizacion").ToListAsync())
             if (!(caso == "correo" && tipo.Clave == "correo_autorizacion") && !(caso == "cotizacion" && tipo.Clave == "cotizacion"))
                 oc.AdjuntarDocumento(Guid.NewGuid(), tipo.Id, "DEMO-P7.pdf", "blob://DEMO/P7", "application/pdf", 10, DateTimeOffset.UtcNow, Guid.NewGuid());
         await db.SaveChangesAsync();
+        // La BD exige motivo por CHECK. Simula el dato incompleto sólo en el
+        // agregado rastreado que lee el handler, sin persistir un estado inválido.
+        if (caso == "motivo") db.Entry(oc).Property(o => o.MotivoSinRequisicion).CurrentValue = null;
         var handler = new EnviarAAutorizacionOcHandler(db, sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<IClock>(), sp.GetRequiredService<IPublisher>());
-        if (codigo is not null)
+        try
         {
-            var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new(id), default));
-            Assert.Equal(codigo, ex.Code);
-            Assert.Equal(EstadoOrdenCompra.Borrador, oc.Estado);
+            if (codigo is not null)
+            {
+                var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new(id), default));
+                Assert.Equal(codigo, ex.Code);
+                Assert.Equal(EstadoOrdenCompra.Borrador, oc.Estado);
+            }
+            else
+            {
+                await handler.Handle(new(id), default);
+                Assert.Equal(EstadoOrdenCompra.EnAutorizacionJefeCompras, oc.Estado);
+            }
         }
-        else
+        finally
         {
-            await handler.Handle(new(id), default);
-            Assert.Equal(EstadoOrdenCompra.EnAutorizacionJefeCompras, oc.Estado);
+            db.ChangeTracker.Clear();
+            await db.OrdenesCompra.Where(o => o.Id == id).ExecuteDeleteAsync();
         }
     }
 
@@ -101,10 +110,24 @@ public partial class OrdenesCompraEndpointsTests
                 sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>(), sp.GetRequiredService<IConversionUnidadPort>());
             if (fallo)
             {
-                await Assert.ThrowsAsync<BusinessRuleException>(() => Handler().Handle(new(rqs[0].Id, NivelAutorizacion.Nivel1), default));
-                db.ChangeTracker.Clear(); almDb.ChangeTracker.Clear();
-                Assert.Equal(EstadoRequisicion.EnAutorizacion, (await db.Requisiciones.SingleAsync(r => r.Id == rqs[0].Id)).Estado);
-                Assert.False(await almDb.ApartadosRequisicion.AnyAsync(a => a.RequisicionId == rqs[0].Id));
+                var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => Handler().Handle(new(rqs[0].Id, NivelAutorizacion.Nivel1), default));
+                Assert.Equal("BIFURCACION_FALLO", ex.Code);
+                Assert.Contains("Fallo DEMO P7", ex.Message);
+                // Una lectura en otro scope acredita rollback persistido, sin
+                // depender del agregado mutado ni del contexto que falló.
+                using var lectura = _factory.Services.CreateScope();
+                using var libre = lectura.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+                var rqDb = lectura.ServiceProvider.GetRequiredService<ComprasDbContext>();
+                var stockDb = lectura.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+                var rqPersistida = await rqDb.Requisiciones.AsNoTracking().Include(r => r.Lineas).Include(r => r.Autorizaciones).SingleAsync(r => r.Id == rqs[0].Id);
+                Assert.Equal(EstadoRequisicion.EnAutorizacion, rqPersistida.Estado);
+                Assert.Empty(rqPersistida.Autorizaciones);
+                Assert.Equal(0, rqPersistida.Lineas.Single().CantidadDeAlmacen);
+                Assert.False(await stockDb.ApartadosRequisicion.AnyAsync(a => a.RequisicionId == rqs[0].Id));
+                Assert.False(await rqDb.OrdenesCompra.AnyAsync(o => o.Lineas.Any(l => l.RequisicionId == rqs[0].Id)));
+                Assert.Equal(2, (await stockDb.SaldosInventario.SingleAsync(s => s.UbicacionId == bin.Id)).Cantidad);
+                // El mismo scope debe seguir utilizable tras deshacer la unión.
+                Assert.Equal(2, (await almDb.SaldosInventario.SingleAsync(s => s.UbicacionId == bin.Id)).Cantidad);
                 return;
             }
             await Handler().Handle(new(rqs[0].Id, NivelAutorizacion.Nivel1), default);

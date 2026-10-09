@@ -17,7 +17,9 @@ public sealed class ConversionUnidadAdapter(CompartidoDbContext db) : IConversio
             ?? throw new EntityNotFoundException("ARTICULO_NO_ENCONTRADO", "El artículo no existe en el catálogo.");
         var codigoBase = articulo.UnidadMedidaDefault;
         if (string.IsNullOrWhiteSpace(unidadDocumento)) unidadDocumento = codigoBase;
-        var capturada = string.IsNullOrWhiteSpace(unidadCapturada) ? unidadDocumento : unidadCapturada.Trim().ToUpperInvariant();
+        // Código inmutable del catálogo: no exige mayúsculas. Cambiar su
+        // capitalización impide encontrar equivalencias válidas (P7).
+        var capturada = string.IsNullOrWhiteSpace(unidadCapturada) ? unidadDocumento : unidadCapturada.Trim();
         // Legacy sin unidad catalogada: sólo identidad, nunca adivinar equivalencias.
         if (articulo.UnidadMedidaId is null && capturada == codigoBase && unidadDocumento == codigoBase)
             return new(cantidad, codigoBase, cantidad, 1m, capturada, cantidad);

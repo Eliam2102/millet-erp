@@ -114,19 +114,20 @@ public sealed class RegistrarRecepcionConPackingListHandler
         var oc = await _ocPort.ObtenerAsync(request.OrdenCompraId, cancellationToken);
         // Primero valida identidad/estado; después aplica el techo a cantidades equivalentes.
         await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), _articuloPort, cancellationToken);
-        var conversiones = new List<ConversionUnidad>();
-        foreach (var input in request.Lineas)
-            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
-                input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
-        var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
-        var lineasOc = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, _articuloPort, cancellationToken);
-
+        // El cierre se rechaza antes de consultar equivalencias o ubicaciones (P1/P7).
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
 
         // F8-PR2: validar periodo cerrado.
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
+
+        var conversiones = new List<ConversionUnidad>();
+        foreach (var input in request.Lineas)
+            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
+        var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
+        var lineasOc = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, _articuloPort, cancellationToken);
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
