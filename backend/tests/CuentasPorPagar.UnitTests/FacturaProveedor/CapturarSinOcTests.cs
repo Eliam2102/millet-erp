@@ -73,8 +73,8 @@ public sealed class CapturarSinOcTests
     public void CapturarSinOc_acepta_aplicar_NC_y_anticipo_igual_que_CapturarConOc()
     {
         var f = Capturar(total: 1000m);
-        f.AplicarNotaCredito(300m);
-        f.AplicarAnticipo(200m);
+        f.AplicarNotaCredito(300m, DateOnly.FromDateTime(DateTime.UtcNow));
+        f.AplicarAnticipo(200m, DateOnly.FromDateTime(DateTime.UtcNow));
         f.SaldoPendiente.Should().Be(500m);
     }
 }

@@ -13,7 +13,7 @@ public sealed record EditarCabeceraFacturaCommand(
     string? FolioProveedor,
     string? SerieProveedor,
     DateOnly FechaVencimiento,
-    DateTimeOffset FechaContabilizacion) : IRequest<EditarCabeceraFacturaResponse>;
+    DateTimeOffset FechaContabilizacion, string? Obra = null, string? ConceptoRetencion = null) : IRequest<EditarCabeceraFacturaResponse>;
 
 public sealed record EditarCabeceraFacturaResponse(Guid Id, int Version);
 
@@ -21,6 +21,8 @@ public sealed class EditarCabeceraFacturaValidator : AbstractValidator<EditarCab
 {
     public EditarCabeceraFacturaValidator()
     {
+        RuleFor(c => c.Obra).MaximumLength(120);
+        RuleFor(c => c.ConceptoRetencion).MaximumLength(80);
         RuleFor(c => c.Id).NotEmpty();
         RuleFor(c => c.VersionEsperada).GreaterThanOrEqualTo(0);
         RuleFor(c => c.FolioProveedor).MaximumLength(40);
@@ -53,6 +55,10 @@ public sealed class EditarCabeceraFacturaHandler : IRequestHandler<EditarCabecer
             command.FolioProveedor, command.SerieProveedor,
             command.FechaVencimiento, command.FechaContabilizacion);
 
+        // La edición exige periodo abierto incluso si se reenvía la misma fecha; el contexto valida bajo el candado hasta commit.
+        _db.Entry(factura).Property(f => f.FechaContabilizacion).IsModified = true;
+
+        factura.AsignarDatosP8(command.Obra, command.ConceptoRetencion);
         await _db.SaveChangesAsync(cancellationToken);
         return new EditarCabeceraFacturaResponse(factura.Id, factura.Version);
     }

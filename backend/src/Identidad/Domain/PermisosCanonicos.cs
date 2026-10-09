@@ -316,6 +316,9 @@ public static class PermisosCanonicos
     public const string CuentasPorPagarProveedoresLiberarRevision      = "cuentas_por_pagar.proveedores.liberar-revision";
     public const string CuentasPorPagarProveedoresAjustarTolerancia    = "cuentas_por_pagar.proveedores.ajustar-tolerancia";
 
+    public const string CuentasPorPagarRetencionesAdministrar = "cuentas_por_pagar.retenciones.administrar";
+    public const string CuentasPorPagarRetencionesLeer = "cuentas_por_pagar.retenciones.leer";
+    public const string CuentasPorPagarReportesLeerTodasSucursales = "cuentas_por_pagar.reportes.leer-todas-sucursales";
     public const string CuentasPorPagarReportesCartera                 = "cuentas_por_pagar.reportes.cartera";
     public const string CuentasPorPagarReportesAntiguedad              = "cuentas_por_pagar.reportes.antiguedad";
     public const string CuentasPorPagarReportesDiot                    = "cuentas_por_pagar.reportes.diot";
@@ -623,6 +626,9 @@ public static class PermisosCanonicos
         (Guid.Parse("00000007-0007-0000-0000-000000000001"), CuentasPorPagarProveedoresPonerRevision,     "Poner proveedor en revisión global"),
         (Guid.Parse("00000007-0007-0000-0000-000000000002"), CuentasPorPagarProveedoresLiberarRevision,   "Liberar proveedor de revisión global"),
         (Guid.Parse("00000007-0007-0000-0000-000000000003"), CuentasPorPagarProveedoresAjustarTolerancia, "Ajustar tolerancia de conciliación por proveedor (restringido)"),
+        (Guid.Parse("00000007-000a-0000-0000-000000000101"), CuentasPorPagarRetencionesAdministrar, "Administrar retenciones por concepto con motivo y auditoría"),
+        (Guid.Parse("00000007-000a-0000-0000-000000000102"), CuentasPorPagarRetencionesLeer, "Consultar retenciones y propuestas del catálogo fiscal"),
+        (Guid.Parse("00000007-000a-0000-0000-000000000103"), CuentasPorPagarReportesLeerTodasSucursales, "Consultar reportes de CxP de todas las sucursales"),
         (Guid.Parse("00000007-0008-0000-0000-000000000001"), CuentasPorPagarReportesCartera,              "Consultar reporte de cartera por categoría × revisión"),
         (Guid.Parse("00000007-0008-0000-0000-000000000002"), CuentasPorPagarReportesAntiguedad,           "Consultar reporte de antigüedad de saldos y anticipos"),
         (Guid.Parse("00000007-0008-0000-0000-000000000003"), CuentasPorPagarReportesDiot,                 "Consultar reporte DIOT"),

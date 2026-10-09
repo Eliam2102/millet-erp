@@ -25,27 +25,34 @@ export const CapturarFacturaLineaSchema = z.object({
     .max(500, 'Máximo 500 caracteres.'),
   claveProdServ: z.string().trim().max(20).nullable(),
   cantidad: z.number().positive('Cantidad debe ser > 0.'),
-  claveUnidad: z
-    .string()
-    .trim()
-    .min(1, 'Clave de unidad obligatoria.')
-    .max(20),
+  claveUnidad: z.string().trim().min(1, 'Clave de unidad obligatoria.').max(20),
   unidad: z.string().trim().max(50).nullable(),
   precioUnitario: z.number().min(0, 'Precio debe ser ≥ 0.'),
   importe: z.number().min(0, 'Importe debe ser ≥ 0.'),
   descuento: z.number().min(0).nullable(),
-  lineaOcId: zId().nullable().refine((id): boolean => id !== null, 'Selecciona la línea de OC que corresponde a este concepto.'),
+  lineaOcId: zId()
+    .nullable()
+    .refine(
+      (id): boolean => id !== null,
+      'Selecciona la línea de OC que corresponde a este concepto.',
+    ),
 });
 
-export type CapturarFacturaLineaValues = z.infer<
-  typeof CapturarFacturaLineaSchema
->;
+export type CapturarFacturaLineaValues = z.infer<typeof CapturarFacturaLineaSchema>;
 
 export const CapturarFacturaSchema = z.object({
-  notasCredito: z.array(z.object({
-    cfdiRecibidoId: zId(),
-    lineas: z.array(z.object({ lineaOcId: zId(), base: z.number().positive() })).min(1, 'Asigna la base de la NC a las líneas que compensa.'),
-  })).optional(),
+  obra: z.string().trim().max(120).nullable().optional(),
+  conceptoRetencion: z.string().trim().max(80).nullable().optional(),
+  notasCredito: z
+    .array(
+      z.object({
+        cfdiRecibidoId: zId(),
+        lineas: z
+          .array(z.object({ lineaOcId: zId(), base: z.number().positive() }))
+          .min(1, 'Asigna la base de la NC a las líneas que compensa.'),
+      }),
+    )
+    .optional(),
   // La OC se elige con el selector; proveedor y sucursal se DERIVAN de la OC
   // (read-only en el form). Siguen siendo UUID requeridos en el payload para
   // mantener intacto el contrato del backend y su validación OC_PROVEEDOR_MISMATCH.
@@ -68,10 +75,7 @@ export const CapturarFacturaSchema = z.object({
   fechaDocumento: z.string().regex(DATE_ONLY_RE, 'Formato YYYY-MM-DD.'),
   fechaContabilizacion: z.string().regex(DATE_ONLY_RE, 'Formato YYYY-MM-DD.'),
   fechaVencimiento: z.string().regex(DATE_ONLY_RE, 'Formato YYYY-MM-DD.'),
-  moneda: z
-    .string()
-    .trim()
-    .length(3, 'Código ISO 3 caracteres (MXN/USD/EUR).'),
+  moneda: z.string().trim().length(3, 'Código ISO 3 caracteres (MXN/USD/EUR).'),
   tipoCambio: z.number().min(0).nullable(),
   subtotal: z.number().min(0),
   descuentos: z.number().min(0),
@@ -97,9 +101,7 @@ export const CancelarFacturaSchema = z
     texto: z.string().trim().max(500).nullable(),
   })
   .refine(
-    (v) =>
-      v.motivo !== MotivoCancelacion.OtroConTexto ||
-      (v.texto != null && v.texto.length >= 5),
+    (v) => v.motivo !== MotivoCancelacion.OtroConTexto || (v.texto != null && v.texto.length >= 5),
     {
       message: 'El motivo "Otro" requiere texto explicativo (≥ 5 caracteres).',
       path: ['texto'],

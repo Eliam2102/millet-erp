@@ -121,7 +121,7 @@ public static class FacturasEndpoints
                     FolioProveedor: request.FolioProveedor,
                     SerieProveedor: request.SerieProveedor,
                     FechaVencimiento: request.FechaVencimiento,
-                    FechaContabilizacion: request.FechaContabilizacion),
+                    FechaContabilizacion: request.FechaContabilizacion, Obra: request.Obra, ConceptoRetencion: request.ConceptoRetencion),
                 cancellationToken);
 
             return Results.Ok(response);
@@ -358,7 +358,7 @@ public static class FacturasEndpoints
         string? FolioProveedor,
         string? SerieProveedor,
         DateOnly FechaVencimiento,
-        DateTimeOffset FechaContabilizacion);
+        DateTimeOffset FechaContabilizacion, string? Obra = null, string? ConceptoRetencion = null);
 
     public sealed record CancelarFacturaRequest(MotivoCancelacion Motivo, string? Texto);
 

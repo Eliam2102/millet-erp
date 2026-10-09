@@ -1,26 +1,13 @@
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Paperclip,
-  Send,
-  Unlock,
-  XCircle,
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Paperclip, Send, Unlock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import {
-  useFactura,
-  useAutorizarFactura,
-} from '@/features/cxp/api/useFacturas';
-import {
-  EstadoPasivo,
-  MotivoCancelacionLabels,
-} from '@/features/cxp/api/types';
+import { useFactura, useAutorizarFactura } from '@/features/cxp/api/useFacturas';
+import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -31,6 +18,7 @@ import { LiberarRevisionSheet } from '@/features/cxp/components/LiberarRevisionS
 import { AdjuntarEvidenciaSheet } from '@/features/cxp/components/AdjuntarEvidenciaSheet';
 import { EvidenciasList } from '@/features/cxp/components/EvidenciasList';
 import { cn } from '@/lib/utils';
+import { EditarDatosP8 } from '@/features/cxp/components/EditarDatosP8';
 
 /**
  * <c>P2 — Detalle de Factura de Proveedor</c> (doc 07 §FE-F2-PR1).
@@ -52,12 +40,9 @@ export function FacturaDetallePage() {
   const idempotencyKey = useFormIdempotencyKey();
   const query = useFactura(id);
   const autorizar = useAutorizarFactura();
-  const puedeAutorizar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarFacturasAutorizar,
-  );
-  const puedeCancelar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarFacturasCancelar,
-  );
+  const puedeAutorizar = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasAutorizar);
+  const puedeEditar = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasEditar);
+  const puedeCancelar = useHasPermission(PermisosCanonicos.CuentasPorPagarFacturasCancelar);
   const puedeEnviarRevision = useHasPermission(
     PermisosCanonicos.CuentasPorPagarFacturasEnviarRevision,
   );
@@ -82,9 +67,7 @@ export function FacturaDetallePage() {
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
-              description: error.traceId
-                ? `Código: ${error.traceId}`
-                : undefined,
+              description: error.traceId ? `Código: ${error.traceId}` : undefined,
             });
             return;
           }
@@ -140,12 +123,15 @@ export function FacturaDetallePage() {
                   En revisión por área
                 </span>
               )}
-              <ToleranciaIndicator diferencia={query.data.diferenciaContraOc} cancelada={query.data.estado === EstadoPasivo.Cancelada} />
+              <ToleranciaIndicator
+                diferencia={query.data.diferenciaContraOc}
+                cancelada={query.data.estado === EstadoPasivo.Cancelada}
+              />
             </div>
             <p className="text-sm text-muted-foreground">
-              Fecha documento: {formatearFecha(query.data.fechaDocumento)} ·
-              Contabilización: {formatearFecha(query.data.fechaContabilizacion)}{' '}
-              · Vence: {query.data.fechaVencimiento}
+              Fecha documento: {formatearFecha(query.data.fechaDocumento)} · Contabilización:{' '}
+              {formatearFecha(query.data.fechaContabilizacion)} · Vence:{' '}
+              {query.data.fechaVencimiento}
             </p>
           </header>
 
@@ -154,41 +140,31 @@ export function FacturaDetallePage() {
             className="flex flex-wrap gap-2 rounded-md border bg-muted/30 px-3 py-2"
             data-print="hidden"
           >
-            {query.data.estado === EstadoPasivo.Capturada &&
-              puedeAutorizar && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleAutorizar}
-                  disabled={autorizar.isPending}
-                >
-                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                  Autorizar
-                </Button>
-              )}
+            {query.data.estado === EstadoPasivo.Capturada && puedeAutorizar && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleAutorizar}
+                disabled={autorizar.isPending}
+              >
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                Autorizar
+              </Button>
+            )}
             {query.data.estado === EstadoPasivo.Capturada &&
               !query.data.enRevision &&
               puedeEnviarRevision && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEnviarRevisionAbierto(true)}
-                >
+                <Button variant="outline" size="sm" onClick={() => setEnviarRevisionAbierto(true)}>
                   <Send className="mr-1 h-3 w-3" />
                   Enviar a revisión
                 </Button>
               )}
-            {query.data.estado === EstadoPasivo.EnRevision &&
-              puedeLiberarRevision && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLiberarRevisionAbierto(true)}
-                >
-                  <Unlock className="mr-1 h-3 w-3" />
-                  Liberar revisión
-                </Button>
-              )}
+            {query.data.estado === EstadoPasivo.EnRevision && puedeLiberarRevision && (
+              <Button variant="outline" size="sm" onClick={() => setLiberarRevisionAbierto(true)}>
+                <Unlock className="mr-1 h-3 w-3" />
+                Liberar revisión
+              </Button>
+            )}
             {(query.data.estado === EstadoPasivo.Capturada ||
               query.data.estado === EstadoPasivo.EnRevision) &&
               puedeEnviarRevision && (
@@ -218,11 +194,8 @@ export function FacturaDetallePage() {
               query.data.motivoCancelacion != null && (
                 <p className="text-sm text-danger-fg">
                   Cancelada por{' '}
-                  <strong>
-                    {MotivoCancelacionLabels[query.data.motivoCancelacion]}
-                  </strong>
-                  {query.data.motivoCancelacionTexto &&
-                    ` — ${query.data.motivoCancelacionTexto}`}
+                  <strong>{MotivoCancelacionLabels[query.data.motivoCancelacion]}</strong>
+                  {query.data.motivoCancelacionTexto && ` — ${query.data.motivoCancelacionTexto}`}
                 </p>
               )}
           </div>
@@ -238,23 +211,27 @@ export function FacturaDetallePage() {
               valor={query.data.sucursalNombre ?? query.data.sucursalId}
               mono={query.data.sucursalNombre == null}
             />
-            <Campo
-              label="Orden de compra"
-              valor={query.data.ordenCompraId ?? '—'}
-              mono
-            />
+            <Campo label="Orden de compra" valor={query.data.ordenCompraId ?? '—'} mono />
             <Campo label="UUID CFDI" valor={query.data.uuidCfdi ?? '—'} mono />
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo
               label="Tipo de cambio"
-              valor={
-                query.data.tipoCambio != null
-                  ? query.data.tipoCambio.toFixed(4)
-                  : '—'
-              }
+              valor={query.data.tipoCambio != null ? query.data.tipoCambio.toFixed(4) : '—'}
             />
           </section>
 
+          {query.data.estado === EstadoPasivo.Capturada && puedeEditar && (
+            <EditarDatosP8 key={`${query.data.id}-${query.data.version}`} factura={query.data} />
+          )}
+          {query.data.alertaRetenciones && (
+            <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg">
+              {query.data.alertaRetenciones}
+            </p>
+          )}
+          <p className="text-sm">
+            <span className="text-ink-muted">Obra: </span>
+            {query.data.obra || '[OBRA POR CONFIRMAR]'}
+          </p>
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Totales
@@ -262,14 +239,43 @@ export function FacturaDetallePage() {
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
               <Importe label="Subtotal" v={query.data.subtotal} m={query.data.moneda} />
               <Importe label="Descuentos" v={query.data.descuentos} m={query.data.moneda} />
-              <Importe label="IVA trasladado" v={query.data.impuestosTrasladados} m={query.data.moneda} />
-              <Importe label="Retenciones totales" v={query.data.retenciones} m={query.data.moneda} />
-              <Importe label="ISR retenido" v={desgloseRetenciones(query.data.retencionesDetalle).isr} m={query.data.moneda} />
-              <Importe label="IVA retenido" v={desgloseRetenciones(query.data.retencionesDetalle).iva} m={query.data.moneda} />
-              <Importe label="Elegible para pago" v={query.data.elegible} m={query.data.moneda} strong />
-              <Importe label="Retenido por falta de recepción" v={query.data.retenido} m={query.data.moneda} />
+              <Importe
+                label="IVA trasladado"
+                v={query.data.impuestosTrasladados}
+                m={query.data.moneda}
+              />
+              <Importe
+                label="Retenciones totales"
+                v={query.data.retenciones}
+                m={query.data.moneda}
+              />
+              <Importe
+                label="ISR retenido"
+                v={desgloseRetenciones(query.data.retencionesDetalle).isr}
+                m={query.data.moneda}
+              />
+              <Importe
+                label="IVA retenido"
+                v={desgloseRetenciones(query.data.retencionesDetalle).iva}
+                m={query.data.moneda}
+              />
+              <Importe
+                label="Elegible para pago"
+                v={query.data.elegible}
+                m={query.data.moneda}
+                strong
+              />
+              <Importe
+                label="Retenido por falta de recepción"
+                v={query.data.retenido}
+                m={query.data.moneda}
+              />
               <Importe label="Total" v={query.data.total} m={query.data.moneda} strong />
-              <Importe label="Anticipo aplicado" v={query.data.anticipoAplicadoTotal} m={query.data.moneda} />
+              <Importe
+                label="Anticipo aplicado"
+                v={query.data.anticipoAplicadoTotal}
+                m={query.data.moneda}
+              />
               <Importe label="NC aplicadas" v={query.data.ncAplicadasTotal} m={query.data.moneda} />
               <Importe label="Pagado" v={query.data.importePagado} m={query.data.moneda} />
               <Importe
@@ -303,16 +309,12 @@ export function FacturaDetallePage() {
                     <tr key={l.id} className="border-t">
                       <td className="px-3 py-2">{l.posicion}</td>
                       <td className="px-3 py-2">{l.descripcion}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.cantidad.toFixed(4)}
-                      </td>
+                      <td className="px-3 py-2 text-right font-mono">{l.cantidad.toFixed(4)}</td>
                       <td className="px-3 py-2">{l.claveUnidad}</td>
                       <td className="px-3 py-2 text-right font-mono">
                         {l.precioUnitario.toFixed(4)}
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.importe.toFixed(2)}
-                      </td>
+                      <td className="px-3 py-2 text-right font-mono">{l.importe.toFixed(2)}</td>
                       <td className="px-3 py-2 text-right font-mono">
                         {l.descuento != null ? l.descuento.toFixed(2) : '—'}
                       </td>
@@ -382,12 +384,7 @@ function Importe({ label, v, m, strong }: ImporteProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd
-        className={cn(
-          'font-mono',
-          strong ? 'text-base font-semibold' : 'text-sm',
-        )}
-      >
+      <dd className={cn('font-mono', strong ? 'text-base font-semibold' : 'text-sm')}>
         {v.toFixed(2)} {m}
       </dd>
     </div>

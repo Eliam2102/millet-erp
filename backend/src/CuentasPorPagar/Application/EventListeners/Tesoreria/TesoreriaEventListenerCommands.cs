@@ -59,7 +59,7 @@ public sealed class PagoFacturaProveedorAplicadoHandler : IRequestHandler<PagoFa
 
         factura.RegistrarPago(
             monto: p.Monto,
-            ahora: _clock.UtcNow,
+            ahora: new DateTimeOffset(p.FechaPago.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)),
             observacion: $"Pago Tesorería {p.PagoId} ref={p.ReferenciaBancaria ?? "-"}");
 
         // Propaga el acumulado pagado hacia Compras (sub-estado Pago de la
@@ -130,7 +130,7 @@ public sealed class PagoFacturaProveedorRevertidoHandler : IRequestHandler<PagoF
         {
             factura.RevertirPago(
                 monto: p.MontoRevertido,
-                ahora: _clock.UtcNow,
+                ahora: new DateTimeOffset(p.FechaReversa.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)),
                 observacion: $"Reverso pago Tesorería ({p.Motivo})");
 
             // Propaga el acumulado reducido hacia Compras: RegistrarPago

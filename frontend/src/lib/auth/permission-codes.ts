@@ -285,6 +285,9 @@ export const PermisosCanonicos = {
   CuentasPorPagarProveedoresAjustarTolerancia:
     'cuentas_por_pagar.proveedores.ajustar-tolerancia',
 
+  CuentasPorPagarRetencionesAdministrar: 'cuentas_por_pagar.retenciones.administrar',
+  CuentasPorPagarRetencionesLeer: 'cuentas_por_pagar.retenciones.leer',
+  CuentasPorPagarReportesLeerTodasSucursales: 'cuentas_por_pagar.reportes.leer-todas-sucursales',
   CuentasPorPagarReportesCartera: 'cuentas_por_pagar.reportes.cartera',
   CuentasPorPagarReportesAntiguedad: 'cuentas_por_pagar.reportes.antiguedad',
   CuentasPorPagarReportesDiot: 'cuentas_por_pagar.reportes.diot',

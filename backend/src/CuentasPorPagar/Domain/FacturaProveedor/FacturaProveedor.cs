@@ -36,6 +36,24 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
     public Guid ProveedorId { get; private set; }
     public Guid SucursalId { get; private set; }
+    public string? Obra { get; private set; }
+    public string? ConceptoRetencion { get; private set; }
+    public string? AlertaRetenciones { get; private set; }
+
+    private readonly List<MovimientoPasivo> _movimientos = [];
+    public IReadOnlyCollection<MovimientoPasivo> Movimientos => _movimientos.AsReadOnly();
+
+    public void AsignarDatosP8(string? obra, string? conceptoRetencion)
+    {
+        AsegurarMutable("editar obra y concepto de retención");
+        if (obra?.Trim().Length > 120 || conceptoRetencion?.Trim().Length > 80)
+            throw new BusinessRuleException("CXP_DATOS_INVALIDOS", "Obra: máximo 120 caracteres; concepto: máximo 80.");
+        Obra = string.IsNullOrWhiteSpace(obra) ? null : obra.Trim();
+        ConceptoRetencion = string.IsNullOrWhiteSpace(conceptoRetencion) ? null : conceptoRetencion.Trim().ToUpperInvariant();
+    }
+
+    public void AsignarAlertaRetenciones(string? alerta) => AlertaRetenciones = alerta;
+
 
     /// <summary>Folio + serie del proveedor (snapshot del CFDI o capturado).</summary>
     public string? FolioProveedor { get; private set; }
@@ -493,7 +511,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// sea suficiente; aquí solo aplicamos al lado factura con
     /// invariante <c>SaldoPendiente >= 0</c>.
     /// </summary>
-    public void AplicarNotaCredito(decimal monto)
+    public void AplicarNotaCredito(decimal monto, DateOnly fecha, Guid? notaCreditoId = null)
     {
         if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada)
             throw new BusinessRuleException(
@@ -507,13 +525,14 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Aplicar {monto} dejaría el saldo negativo (saldo actual: {SaldoPendiente}).");
 
         NcAplicadasTotal += monto;
+        _movimientos.Add(new(Id, notaCreditoId, TipoMovimientoPasivo.NotaCredito, fecha, monto));
     }
 
     /// <summary>
     /// Aplica un monto de AnticipoProveedor al saldo de la factura
     /// (F6-PR2). Mismo patrón que <see cref="AplicarNotaCredito"/>.
     /// </summary>
-    public void AplicarAnticipo(decimal monto)
+    public void AplicarAnticipo(decimal monto, DateOnly fecha, Guid? anticipoId = null)
     {
         if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada)
             throw new BusinessRuleException(
@@ -527,6 +546,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Aplicar {monto} dejaría el saldo negativo (saldo actual: {SaldoPendiente}).");
 
         AnticipoAplicadoTotal += monto;
+        _movimientos.Add(new(Id, anticipoId, TipoMovimientoPasivo.Anticipo, fecha, monto));
     }
 
     /// <summary>
@@ -554,6 +574,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Pagar {monto} dejaría saldo negativo (saldo actual: {SaldoPendiente}).");
 
         ImportePagado += monto;
+        _movimientos.Add(new(Id, null, TipoMovimientoPasivo.Pago, DateOnly.FromDateTime(ahora.UtcDateTime), monto));
         if (SaldoPendiente == 0m)
         {
             var anterior = Estado;
@@ -585,6 +606,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Revertir {monto} excede el importe pagado ({ImportePagado}).");
 
         ImportePagado -= monto;
+        _movimientos.Add(new(Id, null, TipoMovimientoPasivo.Pago, DateOnly.FromDateTime(ahora.UtcDateTime), -monto));
 
         if (Estado == EstadoPasivo.Pagada && SaldoPendiente > 0)
         {
@@ -654,6 +676,12 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         SerieProveedor = serieProveedor;
         FechaVencimiento = fechaVencimiento;
         FechaContabilizacion = fechaContabilizacion;
+    }
+
+    public void AplicarNotaCargo(decimal monto, Guid notaCargoId, DateOnly fecha)
+    {
+        AplicarNotaCredito(monto, fecha, notaCargoId);
+        _movimientos[^1] = new(Id, notaCargoId, TipoMovimientoPasivo.NotaCargo, fecha, monto);
     }
 
     private void AsegurarMutable(string operacion)

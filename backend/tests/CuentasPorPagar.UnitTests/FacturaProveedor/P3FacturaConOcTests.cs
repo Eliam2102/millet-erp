@@ -236,7 +236,7 @@ public sealed class P3FacturaConOcTests
 #else
             options.UseInMemoryDatabase($"p3-{Guid.NewGuid()}");
 #endif
-            Db = new(options.Options, this);
+            Db = new(options.Options, this, new PeriodoPruebaAbierto(), this);
             _oc = new(Guid.NewGuid(), "OC-P3-FICTICIA", Guid.NewGuid(), Current!.Value, Guid.NewGuid(), cantidadOc * precioOc * 1.16m,
                 "Autorizada", [new(LineaId, Guid.NewGuid(), cantidadOc, precioOc, 0, recibido)]);
             if (compartir is not null) _oc = compartir._oc;
@@ -312,5 +312,9 @@ public sealed class P3FacturaConOcTests
         public Task Handle(FacturaProveedorRegistradaDomainEvent e, CancellationToken ct) { Notificaciones.Add(e); return Task.CompletedTask; }
         public Task Handle(FacturaProveedorRechazadaPorToleranciaDomainEvent e, CancellationToken ct) { Notificaciones.Add(e); return Task.CompletedTask; }
         public Task Handle(DiferenciaPrecioFacturaDetectadaDomainEvent e, CancellationToken ct) { Notificaciones.Add(e); return Task.CompletedTask; }
+    }
+    private sealed class PeriodoPruebaAbierto : Millet.CuentasPorPagar.Domain.Ports.Contabilidad.IPeriodoContablePort
+    {
+        public Task<bool> AdmiteMovimientosAsync(DateOnly fecha, CancellationToken ct) => Task.FromResult(true);
     }
 }
