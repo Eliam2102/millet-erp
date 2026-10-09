@@ -1,6 +1,6 @@
 # Inventario de separación por sucursal P6
 
-Corte original: `4bf1690`. Revisión vigente: fusión `687fe82` de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5) más correcciones de la [adenda 3](adenda3-integracion-09oct.md). Este documento describe controles de código; el verde PostgreSQL posterior a estas correcciones y la aceptación Millet están **Por confirmar**.
+Corte original: `4bf1690`. Revisión P6: fusión `687fe82` de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5) más correcciones de la [adenda 3](adenda3-integracion-09oct.md). El seguimiento P6b sobre `main` local `ea7bce2` se documenta al final. Este documento describe controles de código; el verde PostgreSQL posterior a estas correcciones y la aceptación Millet están **Por confirmar**.
 
 ## Regla y permisos
 
@@ -233,3 +233,92 @@ Se reutilizan sucursales y proveedor del seed; las cuentas y tarjetas ficticias 
 | GET | `/api/v1/tesoreria/reportes/flujo-efectivo` | Filtro de cuentas antes de calcular saldos iniciales/finales; una cuenta solicitada explícitamente valida su alcance |
 
 Las rutas de confirmación/rechazo bajo propuestas de CxC fueron retiradas por P5; sus operaciones permanecen en `/tesoreria/depositos/{id}/confirmar` y `/rechazar`, con la guarda P6 del grupo. Los catálogos nuevos de conceptos y retenciones y la captura de saldo inicial de una cuenta maestra conservan sus permisos de administración, por alcance de empresa. Los reportes históricos de P8 usan su permiso corporativo específico; no se sustituyó por el de facturas ni se duplicó su lector.
+
+## Seguimiento P6b · rutas de P4 (09-oct-2026)
+
+Cotejo completo de `CuentasPorPagar/*` y `Tesoreria/*` en la rama `fix/P6b-sucursal-rutas-p4`, desde `main` local `ea7bce2` (PR #68 y #69 integrados). Se encontraron **37 rutas literales ausentes de las tablas previas**: 7 de anticipos/NC/cargos y 30 de catálogos, cuentas y viáticos ya exceptuados por la regla P6. Estar ausente de la tabla no significa carecer de autorización. No se modifican reglas, estados, importes, validaciones fiscales ni publicación de eventos de P4.
+
+### Rutas nuevas incorporadas al inventario
+
+| Método | Ruta | Control y decisión P6b |
+|---|---|---|
+| POST | `/api/v1/cuentas-por-pagar/anticipos/{id:guid}/cancelar` | Permiso de captura primero; guarda del grupo `anticipo_proveedor`, con `cuentas_por_pagar.documentos.gestionar-todas-sucursales`. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L78) |
+| GET | `/api/v1/cuentas-por-pagar/anticipos/serie/{proveedorId:guid}` | Configuración por proveedor y empresa, sin sucursal. GET exige `cuentas_por_pagar.anticipos.leer`; PUT exige `cuentas_por_pagar.anticipos.capturar`. El filtro del grupo busca `id`, no `proveedorId`. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L89) |
+| PUT | `/api/v1/cuentas-por-pagar/anticipos/serie/{proveedorId:guid}` | Configuración por proveedor y empresa, sin sucursal. GET exige `cuentas_por_pagar.anticipos.leer`; PUT exige `cuentas_por_pagar.anticipos.capturar`. El filtro del grupo busca `id`, no `proveedorId`. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L92) |
+| POST | `/api/v1/cuentas-por-pagar/anticipos/{id:guid}/amortizar-nc` | Permiso de captura primero; guarda del grupo `anticipo_proveedor`, con `cuentas_por_pagar.documentos.gestionar-todas-sucursales`; comprueba también la NC del cuerpo. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L96) |
+| POST | `/api/v1/cuentas-por-pagar/notas-cargo/{id:guid}/cancelar` | Guarda de escritura del grupo heredada de P6; permiso de crear/capturar según el documento. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/NotasCargoEndpoints.cs#L156) |
+| POST | `/api/v1/cuentas-por-pagar/notas-cargo/{id:guid}/formalizar` | Guarda de escritura `nota_cargo` heredada de P6; se agrega verificación de la NC fiscal del cuerpo. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/NotasCargoEndpoints.cs#L165) |
+| POST | `/api/v1/cuentas-por-pagar/notas-credito/{id:guid}/cancelar` | Guarda de escritura del grupo heredada de P6; permiso de crear/capturar según el documento. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/NotasCreditoEndpoints.cs#L132) |
+
+### Rutas existentes revisadas y conservadas
+
+- `POST /notas-cargo/{id}/aplicar`: ya tenía guarda del cargo. Se agrega la guarda de la factura elegida en el cuerpo o de la factura persistida si el cuerpo la omite, con `cuentas_por_pagar.facturas.gestionar-todas-sucursales`.
+- `POST /notas-credito/{id}/vincular-factura`: ya comprueba NC y factura; conserva permiso de captura y validaciones P4. Una NC en espera sin origen verificable solo puede vincularla el perfil corporativo. Una NC propia ya vinculada pasa la guarda pero conserva el 422 de estado; no se autoriza por la sucursal destino de un vínculo propuesto.
+- `POST /facturas/{id}/aplicar-nc` y `/aplicar-anticipo`: ya comprueban factura y NC/anticipo. Se añaden regresiones para referencias secundarias ajenas.
+- `GET /tesoreria/repp-pendientes`: ya usa `IDocumentoScopedQuery` de pasivo y filtra `DocumentosPermitidos` antes de totales/paginación. `POST /tesoreria/repp-recibidos` ya valida la factura; P6b agrega la validación de cada `PagoId` incorporado por P4 antes del handler fiscal.
+- Retiro de pasivo: **no existe ruta HTTP nueva**. `RetirarPasivoDePagoCommand` consume el evento de CxP en el worker de Tesorería. Las entradas HTTP existentes (`POST /facturas/{id}/enviar-revision` y `POST /tesoreria/pasivos-pendientes/{facturaProveedorId}/solicitar-cancelacion`) ya tienen guarda P6. No se añade autorización de usuario a un consumidor interno de eventos.
+
+El lector `CxpSucursalReadAdapter` incorpora el origen persistido de P4: NC tipo 07 → `AnticipoOrigenId` → OC → sucursal. El CFDI asociado hereda el mismo alcance. No resuelve un origen por UUID/proveedor ni por usuario. Anticipo sin OC, NC sin factura/anticipo vinculado o con origen no verificable sigue siendo solo corporativo.
+
+### Otras ausencias de la tabla, sin cambios de alcance
+
+Se enumeran para que el cotejo de ambas carpetas sea completo. Conservan las excepciones ya documentadas en «Documentos sin origen verificable y catálogos».
+
+| Método | Ruta | Motivo de conservar su alcance |
+|---|---|---|
+| GET | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L32) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L51) |
+| PATCH | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L65) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites/{id:guid}/cerrar` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L84) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/politicas-viaticos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L107) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/politicas-viaticos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L124) |
+| PATCH | `/api/v1/cuentas-por-pagar/catalogos/politicas-viaticos/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L138) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/retenciones` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L167) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/retenciones/propuesta` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L170) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/retenciones` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L173) |
+| PUT | `/api/v1/cuentas-por-pagar/catalogos/retenciones/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L180) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/motivos-revision` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpEndpoints.cs#L24) |
+| GET | `/api/v1/cuentas-por-pagar/viaticos` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L32) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L50) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/autorizar-jefe` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L67) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/autorizar-df` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L89) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/marcar-pagado` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L111) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/capturar-comprobacion` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L128) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/liberar` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L149) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/rechazar` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L170) |
+| GET | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L191) |
+| GET | `/api/v1/tesoreria/conceptos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/ConceptosEndpoints.cs#L16) |
+| POST | `/api/v1/tesoreria/conceptos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/ConceptosEndpoints.cs#L19) |
+| PUT | `/api/v1/tesoreria/conceptos/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/ConceptosEndpoints.cs#L23) |
+| GET | `/api/v1/tesoreria/cuentas` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L31) |
+| POST | `/api/v1/tesoreria/cuentas` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L44) |
+| PUT | `/api/v1/tesoreria/cuentas/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L60) |
+| POST | `/api/v1/tesoreria/cuentas/{id:guid}/activar` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L85) |
+| POST | `/api/v1/tesoreria/cuentas/{id:guid}/desactivar` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L97) |
+| POST | `/api/v1/tesoreria/cuentas/{id:guid}/saldo-inicial` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L109) |
+
+### Verificación P6b
+
+`P6bSucursalEndpointsTests.cs` amplía la misma clase/fixture de P6: periodo abierto, usuario operativo y super-admin, documentos del seed, cuerpos/versiones válidos, 403 sin mutación, operaciones propias/corporativas, referencias secundarias, permiso antes de alcance, configuración de serie y REPP con XML fiscal ficticio y Blob simulado. La serie usa un proveedor simulado exclusivo y limpia su configuración. También se limpian las NC adicionales, REPP y Outbox por IDs de cada ejecución.
+
+`SucursalNcP6bTests` agrega cinco casos unitarios del lector: NC 07 vinculada con/sin OC, NC 07 sin vínculo y NC con/sin factura. Las sucursales de prueba P6 son `MID`/`MTY`, no usuarios ni registros reales de Cancún/Circuito. La reproducción territorial con esos usuarios reales permanece **Por confirmar**.
+
+PostgreSQL desechable y rojo/verde de integración: **Por confirmar**; este sandbox no tiene Docker. Claude debe ejecutar `tools/validate-integration-isolated.sh` completo, incluidos los casos P6/P6b. No se afirma aceptación ni despliegue.
+
+Resultados locales P6b (09-oct-2026):
+
+| Comprobación | Resultado verificado |
+|---|---|
+| `dotnet build Millet.sln` (MSBuild secuencial, restauración desde caché NuGet local, `NuGetAudit=false`) | 0 errores, 0 advertencias; incluye compilación de las integraciones nuevas |
+| CxP unitarias | 444/444, incluidos los 5 casos nuevos del lector |
+| Tesorería unitarias | 132/132 |
+| `SucursalScopeP6Tests` | 3/3 |
+| `npx tsc --noEmit -p tsconfig.json` | Código de salida 0 |
+| `npm run -s typecheck:test` | Código de salida 0 |
+| `npm run -s lint` | 0 errores, 10 advertencias existentes; código de salida 0 |
+| `npx vitest run` | 363 archivos, 2,084 pruebas en verde; código de salida 0 |
+| `git diff --check` | Sin errores |
+
+VSTest abortó antes de ejecutar las unitarias con `SocketException (13): Permission denied`: el sandbox bloquea su socket local. Los resultados unitarios de la tabla se obtuvieron ejecutando **xUnit en proceso**, mediante `AssemblyRunner.WithoutAppDomain` del paquete ya restaurado `xunit.runner.visualstudio`, sobre las DLL compiladas. El ejecutor temporal está en `/tmp/p6b-runner`; no modifica el runner del repositorio. No hubo pruebas fallidas ni omitidas en esas ejecuciones. Esto no sustituye el verde PostgreSQL requerido.
+
+La base Obsidian está fuera del alcance de escritura de este sandbox. Esta sección conserva el cierre local y su evidencia para trasladar a la ficha/Bitácora pertinente cuando se valide la integración. No se modificaron tareas externas, no se publicaron documentos y no se hizo commit ni push.

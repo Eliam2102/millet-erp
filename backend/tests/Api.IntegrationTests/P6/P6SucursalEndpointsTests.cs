@@ -32,7 +32,7 @@ using Millet.Tesoreria.Infrastructure.Persistence;
 namespace Millet.Api.IntegrationTests.P6;
 
 /// <summary>Documentos propios/ajenos sobre PostgreSQL. Usa sucursales del seed; no modifica catálogos compartidos.</summary>
-public sealed class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory) : IClassFixture<P6SucursalEndpointsFactory>
+public sealed partial class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory) : IClassFixture<P6SucursalEndpointsFactory>
 {
     private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000001");
     private static readonly Guid Propia = Guid.Parse("00000005-0003-0000-0000-000000000001");
@@ -392,7 +392,7 @@ public sealed class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory)
                     Millet.CuentasPorPagar.Domain.AnticipoProveedor.AnticipoProveedor.SerieEstandar, null, ahora, "MXN", null, 100m, oc.Id, usuarioId, ahora);
                 var notaCredito = Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.NotaCreditoProveedor.Capturar(Empresa, null, Guid.NewGuid().ToString(), Proveedor, null, null,
                     ahora, "MXN", null, 10m, 0m, 0m, 10m, Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoNotaCredito.Descuento,
-                    Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), factura.Id, usuarioId, ahora);
+                    Millet.CuentasPorPagar.Domain.NotaCreditoProveedor.TipoRelacionCfdi.NotaCredito, factura.UuidCfdi!, factura.Id, usuarioId, ahora);
                 var notaCargo = Millet.CuentasPorPagar.Domain.NotaCargo.NotaCargo.Crear(Empresa,
                     Millet.CuentasPorPagar.Domain.NotaCargo.FolioInternoNotaCargo.FromAnioSecuencial(2026, numero), Proveedor, sucursal, "Cargo de prueba", null, 10m, "MXN", null, factura.Id, null, usuarioId, ahora);
                 var comprobacion = Millet.CuentasPorPagar.Domain.ComprobacionGastos.ComprobacionGastos.Crear(Empresa,
@@ -477,7 +477,7 @@ public sealed class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory)
             var ocIds = Ids("oc");
             var rqIds = Ids("rq");
             var anticipoIds = Ids("anticipo");
-            var nota_creditoIds = Ids("nota_credito");
+            var nota_creditoIds = Ids("nota_credito").Concat(Ids("nc07")).Concat(Ids("nc03")).Concat(Ids("nc_sin_origen")).ToArray();
             var nota_cargoIds = Ids("nota_cargo");
             var comprobacionIds = Ids("comprobacion");
             var reposicionIds = Ids("reposicion");
@@ -485,11 +485,16 @@ public sealed class P6SucursalEndpointsTests(P6SucursalEndpointsFactory factory)
             var pagoIds = Ids("pago");
             var cuentaIds = Ids("cuenta");
             var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+            await tes.ReppsProveedorRecibidos.Where(x => facturaIds.Contains(x.FacturaProveedorId)).ExecuteDeleteAsync();
+            foreach (var facturaId in facturaIds)
+                await tes.OutboxEntries.Where(x => x.Payload.Contains(facturaId.ToString())).ExecuteDeleteAsync();
             await tes.AplicacionesPagoProveedor.Where(x => pagoIds.Contains(x.Id)).ExecuteDeleteAsync();
             await tes.MovimientosBancarios.Where(x => movimientoIds.Contains(x.Id)).ExecuteDeleteAsync();
             await tes.CuentasBancarias.Where(x => cuentaIds.Contains(x.Id)).ExecuteDeleteAsync();
             var cfdiIds = Ids("cfdi"); var tarjetaIds = Ids("tarjeta"); var movimientosTcIds = Ids("movimiento_tc");
             var cxp = scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();
+            foreach (var facturaId in facturaIds)
+                await cxp.OutboxEntries.Where(x => x.Payload.Contains(facturaId.ToString())).ExecuteDeleteAsync();
             await cxp.MovimientosTarjetaCredito.Where(x => movimientosTcIds.Contains(x.Id)).ExecuteDeleteAsync();
             await cxp.TarjetasCredito.Where(x => tarjetaIds.Contains(x.Id)).ExecuteDeleteAsync();
             await cxp.AnticiposProveedor.Where(x => anticipoIds.Contains(x.Id)).ExecuteDeleteAsync();

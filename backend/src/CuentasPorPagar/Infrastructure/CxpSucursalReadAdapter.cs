@@ -15,10 +15,11 @@ public sealed class CxpSucursalReadAdapter(CuentasPorPagarDbContext db, ICompras
             {
                 var origenes = facturas.Where(x => x.CfdiRecibidoId != null)
                     .Select(x => new DocumentoSucursales(x.CfdiRecibidoId!.Value, mapaFacturas[x.Id])).ToList();
+                var sucursalesNotas = (await ListarAsync("nota_credito_proveedor", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
                 var notas = await db.NotasCreditoProveedor.AsNoTracking().Where(x => x.CfdiRecibidoId != null)
-                    .Select(x => new { x.CfdiRecibidoId, x.FacturaOrigenId }).ToListAsync(ct);
+                    .Select(x => new { x.Id, x.CfdiRecibidoId }).ToListAsync(ct);
                 origenes.AddRange(notas.Select(x => new DocumentoSucursales(x.CfdiRecibidoId!.Value,
-                    x.FacturaOrigenId is Guid factura ? mapaFacturas.GetValueOrDefault(factura) ?? Array.Empty<Guid>() : Array.Empty<Guid>())));
+                    sucursalesNotas.GetValueOrDefault(x.Id) ?? Array.Empty<Guid>())));
                 var ordenes = (await compras.ListarAsync("orden_compra", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
                 var anticipos = await db.AnticiposProveedor.AsNoTracking().Where(x => x.CfdiRecibidoId != null)
                     .Select(x => new { x.CfdiRecibidoId, x.OrdenCompraId }).ToListAsync(ct);
@@ -59,9 +60,11 @@ public sealed class CxpSucursalReadAdapter(CuentasPorPagarDbContext db, ICompras
         if (tipo == "nota_credito_proveedor")
         {
             var facturas = await db.FacturasProveedor.AsNoTracking().Select(x => new { x.Id, x.SucursalId }).ToDictionaryAsync(x => x.Id, x => x.SucursalId, ct);
-            var notas = await db.NotasCreditoProveedor.AsNoTracking().Select(x => new { x.Id, x.FacturaOrigenId }).ToListAsync(ct);
+            var anticipos = (await ListarAsync("anticipo_proveedor", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
+            var notas = await db.NotasCreditoProveedor.AsNoTracking().Select(x => new { x.Id, x.FacturaOrigenId, x.AnticipoOrigenId }).ToListAsync(ct);
             return notas.Select(x => new DocumentoSucursales(x.Id,
-                x.FacturaOrigenId is Guid id && facturas.TryGetValue(id, out var sucursal) ? new[] { sucursal } : Array.Empty<Guid>())).ToArray();
+                x.FacturaOrigenId is Guid id && facturas.TryGetValue(id, out var sucursal) ? new[] { sucursal } :
+                x.AnticipoOrigenId is Guid anticipo ? anticipos.GetValueOrDefault(anticipo) ?? Array.Empty<Guid>() : Array.Empty<Guid>())).ToArray();
         }
         if (tipo == "comprobacion")
             return await db.ComprobacionesGastos.AsNoTracking().Select(x => new DocumentoSucursales(x.Id, new[] { x.SucursalId })).ToListAsync(ct);
