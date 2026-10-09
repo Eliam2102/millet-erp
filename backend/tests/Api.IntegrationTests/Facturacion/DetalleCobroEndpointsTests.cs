@@ -74,6 +74,8 @@ public sealed class DetalleCobroEndpointsTests(WebApplicationFactory<Program> fa
             await db.CobrosMostrador.Where(c => c.Id == cobro.Id).ExecuteDeleteAsync();
             await db.CajaSesiones.Where(s => s.Id == sesion.Id).ExecuteDeleteAsync();
             await db.Cajas.Where(c => c.Id == caja.Id).ExecuteDeleteAsync();
+            // El cobro ya se borró en la base: se suelta del rastreador para no cortar la relación al borrar la factura.
+            db.Entry(cobro).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
             db.Remove(factura);
             await db.SaveChangesAsync();
         }
