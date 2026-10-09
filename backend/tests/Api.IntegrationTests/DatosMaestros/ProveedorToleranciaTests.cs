@@ -44,10 +44,16 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
                 var entradas = await core.AuditLog.Where(a => a.EntidadId == proveedorId && a.Operacion == "proveedor.tolerancia-cambiada")
                     .OrderBy(a => a.Timestamp).ToListAsync();
                 Assert.Equal(2, entradas.Count);
-                var cambio = entradas.Last();
+                // Los dos cambios pueden quedar con el mismo sello de tiempo: se identifica el segundo por su valor, no por el orden.
+                static decimal? Despues(string cambios)
+                {
+                    using var doc = JsonDocument.Parse(cambios);
+                    var d = doc.RootElement.GetProperty("toleranciaFacturaContraOcMxn").GetProperty("despues");
+                    return d.ValueKind == JsonValueKind.Number ? d.GetDecimal() : null;
+                }
+                var cambio = entradas.Single(e => Despues(e.Cambios) == 1m);
                 Assert.Equal(usuarioId, cambio.UsuarioId);
                 Assert.InRange(cambio.Timestamp, desde, DateTimeOffset.UtcNow.AddMinutes(1));
-                Assert.True(cambio.Timestamp >= entradas.First().Timestamp);
                 using var json = JsonDocument.Parse(cambio.Cambios);
                 var valores = json.RootElement.GetProperty("toleranciaFacturaContraOcMxn");
                 Assert.Equal(5m, valores.GetProperty("antes").GetDecimal());
@@ -83,9 +89,12 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
             {
                 var total = 10000m + diferencia;
                 var ahora = DateTimeOffset.UtcNow;
-                var command = new CapturarFacturaConOcCommand(oc.Id, proveedorId, oc.SucursalId, null, null, "DEMO-G113", null,
+                // P3 concilia por línea y no deja facturar dos veces la misma cantidad: cada captura usa su propia OC
+                // (la línea toma el mismo Id que la OC) para medir solo la tolerancia.
+                var ocId = Guid.NewGuid();
+                var command = new CapturarFacturaConOcCommand(ocId, proveedorId, oc.SucursalId, null, null, "DEMO-G113", null,
                     ahora, ahora, DateOnly.FromDateTime(ahora.UtcDateTime).AddDays(30), "MXN", null,
-                    total, 0, 0, 0, total, [new(null, null, "Material DEMO G1.13", 1, "H87", "Pieza", total, total, null, null, null)]);
+                    total, 0, 0, 0, total, [new(oc.ArticuloId, null, "Material DEMO G1.13", 1, "H87", "Pieza", total, total, null, ocId, null)]);
                 var response = await admin.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", command);
                 response.EnsureSuccessStatusCode();
                 var id = (await AdjuntosProveedorAmbiente.LeerAsync(response)).GetProperty("id").GetGuid();
@@ -150,9 +159,11 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
     {
         public Guid Id { get; } = Guid.NewGuid();
         public Guid SucursalId { get; } = Guid.NewGuid();
+        public Guid ArticuloId { get; } = Guid.NewGuid();
         public Guid ProveedorId { get; set; }
         public Task<OrdenCompraDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OrdenCompraDto?>(
-            id == Id ? new(Id, "OC-DEMO-G113", ProveedorId, AdjuntosProveedorAmbiente.EmpresaInicialId, SucursalId, 10000, "Autorizada", []) : null);
+            new(id, "OC-DEMO-G113", ProveedorId, AdjuntosProveedorAmbiente.EmpresaInicialId, SucursalId, 10000, "Autorizada",
+                [new(id, ArticuloId, 1, 10000, 0, 1)]));
         public Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(Guid id, CancellationToken ct) => Task.FromResult<IReadOnlyList<OrdenCompraDto>>([]);
     }
 }
