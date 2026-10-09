@@ -5,6 +5,8 @@ export type ConteoId =
   | 'requisiciones'
   | 'ordenes'
   | 'abiertas'
+  | 'valesVencidos'
+  | 'valesPorVencer'
   | 'recepciones'
   | 'proveedores'
   | 'facturas'
@@ -17,7 +19,7 @@ export interface PendienteConfig {
   titulo: string;
   descripcion: string;
   to: string;
-  search?: { estado?: 0 | 2; pendientes?: boolean; nivelPendiente?: 1 | 2 };
+  search?: { estado?: 0 | 2; pendientes?: boolean; nivelPendiente?: 1 | 2; soloVales?: boolean; noRegularizados?: boolean; soloVencidos?: boolean; soloPorVencer?: boolean };
   conteo?: ConteoId;
   periodo?: boolean;
   permisos?: readonly string[];
@@ -63,6 +65,20 @@ export const pendientes: readonly PendienteConfig[] = [
     search: { estado: 0 },
     conteo: 'recepciones',
     permisos: [P.AlmacenEntradasLeer],
+  },
+  {
+    id: 'valesVencidos', modulo: 'Almacén', titulo: 'Vales vencidos sin regularizar',
+    descripcion: 'Vincula una requisición autorizada para regularizar la entrega.',
+    to: '/almacen/salidas', conteo: 'valesVencidos',
+    search: { soloVales: true, noRegularizados: true, soloVencidos: true },
+    permisos: [P.AlmacenSalidasLeerTodas],
+  },
+  {
+    id: 'valesPorVencer', modulo: 'Almacén', titulo: 'Vales por vencer en 24 horas',
+    descripcion: 'Regulariza estos vales antes de su fecha límite.',
+    to: '/almacen/salidas', conteo: 'valesPorVencer',
+    search: { soloVales: true, noRegularizados: true, soloPorVencer: true },
+    permisos: [P.AlmacenSalidasLeerTodas],
   },
   {
     id: 'proveedores',

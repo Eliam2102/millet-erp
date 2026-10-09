@@ -52,10 +52,13 @@ public sealed class ActualizarComprasSettingsHandler
             row.EstablecerAutoGenerarOcAlAutorizar(flag);
         }
 
+        if (command.ApartarExistenciaAlAutorizar is bool apartar)
+            row.EstablecerApartarExistenciaAlAutorizar(apartar);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return new ComprasSettingsResponse(
             EmpresaId: row.EmpresaId,
-            AutoGenerarOcAlAutorizar: row.AutoGenerarOcAlAutorizar);
+            AutoGenerarOcAlAutorizar: row.AutoGenerarOcAlAutorizar, ApartarExistenciaAlAutorizar: row.ApartarExistenciaAlAutorizar);
     }
 }

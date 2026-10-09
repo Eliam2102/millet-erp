@@ -220,7 +220,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             redondeoAplicado: redondeo,
             ahora: ahora);
 
-        factura.AsignarDatosP8(command.Obra, command.ConceptoRetencion);
+        factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion);
 
         // 5) Líneas.
         foreach (var l in command.Lineas)

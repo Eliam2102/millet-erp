@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application.UnidadesMedida;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Ports.Almacen;
@@ -16,7 +17,7 @@ namespace Millet.Compras.Application.PreviewCubrimiento;
 /// la bifurcación real al autorizar, sin drift.
 ///
 /// <para><b>Invariantes</b>: NUNCA escribe (no <c>SaveChanges</c>) — no reserva
-/// stock (PR4/ADR-0047: ya no existen reservas) ni escribe las columnas de
+/// stock (P7/ADR-0061: el apartado sólo se realiza al autorizar) ni escribe las columnas de
 /// cubrimiento (que siguen en 0 hasta que la bifurcación real corra al
 /// autorizar). El resultado es una estimación al instante de la consulta.</para>
 ///
@@ -32,15 +33,17 @@ public sealed class PreviewCubrimientoHandler
     private readonly ComprasDbContext _db;
     private readonly IConsultarStockPort _stock;
     private readonly IArticuloReadPort _articulos;
+    private readonly IConversionUnidadPort _conversion;
 
     public PreviewCubrimientoHandler(
         ComprasDbContext db,
         IConsultarStockPort stock,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos, IConversionUnidadPort conversion)
     {
         _db = db;
         _stock = stock;
         _articulos = articulos;
+        _conversion = conversion;
     }
 
     public async Task<PreviewCubrimientoResponse> Handle(
@@ -66,6 +69,7 @@ public sealed class PreviewCubrimientoHandler
         }
 
         var lineas = new List<PreviewCubrimientoLinea>(requisicion.Lineas.Count);
+        var disponiblesEnBase = new Dictionary<Guid, decimal>();
         foreach (var linea in requisicion.Lineas)
         {
             // Solo CONSULTA (lectura). El reparto lo hace la función pura.
@@ -74,8 +78,12 @@ public sealed class PreviewCubrimientoHandler
                 linea.ArticuloId,
                 cancellationToken);
 
-            var (deAlmacen, deCompra) =
-                Cubrimiento.Repartir(disponibilidad.Disponible, linea.Cantidad);
+            var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
+            var disponibleBase = disponiblesEnBase.GetValueOrDefault(linea.ArticuloId, disponibilidad.Disponible);
+            var escala = (decimal)Math.Pow(10, Math.Min(4, conversion.DecimalesDocumento));
+            var disponibleDocumento = decimal.Floor(disponibleBase / conversion.FactorDocumentoABase * escala) / escala;
+            var (deAlmacen, deCompra) = Cubrimiento.Repartir(disponibleDocumento, linea.Cantidad);
+            disponiblesEnBase[linea.ArticuloId] = disponibleBase - deAlmacen * conversion.FactorDocumentoABase;
 
             lineas.Add(new PreviewCubrimientoLinea(
                 LineaId: linea.Id,
@@ -85,7 +93,7 @@ public sealed class PreviewCubrimientoHandler
                 Cantidad: linea.Cantidad,
                 EstimadoDeAlmacen: deAlmacen,
                 EstimadoDeCompra: deCompra,
-                Disponible: disponibilidad.Disponible));
+                Disponible: disponibleDocumento));
         }
 
         // Enriquecimiento de etiqueta de artículo por línea, server-side en

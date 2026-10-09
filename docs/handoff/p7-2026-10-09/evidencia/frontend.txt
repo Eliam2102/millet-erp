@@ -1,0 +1,9 @@
+npx tsc --noEmit -p tsconfig.json: exit 0
+npm run -s typecheck:test: exit 0
+npm run -s lint: exit 0 (0 errores, 10 advertencias)
+npx vitest run --maxWorkers=4:
+ Test Files  354 passed (354)
+      Tests  2061 passed (2061)
+   Start at  14:27:36
+   Duration  276.68s (transform 17.42s, setup 36.95s, import 582.75s, tests 182.43s, environment 253.96s)
+

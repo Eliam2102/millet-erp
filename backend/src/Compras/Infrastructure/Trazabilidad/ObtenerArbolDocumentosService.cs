@@ -5,18 +5,9 @@ using Millet.SharedKernel.Application;
 namespace Millet.Compras.Infrastructure.Trazabilidad;
 
 /// <summary>
-/// Implementación V1 (F7-PR2) de <see cref="IObtenerArbolDocumentosService"/>.
-/// Conoce RQ y OC: desde una RQ navega a las OCs que la consumen
-/// (downstream); desde una OC navega a las RQs origen (upstream) vía
-/// <c>LineaOrdenCompra.RequisicionId</c>.
-///
-/// <para>
-/// El árbol se construye en una sola pasada cuando es factible: para
-/// MVP las profundidades son acotadas (RQ → OC → recepción/factura/pago
-/// → nada). En F8+, cuando se agreguen providers de CxP/Tesorería, el
-/// servicio podría componerse vía estrategia para mantener la
-/// implementación O(N) y limitar IO a lo necesario.
-/// </para>
+/// Árbol recursivo RQ → OC → recepción → factura → pago, con entrada desde
+/// cualquier documento. Los proveedores conservan el filtro de empresa.
+/// El camino visitado evita ciclos y cada nivel elimina enlaces duplicados.
 /// </summary>
 public sealed class ObtenerArbolDocumentosService : IObtenerArbolDocumentosService
 {
@@ -45,17 +36,52 @@ public sealed class ObtenerArbolDocumentosService : IObtenerArbolDocumentosServi
         return aggregate;
     }
 
-    public async Task<NodoArbolDocumento?> ObtenerAsync(
-        TipoDocumentoTrazabilidad tipoDocumento,
-        Guid id,
-        CancellationToken cancellationToken)
+    public Task<NodoArbolDocumento?> ObtenerAsync(TipoDocumentoTrazabilidad tipoDocumento, Guid id, CancellationToken cancellationToken)
+        => ExpandirAsync(tipoDocumento, id, new HashSet<(TipoDocumentoTrazabilidad, Guid)>(), true, true, cancellationToken);
+
+    private async Task<NodoArbolDocumento?> ExpandirAsync(TipoDocumentoTrazabilidad tipo, Guid id,
+        HashSet<(TipoDocumentoTrazabilidad, Guid)> camino, bool subir, bool bajar, CancellationToken ct)
     {
-        return tipoDocumento switch
+        if (!camino.Add((tipo, id))) return null;
+        try
         {
-            TipoDocumentoTrazabilidad.Requisicion => await ConstruirDesdeRqAsync(id, cancellationToken),
-            TipoDocumentoTrazabilidad.OrdenCompra => await ConstruirDesdeOcAsync(id, cancellationToken),
-            _ => null,
-        };
+            NodoArbolDocumento? nodo = tipo switch
+            {
+                TipoDocumentoTrazabilidad.Requisicion => await ConstruirDesdeRqAsync(id, ct),
+                TipoDocumentoTrazabilidad.OrdenCompra => await ConstruirDesdeOcAsync(id, ct),
+                _ => null,
+            };
+            if (nodo is null)
+                foreach (var provider in _providers)
+                {
+                    nodo = await provider.ObtenerNodoAsync(tipo, id, ct);
+                    if (nodo is not null) break;
+                }
+            if (nodo is null) return null;
+            var padres = nodo.Ascendentes.ToList();
+            var hijos = nodo.Descendentes.ToList();
+            if (tipo is not (TipoDocumentoTrazabilidad.Requisicion or TipoDocumentoTrazabilidad.OrdenCompra))
+            {
+                foreach (var provider in _providers)
+                {
+                    if (subir) padres.AddRange(await provider.ObtenerAscendentesAsync(tipo, id, ct));
+                    if (bajar) hijos.AddRange(await provider.ObtenerDescendentesAsync(tipo, id, ct));
+                }
+            }
+            async Task<List<NodoArbolDocumento>> ExpandirLista(List<NodoArbolDocumento> nodos, bool arriba)
+            {
+                var resultado = new List<NodoArbolDocumento>();
+                foreach (var n in nodos.DistinctBy(n => (n.TipoDocumento, n.Id)))
+                {
+                    var expandido = await ExpandirAsync(n.TipoDocumento, n.Id, camino, arriba, !arriba, ct);
+                    if (expandido is not null) resultado.Add(expandido);
+                }
+                return resultado;
+            }
+            return nodo with { Ascendentes = subir ? await ExpandirLista(padres, true) : [],
+                Descendentes = bajar ? await ExpandirLista(hijos, false) : [] };
+        }
+        finally { camino.Remove((tipo, id)); }
     }
 
     private async Task<NodoArbolDocumento?> ConstruirDesdeRqAsync(Guid rqId, CancellationToken ct)
@@ -162,7 +188,7 @@ public sealed class ObtenerArbolDocumentosService : IObtenerArbolDocumentosServi
 
         // Descendentes: agregados por los providers cross-módulo
         // (Almacén → recepciones, CxP → facturas, Tesorería → pagos en
-        // el futuro). Cada provider devuelve lo suyo o lista vacía.
+        // el árbol). Cada provider devuelve lo suyo o lista vacía.
         var descendentes = await RecolectarDescendentesAsync(
             TipoDocumentoTrazabilidad.OrdenCompra, ocId, ct);
 

@@ -208,7 +208,7 @@ export function SalidaDetallePage() {
                           maximumFractionDigits: 4,
                         })}
                       </td>
-                      <td className="px-3 py-2">{l.unidadMedida}</td>
+                      <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
                       <td className="px-3 py-2 text-right font-mono">
                         {formatearMonto(l.costoUnitarioMxn)}
                       </td>

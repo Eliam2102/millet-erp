@@ -137,6 +137,8 @@ public sealed class AgregarLineaDesdeRequisicionHandler
             cancellationToken);
 
         var lineasAgregadas = 0;
+        oc.HeredarObra(rq.Obra);
+
         foreach (var lineaRq in lineasDeCompra)
         {
             oc.AgregarLineaDesdeRequisicion(

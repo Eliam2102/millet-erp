@@ -35,10 +35,8 @@ public static class ArbolDocumentosEndpoint
         .WithSummary("Árbol de trazabilidad RQ → OC → ... (F7-PR2)")
         .WithDescription(
             "Construye el árbol cross-módulo de documentos relacionados " +
-            "desde el nodo origen. V1 conoce RQ y OC: desde una RQ devuelve " +
-            "las OCs descendientes; desde una OC devuelve las RQs ascendentes. " +
-            "CxP/Recepción/Tesorería se incorporan cuando los módulos implementen " +
-            "su provider del servicio.")
+            "desde RQ, OC, recepción, factura o pago. Expande RQ → OC → " +
+            "recepciones → facturas → pagos aplicados, con sus ascendentes y filtro de empresa.")
         .Produces<NodoArbolDocumento>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)

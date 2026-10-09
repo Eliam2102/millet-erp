@@ -1,3 +1,5 @@
+import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
+import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
@@ -79,6 +81,7 @@ export function FacturaDetallePage() {
 
   return (
     <div className="space-y-4">
+      {query.data && <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.FacturaProveedor} id={id} />}
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/facturas" search={{}}>

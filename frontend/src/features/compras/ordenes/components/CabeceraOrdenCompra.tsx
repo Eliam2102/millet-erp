@@ -93,11 +93,7 @@ export function CabeceraOrdenCompra({
             Sin RQ previa
           </Badge>
         )}
-        {oc.cotizacionExcepcionada && (
-          <Badge tono="ambar" data-flag="cotizacion-excepcionada">
-            Cotización excepcionada
-          </Badge>
-        )}
+
         {oc.ocOrigenId != null && (
           <Badge tono="violeta" data-flag="duplicada">
             Duplicada de OC origen
@@ -105,6 +101,7 @@ export function CabeceraOrdenCompra({
         )}
       </div>
 
+      {oc.obra && <p className="mt-2 text-sm text-ink">Obra: {oc.obra}</p>}
       {oc.observaciones && (
         <div className="rounded-md border bg-muted/30 p-3 text-sm">
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">

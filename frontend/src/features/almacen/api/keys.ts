@@ -46,6 +46,7 @@ export interface ListarSalidasFiltros {
    */
   noRegularizados?: boolean;
   soloVencidos?: boolean;
+  soloPorVencer?: boolean;
   offset?: number;
   limit?: number;
 }

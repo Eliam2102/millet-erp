@@ -25,6 +25,11 @@ namespace Millet.Compras.Domain.Trazabilidad;
 /// </summary>
 public interface IProveedorNodosTrazabilidad
 {
+    Task<NodoArbolDocumento?> ObtenerNodoAsync(TipoDocumentoTrazabilidad tipo, Guid id, CancellationToken ct)
+        => Task.FromResult<NodoArbolDocumento?>(null);
+    Task<IReadOnlyList<NodoArbolDocumento>> ObtenerAscendentesAsync(TipoDocumentoTrazabilidad tipo, Guid id, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<NodoArbolDocumento>>([]);
+
     /// <summary>
     /// Devuelve los nodos descendentes que este provider conoce para el
     /// documento origen. Lista vacía si no aplica.

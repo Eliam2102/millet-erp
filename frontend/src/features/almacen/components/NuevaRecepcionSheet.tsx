@@ -218,7 +218,7 @@ function NuevaRecepcionFormBody({
       // Solo 'invalidos' bloquea; 'no-resoluble' avisa (sin bloquear) en la fila.
       if (
         evaluarDecimalesFila(lookup, {
-          unidadMedida: f.unidadMedida,
+          unidadMedida: f.unidadCapturada?.trim() || f.unidadMedida,
           cantidad: f.cantidad,
         }) === 'invalidos'
       ) {
@@ -236,6 +236,7 @@ function NuevaRecepcionFormBody({
         articuloId: f.articuloId,
         lineaOcId: f.lineaOcId,
         cantidad: f.cantidad,
+        unidadCapturada: f.unidadCapturada?.trim() || null,
         ubicacionReferencia: f.ubicacionReferencia ?? null,
         ubicacionId: f.ubicacionId ?? null,
         comentario: f.comentario ?? null,
@@ -869,6 +870,11 @@ function FilaLineaOc({
 
           {incluida && (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <Field label="Unidad capturada (opcional)">
+                <Controller name={`filas.${index}.unidadCapturada` as const} control={control}
+                  render={({ field }) => <Input {...field} value={field.value ?? ''} maxLength={20} placeholder={fila.unidadMedida} />} />
+                <p className="text-xs text-ink-muted">Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar.</p>
+              </Field>
               <Field
                 label="Cantidad a recibir"
                 required

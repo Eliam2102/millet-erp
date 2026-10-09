@@ -15,4 +15,4 @@ namespace Millet.Compras.Application.Settings;
 /// </param>
 public sealed record ComprasSettingsResponse(
     Guid EmpresaId,
-    bool AutoGenerarOcAlAutorizar);
+    bool AutoGenerarOcAlAutorizar, bool ApartarExistenciaAlAutorizar = true);

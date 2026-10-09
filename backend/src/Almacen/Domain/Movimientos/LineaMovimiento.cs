@@ -25,6 +25,16 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
     public int Posicion { get; private set; }
     public Guid ArticuloId { get; private set; }
     public decimal Cantidad { get; private set; }
+    public decimal? CantidadCapturada { get; private set; }
+    public string? UnidadCapturada { get; private set; }
+    public void AsentarCaptura(decimal cantidad, string unidad)
+    {
+        if (cantidad <= 0 || string.IsNullOrWhiteSpace(unidad) || unidad.Length > 20)
+            throw new BusinessRuleException("LINEA_CAPTURA_INVALIDA", "La cantidad capturada debe ser positiva y requiere una unidad válida.");
+        CantidadCapturada = cantidad;
+        UnidadCapturada = unidad;
+    }
+
     public string UnidadMedida { get; private set; } = string.Empty;
     public decimal CostoUnitarioMxn { get; private set; }
     public decimal MontoTotalMxn { get; private set; }

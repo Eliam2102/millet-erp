@@ -35,7 +35,7 @@ public sealed record ConfiguracionReordenListItem(
     ObjetivoReposicion Objetivo,
     EstatusCatalogo Estatus,
     string? ArticuloClave,
-    string? ArticuloDescripcion);
+    string? ArticuloDescripcion, decimal? CantidadFija = null);
 
 public sealed class ListarConfiguracionesReordenHandler
     : IRequestHandler<ListarConfiguracionesReordenQuery, AlmacenPagedResponse<ConfiguracionReordenListItem>>
@@ -66,7 +66,7 @@ public sealed class ListarConfiguracionesReordenHandler
                 c.Id, c.ArticuloId, c.Nivel, c.EntidadId,
                 c.Minimo, c.Maximo, c.PuntoReorden,
                 c.AutoRequisicion, c.Objetivo, c.Estatus,
-                null, null))
+                null, null, c.CantidadFija))
             .ToListAsync(cancellationToken);
 
         var articuloIds = items.Select(i => i.ArticuloId).Distinct().ToArray();
@@ -112,6 +112,6 @@ public sealed class ObtenerConfiguracionReordenPorIdHandler
             c.Id, c.ArticuloId, c.Nivel, c.EntidadId,
             c.Minimo, c.Maximo, c.PuntoReorden,
             c.AutoRequisicion, c.Objetivo, c.Estatus,
-            art?.Clave, art?.Descripcion);
+            art?.Clave, art?.Descripcion, c.CantidadFija);
     }
 }

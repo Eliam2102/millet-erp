@@ -618,6 +618,16 @@ builder.Services.AddScoped<
     Millet.Compras.Application.Folios.IFolioSecuenciaService,
     Millet.Compras.Infrastructure.Folios.FolioSecuenciaService>();
 
+builder.Services.AddScoped<Millet.SharedKernel.Application.UnidadesMedida.IConversionUnidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ConversionUnidadAdapter>();
+builder.Services.AddScoped<Millet.Tesoreria.Application.PublicPorts.IPagosTrazabilidadReadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.PagosTrazabilidadReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.IProveedorNodosTrazabilidad, Millet.Api.Adapters.TesoreriaPagosTrazabilidadProvider>();
+builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.ICxpFacturasTrazabilidadReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasTrazabilidadProvider>();
+builder.Services.AddScoped<Millet.Almacen.Infrastructure.PublicAdapters.ApartadosRequisicionService>();
+builder.Services.AddScoped<Millet.Compras.Infrastructure.PublicAdapters.TransaccionApartadosRq>();
+
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
 builder.Services.AddScoped<
     Millet.Compras.Domain.Trazabilidad.IObtenerArbolDocumentosService,

@@ -214,6 +214,7 @@ export interface SolicitudCancelacionOc {
 }
 
 export interface OrdenCompraDetalleResponse {
+  obra?: string | null;
   cicloAutorizacion?: number;
   autorizaciones?: AutorizacionOc[];
   solicitudesCancelacion?: SolicitudCancelacionOc[];

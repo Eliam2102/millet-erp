@@ -75,6 +75,7 @@ export function CabeceraRequisicion({
         </Item>
       </dl>
 
+      {rq.obra && <p className="mt-2 text-sm text-ink">Obra: {rq.obra}</p>}
       {rq.descripcion && (
         <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm">
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">

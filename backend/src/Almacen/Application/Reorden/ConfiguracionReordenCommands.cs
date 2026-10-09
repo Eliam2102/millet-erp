@@ -32,13 +32,13 @@ public sealed record ConfiguracionReordenResponse(
     decimal PuntoReorden,
     bool AutoRequisicion,
     ObjetivoReposicion Objetivo,
-    EstatusCatalogo Estatus);
+    EstatusCatalogo Estatus, decimal? CantidadFija = null);
 
 internal static class ConfiguracionReordenMapper
 {
     public static ConfiguracionReordenResponse ToResponse(ConfiguracionReorden c) =>
         new(c.Id, c.ArticuloId, c.Nivel, c.EntidadId, c.Minimo, c.Maximo,
-            c.PuntoReorden, c.AutoRequisicion, c.Objetivo, c.Estatus);
+            c.PuntoReorden, c.AutoRequisicion, c.Objetivo, c.Estatus, c.CantidadFija);
 }
 
 // ─── Crear (o reactivar) config ───────────────────────────────────────────────
@@ -51,7 +51,7 @@ public sealed record CrearConfiguracionReordenCommand(
     decimal Maximo,
     decimal PuntoReorden,
     bool AutoRequisicion,
-    ObjetivoReposicion Objetivo) : IRequest<ConfiguracionReordenResponse>;
+    ObjetivoReposicion Objetivo, decimal? CantidadFija = null) : IRequest<ConfiguracionReordenResponse>;
 
 public sealed class CrearConfiguracionReordenValidator
     : AbstractValidator<CrearConfiguracionReordenCommand>
@@ -62,6 +62,7 @@ public sealed class CrearConfiguracionReordenValidator
         RuleFor(c => c.EntidadId).NotEqual(Guid.Empty);
         RuleFor(c => c.Nivel).IsInEnum();
         RuleFor(c => c.Objetivo).IsInEnum();
+        RuleFor(c => c.CantidadFija).GreaterThan(0).When(c => c.CantidadFija.HasValue);
         RuleFor(c => c.Minimo).GreaterThanOrEqualTo(0);
         RuleFor(c => c.Maximo).GreaterThanOrEqualTo(0);
         RuleFor(c => c.PuntoReorden).GreaterThanOrEqualTo(0);
@@ -127,7 +128,7 @@ public sealed class CrearConfiguracionReordenHandler
 
             existente.EditarPolitica(
                 request.Minimo, request.Maximo, request.PuntoReorden,
-                request.AutoRequisicion, request.Objetivo);
+                request.AutoRequisicion, request.Objetivo, cantidadFija: request.CantidadFija);
             existente.CambiarEstatus(EstatusCatalogo.Activo);
             config = existente;
         }
@@ -142,7 +143,7 @@ public sealed class CrearConfiguracionReordenHandler
                 maximo: request.Maximo,
                 puntoReorden: request.PuntoReorden,
                 autoRequisicion: request.AutoRequisicion,
-                objetivo: request.Objetivo);
+                objetivo: request.Objetivo, cantidadFija: request.CantidadFija);
             _db.ConfiguracionesReorden.Add(config);
         }
 
@@ -242,7 +243,7 @@ public sealed record EditarConfiguracionReordenCommand(
     decimal Maximo,
     decimal PuntoReorden,
     bool AutoRequisicion,
-    ObjetivoReposicion Objetivo) : IRequest<ConfiguracionReordenResponse>;
+    ObjetivoReposicion Objetivo, decimal? CantidadFija = null) : IRequest<ConfiguracionReordenResponse>;
 
 public sealed class EditarConfiguracionReordenValidator
     : AbstractValidator<EditarConfiguracionReordenCommand>
@@ -251,6 +252,7 @@ public sealed class EditarConfiguracionReordenValidator
     {
         RuleFor(c => c.Id).NotEqual(Guid.Empty);
         RuleFor(c => c.Objetivo).IsInEnum();
+        RuleFor(c => c.CantidadFija).GreaterThan(0).When(c => c.CantidadFija.HasValue);
         RuleFor(c => c.Minimo).GreaterThanOrEqualTo(0);
         RuleFor(c => c.Maximo).GreaterThanOrEqualTo(0);
         RuleFor(c => c.PuntoReorden).GreaterThanOrEqualTo(0);
@@ -276,7 +278,7 @@ public sealed class EditarConfiguracionReordenHandler
 
         config.EditarPolitica(
             request.Minimo, request.Maximo, request.PuntoReorden,
-            request.AutoRequisicion, request.Objetivo);
+            request.AutoRequisicion, request.Objetivo, cantidadFija: request.CantidadFija);
         await _db.SaveChangesAsync(cancellationToken);
 
         return ConfiguracionReordenMapper.ToResponse(config);

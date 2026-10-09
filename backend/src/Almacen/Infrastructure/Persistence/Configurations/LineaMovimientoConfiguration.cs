@@ -25,6 +25,8 @@ public sealed class LineaMovimientoConfiguration : IEntityTypeConfiguration<Line
         builder.Property(x => x.MovimientoId).IsRequired();
         builder.Property(x => x.Posicion).IsRequired();
         builder.Property(x => x.ArticuloId).IsRequired();
+        builder.Property(x => x.CantidadCapturada).HasPrecision(14, 4);
+        builder.Property(x => x.UnidadCapturada).HasMaxLength(20);
         builder.Property(x => x.Cantidad).HasPrecision(14, 4).IsRequired();
         builder.Property(x => x.UnidadMedida).HasMaxLength(20).IsRequired();
         builder.Property(x => x.CostoUnitarioMxn).HasPrecision(14, 4).IsRequired();

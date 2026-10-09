@@ -72,6 +72,19 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     public bool SinRequisicionPrevia { get; private set; }
     public bool EsImportacion { get; private set; }
+    public string? Obra { get; private set; }
+    public void HeredarObra(string? obra)
+    {
+        if (Estado is not (EstadoOrdenCompra.Borrador or EstadoOrdenCompra.Rechazada))
+            throw new BusinessRuleException("OC_OBRA_CONGELADA", "La obra no puede cambiar después de transmitir la orden de compra.");
+        var normalizada = string.IsNullOrWhiteSpace(obra) ? null : obra.Trim();
+        if (normalizada?.Length > 120)
+            throw new BusinessRuleException("OC_OBRA_INVALIDA", "La obra admite máximo 120 caracteres.");
+        if (_lineas.Count > 0 && Obra != normalizada)
+            throw new BusinessRuleException("OC_OBRAS_DISTINTAS", "Las requisiciones de obras distintas deben convertirse en órdenes de compra separadas.");
+        Obra = normalizada;
+    }
+
     public bool CotizacionExcepcionada { get; private set; }
 
     /// <summary>

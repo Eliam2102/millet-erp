@@ -369,12 +369,12 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
     private static RegistrarSalidaConRequisicionHandler HandlerRq(
         AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
         new(db, ctx.RqPort, eventos, new FakeUserCtx(ctx.UserId),
-            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos);
+            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos, new ConversionIdentidadP7(), new Millet.Almacen.Infrastructure.PublicAdapters.ApartadosRequisicionService(db, new Millet.Almacen.Infrastructure.PublicAdapters.AlmacenSaldoQueryAdapter(db)));
 
     private static RegistrarSalidaPorValeHandler HandlerVale(
         AlmacenDbContext db, IIntegrationEventPublisher eventos, Ctx ctx) =>
         new(db, eventos, new FakeUserCtx(ctx.UserId),
-            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos, ctx.Calendario, ctx.Centros);
+            new FakeEmpresaCtx(ctx.EmpresaId), new DecimalesGuardNulo(), ctx.Periodos, ctx.Calendario, ctx.Centros, new ConversionIdentidadP7(), new Millet.Almacen.Infrastructure.PublicAdapters.ApartadosRequisicionService(db, new Millet.Almacen.Infrastructure.PublicAdapters.AlmacenSaldoQueryAdapter(db)));
 
     private static RegistrarSalidaConRequisicionCommand ComandoRq(Ctx ctx, Guid? ubicacionId) =>
         new(RequisicionId: ctx.RqId,
@@ -455,5 +455,10 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
         public bool IsBypassed => false;
         public IDisposable Bypass() => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
+    }
+    private sealed class ConversionIdentidadP7 : Millet.SharedKernel.Application.UnidadesMedida.IConversionUnidadPort
+    {
+        public Task<Millet.SharedKernel.Application.UnidadesMedida.ConversionUnidad> ConvertirAsync(Guid articuloId, decimal cantidad, string? capturada, string documento, CancellationToken ct)
+        { var unidad = string.IsNullOrWhiteSpace(documento) ? "PZA" : documento; return Task.FromResult(new Millet.SharedKernel.Application.UnidadesMedida.ConversionUnidad(cantidad, unidad, cantidad, 1, unidad, cantidad)); }
     }
 }

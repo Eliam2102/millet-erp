@@ -132,6 +132,8 @@ public sealed class DuplicarOrdenCompraHandler
             fechaEntregaEsperada: origen.FechaEntregaEsperada,
             ocOrigenId: origen.Id);
 
+        nueva.HeredarObra(origen.Obra);
+
         // Heredar info logística e importación si están en el origen.
         if (origen.InformacionLogistica is { } info)
         {

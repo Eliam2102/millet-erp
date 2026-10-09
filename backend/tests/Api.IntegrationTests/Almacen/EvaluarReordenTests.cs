@@ -14,7 +14,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// Tests de integración del cálculo del faltante del motor de reorden (ADR-0047 PR5.B):
 /// faltante = objetivo − existencia física − vivo de origen sistema. Cubre el rollup
 /// N2 y N1, el interino (sin RQ de sistema → vivo vacío → faltante = objetivo − física),
-/// el filtro origen=sistema (los manuales NO cuentan), el dedup borrador↔OC por línea
+/// el filtro por scope de sucursal (un manual ajeno no cuenta), el dedup borrador↔OC por línea
 /// (no doble conteo), y la prueba del <b>bypass de tenancy</b> (el adapter devuelve el
 /// vivo SIN empresa en contexto — como el worker real).
 ///
@@ -67,7 +67,7 @@ public class EvaluarReordenTests : IClassFixture<WebApplicationFactory<Program>>
             var n2Interino = await Faltante(mediator, artN2);
             n2Interino.ExistenciaFisica.Should().Be(30m);
             n2Interino.Vivo.Should().Be(0m);
-            n2Interino.Faltante.Should().Be(70m);   // 100 − 30 − 0
+            n2Interino.Faltante.Should().Be(0m);    // 30 > punto 20: D6 no dispara
 
             var n1Interino = await Faltante(mediator, artN1);
             n1Interino.ExistenciaFisica.Should().Be(50m);  // rollup sucursal (40 + 10)
@@ -75,7 +75,7 @@ public class EvaluarReordenTests : IClassFixture<WebApplicationFactory<Program>>
             n1Interino.Faltante.Should().Be(150m);   // 200 − 50 − 0
 
             // ── Seed de "lo vivo" ──
-            // Manual live (Autorizada) de artN2 en almM: NO debe contar.
+            // Manual live de otra sucursal (el helper genera una distinta): NO cuenta.
             var rqManual = Guid.NewGuid();
             await SeedRq(db, rqManual, empresa, origen: 0, estado: 2, almDest: almM, K());
             await SeedRqLinea(db, Guid.NewGuid(), rqManual, artN2, 50);
@@ -103,12 +103,12 @@ public class EvaluarReordenTests : IClassFixture<WebApplicationFactory<Program>>
 
             // ── Con vivo ──
             var n2 = await Faltante(mediator, artN2);
-            n2.Vivo.Should().Be(55m);        // 25 (borrador) + 30 (OC pendiente); manual 50 IGNORADO
-            n2.Faltante.Should().Be(15m);    // 100 − 30 − 55
+            n2.Vivo.Should().Be(55m);        // 25 (borrador) + 30 (OC pendiente); manual ajeno 50 excluido
+            n2.Faltante.Should().Be(0m);     // posición 85 > punto 20
 
             var n1 = await Faltante(mediator, artN1);
             n1.Vivo.Should().Be(20m);        // sumado a nivel sucursal (almM2)
-            n1.Faltante.Should().Be(130m);   // 200 − 50 − 20
+            n1.Faltante.Should().Be(0m);     // posición 70 > punto 50
         }
         finally
         {

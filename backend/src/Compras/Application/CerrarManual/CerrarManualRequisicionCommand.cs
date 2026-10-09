@@ -9,7 +9,7 @@ namespace Millet.Compras.Application.CerrarManual;
 /// <c>CerradaSurtidaParcial</c> (algo entregado, derivado por el agregado).
 ///
 /// <para>NO aborta OCs: el material pedido en vuelo llega como stock (permitir con
-/// aviso). (PR4/ADR-0047: las RQ ya no reservan stock.) El permiso
+/// aviso). (P7/ADR-0061: se liberan los apartados pendientes.) El permiso
 /// <c>compras.requisiciones.cerrar-manual</c> se valida en el endpoint; el actor
 /// sale del JWT vía <c>ICurrentUserContext</c>.</para>
 /// </summary>

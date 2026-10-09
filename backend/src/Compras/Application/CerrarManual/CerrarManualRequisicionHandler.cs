@@ -1,3 +1,4 @@
+using Millet.Compras.Infrastructure.PublicAdapters;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
@@ -18,7 +19,7 @@ namespace Millet.Compras.Application.CerrarManual;
 ///   <item>Abre TX EF.</item>
 ///   <item>Invoca <c>requisicion.CerrarManual(...)</c> (el agregado deriva el
 ///         terminal de lo entregado y emite el evento).</item>
-///   <item>(PR4/ADR-0047) Las RQ ya no reservan stock: no hay reservas que liberar;
+///   <item>(P7/ADR-0061) Se liberan los apartados pendientes;
 ///         todo (almacén y compra) queda como stock libre.</item>
 ///   <item>Publica el evento antes de SaveChanges (outbox en la misma TX) +
 ///         SaveChanges + Commit.</item>
@@ -37,17 +38,19 @@ public sealed class CerrarManualRequisicionHandler : IRequestHandler<CerrarManua
     private readonly IMediator _mediator;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly TransaccionApartadosRq _apartadosTx;
 
     public CerrarManualRequisicionHandler(
         ComprasDbContext db,
         IMediator mediator,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock, TransaccionApartadosRq apartadosTx)
     {
         _db = db;
         _mediator = mediator;
         _currentUser = currentUser;
         _clock = clock;
+        _apartadosTx = apartadosTx;
     }
 
     public async Task<Unit> Handle(CerrarManualRequisicionCommand command, CancellationToken cancellationToken)
@@ -121,6 +124,8 @@ public sealed class CerrarManualRequisicionHandler : IRequestHandler<CerrarManua
         CancellationToken cancellationToken)
     {
         await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await using var union = await _apartadosTx.UnirAsync(cancellationToken);
+        await _apartadosTx.Apartados.BloquearAsync(requisicion.SucursalId, requisicion.Lineas.Select(l => l.ArticuloId), cancellationToken);
 
         // 1. Transición (deriva el terminal de lo entregado) + emite evento.
         var evento = requisicion.CerrarManual(
@@ -129,7 +134,8 @@ public sealed class CerrarManualRequisicionHandler : IRequestHandler<CerrarManua
             fechaHora: _clock.UtcNow,
             motivoTexto: command.MotivoTexto);
 
-        // 2. (PR4 / ADR-0047) Las RQ ya no reservan stock → nada que liberar;
+        await _apartadosTx.Apartados.LiberarAsync(requisicion.Id, cancellationToken);
+        // D3: liberar también con el parámetro de apartado apagado.
         // todo queda como stock libre.
 
         // 3. NO se abortan OCs: el material pedido en vuelo llega como stock
