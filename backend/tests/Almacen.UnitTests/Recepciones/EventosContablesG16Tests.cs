@@ -78,7 +78,7 @@ public class EventosContablesG16Tests
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
         var h = new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion());
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConFacturaCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             Guid.NewGuid(), null, null,
@@ -100,7 +100,7 @@ public class EventosContablesG16Tests
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
         var h = new RegistrarRecepcionConPackingListHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion());
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConPackingListCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             "blob://pl", null,
@@ -121,8 +121,10 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
+        db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 100, 25));
+        await db.SaveChangesAsync();
         var h = new RegistrarSalidaConRequisicionHandler(db, new FakeRq(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion(), P7Support.Apartados(db));
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaConRequisicionCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             null, null,
@@ -142,7 +144,9 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
-        var h = new RegistrarSalidaPorValeHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P1Fixture.Calendario(), new P1Fixture.Centros());
+        db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 100, 25));
+        await db.SaveChangesAsync();
+        var h = new RegistrarSalidaPorValeHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P1Fixture.Calendario(), new P1Fixture.Centros(), new P7Support.Conversion(), P7Support.Apartados(db));
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaPorValeCommand(new DateOnly(2026, 5, 23), "blob://vale", null, null,
             [new RegistrarSalidaLineaInput(ArticuloId, ArticuloId, 1m, null, null, null, null, BinId)]), default);
@@ -187,7 +191,7 @@ public class EventosContablesG16Tests
         var events = new CapturaEventos();
         // Recepción real (misma BD) y saldo remanente para que el handler valore.
         await new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true))
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true), new P7Support.Conversion())
             .Handle(new RegistrarRecepcionConFacturaCommand(ocId, new DateOnly(2026, 5, 23), Guid.NewGuid(),
                 null, null, [new RegistrarRecepcionLineaInput(ArticuloId, ArticuloId, 5m, null, null, BinId)]), default);
         db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 5m, 10m));

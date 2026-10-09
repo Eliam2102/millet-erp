@@ -169,6 +169,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("ApartarExistenciaAlAutorizar")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("apartar_existencia_al_autorizar");
+
                     b.Property<bool>("AutoGenerarOcAlAutorizar")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -1041,6 +1047,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("motivo_sin_requisicion");
 
+                    b.Property<string>("Obra")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("obra");
+
                     b.Property<string>("Observaciones")
                         .HasColumnType("text")
                         .HasColumnName("observaciones");
@@ -1718,6 +1729,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("motivo_terminacion_texto");
+
+                    b.Property<string>("Obra")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("obra");
 
                     b.Property<short>("Origen")
                         .ValueGeneratedOnAdd()

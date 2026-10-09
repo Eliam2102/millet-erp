@@ -76,6 +76,78 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.ToTable("settings", "almacen");
                 });
 
+            modelBuilder.Entity("Millet.Almacen.Domain.Apartados.ApartadoRequisicion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("articulo_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("LineaRequisicionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_requisicion_id");
+
+                    b.Property<decimal>("Pendiente")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("pendiente");
+
+                    b.Property<Guid>("RequisicionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requisicion_id");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_apartados_requisicion");
+
+                    b.HasIndex("LineaRequisicionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_apartados_requisicion_linea_requisicion_id");
+
+                    b.HasIndex("SucursalId", "ArticuloId")
+                        .HasDatabaseName("ix_apartados_requisicion_sucursal_id_articulo_id");
+
+                    b.ToTable("apartados_requisicion", "almacen", t =>
+                        {
+                            t.HasCheckConstraint("ck_apartado_pendiente", "pendiente >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Almacen.Domain.Catalogo.Almacen", b =>
                 {
                     b.Property<Guid>("Id")
@@ -221,6 +293,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<bool>("AutoRequisicion")
                         .HasColumnType("boolean")
                         .HasColumnName("auto_requisicion");
+
+                    b.Property<decimal?>("CantidadFija")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("cantidad_fija");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1263,6 +1340,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(14,4)")
                         .HasColumnName("cantidad");
 
+                    b.Property<decimal?>("CantidadCapturada")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("cantidad_capturada");
+
                     b.Property<decimal?>("CantidadRealContada")
                         .HasPrecision(14, 4)
                         .HasColumnType("numeric(14,4)")
@@ -1351,6 +1433,11 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("ubicacion_referencia");
+
+                    b.Property<string>("UnidadCapturada")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("unidad_capturada");
 
                     b.Property<string>("UnidadMedida")
                         .IsRequired()

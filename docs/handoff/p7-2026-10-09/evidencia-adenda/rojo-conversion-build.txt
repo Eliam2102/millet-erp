@@ -1,0 +1,14 @@
+  Millet.SharedKernel -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/SharedKernel/bin/Debug/net10.0/Millet.SharedKernel.dll
+  Millet.Catalogos -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Catalogos/bin/Debug/net10.0/Millet.Catalogos.dll
+  Millet.Administracion -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Administracion/bin/Debug/net10.0/Millet.Administracion.dll
+  Millet.DatosMaestros -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/DatosMaestros/bin/Debug/net10.0/Millet.DatosMaestros.dll
+  Millet.Contabilidad -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Contabilidad/bin/Debug/net10.0/Millet.Contabilidad.dll
+  Millet.Almacen -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Almacen/bin/Debug/net10.0/Millet.Almacen.dll
+  Millet.Compartido -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Compartido/bin/Debug/net10.0/Millet.Compartido.dll
+  Millet.Compartido.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compartido.UnitTests/bin/Debug/net10.0/Millet.Compartido.UnitTests.dll
+
+Compilación correcta.
+    0 Advertencia(s)
+    0 Errores
+
+Tiempo transcurrido 00:00:08.64

@@ -23,6 +23,7 @@ export const SalidasSearchSchema = z.object({
   soloVales: z.boolean().optional(),
   noRegularizados: z.boolean().optional(),
   soloVencidos: z.boolean().optional(),
+  soloPorVencer: z.boolean().optional(),
   q: z.string().min(1).max(200).optional(),
 });
 

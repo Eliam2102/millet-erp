@@ -10,6 +10,7 @@ import { almacenKeys } from '@/features/almacen/api/keys';
 import type {
   PagedResponse as RecepcionesResponse,
   RecepcionListItem,
+  SalidaListItem,
 } from '@/features/almacen/api/types';
 import { datosMaestrosKeys } from '@/modules/datos-maestros/api/keys';
 import type { ListarProveedoresResponse } from '@/modules/datos-maestros/api/types';
@@ -108,6 +109,15 @@ export function useConteosInicio(ids: readonly ConteoId[], permisos: readonly st
       '/api/v1/almacen/recepciones',
       { estado: 0, ...pagina },
       total,
+    ),
+    valesVencidos: consulta<RecepcionesResponse<SalidaListItem>>(
+      almacenKeys.salidas(), '/api/v1/almacen/salidas',
+      { soloVales: true, noRegularizados: true, soloVencidos: true, ...pagina },
+      (data) => ({ total: data.total, atrasadas: data.total }),
+    ),
+    valesPorVencer: consulta<RecepcionesResponse<SalidaListItem>>(
+      almacenKeys.salidas(), '/api/v1/almacen/salidas',
+      { soloVales: true, noRegularizados: true, soloPorVencer: true, ...pagina }, total,
     ),
     proveedores: consulta<ListarProveedoresResponse>(
       datosMaestrosKeys.proveedores(),

@@ -1,3 +1,4 @@
+using Millet.Almacen.Infrastructure.PublicAdapters;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -57,7 +58,7 @@ public sealed record RegistrarSalidaLineaInput(
     // C7.2b: bin real de salida (rack con saldo, o la ÚNICA para agotar
     // histórico). El tipo se mantiene nullable porque lo comparte el vale
     // (variante B); en salida-con-RQ (variante A) el validator lo exige.
-    Guid? UbicacionId = null);
+    Guid? UbicacionId = null, string? UnidadCapturada = null);
 
 public sealed record RegistrarSalidaResponse(
     Guid SalidaId,
@@ -77,6 +78,7 @@ public sealed class RegistrarSalidaConRequisicionValidator
         {
             linea.RuleFor(l => l.ArticuloId).NotEqual(Guid.Empty);
             linea.RuleFor(l => l.Cantidad).GreaterThan(0);
+            linea.RuleFor(l => l.UnidadCapturada).MaximumLength(20);
             // Salida-por-línea C2: el bin es obligatorio — el almacenista elige
             // de dónde sale (y con eso se deriva el sub y se congela el CPP).
             linea.RuleFor(l => l.UbicacionId)
@@ -100,6 +102,8 @@ public sealed class RegistrarSalidaConRequisicionHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IConversionUnidadPort _conversion;
+    private readonly ApartadosRequisicionService _apartados;
 
     public RegistrarSalidaConRequisicionHandler(
         AlmacenDbContext db,
@@ -108,7 +112,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable)
+        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion, ApartadosRequisicionService apartados)
     {
         _db = db;
         _rqPort = rqPort;
@@ -116,6 +120,8 @@ public sealed class RegistrarSalidaConRequisicionHandler
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
+        _conversion = conversion;
+        _apartados = apartados;
         _periodoContable = periodoContable;
     }
 
@@ -123,7 +129,12 @@ public sealed class RegistrarSalidaConRequisicionHandler
         RegistrarSalidaConRequisicionCommand request, CancellationToken cancellationToken)
     {
         var rq = await _rqPort.ObtenerAsync(request.RequisicionId, cancellationToken);
-        SalidaRqGuard.Validar(rq, request.Lineas);
+        SalidaRqGuard.Validar(rq, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList());
+        var conversiones = new List<ConversionUnidad>();
+        foreach (var input in request.Lineas)
+            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, rq!.Lineas.Single(l => l.LineaId == input.LineaRqId).UnidadMedida ?? "PZA", cancellationToken));
+        SalidaRqGuard.Validar(rq, request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList());
 
         // 2. Salida-por-línea C2: el sub-almacén ya NO viene en la cabecera — se
         //    DERIVA del bin de cada línea. El validator exige UbicacionId por
@@ -184,7 +195,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad)),
+            request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase)),
             cancellationToken);
 
         var movimiento = new MovimientoInventario(
@@ -213,6 +224,10 @@ public sealed class RegistrarSalidaConRequisicionHandler
         // saldo que esta salida va a golpear — el bin ELEGIDO en cada línea (ya
         // obligatorio; sin fallback a la ÚNICA). Solo se llavea la lectura; la
         // fórmula del promedio NO cambia (candado de regresión de costeo).
+        await using var txApartados = _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
+        await _apartados.BloquearAsync(sucursalId ?? throw new BusinessRuleException("SALIDA_SUCURSAL_REQUERIDA", "Configura la sucursal del almacén antes de registrar la salida."), request.Lineas.Select(l => l.ArticuloId), cancellationToken);
+
         var posicion = 1;
         var payloadLineas = new List<LineaSalidaPayload>(request.Lineas.Count);
         foreach (var input in request.Lineas)
@@ -239,14 +254,15 @@ public sealed class RegistrarSalidaConRequisicionHandler
             var centroCostoHeredado = ResolverCentroCostoHeredado(
                 rq, input.LineaRqId, input.ArticuloId);
 
+            var conversion = conversiones[posicion - 1];
             var lineaId = Guid.CreateVersion7();
             var linea = new LineaMovimiento(
                 id: lineaId,
                 movimientoId: movimientoId,
                 posicion: posicion++,
                 articuloId: input.ArticuloId,
-                cantidad: input.Cantidad,
-                unidadMedida: um,
+                cantidad: conversion.CantidadBase,
+                unidadMedida: conversion.UnidadBase,
                 costoUnitarioMxn: costoSnapshot,
                 centroCostoId: centroCostoHeredado,
                 proyectoId: input.ProyectoId,
@@ -256,15 +272,18 @@ public sealed class RegistrarSalidaConRequisicionHandler
                 // descartaba) para que el evento la propague a Compras.
                 lineaRqId: input.LineaRqId,
                 ubicacionId: ubicacionLinea);
+            linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
+            await _apartados.ConsumirAsync(sucursalId!.Value, request.RequisicionId, input.LineaRqId, input.ArticuloId,
+                conversion.CantidadBase, cancellationToken);
             movimiento.AgregarLinea(linea);
 
             payloadLineas.Add(new LineaSalidaPayload(
                 LineaSalidaId: lineaId,
                 ArticuloId: input.ArticuloId,
                 UnidadMedida: um,
-                Cantidad: input.Cantidad,
-                CostoUnitarioMxn: costoSnapshot,
-                MontoTotalMxn: Math.Round(input.Cantidad * costoSnapshot, 2),
+                Cantidad: conversion.CantidadDocumento,
+                CostoUnitarioMxn: costoSnapshot * conversion.FactorDocumentoABase,
+                MontoTotalMxn: Math.Round(conversion.CantidadBase * costoSnapshot, 2),
                 CentroCostoId: centroCostoHeredado,
                 ProyectoId: input.ProyectoId,
                 LineaRqId: input.LineaRqId,
@@ -292,7 +311,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
 
-        // 6. (PR4 / ADR-0047) Las RQ ya no reservan stock. El trigger PG
+        // 6. P7: el apartado se consume antes del SaveChanges. El trigger PG
         //    decrementa la cantidad física al INSERT de la línea; no hay
         //    cantidad_reservada que ajustar.
 
@@ -314,6 +333,7 @@ public sealed class RegistrarSalidaConRequisicionHandler
         // 8. SaveChanges — todo en la misma TX. El trigger PG valida saldo
         //    suficiente y aborta la TX si insuficiente (SALDO_INSUFICIENTE).
         await _db.SaveChangesAsync(cancellationToken);
+        if (txApartados is not null) await txApartados.CommitAsync(cancellationToken);
 
         return new RegistrarSalidaResponse(movimientoId, folio.Valor);
     }

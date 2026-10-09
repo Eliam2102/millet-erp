@@ -144,6 +144,7 @@ public sealed class CrearRequisicionHandler : IRequestHandler<CrearRequisicionCo
             proveedorSugeridoId: command.ProveedorSugeridoId,
             descripcion: command.Descripcion);
 
+        requisicion.AsignarObra(command.Obra);
         _db.Requisiciones.Add(requisicion);
         await _db.SaveChangesAsync(cancellationToken);
 

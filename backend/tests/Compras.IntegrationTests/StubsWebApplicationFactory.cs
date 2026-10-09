@@ -9,6 +9,7 @@ using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Infrastructure;
 using Millet.Compras.Infrastructure.Stubs;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.UnidadesMedida;
 
 namespace Millet.Compras.IntegrationTests;
 
@@ -62,6 +63,10 @@ public sealed class StubsWebApplicationFactory : WebApplicationFactory<Program>
             // La factory de integración debe restaurar explícitamente el
             // puerto fake para que los ratios deterministas del escenario
             // gobiernen la bifurcación de stock.
+            // Esta suite simula stock y artículos inexistentes: identidad de unidades.
+            // P7 prueba conversión/apartados reales en Api.IntegrationTests.
+            services.RemoveAll<IConversionUnidadPort>();
+            services.AddSingleton<IConversionUnidadPort, ConversionIdentidadStub>();
             services.RemoveAll<IConsultarStockPort>();
             services.AddSingleton<IConsultarStockPort>(sp =>
                 sp.GetRequiredService<InMemoryConsultarStockPort>());
@@ -100,6 +105,7 @@ public sealed class StubsWebApplicationFactory : WebApplicationFactory<Program>
         {
             var row = Millet.Compras.Domain.ComprasSettings.CrearDefault(EmpresaBootstrapId);
             row.EstablecerAutoGenerarOcAlAutorizar(true);
+            row.EstablecerApartarExistenciaAlAutorizar(false);
             db.ComprasSettings.Add(row);
             db.SaveChanges();
             return;
@@ -108,7 +114,13 @@ public sealed class StubsWebApplicationFactory : WebApplicationFactory<Program>
         foreach (var s in settings)
         {
             s.EstablecerAutoGenerarOcAlAutorizar(true);
+            s.EstablecerApartarExistenciaAlAutorizar(false);
         }
         db.SaveChanges();
+    }
+    private sealed class ConversionIdentidadStub : IConversionUnidadPort
+    {
+        public Task<ConversionUnidad> ConvertirAsync(Guid articuloId, decimal cantidad, string? capturada, string documento, CancellationToken ct)
+            => Task.FromResult(new ConversionUnidad(cantidad, documento, cantidad, 1m, capturada ?? documento, cantidad));
     }
 }

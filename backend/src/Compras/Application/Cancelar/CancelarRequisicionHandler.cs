@@ -1,3 +1,4 @@
+using Millet.Compras.Infrastructure.PublicAdapters;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
@@ -18,7 +19,7 @@ namespace Millet.Compras.Application.Cancelar;
 ///   <item>Abre TX EF.</item>
 ///   <item>Invoca <c>requisicion.Cancelar(...)</c> en el agregado
 ///         (transición a <c>Cancelada</c> + evento).</item>
-///   <item>(PR4/ADR-0047) Las RQ ya no reservan stock: no hay reservas que liberar.</item>
+///   <item>(P7/ADR-0061) Se liberan los apartados pendientes.</item>
 ///   <item>Borra las filas de <c>oc_borrador_stub</c> con
 ///         <c>OrigenRequisicionId == requisicionId</c> (aborta OC
 ///         borrador in-proc).</item>
@@ -41,17 +42,19 @@ public sealed class CancelarRequisicionHandler : IRequestHandler<CancelarRequisi
     private readonly IMediator _mediator;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly TransaccionApartadosRq _apartadosTx;
 
     public CancelarRequisicionHandler(
         ComprasDbContext db,
         IMediator mediator,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock, TransaccionApartadosRq apartadosTx)
     {
         _db = db;
         _mediator = mediator;
         _currentUser = currentUser;
         _clock = clock;
+        _apartadosTx = apartadosTx;
     }
 
     public async Task<Unit> Handle(CancelarRequisicionCommand command, CancellationToken cancellationToken)
@@ -126,6 +129,8 @@ public sealed class CancelarRequisicionHandler : IRequestHandler<CancelarRequisi
         CancellationToken cancellationToken)
     {
         await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await using var union = await _apartadosTx.UnirAsync(cancellationToken);
+        await _apartadosTx.Apartados.BloquearAsync(requisicion.SucursalId, requisicion.Lineas.Select(l => l.ArticuloId), cancellationToken);
 
         // 1. Transición de estado + emite evento.
         var evento = requisicion.Cancelar(
@@ -134,7 +139,7 @@ public sealed class CancelarRequisicionHandler : IRequestHandler<CancelarRequisi
             fechaHora: _clock.UtcNow,
             motivoTexto: command.MotivoTexto);
 
-        // 2. (PR4 / ADR-0047) Las RQ ya no reservan stock → nada que liberar.
+        await _apartadosTx.Apartados.LiberarAsync(requisicion.Id, cancellationToken);
 
         // 3. Abortar OC borrador in-proc: delete filas con origen = rqId
         // de oc_borrador_stub. (Cuando exista OC real en submódulo, esto

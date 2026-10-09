@@ -81,6 +81,7 @@ export function SalidasPage() {
     soloVales: search.soloVales,
     noRegularizados: search.noRegularizados,
     soloVencidos: search.soloVencidos,
+    soloPorVencer: search.soloPorVencer,
     limit: 200,
   });
 
@@ -192,7 +193,7 @@ function FiltrosToolbar({
     search.desde ||
     search.hasta ||
     search.soloVales ||
-    search.noRegularizados || search.soloVencidos;
+    search.noRegularizados || search.soloVencidos || search.soloPorVencer;
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -331,6 +332,7 @@ function FiltrosToolbar({
               soloVales: undefined,
               noRegularizados: undefined,
               soloVencidos: undefined,
+              soloPorVencer: undefined,
             })
           }
         >

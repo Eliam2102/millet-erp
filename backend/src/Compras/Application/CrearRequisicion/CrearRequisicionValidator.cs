@@ -22,6 +22,7 @@ public sealed partial class CrearRequisicionValidator : AbstractValidator<CrearR
 
     public CrearRequisicionValidator()
     {
+        RuleFor(c => c.Obra).MaximumLength(120);
         RuleFor(c => c.SucursalId).NotEmpty().WithErrorCode("SUCURSAL_REQUERIDA");
         RuleFor(c => c.DepartamentoId).NotEmpty().WithErrorCode("DEPARTAMENTO_REQUERIDO");
 
