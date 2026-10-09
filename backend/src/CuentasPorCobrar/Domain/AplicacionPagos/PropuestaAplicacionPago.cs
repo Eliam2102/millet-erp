@@ -14,14 +14,12 @@ public enum EstadoPropuestaAplicacion : short
 /// <summary>
 /// Propuesta de aplicación de pago (§3.1 del 00-levantamiento, §4.1-4.2
 /// del 01-diseño, CXC-PR7): matching depósito ↔ facturas construido desde
-/// el remittance del cliente. CxC PROPONE; Ingresos confirma o rechaza
-/// (interino A2: endpoint manual con permiso <c>aplicacion-pago.confirmar</c>
-/// hasta que exista el emisor real de <c>PagoClienteConfirmadoEvent</c> —
-/// PLATFORM-TODO(&lt;PagoClienteConfirmado&gt;)).
+/// el remittance del cliente. CxC propone; Tesorería confirma o rechaza contra el banco.
+/// Su resolución se consume por eventos; CxC no ofrece confirmación directa.
 ///
 /// <para>
 /// Invariantes (§4.2): <c>Σ importe_aplicado + ajuste_no_fiscal =
-/// monto_deposito</c>; el ajuste solo puede ser negativo (depósito corto)
+/// monto_deposito - saldo_a_favor_por_identificar</c>; el ajuste solo puede ser negativo (depósito corto)
 /// y menor a la tolerancia no fiscal (parámetro, default $50 USD — gate
 /// fiscal pendiente); sin <c>remittance_ref</c> no se puede proponer
 /// (regla 2.1). La confirmación NO aplica pagos a cartera — eso lo hace
@@ -31,6 +29,11 @@ public enum EstadoPropuestaAplicacion : short
 public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IAuditable
 {
     public Guid EmpresaId { get; set; }
+
+    public Guid? PropuestoPor { get; private set; }
+    public decimal SaldoAFavorPorIdentificar { get; private set; }
+    public Guid? MovimientoBancarioId { get; private set; }
+    public bool ReppTimbrado { get; private set; }
 
     public Guid ClienteId { get; private set; }
     public string DepositoRef { get; private set; } = default!;
@@ -59,7 +62,7 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         string moneda,
         string remittanceRef,
         IReadOnlyList<(string FacturaUuid, Guid FacturaCarteraId, decimal ImporteAplicado, int? NumParcialidad)> lineas,
-        decimal toleranciaNoFiscal)
+        decimal toleranciaNoFiscal, Guid? propuestoPor = null)
     {
         if (clienteId == Guid.Empty)
             throw new BusinessRuleException("PAP_CLIENTE_VACIO", "El cliente es obligatorio.");
@@ -81,9 +84,6 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         var suma = lineas.Sum(l => l.ImporteAplicado);
         var ajuste = montoDeposito - suma;
 
-        if (ajuste > 0)
-            throw new BusinessRuleException("PAP_DEPOSITO_EXCEDENTE",
-                $"El depósito ({montoDeposito}) excede la suma aplicada ({suma}) — un excedente no es ajuste no fiscal; captúrelo como anticipo o corrija el desglose.");
         if (ajuste < 0 && Math.Abs(ajuste) >= toleranciaNoFiscal)
             throw new BusinessRuleException("PAP_TOLERANCIA_EXCEDIDA",
                 $"La diferencia ({ajuste}) excede la tolerancia no fiscal ({toleranciaNoFiscal} {moneda}).");
@@ -97,7 +97,9 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
             MontoDeposito = montoDeposito,
             Moneda = moneda,
             RemittanceRef = remittanceRef.Trim(),
-            AjusteNoFiscal = ajuste,
+            AjusteNoFiscal = Math.Min(0, ajuste),
+            SaldoAFavorPorIdentificar = Math.Max(0, ajuste),
+            PropuestoPor = propuestoPor,
             Estado = EstadoPropuestaAplicacion.Propuesta,
         };
 
@@ -111,10 +113,15 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         return propuesta;
     }
 
-    /// <summary>Confirmación interina de Ingresos (A2) — solo cambia estado.</summary>
-    public void Confirmar(Guid usuarioId, DateTimeOffset ahora)
+    /// <summary>Confirmación recibida de Tesorería — la cartera espera el REP.</summary>
+    public void Confirmar(Guid usuarioId, DateTimeOffset ahora, Guid? movimientoBancarioId = null)
     {
         AsegurarPropuesta();
+        if (PropuestoPor is null || PropuestoPor == Guid.Empty)
+            throw new BusinessRuleException("PAP_PROPONENTE_NO_IDENTIFICADO", "La propuesta no identifica quién la creó. Recházala y registra una nueva.");
+        if (PropuestoPor == usuarioId)
+            throw new BusinessRuleException("DEP_MISMO_USUARIO", "Quien propone el cobro no puede confirmarlo. Solicita la confirmación a otra persona de Tesorería.");
+        MovimientoBancarioId = movimientoBancarioId;
         Estado = EstadoPropuestaAplicacion.Confirmada;
         ResueltaPor = usuarioId;
         ResueltaEn = ahora;
@@ -131,6 +138,8 @@ public sealed class PropuestaAplicacionPago : BaseEntity, IPerteneceAEmpresa, IA
         ResueltaPor = usuarioId;
         ResueltaEn = ahora;
     }
+
+    public void MarcarReppTimbrado() => ReppTimbrado = true;
 
     private void AsegurarPropuesta()
     {

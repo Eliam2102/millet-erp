@@ -38,6 +38,7 @@ public sealed class ConceptoMovimientoConfiguration : IEntityTypeConfiguration<C
             Nombre = c.Nombre,
             ClasificacionFlujo = c.Clasificacion,
             Activo = true,
+            EsEjemplo = true,
             Version = 1,
             CreatedAt = seedTime,
             UpdatedAt = seedTime,

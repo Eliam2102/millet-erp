@@ -145,6 +145,12 @@ export interface CuentaSaldoResponse {
   moneda: string;
   cuentaContableRef: string | null;
   perfilExtracto: string | null;
+  sucursal?: string | null;
+  finalidad?: string | null;
+  titular?: string | null;
+  firmantes?: string | null;
+  saldoInicial?: number | null;
+  fechaCorteSaldoInicial?: string | null;
   activa: boolean;
   saldo: number;
   version: number;
@@ -167,6 +173,8 @@ export interface MovimientoBancarioResponse {
   beneficiarioRef: string | null;
   contramovimientoDe: string | null;
   motivoNoAplicado: string | null;
+  motivoReversa?: string | null;
+  motivoReclasificacion?: string | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
@@ -179,6 +187,7 @@ export interface AplicacionMovimientoDto {
   proveedorId: string;
   importeAplicado: number;
   revertida: boolean;
+  motivoReversa?: string | null;
   corridaId: string | null;
   creadoEn: string;
 }
@@ -224,6 +233,7 @@ export interface AplicacionPagoResponse {
   facturaProveedorId: string;
   importe: number;
   revertida: boolean;
+  motivoReversa?: string | null;
 }
 
 /** Mirror de `PagoProveedorResponse` (POST /tesoreria/pagos y reversa). */
@@ -356,4 +366,13 @@ export interface ReppRecibidoResponse {
   fechaComplemento: string;
   xmlBlobRef: string | null;
   registradoEn: string;
+}
+
+export interface ConceptoResponse {
+  id: string;
+  nombre: string;
+  clasificacionFlujo: ClasificacionFlujo;
+  activo: boolean;
+  esEjemplo: boolean;
+  version: number;
 }

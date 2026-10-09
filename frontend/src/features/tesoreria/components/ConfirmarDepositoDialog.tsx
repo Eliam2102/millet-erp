@@ -1,3 +1,4 @@
+import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -84,6 +85,7 @@ export function ConfirmarDepositoDialog({
   const puedeAltaRapida = useHasPermission(
     PermisosCanonicos.TesoreriaMovimientosRegistrar,
   );
+  const [conceptoId, setConceptoId] = useState<string | null>(null);
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [fechaValor, setFechaValor] = useState(() =>
     hoyLocalISO(),
@@ -182,6 +184,7 @@ export function ConfirmarDepositoDialog({
     // confirmación falla, el movimiento queda NoAplicado y re-seleccionable.
     const command = {
       cuentaBancariaId: cuentaId,
+      conceptoId: conceptoId ?? undefined,
       monto: deposito.montoEsperado,
       fechaValor,
       referenciaBancaria:
@@ -302,6 +305,7 @@ export function ConfirmarDepositoDialog({
                   onChange={setCuentaId}
                   moneda={deposito?.moneda}
                 />
+                <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">

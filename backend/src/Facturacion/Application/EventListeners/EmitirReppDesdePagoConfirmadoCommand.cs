@@ -30,7 +30,7 @@ public sealed class EmitirReppDesdePagoConfirmadoHandler(FacturacionDbContext db
         var p = command.Payload;
         if (!await db.ReppPendientes.AnyAsync(r => r.MovimientoBancarioId == p.MovimientoBancarioId, cancellationToken))
             db.ReppPendientes.Add(new ReppPendiente(p.EmpresaId, p.ClienteId, p.MovimientoBancarioId,
-                p.CuentaBancariaId, p.PropuestaId, p.Monto, p.Moneda, p.FechaValor, p.Referencia,
+                p.CuentaBancariaId, p.PropuestaId, p.Monto - p.SaldoAFavorPorIdentificar, p.Moneda, p.FechaValor, p.Referencia,
                 p.Facturas?.Select(f => new RelacionRepp(f.FacturaVentaId, f.ImporteAplicado)) ?? []));
 
         // Pendiente y dedupe se confirman juntos. Nunca se invoca al PAC desde el evento.

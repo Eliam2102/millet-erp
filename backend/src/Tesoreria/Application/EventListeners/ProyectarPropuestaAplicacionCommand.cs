@@ -59,7 +59,8 @@ public sealed class ProyectarPropuestaAplicacionHandler : IRequestHandler<Proyec
                 depositoRef: p.DepositoRef,
                 montoDeposito: p.MontoDeposito,
                 moneda: p.Moneda,
-                facturasJson: JsonSerializer.Serialize(facturas, FacturasJsonOpts)));
+                facturasJson: JsonSerializer.Serialize(facturas, FacturasJsonOpts),
+                propuestoPor: p.PropuestoPor, saldoAFavorPorIdentificar: p.SaldoAFavorPorIdentificar));
         }
 
         _db.EventosProcesados.Add(new EventoProcesado(

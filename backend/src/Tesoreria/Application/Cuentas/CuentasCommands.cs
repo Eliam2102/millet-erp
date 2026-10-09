@@ -36,8 +36,8 @@ internal static class CuentaBancariaMapper
             c.CuentaContableRef,
             c.PerfilExtracto,
             c.Activa,
-            saldo,
-            c.Version);
+            saldo + (c.SaldoInicial ?? 0),
+            c.Version, c.Sucursal, c.Finalidad, c.Titular, c.Firmantes, c.SaldoInicial, c.FechaCorteSaldoInicial);
 }
 
 // --------------------------------------------------- Crear
@@ -48,7 +48,8 @@ public sealed record CrearCuentaBancariaCommand(
     string? Clabe,
     string Moneda,
     string? CuentaContableRef = null,
-    string? PerfilExtracto = null) : IRequest<CuentaSaldoResponse>;
+    string? PerfilExtracto = null, string? Sucursal = null, string? Finalidad = null,
+    string? Titular = null, string? Firmantes = null) : IRequest<CuentaSaldoResponse>;
 
 public sealed class CrearCuentaBancariaValidator : AbstractValidator<CrearCuentaBancariaCommand>
 {
@@ -60,6 +61,10 @@ public sealed class CrearCuentaBancariaValidator : AbstractValidator<CrearCuenta
         RuleFor(c => c.Moneda).NotEmpty().Length(3);
         RuleFor(c => c.CuentaContableRef).MaximumLength(40);
         RuleFor(c => c.PerfilExtracto).MaximumLength(40);
+        RuleFor(c => c.Sucursal).MaximumLength(120);
+        RuleFor(c => c.Finalidad).MaximumLength(400);
+        RuleFor(c => c.Titular).MaximumLength(200);
+        RuleFor(c => c.Firmantes).MaximumLength(1000);
     }
 }
 
@@ -101,8 +106,9 @@ public sealed class CrearCuentaBancariaHandler
             .AnyAsync(c => c.NumeroCuenta == cuenta.NumeroCuenta, cancellationToken);
         if (duplicada)
             throw new ConflictException("CTA_NUMERO_DUPLICADO",
-                $"Ya existe una cuenta bancaria con el número '{cuenta.NumeroCuenta}' en la empresa.");
+                $"Ya existe una cuenta bancaria con el número '{Clabe.Enmascarar(cuenta.NumeroCuenta)}' en la empresa.");
 
+        cuenta.ActualizarInventario(command.Sucursal, command.Finalidad, command.Titular, command.Firmantes);
         _db.CuentasBancarias.Add(cuenta);
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -122,7 +128,8 @@ public sealed record ActualizarCuentaBancariaCommand(
     bool LimpiarClabe,
     string? CuentaContableRef,
     string? PerfilExtracto,
-    int VersionEsperada) : IRequest<CuentaSaldoResponse>;
+    int VersionEsperada, string? Sucursal = null, string? Finalidad = null,
+    string? Titular = null, string? Firmantes = null) : IRequest<CuentaSaldoResponse>;
 
 public sealed class ActualizarCuentaBancariaValidator : AbstractValidator<ActualizarCuentaBancariaCommand>
 {
@@ -138,6 +145,10 @@ public sealed class ActualizarCuentaBancariaValidator : AbstractValidator<Actual
             .WithMessage("No se puede enviar una CLABE nueva y LimpiarClabe a la vez.");
         RuleFor(c => c.CuentaContableRef).MaximumLength(40);
         RuleFor(c => c.PerfilExtracto).MaximumLength(40);
+        RuleFor(c => c.Sucursal).MaximumLength(120);
+        RuleFor(c => c.Finalidad).MaximumLength(400);
+        RuleFor(c => c.Titular).MaximumLength(200);
+        RuleFor(c => c.Firmantes).MaximumLength(1000);
     }
 }
 
@@ -179,10 +190,11 @@ public sealed class ActualizarCuentaBancariaHandler
             tieneMovimientos = true;
         }
 
-        if (monedaNueva != cuenta.Moneda && tieneMovimientos)
+        if (monedaNueva != cuenta.Moneda && (tieneMovimientos || cuenta.SaldoInicial is not null))
             throw new BusinessRuleException("CTA_MONEDA_CON_MOVIMIENTOS",
                 "No se puede cambiar la moneda de una cuenta con movimientos registrados.");
 
+        cuenta.ActualizarInventario(command.Sucursal, command.Finalidad, command.Titular, command.Firmantes);
         cuenta.ActualizarDatos(command.Banco, monedaNueva, command.CuentaContableRef, command.PerfilExtracto);
         if (command.LimpiarClabe)
             cuenta.CambiarClabe(null);

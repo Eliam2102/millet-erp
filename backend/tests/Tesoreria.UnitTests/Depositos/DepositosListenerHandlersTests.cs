@@ -33,6 +33,7 @@ public sealed class DepositosListenerHandlersTests
             Moneda: "MXN",
             AjusteNoFiscal: 0m,
             NumeroFacturas: facturas?.Count ?? 2,
+            PropuestoPor: Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"),
             Facturas: facturas ??
             [
                 new PropuestaFacturaPayload(FacturaA, "VEN-1", 5_000m),
@@ -54,6 +55,7 @@ public sealed class DepositosListenerHandlersTests
         deposito.ClienteId.Should().Be(payload.ClienteId);
         deposito.Estado.Should().Be(EstadoDepositoConfirmacion.Pendiente);
         deposito.MontoEsperado.Should().Be(7_500m);
+        deposito.PropuestoPor.Should().Be(payload.PropuestoPor);
         deposito.FacturasJson.Should().Contain(FacturaA.ToString());
 
         var marca = await db.EventosProcesados.SingleAsync();

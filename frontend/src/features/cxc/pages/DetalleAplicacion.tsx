@@ -1,46 +1,15 @@
-import { useState } from 'react';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Check, X, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { TextAreaField } from '@/components/erp/forms/TextAreaField';
 import { ErrorState } from '@/components/erp';
-import {
-  useConfirmarPropuesta,
-  usePropuestaAplicacion,
-  useRechazarPropuesta,
-} from '@/features/cxc/api/useAplicaciones';
+import { usePropuestaAplicacion } from '@/features/cxc/api/useAplicaciones';
 import { useClientesLookupCxc } from '@/features/cxc/api/useLineasCredito';
 import { ChipEstadoPropuesta } from '@/features/cxc/components/ChipEstadoPropuesta';
-import {
-  EstadoPropuestaAplicacion,
-  type PropuestaAplicacionResponse,
-} from '@/features/cxc/api/types';
+import { EstadoPropuestaAplicacion, type PropuestaAplicacionResponse } from '@/features/cxc/api/types';
 import { formatoMonto } from '@/features/cxc/lib/glosario';
 import type { AplicacionesSearch } from '@/features/cxc/lib/aplicaciones-search-schema';
-import { useQueryClient } from '@tanstack/react-query';
-import { esApiError, esConflictoConcurrencia } from '@/lib/api';
-import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
-import { cxcKeys } from '@/features/cxc/api/keys';
-import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { esApiError } from '@/lib/api';
 
-/**
- * <c>Detalle de propuesta de aplicación</c> (CXC-FE-PR6, P3). Depósito +
- * facturas propuestas + ajuste no fiscal; acciones de Ingresos
- * (Confirmar / Rechazar con motivo, gate
- * <c>aplicacion-pago.confirmar</c> — interino A2). La confirmación NO
- * aplica pagos a cartera: eso lo hace el REPP timbrado vía eventos.
- */
 export function DetalleAplicacion() {
   const { id } = useParams({ from: '/_app/cxc/aplicaciones/$id' });
   const query = usePropuestaAplicacion(id);
@@ -67,40 +36,9 @@ export function DetalleAplicacion() {
 
 function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
   const search = useSearch({ strict: false }) as AplicacionesSearch;
-  const puedeConfirmar = useHasPermission(
-    PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar,
-  );
-  const confirmar = useConfirmarPropuesta();
-  const rechazar = useRechazarPropuesta();
-  const queryClient = useQueryClient();
-  const conflictDialog = useConflictDialog();
-  const [dialogRechazo, setDialogRechazo] = useState(false);
-  const [motivo, setMotivo] = useState('');
-
   const lookup = useClientesLookupCxc({ ids: [p.clienteId] });
   const cliente = lookup.data?.[0] ?? null;
-  const pendiente = p.estado === EstadoPropuestaAplicacion.Propuesta;
   const sumaAplicada = p.facturas.reduce((a, f) => a + f.importeAplicado, 0);
-
-  function manejarError(error: unknown, fallback: string) {
-    // Conflicto de concurrencia (409): otra sesión ya cambió la propuesta.
-    // La versión en caché quedó vieja → reintentar re-fallaría. Se abre el
-    // diálogo de conflicto que refresca (invalida la query → versión nueva),
-    // igual que DetalleLineaCredito, en vez de un toast que deja atascado.
-    if (esConflictoConcurrencia(error)) {
-      conflictDialog.openSimple({
-        onRefrescar: () =>
-          queryClient.invalidateQueries({ queryKey: cxcKeys.propuestas() }),
-        traceId: error.traceId,
-      });
-      return;
-    }
-    toast.error(
-      esApiError(error)
-        ? `${error.problem.title}${error.problem.detail ? ` — ${error.problem.detail}` : ''}`
-        : fallback,
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -116,45 +54,6 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
           <ChipEstadoPropuesta estado={p.estado} />
         </div>
         <div className="flex items-center gap-1.5">
-          {puedeConfirmar && pendiente && (
-            <>
-              <Button
-                size="sm"
-                disabled={confirmar.isPending}
-                onClick={() =>
-                  // Key fresca por submit: el backend exige UUID v4 puro
-                  // (patrón multi-submit de lib/api/idempotency.ts).
-                  confirmar.mutate(
-                    {
-                      id: p.id,
-                      versionEsperada: p.version,
-                      idempotencyKey: crypto.randomUUID(),
-                    },
-                    {
-                      onSuccess: () =>
-                        toast.success(
-                          'Propuesta confirmada. El pago se aplica a cartera cuando el REPP se timbre.',
-                        ),
-                      onError: (e) =>
-                        manejarError(e, 'No se pudo confirmar la propuesta.'),
-                    },
-                  )
-                }
-              >
-                <Check className="mr-1.5 h-3.5 w-3.5" />
-                {confirmar.isPending ? 'Confirmando…' : 'Confirmar'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive"
-                onClick={() => setDialogRechazo(true)}
-              >
-                <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                Rechazar
-              </Button>
-            </>
-          )}
           <Button variant="ghost" size="icon" asChild aria-label="Cerrar detalle">
             <Link to="/cxc/aplicaciones" search={search}>
               <X className="h-4 w-4" />
@@ -164,7 +63,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
       </div>
 
       {p.estado === EstadoPropuestaAplicacion.Rechazada && p.motivoRechazo && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <div className="rounded-md border border-line bg-danger-bg px-4 py-3 text-sm text-danger-fg">
           <p className="font-medium">Propuesta rechazada</p>
           <p>{p.motivoRechazo}</p>
         </div>
@@ -202,8 +101,14 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
               </dd>
             </div>
           </dl>
+          {p.estado !== EstadoPropuestaAplicacion.Rechazada && (p.saldoAFavorPorIdentificar ?? 0) > 0 && (
+            <p className="mt-3 rounded-md bg-info-bg p-3 text-sm text-info-fg">
+              Saldo a favor por identificar: {formatoMonto(p.saldoAFavorPorIdentificar ?? 0, p.moneda)}.
+              {p.estado === EstadoPropuestaAplicacion.Propuesta ? ' Pendiente de confirmación bancaria.' : ''}
+            </p>
+          )}
           {p.ajusteNoFiscal !== 0 && (
-            <p className="mt-3 text-xs text-amber-800 dark:text-amber-300">
+            <p className="mt-3 text-xs text-warning-fg">
               Diferencia dentro de tolerancia registrada como ajuste no
               fiscal (no genera CFDI).
             </p>
@@ -252,73 +157,7 @@ function Contenido({ p }: { p: PropuestaAplicacionResponse }) {
         </section>
       </div>
 
-      {/* ── Dialog de rechazo (motivo obligatorio) ─────────────── */}
-      <Dialog
-        open={dialogRechazo}
-        onOpenChange={(open) => {
-          if (!open) setMotivo('');
-          setDialogRechazo(open);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Rechazar propuesta</DialogTitle>
-            <DialogDescription>
-              {p.depositoRef}: la propuesta vuelve a CxC con el motivo para
-              corregir el matching.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1">
-            <Label htmlFor="motivo-rechazo" className="text-xs">
-              Motivo (requerido)
-            </Label>
-            <TextAreaField
-              value={motivo}
-              onChange={(v) => setMotivo(v ?? '')}
-              maxLength={400}
-              textareaProps={{
-                id: 'motivo-rechazo',
-                placeholder: 'p. ej. El depósito corresponde a otro cliente…',
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setDialogRechazo(false)}
-              disabled={rechazar.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={motivo.trim().length === 0 || rechazar.isPending}
-              onClick={() =>
-                rechazar.mutate(
-                  {
-                    id: p.id,
-                    versionEsperada: p.version,
-                    motivo: motivo.trim(),
-                    idempotencyKey: crypto.randomUUID(),
-                  },
-                  {
-                    onSuccess: () => {
-                      setDialogRechazo(false);
-                      toast.success('Propuesta rechazada.');
-                    },
-                    onError: (e) =>
-                      manejarError(e, 'No se pudo rechazar la propuesta.'),
-                  },
-                )
-              }
-            >
-              {rechazar.isPending ? 'Rechazando…' : 'Rechazar propuesta'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <p className="text-sm text-ink-muted">Tesorería confirma o rechaza contra el movimiento bancario. La cartera se actualiza al timbrar el REP.</p>
     </div>
   );
 }
