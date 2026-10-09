@@ -57,7 +57,7 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             // Otra rama o un nivel saltado: 422 con el código de error y nada se crea.
             foreach (var fuera in new[] { "100.20.01.00", "100.10.02.07" })
             {
-                var r = await c.PostAsJsonAsync($"{Base}/cuentas",
+                var r = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas",
                     new { codigo = Codigo(suf, fuera), nombre = "FIX fuera", padreId = bancosId, tipo = "Afectable", cuentaControl = "Ninguna" });
                 Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
                 Assert.Equal("CONTAB_CUENTA_CODIGO_FUERA_DE_RAMA", await Code(r));
@@ -80,10 +80,10 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
         {
             var c = await LoginAsync(factory);
             await CrearCuenta(c, Codigo(suf, "1"));
-            var dup = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1").ToLowerInvariant(), nombre = "otra", cuentaControl = "Ninguna" });
+            var dup = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1").ToLowerInvariant(), nombre = "otra", cuentaControl = "Ninguna" });
             Assert.Equal(HttpStatusCode.Conflict, dup.StatusCode);
             Assert.Equal("CONTAB_CUENTA_CODIGO_DUPLICADO", await Code(dup));
-            var mal = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = "con espacio", nombre = "x", cuentaControl = "Ninguna" });
+            var mal = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = "con espacio", nombre = "x", cuentaControl = "Ninguna" });
             Assert.Equal(HttpStatusCode.UnprocessableEntity, mal.StatusCode);
             Assert.Equal("CONTAB_CUENTA_CODIGO_INVALIDO", await Code(mal));
         }
@@ -91,7 +91,7 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
     }
 
     [Fact]
-    public async Task Carrera_de_dos_altas_con_el_mismo_codigo_deja_una_201_y_una_409()
+    public async Task Carrera_de_dos_altas_con_el_mismo_codigo_deja_una_solicitud_202_y_un_409()
     {
         var suf = Sufijo();
         try
@@ -99,9 +99,12 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             var a = await LoginAsync(factory);
             var b = await LoginAsync(factory);
             var cuerpo = new { codigo = Codigo(suf, "7"), nombre = "carrera", cuentaControl = "Ninguna" };
-            var rs = await Task.WhenAll(a.PostAsJsonAsync($"{Base}/cuentas", cuerpo), b.PostAsJsonAsync($"{Base}/cuentas", cuerpo));
-            Assert.Equal([HttpStatusCode.Created, HttpStatusCode.Conflict], rs.Select(r => r.StatusCode).OrderBy(x => (int)x).ToArray());
-            Assert.Equal(1, await Contar(factory.Services, "cuentas_contables", $"codigo = '{Codigo(suf, "7")}'"));
+            var rs = await Task.WhenAll(a.PostAsJsonAsync($"{Base}/cuentas", cuerpo), b.PostAsJsonAsync($"{Base}/cuentas",
+                new { codigo = cuerpo.codigo.ToLowerInvariant(), cuerpo.nombre, cuerpo.cuentaControl }));
+            Assert.Equal([HttpStatusCode.Accepted, HttpStatusCode.Conflict], rs.Select(r => r.StatusCode).OrderBy(x => (int)x).ToArray());
+            Assert.Equal("CONTAB_CUENTA_CODIGO_DUPLICADO", await Code(rs.Single(r => r.StatusCode == HttpStatusCode.Conflict)));
+            Assert.Equal(0, await Contar(factory.Services, "cuentas_contables", $"codigo = '{Codigo(suf, "7")}'"));
+            Assert.Equal(1, await Contar(factory.Services, "solicitudes_catalogo", $"codigo_alta = '{Codigo(suf, "7")}' AND estado = 'Pendiente'"));
         }
         finally { await Limpiar(factory.Services, suf); }
     }
@@ -123,10 +126,13 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             }
             var r1 = await Enviar();
             var r2 = await Enviar();
-            Assert.Equal(HttpStatusCode.Created, r1.StatusCode);
+            Assert.Equal(HttpStatusCode.Accepted, r1.StatusCode);
             Assert.Equal(r1.StatusCode, r2.StatusCode);
-            Assert.Equal((await Json(r1)).GetProperty("id").GetGuid(), (await Json(r2)).GetProperty("id").GetGuid());
-            Assert.Equal(1, await Contar(factory.Services, "cuentas_contables", $"codigo = '{Codigo(suf, "1")}'"));
+            Assert.Equal(await r1.Content.ReadAsByteArrayAsync(), await r2.Content.ReadAsByteArrayAsync());
+            Assert.Equal(r1.Headers.Location, r2.Headers.Location);
+            Assert.Equal((await Json(r1)).GetProperty("solicitudId").GetGuid(), (await Json(r2)).GetProperty("solicitudId").GetGuid());
+            Assert.Equal(0, await Contar(factory.Services, "cuentas_contables", $"codigo = '{Codigo(suf, "1")}'"));
+            Assert.Equal(1, await Contar(factory.Services, "solicitudes_catalogo", $"codigo_alta = '{Codigo(suf, "1")}' AND estado = 'Pendiente'"));
         }
         finally { await Limpiar(factory.Services, suf); }
     }
@@ -159,19 +165,19 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
         try
         {
             var c = await LoginAsync(factory);
-            var sinPadre = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "x", padreId = Guid.NewGuid(), cuentaControl = "Ninguna" });
+            var sinPadre = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "x", padreId = Guid.NewGuid(), cuentaControl = "Ninguna" });
             Assert.Equal("CONTAB_CUENTA_PADRE_INVALIDO", await Code(sinPadre));
 
             var titulo = await CrearCuenta(c, Codigo(suf, "3"), tipo: "Titulo");
             (await Send(c, HttpMethod.Post, $"{Base}/cuentas/{titulo.GetProperty("id").GetGuid()}/desactivar", null, Etag(titulo))).EnsureSuccessStatusCode();
-            var inactivo = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "3.1"), nombre = "x", padreId = titulo.GetProperty("id").GetGuid(), cuentaControl = "Ninguna" });
+            var inactivo = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "3.1"), nombre = "x", padreId = titulo.GetProperty("id").GetGuid(), cuentaControl = "Ninguna" });
             Assert.Equal("CONTAB_CUENTA_PADRE_INVALIDO", await Code(inactivo));
 
             using var limitado = factory.ConEmpresa(null, ("Contabilidad:Catalogo:NivelMaximo", "2"));
             var c2 = await LoginAsync(limitado);
             var n1 = await CrearCuenta(c2, Codigo(suf, "4"), tipo: "Titulo");
             var n2 = await CrearCuenta(c2, Codigo(suf, "4.1"), padreId: n1.GetProperty("id").GetGuid(), tipo: "Titulo");
-            var n3 = await c2.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "4.1.1"), nombre = "x", padreId = n2.GetProperty("id").GetGuid(), cuentaControl = "Ninguna" });
+            var n3 = await c2.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "4.1.1"), nombre = "x", padreId = n2.GetProperty("id").GetGuid(), cuentaControl = "Ninguna" });
             Assert.Equal(HttpStatusCode.UnprocessableEntity, n3.StatusCode);
             Assert.Equal("CONTAB_CUENTA_NIVEL_EXCEDIDO", await Code(n3));
         }
@@ -264,7 +270,7 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             var c = await LoginAsync(factory);
             var a = await CrearCuenta(c, Codigo(suf, "1"));
             (await Send(c, HttpMethod.Post, $"{Base}/cuentas/{a.GetProperty("id").GetGuid()}/desactivar", null, Etag(a))).EnsureSuccessStatusCode();
-            var dup = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1"), nombre = "reuso", cuentaControl = "Ninguna" });
+            var dup = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1"), nombre = "reuso", cuentaControl = "Ninguna" });
             Assert.Equal("CONTAB_CUENTA_CODIGO_DUPLICADO", await Code(dup));
         }
         finally { await Limpiar(factory.Services, suf); }
@@ -340,7 +346,7 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             await AssertCreacionesAuditadasAsync(factory.Services, "cuentas_contables_uso", "CuentaContableUso",
                 $"r.cuenta_id = '{id}'", "Referencia", 2, actorTipo: "sistema");
             // No hay ruta HTTP que escriba uso.
-            var r = await c.PostAsJsonAsync($"{Base}/cuentas/{id}/uso", new { });
+            var r = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas/{id}/uso", new { });
             Assert.True(r.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed);
         }
         finally { await Limpiar(factory.Services, suf); }
@@ -368,20 +374,20 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             var csv = FixturesCatalogoRequest(suf);
             var denegados = new[]
             {
-                await consulta.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "x", cuentaControl = "Ninguna" }),
+                await consulta.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "x", cuentaControl = "Ninguna" }),
                 await Send(consulta, HttpMethod.Put, $"{Base}/cuentas/{id}", new { nombre = "x", cuentaControl = "Ninguna" }, Etag(cuenta)),
                 await Send(consulta, HttpMethod.Post, $"{Base}/cuentas/{id}/desactivar", null, Etag(cuenta)),
                 await Send(consulta, HttpMethod.Post, $"{Base}/cuentas/{id}/reactivar", null, Etag(cuenta)),
-                await consulta.PostAsJsonAsync($"{Base}/importaciones/vista-previa", csv),
-                await consulta.PostAsJsonAsync($"{Base}/importaciones/perfilado", csv),
-                await consulta.PostAsJsonAsync($"{Base}/importaciones", csv),
+                await consulta.PostCatalogoYAutorizarAsync($"{Base}/importaciones/vista-previa", csv),
+                await consulta.PostCatalogoYAutorizarAsync($"{Base}/importaciones/perfilado", csv),
+                await consulta.PostCatalogoYAutorizarAsync($"{Base}/importaciones", csv),
             };
             Assert.All(denegados, r => Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode));
             Assert.Equal(1, await Contar(factory.Services, "cuentas_contables", $"codigo LIKE 'FIX-{suf}-%'"));
 
             using var anonimo = factory.CreateClient();
             Assert.Equal(HttpStatusCode.Unauthorized, (await anonimo.GetAsync($"{Base}/cuentas")).StatusCode);
-            Assert.Equal(HttpStatusCode.Unauthorized, (await anonimo.PostAsJsonAsync($"{Base}/importaciones/perfilado", csv)).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await anonimo.PostCatalogoYAutorizarAsync($"{Base}/importaciones/perfilado", csv)).StatusCode);
         }
         finally { await Limpiar(factory.Services, suf); }
     }
@@ -394,7 +400,7 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
         {
             var op = await ClienteConPermisosAsync(factory, PermisosCanonicos.ContabilidadCatalogoLeer, PermisosCanonicos.ContabilidadCatalogoAdministrar);
             await CrearCuenta(op, Codigo(suf, "1"));
-            var r = await op.PostAsJsonAsync($"{Base}/importaciones/vista-previa", FixturesCatalogoRequest(suf));
+            var r = await op.PostCatalogoYAutorizarAsync($"{Base}/importaciones/vista-previa", FixturesCatalogoRequest(suf));
             Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
         }
         finally { await Limpiar(factory.Services, suf); }
@@ -437,7 +443,7 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
         try
         {
             var c = await LoginAsync(factory);
-            var r = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1"), nombre = "x", cuentaControl = "Ninguna", empresaId = Guid.NewGuid() });
+            var r = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1"), nombre = "x", cuentaControl = "Ninguna", empresaId = Guid.NewGuid() });
             Assert.Equal(HttpStatusCode.Created, r.StatusCode);
             Assert.Equal(EmpresaBootstrapId, await Escalar<Guid>(factory.Services, $"SELECT empresa_id FROM contabilidad.cuentas_contables WHERE codigo = '{Codigo(suf, "1")}'"));
             var lista = await c.GetAsync($"{Base}/cuentas?q={suf}&empresaId={Guid.NewGuid()}");
@@ -465,11 +471,11 @@ public class CatalogoHttpTests(WebApplicationFactory<Program> factory) : IClassF
             Assert.Equal(0, lista.Total);
             await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.EntityNotFoundException>(() => m.Send(new ObtenerCuentaQuery(idA)));
             await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.EntityNotFoundException>(() =>
-                m.Send(new EditarCuentaCommand(idA, a.GetProperty("version").GetInt32(), "x", null, null, null, CuentaControl.Ninguna, null, null)));
+                ActivatorUtilities.CreateInstance<EditarCuentaHandler>(scope.ServiceProvider).AplicarAsync(new EditarCuentaCommand(idA, a.GetProperty("version").GetInt32(), "x", null, null, null, CuentaControl.Ninguna, null, null), default));
             await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.EntityNotFoundException>(() =>
-                m.Send(new DesactivarCuentaCommand(idA, a.GetProperty("version").GetInt32())));
+                ActivatorUtilities.CreateInstance<DesactivarCuentaHandler>(scope.ServiceProvider).AplicarAsync(new DesactivarCuentaCommand(idA, a.GetProperty("version").GetInt32()), default));
             // Mismo código en la empresa B: permitido.
-            var enB = await m.Send(new CrearCuentaCommand(Codigo(suf, "1"), "de B", null, NaturalezaCuenta.Deudora, TipoCuenta.Afectable, CuentaControl.Ninguna, null, null));
+            var enB = await CrearVigente(scope.ServiceProvider, new CrearCuentaCommand(Codigo(suf, "1"), "de B", null, NaturalezaCuenta.Deudora, TipoCuenta.Afectable, CuentaControl.Ninguna, null, null));
             Assert.NotEqual(idA, enB.Id);
             Sobre.Value = null; // de vuelta a la empresa del token para las verificaciones HTTP
             Assert.Equal(2, await Contar(factory.Services, "cuentas_contables", $"codigo = '{Codigo(suf, "1")}'"));

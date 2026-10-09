@@ -27,7 +27,7 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
     }
 
     private static async Task<JsonElement> Validar(HttpClient c, string codigo, string origen) =>
-        await Json(await c.PostAsJsonAsync($"{Base}/cuentas/validar-movimiento", new { codigo, origen }));
+        await Json(await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas/validar-movimiento", new { codigo, origen }));
 
     [Fact]
     public async Task Hija_bajo_afectable_sin_movimientos_convierte_al_padre_y_con_movimientos_es_422()
@@ -50,7 +50,7 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
             // Con movimientos: 422 con mensaje de usuario y nada cambia.
             var usada = await CrearCuenta(c, Codigo(suf, "1.2"), padreId: Id(raiz));
             await RegistrarUso(Id(usada));
-            var r = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1.2.1"), nombre = "FIX x", padreId = Id(usada), cuentaControl = "Ninguna" });
+            var r = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1.2.1"), nombre = "FIX x", padreId = Id(usada), cuentaControl = "Ninguna" });
             Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
             var p = await Json(r);
             Assert.Equal("CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO", p.GetProperty("code").GetString());
@@ -60,7 +60,7 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
 
             // Colectiva: tampoco puede tener hijas.
             var colectiva = await CrearCuenta(c, Codigo(suf, "1.3"), padreId: Id(raiz), control: "Deudores");
-            var bajoColectiva = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1.3.1"), nombre = "FIX x", padreId = Id(colectiva), cuentaControl = "Ninguna" });
+            var bajoColectiva = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "1.3.1"), nombre = "FIX x", padreId = Id(colectiva), cuentaControl = "Ninguna" });
             Assert.Equal("CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE", await Code(bajoColectiva));
 
             // Desactivar la última hija: el padre sigue acumulando (histórico), no vuelve a afectable.
@@ -89,7 +89,7 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.Equal("Titulo", (await Validar(consulta, Codigo(suf, "1"), "Manual")).GetProperty("motivo").GetString());
 
             // Una colectiva de nivel 1 no es posible: acumula.
-            var raizColectiva = await admin.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "FIX x", cuentaControl = "Clientes" });
+            var raizColectiva = await admin.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "FIX x", cuentaControl = "Clientes" });
             Assert.Equal("CONTAB_CUENTA_CONTROL_SOLO_AFECTABLE", await Code(raizColectiva));
         }
         finally { await Limpiar(factory.Services, suf); }
@@ -102,7 +102,7 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
         try
         {
             var c = await LoginAsync(factory);
-            var rr = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "R"), nombre = "FIX Rubro", cuentaControl = "Ninguna", clase = "Rubro" });
+            var rr = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "R"), nombre = "FIX Rubro", cuentaControl = "Ninguna", clase = "Rubro" });
             Assert.Equal(HttpStatusCode.Created, rr.StatusCode);
             var rubro = await Json(rr);
             Assert.Equal("Rubro", rubro.GetProperty("clase").GetString());
@@ -117,7 +117,7 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
             var delRubro = await Json(await c.GetAsync($"{Base}/cuentas?rubroId={Id(rubro)}"));
             Assert.Equal(Id(raiz), delRubro.GetProperty("items").EnumerateArray().Single().GetProperty("id").GetGuid());
 
-            var bajoRubro = await c.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "R.1"), nombre = "FIX x", padreId = Id(rubro), cuentaControl = "Ninguna" });
+            var bajoRubro = await c.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "R.1"), nombre = "FIX x", padreId = Id(rubro), cuentaControl = "Ninguna" });
             Assert.Equal("CONTAB_CUENTA_PADRE_INVALIDO", await Code(bajoRubro));
 
             var arbol = (await Json(await c.GetAsync($"{Base}/cuentas/arbol"))).EnumerateArray().Select(n => n.GetProperty("codigo").GetString()).ToList();
@@ -141,12 +141,12 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
         {
             var c = await LoginAsync(factory);
             var req = Fix.FormatoLaura($"FIX-{suf}", $"FIX-{suf}-F");
-            var vp = await Json(await c.PostAsJsonAsync($"{Base}/importaciones/vista-previa", req));
+            var vp = await Json(await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones/vista-previa", req));
             Assert.True(vp.GetProperty("puedeAplicar").GetBoolean());
             Assert.Equal(3, vp.GetProperty("resumen").GetProperty("omitidas").GetInt32());
             Assert.Equal(23, vp.GetProperty("resumen").GetProperty("crear").GetInt32());
 
-            var r = await c.PostAsJsonAsync($"{Base}/importaciones", req with { Huella = vp.GetProperty("huella").GetString() });
+            var r = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", req with { Huella = vp.GetProperty("huella").GetString() });
             Assert.Equal(HttpStatusCode.Created, r.StatusCode);
             Assert.Equal(23, (await Json(r)).GetProperty("lote").GetProperty("creadas").GetInt32());
 
@@ -167,7 +167,7 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
             Assert.Equal(2, (await Json(await c.GetAsync($"{Base}/cuentas?q={suf}&pendientes=true"))).GetProperty("total").GetInt32());
 
             // Reimportar el mismo archivo no duplica.
-            var otra = await c.PostAsJsonAsync($"{Base}/importaciones", req);
+            var otra = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", req);
             Assert.True((await Json(otra)).GetProperty("idempotente").GetBoolean());
         }
         finally { await Limpiar(factory.Services, suf); }
@@ -186,12 +186,12 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
             await RegistrarUso(Id(usada));
 
             var conUso = $"codigo;nombre;naturaleza\n{Codigo(suf, "5.20.01")};FIX bajo usada;Deudora\n";
-            var rechazo = await c.PostAsJsonAsync($"{Base}/importaciones", Fix.Request(conUso, $"FIX-{suf}-F"));
+            var rechazo = await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Fix.Request(conUso, $"FIX-{suf}-F"));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, rechazo.StatusCode);
             Assert.Contains((await Json(rechazo)).GetProperty("errores").EnumerateArray(), e => e.GetProperty("codigo").GetString() == "CONTAB_CUENTA_CAMBIO_BLOQUEADO_POR_USO");
 
             var sinUso = $"codigo;nombre;naturaleza\n{Codigo(suf, "5.10.01")};FIX bajo hoja;Deudora\n";
-            Assert.Equal(HttpStatusCode.Created, (await c.PostAsJsonAsync($"{Base}/importaciones", Fix.Request(sinUso, $"FIX-{suf}-F"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Created, (await c.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Fix.Request(sinUso, $"FIX-{suf}-F"))).StatusCode);
             Assert.Equal("Titulo", (await Obtener(c, Id(hoja))).GetProperty("tipo").GetString());
             Assert.Equal("Afectable", (await Obtener(c, Id(usada))).GetProperty("tipo").GetString());
         }
@@ -214,12 +214,12 @@ public class ReglasLauraHttpTests(WebApplicationFactory<Program> factory) : ICla
             var edit = await Send(contador, HttpMethod.Put, $"{Base}/cuentas/{Id(raiz)}", new { nombre = "FIX editada", naturaleza = "Deudora", cuentaControl = "Ninguna" }, Etag(raiz));
             Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
             var csv = $"codigo;nombre;naturaleza\n{Codigo(suf, "1.1")};FIX importada;Deudora\n";
-            Assert.Equal(HttpStatusCode.Created, (await contador.PostAsJsonAsync($"{Base}/importaciones", Fix.Request(csv, $"FIX-{suf}-F"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Created, (await contador.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Fix.Request(csv, $"FIX-{suf}-F"))).StatusCode);
 
             Assert.Equal(HttpStatusCode.OK, (await direccion.GetAsync($"{Base}/cuentas/{Id(raiz)}")).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await direccion.GetAsync($"{Base}/importaciones")).StatusCode);
-            Assert.Equal(HttpStatusCode.Forbidden, (await direccion.PostAsJsonAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "x", cuentaControl = "Ninguna" })).StatusCode);
-            Assert.Equal(HttpStatusCode.Forbidden, (await direccion.PostAsJsonAsync($"{Base}/importaciones", Fix.Request(csv, $"FIX-{suf}-F"))).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await direccion.PostCatalogoYAutorizarAsync($"{Base}/cuentas", new { codigo = Codigo(suf, "2"), nombre = "x", cuentaControl = "Ninguna" })).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await direccion.PostCatalogoYAutorizarAsync($"{Base}/importaciones", Fix.Request(csv, $"FIX-{suf}-F"))).StatusCode);
         }
         finally { await Limpiar(factory.Services, suf); }
     }

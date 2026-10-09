@@ -112,7 +112,7 @@ public sealed class CatalogoOpciones
     /// </summary>
     public static readonly string[] ColumnasCanonicas =
         ["fuente", "codigo_origen", "codigo", "nombre", "codigo_padre", "naturaleza", "tipo_cuenta",
-         "cuenta_control", "codigo_agrupador", "grupo_reporte", "nivel_contable"];
+         "cuenta_control", "codigo_agrupador", "grupo_reporte", "nivel_contable", "no_afectable_manual"];
 
     public static readonly string[] ColumnasObligatorias = ["codigo", "nombre"];
 
@@ -131,6 +131,7 @@ public sealed class CatalogoOpciones
         ["codigo_agrupador"] = ["codigo_agrupador", "agrupador", "codigo_agrupador_sat"],
         ["grupo_reporte"] = ["grupo_reporte", "grupo", "reporte"],
         ["nivel_contable"] = ["nivel_contable"],
+        ["no_afectable_manual"] = ["no_afectable_manual", "no_afectable_por_asiento_manual"],
     };
 
     public void AplicarDefaults()

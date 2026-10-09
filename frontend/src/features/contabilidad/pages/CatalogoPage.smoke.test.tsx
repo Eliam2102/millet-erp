@@ -108,7 +108,7 @@ describe('<CatalogoPage>', () => {
         urls.push(new URL(request.url));
         return HttpResponse.json(pagina([{
           id: 'p', codigo: 'FIX-900', nombre: 'FIX Sin validar', padreId: null, nivel: 1, naturaleza: null, tipo: null,
-          estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', codigoAgrupador: null, grupoReporte: null,
+          estatus: 'Activo', activa: true, cuentaControl: 'Ninguna', noAfectableManual: false, codigoAgrupador: null, grupoReporte: null,
           pendienteValidacion: true, version: 1,
         }]));
       }),

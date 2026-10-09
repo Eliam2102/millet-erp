@@ -272,6 +272,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // anticipos informativos). Subscription `cuentas-por-cobrar-subscription`
     // en topic `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.CuentasPorCobrar.Infrastructure.Workers.FacturacionEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.CuentasPorCobrar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 
     // TES-PR3: listener Service Bus de eventos de CxP → proyección
     // pasivo_pendiente_pago (bandeja de egresos de Tesorería). Subscription
@@ -1657,6 +1658,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.MovimientosEndpoints.MapTesoreriaMovimientosEndpoints(app);
 
 // === Tesorería — Bandeja de pasivos pendientes de pago (TES-PR3) ===

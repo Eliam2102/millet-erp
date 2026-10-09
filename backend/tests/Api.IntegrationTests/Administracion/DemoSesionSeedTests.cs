@@ -213,7 +213,7 @@ public sealed class DemoSesionSeedTests
         Assert.Equal(13, periodos.Count);
         Assert.All(periodos.Where(p => p.Numero <= 9), p => Assert.Equal(EstadoPeriodo.Cerrado, p.Estado));
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
-        Assert.Equal(5, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
+        Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
         Assert.Equal(2, await compras.OrdenesCompra.CountAsync());
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());

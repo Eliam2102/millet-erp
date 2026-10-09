@@ -76,8 +76,19 @@ public static class PagosACuentaEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        pagosCuenta.MapPost("/{movimientoId:guid}/aplicaciones/{aplicacionId:guid}/desligar", async (
+            Guid movimientoId, Guid aplicacionId, [FromBody] DesligarBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new DesligarPagoACuentaCommand(movimientoId, aplicacionId, body.Motivo), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosCuentaLigar)
+        .WithName("DesligarPagoACuenta").ProducesValidationProblem().ProducesProblem(422);
         return app;
     }
+
+    public sealed record DesligarBody(string Motivo);
 
     public sealed record LigarPagoACuentaBody(Guid FacturaProveedorId, decimal Importe);
 }

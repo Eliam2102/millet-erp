@@ -92,7 +92,7 @@ public sealed class DemoSesionUsuarioValidator : AbstractValidator<DemoSesionUsu
     public DemoSesionUsuarioValidator()
     {
         RuleFor(u => u.Correo).NotEmpty().EmailAddress();
-        RuleFor(u => u.Rol).Must(r => r is "Compras" or "CxP" or "Tesorería" or "Facturación" or "Contabilidad" or "Administrador")
+        RuleFor(u => u.Rol).Must(r => r is "Compras" or "CxP" or "Tesorería" or "Facturación" or "Contabilidad" or "DAF" or "Administrador")
             .WithMessage("Rol DEMO desconocido.");
         RuleFor(u => u.Sucursales).NotEmpty();
         RuleForEach(u => u.Sucursales).Must(s => s is "MID" or "MTY" or "QRO");

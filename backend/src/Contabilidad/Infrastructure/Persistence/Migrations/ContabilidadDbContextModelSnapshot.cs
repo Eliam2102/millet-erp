@@ -131,6 +131,10 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("nivel");
 
+                    b.Property<bool>("NoAfectableManual")
+                        .HasColumnType("boolean")
+                        .HasColumnName("no_afectable_manual");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(254)
@@ -864,6 +868,130 @@ namespace Millet.Contabilidad.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ux_reglas_dimension_uso");
 
                     b.ToTable("reglas_dimension_uso", "contabilidad");
+                });
+
+            modelBuilder.Entity("Millet.Contabilidad.Domain.SolicitudCatalogo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CambiosJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("cambios_json");
+
+                    b.Property<string>("CodigoAlta")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("codigo_alta");
+
+                    b.Property<string>("ComandoJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("comando_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<string>("HuellaCatalogo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("huella_catalogo");
+
+                    b.Property<string>("HuellaImportacion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("huella_importacion");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("motivo_rechazo");
+
+                    b.Property<string>("Operacion")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("operacion");
+
+                    b.Property<DateTimeOffset>("PreparadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("preparada_en");
+
+                    b.Property<string>("PreparadaPor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("preparada_por");
+
+                    b.Property<Guid>("PreparadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("preparada_por_id");
+
+                    b.Property<DateTimeOffset?>("ResueltaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelta_en");
+
+                    b.Property<string>("ResueltaPor")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("resuelta_por");
+
+                    b.Property<Guid?>("ResueltaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelta_por_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_solicitudes_catalogo");
+
+                    b.HasIndex("EmpresaId", "CodigoAlta")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p9_alta_pendiente")
+                        .HasFilter("estado = 'Pendiente' AND codigo_alta IS NOT NULL");
+
+                    b.HasIndex("EmpresaId", "HuellaImportacion")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p9_importacion_pendiente")
+                        .HasFilter("estado = 'Pendiente' AND huella_importacion IS NOT NULL");
+
+                    b.HasIndex("EmpresaId", "Estado", "PreparadaEn")
+                        .HasDatabaseName("ix_solicitudes_catalogo_empresa_id_estado_preparada_en");
+
+                    b.ToTable("solicitudes_catalogo", "contabilidad");
                 });
 
             modelBuilder.Entity("Millet.Contabilidad.Domain.TipoDocumentoContable", b =>

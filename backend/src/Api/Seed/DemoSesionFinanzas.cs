@@ -11,13 +11,15 @@ namespace Millet.Api.Seed;
 public sealed partial class DemoSesionSeedHostedService
 {
     public static ImportacionRequest CatalogoDemo() => new("DEMO-SESION", "DEMO-catalogo.csv", null,
-        ["codigo_origen", "codigo", "nombre", "codigo_padre", "naturaleza", "cuenta_control"],
+        ["codigo_origen", "codigo", "nombre", "codigo_padre", "naturaleza", "cuenta_control", "no_afectable_manual"],
         [
             ["DEMO-CTA-TITULO", "990.00.00.00", "DEMO Catálogo ficticio", null, "Deudora", null],
-            ["DEMO-CTA-BANCO", "990.01.00.00", "DEMO Banco", "990.00.00.00", "Deudora", null],
+            ["DEMO-CTA-BANCO", "990.01.00.00", "DEMO Banco — Por confirmar V40", "990.00.00.00", "Deudora", null, "Sí"],
             ["DEMO-CTA-CLIENTE", "990.02.00.00", "DEMO Clientes colectiva", "990.00.00.00", "Deudora", "Clientes"],
             ["DEMO-CTA-GASTO", "990.03.00.00", "DEMO Gasto afectable", "990.00.00.00", "Deudora", null],
             ["DEMO-CTA-PENDIENTE", "990.04.00.00", "DEMO Naturaleza por confirmar", "990.00.00.00", null, null],
+            ["DEMO-CTA-INVENTARIO", "990.05.00.00", "DEMO Inventario — Por confirmar V40", "990.00.00.00", "Deudora", null, "Sí"],
+            ["DEMO-CTA-IVA", "990.06.00.00", "DEMO IVA — Por confirmar V40", "990.00.00.00", "Deudora", null, "Sí"],
         ], null);
 
     private static async Task SembrarFinanzasAsync(IServiceProvider sp, CancellationToken ct)
@@ -71,7 +73,7 @@ public sealed partial class DemoSesionSeedHostedService
         {
             db.Cuentas.Add(new CuentaContable(ids[fila.Codigo!], fila.Codigo!, fila.Nombre!,
                 fila.PadreCodigo is null ? null : ids[fila.PadreCodigo], fila.Nivel, fila.Naturaleza, fila.Tipo,
-                fila.Control, fila.Agrupador, fila.Grupo, fila.Clase) { EmpresaId = EmpresaId });
+                fila.Control, fila.Agrupador, fila.Grupo, fila.Clase, fila.NoAfectableManual) { EmpresaId = EmpresaId });
             db.Origenes.Add(new CuentaContableOrigen(Id("DEMO-ORIGEN/" + fila.CodigoOrigen), ids[fila.Codigo!],
                 fila.Fuente, fila.CodigoOrigen!, lote.Id) { EmpresaId = EmpresaId });
         }

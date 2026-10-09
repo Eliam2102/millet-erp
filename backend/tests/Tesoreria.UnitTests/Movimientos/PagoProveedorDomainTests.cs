@@ -55,7 +55,7 @@ public sealed class PagoProveedorDomainTests
     {
         var original = Pago(monto: 10_000m);
 
-        var reversa = original.CrearContramovimiento(4_000m, Fecha.AddDays(1), Guid.NewGuid(), Ahora);
+        var reversa = original.CrearContramovimiento(4_000m, Fecha.AddDays(1), Guid.NewGuid(), Ahora, "Corrección de prueba");
 
         reversa.Sentido.Should().Be(SentidoMovimiento.Ingreso);
         reversa.Monto.Should().Be(4_000m);
@@ -74,7 +74,7 @@ public sealed class PagoProveedorDomainTests
     public void CrearContramovimiento_importe_invalido_truena(decimal importe)
     {
         var act = () => Pago(monto: 10_000m)
-            .CrearContramovimiento(importe, Fecha, Guid.NewGuid(), Ahora);
+            .CrearContramovimiento(importe, Fecha, Guid.NewGuid(), Ahora, "Corrección de prueba");
 
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("MOV_REVERSA_IMPORTE_INVALIDO");
     }
@@ -83,9 +83,9 @@ public sealed class PagoProveedorDomainTests
     public void CrearContramovimiento_de_un_contramovimiento_truena()
     {
         var reversa = Pago(monto: 10_000m)
-            .CrearContramovimiento(10_000m, Fecha, Guid.NewGuid(), Ahora);
+            .CrearContramovimiento(10_000m, Fecha, Guid.NewGuid(), Ahora, "Corrección de prueba");
 
-        var act = () => reversa.CrearContramovimiento(10_000m, Fecha, Guid.NewGuid(), Ahora);
+        var act = () => reversa.CrearContramovimiento(10_000m, Fecha, Guid.NewGuid(), Ahora, "Corrección de prueba");
 
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("MOV_REVERSA_DE_REVERSA");
     }
@@ -98,10 +98,10 @@ public sealed class PagoProveedorDomainTests
         var aplicacion = new AplicacionPagoProveedor(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1_000m, Ahora);
 
-        aplicacion.Revertir();
+        aplicacion.Revertir("Corrección de prueba");
         aplicacion.Revertida.Should().BeTrue();
 
-        var act = aplicacion.Revertir;
+        var act = () => aplicacion.Revertir("Corrección de prueba");
         act.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("APL_YA_REVERTIDA");
     }
 

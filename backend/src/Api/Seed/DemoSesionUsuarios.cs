@@ -37,7 +37,9 @@ public sealed partial class DemoSesionSeedHostedService
             "Tesorería" => codigo.StartsWith("tesoreria.", StringComparison.Ordinal),
             "Facturación" => codigo.StartsWith("facturacion.", StringComparison.Ordinal)
                 || codigo.StartsWith("datos_maestros.clientes.", StringComparison.Ordinal),
-            "Contabilidad" => codigo.StartsWith("contabilidad.", StringComparison.Ordinal),
+            "Contabilidad" => codigo.StartsWith("contabilidad.", StringComparison.Ordinal)
+                && codigo != PermisosCanonicos.ContabilidadCatalogoAutorizar,
+            "DAF" => codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar,
             _ => false,
         };
     }
@@ -47,7 +49,7 @@ public sealed partial class DemoSesionSeedHostedService
         var db = sp.GetRequiredService<IdentidadDbContext>();
         var sucursales = await sp.GetRequiredService<CompartidoDbContext>().Sucursales
             .Where(s => s.EmpresaId == EmpresaId).ToDictionaryAsync(s => s.Clave, ct);
-        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Contabilidad", "Administrador",
+        foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Contabilidad", "DAF", "Administrador",
             "Capturista Compras", "Jefe Compras", "Dirección" })
         {
             var codigo = "DEMO-ROL-" + nombre;

@@ -78,6 +78,19 @@ public sealed class ReppPendienteTests
     }
 
     [Fact]
+    public async Task Excedente_del_cliente_se_excluye_del_monto_del_rep()
+    {
+        using var db = Db();
+        var payload = new PagoClienteConfirmadoPayload(Empresa, Ahora, Guid.NewGuid(), Cliente, Guid.NewGuid(), Guid.NewGuid(),
+            1100, "MXN", new(2026, 10, 9), "Dato ficticio P5", [new(Guid.NewGuid(), 1000)], SaldoAFavorPorIdentificar: 100);
+        await new EmitirReppDesdePagoConfirmadoHandler(db, new FakeClock(Ahora)).Handle(new(Guid.NewGuid(), payload), default);
+        var pendiente = await db.ReppPendientes.SingleAsync();
+        pendiente.Monto.Should().Be(1000);
+        pendiente.MovimientoBancarioId.Should().Be(payload.MovimientoBancarioId);
+        db.RecibosPago.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Relacion_no_admite_suma_distinta_duplicados_ni_negativos()
     {
         var p = Pendiente();

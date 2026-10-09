@@ -21,10 +21,15 @@ public interface ICuentaContableReadPort
 /// desde su módulo (P23); <c>Rubro</c> = agrupación de reporte, nunca recibe movimientos (P24).
 /// </summary>
 [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
-public enum MotivoRechazoCuenta { NoExiste, Titulo, Inactiva, ControlSoloAuxiliar, PendienteValidacion, Rubro }
+public enum MotivoRechazoCuenta { NoExiste, Titulo, Inactiva, ControlSoloAuxiliar, PendienteValidacion, Rubro, NoAfectableManual }
 
-public sealed record CuentaContableValidacion(bool Valida, MotivoRechazoCuenta? Motivo, CuentaContableLectura? Cuenta);
+public sealed record CuentaContableValidacion(bool Valida, MotivoRechazoCuenta? Motivo, CuentaContableLectura? Cuenta)
+{
+    public string? Codigo => Motivo == MotivoRechazoCuenta.NoAfectableManual ? "CUENTA_NO_AFECTABLE_MANUAL" : null;
+    public string? Mensaje => Motivo == MotivoRechazoCuenta.NoAfectableManual
+        ? "La cuenta no admite asientos manuales. Utilice el movimiento del módulo correspondiente." : null;
+}
 
 public sealed record CuentaContableLectura(
     Guid Id, string Codigo, string Nombre, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo, bool Activa,
-    CuentaControl CuentaControl, bool PendienteValidacion);
+    CuentaControl CuentaControl, bool PendienteValidacion, bool NoAfectableManual = false);
