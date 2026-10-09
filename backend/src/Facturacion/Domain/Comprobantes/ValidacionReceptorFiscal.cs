@@ -11,6 +11,14 @@ public static partial class ValidacionReceptorFiscal
     [GeneratedRegex(@"^[0-9]{5}$", RegexOptions.CultureInvariant)]
     private static partial Regex CpSat();
 
+    // c_UsoCFDI «Aplica para tipo persona» y c_RegimenFiscal (catCFDI_V_4_20261001):
+    // usos y regímenes exclusivos de un tipo de persona. 610 y 626 aplican a ambos.
+    private static readonly HashSet<string> UsosSoloFisica =
+        ["D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09", "D10", "CN01"];
+    private static readonly HashSet<string> RegimenesSoloMoral = ["601", "603", "620", "622", "623", "624"];
+    private static readonly HashSet<string> RegimenesSoloFisica =
+        ["605", "606", "607", "608", "611", "612", "614", "615", "616", "621", "625"];
+
     public static string Normalizar(string? valor) =>
         string.Concat((valor ?? string.Empty).Where(c => !char.IsWhiteSpace(c))).ToUpperInvariant();
 
@@ -32,6 +40,19 @@ public static partial class ValidacionReceptorFiscal
             errores.Add(new("paisResidencia", "El país del receptor es obligatorio y no puede exceder cinco caracteres."));
         if (!usoExiste || !CompatibilidadUsoRegimen.EsCompatible(uso, regimen))
             errores.Add(new("usoCfdi", $"El uso de CFDI '{uso}' no existe o no es compatible con el régimen '{regimen}'."));
+        // CN01 es exclusivo del recibo de nómina; el ERP no emite nómina.
+        if (uso == "CN01")
+            errores.Add(new("usoCfdi", "El uso de CFDI CN01 (Nómina) es exclusivo del recibo de nómina; elige el uso que corresponda a la venta."));
+
+        // RFC de 12 caracteres = persona moral; 13 = persona física (los genéricos se validan aparte).
+        if (RfcSat().IsMatch(rfc) && !DatosFiscalesReceptor.EsRfcGenerico(rfc))
+        {
+            var moral = rfc.Length == 12;
+            if (moral ? RegimenesSoloFisica.Contains(regimen) : RegimenesSoloMoral.Contains(regimen))
+                errores.Add(new("regimenFiscal", $"El régimen fiscal '{regimen}' no aplica a una persona {(moral ? "moral" : "física")}."));
+            if (moral && UsosSoloFisica.Contains(uso) && uso != "CN01")
+                errores.Add(new("usoCfdi", $"El uso de CFDI '{uso}' solo aplica a personas físicas."));
+        }
 
         if (DatosFiscalesReceptor.EsRfcGenerico(rfc))
         {

@@ -18,6 +18,30 @@ public sealed class FacturacionEventHandlersTests
     private static readonly Guid ClienteId = Guid.NewGuid();
     private const string Rfc = "VGL860910IU4";
 
+    [Fact]
+    public async Task U1_6_evento_antiguo_sin_campos_contables_proyecta_cartera_y_replay_no_duplica()
+    {
+        using var db = CrearDbContext();
+        var facturaId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        // Payload de v1 previo a U1.6: solo los campos históricos.
+        var json = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            EmpresaId = Guid.NewGuid(), OcurridoEn = Ahora, FacturaVentaId = facturaId,
+            Uuid = Guid.NewGuid().ToString(), Total = 11600m, Moneda = "MXN",
+            PedidoFacturableId = (Guid?)null, ReceptorRfc = Rfc,
+            ReceptorNombre = "Vidrios del Golfo", Folio = "FV-U16", MetodoPago = "PPD", FechaTimbrado = Ahora
+        });
+        var payload = System.Text.Json.JsonSerializer.Deserialize<FacturaVentaTimbradaPayload>(json)!;
+        await HandleFactura(db, eventId, payload);
+        await HandleFactura(db, eventId, payload);
+        var cartera = (await db.FacturasCartera.ToListAsync()).Should().ContainSingle().Which;
+        cartera.ClienteId.Should().Be(ClienteId);
+        cartera.Total.Should().Be(11600m);
+        cartera.FechaVencimiento.Should().Be(Ahora);
+        (await db.EventosProcesados.CountAsync()).Should().Be(1);
+    }
+
     // --------------------------------------------------- FacturaVentaTimbrada
 
     [Fact]
