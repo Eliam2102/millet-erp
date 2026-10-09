@@ -31,6 +31,18 @@ public sealed class ConteoInventario : BaseEntity, IPerteneceAEmpresa, IAuditabl
     public DateTimeOffset? SnapshotCapturadoAt { get; private set; }
     public Guid? AprobadorId { get; private set; }
     public DateTimeOffset? FechaAprobacion { get; private set; }
+    public decimal VariacionPctParaRecuento { get; private set; }
+    public decimal VariacionValorParaRecuento { get; private set; }
+    public decimal UmbralNivel1Maximo { get; private set; }
+    public decimal UmbralNivel2Maximo { get; private set; }
+
+    public ConteoUmbrales ObtenerUmbrales() => new(VariacionPctParaRecuento,
+        VariacionValorParaRecuento, UmbralNivel1Maximo, UmbralNivel2Maximo);
+
+    // Misma valoración y redondeo por línea que AplicarConteo.
+    public decimal CalcularMontoNeto() => Lineas.Sum(l => l.CantidadRealCapturada is decimal real
+        ? Math.Round((real - l.CantidadTeorica) * l.CostoPromedioSnapshot, 2) : 0m);
+
     public string? MotivoRechazo { get; private set; }
 
     private readonly List<LineaConteo> _lineas = new();
@@ -72,7 +84,7 @@ public sealed class ConteoInventario : BaseEntity, IPerteneceAEmpresa, IAuditabl
     /// promedio vigente del saldo ANTES de llamar este método; ese es
     /// el snapshot inmutable.
     /// </summary>
-    public void Iniciar()
+    public void Iniciar(ConteoUmbrales umbrales)
     {
         if (Estado != EstadoConteo.Planificado)
             throw new BusinessRuleException("CONTEO_NO_PLANIFICADO",
@@ -81,6 +93,10 @@ public sealed class ConteoInventario : BaseEntity, IPerteneceAEmpresa, IAuditabl
             throw new BusinessRuleException("CONTEO_SIN_LINEAS",
                 "El conteo no tiene líneas; el handler debe pre-poblarlas con el snapshot del saldo.");
 
+        VariacionPctParaRecuento = umbrales.VariacionPctParaRecuento;
+        VariacionValorParaRecuento = umbrales.VariacionValorParaRecuento;
+        UmbralNivel1Maximo = umbrales.UmbralNivel1Maximo;
+        UmbralNivel2Maximo = umbrales.UmbralNivel2Maximo;
         Estado = EstadoConteo.EnCurso;
         FechaInicio = DateTimeOffset.UtcNow;
         SnapshotCapturadoAt = DateTimeOffset.UtcNow;

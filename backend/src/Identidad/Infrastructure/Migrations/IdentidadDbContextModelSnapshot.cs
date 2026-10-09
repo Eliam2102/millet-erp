@@ -1445,6 +1445,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000004-0009-0000-0000-000000000008"),
+                            Accion = "tolerancia-editar",
+                            Codigo = "datos_maestros.proveedores.tolerancia-editar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Editar tolerancia factura contra OC en pesos del proveedor",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000004-0009-0000-0000-000000000007"),
                             Accion = "validar",
                             Codigo = "datos_maestros.proveedores.validar",

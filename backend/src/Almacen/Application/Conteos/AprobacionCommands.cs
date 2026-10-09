@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Conteos;
+using Millet.Almacen.Domain.Ports.Notificaciones;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -12,29 +13,7 @@ using Millet.SharedKernel.Application.Integration;
 
 namespace Millet.Almacen.Application.Conteos;
 
-// ============================================================================
-// F7-PR2: recuento obligatorio (A7) + aprobación por monto (A8) + Aplicar.
-//
-// Umbrales A7 (configurables — F7-PR2 los hardcodea, F9 los moverá a
-// admin.parametros):
-//   - Variación absoluta > 5% (en cantidad)
-//   - Variación valor > 1,000 MXN
-//   → marca línea como RequiereRecuento.
-//
-// Umbrales A8 (política por monto agregado del conteo):
-//   - <  $1K MXN  → Nivel 1 (Almacenista).
-//   - $1K – $10K  → Nivel 2 (Supervisor).
-//   - >  $10K MXN → Nivel 3 (Jefe Almacén + notificación Finanzas).
-// El permiso de aprobación se exige al endpoint según el monto neto.
-// ============================================================================
-
-public static class ConteoUmbrales
-{
-    public const decimal VariacionPctParaRecuento = 5m;
-    public const decimal VariacionValorParaRecuento = 1000m;
-    public const decimal UmbralNivel1Maximo = 1000m;
-    public const decimal UmbralNivel2Maximo = 10000m;
-}
+// A4.5: recuento y autorización usan exclusivamente la foto guardada al iniciar.
 
 // ─── Agregar recuento ────────────────────────────────────────────────────────
 
@@ -117,9 +96,11 @@ public sealed class EvaluarVariacionesConteoHandler : IRequestHandler<EvaluarVar
     public async Task<int> Handle(
         EvaluarVariacionesConteoCommand request, CancellationToken cancellationToken)
     {
-        var lineas = await _db.Set<LineaConteo>()
-            .Where(l => l.ConteoId == request.ConteoId)
-            .ToListAsync(cancellationToken);
+        var conteo = await _db.Conteos.Include(c => c.Lineas)
+            .FirstOrDefaultAsync(c => c.Id == request.ConteoId, cancellationToken)
+            ?? throw new EntityNotFoundException("CONTEO_NO_ENCONTRADO", "No existe el conteo.");
+        var umbrales = conteo.ObtenerUmbrales();
+        var lineas = conteo.Lineas;
 
         var marcadas = 0;
         foreach (var l in lineas)
@@ -129,8 +110,8 @@ public sealed class EvaluarVariacionesConteoHandler : IRequestHandler<EvaluarVar
             var diffAbs = Math.Abs(diff);
             var pct = l.CantidadTeorica == 0 ? 100m : diffAbs / l.CantidadTeorica * 100m;
             var valor = Math.Abs(diff * l.CostoPromedioSnapshot);
-            var excedeUmbral = pct > ConteoUmbrales.VariacionPctParaRecuento
-                || valor > ConteoUmbrales.VariacionValorParaRecuento;
+            var excedeUmbral = pct > umbrales.VariacionPctParaRecuento
+                || valor > umbrales.VariacionValorParaRecuento;
             if (excedeUmbral && !l.RequiereRecuento)
             {
                 l.MarcarRequiereRecuento();
@@ -151,9 +132,16 @@ public sealed class AprobarConteoHandler : IRequestHandler<AprobarConteoCommand>
     private readonly AlmacenDbContext _db;
     private readonly ICurrentUserContext _currentUser;
 
-    public AprobarConteoHandler(AlmacenDbContext db, ICurrentUserContext currentUser)
+    private readonly ICurrentUserPermissions _permisos;
+    private readonly IIntegrationEventPublisher _events;
+    private readonly INotificacionService _notificaciones;
+
+    public AprobarConteoHandler(AlmacenDbContext db, ICurrentUserContext currentUser,
+        ICurrentUserPermissions permisos, IIntegrationEventPublisher events,
+        INotificacionService notificaciones)
     {
         _db = db; _currentUser = currentUser;
+        _permisos = permisos; _events = events; _notificaciones = notificaciones;
     }
 
     public async Task Handle(AprobarConteoCommand request, CancellationToken cancellationToken)
@@ -163,6 +151,21 @@ public sealed class AprobarConteoHandler : IRequestHandler<AprobarConteoCommand>
             .FirstOrDefaultAsync(c => c.Id == request.ConteoId, cancellationToken)
             ?? throw new EntityNotFoundException("CONTEO_NO_ENCONTRADO",
                 $"No existe conteo con id '{request.ConteoId}'.");
+
+        var montoNeto = conteo.CalcularMontoNeto();
+        var nivel = conteo.ObtenerUmbrales().NivelRequerido(montoNeto);
+        var autorizado = false;
+        for (var candidato = nivel; candidato <= 3; candidato++)
+        {
+            if (await _permisos.TieneAsync($"almacen.inventarios.aprobar-nivel{candidato}", cancellationToken))
+            {
+                autorizado = true;
+                break;
+            }
+        }
+        if (!autorizado)
+            throw new ForbiddenException("CONTEO_NIVEL_APROBACION_INSUFICIENTE",
+                $"Se requiere permiso de Nivel {nivel} o superior para aprobar el ajuste neto de {montoNeto.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("es-MX"))} MXN.");
 
         // Validar: líneas con RequiereRecuento deben tener al menos un
         // recuento O estar aprobadas individualmente.
@@ -190,7 +193,29 @@ public sealed class AprobarConteoHandler : IRequestHandler<AprobarConteoCommand>
         var aprobadorId = _currentUser.UserId ?? throw new BusinessRuleException(
             "CONTEO_SIN_APROBADOR", "Se requiere usuario autenticado.");
         conteo.Aprobar(aprobadorId);
+        AvisoAjusteNivel3? aviso = null;
+        if (nivel == 3)
+        {
+            var subIds = conteo.Lineas.Select(l => l.SubAlmacenId).Distinct().ToArray();
+            var almacenes = await _db.SubAlmacenes.AsNoTracking()
+                .Where(s => subIds.Contains(s.Id))
+                .Join(_db.Almacenes, s => s.AlmacenId, a => a.Id,
+                    (s, a) => new ConteoAlmacenSucursal(a.Id, a.SucursalId))
+                .Distinct().ToListAsync(cancellationToken);
+            var fecha = conteo.FechaAprobacion!.Value;
+            aviso = new AvisoAjusteNivel3(conteo.EmpresaId, conteo.Id,
+                montoNeto, aprobadorId, fecha, almacenes);
+            await _events.PublishAsync(new ConteoAjusteNivel3AprobadoEvent(
+                conteo.EmpresaId, fecha, conteo.Id,
+                almacenes.Count == 1 ? almacenes[0].AlmacenId : null,
+                almacenes.Select(a => a.SucursalId).Distinct().Count() == 1 ? almacenes[0].SucursalId : null,
+                montoNeto, aprobadorId, almacenes), cancellationToken);
+        }
         await _db.SaveChangesAsync(cancellationToken);
+        // El aviso inmediato sólo se intenta después de persistir la aprobación.
+        // El evento durable del Outbox permite integrar el canal real de Finanzas.
+        if (aviso is not null)
+            await _notificaciones.NotificarAjusteNivel3AprobadoAsync(aviso, cancellationToken);
     }
 }
 

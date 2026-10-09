@@ -53,6 +53,8 @@ public sealed class ParametroGlobal : BaseEntity, IAuditable
             throw new BusinessRuleException("PARAMETRO_GLOBAL_ID_INVALIDO", "El id es obligatorio.");
         ValidarClave(clave);
         ValidarValorPorTipo(valor, tipo);
+        if (clave == ToleranciaFacturaContraOcParametro.Clave)
+            ToleranciaFacturaContraOcParametro.LeerValor(valor);
         ValidarDescripcion(descripcion);
         ValidarModulo(modulo);
 
@@ -71,6 +73,8 @@ public sealed class ParametroGlobal : BaseEntity, IAuditable
     public void ActualizarValor(string nuevoValor)
     {
         ValidarValorPorTipo(nuevoValor, Tipo);
+        if (Clave == ToleranciaFacturaContraOcParametro.Clave)
+            ToleranciaFacturaContraOcParametro.LeerValor(nuevoValor);
         Valor = nuevoValor;
     }
 

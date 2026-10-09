@@ -19,7 +19,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("almacen")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -671,6 +671,14 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("tipo");
 
+                    b.Property<decimal>("UmbralNivel1Maximo")
+                        .HasColumnType("numeric")
+                        .HasColumnName("umbral_nivel1maximo");
+
+                    b.Property<decimal>("UmbralNivel2Maximo")
+                        .HasColumnType("numeric")
+                        .HasColumnName("umbral_nivel2maximo");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -678,6 +686,14 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updated_by");
+
+                    b.Property<decimal>("VariacionPctParaRecuento")
+                        .HasColumnType("numeric")
+                        .HasColumnName("variacion_pct_para_recuento");
+
+                    b.Property<decimal>("VariacionValorParaRecuento")
+                        .HasColumnType("numeric")
+                        .HasColumnName("variacion_valor_para_recuento");
 
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
@@ -1646,6 +1662,23 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -1668,6 +1701,12 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -1697,12 +1736,21 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");
