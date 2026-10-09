@@ -694,7 +694,6 @@ public static class OrdenesCompraEndpoints
             IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
-            await OcSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             if (currentUser.UserId is not Guid userId)
             {
                 return Results.Unauthorized();
@@ -729,6 +728,7 @@ public static class OrdenesCompraEndpoints
                     $"El usuario no tiene permiso para autorizar OCs en {body.Nivel}.");
             }
 
+            await OcSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new AutorizarOrdenCompraCommand(id, body.Nivel, body.Notas),
                 cancellationToken);
@@ -1112,7 +1112,6 @@ public static class OrdenesCompraEndpoints
             IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
-            await OcSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             if (currentUser.UserId is not Guid userId)
             {
                 return Results.Unauthorized();
@@ -1144,6 +1143,7 @@ public static class OrdenesCompraEndpoints
                     "Para solicitar la cancelación necesitas permiso de autorización de primer nivel de Compras.");
             }
 
+            await OcSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new CancelarConRecepcionesCommand(id, body.MotivoCancelacionId, body.MotivoCancelacionTexto),
                 cancellationToken);

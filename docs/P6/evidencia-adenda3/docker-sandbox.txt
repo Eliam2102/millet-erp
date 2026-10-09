@@ -1,0 +1,14 @@
+Client:
+ Version:    29.4.0
+ Context:    orbstack
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.33.0
+    Path:     /Users/eliamcv/.docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v5.1.2
+    Path:     /Users/eliamcv/.docker/cli-plugins/docker-compose
+
+Server:
+permission denied while trying to connect to the docker API at unix:///Users/eliamcv/.orbstack/run/docker.sock

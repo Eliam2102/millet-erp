@@ -1,8 +1,10 @@
 # Inventario de separación por sucursal P6
 
-Corte original: `4bf1690`. Revisión de continuación: fusión pendiente de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5); ver `fusion-main-09oct.md`. Este documento describe controles de código; la ejecución PostgreSQL y la aceptación Millet están **Por confirmar**.
+Corte original: `4bf1690`. Revisión vigente: fusión `687fe82` de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5) más correcciones de la [adenda 3](adenda3-integracion-09oct.md). Este documento describe controles de código; el verde PostgreSQL posterior a estas correcciones y la aceptación Millet están **Por confirmar**.
 
 ## Regla y permisos
+
+Los permisos del endpoint se validan antes del alcance territorial. En autorización de RQ/OC y solicitud de cancelación OC el permiso depende del paso: se comprueba primero, luego se consulta la sucursal del documento y finalmente se envía el comando. Sin permiso devuelve su 403 específico incluso si el ID no existe; con permiso mantiene 404 para inexistente y 403 `SUCURSAL_NO_ASOCIADA` para ajeno. La resolución de cancelación usa su policy de nivel 2 antes de ejecutar la guarda.
 
 Los permisos de operación conservan su autorización habitual. Leer documentos de todas las sucursales requiere `*.leer-todas-sucursales`; escribir requiere `*.gestionar-todas-sucursales`. Tener lectura corporativa no concede escritura corporativa sobre los documentos. Excepción conservada por la adenda: los adjuntos propios de OC usan el bypass territorial previo `compras.ordenes.leer-todas-sucursales` también para subir/remover; exigen además `compras.ordenes.adjuntar` o `compras.ordenes.crear`, respectivamente. No se amplía ese bypass a cabeceras, líneas ni firmas. Los permisos nuevos se agregan al manifiesto/migración P6; no se asignan automáticamente a roles operativos personalizados. El bootstrap mantiene el super-admin con todos los permisos.
 

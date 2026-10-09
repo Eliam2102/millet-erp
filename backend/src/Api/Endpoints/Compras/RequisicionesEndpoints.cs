@@ -268,7 +268,6 @@ public static class RequisicionesEndpoints
             IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
-            await RqSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             if (currentUser.UserId is not Guid userId)
             {
                 return Results.Unauthorized();
@@ -303,6 +302,7 @@ public static class RequisicionesEndpoints
                     $"El usuario no tiene permiso para autorizar en {request.Nivel}.");
             }
 
+            await RqSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new AutorizarRequisicionCommand(id, request.Nivel, request.Notas),
                 cancellationToken);

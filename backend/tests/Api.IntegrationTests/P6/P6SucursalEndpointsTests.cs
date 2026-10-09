@@ -72,12 +72,51 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
         var documento = datos.Ajenos[tipo];
         using var request = new HttpRequestMessage(new HttpMethod(metodo), Ruta(tipo, documento) + sufijo.Replace("{linea}", Guid.NewGuid().ToString()));
         request.Headers.Add("X-Expected-Version", "1");
-        if (metodo is not ("DELETE" or "GET")) request.Content = JsonContent.Create(new { Motivo = "Prueba P6", MotivoTexto = "Prueba P6", Observaciones = "No cambiar", Descripcion = "No cambiar" });
+        if (metodo is not ("DELETE" or "GET")) request.Content = JsonContent.Create(new { Nivel = 1, Motivo = "Prueba P6", MotivoTexto = "Prueba P6", Observaciones = "No cambiar", Descripcion = "No cambiar" });
         Assert.Equal(HttpStatusCode.Forbidden, (await datos.Operativo.SendAsync(request)).StatusCode);
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         Assert.Equal(Ajena, await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().FacturasProveedor
             .Where(x => x.Id == datos.Ajenos["factura"]).Select(x => x.SucursalId).SingleAsync());
+    }
+
+    [Theory]
+    [InlineData("oc", "autorizaciones", 1, PermisosCanonicos.ComprasOrdenesAutorizarNivel1, "AUTORIZAR_NIVEL_DENEGADO")]
+    [InlineData("oc", "autorizaciones", 2, PermisosCanonicos.ComprasOrdenesAutorizarNivel2, "AUTORIZAR_NIVEL_DENEGADO")]
+    [InlineData("oc", "cancelar-con-recepciones", 1, PermisosCanonicos.ComprasOrdenesAutorizarNivel1, "OC_CANCELAR_DOBLE_DENEGADO")]
+    [InlineData("rq", "autorizaciones", 1, PermisosCanonicos.ComprasRequisicionesAutorizarNivel1, "AUTORIZAR_NIVEL_DENEGADO")]
+    [InlineData("rq", "autorizaciones", 2, PermisosCanonicos.ComprasRequisicionesAutorizarNivel2, "AUTORIZAR_NIVEL_DENEGADO")]
+    public async Task Permiso_del_paso_se_valida_antes_de_buscar_el_documento_o_su_sucursal(
+        string tipo, string paso, int nivel, string permisoDenegado, string codigo)
+    {
+        await using var datos = await PrepararAsync();
+        using var scope = factory.Services.CreateScope();
+        var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        var permisoId = await identidad.Permisos.Where(x => x.Codigo == permisoDenegado).Select(x => x.Id).SingleAsync();
+        identidad.RolPermisos.RemoveRange(await identidad.RolPermisos
+            .Where(x => x.RolId == datos.RolId && x.PermisoId == permisoId).ToListAsync());
+        await identidad.SaveChangesAsync();
+        await scope.ServiceProvider.GetRequiredService<IPermissionCache>().InvalidateAllForUserAsync(datos.UsuarioId);
+
+        foreach (var id in new[] { Guid.NewGuid(), datos.Propios[tipo], datos.Ajenos[tipo] })
+        {
+            var response = await datos.Operativo.PostAsJsonAsync(Ruta(tipo, id) + $"/{paso}", new { Nivel = nivel });
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Contains(codigo, await response.Content.ReadAsStringAsync());
+        }
+    }
+
+    [Theory]
+    [InlineData("oc", 1)]
+    [InlineData("oc", 2)]
+    [InlineData("rq", 1)]
+    [InlineData("rq", 2)]
+    public async Task Con_permiso_del_nivel_el_documento_ajeno_sigue_bloqueado_por_sucursal(string tipo, int nivel)
+    {
+        await using var datos = await PrepararAsync();
+        var response = await datos.Operativo.PostAsJsonAsync(Ruta(tipo, datos.Ajenos[tipo]) + "/autorizaciones", new { Nivel = nivel });
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("SUCURSAL_NO_ASOCIADA", await response.Content.ReadAsStringAsync());
     }
 
     [Theory]
@@ -394,7 +433,10 @@ public sealed class P6SucursalEndpointsTests(WebApplicationFactory<Program> fact
             var cxc = scope.ServiceProvider.GetRequiredService<CuentasPorCobrarDbContext>();
             await cxc.PropuestasAplicacionPago.Where(x => propuestaIds.Contains(x.Id)).ExecuteDeleteAsync();
             await cxc.FacturasCartera.Where(x => carteraIds.Contains(x.Id)).ExecuteDeleteAsync();
-            await scope.ServiceProvider.GetRequiredService<FacturacionDbContext>().FacturasVenta.Where(x => ventaIds.Contains(x.Id)).ExecuteDeleteAsync();
+            var facturacion = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
+            // FacturaVenta usa TPT: la eliminación rastreada respeta toda la jerarquía.
+            facturacion.FacturasVenta.RemoveRange(await facturacion.FacturasVenta.Where(x => ventaIds.Contains(x.Id)).ToListAsync());
+            await facturacion.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().FacturasProveedor.Where(x => facturaIds.Contains(x.Id)).ExecuteDeleteAsync();
             await cxp.CfdisRecibidos.Where(x => cfdiIds.Contains(x.Id)).ExecuteDeleteAsync();
             var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();

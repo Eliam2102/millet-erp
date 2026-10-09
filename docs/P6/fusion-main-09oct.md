@@ -1,5 +1,7 @@
 # P6 · continuación de la fusión con main · 9-oct-2026
 
+> Corte histórico. Claude cerró después la fusión en `687fe82`; el worktree al iniciar la adenda 3 estaba limpio y sin conflictos. Estado posterior: [adenda3-integracion-09oct.md](adenda3-integracion-09oct.md).
+
 Base P6: `535c905` (`fix(administracion): completar acceso y separación por sucursal (P6)`, commit previo hecho por Claude). Entrada de la fusión: `b72f990cba0d55dd7d77b99807136d9fd78866a3`. Se trabaja únicamente en `millet_erp-P6-ADM`.
 
 ## Resolución y decisiones
