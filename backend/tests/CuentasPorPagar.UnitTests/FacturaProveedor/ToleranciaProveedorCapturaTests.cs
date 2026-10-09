@@ -112,6 +112,9 @@ public sealed class ToleranciaProveedorCapturaTests
         public Proveedor Proveedor { get; } = new(Guid.NewGuid(), "DEMO-TOL", "Proveedor DEMO tolerancia", "DEMO010101AA1", TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
         public CapturarFacturaConOcHandler Handler { get; }
         public EventosGrabador Eventos { get; }
+        // P3: la factura se concilia por línea de OC; la diferencia de precio de la única línea es la que mide la tolerancia.
+        public Guid LineaOcId { get; } = Guid.NewGuid();
+        public Guid ArticuloId { get; } = Guid.NewGuid();
         private readonly OcPort _oc;
         private readonly ServiceProvider _services;
 
@@ -119,13 +122,14 @@ public sealed class ToleranciaProveedorCapturaTests
         {
             Maestros = new(new DbContextOptionsBuilder<CompartidoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Empresa);
             Cxp = new(new DbContextOptionsBuilder<CuentasPorPagarDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Empresa);
-            _oc = new(new(Guid.NewGuid(), "OC-DEMO-TOL", Proveedor.Id, Empresa.Current!.Value, Guid.NewGuid(), 10000, "Autorizada", []));
+            _oc = new(new(Guid.NewGuid(), "OC-DEMO-TOL", Proveedor.Id, Empresa.Current!.Value, Guid.NewGuid(), 10000, "Autorizada",
+                [new(LineaOcId, ArticuloId, 1, 10000, 0, 1)]));
             Eventos = new(Cxp);
             _services = new ServiceCollection()
                 .AddSingleton<INotificationHandler<FacturaProveedorRegistradaDomainEvent>>(Eventos)
                 .AddSingleton<INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>>(Eventos)
                 .BuildServiceProvider();
-            Handler = new(Cxp, _oc, new ProveedorReadPortAdapter(Maestros, Empresa), new NoOpAlmacenRecepcionReadPort(Microsoft.Extensions.Logging.Abstractions.NullLogger<NoOpAlmacenRecepcionReadPort>.Instance),
+            Handler = new(Cxp, _oc, new ProveedorReadPortAdapter(Maestros, Empresa), new SinBlobs(), new Millet.CuentasPorPagar.Infrastructure.Parsing.XmlCfdiParser(),
                 Empresa, new Mediator(_services), Clock, new ToleranciaGeneralReadPortAdapter(Maestros));
         }
 
@@ -141,7 +145,7 @@ public sealed class ToleranciaProveedorCapturaTests
         public CapturarFacturaConOcCommand Comando(decimal total) => new(
             _oc.Oc.Id, Proveedor.Id, _oc.Oc.SucursalId, null, null, "DEMO", null,
             Clock.UtcNow, Clock.UtcNow, new DateOnly(2026, 10, 31), "MXN", null,
-            total, 0, 0, 0, total, [new(null, null, "Material DEMO", 1, "H87", "Pieza", total, total, null, null, null)]);
+            total, 0, 0, 0, total, [new(ArticuloId, null, "Material DEMO", 1, "H87", "Pieza", total, total, null, LineaOcId, null)]);
 
         public void Dispose() { Cxp.Dispose(); Maestros.Dispose(); _services.Dispose(); }
     }
@@ -171,5 +175,13 @@ public sealed class ToleranciaProveedorCapturaTests
         public bool IsBypassed => false;
         public IDisposable Bypass() => new Alcance();
         private sealed class Alcance : IDisposable { public void Dispose() { } }
+    }
+
+    private sealed class SinBlobs : Millet.CuentasPorPagar.Domain.Cfdi.ICfdiBlobStorage
+    {
+        public Task<string> GuardarXmlAsync(string uuid, DateTimeOffset fechaCfdi, Stream contenido, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<string?> GuardarPdfAsync(string uuid, DateTimeOffset fechaCfdi, Stream? contenido, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Stream?> LeerXmlAsync(string blobRef, CancellationToken cancellationToken) => Task.FromResult<Stream?>(null);
+        public Task<Stream?> LeerPdfAsync(string blobRef, CancellationToken cancellationToken) => Task.FromResult<Stream?>(null);
     }
 }

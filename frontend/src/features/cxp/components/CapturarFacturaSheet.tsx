@@ -1,3 +1,5 @@
+import { NotasCreditoAdjuntas } from './NotasCreditoAdjuntas';
+import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
@@ -155,6 +157,7 @@ export function CapturarFacturaSheet({
 
   function vincularCfdi(cfdi: CfdiListItem | null) {
     setCfdiSel(cfdi);
+    form.setValue('notasCredito', []);
     form.setValue('cfdiRecibidoId', cfdi?.id ?? null);
     form.setValue('uuidCfdi', cfdi?.uuidCfdi ?? null);
     form.setValue('folioProveedor', cfdi?.folio ?? null);
@@ -177,6 +180,7 @@ export function CapturarFacturaSheet({
   function importarLineasCfdi() {
     const lineas = cfdiParseadoQuery.data?.lineas;
     if (!lineas || lineas.length === 0) return;
+    form.setValue('descuentos', cfdiParseadoQuery.data?.descuentos ?? 0);
     replace(
       lineas.map((l) => ({
         articuloId: null,
@@ -202,6 +206,9 @@ export function CapturarFacturaSheet({
     control: form.control,
     name: 'ordenCompraId',
   });
+  const notasCredito = useWatch({ control: form.control, name: 'notasCredito' }) ?? [];
+  const lineasActuales = useWatch({ control: form.control, name: 'lineas' });
+  const retencionesXml = desgloseRetenciones(cfdiParseadoQuery.data?.retencionesDetalle);
   const proveedorIdSel = useWatch({ control: form.control, name: 'proveedorId' });
   const sucursalIdSel = useWatch({ control: form.control, name: 'sucursalId' });
   const proveedorLabel = proveedorIdSel
@@ -231,6 +238,7 @@ export function CapturarFacturaSheet({
       {
         command: {
           ...values,
+          retencionesDetalle: cfdiParseadoQuery.data?.retencionesDetalle ?? null,
           fechaDocumento: toIso(values.fechaDocumento),
           fechaContabilizacion: toIso(values.fechaContabilizacion),
           tipoCambio: values.tipoCambio ?? null,
@@ -258,8 +266,8 @@ export function CapturarFacturaSheet({
             response.estado === EstadoPasivo.Cancelada &&
             response.motivoCancelacion === MotivoCancelacion.RechazadaPorTolerancia
           ) {
-            toast.warning('Factura rechazada por exceder tolerancia', {
-              description: `Diferencia contra OC: ${response.diferenciaContraOc.toFixed(2)}. La factura se cancela automáticamente.`,
+            toast.warning('Factura cancelada por diferencia en la conciliación', {
+              description: response.motivoCancelacionTexto ?? `Diferencia contra OC: ${response.diferenciaContraOc.toFixed(2)}. La factura se cancela automáticamente.`,
             });
           } else {
             toast.success('Factura capturada');
@@ -642,6 +650,16 @@ export function CapturarFacturaSheet({
               )}
             </section>
 
+            <div className="px-4 pb-4">
+              <NotasCreditoAdjuntas
+                value={notasCredito}
+                onChange={notas => form.setValue('notasCredito', notas, { shouldDirty: true, shouldValidate: true })}
+                lineas={lineasActuales}
+                facturaLigada={Boolean(cfdiBase)}
+              />
+              {cfdiParseadoQuery.data && <p className="mt-2 text-xs text-ink-muted tabular-nums">ISR retenido: {retencionesXml.isr.toFixed(2)} · IVA retenido: {retencionesXml.iva.toFixed(2)}</p>}
+              {form.formState.errors.notasCredito && <p role="alert" className="text-xs text-danger-fg">Asigna la base de cada NC a las líneas que compensa.</p>}
+            </div>
             <SheetFooter className="px-0">
               <Button
                 type="button"
@@ -822,7 +840,7 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
           />
         </div>
         <div className="sm:col-span-4">
-          <Label className="text-xs">Línea OC (opcional)</Label>
+          <Label className="text-xs">Línea de OC (obligatoria)</Label>
           <Controller
             control={form.control}
             name={`lineas.${index}.lineaOcId` as const}
@@ -835,6 +853,9 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
               />
             )}
           />
+          {form.formState.errors.lineas?.[index]?.lineaOcId && (
+            <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.lineas[index]?.lineaOcId?.message}</p>
+          )}
         </div>
         <div className="flex items-end sm:col-span-2">
           <Button

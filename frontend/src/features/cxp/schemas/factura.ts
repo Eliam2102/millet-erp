@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 import { MotivoCancelacion } from '@/features/cxp/api/types';
 
 /**
@@ -33,10 +34,7 @@ export const CapturarFacturaLineaSchema = z.object({
   precioUnitario: z.number().min(0, 'Precio debe ser ≥ 0.'),
   importe: z.number().min(0, 'Importe debe ser ≥ 0.'),
   descuento: z.number().min(0).nullable(),
-  lineaOcId: z
-    .string()
-    .regex(UUID_RE, 'UUID inválido.')
-    .nullable(),
+  lineaOcId: zId().nullable().refine((id): boolean => id !== null, 'Selecciona la línea de OC que corresponde a este concepto.'),
 });
 
 export type CapturarFacturaLineaValues = z.infer<
@@ -44,6 +42,10 @@ export type CapturarFacturaLineaValues = z.infer<
 >;
 
 export const CapturarFacturaSchema = z.object({
+  notasCredito: z.array(z.object({
+    cfdiRecibidoId: zId(),
+    lineas: z.array(z.object({ lineaOcId: zId(), base: z.number().positive() })).min(1, 'Asigna la base de la NC a las líneas que compensa.'),
+  })).optional(),
   // La OC se elige con el selector; proveedor y sucursal se DERIVAN de la OC
   // (read-only en el form). Siguen siendo UUID requeridos en el payload para
   // mantener intacto el contrato del backend y su validación OC_PROVEEDOR_MISMATCH.

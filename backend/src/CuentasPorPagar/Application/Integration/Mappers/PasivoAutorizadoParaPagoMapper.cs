@@ -24,40 +24,30 @@ public sealed class PasivoAutorizadoParaPagoMapper
 {
     private readonly IIntegrationEventPublisher _publisher;
     private readonly CuentasPorPagarDbContext _db;
+    private readonly FacturaProveedor.Elegibilidad.ElegibilidadFacturaService _elegibilidad;
 
     public PasivoAutorizadoParaPagoMapper(
         IIntegrationEventPublisher publisher,
-        CuentasPorPagarDbContext db)
+        CuentasPorPagarDbContext db, FacturaProveedor.Elegibilidad.ElegibilidadFacturaService elegibilidad)
     {
         _publisher = publisher;
         _db = db;
+        _elegibilidad = elegibilidad;
     }
 
-    public async Task Handle(
-        FacturaProveedorAutorizadaDomainEvent notification, CancellationToken cancellationToken)
+    public Task Handle(FacturaProveedorAutorizadaDomainEvent notification, CancellationToken cancellationToken) =>
+        PublicarAsync(notification, cancellationToken);
+
+    public async Task PublicarAsync(FacturaProveedorAutorizadaDomainEvent notification, CancellationToken cancellationToken,
+        bool considerarRecepcionesLocales = false)
     {
         // Resolver datos de la factura para enriquecer el payload — la
         // factura ya está en el ChangeTracker (lo acaba de modificar el
         // handler de Autorizar), así que la query es local.
-        var f = await _db.FacturasProveedor
-            .AsNoTracking()
-            .Where(x => x.Id == notification.FacturaProveedorId)
-            .Select(x => new
-            {
-                x.ProveedorId,
-                x.OrdenCompraId,
-                x.Total,
-                Saldo = x.Total - x.AnticipoAplicadoTotal - x.NcAplicadasTotal - x.ImportePagado,
-                x.Moneda,
-                x.TipoCambio,
-                x.FechaVencimiento,
-                x.UuidCfdi,
-                x.FolioProveedor,
-                x.MetodoPago,
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (f is null) return; // factura borrada concurrentemente — no publicar
+        var f = _db.FacturasProveedor.Local.FirstOrDefault(x => x.Id == notification.FacturaProveedorId)
+            ?? await _db.FacturasProveedor.Include(x => x.Lineas).FirstOrDefaultAsync(x => x.Id == notification.FacturaProveedorId, cancellationToken);
+        if (f is null) return;
+        var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken, considerarRecepcionesLocales);
 
         await _publisher.PublishAsync(new PasivoAutorizadoParaPagoIntegrationEvent(
             EmpresaId: notification.EmpresaId,
@@ -66,7 +56,7 @@ public sealed class PasivoAutorizadoParaPagoMapper
             ProveedorId: f.ProveedorId,
             OrdenCompraId: f.OrdenCompraId,
             MontoTotal: f.Total,
-            SaldoPendiente: f.Saldo,
+            SaldoPendiente: elegibilidad.ElegiblePendiente,
             Moneda: f.Moneda,
             TipoCambio: f.TipoCambio,
             FechaVencimiento: f.FechaVencimiento,

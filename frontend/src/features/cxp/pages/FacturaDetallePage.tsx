@@ -1,3 +1,4 @@
+import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import {
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import {
   useFactura,
@@ -138,7 +140,7 @@ export function FacturaDetallePage() {
                   En revisión por área
                 </span>
               )}
-              <ToleranciaIndicator diferencia={query.data.diferenciaContraOc} />
+              <ToleranciaIndicator diferencia={query.data.diferenciaContraOc} cancelada={query.data.estado === EstadoPasivo.Cancelada} />
             </div>
             <p className="text-sm text-muted-foreground">
               Fecha documento: {formatearFecha(query.data.fechaDocumento)} ·
@@ -214,7 +216,7 @@ export function FacturaDetallePage() {
               )}
             {query.data.estado === EstadoPasivo.Cancelada &&
               query.data.motivoCancelacion != null && (
-                <p className="text-sm text-rose-700">
+                <p className="text-sm text-danger-fg">
                   Cancelada por{' '}
                   <strong>
                     {MotivoCancelacionLabels[query.data.motivoCancelacion]}
@@ -261,7 +263,11 @@ export function FacturaDetallePage() {
               <Importe label="Subtotal" v={query.data.subtotal} m={query.data.moneda} />
               <Importe label="Descuentos" v={query.data.descuentos} m={query.data.moneda} />
               <Importe label="IVA trasladado" v={query.data.impuestosTrasladados} m={query.data.moneda} />
-              <Importe label="Retenciones" v={query.data.retenciones} m={query.data.moneda} />
+              <Importe label="Retenciones totales" v={query.data.retenciones} m={query.data.moneda} />
+              <Importe label="ISR retenido" v={desgloseRetenciones(query.data.retencionesDetalle).isr} m={query.data.moneda} />
+              <Importe label="IVA retenido" v={desgloseRetenciones(query.data.retencionesDetalle).iva} m={query.data.moneda} />
+              <Importe label="Elegible para pago" v={query.data.elegible} m={query.data.moneda} strong />
+              <Importe label="Retenido por falta de recepción" v={query.data.retenido} m={query.data.moneda} />
               <Importe label="Total" v={query.data.total} m={query.data.moneda} strong />
               <Importe label="Anticipo aplicado" v={query.data.anticipoAplicadoTotal} m={query.data.moneda} />
               <Importe label="NC aplicadas" v={query.data.ncAplicadasTotal} m={query.data.moneda} />
@@ -390,37 +396,19 @@ function Importe({ label, v, m, strong }: ImporteProps) {
 
 interface ToleranciaIndicatorProps {
   diferencia: number;
+  cancelada: boolean;
 }
 
-/**
- * Indicador visual de la diferencia de la factura contra el total de
- * la OC. Verde si igual, ámbar si dentro de tolerancia (≤ 5%), rojo
- * si excede (la factura ya se canceló en backend, pero el indicador
- * sirve como contexto post-hoc).
- */
-function ToleranciaIndicator({ diferencia }: ToleranciaIndicatorProps) {
+/** El estado conciliado viene del servidor; no se inventa otro umbral en la UI. */
+function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps) {
+  if (cancelada) return null;
   if (diferencia === 0) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-        Sin diferencia
-      </span>
-    );
+    return <Badge variant="success">Sin diferencia</Badge>;
   }
-  const abs = Math.abs(diferencia);
-  const color =
-    abs < 100
-      ? 'bg-amber-100 text-amber-800'
-      : 'bg-rose-100 text-rose-800';
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium font-mono',
-        color,
-      )}
-    >
-      Δ {diferencia > 0 ? '+' : ''}
-      {diferencia.toFixed(2)}
-    </span>
+    <Badge variant="warning" className="tabular-nums">
+      Diferencia aceptada: {diferencia.toFixed(2)}
+    </Badge>
   );
 }
 
