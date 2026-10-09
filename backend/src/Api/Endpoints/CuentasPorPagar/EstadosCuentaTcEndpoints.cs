@@ -22,6 +22,7 @@ public static class EstadosCuentaTcEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/estados-cuenta-tc")
+            .WithDocumentoSucursalScope("estado_cuenta_tc", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -44,9 +45,11 @@ public static class EstadosCuentaTcEndpoints
 
         group.MapPost("/", async (
             [FromBody] CrearEstadoCuentaTcCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(null, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/estados-cuenta-tc/{response.Id}", response);
         })
@@ -142,9 +145,11 @@ public static class EstadosCuentaTcEndpoints
             Guid id, Guid lineaId,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] ConfirmarMatchBody body,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("movimiento_tc", body.MovimientoTcId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             if (expectedVersion is not int v)
                 return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
 

@@ -17,4 +17,8 @@ public sealed record ListarRequisicionesQuery(
     Guid? DepartamentoId = null,
     Guid? RequisitanteId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<RequisicionListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<RequisicionListItemResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "compras.requisiciones.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}

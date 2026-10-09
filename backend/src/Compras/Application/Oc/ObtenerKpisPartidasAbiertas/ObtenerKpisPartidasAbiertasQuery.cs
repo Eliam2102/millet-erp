@@ -13,7 +13,11 @@ public sealed record ObtenerKpisPartidasAbiertasQuery(
     Guid? ProveedorId = null,
     Guid? CompradorTitularId = null,
     DateOnly? FechaDocumentoDesde = null,
-    DateOnly? FechaDocumentoHasta = null) : IRequest<KpisPartidasAbiertasResponse>;
+    DateOnly? FechaDocumentoHasta = null) : IRequest<KpisPartidasAbiertasResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "compras.ordenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record KpisPartidasAbiertasResponse(
     int CountPartidasAbiertas,

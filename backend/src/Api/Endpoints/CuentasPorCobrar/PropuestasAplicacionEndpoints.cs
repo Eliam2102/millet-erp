@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -23,6 +25,7 @@ public static class PropuestasAplicacionEndpoints
     {
         var propuestas = app
             .MapGroup("/api/v1/cuentas-por-cobrar/propuestas-aplicacion")
+            .WithDocumentoSucursalScope("propuesta_cxc", "cuentas_por_cobrar.cartera", "id")
             .WithTags("CuentasPorCobrar")
             .RequireAuthorization();
 
@@ -68,9 +71,18 @@ public static class PropuestasAplicacionEndpoints
 
         propuestas.MapPost("/", async (
             [FromBody] CrearPropuestaAplicacionCommand command,
+            CuentasPorCobrarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            foreach (var linea in command.Facturas ?? [])
+            {
+                var facturaId = await scopeDb.FacturasCartera.AsNoTracking()
+                    .Where(x => x.Uuid == linea.FacturaUuid).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(cancellationToken);
+                await scope.VerificarAsync("factura_cartera", facturaId ?? Guid.Empty,
+                    PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales, cancellationToken);
+            }
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-cobrar/propuestas-aplicacion/{response.Id}", response);
         })

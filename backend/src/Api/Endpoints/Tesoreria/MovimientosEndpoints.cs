@@ -22,6 +22,7 @@ public static class MovimientosEndpoints
     {
         var movimientos = app
             .MapGroup("/api/v1/tesoreria/movimientos")
+            .WithDocumentoSucursalScope("movimiento_bancario", "tesoreria.documentos", "id")
             .WithTags("Tesoreria")
             .RequireAuthorization();
 
@@ -64,8 +65,12 @@ public static class MovimientosEndpoints
         movimientos.MapPost("/", async (
             [FromBody] RegistrarMovimientoIngresoCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            // Sin documento origen ni sucursal, el alta pertenece al alcance corporativo.
+            await scope.VerificarSucursalAsync(null, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/tesoreria/movimientos/{response.Id}", response);
         })

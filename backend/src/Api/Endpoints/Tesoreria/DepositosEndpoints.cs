@@ -29,6 +29,7 @@ public static class DepositosEndpoints
     {
         var depositos = app
             .MapGroup("/api/v1/tesoreria/depositos")
+            .WithDocumentoSucursalScope("deposito", "tesoreria.documentos", "id")
             .WithTags("Tesoreria")
             .RequireAuthorization();
 
@@ -55,8 +56,12 @@ public static class DepositosEndpoints
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] ConfirmarBody body,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("movimiento_bancario", body.MovimientoBancarioId,
+                PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+
             if (expectedVersion is not int v)
                 return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
 

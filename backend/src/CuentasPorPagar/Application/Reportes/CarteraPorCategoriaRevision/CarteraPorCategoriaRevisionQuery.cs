@@ -30,7 +30,13 @@ public sealed record CarteraPorCategoriaRevisionQuery(
     DateOnly? FechaCorte = null,
     Guid? ProveedorId = null,
     Guid? SucursalId = null,
-    bool? SoloEnRevision = null) : IRequest<ReporteJsonResponse>;
+    bool? SoloEnRevision = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
+    public string TipoDocumento => "factura_proveedor";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class CarteraPorCategoriaRevisionHandler
     : IRequestHandler<CarteraPorCategoriaRevisionQuery, ReporteJsonResponse>
@@ -50,6 +56,7 @@ public sealed class CarteraPorCategoriaRevisionHandler
         var fechaCorte = query.FechaCorte ?? DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
 
         var q = _db.FacturasProveedor.AsNoTracking()
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id))
             .Where(f =>
                 f.Estado != EstadoPasivo.Cancelada
                 && (f.Total - f.AnticipoAplicadoTotal - f.NcAplicadasTotal - f.ImportePagado) > 0);

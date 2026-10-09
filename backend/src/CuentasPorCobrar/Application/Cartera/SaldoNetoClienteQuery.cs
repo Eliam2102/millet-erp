@@ -25,7 +25,13 @@ public sealed record SaldoNetoClienteResponse(
     Guid ClienteId,
     IReadOnlyList<SaldoNetoMonedaResponse> Monedas);
 
-public sealed record SaldoNetoClienteQuery(Guid ClienteId) : IRequest<SaldoNetoClienteResponse>;
+public sealed record SaldoNetoClienteQuery(Guid ClienteId) : IRequest<SaldoNetoClienteResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public string TipoDocumento => "factura_cartera";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class SaldoNetoClienteHandler : IRequestHandler<SaldoNetoClienteQuery, SaldoNetoClienteResponse>
 {
@@ -35,7 +41,8 @@ public sealed class SaldoNetoClienteHandler : IRequestHandler<SaldoNetoClienteQu
     public async Task<SaldoNetoClienteResponse> Handle(
         SaldoNetoClienteQuery query, CancellationToken cancellationToken)
     {
-        var monedas = await _db.FacturasCartera.AsNoTracking()
+        var monedas = await _db.FacturasCartera
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(f => f.ClienteId == query.ClienteId
                      && f.Estado != EstadoFacturaCartera.Cancelada)
             .GroupBy(f => f.Moneda)

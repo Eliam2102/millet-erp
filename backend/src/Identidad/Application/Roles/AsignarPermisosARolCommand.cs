@@ -122,31 +122,14 @@ public sealed class AsignarPermisosARolHandler
             await _db.RolPermisos.AddRangeAsync(aAgregar, cancellationToken);
         }
 
+        await _events.PublishAsync(
+            new RolPermisosActualizadosEvent(command.RolId, deseados.ToList(), _clock.UtcNow), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         if (aRemover.Count > 0 || aAgregar.Count > 0)
         {
-            // Sin filtro de empresa: el rol es global y sus asignaciones
-            // viven en varias empresas. Invalidar de más solo fuerza recarga.
-            var afectados = await _db.UsuarioEmpresaRoles.IgnoreQueryFilters().AsNoTracking()
-                .Where(uer => uer.RolId == command.RolId)
-                .Select(uer => new { uer.UsuarioId, uer.EmpresaId })
-                .Distinct()
-                .ToListAsync(cancellationToken);
-            foreach (var a in afectados)
-                await _permissionCache.InvalidateAsync(a.UsuarioId, a.EmpresaId, cancellationToken);
+            await RolPermissionCache.InvalidarAsync(command.RolId, _db, _permissionCache, cancellationToken);
         }
-
-        // PLATFORM-TODO(<AdminOutbox>): IdentidadDbContext no tiene el
-        // OutboxSaveChangesInterceptor wireado. El evento se encola al
-        // buffer scoped y se pierde al cerrar el scope. Aceptable en MVP —
-        // ningún consumer activo. Mismo patrón que F-Admin-PR2.3.
-        await _events.PublishAsync(
-            new RolPermisosActualizadosEvent(
-                command.RolId,
-                deseados.ToList(),
-                _clock.UtcNow),
-            cancellationToken);
 
         return new RolResponse(
             rol.Id, rol.Codigo, rol.Nombre, rol.Descripcion,

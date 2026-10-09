@@ -197,7 +197,9 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 // que el org-admin pueda leer/usar el Sheet del N:M, coherente
                 // con sus roles hermanos (admin-catálogos, admin-datos-maestros,
                 // auditor) que ya lo tienen.
-                p => p.Codigo.StartsWith("admin.empresas", StringComparison.Ordinal)
+                p => (p.Codigo.StartsWith("admin.empresas", StringComparison.Ordinal)
+                         && p.Codigo != PermisosCanonicos.AdminEmpresasCrear
+                         && p.Codigo != PermisosCanonicos.AdminEmpresasDesactivar)
                      || p.Codigo.StartsWith("admin.departamentos", StringComparison.Ordinal)
                      || p.Codigo.StartsWith("admin.sucursales.", StringComparison.Ordinal)
                      // ADM-PR1: master de puestos y empleados (doc
@@ -285,6 +287,16 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 .Select(rp => rp.PermisoId)
                 .ToListAsync(cancellationToken);
 
+            // P6: retirar también concesiones históricas del rol organizacional.
+            if (def.Codigo == "admin-organizacional")
+            {
+                var exclusivos = PermisosCanonicos.Todos.Where(p =>
+                    p.Codigo is PermisosCanonicos.AdminEmpresasCrear or PermisosCanonicos.AdminEmpresasDesactivar)
+                    .Select(p => p.Id).ToArray();
+                db.RolPermisos.RemoveRange(await db.RolPermisos.Where(p =>
+                    p.RolId == rol.Id && exclusivos.Contains(p.PermisoId)).ToListAsync(cancellationToken));
+                await db.SaveChangesAsync(cancellationToken);
+            }
             var faltantes = permisosEsperados.Except(existingPermisoIds).ToList();
             if (faltantes.Count > 0)
             {

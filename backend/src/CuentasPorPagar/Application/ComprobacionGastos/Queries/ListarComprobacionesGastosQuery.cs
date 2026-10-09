@@ -12,7 +12,13 @@ public sealed record ListarComprobacionesGastosQuery(
     Guid? SucursalId = null,
     Guid? ResponsableId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<ComprobacionGastosListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<ComprobacionGastosListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "comprobacion";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record ComprobacionGastosListItemResponse(
     Guid Id,
@@ -41,7 +47,8 @@ public sealed class ListarComprobacionesGastosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.ComprobacionesGastos.AsNoTracking();
+        var q = _db.ComprobacionesGastos
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.Tipo is TipoComprobacionGastos t) q = q.Where(c => c.Tipo == t);
         if (query.Estado is EstadoComprobacionGastos e) q = q.Where(c => c.Estado == e);
         if (query.SucursalId is Guid s) q = q.Where(c => c.SucursalId == s);

@@ -21,6 +21,7 @@ public static class AlertasEndpoints
     {
         var alertas = app
             .MapGroup("/api/v1/cuentas-por-cobrar/alertas")
+            .WithDocumentoSucursalScope("alerta_cartera", "cuentas_por_cobrar.cartera", "id")
             .WithTags("CuentasPorCobrar")
             .RequireAuthorization();
 

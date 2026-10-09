@@ -73,7 +73,7 @@ public sealed class LiquidacionRutaTests
         FacturacionDbContext db, IAlcanceCajaEvaluator? alcance = null) =>
         new(db, new FakeEmpresaContext(Empresa), new FakeUserContext(Cajero), new FakeClock(Ahora),
             new FakeSucursalesReadPort(), alcance ?? new FakeAlcanceCajaEvaluator(),
-            new FakeIntegrationEventPublisher());
+            new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort());
 
     private static LiquidacionRutaCobroInput Efectivo(Guid comprobanteId, decimal importe) =>
         new(comprobanteId, [new CobroFormaPagoInput("01", importe)]);
@@ -179,7 +179,7 @@ public sealed class LiquidacionRutaTests
         // Cobra F-4 para que salga de la lista.
         var registrar = new RegistrarCobroMostradorHandler(
             db, new FakeEmpresaContext(Empresa), new FakeUserContext(Cajero), new FakeClock(Ahora),
-            new FakeSucursalesReadPort(), new FakeAlcanceCajaEvaluator(), new FakeIntegrationEventPublisher());
+            new FakeSucursalesReadPort(), new FakeAlcanceCajaEvaluator(), new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort());
         await registrar.Handle(new RegistrarCobroMostradorCommand(
             cobrada.Id, [new CobroFormaPagoInput("01", 700m)]), CancellationToken.None);
 

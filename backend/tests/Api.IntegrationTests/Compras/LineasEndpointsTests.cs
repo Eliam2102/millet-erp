@@ -460,6 +460,9 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             identidad.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
             identidad.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(
                 Guid.CreateVersion7(), usuarioId, EmpresaInicialId, rolId, asignadoPorUsuarioId: null));
+            // Acceso territorial al documento; no concede alcance sobre centros de costo.
+            identidad.UsuarioSucursales.Add(new UsuarioSucursal(
+                Guid.CreateVersion7(), usuarioId, TestComprasFixtures.SucursalMid, EmpresaInicialId));
             await identidad.SaveChangesAsync();
         }
 

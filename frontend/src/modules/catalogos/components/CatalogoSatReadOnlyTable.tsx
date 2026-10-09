@@ -33,8 +33,7 @@ export interface CatalogoSatReadOnlyTableProps<T> {
   emptyMessage?: string;
 }
 
-const DEFAULT_BANNER =
-  'Catálogo SAT mantenido vía migración. No editable desde la UI.';
+const DEFAULT_BANNER = 'Catálogo SAT mantenido vía migración. No editable desde la UI.';
 
 export function CatalogoSatReadOnlyTable<T>({
   titulo,
@@ -54,37 +53,27 @@ export function CatalogoSatReadOnlyTable<T>({
 
       <div
         role="note"
-        className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+        className="flex items-start gap-2 rounded-md bg-warning-note-bg p-3 text-sm text-warning-note-fg"
       >
         <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <p>{banner}</p>
       </div>
 
       {isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={columns.map(() => ({ width: 'w-full' as const }))}
-        />
+        <TableSkeleton rows={6} columns={columns.map(() => ({ width: 'w-full' as const }))} />
       ) : isError ? (
-        <ErrorState
-          problem={esApiError(error) ? error.problem : undefined}
-          onRetry={onRetry}
-        />
+        <ErrorState problem={esApiError(error) ? error.problem : undefined} onRetry={onRetry} />
       ) : items.length === 0 ? (
-        <p className="rounded-md border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-md border border-dashed bg-muted/20 p-6 text-center text-sm text-ink-muted">
           {emptyMessage}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border bg-card">
+        <div className="overflow-x-auto rounded-lg bg-surface-card shadow-card-flat">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
+            <thead className="border-b bg-surface-subtle text-xs uppercase text-ink-muted">
               <tr>
                 {columns.map((c) => (
-                  <th
-                    key={c.key}
-                    scope="col"
-                    className={cn('px-3 py-2 text-left', c.className)}
-                  >
+                  <th key={c.key} scope="col" className={cn('px-3 py-2 text-left', c.className)}>
                     {c.label}
                   </th>
                 ))}

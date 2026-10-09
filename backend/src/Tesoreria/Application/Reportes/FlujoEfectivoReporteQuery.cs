@@ -23,7 +23,13 @@ public sealed record FlujoEfectivoReporteQuery(
     DateOnly Desde,
     DateOnly Hasta,
     Guid? CuentaBancariaId = null,
-    string? Moneda = null) : IRequest<ReporteJsonResponse>;
+    string? Moneda = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "movimiento_bancario";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class FlujoEfectivoReporteValidator : AbstractValidator<FlujoEfectivoReporteQuery>
 {
@@ -51,7 +57,8 @@ public sealed class FlujoEfectivoReporteHandler
     public async Task<ReporteJsonResponse> Handle(
         FlujoEfectivoReporteQuery query, CancellationToken cancellationToken)
     {
-        var q = _db.MovimientosBancarios.AsNoTracking()
+        var q = _db.MovimientosBancarios
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(m => m.FechaValor >= query.Desde && m.FechaValor <= query.Hasta);
         if (query.CuentaBancariaId is Guid cuenta) q = q.Where(m => m.CuentaBancariaId == cuenta);
         if (!string.IsNullOrWhiteSpace(query.Moneda)) q = q.Where(m => m.Moneda == query.Moneda);

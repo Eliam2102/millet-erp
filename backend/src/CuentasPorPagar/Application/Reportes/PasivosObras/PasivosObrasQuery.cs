@@ -31,7 +31,13 @@ namespace Millet.CuentasPorPagar.Application.Reportes.PasivosObras;
 public sealed record PasivosObrasQuery(
     Guid SucursalId,
     DateOnly? FechaCorte = null,
-    Guid? ProveedorId = null) : IRequest<ReporteJsonResponse>;
+    Guid? ProveedorId = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
+    public string TipoDocumento => "factura_proveedor";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class PasivosObrasHandler
     : IRequestHandler<PasivosObrasQuery, ReporteJsonResponse>
@@ -50,6 +56,7 @@ public sealed class PasivosObrasHandler
         var fechaCorte = query.FechaCorte ?? DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
 
         var q = _db.FacturasProveedor.AsNoTracking()
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id))
             .Where(f =>
                 f.SucursalId == query.SucursalId
                 && f.Estado != EstadoPasivo.Cancelada

@@ -40,6 +40,7 @@ public sealed class LoginOrchestrator
     private readonly IPermissionCache _permissionCache;
     private readonly IPermissionLoader _permissionLoader;
     private readonly IClock _clock;
+    private readonly Millet.Identidad.Application.Ports.IEntraGruposReadPort? _grupos;
     private readonly Millet.Compras.Infrastructure.ComprasDbContext _comprasDb;
     private readonly Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext _compartidoDb;
 
@@ -52,8 +53,10 @@ public sealed class LoginOrchestrator
         IPermissionLoader permissionLoader,
         IClock clock,
         Millet.Compras.Infrastructure.ComprasDbContext comprasDb,
-        Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext compartidoDb)
+        Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext compartidoDb,
+        Millet.Identidad.Application.Ports.IEntraGruposReadPort? grupos = null)
     {
+        _grupos = grupos;
         _db = db;
         _entraValidator = entraValidator;
         _jwtTokenService = jwtTokenService;
@@ -75,13 +78,17 @@ public sealed class LoginOrchestrator
     {
         var entraClaims = await _entraValidator.ValidateAsync(entraToken, cancellationToken);
 
+        var grupos = entraClaims.GroupsOverage
+            ? await (_grupos ?? throw new ForbiddenException("ENTRA_GRUPOS_NO_DISPONIBLES",
+                "No se pudo verificar la pertenencia a grupos de Microsoft.")).ListarAsync(entraClaims.Oid, cancellationToken)
+            : entraClaims.Groups ?? Array.Empty<string>();
         return await CompleteLoginAsync(
             entraClaims.Oid,
             entraClaims.Email,
             entraClaims.Name,
             requestedEmpresaId,
             permitirVinculacionPorEmail: true,
-            cancellationToken);
+            cancellationToken, grupos);
     }
 
     /// <summary>
@@ -179,7 +186,8 @@ public sealed class LoginOrchestrator
         string? entraName,
         Guid? requestedEmpresaId,
         bool permitirVinculacionPorEmail,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? grupos = null)
     {
         // Bypass para que el global query filter por empresa (PR 4) no nos
         // afecte cuando estamos justamente determinando la empresa.
@@ -213,9 +221,19 @@ public sealed class LoginOrchestrator
             }
         }
 
+        if (grupos is not null)
+        {
+            var vigentes = grupos.Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var actuales = await _db.UsuarioGruposEntraId.Where(x => x.UsuarioId == usuario.Id).ToListAsync(cancellationToken);
+            _db.UsuarioGruposEntraId.RemoveRange(actuales.Where(x => !vigentes.Contains(x.ObjectId)));
+            var existentes = actuales.Select(x => x.ObjectId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _db.UsuarioGruposEntraId.AddRange(vigentes.Where(x => !existentes.Contains(x))
+                .Select(x => new UsuarioGrupoEntraId(usuario.Id, x)));
+        }
         usuario.RegistrarAcceso(_clock.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
 
+        await _permissionCache.InvalidateAllForUserAsync(usuario.Id, cancellationToken);
         var (selectedEmpresaId, empresas) = await SelectEmpresaAsync(
             usuario, requestedEmpresaId, cancellationToken);
 

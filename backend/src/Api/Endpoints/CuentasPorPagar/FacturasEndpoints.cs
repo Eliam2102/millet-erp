@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Api.Endpoints.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -38,6 +39,7 @@ public static class FacturasEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/facturas")
+            .WithDocumentoSucursalScope("factura_proveedor", "cuentas_por_pagar.facturas", "id")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -77,9 +79,18 @@ public static class FacturasEndpoints
 
         group.MapPost("/", async (
             [FromBody] CapturarFacturaConOcCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
+            Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort scopeSucursales,
+            Millet.SharedKernel.Application.ICurrentUserPermissions scopePermisos,
+            Millet.SharedKernel.Application.ICurrentUserContext scopeUser,
             CancellationToken cancellationToken) =>
         {
+            await Millet.Administracion.Application.Abstractions.SucursalScopeGuard.VerificarAsync(scopeUser.UserId,
+                "cuentas_por_pagar.facturas.gestionar-todas-sucursales", scopePermisos,
+                (uid, c) => scopeSucursales.EstaAsociadoAsync(uid, command.SucursalId, c), cancellationToken);
+            await scope.VerificarAsync("orden_compra", command.OrdenCompraId,
+                PermisosCanonicos.CuentasPorPagarFacturasGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/facturas/{response.Id}", response);
         })
@@ -274,8 +285,11 @@ public static class FacturasEndpoints
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] AplicarNcRequest request,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("nota_credito_proveedor", request.NotaCreditoId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
+
             if (expectedVersion is not int v)
             {
                 return Results.Problem(
@@ -316,8 +330,11 @@ public static class FacturasEndpoints
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] AplicarAnticipoRequest request,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("anticipo_proveedor", request.AnticipoId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
+
             if (expectedVersion is not int v)
             {
                 return Results.Problem(
@@ -351,6 +368,9 @@ public static class FacturasEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
+        group.MapGroup("/{id:guid}").MapAdjuntos("factura_proveedor",
+            PermisosCanonicos.CuentasPorPagarFacturasAdjuntosVer, PermisosCanonicos.CuentasPorPagarFacturasAdjuntosSubir,
+            PermisosCanonicos.CuentasPorPagarFacturasAdjuntosBaja);
         return app;
     }
 

@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -25,6 +27,7 @@ public static class NotasCreditoEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/notas-credito")
+            .WithDocumentoSucursalScope("nota_credito_proveedor", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -48,9 +51,15 @@ public static class NotasCreditoEndpoints
 
         group.MapPost("/", async (
             [FromBody] CapturarNotaCreditoCommand command,
+            CuentasPorPagarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            var uuid = command.UuidRelacionCfdi.Trim().ToUpperInvariant();
+            var facturaId = await scopeDb.FacturasProveedor.AsNoTracking().Where(x => x.UuidCfdi == uuid && x.ProveedorId == command.ProveedorId)
+                .Select(x => (Guid?)x.Id).FirstOrDefaultAsync(cancellationToken);
+            await scope.VerificarAsync("factura_proveedor", facturaId ?? Guid.Empty, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/notas-credito/{response.Id}", response);
         })
@@ -72,9 +81,12 @@ public static class NotasCreditoEndpoints
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] VincularFacturaRequest request,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("factura_proveedor", request.FacturaOrigenId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
+
             if (expectedVersion is not int v)
             {
                 return Results.Problem(

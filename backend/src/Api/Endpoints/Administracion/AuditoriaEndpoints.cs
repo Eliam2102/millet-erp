@@ -98,6 +98,65 @@ public static class AuditoriaEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        app.MapGet("/api/v1/admin/auditoria/exportar", async (
+            [FromQuery] DateOnly? desde,
+            [FromQuery] DateOnly? hasta,
+            [FromQuery] string? modulo,
+            [FromQuery] string? recurso,
+            [FromQuery] string? accion,
+            [FromQuery] Guid? usuarioId,
+            [FromQuery] Guid? empresaId,
+            [FromQuery] Guid? sucursalId,
+            [FromQuery] string? zonaHoraria,
+            [FromQuery] Guid? entidadId,
+            [FromQuery] Guid? aggregateRootId,
+            [FromQuery] string? actorTipo,
+            [FromQuery] string? q,
+            [FromQuery] int? offset,
+            [FromQuery] int? limit,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            // Required params: si faltan, retornar 400 ProblemDetails antes
+            // de mandar al mediator. El validator FluentValidation enforce
+            // las reglas semánticas (rango > 90 días, etc.) y produce 400.
+            var errors = new Dictionary<string, string[]>();
+            if (desde is null) errors["desde"] = ["El parámetro 'desde' es requerido (formato yyyy-MM-dd)."];
+            if (hasta is null) errors["hasta"] = ["El parámetro 'hasta' es requerido (formato yyyy-MM-dd)."];
+            if (errors.Count > 0)
+            {
+                return Results.ValidationProblem(errors, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var query = new ConsultarBitacoraQuery(
+                Desde: desde!.Value,
+                Hasta: hasta!.Value,
+                Modulo: modulo,
+                Recurso: recurso,
+                Accion: accion,
+                UsuarioId: usuarioId,
+                EmpresaId: empresaId,
+                SucursalId: sucursalId,
+                EntidadId: entidadId,
+                AggregateRootId: aggregateRootId,
+                ActorTipo: actorTipo,
+                Q: q,
+                Offset: 0,
+                Limit: 200,
+                ZonaHoraria: zonaHoraria);
+
+            var archivo = await mediator.Send(new ExportarBitacoraCommand(query), cancellationToken);
+            return Results.File(archivo, "text/csv; charset=utf-8", "bitacora.csv");
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminAuditoriaLeer)
+        .WithTags("Administracion")
+        .WithName("ExportarAuditoria")
+        .WithSummary("Consultar la bitácora consolidada (rango obligatorio, max 90 días, filtros enriquecidos)")
+        .Produces(StatusCodes.Status200OK, contentType: "text/csv")
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
         return app;
     }
 }

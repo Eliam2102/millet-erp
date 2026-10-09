@@ -582,6 +582,8 @@ else
 // Cada módulo que adjunta archivos registra aquí su IAdjuntoPropietario (primero: Proveedor).
 // PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
@@ -1329,6 +1331,13 @@ builder.Services.AddHealthChecks()
         tags: ["ready"],
         timeout: TimeSpan.FromSeconds(1));
 
+builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(Millet.Api.Web.SucursalScopeQueryBehavior<,>));
+builder.Services.AddScoped<Millet.SharedKernel.Application.IFacturacionSucursalReadPort, Millet.Facturacion.Infrastructure.FacturacionSucursalReadAdapter>();
+builder.Services.AddScoped<IComprasSucursalReadPort, ComprasSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.ICxpSucursalReadPort, Millet.CuentasPorPagar.Infrastructure.CxpSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.ICxcSucursalReadPort, Millet.CuentasPorCobrar.Infrastructure.CxcSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.ITesoreriaSucursalReadPort, Millet.Tesoreria.Infrastructure.TesoreriaSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.Api.Web.DocumentoSucursalScope>();
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();

@@ -14,7 +14,13 @@ namespace Millet.CuentasPorPagar.Application.Reportes.AntiguedadAnticipos;
 /// </summary>
 public sealed record AntiguedadAnticiposProveedoresQuery(
     DateOnly? FechaCorte = null,
-    Guid? ProveedorId = null) : IRequest<ReporteJsonResponse>;
+    Guid? ProveedorId = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "anticipo_proveedor";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class AntiguedadAnticiposProveedoresHandler
     : IRequestHandler<AntiguedadAnticiposProveedoresQuery, ReporteJsonResponse>
@@ -34,6 +40,7 @@ public sealed class AntiguedadAnticiposProveedoresHandler
         var fechaCorte = query.FechaCorte ?? DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
 
         var q = _db.AnticiposProveedor.AsNoTracking()
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id))
             .Where(a => a.Estado != EstadoAnticipo.Cancelado);
 
         if (query.ProveedorId is Guid p) q = q.Where(a => a.ProveedorId == p);

@@ -15,6 +15,24 @@ namespace Millet.Identidad.Domain;
 public static class PermisosCanonicos
 {
     // ----- Infraestructura (transversal) -----
+    public const string CuentasPorPagarDocumentosLeerTodasSucursales = "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public const string CuentasPorPagarDocumentosGestionarTodasSucursales = "cuentas_por_pagar.documentos.gestionar-todas-sucursales";
+    public const string CatalogosFormasPagoGestionar = "catalogos.formas-pago.gestionar";
+    public const string ComprasRequisicionesGestionarTodasSucursales = "compras.requisiciones.gestionar-todas-sucursales";
+    public const string ComprasOrdenesGestionarTodasSucursales = "compras.ordenes.gestionar-todas-sucursales";
+    public const string ComprasRequisicionesAdjuntosVer = "compras.requisiciones.adjuntos-ver";
+    public const string ComprasRequisicionesAdjuntosSubir = "compras.requisiciones.adjuntos-subir";
+    public const string ComprasRequisicionesAdjuntosBaja = "compras.requisiciones.adjuntos-baja";
+    public const string CuentasPorPagarFacturasAdjuntosVer = "cuentas_por_pagar.facturas.adjuntos-ver";
+    public const string CuentasPorPagarFacturasAdjuntosSubir = "cuentas_por_pagar.facturas.adjuntos-subir";
+    public const string CuentasPorPagarFacturasAdjuntosBaja = "cuentas_por_pagar.facturas.adjuntos-baja";
+    public const string CuentasPorPagarFacturasLeerTodasSucursales = "cuentas_por_pagar.facturas.leer-todas-sucursales";
+    public const string CuentasPorPagarFacturasGestionarTodasSucursales = "cuentas_por_pagar.facturas.gestionar-todas-sucursales";
+    public const string CuentasPorCobrarCarteraLeerTodasSucursales = "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public const string CuentasPorCobrarCarteraGestionarTodasSucursales = "cuentas_por_cobrar.cartera.gestionar-todas-sucursales";
+    public const string TesoreriaDocumentosLeerTodasSucursales = "tesoreria.documentos.leer-todas-sucursales";
+    public const string TesoreriaDocumentosGestionarTodasSucursales = "tesoreria.documentos.gestionar-todas-sucursales";
+
     public const string InfraHealthLeer = "infra.health.leer";
     public const string InfraAuditLogLeer = "infra.audit_log.leer";
 
@@ -494,6 +512,23 @@ public static class PermisosCanonicos
     /// </summary>
     public static IReadOnlyList<(Guid Id, string Codigo, string Descripcion)> Todos { get; } = new[]
     {
+        (Guid.Parse("00000006-0006-0006-0006-000000000020"), CuentasPorPagarDocumentosLeerTodasSucursales, "Consultar documentos de CxP de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000021"), CuentasPorPagarDocumentosGestionarTodasSucursales, "Operar documentos de CxP de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000001"), CatalogosFormasPagoGestionar, "Habilitar y deshabilitar formas de pago SAT"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000002"), ComprasRequisicionesGestionarTodasSucursales, "Operar requisiciones de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000003"), ComprasOrdenesGestionarTodasSucursales, "Operar órdenes de compra de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000004"), ComprasRequisicionesAdjuntosVer, "Consultar adjuntos de requisiciones"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000005"), ComprasRequisicionesAdjuntosSubir, "Subir adjuntos de requisiciones"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000006"), ComprasRequisicionesAdjuntosBaja, "Dar de baja adjuntos de requisiciones"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000007"), CuentasPorPagarFacturasAdjuntosVer, "Consultar adjuntos de facturas de proveedor"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000008"), CuentasPorPagarFacturasAdjuntosSubir, "Subir adjuntos de facturas de proveedor"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000009"), CuentasPorPagarFacturasAdjuntosBaja, "Dar de baja adjuntos de facturas de proveedor"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000000a"), CuentasPorPagarFacturasLeerTodasSucursales, "Leer facturas de proveedor de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000000b"), CuentasPorPagarFacturasGestionarTodasSucursales, "Gestionar facturas de proveedor de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000000c"), CuentasPorCobrarCarteraLeerTodasSucursales, "Leer cartera de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000000d"), CuentasPorCobrarCarteraGestionarTodasSucursales, "Gestionar cartera de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000000e"), TesoreriaDocumentosLeerTodasSucursales, "Leer documentos de Tesorería de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000000f"), TesoreriaDocumentosGestionarTodasSucursales, "Gestionar documentos de Tesorería de todas las sucursales"),
         (Guid.Parse("00000002-0001-0000-0000-000000000001"), InfraHealthLeer,                              "Leer health checks del sistema"),
         (Guid.Parse("00000002-0001-0000-0000-000000000002"), InfraAuditLogLeer,                            "Leer el log de auditoría de cualquier módulo"),
         (Guid.Parse("00000002-0002-0000-0000-000000000001"), IdentidadUsuariosLeer,                        "Listar y consultar usuarios"),

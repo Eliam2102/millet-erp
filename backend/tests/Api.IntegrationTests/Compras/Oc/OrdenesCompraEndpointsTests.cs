@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Catalogos.Domain;
 using Millet.CentrosCosto.Application.Catalogo;
 using Millet.CentrosCosto.Infrastructure.Persistence;
+using Millet.Api.IntegrationTests.Fixtures;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
@@ -47,7 +48,7 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
 
     // SucursalId fijo. El folio se forma con SucursalCodigo+Anio+secuencial;
     // mantener constante permite folios consecutivos entre corridas.
-    private static readonly Guid SucursalIdFija = Guid.Parse("00000003-0002-0000-0000-000000000001");
+    private static readonly Guid SucursalIdFija = TestComprasFixtures.SucursalMid;
 
     // Proveedores del seed compartido (CatalogosTestSeedHostedService).
     private static readonly Guid ProveedorActivoId = Guid.Parse("00000005-0001-0000-0000-000000000001");
@@ -1219,6 +1220,9 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
             identidad.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
             identidad.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(
                 Guid.CreateVersion7(), usuarioId, EmpresaInicialId, rolId, asignadoPorUsuarioId: null));
+            // ADR-0050 permite captura por proxy; la sucursal del documento sigue autorizada.
+            identidad.UsuarioSucursales.Add(new UsuarioSucursal(
+                Guid.CreateVersion7(), usuarioId, SucursalIdFija, EmpresaInicialId));
             await identidad.SaveChangesAsync();
         }
 

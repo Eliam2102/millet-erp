@@ -21,6 +21,7 @@ public static class PagosACuentaEndpoints
     {
         var pagosCuenta = app
             .MapGroup("/api/v1/tesoreria/pagos-cuenta")
+            .WithDocumentoSucursalScope("movimiento_bancario", "tesoreria.documentos", "movimientoId")
             .WithTags("Tesoreria")
             .RequireAuthorization();
 
@@ -44,8 +45,11 @@ public static class PagosACuentaEndpoints
         pagosCuenta.MapPost("/", async (
             [FromBody] RegistrarPagoACuentaCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(null, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/tesoreria/movimientos/{response.MovimientoId}", response);
         })
@@ -61,8 +65,12 @@ public static class PagosACuentaEndpoints
             Guid movimientoId,
             [FromBody] LigarPagoACuentaBody body,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("factura_proveedor", body.FacturaProveedorId,
+                PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+
             var response = await mediator.Send(
                 new LigarPagoACuentaCommand(movimientoId, body.FacturaProveedorId, body.Importe),
                 cancellationToken);

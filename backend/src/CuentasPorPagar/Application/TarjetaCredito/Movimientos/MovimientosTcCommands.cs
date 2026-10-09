@@ -290,7 +290,13 @@ public sealed record ListarMovimientosTcQuery(
     DateOnly? FechaDesde = null,
     DateOnly? FechaHasta = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<MovimientoTcResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<MovimientoTcResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "movimiento_tc";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarMovimientosTcHandler
     : IRequestHandler<ListarMovimientosTcQuery, PagedResponse<MovimientoTcResponse>>
@@ -304,7 +310,7 @@ public sealed class ListarMovimientosTcHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.MovimientosTarjetaCredito.AsNoTracking();
+        var q = _db.MovimientosTarjetaCredito.Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.TarjetaId is Guid t) q = q.Where(m => m.TarjetaId == t);
         if (query.UsuarioQueUsoId is Guid u) q = q.Where(m => m.UsuarioQueUsoId == u);
         if (query.Estado is EstadoMovimientoTc e) q = q.Where(m => m.Estado == e);

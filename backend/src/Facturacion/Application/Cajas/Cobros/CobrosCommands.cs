@@ -69,6 +69,7 @@ public sealed class RegistrarCobroMostradorHandler
     private readonly ISucursalesReadPort _sucursales;
     private readonly IAlcanceCajaEvaluator _alcance;
     private readonly IIntegrationEventPublisher _eventos;
+    private readonly ICatalogosSatReadPort _catalogos;
 
     public RegistrarCobroMostradorHandler(
         FacturacionDbContext db,
@@ -77,8 +78,9 @@ public sealed class RegistrarCobroMostradorHandler
         IClock clock,
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
-        IIntegrationEventPublisher eventos)
+        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos)
     {
+        _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
         _user = user;
@@ -91,6 +93,8 @@ public sealed class RegistrarCobroMostradorHandler
     public async Task<CobroMostradorResponse> Handle(
         RegistrarCobroMostradorCommand command, CancellationToken cancellationToken)
     {
+        foreach (var forma in command.FormasPago)
+            await FormaPagoActivaGuard.VerificarAsync(forma.FormaPago, _catalogos, cancellationToken);
         var (empresaId, usuarioId) = ContextoRequerido.De(_empresa, _user);
         var ahora = _clock.UtcNow;
 
@@ -277,6 +281,7 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
     private readonly ISucursalesReadPort _sucursales;
     private readonly IAlcanceCajaEvaluator _alcance;
     private readonly IIntegrationEventPublisher _eventos;
+    private readonly ICatalogosSatReadPort _catalogos;
 
     public LiquidarRutaHandler(
         FacturacionDbContext db,
@@ -285,8 +290,9 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
         IClock clock,
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
-        IIntegrationEventPublisher eventos)
+        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos)
     {
+        _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
         _user = user;
@@ -299,6 +305,8 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
     public async Task<LiquidacionRutaResponse> Handle(
         LiquidarRutaCommand command, CancellationToken cancellationToken)
     {
+        foreach (var forma in command.Cobros.SelectMany(x => x.FormasPago))
+            await FormaPagoActivaGuard.VerificarAsync(forma.FormaPago, _catalogos, cancellationToken);
         var (empresaId, usuarioId) = ContextoRequerido.De(_empresa, _user);
         var ahora = _clock.UtcNow;
 

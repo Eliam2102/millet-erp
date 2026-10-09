@@ -22,7 +22,13 @@ public sealed record MovimientosTcPendientesConciliarQuery(
     Guid? TarjetaId = null,
     Guid? UsuarioQueUsoId = null,
     DateOnly? FechaDesde = null,
-    DateOnly? FechaHasta = null) : IRequest<ReporteJsonResponse>;
+    DateOnly? FechaHasta = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "movimiento_tc";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class MovimientosTcPendientesConciliarHandler
     : IRequestHandler<MovimientosTcPendientesConciliarQuery, ReporteJsonResponse>
@@ -39,7 +45,7 @@ public sealed class MovimientosTcPendientesConciliarHandler
     public async Task<ReporteJsonResponse> Handle(
         MovimientosTcPendientesConciliarQuery query, CancellationToken cancellationToken)
     {
-        var q = _db.MovimientosTarjetaCredito.AsNoTracking()
+        var q = _db.MovimientosTarjetaCredito.Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(m => m.Estado == EstadoMovimientoTc.Registrado
                         && m.EstadoCuentaTcId == null);
 

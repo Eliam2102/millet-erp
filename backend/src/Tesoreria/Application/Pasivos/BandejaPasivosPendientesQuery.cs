@@ -53,7 +53,13 @@ public sealed record BandejaPasivosPendientesQuery(
     bool SoloConSaldo = true,
     string? TipoBeneficiario = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<PasivoPendienteResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<PasivoPendienteResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "pasivo";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class BandejaPasivosPendientesHandler
     : IRequestHandler<BandejaPasivosPendientesQuery, PagedResponse<PasivoPendienteResponse>>
@@ -76,7 +82,8 @@ public sealed class BandejaPasivosPendientesHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.PasivosPendientesPago.AsNoTracking();
+        var q = _db.PasivosPendientesPago
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.SoloConSaldo) q = q.Where(p => p.SaldoPendiente > 0);
         if (!string.IsNullOrWhiteSpace(query.TipoBeneficiario))
             q = q.Where(p => p.TipoBeneficiario == query.TipoBeneficiario);
@@ -104,7 +111,7 @@ public sealed class BandejaPasivosPendientesHandler
         // TES-PR6 (§3.4 paso 3 / 01-diseño §8.2): sugerencia de liga tardía —
         // si el proveedor tiene un pago a cuenta abierto, la bandeja lo
         // señala para ligar en lugar de re-desembolsar.
-        var abiertos = await _db.MovimientosBancarios.AsNoTracking()
+        var abiertos = await _db.MovimientosBancarios.Where(x => query.DocumentosPermitidos == null).AsNoTracking()
                 .Where(m => m.Sentido == Domain.Movimientos.SentidoMovimiento.Egreso
                             && m.MotivoNoAplicado != null
                             && m.ContramovimientoDe == null

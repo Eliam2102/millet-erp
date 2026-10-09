@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Api.Endpoints.Adjuntos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Abstractions;
@@ -50,8 +51,13 @@ public static class RequisicionesEndpoints
             ICurrentEmpresaContext currentEmpresa,
             IPermissionCache permissionCache,
             IPermissionLoader permissionLoader,
+            Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort scopeSucursales,
+            Millet.SharedKernel.Application.ICurrentUserPermissions scopePermisos,
             CancellationToken cancellationToken) =>
         {
+            await Millet.Administracion.Application.Abstractions.SucursalScopeGuard.VerificarAsync(currentUser.UserId,
+                "compras.requisiciones.gestionar-todas-sucursales", scopePermisos,
+                (uid, c) => scopeSucursales.EstaAsociadoAsync(uid, command.SucursalId, c), cancellationToken);
             // Si el caller envió RequisitanteId distinto al current user,
             // exige el permiso de delegación. Mantiene la regla del
             // diseño §8.3 sin filtrar contra el JWT en el handler.
@@ -172,8 +178,13 @@ public static class RequisicionesEndpoints
             Guid id,
             [FromBody] EditarCabeceraRequisicionRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new Millet.Compras.Application.EditarCabecera.EditarCabeceraRequisicionCommand(
                     RequisicionId: id,
@@ -215,8 +226,13 @@ public static class RequisicionesEndpoints
         group.MapPost("/{id:guid}/transmitir", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(new EnviarAAutorizacionCommand(id), cancellationToken);
             return Results.NoContent();
         })
@@ -247,8 +263,12 @@ public static class RequisicionesEndpoints
             ICurrentEmpresaContext currentEmpresa,
             IPermissionCache permissionCache,
             IPermissionLoader permissionLoader,
+            ComprasDbContext scopeDb,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             if (currentUser.UserId is not Guid userId)
             {
                 return Results.Unauthorized();
@@ -337,8 +357,13 @@ public static class RequisicionesEndpoints
             Guid id,
             [FromBody] TerminarRequisicionRequest request,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new RechazarRequisicionCommand(id, request.MotivoId, request.MotivoTexto),
                 cancellationToken);
@@ -368,8 +393,13 @@ public static class RequisicionesEndpoints
             Guid id,
             [FromBody] TerminarRequisicionRequest request,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new EliminarRequisicionCommand(id, request.MotivoId, request.MotivoTexto),
                 cancellationToken);
@@ -398,8 +428,13 @@ public static class RequisicionesEndpoints
             Guid id,
             [FromBody] TerminarRequisicionRequest request,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new CancelarRequisicionCommand(id, request.MotivoId, request.MotivoTexto),
                 cancellationToken);
@@ -429,8 +464,13 @@ public static class RequisicionesEndpoints
             Guid id,
             [FromBody] TerminarRequisicionRequest request,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new CerrarManualRequisicionCommand(id, request.MotivoId, request.MotivoTexto),
                 cancellationToken);
@@ -574,6 +614,9 @@ public static class RequisicionesEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapGroup("/{id:guid}").MapAdjuntos("requisicion",
+            PermisosCanonicos.ComprasRequisicionesAdjuntosVer, PermisosCanonicos.ComprasRequisicionesAdjuntosSubir,
+            PermisosCanonicos.ComprasRequisicionesAdjuntosBaja);
         return app;
     }
 

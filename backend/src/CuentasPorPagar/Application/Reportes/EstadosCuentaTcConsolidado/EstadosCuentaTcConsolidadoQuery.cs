@@ -16,7 +16,13 @@ public sealed record EstadosCuentaTcConsolidadoQuery(
     Guid? TarjetaId = null,
     EstadoCuentaTcStatus? Estado = null,
     DateOnly? PeriodoDesde = null,
-    DateOnly? PeriodoHasta = null) : IRequest<ReporteJsonResponse>;
+    DateOnly? PeriodoHasta = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "estado_cuenta_tc";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class EstadosCuentaTcConsolidadoHandler
     : IRequestHandler<EstadosCuentaTcConsolidadoQuery, ReporteJsonResponse>
@@ -33,7 +39,7 @@ public sealed class EstadosCuentaTcConsolidadoHandler
     public async Task<ReporteJsonResponse> Handle(
         EstadosCuentaTcConsolidadoQuery query, CancellationToken cancellationToken)
     {
-        var q = _db.EstadosCuentaTc.AsNoTracking()
+        var q = _db.EstadosCuentaTc.Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Include(e => e.Lineas);
 
         IQueryable<EstadoCuentaTc> filtered = q;

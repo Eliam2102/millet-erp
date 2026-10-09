@@ -22,6 +22,7 @@ public static class NotasCargoEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/notas-cargo")
+            .WithDocumentoSucursalScope("nota_cargo", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -46,8 +47,13 @@ public static class NotasCargoEndpoints
         group.MapPost("/", async (
             [FromBody] CrearNotaCargoCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(command.SucursalId, "cuentas_por_pagar.documentos.gestionar-todas-sucursales", cancellationToken);
+            if (command.FacturaOrigenId is Guid facturaId)
+                await scope.VerificarAsync("factura_proveedor", facturaId,
+                    PermisosCanonicos.CuentasPorPagarFacturasGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/notas-cargo/{response.Id}", response);
         })

@@ -21,7 +21,13 @@ namespace Millet.Tesoreria.Application.Reportes;
 public sealed record AuxiliarBancosReporteQuery(
     Guid CuentaBancariaId,
     DateOnly Desde,
-    DateOnly Hasta) : IRequest<ReporteJsonResponse>;
+    DateOnly Hasta) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "movimiento_bancario";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class AuxiliarBancosReporteValidator : AbstractValidator<AuxiliarBancosReporteQuery>
 {
@@ -54,12 +60,14 @@ public sealed class AuxiliarBancosReporteHandler
 
         // Saldo de arranque = neto de movimientos del sistema previos al
         // período (sin saldo inicial bancario hasta T-G8/PR-9).
-        var saldoInicial = await _db.MovimientosBancarios.AsNoTracking()
+        var saldoInicial = await _db.MovimientosBancarios
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(m => m.CuentaBancariaId == cuenta.Id && m.FechaValor < query.Desde)
             .SumAsync(m => (decimal?)(m.Sentido == SentidoMovimiento.Ingreso ? m.Monto : -m.Monto),
                 cancellationToken) ?? 0m;
 
-        var movimientos = await _db.MovimientosBancarios.AsNoTracking()
+        var movimientos = await _db.MovimientosBancarios
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(m => m.CuentaBancariaId == cuenta.Id
                         && m.FechaValor >= query.Desde && m.FechaValor <= query.Hasta)
             .OrderBy(m => m.FechaValor).ThenBy(m => m.CreadoEn)

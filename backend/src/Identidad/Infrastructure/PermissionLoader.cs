@@ -38,29 +38,25 @@ public sealed class PermissionLoader : IPermissionLoader
     {
         using var bypass = _empresaContext.Bypass();
 
-        // Usuario activo con al menos un rol activo en la empresa. Sin esto no
-        // hay permisos, ni siquiera "concedidos" (las excepciones se montan
-        // sobre la base del rol, ADR-0053).
-        var tieneRolActivo = await (
-            from u in _db.Usuarios
-            where u.Id == userId && u.Activo
-            join uer in _db.UsuarioEmpresaRoles on u.Id equals uer.UsuarioId
-            where uer.EmpresaId == empresaId
-            join r in _db.Roles on uer.RolId equals r.Id
-            where r.Activo
-            select r.Id)
-            .AnyAsync(cancellationToken);
-
-        if (!tieneRolActivo)
-        {
+        var rolesDirectos = _db.UsuarioEmpresaRoles
+            .Where(x => x.UsuarioId == userId && x.EmpresaId == empresaId).Select(x => x.RolId);
+        // LOWER es traducible por PostgreSQL; los ObjectId reales de Entra son GUID ASCII.
+#pragma warning disable CA1304, CA1311
+        var rolesGrupos = from ug in _db.UsuarioGruposEntraId
+                          where ug.UsuarioId == userId
+                          join rg in _db.RolGruposEntraId on ug.ObjectId.ToLower() equals rg.ObjectId.ToLower()
+                          select rg.RolId;
+#pragma warning restore CA1304, CA1311
+        var rolesEfectivos = rolesDirectos.Union(rolesGrupos);
+        // Los grupos suman roles dentro de empresas previamente asignadas; nunca dan acceso a otra empresa.
+        if (!await _db.Usuarios.AnyAsync(u => u.Id == userId && u.Activo, cancellationToken)
+            || !await rolesDirectos.AnyAsync(cancellationToken)
+            || !await _db.Roles.AnyAsync(r => r.Activo && rolesEfectivos.Contains(r.Id), cancellationToken))
             return Array.Empty<string>();
-        }
 
         var permisos = await (
-            from uer in _db.UsuarioEmpresaRoles
-            where uer.UsuarioId == userId && uer.EmpresaId == empresaId
-            join r in _db.Roles on uer.RolId equals r.Id
-            where r.Activo
+            from r in _db.Roles
+            where r.Activo && rolesEfectivos.Contains(r.Id)
             join rp in _db.RolPermisos on r.Id equals rp.RolId
             join p in _db.Permisos on rp.PermisoId equals p.Id
             select p.Codigo)
@@ -75,10 +71,6 @@ public sealed class PermissionLoader : IPermissionLoader
             select new { p.Codigo, o.Efecto })
             .ToListAsync(cancellationToken);
 
-        if (overrides.Count == 0)
-        {
-            return permisos;
-        }
 
         var efectivos = new HashSet<string>(permisos, StringComparer.Ordinal);
         foreach (var o in overrides.Where(o => o.Efecto == EfectoPermiso.Conceder))
@@ -90,6 +82,12 @@ public sealed class PermissionLoader : IPermissionLoader
             efectivos.Remove(o.Codigo); // Deny gana sobre Conceder.
         }
 
+        var esSuperAdmin = await _db.Roles.AnyAsync(r => r.Activo && r.Codigo == "super-admin" && rolesEfectivos.Contains(r.Id), cancellationToken);
+        if (!esSuperAdmin)
+        {
+            efectivos.Remove(PermisosCanonicos.AdminEmpresasCrear);
+            efectivos.Remove(PermisosCanonicos.AdminEmpresasDesactivar);
+        }
         return efectivos.ToList();
     }
 }

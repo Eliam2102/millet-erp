@@ -12,7 +12,13 @@ public sealed record ListarNotasCreditoQuery(
     Guid? ProveedorId = null,
     Guid? FacturaOrigenId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<NotaCreditoListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<NotaCreditoListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "nota_credito_proveedor";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record NotaCreditoListItemResponse(
     Guid Id,
@@ -52,7 +58,8 @@ public sealed class ListarNotasCreditoHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.NotasCreditoProveedor.AsNoTracking();
+        var q = _db.NotasCreditoProveedor.AsNoTracking()
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id));
         if (query.Estado is EstadoNotaCredito e) q = q.Where(n => n.Estado == e);
         if (query.ProveedorId is Guid p) q = q.Where(n => n.ProveedorId == p);
         if (query.FacturaOrigenId is Guid f) q = q.Where(n => n.FacturaOrigenId == f);

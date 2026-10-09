@@ -1,3 +1,4 @@
+import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import {
@@ -275,6 +276,7 @@ export function FacturaDetallePage() {
             </dl>
           </section>
 
+          <DocumentoAdjuntosSection base={`/api/v1/cuentas-por-pagar/facturas/${query.data.id}`} tipo="factura_proveedor" permiso="cuentas_por_pagar.facturas" />
           <section className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Líneas ({query.data.lineas.length})

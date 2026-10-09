@@ -1,4 +1,8 @@
 using MediatR;
+using Millet.Api.Web;
+using Millet.Compras.Infrastructure;
+using Millet.Administracion.Application.Abstractions;
+using Millet.SharedKernel.Application;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -24,10 +28,33 @@ public static class ArbolDocumentosEndpoint
         group.MapGet("/arbol-documentos", async (
             [FromQuery] TipoDocumentoTrazabilidad desde,
             [FromQuery] Guid id,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext user,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort sucursales,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            async Task VerificarNodoAsync(TipoDocumentoTrazabilidad tipo, Guid nodoId)
+            {
+                if (tipo == TipoDocumentoTrazabilidad.Requisicion)
+                    await RqSucursalScope.VerificarAsync(nodoId, scopeDb, user, permisos, sucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.OrdenCompra)
+                    await Oc.OcSucursalScope.VerificarAsync(nodoId, scopeDb, user, permisos, sucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.FacturaProveedor)
+                    await documentos.VerificarAsync("factura_proveedor", nodoId, PermisosCanonicos.CuentasPorPagarFacturasLeerTodasSucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.PagoProveedor)
+                    await documentos.VerificarAsync("pago_proveedor", nodoId, PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales, cancellationToken);
+            }
+            async Task VerificarArbolAsync(NodoArbolDocumento nodo)
+            {
+                await VerificarNodoAsync(nodo.TipoDocumento, nodo.Id);
+                foreach (var hijo in nodo.Ascendentes.Concat(nodo.Descendentes)) await VerificarArbolAsync(hijo);
+            }
+            await VerificarNodoAsync(desde, id);
             var arbol = await mediator.Send(new ObtenerArbolDocumentosQuery(desde, id), cancellationToken);
+            if (arbol is not null) await VerificarArbolAsync(arbol);
             return arbol is null ? Results.NotFound() : Results.Ok(arbol);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)

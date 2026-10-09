@@ -35,6 +35,7 @@ public static class CfdisEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/cfdis")
+            .WithDocumentoSucursalScope("cfdi_recibido", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 

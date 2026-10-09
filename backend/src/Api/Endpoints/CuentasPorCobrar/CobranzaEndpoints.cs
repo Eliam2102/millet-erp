@@ -45,8 +45,12 @@ public static class CobranzaEndpoints
         cobranza.MapPost("/", async (
             [FromBody] RegistrarSeguimientoCobranzaCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("cliente_cartera", command.ClienteId,
+                PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales, cancellationToken);
+
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-cobrar/cobranza/{response.Id}", response);
         })

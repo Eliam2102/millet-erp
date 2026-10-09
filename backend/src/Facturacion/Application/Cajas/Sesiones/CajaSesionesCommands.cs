@@ -270,14 +270,16 @@ public sealed class RegistrarCajaMovimientoHandler
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
     private readonly ISucursalesReadPort _sucursales;
+    private readonly ICatalogosSatReadPort _catalogos;
 
     public RegistrarCajaMovimientoHandler(
         FacturacionDbContext db,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
         IClock clock,
-        ISucursalesReadPort sucursales)
+        ISucursalesReadPort sucursales, ICatalogosSatReadPort catalogos)
     {
+        _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
         _user = user;
@@ -288,6 +290,7 @@ public sealed class RegistrarCajaMovimientoHandler
     public async Task<CajaMovimientoRegistradoResponse> Handle(
         RegistrarCajaMovimientoCommand command, CancellationToken cancellationToken)
     {
+        await FormaPagoActivaGuard.VerificarAsync(command.FormaPago, _catalogos, cancellationToken);
         var (empresaId, usuarioId) = ContextoRequerido.De(_empresa, _user);
 
         var sesion = await _db.CajaSesiones.AsNoTracking()

@@ -13,7 +13,11 @@ namespace Millet.Compras.Application.Oc.ListarRequisicionesDisponibles;
 /// obligatorio.
 /// </summary>
 public sealed record ListarRequisicionesDisponiblesQuery(
-    Guid SucursalId) : IRequest<IReadOnlyList<RequisicionDisponibleResponse>>;
+    Guid SucursalId) : IRequest<IReadOnlyList<RequisicionDisponibleResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "compras.requisiciones.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 /// <summary>
 /// DTO con el shape mínimo que el FE necesita para pintar el selector

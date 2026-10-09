@@ -38,7 +38,13 @@ public sealed record ReppPendientesQuery(
     bool SoloVencidos = false,
     bool IncluirSinMetodo = true,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<ReppPendienteResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<ReppPendienteResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "pasivo";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ReppPendientesHandler
     : IRequestHandler<ReppPendientesQuery, PagedResponse<ReppPendienteResponse>>
@@ -81,7 +87,8 @@ public sealed class ReppPendientesHandler
 
         var q = pagosPorFactura
             .Where(p => !_db.ReppsProveedorRecibidos.Any(r => r.FacturaProveedorId == p.FacturaProveedorId))
-            .Join(_db.PasivosPendientesPago.AsNoTracking(),
+            .Join(_db.PasivosPendientesPago
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking(),
                 p => p.FacturaProveedorId, pas => pas.FacturaProveedorId,
                 (p, pas) => new
                 {
