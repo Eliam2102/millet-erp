@@ -18,7 +18,7 @@ import { esApiError } from '@/lib/api';
 import { parseDateOnlyLocal } from '@/lib/datetime';
 import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-import type { OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
+import { EstadoOrdenCompra, type OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
 import { cn } from '@/lib/utils';
 
 /**
@@ -268,7 +268,7 @@ function FilaOc({
             params={{ id: oc.id }}
             data-action="ver-detalle"
           >
-            Ver detalle
+            {oc.estado === EstadoOrdenCompra.CancelacionSolicitada ? 'Confirmar / Rechazar cancelación' : 'Ver detalle'}
           </Link>
         </Button>
       </td>

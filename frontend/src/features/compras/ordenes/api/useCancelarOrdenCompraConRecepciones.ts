@@ -10,19 +10,7 @@ export interface CancelarOrdenCompraConRecepcionesMutationArgs {
   idempotencyKey: string;
 }
 
-/**
- * <c>useCancelarOrdenCompraConRecepciones()</c> — POST
- * <c>/{id}/cancelar-con-recepciones</c> (UF5-PR1, F5-PR4). Cancela una
- * OC con recepciones parciales o completas. Requiere los <b>3 permisos</b>
- * simultáneos en el usuario actual:
- * <c>compras.ordenes.cancelar-doble</c> +
- * <c>compras.ordenes.autorizar-nivel1</c> +
- * <c>compras.ordenes.autorizar-nivel2</c>.
- *
- * <para>Para cada línea con RQ asociada y saldo no recibido, libera la
- * cantidad no recibida al pool de la RQ origen vía
- * <c>LineaRqLiberadaEvent</c>.</para>
- */
+/** Registra la solicitud de cancelación (primera firma). */
 export function useCancelarOrdenCompraConRecepciones() {
   const queryClient = useQueryClient();
 

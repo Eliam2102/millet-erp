@@ -60,7 +60,7 @@ public sealed partial class DemoSesionSeedHostedService
                     }
                 }
                 var oc = new OrdenCompra(Id(clave), EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse(sucursal == "MID" ? "OC-DEMO2026-000101" : "OC-DEMO2026-000102"),
-                    2026, proveedor.Id, sucursales[sucursal].Id, condicion.Id, uso.Id, ActorId, ActorId,
+                    2026, proveedor.Id, sucursales[sucursal].Id, condicion.Id, uso.Id, CapturistaComprasDemoId, CapturistaComprasDemoId,
                     new DateOnly(2026, 10, 12), sinRequisicionPrevia: rq is null,
                     motivoSinRequisicion: rq is null ? "DEMO acceso restringido a MTY" : null, observaciones: clave);
                 oc.ActualizarReferenciaProveedor(clave);
@@ -77,12 +77,12 @@ public sealed partial class DemoSesionSeedHostedService
                     using var stream = new MemoryStream(bytes);
                     var url = await blob.SubirAsync(Id(nombre), stream, "application/pdf", nombre, ct);
                     archivos.Add(url);
-                    oc.AdjuntarDocumento(Id(nombre), tipo.Id, nombre, url, "application/pdf", bytes.Length, Fecha, ActorId);
+                    oc.AdjuntarDocumento(Id(nombre), tipo.Id, nombre, url, "application/pdf", bytes.Length, Fecha, CapturistaComprasDemoId);
                 }
                 oc.RecalcularImpuestos();
                 oc.EnviarAAutorizacion(Fecha);
-                oc.Autorizar(Id(clave + "/N1"), NivelAutorizacion.Nivel1, ActorId, Fecha, "DEMO autorización ficticia N1");
-                var autorizacion = oc.Autorizar(Id(clave + "/N2"), NivelAutorizacion.Nivel2, ActorId, Fecha, "DEMO autorización ficticia N2");
+                oc.Autorizar(Id(clave + "/N1"), NivelAutorizacion.Nivel1, JefeComprasDemoId, Fecha, "DEMO autorización ficticia N1");
+                var autorizacion = oc.Autorizar(Id(clave + "/N2"), NivelAutorizacion.Nivel2, DireccionDemoId, Fecha, "DEMO autorización ficticia N2");
                 db.OrdenesCompra.Add(oc);
                 // ADR-0009: el mapper encola el evento en el mismo contexto antes
                 // de guardar estado y Outbox. No disparar MatrizAprobacionSatisfecha:

@@ -13,7 +13,7 @@ namespace Millet.Compras.Domain.Oc;
 ///
 /// Invariantes:
 /// <list type="bullet">
-///   <item>Una <c>(OrdenCompra, Nivel, Resultado=Autorizado)</c> solo
+///   <item>Una <c>(OrdenCompra, Ciclo, Nivel, Resultado=Autorizado)</c> solo
 ///         puede tener una autorización exitosa (UNIQUE parcial en BD).
 ///         Rechazos múltiples permitidos.</item>
 ///   <item><see cref="ResultadoAutorizacionOc.Rechazado"/> requiere
@@ -39,6 +39,7 @@ public sealed class AutorizacionOC : BaseEntity, IAuditable, IBelongsToAggregate
     public Guid AggregateRootId => OrdenCompraId;
 
     public NivelAutorizacion Nivel { get; private set; }
+    public int Ciclo { get; private set; }
 
     public ResultadoAutorizacionOc Resultado { get; private set; }
 
@@ -66,10 +67,12 @@ public sealed class AutorizacionOC : BaseEntity, IAuditable, IBelongsToAggregate
         NivelAutorizacion nivel,
         Guid usuarioId,
         DateTimeOffset fechaHora,
+        int ciclo,
         string? notas = null) : base(id)
     {
         ValidarComunes(ordenCompraId, usuarioId, notas);
         OrdenCompraId = ordenCompraId;
+        Ciclo = ciclo;
         Nivel = nivel;
         Resultado = ResultadoAutorizacionOc.Autorizado;
         UsuarioId = usuarioId;
@@ -87,6 +90,7 @@ public sealed class AutorizacionOC : BaseEntity, IAuditable, IBelongsToAggregate
         NivelAutorizacion nivel,
         Guid usuarioId,
         DateTimeOffset fechaHora,
+        int ciclo,
         Guid motivoRechazoId,
         string? motivoRechazoTexto,
         string? notas) : base(id)
@@ -105,6 +109,7 @@ public sealed class AutorizacionOC : BaseEntity, IAuditable, IBelongsToAggregate
                 "El texto del motivo no puede exceder 500 caracteres.");
         }
         OrdenCompraId = ordenCompraId;
+        Ciclo = ciclo;
         Nivel = nivel;
         Resultado = ResultadoAutorizacionOc.Rechazado;
         UsuarioId = usuarioId;

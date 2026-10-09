@@ -96,9 +96,9 @@ describe('glosario de Compras', () => {
 });
 
 describe('glosario OC (UF0-PR1)', () => {
-  it('cubre los 7 estados del agregado OrdenCompra', () => {
+  it('cubre los 8 estados del agregado OrdenCompra, incluida la cancelación solicitada', () => {
     const estados = Object.keys(ESTADOS_OC);
-    expect(estados).toHaveLength(7);
+    expect(estados).toHaveLength(8);
     expect(estados).toEqual(
       expect.arrayContaining([
         'Borrador',
@@ -108,6 +108,7 @@ describe('glosario OC (UF0-PR1)', () => {
         'Cerrada',
         'Cancelada',
         'Rechazada',
+        'CancelacionSolicitada',
       ]),
     );
   });

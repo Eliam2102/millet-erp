@@ -11,6 +11,10 @@ internal static class RecepcionOcGuard
     {
         if (oc is null)
             throw new BusinessRuleException("RECEPCION_OC_NO_ENCONTRADA", "La orden de compra no existe; selecciona una orden autorizada.");
+        // P2: el lector devuelve el estado tal cual (P1); aquí se da el motivo específico de la cancelación en curso.
+        if (oc.Estado == "CancelacionSolicitada")
+            throw new BusinessRuleException("OC_CANCELACION_SOLICITADA",
+                "La orden de compra tiene una cancelación solicitada; Dirección debe resolverla antes de recibir mercancía.");
         if (oc.Estado != "Autorizada")
             throw new BusinessRuleException("RECEPCION_OC_NO_AUTORIZADA",
                 $"La orden de compra está {EstadoDocumentoTexto.Describir(oc.Estado)}; no se puede recibir contra ella.");

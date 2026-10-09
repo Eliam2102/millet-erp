@@ -61,7 +61,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
 
             // CHECK constraints de rango por convención de enums (espejo
             // de ck_requisiciones_estado / ck_requisiciones_prioridad).
-            t.HasCheckConstraint("ck_oc_estado", "estado BETWEEN 0 AND 6");
+            t.HasCheckConstraint("ck_oc_estado", "estado BETWEEN 0 AND 7");
             t.HasCheckConstraint("ck_oc_sub_recepcion", "sub_estado_recepcion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_facturacion", "sub_estado_facturacion BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_oc_sub_pago", "sub_estado_pago BETWEEN 0 AND 2");
@@ -107,6 +107,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
 
         builder.Property(o => o.FechaDocumento).IsRequired();
         builder.Property(o => o.FechaContabilizacion);
+        builder.Property(o => o.CicloAutorizacion).HasDefaultValue(1).IsRequired();
         builder.Property(o => o.FechaEntregaEsperada);
 
         builder.Property(o => o.Estado)
@@ -224,6 +225,10 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.Metadata
             .FindNavigation(nameof(OrdenCompra.Autorizaciones))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(o => o.SolicitudesCancelacion).WithOne()
+            .HasForeignKey(s => s.OrdenCompraId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.SolicitudesCancelacion).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // UNIQUE de §10.1: anti-colisión de folios por (empresa, sucursal).
         // El año va embebido en el VO Folio (formato OC-MID2026-000001).

@@ -16,7 +16,8 @@
     "Autorizada": 3,
     "Cerrada": 4,
     "Cancelada": 5,
-    "Rechazada": 6
+    "Rechazada": 6,
+    "CancelacionSolicitada": 7
   },
   "EstadoRequisicion": {
     "Borrador": 0,

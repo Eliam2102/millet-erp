@@ -74,6 +74,7 @@ function derivarPasos(estado: EstadoOrdenCompra): PasoInfo[] {
       return map('completo', 'actual', 'pendiente', 'pendiente');
     case EstadoOrdenCompra.EnAutorizacionDireccion:
       return map('completo', 'completo', 'actual', 'pendiente');
+    case EstadoOrdenCompra.CancelacionSolicitada:
     case EstadoOrdenCompra.Autorizada:
     case EstadoOrdenCompra.Cerrada:
       return map('completo', 'completo', 'completo', 'completo');
