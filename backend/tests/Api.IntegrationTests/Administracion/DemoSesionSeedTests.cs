@@ -9,6 +9,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Millet.Api.Seed;
+using Millet.Almacen.Application.Catalogo;
+using Millet.Almacen.Domain.Catalogo;
+using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain.Oc;
@@ -70,6 +73,31 @@ public sealed class DemoSesionSeedTests
                 using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
                 Assert.False(await identidad.Usuarios.AnyAsync(u => u.Email == "compras-demo@example.invalid"));
+                // Rack creado a mano con la misma clave, otro ID y otro nombre: se reutiliza.
+                var almacen = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+                var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+                var ocMid = await compras.OrdenesCompra.SingleAsync(o => o.Id == DemoSesionSeedHostedService.Id("DEMO-OC-MID"));
+                var subMid = await (from sub in almacen.SubAlmacenes
+                                    join al in almacen.Almacenes on sub.AlmacenId equals al.Id
+                                    where al.SucursalId == ocMid.SucursalDestinoId && sub.Clave == "INSUMOS"
+                                    select sub).SingleAsync();
+                var anterior = await almacen.Ubicaciones.SingleAsync(u => u.SubAlmacenId == subMid.Id && u.Clave == "R-01");
+                await almacen.AsignacionesArticuloUbicacion.Where(a => a.UbicacionId == anterior.Id).ExecuteDeleteAsync();
+                await almacen.SaldosInventario.Where(a => a.UbicacionId == anterior.Id).ExecuteDeleteAsync();
+                almacen.Ubicaciones.Remove(anterior);
+                await almacen.SaveChangesAsync();
+                var manual = new Ubicacion(Guid.NewGuid(), subMid.Id, "R-01", "Rack creado a mano");
+                almacen.Ubicaciones.Add(manual);
+                await almacen.SaveChangesAsync();
+                // Simula la referencia del seed anterior para verificar su reparación idempotente.
+                var rqAnterior = await compras.Requisiciones.SingleAsync(r => r.Id == DemoSesionSeedHostedService.Id("DEMO-RQ-MID"));
+                compras.Entry(rqAnterior).Property(r => r.RequisitanteId).CurrentValue = DemoSesionSeedHostedService.ActorId;
+                await compras.SaveChangesAsync();
+                await factory.Services.GetServices<IHostedService>().OfType<DemoSesionSeedHostedService>().Single().StartAsync(CancellationToken.None);
+                almacen.ChangeTracker.Clear();
+                Assert.Equal(manual.Id, (await almacen.Ubicaciones.SingleAsync(u => u.SubAlmacenId == subMid.Id && u.Clave == "R-01")).Id);
+                Assert.Equal("Rack creado a mano", (await almacen.Ubicaciones.SingleAsync(u => u.Id == manual.Id)).Nombre);
+                Assert.Equal(primera, await VerificarAsync(factory));
                 // Simula exclusivamente en el fixture la identidad que el usuario ya
                 // creó al iniciar sesión. El sembrador no inserta usuarios reales;
                 // sus tres identidades P2 están etiquetadas como DEMO.
@@ -249,6 +277,38 @@ public sealed class DemoSesionSeedTests
         var rq = await compras.Requisiciones.Include(r => r.Lineas).SingleAsync(r => r.Descripcion == "DEMO-RQ-MID");
         Assert.Equal(10m, Assert.Single(rq.Lineas).CantidadDeCompra);
         Assert.Equal(oc.Id, rq.ComprometidaEnOcId);
+        Assert.Equal(DemoSesionSeedHostedService.CapturistaComprasDemoId, rq.RequisitanteId);
+        var usuarioPort = scope.ServiceProvider.GetRequiredService<Millet.Compras.Domain.Ports.Identidad.IUsuarioReadPort>();
+        var nombres = await usuarioPort.ObtenerNombresAsync([rq.RequisitanteId], CancellationToken.None);
+        Assert.Equal("DEMO Capturista Compras", nombres[rq.RequisitanteId]);
+        var almacen = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        foreach (var orden in await compras.OrdenesCompra.Include(o => o.Lineas).ToListAsync())
+        {
+            var sub = await (from sa in almacen.SubAlmacenes
+                             join al in almacen.Almacenes on sa.AlmacenId equals al.Id
+                             where al.SucursalId == orden.SucursalDestinoId && sa.Clave == "INSUMOS"
+                             select sa).SingleAsync();
+            var rack = await almacen.Ubicaciones.SingleAsync(u => u.SubAlmacenId == sub.Id && u.Clave == "R-01");
+            Assert.False(rack.EsDefault);
+            Assert.Equal(EstatusCatalogo.Activo, rack.Estatus);
+            foreach (var linea in orden.Lineas)
+            {
+                var asignacion = Assert.Single(await almacen.AsignacionesArticuloUbicacion
+                    .Where(a => a.UbicacionId == rack.Id && a.ArticuloId == linea.ArticuloId).ToListAsync());
+                Assert.Equal(EstatusCatalogo.Activo, asignacion.Estatus);
+                // Es el mismo guard que aplica el handler real de recepción contra OC.
+                Assert.Equal(sub.Id, await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
+                    almacen, rack.Id, linea.ArticuloId, CancellationToken.None));
+                Assert.NotNull(await almacen.SaldosInventario.FindAsync(rack.Id, linea.ArticuloId));
+            }
+        }
+        Assert.Equal(2, await almacen.Ubicaciones.CountAsync(u => u.Clave == "R-01"));
+        Assert.Equal(2, await almacen.AsignacionesArticuloUbicacion.CountAsync());
+        var ocPort = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Domain.Ports.Compras.IComprasOcReadPort>();
+        var ocs = await compras.OrdenesCompra.ToListAsync();
+        var folios = await ocPort.ObtenerFoliosAsync(ocs.Select(o => o.Id).Append(Guid.NewGuid()).ToArray(), CancellationToken.None);
+        Assert.Equal(2, folios.Count);
+        Assert.All(ocs, o => Assert.Equal(o.Folio.Valor, folios[o.Id]));
         return new Snapshot(await maestros.Proveedores.CountAsync(p => p.Clave.StartsWith("DEMO-")),
             await maestros.Articulos.CountAsync(a => a.Clave.StartsWith("DEMO-")), await maestros.Clientes.CountAsync(c => c.Clave.StartsWith("DEMO-")),
             await maestros.Adjuntos.CountAsync(), await compras.OrdenesCompra.CountAsync(), await compras.Requisiciones.CountAsync(),

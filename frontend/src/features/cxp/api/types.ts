@@ -235,6 +235,7 @@ export interface FacturaListItem {
   moneda: string;
   estado: EstadoPasivo;
   ordenCompraId: string | null;
+  ordenCompraFolio?: string | null;
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
   proveedorNombre: string | null;
@@ -281,6 +282,7 @@ export interface FacturaDetalle {
   retenciones: number;
   total: number;
   ordenCompraId: string | null;
+  ordenCompraFolio?: string | null;
   estado: EstadoPasivo;
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;

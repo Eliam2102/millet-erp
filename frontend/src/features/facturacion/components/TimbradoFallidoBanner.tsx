@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from './ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -141,6 +142,7 @@ export function TimbradoFallidoBanner({
         {errorMensaje ? `: ${errorMensaje}` : null}
       </p>
 
+      <ErrorTimbradoAviso error={reintentar.error} />
       {puedeReintentar && (
         <>
           {esAmbiguo && (

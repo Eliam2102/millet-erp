@@ -81,7 +81,8 @@ describe('<FacturasPage> — smoke', () => {
           items: [
             {
               id: 'f-1',
-              proveedorId: 'p-1',
+              proveedorId: '11111111-1111-4111-8111-111111111111',
+              proveedorNombre: 'Proveedor DEMO',
               sucursalId: 's-1',
               folioProveedor: '999',
               serieProveedor: 'A',
@@ -91,7 +92,8 @@ describe('<FacturasPage> — smoke', () => {
               saldoPendiente: 1234.56,
               moneda: 'MXN',
               estado: EstadoPasivo.Capturada,
-              ordenCompraId: null,
+              ordenCompraId: '22222222-2222-4222-8222-222222222222',
+              ordenCompraFolio: 'OC-DEMO2026-000101',
               version: 1,
             },
           ],
@@ -106,6 +108,10 @@ describe('<FacturasPage> — smoke', () => {
       expect(screen.getByText(/A-999/i)).toBeInTheDocument(),
     );
     expect(screen.getByText(/^Capturada$/i)).toBeInTheDocument();
+    expect(screen.getByText('Proveedor DEMO')).toBeInTheDocument();
+    expect(screen.getByText('OC-DEMO2026-000101')).toBeInTheDocument();
+    expect(screen.queryByText('11111111…')).not.toBeInTheDocument();
+    expect(screen.queryByText('22222222…')).not.toBeInTheDocument();
   });
 
   it('axe-core: cero violations en estado vacío', async () => {

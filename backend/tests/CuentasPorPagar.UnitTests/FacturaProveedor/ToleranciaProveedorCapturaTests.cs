@@ -167,6 +167,9 @@ public sealed class ToleranciaProveedorCapturaTests
     {
         public OrdenCompraDto Oc => oc;
         public Task<OrdenCompraDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OrdenCompraDto?>(oc);
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(true && ids.Contains(oc.Id)
+                ? new Dictionary<Guid, string> { [oc.Id] = oc.Folio } : new Dictionary<Guid, string>());
         public Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(Guid id, CancellationToken ct) => Task.FromResult<IReadOnlyList<OrdenCompraDto>>([oc]);
     }
     private sealed class Reloj : IClock { public DateTimeOffset UtcNow => new(2026, 10, 8, 12, 0, 0, TimeSpan.Zero); }

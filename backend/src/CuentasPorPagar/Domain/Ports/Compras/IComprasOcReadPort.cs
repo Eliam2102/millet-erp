@@ -15,6 +15,9 @@ public interface IComprasOcReadPort
 {
     Task<OrdenCompraDto?> ObtenerAsync(Guid ordenCompraId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
+        IReadOnlyCollection<Guid> ordenCompraIds, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(
         Guid proveedorId,
         CancellationToken cancellationToken);

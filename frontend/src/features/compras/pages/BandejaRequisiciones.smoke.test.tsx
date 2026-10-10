@@ -116,7 +116,8 @@ describe('<BandejaRequisiciones> — smoke', () => {
               prioridad: Prioridad.Normal,
               sucursalId: 's-1',
               departamentoId: 'd-1',
-              requisitanteId: 'u-1',
+              requisitanteId: '11111111-1111-4111-8111-111111111111',
+              requisitanteNombre: 'DEMO Capturista Compras',
               descripcion: null,
               fechaSolicitud: '2026-05-09T10:00:00Z',
               fechaEntregaDeseada: null,
@@ -132,6 +133,8 @@ describe('<BandejaRequisiciones> — smoke', () => {
     await waitFor(() =>
       expect(screen.getByText('MID2026-000001')).toBeInTheDocument(),
     );
+    expect(screen.getByText('DEMO Capturista Compras')).toBeInTheDocument();
+    expect(screen.queryByText('11111111-1111-4111-8111-111111111111')).not.toBeInTheDocument();
   });
 
   it('muestra el badge "Sistema" solo en las RQ de origen Sistema', async () => {

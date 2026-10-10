@@ -29,6 +29,8 @@ internal sealed class P8Fixture : ICurrentEmpresaContext, IClock, IPeriodoContab
     public Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(ids.ToDictionary(id => id, _ => "Proveedor ficticio P8"));
     Task<Millet.CuentasPorPagar.Domain.Ports.Compras.OrdenCompraDto?> Millet.CuentasPorPagar.Domain.Ports.Compras.IComprasOcReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<Millet.CuentasPorPagar.Domain.Ports.Compras.OrdenCompraDto?>(null);
+    public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     public Task<IReadOnlyList<Millet.CuentasPorPagar.Domain.Ports.Compras.OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(Guid id, CancellationToken ct) => Task.FromResult<IReadOnlyList<Millet.CuentasPorPagar.Domain.Ports.Compras.OrdenCompraDto>>([]);
     public CuentasPorPagarDbContext Db { get; }
     public SaldosHistoricos Lector => new(Db, this, this, this, this);
