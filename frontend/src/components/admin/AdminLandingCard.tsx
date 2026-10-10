@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { Card } from '@/components/ui/card';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -8,7 +8,7 @@ import type { AdminSection } from '@/lib/admin/registry';
  * <c>/admin</c>. Reusa el patrón visual de
  * <c>&lt;AppLauncherCard/&gt;</c> (ADR-0032) para que el área de
  * Administración se sienta consistente con el shell de navegación: la
- * card entera es clickable y linkea a <see cref="AdminSection.href"/>.
+ * fila entera es clickable y linkea a <see cref="AdminSection.href"/>.
  *
  * <para>El gate por <c>permisoRequerido</c> se aplica en
  * <see cref="useAdminRegistry"/>; esta card asume que recibió un item
@@ -21,30 +21,21 @@ export interface AdminLandingCardProps {
 export function AdminLandingCard({ section }: AdminLandingCardProps) {
   const Icon = section.icon;
   return (
-    <Card
+    <Link
+      to={section.href}
       className={cn(
-        'transition-all hover:border-primary hover:shadow-md',
-        'focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30',
+        'grid grid-cols-[32px_1fr_12px] items-center gap-2.5 rounded-lg bg-surface-card px-3 py-2.5 shadow-card-flat transition-shadow',
+        'hover:ring-1 hover:ring-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
       )}
     >
-      <Link
-        to={section.href}
-        className="flex h-full flex-col gap-3 p-4 text-left"
-      >
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-foreground">
-              {section.titulo}
-            </div>
-            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-              {section.descripcion}
-            </div>
-          </div>
-        </div>
-      </Link>
-    </Card>
+      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-surface-selected text-brand">
+        <Icon size={18} strokeWidth={1.6} aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium text-ink">{section.titulo}</span>
+        <span className="block truncate text-xs text-ink-muted">{section.descripcion}</span>
+      </span>
+      <ChevronRight size={16} strokeWidth={1.6} aria-hidden="true" className="text-ink-subtle" />
+    </Link>
   );
 }

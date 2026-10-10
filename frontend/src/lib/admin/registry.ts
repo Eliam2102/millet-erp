@@ -30,6 +30,7 @@ export type AdminGrupo =
   | 'identidad'
   | 'organizacion'
   | 'catalogos'
+  | 'facturacion_reglas'
   | 'datos_maestros'
   | 'modulos';
 
