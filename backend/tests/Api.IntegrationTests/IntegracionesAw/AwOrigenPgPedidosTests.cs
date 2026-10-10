@@ -90,7 +90,7 @@ public class AwOrigenPgPedidosTests(WebApplicationFactory<Program> factory)
     [Fact]
     public async Task Ingiere_pedido_en_ERP_y_hace_write_back_en_la_copia_postgresql()
     {
-        await new AwOrigenPgTests(factory).SincronizarMastersParaPedidoAsync();
+        await new AwOrigenPgTests(factory).SincronizarMastersParaPedidoAsync(_cs);
         using var scope = factory.Services.CreateScope();
         var sp = scope.ServiceProvider;
         using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();

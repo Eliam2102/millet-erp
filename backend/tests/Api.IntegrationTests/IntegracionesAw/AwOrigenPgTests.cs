@@ -173,10 +173,14 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         });
     }
 
-    internal async Task SincronizarMastersParaPedidoAsync()
+    internal async Task SincronizarMastersParaPedidoAsync(string connectionString)
     {
-        await BarridoClientes(OrigenClientes(), OptsClientes());
-        await BarridoProductos(OrigenProductos(), OptsProductos());
+        // Esta instancia auxiliar no participa del ciclo IAsyncLifetime de xUnit.
+        var clientes = await BarridoClientes(OrigenClientes(cs: connectionString), OptsClientes());
+        clientes.Estado.Should().Be(AwClientesEjecucionEstado.Parcial);
+        clientes.Creados.Should().Be(Clientes - 1);
+        var productos = await BarridoProductos(OrigenProductos(cs: connectionString), OptsProductos());
+        productos.Creados.Should().Be(Productos - 2);
     }
 
     // ---------- lectura de clientes ----------

@@ -14,6 +14,7 @@ using Millet.Integraciones.Aw.Application.Ports;
 using Millet.Integraciones.Aw.Application.Workers;
 using Millet.Integraciones.Aw.Domain;
 using Millet.Integraciones.Aw.Infrastructure.Persistence;
+using Millet.Integraciones.Aw.Infrastructure.Origen;
 using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.IntegracionesAw;
@@ -373,19 +374,39 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
     }
 
     [Fact]
-    public async Task DI_real_Origen_Sql_sin_connection_string_no_registra_adaptador()
+    public async Task DI_real_Origen_Sql_sin_connection_string_falla_al_usar_y_explica_la_ejecucion()
     {
         await using var f = _factory.WithWebHostBuilder(b => {
             // UseSetting (no ConfigureAppConfiguration): Program lee la sección al construir el builder.
             b.UseSetting("IntegracionesAw:Clientes:Origen", "Sql");
             b.UseSetting("IntegracionesAw:Clientes:LecturaHabilitada", "true");
             b.UseSetting("IntegracionesAw:Clientes:AplicacionHabilitada", "true");
+            b.UseSetting("ConnectionStrings:AwClientesDb", "");
         });
+        // Este caso ejecuta el barrido directamente: evita una carrera con el worker del host de prueba.
+        await f.Services.GetRequiredService<AwClientesEjecucionDispatcher>().StopAsync(default);
         using var scope = f.Services.CreateScope();
-        Assert.Null(scope.ServiceProvider.GetService<IAwClientesOrigen>());
+        var origen = Assert.IsType<AwOrigenSelectores>(scope.ServiceProvider.GetRequiredService<IAwClientesOrigen>());
         var ex = await Assert.ThrowsAsync<AwClientesSyncException>(() =>
-            scope.ServiceProvider.GetRequiredService<AwClientesSincronizador>().ReintentarReferenciaAsync("1", "t", default));
+            origen.LeerPorReferenciaAsync("1", default));
         Assert.Equal("origen_sin_configurar", ex.Code);
+        Assert.Equal("Origen 'Sql' sin adaptador: falta ConnectionStrings:AwClientesDb.", ex.Message);
+
+        var sync = scope.ServiceProvider.GetRequiredService<AwClientesSincronizador>();
+        var db = scope.ServiceProvider.GetRequiredService<IntegracionesAwDbContext>();
+        var id = await sync.ReintentarReferenciaAsync("1", "t", default);
+        var ejecucion = await db.ClientesEjecuciones.AsNoTracking().SingleAsync(e => e.Id == id);
+        Assert.Equal(AwClientesEjecucionEstado.Fallida, ejecucion.Estado);
+        Assert.Equal("Sql", ejecucion.Origen);
+        Assert.Equal("origen_sin_configurar: " + ex.Message, ejecucion.ErrorGeneral);
+        Assert.Equal(0, ejecucion.Leidos);
+
+        var barridoId = await sync.IniciarBarridoAsync("t", default);
+        await sync.EjecutarAsync(barridoId, default);
+        var barrido = await db.ClientesEjecuciones.AsNoTracking().SingleAsync(e => e.Id == barridoId);
+        Assert.Equal(AwClientesEjecucionEstado.Fallida, barrido.Estado);
+        Assert.Equal("origen_sin_configurar: " + ex.Message, barrido.ErrorGeneral);
+        Assert.Equal(0, barrido.Leidos);
     }
 
     [Theory]

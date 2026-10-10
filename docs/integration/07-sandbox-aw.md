@@ -105,9 +105,15 @@ actor y diff de valor anterior/nuevo en la misma transacción. Repetir el valor 
 Los selectores son scoped y renuevan la selección al iniciar cada barrido, lectura por referencia y ciclo
 de solicitudes. Las páginas, masters y write-back de ese ciclo conservan el origen elegido, por lo que un
 cambio administrativo durante un ciclo aplica al siguiente. No se cachea en un singleton ni requiere reiniciar.
+El despachador de clientes también relee el origen activo por ciclo para ejecutar los barridos encolados
+como `Demo`; al volver a `Real` atiende los del modo configurado en el área (`Sql` o `Simulado`).
+La fábrica PostgreSQL consulta `AwOrigenPgDb` al crear cada conexión, aun si el adaptador ya estaba resuelto.
 Elegir `Demo` sin conexión resuelta produce 422: «La copia de demo de A+W no está configurada en este ambiente».
 Con el ambiente bloqueado produce 422: «El origen de demo no está permitido en este ambiente».
 No existe fallback silencioso.
+En `Real` con clientes `Sql` sin cadena, usar el selector falla con
+«Origen 'Sql' sin adaptador: falta ConnectionStrings:AwClientesDb.»; el barrido o reintento queda
+`Fallida` con esa explicación, sin leer de otro origen.
 
 Las reglas fiscales de productos por `BA_PRODUKTART` se reutilizan de la rama de Geovany
 (VID80000–VID80003) y se aplican en ambos orígenes; solo completan campos vacíos. RFC/CP de clientes

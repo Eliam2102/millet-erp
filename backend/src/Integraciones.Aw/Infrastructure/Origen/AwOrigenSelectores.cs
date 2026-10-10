@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Application.Pedidos;
@@ -15,8 +16,12 @@ public sealed class AwOrigenSelectores(IServiceProvider services, AwOrigenSesion
     private async Task<T> ResolverAsync<T>(CancellationToken ct) where T : class
     {
         var key = await sesion.EsDemoAsync(ct) ? "Demo" : "Real";
-        return services.GetKeyedService<T>(key)
-            ?? throw new BusinessRuleException("AW_ORIGEN_SIN_CONFIGURAR",
+        var adaptador = services.GetKeyedService<T>(key);
+        if (adaptador is not null) return adaptador;
+        if (key == "Real" && typeof(T) == typeof(IAwClientesOrigen))
+            throw new AwClientesSyncException("origen_sin_configurar",
+                $"Origen '{services.GetRequiredService<IOptions<AwClientesOptions>>().Value.Origen}' sin adaptador: falta ConnectionStrings:{AwClientesOptions.ConnectionStringName}.");
+        throw new BusinessRuleException("AW_ORIGEN_SIN_CONFIGURAR",
                 "El origen real de A+W no tiene adaptador configurado para esta operación. Revise la configuración del área.");
     }
 

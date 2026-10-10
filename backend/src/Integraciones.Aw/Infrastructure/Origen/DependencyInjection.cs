@@ -9,7 +9,6 @@ using Millet.Integraciones.Aw.Application.Pedidos;
 using Millet.Integraciones.Aw.Application.Origen;
 using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
-using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Origen;
 
@@ -32,13 +31,7 @@ public static class OrigenDependencyInjection
         services.AddOptions<AwPedidosOptions>().Bind(configuration.GetSection(AwPedidosOptions.SectionName));
         services.AddScoped<ISucursalPorClaveAwResolver, SucursalPorClaveAwResolver>();
         services.AddScoped<ICanalVentaPorClaveAwResolver, CanalVentaPorClaveAwResolver>();
-        services.AddKeyedScoped<IIntegracionSqlConnectionFactory>("Demo", (_, _) =>
-        {
-            var cs = configuration.GetConnectionString(AwOrigenPg.ConnectionStringName);
-            if (string.IsNullOrWhiteSpace(cs) || cs.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
-                throw new BusinessRuleException("AW_DEMO_NO_CONFIGURADA", "La copia de demo de A+W no está configurada en este ambiente");
-            return new AwOrigenPg.Fabrica(cs);
-        });
+        services.AddKeyedScoped<IIntegracionSqlConnectionFactory>("Demo", (_, _) => new AwOrigenPg.Fabrica(configuration));
         services.AddKeyedScoped<IAwClientesOrigen>("Demo", (sp, _) => new AwClientesPgOrigen(
             sp.GetRequiredKeyedService<IIntegracionSqlConnectionFactory>("Demo"), sp.GetRequiredService<IOptions<AwClientesOptions>>(),
             sp.GetRequiredService<ILogger<AwClientesPgOrigen>>()));

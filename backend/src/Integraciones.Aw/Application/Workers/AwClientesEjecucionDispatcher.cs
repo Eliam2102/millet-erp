@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Integraciones.Aw.Application.Clientes;
+using Millet.Integraciones.Aw.Application.Origen;
 using Millet.Integraciones.Aw.Domain;
 using Millet.Integraciones.Aw.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
@@ -83,7 +84,9 @@ public sealed class AwClientesEjecucionDispatcher : BackgroundService
         using (var scope = _scopeFactory.CreateScope())
         using (scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass())
         {
-            var origen = _options.Origen.ToString();
+            var activo = scope.ServiceProvider.GetService<IAwOrigenActivo>();
+            var estado = activo is null ? null : await activo.LeerAsync(ct);
+            var origen = estado?.Origen == "Demo" ? "Demo" : _options.Origen.ToString();
             ids = await scope.ServiceProvider.GetRequiredService<IntegracionesAwDbContext>().ClientesEjecuciones
                 .Where(e => e.Origen == origen && e.Tipo == AwClientesEjecucionTipo.Barrido
                     && (e.Estado == AwClientesEjecucionEstado.Pendiente || e.Estado == AwClientesEjecucionEstado.EnCurso))

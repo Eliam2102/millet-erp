@@ -8,6 +8,7 @@ using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Domain;
 using Millet.Integraciones.Aw.Domain;
 using Millet.Integraciones.Aw.Infrastructure.Persistence;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Aw.Application.Clientes;
 
@@ -100,7 +101,7 @@ public sealed class AwClientesSincronizador
             {
                 // Error de lectura del origen (conexión/esquema/timeout): la ejecución falla; lo ya aplicado queda.
                 _logger.LogError("Barrido de clientes {EjecucionId} falló leyendo el origen ({Tipo}).", ejec.Id, ex.GetType().Name);
-                ejec.Fallar($"lectura_origen_fallida ({ex.GetType().Name})", _time.GetUtcNow());
+                ejec.Fallar(DescribirErrorOrigen(ex), _time.GetUtcNow());
                 await _db.SaveChangesAsync(CancellationToken.None);
                 return;
             }
@@ -154,7 +155,7 @@ public sealed class AwClientesSincronizador
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError("Reintento de cliente {Referencia} falló leyendo el origen ({Tipo}).", referencia, ex.GetType().Name);
-            ejec.Fallar($"lectura_origen_fallida ({ex.GetType().Name})", _time.GetUtcNow());
+            ejec.Fallar(DescribirErrorOrigen(ex), _time.GetUtcNow());
             await _db.SaveChangesAsync(CancellationToken.None);
             return ejec.Id;
         }
@@ -229,7 +230,15 @@ public sealed class AwClientesSincronizador
         return "Demo";
     }
 
-    // Origen=Sql sin connection string no registra el adaptador: error claro en vez de fallar en DI.
+    // Solo mensajes de configuración controlados; nunca exponer mensajes de proveedores/credenciales.
+    private static string DescribirErrorOrigen(Exception ex) => ex switch
+    {
+        AwClientesSyncException { Code: "origen_sin_configurar" } => $"origen_sin_configurar: {ex.Message}",
+        BusinessRuleException { Code: "AW_DEMO_NO_CONFIGURADA" or "AW_DEMO_NO_PERMITIDO" } => ex.Message,
+        _ => $"lectura_origen_fallida ({ex.GetType().Name})",
+    };
+
+    // Compatible con consumidores sin selector; el selector rechaza al usar un Real no configurado.
     private IAwClientesOrigen ObtenerOrigen() =>
         _sp.GetService<IAwClientesOrigen>()
         ?? throw new AwClientesSyncException("origen_sin_configurar",

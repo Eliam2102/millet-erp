@@ -1,5 +1,7 @@
 using System.Data.Common;
+using Microsoft.Extensions.Configuration;
 using Millet.Integraciones.Aw.Infrastructure.Pedidos;
+using Millet.SharedKernel.Application.Exceptions;
 using Npgsql;
 
 namespace Millet.Integraciones.Aw.Infrastructure.OrigenPg;
@@ -15,8 +17,22 @@ public static class AwOrigenPg
 {
     public const string ConnectionStringName = "AwOrigenPgDb";
 
-    public sealed class Fabrica(string connectionString) : IIntegracionSqlConnectionFactory
+    public sealed class Fabrica : IIntegracionSqlConnectionFactory
     {
-        public DbConnection CreateConnection() => new NpgsqlConnection(connectionString);
+        private readonly Func<string?> _leerCadena;
+
+        public Fabrica(string connectionString) => _leerCadena = () => connectionString;
+
+        // La configuración se consulta al usar la conexión, incluso si el adaptador ya fue resuelto.
+        public Fabrica(IConfiguration configuration) =>
+            _leerCadena = () => configuration.GetConnectionString(ConnectionStringName);
+
+        public DbConnection CreateConnection()
+        {
+            var cs = _leerCadena();
+            if (string.IsNullOrWhiteSpace(cs) || cs.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException("AW_DEMO_NO_CONFIGURADA", "La copia de demo de A+W no está configurada en este ambiente");
+            return new NpgsqlConnection(cs);
+        }
     }
 }
