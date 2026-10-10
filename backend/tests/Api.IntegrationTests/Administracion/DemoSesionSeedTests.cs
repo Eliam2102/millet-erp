@@ -34,9 +34,6 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// No deja proveedores, artículos, usuarios ni periodos en los catálogos compartidos
 /// con las otras suites. La base y los blobs se eliminan incluso si falla un assert.
 /// </summary>
-// La sesión DEMO siembra equivalencias de centro de costo (ADM08) que persisten en la base compartida y
-// cambian el resultado de LineasEndpointsTests si corren antes: esta clase corre sola, después de las demás.
-[Collection(Millet.Api.IntegrationTests.CentrosCosto.ADM08SinParalelo.Nombre)]
 public sealed class DemoSesionSeedTests
 {
     [Fact]
