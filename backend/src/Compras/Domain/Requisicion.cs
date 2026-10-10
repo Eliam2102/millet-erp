@@ -58,6 +58,17 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// </summary>
     public Guid CreadorId { get; private set; }
 
+    public string? Obra { get; private set; }
+
+    public void AsignarObra(string? obra)
+    {
+        if (Estado != EstadoRequisicion.Borrador)
+            throw new BusinessRuleException("RQ_OBRA_CONGELADA", "La obra no puede cambiar después de transmitir la requisición.");
+        if (obra?.Trim().Length > 120)
+            throw new BusinessRuleException("RQ_OBRA_INVALIDA", "La obra admite máximo 120 caracteres.");
+        Obra = string.IsNullOrWhiteSpace(obra) ? null : obra.Trim();
+    }
+
     public string? Descripcion { get; private set; }
 
     public Prioridad Prioridad { get; private set; }

@@ -322,36 +322,6 @@ public sealed class NoOpConceptoContableReadPort : IConceptoContableReadPort
 }
 
 /// <summary>
-/// PLATFORM-TODO(&lt;PeriodoContableReadAdapter&gt;): adapter real cuando
-/// exista el módulo Finanzas con calendario fiscal central. Reemplaza
-/// este stub al cablear el wiring real.
-///
-/// <para>
-/// Comportamiento del stub: siempre retorna <c>true</c> (periodo abierto).
-/// Esto preserva la operación durante el desarrollo y permite que
-/// <c>almacen.periodos_cerrados</c> (F8-PR2) sea la fuente de verdad
-/// local hasta que Finanzas exista.
-/// </para>
-/// </summary>
-public sealed class NoOpPeriodoContableReadPort : IPeriodoContableReadPort
-{
-    private readonly ILogger<NoOpPeriodoContableReadPort> _logger;
-
-    public NoOpPeriodoContableReadPort(ILogger<NoOpPeriodoContableReadPort> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken cancellationToken)
-    {
-        _logger.LogDebug(
-            "[NoOpPeriodoContableReadPort] {Anio}/{Mes:00} → abierto (stub F0-PR1)",
-            año, mes);
-        return Task.FromResult(true);
-    }
-}
-
-/// <summary>
 /// PLATFORM-TODO(&lt;UsuarioReadAdapter&gt;): adapter real consultando
 /// <c>identidad.usuarios</c> en <c>IdentidadDbContext</c>. El adapter real vive
 /// en <c>Identidad.Infrastructure.PublicAdapters</c> (el owner, porque Almacén

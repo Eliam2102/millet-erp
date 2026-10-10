@@ -3,18 +3,24 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Identidad;
 
 /// <summary>
-/// Tests integration del seed de los 7 roles MVP creados por
+/// Tests integration del seed de los 9 roles MVP creados por
 /// <c>BootstrapSuperAdminHostedService.EnsureRolesMvpAsync</c>
-/// (F-Admin-PR3.3, A2 cerrada 2026-05-13). El hosted service corre
+/// (F-Admin-PR3.3, A2 cerrada 2026-05-13; G1.9 / F1-ADM-05). El hosted service corre
 /// al startup de la app y crea los roles idempotentemente.
 ///
 /// <para>
 /// La verificación se hace via el endpoint <c>GET /api/v1/identidad/roles</c>
-/// del PR3.2 — si la lista incluye los 7 codigos esperados, el seed
+/// del PR3.2 — si la lista incluye los 9 codigos esperados, el seed
 /// funcionó.
 /// </para>
 /// </summary>
@@ -31,6 +37,8 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
         "admin-datos-maestros",
         "auditor",
         "admin-compras",
+        "cxp",
+        "tesoreria",
     ];
 
     private readonly WebApplicationFactory<Program> _factory;
@@ -41,15 +49,12 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
-    public async Task Bootstrap_Should_Seed_Seven_RolesMvp()
+    public async Task Bootstrap_Should_Seed_Nine_RolesMvp()
     {
         var client = await CreateSuperAdminClientAsync();
 
-        var response = await client.GetAsync("/api/v1/identidad/roles?limit=100");
-        response.EnsureSuccessStatusCode();
-
-        var body = await ReadJsonAsync(response);
-        var codigos = body.GetProperty("items").EnumerateArray()
+        var roles = await ListarTodosLosRolesAsync(client);
+        var codigos = roles
             .Select(r => r.GetProperty("codigo").GetString())
             .Where(c => c is not null)
             .ToHashSet();
@@ -65,17 +70,12 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
     {
         var client = await CreateSuperAdminClientAsync();
 
-        var response = await client.GetAsync("/api/v1/identidad/roles?limit=100");
-        response.EnsureSuccessStatusCode();
-        var body = await ReadJsonAsync(response);
-
-        foreach (var rolJson in body.GetProperty("items").EnumerateArray())
+        var roles = await ListarTodosLosRolesAsync(client);
+        foreach (var esperado in CodigosEsperados)
         {
-            var codigo = rolJson.GetProperty("codigo").GetString();
-            if (codigo is null || !CodigosEsperados.Contains(codigo)) continue;
-
+            var rolJson = roles.Single(r => r.GetProperty("codigo").GetString() == esperado);
             var esDelSistema = rolJson.GetProperty("esDelSistema").GetBoolean();
-            Assert.True(esDelSistema, $"El rol '{codigo}' debe tener EsDelSistema=true.");
+            Assert.True(esDelSistema, $"El rol '{esperado}' debe tener EsDelSistema=true.");
         }
     }
 
@@ -151,14 +151,146 @@ public class BootstrapRolesMvpTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains(Guid.Parse("00000004-0012-0000-0000-000000000001"), datosMaestrosPermisoIds); // datos_maestros.productos-aw.gestionar
     }
 
+    [Fact]
+    public async Task RolesCxpYTesoreria_Should_Tener_Permisos_Bancarios_Esperados()
+    {
+        var client = await CreateSuperAdminClientAsync();
+
+        var bancariosVerId = Guid.Parse("00000004-0009-0000-0000-000000000002");
+        var bancariosEditarId = Guid.Parse("00000004-0009-0000-0000-000000000003");
+        var proveedoresGestionarId = Guid.Parse("00000004-0009-0000-0000-000000000001");
+        var validarId = Guid.Parse("00000004-0009-0000-0000-000000000007");
+        var catalogosAdministrarId = Guid.Parse("00000004-0002-0000-0000-000000000001");
+
+        // cxp: bancarios-ver, validar, gestionar; NO bancarios-editar ni catalogos.administrar
+        var cxpId = await GetRolIdByCodigoAsync(client, "cxp");
+        var cxpDetalle = await GetDetalleAsync(client, cxpId);
+        var cxpPermisoIds = cxpDetalle.GetProperty("permisoIds")
+            .EnumerateArray()
+            .Select(g => g.GetGuid())
+            .ToHashSet();
+
+        Assert.Contains(bancariosVerId, cxpPermisoIds);
+        Assert.Contains(validarId, cxpPermisoIds);
+        Assert.Contains(Guid.Parse("00000004-0009-0000-0000-000000000008"), cxpPermisoIds);
+        Assert.Contains(proveedoresGestionarId, cxpPermisoIds);
+        Assert.DoesNotContain(bancariosEditarId, cxpPermisoIds);
+        Assert.DoesNotContain(catalogosAdministrarId, cxpPermisoIds);
+
+        // tesoreria: bancarios-ver, bancarios-editar, gestionar; NO catalogos.administrar ni validar
+        var tesoreriaId = await GetRolIdByCodigoAsync(client, "tesoreria");
+        var tesoreriaDetalle = await GetDetalleAsync(client, tesoreriaId);
+        var tesoreriaPermisoIds = tesoreriaDetalle.GetProperty("permisoIds")
+            .EnumerateArray()
+            .Select(g => g.GetGuid())
+            .ToHashSet();
+
+        Assert.Contains(bancariosVerId, tesoreriaPermisoIds);
+        Assert.Contains(bancariosEditarId, tesoreriaPermisoIds);
+        Assert.Contains(proveedoresGestionarId, tesoreriaPermisoIds);
+        Assert.DoesNotContain(catalogosAdministrarId, tesoreriaPermisoIds);
+        Assert.DoesNotContain(validarId, tesoreriaPermisoIds);
+        Assert.DoesNotContain(Guid.Parse("00000004-0009-0000-0000-000000000008"), tesoreriaPermisoIds);
+
+        // admin-datos-maestros: contiene bancarios-ver y NO bancarios-editar (H5 / V44)
+        var datosMaestrosId = await GetRolIdByCodigoAsync(client, "admin-datos-maestros");
+        var datosMaestrosDetalle = await GetDetalleAsync(client, datosMaestrosId);
+        var datosMaestrosPermisoIds = datosMaestrosDetalle.GetProperty("permisoIds")
+            .EnumerateArray()
+            .Select(g => g.GetGuid())
+            .ToHashSet();
+
+        Assert.Contains(bancariosVerId, datosMaestrosPermisoIds);
+        Assert.DoesNotContain(bancariosEditarId, datosMaestrosPermisoIds);
+        Assert.DoesNotContain(Guid.Parse("00000004-0009-0000-0000-000000000008"), datosMaestrosPermisoIds);
+    }
+
+    [Fact]
+    public async Task Bootstrap_SegundaEjecucion_NoDuplica_Roles_Ni_Permisos_De_Cxp_Y_Tesoreria()
+    {
+        // Fuerza el arranque del host (corre el bootstrap la primera vez).
+        _ = await CreateSuperAdminClientAsync();
+
+        async Task<(int Roles, int Permisos)> ContarAsync()
+        {
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var codigos = new[] { "cxp", "tesoreria", "admin-datos-maestros" };
+            var roles = await db.Roles.AsNoTracking().Where(r => codigos.Contains(r.Codigo)).ToListAsync();
+            var rolIds = roles.Select(r => r.Id).ToList();
+            var permisos = await db.RolPermisos.AsNoTracking().CountAsync(rp => rolIds.Contains(rp.RolId));
+            return (roles.Count, permisos);
+        }
+
+        var antes = await ContarAsync();
+        Assert.Equal(3, antes.Roles);
+
+        var bootstrap = _factory.Services.GetServices<IHostedService>()
+            .OfType<BootstrapSuperAdminHostedService>().Single();
+        await bootstrap.StartAsync(CancellationToken.None);
+
+        var despues = await ContarAsync();
+        Assert.Equal(antes, despues);
+    }
+
     private static async Task<Guid> GetRolIdByCodigoAsync(HttpClient client, string codigo)
     {
-        var response = await client.GetAsync("/api/v1/identidad/roles?limit=100");
-        response.EnsureSuccessStatusCode();
-        var body = await ReadJsonAsync(response);
-        var rol = body.GetProperty("items").EnumerateArray()
-            .First(r => r.GetProperty("codigo").GetString() == codigo);
+        var roles = await ListarTodosLosRolesAsync(client);
+        var rol = roles.Single(r => r.GetProperty("codigo").GetString() == codigo);
         return rol.GetProperty("id").GetGuid();
+    }
+
+    private static async Task<IReadOnlyList<JsonElement>> ListarTodosLosRolesAsync(HttpClient client)
+    {
+        // El endpoint es paginado: los roles temporales de otras suites no deben ocultar el seed.
+        var roles = new List<JsonElement>();
+        int total;
+        do
+        {
+            using var response = await client.GetAsync($"/api/v1/identidad/roles?offset={roles.Count}&limit=100");
+            response.EnsureSuccessStatusCode();
+            var body = await ReadJsonAsync(response);
+            var pagina = body.GetProperty("items").EnumerateArray().Select(r => r.Clone()).ToArray();
+            total = body.GetProperty("total").GetInt32();
+            if (roles.Count < total) Assert.NotEmpty(pagina);
+            roles.AddRange(pagina);
+        } while (roles.Count < total);
+        Assert.Equal(total, roles.Count);
+        return roles;
+    }
+
+    [Fact]
+    public async Task Roles_del_sistema_y_permisos_bancarios_se_verifican_mas_alla_de_la_primera_pagina()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var prefijo = $"aaa-p6-pagina-{Guid.NewGuid():N}";
+        var rolesTemporales = Enumerable.Range(0, 101)
+            .Select(i => new Rol(Guid.CreateVersion7(), $"{prefijo}-{i:D3}", "Rol ficticio para paginación P6")).ToArray();
+        var ids = rolesTemporales.Select(r => r.Id).ToArray();
+        try
+        {
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+                db.Roles.AddRange(rolesTemporales);
+                await db.SaveChangesAsync();
+            }
+            using var primeraPagina = await client.GetAsync("/api/v1/identidad/roles?limit=100");
+            primeraPagina.EnsureSuccessStatusCode();
+            var body = await ReadJsonAsync(primeraPagina);
+            Assert.DoesNotContain(body.GetProperty("items").EnumerateArray(),
+                r => r.GetProperty("codigo").GetString() == "super-admin");
+            await Bootstrap_Should_Seed_Nine_RolesMvp();
+            await RolesMvp_Should_Be_EsDelSistema();
+            await RolesCxpYTesoreria_Should_Tener_Permisos_Bancarios_Esperados();
+        }
+        finally
+        {
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            await db.Roles.Where(r => ids.Contains(r.Id)).ExecuteDeleteAsync();
+        }
     }
 
     private static async Task<JsonElement> GetDetalleAsync(HttpClient client, Guid rolId)

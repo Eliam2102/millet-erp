@@ -21,11 +21,9 @@ namespace Millet.Administracion.Domain;
 /// </para>
 ///
 /// <para>
-/// La unicidad efectiva por <c>(EmpresaId, SucursalId?, TipoDocumento,
-/// Prefijo, Sufijo)</c> está garantizada por un índice único en la
-/// configuración EF Core; el <c>NULL</c> de SucursalId se normaliza a
-/// <c>Guid.Empty</c> para que el índice único PostgreSQL no descarte
-/// duplicados (los NULLs no chocan por default).
+/// La detección actual de duplicados por <c>(EmpresaId, SucursalId?,
+/// TipoDocumento, Prefijo, Sufijo)</c> vive en el handler de alta. La regla
+/// de unicidad activa en base de datos depende de la decisión fiscal P02.
 /// </para>
 ///
 /// PLATFORM-TODO(&lt;SeriesSchemaMigrate&gt;): Fase A guarda las tablas
@@ -35,14 +33,16 @@ namespace Millet.Administracion.Domain;
 /// propio DbContext y schema) hace migración aditiva renombrando a
 /// <c>admin.*</c>.
 /// </summary>
-public sealed class Serie : BaseEntity, IAuditable
+public sealed class Serie : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
-    public Guid EmpresaId { get; private set; }
+    public Guid EmpresaId { get; set; }
     public Guid? SucursalId { get; private set; }
     public TipoDocumentoSerie TipoDocumento { get; private set; }
     public string Prefijo { get; private set; } = string.Empty;
     public string? Sufijo { get; private set; }
     public ReinicioPeriodo ReinicioPeriodo { get; private set; }
+    public long FolioInicial { get; private set; } = 1;
+    public static bool EsFiscal(TipoDocumentoSerie tipo) => tipo is TipoDocumentoSerie.Cfdi or TipoDocumentoSerie.NotaCredito or TipoDocumentoSerie.FacturaAnticipo;
     public bool Activa { get; private set; } = true;
 
     private Serie() { } // EF Core
@@ -54,13 +54,19 @@ public sealed class Serie : BaseEntity, IAuditable
         TipoDocumentoSerie tipoDocumento,
         string prefijo,
         string? sufijo,
-        ReinicioPeriodo reinicioPeriodo) : base(id)
+        ReinicioPeriodo reinicioPeriodo,
+        long folioInicial = 1) : base(id)
     {
         if (id == Guid.Empty)
             throw new BusinessRuleException("SERIE_ID_INVALIDO", "El id es obligatorio.");
         if (empresaId == Guid.Empty)
             throw new BusinessRuleException("SERIE_EMPRESA_INVALIDA",
                 "EmpresaId es obligatorio.");
+        if (folioInicial < 1 || folioInicial == long.MaxValue)
+            throw new BusinessRuleException("SERIE_FOLIO_INICIAL_INVALIDO", "El folio inicial debe ser positivo y permitir la siguiente reserva.");
+        if (EsFiscal(tipoDocumento) && reinicioPeriodo != ReinicioPeriodo.None)
+            throw new BusinessRuleException("SERIE_FISCAL_SIN_REINICIO", "Las series fiscales mantienen continuidad sin reinicio de periodo.");
+        FolioInicial = folioInicial;
         ValidarPrefijo(prefijo);
         ValidarSufijo(sufijo);
 

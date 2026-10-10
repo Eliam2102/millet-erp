@@ -12,3 +12,4 @@ FacturacionDbContext|src/Facturacion/Millet.Facturacion.csproj
 CuentasPorCobrarDbContext|src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj
 TesoreriaDbContext|src/Tesoreria/Millet.Tesoreria.csproj
 CentrosCostoDbContext|src/CentrosCosto/Millet.CentrosCosto.csproj
+ContabilidadDbContext|src/Contabilidad/Millet.Contabilidad.csproj

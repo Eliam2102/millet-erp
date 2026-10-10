@@ -361,7 +361,13 @@ public sealed record ListarEstadosCuentaTcQuery(
     Guid? TarjetaId = null,
     EstadoCuentaTcStatus? Estado = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<EstadoCuentaTcResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<EstadoCuentaTcResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "estado_cuenta_tc";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarEstadosCuentaTcHandler
     : IRequestHandler<ListarEstadosCuentaTcQuery, PagedResponse<EstadoCuentaTcResponse>>
@@ -375,7 +381,7 @@ public sealed class ListarEstadosCuentaTcHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        IQueryable<EstadoCuentaTc> q = _db.EstadosCuentaTc.AsNoTracking()
+        IQueryable<EstadoCuentaTc> q = _db.EstadosCuentaTc.Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Include(e => e.Lineas);
         if (query.TarjetaId is Guid t) q = q.Where(e => e.TarjetaId == t);
         if (query.Estado is EstadoCuentaTcStatus s) q = q.Where(e => e.Estado == s);

@@ -14,7 +14,9 @@ public sealed record ProveedorBancoDto(
     string RazonSocial,
     string? Banco,
     string? Clabe,
-    string? Beneficiario);
+    string? Beneficiario,
+    bool Activo = true,
+    bool EnRevision = false, string? Rfc = null);
 
 /// <summary>
 /// Puerto de lectura del master de proveedores de DatosMaestros

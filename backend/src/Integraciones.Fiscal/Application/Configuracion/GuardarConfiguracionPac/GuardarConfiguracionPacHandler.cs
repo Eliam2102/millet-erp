@@ -6,6 +6,7 @@ using Millet.Integraciones.Fiscal.Domain.Ports;
 using Millet.Integraciones.Fiscal.Infrastructure.Cifrado;
 using Millet.Integraciones.Fiscal.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Fiscal.Application.Configuracion.GuardarConfiguracionPac;
 
@@ -32,6 +33,7 @@ public sealed class GuardarConfiguracionPacHandler
     private readonly IConfiguracionPacResolver _resolver;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IClock _clock;
+    private readonly IPacCandidatoProbe _probe;
 
     public GuardarConfiguracionPacHandler(
         IntegracionesFiscalDbContext db,
@@ -39,7 +41,8 @@ public sealed class GuardarConfiguracionPacHandler
         IIntegrationEventPublisher publisher,
         IConfiguracionPacResolver resolver,
         ICurrentEmpresaContext currentEmpresa,
-        IClock clock)
+        IClock clock,
+        IPacCandidatoProbe probe)
     {
         _db = db;
         _cipher = cipher;
@@ -47,6 +50,7 @@ public sealed class GuardarConfiguracionPacHandler
         _resolver = resolver;
         _currentEmpresa = currentEmpresa;
         _clock = clock;
+        _probe = probe;
     }
 
     public async Task<ConfiguracionPacResponse> Handle(
@@ -64,6 +68,8 @@ public sealed class GuardarConfiguracionPacHandler
                 nameof(ConfiguracionPac), empresaActual, command.EmpresaId);
         }
 
+        if (command.Proveedor != ProveedorPac.FiscalApi)
+            throw new BusinessRuleException("CONFIG_PAC_PROVEEDOR_INVALIDO", "Solo FiscalAPI está habilitado.");
         var ahora = _clock.UtcNow;
 
         var existente = await _db.ConfiguracionesPac
@@ -98,12 +104,15 @@ public sealed class GuardarConfiguracionPacHandler
 
             if (!command.Activo) config.Desactivar();
 
-            _db.ConfiguracionesPac.Add(config);
+
             rotacion = true; // alta = rotación inicial
         }
         else
         {
-            config = existente;
+            config = existente.CopiarCandidato();
+
+            if (command.VersionEsperada != config.Version)
+                throw new ConcurrencyException(nameof(ConfiguracionPac), config.Id);
 
             // BaseUrl siempre se actualiza. Timeouts/retry/schedule
             // legacy quedaron eliminados en PR-13 (los maneja el SDK
@@ -135,27 +144,46 @@ public sealed class GuardarConfiguracionPacHandler
         // valor = capturar/rotar, idempotente por hash combinado).
         if (command.Csd is { } csd)
         {
+            // Validar también si coincide con el material guardado: una FIEL
+            // aceptada antes de esta regla no debe eludirla por su hash.
+            var vigencia = CsdValidador.Validar(
+                csd.CertificadoBase64, csd.LlavePrivadaBase64, csd.Password, ahora);
             var csdHash = FiscalSecretCipher.HashForChangeDetection(
                 $"{csd.CertificadoBase64}|{csd.LlavePrivadaBase64}|{csd.Password}");
             if (csdHash != config.CsdHash)
             {
-                // Rechaza AQUÍ el trío inválido (password que no abre la
-                // llave, .cer/.key de pares distintos, cert vencido) — sin
-                // esto el error aparece hasta el timbrado (incidente
-                // 2026-07-11: "The .KEY's password is incorrect").
-                CsdValidador.Validar(csd.CertificadoBase64, csd.LlavePrivadaBase64, csd.Password, ahora);
-
                 config.ConfigurarCsd(
                     certificadoCifrado: _cipher.Encrypt(csd.CertificadoBase64),
                     llavePrivadaCifrada: _cipher.Encrypt(csd.LlavePrivadaBase64),
                     passwordCifrado: _cipher.Encrypt(csd.Password),
                     hash: csdHash,
-                    ahora: ahora);
+                    ahora: ahora,
+                    notBefore: vigencia.NotBefore,
+                    notAfter: vigencia.NotAfter);
                 rotacion = true;
             }
         }
 
+        // P01: prueba obligatoria del candidato exacto en servidor antes de escribir.
+        // No se acepta un booleano ni una prueba anterior del navegador.
+        // Una configuración inactiva no timbra: desactivarla (PAC caído o
+        // llave comprometida) no puede depender de que el PAC responda.
+        if (config.Activo)
+        {
+            var prueba = await _probe.ProbarAsync(config.BaseUrl, _cipher.Decrypt(config.ApiKeyCifrado), ct);
+            if (!prueba.Exitosa)
+                throw new BusinessRuleException("CONFIG_PAC_CONEXION_RECHAZADA",
+                    TestConexionPac.TestConexionPacHandler.MensajePara(prueba));
+        }
+
+        if (existente is null) _db.ConfiguracionesPac.Add(config);
+        else
+        {
+            _db.Entry(existente).CurrentValues.SetValues(config);
+            existente.ConfigurarIdentidadesSandbox(config.EmisorSandbox, config.ReceptorSandbox);
+        }
         await _db.SaveChangesAsync(ct);
+        if (existente is not null) config = existente;
 
         // Invalidar cache del resolver: el próximo ping/descarga ve los
         // datos frescos sin esperar al TTL de 60s.
@@ -172,10 +200,10 @@ public sealed class GuardarConfiguracionPacHandler
                 OcurridoEn: ahora),
             ct);
 
-        return MapToResponse(config);
+        return MapToResponse(config, ahora);
     }
 
-    internal static ConfiguracionPacResponse MapToResponse(ConfiguracionPac c)
+    internal static ConfiguracionPacResponse MapToResponse(ConfiguracionPac c, DateTimeOffset ahora)
     {
         return new ConfiguracionPacResponse(
             Id: c.Id,
@@ -193,6 +221,9 @@ public sealed class GuardarConfiguracionPacHandler
             ReceptorSandbox: MapIdentidadDto(c.ReceptorSandbox),
             CsdConfigurado: c.CsdConfigurado,
             CsdActualizadoAt: c.CsdActualizadoAt,
+            CsdNotBefore: c.CsdNotBefore,
+            CsdNotAfter: c.CsdNotAfter,
+            CsdEstado: c.ObtenerEstadoCsd(ahora)?.ToString(),
             CreatedAt: c.CreatedAt,
             UpdatedAt: c.UpdatedAt,
             Version: c.Version);

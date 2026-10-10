@@ -1,0 +1,4 @@
+Validación ejecutada en esta sesión, exit 0 para la cadena de comandos:
+npx tsc --noEmit -p tsconfig.json
+npx tsc --noEmit -p tsconfig.app.json
+npm run -s typecheck:test

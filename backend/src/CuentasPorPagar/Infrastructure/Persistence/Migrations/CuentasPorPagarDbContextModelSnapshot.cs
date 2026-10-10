@@ -19,7 +19,7 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("cuentas_por_pagar")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -206,8 +206,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Serie")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
+                        .HasMaxLength(25)
+                        .HasColumnType("character varying(25)")
                         .HasColumnName("serie");
 
                     b.Property<decimal?>("TipoCambio")
@@ -254,6 +254,61 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_anticipo_monto_entregado_positivo", "monto_entregado > 0");
                         });
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.AnticipoProveedor.ConfiguracionAnticipoProveedor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<string>("Serie")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("character varying(25)")
+                        .HasColumnName("serie");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_configuraciones_anticipo_proveedor");
+
+                    b.HasIndex("EmpresaId", "ProveedorId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_configuraciones_anticipo_proveedor_empresa_id_proveedor_id");
+
+                    b.ToTable("configuraciones_anticipo_proveedor", "cuentas_por_pagar");
                 });
 
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.Catalogos.AprobadorLimite", b =>
@@ -400,6 +455,185 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_politica_dias_positivo", "dias_max > 0");
 
                             t.HasCheckConstraint("ck_politica_monto_positivo", "monto_max_dia > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.Catalogos.RetencionConcepto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activa");
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("concepto");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<string>("Fuente")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("fuente");
+
+                    b.Property<string>("Impuesto")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("impuesto");
+
+                    b.Property<string>("MotivoCambio")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_cambio");
+
+                    b.Property<decimal>("Tasa")
+                        .HasPrecision(12, 8)
+                        .HasColumnType("numeric(12,8)")
+                        .HasColumnName("tasa");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_retenciones_concepto");
+
+                    b.HasIndex("Concepto", "Impuesto", "Tasa")
+                        .IsUnique()
+                        .HasDatabaseName("ix_retenciones_concepto_concepto_impuesto_tasa")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.ToTable("retenciones_concepto", "cuentas_por_pagar");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000001"),
+                            Activa = true,
+                            Concepto = "HONORARIOS_PF",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8",
+                            Descripcion = "Honorarios de persona física a persona moral",
+                            Fuente = "https://wwwmat.sat.gob.mx/ordenamiento/18355/ley-del-impuesto-sobre-la-renta",
+                            Impuesto = "001",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.10m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000002"),
+                            Activa = true,
+                            Concepto = "HONORARIOS_PF",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8",
+                            Descripcion = "IVA: dos terceras partes a tasa general de 16 %",
+                            Fuente = "https://www.sat.gob.mx/minisitio/Factura/documentos/honorarios_servicios_contables.pdf",
+                            Impuesto = "002",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.10666667m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000003"),
+                            Activa = true,
+                            Concepto = "ARRENDAMIENTO_PF",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8",
+                            Descripcion = "Arrendamiento de persona física a persona moral",
+                            Fuente = "https://wwwmat.sat.gob.mx/ordenamiento/18355/ley-del-impuesto-sobre-la-renta",
+                            Impuesto = "001",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.10m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000004"),
+                            Activa = true,
+                            Concepto = "ARRENDAMIENTO_PF",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8",
+                            Descripcion = "IVA: dos terceras partes a tasa general de 16 %",
+                            Fuente = "https://www.sat.gob.mx/minisitio/Factura/documentos/arrendamiento_local_comercial.pdf",
+                            Impuesto = "002",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.10666667m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000005"),
+                            Activa = true,
+                            Concepto = "FLETES",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8",
+                            Descripcion = "Autotransporte terrestre de bienes recibido por persona moral",
+                            Fuente = "https://www.sat.gob.mx/cs/Satellite?blobcol=urldata&blobkey=id&blobtable=MungoBlobs&blobwhere=1461175803212&ssbinary=true",
+                            Impuesto = "002",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.04m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000007-000a-0000-0000-000000000006"),
+                            Activa = true,
+                            Concepto = "RESICO_PF",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed-P8",
+                            Descripcion = "Pagos de persona moral a persona física RESICO; revisar excepciones",
+                            Fuente = "https://wwwmat.sat.gob.mx/articulo/59511/articulo-113-j",
+                            Impuesto = "001",
+                            MotivoCambio = "Supuesto SAT, valida Fiscal (D03)",
+                            Tasa = 0.0125m,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 9, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed-P8",
+                            Version = 1
                         });
                 });
 
@@ -1235,14 +1469,29 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AlertaRetenciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("alerta_retenciones");
+
                     b.Property<decimal>("AnticipoAplicadoTotal")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("anticipo_aplicado_total");
 
+                    b.Property<decimal>("CargosAplicadosTotal")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("cargos_aplicados_total");
+
                     b.Property<Guid?>("CfdiRecibidoId")
                         .HasColumnType("uuid")
                         .HasColumnName("cfdi_recibido_id");
+
+                    b.Property<string>("ConceptoRetencion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("concepto_retencion");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1350,6 +1599,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("nc_aplicadas_total");
 
+                    b.Property<string>("Obra")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("obra");
+
                     b.Property<Guid?>("OrdenCompraId")
                         .HasColumnType("uuid")
                         .HasColumnName("orden_compra_id");
@@ -1371,6 +1625,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("retenciones");
+
+                    b.Property<string>("RetencionesDetalle")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("retenciones_detalle");
 
                     b.Property<string>("SerieProveedor")
                         .HasMaxLength(25)
@@ -1436,14 +1694,14 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProveedorId", "FechaVencimiento")
                         .HasDatabaseName("ix_facturas_proveedor_saldo")
-                        .HasFilter("estado IN (1, 3) AND (total - anticipo_aplicado_total - nc_aplicadas_total - importe_pagado) > 0");
+                        .HasFilter("estado IN (1, 3) AND (total - anticipo_aplicado_total - nc_aplicadas_total - cargos_aplicados_total - importe_pagado) > 0");
 
                     b.HasIndex("EmpresaId", "Estado", "FechaDocumento")
                         .HasDatabaseName("ix_facturas_proveedor_bandeja");
 
                     b.ToTable("facturas_proveedor", "cuentas_por_pagar", t =>
                         {
-                            t.HasCheckConstraint("ck_facturas_proveedor_saldo_no_negativo", "total - anticipo_aplicado_total - nc_aplicadas_total - importe_pagado >= 0");
+                            t.HasCheckConstraint("ck_facturas_proveedor_saldo_no_negativo", "total - anticipo_aplicado_total - nc_aplicadas_total - cargos_aplicados_total - importe_pagado >= 0");
 
                             t.HasCheckConstraint("ck_facturas_proveedor_total_positivo", "total > 0");
                         });
@@ -1834,6 +2092,116 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.MovimientoPasivo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("DocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documento_id");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("monto");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("integer")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_movimientos_pasivo");
+
+                    b.HasIndex("FacturaProveedorId", "Fecha")
+                        .HasDatabaseName("ix_movimientos_pasivo_factura_proveedor_id_fecha");
+
+                    b.ToTable("movimientos_pasivo", "cuentas_por_pagar");
+                });
+
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.PagoProveedorLocal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<decimal>("CubiertoRepp")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("cubierto_repp");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("FacturaProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_proveedor_id");
+
+                    b.Property<DateOnly>("FechaPago")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_pago");
+
+                    b.Property<decimal>("Importe")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("importe");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pago_id");
+
+                    b.Property<bool>("Revertido")
+                        .HasColumnType("boolean")
+                        .HasColumnName("revertido");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pagos_proveedor_local");
+
+                    b.HasIndex("FacturaProveedorId")
+                        .HasDatabaseName("ix_pagos_proveedor_local_factura_proveedor_id");
+
+                    b.HasIndex("EmpresaId", "PagoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_pagos_proveedor_local_empresa_id_pago_id");
+
+                    b.ToTable("pagos_proveedor_local", "cuentas_por_pagar");
+                });
+
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.NotaCargo.FolioSecuenciaNotaCargo", b =>
                 {
                     b.Property<Guid>("EmpresaId")
@@ -2012,6 +2380,10 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AnticipoOrigenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("anticipo_origen_id");
+
                     b.Property<Guid?>("CapturadoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("capturado_por");
@@ -2085,6 +2457,11 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)")
                         .HasColumnName("motivo_cancelacion");
+
+                    b.Property<string>("MotivoExcepcionRelacion")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("motivo_excepcion_relacion");
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uuid")
@@ -3169,6 +3546,23 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -3191,6 +3585,12 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -3220,12 +3620,21 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");
@@ -3350,6 +3759,16 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_lineas_factura_proveedor_facturas_proveedor_factura_proveed");
                 });
 
+            modelBuilder.Entity("Millet.CuentasPorPagar.Domain.FacturaProveedor.MovimientoPasivo", b =>
+                {
+                    b.HasOne("Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor", null)
+                        .WithMany("Movimientos")
+                        .HasForeignKey("FacturaProveedorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimientos_pasivo_facturas_proveedor_factura_proveedor_id");
+                });
+
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.TarjetaCredito.LineaBancoTc", b =>
                 {
                     b.HasOne("Millet.CuentasPorPagar.Domain.TarjetaCredito.EstadoCuentaTc", null)
@@ -3390,6 +3809,8 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                     b.Navigation("Bitacora");
 
                     b.Navigation("Lineas");
+
+                    b.Navigation("Movimientos");
                 });
 
             modelBuilder.Entity("Millet.CuentasPorPagar.Domain.TarjetaCredito.EstadoCuentaTc", b =>

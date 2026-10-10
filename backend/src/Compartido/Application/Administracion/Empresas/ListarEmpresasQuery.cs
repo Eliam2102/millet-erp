@@ -45,7 +45,8 @@ public sealed class ListarEmpresasHandler
             .Skip(offset).Take(limit)
             .Select(e => new EmpresaResponse(
                 e.Id, e.Rfc, e.RazonSocial, e.NombreComercial,
-                e.RegimenFiscal, e.TasaIvaDefault, e.CodigoPostal, e.Activa, e.Version))
+                e.RegimenFiscal, e.TasaIvaDefault, e.CodigoPostal, e.Activa, e.Version,
+            e.Calle, e.NumeroExterior, e.NumeroInterior, e.Colonia, e.Ciudad, e.Municipio, e.Estado, e.Pais))
             .ToListAsync(cancellationToken);
 
         return new ListarEmpresasResponse(items, total);

@@ -43,6 +43,12 @@ public sealed class FacturaProveedorRegistradaListener
             notification.CantidadFacturadaAcumulada,
             notification.OcurridoEn);
 
+        if (resultado.Cerrada is { } cerrada)
+        {
+            await _publisher.Publish(cerrada, cancellationToken);
+        }
+
+        // ADR-0009: incluir cierre/reapertura en la transacción del cambio.
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
@@ -50,10 +56,5 @@ public sealed class FacturaProveedorRegistradaListener
             notification.OrdenCompraId,
             notification.LineaOrdenCompraId,
             notification.CantidadFacturadaAcumulada);
-
-        if (resultado.Cerrada is { } cerrada)
-        {
-            await _publisher.Publish(cerrada, cancellationToken);
-        }
     }
 }

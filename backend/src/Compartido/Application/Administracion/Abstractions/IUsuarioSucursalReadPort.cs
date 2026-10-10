@@ -21,6 +21,9 @@ namespace Millet.Administracion.Application.Abstractions;
 /// </summary>
 public interface IUsuarioSucursalReadPort
 {
+    Task<IReadOnlyList<Guid>> ListarIdsAsync(
+        Guid usuarioId, CancellationToken cancellationToken);
+
     /// <summary>
     /// True si existe una asignación Activa entre <paramref name="usuarioId"/>
     /// y <paramref name="sucursalId"/>.

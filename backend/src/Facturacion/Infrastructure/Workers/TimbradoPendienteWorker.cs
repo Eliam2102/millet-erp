@@ -100,6 +100,11 @@ public sealed class TimbradoPendienteWorker : BackgroundService
                 "PAC_TIMEOUT",
                 $"Sin confirmación del PAC después de {opts.UmbralMinutos} min. ANTES de re-emitir, " +
                 $"verificar en FiscalAPI si existe un timbre con el folio {comprobante.Folio} (runbook F12).");
+            if (comprobante is Millet.Facturacion.Domain.Repp.ReciboPago repp)
+            {
+                var pendiente = await db.ReppPendientes.SingleOrDefaultAsync(p => p.IntentoReciboPagoId == repp.Id, cancellationToken);
+                pendiente?.RegistrarIntento(repp);
+            }
             _logger.LogWarning(
                 "[TimbradoPendienteWorker] Comprobante {Id} ({Folio}) atascado en TimbradoEnProceso desde {Desde} → TimbradoFallido(PAC_TIMEOUT).",
                 comprobante.Id, comprobante.Folio, comprobante.UpdatedAt);

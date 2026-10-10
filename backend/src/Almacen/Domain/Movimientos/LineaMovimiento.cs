@@ -25,6 +25,16 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
     public int Posicion { get; private set; }
     public Guid ArticuloId { get; private set; }
     public decimal Cantidad { get; private set; }
+    public decimal? CantidadCapturada { get; private set; }
+    public string? UnidadCapturada { get; private set; }
+    public void AsentarCaptura(decimal cantidad, string unidad)
+    {
+        if (cantidad <= 0 || string.IsNullOrWhiteSpace(unidad) || unidad.Length > 20)
+            throw new BusinessRuleException("LINEA_CAPTURA_INVALIDA", "La cantidad capturada debe ser positiva y requiere una unidad válida.");
+        CantidadCapturada = cantidad;
+        UnidadCapturada = unidad;
+    }
+
     public string UnidadMedida { get; private set; } = string.Empty;
     public decimal CostoUnitarioMxn { get; private set; }
     public decimal MontoTotalMxn { get; private set; }
@@ -43,6 +53,10 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
     // al evento almacen.salida_requisicion.registrada.v1 para que Compras
     // acumule CantidadEntregada por línea de RQ (canal de entrega).
     public Guid? LineaRqId { get; private set; }
+
+    // Trazabilidad de recepción y devolución interna; null en otros tipos e históricos sin enlace.
+    public Guid? LineaOcId { get; private set; }
+    public Guid? LineaSalidaOrigenId { get; private set; }
 
     // F7: cantidades capturadas en conteo físico (para movimientos AjustePositivo/Negativo).
     public decimal? CantidadTeoricaAlContar { get; private set; }
@@ -77,7 +91,9 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         string? ubicacionReferencia = null,
         string? comentarioLinea = null,
         Guid? lineaRqId = null,
-        Guid? ubicacionId = null) : base(id)
+        Guid? ubicacionId = null,
+        Guid? lineaOcId = null,
+        Guid? lineaSalidaOrigenId = null) : base(id)
     {
         if (movimientoId == Guid.Empty)
             throw new BusinessRuleException("LINEA_MOV_SIN_PADRE",
@@ -110,6 +126,8 @@ public sealed class LineaMovimiento : BaseEntity, IAuditable
         ComentarioLinea = comentarioLinea;
         LineaRqId = lineaRqId;
         UbicacionId = ubicacionId;
+        LineaOcId = lineaOcId;
+        LineaSalidaOrigenId = lineaSalidaOrigenId;
     }
 
     /// <summary>

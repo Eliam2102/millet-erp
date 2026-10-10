@@ -36,6 +36,24 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
     public Guid ProveedorId { get; private set; }
     public Guid SucursalId { get; private set; }
+    public string? Obra { get; private set; }
+    public string? ConceptoRetencion { get; private set; }
+    public string? AlertaRetenciones { get; private set; }
+
+    private readonly List<MovimientoPasivo> _movimientos = [];
+    public IReadOnlyCollection<MovimientoPasivo> Movimientos => _movimientos.AsReadOnly();
+
+    public void AsignarDatosP8(string? obra, string? conceptoRetencion)
+    {
+        AsegurarMutable("editar obra y concepto de retención");
+        if (obra?.Trim().Length > 120 || conceptoRetencion?.Trim().Length > 80)
+            throw new BusinessRuleException("CXP_DATOS_INVALIDOS", "Obra: máximo 120 caracteres; concepto: máximo 80.");
+        Obra = string.IsNullOrWhiteSpace(obra) ? null : obra.Trim();
+        ConceptoRetencion = string.IsNullOrWhiteSpace(conceptoRetencion) ? null : conceptoRetencion.Trim().ToUpperInvariant();
+    }
+
+    public void AsignarAlertaRetenciones(string? alerta) => AlertaRetenciones = alerta;
+
 
     /// <summary>Folio + serie del proveedor (snapshot del CFDI o capturado).</summary>
     public string? FolioProveedor { get; private set; }
@@ -81,10 +99,11 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     // ---- Aplicaciones acumuladas (F6+) ----
     public decimal AnticipoAplicadoTotal { get; private set; }
     public decimal NcAplicadasTotal { get; private set; }
+    public decimal CargosAplicadosTotal { get; private set; }
     public decimal ImportePagado { get; private set; }
 
     /// <summary>Saldo pendiente = Total − Anticipos − NCs − Pagado. Calculado, persistido.</summary>
-    public decimal SaldoPendiente => Total - AnticipoAplicadoTotal - NcAplicadasTotal - ImportePagado;
+    public decimal SaldoPendiente => Total - AnticipoAplicadoTotal - NcAplicadasTotal - CargosAplicadosTotal - ImportePagado;
 
     /// <summary>
     /// F9-PR1: indica si Tesorería confirmó que el complemento de pago
@@ -92,6 +111,16 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// motivo de revisión "Falta complemento de pago" pueda liberarse.
     /// </summary>
     public bool ReppRecibido { get; private set; }
+    public static readonly Guid MotivoFaltaReppId = Guid.Parse("00000007-1001-0000-0000-000000000009");
+    public void ActualizarReppRecibido(bool completo, DateTimeOffset ahora)
+    {
+        ReppRecibido = completo;
+        if (!completo || !EnRevision || MotivoRevisionId != MotivoFaltaReppId) return;
+        var anterior = Estado;
+        Estado = SaldoPendiente == 0 ? EstadoPasivo.Pagada : EstadoPasivo.Autorizada;
+        EnRevision = false; MotivoRevisionId = null; DependenciaRevisoraId = null; FechaEntradaRevision = null;
+        RegistrarTransicion(anterior, Estado, ahora, "REPP del proveedor recibido y validado; liberado FALTA_REPP", null);
+    }
 
     /// <summary>
     /// MetodoPago SAT (PUE/PPD) del CFDI de la factura (TES-PR8, [T-G11]).
@@ -107,6 +136,19 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     {
         var v = metodoPago?.Trim().ToUpperInvariant();
         if (!string.IsNullOrEmpty(v)) MetodoPago = v;
+    }
+
+    /// <summary>
+    /// Desglose de retenciones del CFDI (G1.6 P2), jsonb. Null si la
+    /// factura es manual/sin CFDI; <see cref="Retenciones"/> siempre
+    /// guarda el total.
+    /// </summary>
+    public List<RetencionCfdi>? RetencionesDetalle { get; private set; }
+
+    /// <summary>Asigna el desglose de retenciones del CFDI (G1.6). No-op con null/vacío.</summary>
+    public void AsignarRetencionesDetalle(IReadOnlyList<RetencionCfdi>? detalle)
+    {
+        if (detalle is { Count: > 0 }) RetencionesDetalle = [.. detalle];
     }
 
     // ---- Cancelación ----
@@ -424,7 +466,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         Guid? usuarioId,
         DateTimeOffset ahora)
     {
-        if (Estado is EstadoPasivo.Pagada or EstadoPasivo.Cancelada)
+        if (Estado == EstadoPasivo.Cancelada || (Estado == EstadoPasivo.Pagada &&
+            (motivoRevisionId != MotivoFaltaReppId || MetodoPago != "PPD" || ImportePagado <= 0 || ReppRecibido)))
         {
             throw new BusinessRuleException(
                 "FACTURA_NO_ENVIABLE_A_REVISION",
@@ -463,8 +506,10 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 "La acción tomada es obligatoria al liberar revisión.");
         }
 
+        if (MotivoRevisionId == MotivoFaltaReppId && !ReppRecibido)
+            throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra y valida los complementos pendientes en Tesorería antes de liberar este motivo.");
         var anterior = Estado;
-        Estado = EstadoPasivo.Capturada;
+        Estado = SaldoPendiente == 0 && ImportePagado > 0 ? EstadoPasivo.Pagada : EstadoPasivo.Capturada;
         EnRevision = false;
         MotivoRevisionId = null;
         DependenciaRevisoraId = null;
@@ -480,7 +525,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// sea suficiente; aquí solo aplicamos al lado factura con
     /// invariante <c>SaldoPendiente >= 0</c>.
     /// </summary>
-    public void AplicarNotaCredito(decimal monto)
+    public void AplicarNotaCredito(decimal monto, DateOnly fecha, Guid? notaCreditoId = null)
     {
         if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada)
             throw new BusinessRuleException(
@@ -494,13 +539,14 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Aplicar {monto} dejaría el saldo negativo (saldo actual: {SaldoPendiente}).");
 
         NcAplicadasTotal += monto;
+        _movimientos.Add(new(Id, notaCreditoId, TipoMovimientoPasivo.NotaCredito, fecha, monto));
     }
 
     /// <summary>
     /// Aplica un monto de AnticipoProveedor al saldo de la factura
     /// (F6-PR2). Mismo patrón que <see cref="AplicarNotaCredito"/>.
     /// </summary>
-    public void AplicarAnticipo(decimal monto)
+    public void AplicarAnticipo(decimal monto, DateOnly fecha, Guid? anticipoId = null)
     {
         if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada)
             throw new BusinessRuleException(
@@ -514,6 +560,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Aplicar {monto} dejaría el saldo negativo (saldo actual: {SaldoPendiente}).");
 
         AnticipoAplicadoTotal += monto;
+        _movimientos.Add(new(Id, anticipoId, TipoMovimientoPasivo.Anticipo, fecha, monto));
     }
 
     /// <summary>
@@ -524,9 +571,9 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// CFDI (la TC ya pagó al proveedor) — el flujo normal lo dispara
     /// vía evento desde Tesorería en F9-PR1.
     /// </summary>
-    public void RegistrarPago(decimal monto, DateTimeOffset ahora, string observacion)
+    public void RegistrarPago(decimal monto, DateTimeOffset ahora, string observacion, bool confirmadoPorTesoreria = false)
     {
-        if (Estado is not EstadoPasivo.Autorizada)
+        if (Estado != EstadoPasivo.Autorizada && !(confirmadoPorTesoreria && Estado == EstadoPasivo.EnRevision))
         {
             throw new BusinessRuleException(
                 "FACTURA_NO_PAGABLE",
@@ -541,7 +588,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Pagar {monto} dejaría saldo negativo (saldo actual: {SaldoPendiente}).");
 
         ImportePagado += monto;
-        if (SaldoPendiente == 0m)
+        _movimientos.Add(new(Id, null, TipoMovimientoPasivo.Pago, DateOnly.FromDateTime(ahora.UtcDateTime), monto));
+        if (SaldoPendiente == 0m && Estado != EstadoPasivo.EnRevision)
         {
             var anterior = Estado;
             Estado = EstadoPasivo.Pagada;
@@ -557,7 +605,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     /// </summary>
     public void RevertirPago(decimal monto, DateTimeOffset ahora, string observacion)
     {
-        if (Estado is not (EstadoPasivo.Pagada or EstadoPasivo.Autorizada))
+        if (Estado is not (EstadoPasivo.Pagada or EstadoPasivo.Autorizada or EstadoPasivo.EnRevision))
         {
             throw new BusinessRuleException(
                 "FACTURA_NO_REVERTIBLE",
@@ -572,6 +620,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Revertir {monto} excede el importe pagado ({ImportePagado}).");
 
         ImportePagado -= monto;
+        _movimientos.Add(new(Id, null, TipoMovimientoPasivo.Pago, DateOnly.FromDateTime(ahora.UtcDateTime), -monto));
 
         if (Estado == EstadoPasivo.Pagada && SaldoPendiente > 0)
         {
@@ -605,6 +654,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
                 $"Solo facturas en Capturada o EnRevision pueden autorizarse (actual: {Estado}).");
         }
 
+        if (EnRevision && MotivoRevisionId == MotivoFaltaReppId && !ReppRecibido)
+            throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra los complementos pendientes en Tesorería antes de volver a autorizar.");
         var anterior = Estado;
         Estado = EstadoPasivo.Autorizada;
         EnRevision = false;
@@ -641,6 +692,14 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         SerieProveedor = serieProveedor;
         FechaVencimiento = fechaVencimiento;
         FechaContabilizacion = fechaContabilizacion;
+    }
+
+    public void AplicarNotaCargo(decimal monto, Guid notaCargoId, DateOnly fecha)
+    {
+        if (Estado is EstadoPasivo.Cancelada or EstadoPasivo.Pagada || monto <= 0 || monto > SaldoPendiente)
+            throw new BusinessRuleException("NCG_SALDO_INVALIDO", "La nota de cargo requiere una factura vigente con saldo suficiente.");
+        CargosAplicadosTotal += monto;
+        _movimientos.Add(new(Id, notaCargoId, TipoMovimientoPasivo.NotaCargo, fecha, monto));
     }
 
     private void AsegurarMutable(string operacion)

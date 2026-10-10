@@ -45,6 +45,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'compras.requisiciones.editar-de-otros-usuarios',
   'compras.requisiciones.seleccionar-requisitante',
   'compras.requisiciones.ver-todos-departamentos',
+  'compras.requisiciones.leer-todas-sucursales',
   // Compras — Aprobadores
   'compras.aprobadores.administrar',
   // Compras — Órdenes de compra (10 permisos canónicos del submódulo OC,
@@ -79,6 +80,11 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.gestionar',
   'datos_maestros.proveedores.bancarios-ver',
   'datos_maestros.proveedores.bancarios-editar',
+  'datos_maestros.proveedores.adjuntos-ver',
+  'datos_maestros.proveedores.adjuntos-subir',
+  'datos_maestros.proveedores.adjuntos-baja',
+  'datos_maestros.proveedores.validar',
+  'datos_maestros.proveedores.tolerancia-editar',
   'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
@@ -138,6 +144,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'almacen.ubicaciones.leer',
   'almacen.ubicaciones.administrar',
 
+  'cuentas_por_pagar.retenciones.leer',
+  'cuentas_por_pagar.retenciones.administrar',
+  'cuentas_por_pagar.reportes.leer-todas-sucursales',
   // Cuentas por Pagar (FE-F0+)
   'cuentas_por_pagar.facturas.leer',
   'cuentas_por_pagar.facturas.capturar',
@@ -255,6 +264,19 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'centros_costo.catalogo.administrar',
   'centros_costo.asignaciones.administrar',
   'centros_costo.dim3.leer-todos',
+  // Contabilidad (F1-CON-01)
+  'contabilidad.catalogo.leer',
+  'contabilidad.catalogo.administrar',
+  'contabilidad.catalogo.autorizar',
+  'contabilidad.catalogo.importar',
+  'contabilidad.dimensiones.leer',
+  'contabilidad.dimensiones.administrar',
+  'contabilidad.movimientos.validar',
+  'contabilidad.movimientos.gestionar-todas-sucursales',
+  'contabilidad.periodo.leer',
+  'contabilidad.periodo.administrar',
+  'contabilidad.periodo.cerrar',
+  'contabilidad.periodo.reabrir',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra
@@ -278,11 +300,11 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 26 permisos (12 de RQ + 1 de aprobadores + 10 de OC + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 27 permisos (13 de RQ + 1 de aprobadores + 10 de OC + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(26);
+    expect(delModulo).toHaveLength(27);
   });
 
   it('formato modulo.recurso.accion (entre 3 y 4 segmentos)', () => {

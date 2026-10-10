@@ -1,5 +1,8 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Millet.CuentasPorPagar.Domain.Cfdi;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 
 namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Configurations;
@@ -33,7 +36,7 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         {
             t.HasCheckConstraint("ck_facturas_proveedor_total_positivo", "total > 0");
             t.HasCheckConstraint("ck_facturas_proveedor_saldo_no_negativo",
-                "total - anticipo_aplicado_total - nc_aplicadas_total - importe_pagado >= 0");
+                "total - anticipo_aplicado_total - nc_aplicadas_total - cargos_aplicados_total - importe_pagado >= 0");
         });
 
         builder.HasKey(e => e.Id);
@@ -45,6 +48,11 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
 
         builder.Property(e => e.ProveedorId).IsRequired();
         builder.Property(e => e.SucursalId).IsRequired();
+        builder.Property(e => e.Obra).HasMaxLength(120);
+        builder.Property(e => e.ConceptoRetencion).HasMaxLength(80);
+        builder.Property(e => e.AlertaRetenciones).HasMaxLength(1000);
+        builder.HasMany(e => e.Movimientos).WithOne().HasForeignKey(m => m.FacturaProveedorId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(e => e.Movimientos).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(e => e.FolioProveedor).HasMaxLength(40);
         builder.Property(e => e.SerieProveedor).HasMaxLength(25);
@@ -58,6 +66,17 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
 
         // TES-PR8 [T-G11]: PUE/PPD copiado del CFDI ligado en la captura.
         builder.Property(e => e.MetodoPago).HasMaxLength(3);
+
+        // G1.6 (P2): desglose de retenciones del CFDI.
+        builder.Property(e => e.RetencionesDetalle)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                s => s == null ? null : JsonSerializer.Deserialize<List<RetencionCfdi>>(s, (JsonSerializerOptions?)null),
+                new ValueComparer<List<RetencionCfdi>?>(
+                    (a, b) => a == null ? b == null : b != null && a.SequenceEqual(b),
+                    v => v == null ? 0 : v.Count,
+                    v => v == null ? null : v.ToList()));
 
         builder.Property(e => e.Subtotal).HasPrecision(18, 4).IsRequired();
         builder.Property(e => e.Descuentos).HasPrecision(18, 4).IsRequired();
@@ -75,6 +94,7 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         builder.Property(e => e.RedondeoAplicado).HasPrecision(18, 4).IsRequired();
 
         builder.Property(e => e.AnticipoAplicadoTotal).HasPrecision(18, 4).IsRequired();
+        builder.Property(e => e.CargosAplicadosTotal).HasPrecision(18, 4).IsRequired();
         builder.Property(e => e.NcAplicadasTotal).HasPrecision(18, 4).IsRequired();
         builder.Property(e => e.ImportePagado).HasPrecision(18, 4).IsRequired();
 
@@ -103,7 +123,7 @@ public sealed class FacturaProveedorConfiguration : IEntityTypeConfiguration<Fac
         // Índices §5.1.
         builder.HasIndex(e => new { e.ProveedorId, e.FechaVencimiento })
             .HasDatabaseName("ix_facturas_proveedor_saldo")
-            .HasFilter("estado IN (1, 3) AND (total - anticipo_aplicado_total - nc_aplicadas_total - importe_pagado) > 0");
+            .HasFilter("estado IN (1, 3) AND (total - anticipo_aplicado_total - nc_aplicadas_total - cargos_aplicados_total - importe_pagado) > 0");
 
         builder.HasIndex(e => new { e.DependenciaRevisoraId, e.FechaEntradaRevision })
             .HasDatabaseName("ix_facturas_revision_dependencia")

@@ -23,7 +23,13 @@ public sealed record ListarCfdisQuery(
     TipoCfdi? Tipo = null,
     string? RfcEmisor = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<CfdiListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<CfdiListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "cfdi_recibido";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record CfdiListItemResponse(
     Guid Id,
@@ -58,7 +64,7 @@ public sealed class ListarCfdisHandler : IRequestHandler<ListarCfdisQuery, Paged
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.CfdisRecibidos.AsNoTracking();
+        var q = _db.CfdisRecibidos.Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
 
         if (query.Estado is EstadoCfdiRecibido estado)
             q = q.Where(c => c.Estado == estado);

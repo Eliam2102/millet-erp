@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
@@ -55,9 +56,7 @@ public sealed class EditarCabeceraRequisicionHandler
 
             if (proveedor.Estatus != EstatusCatalogo.Activo)
             {
-                throw new BusinessRuleException(
-                    "PROVEEDOR_INACTIVO",
-                    $"El proveedor '{proveedor.Clave}' no está activo.");
+                throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' no está activo.");
             }
         }
 
@@ -71,6 +70,8 @@ public sealed class EditarCabeceraRequisicionHandler
             limpiarFechaEntregaDeseada: request.LimpiarFechaEntregaDeseada,
             limpiarProveedorSugeridoId: request.LimpiarProveedorSugeridoId);
 
+        if (request.LimpiarObra || request.Obra is not null)
+            requisicion.AsignarObra(request.LimpiarObra ? null : request.Obra);
         await _comprasDb.SaveChangesAsync(cancellationToken);
     }
 }

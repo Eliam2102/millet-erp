@@ -1,3 +1,4 @@
+import { zId } from '@/lib/z-id';
 import { z } from 'zod';
 
 const UUID_SHAPE_RE =
@@ -108,7 +109,7 @@ export const IniciarDevolucionAProveedorSchema = z.object({
     .string()
     .min(1, 'Motivo requerido')
     .max(500, 'Máximo 500 caracteres'),
-  recepcionOrigenId: z.string().regex(UUID_SHAPE_RE).nullish(),
+  recepcionOrigenId: zId('Selecciona la recepción origen'),
   facturaProveedorOrigenId: z.string().regex(UUID_SHAPE_RE).nullish(),
   ordenCompraOrigenId: z.string().regex(UUID_SHAPE_RE).nullish(),
   subAlmacenOrigenId: z.string().regex(UUID_SHAPE_RE).nullish(),
@@ -126,7 +127,7 @@ export const IniciarDevolucionAProveedorSchema = z.object({
         costoUnitarioMxn: z
           .number({ message: 'Costo requerido' })
           .nonnegative('El costo no puede ser negativo'),
-        lineaRecepcionOrigenId: z.string().regex(UUID_SHAPE_RE).nullish(),
+        lineaRecepcionOrigenId: zId('Selecciona la línea de recepción'),
       }),
     )
     .min(1, 'Agrega al menos una línea'),

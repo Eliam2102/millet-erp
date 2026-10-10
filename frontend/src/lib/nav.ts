@@ -7,6 +7,7 @@ import {
   BookOpen,
   Boxes,
   Building2,
+  CalendarRange,
   CheckSquare,
   ClipboardCheck,
   ClipboardList,
@@ -18,6 +19,7 @@ import {
   Home,
   Inbox,
   Landmark,
+  FlaskConical,
   Layers,
   ListTree,
   Lock,
@@ -35,6 +37,7 @@ import {
   Sliders,
   Truck,
   Unlock,
+  Upload,
   Users,
   Warehouse,
   Wallet,
@@ -114,9 +117,7 @@ export interface NavLink {
   icon: LucideIcon;
 }
 
-export type NavSidebarItem =
-  | (NavModulo & { kind: 'modulo' })
-  | NavLink;
+export type NavSidebarItem = (NavModulo & { kind: 'modulo' }) | NavLink;
 
 // ============================================================================
 // Módulos del back-office (ADR-0032 + CLAUDE.md §Módulos)
@@ -132,16 +133,14 @@ const moduloCompras: NavModulo = {
       cards: [
         {
           label: 'Mis requisiciones',
-          description:
-            'Bandeja general de requisiciones. Crear, ver, editar y dar seguimiento.',
+          description: 'Bandeja general de requisiciones. Crear, ver, editar y dar seguimiento.',
           to: '/compras/requisiciones',
           icon: Inbox,
           permission: PermisosCanonicos.ComprasRequisicionesLeer,
         },
         {
           label: 'Pendientes de autorización',
-          description:
-            'Requisiciones en espera de aprobación N1 o N2 según tu rol.',
+          description: 'Requisiciones en espera de aprobación N1 o N2 según tu rol.',
           to: '/compras/pendientes',
           icon: CheckSquare,
           permissionsAny: [
@@ -195,11 +194,7 @@ const moduloCompras: NavModulo = {
 };
 
 /** Helper para módulos no implementados aún — sin secciones, disabled. */
-function placeholderModulo(
-  moduloId: string,
-  label: string,
-  icon: LucideIcon,
-): NavModulo {
+function placeholderModulo(moduloId: string, label: string, icon: LucideIcon): NavModulo {
   return { moduloId, label, icon, disabled: true, secciones: [] };
 }
 
@@ -428,17 +423,22 @@ const moduloCuentasPorPagar: NavModulo = {
       label: 'Reportes',
       cards: [
         {
+          label: 'Auxiliar de proveedores',
+          description: 'Saldo por proveedor y moneda a una fecha.',
+          icon: BarChart3,
+          to: '/cxp/reportes/auxiliar',
+          permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
+        },
+        {
           label: 'Antigüedad de saldos',
-          description:
-            'Cartera viva agrupada por buckets 0-30 / 31-60 / 61-90 / +90 días. Filtros y exportación PDF/Excel.',
+          description: 'Saldo a una fecha, por vencer y vencido, separado por proveedor y moneda.',
           to: '/cxp/reportes/antiguedad',
           icon: BarChart3,
           permission: PermisosCanonicos.CuentasPorPagarReportesAntiguedad,
         },
         {
           label: 'Cartera por proveedor',
-          description:
-            'Saldo total y por bucket por proveedor. Drill-down a facturas vivas.',
+          description: 'Cartera a una fecha por proveedor, moneda y estado de revisión.',
           to: '/cxp/reportes/cartera',
           icon: Wallet,
           permission: PermisosCanonicos.CuentasPorPagarReportesCartera,
@@ -457,13 +457,19 @@ const moduloCuentasPorPagar: NavModulo = {
       label: 'Configuración',
       cards: [
         {
+          label: 'Retenciones por concepto',
+          description: 'Propuestas SAT y ajustes de Fiscal.',
+          icon: Sliders,
+          to: '/cxp/admin/retenciones',
+          permission: PermisosCanonicos.CuentasPorPagarRetencionesLeer,
+        },
+        {
           label: 'Aprobadores',
           description:
             'Catálogo de aprobadores con monto máximo por tipo de gasto (Caja chica / Viáticos / TC / Otros sin OC).',
           to: '/cxp/admin/aprobadores',
           icon: Users,
-          permission:
-            PermisosCanonicos.CuentasPorPagarCatalogosAprobadoresAdministrar,
+          permission: PermisosCanonicos.CuentasPorPagarCatalogosAprobadoresAdministrar,
         },
         {
           label: 'Políticas de viáticos',
@@ -471,8 +477,7 @@ const moduloCuentasPorPagar: NavModulo = {
             'Tabuladores por puesto y destino (Nacional / Internacional). El backend valida solicitudes contra estos topes.',
           to: '/cxp/admin/politicas-viaticos',
           icon: Sliders,
-          permission:
-            PermisosCanonicos.CuentasPorPagarCatalogosPoliticasAdministrar,
+          permission: PermisosCanonicos.CuentasPorPagarCatalogosPoliticasAdministrar,
         },
         {
           label: 'Reposiciones de caja',
@@ -785,6 +790,13 @@ const moduloFacturacion: NavModulo = {
           permission: PermisosCanonicos.FacturacionAnticiposLeer,
         },
         {
+          label: 'Pendientes de REP',
+          description: 'Revisión de pagos bancarios y emisión manual de complementos de pago.',
+          to: '/facturacion/repp/pendientes',
+          icon: HandCoins,
+          permission: PermisosCanonicos.FacturacionFacturasLeer,
+        },
+        {
           label: 'Complementos de pago (REPP)',
           description:
             'Recibos electrónicos de pago (Pago 2.0). Emisión multi-factura y consulta de facturas cubiertas.',
@@ -862,6 +874,69 @@ const moduloFacturacion: NavModulo = {
   ],
 };
 
+const moduloContabilidad: NavModulo = {
+  moduloId: 'contabilidad',
+  label: 'Contabilidad',
+  icon: BookOpen,
+  secciones: [
+    {
+      label: 'Catálogo',
+      cards: [
+        {
+          label: 'Catálogo de cuentas',
+          description:
+            'Árbol y lista de cuentas contables: consulta, alta, edición y baja lógica. Marca las cuentas pendientes de validación.',
+          to: '/contabilidad/catalogo',
+          icon: BookOpen,
+          permission: PermisosCanonicos.ContabilidadCatalogoLeer,
+        },
+        {
+          label: 'Importación del catálogo',
+          description:
+            'Carga de un archivo .csv/.xlsx en 3 pasos: perfilado de solo lectura, vista previa y aplicación idempotente.',
+          to: '/contabilidad/importacion',
+          icon: Upload,
+          permission: PermisosCanonicos.ContabilidadCatalogoImportar,
+        },
+      ],
+    },
+    {
+      label: 'Dimensiones',
+      cards: [
+        {
+          label: 'Dimensiones contables',
+          description:
+            'Reglas de cuenta × tipo de documento × dimensión con vigencia, sucursales de cada centro de costo y tipos de documento.',
+          to: '/contabilidad/dimensiones',
+          icon: Layers,
+          permission: PermisosCanonicos.ContabilidadDimensionesLeer,
+        },
+        {
+          label: 'Probar movimientos',
+          description:
+            'Valida cuenta, tipo de documento y centros contra las reglas vigentes y registra movimientos de prueba.',
+          to: '/contabilidad/movimientos-prueba',
+          icon: FlaskConical,
+          permission: PermisosCanonicos.ContabilidadMovimientosValidar,
+        },
+      ],
+    },
+    {
+      label: 'Periodos',
+      cards: [
+        {
+          label: 'Periodos contables',
+          description:
+            'Ejercicio con 12 periodos y el 13 de ajustes: apertura, cierre y reapertura con motivo y bitácora.',
+          to: '/contabilidad/periodos',
+          icon: CalendarRange,
+          permission: PermisosCanonicos.ContabilidadPeriodoLeer,
+        },
+      ],
+    },
+  ],
+};
+
 const modulos: readonly NavModulo[] = [
   moduloFacturacion,
   moduloCuentasPorCobrar,
@@ -871,7 +946,7 @@ const modulos: readonly NavModulo[] = [
   moduloTesoreria,
   moduloCentrosCosto,
   placeholderModulo('activos', 'Activos Fijos', Building2),
-  placeholderModulo('contabilidad', 'Contabilidad', BookOpen),
+  moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', BarChart3),
 ];
 
@@ -910,10 +985,7 @@ function cardVisible(
   if (card.permission != null && !permisos.includes(card.permission)) {
     return false;
   }
-  if (
-    card.permissionsAny != null &&
-    !card.permissionsAny.some((p) => permisos.includes(p))
-  ) {
+  if (card.permissionsAny != null && !card.permissionsAny.some((p) => permisos.includes(p))) {
     return false;
   }
   return true;
@@ -928,9 +1000,7 @@ function cardVisible(
  * al menos una card permitida. Los módulos sin acceso y los placeholders
  * (<c>disabled</c>) no se muestran — el usuario solo ve lo que puede abrir.
  */
-export function sidebarItemsVisibles(
-  permisos: readonly string[],
-): readonly NavSidebarItem[] {
+export function sidebarItemsVisibles(permisos: readonly string[]): readonly NavSidebarItem[] {
   return navSidebarItems.filter(
     (item) =>
       item.kind === 'link' ||
@@ -958,6 +1028,7 @@ export function contextoNavegacion(pathname: string, permisos: readonly string[]
  * leen datos protegidos. Mismo permiso que exige su endpoint en el backend.
  */
 const rutasFueraDelMenu: readonly Pick<NavCard, 'to' | 'permission' | 'permissionsAny'>[] = [
+  { to: '/admin/mi-empresa', permission: PermisosCanonicos.AdminEmpresasLeer },
   { to: '/compras/trazabilidad', permission: PermisosCanonicos.ComprasOrdenesLeer },
   { to: '/compras/articulos', permission: PermisosCanonicos.ComprasOrdenesLeer },
 ];
@@ -975,10 +1046,24 @@ export function accesosNavegacion(permisos: readonly string[]) {
           seccion.cards.map((card) => ({ ...card, modulo: item.label })),
         ),
   );
-  accesos.push(...adminRegistry
-    .filter((section) => permisos.includes(section.permisoRequerido))
-    .map((section) => ({ to: section.href, label: section.titulo, description: section.descripcion, modulo: 'Administración', icon: section.icon })));
-  return [...new Map(accesos.filter((acceso) => rutaPermitida(acceso.to, permisos)).map((acceso) => [acceso.to, acceso])).values()];
+  accesos.push(
+    ...adminRegistry
+      .filter((section) => permisos.includes(section.permisoRequerido))
+      .map((section) => ({
+        to: section.href,
+        label: section.titulo,
+        description: section.descripcion,
+        modulo: 'Administración',
+        icon: section.icon,
+      })),
+  );
+  return [
+    ...new Map(
+      accesos
+        .filter((acceso) => rutaPermitida(acceso.to, permisos))
+        .map((acceso) => [acceso.to, acceso]),
+    ).values(),
+  ];
 }
 
 /**

@@ -18,7 +18,13 @@ public sealed record DepositosQuery(
     Guid? ClienteId = null,
     bool? SoloPropuestas = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<DepositoConfirmacionResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<DepositoConfirmacionResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "deposito";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class DepositosHandler
     : IRequestHandler<DepositosQuery, PagedResponse<DepositoConfirmacionResponse>>
@@ -37,7 +43,8 @@ public sealed class DepositosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.DepositosConfirmacion.AsNoTracking();
+        var q = _db.DepositosConfirmacion
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.Estado is EstadoDepositoConfirmacion estado) q = q.Where(d => d.Estado == estado);
         if (query.ClienteId is Guid cliente) q = q.Where(d => d.ClienteId == cliente);
         if (query.SoloPropuestas is true) q = q.Where(d => d.PropuestaCxcId != null);

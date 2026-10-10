@@ -13,10 +13,8 @@ namespace Millet.Tesoreria.Application.Cuentas;
 // endpoint GET cuentas del §11 — GET only en v1, CRUD diferido a
 // Administración [TES-7]).
 //
-// ⚠️ Saldo = suma de movimientos registrados (ingresos − egresos). Los
-// saldos iniciales por cuenta a fecha de corte llegan con la conciliación
-// (PR-9, gate T-G8); hasta entonces el saldo refleja solo lo capturado en
-// el sistema.
+// Saldo = saldo inicial a fecha de corte + ingresos − egresos registrados.
+// Los movimientos deben ser posteriores al corte.
 //
 // PII (ADR-0006/ADR-0018): número de cuenta y CLABE salen ENMASCARADOS por
 // default; el valor completo solo con el permiso canónico
@@ -34,7 +32,8 @@ public sealed record CuentaSaldoResponse(
     string? PerfilExtracto,
     bool Activa,
     decimal Saldo,
-    int Version);
+    int Version, string? Sucursal = null, string? Finalidad = null, string? Titular = null,
+    string? Firmantes = null, decimal? SaldoInicial = null, DateOnly? FechaCorteSaldoInicial = null);
 
 public sealed record SaldosPorCuentaQuery(bool SoloActivas = true)
     : IRequest<IReadOnlyList<CuentaSaldoResponse>>;
@@ -73,17 +72,6 @@ public sealed class SaldosPorCuentaHandler
         var verCompleta = await _permissions.TieneAsync(
             PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, cancellationToken);
 
-        return cuentas.Select(c => new CuentaSaldoResponse(
-                c.Id,
-                c.Banco,
-                verCompleta ? c.NumeroCuenta : Clabe.Enmascarar(c.NumeroCuenta),
-                c.Clabe is null ? null : verCompleta ? c.Clabe : Clabe.Enmascarar(c.Clabe),
-                c.Moneda,
-                c.CuentaContableRef,
-                c.PerfilExtracto,
-                c.Activa,
-                saldos.GetValueOrDefault(c.Id, 0m),
-                c.Version))
-            .ToList();
+        return cuentas.Select(c => CuentaBancariaMapper.ToResponse(c, saldos.GetValueOrDefault(c.Id), verCompleta)).ToList();
     }
 }

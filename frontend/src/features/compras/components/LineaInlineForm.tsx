@@ -261,7 +261,10 @@ export function LineaInlineForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={form.handleSubmit(onSubmit, (errs) => {
+        // Si el error cae en un campo del bloque colapsado, ábrelo para que sea visible.
+        if (errs.proyecto || errs.cuentaContableId || errs.notas) setDetallesAbiertos(true);
+      })}
       noValidate
       onKeyDown={(e) => {
         // Esc en cualquier campo cancela el form (UX consistente con

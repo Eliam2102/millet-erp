@@ -1,8 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
 using Millet.Api.Web;
+using Millet.SharedKernel.Application.Adjuntos;
 using Millet.Compras.Application.Oc.ActualizarCabecera;
 using Millet.Compras.Application.Oc.ActualizarContactoProveedor;
 using Millet.Compras.Application.Oc.ActualizarInformacionImportacion;
@@ -69,8 +73,13 @@ public static class OrdenesCompraEndpoints
             ICurrentEmpresaContext currentEmpresa,
             IPermissionCache permissionCache,
             IPermissionLoader permissionLoader,
+            Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort scopeSucursales,
+            Millet.SharedKernel.Application.ICurrentUserPermissions scopePermisos,
             CancellationToken cancellationToken) =>
         {
+            await Millet.Administracion.Application.Abstractions.SucursalScopeGuard.VerificarAsync(currentUser.UserId,
+                "compras.ordenes.gestionar-todas-sucursales", scopePermisos,
+                (uid, c) => scopeSucursales.EstaAsociadoAsync(uid, command.SucursalDestinoId, c), cancellationToken);
             // FOC11: una OC con SinRequisicionPrevia=true requiere el
             // permiso adicional `compras.ordenes.crear-sin-rq`. La policy
             // base `compras.ordenes.crear` se aplica via .RequireAuthorization.
@@ -132,8 +141,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] DuplicarOcRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             var response = await mediator.Send(
                 new DuplicarOrdenCompraCommand(
                     OrdenCompraOrigenId: id,
@@ -165,8 +179,13 @@ public static class OrdenesCompraEndpoints
         group.MapGet("/{id:guid}/origen", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
             var origen = await mediator.Send(new ObtenerOrdenCompraOrigenQuery(id), cancellationToken);
             return origen is null ? Results.NoContent() : Results.Ok(origen);
         })
@@ -184,10 +203,17 @@ public static class OrdenesCompraEndpoints
 
         group.MapGet("/{id:guid}", async (
             Guid id,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IMediator mediator,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             var response = await mediator.Send(new ObtenerOrdenCompraPorIdQuery(id), cancellationToken);
             // ETag con Version (cuidado §2.4 [P1]). El cliente devuelve
             // este valor en If-Match al hacer mutaciones futuras.
@@ -213,8 +239,12 @@ public static class OrdenesCompraEndpoints
             Guid id,
             ComprasDbContext db,
             Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort blobPort,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, db, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
             var pdf = await db.OrdenCompraPdfs
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.OrdenCompraId == id, cancellationToken)
@@ -246,8 +276,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] ActualizarCabeceraOcRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarCabeceraOcCommand(
                     OrdenCompraId: id,
@@ -296,8 +331,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] AgregarLineaManualOcRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             var response = await mediator.Send(
                 new AgregarLineaManualOcCommand(
                     OrdenCompraId: id,
@@ -341,8 +381,13 @@ public static class OrdenesCompraEndpoints
             Guid lineaId,
             [FromBody] ActualizarLineaOcRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarLineaOcCommand(
                     OrdenCompraId: id,
@@ -381,8 +426,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             Guid lineaId,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(new EliminarLineaOcCommand(id, lineaId), cancellationToken);
             return Results.NoContent();
         })
@@ -405,8 +455,13 @@ public static class OrdenesCompraEndpoints
             Guid lineaId,
             [FromBody] ActualizarTextoAdicionalRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarTextoAdicionalOcCommand(id, lineaId, body.TextoAdicional),
                 cancellationToken);
@@ -432,8 +487,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] ReferenciaProveedorRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarReferenciaProveedorCommand(id, body.ReferenciaProveedor),
                 cancellationToken);
@@ -458,8 +518,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] ContactoProveedorRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarContactoProveedorCommand(id, body.Nombre, body.Email, body.Telefono),
                 cancellationToken);
@@ -482,8 +547,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] InformacionLogisticaRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarInformacionLogisticaCommand(
                     id,
@@ -514,8 +584,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] InformacionImportacionRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarInformacionImportacionCommand(
                     id,
@@ -545,8 +620,13 @@ public static class OrdenesCompraEndpoints
         group.MapPost("/{id:guid}/transmitir", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(new EnviarAAutorizacionOcCommand(id), cancellationToken);
             return Results.NoContent();
         })
@@ -572,8 +652,13 @@ public static class OrdenesCompraEndpoints
         group.MapPost("/{id:guid}/cerrar-manual", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(new CerrarManualOcCommand(id), cancellationToken);
             return Results.NoContent();
         })
@@ -604,6 +689,9 @@ public static class OrdenesCompraEndpoints
             ICurrentEmpresaContext currentEmpresa,
             IPermissionCache permissionCache,
             IPermissionLoader permissionLoader,
+            ComprasDbContext scopeDb,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
             if (currentUser.UserId is not Guid userId)
@@ -640,6 +728,7 @@ public static class OrdenesCompraEndpoints
                     $"El usuario no tiene permiso para autorizar OCs en {body.Nivel}.");
             }
 
+            await OcSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new AutorizarOrdenCompraCommand(id, body.Nivel, body.Notas),
                 cancellationToken);
@@ -667,8 +756,10 @@ public static class OrdenesCompraEndpoints
         group.MapPost("/desde-requisicion", async (
             [FromBody] CrearOrdenCompraDesdeRequisicionCommand command,
             IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(command.RequisicionId, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/compras/ordenes/{response.OrdenCompraId}", response);
         })
@@ -694,8 +785,14 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] AgregarLineaDesdeRequisicionRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            await RqSucursalScope.VerificarAsync(body.RequisicionId, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             var response = await mediator.Send(
                 new AgregarLineaDesdeRequisicionCommand(id, body.RequisicionId),
                 cancellationToken);
@@ -891,8 +988,13 @@ public static class OrdenesCompraEndpoints
         group.MapGet("/{id:guid}/historico", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
             var response = await mediator.Send(
                 new Millet.Compras.Application.Oc.ObtenerHistorico.ObtenerHistoricoOrdenCompraQuery(id),
                 cancellationToken);
@@ -913,8 +1015,13 @@ public static class OrdenesCompraEndpoints
         group.MapGet("/{id:guid}/duplicadas", async (
             Guid id,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken);
             var response = await mediator.Send(
                 new Millet.Compras.Application.Oc.ListarHermanasDuplicadas.ListarHermanasDuplicadasQuery(id),
                 cancellationToken);
@@ -967,8 +1074,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] CancelarOcRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new CancelarOrdenCompraCommand(id, body.MotivoCancelacionId, body.MotivoCancelacionTexto),
                 cancellationToken);
@@ -995,6 +1107,9 @@ public static class OrdenesCompraEndpoints
             ICurrentEmpresaContext currentEmpresa,
             IPermissionCache permissionCache,
             IPermissionLoader permissionLoader,
+            ComprasDbContext scopeDb,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
             if (currentUser.UserId is not Guid userId)
@@ -1008,7 +1123,7 @@ public static class OrdenesCompraEndpoints
                     "El usuario no tiene una empresa seleccionada en el JWT actual.");
             }
 
-            // F5-PR4: 3 permisos requeridos (doble firma).
+            // P2: primera firma, jefe de Compras.
             var permisos = await permissionCache.GetAsync(userId, empresaId, cancellationToken);
             if (permisos is null)
             {
@@ -1018,18 +1133,17 @@ public static class OrdenesCompraEndpoints
 
             string[] requeridos =
             [
-                PermisosCanonicos.ComprasOrdenesCancelarDoble,
                 PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
-                PermisosCanonicos.ComprasOrdenesAutorizarNivel2,
             ];
             var faltantes = requeridos.Where(p => !permisos.Contains(p)).ToList();
             if (faltantes.Count > 0)
             {
                 throw new ForbiddenException(
                     "OC_CANCELAR_DOBLE_DENEGADO",
-                    $"Cancelar OC con recepciones parciales requiere 3 permisos; faltan: {string.Join(", ", faltantes)}.");
+                    "Para solicitar la cancelación necesitas permiso de autorización de primer nivel de Compras.");
             }
 
+            await OcSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new CancelarConRecepcionesCommand(id, body.MotivoCancelacionId, body.MotivoCancelacionTexto),
                 cancellationToken);
@@ -1038,23 +1152,30 @@ public static class OrdenesCompraEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization()
         .WithName("CancelarOrdenCompraConRecepciones")
-        .WithSummary("Cancelar OC con recepciones parciales (F5-PR4)")
-        .WithDescription(
-            "Cancela una OC que tiene recepciones parciales o completas. " +
-            "Las cantidades ya recibidas permanecen en las líneas (trazabilidad " +
-            "contable). Para cada línea con RQ asociada y saldo no recibido, " +
-            "libera la cantidad no recibida al pool de la RQ origen vía " +
-            "`LineaRqLiberadaEvent`. Requiere **3 permisos** (doble firma): " +
-            "`compras.ordenes.cancelar-doble`, `compras.ordenes.autorizar-nivel1`, " +
-            "`compras.ordenes.autorizar-nivel2`. Header `Idempotency-Key` " +
-            "obligatorio.")
-        .WithDescription(
-            "Permitido desde cualquier estado no terminal mientras " +
-            "`subEstadoRecepcion = SinRecepcion`. Si hay recepciones " +
-            "parciales, requiere doble autorización — entra en F5-PR4. " +
-            "El motivo debe aplicar al flujo de cancelación (bitmask 4). " +
-            "Si el motivo `permiteTextoLibre`, el texto es obligatorio. " +
-            "Header `Idempotency-Key` obligatorio.")
+        .WithSummary("Solicitar cancelación de OC con recepciones (firma N1)")
+        .WithDescription("Registra la primera firma y bloquea recepción y facturación hasta que Dirección confirme o rechace. Requiere motivo e Idempotency-Key.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapPost("/{id:guid}/resolver-cancelacion", async (
+            Guid id, [FromBody] ResolverCancelacionOcRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            await mediator.Send(new ResolverCancelacionOcCommand(id, body.Confirmar, body.Motivo), cancellationToken);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesAutorizarNivel2)
+        .WithName("ResolverCancelacionOrdenCompra")
+        .WithSummary("Confirmar o rechazar cancelación de OC (firma de Dirección)")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -1073,8 +1194,11 @@ public static class OrdenesCompraEndpoints
             ICurrentEmpresaContext currentEmpresa,
             IPermissionCache permissionCache,
             IPermissionLoader permissionLoader,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, db, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             if (currentUser.UserId is not Guid userId)
             {
                 return Results.Unauthorized();
@@ -1155,9 +1279,15 @@ public static class OrdenesCompraEndpoints
             Guid id,
             Guid adjuntoId,
             ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IAlmacenarBlobPort blobPort,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             var adjunto = await db.AdjuntosOc
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
@@ -1194,10 +1324,22 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromForm] Guid tipoDocumentoId,
             IFormFile archivo,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
+            IOptions<AdjuntosPoliticaOptions> politicaOptions,
             IMediator mediator,
             IAlmacenarBlobPort blob,
+            ILoggerFactory loggerFactory,
             CancellationToken cancellationToken) =>
         {
+            // 1. Autorización comprobada contra el documento padre
+            // Conserva el bypass explícito de adjuntos; adjuntar exige además su propio permiso.
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
+            // 2. Validación de archivo (presencia, formato, MIME, tamaño y firma) ANTES de tocar el storage
             if (archivo is null || archivo.Length == 0)
             {
                 throw new BusinessRuleException(
@@ -1205,10 +1347,23 @@ public static class OrdenesCompraEndpoints
                     "Debe enviarse un archivo en el campo 'archivo' del multipart.");
             }
 
-            // Subir blob primero. El blobId se usa también como adjuntoId
-            // para que la URL sea reproducible. Si la persistencia de la
-            // metadata falla luego, queda un blob huérfano que un proceso
-            // de limpieza recoge (post-MVP).
+            var nombreArchivoLimpio = Path.GetFileName(archivo.FileName);
+            var contentType = archivo.ContentType ?? "application/octet-stream";
+
+            byte[] cabecera = new byte[8];
+            int bytesLeidos;
+            await using (var previewStream = archivo.OpenReadStream())
+            {
+                bytesLeidos = await previewStream.ReadAsync(cabecera.AsMemory(0, 8), cancellationToken);
+            }
+
+            politicaOptions.Value.ValidarInstancia(
+                nombreArchivoLimpio,
+                contentType,
+                archivo.Length,
+                cabecera.AsSpan(0, bytesLeidos));
+
+            // 3. Subir blob físico
             var adjuntoId = Guid.CreateVersion7();
             string blobUrl;
             await using (var stream = archivo.OpenReadStream())
@@ -1216,20 +1371,42 @@ public static class OrdenesCompraEndpoints
                 blobUrl = await blob.SubirAsync(
                     adjuntoId,
                     stream,
-                    archivo.ContentType ?? "application/octet-stream",
-                    archivo.FileName,
+                    contentType,
+                    nombreArchivoLimpio,
                     cancellationToken);
             }
 
-            var response = await mediator.Send(
-                new AdjuntarDocumentoCommand(
-                    OrdenCompraId: id,
-                    TipoDocumentoId: tipoDocumentoId,
-                    NombreArchivo: archivo.FileName,
-                    BlobUrl: blobUrl,
-                    ContentType: archivo.ContentType ?? "application/octet-stream",
-                    TamañoBytes: archivo.Length),
-                cancellationToken);
+            // 4. Persistir metadata en BD con compensación: si falla, se elimina el blob físico
+            AdjuntarDocumentoResponse response;
+            try
+            {
+                response = await mediator.Send(
+                    new AdjuntarDocumentoCommand(
+                        OrdenCompraId: id,
+                        TipoDocumentoId: tipoDocumentoId,
+                        NombreArchivo: nombreArchivoLimpio,
+                        BlobUrl: blobUrl,
+                        ContentType: contentType,
+                        TamañoBytes: archivo.Length),
+                    cancellationToken);
+            }
+            catch (Exception)
+            {
+                try
+                {
+                    await blob.EliminarAsync(blobUrl, CancellationToken.None);
+                }
+                catch (Exception elimEx)
+                {
+                    var logger = loggerFactory.CreateLogger("OrdenesCompraEndpoints");
+                    logger.LogWarning(
+                        elimEx,
+                        "Fallo al compensar (eliminar) blob huérfano en {BlobUrl} para OC {OrdenCompraId}",
+                        blobUrl,
+                        id);
+                }
+                throw;
+            }
 
             return Results.Created($"/api/v1/compras/ordenes/{id}/adjuntos/{response.AdjuntoId}", response);
         })
@@ -1258,9 +1435,16 @@ public static class OrdenesCompraEndpoints
         group.MapDelete("/{id:guid}/adjuntos/{adjuntoId:guid}", async (
             Guid id,
             Guid adjuntoId,
+            ComprasDbContext db,
+            ICurrentUserContext currentUser,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort usuarioSucursales,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(
+                id, db, currentUser, permisos, usuarioSucursales, cancellationToken);
+
             await mediator.Send(new RemoverAdjuntoCommand(id, adjuntoId), cancellationToken);
             return Results.NoContent();
         })
@@ -1283,8 +1467,13 @@ public static class OrdenesCompraEndpoints
             Guid id,
             [FromBody] NumeroPedimentoRequest body,
             IMediator mediator,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarNumeroPedimentoCommand(id, body.NumeroPedimento),
                 cancellationToken);
@@ -1409,4 +1598,5 @@ public static class OrdenesCompraEndpoints
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
+    public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
 }

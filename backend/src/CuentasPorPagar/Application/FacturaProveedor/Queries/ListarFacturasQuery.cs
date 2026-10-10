@@ -12,7 +12,11 @@ public sealed record ListarFacturasQuery(
     Guid? ProveedorId = null,
     Guid? SucursalId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<FacturaListItemResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<FacturaListItemResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record FacturaListItemResponse(
     Guid Id,
@@ -30,7 +34,7 @@ public sealed record FacturaListItemResponse(
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042); null si el
     // id no resuelve — el FE degrada al GUID abreviado.
-    string? ProveedorNombre = null);
+    string? ProveedorNombre = null, string? UuidCfdi = null);
 
 public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery, PagedResponse<FacturaListItemResponse>>
 {
@@ -50,7 +54,8 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.FacturasProveedor.AsNoTracking();
+        var q = _db.FacturasProveedor
+            .Where(x => query.SucursalesPermitidas == null || query.SucursalesPermitidas.Contains(x.SucursalId)).AsNoTracking();
         if (query.Estado is EstadoPasivo e) q = q.Where(f => f.Estado == e);
         if (query.ProveedorId is Guid p) q = q.Where(f => f.ProveedorId == p);
         if (query.SucursalId is Guid s) q = q.Where(f => f.SucursalId == s);
@@ -70,14 +75,14 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
                 f.FechaDocumento,
                 f.FechaVencimiento,
                 f.Total,
-                f.Total - f.AnticipoAplicadoTotal - f.NcAplicadasTotal - f.ImportePagado,
+                f.Total - f.AnticipoAplicadoTotal - f.NcAplicadasTotal - f.CargosAplicadosTotal - f.ImportePagado,
                 f.Moneda,
                 f.Estado,
                 f.OrdenCompraId,
                 f.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null))
+                null, f.UuidCfdi))
             .ToListAsync(cancellationToken);
 
         // Enriquecer etiqueta del proveedor en batch sobre los ids DISTINTOS

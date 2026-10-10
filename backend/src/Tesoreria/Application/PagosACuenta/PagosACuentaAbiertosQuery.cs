@@ -34,7 +34,13 @@ public sealed record PagosACuentaAbiertosQuery(
     Guid? ProveedorId = null,
     bool IncluirParciales = true,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<PagoACuentaAbiertoResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<PagoACuentaAbiertoResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "movimiento_bancario";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class PagosACuentaAbiertosHandler
     : IRequestHandler<PagosACuentaAbiertosQuery, PagedResponse<PagoACuentaAbiertoResponse>>
@@ -58,7 +64,8 @@ public sealed class PagosACuentaAbiertosHandler
         var offset = Math.Max(0, query.Offset);
 
         // Pago a cuenta = egreso con motivo_no_aplicado, no contramovimiento.
-        var q = _db.MovimientosBancarios.AsNoTracking()
+        var q = _db.MovimientosBancarios
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(m => m.Sentido == SentidoMovimiento.Egreso
                         && m.MotivoNoAplicado != null
                         && m.ContramovimientoDe == null);

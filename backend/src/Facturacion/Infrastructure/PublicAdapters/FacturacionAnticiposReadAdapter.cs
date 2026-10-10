@@ -33,7 +33,6 @@ public sealed class FacturacionAnticiposReadAdapter : IFacturacionAnticiposReadP
     public async Task<IReadOnlyList<AnticipoSaldoClienteDto>> ListarPorClienteAsync(
         Guid clienteId, CancellationToken cancellationToken)
     {
-        using var bypass = _empresaContext.Bypass();
 
         var anticipos = await _db.Anticipos.AsNoTracking()
             .Include(a => a.Vinculaciones)
@@ -41,6 +40,9 @@ public sealed class FacturacionAnticiposReadAdapter : IFacturacionAnticiposReadP
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync(cancellationToken);
 
+        var comprobantes = anticipos.Select(x => x.FacturaAnticipoId).ToArray();
+        var sucursales = await _db.Comprobantes.AsNoTracking().Where(x => comprobantes.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.SucursalId, cancellationToken);
         return anticipos.Select(a => new AnticipoSaldoClienteDto(
             AnticipoId: a.Id,
             ClienteId: a.ClienteId,
@@ -50,6 +52,7 @@ public sealed class FacturacionAnticiposReadAdapter : IFacturacionAnticiposReadP
             Saldo: a.Saldo,
             SaldoDisponible: a.SaldoDisponible,
             Moneda: a.Moneda,
-            PedidoOrigenRef: a.PedidoOrigenRef)).ToList();
+            PedidoOrigenRef: a.PedidoOrigenRef,
+            SucursalId: sucursales.TryGetValue(a.FacturaAnticipoId, out var sucursal) ? sucursal : null)).ToList();
     }
 }

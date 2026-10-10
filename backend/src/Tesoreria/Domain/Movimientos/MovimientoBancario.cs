@@ -49,6 +49,9 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     /// <summary>Pago a cuenta (§3.4): motivo obligatorio del egreso sin documento ligado.</summary>
     public string? MotivoNoAplicado { get; private set; }
 
+    public string? MotivoReversa { get; private set; }
+    public string? MotivoReclasificacion { get; private set; }
+
     public Guid CreadoPor { get; private set; }
     public DateTimeOffset CreadoEn { get; private set; }
 
@@ -71,6 +74,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         Guid creadoPor,
         DateTimeOffset ahora)
     {
+        cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
             throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
                 $"La cuenta bancaria '{cuenta.Banco} {Cuentas.NumeroCuenta.Crear(cuenta.NumeroCuenta).Enmascarado}' está inactiva.");
@@ -122,6 +126,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         Guid creadoPor,
         DateTimeOffset ahora)
     {
+        cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
             throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
                 $"La cuenta bancaria '{cuenta.Banco}' está inactiva.");
@@ -168,8 +173,10 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         decimal importe,
         DateOnly fechaValor,
         Guid creadoPor,
-        DateTimeOffset ahora)
+        DateTimeOffset ahora, string motivo)
     {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("MOV_MOTIVO_REVERSA_VACIO", "Indica el motivo de la reversa.");
         if (importe <= 0 || importe > Monto)
             throw new BusinessRuleException("MOV_REVERSA_IMPORTE_INVALIDO",
                 "El importe a revertir debe ser mayor a cero y no exceder el monto del movimiento original.");
@@ -197,6 +204,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             BeneficiarioTipo = BeneficiarioTipo,
             BeneficiarioRef = BeneficiarioRef,
             ContramovimientoDe = Id,
+            MotivoReversa = motivo.Trim(),
             CreadoPor = creadoPor,
             CreadoEn = ahora,
         };
@@ -223,11 +231,14 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         Guid creadoPor,
         DateTimeOffset ahora)
     {
+        cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
             throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
                 $"La cuenta bancaria '{cuenta.Banco}' está inactiva.");
         if (monto <= 0)
             throw new BusinessRuleException("MOV_MONTO_INVALIDO", "El monto debe ser mayor a cero.");
+        if (proveedorId is null || proveedorId == Guid.Empty)
+            throw new BusinessRuleException("MOV_PROVEEDOR_VACIO", "El proveedor es obligatorio para registrar un pago a cuenta.");
         if (string.IsNullOrWhiteSpace(motivo))
             throw new BusinessRuleException("MOV_MOTIVO_OBLIGATORIO",
                 "El motivo es obligatorio en un pago a cuenta (egreso sin documento).");
@@ -261,8 +272,8 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     /// Deriva el estado de aplicación desde la suma de aplicaciones no
     /// revertidas (§4.2): 0 = NoAplicado, parcial = AplicadoParcial,
     /// completa = Aplicado. Usado por la liga tardía (TES-PR6): pasar de
-    /// <c>NoAplicado</c> a parcial/aplicado libera el slot del gate RN-2
-    /// (el índice parcial solo captura estado 1).
+    /// <c>NoAplicado</c> a <c>Aplicado</c> libera el cupo de R5; una
+    /// aplicación parcial conserva el pago a cuenta abierto.
     /// </summary>
     public void ActualizarEstadoAplicacion(decimal sumaAplicada)
     {
@@ -275,6 +286,14 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             : sumaAplicada < Monto
                 ? EstadoAplicacionMovimiento.AplicadoParcial
                 : EstadoAplicacionMovimiento.Aplicado;
+    }
+
+    public void Reclasificar(Guid conceptoId, string motivo)
+    {
+        if (conceptoId == Guid.Empty || string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("MOV_RECLASIFICACION_INVALIDA", "Selecciona el concepto e indica el motivo de la reclasificación.");
+        ConceptoId = conceptoId;
+        MotivoReclasificacion = motivo.Trim();
     }
 
     /// <summary>VO ReferenciaBancaria (§4.3): texto corto normalizado (trim + upper).</summary>

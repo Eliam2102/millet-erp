@@ -12,21 +12,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Facturacion.Infrastructure.Workers;
 
 /// <summary>
-/// <c>BackgroundService</c> que se conecta al topic <c>tesoreria-events</c>
-/// (PR gemelo de TES-PR7): cada <c>pago-cliente.confirmado.v1</c> invoca
-/// <c>EmitirReppCommand</c> — la automatización que cierra
-/// PLATFORM-TODO(&lt;PagoClienteConfirmado&gt;). CxC aplica a cartera al
-/// consumir el <c>recibo-pago.timbrado.v1</c> resultante, y Tesorería lo
-/// consume para marcar la confirmación como fiscalmente cubierta.
-///
-/// <para>
-/// Mismo patrón que los listeners de la triada: dedupe en
-/// <c>facturacion.evento_procesado</c> antes de despachar; payloads
-/// corruptos a dead-letter; errores transitorios se abandonan para retry
-/// (<c>MaxDeliveryCount=5</c>). Los errores de REGLA DE NEGOCIO del REPP
-/// (sin saldo, no PPD, período cerrado) no llegan aquí: el handler los
-/// marca procesados y deja el caso al endpoint manual.
-/// </para>
+/// Consume pagos confirmados de Tesorería y crea pendientes de REP para revisión manual.
+/// La marca procesada y el pendiente se guardan juntos; no se timbra desde el worker.
 /// </summary>
 public sealed class TesoreriaEventListenerWorker : BackgroundService
 {
@@ -61,7 +48,7 @@ public sealed class TesoreriaEventListenerWorker : BackgroundService
         var options = new ServiceBusProcessorOptions
         {
             AutoCompleteMessages = false,
-            MaxConcurrentCalls = 1, // la reserva de folio es secuencial por serie
+            MaxConcurrentCalls = 1, // procesa cada confirmación de forma secuencial
             MaxAutoLockRenewalDuration = TimeSpan.FromMinutes(5),
             ReceiveMode = ServiceBusReceiveMode.PeekLock,
         };

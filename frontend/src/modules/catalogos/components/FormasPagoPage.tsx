@@ -1,19 +1,31 @@
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CatalogoSatReadOnlyTable } from '@/modules/catalogos/components/CatalogoSatReadOnlyTable';
-import { useFormasPago } from '@/modules/catalogos/api';
+import { useFormasPago, useCambiarEstadoFormaPago } from '@/modules/catalogos/api/formas-pago';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
+import { toast } from 'sonner';
 import type { FormaPagoItem } from '@/modules/catalogos/api/types';
 
 /**
- * Página P1 read-only del catálogo SAT Formas de Pago (UF-Admin-PR5.3).
+ * Catálogo SAT: lectura operativa y habilitación administrativa (P6, CA1.10).
  */
 export function FormasPagoPage() {
-  const query = useFormasPago();
+  const puedeGestionar = useHasPermission('catalogos.formas-pago.gestionar');
+  const query = useFormasPago(puedeGestionar);
+  const cambiar = useCambiarEstadoFormaPago();
+  const keyFor = useBodyScopedIdempotencyKey();
   const items = useMemo(() => query.data ?? [], [query.data]);
 
   return (
     <CatalogoSatReadOnlyTable
       titulo="Formas de pago (SAT)"
+      banner={
+        puedeGestionar
+          ? 'Habilita o deshabilita las claves SAT para Caja y Facturación. Las claves oficiales se conservan.'
+          : 'Consulta las formas de pago SAT habilitadas. Las claves oficiales se conservan.'
+      }
       items={items}
       isLoading={query.isLoading}
       isError={query.isError}
@@ -33,14 +45,45 @@ export function FormasPagoPage() {
           label: 'Estatus',
           render: (i) =>
             i.activa ? (
-              <Badge variant="secondary">Activa</Badge>
+              <Badge variant="success">Activa</Badge>
             ) : (
-              <Badge variant="outline" className="text-muted-foreground">
-                Inactiva
-              </Badge>
+              <Badge variant="neutral">Inactiva</Badge>
             ),
           className: 'w-32',
         },
+        ...(puedeGestionar
+          ? [
+              {
+                key: 'habilitar',
+                label: 'Habilitar',
+                render: (i: FormaPagoItem) => (
+                  <Checkbox
+                    role="switch"
+                    checked={i.activa}
+                    disabled={cambiar.isPending}
+                    aria-label={`Habilitar ${i.claveSat} · ${i.descripcion}`}
+                    onCheckedChange={(checked) =>
+                      cambiar.mutate(
+                        {
+                          id: i.id,
+                          activa: checked === true,
+                          idempotencyKey: keyFor({ id: i.id, activa: checked === true }),
+                        },
+                        {
+                          onError: (e) =>
+                            toast.error(
+                              esApiError(e)
+                                ? (e.problem.detail ?? 'No se pudo cambiar la forma de pago.')
+                                : 'No se pudo cambiar la forma de pago.',
+                            ),
+                        },
+                      )
+                    }
+                  />
+                ),
+              },
+            ]
+          : []),
       ]}
     />
   );

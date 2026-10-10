@@ -44,7 +44,7 @@ public sealed record DepositoConfirmacionResponse(
     Guid? ResueltaPor,
     DateTimeOffset? ResueltaEn,
     DateTimeOffset RecibidoEn,
-    int Version);
+    int Version, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0);
 
 internal static class DepositoMapper
 {
@@ -70,7 +70,7 @@ internal static class DepositoMapper
         new(d.Id, d.PropuestaCxcId, d.CajaSesionId, d.ClienteId, clienteClave, clienteRazonSocial,
             d.DepositoRef, d.MontoEsperado, d.Moneda, d.Estado, d.MotivoRechazo, d.ReppTimbrado,
             d.MovimientoId, ParseFacturas(d.FacturasJson), d.ResueltaPor, d.ResueltaEn,
-            d.CreatedAt, d.Version);
+            d.CreatedAt, d.Version, d.PropuestoPor, d.SaldoAFavorPorIdentificar);
 }
 
 // --------------------------------------------------- Confirmar
@@ -154,6 +154,8 @@ public sealed class ConfirmarDepositoHandler
                 Moneda: movimiento.Moneda,
                 FechaValor: movimiento.FechaValor,
                 Referencia: movimiento.ReferenciaBancaria,
+                ConfirmadaPor: usuarioId,
+                SaldoAFavorPorIdentificar: deposito.SaldoAFavorPorIdentificar,
                 Facturas: facturas
                     .Select(f => new PagoClienteFacturaAplicada(f.FacturaVentaId, f.ImporteAplicado))
                     .ToList()), cancellationToken);
@@ -219,10 +221,7 @@ public sealed class RechazarPropuestaDepositoHandler
 
         deposito.Rechazar(command.Motivo, usuarioId, _clock.UtcNow);
 
-        // [T-G7] PLATFORM-TODO(<PropuestaRechazadaConsumerCxC>): CxC aún no
-        // consume tesoreria-events; el evento se publica desde ya para que
-        // el wiring del lado CxC solo requiera su listener. Mientras tanto
-        // el rechazo se refleja en CxC vía su endpoint interino A2.
+        // CxC consume este rechazo y libera la reserva para una nueva propuesta.
         if (deposito.PropuestaCxcId is Guid propuestaId)
         {
             await _publisher.PublishAsync(new PropuestaAplicacionRechazadaIntegrationEvent(

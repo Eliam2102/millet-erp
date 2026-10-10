@@ -119,6 +119,7 @@ public static class AuthExtensions
 
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
+        services.AddScoped<Millet.Identidad.Application.Ports.IEntraGruposReadPort, GraphEntraGruposReader>();
         services.AddScoped<LoginOrchestrator>();
 
         // RBAC granular (ADR-0007). El policy provider construye policies
@@ -167,7 +168,8 @@ public static class AuthExtensions
         {
             var inner = sp.GetRequiredService<DefaultServicePrincipalResolver>();
             var cache = sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
-            return new CachedServicePrincipalResolver(inner, cache);
+            var signal = sp.GetRequiredService<ServicePrincipalCacheSignal>();
+            return new CachedServicePrincipalResolver(inner, cache, signal);
         });
         services.AddScoped<IEmpresaResolverPort, EmpresaResolverAdapter>();
         services.AddScoped<ICurrentServicePrincipal, CurrentServicePrincipal>();

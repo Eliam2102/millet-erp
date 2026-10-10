@@ -28,6 +28,8 @@ export interface TipoDocumentoSelectorItem {
   clave: string;
   descripcion: string;
   obligatorioSiImportacion?: boolean;
+  /** Meses de vigencia por defecto del tipo (null/undefined = sin vigencia). */
+  vigenciaMeses?: number | null;
 }
 
 export interface TipoDocumentoSelectorProps<TItem extends TipoDocumentoSelectorItem> {
@@ -74,7 +76,7 @@ export function TipoDocumentoSelector<TItem extends TipoDocumentoSelectorItem>({
                 ({item.clave})
               </span>
               {item.obligatorioSiImportacion && (
-                <span className="text-xs text-amber-600">obligatorio si importación</span>
+                <span className="text-xs text-warning-fg">obligatorio si importación</span>
               )}
             </span>
           </SelectItem>

@@ -16,6 +16,9 @@ using Millet.CentrosCosto.Application;
 using Millet.CentrosCosto.Infrastructure;
 using Millet.CentrosCosto.Infrastructure.Persistence;
 using Millet.Compras.Application;
+using Millet.Contabilidad.Application;
+using Millet.Contabilidad.Infrastructure;
+using Millet.Contabilidad.Infrastructure.Persistence;
 using Millet.Compras.Application.CrearRequisicion;
 using Millet.Compras.Infrastructure;
 using Millet.Compras.Infrastructure.Stubs;
@@ -128,7 +131,14 @@ builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<ICurrentEmpresaContext, CurrentEmpresaContext>();
 builder.Services.AddScoped<IAuditOriginContext, AuditOriginContext>();
 builder.Services.AddScoped<IAuditCorrelationContext, AuditCorrelationContext>();
-builder.Services.AddSingleton<IPermissionCache, InMemoryPermissionCache>();
+// U1.0: el decorator expira también el cache de service principals en
+// cada invalidación de permisos.
+builder.Services.AddSingleton<Millet.Identidad.Infrastructure.Adapters.ServicePrincipalCacheSignal>();
+builder.Services.AddSingleton<InMemoryPermissionCache>();
+builder.Services.AddSingleton<IPermissionCache>(sp =>
+    new Millet.Identidad.Infrastructure.Adapters.ServicePrincipalAwarePermissionCache(
+        sp.GetRequiredService<InMemoryPermissionCache>(),
+        sp.GetRequiredService<Millet.Identidad.Infrastructure.Adapters.ServicePrincipalCacheSignal>()));
 
 // === IIntegrationEventPublisher (F6-PR1, ADR-0009): Outbox real ===
 // El publisher encola al buffer scoped; el OutboxSaveChangesInterceptor
@@ -200,6 +210,23 @@ var outboxConnString =
     ?? builder.Configuration["Facturacion:Outbox:ServiceBusConnectionString"]
     ?? builder.Configuration["ServiceBus:ConnectionString"];
 
+// Interruptor del Service Bus: "Azure" (por defecto) usa la conexión de
+// arriba, la del namespace que crea infra/modules/servicebus.bicep;
+// "EmuladorLocal" usa el emulador de tools/servicebus-emulator para que los
+// módulos se pasen eventos en una sola computadora. Solo en Development.
+if (string.Equals(builder.Configuration["ServiceBus:Modo"], "EmuladorLocal", StringComparison.OrdinalIgnoreCase))
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "ServiceBus:Modo=EmuladorLocal solo se permite en Development.");
+    }
+
+    // Cadena pública documentada por Microsoft para el emulador; no es un secreto.
+    outboxConnString =
+        "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
+}
+
 if (!string.IsNullOrWhiteSpace(outboxConnString))
 {
     builder.Services.AddSingleton(_ => new Azure.Messaging.ServiceBus.ServiceBusClient(outboxConnString));
@@ -245,6 +272,7 @@ if (!string.IsNullOrWhiteSpace(outboxConnString))
     // anticipos informativos). Subscription `cuentas-por-cobrar-subscription`
     // en topic `facturacion-events` (Bicep en el mismo PR).
     builder.Services.AddHostedService<Millet.CuentasPorCobrar.Infrastructure.Workers.FacturacionEventListenerWorker>();
+    builder.Services.AddHostedService<Millet.CuentasPorCobrar.Infrastructure.Workers.TesoreriaEventListenerWorker>();
 
     // TES-PR3: listener Service Bus de eventos de CxP → proyección
     // pasivo_pendiente_pago (bandeja de egresos de Tesorería). Subscription
@@ -411,6 +439,12 @@ builder.Services.AddScoped<
     Millet.Compras.Domain.Ports.DatosMaestros.IProveedorReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.ProveedorReadAdapter>();
 
+// === Adjuntos: política de formato y tamaño (F1-ADM-11, configuración de prueba) ===
+builder.Services
+    .AddOptions<Millet.SharedKernel.Application.Adjuntos.AdjuntosPoliticaOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.SharedKernel.Application.Adjuntos.AdjuntosPoliticaOptions.SectionName));
+
 // === Compras OC: blob storage (F2-PR4 stub, F10-PR3 real con Azure) ===
 // Si `Compras:Oc:BlobStorage:ConnectionString` está configurado (viene
 // de Key Vault en QA/Prod), se usa Azure Blob real con BlobServiceClient.
@@ -518,6 +552,54 @@ else
         Millet.Integraciones.Aw.Infrastructure.Stubs.LocalFilesystemBlobStub>();
 }
 
+// === Adjuntos genéricos (F1-ADM-11 G1.2): puerto de blob propio ===
+// PLATFORM-TODO(<UnificarBlobPorts>): conviven con los tres IAlmacenarBlobPort legados (Compras,
+// Almacén, Integraciones.Aw); migrarlos a IBlobStoragePort y retirar los duplicados.
+// Connection string: `Adjuntos:BlobStorage` con respaldo en la de Compras OC; ninguna = filesystem local.
+builder.Services
+    .AddOptions<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.SectionName));
+var adjuntosBlobConnString = builder.Configuration
+    .GetSection(Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.SectionName)
+    .GetValue<string>(nameof(Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions.ConnectionString));
+if (string.IsNullOrWhiteSpace(adjuntosBlobConnString)) adjuntosBlobConnString = blobConnString;
+if (!string.IsNullOrWhiteSpace(adjuntosBlobConnString))
+{
+    // Cliente propio (no el compartido de DI) para respetar una cuenta distinta a la de Compras.
+    builder.Services.AddSingleton<Millet.SharedKernel.Application.Blob.IBlobStoragePort>(sp =>
+        new Millet.Compartido.Infrastructure.Blob.AzureBlobStoragePort(
+            new Azure.Storage.Blobs.BlobServiceClient(adjuntosBlobConnString),
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Millet.Compartido.Infrastructure.Blob.AdjuntosBlobStorageOptions>>()));
+}
+else
+{
+    builder.Services.AddSingleton<
+        Millet.SharedKernel.Application.Blob.IBlobStoragePort,
+        Millet.Compartido.Infrastructure.Blob.LocalFilesystemBlobStoragePort>();
+}
+
+// === Adjuntos genéricos (F1-ADM-11 G1.2): autorización heredada del padre y enlace temporal ===
+// Cada módulo que adjunta archivos registra aquí su IAdjuntoPropietario (primero: Proveedor).
+// PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
+builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
+builder.Services.AddScoped<
+    Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
+    Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
+builder.Services
+    .AddOptions<Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceOptions.SectionName));
+// Lectura del expediente para CxP (G1.1/CA2.2: validar antes de pasar a Activo); aún sin consumidor.
+builder.Services.AddScoped<
+    Millet.Compartido.Application.Ports.IExpedienteProveedorReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ExpedienteProveedorReadAdapter>();
+builder.Services.AddSingleton<
+    Millet.SharedKernel.Application.Adjuntos.IAdjuntoEnlaceTokenService,
+    Millet.Compartido.Infrastructure.Adjuntos.AdjuntoEnlaceTokenService>();
+
 // === Compras OC: PDF real con QuestPDF (F6-PR3) ===
 // Reemplaza LocalPdfOrdenCompraStub por QuestPdfOrdenCompraGenerator con
 // layout institucional. El stub se conserva en el assembly para fixtures
@@ -538,6 +620,16 @@ builder.Services.AddScoped<Millet.Compras.Application.Matriz.NaturalezaResolverS
 builder.Services.AddScoped<
     Millet.Compras.Application.Folios.IFolioSecuenciaService,
     Millet.Compras.Infrastructure.Folios.FolioSecuenciaService>();
+
+builder.Services.AddScoped<Millet.SharedKernel.Application.UnidadesMedida.IConversionUnidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.ConversionUnidadAdapter>();
+builder.Services.AddScoped<Millet.Tesoreria.Application.PublicPorts.IPagosTrazabilidadReadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.PagosTrazabilidadReadAdapter>();
+builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.IProveedorNodosTrazabilidad, Millet.Api.Adapters.TesoreriaPagosTrazabilidadProvider>();
+builder.Services.AddScoped<Millet.Compras.Domain.Trazabilidad.ICxpFacturasTrazabilidadReadPort,
+    Millet.CuentasPorPagar.Infrastructure.PublicAdapters.CxpFacturasTrazabilidadProvider>();
+builder.Services.AddScoped<Millet.Almacen.Infrastructure.PublicAdapters.ApartadosRequisicionService>();
+builder.Services.AddScoped<Millet.Compras.Infrastructure.PublicAdapters.TransaccionApartadosRq>();
 
 // === Compras — Trazabilidad cross-módulo (F7-PR2) ===
 builder.Services.AddScoped<
@@ -592,7 +684,8 @@ builder.Services.AddMilletApplication(
     Millet.Facturacion.Application.AssemblyMarker.Assembly,
     CuentasPorCobrarAssemblyMarker.Assembly,
     TesoreriaAssemblyMarker.Assembly,
-    CentrosCostoAssemblyMarker.Assembly);
+    CentrosCostoAssemblyMarker.Assembly,
+    ContabilidadAssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
 // PR B foundation: IntegracionesAwOptions + repositorio + DbContext.
@@ -627,6 +720,12 @@ builder.Services.AddScoped<
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Calendario.ICalendarioHabil,
+    Millet.Compartido.Infrastructure.Calendario.CalendarioHabilService>();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.ICentroCostoElegibilidadPort,
+    Millet.Api.Adapters.AlmacenCentroCostoElegibilidadAdapter>();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider,
+    Millet.Compartido.Infrastructure.PublicAdapters.ConteoUmbralesProvider>();
 
 // === Almacén cross-module ports (read-side síncrono) → adapters reales ===
 // Reemplaza los NoOpComprasOcReadPort / NoOpComprasRequisicionReadPort que
@@ -641,7 +740,7 @@ builder.Services.AddAlmacenModule();
 //   esté Autorizada y resuelven costo unitario desde la línea de OC
 //   (convertido a MXN si la OC es en moneda extranjera).
 // - <ComprasRqReadAdapter>: handlers de salida ahora validan que la RQ
-//   esté Autorizada / EnSurtido y leen articulo + cantidad solicitada por
+//   esté Autorizada / EnSurtido y leen artículo + cantidad disponible para entregar por
 //   línea para verificar match.
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasOcReadPort,
@@ -740,6 +839,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort,
     Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.Administracion.Application.Series.SerieSucursalScope>();
 
 // IRolReadPort (F1-ADM-01.4): lectura cross-módulo de roles para validación
 // de RolSugeridoId en Puesto. Adapter hospedado en Identidad.
@@ -776,6 +876,8 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
 // el publisher de los 4 eventos espejo congelados en TES-PR4. Ver
 // docs/modulos/tesoreria/01-diseno.md §6.
 builder.Services.AddTesoreriaModule(builder.Configuration);
+builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
+builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -783,6 +885,25 @@ builder.Services.AddTesoreriaModule(builder.Configuration);
 // catálogo general). DbContext abajo, junto a los demás contextos. Sin
 // endpoints ni outbox todavía — CRUD/jerarquía entran en A2/A3.
 builder.Services.AddCentrosCostoModule();
+
+// === Módulo Contabilidad (F1-CON-01): catálogo contable ===
+// Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
+builder.Services.AddContabilidadModule(builder.Configuration);
+// F1-CON-02 (dimensiones contables): los puertos de consumidor de Contabilidad los hospedan los dueños del dato.
+// Centros (Dim1→Dim2→Dim3 de ADM-08) desde CentrosCosto; sucursales, pertenencia usuario↔sucursal, clientes y proveedores
+// desde Compartido; cuentas bancarias desde Tesorería.
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ICentroCostoContabilidadPort,
+    Millet.CentrosCosto.Infrastructure.PublicAdapters.ContabilidadCentroCostoAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ISucursalContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.SucursalContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ITerceroContabilidadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TerceroContabilidadAdapter>();
+builder.Services.AddScoped<
+    Millet.Contabilidad.Application.Ports.ICuentaBancariaContabilidadPort,
+    Millet.Tesoreria.Infrastructure.PublicAdapters.CuentaBancariaContabilidadAdapter>();
 
 // === Flujo 2 de Integraciones.Aw: ingesta de pedidos en firme (ADR-0048) ===
 // Adapters reales del reader/write-back sobre MILLET_INTEGRACION (tabla-puente
@@ -793,8 +914,9 @@ builder.Services.AddCentrosCostoModule();
 // Nota: si el secreto KV no existe, App Service pasa la ref SIN resolver como
 // string literal "@Microsoft.KeyVault(...)" — se trata como ausente.
 var awIntegracionDb = builder.Configuration.GetConnectionString("AwIntegracionDb");
-if (!string.IsNullOrWhiteSpace(awIntegracionDb)
-    && !awIntegracionDb.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase))
+if (PedidosDependencyInjection.OrigenPostgres(builder.Configuration)
+    || (!string.IsNullOrWhiteSpace(awIntegracionDb)
+        && !awIntegracionDb.StartsWith("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase)))
 {
     builder.Services.AddIntegracionesAwPedidosAdapters(builder.Configuration);
 }
@@ -958,6 +1080,8 @@ builder.Services.AddMilletAuth(builder.Configuration);
 // empresa ya existe. Auto-excluido en Production.
 builder.Services.AddHostedService<
     Millet.Compras.Infrastructure.Seed.ComprasTestSeedHostedService>();
+// Después de los catálogos canónicos y del bootstrap de identidad.
+builder.Services.AddHostedService<Millet.Api.Seed.DemoSesionSeedHostedService>();
 
 // === SignalR + Azure SignalR backplane (CollaborationHub, ADR-0001 + ADR-0012 Capa 2) ===
 // En QA/Prod la connection string viene de Key Vault (App Setting
@@ -1176,6 +1300,10 @@ builder.Services.AddDbContext<TesoreriaDbContext>((sp, opts) =>
 builder.Services.AddDbContext<CentrosCostoDbContext>((sp, opts) =>
     ConfigureMilletDbContext(opts, sp));
 
+// Contabilidad (F1-CON-01): sin outbox todavía — PLATFORM-TODO(<OutboxContabilidad>).
+builder.Services.AddDbContext<ContabilidadDbContext>((sp, opts) =>
+    ConfigureMilletDbContext(opts, sp));
+
 // === Manejo de errores: Problem Details vía IExceptionHandler ===
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -1205,6 +1333,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
         typeof(TesoreriaDbContext),
 
         typeof(CentrosCostoDbContext),
+        typeof(ContabilidadDbContext),
     },
 });
 
@@ -1222,6 +1351,13 @@ builder.Services.AddHealthChecks()
         tags: ["ready"],
         timeout: TimeSpan.FromSeconds(1));
 
+builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(Millet.Api.Web.SucursalScopeQueryBehavior<,>));
+builder.Services.AddScoped<Millet.SharedKernel.Application.IFacturacionSucursalReadPort, Millet.Facturacion.Infrastructure.FacturacionSucursalReadAdapter>();
+builder.Services.AddScoped<IComprasSucursalReadPort, ComprasSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.ICxpSucursalReadPort, Millet.CuentasPorPagar.Infrastructure.CxpSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.ICxcSucursalReadPort, Millet.CuentasPorCobrar.Infrastructure.CxcSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.ITesoreriaSucursalReadPort, Millet.Tesoreria.Infrastructure.TesoreriaSucursalReadAdapter>();
+builder.Services.AddScoped<Millet.Api.Web.DocumentoSucursalScope>();
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
@@ -1289,6 +1425,13 @@ Millet.Api.Endpoints.CentrosCosto.CentrosCostoJerarquiaEndpoints.MapCentrosCosto
 
 // === Centros de Costo — alcance usuario→máquinas (CECO-PR6) ===
 Millet.Api.Endpoints.CentrosCosto.CentrosCostoAsignacionesEndpoints.MapCentrosCostoAsignacionesEndpoints(app);
+
+// === Contabilidad — catálogo de cuentas, importación y configuración de formato (F1-CON-01) ===
+Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadEndpoints(app);
+// === Contabilidad — reglas de dimensión, centros por sucursal y movimientos de prueba (F1-CON-02) ===
+Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
+// === Contabilidad — ejercicios y periodos contables: apertura, cierre y reapertura con bitácora (F1-CON-03) ===
+Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);
@@ -1526,6 +1669,7 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
+Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.MovimientosEndpoints.MapTesoreriaMovimientosEndpoints(app);
 
 // === Tesorería — Bandeja de pasivos pendientes de pago (TES-PR3) ===

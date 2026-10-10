@@ -29,7 +29,7 @@ public sealed class AwClientesOrigenTests
         s.RazonSocial.Should().Be("CLIENTE DEMO 001");
         s.NombreComercialOrigen.Should().Be("CLIENTE DEMO 001");
         s.Telefono.Should().Be("5500000000");
-        s.CodigoPostalFiscal.Should().BeNull("PLZ no es CP fiscal");
+        s.CodigoPostalFiscal.Should().Be("00000", "PLZ de 5 dígitos se aplica como CP fiscal");
         s.DomicilioCp.Should().Be("00000");
         s.LeidoEnUtc.Should().Be(Ahora);
         (s.VersionContrato, s.VersionMapeo).Should().Be(("1", "0-borrador"));
@@ -46,13 +46,13 @@ public sealed class AwClientesOrigenTests
     }
 
     [Fact]
-    public void Rfc_generico_en_dos_referencias_nunca_llena_Rfc()
+    public void Rfc_valido_de_UST_ID_se_aplica_y_el_invalido_queda_solo_como_candidato()
     {
-        var a = Mapear(Fila(1, ust: "XEXX010101000")).Snapshot!;
-        var b = Mapear(Fila(2)).Snapshot!;
-        a.Rfc.Should().BeNull();
+        var a = Mapear(Fila(1, ust: "xexx010101000")).Snapshot!;
+        var b = Mapear(Fila(2, ust: "DEMO002")).Snapshot!;
+        a.Rfc.Should().Be("XEXX010101000");
         b.Rfc.Should().BeNull();
-        a.CandidatoFiscalUstId.Should().Be("XEXX010101000");
+        a.CandidatoFiscalUstId.Should().Be("xexx010101000");
         b.CandidatoFiscalSteuernummer.Should().Be("XAXX010101000");
         (a.ReferenciaExterna != b.ReferenciaExterna).Should().BeTrue();
     }

@@ -5,6 +5,8 @@ using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Cajas.Sesiones;
 using Millet.Facturacion.Application.Facturas;
 using Millet.Facturacion.Application.Integration;
+using Millet.Facturacion.Domain.Anticipos;
+using Millet.Facturacion.Domain.Facturas;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Ports;
@@ -69,6 +71,7 @@ public sealed class RegistrarCobroMostradorHandler
     private readonly ISucursalesReadPort _sucursales;
     private readonly IAlcanceCajaEvaluator _alcance;
     private readonly IIntegrationEventPublisher _eventos;
+    private readonly ICatalogosSatReadPort _catalogos;
 
     public RegistrarCobroMostradorHandler(
         FacturacionDbContext db,
@@ -77,8 +80,9 @@ public sealed class RegistrarCobroMostradorHandler
         IClock clock,
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
-        IIntegrationEventPublisher eventos)
+        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos)
     {
+        _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
         _user = user;
@@ -91,6 +95,8 @@ public sealed class RegistrarCobroMostradorHandler
     public async Task<CobroMostradorResponse> Handle(
         RegistrarCobroMostradorCommand command, CancellationToken cancellationToken)
     {
+        foreach (var forma in command.FormasPago)
+            await FormaPagoActivaGuard.VerificarAsync(forma.FormaPago, _catalogos, cancellationToken);
         var (empresaId, usuarioId) = ContextoRequerido.De(_empresa, _user);
         var ahora = _clock.UtcNow;
 
@@ -211,10 +217,17 @@ internal static class CobroMostradorRegistrador
         // Única vía de escritura de Comprobante.CajaId (§6).
         comprobante.AsignarCajaCobro(sesion.CajaId);
 
+        var clienteId = await ClienteContableFacturacion.ResolverAsync(db, comprobante, cancellationToken);
+
         await eventos.PublishAsync(new CobroMostradorRegistradoIntegrationEvent(
             empresaId, ahora, cobro.Id, sesion.Id, sesion.CajaId, comprobante.Id,
             comprobante.Tipo.ToString(), cobro.Origen.ToString(), cobro.Total,
-            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe)).ToList()),
+            cobro.FormasPago.Select(f => new CobroFormaPagoAplicada(f.FormaPago, f.Importe)).ToList(),
+            SucursalId: comprobante.SucursalId,
+            ClienteId: clienteId,
+            Moneda: comprobante.Moneda,
+            TipoCambio: comprobante.TipoCambio,
+            IvaCobrado: EventosContablesFacturacion.IvaCobrado(comprobante, cobro.Total)),
             cancellationToken);
 
         return cobro;
@@ -277,6 +290,7 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
     private readonly ISucursalesReadPort _sucursales;
     private readonly IAlcanceCajaEvaluator _alcance;
     private readonly IIntegrationEventPublisher _eventos;
+    private readonly ICatalogosSatReadPort _catalogos;
 
     public LiquidarRutaHandler(
         FacturacionDbContext db,
@@ -285,8 +299,9 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
         IClock clock,
         ISucursalesReadPort sucursales,
         IAlcanceCajaEvaluator alcance,
-        IIntegrationEventPublisher eventos)
+        IIntegrationEventPublisher eventos, ICatalogosSatReadPort catalogos)
     {
+        _catalogos = catalogos;
         _db = db;
         _empresa = empresa;
         _user = user;
@@ -299,6 +314,8 @@ public sealed class LiquidarRutaHandler : IRequestHandler<LiquidarRutaCommand, L
     public async Task<LiquidacionRutaResponse> Handle(
         LiquidarRutaCommand command, CancellationToken cancellationToken)
     {
+        foreach (var forma in command.Cobros.SelectMany(x => x.FormasPago))
+            await FormaPagoActivaGuard.VerificarAsync(forma.FormaPago, _catalogos, cancellationToken);
         var (empresaId, usuarioId) = ContextoRequerido.De(_empresa, _user);
         var ahora = _clock.UtcNow;
 

@@ -45,6 +45,8 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.Property(e => e.BeneficiarioRef);
         builder.Property(e => e.ContramovimientoDe);
         builder.Property(e => e.MotivoNoAplicado).HasMaxLength(400);
+        builder.Property(e => e.MotivoReversa).HasMaxLength(400);
+        builder.Property(e => e.MotivoReclasificacion).HasMaxLength(400);
         builder.Property(e => e.CreadoPor).IsRequired();
         builder.Property(e => e.CreadoEn).IsRequired();
 
@@ -74,7 +76,7 @@ public sealed class MovimientoBancarioConfiguration : IEntityTypeConfiguration<M
         builder.HasIndex(e => new { e.EmpresaId, e.BeneficiarioRef })
             .HasDatabaseName("ux_pago_cuenta_abierto")
             .IsUnique()
-            .HasFilter("sentido = 2 AND estado_aplicacion = 1 AND beneficiario_tipo = 1 AND contramovimiento_de IS NULL");
+            .HasFilter("sentido = 2 AND estado_aplicacion IN (1, 2) AND beneficiario_tipo = 1 AND contramovimiento_de IS NULL AND motivo_no_aplicado IS NOT NULL");
     }
 }
 
@@ -97,6 +99,7 @@ public sealed class AplicacionPagoProveedorConfiguration : IEntityTypeConfigurat
         builder.Property(e => e.ImporteAplicado).HasPrecision(18, 2).IsRequired();
         builder.Property(e => e.CorridaId);
         builder.Property(e => e.Revertida).IsRequired();
+        builder.Property(e => e.MotivoReversa).HasMaxLength(400);
         builder.Property(e => e.CreadoEn).IsRequired();
 
         builder.HasOne<MovimientoBancario>()
@@ -111,7 +114,7 @@ public sealed class AplicacionPagoProveedorConfiguration : IEntityTypeConfigurat
 
         builder.HasIndex(e => new { e.MovimientoId, e.FacturaProveedorId })
             .HasDatabaseName("ux_aplicacion_pago_movimiento_factura")
-            .IsUnique();
+            .IsUnique().HasFilter("NOT revertida");
 
         // §5.1: trazabilidad por pasivo.
         builder.HasIndex(e => e.FacturaProveedorId)

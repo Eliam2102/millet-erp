@@ -44,7 +44,11 @@ public sealed record FacturaDetalleResponse(
     // Etiquetas resueltas server-side vía read ports (ADR-0042): el
     // cliente no tiene catálogo completo. Null si el id no resuelve.
     string? ProveedorNombre = null,
-    string? SucursalNombre = null);
+    string? SucursalNombre = null,
+    decimal Elegible = 0,
+    decimal Retenido = 0,
+    IReadOnlyList<Domain.Cfdi.RetencionCfdi>? RetencionesDetalle = null,
+    string? Obra = null, string? ConceptoRetencion = null, string? AlertaRetenciones = null, decimal CargosAplicadosTotal = 0);
 
 public sealed record FacturaLineaResponse(
     Guid Id,
@@ -65,21 +69,22 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
     private readonly CuentasPorPagarDbContext _db;
     private readonly IProveedorReadPort _proveedores;
     private readonly ISucursalReadPort _sucursales;
+    private readonly Elegibilidad.ElegibilidadFacturaService _elegibilidad;
 
     public GetFacturaPorIdHandler(
         CuentasPorPagarDbContext db,
         IProveedorReadPort proveedores,
-        ISucursalReadPort sucursales)
+        ISucursalReadPort sucursales, Elegibilidad.ElegibilidadFacturaService elegibilidad)
     {
         _db = db;
         _proveedores = proveedores;
         _sucursales = sucursales;
+        _elegibilidad = elegibilidad;
     }
 
     public async Task<FacturaDetalleResponse> Handle(GetFacturaPorIdQuery query, CancellationToken cancellationToken)
     {
         var f = await _db.FacturasProveedor
-            .AsNoTracking()
             .Include(f => f.Lineas)
             .FirstOrDefaultAsync(f => f.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException(
@@ -89,6 +94,7 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
         var proveedor = await _proveedores.ObtenerAsync(f.ProveedorId, cancellationToken);
         var sucursal = await _sucursales.ObtenerAsync(f.SucursalId, cancellationToken);
 
+        var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken);
         return new FacturaDetalleResponse(
             Id: f.Id,
             EmpresaId: f.EmpresaId,
@@ -124,6 +130,8 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
                 l.Cantidad, l.ClaveUnidad, l.PrecioUnitario, l.Importe, l.Descuento,
                 l.LineaOcId, l.ConceptoContableId)).ToList(),
             ProveedorNombre: proveedor?.RazonSocial,
-            SucursalNombre: sucursal is null ? null : $"{sucursal.Codigo} · {sucursal.Nombre}");
+            SucursalNombre: sucursal is null ? null : $"{sucursal.Codigo} · {sucursal.Nombre}",
+            Elegible: elegibilidad.ElegiblePendiente, Retenido: elegibilidad.Retenido,
+            RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal);
     }
 }

@@ -35,7 +35,10 @@ public sealed record CfdiParseadoResponse(
     string? MetodoPago = null,
     // Relaciones <cfdi:CfdiRelacionados> para prellenar la captura de
     // NC/anticipo (TipoRelacion + UUID del CFDI origen). Aditivo.
-    IReadOnlyList<CfdiRelacionadosResponse>? CfdiRelacionados = null);
+    IReadOnlyList<CfdiRelacionadosResponse>? CfdiRelacionados = null,
+    // G1.6 (P2): desglose de retenciones del CFDI para reenviarlo al capturar. Aditivo.
+    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
+    decimal Descuentos = 0m);
 
 public sealed record CfdiRelacionadosResponse(
     string TipoRelacion,
@@ -116,6 +119,8 @@ public sealed class ObtenerCfdiParseadoHandler
             MetodoPago: datos.MetodoPago,
             CfdiRelacionados: datos.CfdiRelacionados
                 ?.Select(r => new CfdiRelacionadosResponse(r.TipoRelacion, r.Uuids))
-                .ToList());
+                .ToList(),
+            RetencionesDetalle: datos.RetencionesDetalle,
+            Descuentos: datos.Descuentos);
     }
 }

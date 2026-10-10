@@ -150,17 +150,19 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
     }
 
     /// <summary>
-    /// Seed de los 6 roles MVP adicionales al super-admin (F-Admin-PR3.3,
-    /// A2 cerrada 2026-05-13). Cada rol agrupa un subset de permisos
-    /// canónicos por área de responsabilidad:
+    /// Seed de roles MVP adicionales al super-admin (F-Admin-PR3.3,
+    /// A2 cerrada 2026-05-13; G1.9 / F1-ADM-05; P9 agrega el DAF).
+    /// Cada rol agrupa un subset de permisos canónicos por área de responsabilidad:
     ///
     /// <list type="bullet">
     ///   <item><b>Administrador de identidad</b>: <c>identidad.*</c></item>
     ///   <item><b>Administrador organizacional</b>: <c>admin.empresas.*</c>, <c>admin.departamentos.*</c></item>
     ///   <item><b>Administrador de catálogos</b>: <c>compartido.catalogos.*</c></item>
-    ///   <item><b>Administrador de datos maestros</b>: <c>compartido.catalogos.*</c> (Proveedor/Artículo viven en catálogos hoy)</item>
+    ///   <item><b>Administrador de datos maestros</b>: <c>compartido.catalogos.*</c>, <c>datos_maestros.*</c> (excepto <c>bancarios-editar</c>)</item>
     ///   <item><b>Auditor</b>: <c>admin.auditoria.leer</c> + <c>infra.audit_log.leer</c> + todos los <c>.leer</c> del sistema (read-only)</item>
     ///   <item><b>Administrador Compras</b>: <c>compras.configuracion.*</c></item>
+    ///   <item><b>Cuentas por Pagar</b>: <c>datos_maestros.proveedores.bancarios-ver</c>, <c>datos_maestros.proveedores.validar</c>, <c>datos_maestros.proveedores.gestionar</c></item>
+    ///   <item><b>Tesorería</b>: <c>datos_maestros.proveedores.bancarios-ver</c>, <c>datos_maestros.proveedores.bancarios-editar</c>, <c>datos_maestros.proveedores.gestionar</c></item>
     /// </list>
     ///
     /// Idempotente: usa GUIDs deterministas y verifica existencia antes
@@ -195,7 +197,9 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 // que el org-admin pueda leer/usar el Sheet del N:M, coherente
                 // con sus roles hermanos (admin-catálogos, admin-datos-maestros,
                 // auditor) que ya lo tienen.
-                p => p.Codigo.StartsWith("admin.empresas", StringComparison.Ordinal)
+                p => (p.Codigo.StartsWith("admin.empresas", StringComparison.Ordinal)
+                         && p.Codigo != PermisosCanonicos.AdminEmpresasCrear
+                         && p.Codigo != PermisosCanonicos.AdminEmpresasDesactivar)
                      || p.Codigo.StartsWith("admin.departamentos", StringComparison.Ordinal)
                      || p.Codigo.StartsWith("admin.sucursales.", StringComparison.Ordinal)
                      // ADM-PR1: master de puestos y empleados (doc
@@ -218,8 +222,11 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "admin-datos-maestros",
                 "Administrador de Datos Maestros",
                 "Gestión de proveedores y artículos (catálogos operativos).",
+                // G1.9 / G1.13: edición de datos bancarios y tolerancia reservada a sus áreas.
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
-                     || p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
+                     || (p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar)
             ),
             (
                 Guid.Parse("00000002-0003-0000-0000-000000000006"),
@@ -237,8 +244,31 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 "Configuración del módulo Compras de la empresa actual.",
                 p => p.Codigo.StartsWith("compras.configuracion", StringComparison.Ordinal)
             ),
+            (
+                Guid.Parse("00000002-0003-0000-0000-000000000008"),
+                "cxp",
+                "Cuentas por Pagar",
+                "Revisión, validación y tolerancia de proveedores; consulta de datos bancarios enmascarados.",
+                p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresValidar
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
+            ),
+            (
+                Guid.Parse("00000002-0003-0000-0000-000000000009"),
+                "tesoreria",
+                "Tesorería",
+                "Consulta y edición de datos bancarios de proveedores para pago.",
+                p => p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosVer
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
+                     || p.Codigo == PermisosCanonicos.DatosMaestrosProveedoresGestionar
+            ),
         };
 
+        rolesDefinicion = [.. rolesDefinicion,
+            (Guid.Parse("0000000d-0001-0001-0000-000000000001"), "direccion-administracion-finanzas",
+                "Dirección de Administración y Finanzas", "Autoriza solicitudes del catálogo contable (R27/D14).",
+                p => p.Codigo is PermisosCanonicos.ContabilidadCatalogoLeer or PermisosCanonicos.ContabilidadCatalogoAutorizar)];
         foreach (var def in rolesDefinicion)
         {
             var rol = await db.Roles
@@ -263,6 +293,16 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 .Select(rp => rp.PermisoId)
                 .ToListAsync(cancellationToken);
 
+            // P6: retirar también concesiones históricas del rol organizacional.
+            if (def.Codigo == "admin-organizacional")
+            {
+                var exclusivos = PermisosCanonicos.Todos.Where(p =>
+                    p.Codigo is PermisosCanonicos.AdminEmpresasCrear or PermisosCanonicos.AdminEmpresasDesactivar)
+                    .Select(p => p.Id).ToArray();
+                db.RolPermisos.RemoveRange(await db.RolPermisos.Where(p =>
+                    p.RolId == rol.Id && exclusivos.Contains(p.PermisoId)).ToListAsync(cancellationToken));
+                await db.SaveChangesAsync(cancellationToken);
+            }
             var faltantes = permisosEsperados.Except(existingPermisoIds).ToList();
             if (faltantes.Count > 0)
             {

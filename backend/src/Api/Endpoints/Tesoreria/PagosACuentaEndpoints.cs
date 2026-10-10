@@ -21,6 +21,7 @@ public static class PagosACuentaEndpoints
     {
         var pagosCuenta = app
             .MapGroup("/api/v1/tesoreria/pagos-cuenta")
+            .WithDocumentoSucursalScope("movimiento_bancario", "tesoreria.documentos", "movimientoId")
             .WithTags("Tesoreria")
             .RequireAuthorization();
 
@@ -44,8 +45,11 @@ public static class PagosACuentaEndpoints
         pagosCuenta.MapPost("/", async (
             [FromBody] RegistrarPagoACuentaCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(null, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/tesoreria/movimientos/{response.MovimientoId}", response);
         })
@@ -61,8 +65,12 @@ public static class PagosACuentaEndpoints
             Guid movimientoId,
             [FromBody] LigarPagoACuentaBody body,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("factura_proveedor", body.FacturaProveedorId,
+                PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+
             var response = await mediator.Send(
                 new LigarPagoACuentaCommand(movimientoId, body.FacturaProveedorId, body.Importe),
                 cancellationToken);
@@ -76,8 +84,19 @@ public static class PagosACuentaEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        pagosCuenta.MapPost("/{movimientoId:guid}/aplicaciones/{aplicacionId:guid}/desligar", async (
+            Guid movimientoId, Guid aplicacionId, [FromBody] DesligarBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new DesligarPagoACuentaCommand(movimientoId, aplicacionId, body.Motivo), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosCuentaLigar)
+        .WithName("DesligarPagoACuenta").ProducesValidationProblem().ProducesProblem(422);
         return app;
     }
+
+    public sealed record DesligarBody(string Motivo);
 
     public sealed record LigarPagoACuentaBody(Guid FacturaProveedorId, decimal Importe);
 }

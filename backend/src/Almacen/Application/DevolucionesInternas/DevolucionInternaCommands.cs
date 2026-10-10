@@ -5,6 +5,7 @@ using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -83,6 +84,7 @@ public sealed class AplicarDevolucionInternaHandler
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
 
     public AplicarDevolucionInternaHandler(
@@ -90,18 +92,22 @@ public sealed class AplicarDevolucionInternaHandler
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
-        IDecimalesUnidadGuard decimalesGuard)
+        IDecimalesUnidadGuard decimalesGuard,
+        IPeriodoContableReadPort periodoContable)
     {
         _db = db;
         _events = events;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
+        _periodoContable = periodoContable;
     }
 
     public async Task<AplicarDevolucionInternaResponse> Handle(
         AplicarDevolucionInternaCommand request, CancellationToken cancellationToken)
     {
+        await using var transaccion = await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, request.SalidaOrigenId, cancellationToken);
+
         // 1. Validar salida origen.
         var salidaOrigen = await _db.Movimientos.AsNoTracking()
             .Include(m => m.Lineas)
@@ -144,7 +150,7 @@ public sealed class AplicarDevolucionInternaHandler
 
         // F8-PR2: validar periodo cerrado.
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
-            _db, empresaId, request.FechaMovimiento, cancellationToken);
+            _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
 
         // ADR-0046 Etapa 2: valida los decimales de cada cantidad a devolver
         // contra la unidad del artículo de su línea de salida origen (FK NULL →
@@ -180,6 +186,20 @@ public sealed class AplicarDevolucionInternaHandler
                 .SetValue(movimiento, request.Observaciones);
         }
 
+        var previas = await _db.Movimientos.AsNoTracking()
+            .Where(m => m.SalidaOrigenId == request.SalidaOrigenId && m.Estado == EstadoMovimiento.Registrado)
+            .SelectMany(m => m.Lineas).ToListAsync(cancellationToken);
+        foreach (var grupo in request.Lineas.GroupBy(l => l.LineaSalidaOrigenId))
+        {
+            var origen = salidaOrigen.Lineas.SingleOrDefault(l => l.Id == grupo.Key)
+                ?? throw new BusinessRuleException("DEV_INT_LINEA_ORIGEN_NO_ENCONTRADA", "La línea no pertenece a la salida seleccionada.");
+            // Histórico sin enlace: se cuenta conservadoramente por artículo, sin inventar una correspondencia.
+            var devuelto = previas.Where(l => l.LineaSalidaOrigenId == origen.Id
+                || (l.LineaSalidaOrigenId == null && l.ArticuloId == origen.ArticuloId)).Sum(l => l.Cantidad);
+            if (devuelto + grupo.Sum(l => l.CantidadADevolver) > origen.Cantidad)
+                throw new BusinessRuleException("DEVOLUCION_EXCEDE_SALIDA", "La cantidad a devolver, sumada a las devoluciones anteriores, supera la cantidad de la salida original.");
+        }
+
         // 4. Líneas — costo snapshot de la salida origen (A9).
         var posicion = 1;
         var payload = new List<LineaDevolucionPayload>(request.Lineas.Count);
@@ -197,15 +217,6 @@ public sealed class AplicarDevolucionInternaHandler
                 _db, input.UbicacionId!.Value, request.SubAlmacenDestinoId,
                 lineaSalida.ArticuloId, cancellationToken);
 
-            // No se puede devolver más de lo que salió.
-            // (F5-PR1 no rastrea devoluciones previas en BD; pre-flight básico.)
-            if (input.CantidadADevolver > lineaSalida.Cantidad)
-            {
-                throw new BusinessRuleException(
-                    "DEV_INT_EXCEDE_SALIDA",
-                    $"Cantidad a devolver ({input.CantidadADevolver}) excede la salida origen ({lineaSalida.Cantidad}).");
-            }
-
             var lineaId = Guid.CreateVersion7();
             var linea = new LineaMovimiento(
                 id: lineaId,
@@ -215,7 +226,8 @@ public sealed class AplicarDevolucionInternaHandler
                 cantidad: input.CantidadADevolver,
                 unidadMedida: lineaSalida.UnidadMedida,
                 costoUnitarioMxn: lineaSalida.CostoUnitarioMxn, // A9 — snapshot de la salida
-                ubicacionId: input.UbicacionId);
+                ubicacionId: input.UbicacionId,
+                lineaSalidaOrigenId: lineaSalida.Id);
             movimiento.AgregarLinea(linea);
 
             var monto = Math.Round(input.CantidadADevolver * lineaSalida.CostoUnitarioMxn, 2);
@@ -247,7 +259,9 @@ public sealed class AplicarDevolucionInternaHandler
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
 
-        // 6. Evento.
+        // 6. Evento (G1.6: almacén/sucursal del sub-almacén destino).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, request.SubAlmacenDestinoId, cancellationToken);
         await _events.PublishAsync(new DevolucionInternaAplicadaIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: DateTimeOffset.UtcNow,
@@ -257,10 +271,13 @@ public sealed class AplicarDevolucionInternaHandler
             SubAlmacenDestinoId: request.SubAlmacenDestinoId,
             EstadoMaterial: request.EstadoMaterial,
             CostoTotalRevertidoMxn: Math.Round(costoTotal, 2),
-            Lineas: payload), cancellationToken);
+            Lineas: payload,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
         return new AplicarDevolucionInternaResponse(movimientoId, folio.Valor);
     }
 }
@@ -311,17 +328,20 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
     private readonly ICurrentEmpresaContext _currentEmpresa;
 
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IPeriodoContableReadPort _periodoContable;
 
     public BajaPorDanoHandler(
         AlmacenDbContext db,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
-        IDecimalesUnidadGuard decimalesGuard)
+        IDecimalesUnidadGuard decimalesGuard,
+        IPeriodoContableReadPort periodoContable)
     {
         _db = db;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
+        _periodoContable = periodoContable;
     }
 
     public async Task<BajaPorDanoResponse> Handle(
@@ -353,6 +373,9 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
     {
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "MOV_SIN_EMPRESA", "El contexto de empresa es requerido.");
+
+        await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
+            _db, empresaId, fechaMovimiento, _periodoContable, cancellationToken);
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea MatRev contra la
         // unidad del artículo (FK NULL → no valida). Cubre BajaPorDano y
@@ -468,17 +491,20 @@ public sealed class ReincorporacionTrasRevisionHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
 
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IPeriodoContableReadPort _periodoContable;
 
     public ReincorporacionTrasRevisionHandler(
         AlmacenDbContext db,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
-        IDecimalesUnidadGuard decimalesGuard)
+        IDecimalesUnidadGuard decimalesGuard,
+        IPeriodoContableReadPort periodoContable)
     {
         _db = db;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
+        _periodoContable = periodoContable;
     }
 
     public async Task<BajaPorDanoResponse> Handle(
@@ -487,7 +513,7 @@ public sealed class ReincorporacionTrasRevisionHandler
         // No requiere que el sub-almacén destino sea MAT-REV — al
         // contrario, se reincorpora al inventario activo (sub-almacén
         // tipo Insumos / MaterialesDirectos).
-        return await new BajaPorDanoHandler(_db, _currentUser, _currentEmpresa, _decimalesGuard)
+        return await new BajaPorDanoHandler(_db, _currentUser, _currentEmpresa, _decimalesGuard, _periodoContable)
             .CrearMovimientoMatRevAsync(
                 request.SubAlmacenDestinoId, request.FechaMovimiento,
                 request.Motivo, request.Lineas,

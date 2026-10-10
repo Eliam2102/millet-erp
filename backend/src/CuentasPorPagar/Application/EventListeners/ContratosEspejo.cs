@@ -113,7 +113,9 @@ public sealed record PagoFacturaProveedorPayload(
     string Moneda,
     DateOnly FechaPago,
     string? MetodoPago,
-    string? ReferenciaBancaria);
+    string? ReferenciaBancaria,
+    Guid? CuentaBancariaId = null,
+    decimal? TipoCambio = null);
 
 /// <summary>Espejo de <c>tesoreria.pago-prestamo-viaticos.aplicado.v1</c> (GI-PR3).</summary>
 public sealed record PagoPrestamoViaticosAplicadoPayload(
@@ -143,7 +145,9 @@ public sealed record ReppProveedorRecibidoPayload(
     DateTimeOffset OcurridoEn,
     Guid FacturaProveedorId,
     string UuidComplementoPago,
-    DateTimeOffset FechaComplemento);
+    DateTimeOffset FechaComplemento, IReadOnlyList<ReppPagoPayload>? Pagos = null);
+
+public sealed record ReppPagoPayload(Guid PagoId, decimal Importe);
 
 /// <summary>Espejo de <c>tesoreria.cancelacion-pasivo.solicitada.v1</c>.</summary>
 public sealed record CancelacionPasivoSolicitadaPayload(

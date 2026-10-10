@@ -21,9 +21,10 @@ public sealed record AplicarClienteAwSnapshot(
     DateTime LeidoEnUtc,
     string VersionContrato,
     string VersionMapeo,
-    // Solo alta.
+    // Fiscales: al crear, y en un cliente existente solo si el local está vacío.
     string? Rfc = null,
     string? CodigoPostalFiscal = null,
+    // Solo alta.
     string? UsoCfdiDefault = null,
     string? FormaPagoDefault = null,
     string? MetodoPagoDefault = null,
@@ -75,13 +76,14 @@ public sealed record AplicarClienteAwResultado(
 /// Algoritmo único de aplicación de un cliente A+W (sincronización y
 /// auto-provisión de pedidos): buscar por <c>ReferenciaExterna</c> → crear
 /// Cliente + registro de origen en una sola transacción, o actualizar el
-/// registro (+ Telefono/Email solo si vacíos). Nunca toca Rfc, Régimen, CP
-/// fiscal, RazonSocial, LineaCredito ni Estatus de un cliente existente.
+/// registro (+ Telefono/Email/Rfc/CP fiscal solo si vacíos). Nunca sobrescribe
+/// un Rfc o CP fiscal ya capturado, ni toca Régimen, RazonSocial, LineaCredito
+/// ni Estatus de un cliente existente.
 /// </summary>
 public sealed class AplicarClienteAwService
 {
     /// <summary>Versión de la normalización previa al hash; subirla cambia todos los hashes.</summary>
-    public const string VersionNormalizacionHash = "n1";
+    public const string VersionNormalizacionHash = "n2";
 
     private const string PgUniqueViolation = "23505";
     private const string IxReferenciaExterna = "ix_clientes_referencia_externa";
@@ -190,8 +192,10 @@ public sealed class AplicarClienteAwService
         var diferencias = DiferenciaAplicacionAw.Serializar(Diferencias(cliente, snap));
         var telefono = string.IsNullOrWhiteSpace(cliente.Telefono) ? Vacio(snap.Telefono) : null;
         var email = string.IsNullOrWhiteSpace(cliente.Email) ? Vacio(snap.Email) : null;
-        if (telefono is not null || email is not null)
-            cliente.ActualizarDatos(telefono: telefono, email: email);
+        var rfc = string.IsNullOrWhiteSpace(cliente.Rfc) ? Vacio(snap.Rfc) : null;
+        var cpFiscal = string.IsNullOrWhiteSpace(cliente.CodigoPostalFiscal) ? Vacio(snap.CodigoPostalFiscal) : null;
+        if (telefono is not null || email is not null || rfc is not null || cpFiscal is not null)
+            cliente.ActualizarDatos(rfc: rfc, codigoPostalFiscal: cpFiscal, telefono: telefono, email: email);
 
         var resultado = ResultadoDe(snap);
         if (registro is null)
@@ -268,6 +272,8 @@ public sealed class AplicarClienteAwService
         }
         Dif("Razón social", s.RazonSocial, c.RazonSocial, "Se conserva la razón social local.");
         Dif("Moneda", s.MonedaDefault, c.MonedaDefault, "Se conserva la moneda del cliente existente.");
+        Dif("RFC", s.Rfc, c.Rfc, "Solo se completa si el local está vacío.");
+        Dif("CP fiscal", s.CodigoPostalFiscal, c.CodigoPostalFiscal, "Solo se completa si el local está vacío.");
         Dif("Teléfono", s.Telefono, c.Telefono, "Solo se completa si el local está vacío.");
         Dif("Correo", s.Email, c.Email, "Solo se completa si el local está vacío.");
         return d;
@@ -297,6 +303,7 @@ public sealed class AplicarClienteAwService
         T(s.NombreComercialOrigen);
         T(s.DomicilioCalle); T(s.DomicilioCiudad); T(s.DomicilioCp); T(s.DomicilioProvincia); T(s.DomicilioPais);
         T(s.CandidatoFiscalUstId); T(s.CandidatoFiscalSteuernummer);
+        T(s.Rfc); T(s.CodigoPostalFiscal);
         T(s.Telefono); T(s.Email); T(s.Telefono2Origen);
         T(s.CondicionCodigoOrigen); N(s.CondicionNumeroOrigen); N(s.DiasNominalesOrigen);
         T(s.MonedaCodigoOrigen); T(s.MonedaNormalizada);

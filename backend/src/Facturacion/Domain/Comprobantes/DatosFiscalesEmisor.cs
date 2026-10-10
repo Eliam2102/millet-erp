@@ -37,7 +37,7 @@ public sealed record DatosFiscalesEmisor(
         if (string.IsNullOrWhiteSpace(LugarExpedicion))
             throw new BusinessRuleException(
                 "EMISOR_SIN_LUGAR_EXPEDICION",
-                "La empresa emisora no tiene código postal fiscal capturado (LugarExpedicion del CFDI 4.0). Captúralo en Administración → Empresas.");
+                "La empresa emisora no tiene código postal fiscal capturado (LugarExpedicion del CFDI 4.0). Captúralo en Administración → Mi empresa.");
         return this;
     }
 }

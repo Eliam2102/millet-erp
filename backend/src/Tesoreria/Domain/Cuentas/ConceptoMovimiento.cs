@@ -14,6 +14,7 @@ public sealed class ConceptoMovimiento : BaseEntity, IAuditable
 {
     public string Nombre { get; private set; } = default!;
     public ClasificacionFlujo ClasificacionFlujo { get; private set; }
+    public bool EsEjemplo { get; private set; }
     public bool Activo { get; private set; } = true;
 
     private ConceptoMovimiento() { }
@@ -24,9 +25,17 @@ public sealed class ConceptoMovimiento : BaseEntity, IAuditable
         if (string.IsNullOrWhiteSpace(nombre))
             throw new BusinessRuleException("CONCEPTO_NOMBRE_VACIO", "El nombre del concepto es obligatorio.");
 
+        if (!Enum.IsDefined(clasificacionFlujo))
+            throw new BusinessRuleException("CONCEPTO_CLASIFICACION_INVALIDA", "Selecciona operación, inversión o financiamiento.");
         Nombre = nombre.Trim();
         ClasificacionFlujo = clasificacionFlujo;
         Activo = true;
+    }
+    public void Actualizar(string nombre, ClasificacionFlujo clasificacion, bool activo)
+    {
+        if (string.IsNullOrWhiteSpace(nombre) || !Enum.IsDefined(clasificacion))
+            throw new BusinessRuleException("CONCEPTO_INVALIDO", "Indica el nombre y una clasificación válida.");
+        Nombre = nombre.Trim(); ClasificacionFlujo = clasificacion; Activo = activo;
     }
 }
 

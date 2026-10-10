@@ -27,6 +27,9 @@ const PROVEEDOR: ProveedorDetalle = {
   email: null,
   telefono: null,
   estatus: 0,
+  toleranciaFacturaContraOcMxn: null,
+  validadoEn: null,
+  motivoRechazo: null,
 };
 
 beforeEach(() => {

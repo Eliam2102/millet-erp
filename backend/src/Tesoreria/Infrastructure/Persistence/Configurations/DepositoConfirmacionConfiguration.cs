@@ -24,6 +24,8 @@ public sealed class DepositoConfirmacionConfiguration : IEntityTypeConfiguration
         builder.Property(e => e.Id).ValueGeneratedNever();
 
         builder.Property(e => e.EmpresaId).IsRequired();
+        builder.Property(e => e.PropuestoPor);
+        builder.Property(e => e.SaldoAFavorPorIdentificar).HasPrecision(18, 2);
         builder.Property(e => e.MovimientoId);
         builder.Property(e => e.PropuestaCxcId);
         builder.Property(e => e.ClienteId);

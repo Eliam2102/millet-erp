@@ -356,7 +356,8 @@ resource almacenEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces
 //     de OC (RegistrarFacturacionLinea por línea). Los demás EventTypes (cancelada,
 //     autorizada, rechazada, diferencia-precio, nota-credito, nota-cargo, anticipo,
 //     pasivo, estado-cuenta-tc) llegan como informativos: el worker los marca
-//     idempotentes pero no dispatcha command.
+//     idempotentes pero no dispatcha command. Excepción: `factura.pago-aplicado`
+//     (#613/#614) actualiza el sub-estado Pago de la OC y dispara su cierre.
 //   - CxpEventListenerWorker (Almacén, F3-PR1) — sub `almacen-subscription`.
 //     Aplica `factura.registrada` (variante B = materiales directos: concilia
 //     recepción pendiente) y `factura.diferencia-precio-detectada` (ajusta costo
@@ -406,7 +407,7 @@ resource cxpEventsComprasSubscriptionFilter 'Microsoft.ServiceBus/namespaces/top
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.factura.autorizada.v1\', \'cuentas_por_pagar.factura.rechazada-por-tolerancia.v1\', \'cuentas_por_pagar.factura.diferencia-precio-detectada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.factura.registrada.v1\', \'cuentas_por_pagar.factura.cancelada.v1\', \'cuentas_por_pagar.factura.autorizada.v1\', \'cuentas_por_pagar.factura.pago-aplicado.v1\', \'cuentas_por_pagar.factura.rechazada-por-tolerancia.v1\', \'cuentas_por_pagar.factura.diferencia-precio-detectada.v1\', \'cuentas_por_pagar.nota-credito.registrada.v1\', \'cuentas_por_pagar.nota-cargo.autorizada.v1\', \'cuentas_por_pagar.anticipo.capturado.v1\', \'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.estado-cuenta-tc.cerrado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -472,7 +473,7 @@ resource cxpEventsTesoreriaSubscriptionFilter 'Microsoft.ServiceBus/namespaces/t
   properties: {
     filterType: 'SqlFilter'
     sqlFilter: {
-      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.deposito-viaticos.esperado.v1\')'
+      sqlExpression: 'user.EventType IN (\'cuentas_por_pagar.pasivo.autorizado-para-pago.v1\', \'cuentas_por_pagar.pasivo.retirado-de-pago.v1\', \'cuentas_por_pagar.deposito-viaticos.esperado.v1\')'
       compatibilityLevel: 20
     }
   }
@@ -712,6 +713,35 @@ resource tesoreriaEventsFacturacionSubscriptionFilter 'Microsoft.ServiceBus/name
     filterType: 'SqlFilter'
     sqlFilter: {
       sqlExpression: 'user.EventType IN (\'tesoreria.pago-cliente.confirmado.v1\')'
+      compatibilityLevel: 20
+    }
+  }
+}
+
+// Subscription consumida por CxC TesoreriaEventListenerWorker (P5, 09-oct-2026):
+// la confirmación o el rechazo de Tesorería actualizan la propuesta de aplicación
+// de CxC («CxC propone, Tesorería confirma», R12/CA7.8).
+// Referencia: backend/src/CuentasPorCobrar/Infrastructure/Workers/TesoreriaEventListenerWorker.cs
+resource tesoreriaEventsCxcSubscription 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2024-01-01' = {
+  parent: tesoreriaEventsTopic
+  name: 'cuentas-por-cobrar-tesoreria-sub'
+  properties: {
+    deadLetteringOnMessageExpiration: true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5
+    defaultMessageTimeToLive: 'P1D'
+    lockDuration: 'PT1M'
+    enableBatchedOperations: true
+  }
+}
+
+resource tesoreriaEventsCxcSubscriptionFilter 'Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01' = {
+  parent: tesoreriaEventsCxcSubscription
+  name: 'EventTypeFilter'
+  properties: {
+    filterType: 'SqlFilter'
+    sqlFilter: {
+      sqlExpression: 'user.EventType IN (\'tesoreria.pago-cliente.confirmado.v1\', \'tesoreria.propuesta-aplicacion.rechazada.v1\')'
       compatibilityLevel: 20
     }
   }

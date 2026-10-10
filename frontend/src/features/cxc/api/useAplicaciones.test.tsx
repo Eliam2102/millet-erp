@@ -4,11 +4,9 @@ import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import {
-  useConfirmarPropuesta,
   useCrearPropuestaAplicacion,
   useFacturasAbiertas,
   usePropuestasAplicacion,
-  useRechazarPropuesta,
   useToleranciasNoFiscal,
 } from '@/features/cxc/api/useAplicaciones';
 import { EstadoPropuestaAplicacion } from '@/features/cxc/api/types';
@@ -151,57 +149,5 @@ describe('useCrearPropuestaAplicacion', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(idem).toBe('idem-p1');
     expect((body!.facturas as unknown[]).length).toBe(1);
-  });
-});
-
-describe('confirmar / rechazar (Ingresos)', () => {
-  it('confirmar manda X-Expected-Version', async () => {
-    let version: string | null = null;
-    mswServer.use(
-      http.post(`${BASE}/pap-1/confirmar`, ({ request }) => {
-        version = request.headers.get('X-Expected-Version');
-        return HttpResponse.json({
-          ...propuesta,
-          estado: EstadoPropuestaAplicacion.Confirmada,
-          version: 2,
-        });
-      }),
-    );
-    const { result } = renderHook(() => useConfirmarPropuesta(), {
-      wrapper: createQueryWrapper(),
-    });
-    result.current.mutate({
-      id: 'pap-1',
-      versionEsperada: 1,
-      idempotencyKey: 'idem-c1',
-    });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(version).toBe('1');
-  });
-
-  it('rechazar manda motivo', async () => {
-    let body: Record<string, unknown> | null = null;
-    mswServer.use(
-      http.post(`${BASE}/pap-1/rechazar`, async ({ request }) => {
-        body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json({
-          ...propuesta,
-          estado: EstadoPropuestaAplicacion.Rechazada,
-          motivoRechazo: 'Cliente equivocado',
-          version: 2,
-        });
-      }),
-    );
-    const { result } = renderHook(() => useRechazarPropuesta(), {
-      wrapper: createQueryWrapper(),
-    });
-    result.current.mutate({
-      id: 'pap-1',
-      versionEsperada: 1,
-      motivo: 'Cliente equivocado',
-      idempotencyKey: 'idem-r1',
-    });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(body).toEqual({ motivo: 'Cliente equivocado' });
   });
 });

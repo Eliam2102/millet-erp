@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorCobrar.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -13,9 +15,7 @@ namespace Millet.Api.Endpoints.CuentasPorCobrar;
 /// <summary>
 /// Endpoints de propuestas de aplicación de pago (CXC-PR7, §11 del
 /// 01-diseño). CxC propone (permiso <c>aplicacion-pago.proponer</c>);
-/// Ingresos confirma/rechaza (permiso <c>aplicacion-pago.confirmar</c>,
-/// interino A2 hasta que exista el emisor real de
-/// <c>PagoClienteConfirmadoEvent</c>).
+/// Tesorería confirma o rechaza y CxC consume la resolución por eventos.
 /// </summary>
 public static class PropuestasAplicacionEndpoints
 {
@@ -23,6 +23,7 @@ public static class PropuestasAplicacionEndpoints
     {
         var propuestas = app
             .MapGroup("/api/v1/cuentas-por-cobrar/propuestas-aplicacion")
+            .WithDocumentoSucursalScope("propuesta_cxc", "cuentas_por_cobrar.cartera", "id")
             .WithTags("CuentasPorCobrar")
             .RequireAuthorization();
 
@@ -68,9 +69,18 @@ public static class PropuestasAplicacionEndpoints
 
         propuestas.MapPost("/", async (
             [FromBody] CrearPropuestaAplicacionCommand command,
+            CuentasPorCobrarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            foreach (var linea in command.Facturas ?? [])
+            {
+                var facturaId = await scopeDb.FacturasCartera.AsNoTracking()
+                    .Where(x => x.Uuid == linea.FacturaUuid).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(cancellationToken);
+                await scope.VerificarAsync("factura_cartera", facturaId ?? Guid.Empty,
+                    PermisosCanonicos.CuentasPorCobrarCarteraGestionarTodasSucursales, cancellationToken);
+            }
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-cobrar/propuestas-aplicacion/{response.Id}", response);
         })
@@ -82,47 +92,7 @@ public static class PropuestasAplicacionEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        propuestas.MapPost("/{id:guid}/confirmar", async (
-            Guid id,
-            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
-            IMediator mediator,
-            CancellationToken cancellationToken) =>
-        {
-            if (expectedVersion is not int v)
-                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
-
-            var response = await mediator.Send(new ConfirmarPropuestaAplicacionCommand(id, v), cancellationToken);
-            return Results.Ok(response);
-        })
-        .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
-        .WithName("ConfirmarPropuestaAplicacion")
-        .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-
-        propuestas.MapPost("/{id:guid}/rechazar", async (
-            Guid id,
-            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
-            [FromBody] RechazarBody body,
-            IMediator mediator,
-            CancellationToken cancellationToken) =>
-        {
-            if (expectedVersion is not int v)
-                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
-
-            var response = await mediator.Send(new RechazarPropuestaAplicacionCommand(id, v, body.Motivo), cancellationToken);
-            return Results.Ok(response);
-        })
-        .WithMetadata(new RequireIdempotencyKeyAttribute())
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarAplicacionPagoConfirmar)
-        .WithName("RechazarPropuestaAplicacion")
-        .Produces<PropuestaAplicacionResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-
         return app;
     }
 
-    public sealed record RechazarBody(string Motivo);
 }

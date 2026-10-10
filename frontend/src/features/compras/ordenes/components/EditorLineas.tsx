@@ -32,6 +32,7 @@ import { LineaDesdeRqBadge } from '@/features/compras/ordenes/components/LineaDe
 import { useArticulos, mapById } from '@/features/catalogos/api';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
+import { etiquetaDescuento } from '../lib/subtotal-linea';
 
 /**
  * <c>&lt;EditorLineas/&gt;</c> — tabla de líneas con add/edit/delete
@@ -213,6 +214,8 @@ export function EditorLineas({ oc }: EditorLineasProps) {
               <th className="px-3 py-2 text-left font-medium">CC-Máquina</th>
               <th className="px-3 py-2 text-right font-medium">Cantidad</th>
               <th className="px-3 py-2 text-left font-medium">UM</th>
+              <th className="px-3 py-2 text-right font-medium">Recibido</th>
+              <th className="px-3 py-2 text-right font-medium">Por surtir</th>
               <th className="px-3 py-2 text-right font-medium">Precio</th>
               <th className="px-3 py-2 text-right font-medium">Subtotal</th>
               <th className="px-3 py-2 text-right font-medium">IVA</th>
@@ -226,7 +229,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
               if (linea.id === lineaEnEdicionId) {
                 // La fila se reemplaza por el form inline en modo editar.
                 const totalColumnas =
-                  8 +
+                  10 +
                   (accEditar.visible || accEliminar.visible ? 1 : 0);
                 return (
                   <tr key={linea.id}>
@@ -264,7 +267,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
           </tbody>
           <tfoot>
             <tr className="border-t bg-muted/30 font-medium">
-              <td colSpan={6} className="px-3 py-2 text-right">
+              <td colSpan={8} className="px-3 py-2 text-right">
                 Totales
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
@@ -412,11 +415,21 @@ function FilaLinea({
         {linea.cantidad.toFixed(2)}
       </td>
       <td className="px-3 py-2">{linea.unidadMedida}</td>
+      <td className="px-3 py-2 text-right tabular-nums" data-testid="oc-linea-recibido">
+        {linea.cantidadRecibida.toFixed(2)}
+      </td>
+      {/* Por surtir = lo que el proveedor aún no ha entregado (nunca negativo). */}
+      <td className="px-3 py-2 text-right tabular-nums" data-testid="oc-linea-por-surtir">
+        {Math.max(linea.cantidad - linea.cantidadRecibida, 0).toFixed(2)}
+      </td>
       <td className="px-3 py-2 text-right tabular-nums">
         {linea.precioUnitario.toFixed(2)}
       </td>
       <td className="px-3 py-2 text-right tabular-nums font-medium">
         {linea.subtotalLinea.toFixed(2)}
+        <p className="text-xs font-normal text-ink-muted">
+          {etiquetaDescuento(linea.descuentoTipo, linea.descuentoValor)}
+        </p>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
         {linea.ivaImporte.toFixed(2)}

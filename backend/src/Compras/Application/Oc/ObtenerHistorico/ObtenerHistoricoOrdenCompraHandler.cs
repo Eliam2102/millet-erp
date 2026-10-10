@@ -39,6 +39,7 @@ public sealed class ObtenerHistoricoOrdenCompraHandler
                 a.Entidad,
                 a.UsuarioId,
                 a.Cambios,
+                a.Resumen,
             })
             .ToListAsync(cancellationToken);
 
@@ -48,7 +49,10 @@ public sealed class ObtenerHistoricoOrdenCompraHandler
             a.Operacion,
             a.Entidad,
             a.UsuarioId,
-            a.Cambios.Length > 200 ? string.Concat(a.Cambios.AsSpan(0, 200), "...") : a.Cambios)).ToList();
+            // El resumen legible ya viene redactado por el interceptor de auditoría;
+            // el JSON de cambios queda solo como respaldo para eventos sin resumen.
+            !string.IsNullOrWhiteSpace(a.Resumen) ? a.Resumen
+                : a.Cambios.Length > 200 ? string.Concat(a.Cambios.AsSpan(0, 200), "...") : a.Cambios)).ToList();
 
         return new ObtenerHistoricoOrdenCompraResponse(mapped);
     }

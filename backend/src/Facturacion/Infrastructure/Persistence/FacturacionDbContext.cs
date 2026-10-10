@@ -88,6 +88,8 @@ public sealed class FacturacionDbContext : BaseDbContext
     /// <summary>Recibos electrónicos de pago — REPP, subtipo Pago (F6).</summary>
     public DbSet<ReciboPago> RecibosPago => Set<ReciboPago>();
 
+    public DbSet<ReppPendiente> ReppPendientes => Set<ReppPendiente>();
+
     /// <summary>Cartas Porte 3.1 — subtipo Traslado/Ingreso (F8).</summary>
     public DbSet<CartaPorte> CartasPorte => Set<CartaPorte>();
 
@@ -158,6 +160,14 @@ public sealed class FacturacionDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new RelacionCfdiConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionConfiguration());
         modelBuilder.ApplyConfiguration(new ReciboPagoConfiguration());
+        modelBuilder.ApplyConfiguration(new ReppPendienteConfiguration());
+        modelBuilder.Entity<ReppPendienteFactura>(b =>
+        {
+            b.ToTable("repp_pendiente_factura");
+            b.HasKey(f => f.Id);
+            b.Property(f => f.Id).ValueGeneratedNever();
+            b.Property(f => f.Importe).HasPrecision(18, 6);
+        });
         modelBuilder.ApplyConfiguration(new ReciboPagoFacturaConfiguration());
         modelBuilder.ApplyConfiguration(new ReciboPagoFacturaImpuestoConfiguration());
         modelBuilder.ApplyConfiguration(new ComplementoCceConfiguration());

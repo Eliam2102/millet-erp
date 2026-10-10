@@ -52,6 +52,7 @@ public static class NcRanuraEmisor
         PedidoFacturable? pedido,
         Guid? usuarioEmisorId,
         DateTimeOffset ahora,
+        ValidadorReceptorFiscal receptorFiscal,
         CancellationToken cancellationToken)
     {
         if (factura.Estado != EstadoTimbrado.Timbrado)
@@ -74,6 +75,8 @@ public static class NcRanuraEmisor
                 cancellationToken);
         if (yaEmitida)
             return null;
+
+        await receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
 
         var reserva = await sender.Send(
             new ReservarFolioCommand(
@@ -133,8 +136,7 @@ public static class NcRanuraEmisor
 
         db.NotasCredito.Add(nc);
 
-        await eventos.PublishAsync(new NotaCreditoTimbradaIntegrationEvent(
-            nc.EmpresaId, ahora, nc.Id, nc.Motivo.ToString(), nc.Uuid!, nc.Total, factura.Id, null),
+        await eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(nc, ahora, factura.Id, clienteId: pedido.ClienteId),
             cancellationToken);
 
         return new NotaCreditoRanuraEmitida(nc.Id, nc.Folio, nc.Uuid, nc.Total);

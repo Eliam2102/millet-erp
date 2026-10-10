@@ -38,7 +38,18 @@ public sealed record DatosCfdiParseados(
     // Nodos <cfdi:CfdiRelacionados> del Comprobante — prellenan la relación
     // (TipoRelacion 01/03/07 + UUID origen) al capturar NC/anticipo desde
     // el CFDI. Nullable: XML sin relaciones parsea sin romper.
-    IReadOnlyList<CfdiRelacionadosParseados>? CfdiRelacionados = null);
+    IReadOnlyList<CfdiRelacionadosParseados>? CfdiRelacionados = null,
+    // G1.6 (P2): desglose de <cfdi:Impuestos>/<cfdi:Retenciones> del
+    // Comprobante. Nullable: XML sin retenciones parsea sin romper.
+    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
+    decimal Descuentos = 0m);
+
+/// <summary>
+/// Retención del comprobante: <c>Impuesto</c> = código SAT (001 ISR,
+/// 002 IVA, 003 IEPS). <c>Tasa</c> es null a nivel comprobante (el CFDI
+/// solo la trae por concepto).
+/// </summary>
+public sealed record RetencionCfdi(string Impuesto, decimal? Tasa, decimal Importe);
 
 /// <summary>
 /// Un nodo <c>cfdi:CfdiRelacionados</c>: el tipo de relación SAT

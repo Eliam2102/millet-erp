@@ -38,6 +38,7 @@ public sealed class ListarRequisicionesDisponiblesHandler
         CancellationToken cancellationToken)
     {
         var resultados = await _db.Requisiciones
+            .Where(x => query.SucursalesPermitidas == null || (query.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalId))
             .AsNoTracking()
             .Where(r => r.SucursalId == query.SucursalId
                 && r.Estado == EstadoRequisicion.EnSurtido

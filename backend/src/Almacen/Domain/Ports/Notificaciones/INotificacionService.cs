@@ -14,6 +14,9 @@ namespace Millet.Almacen.Domain.Ports.Notificaciones;
 /// </summary>
 public interface INotificacionService
 {
+    Task NotificarAjusteNivel3AprobadoAsync(
+        AvisoAjusteNivel3 aviso, CancellationToken cancellationToken);
+
     Task NotificarValeSinRegularizarAsync(
         Guid movimientoValeId,
         string folioVale,
@@ -22,3 +25,10 @@ public interface INotificacionService
         int diaDelSla,
         CancellationToken cancellationToken);
 }
+
+/// <summary>Destinatario funcional: Finanzas. El adaptador real resolverá el correo del tenant.</summary>
+public sealed record AvisoAjusteNivel3(Guid EmpresaId, Guid ConteoId,
+    decimal MontoNetoMxn, Guid AprobadorId, DateTimeOffset Fecha,
+    IReadOnlyList<ConteoAlmacenSucursal> Almacenes);
+
+public sealed record ConteoAlmacenSucursal(Guid AlmacenId, Guid SucursalId);

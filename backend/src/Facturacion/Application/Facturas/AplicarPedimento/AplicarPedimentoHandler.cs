@@ -21,6 +21,7 @@ namespace Millet.Facturacion.Application.Facturas.AplicarPedimento;
 /// </summary>
 public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCommand, AplicarPedimentoResponse>
 {
+    private readonly ValidadorReceptorFiscal _receptorFiscal;
     private readonly FacturacionDbContext _db;
     private readonly ISender _sender;
     private readonly IPeriodoContablePort _periodo;
@@ -28,11 +29,16 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
     private readonly ICfdiRepositorioPort _cfdiRepo;
     private readonly IIntegrationEventPublisher _eventos;
     private readonly IClock _clock;
+    private readonly IProductosReadPort? _productos;
 
     public AplicarPedimentoHandler(
         FacturacionDbContext db, ISender sender, IPeriodoContablePort periodo, ICfdiTimbradoPort fiscal,
-        ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock)
+        ICfdiRepositorioPort cfdiRepo, IIntegrationEventPublisher eventos, IClock clock, ValidadorReceptorFiscal receptorFiscal,
+        // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
+        // romper composiciones existentes (sin puerto, TipoProducto = null).
+        IProductosReadPort? productos = null)
     {
+        _receptorFiscal = receptorFiscal;
         _db = db;
         _sender = sender;
         _periodo = periodo;
@@ -40,6 +46,7 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         _cfdiRepo = cfdiRepo;
         _eventos = eventos;
         _clock = clock;
+        _productos = productos;
     }
 
     public async Task<AplicarPedimentoResponse> Handle(AplicarPedimentoCommand command, CancellationToken cancellationToken)
@@ -58,6 +65,8 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
         if (!await _periodo.EstaAbiertoAsync(ahora.Year, ahora.Month, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
 
+        await _receptorFiscal.ValidarComprobanteAsync(factura, cancellationToken);
+
         // Aplica el pedimento (vuelve a Borrador) y timbra.
         factura.AplicarPedimento(command.Pedimento, command.FechaDocAduanero, command.IdentificacionMercancia);
 
@@ -67,16 +76,16 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
 
         // F10-PR1: evento de factura timbrada (tras aplicar el pedimento).
         if (factura.Estado == EstadoTimbrado.Timbrado)
-            await _eventos.PublishAsync(new FacturaVentaTimbradaIntegrationEvent(
-                factura.EmpresaId, ahora, factura.Id, factura.Uuid!, factura.Total, factura.Moneda, factura.PedidoFacturableId,
-                factura.ReceptorRfc, factura.ReceptorNombre, factura.Folio, factura.MetodoPago, factura.FechaTimbrado),
+            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
+                factura, ahora, clienteId: await ClienteContableFacturacion.ResolverAsync(_db, factura, cancellationToken),
+                tiposProducto: await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
                 cancellationToken);
 
         // RANURA-PR2: la factura retenida por pedimento no alcanzó a emitir
         // la NC de la ranura en la emisión — se emite aquí al quedar Timbrada.
         await NcRanuraEmisor.EmitirSiAplicaAsync(
             _db, _sender, _fiscal, _cfdiRepo, _eventos,
-            factura, pedido: null, usuarioEmisorId: null, ahora, cancellationToken);
+            factura, pedido: null, usuarioEmisorId: null, ahora, _receptorFiscal, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

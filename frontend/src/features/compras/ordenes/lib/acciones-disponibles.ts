@@ -409,7 +409,8 @@ export function accionCancelar1Firma(
     (() => {
       if (
         oc.estado === EstadoOrdenCompra.Cerrada ||
-        oc.estado === EstadoOrdenCompra.Cancelada
+        oc.estado === EstadoOrdenCompra.Cancelada ||
+        oc.estado === EstadoOrdenCompra.CancelacionSolicitada
       )
         return OCULTO;
       // Autorizada SIN recepciones → 1 firma OK.
@@ -424,25 +425,14 @@ export function accionCancelar1Firma(
   );
 }
 
-/**
- * <b>Cancelar (doble firma con recepciones)</b> — solo en
- * <c>Autorizada con sub_estado_recepcion ≠ SinRecepcion</c>.
- * Requiere los 3 permisos: <c>cancelar.doble</c> +
- * <c>autorizar.nivel1</c> + <c>autorizar.nivel2</c> (los firmantes
- * deben ser usuarios distintos al click; el dialog de doble firma lo
- * valida).
- *
- * <para>Aquí gateamos solo <c>cancelar.doble</c>; los otros 2 los
- * valida el dialog/handler porque son del flujo de selección de
- * autorizadores delegados.</para>
- */
+/** Primera firma: solicitud por el jefe de Compras. */
 export function accionCancelarDobleFirma(
   oc: Pick<OrdenCompraDetalleResponse, 'estado' | 'subEstadoRecepcion'>,
   permisos: readonly string[],
 ): AccionDisponible {
   return gatePermisos(
     permisos,
-    [PermisosCanonicos.ComprasOrdenesCancelarDoble],
+    [PermisosCanonicos.ComprasOrdenesAutorizarNivel1],
     oc.estado === EstadoOrdenCompra.Autorizada &&
       oc.subEstadoRecepcion !== SubEstadoRecepcion.SinRecepcion
       ? HABILITADA
@@ -460,9 +450,18 @@ export function accionCancelarDobleFirma(
  * <para>Permiso: <c>crear</c> (genera nueva OC en Borrador).</para>
  */
 export function accionDuplicarOc(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
+  oc: Pick<OrdenCompraDetalleResponse, 'estado'> & Partial<Pick<OrdenCompraDetalleResponse, 'lineas'>>,
   permisos: readonly string[],
 ): AccionDisponible {
+  if (oc.estado === EstadoOrdenCompra.Rechazada && oc.lineas?.some((l) => l.lineaRequisicionId != null)) {
+    return gatePermisos(permisos, [PermisosCanonicos.ComprasOrdenesCrear],
+      DISABLED('La OC conserva el compromiso de la requisición. Corrígela y vuelve a enviarla a autorización.'));
+  }
+  if (oc.lineas?.length && oc.lineas.every((l) => l.cantidadRecibida >= l.cantidad)) {
+    return gatePermisos(permisos, [PermisosCanonicos.ComprasOrdenesCrear],
+      oc.estado === EstadoOrdenCompra.Cancelada || oc.estado === EstadoOrdenCompra.Rechazada
+        ? DISABLED('La OC ya fue recibida por completo; no hay cantidades pendientes para duplicar.') : OCULTO);
+  }
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesCrear],
@@ -628,7 +627,7 @@ export const ACCIONES_OC: ReadonlyArray<{
   },
   {
     id: 'cancelar-doble-firma',
-    label: 'Cancelar (doble firma)',
+    label: 'Solicitar cancelación',
     fn: accionCancelarDobleFirma,
   },
   { id: 'duplicar-oc', label: 'Duplicar OC', fn: accionDuplicarOc },

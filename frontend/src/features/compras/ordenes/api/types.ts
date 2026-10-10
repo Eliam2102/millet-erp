@@ -38,6 +38,7 @@ export const EstadoOrdenCompra = {
   Cerrada: 4,
   Cancelada: 5,
   Rechazada: 6,
+  CancelacionSolicitada: 7,
 } as const satisfies Record<string, number>;
 export type EstadoOrdenCompra =
   (typeof EstadoOrdenCompra)[keyof typeof EstadoOrdenCompra];
@@ -107,6 +108,7 @@ const ESTADO_OC_LABELS: Record<EstadoOrdenCompra, string> = {
   [EstadoOrdenCompra.Cerrada]: 'Cerrada',
   [EstadoOrdenCompra.Cancelada]: 'Cancelada',
   [EstadoOrdenCompra.Rechazada]: 'Rechazada',
+  [EstadoOrdenCompra.CancelacionSolicitada]: 'Cancelación solicitada',
 };
 export const estadoOcToString = (e: EstadoOrdenCompra): string =>
   ESTADO_OC_LABELS[e];
@@ -124,6 +126,7 @@ const ESTADO_OC_KEYS: Record<EstadoOrdenCompra, string> = {
   [EstadoOrdenCompra.Cerrada]: 'Cerrada',
   [EstadoOrdenCompra.Cancelada]: 'Cancelada',
   [EstadoOrdenCompra.Rechazada]: 'Rechazada',
+  [EstadoOrdenCompra.CancelacionSolicitada]: 'CancelacionSolicitada',
 };
 export const estadoOcToKey = (e: EstadoOrdenCompra): string =>
   ESTADO_OC_KEYS[e];
@@ -198,7 +201,23 @@ export interface OrdenCompraResumen {
  * <c>Version</c> vía header <c>ETag</c> que <c>useOrdenCompra</c>
  * captura para <c>If-Match</c> en mutaciones futuras.
  */
+export interface SolicitudCancelacionOc {
+  id: string;
+  solicitanteId: string;
+  fechaSolicitud: string;
+  motivoCancelacionId: string;
+  motivoSolicitud: string;
+  resolutorId: string | null;
+  fechaResolucion: string | null;
+  confirmada: boolean | null;
+  motivoResolucion: string | null;
+}
+
 export interface OrdenCompraDetalleResponse {
+  obra?: string | null;
+  cicloAutorizacion?: number;
+  autorizaciones?: AutorizacionOc[];
+  solicitudesCancelacion?: SolicitudCancelacionOc[];
   id: string;
   empresaId: string;
   folio: string;
@@ -276,6 +295,19 @@ export interface OrdenCompraDetalleResponse {
   adjuntos: AdjuntoOcResponse[];
 }
 
+export interface AutorizacionOc {
+  id: string;
+  ciclo: number;
+  nivel: 1 | 2;
+  resultado: 1 | 2;
+  usuarioId: string;
+  fechaHora: string;
+  motivoRechazoId: string | null;
+  motivoRechazoTexto: string | null;
+  notas: string | null;
+  motivoRechazoNombre?: string | null;
+}
+
 /**
  * <b>Adjunto de OC</b> — mirror de <c>AdjuntoOcResponse</c> backend
  * (UF3-PR2). Consumido por el <c>&lt;AdjuntosManager/&gt;</c>.
@@ -284,11 +316,6 @@ export interface AdjuntoOcResponse {
   id: string;
   tipoDocumentoId: string;
   nombreArchivo: string;
-  /**
-   * URL del blob storage (Azure Blob en prod, filesystem stub en dev).
-   * Usado por el preview (PDF embed / img thumbnail) y para download.
-   */
-  blobUrl: string;
   contentType: string;
   tamanoBytes: number;
   /** ISO 8601 UTC. */
@@ -313,6 +340,8 @@ export interface AdjuntoOcResponse {
  * manual creada en una OC <c>SinRequisicionPrevia</c>.</para>
  */
 export interface LineaOrdenCompraResponse {
+  descuentoTipo?: DescuentoTipo;
+  descuentoValor?: number;
   id: string;
   posicion: number;
   articuloId: string;

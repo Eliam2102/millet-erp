@@ -1,4 +1,6 @@
+using Millet.CentrosCosto.Application.PublicPorts;
 using MediatR;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
@@ -38,6 +40,7 @@ namespace Millet.Compras.Application.Oc.CrearOrdenCompraDesdeRequisicion;
 public sealed class CrearOrdenCompraDesdeRequisicionHandler
     : IRequestHandler<CrearOrdenCompraDesdeRequisicionCommand, CrearOrdenCompraDesdeRequisicionResponse>
 {
+    private readonly IDim3ElegibilidadPort _dim3;
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly ICurrentUserContext _currentUser;
@@ -48,6 +51,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
 
     public CrearOrdenCompraDesdeRequisicionHandler(
         ComprasDbContext db,
+        IDim3ElegibilidadPort dim3,
         CompartidoDbContext compartido,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
@@ -56,6 +60,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         IArticuloReadPort articulos)
     {
         _db = db;
+        _dim3 = dim3;
         _compartido = compartido;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
@@ -78,6 +83,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 "EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
+
+        await using var tx = await SaldoCompraRq.BloquearAsync(_db, cancellationToken);
 
         // Lookup RQ con líneas. EF tracking on porque vamos a mutar
         // ComprometidaEnOcId.
@@ -115,8 +122,9 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         // El resto cayó a almacén vía reserva + movimiento al autorizar; no
         // se duplica en la OC. Si todas las líneas tienen 0, la RQ no
         // debería haber llegado a EnSurtido — error defensivo.
+        var saldos = await SaldoCompraRq.ObtenerAsync(_db, rq.Lineas.Select(l => l.Id), cancellationToken);
         var lineasDeCompra = rq.Lineas
-            .Where(l => l.CantidadDeCompra > 0)
+            .Where(l => saldos.GetValueOrDefault(l.Id) > 0)
             .OrderBy(l => l.Posicion)
             .ToList();
         if (lineasDeCompra.Count == 0)
@@ -124,6 +132,13 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             throw new BusinessRuleException(
                 "RQ_SIN_SALDO_DE_COMPRA",
                 $"La RQ '{rq.Folio.Valor}' no tiene líneas con CantidadDeCompra > 0.");
+        }
+
+        foreach (var ccId in lineasDeCompra.Select(l => l.CentroCostoId).Distinct())
+        {
+            if (ccId is not Guid id)
+                throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente y dentro de tu alcance.");
+            await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: true, cancellationToken);
         }
 
         // C10 — proveedor activo cross-table.
@@ -135,9 +150,7 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 $"No se encontró proveedor con id '{command.ProveedorId}'.");
         if (proveedor.Estatus != EstatusCatalogo.Activo)
         {
-            throw new BusinessRuleException(
-                "PROVEEDOR_INACTIVO",
-                $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus}.");
+            throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus}.");
         }
 
         // Folio atómico.
@@ -176,12 +189,14 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             lineasDeCompra.Select(l => l.ArticuloId).Distinct().ToArray(),
             cancellationToken);
 
+        oc.HeredarObra(rq.Obra);
+
         foreach (var lineaRq in lineasDeCompra)
         {
             oc.AgregarLineaDesdeRequisicion(
                 lineaId: Guid.CreateVersion7(),
                 articuloId: lineaRq.ArticuloId,
-                cantidad: lineaRq.CantidadDeCompra,
+                cantidad: saldos[lineaRq.Id],
                 unidadMedida: lineaRq.UnidadMedida,
                 precioUnitario: lineaRq.PrecioEstimado.Amount,
                 departamentoSolicitanteId: rq.DepartamentoId,
@@ -197,9 +212,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         rq.ComprometerEnOc(oc.Id);
 
         _db.OrdenesCompra.Add(oc);
-        await _db.SaveChangesAsync(cancellationToken);
 
-        // Publish post-commit.
+        // Estado y Outbox se guardan en la misma transacción.
         await _publisher.Publish(
             new RqComprometidaEnOcEvent(
                 RequisicionId: rq.Id,
@@ -207,6 +221,9 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                 EmpresaId: empresaId,
                 OcurridoEn: _clock.UtcNow),
             cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
 
         return new CrearOrdenCompraDesdeRequisicionResponse(
             OrdenCompraId: oc.Id,

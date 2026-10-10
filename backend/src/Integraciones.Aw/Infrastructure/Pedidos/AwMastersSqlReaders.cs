@@ -49,7 +49,7 @@ public sealed class AwClientesSqlReader : IAwClientesReader
             "LeerCliente", async connection =>
             {
                 using var command = SqlPlumbing.CrearCommand(connection, sql, _options);
-                command.Parameters.Add(new SqlParameter("@ref", SqlDbType.NVarChar, 50) { Value = clienteRef });
+                SqlPlumbing.Param(command, "@ref", DbType.String, clienteRef);
 
                 using var reader = await command.ExecuteReaderAsync(cancellationToken);
                 if (!await reader.ReadAsync(cancellationToken)) return null;
@@ -101,7 +101,7 @@ public sealed class AwArticulosSqlReader : IAwArticulosReader
             "LeerArticulo", async connection =>
             {
                 using var command = SqlPlumbing.CrearCommand(connection, sql, _options);
-                command.Parameters.Add(new SqlParameter("@ref", SqlDbType.NVarChar, 50) { Value = articuloRef });
+                SqlPlumbing.Param(command, "@ref", DbType.String, articuloRef);
 
                 using var reader = await command.ExecuteReaderAsync(cancellationToken);
                 if (!await reader.ReadAsync(cancellationToken)) return null;
@@ -116,9 +116,10 @@ public sealed class AwArticulosSqlReader : IAwArticulosReader
 
 /// <summary>
 /// Plomería SQL compartida de la sub-área Pedidos (conexión + clasificación
-/// de errores — mismo patrón del flujo 1, factorizada para los readers de
-/// masters). <c>AwSolicitudesSqlReader</c> mantiene su copia local por
-/// legibilidad de su flujo de 3 queries.
+/// de errores — mismo patrón del flujo 1). La usan los readers de masters,
+/// <c>AwSolicitudesSqlReader</c> y el write-back. El SQL de la sub-área es
+/// neutro (sin TOP ni corchetes) para correr igual sobre SQL Server y sobre
+/// el origen de demo en PostgreSQL (OrigenPg).
 /// </summary>
 internal static class SqlPlumbing
 {
@@ -209,6 +210,16 @@ internal static class SqlPlumbing
         command.CommandType = CommandType.Text;
         command.CommandTimeout = options.SqlQueryTimeoutSeconds;
         return command;
+    }
+
+    /// <summary>Parámetro neutro: lo aceptan SqlClient (A+W) y Npgsql (origen de demo, ver OrigenPg).</summary>
+    internal static void Param(DbCommand command, string nombre, DbType tipo, object? valor)
+    {
+        var p = command.CreateParameter();
+        p.ParameterName = nombre;
+        p.DbType = tipo;
+        p.Value = valor ?? DBNull.Value;
+        command.Parameters.Add(p);
     }
 
     internal static string? GetStringOrNull(DbDataReader reader, int ordinal) =>

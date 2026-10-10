@@ -1,4 +1,7 @@
+using Millet.CuentasPorPagar.Application.NotaCargo;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -21,10 +24,12 @@ namespace Millet.Api.Endpoints.CuentasPorPagar;
 /// </summary>
 public static class NotasCreditoEndpoints
 {
+    public sealed record CancelarDocumentoBody(string Motivo);
     public static IEndpointRouteBuilder MapNotasCreditoEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/notas-credito")
+            .WithDocumentoSucursalScope("nota_credito_proveedor", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -48,9 +53,15 @@ public static class NotasCreditoEndpoints
 
         group.MapPost("/", async (
             [FromBody] CapturarNotaCreditoCommand command,
+            CuentasPorPagarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            var uuid = command.UuidRelacionCfdi.Trim().ToUpperInvariant();
+            var facturaId = await scopeDb.FacturasProveedor.AsNoTracking().Where(x => x.UuidCfdi == uuid && x.ProveedorId == command.ProveedorId)
+                .Select(x => (Guid?)x.Id).FirstOrDefaultAsync(cancellationToken);
+            await scope.VerificarAsync("factura_proveedor", facturaId ?? Guid.Empty, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/notas-credito/{response.Id}", response);
         })
@@ -72,9 +83,12 @@ public static class NotasCreditoEndpoints
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] VincularFacturaRequest request,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("factura_proveedor", request.FacturaOrigenId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
+
             if (expectedVersion is not int v)
             {
                 return Results.Problem(
@@ -83,7 +97,7 @@ public static class NotasCreditoEndpoints
             }
 
             var response = await mediator.Send(
-                new VincularFacturaNotaCreditoCommand(id, v, request.FacturaOrigenId),
+                new VincularFacturaNotaCreditoCommand(id, v, request.FacturaOrigenId, request.ExcepcionRelacion, request.MotivoExcepcion),
                 cancellationToken);
             return Results.Ok(response);
         })
@@ -115,9 +129,19 @@ public static class NotasCreditoEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{id:guid}/cancelar", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? version,
+            [FromBody] CancelarDocumentoBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
+            await mediator.Send(new CancelarDocumentoP4Command(TipoDocumentoP4.NotaCredito, id, v, body.Motivo), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+          .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarNotasCreditoCapturar)
+          .ProducesProblem(422).ProducesProblem(409).ProducesProblem(428);
+
         return app;
 
     }
 
-    public sealed record VincularFacturaRequest(Guid FacturaOrigenId);
+    public sealed record VincularFacturaRequest(Guid FacturaOrigenId, bool ExcepcionRelacion = false, string? MotivoExcepcion = null);
 }

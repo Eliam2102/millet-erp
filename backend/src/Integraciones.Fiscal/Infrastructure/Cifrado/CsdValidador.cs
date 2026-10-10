@@ -1,3 +1,4 @@
+using System.Formats.Asn1;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Millet.SharedKernel.Application.Exceptions;
@@ -12,6 +13,7 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Cifrado;
 /// FACANT-2026-000002). Verifica, en orden:
 /// <list type="number">
 ///   <item>El .cer parsea como certificado X.509 (DER del SAT).</item>
+///   <item>El subject contiene OU de sucursal/unidad (CSD del SAT, no FIEL).</item>
 ///   <item>La contraseña abre la llave privada (PKCS#8 cifrado — formato
 ///   estándar de los .key del SAT).</item>
 ///   <item>La llave corresponde al certificado (misma llave pública).</item>
@@ -22,7 +24,7 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.Cifrado;
 /// </summary>
 public static class CsdValidador
 {
-    public static void Validar(
+    public static VigenciaCsd Validar(
         string certificadoBase64, string llavePrivadaBase64, string password, DateTimeOffset ahora)
     {
         byte[] cerBytes;
@@ -49,6 +51,11 @@ public static class CsdValidador
                 "El archivo .cer no es un certificado X.509 válido. Verifica que sea el .cer del CSD (no el .key).");
         }
 
+        using var certificado = cert;
+        if (!TieneUnidadOrganizativa(cert.SubjectName))
+            throw new BusinessRuleException("CONFIG_PAC_CSD_ES_FIEL",
+                "Este archivo es una e.firma (FIEL), no un sello digital (CSD)");
+
         using var rsa = RSA.Create();
         try
         {
@@ -73,11 +80,39 @@ public static class CsdValidador
                 "Verifica que ambos archivos sean del mismo CSD.");
         }
 
-        if (ahora < cert.NotBefore.ToUniversalTime() || ahora > cert.NotAfter.ToUniversalTime())
+        var notBefore = new DateTimeOffset(cert.NotBefore.ToUniversalTime());
+        var notAfter = new DateTimeOffset(cert.NotAfter.ToUniversalTime());
+        if (ahora < notBefore || ahora > notAfter)
         {
             throw new BusinessRuleException("CONFIG_PAC_CSD_VENCIDO",
                 $"El certificado no está vigente (válido del {cert.NotBefore:yyyy-MM-dd} al " +
                 $"{cert.NotAfter:yyyy-MM-dd}). Captura un CSD vigente.");
         }
+
+        return new VigenciaCsd(notBefore, notAfter);
+    }
+
+    private static bool TieneUnidadOrganizativa(X500DistinguishedName subject)
+    {
+        // Leer el OID real evita confundir un CN que contenga el texto "OU="
+        // con una unidad organizativa, y admite RDN con varios atributos.
+        var nombre = new AsnReader(subject.RawData, AsnEncodingRules.DER).ReadSequence();
+        while (nombre.HasData)
+        {
+            var rdn = nombre.ReadSetOf();
+            while (rdn.HasData)
+            {
+                var atributo = rdn.ReadSequence();
+                var oid = atributo.ReadObjectIdentifier();
+                if (oid == "2.5.4.11")
+                {
+                    var valor = atributo.ReadCharacterString((UniversalTagNumber)atributo.PeekTag().TagValue);
+                    if (!string.IsNullOrWhiteSpace(valor)) return true;
+                }
+            }
+        }
+        return false;
     }
 }
+
+public sealed record VigenciaCsd(DateTimeOffset NotBefore, DateTimeOffset NotAfter);

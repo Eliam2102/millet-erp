@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Facturacion.Domain.Facturas;
@@ -22,7 +21,8 @@ namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 /// <para>
 /// Mismo patrón operativo que <c>HybridConnectionAwSqlReader</c> del flujo 1
 /// (que NO se toca): connection per-call, timeout duro en OpenAsync,
-/// clasificación de errores con <see cref="AwReaderException"/>. El
+/// clasificación de errores con <see cref="AwReaderException"/> (vía
+/// <c>SqlPlumbing</c>). El
 /// <c>PayloadCrudo</c> del snapshot es la serialización JSON íntegra de lo
 /// leído (estructura heredada del diseño JSON 2026-05), incluyendo campos
 /// que no mapean a columnas del ERP (detalle_procesos, refs, totales).
@@ -58,16 +58,17 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
         // Pendiente = resultado NULL o Pospuesta(3), en orden (pedido, version)
         // — doc 04 §2. El índice IX_asp_barrido cubre exactamente este scan.
         const string sql = """
-            SELECT TOP(@max) solicitud_id, numero_pedido, operacion, [version], creada_at
+            SELECT solicitud_id, numero_pedido, operacion, version, creada_at
               FROM dbo.aw_solicitud_pedido
              WHERE resultado IS NULL OR resultado = 3
-             ORDER BY numero_pedido, [version]
+             ORDER BY numero_pedido, version
+             OFFSET 0 ROWS FETCH NEXT @max ROWS ONLY
             """;
 
-        return await EjecutarAsync("LeerPendientes", async connection =>
+        return await SqlPlumbing.EjecutarAsync(_connectionFactory, _options, _logger, "LeerPendientes", async connection =>
         {
-            using var command = CrearCommand(connection, sql);
-            command.Parameters.Add(new SqlParameter("@max", SqlDbType.Int) { Value = max });
+            using var command = SqlPlumbing.CrearCommand(connection, sql, _options);
+            SqlPlumbing.Param(command, "@max", DbType.Int32, max);
 
             var rows = new List<SolicitudAw>();
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -76,7 +77,7 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
                 rows.Add(new SolicitudAw(
                     SolicitudId: reader.GetGuid(0),
                     NumeroPedido: reader.GetString(1),
-                    Operacion: (OperacionAw)reader.GetByte(2),
+                    Operacion: (OperacionAw)Convert.ToByte(reader.GetValue(2)),
                     Version: reader.GetInt64(3),
                     CreadaAt: reader.GetFieldValue<DateTimeOffset>(4)));
             }
@@ -87,7 +88,7 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
     public async Task<LecturaPedidoAw> LeerDatosPedidoAsync(
         string numeroPedido, CancellationToken cancellationToken)
     {
-        var (cabecera, lineas, componentes) = await EjecutarAsync("LeerDatosPedido", async connection =>
+        var (cabecera, lineas, componentes) = await SqlPlumbing.EjecutarAsync(_connectionFactory, _options, _logger, "LeerDatosPedido", async connection =>
         {
             var cab = await LeerCabeceraAsync(connection, numeroPedido, cancellationToken);
             if (cab is null)
@@ -349,8 +350,8 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
               FROM dbo.vw_erp_pedido_cabecera
              WHERE numero_pedido = @np
             """;
-        using var command = CrearCommand(connection, sql);
-        command.Parameters.Add(new SqlParameter("@np", SqlDbType.NVarChar, 50) { Value = numeroPedido });
+        using var command = SqlPlumbing.CrearCommand(connection, sql, _options);
+        SqlPlumbing.Param(command, "@np", DbType.String, numeroPedido);
 
         using var reader = await command.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct)) return null;
@@ -393,8 +394,8 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
              WHERE numero_pedido = @np
              ORDER BY numero_posicion
             """;
-        using var command = CrearCommand(connection, sql);
-        command.Parameters.Add(new SqlParameter("@np", SqlDbType.NVarChar, 50) { Value = numeroPedido });
+        using var command = SqlPlumbing.CrearCommand(connection, sql, _options);
+        SqlPlumbing.Param(command, "@np", DbType.String, numeroPedido);
 
         var rows = new List<LineaRow>();
         using var reader = await command.ExecuteReaderAsync(ct);
@@ -430,8 +431,8 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
              WHERE numero_pedido = @np
              ORDER BY numero_posicion
             """;
-        using var command = CrearCommand(connection, sql);
-        command.Parameters.Add(new SqlParameter("@np", SqlDbType.NVarChar, 50) { Value = numeroPedido });
+        using var command = SqlPlumbing.CrearCommand(connection, sql, _options);
+        SqlPlumbing.Param(command, "@np", DbType.String, numeroPedido);
 
         var rows = new List<ComponenteRow>();
         using var reader = await command.ExecuteReaderAsync(ct);
@@ -447,74 +448,6 @@ public sealed class AwSolicitudesSqlReader : IAwSolicitudesReader
                 Importe: GetDecimalOrNull(reader, 6)));
         }
         return rows;
-    }
-
-    // ------------------------------------------------------------------
-    // Plomería compartida: conexión + clasificación de errores (patrón
-    // HybridConnectionAwSqlReader del flujo 1).
-    // ------------------------------------------------------------------
-
-    private async Task<T> EjecutarAsync<T>(
-        string operacion, Func<DbConnection, Task<T>> accion, CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var connection = _connectionFactory.CreateConnection();
-
-            using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            connectCts.CancelAfter(TimeSpan.FromSeconds(_options.SqlConnectTimeoutSeconds));
-            try
-            {
-                await connection.OpenAsync(connectCts.Token);
-            }
-            catch (OperationCanceledException) when (
-                connectCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-            {
-                throw new AwReaderException(
-                    $"SQL connect timeout tras {_options.SqlConnectTimeoutSeconds}s " +
-                    $"(MILLET_INTEGRACION o Hybrid Connection no respondieron; op={operacion}).",
-                    kind: "connect_timeout", isTransient: true);
-            }
-
-            return await accion(connection);
-        }
-        catch (SqlException ex) when (ex.Number == 18456)
-        {
-            _logger.LogError(ex, "[AwSolicitudesSqlReader] auth failure op={Op} #{Number}", operacion, ex.Number);
-            throw new AwReaderException(
-                $"SQL Server auth failed (#{ex.Number}): {ex.Message}",
-                kind: "auth", isTransient: false, inner: ex);
-        }
-        catch (SqlException ex) when (ex.Number is -2 or 11 or 121)
-        {
-            _logger.LogWarning(ex, "[AwSolicitudesSqlReader] timeout op={Op} #{Number}", operacion, ex.Number);
-            throw new AwReaderException(
-                $"SQL query timeout ({_options.SqlQueryTimeoutSeconds}s).",
-                kind: "timeout", isTransient: true, inner: ex);
-        }
-        catch (SqlException ex)
-        {
-            _logger.LogWarning(ex, "[AwSolicitudesSqlReader] SQL error op={Op} #{Number}", operacion, ex.Number);
-            throw new AwReaderException(
-                $"SQL Server error (#{ex.Number}): {ex.Message}",
-                kind: "connection", isTransient: true, inner: ex);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "[AwSolicitudesSqlReader] connection state error op={Op}", operacion);
-            throw new AwReaderException(
-                $"SQL connection state error: {ex.Message}",
-                kind: "connection", isTransient: true, inner: ex);
-        }
-    }
-
-    private DbCommand CrearCommand(DbConnection connection, string sql)
-    {
-        var command = connection.CreateCommand();
-        command.CommandText = sql;
-        command.CommandType = CommandType.Text;
-        command.CommandTimeout = _options.SqlQueryTimeoutSeconds;
-        return command;
     }
 
     private static string? GetStringOrNull(DbDataReader reader, int ordinal) =>

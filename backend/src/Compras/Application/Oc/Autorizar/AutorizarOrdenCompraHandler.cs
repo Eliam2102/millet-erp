@@ -1,4 +1,6 @@
 using MediatR;
+using Millet.Compras.Application.Oc.Eventos;
+using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Application;
 using Millet.Compras.Infrastructure;
@@ -74,9 +76,7 @@ public sealed class AutorizarOrdenCompraHandler : IRequestHandler<AutorizarOrden
                 $"Proveedor '{oc.ProveedorId}' no encontrado.");
         if (proveedor.Estatus != EstatusCatalogo.Activo)
         {
-            throw new BusinessRuleException(
-                "PROVEEDOR_INACTIVO",
-                $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede autorizar OCs.");
+            throw ProveedorNoUtilizable.Error(proveedor.Clave, proveedor.Estatus, $"El proveedor '{proveedor.Clave}' está {proveedor.Estatus} y no puede autorizar OCs.");
         }
 
         var resultado = oc.Autorizar(
@@ -86,14 +86,22 @@ public sealed class AutorizarOrdenCompraHandler : IRequestHandler<AutorizarOrden
             fechaHora: _clock.UtcNow,
             notas: command.Notas);
 
-        await _db.SaveChangesAsync(cancellationToken);
-
         activity?.SetTag("compras.oc.folio", oc.Folio.Valor);
         activity?.SetTag("compras.oc.estado", oc.Estado.ToString());
 
         if (resultado.OrdenCompraAutorizada is not null)
         {
             await _publisher.Publish(resultado.OrdenCompraAutorizada, cancellationToken);
+        }
+
+        // ADR-0009: el mapper encola antes de guardar estado + outbox.
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (resultado.OrdenCompraAutorizada is not null)
+        {
+            // El PDF consulta el estado persistido y tiene su propio guardado.
+            await _publisher.Publish(new OrdenCompraAutorizadaPersistida(
+                oc.Id, oc.Folio.Valor), cancellationToken);
         }
     }
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Millet.DatosMaestros.Application.Clientes;
 
 namespace Millet.Integraciones.Aw.Application.Clientes;
@@ -10,10 +11,11 @@ public sealed record AwClienteMapeoResultado(AplicarClienteAwSnapshot? Snapshot,
 }
 
 /// <summary>
-/// Mapper puro fila A+W → <see cref="AplicarClienteAwSnapshot"/> (doc 05 §4). Nunca deriva
-/// <c>Rfc</c> de UST_ID/STEUERNUMMER (solo candidatos) ni aplica PLZ como CP fiscal; la
-/// condición se resuelve solo con exactamente 1 coincidencia; la moneda se normaliza solo
-/// si está en <paramref name="mapeoMoneda"/>.
+/// Mapper puro fila A+W → <see cref="AplicarClienteAwSnapshot"/> (doc 05 §4). Fiscales (decisión
+/// de la demo): <c>Rfc</c> sale de UST_ID (igual que el flujo de pedidos) y el CP fiscal de PLZ,
+/// solo si tienen forma válida; si no, quedan como candidatos sin aplicar. La condición se
+/// resuelve solo con exactamente 1 coincidencia; la moneda se normaliza solo si está en
+/// <paramref name="mapeoMoneda"/>.
 /// </summary>
 public static class AwClienteSnapshotMapper
 {
@@ -42,6 +44,8 @@ public static class AwClienteSnapshotMapper
 
         var snapshot = new AplicarClienteAwSnapshot(
             referencia, razonSocial, leidoEnUtc, VersionContrato, VersionMapeo,
+            Rfc: RfcValido(f.UstId),
+            CodigoPostalFiscal: CpValido(f.Plz),
             MonedaDefault: monedaNormalizada,
             Telefono: Limpiar(f.Tlf1),
             Email: Limpiar(f.Mail),
@@ -71,6 +75,13 @@ public static class AwClienteSnapshotMapper
 
         return new(snapshot, null);
     }
+
+    // RFC de 12 (moral) o 13 (física) posiciones; mayúsculas, con Ñ y & permitidos.
+    private static string? RfcValido(string? v) =>
+        Limpiar(v)?.ToUpperInvariant() is { } r && Regex.IsMatch(r, "^[A-ZÑ&0-9]{12,13}$") ? r : null;
+
+    private static string? CpValido(string? v) =>
+        Limpiar(v) is { } c && Regex.IsMatch(c, @"^\d{5}$") ? c : null;
 
     private static string? Limpiar(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 }

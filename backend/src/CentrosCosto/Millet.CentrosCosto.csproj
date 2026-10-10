@@ -14,6 +14,8 @@
          (lectura cross-módulo del catálogo de sucursales, ADR-0042). Trae
          transitivamente Millet.Catalogos (EstatusCatalogo). -->
     <ProjectReference Include="..\Compartido\Millet.Compartido.csproj" />
+    <!-- F1-CON-02: hospeda el adaptador del puerto de consumidor de Contabilidad (Contabilidad no referencia este proyecto). -->
+    <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />
   </ItemGroup>
 
   <ItemGroup>

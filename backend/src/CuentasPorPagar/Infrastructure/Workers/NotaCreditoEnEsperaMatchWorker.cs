@@ -99,7 +99,6 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
         if (enEspera.Count == 0)
         {
             _logger.LogDebug("[NotaCreditoEnEsperaMatchWorker] Nada que matchear — 0 NCs EnEspera.");
-            return;
         }
 
         var vinculadas = 0;
@@ -109,17 +108,24 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
         {
             if (cancellationToken.IsCancellationRequested) break;
 
+            if (nc.TipoRelacionCfdi == TipoRelacionCfdi.AmortizacionAnticipo)
+            {
+                var anticipo = await db.AnticiposProveedor.AsNoTracking().FirstOrDefaultAsync(a =>
+                    a.EmpresaId == nc.EmpresaId && a.ProveedorId == nc.ProveedorId && a.Moneda == nc.Moneda && a.UuidCfdi == nc.UuidRelacionCfdi, cancellationToken);
+                if (anticipo is not null) { nc.VincularAnticipoOrigen(anticipo.Id, ahora); vinculadas++; continue; }
+            }
             // Match contra factura por UUID + proveedor.
             var matchFactura = await db.FacturasProveedor
                 .AsNoTracking()
-                .Where(f => f.UuidCfdi == nc.UuidRelacionCfdi && f.ProveedorId == nc.ProveedorId)
+                .Where(f => f.EmpresaId == nc.EmpresaId && f.UuidCfdi == nc.UuidRelacionCfdi && f.ProveedorId == nc.ProveedorId && f.Moneda == nc.Moneda)
                 .Select(f => new { f.Id })
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (matchFactura is not null)
+            if (matchFactura is not null && nc.TipoRelacionCfdi != TipoRelacionCfdi.AmortizacionAnticipo)
             {
                 nc.VincularFacturaOrigen(matchFactura.Id, ahora);
                 vinculadas++;
+                await new Application.NotaCargo.FormalizacionNotaCargoService(db, mediator).IntentarAsync(nc, ahora, cancellationToken);
 
                 await mediator.Publish(new NotaCreditoProveedorRegistradaDomainEvent(
                     EmpresaId: nc.EmpresaId,
@@ -128,7 +134,13 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
                     FacturaOrigenId: nc.FacturaOrigenId,
                     TipoRelacionCfdi: (int)nc.TipoRelacionCfdi,
                     Total: nc.Total,
-                    OcurridoEn: ahora), cancellationToken);
+                    OcurridoEn: ahora,
+                    Uuid: nc.UuidCfdi,
+                    Subtotal: nc.Subtotal,
+                    Iva: nc.ImpuestosTrasladados,
+                    RetencionesTotal: nc.Retenciones,
+                    Moneda: nc.Moneda,
+                    TipoCambio: nc.TipoCambio), cancellationToken);
 
                 _logger.LogInformation(
                     "[NotaCreditoEnEsperaMatchWorker] NC {Nc} vinculada a factura {Factura} (UUID {Uuid}).",
@@ -146,7 +158,10 @@ public sealed class NotaCreditoEnEsperaMatchWorker : BackgroundService
             }
         }
 
-        if (vinculadas > 0)
+        var abiertas = await db.NotasCreditoProveedor.Where(n => n.TipoRelacionCfdi == TipoRelacionCfdi.Devolucion && n.Estado == EstadoNotaCredito.Abierta).ToListAsync(cancellationToken);
+        foreach (var nc in abiertas)
+            await new Application.NotaCargo.FormalizacionNotaCargoService(db, mediator).IntentarAsync(nc, ahora, cancellationToken);
+        if (vinculadas > 0 || db.ChangeTracker.HasChanges())
         {
             await db.SaveChangesAsync(cancellationToken);
         }

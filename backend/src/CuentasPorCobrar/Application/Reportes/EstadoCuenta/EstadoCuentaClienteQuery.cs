@@ -17,7 +17,13 @@ namespace Millet.CuentasPorCobrar.Application.Reportes.EstadoCuenta;
 /// ("dinero del cliente en la casa"; los anticipos NO son cartera pero
 /// sí movimiento del cliente). Todo por moneda, nunca se convierte.
 /// </summary>
-public sealed record EstadoCuentaClienteQuery(Guid ClienteId) : IRequest<ReporteJsonResponse>;
+public sealed record EstadoCuentaClienteQuery(Guid ClienteId) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public string TipoDocumento => "factura_cartera";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaClienteQuery, ReporteJsonResponse>
 {
@@ -25,20 +31,32 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
     private readonly IFacturacionAnticiposReadPort _anticipos;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
+    private readonly IReppPendientesReadPort? _repp;
 
     public EstadoCuentaClienteHandler(
         CuentasPorCobrarDbContext db,
         IFacturacionAnticiposReadPort anticipos,
         IClienteReadPort clientes,
-        IClock clock)
+        IClock clock, IReppPendientesReadPort? repp = null)
     {
-        _db = db; _anticipos = anticipos; _clientes = clientes; _clock = clock;
+        _db = db; _anticipos = anticipos; _clientes = clientes; _clock = clock; _repp = repp;
     }
 
     public async Task<ReporteJsonResponse> Handle(
         EstadoCuentaClienteQuery query, CancellationToken cancellationToken)
     {
-        var facturas = await _db.FacturasCartera.AsNoTracking()
+        if (_repp is not null)
+        {
+            var estado = await _repp.ConsultarAsync(query.ClienteId, cancellationToken);
+            var reflejados = await _db.MovimientosCartera.AsNoTracking()
+                .Where(m => estado.RecibosEmitidos.Contains(m.OrigenComprobanteId))
+                .Select(m => m.OrigenComprobanteId).Distinct().ToListAsync(cancellationToken);
+            if (estado.TienePendientes || estado.RecibosEmitidos.Except(reflejados).Any())
+                throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("ESTADO_CUENTA_REPP_PENDIENTE",
+                    "Hay pagos confirmados pendientes de REP o de reflejarse en cartera. Completa su revisión antes de emitir el estado de cuenta.");
+        }
+        var facturas = await _db.FacturasCartera
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(f => f.ClienteId == query.ClienteId
                      && f.Estado != EstadoFacturaCartera.Cancelada)
             .OrderBy(f => f.FechaTimbrado)
@@ -52,6 +70,9 @@ public sealed class EstadoCuentaClienteHandler : IRequestHandler<EstadoCuentaCli
         var folioPorFactura = facturas.ToDictionary(f => f.Id, f => (f.Folio, f.Moneda));
 
         var anticipos = await _anticipos.ListarPorClienteAsync(query.ClienteId, cancellationToken);
+        // Los anticipos se filtran por sus comprobantes a través del puerto, sin consultar otra tabla.
+        if (query.SucursalesPermitidas is not null)
+            anticipos = anticipos.Where(x => x.SucursalId is Guid id && query.SucursalesPermitidas.Contains(id)).ToArray();
 
         var filas = new List<IReadOnlyDictionary<string, object?>>();
 

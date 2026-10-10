@@ -51,6 +51,8 @@ export const PermisosCanonicos = {
     'compras.requisiciones.seleccionar-requisitante',
   ComprasRequisicionesVerTodosDepartamentos:
     'compras.requisiciones.ver-todos-departamentos',
+  ComprasRequisicionesLeerTodasSucursales:
+    'compras.requisiciones.leer-todas-sucursales',
 
   // Compras — Administración de aprobadores (UF6-PR1)
   ComprasAprobadoresAdministrar: 'compras.aprobadores.administrar',
@@ -114,6 +116,18 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.bancarios-ver',
   DatosMaestrosProveedoresBancariosEditar:
     'datos_maestros.proveedores.bancarios-editar',
+  // Expediente documental del proveedor (F1-ADM-11 G1.2).
+  DatosMaestrosProveedoresAdjuntosVer:
+    'datos_maestros.proveedores.adjuntos-ver',
+  DatosMaestrosProveedoresAdjuntosSubir:
+    'datos_maestros.proveedores.adjuntos-subir',
+  DatosMaestrosProveedoresAdjuntosBaja:
+    'datos_maestros.proveedores.adjuntos-baja',
+  // Tolerancia y validación de proveedores por CxP (G1.13 / G1.1).
+  DatosMaestrosProveedoresToleranciaEditar:
+    'datos_maestros.proveedores.tolerancia-editar',
+  DatosMaestrosProveedoresValidar:
+    'datos_maestros.proveedores.validar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular
@@ -273,6 +287,9 @@ export const PermisosCanonicos = {
   CuentasPorPagarProveedoresAjustarTolerancia:
     'cuentas_por_pagar.proveedores.ajustar-tolerancia',
 
+  CuentasPorPagarRetencionesAdministrar: 'cuentas_por_pagar.retenciones.administrar',
+  CuentasPorPagarRetencionesLeer: 'cuentas_por_pagar.retenciones.leer',
+  CuentasPorPagarReportesLeerTodasSucursales: 'cuentas_por_pagar.reportes.leer-todas-sucursales',
   CuentasPorPagarReportesCartera: 'cuentas_por_pagar.reportes.cartera',
   CuentasPorPagarReportesAntiguedad: 'cuentas_por_pagar.reportes.antiguedad',
   CuentasPorPagarReportesDiot: 'cuentas_por_pagar.reportes.diot',
@@ -380,6 +397,22 @@ export const PermisosCanonicos = {
   CentrosCostoCatalogoAdministrar: 'centros_costo.catalogo.administrar',
   CentrosCostoAsignacionesAdministrar: 'centros_costo.asignaciones.administrar',
   CentrosCostoDim3LeerTodos: 'centros_costo.dim3.leer-todos',
+
+  // Contabilidad (backend F1-CON-01). Namespace GUID 0000000d-*.
+  ContabilidadCatalogoLeer: 'contabilidad.catalogo.leer',
+  ContabilidadCatalogoAdministrar: 'contabilidad.catalogo.administrar',
+  ContabilidadCatalogoAutorizar: 'contabilidad.catalogo.autorizar',
+  ContabilidadCatalogoImportar: 'contabilidad.catalogo.importar',
+  // F1-CON-02: dimensiones contables (0000000d-0002) y movimientos (0000000d-0003).
+  ContabilidadDimensionesLeer: 'contabilidad.dimensiones.leer',
+  ContabilidadDimensionesAdministrar: 'contabilidad.dimensiones.administrar',
+  ContabilidadMovimientosValidar: 'contabilidad.movimientos.validar',
+  ContabilidadMovimientosGestionarTodasSucursales: 'contabilidad.movimientos.gestionar-todas-sucursales',
+  // F1-CON-03: periodos contables (0000000d-0004).
+  ContabilidadPeriodoLeer: 'contabilidad.periodo.leer',
+  ContabilidadPeriodoAdministrar: 'contabilidad.periodo.administrar',
+  ContabilidadPeriodoCerrar: 'contabilidad.periodo.cerrar',
+  ContabilidadPeriodoReabrir: 'contabilidad.periodo.reabrir',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

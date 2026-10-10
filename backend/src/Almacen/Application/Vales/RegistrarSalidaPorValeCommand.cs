@@ -1,9 +1,12 @@
+using Millet.SharedKernel.Application.Calendario;
+using Millet.Almacen.Infrastructure.PublicAdapters;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Salidas;
 using Millet.Almacen.Domain.Movimientos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -15,7 +18,7 @@ namespace Millet.Almacen.Application.Vales;
 /// <summary>
 /// F5-PR1: registra una <b>salida urgente por vale</b> (Variante B —
 /// el solicitante no tuvo tiempo de tramitar RQ). Marca el movimiento
-/// con <c>pendiente_regularizacion=true</c> y <c>fecha_limite=+48h</c>
+/// con <c>pendiente_regularizacion=true</c> y <c>fecha_limite=48 horas hábiles desde FechaMovimiento</c>
 /// (A14). Publica <c>SalidaRequisicionRegistradaEvent</c> con
 /// <c>EsPorVale=true</c> y <c>RqId=null</c>.
 ///
@@ -29,7 +32,7 @@ namespace Millet.Almacen.Application.Vales;
 /// </summary>
 // Salida-por-línea (vale): el sub-almacén ya NO viaja en la cabecera. Se DERIVA
 // del bin (Ubicacion.SubAlmacenId) de las líneas, obligatorio. Mismo molde que la
-// salida-con-RQ (#724). RegularizarSalidaPorVale NO se toca (flag-flip puro).
+// salida-con-RQ (#724). La regularización valida la RQ antes de vincularla.
 public sealed record RegistrarSalidaPorValeCommand(
     DateOnly FechaMovimiento,
     string ValeBlobRef,
@@ -51,6 +54,7 @@ public sealed class RegistrarSalidaPorValeValidator
         {
             linea.RuleFor(l => l.ArticuloId).NotEqual(Guid.Empty);
             linea.RuleFor(l => l.Cantidad).GreaterThan(0);
+            linea.RuleFor(l => l.UnidadCapturada).MaximumLength(20);
             // Salida-por-línea (vale): el bin es obligatorio. El record compartido
             // RegistrarSalidaLineaInput se mantiene Guid? (decisión F1); la
             // obligatoriedad se impone acá, en el validador del vale.
@@ -68,20 +72,33 @@ public sealed class RegistrarSalidaPorValeHandler
     private readonly IIntegrationEventPublisher _events;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _currentEmpresa;
+    private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IConversionUnidadPort _conversion;
+    private readonly ApartadosRequisicionService _apartados;
+    private readonly ICalendarioHabil _calendario;
+    private readonly ICentroCostoElegibilidadPort _centros;
 
     public RegistrarSalidaPorValeHandler(
         AlmacenDbContext db,
         IIntegrationEventPublisher events,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
-        IDecimalesUnidadGuard decimalesGuard)
+        IDecimalesUnidadGuard decimalesGuard,
+        IPeriodoContableReadPort periodoContable,
+        ICalendarioHabil calendario,
+        ICentroCostoElegibilidadPort centros, IConversionUnidadPort conversion, ApartadosRequisicionService apartados)
     {
         _db = db;
         _events = events;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
+        _conversion = conversion;
+        _apartados = apartados;
+        _periodoContable = periodoContable;
+        _calendario = calendario;
+        _centros = centros;
     }
 
     public async Task<RegistrarSalidaResponse> Handle(
@@ -112,6 +129,9 @@ public sealed class RegistrarSalidaPorValeHandler
                 "sub-almacén. Revisa los bins elegidos.");
         }
         var subAlmacenId = subsDerivados[0];
+        // G1.6: dimensiones contables del evento (una consulta).
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, subAlmacenId, cancellationToken);
 
         // F7-PR3 (A18): si hay bloqueo activo de salidas para el sub DERIVADO, rechazar.
         var bloqueado = await _db.Set<Domain.Conteos.BloqueoInventario>()
@@ -126,18 +146,27 @@ public sealed class RegistrarSalidaPorValeHandler
                 $"El sub-almacén '{subAlmacenId}' está en conteo anual; salidas bloqueadas.");
         }
 
+        var conversiones = new List<ConversionUnidad>();
+        foreach (var input in request.Lineas)
+            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, "", cancellationToken));
+
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "VALE_SIN_EMPRESA", "El contexto de empresa es requerido.");
 
         // F8-PR2: validar periodo cerrado.
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
-            _db, empresaId, request.FechaMovimiento, cancellationToken);
+            _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad)),
+            request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase)),
             cancellationToken);
+
+        foreach (var centro in request.Lineas.Select(l => l.CentroCostoId).OfType<Guid>().Distinct())
+            await _centros.ValidarAsync(centro, cancellationToken);
+        var limite = await _calendario.SumarHorasAsync(request.FechaMovimiento, 48, cancellationToken);
 
         var movimientoId = Guid.CreateVersion7();
         var movimiento = new MovimientoInventario(
@@ -146,7 +175,7 @@ public sealed class RegistrarSalidaPorValeHandler
             empresaId: empresaId,
             fechaMovimiento: request.FechaMovimiento);
 
-        // Vincular salida vale (marca pendiente_regularizacion + fecha_limite=+48h).
+        // Vincular salida vale (marca pendiente_regularizacion + fecha_limite=48 horas hábiles desde FechaMovimiento).
         typeof(MovimientoInventario)
             .GetMethod("VincularSalida", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(movimiento, new object?[]
@@ -155,6 +184,8 @@ public sealed class RegistrarSalidaPorValeHandler
                 request.ValeBlobRef,
                 request.PersonaDestinatariaId,
             });
+
+        movimiento.EstablecerPlazoRegularizacion(limite);
 
         if (!string.IsNullOrWhiteSpace(request.Observaciones))
         {
@@ -165,6 +196,10 @@ public sealed class RegistrarSalidaPorValeHandler
         // C7.2b / salida-por-línea (vale): costo snapshot por el bin ELEGIDO en
         // cada línea (ya obligatorio; sin fallback a la ÚNICA). Solo se llavea la
         // lectura; la fórmula del promedio NO cambia (candado de regresión de costeo).
+        await using var txApartados = _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(cancellationToken) : null;
+        await _apartados.BloquearAsync(sucursalId ?? throw new BusinessRuleException("SALIDA_SUCURSAL_REQUERIDA", "Configura la sucursal del almacén antes de registrar la salida."), request.Lineas.Select(l => l.ArticuloId), cancellationToken);
+
         var posicion = 1;
         var payloadLineas = new List<LineaSalidaPayload>(request.Lineas.Count);
         foreach (var input in request.Lineas)
@@ -182,29 +217,33 @@ public sealed class RegistrarSalidaPorValeHandler
                     cancellationToken);
             var costoSnapshot = saldo?.CostoPromedioMxn ?? 0m;
 
+            var conversion = conversiones[posicion - 1];
             var lineaId = Guid.CreateVersion7();
             var linea = new LineaMovimiento(
                 id: lineaId,
                 movimientoId: movimientoId,
                 posicion: posicion++,
                 articuloId: input.ArticuloId,
-                cantidad: input.Cantidad,
-                unidadMedida: "PZA",
+                cantidad: conversion.CantidadBase,
+                unidadMedida: conversion.UnidadBase,
                 costoUnitarioMxn: costoSnapshot,
                 centroCostoId: input.CentroCostoId,
                 proyectoId: input.ProyectoId,
                 ubicacionReferencia: input.UbicacionReferencia,
                 comentarioLinea: input.Comentario,
                 ubicacionId: ubicacionLinea);
+            linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
+            await _apartados.ConsumirAsync(sucursalId!.Value, null, null, input.ArticuloId,
+                conversion.CantidadBase, cancellationToken);
             movimiento.AgregarLinea(linea);
 
             payloadLineas.Add(new LineaSalidaPayload(
                 LineaSalidaId: lineaId,
                 ArticuloId: input.ArticuloId,
-                UnidadMedida: "PZA",
-                Cantidad: input.Cantidad,
-                CostoUnitarioMxn: costoSnapshot,
-                MontoTotalMxn: Math.Round(input.Cantidad * costoSnapshot, 2),
+                UnidadMedida: conversion.UnidadBase,
+                Cantidad: conversion.CantidadDocumento,
+                CostoUnitarioMxn: costoSnapshot * conversion.FactorDocumentoABase,
+                MontoTotalMxn: Math.Round(conversion.CantidadBase * costoSnapshot, 2),
                 CentroCostoId: input.CentroCostoId,
                 ProyectoId: input.ProyectoId,
                 // Salida-por-línea (vale): el bin elegido (obligatorio).
@@ -241,9 +280,12 @@ public sealed class RegistrarSalidaPorValeHandler
             EsPorVale: true,
             PersonaDestinatariaId: request.PersonaDestinatariaId,
             ValeBlobRef: request.ValeBlobRef,
-            Lineas: payloadLineas), cancellationToken);
+            Lineas: payloadLineas,
+            AlmacenId: almacenId,
+            SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+        if (txApartados is not null) await txApartados.CommitAsync(cancellationToken);
 
         return new RegistrarSalidaResponse(movimientoId, folio.Valor);
     }
@@ -253,7 +295,7 @@ public sealed class RegistrarSalidaPorValeHandler
 
 /// <summary>
 /// Vincula una RQ posterior al vale, cumpliendo la regularización en
-/// 48h (A14). El movimiento permanece registrado; solo cambia el flag
+/// 48 horas hábiles (A14). El movimiento permanece registrado; solo cambia el flag
 /// <c>pendiente_regularizacion → false</c> y se vincula
 /// <c>rq_regularizadora_id</c>.
 /// </summary>
@@ -276,17 +318,29 @@ public sealed class RegularizarSalidaPorValeHandler
 {
     private readonly AlmacenDbContext _db;
 
-    public RegularizarSalidaPorValeHandler(AlmacenDbContext db) => _db = db;
+    private readonly IComprasRequisicionReadPort _rqPort;
+
+    public RegularizarSalidaPorValeHandler(AlmacenDbContext db, IComprasRequisicionReadPort rqPort)
+    {
+        _db = db;
+        _rqPort = rqPort;
+    }
 
     public async Task Handle(
         RegularizarSalidaPorValeCommand request, CancellationToken cancellationToken)
     {
-        var mov = await _db.Movimientos
+        var mov = await _db.Movimientos.Include(m => m.Lineas)
             .FirstOrDefaultAsync(m => m.Id == request.MovimientoValeId, cancellationToken)
             ?? throw new EntityNotFoundException(
                 "VALE_NO_ENCONTRADO",
                 $"No existe movimiento con id '{request.MovimientoValeId}'.");
 
+        var rq = await _rqPort.ObtenerAsync(request.RqRegularizadoraId, cancellationToken);
+        if (rq is null || rq.Estado is not ("Autorizada" or "EnSurtido")
+            || mov.Lineas.GroupBy(l => l.ArticuloId).Any(g =>
+                g.Sum(l => l.Cantidad) > rq.Lineas.Where(l => l.ArticuloId == g.Key).Sum(l => l.CantidadDisponibleEntregar)))
+            throw new BusinessRuleException("VALE_RQ_REGULARIZADORA_INVALIDA",
+                "La requisición regularizadora debe existir, estar autorizada o en surtido y cubrir todos los artículos y cantidades del vale.");
         mov.RegularizarVale(request.RqRegularizadoraId);
         await _db.SaveChangesAsync(cancellationToken);
     }

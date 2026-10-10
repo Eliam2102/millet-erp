@@ -27,6 +27,12 @@ public sealed class CuentaBancariaConfiguration : IEntityTypeConfiguration<Cuent
         builder.Property(e => e.CuentaContableRef).HasMaxLength(40);
         builder.Property(e => e.PerfilExtracto).HasMaxLength(40);
         builder.Property(e => e.Activa).IsRequired();
+        builder.Property(e => e.Sucursal).HasMaxLength(120);
+        builder.Property(e => e.Finalidad).HasMaxLength(400);
+        builder.Property(e => e.Titular).HasMaxLength(200);
+        builder.Property(e => e.Firmantes).HasMaxLength(1000);
+        builder.Property(e => e.SaldoInicial).HasPrecision(18, 2);
+        builder.Property(e => e.MotivoSaldoInicial).HasMaxLength(400);
 
         builder.HasIndex(e => new { e.EmpresaId, e.NumeroCuenta })
             .HasDatabaseName("ux_cuenta_bancaria_empresa_numero")

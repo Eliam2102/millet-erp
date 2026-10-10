@@ -15,6 +15,7 @@ internal sealed class ComprasSettingsConfiguration : IEntityTypeConfiguration<Co
     {
         builder.ToTable("settings");
 
+        builder.Property(s => s.ApartarExistenciaAlAutorizar).HasDefaultValue(true).IsRequired();
         builder.HasKey(s => s.Id);
 
         builder.Property(s => s.Id);

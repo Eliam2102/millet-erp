@@ -9,6 +9,17 @@ namespace Millet.Integraciones.Fiscal.UnitTests.Application;
 
 public sealed class GuardarConfiguracionPacHandlerTests
 {
+    private sealed class Probe : Millet.Integraciones.Fiscal.Domain.Ports.IPacCandidatoProbe
+    {
+        public bool Exitosa { get; set; } = true;
+        public string? UltimaKey { get; private set; }
+        public Task<Millet.Integraciones.Fiscal.Domain.Ports.PingResultDto> ProbarAsync(string url, string key, CancellationToken ct)
+            {
+                UltimaKey = key;
+                return Task.FromResult(new Millet.Integraciones.Fiscal.Domain.Ports.PingResultDto(Exitosa, Exitosa ? 200 : 401, "DEMO", 1, Ahora));
+            }
+    }
+
     private static readonly Guid EmpresaId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly DateTimeOffset Ahora = new(2026, 5, 25, 12, 0, 0, TimeSpan.Zero);
 
@@ -25,7 +36,7 @@ public sealed class GuardarConfiguracionPacHandlerTests
                     InMemoryFiscalDb.CapturingPublisher Publisher,
                     FiscalSecretCipher Cipher,
                     InMemoryFiscalDb.TrackingResolver Resolver)
-        Build(Guid? empresaActual = null)
+        Build(Guid? empresaActual = null, Probe? probe = null)
     {
         var db = InMemoryFiscalDb.Create();
         var cipher = InMemoryFiscalDb.Cipher();
@@ -33,8 +44,40 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var resolver = new InMemoryFiscalDb.TrackingResolver();
         var empresa = new InMemoryFiscalDb.FakeEmpresaContext(empresaActual ?? EmpresaId);
         var clock = new InMemoryFiscalDb.FakeClock(Ahora);
-        var handler = new GuardarConfiguracionPacHandler(db, cipher, publisher, resolver, empresa, clock);
+        var handler = new GuardarConfiguracionPacHandler(db, cipher, publisher, resolver, empresa, clock, probe ?? new Probe());
         return (handler, db, publisher, cipher, resolver);
+    }
+
+    [Fact]
+    public async Task Candidato_rechazado_no_crea_configuracion_ni_publica()
+    {
+        var probe = new Probe { Exitosa = false };
+        var (handler, db, publisher, _, resolver) = Build(probe: probe);
+        var action = () => handler.Handle(NewCommand("DEMO-invalid"), CancellationToken.None);
+        await action.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CONFIG_PAC_CONEXION_RECHAZADA");
+        db.ConfiguracionesPac.Count().Should().Be(0);
+        publisher.Published.Should().BeEmpty();
+        probe.UltimaKey.Should().Be("DEMO-invalid");
+    }
+
+    [Fact]
+    public async Task Rotacion_rechazada_conserva_configuracion_y_cifrado_anterior()
+    {
+        var probe = new Probe();
+        var (handler, db, publisher, cipher, _) = Build(probe: probe);
+        await handler.Handle(NewCommand("DEMO-original"), CancellationToken.None);
+        var original = db.ConfiguracionesPac.Single();
+        var version = original.Version;
+        var encrypted = original.ApiKeyCifrado.ToArray();
+        probe.Exitosa = false;
+        var action = () => handler.Handle(NewCommand("DEMO-rechazada") with
+            { BaseUrl = "https://test.fiscalapi.com", VersionEsperada = version }, CancellationToken.None);
+        await action.Should().ThrowAsync<BusinessRuleException>();
+        db.ConfiguracionesPac.Single().ApiKeyCifrado.Should().Equal(encrypted);
+        original.BaseUrl.Should().Be("https://live.fiscalapi.com");
+        original.Version.Should().Be(version);
+        publisher.Published.Should().HaveCount(1);
+        probe.UltimaKey.Should().Be("DEMO-rechazada");
     }
 
     [Fact]
@@ -93,7 +136,7 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var cifradoOriginal = configOriginal.ApiKeyCifrado;
 
         var responseUpdate = await handler.Handle(
-            NewCommand(apiKey: null) with { BaseUrl = "https://live.fiscalapi.com" },
+            NewCommand(apiKey: null) with { BaseUrl = "https://live.fiscalapi.com", VersionEsperada = configOriginal.Version },
             CancellationToken.None);
 
         db.ConfiguracionesPac.Single().ApiKeyHash.Should().Be(hashOriginal);
@@ -108,7 +151,7 @@ public sealed class GuardarConfiguracionPacHandlerTests
         await handler.Handle(NewCommand(apiKey: "original-key"), CancellationToken.None);
 
         var responseUpdate = await handler.Handle(
-            NewCommand(apiKey: "nueva-key-rotada"),
+            NewCommand(apiKey: "nueva-key-rotada") with { VersionEsperada = db.ConfiguracionesPac.Single().Version },
             CancellationToken.None);
 
         var persisted = db.ConfiguracionesPac.Single();
@@ -124,7 +167,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
         await handler.Handle(NewCommand(apiKey: "same-key"), CancellationToken.None);
         var cifradoInicial = db.ConfiguracionesPac.Single().ApiKeyCifrado;
 
-        await handler.Handle(NewCommand(apiKey: "same-key"), CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: "same-key") with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
 
         db.ConfiguracionesPac.Single().ApiKeyCifrado.Should().Equal(cifradoInicial); // no re-cifró
         publisher.Published.Count(p => p is IntegracionesFiscalConfiguracionActualizadaEvent e && e.Rotacion).Should().Be(1);
@@ -136,8 +180,40 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var (handler, db, _, _, _) = Build();
         await handler.Handle(NewCommand(), CancellationToken.None);
 
-        await handler.Handle(NewCommand(apiKey: null) with { Activo = false }, CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Activo = false, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
 
+        db.ConfiguracionesPac.Single().Activo.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Desactivar_no_requiere_conexion_exitosa()
+    {
+        var probe = new Probe();
+        var (handler, db, _, _, _) = Build(probe: probe);
+        await handler.Handle(NewCommand(), CancellationToken.None);
+        probe.Exitosa = false;
+
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Activo = false, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
+
+        db.ConfiguracionesPac.Single().Activo.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Reactivar_con_conexion_fallida_es_rechazado()
+    {
+        var probe = new Probe();
+        var (handler, db, _, _, _) = Build(probe: probe);
+        await handler.Handle(NewCommand(), CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Activo = false, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
+        probe.Exitosa = false;
+
+        var action = () => handler.Handle(NewCommand(apiKey: null) with
+            { Activo = true, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
+
+        await action.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "CONFIG_PAC_CONEXION_RECHAZADA");
         db.ConfiguracionesPac.Single().Activo.Should().BeFalse();
     }
 
@@ -202,11 +278,13 @@ public sealed class GuardarConfiguracionPacHandlerTests
         await handler.Handle(SandboxCommand(Eku, Eku), CancellationToken.None);
 
         // Reemplazo del owned type sobre entidad trackeada.
-        await handler.Handle(SandboxCommand(Eku, Cacx, apiKey: null), CancellationToken.None);
+        await handler.Handle(SandboxCommand(Eku, Cacx, apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
         db.ConfiguracionesPac.Single().ReceptorSandbox!.Rfc.Should().Be("CACX7605101P8");
 
         // Upsert con null limpia.
-        await handler.Handle(SandboxCommand(null, null, apiKey: null), CancellationToken.None);
+        await handler.Handle(SandboxCommand(null, null, apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
         var persisted = db.ConfiguracionesPac.Single();
         persisted.EmisorSandbox.Should().BeNull();
         persisted.ReceptorSandbox.Should().BeNull();
@@ -218,7 +296,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var (handler, db, _, _, _) = Build();
         await handler.Handle(SandboxCommand(Eku, Eku), CancellationToken.None);
 
-        await handler.Handle(NewCommand(apiKey: null), CancellationToken.None); // BaseUrl live, sin identidades
+        await handler.Handle(NewCommand(apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None); // BaseUrl live, sin identidades
 
         var persisted = db.ConfiguracionesPac.Single();
         persisted.EmisorSandbox.Should().BeNull();
@@ -232,6 +311,20 @@ public sealed class GuardarConfiguracionPacHandlerTests
     // del FakeClock (Ahora = 2026-05-25).
 
     private static readonly CsdDto CsdEku = CrearCsdDto("12345678a");
+
+    [Fact]
+    public async Task Guardar_fiel_no_persiste_configuracion_ni_publica_eventos()
+    {
+        var (handler, db, publisher, _, _) = Build();
+        var (cer, key, pass) = Infrastructure.CsdTestFactory.Crear(
+            notBefore: Ahora.AddDays(-1), notAfter: Ahora.AddYears(1), subject: "CN=FIX FIEL");
+        var act = () => handler.Handle(NewCommand() with { Csd = new CsdDto(cer, key, pass) }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "CONFIG_PAC_CSD_ES_FIEL");
+        db.ConfiguracionesPac.Should().BeEmpty();
+        publisher.Published.Should().BeEmpty();
+    }
 
     private static CsdDto CrearCsdDto(string password)
     {
@@ -250,6 +343,9 @@ public sealed class GuardarConfiguracionPacHandlerTests
 
         response.CsdConfigurado.Should().BeTrue();
         response.CsdActualizadoAt.Should().Be(Ahora);
+        response.CsdNotBefore.Should().Be(Ahora.AddYears(-1));
+        response.CsdNotAfter.Should().Be(Ahora.AddYears(4));
+        response.CsdEstado.Should().Be("Vigente");
 
         var persisted = db.ConfiguracionesPac.Single();
         cipher.Decrypt(persisted.CsdCertificadoCifrado!).Should().Be(CsdEku.CertificadoBase64);
@@ -268,14 +364,17 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var hashOriginal = db.ConfiguracionesPac.Single().CsdHash;
 
         // Mismo CSD: no re-cifra (hash idéntico).
-        await handler.Handle(NewCommand(apiKey: null) with { Csd = CsdEku }, CancellationToken.None);
+        await handler.Handle(NewCommand(apiKey: null) with
+            { Csd = CsdEku, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
         db.ConfiguracionesPac.Single().CsdHash.Should().Be(hashOriginal);
 
         // CSD distinto (otro par cert/llave válido): rota.
         await handler.Handle(
-            NewCommand(apiKey: null) with { Csd = CrearCsdDto("otro-pass") },
+            NewCommand(apiKey: null) with
+                { Csd = CrearCsdDto("otro-pass"), VersionEsperada = db.ConfiguracionesPac.Single().Version },
             CancellationToken.None);
         db.ConfiguracionesPac.Single().CsdHash.Should().NotBe(hashOriginal);
+        db.ConfiguracionesPac.Single().CsdNotAfter.Should().Be(Ahora.AddYears(4));
     }
 
     [Fact]
@@ -286,7 +385,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
 
         var invalido = CsdEku with { Password = "password-equivocada" };
         var act = () => handler.Handle(
-            NewCommand(apiKey: null) with { Csd = invalido }, CancellationToken.None);
+            NewCommand(apiKey: null) with
+                { Csd = invalido, VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None);
 
         (await act.Should().ThrowAsync<BusinessRuleException>())
             .Which.Code.Should().Be("CONFIG_PAC_CSD_PASSWORD_INCORRECTA");
@@ -299,7 +399,8 @@ public sealed class GuardarConfiguracionPacHandlerTests
         var (handler, db, _, _, _) = Build();
         await handler.Handle(NewCommand() with { Csd = CsdEku }, CancellationToken.None);
 
-        await handler.Handle(NewCommand(apiKey: null), CancellationToken.None); // Csd null = no tocar
+        await handler.Handle(NewCommand(apiKey: null) with
+            { VersionEsperada = db.ConfiguracionesPac.Single().Version }, CancellationToken.None); // Csd null = no tocar
 
         db.ConfiguracionesPac.Single().CsdConfigurado.Should().BeTrue();
     }

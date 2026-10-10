@@ -38,6 +38,7 @@ public sealed class ConfiguracionReorden : BaseEntity, IAuditable
     public decimal Minimo { get; private set; }
     public decimal Maximo { get; private set; }
     public decimal PuntoReorden { get; private set; }
+    public decimal? CantidadFija { get; private set; }
     public bool AutoRequisicion { get; private set; }
     public ObjetivoReposicion Objetivo { get; private set; }
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
@@ -54,7 +55,7 @@ public sealed class ConfiguracionReorden : BaseEntity, IAuditable
         decimal puntoReorden,
         bool autoRequisicion,
         ObjetivoReposicion objetivo,
-        EstatusCatalogo estatus = EstatusCatalogo.Activo) : base(id)
+        EstatusCatalogo estatus = EstatusCatalogo.Activo, decimal? cantidadFija = null) : base(id)
     {
         if (articuloId == Guid.Empty)
             throw new BusinessRuleException("REORDEN_SIN_ARTICULO",
@@ -63,6 +64,10 @@ public sealed class ConfiguracionReorden : BaseEntity, IAuditable
             throw new BusinessRuleException("REORDEN_SIN_ENTIDAD",
                 "La configuración de reorden requiere la entidad (sucursal o almacén).");
         ValidarNiveles(minimo, maximo, puntoReorden);
+        if (cantidadFija is <= 0)
+            throw new BusinessRuleException("REORDEN_CANTIDAD_FIJA_INVALIDA",
+                "La cantidad fija de reposición debe ser positiva.");
+        CantidadFija = cantidadFija;
 
         ArticuloId = articuloId;
         Nivel = nivel;
@@ -82,9 +87,13 @@ public sealed class ConfiguracionReorden : BaseEntity, IAuditable
     /// </summary>
     public void EditarPolitica(
         decimal minimo, decimal maximo, decimal puntoReorden,
-        bool autoRequisicion, ObjetivoReposicion objetivo)
+        bool autoRequisicion, ObjetivoReposicion objetivo, decimal? cantidadFija = null)
     {
         ValidarNiveles(minimo, maximo, puntoReorden);
+        if (cantidadFija is <= 0)
+            throw new BusinessRuleException("REORDEN_CANTIDAD_FIJA_INVALIDA",
+                "La cantidad fija de reposición debe ser positiva.");
+        CantidadFija = cantidadFija;
         Minimo = minimo;
         Maximo = maximo;
         PuntoReorden = puntoReorden;
@@ -107,6 +116,14 @@ public sealed class ConfiguracionReorden : BaseEntity, IAuditable
         _ => throw new BusinessRuleException("REORDEN_OBJETIVO_INVALIDO",
             $"Objetivo de reposición no soportado: {Objetivo}."),
     };
+
+    // D6: el punto dispara; el máximo determina cuánto reponer, salvo lote fijo.
+    public decimal CalcularReposicion(decimal existencia, decimal pedidoVivo)
+    {
+        var posicion = existencia + pedidoVivo;
+        if (posicion > PuntoReorden) return 0m;
+        return CantidadFija ?? Math.Max(0m, Maximo - posicion);
+    }
 
     private static void ValidarNiveles(decimal minimo, decimal maximo, decimal puntoReorden)
     {

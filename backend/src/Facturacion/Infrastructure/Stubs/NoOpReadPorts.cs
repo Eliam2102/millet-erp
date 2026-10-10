@@ -18,11 +18,14 @@ namespace Millet.Facturacion.Infrastructure.Stubs;
 // ============================================================================
 
 /// <summary>
-/// PLATFORM-TODO(&lt;PeriodoContableCerrado&gt;): adapter real cuando exista el
-/// módulo Contabilidad con el calendario fiscal central. Comportamiento del
+/// PLATFORM-TODO(&lt;PeriodoContableCerrado&gt;): adapter real hacia
+/// <c>Millet.Contabilidad.Application.PublicPorts.IPeriodoContableConsultaPort</c>
+/// (publicado en F1-CON-03; el cambio de este NoOp es C1.2). Comportamiento del
 /// stub: siempre "abierto" (true) — preserva la operación durante el desarrollo
 /// y mitiga el candado de período (D13) con validación manual hasta el wireup.
 /// </summary>
+// PLATFORM-TODO(C1.2): conectar el puerto público de Contabilidad y sembrar periodos en las suites (D9).
+// Revisar la fecha efectiva de Facturación (D13) antes de activar la falla cerrada.
 public sealed class NoOpPeriodoContablePort : IPeriodoContablePort
 {
     private readonly ILogger<NoOpPeriodoContablePort> _logger;

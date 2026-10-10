@@ -16,6 +16,7 @@ const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * por diseño — A14).</para>
  */
 export const LineaSalidaSchema = z.object({
+  unidadCapturada: z.string().max(20).nullish(),
   articuloId: z.string().regex(UUID_SHAPE_RE, 'Artículo requerido'),
   // Solo frontend (no se envía al backend): el unidadMedidaId del artículo
   // seleccionado, para la validación advisory de decimales (ADR-0046 2c).
@@ -61,6 +62,7 @@ export const FilaSalidaSchema = z
     articuloNombre: z.string().nullish(),
     posicion: z.number().int(),
     unidadMedida: z.string(),
+    unidadCapturada: z.string().max(20).nullish(),
     cantidadSolicitada: z.number(),
     cantidadPlaneadaAlmacen: z.number(),
     cantidadYaEntregada: z.number(),
@@ -92,7 +94,7 @@ export const FilaSalidaSchema = z
       });
       return;
     }
-    if (v.cantidad > v.pendienteEntregar) {
+    if (!v.unidadCapturada?.trim() && v.cantidad > v.pendienteEntregar) {
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],

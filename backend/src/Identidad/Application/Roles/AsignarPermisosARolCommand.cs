@@ -22,6 +22,9 @@ namespace Millet.Identidad.Application.Roles;
 ///         <see cref="PermisoIds"/> no existe en <c>identidad.permisos</c>.</item>
 ///   <item>Publica <see cref="RolPermisosActualizadosEvent"/> via
 ///         <see cref="IIntegrationEventPublisher"/>.</item>
+///   <item>U1.0: si la matriz cambió, invalida el cache de permisos de
+///         cada usuario con el rol (en cada empresa donde lo tiene) para
+///         que la siguiente petición ya responda 403.</item>
 /// </list>
 /// </summary>
 public sealed record AsignarPermisosARolCommand(
@@ -45,15 +48,18 @@ public sealed class AsignarPermisosARolHandler
     private readonly IdentidadDbContext _db;
     private readonly IIntegrationEventPublisher _events;
     private readonly IClock _clock;
+    private readonly IPermissionCache _permissionCache;
 
     public AsignarPermisosARolHandler(
         IdentidadDbContext db,
         IIntegrationEventPublisher events,
-        IClock clock)
+        IClock clock,
+        IPermissionCache permissionCache)
     {
         _db = db;
         _events = events;
         _clock = clock;
+        _permissionCache = permissionCache;
     }
 
     public async Task<RolResponse> Handle(
@@ -116,18 +122,14 @@ public sealed class AsignarPermisosARolHandler
             await _db.RolPermisos.AddRangeAsync(aAgregar, cancellationToken);
         }
 
+        await _events.PublishAsync(
+            new RolPermisosActualizadosEvent(command.RolId, deseados.ToList(), _clock.UtcNow), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        // PLATFORM-TODO(<AdminOutbox>): IdentidadDbContext no tiene el
-        // OutboxSaveChangesInterceptor wireado. El evento se encola al
-        // buffer scoped y se pierde al cerrar el scope. Aceptable en MVP —
-        // ningún consumer activo. Mismo patrón que F-Admin-PR2.3.
-        await _events.PublishAsync(
-            new RolPermisosActualizadosEvent(
-                command.RolId,
-                deseados.ToList(),
-                _clock.UtcNow),
-            cancellationToken);
+        if (aRemover.Count > 0 || aAgregar.Count > 0)
+        {
+            await RolPermissionCache.InvalidarAsync(command.RolId, _db, _permissionCache, cancellationToken);
+        }
 
         return new RolResponse(
             rol.Id, rol.Codigo, rol.Nombre, rol.Descripcion,

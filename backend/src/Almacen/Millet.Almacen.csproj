@@ -21,14 +21,16 @@
       F0-PR1: refs mínimas. Identidad / Compartido / DatosMaestros NO se
       referencian aquí porque esos módulos ya consumen el placeholder
       `Almacen.cs` (vía `Millet.Almacen.Domain`) y eso crea una dependencia
-      circular. Catalogos es la única dep necesaria por la entidad
-      placeholder (EstatusCatalogo). Los puertos cross-module hacia esos
+      circular. Catalogos provee EstatusCatalogo para la entidad
+      placeholder; Contabilidad publica el contrato de periodos de C1.2. Los puertos cross-module hacia esos
       módulos se modelan como contratos en `Almacen.Domain.Ports` con
       stubs NoOp — el wiring del adapter real vive en `Program.cs` y
       pasa por una interfaz, evitando la dependencia de proyecto.
     -->
     <ProjectReference Include="..\SharedKernel\Millet.SharedKernel.csproj" />
     <ProjectReference Include="..\Catalogos\Millet.Catalogos.csproj" />
+    <!-- C1.2: consulta de periodos por el puerto público, sin acceso a tablas ajenas. -->
+    <ProjectReference Include="..\Contabilidad\Millet.Contabilidad.csproj" />
   </ItemGroup>
 
   <ItemGroup>

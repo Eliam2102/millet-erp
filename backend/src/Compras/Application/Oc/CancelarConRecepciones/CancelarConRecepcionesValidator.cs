@@ -9,7 +9,8 @@ public sealed class CancelarConRecepcionesValidator : AbstractValidator<Cancelar
         RuleFor(c => c.OrdenCompraId).NotEmpty().WithErrorCode("OC_ID_REQUERIDA");
         RuleFor(c => c.MotivoCancelacionId).NotEmpty().WithErrorCode("MOTIVO_CANCELACION_REQUERIDO");
         RuleFor(c => c.MotivoCancelacionTexto)
-            .MaximumLength(500).When(c => c.MotivoCancelacionTexto is not null)
+            .NotEmpty().WithMessage("Escribe el motivo de la solicitud de cancelación.")
+            .MaximumLength(500)
             .WithErrorCode("MOTIVO_CANCELACION_TEXTO_DEMASIADO_LARGO");
     }
 }

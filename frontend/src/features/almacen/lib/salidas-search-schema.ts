@@ -22,6 +22,8 @@ export const SalidasSearchSchema = z.object({
   hasta: z.string().regex(DATE_ONLY_RE).optional(),
   soloVales: z.boolean().optional(),
   noRegularizados: z.boolean().optional(),
+  soloVencidos: z.boolean().optional(),
+  soloPorVencer: z.boolean().optional(),
   q: z.string().min(1).max(200).optional(),
 });
 

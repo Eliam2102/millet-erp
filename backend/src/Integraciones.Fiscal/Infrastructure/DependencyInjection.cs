@@ -63,6 +63,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(FiscalApiSdkAdapterOptions.SectionName));
         services.AddSingleton<IFiscalApiSdkClientFactory, FiscalApiSdkClientFactory>();
         services.AddScoped<IFiscalApiSdkClient, FiscalApiSdkAdapter>();
+        services.AddScoped<IPacCandidatoProbe, PacCandidatoProbe>();
 
         // Búsqueda de catálogos SAT en vivo (typeahead de claves
         // producto/servicio, unidad y objeto de impuesto — FAC-DET-PR1).

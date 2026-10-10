@@ -24,11 +24,21 @@ public sealed class FacturaProveedorRegistradaMapper
             OrdenCompraId: notification.OrdenCompraId,
             TotalFactura: notification.TotalFactura,
             Lineas: notification.Lineas
-                .Select(l => new LineaFacturadaPayload(l.LineaFacturaId, l.LineaOcId, l.Cantidad, l.Importe))
+                .Select(l => new LineaFacturadaPayload(l.LineaFacturaId, l.LineaOcId, l.Cantidad, l.Importe, l.CentroCostoId))
                 .ToList(),
             LineasAcumuladasOc: notification.LineasAcumuladasOc
                 .Select(l => new LineaOcAcumuladaPayload(l.LineaOcId, l.CantidadAcumulada))
-                .ToList());
+                .ToList(),
+            ProveedorId: notification.ProveedorId,
+            Uuid: notification.Uuid,
+            Subtotal: notification.Subtotal,
+            Iva: notification.Iva,
+            RetencionesTotal: notification.RetencionesTotal,
+            Retenciones: notification.Retenciones?.Select(r => new RetencionDetallePayload(r.Impuesto, r.Tasa, r.Importe)).ToList(),
+            Moneda: notification.Moneda,
+            TipoCambio: notification.TipoCambio,
+            SucursalId: notification.SucursalId,
+            CentroCostoId: notification.CentroCostoId);
         return _publisher.PublishAsync(integration, cancellationToken);
     }
 }

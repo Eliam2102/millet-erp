@@ -16,14 +16,8 @@ import type { CobroFormaPagoInput } from '@/features/facturacion/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
-
-const FORMAS: ReadonlyArray<{ clave: string; nombre: string }> = [
-  { clave: '01', nombre: 'Efectivo' },
-  { clave: '02', nombre: 'Cheque' },
-  { clave: '03', nombre: 'Transferencia' },
-  { clave: '04', nombre: 'Tarjeta de crédito' },
-  { clave: '28', nombre: 'Tarjeta de débito' },
-];
+import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
+import { formasPagoCaja, formasPagoVigentes } from '@/features/facturacion/lib/formas-pago-caja';
 
 /** Origen del cobro (espejo de OrigenCobroMostrador backend). */
 const ORIGEN_MOSTRADOR = 1;
@@ -53,6 +47,8 @@ export function RegistrarCobroCard(props: {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
   const sesion = useSesionActual();
   const registrar = useRegistrarCobro();
+  const catalogo = useFormasPago();
+  const disponibles = formasPagoCaja(catalogo.data ?? []);
   const idempotencyKey = useFormIdempotencyKey();
 
   const [abierto, setAbierto] = useState(false);
@@ -70,6 +66,10 @@ export function RegistrarCobroCard(props: {
     const n = Number(f.importe);
     return acc + (Number.isFinite(n) ? n : 0);
   }, 0);
+  const vigentes = formasPagoVigentes(
+    formas.map((f) => f.formaPago),
+    disponibles,
+  );
   const cuadra = Math.abs(suma - props.total) < 0.005;
 
   function actualizarForma(i: number, parcial: Partial<FormaLocal>) {
@@ -77,8 +77,14 @@ export function RegistrarCobroCard(props: {
   }
 
   function onCobrar() {
+    if (!vigentes) {
+      toast.error('Selecciona una forma de pago SAT activa para cada importe.');
+      return;
+    }
     if (!cuadra) {
-      toast.error(`La suma de formas (${suma.toFixed(2)}) debe igualar el total (${props.total.toFixed(2)}).`);
+      toast.error(
+        `La suma de formas (${suma.toFixed(2)}) debe igualar el total (${props.total.toFixed(2)}).`,
+      );
       return;
     }
     registrar.mutate(
@@ -96,10 +102,9 @@ export function RegistrarCobroCard(props: {
           toast.success(`Cobro de ${props.folio} registrado en tu sesión.`);
         },
         onError: (error) =>
-          toast.error(
-            esApiError(error) ? error.problem.title : 'No se pudo registrar el cobro.',
-            { description: esApiError(error) ? error.problem.detail : undefined },
-          ),
+          toast.error(esApiError(error) ? error.problem.title : 'No se pudo registrar el cobro.', {
+            description: esApiError(error) ? error.problem.detail : undefined,
+          }),
       },
     );
   }
@@ -129,29 +134,29 @@ export function RegistrarCobroCard(props: {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={String(ORIGEN_MOSTRADOR)}>Mostrador</SelectItem>
-              <SelectItem value={String(ORIGEN_LIQUIDACION_RUTA)}>
-                Liquidación de ruta
-              </SelectItem>
+              <SelectItem value={String(ORIGEN_LIQUIDACION_RUTA)}>Liquidación de ruta</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
+      {catalogo.isError && (
+        <p role="alert" className="text-xs text-danger-fg">
+          No se pudieron consultar las formas de pago. Vuelve a abrir el cobro.
+        </p>
+      )}
       {formas.map((f, i) => (
         <div key={i} className="flex flex-wrap items-end gap-2">
           <div className="w-48 space-y-1">
             <Label>Forma de pago</Label>
-            <Select
-              value={f.formaPago}
-              onValueChange={(v) => actualizarForma(i, { formaPago: v })}
-            >
+            <Select value={f.formaPago} onValueChange={(v) => actualizarForma(i, { formaPago: v })}>
               <SelectTrigger aria-label={`Forma de pago ${i + 1}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {FORMAS.map((forma) => (
-                  <SelectItem key={forma.clave} value={forma.clave}>
-                    {forma.nombre}
+                {disponibles.map((forma) => (
+                  <SelectItem key={forma.claveSat} value={forma.claveSat}>
+                    {forma.descripcion}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -214,7 +219,12 @@ export function RegistrarCobroCard(props: {
           <Button size="sm" variant="ghost" onClick={() => setAbierto(false)}>
             Cancelar
           </Button>
-          <Button size="sm" onClick={onCobrar} disabled={registrar.isPending || !cuadra}>
+          <Button
+            size="sm"
+            onClick={onCobrar}
+            disabled={registrar.isPending || !cuadra || !vigentes}
+            title={!vigentes ? 'Selecciona formas de pago SAT activas.' : undefined}
+          >
             Cobrar
           </Button>
         </div>

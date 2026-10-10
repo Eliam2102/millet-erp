@@ -61,4 +61,6 @@ public sealed record LineaOrdenCompraResponse(
     DateTimeOffset? FechaEntregaLinea,
     decimal CantidadRecibida,
     decimal CantidadFacturada,
-    string? TextoAdicional);
+    string? TextoAdicional,
+    Domain.Oc.DescuentoTipo DescuentoTipo = Domain.Oc.DescuentoTipo.Monto,
+    decimal DescuentoValor = 0m);

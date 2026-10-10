@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, esApiError } from '@/lib/api';
 import {
@@ -155,7 +156,8 @@ export function useEjecucionesSync(
   filtros: ListarEjecucionesSyncFiltros = {},
   enabled = true,
 ) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const q = useQuery({
     queryKey: datosMaestrosKeys.clientesSyncList(filtros),
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
@@ -176,6 +178,14 @@ export function useEjecucionesSync(
         ? 3000
         : false,
   });
+  // El barrido aplica clientes en segundo plano: al terminar una ejecución se refrescan la lista y el detalle.
+  const ultima = q.data?.items[0];
+  const terminada = ultima != null && !ESTADOS_VIVOS.includes(ultima.estado);
+  const ultimaId = ultima?.id;
+  useEffect(() => {
+    if (terminada) queryClient.invalidateQueries({ queryKey: datosMaestrosKeys.clientes() });
+  }, [terminada, ultimaId, queryClient]);
+  return q;
 }
 
 export function useEjecucionSync(id: string | null | undefined) {

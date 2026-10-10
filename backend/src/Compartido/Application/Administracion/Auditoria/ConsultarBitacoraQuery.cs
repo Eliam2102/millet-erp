@@ -178,7 +178,7 @@ public sealed class ConsultarBitacoraHandler
         var total = await query.CountAsync(cancellationToken);
 
         var rawRows = await query
-            .OrderByDescending(a => a.Timestamp)
+            .OrderByDescending(a => a.Timestamp).ThenByDescending(a => a.Id)
             .Skip(request.Offset)
             .Take(request.Limit)
             .Select(a => new

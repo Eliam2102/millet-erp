@@ -32,4 +32,4 @@ public sealed record CrearRequisicionCommand(
     DateOnly? FechaEntregaDeseada,
     Guid? ProveedorSugeridoId,
     string? Descripcion,
-    Guid? RequisitanteId = null) : IRequest<CrearRequisicionResponse>;
+    Guid? RequisitanteId = null, string? Obra = null) : IRequest<CrearRequisicionResponse>;

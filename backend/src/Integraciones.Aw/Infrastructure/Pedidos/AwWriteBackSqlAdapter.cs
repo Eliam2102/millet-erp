@@ -1,6 +1,5 @@
 using System.Data;
 using System.Data.Common;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Facturacion.Domain.Ports;
@@ -51,110 +50,69 @@ public sealed class AwWriteBackSqlAdapter : IAwWriteBackPort
         var porSolicitud = writeBack.SolicitudId != Guid.Empty;
 
         // COALESCE preserva claim/uuid previos: nunca se degradan a NULL (D18).
+        // procesada_at llega como parámetro (no SYSDATETIMEOFFSET()) para que el
+        // SQL corra igual en el origen de demo PostgreSQL.
         var sql = porSolicitud
             ? """
               UPDATE dbo.aw_solicitud_pedido
                  SET erp_pedido_id      = COALESCE(@erpPedidoId, erp_pedido_id),
                      estado_facturacion = COALESCE(@estado, estado_facturacion),
-                     [uuid]             = COALESCE(@uuid, [uuid]),
+                     uuid               = COALESCE(@uuid, uuid),
                      resultado          = @resultado,
                      motivo             = @motivo,
-                     procesada_at       = SYSDATETIMEOFFSET()
+                     procesada_at       = @procesadaAt
                WHERE solicitud_id = @solicitudId
               """
             : """
               UPDATE dbo.aw_solicitud_pedido
                  SET erp_pedido_id      = COALESCE(@erpPedidoId, erp_pedido_id),
                      estado_facturacion = COALESCE(@estado, estado_facturacion),
-                     [uuid]             = COALESCE(@uuid, [uuid])
+                     uuid               = COALESCE(@uuid, uuid)
                WHERE numero_pedido = @numeroPedido
               """;
 
-        try
-        {
-            using var connection = _connectionFactory.CreateConnection();
-
-            using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            connectCts.CancelAfter(TimeSpan.FromSeconds(_options.SqlConnectTimeoutSeconds));
-            try
+        var afectadas = await SqlPlumbing.EjecutarAsync(_connectionFactory, _options, _logger, "WriteBack",
+            async connection =>
             {
-                await connection.OpenAsync(connectCts.Token);
-            }
-            catch (OperationCanceledException) when (
-                connectCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-            {
-                throw new AwReaderException(
-                    $"SQL connect timeout tras {_options.SqlConnectTimeoutSeconds}s (write-back).",
-                    kind: "connect_timeout", isTransient: true);
-            }
+                using var command = SqlPlumbing.CrearCommand(connection, sql, _options);
+                AgregarParametros(command, writeBack, porSolicitud);
+                return await command.ExecuteNonQueryAsync(cancellationToken);
+            }, cancellationToken);
 
-            using var command = connection.CreateCommand();
-            command.CommandText = sql;
-            command.CommandType = CommandType.Text;
-            command.CommandTimeout = _options.SqlQueryTimeoutSeconds;
-            AgregarParametros(command, writeBack, porSolicitud);
+        if (afectadas == 0)
+        {
+            // No es error del canal: la fila puede no existir aún (p.ej.
+            // write-back de timbrado de un pedido pre-integración). Se
+            // loggea para auditoría; el worker NO debe reintentar infinito
+            // por esto — cuenta como éxito de canal.
+            _logger.LogWarning(
+                "[AwWriteBackSqlAdapter] write-back sin filas afectadas. porSolicitud={PorSolicitud} solicitud={SolicitudId} pedido={Pedido}",
+                porSolicitud, writeBack.SolicitudId, writeBack.NumeroPedido);
+            return;
+        }
 
-            var afectadas = await command.ExecuteNonQueryAsync(cancellationToken);
-            if (afectadas == 0)
-            {
-                // No es error del canal: la fila puede no existir aún (p.ej.
-                // write-back de timbrado de un pedido pre-integración). Se
-                // loggea para auditoría; el worker NO debe reintentar infinito
-                // por esto — cuenta como éxito de canal.
-                _logger.LogWarning(
-                    "[AwWriteBackSqlAdapter] write-back sin filas afectadas. porSolicitud={PorSolicitud} solicitud={SolicitudId} pedido={Pedido}",
-                    porSolicitud, writeBack.SolicitudId, writeBack.NumeroPedido);
-                return;
-            }
-
-            _logger.LogInformation(
-                "[AwWriteBackSqlAdapter] write-back OK. modo={Modo} pedido={Pedido} resultado={Resultado} estado={Estado} uuid={Uuid} filas={Filas}",
-                porSolicitud ? "solicitud" : "pedido", writeBack.NumeroPedido,
-                writeBack.Resultado, writeBack.EstadoFacturacion, writeBack.Uuid, afectadas);
-        }
-        catch (SqlException ex) when (ex.Number == 18456)
-        {
-            _logger.LogError(ex, "[AwWriteBackSqlAdapter] auth failure #{Number}", ex.Number);
-            throw new AwReaderException(
-                $"SQL Server auth failed (#{ex.Number}): {ex.Message}",
-                kind: "auth", isTransient: false, inner: ex);
-        }
-        catch (SqlException ex) when (ex.Number is -2 or 11 or 121)
-        {
-            throw new AwReaderException(
-                $"SQL write-back timeout ({_options.SqlQueryTimeoutSeconds}s).",
-                kind: "timeout", isTransient: true, inner: ex);
-        }
-        catch (SqlException ex)
-        {
-            throw new AwReaderException(
-                $"SQL Server error en write-back (#{ex.Number}): {ex.Message}",
-                kind: "connection", isTransient: true, inner: ex);
-        }
+        _logger.LogInformation(
+            "[AwWriteBackSqlAdapter] write-back OK. modo={Modo} pedido={Pedido} resultado={Resultado} estado={Estado} uuid={Uuid} filas={Filas}",
+            porSolicitud ? "solicitud" : "pedido", writeBack.NumeroPedido,
+            writeBack.Resultado, writeBack.EstadoFacturacion, writeBack.Uuid, afectadas);
     }
 
     private static void AgregarParametros(DbCommand command, AwWriteBack wb, bool porSolicitud)
     {
-        command.Parameters.Add(new SqlParameter("@erpPedidoId", SqlDbType.UniqueIdentifier)
-        { Value = (object?)wb.ErpPedidoId ?? DBNull.Value });
-        command.Parameters.Add(new SqlParameter("@estado", SqlDbType.NVarChar, 20)
-        { Value = (object?)wb.EstadoFacturacion ?? DBNull.Value });
-        command.Parameters.Add(new SqlParameter("@uuid", SqlDbType.NVarChar, 36)
-        { Value = (object?)wb.Uuid ?? DBNull.Value });
+        SqlPlumbing.Param(command, "@erpPedidoId", DbType.Guid, wb.ErpPedidoId);
+        SqlPlumbing.Param(command, "@estado", DbType.String, wb.EstadoFacturacion);
+        SqlPlumbing.Param(command, "@uuid", DbType.String, wb.Uuid);
 
         if (porSolicitud)
         {
-            command.Parameters.Add(new SqlParameter("@resultado", SqlDbType.TinyInt)
-            { Value = (byte)wb.Resultado });
-            command.Parameters.Add(new SqlParameter("@motivo", SqlDbType.NVarChar, 500)
-            { Value = (object?)wb.Motivo ?? DBNull.Value });
-            command.Parameters.Add(new SqlParameter("@solicitudId", SqlDbType.UniqueIdentifier)
-            { Value = wb.SolicitudId });
+            SqlPlumbing.Param(command, "@resultado", DbType.Byte, (byte)wb.Resultado);
+            SqlPlumbing.Param(command, "@motivo", DbType.String, wb.Motivo);
+            SqlPlumbing.Param(command, "@procesadaAt", DbType.DateTimeOffset, DateTimeOffset.UtcNow);
+            SqlPlumbing.Param(command, "@solicitudId", DbType.Guid, wb.SolicitudId);
         }
         else
         {
-            command.Parameters.Add(new SqlParameter("@numeroPedido", SqlDbType.NVarChar, 50)
-            { Value = wb.NumeroPedido });
+            SqlPlumbing.Param(command, "@numeroPedido", DbType.String, wb.NumeroPedido);
         }
     }
 }

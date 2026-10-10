@@ -1,3 +1,4 @@
+import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -40,6 +41,7 @@ export function RegistrarPagoSheet({
   const registrar = useRegistrarPago();
   const keyFor = useBodyScopedIdempotencyKey();
 
+  const [conceptoId, setConceptoId] = useState<string | null>(null);
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [fechaValor, setFechaValor] = useState(() =>
     hoyLocalISO(),
@@ -81,6 +83,7 @@ export function RegistrarPagoSheet({
     if (cuentaId == null || !importesValidos) return;
     const command = {
       cuentaBancariaId: cuentaId,
+      conceptoId: conceptoId ?? undefined,
       fechaValor,
       referenciaBancaria: referencia.trim() || undefined,
       aplicaciones: pasivos.map((p) => ({
@@ -220,6 +223,7 @@ export function RegistrarPagoSheet({
                 onChange={setCuentaId}
                 moneda={moneda}
               />
+              <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground" htmlFor="fecha-valor">

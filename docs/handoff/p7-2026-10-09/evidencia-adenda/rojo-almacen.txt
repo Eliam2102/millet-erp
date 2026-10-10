@@ -1,0 +1,29 @@
+FAIL Millet.Almacen.UnitTests.P7.ReglasP7Tests.Recepcion_en_periodo_contable_cerrado_rechaza_antes_de_consultar_conversion(packing: False) Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(Millet.SharedKernel.Application.Exceptions.BusinessRuleException)
+Actual:   typeof(Millet.SharedKernel.Application.Exceptions.EntityNotFoundException) | Artículo DEMO inexistente.
+   at Xunit.Assert.Throws(Type exceptionType, Exception exception) in /_/src/xunit.assert/Asserts/ExceptionAsserts.cs:line 45
+   at Xunit.Assert.ThrowsAsync[T](Func`1 testCode) in /_/src/xunit.assert/Asserts/ExceptionAsserts.cs:line 272
+   at Millet.Almacen.UnitTests.P7.ReglasP7Tests.Recepcion_en_periodo_contable_cerrado_rechaza_antes_de_consultar_conversion(Boolean packing) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Almacen.UnitTests/P7/ReglasP7Tests.cs:line 30
+   at Millet.Almacen.UnitTests.P7.ReglasP7Tests.Recepcion_en_periodo_contable_cerrado_rechaza_antes_de_consultar_conversion(Boolean packing) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Almacen.UnitTests/P7/ReglasP7Tests.cs:line 34
+   at Xunit.Sdk.TestInvoker`1.<>c__DisplayClass47_0.<<InvokeTestMethodAsync>b__1>d.MoveNext() in /_/src/xunit.execution/Sdk/Frameworks/Runners/TestInvoker.cs:line 259
+--- End of stack trace from previous location ---
+   at Xunit.Sdk.ExecutionTimer.AggregateAsync(Func`1 asyncAction) in /_/src/xunit.execution/Sdk/Frameworks/ExecutionTimer.cs:line 48
+   at Xunit.Sdk.ExceptionAggregator.RunAsync(Func`1 code) in /_/src/xunit.core/Sdk/ExceptionAggregator.cs:line 90
+   at Millet.Almacen.UnitTests.P7.ReglasP7Tests.ConversionNoDisponible.ConvertirAsync(Guid articuloId, Decimal cantidad, String unidadCapturada, String unidadDocumento, CancellationToken ct) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Almacen.UnitTests/P7/ReglasP7Tests.cs:line 169
+   at Millet.Almacen.Application.Recepciones.RegistrarRecepcionConFacturaHandler.Handle(RegistrarRecepcionConFacturaCommand request, CancellationToken cancellationToken) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Almacen/Application/Recepciones/RegistrarRecepcionConFacturaCommand.cs:line 143
+   at Xunit.Assert.RecordExceptionAsync(Func`1 testCode) in /_/src/xunit.assert/Asserts/Record.cs:line 114
+FAIL Millet.Almacen.UnitTests.P7.ReglasP7Tests.Recepcion_en_periodo_contable_cerrado_rechaza_antes_de_consultar_conversion(packing: True) Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(Millet.SharedKernel.Application.Exceptions.BusinessRuleException)
+Actual:   typeof(Millet.SharedKernel.Application.Exceptions.EntityNotFoundException) | Artículo DEMO inexistente.
+   at Xunit.Assert.Throws(Type exceptionType, Exception exception) in /_/src/xunit.assert/Asserts/ExceptionAsserts.cs:line 45
+   at Xunit.Assert.ThrowsAsync[T](Func`1 testCode) in /_/src/xunit.assert/Asserts/ExceptionAsserts.cs:line 272
+   at Millet.Almacen.UnitTests.P7.ReglasP7Tests.Recepcion_en_periodo_contable_cerrado_rechaza_antes_de_consultar_conversion(Boolean packing) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Almacen.UnitTests/P7/ReglasP7Tests.cs:line 30
+   at Millet.Almacen.UnitTests.P7.ReglasP7Tests.Recepcion_en_periodo_contable_cerrado_rechaza_antes_de_consultar_conversion(Boolean packing) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Almacen.UnitTests/P7/ReglasP7Tests.cs:line 34
+   at Xunit.Sdk.TestInvoker`1.<>c__DisplayClass47_0.<<InvokeTestMethodAsync>b__1>d.MoveNext() in /_/src/xunit.execution/Sdk/Frameworks/Runners/TestInvoker.cs:line 259
+--- End of stack trace from previous location ---
+   at Xunit.Sdk.ExecutionTimer.AggregateAsync(Func`1 asyncAction) in /_/src/xunit.execution/Sdk/Frameworks/ExecutionTimer.cs:line 48
+   at Xunit.Sdk.ExceptionAggregator.RunAsync(Func`1 code) in /_/src/xunit.core/Sdk/ExceptionAggregator.cs:line 90
+   at Millet.Almacen.UnitTests.P7.ReglasP7Tests.ConversionNoDisponible.ConvertirAsync(Guid articuloId, Decimal cantidad, String unidadCapturada, String unidadDocumento, CancellationToken ct) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Almacen.UnitTests/P7/ReglasP7Tests.cs:line 169
+   at Millet.Almacen.Application.Recepciones.RegistrarRecepcionConPackingListHandler.Handle(RegistrarRecepcionConPackingListCommand request, CancellationToken cancellationToken) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Almacen/Application/Recepciones/RegistrarRecepcionConPackingListCommand.cs:line 119
+   at Xunit.Assert.RecordExceptionAsync(Func`1 testCode) in /_/src/xunit.assert/Asserts/Record.cs:line 114
+TOTAL=316 FAILED=2 SKIPPED=0

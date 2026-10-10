@@ -32,7 +32,9 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { NuevaSalidaSheet } from '@/features/almacen/components/NuevaSalidaSheet';
 import type { SalidasSearch } from '@/features/almacen/lib/salidas-search-schema';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 
 const FROM = '/_app/almacen/salidas/' as const;
 const SENTINEL_ALL = '__all__';
@@ -78,6 +80,8 @@ export function SalidasPage() {
     hasta: search.hasta,
     soloVales: search.soloVales,
     noRegularizados: search.noRegularizados,
+    soloVencidos: search.soloVencidos,
+    soloPorVencer: search.soloPorVencer,
     limit: 200,
   });
 
@@ -189,7 +193,7 @@ function FiltrosToolbar({
     search.desde ||
     search.hasta ||
     search.soloVales ||
-    search.noRegularizados;
+    search.noRegularizados || search.soloVencidos || search.soloPorVencer;
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -306,8 +310,13 @@ function FiltrosToolbar({
           className="h-4 w-4"
         />
         <label htmlFor="no-regularizados" className="text-sm">
-          Solo pendientes de regularizar (A14)
+          Solo pendientes de regularizar
         </label>
+      </div>
+      <div className="flex items-center gap-2 pb-1">
+        <Checkbox id="solo-vencidos" checked={search.soloVencidos ?? false}
+          onCheckedChange={(checked) => onChange({ soloVencidos: checked === true || undefined })} />
+        <label htmlFor="solo-vencidos" className="text-sm">Solo vales vencidos</label>
       </div>
       {algunFiltro && (
         <Button
@@ -322,6 +331,8 @@ function FiltrosToolbar({
               hasta: undefined,
               soloVales: undefined,
               noRegularizados: undefined,
+              soloVencidos: undefined,
+              soloPorVencer: undefined,
             })
           }
         >
@@ -427,10 +438,7 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
               </td>
               <td className="px-3 py-2">
                 {r.esPorVale ? (
-                  <ValeBadge
-                    fechaMovimiento={r.fechaMovimiento}
-                    rqRegularizadoraId={r.rqRegularizadoraId}
-                  />
+                  <RegularizacionValeBadge salida={r} />
                 ) : (
                   <span className="text-xs text-muted-foreground">RQ</span>
                 )}
@@ -464,20 +472,9 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
 }
 
 function EstadoMovimientoBadge({ estado }: { estado: EstadoMovimiento }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoMovimiento.Borrador && 'bg-slate-200 text-slate-700',
-        estado === EstadoMovimiento.Validado && 'bg-blue-100 text-blue-800',
-        estado === EstadoMovimiento.Registrado &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoMovimiento.Cancelado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoMovimientoLabels[estado]}
-    </span>
-  );
+  const variant = estado === EstadoMovimiento.Registrado ? 'success'
+    : estado === EstadoMovimiento.Validado ? 'info' : 'neutral';
+  return <Badge variant={variant}>{EstadoMovimientoLabels[estado]}</Badge>;
 }
 
 function formatearMonto(v: number): string {
@@ -486,55 +483,4 @@ function formatearMonto(v: number): string {
     currency: 'MXN',
     minimumFractionDigits: 2,
   }).format(v);
-}
-
-
-/**
- * <c>&lt;ValeBadge/&gt;</c> — visual cue para salidas tipo vale:
- * - Verde "Vale ✓" si ya fue regularizada con RQ posterior.
- * - Ámbar "Vale (Xh)" si lleva &lt; 24h sin regularizar.
- * - Rojo "Vale Xd!" si lleva ≥ 48h sin regularizar (excede SLA A14).
- */
-function ValeBadge({
-  fechaMovimiento,
-  rqRegularizadoraId,
-}: {
-  fechaMovimiento: string;
-  rqRegularizadoraId: string | null;
-}) {
-  if (rqRegularizadoraId) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-        Vale ✓
-      </span>
-    );
-  }
-  const horasAbiertas = horasDesde(fechaMovimiento);
-  if (horasAbiertas >= 48) {
-    const dias = Math.floor(horasAbiertas / 24);
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
-        Vale {dias}d!
-      </span>
-    );
-  }
-  if (horasAbiertas >= 24) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
-        Vale ({Math.floor(horasAbiertas)}h)
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-      Vale ({Math.floor(horasAbiertas)}h)
-    </span>
-  );
-}
-
-function horasDesde(fechaIso: string): number {
-  // fechaIso es DateOnly YYYY-MM-DD; convertimos a medianoche local.
-  const inicio = new Date(`${fechaIso}T00:00:00`);
-  const ms = Date.now() - inicio.getTime();
-  return ms / (1000 * 60 * 60);
 }

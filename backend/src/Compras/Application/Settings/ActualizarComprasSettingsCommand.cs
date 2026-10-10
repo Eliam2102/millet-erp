@@ -16,4 +16,4 @@ namespace Millet.Compras.Application.Settings;
 /// Si se provee, sobrescribe el flag. <c>null</c> = no tocar.
 /// </param>
 public sealed record ActualizarComprasSettingsCommand(
-    bool? AutoGenerarOcAlAutorizar) : IRequest<ComprasSettingsResponse>;
+    bool? AutoGenerarOcAlAutorizar = null, bool? ApartarExistenciaAlAutorizar = null) : IRequest<ComprasSettingsResponse>;

@@ -71,6 +71,8 @@ export interface ProveedorItem {
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
   estatus: EstatusCatalogo;
+  validadoEn?: string | null;
+  motivoRechazo?: string | null;
 }
 
 export interface ListarProveedoresResponse {
@@ -93,6 +95,9 @@ export interface ProveedorDetalle {
   email: string | null;
   telefono: string | null;
   estatus: EstatusCatalogo;
+  toleranciaFacturaContraOcMxn: number | null;
+  validadoEn: string | null;
+  motivoRechazo: string | null;
 }
 
 export interface CrearProveedorPayload {
@@ -160,6 +165,19 @@ export interface ProveedorDatosBancarios {
   clabe: string | null;
   beneficiario: string | null;
   clabeCompleta: boolean;
+}
+
+/**
+ * Payload de <c>PATCH /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c> (G1.9 / F1-ADM-05).
+ * Requiere únicamente el permiso <c>datos_maestros.proveedores.bancarios-editar</c>.
+ */
+export interface ActualizarDatosBancariosProveedorPayload {
+  banco?: string | null;
+  clabe?: string | null;
+  beneficiario?: string | null;
+  limpiarBanco?: boolean | null;
+  limpiarClabe?: boolean | null;
+  limpiarBeneficiario?: boolean | null;
 }
 
 // ─── Artículos ─────────────────────────────────────────────────────

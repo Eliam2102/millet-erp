@@ -3,6 +3,7 @@ using Millet.Almacen.Domain.Ports;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Oc;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.UnidadesMedida;
 
 namespace Millet.Compras.Infrastructure.PublicAdapters;
 
@@ -28,7 +29,7 @@ namespace Millet.Compras.Infrastructure.PublicAdapters;
 /// El <b>dedup por línea</b> (FK <c>LineaOrdenCompra.LineaRequisicionId</c>) evita el
 /// doble conteo y maneja conversión parcial: lo que ya está en OC viva lo cuenta la
 /// OC; el resto lo cuenta la RQ. Una línea de RQ volcada a una OC <b>cancelada</b>
-/// vuelve a contar por la RQ (esa OC no es viva). Cero contacto con el universo manual.
+/// vuelve a contar por la RQ (esa OC no es viva). El método manual agrega la demanda por sucursal; el evaluador combina ambos sin duplicar líneas.
 /// </para>
 ///
 /// <para>
@@ -52,11 +53,13 @@ public sealed class ComprasPedidoVivoReadAdapter : IComprasPedidoVivoReadPort
 
     private readonly ComprasDbContext _db;
     private readonly ICurrentEmpresaContext _empresa;
+    private readonly IConversionUnidadPort _conversion;
 
-    public ComprasPedidoVivoReadAdapter(ComprasDbContext db, ICurrentEmpresaContext empresa)
+    public ComprasPedidoVivoReadAdapter(ComprasDbContext db, ICurrentEmpresaContext empresa, IConversionUnidadPort conversion)
     {
         _db = db;
         _empresa = empresa;
+        _conversion = conversion;
     }
 
     private readonly record struct OcRow(
@@ -106,7 +109,7 @@ public sealed class ComprasPedidoVivoReadAdapter : IComprasPedidoVivoReadPort
                 from ol in _db.LineasOrdenCompra.AsNoTracking()
                 join oc in _db.OrdenesCompra.AsNoTracking() on ol.OrdenCompraId equals oc.Id
                 join rqOrigen in _db.Requisiciones.AsNoTracking() on ol.RequisicionId equals rqOrigen.Id
-                where oc.Estado == EstadoOrdenCompra.Autorizada
+                where oc.Estado != EstadoOrdenCompra.Cancelada && oc.Estado != EstadoOrdenCompra.Cerrada
                    && ol.RequisicionId != null
                    && rqOrigen.Origen == OrigenRequisicion.Sistema
                    && articulos.Contains(ol.ArticuloId)
@@ -122,7 +125,8 @@ public sealed class ComprasPedidoVivoReadAdapter : IComprasPedidoVivoReadPort
                    && EstadosVivosRq.Contains(rq.Estado)
                    && articulos.Contains(rl.ArticuloId)
                 // PR3: filtra Origen==Sistema → AlmacenDestinoId siempre poblado, .Value seguro.
-                select new RqRow(rl.Id, rl.ArticuloId, rq.AlmacenDestinoId!.Value, rl.Cantidad))
+                select new RqRow(rl.Id, rl.ArticuloId, rq.AlmacenDestinoId!.Value,
+                    rq.Estado == EstadoRequisicion.Autorizada || rq.Estado == EstadoRequisicion.EnSurtido ? rl.CantidadDeCompra : rl.Cantidad))
                 .ToListAsync(cancellationToken);
         }
         // ── A partir de aquí, cómputo en memoria (sin DB, sin bypass) ──
@@ -166,5 +170,51 @@ public sealed class ComprasPedidoVivoReadAdapter : IComprasPedidoVivoReadPort
             if (total > 0m) resultado[clave] = total;
         }
         return resultado;
+    }
+
+    public async Task<IReadOnlyDictionary<PedidoVivoSucursalClave, decimal>> ObtenerVivoManualAsync(
+        IReadOnlyCollection<PedidoVivoSucursalClave> pares, CancellationToken ct)
+    {
+        var resultado = new Dictionary<PedidoVivoSucursalClave, decimal>();
+        if (pares.Count == 0) return resultado;
+        var sucursales = pares.Select(p => p.SucursalId).Distinct().ToList();
+        var articulos = pares.Select(p => p.ArticuloId).Distinct().ToList();
+        // El motor no tiene empresa seleccionada; el scope físico se limita a sucursales solicitadas.
+        using var bypass = _empresa.Bypass();
+        var ocs = await (from l in _db.LineasOrdenCompra.AsNoTracking()
+            join o in _db.OrdenesCompra.AsNoTracking() on l.OrdenCompraId equals o.Id
+            join r in _db.Requisiciones.AsNoTracking() on l.RequisicionId equals r.Id into rqs
+            from r in rqs.DefaultIfEmpty()
+            where (r == null || r.Origen == OrigenRequisicion.Manual)
+                && o.Estado != EstadoOrdenCompra.Cancelada && o.Estado != EstadoOrdenCompra.Cerrada
+                && sucursales.Contains(o.SucursalDestinoId) && articulos.Contains(l.ArticuloId)
+            select new { o.SucursalDestinoId, l.ArticuloId, l.LineaRequisicionId, l.Cantidad, l.CantidadRecibida, l.UnidadMedida })
+            .ToListAsync(ct);
+        var ordenado = new Dictionary<Guid, decimal>();
+        foreach (var l in ocs)
+        {
+            if (l.LineaRequisicionId is Guid linea) ordenado[linea] = ordenado.GetValueOrDefault(linea) + l.Cantidad;
+            var pendiente = l.Cantidad - l.CantidadRecibida;
+            if (pendiente <= 0) continue;
+            var convertido = await _conversion.ConvertirAsync(l.ArticuloId, pendiente, null, l.UnidadMedida, ct);
+            var clave = new PedidoVivoSucursalClave(l.ArticuloId, l.SucursalDestinoId);
+            resultado[clave] = resultado.GetValueOrDefault(clave) + convertido.CantidadBase;
+        }
+        var filas = await (from l in _db.LineaRequisiciones.AsNoTracking()
+            join r in _db.Requisiciones.AsNoTracking() on l.RequisicionId equals r.Id
+            where r.Origen == OrigenRequisicion.Manual && EstadosVivosRq.Contains(r.Estado)
+                && sucursales.Contains(r.SucursalId) && articulos.Contains(l.ArticuloId)
+            select new { r.SucursalId, r.Estado, l.Id, l.ArticuloId, l.Cantidad, l.CantidadDeCompra, l.UnidadMedida })
+            .ToListAsync(ct);
+        foreach (var l in filas)
+        {
+            var requerida = l.Estado is EstadoRequisicion.Autorizada or EstadoRequisicion.EnSurtido ? l.CantidadDeCompra : l.Cantidad;
+            var pendiente = Math.Max(0, requerida - ordenado.GetValueOrDefault(l.Id));
+            if (pendiente <= 0) continue;
+            var convertido = await _conversion.ConvertirAsync(l.ArticuloId, pendiente, null, l.UnidadMedida, ct);
+            var clave = new PedidoVivoSucursalClave(l.ArticuloId, l.SucursalId);
+            resultado[clave] = resultado.GetValueOrDefault(clave) + convertido.CantidadBase;
+        }
+        return resultado.Where(p => pares.Contains(p.Key)).ToDictionary(p => p.Key, p => p.Value);
     }
 }

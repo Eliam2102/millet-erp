@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Cierre;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Movimientos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
@@ -14,7 +15,7 @@ namespace Millet.Almacen.Application.Cierre;
 /// Cierra un periodo mensual del módulo Almacén (F8-PR2). Validaciones
 /// pre-cierre (cuidado §6.2 del 04-cuidados-infra):
 /// <list type="bullet">
-///   <item>No hay conteos en EnConciliacion o Aprobado del mes
+///   <item>No hay conteos pendientes iniciados o planificados hasta el fin del mes
 ///   (deben aplicarse o rechazarse antes).</item>
 ///   <item>No hay movimientos Borrador/Validado con fecha del mes
 ///   (deben firmarse o cancelarse).</item>
@@ -61,7 +62,7 @@ public sealed class EjecutarCierreMensualHandler
         var cerradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
             "CIERRE_SIN_USUARIO", "Se requiere usuario autenticado.");
 
-        // Idempotencia: si ya está cerrado, no falla.
+        // Un periodo ya cerrado se rechaza explícitamente.
         var existe = await _db.Set<PeriodoCerrado>().AsNoTracking()
             .AnyAsync(p => p.EmpresaId == empresaId
                 && p.Anio == request.Anio
@@ -76,20 +77,26 @@ public sealed class EjecutarCierreMensualHandler
         // Validación: no conteos pendientes con fecha del mes.
         var inicioMes = new DateOnly(request.Anio, request.Mes, 1);
         var finMes = inicioMes.AddMonths(1).AddDays(-1);
+        var finMesUtc = new DateTimeOffset(inicioMes.AddMonths(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
         var conteosPendientes = await _db.Set<ConteoInventario>().AsNoTracking()
-            .Where(c => c.FechaPlanificada >= inicioMes
-                && c.FechaPlanificada <= finMes
-                && (c.Estado == EstadoConteo.EnConciliacion
-                    || c.Estado == EstadoConteo.Aprobado))
+            .Where(c => (c.FechaPlanificada <= finMes || c.FechaInicio < finMesUtc)
+                && c.Estado != EstadoConteo.Aplicado
+                && c.Estado != EstadoConteo.Rechazado)
             .Select(c => c.Id)
             .ToListAsync(cancellationToken);
         if (conteosPendientes.Count > 0)
         {
             throw new BusinessRuleException(
                 "CIERRE_CONTEOS_PENDIENTES",
-                $"No se puede cerrar: {conteosPendientes.Count} conteo(s) en EnConciliacion/Aprobado del mes. " +
+                $"No se puede cerrar: {conteosPendientes.Count} conteo(s) pendientes que afectan al mes. " +
                 $"Aplicar o rechazar antes: {string.Join(", ", conteosPendientes.Take(5))}.");
         }
+
+        if (await _db.Movimientos.AsNoTracking().AnyAsync(m =>
+            m.FechaMovimiento >= inicioMes && m.FechaMovimiento <= finMes
+            && m.Tipo == TipoMovimiento.SalidaPorVale && m.PendienteRegularizacion
+            && m.Estado == EstadoMovimiento.Registrado, cancellationToken))
+            throw new BusinessRuleException("CIERRE_VALES_PENDIENTES", "No se puede cerrar el mes: hay vales urgentes pendientes de regularizar con una requisición.");
 
         // Validación: no movimientos Borrador/Validado con fecha del mes.
         var movimientosPendientes = await _db.Movimientos.AsNoTracking()
@@ -125,6 +132,24 @@ public sealed class EjecutarCierreMensualHandler
 /// </summary>
 public static class PeriodoCerradoValidator
 {
+    /// <summary>Los dos candados son independientes; abrir Contabilidad no elimina el cierre de inventario (D18).</summary>
+    public static async Task LanzarSiCerradoAsync(
+        AlmacenDbContext db,
+        Guid empresaId,
+        DateOnly fechaMovimiento,
+        IPeriodoContableReadPort periodoContable,
+        CancellationToken cancellationToken)
+    {
+        await LanzarSiCerradoAsync(db, empresaId, fechaMovimiento, cancellationToken);
+        if (!await periodoContable.EstaAbiertoAsync(fechaMovimiento.Year, fechaMovimiento.Month, cancellationToken))
+        {
+            throw new BusinessRuleException(
+                "PERIODO_CONTABLE_NO_ADMITE",
+                $"El periodo {fechaMovimiento.Year:0000}-{fechaMovimiento.Month:00} está cerrado o no está abierto en Contabilidad; " +
+                "no se registran movimientos de almacén con esa fecha.");
+        }
+    }
+
     public static async Task LanzarSiCerradoAsync(
         AlmacenDbContext db,
         Guid empresaId,

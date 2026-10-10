@@ -1,0 +1,15 @@
+FAIL Millet.Compras.UnitTests.P7.TransaccionApartadosRqTests.Union_restaura_conexion_utilizable_y_no_libera_la_de_compras(externa: False) Cannot access a disposed object.
+Object name: 'Npgsql.NpgsqlConnection'.
+   at Npgsql.NpgsqlConnection.CheckDisposed()
+   at Npgsql.NpgsqlConnection.CheckClosed()
+   at Npgsql.NpgsqlConnection.set_ConnectionString(String value)
+   at Millet.Compras.UnitTests.P7.TransaccionApartadosRqTests.Union_restaura_conexion_utilizable_y_no_libera_la_de_compras(Boolean externa) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compras.UnitTests/P7/TransaccionApartadosRqTests.cs:line 52
+   at Millet.Compras.UnitTests.P7.TransaccionApartadosRqTests.Union_restaura_conexion_utilizable_y_no_libera_la_de_compras(Boolean externa) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compras.UnitTests/P7/TransaccionApartadosRqTests.cs:line 41
+   at Millet.Compras.UnitTests.P7.TransaccionApartadosRqTests.Union_restaura_conexion_utilizable_y_no_libera_la_de_compras(Boolean externa) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compras.UnitTests/P7/TransaccionApartadosRqTests.cs:line 41
+   at Millet.Compras.UnitTests.P7.TransaccionApartadosRqTests.Union_restaura_conexion_utilizable_y_no_libera_la_de_compras(Boolean externa) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compras.UnitTests/P7/TransaccionApartadosRqTests.cs:line 41
+   at Millet.Compras.UnitTests.P7.TransaccionApartadosRqTests.Union_restaura_conexion_utilizable_y_no_libera_la_de_compras(Boolean externa) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compras.UnitTests/P7/TransaccionApartadosRqTests.cs:line 41
+   at Xunit.Sdk.TestInvoker`1.<>c__DisplayClass47_0.<<InvokeTestMethodAsync>b__1>d.MoveNext() in /_/src/xunit.execution/Sdk/Frameworks/Runners/TestInvoker.cs:line 259
+--- End of stack trace from previous location ---
+   at Xunit.Sdk.ExecutionTimer.AggregateAsync(Func`1 asyncAction) in /_/src/xunit.execution/Sdk/Frameworks/ExecutionTimer.cs:line 48
+   at Xunit.Sdk.ExceptionAggregator.RunAsync(Func`1 code) in /_/src/xunit.core/Sdk/ExceptionAggregator.cs:line 90
+TOTAL=565 FAILED=1 SKIPPED=0

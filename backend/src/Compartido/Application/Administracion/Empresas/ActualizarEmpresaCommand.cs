@@ -23,13 +23,41 @@ public sealed record ActualizarEmpresaCommand(
     bool LimpiarNombreComercial,
     decimal? TasaIvaDefault = null,
     bool LimpiarTasaIvaDefault = false,
-    string? CodigoPostal = null) : IRequest<EmpresaResponse>;
+    string? CodigoPostal = null,
+    int? VersionEsperada = null,
+    string? Calle = null,
+    string? NumeroExterior = null,
+    string? NumeroInterior = null,
+    string? Colonia = null,
+    string? Ciudad = null,
+    string? Municipio = null,
+    string? Estado = null,
+    string? Pais = null,
+    bool LimpiarNumeroInterior = false) : IRequest<EmpresaResponse>;
 
 public sealed class ActualizarEmpresaValidator : AbstractValidator<ActualizarEmpresaCommand>
 {
     public ActualizarEmpresaValidator()
     {
         RuleFor(c => c.Id).NotEmpty();
+        RuleFor(c => c.VersionEsperada).NotNull().GreaterThanOrEqualTo(0);
+        RuleFor(c => c.Calle!).NotEmpty().MaximumLength(254)
+            .When(c => c.Calle is not null);
+        RuleFor(c => c.NumeroExterior!).NotEmpty().MaximumLength(20)
+            .When(c => c.NumeroExterior is not null);
+        RuleFor(c => c.NumeroInterior!).MaximumLength(20)
+            .When(c => c.NumeroInterior is not null);
+        RuleFor(c => c.Colonia!).NotEmpty().MaximumLength(254)
+            .When(c => c.Colonia is not null);
+        RuleFor(c => c.Ciudad!).NotEmpty().MaximumLength(100)
+            .When(c => c.Ciudad is not null);
+        RuleFor(c => c.Municipio!).NotEmpty().MaximumLength(100)
+            .When(c => c.Municipio is not null);
+        RuleFor(c => c.Estado!).NotEmpty().MaximumLength(100)
+            .When(c => c.Estado is not null);
+        RuleFor(c => c.Pais!).NotEmpty().MaximumLength(100)
+            .When(c => c.Pais is not null);
+
         RuleFor(c => c.RazonSocial!).NotEmpty().MaximumLength(254)
             .When(c => c.RazonSocial is not null);
         RuleFor(c => c.NombreComercial!).MaximumLength(254)
@@ -61,6 +89,9 @@ public sealed class ActualizarEmpresaHandler
                 "EMPRESA_NO_ENCONTRADA",
                 $"No existe empresa con id '{command.Id}'.");
 
+        if (empresa.Version != command.VersionEsperada)
+            throw new ConcurrencyException(nameof(Empresa), empresa.Id);
+
         empresa.ActualizarDatos(
             razonSocial: command.RazonSocial,
             nombreComercial: command.NombreComercial,
@@ -68,7 +99,16 @@ public sealed class ActualizarEmpresaHandler
             limpiarNombreComercial: command.LimpiarNombreComercial,
             tasaIvaDefault: command.TasaIvaDefault,
             limpiarTasaIvaDefault: command.LimpiarTasaIvaDefault,
-            codigoPostal: command.CodigoPostal);
+            codigoPostal: command.CodigoPostal,
+            calle: command.Calle,
+            numeroExterior: command.NumeroExterior,
+            numeroInterior: command.NumeroInterior,
+            colonia: command.Colonia,
+            ciudad: command.Ciudad,
+            municipio: command.Municipio,
+            estado: command.Estado,
+            pais: command.Pais,
+            limpiarNumeroInterior: command.LimpiarNumeroInterior);
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -81,6 +121,7 @@ public sealed class ActualizarEmpresaHandler
             empresa.TasaIvaDefault,
             empresa.CodigoPostal,
             empresa.Activa,
-            empresa.Version);
+            empresa.Version,
+            empresa.Calle, empresa.NumeroExterior, empresa.NumeroInterior, empresa.Colonia, empresa.Ciudad, empresa.Municipio, empresa.Estado, empresa.Pais);
     }
 }

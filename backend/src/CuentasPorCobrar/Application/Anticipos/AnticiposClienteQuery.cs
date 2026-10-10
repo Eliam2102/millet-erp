@@ -10,7 +10,11 @@ namespace Millet.CuentasPorCobrar.Application.Anticipos;
 /// Facturación; CxC no proyecta anticipos.
 /// </summary>
 public sealed record AnticiposClienteQuery(Guid ClienteId)
-    : IRequest<IReadOnlyList<AnticipoSaldoClienteDto>>;
+    : IRequest<IReadOnlyList<AnticipoSaldoClienteDto>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed class AnticiposClienteHandler
     : IRequestHandler<AnticiposClienteQuery, IReadOnlyList<AnticipoSaldoClienteDto>>
@@ -18,7 +22,10 @@ public sealed class AnticiposClienteHandler
     private readonly IFacturacionAnticiposReadPort _anticipos;
     public AnticiposClienteHandler(IFacturacionAnticiposReadPort anticipos) { _anticipos = anticipos; }
 
-    public Task<IReadOnlyList<AnticipoSaldoClienteDto>> Handle(
-        AnticiposClienteQuery query, CancellationToken cancellationToken) =>
-        _anticipos.ListarPorClienteAsync(query.ClienteId, cancellationToken);
+    public async Task<IReadOnlyList<AnticipoSaldoClienteDto>> Handle(
+        AnticiposClienteQuery query, CancellationToken cancellationToken)
+    {
+        var anticipos = await _anticipos.ListarPorClienteAsync(query.ClienteId, cancellationToken);
+        return query.SucursalesPermitidas is null ? anticipos : anticipos.Where(x => x.SucursalId is Guid id && query.SucursalesPermitidas.Contains(id)).ToArray();
+    }
 }

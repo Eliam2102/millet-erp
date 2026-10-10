@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Facturacion.Domain.Ports;
 using Millet.Integraciones.Aw.Application.Pedidos;
+using Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 
 namespace Millet.Integraciones.Aw.Infrastructure.Pedidos;
 
@@ -25,7 +26,11 @@ public static class PedidosDependencyInjection
         services.AddOptions<AwPedidosOptions>()
             .Bind(configuration.GetSection(AwPedidosOptions.SectionName));
 
-        services.AddSingleton<IIntegracionSqlConnectionFactory, IntegracionSqlConnectionFactory>();
+        if (OrigenPostgres(configuration))
+            services.AddSingleton<IIntegracionSqlConnectionFactory>(
+                new AwOrigenPg.Fabrica(configuration.GetConnectionString(AwOrigenPg.ConnectionStringName)!));
+        else
+            services.AddSingleton<IIntegracionSqlConnectionFactory, IntegracionSqlConnectionFactory>();
 
         // Pisan StubAwSolicitudesReader / StubAwWriteBackPort (F3-PR1b).
         // Cierra <AwVistaPedidos> y la mitad A+W de <WriteBackOrigenes>.
@@ -45,4 +50,13 @@ public static class PedidosDependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// Origen de DEMO: la cola y las vistas se leen de las tablas <c>dbo.*</c> de la BD PostgreSQL de
+    /// <c>tools/aw-origen-demo</c> en vez de MILLET_INTEGRACION. Exige <c>IntegracionesAw:Pedidos:Origen=Postgres</c>
+    /// y <c>ConnectionStrings:AwOrigenPgDb</c>.
+    /// </summary>
+    public static bool OrigenPostgres(IConfiguration configuration) =>
+        string.Equals(configuration[$"{AwPedidosOptions.SectionName}:Origen"], "Postgres", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(configuration.GetConnectionString(AwOrigenPg.ConnectionStringName));
 }

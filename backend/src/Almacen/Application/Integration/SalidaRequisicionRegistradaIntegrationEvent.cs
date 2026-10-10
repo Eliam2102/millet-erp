@@ -35,7 +35,10 @@ public sealed record SalidaRequisicionRegistradaIntegrationEvent(
     bool EsPorVale,
     Guid? PersonaDestinatariaId,
     string? ValeBlobRef,
-    IReadOnlyList<LineaSalidaPayload> Lineas)
+    IReadOnlyList<LineaSalidaPayload> Lineas,
+    // G1.6: dimensiones contables opcionales, aditivas (sin bump de versión).
+    Guid? AlmacenId = null,
+    Guid? SucursalId = null)
     : IntegrationEvent("almacen.salida_requisicion.registrada.v1", EmpresaId, OcurridoEn);
 
 public sealed record LineaSalidaPayload(

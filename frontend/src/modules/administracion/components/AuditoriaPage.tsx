@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Eye, History, X } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ClipboardList, Download, Eye, History, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,22 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { esApiError, apiRequest } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
-import { useAuditoria } from '@/modules/administracion/api/auditoria';
+import { useAuditoria, exportarAuditoria } from '@/modules/administracion/api/auditoria';
 import { useEmpresas } from '@/modules/administracion/api';
 import { useDepartamentos, usePuestos, useEmpleados } from '@/features/catalogos/api/hooks';
 import { useRoles } from '@/modules/identidad/api/roles';
 import { useUsuarios } from '@/modules/identidad/api/usuarios';
-import type {
-  AuditLogEntryResponse,
-  ConsultarBitacoraFiltros,
-} from '@/modules/administracion/api';
+import type { AuditLogEntryResponse, ConsultarBitacoraFiltros } from '@/modules/administracion/api';
 import { AuditoriaDetalleDrawer } from '@/modules/administracion/components/AuditoriaDetalleDrawer';
 import {
   type AuditoriaLookups,
@@ -48,11 +42,15 @@ const MODULOS: readonly string[] = [
   'Catalogos',
   'DatosMaestros',
   'Compartido',
+  'Contabilidad',
 ];
 
 const ACCIONES: readonly { label: string; value: string }[] = [
   { label: 'Crear', value: 'Crear' },
   { label: 'Actualizar', value: 'Actualizar' },
+  { label: 'Abrir periodo', value: 'abrir' },
+  { label: 'Cerrar periodo', value: 'cerrar' },
+  { label: 'Reabrir periodo', value: 'reabrir' },
   { label: 'Autorización', value: 'autorizacion' },
   { label: 'Desactivar', value: 'Desactivar' },
   { label: 'Reactivar', value: 'Reactivar' },
@@ -111,14 +109,13 @@ export function AuditoriaPage() {
       ).data,
   });
 
-  const [filtrosAplicados, setFiltrosAplicados] =
-    useState<ConsultarBitacoraFiltros>({
-      desde: formatYmd(inicioDefault),
-      hasta: formatYmd(hoy),
-      sucursalId: sucursalActivaId ?? undefined,
-      offset: 0,
-      limit: PAGE_LIMIT,
-    });
+  const [filtrosAplicados, setFiltrosAplicados] = useState<ConsultarBitacoraFiltros>({
+    desde: formatYmd(inicioDefault),
+    hasta: formatYmd(hoy),
+    sucursalId: sucursalActivaId ?? undefined,
+    offset: 0,
+    limit: PAGE_LIMIT,
+  });
 
   const empresasQuery = useEmpresas({ limit: 200 });
   const empresas = useMemo(() => empresasQuery.data?.items ?? [], [empresasQuery.data?.items]);
@@ -126,7 +123,10 @@ export function AuditoriaPage() {
   const usuarios = useMemo(() => usuariosQuery.data?.items ?? [], [usuariosQuery.data?.items]);
 
   const departamentosQuery = useDepartamentos();
-  const departamentos = useMemo(() => departamentosQuery.data?.items ?? [], [departamentosQuery.data?.items]);
+  const departamentos = useMemo(
+    () => departamentosQuery.data?.items ?? [],
+    [departamentosQuery.data?.items],
+  );
   const puestosQuery = usePuestos();
   const puestos = useMemo(() => puestosQuery.data?.items ?? [], [puestosQuery.data?.items]);
   const empleadosQuery = useEmpleados();
@@ -135,6 +135,19 @@ export function AuditoriaPage() {
   const roles = useMemo(() => rolesQuery.data?.items ?? [], [rolesQuery.data?.items]);
 
   const auditoriaQuery = useAuditoria(filtrosAplicados);
+  const exportacion = useMutation({
+    mutationFn: () => exportarAuditoria(filtrosAplicados),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = 'bitacora.csv';
+      enlace.click();
+      URL.revokeObjectURL(url);
+      void auditoriaQuery.refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const items = useMemo(() => auditoriaQuery.data?.items ?? [], [auditoriaQuery.data?.items]);
   const total = auditoriaQuery.data?.total ?? 0;
@@ -142,14 +155,9 @@ export function AuditoriaPage() {
 
   const diasRango = diferenciaDias(draftDesde, draftHasta);
   const rangoInvalido =
-    !draftDesde ||
-    !draftHasta ||
-    diasRango == null ||
-    diasRango < 0 ||
-    diasRango > RANGO_MAX_DIAS;
+    !draftDesde || !draftHasta || diasRango == null || diasRango < 0 || diasRango > RANGO_MAX_DIAS;
 
-  const [seleccionado, setSeleccionado] =
-    useState<AuditLogEntryResponse | null>(null);
+  const [seleccionado, setSeleccionado] = useState<AuditLogEntryResponse | null>(null);
 
   const sucursalesMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -162,7 +170,7 @@ export function AuditoriaPage() {
   const usuariosMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const u of usuarios) {
-      if (u.id) map[u.id] = u.nombre || u.email || "";
+      if (u.id) map[u.id] = u.nombre || u.email || '';
     }
     return map;
   }, [usuarios]);
@@ -178,7 +186,7 @@ export function AuditoriaPage() {
   const empresasMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const e of empresas) {
-      if (e.id) map[e.id] = e.razonSocial || e.nombreComercial || "";
+      if (e.id) map[e.id] = e.razonSocial || e.nombreComercial || '';
     }
     return map;
   }, [empresas]);
@@ -202,7 +210,8 @@ export function AuditoriaPage() {
   const empleadosMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const emp of empleados) {
-      if (emp.id) map[emp.id] = emp.nombre ? `${emp.nombre}${emp.clave ? ` (${emp.clave})` : ''}` : emp.clave;
+      if (emp.id)
+        map[emp.id] = emp.nombre ? `${emp.nombre}${emp.clave ? ` (${emp.clave})` : ''}` : emp.clave;
     }
     return map;
   }, [empleados]);
@@ -267,7 +276,17 @@ export function AuditoriaPage() {
       empleados: empleadosRef,
       roles: rolesRef,
     };
-  }, [sucursalesMap, usuariosMap, usuariosEmailMap, empresasMap, departamentosMap, puestosMap, empleadosMap, rolesMap, items]);
+  }, [
+    sucursalesMap,
+    usuariosMap,
+    usuariosEmailMap,
+    empresasMap,
+    departamentosMap,
+    puestosMap,
+    empleadosMap,
+    rolesMap,
+    items,
+  ]);
 
   function aplicar() {
     if (rangoInvalido) return;
@@ -338,12 +357,22 @@ export function AuditoriaPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Bitácora de auditoría
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">Bitácora de auditoría</h1>
+          <Button
+            variant="secondary"
+            onClick={() => exportacion.mutate()}
+            disabled={exportacion.isPending}
+            title={
+              exportacion.isPending
+                ? 'Se está preparando el archivo.'
+                : 'Exportar todos los registros con los filtros aplicados'
+            }
+          >
+            <Download className="size-3.5" />
+            {exportacion.isPending ? 'Exportando…' : 'Exportar'}
+          </Button>
           <p className="text-sm text-muted-foreground">
-            Consulta consolidada de eventos del sistema (rango obligatorio, máx.
-            90 días).
+            Consulta consolidada de eventos del sistema (rango obligatorio, máx. 90 días).
           </p>
         </div>
       </div>
@@ -419,9 +448,7 @@ export function AuditoriaPage() {
 
         {/* Tipo de actor */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Tipo de actor
-          </label>
+          <label className="text-xs font-medium text-muted-foreground">Tipo de actor</label>
           <Select
             value={draftActorTipo || TODOS}
             onValueChange={(v) => setDraftActorTipo(v === TODOS ? '' : v)}
@@ -442,9 +469,7 @@ export function AuditoriaPage() {
 
         {/* Módulo */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Módulo
-          </label>
+          <label className="text-xs font-medium text-muted-foreground">Módulo</label>
           <Select
             value={draftModulo || TODOS}
             onValueChange={(v) => setDraftModulo(v === TODOS ? '' : v)}
@@ -479,9 +504,7 @@ export function AuditoriaPage() {
 
         {/* Acción */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Acción
-          </label>
+          <label className="text-xs font-medium text-muted-foreground">Acción</label>
           <Select
             value={draftAccion || TODOS}
             onValueChange={(v) => setDraftAccion(v === TODOS ? '' : v)}
@@ -502,9 +525,7 @@ export function AuditoriaPage() {
 
         {/* Usuario */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Usuario
-          </label>
+          <label className="text-xs font-medium text-muted-foreground">Usuario</label>
           <Select
             value={draftUsuarioId || TODOS}
             onValueChange={(v) => setDraftUsuarioId(v === TODOS ? '' : v)}
@@ -525,9 +546,7 @@ export function AuditoriaPage() {
 
         {/* Empresa */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Empresa
-          </label>
+          <label className="text-xs font-medium text-muted-foreground">Empresa</label>
           <Select
             value={draftEmpresaId || TODOS}
             onValueChange={(v) => setDraftEmpresaId(v === TODOS ? '' : v)}
@@ -539,8 +558,7 @@ export function AuditoriaPage() {
               <SelectItem value={TODOS}>Todas</SelectItem>
               {empresas.map((e) => (
                 <SelectItem key={e.id} value={e.id}>
-                  <span className="font-mono text-xs">{e.rfc}</span> —{' '}
-                  {e.razonSocial}
+                  <span className="font-mono text-xs">{e.rfc}</span> — {e.razonSocial}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -549,10 +567,7 @@ export function AuditoriaPage() {
 
         {/* Sucursal */}
         <div className="flex flex-col gap-1">
-          <label
-            htmlFor="auditoria-sucursal"
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <label htmlFor="auditoria-sucursal" className="text-xs font-medium text-muted-foreground">
             Sucursal
           </label>
           <select
@@ -562,11 +577,12 @@ export function AuditoriaPage() {
             onChange={(e) => setDraftSucursalId(e.target.value)}
           >
             <option value="">Todas las sucursales de la empresa</option>
-            {draftSucursalId && !(sucursalesQuery.data ?? []).some((s) => s.id === draftSucursalId) && (
-              <option value={draftSucursalId} hidden>
-                {draftSucursalId}
-              </option>
-            )}
+            {draftSucursalId &&
+              !(sucursalesQuery.data ?? []).some((s) => s.id === draftSucursalId) && (
+                <option value={draftSucursalId} hidden>
+                  {draftSucursalId}
+                </option>
+              )}
             {(sucursalesQuery.data ?? []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.clave} · {s.nombre}
@@ -577,20 +593,10 @@ export function AuditoriaPage() {
 
         {/* Botones de acción */}
         <div className="flex items-end gap-2 md:col-span-3 lg:col-span-4">
-          <Button
-            type="button"
-            size="sm"
-            onClick={aplicar}
-            disabled={rangoInvalido}
-          >
+          <Button type="button" size="sm" onClick={aplicar} disabled={rangoInvalido}>
             Aplicar
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={limpiar}
-          >
+          <Button type="button" size="sm" variant="ghost" onClick={limpiar}>
             Limpiar
           </Button>
         </div>
@@ -609,8 +615,7 @@ export function AuditoriaPage() {
       {total > PAGE_LIMIT && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            Mostrando {offset + 1}–{Math.min(offset + items.length, total)} de{' '}
-            {total}
+            Mostrando {offset + 1}–{Math.min(offset + items.length, total)} de {total}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -685,13 +690,7 @@ function AuditoriaTabla({
 
   if (isError) {
     const problem = esApiError(error) ? error.problem : undefined;
-    return (
-      <ErrorState
-        problem={problem}
-        title="Error al cargar la bitácora"
-        onRetry={onRetry}
-      />
-    );
+    return <ErrorState problem={problem} title="Error al cargar la bitácora" onRetry={onRetry} />;
   }
 
   if (items.length === 0) {
@@ -736,7 +735,11 @@ function AuditoriaTabla({
           {items.map((entry) => {
             const actorTipo = entry.actorTipo?.toLowerCase() ?? 'usuario';
             const actorNombre =
-              (entry.actorNombre && !entry.actorNombre.startsWith('Usuario ') && !isUuid(entry.actorNombre) ? entry.actorNombre : null) ??
+              (entry.actorNombre &&
+              !entry.actorNombre.startsWith('Usuario ') &&
+              !isUuid(entry.actorNombre)
+                ? entry.actorNombre
+                : null) ??
               (entry.usuarioNombre && !isUuid(entry.usuarioNombre) ? entry.usuarioNombre : null) ??
               (entry.usuarioId ? lookups.usuarios?.[entry.usuarioId] : null) ??
               entry.actorNombre ??
@@ -746,33 +749,63 @@ function AuditoriaTabla({
             const sucursalNombre = entry.sucursalId ? lookups.sucursales?.[entry.sucursalId] : null;
 
             const etiquetaRegistro =
-              (entry.entidadEtiqueta && !isUuid(entry.entidadEtiqueta) && !entry.entidadEtiqueta.startsWith(entry.entidad + ' ')
+              (entry.entidadEtiqueta &&
+              !isUuid(entry.entidadEtiqueta) &&
+              !entry.entidadEtiqueta.startsWith(entry.entidad + ' ')
                 ? humanizarTextoConLookups(entry.entidadEtiqueta, lookups)
                 : null) ??
-              (entry.entidadId && entry.entidad === 'Sucursal' && lookups.sucursales?.[entry.entidadId] ? lookups.sucursales[entry.entidadId] : null) ??
-              (entry.entidadId && entry.entidad === 'Usuario' && lookups.usuarios?.[entry.entidadId] ? lookups.usuarios[entry.entidadId] : null) ??
-              (entry.entidadId && entry.entidad === 'Empresa' && lookups.empresas?.[entry.entidadId] ? lookups.empresas[entry.entidadId] : null) ??
-              (entry.entidadId && entry.entidad === 'Departamento' && lookups.departamentos?.[entry.entidadId] ? lookups.departamentos[entry.entidadId] : null) ??
-              (entry.entidadId && entry.entidad === 'Puesto' && lookups.puestos?.[entry.entidadId] ? lookups.puestos[entry.entidadId] : null) ??
-              (entry.entidadId && entry.entidad === 'Empleado' && lookups.empleados?.[entry.entidadId] ? lookups.empleados[entry.entidadId] : null) ??
-              (entry.entidadId && entry.entidad === 'Rol' && lookups.roles?.[entry.entidadId] ? lookups.roles[entry.entidadId] : null) ??
-              (entry.entidadEtiqueta && !isUuid(entry.entidadEtiqueta) ? humanizarTextoConLookups(entry.entidadEtiqueta, lookups) : null) ??
+              (entry.entidadId &&
+              entry.entidad === 'Sucursal' &&
+              lookups.sucursales?.[entry.entidadId]
+                ? lookups.sucursales[entry.entidadId]
+                : null) ??
+              (entry.entidadId && entry.entidad === 'Usuario' && lookups.usuarios?.[entry.entidadId]
+                ? lookups.usuarios[entry.entidadId]
+                : null) ??
+              (entry.entidadId && entry.entidad === 'Empresa' && lookups.empresas?.[entry.entidadId]
+                ? lookups.empresas[entry.entidadId]
+                : null) ??
+              (entry.entidadId &&
+              entry.entidad === 'Departamento' &&
+              lookups.departamentos?.[entry.entidadId]
+                ? lookups.departamentos[entry.entidadId]
+                : null) ??
+              (entry.entidadId && entry.entidad === 'Puesto' && lookups.puestos?.[entry.entidadId]
+                ? lookups.puestos[entry.entidadId]
+                : null) ??
+              (entry.entidadId &&
+              entry.entidad === 'Empleado' &&
+              lookups.empleados?.[entry.entidadId]
+                ? lookups.empleados[entry.entidadId]
+                : null) ??
+              (entry.entidadId && entry.entidad === 'Rol' && lookups.roles?.[entry.entidadId]
+                ? lookups.roles[entry.entidadId]
+                : null) ??
+              (entry.entidadEtiqueta && !isUuid(entry.entidadEtiqueta)
+                ? humanizarTextoConLookups(entry.entidadEtiqueta, lookups)
+                : null) ??
               entry.entidad;
 
-            const resumenHumanizado = humanizarTextoConLookups(entry.resumen || entry.operacion, lookups);
+            const resumenHumanizado = humanizarTextoConLookups(
+              entry.resumen || entry.operacion,
+              lookups,
+            );
 
             return (
               <tr key={entry.id} className="hover:bg-muted/10">
-                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-xs" title={entry.timestamp}>
+                <td
+                  className="px-3 py-2 whitespace-nowrap tabular-nums text-xs"
+                  title={entry.timestamp}
+                >
                   <div className="font-medium text-foreground">{formatFecha(entry.timestamp)}</div>
-                  <div className="text-[11px] text-muted-foreground">{formatHora(entry.timestamp)} hrs</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {formatHora(entry.timestamp)} hrs
+                  </div>
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-medium text-foreground">
-                        {actorNombre}
-                      </span>
+                      <span className="font-medium text-foreground">{actorNombre}</span>
                       <Badge
                         variant={actorTipo === 'usuario' ? 'secondary' : 'outline'}
                         className="text-[10px] px-1.5 py-0 capitalize"
@@ -781,19 +814,15 @@ function AuditoriaTabla({
                       </Badge>
                     </div>
                     {(() => {
-                      const email = entry.actorEmail || (entry.usuarioId ? lookups.usuariosEmail?.[entry.usuarioId] : null);
+                      const email =
+                        entry.actorEmail ||
+                        (entry.usuarioId ? lookups.usuariosEmail?.[entry.usuarioId] : null);
                       if (email) {
-                        return (
-                          <span className="text-xs text-muted-foreground">
-                            {email}
-                          </span>
-                        );
+                        return <span className="text-xs text-muted-foreground">{email}</span>;
                       }
                       if (entry.origen) {
                         return (
-                          <span className="text-xs text-muted-foreground">
-                            {entry.origen}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{entry.origen}</span>
                         );
                       }
                       return null;
@@ -801,18 +830,12 @@ function AuditoriaTabla({
                   </div>
                 </td>
                 <td className="px-3 py-2">
-                  <span className="text-sm font-medium text-foreground">
-                    {resumenHumanizado}
-                  </span>
+                  <span className="text-sm font-medium text-foreground">{resumenHumanizado}</span>
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-foreground">
-                      {etiquetaRegistro}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {entry.entidad}
-                    </span>
+                    <span className="text-sm font-medium text-foreground">{etiquetaRegistro}</span>
+                    <span className="text-xs text-muted-foreground">{entry.entidad}</span>
                   </div>
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
@@ -823,11 +846,15 @@ function AuditoriaTabla({
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-foreground">{sucursalNombre}</span>
                       {entry.sucursalClave && (
-                        <span className="text-[11px] text-muted-foreground font-mono">{entry.sucursalClave}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono">
+                          {entry.sucursalClave}
+                        </span>
                       )}
                     </div>
                   ) : entry.sucursalClave ? (
-                    <span className="text-sm text-muted-foreground font-mono">{entry.sucursalClave}</span>
+                    <span className="text-sm text-muted-foreground font-mono">
+                      {entry.sucursalClave}
+                    </span>
                   ) : (
                     <span className="text-sm text-muted-foreground">No aplica</span>
                   )}

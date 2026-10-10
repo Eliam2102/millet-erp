@@ -177,6 +177,7 @@ public static class TarjetasCreditoEndpoints
         // -------- Movimientos --------
         var movimientos = app
             .MapGroup("/api/v1/cuentas-por-pagar/movimientos-tc")
+            .WithDocumentoSucursalScope("movimiento_tc", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -205,9 +206,11 @@ public static class TarjetasCreditoEndpoints
 
         movimientos.MapPost("/con-cfdi", async (
             [FromBody] RegistrarMovimientoTcConCfdiCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("cfdi_recibido", command.CfdiRecibidoId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/movimientos-tc/{response.Id}", response);
         })
@@ -222,9 +225,11 @@ public static class TarjetasCreditoEndpoints
 
         movimientos.MapPost("/sin-cfdi", async (
             [FromBody] RegistrarMovimientoTcSinCfdiCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(null, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/movimientos-tc/{response.Id}", response);
         })
@@ -241,9 +246,11 @@ public static class TarjetasCreditoEndpoints
 
         movimientos.MapPost("/refund", async (
             [FromBody] RegistrarRefundTcCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("movimiento_tc", command.MovimientoOriginalId, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/movimientos-tc/{response.Id}", response);
         })
@@ -258,9 +265,11 @@ public static class TarjetasCreditoEndpoints
 
         movimientos.MapPost("/especial", async (
             [FromBody] RegistrarMovimientoEspecialTcCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(null, PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/movimientos-tc/{response.Id}", response);
         })

@@ -13,19 +13,23 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
     private readonly ComprasDbContext _db;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IArticuloReadPort _articulos;
+    private readonly Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort _dim3ElegibilidadPort;
 
     public ActualizarLineaOcHandler(
         ComprasDbContext db,
         IDecimalesUnidadGuard decimalesGuard,
-        IArticuloReadPort articulos)
+        IArticuloReadPort articulos,
+        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort)
     {
         _db = db;
         _decimalesGuard = decimalesGuard;
         _articulos = articulos;
+        _dim3ElegibilidadPort = dim3ElegibilidadPort;
     }
 
     public async Task Handle(ActualizarLineaOcCommand command, CancellationToken cancellationToken)
     {
+        await using var tx = await SaldoCompraRq.BloquearAsync(_db, cancellationToken);
         var oc = await _db.OrdenesCompra
             .Include(o => o.Lineas)
             .FirstOrDefaultAsync(o => o.Id == command.OrdenCompraId, cancellationToken)
@@ -33,12 +37,19 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}' en la empresa actual.");
 
+        var lineaActual = oc.Lineas.FirstOrDefault(l => l.Id == command.LineaId);
+
+        if (lineaActual?.LineaRequisicionId is Guid lineaRqId && command.Cantidad is decimal nuevaCantidad)
+        {
+            var saldos = await SaldoCompraRq.ObtenerAsync(_db, [lineaRqId], cancellationToken, lineaActual.Id);
+            SaldoCompraRq.Validar(nuevaCantidad, saldos.GetValueOrDefault(lineaRqId));
+        }
+
         // ADR-0046 Etapa 2: si el PATCH cambia la cantidad, valida sus decimales
         // contra la unidad del artículo. El articuloId puede venir en el comando
         // o conservarse de la línea actual (PATCH parcial). FK NULL → no valida.
         if (command.Cantidad is decimal cantidad)
         {
-            var lineaActual = oc.Lineas.FirstOrDefault(l => l.Id == command.LineaId);
             var articuloId = command.ArticuloId ?? lineaActual?.ArticuloId;
             if (articuloId is Guid aid)
             {
@@ -49,6 +60,19 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
                     },
                     cancellationToken);
             }
+        }
+
+        // G1.11 / ADR-0050 §2: en línea manual de OC (sin RQ previa), el comprador
+        // captura por proxy. Valida existe + activo, SIN alcance.
+        // Si la línea es heredada (LineaRequisicionId != null), no se evalúa aquí
+        // para permitir que el dominio lance LINEA_OC_CC_HEREDADO_INMUTABLE.
+        if (command.CentroCostoId is Guid ccId && lineaActual is { LineaRequisicionId: null })
+        {
+            await CentroCostoLineaGuard.ValidarAsync(
+                _dim3ElegibilidadPort,
+                ccId,
+                aplicarAlcance: false,
+                cancellationToken);
         }
 
         DescuentoLinea? descuento = (command.DescuentoTipo, command.DescuentoValor) switch
@@ -90,5 +114,6 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             centroCostoId: command.CentroCostoId);
 
         await _db.SaveChangesAsync(cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
     }
 }

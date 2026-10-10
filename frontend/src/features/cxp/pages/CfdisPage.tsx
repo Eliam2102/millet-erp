@@ -44,6 +44,7 @@ import { CfdiDetalleSheet } from '@/features/cxp/components/CfdiDetalleSheet';
 import { DescartarCfdiSheet } from '@/features/cxp/components/DescartarCfdiSheet';
 import { MarcarDuplicadoSheet } from '@/features/cxp/components/MarcarDuplicadoSheet';
 import type { CfdisSearch } from '@/features/cxp/lib/cfdis-search-schema';
+import { formatearFecha } from '@/features/cxp/lib/formato';
 
 const FROM = '/_app/cxp/cfdis' as const;
 const SENTINEL_ALL = '__all__';
@@ -570,14 +571,3 @@ function formatearMonto(v: number, moneda: string): string {
   }
 }
 
-function formatearFecha(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}

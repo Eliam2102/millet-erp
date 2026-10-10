@@ -51,6 +51,7 @@ export function useGuardarConfiguracionPac() {
       empresaId: string;
       proveedor: ProveedorPac;
       payload: GuardarConfiguracionPacPayload;
+      versionEsperada?: number;
       idempotencyKey: string;
     }) => {
       const { data } = await apiRequest<ConfiguracionPacResponse>(
@@ -59,6 +60,10 @@ export function useGuardarConfiguracionPac() {
           method: 'PUT',
           body: args.payload,
           idempotencyKey: args.idempotencyKey,
+          headers:
+            args.versionEsperada == null
+              ? undefined
+              : { 'X-Expected-Version': String(args.versionEsperada) },
         },
       );
       return data;

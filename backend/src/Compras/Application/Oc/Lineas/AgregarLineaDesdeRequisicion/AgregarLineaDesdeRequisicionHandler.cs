@@ -1,3 +1,4 @@
+using Millet.CentrosCosto.Application.PublicPorts;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
@@ -19,6 +20,7 @@ namespace Millet.Compras.Application.Oc.Lineas.AgregarLineaDesdeRequisicion;
 public sealed class AgregarLineaDesdeRequisicionHandler
     : IRequestHandler<AgregarLineaDesdeRequisicionCommand, AgregarLineaDesdeRequisicionResponse>
 {
+    private readonly IDim3ElegibilidadPort _dim3;
     private readonly ComprasDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IClock _clock;
@@ -28,6 +30,7 @@ public sealed class AgregarLineaDesdeRequisicionHandler
 
     public AgregarLineaDesdeRequisicionHandler(
         ComprasDbContext db,
+        IDim3ElegibilidadPort dim3,
         ICurrentEmpresaContext currentEmpresa,
         IClock clock,
         IPublisher publisher,
@@ -35,6 +38,7 @@ public sealed class AgregarLineaDesdeRequisicionHandler
         IArticuloReadPort articulos)
     {
         _db = db;
+        _dim3 = dim3;
         _currentEmpresa = currentEmpresa;
         _clock = clock;
         _publisher = publisher;
@@ -52,6 +56,8 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 "EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
+
+        await using var tx = await SaldoCompraRq.BloquearAsync(_db, cancellationToken);
 
         var oc = await _db.OrdenesCompra
             .Include(o => o.Lineas)
@@ -98,8 +104,9 @@ public sealed class AgregarLineaDesdeRequisicionHandler
         // Filtrar líneas con saldo de compra; las cubiertas por almacén
         // no se duplican en la OC (su movimiento de salida ya ocurrió al
         // autorizar).
+        var saldos = await SaldoCompraRq.ObtenerAsync(_db, rq.Lineas.Select(l => l.Id), cancellationToken);
         var lineasDeCompra = rq.Lineas
-            .Where(l => l.CantidadDeCompra > 0)
+            .Where(l => saldos.GetValueOrDefault(l.Id) > 0)
             .OrderBy(l => l.Posicion)
             .ToList();
         if (lineasDeCompra.Count == 0)
@@ -109,11 +116,18 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 $"La RQ '{rq.Folio.Valor}' no tiene líneas con CantidadDeCompra > 0.");
         }
 
+        foreach (var ccId in lineasDeCompra.Select(l => l.CentroCostoId).Distinct())
+        {
+            if (ccId is not Guid id)
+                throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente y dentro de tu alcance.");
+            await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: true, cancellationToken);
+        }
+
         // ADR-0046 Etapa 2: valida los decimales de cada línea heredada contra
         // la unidad de su artículo (defensivo: las líneas de RQ ya se validaron
         // al capturarse). FK NULL → no valida. Un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            lineasDeCompra.Select(l => new CantidadAValidar(l.ArticuloId, l.CantidadDeCompra, l.UnidadMedida)),
+            lineasDeCompra.Select(l => new CantidadAValidar(l.ArticuloId, saldos[l.Id], l.UnidadMedida)),
             cancellationToken);
 
         // GAP-9: resolver naturaleza en batch — las líneas de servicio se
@@ -123,12 +137,14 @@ public sealed class AgregarLineaDesdeRequisicionHandler
             cancellationToken);
 
         var lineasAgregadas = 0;
+        oc.HeredarObra(rq.Obra);
+
         foreach (var lineaRq in lineasDeCompra)
         {
             oc.AgregarLineaDesdeRequisicion(
                 lineaId: Guid.CreateVersion7(),
                 articuloId: lineaRq.ArticuloId,
-                cantidad: lineaRq.CantidadDeCompra,
+                cantidad: saldos[lineaRq.Id],
                 unidadMedida: lineaRq.UnidadMedida,
                 precioUnitario: lineaRq.PrecioEstimado.Amount,
                 departamentoSolicitanteId: rq.DepartamentoId,
@@ -142,7 +158,6 @@ public sealed class AgregarLineaDesdeRequisicionHandler
         }
 
         rq.ComprometerEnOc(oc.Id);
-        await _db.SaveChangesAsync(cancellationToken);
 
         await _publisher.Publish(
             new RqComprometidaEnOcEvent(
@@ -151,6 +166,9 @@ public sealed class AgregarLineaDesdeRequisicionHandler
                 EmpresaId: empresaId,
                 OcurridoEn: _clock.UtcNow),
             cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        if (tx is not null) await tx.CommitAsync(cancellationToken);
 
         return new AgregarLineaDesdeRequisicionResponse(lineasAgregadas);
     }

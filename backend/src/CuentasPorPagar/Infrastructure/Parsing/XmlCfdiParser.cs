@@ -125,7 +125,22 @@ public sealed class XmlCfdiParser : IXmlCfdiParser
             TipoCambio: tipoCambio,
             Lineas: lineas,
             MetodoPago: AttrOrNull(comprobante, "MetodoPago"),
-            CfdiRelacionados: relacionados);
+            CfdiRelacionados: relacionados,
+            RetencionesDetalle: ParseRetenciones(comprobante),
+            Descuentos: ParseDecimalOrNull(AttrOrNull(comprobante, "Descuento")) ?? 0m);
+    }
+
+    private static List<RetencionCfdi>? ParseRetenciones(XElement comprobante)
+    {
+        var nodos = comprobante.Element(NsCfdi + "Impuestos")?
+            .Element(NsCfdi + "Retenciones")?
+            .Elements(NsCfdi + "Retencion")
+            .Select(r => new RetencionCfdi(
+                AttrOrEmpty(r, "Impuesto").Trim(),
+                Tasa: null,
+                ParseDecimal(AttrOrEmpty(r, "Importe"))))
+            .ToList();
+        return nodos is { Count: > 0 } ? nodos : null;
     }
 
     private static List<CfdiRelacionadosParseados>? ParseCfdiRelacionados(XElement comprobante)

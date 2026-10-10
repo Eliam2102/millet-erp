@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zId } from '@/lib/z-id';
 
 /**
  * Schema del form "Nuevo REPP" (complemento de pago, FE-F6). Multi-factura;
@@ -6,12 +7,12 @@ import { z } from 'zod';
  * eligen con <c>FacturaPpdPicker</c> (saldo por cobrar, [Decisión 13-K]).
  */
 export const ReppFacturaSchema = z.object({
-  facturaVentaId: z.string().uuid('Selecciona una factura'),
+  facturaVentaId: zId('Selecciona una factura'),
   importePagado: z.number().positive('El importe debe ser mayor a 0'),
 });
 
 export const EmitirReppSchema = z.object({
-  sucursalId: z.string().uuid('Selecciona una sucursal'),
+  sucursalId: zId('Selecciona una sucursal'),
   fechaPago: z.string().min(1, 'Fecha de pago requerida'),
   monedaPago: z.string().length(3, 'Código ISO de 3 letras'),
   tcPago: z.number().positive().nullable(),

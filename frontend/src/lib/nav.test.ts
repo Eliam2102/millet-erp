@@ -120,7 +120,7 @@ describe('navSidebarItems', () => {
     ]);
   });
 
-  it('Facturación, CxC, Compras, Almacén, CxP, Tesorería y Centros de Costo son los módulos NO disabled (CeCo llegó con CECO-FE-PR1)', () => {
+  it('Facturación, CxC, Compras, Almacén, CxP, Tesorería, Centros de Costo y Contabilidad son los módulos NO disabled (Contabilidad llegó con F1-CON-01b)', () => {
     const modulos = navSidebarItems.filter((i) => i.kind === 'modulo');
     const habilitados = modulos.filter((m) => !m.disabled);
     expect(habilitados.map((m) => m.moduloId)).toEqual([
@@ -131,6 +131,7 @@ describe('navSidebarItems', () => {
       'cxp',
       'tesoreria',
       'centros-costo',
+      'contabilidad',
     ]);
   });
 
@@ -335,7 +336,7 @@ describe('visibilidad por permisos (sidebar y URLs)', () => {
 
 describe('contextoNavegacion del shell', () => {
   it('elige la pantalla más específica y limita el panel por permisos', () => {
-    const permisos = [
+    const permisos: string[] = [
       PermisosCanonicos.ComprasOrdenesLeer,
       PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
     ];

@@ -1,3 +1,4 @@
+using Millet.Facturacion.Application.Timbrado;
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics;
@@ -78,6 +79,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         return exception switch
         {
             ValidationException ve => CreateValidationProblem(ve, httpContext, traceId),
+            ReceptorFiscalInvalidoException rfi => CreateReceptorProblem(rfi, httpContext, traceId),
             BusinessRuleException bre => CreateProblem(bre.Code, bre.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
             EntityNotFoundException enfe => CreateProblem(enfe.Code, enfe.Message, StatusCodes.Status404NotFound, httpContext, traceId),
             ConcurrencyException ce => CreateProblem(ce.Code, ce.Message, StatusCodes.Status409Conflict, httpContext, traceId),
@@ -118,6 +120,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             // Sincronización de productos A+W (ADM-07): mismos códigos estables, prefijo AW_PRODUCTOS_.
             Millet.Integraciones.Aw.Application.Productos.AwProductosSyncException apse
                 => CreateProblem("AW_PRODUCTOS_" + apse.Code.ToUpperInvariant(), apse.Message, AwClientesStatus(apse.Code), httpContext, traceId),
+            BadHttpRequestException bhre => CreateProblem("BAD_REQUEST", bhre.Message, bhre.StatusCode, httpContext, traceId),
             DomainException de => CreateProblem(de.Code, de.Message, StatusCodes.Status400BadRequest, httpContext, traceId),
             _ => CreateProblem(
                 "INTERNAL_ERROR",
@@ -126,6 +129,18 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 httpContext,
                 traceId),
         };
+    }
+
+    private static ProblemDetails CreateReceptorProblem(ReceptorFiscalInvalidoException exception, HttpContext context, string traceId)
+    {
+        var problem = CreateProblem(exception.Code, exception.Message, StatusCodes.Status422UnprocessableEntity, context, traceId);
+        problem.Extensions["campos"] = exception.Campos;
+        if (exception.ClienteId is { } clienteId)
+        {
+            problem.Extensions["clienteId"] = clienteId;
+            problem.Extensions["enlaceCliente"] = exception.EnlaceCliente;
+        }
+        return problem;
     }
 
     private static int AwClientesStatus(string code) => code switch

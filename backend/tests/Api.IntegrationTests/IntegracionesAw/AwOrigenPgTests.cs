@@ -39,7 +39,7 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
     public async Task InitializeAsync()
     {
         _cs = factory.Services.GetRequiredService<IConfiguration>().GetConnectionString("Postgres")!;
-        var dir = Path.Combine(RaizRepo(), "tools", "aw-origen-demo");
+        var dir = DirectorioOrigenDemo();
         await using var cn = new NpgsqlConnection(_cs);
         await cn.OpenAsync();
         foreach (var archivo in new[] { "schema.sql", "seed.sql" })
@@ -56,16 +56,17 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         {
             await using var cn = new NpgsqlConnection(_cs);
             await cn.OpenAsync();
-            await using var cmd = new NpgsqlCommand("DROP SCHEMA IF EXISTS aw_origen CASCADE", cn);
+            await using var cmd = new NpgsqlCommand("DROP SCHEMA IF EXISTS dbo CASCADE; DROP SCHEMA IF EXISTS aw_origen CASCADE", cn);
             await cmd.ExecuteNonQueryAsync();
         }
         finally { await LimpiarDestinoAsync(); }
     }
 
-    private static string RaizRepo()
+    internal static string DirectorioOrigenDemo()
     {
         for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
-            if (File.Exists(Path.Combine(d.FullName, "tools", "aw-origen-demo", "schema.sql"))) return d.FullName;
+            if (File.Exists(Path.Combine(d.FullName, "tools", "aw-origen-demo", "schema.sql")))
+                return Path.Combine(d.FullName, "tools", "aw-origen-demo");
         throw new InvalidOperationException("No se encontró tools/aw-origen-demo subiendo desde " + AppContext.BaseDirectory);
     }
 

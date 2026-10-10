@@ -1,0 +1,2 @@
+Descubiertas: 242
+Total: 242; aprobadas: 242; fallidas: 0; omitidas: 0; segundos: 3.3941507

@@ -7,22 +7,8 @@ using Millet.SharedKernel.Application;
 namespace Millet.Compras.Infrastructure.PublicAdapters;
 
 /// <summary>
-/// Provider que aporta nodos de tipo <see cref="TipoDocumentoTrazabilidad.Recepcion"/>
-/// al árbol de trazabilidad cuando el origen es una OC. Consulta
-/// <c>almacen.movimientos_inventario</c> filtrando por
-/// <c>OcId == idOrigen</c> y tipo <c>EntradaCompra</c>.
-///
-/// <para>
-/// Bypass de empresa: los movimientos no se filtran por la empresa actual
-/// (la query corre dentro del servicio de trazabilidad que ya validó la
-/// empresa al consultar la OC).
-/// </para>
-///
-/// <para>
-/// Solo emite nodos para <c>tipoOrigen == OrdenCompra</c>; otros tipos
-/// retornan lista vacía. Cuando llegue trazabilidad desde una recepción
-/// (caso opuesto) se agrega aquí.
-/// </para>
+/// Recepciones de OC, sus facturas vinculadas y los ascendentes de recepción/factura.
+/// Todas las consultas conservan el filtro de empresa, incluso desde una recepción.
 /// </summary>
 public sealed class AlmacenRecepcionesTrazabilidadProvider : IProveedorNodosTrazabilidad
 {
@@ -30,13 +16,15 @@ public sealed class AlmacenRecepcionesTrazabilidadProvider : IProveedorNodosTraz
 
     private readonly AlmacenDbContext _db;
     private readonly ICurrentEmpresaContext _empresaContext;
+    private readonly ICxpFacturasTrazabilidadReadPort _facturas;
 
     public AlmacenRecepcionesTrazabilidadProvider(
         AlmacenDbContext db,
-        ICurrentEmpresaContext empresaContext)
+        ICurrentEmpresaContext empresaContext, ICxpFacturasTrazabilidadReadPort facturas)
     {
         _db = db;
         _empresaContext = empresaContext;
+        _facturas = facturas;
     }
 
     public async Task<IReadOnlyList<NodoArbolDocumento>> ObtenerDescendentesAsync(
@@ -44,12 +32,17 @@ public sealed class AlmacenRecepcionesTrazabilidadProvider : IProveedorNodosTraz
         Guid idOrigen,
         CancellationToken cancellationToken)
     {
+        if (tipoOrigen == TipoDocumentoTrazabilidad.Recepcion)
+        {
+            var m = await _db.Movimientos.AsNoTracking().FirstOrDefaultAsync(m => m.Id == idOrigen && m.Tipo == TipoMovimiento.EntradaCompra, cancellationToken);
+            return m is null ? [] : await _facturas.ObtenerPorReferenciaAsync(m.FacturaId, m.CfdiRecibidoId, cancellationToken);
+        }
         if (tipoOrigen != TipoDocumentoTrazabilidad.OrdenCompra)
         {
             return Empty;
         }
 
-        using var bypass = _empresaContext.Bypass();
+        // La lectura conserva el filtro de empresa para cualquier entrada.
 
         var recepciones = await _db.Movimientos
             .AsNoTracking()
@@ -77,4 +70,27 @@ public sealed class AlmacenRecepcionesTrazabilidadProvider : IProveedorNodosTraz
                 Descendentes: new List<NodoArbolDocumento>()))
             .ToList();
     }
+    public async Task<NodoArbolDocumento?> ObtenerNodoAsync(TipoDocumentoTrazabilidad tipo, Guid id, CancellationToken ct)
+    {
+        if (tipo != TipoDocumentoTrazabilidad.Recepcion) return null;
+        var m = await _db.Movimientos.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id && m.Tipo == TipoMovimiento.EntradaCompra, ct);
+        return m is null ? null : new(tipo, m.Id, m.Folio ?? "(borrador)", m.Estado.ToString(), m.FechaRegistro, [], []);
+    }
+    public async Task<IReadOnlyList<NodoArbolDocumento>> ObtenerAscendentesAsync(TipoDocumentoTrazabilidad tipo, Guid id, CancellationToken ct)
+    {
+        if (tipo == TipoDocumentoTrazabilidad.Recepcion)
+        {
+            var ocId = await _db.Movimientos.AsNoTracking().Where(m => m.Id == id && m.Tipo == TipoMovimiento.EntradaCompra)
+                .Select(m => m.OcId).FirstOrDefaultAsync(ct);
+            return ocId is Guid oc ? [new(TipoDocumentoTrazabilidad.OrdenCompra, oc, "", "", default, [], [])] : [];
+        }
+        if (tipo != TipoDocumentoTrazabilidad.FacturaProveedor) return [];
+        var cfdi = await _facturas.ObtenerCfdiIdAsync(id, ct);
+        var filas = await _db.Movimientos.AsNoTracking().Where(m => m.Tipo == TipoMovimiento.EntradaCompra
+            && (m.FacturaId == id || (cfdi != null && m.CfdiRecibidoId == cfdi)))
+            .Select(m => new { m.Id, m.Folio, m.Estado, m.FechaRegistro }).ToListAsync(ct);
+        return filas.Select(m => new NodoArbolDocumento(TipoDocumentoTrazabilidad.Recepcion,
+            m.Id, m.Folio ?? "(borrador)", m.Estado.ToString(), m.FechaRegistro, [], [])).ToList();
+    }
+
 }

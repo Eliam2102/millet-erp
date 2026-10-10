@@ -20,6 +20,7 @@ public static class ReposicionesCajaEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/reposiciones-caja")
+            .WithDocumentoSucursalScope("reposicion_caja", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -53,8 +54,10 @@ public static class ReposicionesCajaEndpoints
         group.MapPost("/emitir", async (
             [FromBody] EmitirReposicionManualCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(command.SucursalId, "cuentas_por_pagar.documentos.gestionar-todas-sucursales", cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Ok(response);
         })
@@ -69,8 +72,10 @@ public static class ReposicionesCajaEndpoints
         group.MapPut("/configuracion", async (
             [FromBody] ConfigurarReposicionCajaCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(command.SucursalId, "cuentas_por_pagar.documentos.gestionar-todas-sucursales", cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Ok(response);
         })

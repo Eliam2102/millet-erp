@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { tesoreriaKeys } from '@/features/tesoreria/api/keys';
 import { apiRequest } from '@/lib/api';
 import {
   cxpKeys,
@@ -294,6 +295,7 @@ export function useAplicarNcAFactura() {
       );
     },
     onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pasivos() });
       queryClient.invalidateQueries({
         queryKey: cxpKeys.facturaById(vars.facturaId),
       });
@@ -325,6 +327,7 @@ export function useAplicarAnticipoAFactura() {
       );
     },
     onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: tesoreriaKeys.pasivos() });
       queryClient.invalidateQueries({
         queryKey: cxpKeys.facturaById(vars.facturaId),
       });

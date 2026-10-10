@@ -134,7 +134,7 @@ function Columna({
       </span>
       <div className="flex flex-col gap-2">
         {nodos.map((n) => (
-          <NodoDocumento key={`${n.tipoDocumento}-${n.id}`} nodo={n} esActual={esActual(n)} />
+          <Rama key={`${n.tipoDocumento}-${n.id}`} nodo={n} esActual={esActual} subir={position === 'izquierda'} />
         ))}
       </div>
     </div>
@@ -156,6 +156,18 @@ function Flecha({ direccion }: { direccion: 'der' | 'abajo' }) {
       ) : (
         <ArrowLeft className="hidden h-5 w-5 self-center lg:inline" />
       )}
+    </div>
+  );
+}
+
+function Rama({ nodo, esActual, subir }: { nodo: NodoArbolDocumento; esActual: (n: NodoArbolDocumento) => boolean; subir: boolean }) {
+  const siguientes = subir ? nodo.ascendentes : nodo.descendentes;
+  return (
+    <div className="space-y-2" role="treeitem" aria-expanded={siguientes.length ? true : undefined}>
+      <NodoDocumento nodo={nodo} esActual={esActual(nodo)} />
+      {siguientes.length > 0 && <div className="ml-4 space-y-2 border-l pl-3" role="group">
+        {siguientes.map(n => <Rama key={`${n.tipoDocumento}-${n.id}`} nodo={n} esActual={esActual} subir={subir} />)}
+      </div>}
     </div>
   );
 }

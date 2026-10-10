@@ -37,7 +37,11 @@ public sealed record ListarPartidasAbiertasQuery(
     string? SemanaEmbarque = null,
     int? DiasAtrasadosMinimos = null,
     int Page = 1,
-    int PageSize = 50) : IRequest<ListarPartidasAbiertasResponse>;
+    int PageSize = 50) : IRequest<ListarPartidasAbiertasResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "compras.ordenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record ListarPartidasAbiertasResponse(
     IReadOnlyList<PartidaAbiertaResumen> Items,

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.Tesoreria.Domain.Ports.DatosMaestros;
@@ -34,7 +35,10 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
         using var bypass = _empresaContext.Bypass();
         return await _db.Proveedores.AsNoTracking()
             .Where(p => p.Id == proveedorId)
-            .Select(p => new ProveedorBancoDto(p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario))
+            .Select(p => new ProveedorBancoDto(
+                p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario,
+                p.Estatus == EstatusCatalogo.Activo,
+                p.Estatus == EstatusCatalogo.EnRevision, p.Rfc))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -47,7 +51,10 @@ public sealed class ProveedorBancoReadPortAdapter : IProveedorBancoReadPort
         using var bypass = _empresaContext.Bypass();
         return await _db.Proveedores.AsNoTracking()
             .Where(p => proveedorIds.Contains(p.Id))
-            .Select(p => new ProveedorBancoDto(p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario))
+            .Select(p => new ProveedorBancoDto(
+                p.Id, p.Clave, p.RazonSocial, p.Banco, p.Clabe, p.Beneficiario,
+                p.Estatus == EstatusCatalogo.Activo,
+                p.Estatus == EstatusCatalogo.EnRevision, p.Rfc))
             .ToDictionaryAsync(p => p.Id, cancellationToken);
     }
 }

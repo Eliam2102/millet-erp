@@ -36,6 +36,8 @@ public static class SalidasEndpoints
             [FromQuery] DateOnly? hasta,
             [FromQuery] bool? soloVales,
             [FromQuery] bool? noRegularizados,
+            [FromQuery] bool? soloVencidos,
+            [FromQuery] bool? soloPorVencer,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -44,7 +46,7 @@ public static class SalidasEndpoints
             var (off, lim) = NormalizePaging(offset, limit);
             var response = await mediator.Send(
                 new ListarSalidasQuery(estado, subAlmacenId, rqId, personaDestinatariaId,
-                    desde, hasta, soloVales, noRegularizados, off, lim), ct);
+                    desde, hasta, soloVales, noRegularizados, off, lim, soloVencidos, soloPorVencer), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasLeerTodas)

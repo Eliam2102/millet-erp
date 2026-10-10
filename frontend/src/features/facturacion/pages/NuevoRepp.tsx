@@ -1,3 +1,4 @@
+import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
@@ -131,6 +132,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
           onClose({ force: true });
         },
         onError: (error) => {
+          if (mostrarErrorReceptorFiscal(error)) return;
           if (esApiError(error)) {
             if (
               applyServerErrors(

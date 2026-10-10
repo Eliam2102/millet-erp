@@ -6,15 +6,14 @@ namespace Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
 /// Mirror directo de <see cref="Domain.Oc.AdjuntoOC"/>.
 ///
 /// <para>El frontend consume este DTO en el <c>&lt;AdjuntosManager/&gt;</c>
-/// del Tab "Adjuntos". <see cref="BlobUrl"/> es la URL del blob storage
-/// (Azure Blob en prod, filesystem stub en dev) — el frontend la usa
-/// para preview (PDF embed / img thumbnail) y download.</para>
+/// del Tab "Adjuntos". No expone la URL del blob (F1-ADM-11 G1.2): preview
+/// y descarga se sirven por el endpoint autenticado
+/// <c>GET .../adjuntos/{adjuntoId}/contenido</c>.</para>
 /// </summary>
 public sealed record AdjuntoOcResponse(
     Guid Id,
     Guid TipoDocumentoId,
     string NombreArchivo,
-    string BlobUrl,
     string ContentType,
     long TamanoBytes,
     DateTimeOffset FechaCarga,

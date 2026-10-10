@@ -237,6 +237,24 @@ public sealed class AwProductosSqlOrigenTests
         AwProductoSnapshotMapper.Mapear(mala, DateTime.UtcNow).Error.Should().Contain("componente sin ref");
     }
 
+    [Fact]
+    public void Mapper_aplica_la_regla_fiscal_del_tipo_y_un_tipo_sin_regla_queda_sin_fiscales()
+    {
+        var reglas = new Dictionary<string, ReglaFiscalProductoAw>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["VTE"] = new() { ClaveProdServSat = "30171706", ClaveUnidadSat = "H87", ObjetoImp = "02", TasaIvaTraslado = 0.16m, FraccionArancelaria = "7007199999", UnidadAduana = "01" },
+        };
+        var vte = AwProductosSqlOrigen.ConstruirFila(7, "VT6", 0, 6m, 0m, 0m, null, "DEMO", null, null, "m²", [], [], "G", "vte");
+        var otro = vte with { Tipo = "Proceso" };
+
+        var s = AwProductoSnapshotMapper.Mapear(vte, DateTime.UtcNow, reglas).Snapshot!;
+        (s.ClaveProdServSat, s.ClaveUnidadSatSugerida, s.ObjetoImp, s.TasaIvaTraslado, s.FraccionArancelaria, s.UnidadAduana)
+            .Should().Be(("30171706", "H87", "02", 0.16m, "7007199999", "01"));
+
+        var n = AwProductoSnapshotMapper.Mapear(otro, DateTime.UtcNow, reglas).Snapshot!;
+        (n.ClaveProdServSat, n.ClaveUnidadSatSugerida, n.ObjetoImp).Should().Be((null, null, null));
+    }
+
     // Referencia no válida o 0 (registro nulo de A+W): responde null SIN abrir conexión.
     private sealed class FabricaQueNoSeUsa : IIntegracionSqlConnectionFactory
     {

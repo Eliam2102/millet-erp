@@ -241,7 +241,7 @@ public class AwClientesSandboxTests(WebApplicationFactory<Program> factory, ITes
         Assert.Equal("USD", cs["7"].MonedaDefault);
         Assert.Equal("EUR", cs["77"].MonedaDefault);
         Assert.Equal(("30 DIAS", 6, 30), (regs["19"].CondicionCodigoOrigen, regs["19"].CondicionNumeroOrigen, regs["19"].DiasNominalesOrigen));
-        Assert.Null(c10.Rfc); // nunca se deriva RFC de UST_ID/STEUERNUMMER
+        Assert.Null(c10.Rfc); // UST_ID 'DEMO010' no tiene forma de RFC: solo candidato
         Assert.Equal("DEMO010", r10.CandidatoFiscalUstId);
 
         // Segundo barrido: idempotente.
@@ -281,11 +281,11 @@ public class AwClientesSandboxTests(WebApplicationFactory<Program> factory, ITes
         if (!Activo) return;
         await Barrido(OrigenReal(Opts()), Opts());
         var (cs0, regs0) = await Destino();
-        // XAXX010101000 (UST_ID) repetido en 3, 6, 9...: clientes distintos que comparten candidato; Rfc local intacto (null).
+        // XAXX010101000 (UST_ID) repetido en 3, 6, 9...: clientes distintos que comparten RFC; el RFC nunca es llave de fusión.
         Assert.Equal(regs0["3"].CandidatoFiscalUstId, regs0["6"].CandidatoFiscalUstId);
         Assert.Equal("XAXX010101000", regs0["3"].CandidatoFiscalUstId);
         Assert.NotEqual(cs0["3"].Id, cs0["6"].Id);
-        Assert.Null(cs0["3"].Rfc);
+        Assert.Equal("XAXX010101000", cs0["3"].Rfc);
 
         await Script("mutar", "duplicar-cliente"); // 1001 copia de 5 (mismo UST_ID, otro ID)
         var e = await Barrido(OrigenReal(Opts()), Opts());

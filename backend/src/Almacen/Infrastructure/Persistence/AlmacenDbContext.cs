@@ -117,6 +117,8 @@ public class AlmacenDbContext : BaseDbContext
     /// </summary>
     public DbSet<IntegrationEventOutboxEntry> OutboxEntries => Set<IntegrationEventOutboxEntry>();
 
+    public DbSet<Domain.Apartados.ApartadoRequisicion> ApartadosRequisicion => Set<Domain.Apartados.ApartadoRequisicion>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("almacen");
@@ -144,6 +146,15 @@ public class AlmacenDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new PeriodoCerradoConfiguration());
         modelBuilder.ApplyConfiguration(new AlmacenSettingsConfiguration());
 
+        modelBuilder.Entity<Domain.Apartados.ApartadoRequisicion>(b =>
+        {
+            b.ToTable("apartados_requisicion", t => t.HasCheckConstraint("ck_apartado_pendiente", "pendiente >= 0"));
+            b.HasKey(a => a.Id);
+            b.Property(a => a.Id).ValueGeneratedNever();
+            b.Property(a => a.Pendiente).HasPrecision(14, 4);
+            b.HasIndex(a => a.LineaRequisicionId).IsUnique();
+            b.HasIndex(a => new { a.SucursalId, a.ArticuloId });
+        });
         OnModelCreatingProviderSpecific(modelBuilder);
     }
 

@@ -30,6 +30,11 @@ public sealed class ConteoInventarioConfiguration : IEntityTypeConfiguration<Con
         builder.Property(x => x.FechaAprobacion);
         builder.Property(x => x.MotivoRechazo).HasMaxLength(500);
 
+        builder.Property(x => x.VariacionPctParaRecuento).HasColumnType("numeric").IsRequired();
+        builder.Property(x => x.VariacionValorParaRecuento).HasColumnType("numeric").IsRequired();
+        builder.Property(x => x.UmbralNivel1Maximo).HasColumnType("numeric").IsRequired();
+        builder.Property(x => x.UmbralNivel2Maximo).HasColumnType("numeric").IsRequired();
+
         // §5.2: bandeja "Conteos en curso".
         builder.HasIndex(x => new { x.Estado, x.FechaPlanificada })
             .HasDatabaseName("ix_conteos_activos")

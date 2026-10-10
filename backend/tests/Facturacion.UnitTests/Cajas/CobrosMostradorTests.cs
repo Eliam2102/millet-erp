@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Application.Cajas.Alcance;
 using Millet.Facturacion.Application.Cajas.Cobros;
 using Millet.Facturacion.Application.Integration;
+using Millet.Facturacion.Domain.Anticipos;
+using Millet.Facturacion.Domain.Pedidos;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Facturacion.Domain.Comprobantes;
 using Millet.Facturacion.Domain.Facturas;
@@ -37,10 +39,10 @@ public sealed class CobrosMostradorTests
 
     private static DatosFiscalesEmisor Emisor() => new("BBB010101BBB", "Millet", "601", "76120");
 
-    private static FacturaVenta FacturaTimbrada(decimal valor, string metodoPago = "PUE", string folio = "F-1")
+    private static FacturaVenta FacturaTimbrada(decimal valor, string metodoPago = "PUE", string folio = "F-1", Guid? pedidoFacturableId = null)
     {
         var fv = FacturaVenta.CrearBorrador(Empresa, folio, 1, SucursalId, null, null, Receptor(), Emisor(),
-            metodoPago, "01", "MXN", null, 2026, 7, 1, ComportamientoFiscal.MostradorInmediato, null, null, null, false);
+            metodoPago, "01", "MXN", null, 2026, 7, 1, ComportamientoFiscal.MostradorInmediato, pedidoFacturableId, null, null, false);
         fv.AgregarLinea(null, "01010101", "P", "H87", 1m, valor, 0m, "02", 0m, null, null);
         fv.RecalcularTotales();
         fv.MarcarTimbradoEnProceso();
@@ -80,7 +82,7 @@ public sealed class CobrosMostradorTests
         IAlcanceCajaEvaluator? alcance = null,
         Guid? usuario = null) =>
         new(db, new FakeEmpresaContext(Empresa), new FakeUserContext(usuario ?? Cajero), new FakeClock(Ahora),
-            new FakeSucursalesReadPort(), alcance ?? new FakeAlcanceCajaEvaluator(), eventos ?? new FakeIntegrationEventPublisher());
+            new FakeSucursalesReadPort(), alcance ?? new FakeAlcanceCajaEvaluator(), eventos ?? new FakeIntegrationEventPublisher(), new FakeCatalogosSatReadPort());
 
     private static CancelarCobroMostradorHandler CancelarHandler(
         FacturacionDbContext db,
@@ -123,6 +125,62 @@ public sealed class CobrosMostradorTests
         factura.CajaId.Should().Be(caja.Id); // AsignarCajaCobro (§6)
         eventos.Publicados.Should().ContainSingle()
             .Which.Should().BeOfType<CobroMostradorRegistradoIntegrationEvent>();
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public async Task Registrar_publica_cliente_del_pedido_o_null_si_no_se_puede_inferir(
+        bool conPedido, bool pedidoExiste)
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var clienteId = Guid.NewGuid();
+        var pedido = PedidoFacturable.CrearManual(Empresa, "P-1", SucursalId, clienteId, "Cliente", 1,
+            ComportamientoFiscal.MostradorInmediato, "MXN", null, null, null, Cajero);
+        if (pedidoExiste)
+            db.PedidosFacturables.Add(pedido);
+        var factura = FacturaTimbrada(1000m, pedidoFacturableId: conPedido ? pedido.Id : null);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var eventos = new FakeIntegrationEventPublisher();
+        await RegistrarHandler(db, eventos).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput("01", 1000m)]), CancellationToken.None);
+
+        var evento = eventos.Publicados.OfType<CobroMostradorRegistradoIntegrationEvent>().Single();
+        evento.ClienteId.Should().Be(pedidoExiste ? clienteId : null);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Registrar_publica_cliente_del_anticipo_o_null_si_no_existe(bool anticipoExiste)
+    {
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var clienteId = Guid.NewGuid();
+        var anticipoId = Guid.NewGuid();
+        var factura = FacturaAnticipo.CrearBorrador(Empresa, "A-1", 1, SucursalId, null, null,
+            Receptor(), Emisor(), "01", "MXN", null, 2026, 7, TipoAnticipo.ClientesMxp,
+            null, anticipoId, 1000m, 0.16m, canalVentaId: 1);
+        factura.MarcarTimbradoEnProceso();
+        factura.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
+        db.FacturasAnticipo.Add(factura);
+        if (anticipoExiste)
+            db.Anticipos.Add(Anticipo.Crear(Empresa, clienteId, Receptor().Rfc, TipoAnticipo.ClientesMxp,
+                "MXN", factura.Total, factura.Id, id: anticipoId));
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var eventos = new FakeIntegrationEventPublisher();
+        await RegistrarHandler(db, eventos).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput("01", 1160m)]), CancellationToken.None);
+
+        var evento = eventos.Publicados.OfType<CobroMostradorRegistradoIntegrationEvent>().Single();
+        evento.ClienteId.Should().Be(anticipoExiste ? clienteId : null);
     }
 
     [Fact]

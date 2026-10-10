@@ -1,0 +1,37 @@
+# Emulador local de Azure Service Bus para que los módulos se pasen avisos
+# en una sola computadora (sin él, el ERP usa NoOpIntegrationEventBusSender
+# y descarta los eventos). Solo desarrollo local; en Azure se usa el
+# Service Bus real definido en infra/modules/servicebus.bicep.
+#
+# Temas y suscripciones: Config.json, generado con generar-config.py.
+# Conexión para el backend (valor documentado del emulador, no es secreto):
+#   ServiceBus__ConnectionString="Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
+#
+# Uso: docker compose -f tools/servicebus-emulator/docker-compose.yml up -d
+
+name: millet-servicebus
+
+services:
+  emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    container_name: millet-servicebus-emulator
+    volumes:
+      - ./Config.json:/ServiceBus_Emulator/ConfigFiles/Config.json
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:5300:5300"
+    environment:
+      SQL_SERVER: sqledge
+      MSSQL_SA_PASSWORD: "${SB_SQL_PASSWORD:-Millet-Local-Emulador-1}"
+      ACCEPT_EULA: "${SB_ACCEPT_EULA:-N}"
+      SQL_WAIT_INTERVAL: "15"
+    depends_on:
+      - sqledge
+
+  sqledge:
+    # Imagen nativa para Apple Silicon que usa el emulador como almacén interno.
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: millet-servicebus-sqledge
+    environment:
+      ACCEPT_EULA: "${SB_ACCEPT_EULA:-N}"
+      MSSQL_SA_PASSWORD: "${SB_SQL_PASSWORD:-Millet-Local-Emulador-1}"

@@ -1,3 +1,6 @@
+import { CatalogoConceptos } from '../components/CatalogoConceptos';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Input } from '@/components/ui/input';
@@ -25,6 +28,7 @@ function hoyIso(): string {
  * <c>&lt;ReporteShell&gt;</c> con export PDF/Excel client-side.
  */
 export function ReporteFlujoEfectivoPage() {
+  const administrar = useHasPermission(PermisosCanonicos.TesoreriaCuentasAdministrar);
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
 
@@ -87,6 +91,7 @@ export function ReporteFlujoEfectivoPage() {
         </p>
       </header>
 
+      {administrar && <CatalogoConceptos />}
       <ReporteShell
         reporte={adaptarReporteTesoreria(query.data)}
         isLoading={query.isLoading}

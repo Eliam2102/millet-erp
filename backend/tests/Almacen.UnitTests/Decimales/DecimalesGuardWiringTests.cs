@@ -1,3 +1,5 @@
+using Millet.Almacen.Domain.Ports;
+using Millet.Almacen.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Conteos;
 using Millet.Almacen.Application.DevolucionesInternas;
@@ -53,6 +55,12 @@ public class DecimalesGuardWiringTests
             .Options;
         var db = new AlmacenDbContext(opts, new FakeEmpresa(EmpresaId));
         db.Database.EnsureCreated();
+        var recepcion = new MovimientoInventario(EmpresaId, TipoMovimiento.EntradaCompra, EmpresaId, new DateOnly(2026, 6, 1));
+        recepcion.VincularRecepcionVarianteA(EmpresaId, null, Guid.NewGuid(), null);
+        recepcion.AgregarLinea(new LineaMovimiento(ArtPieza, recepcion.Id, 1, ArtPieza, 10, "PZA", 10, ubicacionId: Guid.NewGuid()));
+        recepcion.AgregarLinea(new LineaMovimiento(ArtSinFk, recepcion.Id, 2, ArtSinFk, 10, "PZA", 10, ubicacionId: Guid.NewGuid()));
+        recepcion.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, 2026, 1), UserId);
+        db.Movimientos.Add(recepcion); db.SaveChanges();
         return db;
     }
 
@@ -60,12 +68,12 @@ public class DecimalesGuardWiringTests
     // Representativo: IniciarDevolucionAProveedor (8.B).
 
     private static IniciarDevolucionAProveedorHandler HandlerP1(AlmacenDbContext db) =>
-        new(db, new FakeUser(), new FakeEmpresa(EmpresaId), GuardReal());
+        new(db, new FakeUser(), new FakeEmpresa(EmpresaId), GuardReal(), new P1Fixture.OcPort(new(EmpresaId, "OC-P1", EmpresaId, EmpresaId, "Autorizada", [])));
 
     private static IniciarDevolucionAProveedorCommand CmdP1(Guid articuloId, decimal cantidad) =>
-        new(ProveedorId: Guid.NewGuid(), Motivo: "test 2b", RecepcionOrigenId: null,
+        new(ProveedorId: EmpresaId, Motivo: "test 2b", RecepcionOrigenId: EmpresaId,
             FacturaProveedorOrigenId: null, OrdenCompraOrigenId: null, SubAlmacenOrigenId: null,
-            Lineas: new[] { new DevolucionProveedorLineaInput(articuloId, cantidad, "PZA", 10m, null) });
+            Lineas: new[] { new DevolucionProveedorLineaInput(articuloId, cantidad, "PZA", 10m, articuloId) });
 
     [Fact]
     public async Task P1_InputLinea_Pieza_ConDecimal_Rechaza()
@@ -108,7 +116,7 @@ public class DecimalesGuardWiringTests
             subAlmacenId: subAlmacenId, ubicacionId: Guid.NewGuid(),
             cantidadTeorica: 100m, costoPromedioSnapshot: 50m);
         conteo.AgregarLinea(linea);
-        conteo.Iniciar(); // → EnCurso (snapshot)
+        conteo.Iniciar(new Millet.Almacen.Domain.Conteos.ConteoUmbrales(5m, 1000m, 1000m, 10000m)); // → EnCurso (snapshot)
         db.Set<ConteoInventario>().Add(conteo);
         await db.SaveChangesAsync();
         return (db, conteo.Id, linea.Id);
@@ -189,7 +197,7 @@ public class DecimalesGuardWiringTests
     }
 
     private static AplicarDevolucionInternaHandler HandlerP3(AlmacenDbContext db) =>
-        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), GuardReal());
+        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), GuardReal(), new PeriodoContableStub(true));
 
     private static AplicarDevolucionInternaCommand CmdP3(Guid salidaId, Guid lineaSalidaId, Guid subDestinoId, Guid ubicacionId, decimal cantidad) =>
         new(SalidaOrigenId: salidaId, SubAlmacenDestinoId: subDestinoId,

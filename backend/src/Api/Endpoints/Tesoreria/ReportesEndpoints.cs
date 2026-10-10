@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
+using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.Tesoreria.Application.Reportes;
 using Millet.Tesoreria.Application.Reportes.Comun;
@@ -27,9 +28,12 @@ public static class ReportesEndpoints
             [FromQuery] DateOnly hasta,
             [FromQuery] Guid? cuentaBancariaId,
             [FromQuery] string? moneda,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            if (cuentaBancariaId is Guid cuenta)
+                await scope.VerificarAsync("cuenta_bancaria", cuenta, PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales, cancellationToken);
             var response = await mediator.Send(
                 new FlujoEfectivoReporteQuery(desde, hasta, cuentaBancariaId, moneda),
                 cancellationToken);
@@ -43,9 +47,11 @@ public static class ReportesEndpoints
             [FromQuery] Guid cuentaBancariaId,
             [FromQuery] DateOnly desde,
             [FromQuery] DateOnly hasta,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("cuenta_bancaria", cuentaBancariaId, PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales, cancellationToken);
             var response = await mediator.Send(
                 new AuxiliarBancosReporteQuery(cuentaBancariaId, desde, hasta),
                 cancellationToken);

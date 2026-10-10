@@ -87,6 +87,10 @@ export function tipoDocumentoDetalleRoute(
       return { to: '/compras/requisiciones/$id', params: { id } };
     case TipoDocumentoTrazabilidad.OrdenCompra:
       return { to: '/compras/ordenes/$id', params: { id } };
+    case TipoDocumentoTrazabilidad.Recepcion:
+      return { to: '/almacen/recepciones/$id', params: { id } };
+    case TipoDocumentoTrazabilidad.FacturaProveedor:
+      return { to: '/cxp/facturas/$id', params: { id } };
     // Facturación (doc 13 §6.3).
     case TipoDocumentoTrazabilidad.PedidoFacturable:
       return { to: '/facturacion/pedidos/$id', params: { id } };
