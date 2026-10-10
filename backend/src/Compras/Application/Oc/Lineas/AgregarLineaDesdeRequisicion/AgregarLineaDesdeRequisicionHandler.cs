@@ -119,8 +119,8 @@ public sealed class AgregarLineaDesdeRequisicionHandler
         foreach (var ccId in lineasDeCompra.Select(l => l.CentroCostoId).Distinct())
         {
             if (ccId is not Guid id)
-                throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente y dentro de tu alcance.");
-            await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: true, cancellationToken);
+                throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente.");
+            await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: false, cancellationToken);
         }
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea heredada contra

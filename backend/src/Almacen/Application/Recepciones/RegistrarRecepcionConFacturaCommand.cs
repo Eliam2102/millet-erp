@@ -211,6 +211,7 @@ public sealed class RegistrarRecepcionConFacturaHandler
                 cantidad: conversion.CantidadBase,
                 unidadMedida: conversion.UnidadBase,
                 costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
+                centroCostoId: origen.CentroCostoId,
                 ubicacionReferencia: input.UbicacionReferencia,
                 comentarioLinea: input.Comentario,
                 ubicacionId: input.UbicacionId,

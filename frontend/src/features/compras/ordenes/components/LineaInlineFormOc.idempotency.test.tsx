@@ -45,7 +45,7 @@ const LINEA = {
   descripcionExtendida: null,
   fechaEntregaLinea: null,
   textoAdicional: null,
-  // Fase E PR3.1: el CC-Máquina es requerido en la línea manual, así que el
+  // Fase E PR3.1: el Centro de costo es requerido en la línea manual, así que el
   // form no dejaría hacer submit sin él (este test va de Idempotency-Key).
   centroCostoId: '0c000000-0000-0000-0000-000000000001',
   centroCostoClave: 'MCLC101',

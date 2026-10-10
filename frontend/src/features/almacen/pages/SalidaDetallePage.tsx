@@ -167,7 +167,7 @@ export function SalidaDetallePage() {
                   <tr>
                     <th className="px-3 py-2 text-left">#</th>
                     <th className="px-3 py-2 text-left">Artículo</th>
-                    <th className="px-3 py-2 text-left">CC-Máquina</th>
+                    <th className="px-3 py-2 text-left">Centro de costo</th>
                     <th className="px-3 py-2 text-right">Cantidad</th>
                     <th className="px-3 py-2 text-left">UM</th>
                     <th className="px-3 py-2 text-right">Costo unitario</th>
@@ -192,7 +192,7 @@ export function SalidaDetallePage() {
                           {l.articuloId}
                         </td>
                       )}
-                      {/* CC-Máquina resuelto por el read-port (ADR-0050):
+                      {/* Centro de costo resuelto por el read-port (ADR-0050):
                           "clave — nombre" / "No catalogado" / "—" si sin CC. */}
                       <td className="px-3 py-2">
                         {l.centroCostoId

@@ -5,6 +5,10 @@ using Millet.CentrosCosto.Infrastructure.Persistence;
 
 namespace Millet.CentrosCosto.Infrastructure.PublicAdapters;
 
+/// <remarks>
+/// ADM08 / ADR-0062: el nombre histórico Dim3 se conserva por compatibilidad;
+/// este contrato admite centros Dim1/Dim2 y máquinas Dim3.
+/// </remarks>
 /// <summary>
 /// Adaptador productivo de <see cref="IDim3ReadPort"/>. CentrosCosto es el
 /// owner del dato, así que el adaptador vive AQUÍ (no en el consumidor ni en
@@ -28,11 +32,8 @@ public sealed class Dim3ReadAdapter : IDim3ReadPort
 
         var ids = dim3Ids.Distinct().ToArray();
 
-        return await _db.Dim3s
-            .AsNoTracking()
-            .Where(d => ids.Contains(d.Id))
-            .Select(d => new Dim3Lectura(
-                d.Id, d.Clave, d.Nombre, d.Estatus == EstatusCatalogo.Activo))
-            .ToDictionaryAsync(d => d.Id, cancellationToken);
+        var nodos = await CentroCostoCatalogoLectura.ObtenerAsync(_db, cancellationToken);
+        return nodos.Where(x => ids.Contains(x.Id)).ToDictionary(x => x.Id,
+            x => new Dim3Lectura(x.Id, x.Clave, x.Nombre, x.Activo));
     }
 }

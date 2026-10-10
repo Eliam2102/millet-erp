@@ -1,3 +1,4 @@
+import { EquivalenciasDepartamento } from '../components/EquivalenciasDepartamento';
 import { useState } from 'react';
 import { ListTree, Plus, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -167,6 +168,8 @@ export function ConfiguracionCentrosCostoPage() {
         puedeAdministrar={puedeAdministrar}
         onAccion={onAccion}
       />
+
+      <EquivalenciasDepartamento puedeAdministrar={puedeAdministrar} />
 
       {dim1Dialog && (
         <Dim1Dialog

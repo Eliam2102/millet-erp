@@ -288,6 +288,9 @@ export interface RecepcionListItem {
 }
 
 export interface RecepcionLineaItem {
+  centroCostoId?: string | null;
+  centroCostoClave?: string | null;
+  centroCostoNombre?: string | null;
   id: string;
   posicion: number;
   articuloId: string;

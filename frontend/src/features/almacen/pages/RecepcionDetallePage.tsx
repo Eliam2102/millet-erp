@@ -1,3 +1,4 @@
+import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { Link, useParams } from '@tanstack/react-router';
@@ -144,6 +145,7 @@ export function RecepcionDetallePage() {
                     <th className="px-3 py-2 text-left">Artículo</th>
                     <th className="px-3 py-2 text-right">Cantidad</th>
                     <th className="px-3 py-2 text-left">UM</th>
+                    <th className="px-3 py-2 text-left">Centro de costo</th>
                     <th className="px-3 py-2 text-right">Costo unitario</th>
                     <th className="px-3 py-2 text-right">Monto</th>
                   </tr>
@@ -173,6 +175,7 @@ export function RecepcionDetallePage() {
                         })}
                       </td>
                       <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
+                      <td className="px-3 py-2 text-sm text-ink">{l.centroCostoId ? formatCcMaquinaLabel({ clave: l.centroCostoClave, nombre: l.centroCostoNombre }) : '—'}</td>
                       <td className="px-3 py-2 text-right font-mono">
                         {formatearMonto(l.costoUnitarioMxn)}
                       </td>

@@ -1,5 +1,8 @@
 # Diseño de frontend — Módulo Centros de Costo
 
+> **Actualización ADM08 · 09-oct-2026:** [ADR-0062](../../decisiones/0062-centro-costo-heredado-departamento.md), basado en P203 y la decisión de Eliam, prevalece sobre las secciones históricas que exigen máquina o separación total del departamento. En RQ se hereda el centro del departamento, solo lectura sin alcance; con alcance se puede elegir otro centro o máquina. Máquina opcional; OC/entrada/salida heredan el dato guardado. Equivalencias DEMO **por validar con Laura (V49)**. Ver [entrega ADM08](../../entregas/ADM08-ceco-heredado-departamento.md).
+
+
 > **Versión:** 0.4.1 · **Fecha:** 2026-07-17
 > **Basado en:** [`01-diseno.md`](01-diseno.md) v0.5 y
 > [`frontend/docs/patrones-compras.md`](../../../frontend/docs/patrones-compras.md).

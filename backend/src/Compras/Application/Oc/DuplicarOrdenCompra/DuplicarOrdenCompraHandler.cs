@@ -95,7 +95,7 @@ public sealed class DuplicarOrdenCompraHandler
         {
             if (linea.CentroCostoId is not Guid ccId)
                 throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente y dentro de tu alcance.");
-            await CentroCostoLineaGuard.ValidarAsync(_dim3, ccId, aplicarAlcance: true, cancellationToken);
+            await CentroCostoLineaGuard.ValidarAsync(_dim3, ccId, aplicarAlcance: linea.LineaRequisicionId is null, cancellationToken);
             if (linea.LineaRequisicionId is Guid rqLineaId)
             {
                 SaldoCompraRq.Validar(linea.Cantidad - linea.CantidadRecibida, saldos.GetValueOrDefault(rqLineaId));

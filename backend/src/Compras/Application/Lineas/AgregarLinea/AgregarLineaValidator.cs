@@ -15,11 +15,9 @@ public sealed class AgregarLineaValidator : AbstractValidator<AgregarLineaComman
         RuleFor(c => c.RequisicionId).NotEmpty().WithErrorCode("REQUISICION_REQUERIDA");
         RuleFor(c => c.ArticuloId).NotEmpty().WithErrorCode("ARTICULO_REQUERIDO");
 
-        // Fase E PR2.1: el CC-Máquina pasa a OBLIGATORIO en la línea de RQ. El
-        // capturista elige del picker filtrado por su alcance; si le sale vacío,
-        // el admin de CentrosCosto le asigna CCs en /centros-costo/asignaciones.
-        RuleFor(c => c.CentroCostoId)
-            .NotNull().WithErrorCode("LINEA_RQ_CENTRO_COSTO_REQUERIDO");
+        // ADM08: null solicita la herencia. La regla autoritativa resuelve el centro.
+        RuleFor(c => c.CentroCostoId).NotEqual(Guid.Empty)
+            .When(c => c.CentroCostoId.HasValue).WithErrorCode("CECO_INVALIDO");
 
         RuleFor(c => c.Cantidad)
             .GreaterThan(0m).WithErrorCode("CANTIDAD_INVALIDA");

@@ -42,7 +42,7 @@ import {
 import { useAgregarLineaManual } from '@/features/compras/ordenes/api/useAgregarLineaManual';
 import { useActualizarLinea } from '@/features/compras/ordenes/api/useActualizarLinea';
 import { LineaDesdeRqBadge } from '@/features/compras/ordenes/components/LineaDesdeRqBadge';
-import { Dim3Picker } from '@/features/centros-costo/components/Dim3Picker';
+import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCostoPicker';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
 import { subtotalLinea } from '../lib/subtotal-linea';
@@ -128,7 +128,7 @@ export function LineaInlineFormOc({
   const [unidadMedidaIdSel, setUnidadMedidaIdSel] = useState<string | null>(null);
   const lookupDecimales = useDecimalesUnidad();
   const decimalesRef = useRef(DECIMALES_FALLBACK);
-  // Fase E PR3.1: el CC-Máquina es requerido en la línea MANUAL. En la
+  // Fase E PR3.1: el Centro de costo es requerido en la línea MANUAL. En la
   // heredada de RQ el campo es read-only (viene 1:1 de la RQ) y el submit
   // manda null = "no tocar", así que exigirlo dejaría sin salida a las
   // heredadas legadas con CC null.
@@ -412,13 +412,13 @@ export function LineaInlineFormOc({
         </FieldInline>
       </div>
 
-      {/* ── Sub-fila (siempre visible): CC-Máquina (Fase E PR3) ──────
+      {/* ── Sub-fila (siempre visible): Centro de costo (Fase E PR3) ──────
           Heredada de RQ → display BLOQUEADO read-only (ADR-0050 "heredado,
           solo lectura", 1:1 de la RQ); manual → picker ABIERTO por proxy
           (el comprador elige, /compras/ordenes/dim3/buscar). */}
       <div className="border-t border-primary/10 pt-2">
         <FieldInline
-          label="CC-Máquina"
+          label="Centro de costo"
           error={form.formState.errors.centroCostoId?.message}
         >
           {lineaDesdeRq ? (
@@ -427,7 +427,7 @@ export function LineaInlineFormOc({
               type="text"
               readOnly
               tabIndex={-1}
-              aria-label="CC-Máquina (heredado de la requisición, no editable)"
+              aria-label="Centro de costo (heredado de la requisición, no editable)"
               className="bg-muted/50"
               value={
                 linea?.centroCostoId
@@ -443,10 +443,10 @@ export function LineaInlineFormOc({
               name="centroCostoId"
               control={form.control}
               render={({ field }) => (
-                <Dim3Picker
+                <CentroCostoPicker
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? null)}
-                  endpoint="/api/v1/compras/ordenes/dim3/buscar"
+                  endpoint="/api/v1/compras/ordenes/centros-costo/buscar"
                   initialLabel={
                     linea?.centroCostoId
                       ? formatCcMaquinaLabel({

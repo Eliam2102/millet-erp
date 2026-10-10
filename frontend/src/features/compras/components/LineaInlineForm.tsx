@@ -32,9 +32,11 @@ import {
   useActualizarLinea,
   useAgregarLinea,
 } from '@/features/compras/api/useLineas';
-import { useCcMaquinaPrellenado } from '@/features/compras/api/useCcMaquinaPrellenado';
+
 import type { LineaResponse } from '@/features/compras/api/types';
-import { Dim3Picker } from '@/features/centros-costo/components/Dim3Picker';
+import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCostoPicker';
+import { useCentroCostoCaptura } from '@/features/centros-costo/api/captura';
+import { centroCostoInicial } from '@/features/centros-costo/lib/captura';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
 
@@ -86,8 +88,7 @@ const VALORES_INICIALES: LineaValues = {
   precioEstimadoMonto: 0,
   precioEstimadoMoneda: 'MXN',
   cuentaContableId: null,
-  // Fase E PR2.1: CC-Máquina requerido. Empty string = "no elegido aún" (mismo
-  // patrón que articuloId); el schema `idLike` lo rechaza al submit → bloquea.
+  // ADM08: el centro se hereda o elige; la máquina es opcional.
   centroCostoId: '',
   proyecto: null,
   fechaRequerida: null,
@@ -165,16 +166,16 @@ export function LineaInlineForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Prellenado del CC-Máquina (Fase E PR2, Card 2): solo en AGREGAR. Si el
-  // alcance del usuario resuelve a exactamente 1 máquina, se prellena; el watch
-  // de centroCostoId re-aplica en cada línea nueva (incluido el reset tras
-  // submit). El label acompaña al id para que el trigger muestre "clave —
-  // nombre" y no el GUID. En edición no corre (la línea ya trae su valor).
-  const { maquina: prellenadoCc } = useCcMaquinaPrellenado(!esEditar);
+  // ADM08: primero el departamento; sin equivalencia, la única opción del alcance.
+  // Sin alcance, el backend y el formulario mantienen el heredado en solo lectura.
+  const captura = useCentroCostoCaptura(requisicionId);
+  const prellenadoCc = captura.data ? centroCostoInicial(captura.data) : null;
   const [prellenadoLabel, setPrellenadoLabel] = useState<string | undefined>();
   const centroCostoActual = form.watch('centroCostoId');
   useEffect(() => {
-    if (esEditar || !prellenadoCc || centroCostoActual) return;
+    if (!prellenadoCc) return;
+    const soloLectura = captura.data && !captura.data.puedeElegir;
+    if (soloLectura ? centroCostoActual === prellenadoCc.id : esEditar || !!centroCostoActual) return;
     form.setValue('centroCostoId', prellenadoCc.id);
     setPrellenadoLabel(
       formatCcMaquinaLabel({
@@ -183,7 +184,7 @@ export function LineaInlineForm({
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prellenadoCc, centroCostoActual, esEditar]);
+  }, [prellenadoCc, centroCostoActual, esEditar, captura.data]);
 
   const isPending = agregar.isPending || actualizar.isPending;
 
@@ -424,23 +425,27 @@ export function LineaInlineForm({
           se resuelve aparte por el read-port (detalle de RQ). ADR-0050. */}
       <div className="border-t border-primary/10 pt-2">
         <FieldInline
-          label="CC-Máquina"
+          label="Centro de costo"
           error={form.formState.errors.centroCostoId?.message}
         >
           <Controller
             name="centroCostoId"
             control={form.control}
             render={({ field }) => (
-              <Dim3Picker
+              <CentroCostoPicker
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? null)}
-                endpoint="/api/v1/centros-costo/dim3/buscar"
+                endpoint="/api/v1/compras/requisiciones/centros-costo/buscar"
+                soloLectura={captura.data ? !captura.data.puedeElegir : false}
+                disabled={captura.isPending || captura.isError}
                 // Etiqueta inicial del trigger sin abrir el picker: en edición,
                 // del DTO enriquecido (read-port; "No catalogado" si el id no
                 // resuelve); en agregar, la del prellenado (Card 2). Sin CC,
                 // undefined → placeholder.
                 initialLabel={
-                  linea?.centroCostoId
+                  captura.data && !captura.data.puedeElegir
+                    ? prellenadoCc ? formatCcMaquinaLabel(prellenadoCc) : undefined
+                    : linea?.centroCostoId
                     ? formatCcMaquinaLabel({
                         clave: linea.centroCostoClave,
                         nombre: linea.centroCostoNombre,
@@ -451,6 +456,8 @@ export function LineaInlineForm({
             )}
           />
         </FieldInline>
+        {captura.data?.mensaje && <p role="alert" className="text-xs text-warning-fg">{captura.data.mensaje}</p>}
+        {captura.isError && <p role="alert" className="text-xs text-danger-fg">No se pudo consultar el centro de costo del departamento. Reintenta antes de guardar.</p>}
       </div>
 
       {/* ── Toggle "+ Detalles" + actions ────────────────────────── */}
@@ -480,7 +487,7 @@ export function LineaInlineForm({
             <X className="mr-1 h-4 w-4" />
             Cancelar
           </Button>
-          <Button type="submit" size="sm" disabled={isPending}>
+          <Button type="submit" size="sm" disabled={isPending || captura.isPending || captura.isError} title={captura.isError ? "Consulta el centro de costo antes de guardar." : undefined}>
             {esEditar ? (
               <>
                 <Check className="mr-1 h-4 w-4" />

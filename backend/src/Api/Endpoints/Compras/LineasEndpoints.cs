@@ -38,6 +38,14 @@ public static class LineasEndpoints
             .WithTags("Compras")
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesEditar);
 
+        group.MapGet("/centro-costo-captura", async (Guid id, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken ct) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, ct, escritura: true);
+            return Results.Ok(await mediator.Send(new Millet.Compras.Application.ObtenerRequisicionPorId.ObtenerCentroCostoCapturaQuery(id), ct));
+        });
+
         group.MapPost("/", async (
             Guid id,
             [FromBody] AgregarLineaRequest request,

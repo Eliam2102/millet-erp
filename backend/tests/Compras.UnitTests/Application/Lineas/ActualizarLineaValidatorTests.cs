@@ -31,11 +31,10 @@ public class ActualizarLineaValidatorTests
     }
 
     [Fact]
-    public void Should_FailValidation_When_CentroCostoIdIsNull()
+    public void Null_solicita_herencia_del_departamento()
     {
         var result = _validator.Validate(Valid() with { CentroCostoId = null });
 
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.ErrorCode == "LINEA_RQ_CENTRO_COSTO_REQUERIDO");
+        Assert.True(result.IsValid);
     }
 }

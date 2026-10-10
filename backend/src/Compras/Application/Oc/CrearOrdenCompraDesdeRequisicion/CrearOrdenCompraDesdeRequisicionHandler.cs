@@ -137,8 +137,8 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
         foreach (var ccId in lineasDeCompra.Select(l => l.CentroCostoId).Distinct())
         {
             if (ccId is not Guid id)
-                throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente y dentro de tu alcance.");
-            await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: true, cancellationToken);
+                throw new BusinessRuleException("CECO_INVALIDO", "La línea requiere un centro de costo vigente.");
+            await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: false, cancellationToken);
         }
 
         // C10 — proveedor activo cross-table.

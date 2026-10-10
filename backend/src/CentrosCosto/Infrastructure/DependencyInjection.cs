@@ -38,6 +38,7 @@ public static class DependencyInjection
             Application.PublicPorts.IDim3ElegibilidadPort,
             Infrastructure.PublicAdapters.Dim3ElegibilidadAdapter>();
 
+        services.AddScoped<Application.PublicPorts.ICentroCostoCapturaPort, PublicAdapters.CentroCostoCapturaAdapter>();
         return services;
     }
 }
