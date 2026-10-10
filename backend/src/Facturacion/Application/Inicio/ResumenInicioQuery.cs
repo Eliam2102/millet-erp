@@ -35,8 +35,11 @@ public sealed class ResumenInicioHandler(FacturacionDbContext db, IAlcanceCajaEv
         (pedidos, _) = await AlcanceBandejaHelper.AplicarAsync(alcance, pedidos, false, cancellationToken);
         var hoy = FechasInicio.Hoy(clock);
         var desde = FechasInicio.Desde(request.Periodo, hoy);
-        if (request.Pieza == "circuito") pedidos = pedidos.Where(p => p.CreatedAt >= new DateTimeOffset(desde.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)) &&
-            p.CreatedAt < new DateTimeOffset(hoy.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)));
+        // PostgreSQL (timestamptz) solo acepta parámetros en UTC.
+        var desdeUtc = new DateTimeOffset(desde.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)).ToUniversalTime();
+        var hastaUtc = new DateTimeOffset(hoy.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)).ToUniversalTime();
+        if (request.Pieza == "circuito") pedidos = pedidos.Where(p => p.CreatedAt >= desdeUtc &&
+            p.CreatedAt < hastaUtc);
         var abiertos = await pedidos.CountAsync(p => p.Origen == OrigenPedido.Aw && p.Estado == EstadoPedidoFacturable.Importado, cancellationToken);
         var excepciones = await pedidos.CountAsync(p => p.Origen == OrigenPedido.Aw && p.Estado == EstadoPedidoFacturable.Excepcion, cancellationToken);
         if (request.Pieza == "pedidos") return new(abiertos, abiertos, $"{abiertos} pedidos A+W sin facturar · {excepciones} con excepción", excepciones);

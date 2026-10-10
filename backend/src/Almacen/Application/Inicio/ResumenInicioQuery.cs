@@ -38,7 +38,8 @@ public sealed class ResumenInicioHandler(AlmacenDbContext db, IComprasRecepcione
             .Where(m => request.DocumentosPermitidos == null || (request.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(m.Id));
         var total = await vales.CountAsync(cancellationToken);
         var hoy = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(clock.UtcNow, "America/Merida");
-        var inicio = new DateTimeOffset(hoy.Date, hoy.Offset);
+        // PostgreSQL (timestamptz) solo acepta parámetros en UTC.
+        var inicio = new DateTimeOffset(hoy.Date, hoy.Offset).ToUniversalTime();
         var fin = inicio.AddDays(1);
         var vencenHoy = await vales.CountAsync(m => m.FechaLimiteRegularizacion >= inicio && m.FechaLimiteRegularizacion < fin, cancellationToken);
         var vencidos = await vales.CountAsync(m => m.FechaLimiteRegularizacion < clock.UtcNow, cancellationToken);

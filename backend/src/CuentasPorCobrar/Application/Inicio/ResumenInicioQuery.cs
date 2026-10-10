@@ -35,8 +35,11 @@ public sealed class ResumenInicioHandler(CuentasPorCobrarDbContext db, IMediator
             .Where(f => request.DocumentosPermitidos == null || (request.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(f.Id));
         var hoy = FechasInicio.Hoy(clock);
         var desde = FechasInicio.Desde(request.Periodo, hoy);
-        facturas = facturas.Where(f => f.CreatedAt >= new DateTimeOffset(desde.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)) &&
-            f.CreatedAt < new DateTimeOffset(hoy.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)));
+        // PostgreSQL (timestamptz) solo acepta parámetros en UTC.
+        var desdeUtc = new DateTimeOffset(desde.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)).ToUniversalTime();
+        var hastaUtc = new DateTimeOffset(hoy.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6)).ToUniversalTime();
+        facturas = facturas.Where(f => f.CreatedAt >= desdeUtc &&
+            f.CreatedAt < hastaUtc);
         var abiertas = await facturas.CountAsync(f => f.Estado == EstadoFacturaCartera.Abierta || f.Estado == EstadoFacturaCartera.Parcial, cancellationToken);
         var cobradas = await facturas.CountAsync(f => f.Estado == EstadoFacturaCartera.Pagada, cancellationToken);
         return new(abiertas, abiertas, $"Cartera registrada del {desde:dd/MM} al {hoy:dd/MM} · tus sucursales",
