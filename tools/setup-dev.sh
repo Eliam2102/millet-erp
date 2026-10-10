@@ -64,7 +64,7 @@ docker compose version >/dev/null 2>&1 || fail "Docker Compose no está disponib
 
 step "Validando versiones"
 dotnet_sdks="$(dotnet --list-sdks)"
-grep -qE '^9\.' <<<"$dotnet_sdks" || fail "Se requiere .NET SDK 9.x. Instalados: $dotnet_sdks"
+grep -qE '^10\.' <<<"$dotnet_sdks" || fail "Se requiere .NET SDK 10.x. Instalados: $dotnet_sdks"
 node_version="$(node --version)"
 [[ "$node_version" =~ ^v22\. ]] || fail "Se requiere Node.js 22.x; se encontró $node_version."
 printf '    .NET 9 y Node %s detectados.\n' "$node_version"
