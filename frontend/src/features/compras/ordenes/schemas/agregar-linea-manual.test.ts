@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { crearAgregarLineaManualSchema } from '@/features/compras/ordenes/schemas/agregar-linea-manual';
 
 /**
- * Fase E PR3.1 — el CC-Máquina pasa de opcional a REQUERIDO en la línea
+ * Fase E PR3.1 — el Centro de costo pasa de opcional a REQUERIDO en la línea
  * MANUAL de OC. La exigencia es condicional (`ccRequerido`) porque el mismo
  * schema resuelve el form al editar una línea HEREDADA de RQ, donde el campo
  * es read-only y el submit manda null = "no tocar" (ADR-0050).
@@ -19,31 +19,31 @@ const baseValida = {
   centroCostoId: CC_ID,
 };
 
-describe('crearAgregarLineaManualSchema — CC-Máquina obligatorio (PR3.1)', () => {
+describe('crearAgregarLineaManualSchema — Centro de costo obligatorio (PR3.1)', () => {
   const manual = crearAgregarLineaManualSchema(); // ccRequerido = true (default)
   const heredada = crearAgregarLineaManualSchema(() => 5, false);
 
-  it('línea manual: parsea con CC-Máquina', () => {
+  it('línea manual: parsea con Centro de costo', () => {
     const result = manual.parse(baseValida);
     expect(result.centroCostoId).toBe(CC_ID);
   });
 
-  it('línea manual: rechaza sin CC-Máquina (null, undefined y vacío)', () => {
+  it('línea manual: rechaza sin Centro de costo (null, undefined y vacío)', () => {
     for (const valor of [null, undefined, '']) {
       expect(() =>
         manual.parse({ ...baseValida, centroCostoId: valor }),
-      ).toThrow(/CC-Máquina requerido/);
+      ).toThrow(/Centro de costo requerido/);
     }
   });
 
-  it('línea heredada: acepta CC-Máquina en null (el submit manda "no tocar")', () => {
+  it('línea heredada: acepta Centro de costo en null (el submit manda "no tocar")', () => {
     // Sin esta rama, una línea heredada legada con CC null quedaría imposible
     // de guardar: campo requerido pero pintado read-only.
     const result = heredada.parse({ ...baseValida, centroCostoId: null });
     expect(result.centroCostoId).toBeNull();
   });
 
-  it('ambas ramas siguen rechazando un CC-Máquina con forma inválida', () => {
+  it('ambas ramas siguen rechazando un Centro de costo con forma inválida', () => {
     expect(() =>
       manual.parse({ ...baseValida, centroCostoId: 'no-es-uuid' }),
     ).toThrow();

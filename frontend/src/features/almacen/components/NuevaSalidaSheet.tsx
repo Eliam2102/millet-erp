@@ -883,7 +883,7 @@ function FilaLineaRq({
                 <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
               </Field>
 
-              <Field label="CC-Máquina">
+              <Field label="Centro de costo">
                 {/* Fase E PR5 Camino 1: el CC-Máquina se HEREDA de la línea de
                     RQ y queda BLOQUEADO (read-only). Mismo molde que la UM/CC
                     heredada de OC (LineaInlineFormOc). El backend lo re-deriva
@@ -893,7 +893,7 @@ function FilaLineaRq({
                   type="text"
                   readOnly
                   tabIndex={-1}
-                  aria-label="CC-Máquina (heredado de la requisición, no editable)"
+                  aria-label="Centro de costo (heredado de la requisición, no editable)"
                   className="bg-muted/50"
                   value={
                     fila.centroCostoId

@@ -1,5 +1,12 @@
 # Órdenes de Compra — Ficha de usuario
 
+## Centro de costo por departamento (ADM08, P203)
+
+Una línea procedente de RQ conserva el centro de costo guardado en esa requisición y se muestra en solo lectura. Puede corresponder al departamento sin máquina. En una OC sin RQ, el comprador elige un centro de costo vigente (planta, área o máquina). La entrada de almacén conserva ese mismo centro por línea.
+
+Las equivalencias de demostración están marcadas **DEMO · por validar con Laura (V49)**. No son asignaciones definitivas aprobadas.
+
+
 ## Qué hace el módulo
 
 Formaliza la compra con el proveedor: convierte requisiciones autorizadas en

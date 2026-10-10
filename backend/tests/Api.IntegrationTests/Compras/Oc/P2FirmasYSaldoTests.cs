@@ -325,12 +325,9 @@ public partial class OrdenesCompraEndpointsTests
 
     [Theory]
     [InlineData("crear", Dim3Elegibilidad.Inactiva)]
-    [InlineData("crear", Dim3Elegibilidad.FueraDeAlcance)]
     [InlineData("agregar", Dim3Elegibilidad.Inactiva)]
-    [InlineData("agregar", Dim3Elegibilidad.FueraDeAlcance)]
     [InlineData("duplicar", Dim3Elegibilidad.Inactiva)]
-    [InlineData("duplicar", Dim3Elegibilidad.FueraDeAlcance)]
-    public async Task P2_CecoInvalido_SeValidaEnLosTresHandlersConAlcance(string flujo, Dim3Elegibilidad elegibilidad)
+    public async Task P2_CecoHeredado_ValidaVigenciaSinAlcanceDelComprador_ADM08(string flujo, Dim3Elegibilidad elegibilidad)
     {
         var client = await CreateSuperAdminClientAsync();
         var (id, rqId) = await SembrarP2(client, recepcion: false, borrador: true);
@@ -360,7 +357,7 @@ public partial class OrdenesCompraEndpointsTests
                     sp.GetRequiredService<IDecimalesUnidadGuard>(), articulos).Handle(new(id, rqId), default);
         });
         Assert.Equal("CECO_INVALIDO", ex.Code);
-        Assert.True(puerto.AplicaAlcance);
+        Assert.False(puerto.AplicaAlcance);
     }
 
     [Theory]

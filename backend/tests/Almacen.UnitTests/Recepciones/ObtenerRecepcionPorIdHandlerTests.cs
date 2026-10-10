@@ -38,7 +38,7 @@ public class ObtenerRecepcionPorIdHandlerTests
         };
         var ocs = new FakeOcReadPort { Folios = new() { [OcId] = "OC-MID2026-000050" } };
 
-        var handler = new ObtenerRecepcionPorIdHandler(db, articulos, ocs, new FakeCxpDocumentosReadPort());
+        var handler = new ObtenerRecepcionPorIdHandler(db, articulos, ocs, new FakeCxpDocumentosReadPort(), new CentrosReadPort());
         var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), CancellationToken.None);
 
         dto.Should().NotBeNull();
@@ -57,7 +57,7 @@ public class ObtenerRecepcionPorIdHandlerTests
         // Sin fila de SubAlmacen y con read-ports vacíos: todos los nombres null.
         await using var db = await NuevaDbConRecepcionAsync(conSubAlmacen: false);
         var handler = new ObtenerRecepcionPorIdHandler(
-            db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort());
+            db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), new CentrosReadPort());
 
         var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), CancellationToken.None);
 
@@ -85,7 +85,7 @@ public class ObtenerRecepcionPorIdHandlerTests
         var articulos = new FakeArticuloReadPort();
 
         var handler = new ObtenerRecepcionPorIdHandler(
-            db, articulos, new FakeOcReadPort(), new FakeCxpDocumentosReadPort());
+            db, articulos, new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), new CentrosReadPort());
         await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), CancellationToken.None);
 
         articulos.LlamadasPorIds.Should().Be(1);
@@ -104,7 +104,7 @@ public class ObtenerRecepcionPorIdHandlerTests
         };
 
         var handler = new ObtenerRecepcionPorIdHandler(
-            db, new FakeArticuloReadPort(), new FakeOcReadPort(), cxp);
+            db, new FakeArticuloReadPort(), new FakeOcReadPort(), cxp, new CentrosReadPort());
         var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), CancellationToken.None);
 
         dto.Should().NotBeNull();
@@ -119,6 +119,31 @@ public class ObtenerRecepcionPorIdHandlerTests
 
     private static Guid RecepcionId(AlmacenDbContext db) =>
         db.Movimientos.AsNoTracking().Select(m => m.Id).Single();
+
+    [Fact]
+    public async Task ADM08_resuelve_centro_del_departamento_sin_maquina_en_batch()
+    {
+        await using var db = await NuevaDbConRecepcionAsync(conSubAlmacen: true);
+        var centros = new CentrosReadPort();
+        var handler = new ObtenerRecepcionPorIdHandler(db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), centros);
+        var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), default);
+        dto!.Lineas.Should().OnlyContain(l => l.CentroCostoId == CentroDepartamento && l.CentroCostoClave == "A" && l.CentroCostoNombre == "DEMO departamento");
+        centros.Llamadas.Should().Be(1);
+        centros.Ids.Should().BeEquivalentTo(new[] { CentroDepartamento });
+    }
+
+    private static readonly Guid CentroDepartamento = Guid.NewGuid();
+    private sealed class CentrosReadPort : ICentroCostoReadPort
+    {
+        public int Llamadas { get; private set; }
+        public IReadOnlyCollection<Guid> Ids { get; private set; } = [];
+        public Task<IReadOnlyDictionary<Guid, Dim3Lectura>> ObtenerAsync(IReadOnlyCollection<Guid> dim3Ids, CancellationToken cancellationToken)
+        {
+            Llamadas++; Ids = dim3Ids;
+            return Task.FromResult<IReadOnlyDictionary<Guid, Dim3Lectura>>(new Dictionary<Guid, Dim3Lectura>
+            { [CentroDepartamento] = new(CentroDepartamento, "A", "DEMO departamento", false) });
+        }
+    }
 
     private static readonly Guid UbicId = Guid.NewGuid();
 
@@ -146,9 +171,9 @@ public class ObtenerRecepcionPorIdHandlerTests
             empresaId: Guid.NewGuid(),
             fechaMovimiento: new DateOnly(2026, 6, 1));
 
-        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 1, ArtA, 2m, "PZA", 10m, ubicacionId: UbicId));
-        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 2, ArtB, 1m, "PZA", 20m, ubicacionId: UbicId));
-        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 3, ArtA, 3m, "PZA", 10m, ubicacionId: UbicId));
+        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 1, ArtA, 2m, "PZA", 10m, ubicacionId: UbicId, centroCostoId: CentroDepartamento));
+        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 2, ArtB, 1m, "PZA", 20m, ubicacionId: UbicId, centroCostoId: CentroDepartamento));
+        mov.AgregarLinea(new LineaMovimiento(Guid.NewGuid(), mov.Id, 3, ArtA, 3m, "PZA", 10m, ubicacionId: UbicId, centroCostoId: CentroDepartamento));
 
         // Vincula la recepción a una OC + CFDI (variante A) y a la factura
         // conciliada (variante B). Los métodos son internal; se invocan por

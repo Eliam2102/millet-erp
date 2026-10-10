@@ -19,7 +19,7 @@ namespace Millet.CentrosCosto.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("centros_costo")
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -77,6 +77,69 @@ namespace Millet.CentrosCosto.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ux_asignaciones_usuario_dim3");
 
                     b.ToTable("asignaciones", "centros_costo");
+                });
+
+            modelBuilder.Entity("Millet.CentrosCosto.Domain.DepartamentoCentroCosto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CentroCostoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_costo_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("DepartamentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("departamento_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<string>("Observaciones")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observaciones");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_departamento_centros_costo");
+
+                    b.HasIndex("EmpresaId", "SucursalId", "DepartamentoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_departamento_centros_costo_empresa_id_sucursal_id_departame");
+
+                    b.ToTable("departamento_centros_costo", "centros_costo");
                 });
 
             modelBuilder.Entity("Millet.CentrosCosto.Domain.Dim1", b =>
@@ -420,6 +483,23 @@ namespace Millet.CentrosCosto.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("timestamp");
 
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<string>("ActorNombre")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("actor_nombre");
+
+                    b.Property<string>("ActorTipo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("actor_tipo");
+
                     b.Property<Guid?>("AggregateRootId")
                         .HasColumnType("uuid")
                         .HasColumnName("aggregate_root_id");
@@ -442,6 +522,12 @@ namespace Millet.CentrosCosto.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("entidad");
+
+                    b.Property<string>("EntidadEtiqueta")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("entidad_etiqueta");
 
                     b.Property<Guid?>("EntidadId")
                         .HasColumnType("uuid")
@@ -471,12 +557,21 @@ namespace Millet.CentrosCosto.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("operacion");
 
+                    b.Property<string>("Resumen")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("resumen");
+
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
 
                     b.HasKey("Id", "Timestamp")
                         .HasName("pk_audit_log");
+
+                    b.HasIndex("ActorTipo", "Timestamp")
+                        .HasDatabaseName("ix_audit_log_actor_tipo_timestamp");
 
                     b.HasIndex("EmpresaId", "Timestamp")
                         .HasDatabaseName("ix_audit_log_empresa_id_timestamp");

@@ -117,10 +117,9 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
-    public async Task Agregar_Sin_CentroCosto_Retorna_400()
+    public async Task Agregar_Sin_CentroCosto_Ni_Equivalencia_Retorna_422()
     {
-        // Fase E PR2.1: el CC-Máquina es obligatorio. Sin él, el validador
-        // rechaza (ValidationException → 400) con el código correspondiente.
+        // ADM08: sin centro explícito ni equivalencia, rechaza con mensaje de negocio.
         var client = await CreateSuperAdminClientAsync();
         var requisicionId = await CrearRequisicionAsync(client);
 
@@ -128,9 +127,9 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             $"/api/v1/compras/requisiciones/{requisicionId}/lineas",
             ValidLineaRequestBody() with { CentroCostoId = null });
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         var json = await ReadJsonAsync(response);
-        Assert.Contains("LINEA_RQ_CENTRO_COSTO_REQUERIDO", json.GetRawText());
+        Assert.Contains("CECO_DEPARTAMENTO_SIN_EQUIVALENCIA", json.GetRawText());
     }
 
     // --------- PATCH /lineas/{lineaId} ---------
@@ -191,9 +190,9 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
-    public async Task Actualizar_Sin_CentroCosto_Retorna_400()
+    public async Task Actualizar_Sin_CentroCosto_Ni_Equivalencia_Retorna_422()
     {
-        // Fase E PR2.1: editar una línea sin CC-Máquina → rechazo (400).
+        // ADM08: no se puede guardar sin herencia ni elección válida.
         var client = await CreateSuperAdminClientAsync();
         var requisicionId = await CrearRequisicionAsync(client);
         var lineaId = await AgregarLineaAsync(client, requisicionId);
@@ -215,9 +214,9 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             $"/api/v1/compras/requisiciones/{requisicionId}/lineas/{lineaId}",
             body);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         var json = await ReadJsonAsync(response);
-        Assert.Contains("LINEA_RQ_CENTRO_COSTO_REQUERIDO", json.GetRawText());
+        Assert.Contains("CECO_DEPARTAMENTO_SIN_EQUIVALENCIA", json.GetRawText());
     }
 
     // --------- PATCH /lineas/{lineaId}/notas ---------

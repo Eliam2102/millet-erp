@@ -63,7 +63,8 @@ public sealed record RecepcionLineaItem(
     decimal Cantidad,
     string UnidadMedida,
     decimal CostoUnitarioMxn,
-    decimal MontoTotalMxn, decimal? CantidadCapturada = null, string? UnidadCapturada = null);
+    decimal MontoTotalMxn, decimal? CantidadCapturada = null, string? UnidadCapturada = null,
+    Guid? CentroCostoId = null, string? CentroCostoClave = null, string? CentroCostoNombre = null);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -158,17 +159,19 @@ public sealed class ObtenerRecepcionPorIdHandler
     private readonly IArticuloReadPort _articulos;
     private readonly IComprasOcReadPort _ordenesCompra;
     private readonly ICxpDocumentosReadPort _documentosCxp;
+    private readonly ICentroCostoReadPort _centros;
 
     public ObtenerRecepcionPorIdHandler(
         AlmacenDbContext db,
         IArticuloReadPort articulos,
         IComprasOcReadPort ordenesCompra,
-        ICxpDocumentosReadPort documentosCxp)
+        ICxpDocumentosReadPort documentosCxp, ICentroCostoReadPort centros)
     {
         _db = db;
         _articulos = articulos;
         _ordenesCompra = ordenesCompra;
         _documentosCxp = documentosCxp;
+        _centros = centros;
     }
 
     public async Task<RecepcionDetalle?> Handle(
@@ -198,6 +201,9 @@ public sealed class ObtenerRecepcionPorIdHandler
         // Artículo: batch sobre los ids distintos de las líneas (anti-N+1).
         var articuloIds = mov.Lineas.Select(l => l.ArticuloId).Distinct().ToArray();
         var articulos = await _articulos.ObtenerPorIdsAsync(articuloIds, cancellationToken);
+
+        var centroIds = mov.Lineas.Where(x => x.CentroCostoId.HasValue).Select(x => x.CentroCostoId!.Value).Distinct().ToArray();
+        var centros = await _centros.ObtenerAsync(centroIds, cancellationToken);
 
         // Folio de OC: lectura de presentación state-agnostic (resuelve aunque
         // la OC ya esté Cerrada/Cancelada). Batch aunque la recepción tenga 1 OC.
@@ -253,11 +259,13 @@ public sealed class ObtenerRecepcionPorIdHandler
                 .Select(l =>
                 {
                     articulos.TryGetValue(l.ArticuloId, out var art);
+                    var centro = l.CentroCostoId is Guid cc ? centros.GetValueOrDefault(cc) : null;
                     return new RecepcionLineaItem(
                         l.Id, l.Posicion, l.ArticuloId,
                         art?.Clave, art?.Descripcion,
                         l.Cantidad, l.UnidadMedida,
-                        l.CostoUnitarioMxn, l.MontoTotalMxn, l.CantidadCapturada, l.UnidadCapturada);
+                        l.CostoUnitarioMxn, l.MontoTotalMxn, l.CantidadCapturada, l.UnidadCapturada,
+                        l.CentroCostoId, centro?.Clave, centro?.Nombre);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,

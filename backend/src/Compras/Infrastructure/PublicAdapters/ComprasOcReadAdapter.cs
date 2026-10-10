@@ -37,7 +37,8 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort
                 UnidadMedida: l.UnidadMedida,
                 CantidadSolicitada: l.Cantidad,
                 CantidadRecibida: l.CantidadRecibida,
-                PrecioUnitarioMxn: Math.Round(l.PrecioUnitario * conversionMxn, 4)))
+                PrecioUnitarioMxn: Math.Round(l.PrecioUnitario * conversionMxn, 4),
+                CentroCostoId: l.CentroCostoId))
             .ToList();
 
         return new OcLectura(

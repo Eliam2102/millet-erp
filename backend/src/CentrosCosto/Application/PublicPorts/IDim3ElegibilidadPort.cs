@@ -1,5 +1,9 @@
 namespace Millet.CentrosCosto.Application.PublicPorts;
 
+/// <remarks>
+/// ADM08 / ADR-0062: el nombre histórico Dim3 se conserva por compatibilidad;
+/// este contrato admite centros Dim1/Dim2 y máquinas Dim3.
+/// </remarks>
 /// <summary>
 /// Read-port PÚBLICO de "elegir" un CC-Máquina al guardar un documento
 /// (G1.11 / ADR-0050). Complementa a <see cref="IDim3ReadPort"/> ("ver"):

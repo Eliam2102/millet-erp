@@ -32,4 +32,5 @@ public sealed record OcLineaLectura(
     string UnidadMedida,
     decimal CantidadSolicitada,
     decimal CantidadRecibida,
-    decimal PrecioUnitarioMxn);
+    decimal PrecioUnitarioMxn,
+    Guid? CentroCostoId = null);

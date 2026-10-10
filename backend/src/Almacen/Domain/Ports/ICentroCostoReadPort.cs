@@ -1,5 +1,9 @@
 namespace Millet.Almacen.Domain.Ports;
 
+/// <remarks>
+/// ADM08 / ADR-0062: el nombre histórico Dim3 se conserva por compatibilidad;
+/// este contrato admite centros Dim1/Dim2 y máquinas Dim3.
+/// </remarks>
 /// <summary>
 /// Read-port de Almacén hacia CentrosCosto para resolver, en batch,
 /// <c>dim3Id → clave/nombre/activa</c> y mostrar el CC-Máquina de una línea de

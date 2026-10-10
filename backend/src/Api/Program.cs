@@ -1081,6 +1081,7 @@ builder.Services.AddHostedService<
     Millet.Compras.Infrastructure.Seed.ComprasTestSeedHostedService>();
 // Después de los catálogos canónicos y del bootstrap de identidad.
 builder.Services.AddHostedService<Millet.Api.Seed.DemoSesionSeedHostedService>();
+builder.Services.AddHostedService<Millet.CentrosCosto.Infrastructure.Seed.ADM08EquivalenciasDemoHostedService>();
 
 // === SignalR + Azure SignalR backplane (CollaborationHub, ADR-0001 + ADR-0012 Capa 2) ===
 // En QA/Prod la connection string viene de Key Vault (App Setting
@@ -1419,6 +1420,7 @@ Millet.Api.Endpoints.Almacen.Catalogo.AlmacenCatalogoEndpoints.MapAlmacenCatalog
 
 // === Centros de Costo — CRUD del catálogo (CECO-PR2) ===
 Millet.Api.Endpoints.CentrosCosto.CentrosCostoCatalogoEndpoints.MapCentrosCostoCatalogoEndpoints(app);
+Millet.Api.Endpoints.CentrosCosto.DepartamentoCentrosCostoEndpoints.MapDepartamentoCentrosCostoEndpoints(app);
 
 // === Centros de Costo — jerarquía lazy + búsqueda del selector (CECO-PR3) ===
 Millet.Api.Endpoints.CentrosCosto.CentrosCostoJerarquiaEndpoints.MapCentrosCostoJerarquiaEndpoints(app);

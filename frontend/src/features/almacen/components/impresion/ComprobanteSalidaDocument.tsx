@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   cellRight: {
     textAlign: 'right',
   },
-  // Anchos relativos (suman 100%). Fase E PR5: Artículo cede 14% al CC-Máquina
+  // Anchos relativos (suman 100%). Fase E PR5: Artículo cede 14% al Centro de costo
   // (38→24) para que la fila de totales siga en 81% sin recalcular su span.
   colPos: { width: '5%' },
   colArt: { width: '24%' },
@@ -228,7 +228,7 @@ export function ComprobanteSalidaDocument({
                 Artículo
               </Text>
               <Text style={[styles.cell, styles.cellHeader, styles.colCc]}>
-                CC-Máquina
+                Centro de costo
               </Text>
               <Text style={[styles.cell, styles.cellHeader, styles.colUm]}>UM</Text>
               <Text

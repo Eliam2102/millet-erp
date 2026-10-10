@@ -12,7 +12,7 @@ import type {
 } from '@/features/compras/ordenes/api/types';
 
 /**
- * Fase E PR3 — CC-Máquina (Dim3) en la línea de OC. El campo es CONDICIONAL
+ * Fase E PR3 — Centro de costo (Dim3) en la línea de OC. El campo es CONDICIONAL
  * (ADR-0050): línea MANUAL → picker ABIERTO por proxy (el comprador elige);
  * línea HEREDADA de RQ → display BLOQUEADO read-only (1:1 de la RQ, no editable).
  */
@@ -45,7 +45,7 @@ function lineaHeredada(
 
 const ccInput = () =>
   screen.getByLabelText(
-    /CC-Máquina \(heredado de la requisición, no editable\)/i,
+    /Centro de costo \(heredado de la requisición, no editable\)/i,
   ) as HTMLInputElement;
 
 beforeEach(() => {
@@ -55,7 +55,7 @@ beforeEach(() => {
     ),
     // El picker solo consulta con el popover abierto; el mount no lo dispara,
     // pero lo dejamos por robustez si algún día se prellena.
-    http.get('*/api/v1/compras/ordenes/dim3/buscar', () =>
+    http.get('*/api/v1/compras/ordenes/centros-costo/buscar', () =>
       HttpResponse.json([]),
     ),
   );
@@ -71,7 +71,7 @@ beforeEach(() => {
   });
 });
 
-describe('<LineaInlineFormOc> — CC-Máquina condicional (Fase E PR3)', () => {
+describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () => {
   it('al editar conserva el descuento guardado y muestra $90 para 10 × $10', async () => {
     let enviado: Record<string, unknown> | undefined;
     mswServer.use(http.patch('*/api/v1/compras/ordenes/oc-1/lineas/l-1', async ({ request }) => {
@@ -92,12 +92,12 @@ describe('<LineaInlineFormOc> — CC-Máquina condicional (Fase E PR3)', () => {
     });
     // Combobox del picker (captura por proxy). Siempre visible, fuera de "Detalles".
     expect(
-      screen.getByRole('combobox', { name: /seleccionar máquina/i }),
+      screen.getByRole('combobox', { name: /seleccionar centro de costo/i }),
     ).toBeInTheDocument();
     // No hay input read-only de "heredado" en una línea manual.
     expect(
       screen.queryByLabelText(
-        /CC-Máquina \(heredado de la requisición, no editable\)/i,
+        /Centro de costo \(heredado de la requisición, no editable\)/i,
       ),
     ).not.toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe('<LineaInlineFormOc> — CC-Máquina condicional (Fase E PR3)', () => {
     expect(ccInput()).toHaveAttribute('readonly');
     // Bloqueado: no se ofrece el combobox de selección.
     expect(
-      screen.queryByRole('combobox', { name: /seleccionar máquina/i }),
+      screen.queryByRole('combobox', { name: /seleccionar centro de costo/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -145,7 +145,7 @@ describe('<LineaInlineFormOc> — CC-Máquina condicional (Fase E PR3)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
 
-    expect(await screen.findByText(/CC-Máquina requerido/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Centro de costo requerido/i)).toBeInTheDocument();
     expect(patches).toHaveLength(0);
   });
 

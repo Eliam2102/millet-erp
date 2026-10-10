@@ -37,7 +37,7 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
           <tr>
             <th className="px-3 py-2 text-left font-medium">#</th>
             <th className="px-3 py-2 text-left font-medium">Artículo</th>
-            <th className="px-3 py-2 text-left font-medium">CC-Máquina</th>
+            <th className="px-3 py-2 text-left font-medium">Centro de costo</th>
             <th className="px-3 py-2 text-right font-medium">Cant.</th>
             <th className="px-3 py-2 text-left font-medium">UM</th>
             <th className="px-3 py-2 text-right font-medium">Precio est.</th>
@@ -74,7 +74,7 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    {/* CC-Máquina resuelto por el read-port (ADR-0050): "clave —
+                    {/* Centro de costo resuelto por el read-port (ADR-0050): "clave —
                         nombre", o "No catalogado" si el id no resuelve; "—" si la
                         línea no lleva CC. El display NO pasa por el selector. */}
                     {l.centroCostoId ? (
