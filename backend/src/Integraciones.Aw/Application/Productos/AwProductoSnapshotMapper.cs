@@ -11,7 +11,8 @@ public sealed record AwProductoMapeoResultado(AplicarProductoAwSnapshot? Snapsho
 /// <summary>Mapper puro fila A+W → <see cref="AplicarProductoAwSnapshot"/> (doc 06 §3). Nulo nunca pasa a 0.</summary>
 public static class AwProductoSnapshotMapper
 {
-    public static AwProductoMapeoResultado Mapear(AwProductoOrigenFila f, DateTime leidoEnUtc)
+    public static AwProductoMapeoResultado Mapear(
+        AwProductoOrigenFila f, DateTime leidoEnUtc, IReadOnlyDictionary<string, ReglaFiscalProductoAw>? reglas = null)
     {
         var referencia = Limpiar(f.ProductoRef);
         if (referencia is null) return new(null, "producto_ref vacío.");
@@ -34,12 +35,18 @@ public static class AwProductoSnapshotMapper
             componentes.Add(new(c.Orden, c.Nivel, c.PadreOrden, cref, Limpiar(c.Descripcion), Limpiar(c.Tipo), c.EspesorMm));
         }
 
+        var tipo = Limpiar(f.Tipo);
+        ReglaFiscalProductoAw? regla = null;
+        if (tipo is not null) reglas?.TryGetValue(tipo, out regla);
+
         return new(new AplicarProductoAwSnapshot(
             referencia, descripcion, NormalizarUnidad(f.UnidadMedida), f.Baja, variantes, leidoEnUtc,
             AwProductosOptions.VersionContrato, AwProductosOptions.VersionMapeo,
             TransaccionOrigenUtc: AUtc(f.TransactionTime),
             CodigoModelo: Limpiar(f.CodigoModelo), Grupo: Limpiar(f.Grupo), Tipo: Limpiar(f.Tipo), Componentes: componentes,
-            Wgr: Limpiar(f.Wgr), WgrDescripcion: Limpiar(f.WgrDescripcion)), null);
+            Wgr: Limpiar(f.Wgr), WgrDescripcion: Limpiar(f.WgrDescripcion),
+            ClaveProdServSat: regla?.ClaveProdServSat, ClaveUnidadSatSugerida: regla?.ClaveUnidadSat, ObjetoImp: regla?.ObjetoImp,
+            TasaIvaTraslado: regla?.TasaIvaTraslado, FraccionArancelaria: regla?.FraccionArancelaria, UnidadAduana: regla?.UnidadAduana), null);
     }
 
     /// <summary>

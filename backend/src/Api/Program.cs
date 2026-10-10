@@ -925,6 +925,7 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 builder.Services.AddIntegracionesAwProductos(builder.Configuration);
 builder.Services.AddIntegracionesAwCambios(builder.Configuration);
+Millet.Integraciones.Aw.Infrastructure.Origen.OrigenDependencyInjection.AddIntegracionesAwOrigen(builder.Services, builder.Configuration);
 
 // F2-PR2: worker de envío de CFDI por correo (drena bitacora_envio_correo,
 // genera PDF + adjunta XML, entrega vía INotificacionService [stub]).
@@ -1598,6 +1599,7 @@ Millet.Api.Endpoints.CuentasPorPagar.ReportesEndpoints.MapReportesEndpoints(app)
 // PermisosCanonicos.IntegracionesAwCotizaciones{Crear,Consultar,Reintentar}.
 // Idempotency-Key requerido en todos los POST.
 Millet.Api.Endpoints.IntegracionesAw.IntegracionesAwEndpoints.MapIntegracionesAwEndpoints(app);
+Millet.Api.Endpoints.IntegracionesAw.AwOrigenEndpoints.MapAwOrigenEndpoints(app);
 
 // === Endpoints del módulo Integraciones.Fiscal (PR-4) ===
 // 6 endpoints bajo /api/v1/integraciones/fiscal/* (GET/PUT configuración

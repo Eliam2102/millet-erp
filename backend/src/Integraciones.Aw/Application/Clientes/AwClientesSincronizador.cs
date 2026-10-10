@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Integraciones.Aw.Application.Origen;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -54,7 +55,7 @@ public sealed class AwClientesSincronizador
     public async Task<Guid> IniciarBarridoAsync(string actor, CancellationToken ct)
     {
         VerificarOperable();
-        var origen = _options.Origen.ToString();
+        var origen = await NombreOrigenActivoAsync(ct);
         if (await _db.ClientesEjecuciones.AnyAsync(e =>
                 e.Origen == origen && e.Tipo == AwClientesEjecucionTipo.Barrido
                 && (e.Estado == AwClientesEjecucionEstado.Pendiente || e.Estado == AwClientesEjecucionEstado.EnCurso), ct))
@@ -140,7 +141,7 @@ public sealed class AwClientesSincronizador
         var origen = ObtenerOrigen();
         referencia = referencia.Trim();
 
-        var ejec = AwClientesEjecucion.Crear(_options.Origen.ToString(), AwClientesEjecucionTipo.Referencia, actor, _time.GetUtcNow());
+        var ejec = AwClientesEjecucion.Crear(await NombreOrigenActivoAsync(ct), AwClientesEjecucionTipo.Referencia, actor, _time.GetUtcNow());
         ejec.Iniciar();
         _db.ClientesEjecuciones.Add(ejec);
         await _db.SaveChangesAsync(ct);
@@ -174,7 +175,7 @@ public sealed class AwClientesSincronizador
     {
         var referencia = fila.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var ahora = _time.GetUtcNow();
-        var mapeo = AwClienteSnapshotMapper.Mapear(fila, _options.MapeoMoneda, ahora.UtcDateTime);
+        var mapeo = AwClienteSnapshotMapper.Mapear(fila, _options.MapeoMoneda, ahora.UtcDateTime, fila.AplicarFiscalesDeOrigen);
         if (!mapeo.EsValido)
         {
             ejec.RegistrarError(referencia, "fila_invalida", mapeo.Error!, ahora);
@@ -215,6 +216,17 @@ public sealed class AwClientesSincronizador
             throw new AwClientesSyncException("lectura_deshabilitada", "La lectura de clientes A+W está deshabilitada (IntegracionesAw:Clientes:LecturaHabilitada).");
         if (!_options.AplicacionHabilitada)
             throw new AwClientesSyncException("aplicacion_deshabilitada", "La aplicación de clientes A+W está deshabilitada (IntegracionesAw:Clientes:AplicacionHabilitada).");
+    }
+
+    private async Task<string> NombreOrigenActivoAsync(CancellationToken ct)
+    {
+        // Sin provider en los tests/consumidores previos, se conserva el nombre de su área.
+        var activo = _sp.GetService<IAwOrigenActivo>();
+        if (activo is null) return _options.Origen.ToString();
+        var estado = await activo.LeerAsync(ct);
+        if (estado.Origen != "Demo") return _options.Origen.ToString();
+        AwOrigenActivo.VerificarDemo(estado);
+        return "Demo";
     }
 
     // Origen=Sql sin connection string no registra el adaptador: error claro en vez de fallar en DI.

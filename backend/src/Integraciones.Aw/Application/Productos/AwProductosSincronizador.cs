@@ -87,7 +87,7 @@ public sealed class AwProductosSincronizador
     {
         acc.Leidos++;
         var referencia = fila.ProductoRef?.Trim() ?? "(sin referencia)";
-        var mapeo = AwProductoSnapshotMapper.Mapear(fila, _time.GetUtcNow().UtcDateTime);
+        var mapeo = AwProductoSnapshotMapper.Mapear(fila, _time.GetUtcNow().UtcDateTime, _options.ReglasFiscales);
         if (!mapeo.EsValido)
         {
             acc.Error(referencia, "fila_invalida", mapeo.Error!);

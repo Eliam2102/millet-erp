@@ -1,5 +1,6 @@
 namespace Millet.Integraciones.Aw.Application.Productos;
 
+/// <summary>Configuración del camino Real por área. La copia PostgreSQL se elige con el selector persistido.</summary>
 public enum AwProductosOrigenTipo { Simulado, Sql }
 
 /// <summary>
@@ -26,4 +27,23 @@ public sealed class AwProductosOptions
 
     /// <summary>JSON (formato de fixtures) de la fuente simulada; sin él no hay origen.</summary>
     public string? ArchivoSimulado { get; set; }
+
+    /// <summary>
+    /// Datos fiscales por tipo <c>BA_PRODUKTART</c> de A+W, tomados de los artículos genéricos de SAP (la carga inicial
+    /// del dato fiscal; el ERP queda como dueño). Se aplican al crear el producto y, en uno existente, solo a lo vacío.
+    /// ponytail: configuración estática; pasar a tabla editable si Fiscal quiere mantenerla sin despliegue.
+    /// </summary>
+    public Dictionary<string, ReglaFiscalProductoAw> ReglasFiscales { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class ReglaFiscalProductoAw
+{
+    public string? ClaveProdServSat { get; set; }
+    public string? ClaveUnidadSat { get; set; }
+    public string? ObjetoImp { get; set; }
+    public decimal? TasaIvaTraslado { get; set; }
+    public string? FraccionArancelaria { get; set; }
+    public string? UnidadAduana { get; set; }
+    /// <summary>Artículo SAP del que sale la regla (trazabilidad), p. ej. VID80001.</summary>
+    public string? ArticuloSap { get; set; }
 }

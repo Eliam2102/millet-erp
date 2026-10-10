@@ -44,6 +44,10 @@ public sealed class ActualizarParametroHandler
         ActualizarParametroCommand command,
         CancellationToken cancellationToken)
     {
+        if (command.Clave == Millet.Administracion.Domain.AwOrigenParametro.Clave)
+            throw new BusinessRuleException("AW_ORIGEN_ENDPOINT_REQUERIDO",
+                "Cambie el origen de A+W desde el control de sincronización de Datos maestros.");
+
         if (ParametrosUmbralesConteo.Claves.Contains(command.Clave))
             return await ActualizarUmbralAsync(command, cancellationToken);
 

@@ -67,6 +67,42 @@ public class AplicarProductoAwServiceTests
         p.UnidadMedidaId.Should().NotBeNull();
     }
 
+    private static AplicarProductoAwSnapshot ConFiscales(DateTime? leido = null) =>
+        Snap(claveUnidadSat: "H87", leido: leido) with
+        {
+            ClaveProdServSat = "30171706", ObjetoImp = "02", TasaIvaTraslado = 0.16m,
+            FraccionArancelaria = "7007199999", UnidadAduana = "01",
+        };
+
+    [Fact]
+    public async Task Alta_con_regla_fiscal_deja_el_producto_listo_para_facturar()
+    {
+        using var db = NewDb();
+        await Aplicar(db, ConFiscales());
+
+        var p = await db.ProductosAw.SingleAsync();
+        (p.ClaveProdServSat, p.ClaveUnidadSat, p.ObjetoImp, p.TasaIvaTraslado, p.FraccionArancelaria, p.UnidadAduana)
+            .Should().Be(("30171706", "H87", "02", 0.16m, "7007199999", "01"));
+    }
+
+    [Fact]
+    public async Task Existente_sin_fiscales_los_recibe_pero_lo_capturado_nunca_se_pisa()
+    {
+        using var db = NewDb();
+        await Aplicar(db, Snap()); // alta sin regla: fiscales vacíos
+        (await db.ProductosAw.SingleAsync()).ClaveProdServSat.Should().BeNull();
+
+        await Aplicar(db, ConFiscales(DateTime.UtcNow.AddMinutes(1)));
+        var p = await db.ProductosAw.SingleAsync();
+        p.ClaveProdServSat.Should().Be("30171706");
+
+        // El operador corrige la clave; una lectura posterior con otra regla no la sobrescribe.
+        p.AsignarDatosFiscales(claveProdServSat: "30171708");
+        await db.SaveChangesAsync();
+        await Aplicar(db, ConFiscales(DateTime.UtcNow.AddMinutes(2)) with { Descripcion = "PRODUCTO DEMO 001 B" });
+        (await db.ProductosAw.SingleAsync()).ClaveProdServSat.Should().Be("30171708");
+    }
+
     [Fact]
     public async Task Mismo_hash_es_SinCambios_y_no_duplica()
     {

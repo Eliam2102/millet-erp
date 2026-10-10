@@ -41,7 +41,12 @@ public sealed record AplicarProductoAwSnapshot(
     string? Tipo = null,
     IReadOnlyList<ProductoAwComponenteDato>? Componentes = null,
     string? Wgr = null,
-    string? WgrDescripcion = null);
+    string? WgrDescripcion = null,
+    // Fiscales de la regla por tipo: al crear, y en un producto existente solo si el campo local está vacío.
+    string? ClaveProdServSat = null,
+    string? ObjetoImp = null,
+    decimal? TasaIvaTraslado = null,
+    string? UnidadAduana = null);
 
 /// <summary><c>NoAplicado</c>: unidad sin equivalencia, no se creó/actualizó el producto (ver <c>Causa</c>).</summary>
 public enum AplicarProductoAwAccion { Creado, Actualizado, SinCambios, Conflicto, NoAplicado }
@@ -61,7 +66,7 @@ public sealed record AplicarProductoAwResultado(
 public sealed class AplicarProductoAwService
 {
     /// <summary>Versión de la normalización previa al hash; subirla cambia todos los hashes.</summary>
-    public const string VersionNormalizacionHash = "p2";
+    public const string VersionNormalizacionHash = "p3";
     public const string CausaUnidadSinEquivalencia = "UNIDAD_SIN_EQUIVALENCIA";
 
     private const string PgUniqueViolation = "23505";
@@ -105,8 +110,12 @@ public sealed class AplicarProductoAwService
                 unidadMedida: unidad?.Codigo ?? snap.UnidadCruda!.Trim(),
                 origen: OrigenMaster.Aw,
                 unidadMedidaId: unidad?.Id,
+                claveProdServSat: snap.ClaveProdServSat,
                 claveUnidadSat: snap.ClaveUnidadSatSugerida,
+                objetoImp: snap.ObjetoImp,
+                tasaIvaTraslado: snap.TasaIvaTraslado,
                 fraccionArancelaria: snap.FraccionArancelaria,
+                unidadAduana: snap.UnidadAduana,
                 pesoUnitarioKg: snap.PesoUnitarioKg);
             nuevo.AplicarVariantes(snap.Variantes);
             nuevo.AplicarClasificacion(snap.CodigoModelo, snap.Grupo, snap.Tipo, snap.Wgr, snap.WgrDescripcion);
@@ -198,6 +207,16 @@ public sealed class AplicarProductoAwService
                 if (_db.Entry(c).State == EntityState.Detached) _db.Entry(c).State = EntityState.Added;
         }
 
+        // Fiscales de la regla: solo lo que el producto aún no tiene; nunca pisa lo capturado por el operador.
+        producto.AsignarDatosFiscales(
+            claveProdServSat: producto.ClaveProdServSat is null ? Vacio(snap.ClaveProdServSat) : null,
+            claveUnidadSat: producto.ClaveUnidadSat is null ? Vacio(snap.ClaveUnidadSatSugerida) : null,
+            objetoImp: producto.ObjetoImp is null ? Vacio(snap.ObjetoImp) : null,
+            tasaIvaTraslado: producto.TasaIvaTraslado is null ? snap.TasaIvaTraslado : null);
+        producto.AsignarDatosAduana(
+            fraccionArancelaria: producto.FraccionArancelaria is null ? Vacio(snap.FraccionArancelaria) : null,
+            unidadAduana: producto.UnidadAduana is null ? Vacio(snap.UnidadAduana) : null);
+
         if (snap.Baja)
             producto.DarDeBaja(DateTime.UtcNow);
         else if (producto.Estatus == EstatusCatalogo.Inactivo && registro.BajaOrigenCruda == "1")
@@ -236,6 +255,7 @@ public sealed class AplicarProductoAwService
                 && !string.Equals(recibido, local, StringComparison.OrdinalIgnoreCase))
                 d.Add(new(campo, recibido, local, motivo));
         }
+        Dif("Clave prod/serv SAT", Vacio(s.ClaveProdServSat), p.ClaveProdServSat, "Lo completado por el operador no se sobrescribe.");
         Dif("Clave unidad SAT", Vacio(s.ClaveUnidadSatSugerida), p.ClaveUnidadSat, "Lo completado por el operador no se sobrescribe.");
         Dif("Fracción arancelaria", Vacio(s.FraccionArancelaria), p.FraccionArancelaria, "Lo completado por el operador no se sobrescribe.");
         Dif("Peso unitario (kg)", s.PesoUnitarioKg?.ToString(CultureInfo.InvariantCulture),
@@ -271,6 +291,7 @@ public sealed class AplicarProductoAwService
             T(v.ClaveVariante); N(v.AltoMm); N(v.AnchoMm); N(v.EspesorMm); T(v.Composicion);
         }
         T(s.CodigoModelo); T(s.Grupo); T(s.Tipo); T(s.Wgr); T(s.WgrDescripcion);
+        T(s.ClaveProdServSat); T(s.ClaveUnidadSatSugerida); T(s.ObjetoImp); N(s.TasaIvaTraslado); T(s.FraccionArancelaria); T(s.UnidadAduana);
         // Componentes null (no se leen) y lista vacía comparten hash: ambos dejan el árbol sin hijos en el hash.
         foreach (var c in (s.Componentes ?? []).OrderBy(c => c.Orden))
         {
