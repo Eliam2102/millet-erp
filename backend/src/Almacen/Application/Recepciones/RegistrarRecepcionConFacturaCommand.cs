@@ -291,4 +291,56 @@ public sealed class RegistrarRecepcionConFacturaHandler
         return new RegistrarRecepcionResponse(movimientoId, folio.Valor);
     }
 
+    private async Task<(decimal costoMxn, string unidadMedida, Guid? lineaOcId)>
+        ResolverCostoYUmAsync(
+            OcLectura? oc,
+            RegistrarRecepcionLineaInput input,
+            CancellationToken cancellationToken)
+    {
+        // 1) Si el caller especificó LineaOcId y la OC es conocida, usar esa línea.
+        if (oc is not null && input.LineaOcId is Guid lineaOcId)
+        {
+            var lineaOc = oc.Lineas.FirstOrDefault(l => l.LineaId == lineaOcId)
+                ?? throw new EntityNotFoundException(
+                    "LINEA_OC_NO_ENCONTRADA",
+                    $"No existe línea '{lineaOcId}' en la OC '{oc.Folio}'.");
+            if (lineaOc.ArticuloId != input.ArticuloId)
+            {
+                throw new BusinessRuleException(
+                    "RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE",
+                    "El artículo de la línea recibida no coincide con la línea de OC.");
+            }
+            // Tolerancia (A5): articulo readport es NoOp → 0%.
+            var maxTolerable = lineaOc.CantidadSolicitada - lineaOc.CantidadRecibida;
+            var articulo = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
+            var tolerancia = articulo?.ToleranciaCantidadPorcentaje ?? 0m;
+            maxTolerable += lineaOc.CantidadSolicitada * (tolerancia / 100m);
+            if (input.Cantidad > maxTolerable)
+            {
+                throw new BusinessRuleException(
+                    "RECEPCION_EXCEDE_TOLERANCIA",
+                    $"Cantidad recibida {input.Cantidad} excede el saldo+tolerancia ({maxTolerable}) de la línea OC '{lineaOcId}'.");
+            }
+            return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOcId);
+        }
+
+        // 2) Si la OC es conocida pero sin LineaOcId, intentar match por artículo.
+        if (oc is not null)
+        {
+            var lineaOc = oc.Lineas.FirstOrDefault(l => l.ArticuloId == input.ArticuloId);
+            if (lineaOc is not null)
+            {
+                return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOc.LineaId);
+            }
+
+            // CA2.10: si la OC es conocida, no se permite recibir un artículo que no esté en sus líneas recibibles (p. ej. servicios).
+            throw new BusinessRuleException(
+                "RECEPCION_ARTICULO_NO_EN_OC",
+                $"El artículo '{input.ArticuloId}' no pertenece a las líneas recibibles de la OC '{oc.Folio}'.");
+        }
+
+        // 3) Fallback (OC stub NoOp): leer UM del artículo si existe; costo = 0.
+        var articulo2 = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
+        return (0m, articulo2?.UnidadMedida ?? "PZA", null);
+    }
 }

@@ -63,4 +63,6 @@ public sealed record LineaOrdenCompraResponse(
     decimal CantidadFacturada,
     string? TextoAdicional,
     Domain.Oc.DescuentoTipo DescuentoTipo = Domain.Oc.DescuentoTipo.Monto,
-    decimal DescuentoValor = 0m);
+    decimal DescuentoValor = 0m,
+    // GAP-9 / CA2.10: los servicios no se reciben en Almacén; el form de recepción los omite.
+    bool EsServicio = false);

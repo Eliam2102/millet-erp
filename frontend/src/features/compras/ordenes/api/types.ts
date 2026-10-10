@@ -378,6 +378,8 @@ export interface LineaOrdenCompraResponse {
   cantidadRecibida: number;
   cantidadFacturada: number;
   textoAdicional: string | null;
+  /** GAP-9 / CA2.10: servicio (artículo `Servicio`); no se recibe en Almacén. */
+  esServicio?: boolean;
 }
 
 /**

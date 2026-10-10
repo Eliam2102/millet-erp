@@ -3,7 +3,7 @@ import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/ty
 
 /**
  * Mapea las líneas del detalle de OC a filas del form de recepción.
- * Filtra las que ya están completas (sin pendiente) — esas no aceptan
+ * Omite los servicios (CA2.10) y filtra las que ya están completas (sin pendiente) — esas no aceptan
  * más recepción. El default <c>cantidad</c> es el pendiente; el
  * almacenista solo lo ajusta si lo que llegó difiere de lo solicitado.
  *
@@ -14,6 +14,7 @@ export function construirFilas(
   lineasOc: LineaOrdenCompraResponse[],
 ): FilaRecepcionValues[] {
   return lineasOc
+    .filter((l) => !l.esServicio) // CA2.10: los servicios no se reciben en Almacén
     .map((l) => {
       const pendiente = Math.max(0, l.cantidad - l.cantidadRecibida);
       return {

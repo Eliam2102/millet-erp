@@ -23,7 +23,10 @@ internal static class RecepcionOcGuard
         {
             if (entrada.LineaOcId is null || entrada.LineaOcId == Guid.Empty)
                 throw new BusinessRuleException("RECEPCION_LINEA_OC_REQUERIDA", "Cada artículo recibido debe indicar su línea de orden de compra.");
-            if (!lineas.TryGetValue(entrada.LineaOcId.Value, out var origen) || origen.ArticuloId != entrada.ArticuloId)
+            // CA2.10 (G1.12): el lector de OC no devuelve las líneas de servicio; los servicios no se reciben en Almacén.
+            if (!lineas.TryGetValue(entrada.LineaOcId.Value, out var origen))
+                throw new BusinessRuleException("RECEPCION_ARTICULO_NO_EN_OC", "La línea no se puede recibir en Almacén: no pertenece a la orden de compra o es un servicio, y los servicios no se reciben.");
+            if (origen.ArticuloId != entrada.ArticuloId)
                 throw new BusinessRuleException("RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE", "El artículo recibido no corresponde a la línea de la orden de compra seleccionada.");
             if (origen.PrecioUnitarioMxn <= 0)
                 throw new BusinessRuleException("RECEPCION_COSTO_OC_INVALIDO", "La línea de la orden de compra no tiene un costo válido en pesos; corrige la orden antes de recibir.");
