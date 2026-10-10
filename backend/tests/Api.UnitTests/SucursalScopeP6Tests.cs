@@ -38,7 +38,7 @@ public sealed class SucursalScopeP6Tests
         }, CancellationToken.None);
     }
     private static DocumentoSucursalScope Scope(Permisos permisos, Puerto puerto)
-        => new(new Usuario(), permisos, new Sucursales(), puerto, puerto, puerto, puerto, puerto);
+        => new(new Usuario(), permisos, new Sucursales(), puerto, puerto, puerto, puerto, puerto, puerto);
     private sealed record Consulta : IRequest<bool>, IDocumentoScopedQuery
     {
         public string PermisoTodasSucursales => "corporativo";
@@ -55,7 +55,7 @@ public sealed class SucursalScopeP6Tests
         public Task<IReadOnlyList<Guid>> ListarIdsAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<Guid>>([Cancun]);
         public Task<bool> EstaAsociadoAsync(Guid usuarioId, Guid sucursalId, CancellationToken cancellationToken) => Task.FromResult(sucursalId == Cancun);
     }
-    private sealed class Puerto(IReadOnlyList<DocumentoSucursales> documentos) : IComprasSucursalReadPort, IFacturacionSucursalReadPort, ICxpSucursalReadPort, ICxcSucursalReadPort, ITesoreriaSucursalReadPort
+    private sealed class Puerto(IReadOnlyList<DocumentoSucursales> documentos) : IComprasSucursalReadPort, IFacturacionSucursalReadPort, ICxpSucursalReadPort, ICxcSucursalReadPort, ITesoreriaSucursalReadPort, IAlmacenSucursalReadPort
     {
         public IReadOnlyList<DocumentoSucursales> Documentos => documentos;
         public Task<IReadOnlyList<DocumentoSucursales>> ListarAsync(string tipo, CancellationToken ct) => Task.FromResult(documentos);

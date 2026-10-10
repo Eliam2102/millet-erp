@@ -42,6 +42,8 @@ public static class ArbolDocumentosEndpoint
                     await RqSucursalScope.VerificarAsync(nodoId, scopeDb, user, permisos, sucursales, cancellationToken);
                 else if (tipo == TipoDocumentoTrazabilidad.OrdenCompra)
                     await Oc.OcSucursalScope.VerificarAsync(nodoId, scopeDb, user, permisos, sucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.Recepcion)
+                    await documentos.VerificarAsync("recepcion", nodoId, PermisosCanonicos.AlmacenEntradasLeerTodasSucursales, cancellationToken);
                 else if (tipo == TipoDocumentoTrazabilidad.FacturaProveedor)
                     await documentos.VerificarAsync("factura_proveedor", nodoId, PermisosCanonicos.CuentasPorPagarFacturasLeerTodasSucursales, cancellationToken);
                 else if (tipo == TipoDocumentoTrazabilidad.PagoProveedor)

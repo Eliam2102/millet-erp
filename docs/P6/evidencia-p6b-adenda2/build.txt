@@ -1,0 +1,41 @@
+  Millet.SharedKernel -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/SharedKernel/bin/Debug/net10.0/Millet.SharedKernel.dll
+  Millet.Catalogos -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Catalogos/bin/Debug/net10.0/Millet.Catalogos.dll
+  Millet.Administracion -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Administracion/bin/Debug/net10.0/Millet.Administracion.dll
+  Millet.DatosMaestros -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/DatosMaestros/bin/Debug/net10.0/Millet.DatosMaestros.dll
+  Millet.Contabilidad -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Contabilidad/bin/Debug/net10.0/Millet.Contabilidad.dll
+  Millet.Almacen -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Almacen/bin/Debug/net10.0/Millet.Almacen.dll
+  Millet.Compartido -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Compartido/bin/Debug/net10.0/Millet.Compartido.dll
+  Millet.CentrosCosto -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/CentrosCosto/bin/Debug/net10.0/Millet.CentrosCosto.dll
+  Millet.Identidad -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Identidad/bin/Debug/net10.0/Millet.Identidad.dll
+  Millet.Compras -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Compras/bin/Debug/net10.0/Millet.Compras.dll
+  Millet.CuentasPorCobrar -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/CuentasPorCobrar/bin/Debug/net10.0/Millet.CuentasPorCobrar.dll
+  Millet.Integraciones.Fiscal -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Integraciones.Fiscal/bin/Debug/net10.0/Millet.Integraciones.Fiscal.dll
+  Millet.CuentasPorPagar -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/CuentasPorPagar/bin/Debug/net10.0/Millet.CuentasPorPagar.dll
+  Millet.Facturacion -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Facturacion/bin/Debug/net10.0/Millet.Facturacion.dll
+  Millet.Tesoreria -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Tesoreria/bin/Debug/net10.0/Millet.Tesoreria.dll
+  Millet.Integraciones.Aw -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Integraciones.Aw/bin/Debug/net10.0/Millet.Integraciones.Aw.dll
+  Millet.Api -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/src/Api/bin/Debug/net10.0/Millet.Api.dll
+  Millet.Identidad.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Identidad.UnitTests/bin/Debug/net10.0/Millet.Identidad.UnitTests.dll
+  Millet.Api.IntegrationTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Api.IntegrationTests/bin/Debug/net10.0/Millet.Api.IntegrationTests.dll
+  Millet.SharedKernel.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/SharedKernel.UnitTests/bin/Debug/net10.0/Millet.SharedKernel.UnitTests.dll
+  Millet.Compras.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Compras.UnitTests/bin/Debug/net10.0/Millet.Compras.UnitTests.dll
+  Millet.Compras.IntegrationTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Compras.IntegrationTests/bin/Debug/net10.0/Millet.Compras.IntegrationTests.dll
+  Millet.Administracion.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Administracion.UnitTests/bin/Debug/net10.0/Millet.Administracion.UnitTests.dll
+  Millet.Integraciones.Aw.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Integraciones.Aw.UnitTests/bin/Debug/net10.0/Millet.Integraciones.Aw.UnitTests.dll
+  Millet.Integraciones.Aw.IntegrationTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Integraciones.Aw.IntegrationTests/bin/Debug/net10.0/Millet.Integraciones.Aw.IntegrationTests.dll
+  Millet.CuentasPorPagar.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/CuentasPorPagar.UnitTests/bin/Debug/net10.0/Millet.CuentasPorPagar.UnitTests.dll
+  Millet.Almacen.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Almacen.UnitTests/bin/Debug/net10.0/Millet.Almacen.UnitTests.dll
+  Millet.Integraciones.Fiscal.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Integraciones.Fiscal.UnitTests/bin/Debug/net10.0/Millet.Integraciones.Fiscal.UnitTests.dll
+  Millet.Facturacion.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Facturacion.UnitTests/bin/Debug/net10.0/Millet.Facturacion.UnitTests.dll
+  Millet.Catalogos.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Catalogos.UnitTests/bin/Debug/net10.0/Millet.Catalogos.UnitTests.dll
+  Millet.CuentasPorCobrar.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/CuentasPorCobrar.UnitTests/bin/Debug/net10.0/Millet.CuentasPorCobrar.UnitTests.dll
+  Millet.Tesoreria.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Tesoreria.UnitTests/bin/Debug/net10.0/Millet.Tesoreria.UnitTests.dll
+  Millet.Contabilidad.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Contabilidad.UnitTests/bin/Debug/net10.0/Millet.Contabilidad.UnitTests.dll
+  Millet.Compartido.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Compartido.UnitTests/bin/Debug/net10.0/Millet.Compartido.UnitTests.dll
+  Millet.Api.UnitTests -> /Users/eliamcv/Documents/Vidrios millet/millet_erp-P6b/backend/tests/Api.UnitTests/bin/Debug/net10.0/Millet.Api.UnitTests.dll
+
+Compilación correcta.
+    0 Advertencia(s)
+    0 Errores
+
+Tiempo transcurrido 00:01:50.00

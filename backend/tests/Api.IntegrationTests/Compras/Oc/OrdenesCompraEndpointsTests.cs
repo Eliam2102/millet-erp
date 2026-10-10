@@ -646,11 +646,16 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         var createResp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
         createResp.EnsureSuccessStatusCode();
         var createdId = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        // La suite comparte documentos: una OC recién creada no tiene por qué caer
+        // en la primera página global (FechaDocumento DESC, Folio DESC).
+        var referencia = $"LISTADO-{Guid.NewGuid():N}";
+        await SetReferenciaProveedorAsync(referencia, createdId);
 
-        var listResp = await client.GetAsync($"{EndpointBase}?page=1&pageSize=200");
+        var listResp = await client.GetAsync($"{EndpointBase}?referenciaProveedor={referencia}&page=1&pageSize=200");
 
         Assert.Equal(HttpStatusCode.OK, listResp.StatusCode);
         var body = await ReadJsonAsync(listResp);
+        Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
         var items = body.GetProperty("items");
         Assert.Equal(JsonValueKind.Array, items.ValueKind);
         Assert.True(items.GetArrayLength() >= 1);
@@ -718,6 +723,8 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         var idSinRecepcion = await CrearOcAsync(client);
         var idParcial = await CrearOcAsync(client);
         var idCompleta = await CrearOcAsync(client);
+        var referencia = $"PENDIENTE-{Guid.NewGuid():N}";
+        await SetReferenciaProveedorAsync(referencia, idSinRecepcion, idParcial, idCompleta);
 
         await SetSubEstadoRecepcionAsync(idParcial, 1);   // Parcial
         await SetSubEstadoRecepcionAsync(idCompleta, 2);  // Completa
@@ -725,17 +732,19 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
 
         // Con filtro: las pendientes (0 y 1) presentes, la Completa (2) ausente.
         var filtrada = await client.GetAsync(
-            $"{EndpointBase}?soloConPendienteRecepcion=true&pageSize=200");
+            $"{EndpointBase}?referenciaProveedor={referencia}&soloConPendienteRecepcion=true&pageSize=200");
         filtrada.EnsureSuccessStatusCode();
         var idsFiltradas = await IdsDeAsync(filtrada);
+        Assert.Equal(2, idsFiltradas.Count);
         Assert.Contains(idSinRecepcion, idsFiltradas);
         Assert.Contains(idParcial, idsFiltradas);
         Assert.DoesNotContain(idCompleta, idsFiltradas);
 
         // Control sin filtro: la Completa SÍ aparece (está en rango).
-        var sinFiltro = await client.GetAsync($"{EndpointBase}?pageSize=200");
+        var sinFiltro = await client.GetAsync($"{EndpointBase}?referenciaProveedor={referencia}&pageSize=200");
         sinFiltro.EnsureSuccessStatusCode();
         var idsSinFiltro = await IdsDeAsync(sinFiltro);
+        Assert.Equal(3, idsSinFiltro.Count);
         Assert.Contains(idCompleta, idsSinFiltro);
     }
 
@@ -744,6 +753,16 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         var resp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
         resp.EnsureSuccessStatusCode();
         return (await ReadJsonAsync(resp)).GetProperty("id").GetGuid();
+    }
+
+    private async Task SetReferenciaProveedorAsync(string referencia, params Guid[] ids)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        foreach (var oc in await db.OrdenesCompra.Where(x => ids.Contains(x.Id)).ToListAsync())
+            oc.ActualizarReferenciaProveedor(referencia);
+        await db.SaveChangesAsync();
     }
 
     private async Task SetSubEstadoRecepcionAsync(Guid ocId, short subEstado)

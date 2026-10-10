@@ -28,6 +28,7 @@ public static class AnticiposEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/anticipos")
+            .WithDocumentoSucursalScope("anticipo_proveedor", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -83,6 +84,8 @@ public static class AnticiposEndpoints
         }).WithMetadata(new RequireIdempotencyKeyAttribute())
           .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarAnticiposCapturar)
           .ProducesProblem(422).ProducesProblem(409).ProducesProblem(428);
+        // Configuración del proveedor por empresa: conserva sus permisos propios y no tiene sucursal.
+        // La guarda del grupo solo resuelve el parámetro documental «id», nunca «proveedorId».
         group.MapGet("/serie/{proveedorId:guid}", async (Guid proveedorId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(new { Serie = await mediator.Send(new Millet.CuentasPorPagar.Application.AnticipoProveedor.ObtenerSerieAnticipoQuery(proveedorId), ct) }))
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarAnticiposLeer);
@@ -91,8 +94,10 @@ public static class AnticiposEndpoints
             await mediator.Send(new Millet.CuentasPorPagar.Application.AnticipoProveedor.ConfigurarSerieAnticipoCommand(proveedorId, body.Serie), ct); return Results.NoContent();
         }).WithMetadata(new RequireIdempotencyKeyAttribute()).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarAnticiposCapturar);
         group.MapPost("/{id:guid}/amortizar-nc", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? version,
-            [FromBody] AmortizarNcBody body, IMediator mediator, CancellationToken ct) =>
+            [FromBody] AmortizarNcBody body, DocumentoSucursalScope scope, IMediator mediator, CancellationToken ct) =>
         {
+            await scope.VerificarAsync("nota_credito_proveedor", body.NotaCreditoId,
+                PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, ct);
             if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
             await mediator.Send(new AmortizarAnticipoConNcCommand(id, v, body.NotaCreditoId, body.NcVersionEsperada, body.Monto), ct); return Results.NoContent();
         }).WithMetadata(new RequireIdempotencyKeyAttribute()).RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarAnticiposCapturar);

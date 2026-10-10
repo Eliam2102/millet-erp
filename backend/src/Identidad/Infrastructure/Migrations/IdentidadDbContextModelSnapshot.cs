@@ -353,6 +353,90 @@ namespace Millet.Identidad.Infrastructure.Migrations
                     b.HasData(
                         new
                         {
+                            Id = new Guid("00000006-0006-0006-0006-000000000030"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "almacen.entradas.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar entradas de todas las sucursales",
+                            Modulo = "almacen",
+                            Recurso = "entradas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000031"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "almacen.entradas.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Operar entradas de todas las sucursales",
+                            Modulo = "almacen",
+                            Recurso = "entradas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000032"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "almacen.salidas.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar salidas de todas las sucursales",
+                            Modulo = "almacen",
+                            Recurso = "salidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000033"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "almacen.salidas.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Operar salidas de todas las sucursales",
+                            Modulo = "almacen",
+                            Recurso = "salidas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000034"),
+                            Accion = "leer-todas-sucursales",
+                            Codigo = "almacen.reorden.leer-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar reorden de todas las sucursales",
+                            Modulo = "almacen",
+                            Recurso = "reorden",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000006-0006-0006-0006-000000000035"),
+                            Accion = "gestionar-todas-sucursales",
+                            Codigo = "almacen.reorden.gestionar-todas-sucursales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Operar reorden de todas las sucursales",
+                            Modulo = "almacen",
+                            Recurso = "reorden",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000006-0006-0006-0006-000000000020"),
                             Accion = "leer-todas-sucursales",
                             Codigo = "cuentas_por_pagar.documentos.leer-todas-sucursales",

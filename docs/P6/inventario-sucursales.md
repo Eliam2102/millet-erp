@@ -1,6 +1,6 @@
 # Inventario de separación por sucursal P6
 
-Corte original: `4bf1690`. Revisión vigente: fusión `687fe82` de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5) más correcciones de la [adenda 3](adenda3-integracion-09oct.md). Este documento describe controles de código; el verde PostgreSQL posterior a estas correcciones y la aceptación Millet están **Por confirmar**.
+Corte original: `4bf1690`. Revisión P6: fusión `687fe82` de `origin/main` (P1/P2/P3/P5/P8/P9/G1.13/A4.5) más correcciones de la [adenda 3](adenda3-integracion-09oct.md). El seguimiento P6b sobre `main` local `ea7bce2` se documenta al final; la última [continuación P6b/adenda 3](P6b-adenda3-resumen.md) revisa `7aeec1d`. Este documento describe controles de código; el verde PostgreSQL posterior a estas correcciones y la aceptación Millet están **Por confirmar**.
 
 ## Regla y permisos
 
@@ -36,7 +36,7 @@ Los permisos de operación conservan su autorización habitual. Leer documentos 
 | Reportes bancarios P5 | Todas las sucursales de todos los movimientos de la cuenta | Auxiliar y flujo filtran cuentas completas antes de saldos/totales | Cuenta mixta requiere acceso a todas sus sucursales; cuenta vacía o con movimiento sin origen requiere corporativo. Se conserva cálculo de saldo inicial/final de P5 |
 | Pago a cuenta | Movimiento bancario origen | Bandeja (los globales sin origen solo corporativo) | Alta corporativa cuando no hay origen; ligar valida movimiento y factura |
 | REPP recibido | Factura proveedor | Pendientes filtrados por pasivos | Registro valida factura |
-| Trazabilidad | Cada nodo RQ/OC/factura/pago | Árbol comprobado antes de responder | Se comprueba raíz y todos los nodos relacionados |
+| Trazabilidad | Cada nodo RQ/OC/recepción/factura/pago | Árbol comprobado antes de responder | Se comprueba raíz y todos los nodos relacionados |
 
 ## Documentos sin origen verificable y catálogos
 
@@ -233,3 +233,192 @@ Se reutilizan sucursales y proveedor del seed; las cuentas y tarjetas ficticias 
 | GET | `/api/v1/tesoreria/reportes/flujo-efectivo` | Filtro de cuentas antes de calcular saldos iniciales/finales; una cuenta solicitada explícitamente valida su alcance |
 
 Las rutas de confirmación/rechazo bajo propuestas de CxC fueron retiradas por P5; sus operaciones permanecen en `/tesoreria/depositos/{id}/confirmar` y `/rechazar`, con la guarda P6 del grupo. Los catálogos nuevos de conceptos y retenciones y la captura de saldo inicial de una cuenta maestra conservan sus permisos de administración, por alcance de empresa. Los reportes históricos de P8 usan su permiso corporativo específico; no se sustituyó por el de facturas ni se duplicó su lector.
+
+## Seguimiento P6b · rutas de P4 (09-oct-2026)
+
+Cotejo completo de `CuentasPorPagar/*` y `Tesoreria/*` en la rama `fix/P6b-sucursal-rutas-p4`, desde `main` local `ea7bce2` (PR #68 y #69 integrados). Se encontraron **37 rutas literales ausentes de las tablas previas**: 7 de anticipos/NC/cargos y 30 de catálogos, cuentas y viáticos ya exceptuados por la regla P6. Estar ausente de la tabla no significa carecer de autorización. No se modifican reglas, estados, importes, validaciones fiscales ni publicación de eventos de P4.
+
+### Rutas nuevas incorporadas al inventario
+
+| Método | Ruta | Control y decisión P6b |
+|---|---|---|
+| POST | `/api/v1/cuentas-por-pagar/anticipos/{id:guid}/cancelar` | Permiso de captura primero; guarda del grupo `anticipo_proveedor`, con `cuentas_por_pagar.documentos.gestionar-todas-sucursales`. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L78) |
+| GET | `/api/v1/cuentas-por-pagar/anticipos/serie/{proveedorId:guid}` | Configuración por proveedor y empresa, sin sucursal. GET exige `cuentas_por_pagar.anticipos.leer`; PUT exige `cuentas_por_pagar.anticipos.capturar`. El filtro del grupo busca `id`, no `proveedorId`. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L89) |
+| PUT | `/api/v1/cuentas-por-pagar/anticipos/serie/{proveedorId:guid}` | Configuración por proveedor y empresa, sin sucursal. GET exige `cuentas_por_pagar.anticipos.leer`; PUT exige `cuentas_por_pagar.anticipos.capturar`. El filtro del grupo busca `id`, no `proveedorId`. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L92) |
+| POST | `/api/v1/cuentas-por-pagar/anticipos/{id:guid}/amortizar-nc` | Permiso de captura primero; guarda del grupo `anticipo_proveedor`, con `cuentas_por_pagar.documentos.gestionar-todas-sucursales`; comprueba también la NC del cuerpo. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/AnticiposEndpoints.cs#L96) |
+| POST | `/api/v1/cuentas-por-pagar/notas-cargo/{id:guid}/cancelar` | Guarda de escritura del grupo heredada de P6; permiso de crear/capturar según el documento. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/NotasCargoEndpoints.cs#L156) |
+| POST | `/api/v1/cuentas-por-pagar/notas-cargo/{id:guid}/formalizar` | Guarda de escritura `nota_cargo` heredada de P6; se agrega verificación de la NC fiscal del cuerpo. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/NotasCargoEndpoints.cs#L165) |
+| POST | `/api/v1/cuentas-por-pagar/notas-credito/{id:guid}/cancelar` | Guarda de escritura del grupo heredada de P6; permiso de crear/capturar según el documento. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/NotasCreditoEndpoints.cs#L132) |
+
+### Rutas existentes revisadas y conservadas
+
+- `POST /notas-cargo/{id}/aplicar`: ya tenía guarda del cargo. Se agrega la guarda de la factura elegida en el cuerpo o de la factura persistida si el cuerpo la omite, con `cuentas_por_pagar.facturas.gestionar-todas-sucursales`.
+- `POST /notas-credito/{id}/vincular-factura`: ya comprueba NC y factura; conserva permiso de captura y validaciones P4. Una NC en espera sin origen verificable solo puede vincularla el perfil corporativo. Una NC propia ya vinculada pasa la guarda pero conserva el 422 de estado; no se autoriza por la sucursal destino de un vínculo propuesto.
+- `POST /facturas/{id}/aplicar-nc` y `/aplicar-anticipo`: ya comprueban factura y NC/anticipo. Se añaden regresiones para referencias secundarias ajenas.
+- `GET /tesoreria/repp-pendientes`: ya usa `IDocumentoScopedQuery` de pasivo y filtra `DocumentosPermitidos` antes de totales/paginación. `POST /tesoreria/repp-recibidos` ya valida la factura; P6b agrega la validación de cada `PagoId` incorporado por P4 antes del handler fiscal.
+- Retiro de pasivo: **no existe ruta HTTP nueva**. `RetirarPasivoDePagoCommand` consume el evento de CxP en el worker de Tesorería. Las entradas HTTP existentes (`POST /facturas/{id}/enviar-revision` y `POST /tesoreria/pasivos-pendientes/{facturaProveedorId}/solicitar-cancelacion`) ya tienen guarda P6. No se añade autorización de usuario a un consumidor interno de eventos.
+
+El lector `CxpSucursalReadAdapter` incorpora el origen persistido de P4: NC tipo 07 → `AnticipoOrigenId` → OC → sucursal. El CFDI asociado hereda el mismo alcance. No resuelve un origen por UUID/proveedor ni por usuario. Anticipo sin OC, NC sin factura/anticipo vinculado o con origen no verificable sigue siendo solo corporativo.
+
+### Otras ausencias de la tabla, sin cambios de alcance
+
+Se enumeran para que el cotejo de ambas carpetas sea completo. Conservan las excepciones ya documentadas en «Documentos sin origen verificable y catálogos».
+
+| Método | Ruta | Motivo de conservar su alcance |
+|---|---|---|
+| GET | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L32) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L51) |
+| PATCH | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L65) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/aprobadores-limites/{id:guid}/cerrar` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L84) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/politicas-viaticos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L107) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/politicas-viaticos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L124) |
+| PATCH | `/api/v1/cuentas-por-pagar/catalogos/politicas-viaticos/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L138) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/retenciones` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L167) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/retenciones/propuesta` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L170) |
+| POST | `/api/v1/cuentas-por-pagar/catalogos/retenciones` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L173) |
+| PUT | `/api/v1/cuentas-por-pagar/catalogos/retenciones/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpAdminEndpoints.cs#L180) |
+| GET | `/api/v1/cuentas-por-pagar/catalogos/motivos-revision` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/CatalogosCxpEndpoints.cs#L24) |
+| GET | `/api/v1/cuentas-por-pagar/viaticos` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L32) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L50) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/autorizar-jefe` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L67) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/autorizar-df` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L89) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/marcar-pagado` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L111) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/capturar-comprobacion` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L128) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/liberar` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L149) |
+| POST | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}/rechazar` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L170) |
+| GET | `/api/v1/cuentas-por-pagar/viaticos/{id:guid}` | Solicitud por empleado/jefe y empresa; excepción P6 vigente. [Fuente](../../backend/src/Api/Endpoints/CuentasPorPagar/ViaticosEndpoints.cs#L191) |
+| GET | `/api/v1/tesoreria/conceptos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/ConceptosEndpoints.cs#L16) |
+| POST | `/api/v1/tesoreria/conceptos` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/ConceptosEndpoints.cs#L19) |
+| PUT | `/api/v1/tesoreria/conceptos/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/ConceptosEndpoints.cs#L23) |
+| GET | `/api/v1/tesoreria/cuentas` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L31) |
+| POST | `/api/v1/tesoreria/cuentas` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L44) |
+| PUT | `/api/v1/tesoreria/cuentas/{id:guid}` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L60) |
+| POST | `/api/v1/tesoreria/cuentas/{id:guid}/activar` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L85) |
+| POST | `/api/v1/tesoreria/cuentas/{id:guid}/desactivar` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L97) |
+| POST | `/api/v1/tesoreria/cuentas/{id:guid}/saldo-inicial` | Catálogo o cuenta maestra por empresa; exige su permiso de operación. [Fuente](../../backend/src/Api/Endpoints/Tesoreria/CuentasEndpoints.cs#L109) |
+
+### Verificación P6b
+
+`P6bSucursalEndpointsTests.cs` amplía la misma clase/fixture de P6: periodo abierto, usuario operativo y super-admin, documentos del seed, cuerpos/versiones válidos, 403 sin mutación, operaciones propias/corporativas, referencias secundarias, permiso antes de alcance, configuración de serie y REPP con XML fiscal ficticio y Blob simulado. La serie usa un proveedor simulado exclusivo y limpia su configuración. También se limpian las NC adicionales, REPP y Outbox por IDs de cada ejecución.
+
+`SucursalNcP6bTests` agrega cinco casos unitarios del lector: NC 07 vinculada con/sin OC, NC 07 sin vínculo y NC con/sin factura. Las sucursales de prueba P6 son `MID`/`MTY`, no usuarios ni registros reales de Cancún/Circuito. La reproducción territorial con esos usuarios reales permanece **Por confirmar**.
+
+PostgreSQL desechable y rojo/verde de integración: **Por confirmar**; este sandbox no tiene Docker. Claude debe ejecutar `tools/validate-integration-isolated.sh` completo, incluidos los casos P6/P6b. No se afirma aceptación ni despliegue.
+
+Resultados locales P6b (09-oct-2026):
+
+| Comprobación | Resultado verificado |
+|---|---|
+| `dotnet build Millet.sln` (MSBuild secuencial, restauración desde caché NuGet local, `NuGetAudit=false`) | 0 errores, 0 advertencias; incluye compilación de las integraciones nuevas |
+| CxP unitarias | 444/444, incluidos los 5 casos nuevos del lector |
+| Tesorería unitarias | 132/132 |
+| `SucursalScopeP6Tests` | 3/3 |
+| `npx tsc --noEmit -p tsconfig.json` | Código de salida 0 |
+| `npm run -s typecheck:test` | Código de salida 0 |
+| `npm run -s lint` | 0 errores, 10 advertencias existentes; código de salida 0 |
+| `npx vitest run` | 363 archivos, 2,084 pruebas en verde; código de salida 0 |
+| `git diff --check` | Sin errores |
+
+VSTest abortó antes de ejecutar las unitarias con `SocketException (13): Permission denied`: el sandbox bloquea su socket local. Los resultados unitarios de la tabla se obtuvieron ejecutando **xUnit en proceso**, mediante `AssemblyRunner.WithoutAppDomain` del paquete ya restaurado `xunit.runner.visualstudio`, sobre las DLL compiladas. El ejecutor temporal está en `/tmp/p6b-runner`; no modifica el runner del repositorio. No hubo pruebas fallidas ni omitidas en esas ejecuciones. Esto no sustituye el verde PostgreSQL requerido.
+
+La base Obsidian está fuera del alcance de escritura de este sandbox. Esta sección conserva el cierre local y su evidencia para trasladar a la ficha/Bitácora pertinente cuando se valide la integración. No se modificaron tareas externas, no se publicaron documentos y no se hizo commit ni push.
+
+
+## Adenda P6b · cobertura de P7 sobre `b8cceaa`
+
+La continuación comenzó con el worktree limpio: P4 ya estaba en `a40b134` y P7 (#70, `be819ad`) integrado por `b8cceaa`. No se revirtió ni rehízo P4. El diff de `a40b134` a esta base no cambia rutas CxP/Tesorería: siguen vigentes las 37 ausencias y las decisiones de la sección P4, incluida la serie por proveedor (permiso de operación propio, configuración sin sucursal). El cotejo actual resuelve 133 rutas literales CxP/Tesorería: 37 ausentes de las tablas anteriores a P6b y 0 sin fila en el inventario actualizado. Se normalizan nombres de parámetros y la barra final; las rutas genéricas de adjuntos siguen documentadas aparte.
+
+P7 no añadió una ruta HTTP literal: modificó el PATCH de obra de RQ, los filtros de avisos de salidas y el alcance del árbol, además de handlers y DTOs de recepción/salida/reorden. El cotejo de esas capacidades encontró **14 rutas existentes de Almacén ausentes del inventario P6**, sin guarda/filtro territorial; el árbol ya estaba inventariado pero omitía el tipo `Recepcion`. Se incorporan las 14 y se completa la guarda del árbol. Las demás carpetas de Almacén no forman parte de esta revisión acotada a P7; no se declara aislamiento de todo el módulo.
+
+### Rutas incorporadas/revisadas
+
+| Método | Ruta | Control P6b/P7 |
+|---|---|---|
+| GET | `/api/v1/almacen/recepciones/` | Permiso de entradas; `IDocumentoScopedQuery` filtra IDs antes de conteo/paginación. |
+| GET | `/api/v1/almacen/recepciones/{id:guid}` | Permiso de entradas; guarda del movimiento persistido. |
+| POST | `/api/v1/almacen/recepciones/` | Permiso de registrar entradas; guarda OC, cada bin y CFDI del cuerpo si se proporciona. |
+| POST | `/api/v1/almacen/recepciones/packing-list` | Permiso de registrar entradas; guarda OC y cada bin antes del handler P7. |
+| GET | `/api/v1/almacen/salidas/` | Permiso de salidas; filtro de IDs antes de conteo/paginación y avisos `soloVencidos`/`soloPorVencer`. |
+| GET | `/api/v1/almacen/salidas/{id:guid}` | Permiso de salidas; guarda del movimiento persistido. |
+| POST | `/api/v1/almacen/salidas/` | Permiso de registrar salidas; guarda RQ y cada bin del cuerpo. |
+| POST | `/api/v1/almacen/salidas/vale` | Permiso de vale; guarda cada bin del cuerpo. |
+| POST | `/api/v1/almacen/salidas/{id:guid}/regularizar` | Permiso de vale; guarda movimiento y RQ regularizadora antes del handler. |
+| GET | `/api/v1/almacen/reorden/` | Permiso de lectura de reorden; filtro de IDs antes de conteo/paginación. |
+| GET | `/api/v1/almacen/reorden/{id:guid}` | Permiso de lectura de reorden; guarda N1 por sucursal, N2 por almacén persistido. |
+| POST | `/api/v1/almacen/reorden/` | Permiso de administrar reorden; guarda entidad N1/N2 del cuerpo. |
+| PATCH | `/api/v1/almacen/reorden/{id:guid}` | Permiso de administrar reorden; guarda entidad persistida, conserva la llave inmutable. |
+| POST | `/api/v1/almacen/reorden/{id:guid}/desactivar` | Permiso de administrar reorden; guarda entidad persistida. |
+| GET | `/api/v1/compras/trazabilidad/arbol-documentos` | Policy `compras.ordenes.leer` primero; verifica raíz y todos los ascendentes/descendentes RQ/OC/recepción/factura/pago antes de responder. Árbol mixto → 403 completo, igual que P6. |
+| PATCH | `/api/v1/compras/requisiciones/{id:guid}` | Obra conserva permiso y guarda de escritura de RQ existentes; se agrega regresión con cambio persistido. |
+
+Fuentes: `RecepcionesEndpoints.cs`, `SalidasEndpoints.cs`, `ValesEndpoints.cs`, `AlmacenReordenEndpoints.cs`, `ArbolDocumentosEndpoint.cs` y los tres handlers de listado modificados.
+
+### Origen territorial y permisos
+
+`AlmacenSucursalReadAdapter` implementa el puerto público `IAlmacenSucursalReadPort`, reutilizado por `DocumentoSucursalScope` y `SucursalScopeQueryBehavior`. Para movimientos, resuelve **todas** las ubicaciones → sub-almacén → almacén → sucursal y reúne las sucursales de OC, RQ, RQ regularizadora, factura y CFDI vinculados mediante puertos públicos de lectura. Si no hay líneas, o falta un bin u origen persistido no se infiere alcance: documento sin origen verificable → solo corporativo. No basta un bin propio si otro origen es ajeno. El UUID capturado manualmente no se usa para inventar una sucursal.
+
+Reorden sí tiene destino territorial: N1 referencia sucursal; N2 referencia almacén. La cantidad fija de P7 conserva su cálculo. El motor `EvaluarReordenQuery`/`GenerarBorradoresReordenCommand` solo tiene consumidores internos (no ruta HTTP) y conserva el barrido del worker sin JWT. Apartados se manipulan desde autorización/cancelación/cierre de RQ y surtido: las rutas RQ/OC mantienen P6, y las entradas de surtido ahora verifican RQ y bins. La conversión de unidades no tiene una ruta nueva: sigue dentro de los handlers P7, después del control de acceso.
+
+Se agregan seis permisos canónicos y una migración de Identidad (sin tablas nuevas): `almacen.{entradas,salidas,reorden}.{leer,gestionar}-todas-sucursales`. El permiso histórico `almacen.salidas.leer-todas` sigue siendo la capacidad de lectura; **no** es el bypass territorial. Lectura corporativa no concede gestión corporativa. La migración siembra permisos, no los asigna a roles operativos; el super-admin sigue el bootstrap existente.
+
+### Pruebas nuevas y límites
+
+`P6bP7SucursalEndpointsTests.cs` reutiliza la clase y fixture P6 con periodo abierto también para Almacén. Cubre cada detalle/alta/mutación (403 ajeno sin cambios y 2xx propio/corporativo), permisos antes de sucursal, bandejas/avisos, los cinco orígenes del árbol con un nodo relacionado ajeno, alta con bin/CFDI ajeno, recepción sin líneas y obra de RQ. Usa sucursales ficticias del seed `MID`/`MTY`; no representa ejecución con los usuarios reales de Cancún/Circuito. Los catálogos exclusivos, movimientos, saldos, asignaciones, configuraciones y Outbox se limpian por IDs. Ningún catálogo compartido queda alterado tras la prueba.
+
+`SucursalP6bTests` agrega 10 casos unitarios: bin y origen propio/ajeno/roto, movimientos sin líneas, destino N2, factura/CFDI ajenos y filtro antes de totales/paginación para recepción/salida/reorden. Los demás controles/validaciones/eventos y la lógica de negocio de P4/P7 se conservan.
+
+Integración PostgreSQL desechable y rojo/verde completo: **Por confirmar**. El sandbox bloquea el socket Docker y VSTest; las integraciones se dejan escritas y compiladas para que Claude ejecute `tools/validate-integration-isolated.sh` completo. No equivale a aceptación Millet.
+
+### Resultados locales de la adenda P7 · 09-oct-2026
+
+Evidencia de esta ejecución: [resumen](P6b-P7-resumen.md) y [logs](evidencia-p6b-p7/archivos-cambiados.txt).
+
+| Verificación | Resultado |
+|---|---|
+| Build completo de `Millet.sln` con `--no-restore -m:1 -p:UseSharedCompilation=false -nodeReuse:false -p:NuGetAudit=false` | 0 errores, 0 advertencias; integra las pruebas P6/P6b/P7 y la migración nueva. |
+| Almacén / Compras / CxP / Tesorería unitarias | 326 / 565 / 444 / 132 verdes. |
+| API / Identidad / Compartido unitarias | 40 / 113 / 100 verdes. |
+| Total unitarias ejecutadas | 1,720; 0 fallidas, 0 omitidas. |
+| `npx tsc --noEmit -p tsconfig.json` y `npm run -s typecheck:test` | Ambos código de salida 0. |
+| `npm run -s lint` | 0 errores, 10 advertencias existentes; salida 0. |
+| `npx vitest run` | 364 archivos, 2,085 pruebas verdes; salida 0. |
+| Modelo de Identidad respecto de la última migración | Sin cambios pendientes (`has-pending-model-changes`). |
+| Cotejo literal CxP/Tesorería | 133 rutas; 0 ausencias en inventario actualizado. |
+| `git diff --check` | Sin errores. |
+
+Las unitarias se ejecutaron con xUnit en proceso (`XunitFrontController`, sin AppDomain), cargando dependencias y bibliotecas nativas desde cada suite. El ejecutor temporal se conserva como fuente en la evidencia; no se cambia el runner del repositorio. El primer intento con el runner anterior no resolvía las DLL de Compras/Almacén ni la biblioteca nativa de PDF; el ejecutor corregido pasó las suites completas. VSTest se anuló antes de ejecutar pruebas por `SocketException (13): Permission denied`. El descubrimiento de integración cargó las pruebas nuevas, **sin ejecutarlas ni abrir una base** (las teorías con `MemberData` quedan para ejecución).
+
+No se hizo commit ni push en esta continuación. La bóveda Obsidian está fuera del alcance de escritura; el resumen local incluye el texto pendiente de trasladar a su ficha/Bitácora cuando Claude verifique PostgreSQL.
+
+## Continuación P6b · adenda 2 de integración
+
+Revisión sobre `15439be`, rama `fix/P6b-sucursal-rutas-p4`: el worktree llegó limpio, con P4/P7 ya guardados. El cotejo actual confirma las **133 rutas literales CxP/Tesorería** sin ausencias en las tablas. Se preservan permiso de operación antes de sucursal, alcance corporativo para documentos sin origen y la excepción de serie por proveedor (GET `anticipos.leer`, PUT `anticipos.capturar`, sin filtro territorial).
+
+La revisión completa de las familias de recepción/salida/vale/reorden y trazabilidad identifica cuatro rutas adicionales ausentes de la tabla anterior, preexistentes a P7:
+
+| Método | Ruta | Control y decisión |
+|---|---|---|
+| POST | `/api/v1/almacen/recepciones/packing-list/blob` | Carga previa a crear el documento; exige `almacen.entradas.registrar`. No recibe sucursal ni ID de recepción. La creación de recepción valida OC y bins antes de consumir la referencia. |
+| POST | `/api/v1/almacen/salidas/vale/blob` | Carga previa a crear la salida; exige `almacen.salidas.por-vale`. No recibe sucursal ni ID de salida. El registro posterior del vale valida sus bins. |
+| GET | `/api/v1/almacen/salidas/dim3/buscar` | Selector abierto de catálogo para captura por proxy (ADR-0050), con permiso `almacen.salidas.por-vale`; conserva su excepción explícita, sin filtro territorial de documentos. |
+| GET | `/api/v1/almacen/salidas/{id:guid}/vale` | Descarga de documento persistido: se agrega guarda `salida_almacen`, bypass `almacen.salidas.leer-todas-sucursales`, después de la policy `almacen.salidas.leer-todas` y antes de consultar el vale o abrir su contenido. |
+
+La descarga del vale era una omisión adicional de alcance en una ruta anterior a P7. Se reutiliza la misma guarda del detalle de salida; no cambian almacenamiento, contenido, descarga, estados ni reglas de negocio de P4/P7.
+
+### Corrección del fixture y regresiones
+
+- La limpieza de Outbox de Almacén/CxP/Tesorería y la foto de estado de P6b dejan de traducir `Payload.Contains` a `LIKE` sobre `jsonb`. Se proyectan `Id`/`Payload`, se buscan referencias en memoria y se elimina por IDs. No cambia el tipo de columna ni las migraciones.
+- Tres regresiones PostgreSQL verifican JSON anidado, referencias duplicadas, limpieza vacía, eliminación del evento propio y conservación de eventos ajenos. Se mantiene la regresión de preparación fallida y preservación de roles del sistema.
+- Las dos pruebas OC reportadas usan una referencia exclusiva para seleccionar sus documentos, evitando depender de la primera página de datos compartidos. El diff de producción confirma que P6 solo añadió el filtro antes del conteo y mantuvo `FechaDocumento DESC`, `Folio DESC`, `Skip` y `Take`.
+- Una regresión con el fixture P6 verifica totales, páginas de tamaño 1, exclusión de OC ajena y orden corporativo. La descarga de vale se incorpora a las teorías de 403 ajeno/éxito propio/corporativo y de prioridad del permiso, más dos casos de contenido y `download`. El fixture sustituye Blob Storage por un PDF ficticio en memoria; estas pruebas no acreditan integración Azure.
+
+Resultados y logs actuales: [P6b-adenda2-resumen.md](P6b-adenda2-resumen.md) y [evidencia-p6b-adenda2](evidencia-p6b-adenda2/cotejo-rutas.txt). El rojo/verde PostgreSQL completo posterior a esta corrección sigue **Por confirmar** hasta ejecutar `tools/validate-integration-isolated.sh` fuera del bloqueo Docker del sandbox. La reproducción con usuarios reales Cancún/Circuito sigue pendiente; las integraciones utilizan sucursales ficticias del seed P6.
+
+
+## Continuación P6b · adenda 3 de integración sobre `7aeec1d`
+
+El worktree llegó limpio; las correcciones anteriores estaban guardadas. Se repitió el cotejo actual: **133 rutas CxP/Tesorería y 19 de las familias Almacén/trazabilidad revisadas por P7**, **152 en total, 0 ausencias**. No hay rutas nuevas en esta continuación. Serie por proveedor, permiso antes de sucursal, filtro antes de conteo/paginación y validación de cada nodo del árbol conservan sus controles existentes.
+
+Se corrigió la preparación de las integraciones: OC con capturista, firmante N1 y firmante N2 distintos, siguiendo el patrón de las pruebas P2; nota de cargo sin factura inicial para el caso que vincula una factura ajena y envía body vacío. La regresión comprueba el 403 territorial y que no cambien documentos propios/ajenos, incluido el vínculo persistido. No se relajan reglas ni se cambia producción.
+
+Compilación completa: 0 errores/advertencias; unitarias revisadas: 1,720 verdes; tipos frontend: verdes; lint: 0 errores/10 advertencias existentes; Vitest: 364 archivos/2,085 pruebas verdes. Integraciones PostgreSQL posteriores a la corrección: **Por confirmar**, por bloqueo del socket Docker del sandbox. [Resumen y siguiente acción para Claude](P6b-adenda3-resumen.md) · [cotejo actual por ruta](evidencia-p6b-adenda3/cotejo-rutas.txt). Sin commit ni push, conforme a las reglas comunes vigentes.

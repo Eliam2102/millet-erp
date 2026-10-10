@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
@@ -111,7 +112,13 @@ public sealed record ListarSalidasQuery(
     bool? NoRegularizados,
     int Offset,
     int Limit,
-    bool? SoloVencidos = null, bool? SoloPorVencer = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>;
+    bool? SoloVencidos = null, bool? SoloPorVencer = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "salida_almacen";
+    public string PermisoTodasSucursales => "almacen.salidas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarSalidasHandler
     : IRequestHandler<ListarSalidasQuery, AlmacenPagedResponse<SalidaListItem>>
@@ -131,6 +138,7 @@ public sealed class ListarSalidasHandler
         IQueryable<MovimientoInventario> query = _db.Movimientos.AsNoTracking()
             .Where(m => m.Tipo == TipoMovimiento.SalidaConsumo
                 || m.Tipo == TipoMovimiento.SalidaPorVale);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
         if (request.Estado is EstadoMovimiento e) query = query.Where(m => m.Estado == e);
         // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
         if (request.SubAlmacenId is Guid sid)

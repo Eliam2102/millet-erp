@@ -1353,6 +1353,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(Millet.Api.Web.SucursalScopeQueryBehavior<,>));
 builder.Services.AddScoped<Millet.SharedKernel.Application.IFacturacionSucursalReadPort, Millet.Facturacion.Infrastructure.FacturacionSucursalReadAdapter>();
 builder.Services.AddScoped<IComprasSucursalReadPort, ComprasSucursalReadAdapter>();
+builder.Services.AddScoped<IAlmacenSucursalReadPort, Millet.Almacen.Infrastructure.PublicAdapters.AlmacenSucursalReadAdapter>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.ICxpSucursalReadPort, Millet.CuentasPorPagar.Infrastructure.CxpSucursalReadAdapter>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.ICxcSucursalReadPort, Millet.CuentasPorCobrar.Infrastructure.CxcSucursalReadAdapter>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.ITesoreriaSucursalReadPort, Millet.Tesoreria.Infrastructure.TesoreriaSucursalReadAdapter>();

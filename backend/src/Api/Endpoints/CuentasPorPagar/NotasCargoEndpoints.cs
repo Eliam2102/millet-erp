@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.CuentasPorPagar.Application.Common;
@@ -102,9 +104,17 @@ public static class NotasCargoEndpoints
             Guid id,
             [FromBody] AplicarNotaCargoBody? body,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            CuentasPorPagarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // P4 puede elegir una factura al aplicar; si se omite, modifica la factura ya vinculada.
+            var facturaId = body?.FacturaOrigenId ?? await scopeDb.NotasCargo.AsNoTracking()
+                .Where(x => x.Id == id).Select(x => x.FacturaOrigenId).FirstOrDefaultAsync(cancellationToken);
+            if (facturaId is Guid factura)
+                await scope.VerificarAsync("factura_proveedor", factura,
+                    PermisosCanonicos.CuentasPorPagarFacturasGestionarTodasSucursales, cancellationToken);
             if (expectedVersion is not int v)
             {
                 return Results.Problem(
@@ -153,8 +163,10 @@ public static class NotasCargoEndpoints
           .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarNotasCargoCrear)
           .ProducesProblem(422).ProducesProblem(409).ProducesProblem(428);
         group.MapPost("/{id:guid}/formalizar", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? version,
-            [FromBody] FormalizarCargoBody body, IMediator mediator, CancellationToken ct) =>
+            [FromBody] FormalizarCargoBody body, DocumentoSucursalScope scope, IMediator mediator, CancellationToken ct) =>
         {
+            await scope.VerificarAsync("nota_credito_proveedor", body.NotaCreditoId,
+                PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, ct);
             if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
             await mediator.Send(new FormalizarNotaCargoCommand(id, v, body.NotaCreditoId), ct); return Results.NoContent();
         }).WithMetadata(new RequireIdempotencyKeyAttribute())

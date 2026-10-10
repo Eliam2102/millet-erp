@@ -1,0 +1,8 @@
+backend/src/Api/Endpoints/Almacen/Vales/ValeBlobEndpoints.cs
+backend/tests/Api.IntegrationTests/Compras/Oc/OrdenesCompraEndpointsTests.cs
+backend/tests/Api.IntegrationTests/P6/P6SucursalEndpointsTests.cs
+backend/tests/Api.IntegrationTests/P6/P6bSucursalEndpointsTests.cs
+backend/tests/Api.IntegrationTests/P6/P6bP7SucursalEndpointsTests.cs
+docs/P6/inventario-sucursales.md
+docs/P6/P6b-adenda2-resumen.md
+docs/P6/evidencia-p6b-adenda2/

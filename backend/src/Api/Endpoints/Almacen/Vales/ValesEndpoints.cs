@@ -20,9 +20,12 @@ public static class ValesEndpoints
         // POST /api/v1/almacen/salidas/vale
         app.MapPost("/api/v1/almacen/salidas/vale", async (
             RegistrarSalidaPorValeCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            foreach (var bin in (command.Lineas ?? []).Select(l => l.UbicacionId).OfType<Guid>().Distinct())
+                await documentos.VerificarAsync("ubicacion_almacen", bin, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/salidas/{response.SalidaId}",
@@ -39,9 +42,12 @@ public static class ValesEndpoints
         app.MapPost("/api/v1/almacen/salidas/{id:guid}/regularizar", async (
             Guid id,
             RegularizarValeRequest body,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("salida_almacen", id, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
+            await documentos.VerificarAsync("requisicion", body.RqRegularizadoraId, PermisosCanonicos.AlmacenSalidasGestionarTodasSucursales, ct);
             await mediator.Send(new RegularizarSalidaPorValeCommand(id, body.RqRegularizadoraId), ct);
             return Results.NoContent();
         })

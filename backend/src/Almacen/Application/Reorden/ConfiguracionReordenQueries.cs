@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Catalogo;
@@ -21,7 +22,13 @@ public sealed record ListarConfiguracionesReordenQuery(
     Guid? EntidadId,
     EstatusCatalogo? Estatus,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<ConfiguracionReordenListItem>>;
+    int Limit) : IRequest<AlmacenPagedResponse<ConfiguracionReordenListItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "reorden";
+    public string PermisoTodasSucursales => "almacen.reorden.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed record ConfiguracionReordenListItem(
     Guid Id,
@@ -53,6 +60,7 @@ public sealed class ListarConfiguracionesReordenHandler
         ListarConfiguracionesReordenQuery request, CancellationToken cancellationToken)
     {
         var query = _db.ConfiguracionesReorden.AsNoTracking().AsQueryable();
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
         if (request.ArticuloId is Guid aid) query = query.Where(c => c.ArticuloId == aid);
         if (request.Nivel is NivelReorden niv) query = query.Where(c => c.Nivel == niv);
         if (request.EntidadId is Guid eid) query = query.Where(c => c.EntidadId == eid);

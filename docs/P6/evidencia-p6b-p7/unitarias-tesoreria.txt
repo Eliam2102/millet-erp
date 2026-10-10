@@ -1,0 +1,2 @@
+Descubiertos=132; ejecutar=132
+TOTAL=132; PASS=132; FAIL=0; SKIP=0; ERRORS=0; TIME=0.9624371
