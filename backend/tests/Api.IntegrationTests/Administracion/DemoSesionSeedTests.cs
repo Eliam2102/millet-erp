@@ -34,6 +34,9 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// No deja proveedores, artículos, usuarios ni periodos en los catálogos compartidos
 /// con las otras suites. La base y los blobs se eliminan incluso si falla un assert.
 /// </summary>
+// La sesión DEMO siembra equivalencias de centro de costo (ADM08) que persisten en la base compartida y
+// cambian el resultado de LineasEndpointsTests si corren antes: esta clase corre sola, después de las demás.
+[Collection(Millet.Api.IntegrationTests.CentrosCosto.ADM08SinParalelo.Nombre)]
 public sealed class DemoSesionSeedTests
 {
     [Fact]
@@ -282,12 +285,19 @@ public sealed class DemoSesionSeedTests
         var nombres = await usuarioPort.ObtenerNombresAsync([rq.RequisitanteId], CancellationToken.None);
         Assert.Equal("DEMO Capturista Compras", nombres[rq.RequisitanteId]);
         var almacen = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
-        foreach (var orden in await compras.OrdenesCompra.Include(o => o.Lineas).ToListAsync())
+        // Solo las OC de la sesión DEMO (la base es compartida con otras pruebas), con el mismo criterio del sembrado.
+        var ocMidId = DemoSesionSeedHostedService.Id("DEMO-OC-MID");
+        var ocMtyId = DemoSesionSeedHostedService.Id("DEMO-OC-MTY");
+        foreach (var orden in await compras.OrdenesCompra.Include(o => o.Lineas)
+                     .Where(o => o.Id == ocMidId || o.Id == ocMtyId
+                         || (o.ReferenciaProveedor != null && o.ReferenciaProveedor.StartsWith("DEMO-")))
+                     .ToListAsync())
         {
             var sub = await (from sa in almacen.SubAlmacenes
                              join al in almacen.Almacenes on sa.AlmacenId equals al.Id
                              where al.SucursalId == orden.SucursalDestinoId && sa.Clave == "INSUMOS"
-                             select sa).SingleAsync();
+                             orderby al.Clave
+                             select sa).FirstAsync();
             var rack = await almacen.Ubicaciones.SingleAsync(u => u.SubAlmacenId == sub.Id && u.Clave == "R-01");
             Assert.False(rack.EsDefault);
             Assert.Equal(EstatusCatalogo.Activo, rack.Estatus);
