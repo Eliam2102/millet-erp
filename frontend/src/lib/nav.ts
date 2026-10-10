@@ -5,6 +5,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  BookOpenCheck,
   Boxes,
   Building2,
   CalendarRange,
@@ -13,18 +14,19 @@ import {
   ClipboardList,
   CreditCard,
   FileBadge,
+  FileCheck2,
   FileText,
+  FlaskConical,
   Gauge,
   HandCoins,
   Home,
   Inbox,
-  Landmark,
-  FlaskConical,
   Layers,
+  LineChart,
   ListTree,
   Lock,
   MapPin,
-  Package,
+  Network,
   PackageMinus,
   PackagePlus,
   PhoneCall,
@@ -39,8 +41,8 @@ import {
   Unlock,
   Upload,
   Users,
-  Warehouse,
   Wallet,
+  Warehouse,
   type LucideIcon,
 } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -201,7 +203,7 @@ function placeholderModulo(moduloId: string, label: string, icon: LucideIcon): N
 const moduloAlmacen: NavModulo = {
   moduloId: 'almacen',
   label: 'Almacén',
-  icon: Package,
+  icon: Warehouse,
   secciones: [
     {
       label: 'Operación',
@@ -340,7 +342,7 @@ const moduloAlmacen: NavModulo = {
 const moduloCuentasPorPagar: NavModulo = {
   moduloId: 'cxp',
   label: 'Cuentas por Pagar',
-  icon: CreditCard,
+  icon: ReceiptText,
   secciones: [
     {
       label: 'Operación',
@@ -498,7 +500,7 @@ const moduloCuentasPorPagar: NavModulo = {
 const moduloTesoreria: NavModulo = {
   moduloId: 'tesoreria',
   label: 'Tesorería',
-  icon: Landmark,
+  icon: Banknote,
   secciones: [
     {
       label: 'Operación',
@@ -617,7 +619,7 @@ const moduloTesoreria: NavModulo = {
 const moduloCentrosCosto: NavModulo = {
   moduloId: 'centros-costo',
   label: 'Centros de Costo',
-  icon: Layers,
+  icon: Network,
   secciones: [
     {
       label: 'Configuración',
@@ -649,7 +651,7 @@ const moduloCentrosCosto: NavModulo = {
 const moduloCuentasPorCobrar: NavModulo = {
   moduloId: 'cxc',
   label: 'Cuentas por Cobrar',
-  icon: Receipt,
+  icon: Wallet,
   secciones: [
     {
       label: 'Operación',
@@ -740,7 +742,7 @@ const moduloCuentasPorCobrar: NavModulo = {
 const moduloFacturacion: NavModulo = {
   moduloId: 'facturacion',
   label: 'Facturación',
-  icon: FileText,
+  icon: FileCheck2,
   secciones: [
     {
       label: 'Operación',
@@ -877,7 +879,7 @@ const moduloFacturacion: NavModulo = {
 const moduloContabilidad: NavModulo = {
   moduloId: 'contabilidad',
   label: 'Contabilidad',
-  icon: BookOpen,
+  icon: BookOpenCheck,
   secciones: [
     {
       label: 'Catálogo',
@@ -947,7 +949,7 @@ const modulos: readonly NavModulo[] = [
   moduloCentrosCosto,
   placeholderModulo('activos', 'Activos Fijos', Building2),
   moduloContabilidad,
-  placeholderModulo('reportes', 'Reportes', BarChart3),
+  placeholderModulo('reportes', 'Reportes', LineChart),
 ];
 
 /**

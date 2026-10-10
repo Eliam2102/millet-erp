@@ -112,7 +112,7 @@ Pesos permitidos: 400, 500 y 600. No se usa 700.
 
 ### 2.4 Íconos
 
-- Usa `lucide-react` con `strokeWidth={1.6}` (1.8 en íconos de 14–15px y 2 en chevrons de 12px). Siempre de trazo, nunca rellenos (excepción: el pin cuando está fijado).
+- Usa `lucide-react` con `strokeWidth={1.6}` (2 en el rail de módulos, 1.8 en íconos de 14–15px y 2 en chevrons de 12px). El rail usa trazo 2 porque con 1.6 se veía muy delgado sobre el fondo oscuro (Eliam, 10-oct). Siempre de trazo, nunca rellenos (excepción: el pin cuando está fijado).
 - **Tamaños:**
   - 20: rail.
   - 18: topbar e íconos en cuadro de tarjeta de módulo.
@@ -121,9 +121,9 @@ Pesos permitidos: 400, 500 y 600. No se usa 700.
   - 14: dentro de botones.
   - 12: chevrons de select.
 - **Equivalencias usadas:**
-  - Inicio `Home`, Compras `ShoppingCart`, Almacén `Package`, CxP `Receipt`.
-  - Tesorería `Landmark`, CxC `Inbox`, Facturación `FileText`, Centros de costo `PieChart`.
-  - Contabilidad `BookOpen`, Reportes `BarChart3`, Admin `SlidersHorizontal`.
+  - Inicio `Home`, Compras `ShoppingCart`, Almacén `Warehouse`, CxP `ReceiptText`.
+  - Tesorería `Banknote`, CxC `Wallet`, Facturación `FileCheck2`, Centros de costo `Network`.
+  - Contabilidad `BookOpenCheck`, Reportes `LineChart`, Admin `Settings` (elegidos por Eliam, 10-oct).
   - Buscar `Search`, Notificaciones `Bell`, Sucursal `MapPin`, Nuevo `Plus`, Exportar `Download`.
   - Acciones de fila `MoreHorizontal`, Fijar `Pin`, Advertencia `TriangleAlert`.
 
