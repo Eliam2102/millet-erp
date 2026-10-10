@@ -1,197 +1,240 @@
-import { Inbox, PieChart, Receipt, SlidersHorizontal } from 'lucide-react';
-import { useAdminAccess } from '@/lib/admin/use-admin-registry';
+import { Home, LogOut, PanelLeftClose, PanelLeftOpen, Search, Settings } from 'lucide-react';
 import { Link, useLocation } from '@tanstack/react-router';
-import { sidebarItemsVisibles, type NavModulo } from '@/lib/nav';
+import { gruposMenu, menuModulos } from '@/lib/nav';
+import { normalizarNombre } from '@/lib/admin/registry';
+import { useAdminAccess } from '@/lib/admin/use-admin-registry';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { useAuth } from '@/lib/auth/useAuth';
+import { EmpresaSelector } from '@/components/auth/EmpresaSelector';
+import { SucursalSelector } from '@/components/auth/SucursalSelector';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useId, useState } from 'react';
 
-/**
- * <c>&lt;SidebarNav/&gt;</c> — contenido reutilizable del sidebar
- * (header con logo + nav de módulos + footer). Sin posición fija ni
- * media query: el wrapper decide si vive en un <c>&lt;aside&gt;</c>
- * fijo (desktop) o dentro de un Dialog slide-from-left (mobile).
- *
- * <para>UF7-PR3 — extraído de <c>&lt;Sidebar/&gt;</c> para soportar
- * <c>&lt;MobileSidebar/&gt;</c>. El state del <c>App Launcher Modal</c>
- * vive en <c>&lt;AppShell/&gt;</c> (no aquí) para que sobreviva al
- * desmontaje del mobile drawer cuando se elige un módulo.</para>
- */
 export interface SidebarNavProps {
-  /** Callback al clickear un link directo (Inicio). El wrapper mobile
-   * lo usa para cerrar el drawer al navegar. */
   onLinkSelect?: () => void;
-  /** Callback al clickear un módulo. El parent decide qué hacer
-   * (típicamente abrir el AppLauncher modal). */
-  onModuloOpen: (modulo: NavModulo) => void;
-  className?: string;
-  compact?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
+  contadores?: Readonly<Record<string, number>>;
 }
 
+/** Menú compartido por escritorio y móvil; no abre paneles ni launchers. */
 export function SidebarNav({
   onLinkSelect,
-  onModuloOpen,
-  className,
-  compact = false,
+  collapsed = false,
+  onToggle,
+  contadores = {},
 }: SidebarNavProps) {
   const { pathname } = useLocation();
   const permisos = useAuthStore((s) => s.permisos);
-
-  const isLinkActive = (to: string) =>
-    to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`);
-
-  function isModuloActive(modulo: NavModulo): boolean {
-    return modulo.secciones.some((s) =>
-      s.cards.some((c) => pathname === c.to || pathname.startsWith(`${c.to}/`)),
-    );
-  }
-
-  // Solo lo que el usuario puede abrir: módulos sin cards permitidas y
-  // placeholders no se muestran.
-  const items = sidebarItemsVisibles(permisos);
+  const { user, currentEmpresa, logout } = useAuth();
   const puedeVerAdmin = useAdminAccess();
-
-  if (compact) {
-    const orden = [
-      'compras',
-      'almacen',
-      'cxp',
-      'tesoreria',
-      'cxc',
-      'facturacion',
-      'centros-costo',
-      'contabilidad',
-      'reportes',
-    ];
-    const nombres: Record<string, string> = {
-      cxp: 'CxP',
-      cxc: 'CxC',
-      'centros-costo': 'C. Costo',
-      contabilidad: 'Contab.',
-    };
-    const iconos = { cxp: Receipt, cxc: Inbox, 'centros-costo': PieChart };
-    const railClass = (active: boolean) =>
-      cn(
-        'flex w-rail-item flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-        active ? 'bg-rail-active text-white' : 'text-rail-fg hover:bg-rail-active hover:text-white',
-      );
-    const ordenados = [...items].sort(
-      (a, b) =>
-        (a.kind === 'link' ? -1 : orden.indexOf(a.moduloId)) -
-        (b.kind === 'link' ? -1 : orden.indexOf(b.moduloId)),
+  const [filtro, setFiltro] = useState('');
+  const filterId = useId();
+  const modulos = menuModulos(permisos, collapsed ? '' : filtro);
+  const query = normalizarNombre(collapsed ? '' : filtro.trim());
+  const activeTo = modulos
+    .flatMap((module) => module.cards)
+    .filter((card) => pathname === card.to || pathname.startsWith(`${card.to}/`))
+    .sort((a, b) => b.to.length - a.to.length)[0]?.to;
+  const active = (to: string) =>
+    to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`);
+  const linkClass = (selected: boolean) =>
+    cn(
+      'flex min-h-11 items-center gap-2.5 rounded-sm px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:min-h-8',
+      selected ? 'bg-rail-active text-white' : 'text-rail-fg hover:bg-rail-active hover:text-white',
+      collapsed && 'justify-center',
     );
-    return (
-      <nav
-        aria-label="Módulos"
-        className="flex h-full w-rail flex-col items-center gap-1 overflow-y-auto bg-rail py-3"
+  function namedLink(
+    to: string,
+    label: string,
+    Icon: typeof Home,
+    selected: boolean,
+    contador?: number,
+  ) {
+    const link = (
+      <Link
+        to={to}
+        onClick={onLinkSelect}
+        aria-label={label}
+        aria-current={selected ? 'page' : undefined}
+        className={linkClass(selected)}
       >
-        {ordenados.map((item) => {
-          const Icon =
-            item.kind === 'modulo'
-              ? (iconos[item.moduloId as keyof typeof iconos] ?? item.icon)
-              : item.icon;
-          const active = item.kind === 'link' ? isLinkActive(item.to) : isModuloActive(item);
-          const content = (
-            <>
-              <Icon size={20} strokeWidth={1.6} aria-hidden="true" />
-              <span>
-                {item.kind === 'modulo' ? (nombres[item.moduloId] ?? item.label) : item.label}
-              </span>
-            </>
-          );
-          return item.kind === 'link' ? (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onLinkSelect}
-              aria-current={active ? 'page' : undefined}
-              className={railClass(active)}
-            >
-              {content}
-            </Link>
-          ) : (
-            <button
-              key={item.moduloId}
-              type="button"
-              onClick={() => onModuloOpen(item)}
-              aria-label={item.label}
-              aria-current={active ? 'true' : undefined}
-              className={railClass(active)}
-            >
-              {content}
-            </button>
-          );
-        })}
-        {puedeVerAdmin && (
-          <Link to="/admin" className={cn(railClass(isLinkActive('/admin')), 'mt-auto')}>
-            <SlidersHorizontal size={20} strokeWidth={1.6} aria-hidden="true" />
-            <span>Admin</span>
-          </Link>
+        <Icon size={18} strokeWidth={1.6} aria-hidden="true" />
+        {!collapsed && <span>{label}</span>}
+        {!collapsed && contador != null && contador > 0 && (
+          <span
+            aria-label={`${contador} pendientes en ${label}`}
+            className="ml-auto rounded-full bg-rail-active px-1.5 text-2xs tabular-nums text-white"
+          >
+            {contador}
+          </span>
         )}
-      </nav>
+      </Link>
+    );
+    return collapsed ? (
+      <Tooltip>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+    ) : (
+      link
     );
   }
-
   return (
-    <div className={cn('flex h-full w-60 flex-col bg-sidebar text-sidebar-foreground', className)}>
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded bg-sidebar-accent text-xs font-bold text-white">
-          M
-        </div>
-        <span className="text-sm font-semibold tracking-wide text-white">Millet ERP</span>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto py-3">
-        <ul className="space-y-0.5 px-2">
-          {items.map((item) => {
-            const Icon = item.icon;
-
-            if (item.kind === 'link') {
-              const active = isLinkActive(item.to);
-              return (
-                <li key={item.label}>
-                  <Link
-                    to={item.to}
-                    onClick={onLinkSelect}
-                    className={cn(
-                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                      active
-                        ? 'bg-sidebar-active text-sidebar-active-foreground'
-                        : 'text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-white',
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
-                </li>
-              );
-            }
-
-            const active = isModuloActive(item);
+    <TooltipProvider>
+      <div
+        data-print="hidden"
+        className={cn(
+          'flex h-full min-h-0 flex-col bg-rail text-rail-fg',
+          collapsed ? 'w-menu-collapsed' : 'w-menu',
+        )}
+      >
+        {!collapsed && (
+          <div className="shrink-0 space-y-2 border-b border-rail-active p-3 pr-8 md:pr-3">
+            <p className="text-sm font-semibold text-white">
+              {currentEmpresa?.razonSocial ?? '[EMPRESA]'}
+            </p>
+            <EmpresaSelector />
+            <SucursalSelector />
+            <div className="relative">
+              <Search
+                size={15}
+                strokeWidth={1.6}
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-rail-fg"
+              />
+              <label htmlFor={filterId} className="sr-only">
+                Filtrar menú
+              </label>
+              <Input
+                id={filterId}
+                placeholder="Filtrar menú"
+                value={filtro}
+                onChange={(event) => setFiltro(event.target.value)}
+                className="h-8 border-rail-active bg-rail-active pl-7 text-white placeholder:text-rail-fg"
+              />
+            </div>
+          </div>
+        )}
+        <nav aria-label="Navegación principal" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+          {(!query || normalizarNombre('Inicio').includes(query)) &&
+            namedLink('/', 'Inicio', Home, active('/'))}
+          {gruposMenu.map((grupo) => {
+            const items = grupo.modulos.flatMap((id) =>
+              modulos.filter((module) => module.moduloId === id),
+            );
+            if (items.length === 0) return null;
             return (
-              <li key={item.moduloId}>
-                <button
-                  type="button"
-                  onClick={() => onModuloOpen(item)}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                    active
-                      ? 'bg-sidebar-active text-sidebar-active-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-active/50 hover:text-white',
-                  )}
-                  aria-haspopup="dialog"
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              </li>
+              <section key={grupo.titulo} aria-label={grupo.titulo} className="mt-3">
+                {!collapsed && (
+                  <h2 className="px-2 pb-1 text-2xs font-semibold uppercase tracking-[0.05em] text-rail-fg">
+                    {grupo.titulo}
+                  </h2>
+                )}
+                {items.map((module) => (
+                  <div key={module.moduloId}>
+                    {namedLink(
+                      module.to,
+                      module.label,
+                      module.icon,
+                      module.cards.some((card) => active(card.to)) || active(`/${module.moduloId}`),
+                      contadores[module.label],
+                    )}
+                    {!collapsed && module.cards.length > 0 && (
+                      <ul className="my-1 ml-7 border-l border-rail-active">
+                        {module.cards.map((card) => (
+                          <li key={card.to}>
+                            <Link
+                              to={card.to}
+                              onClick={onLinkSelect}
+                              aria-current={card.to === activeTo ? 'page' : undefined}
+                              className={cn(
+                                'flex min-h-11 items-center border-l-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:h-7 md:min-h-7',
+                                card.to === activeTo
+                                  ? 'border-brand font-medium text-white'
+                                  : 'border-transparent text-rail-fg hover:text-white',
+                              )}
+                            >
+                              <span className="truncate" title={card.label}>
+                                {card.label}
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </section>
             );
           })}
-        </ul>
-      </nav>
-
-      <div className="shrink-0 border-t border-sidebar-border px-4 py-3 text-xs text-sidebar-muted">
-        v0.1 · dev
+          {query && modulos.length === 0 && !normalizarNombre('Inicio').includes(query) && (
+            <p role="status" className="p-2 text-xs">
+              No hay opciones para esta búsqueda.
+            </p>
+          )}
+        </nav>
+        <div className="shrink-0 space-y-2 border-t border-rail-active p-2">
+          {puedeVerAdmin &&
+            namedLink('/admin', 'Administración', Settings, active('/admin') && !activeTo)}
+          <div className={cn('flex items-center gap-2 px-2', collapsed && 'justify-center')}>
+            <Avatar className="size-7 shrink-0">
+              <AvatarFallback className="bg-brand-avatar text-xs font-semibold text-brand">
+                {user?.nombre
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((word) => word[0])
+                  .join('') ?? '?'}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-white">
+                  {user?.nombre ?? '[PERSONA]'}
+                </p>
+                <p className="text-2xs text-rail-fg">[ROL]</p>
+              </div>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => void logout()}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+            className={cn(
+              'w-full justify-start text-rail-fg hover:bg-rail-active hover:text-white',
+              collapsed && 'justify-center px-0',
+            )}
+          >
+            <LogOut size={18} strokeWidth={1.6} aria-hidden="true" />
+            {!collapsed && 'Cerrar sesión'}
+          </Button>
+          {onToggle && (
+            <Button
+              variant="ghost"
+              onClick={onToggle}
+              aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+              title={collapsed ? 'Expandir menú' : 'Contraer menú'}
+              className={cn(
+                'w-full justify-start text-rail-fg hover:bg-rail-active hover:text-white',
+                collapsed && 'justify-center px-0',
+              )}
+            >
+              {collapsed ? (
+                <PanelLeftOpen size={18} strokeWidth={1.6} aria-hidden="true" />
+              ) : (
+                <PanelLeftClose size={18} strokeWidth={1.6} aria-hidden="true" />
+              )}
+              {!collapsed && 'Contraer menú'}
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

@@ -1,115 +1,42 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MobileSidebar } from '@/components/layout/MobileSidebar';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
+import { MobileSidebar } from './MobileSidebar';
 import { useAuthStore } from '@/lib/auth/auth-store';
-import { PermisosCanonicos } from '@/lib/auth/permission-codes';
-
+import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    children,
-    to,
-    onClick,
-    className,
-  }: {
-    children: React.ReactNode;
-    to: string;
-    onClick?: () => void;
-    className?: string;
-  }) => (
-    <a href={to} onClick={onClick} className={className}>
+  Link: ({ children, to, ...props }: ComponentProps<'a'> & { to: string }) => (
+    <a href={to} {...props}>
       {children}
     </a>
   ),
   useLocation: () => ({ pathname: '/' }),
 }));
-
-describe('<MobileSidebar>', () => {
-  beforeEach(() => {
-    // El sidebar solo muestra módulos con al menos una pantalla permitida.
-    useAuthStore.setState({ permisos: [PermisosCanonicos.ComprasRequisicionesLeer] });
-  });
-
-  it('open=false: no renderiza el dialog', () => {
-    render(
-      <MobileSidebar
-        open={false}
-        onOpenChange={() => {}}
-        onModuloOpen={() => {}}
-      />,
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('open=true: renderiza con título sr-only y los items del nav', () => {
-    render(
-      <MobileSidebar
-        open={true}
-        onOpenChange={() => {}}
-        onModuloOpen={() => {}}
-      />,
-    );
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText(/Navegación principal/i)).toBeInTheDocument();
-    // Inicio + los módulos que el usuario puede abrir (aquí solo Compras).
-    expect(screen.getByText('Inicio')).toBeInTheDocument();
-    expect(screen.getByText('Compras')).toBeInTheDocument();
-  });
-
-  it('click en Inicio (link) cierra el drawer (onOpenChange(false))', () => {
-    const onOpenChange = vi.fn();
-    render(
-      <MobileSidebar
-        open={true}
-        onOpenChange={onOpenChange}
-        onModuloOpen={() => {}}
-      />,
-    );
-    screen.getByText('Inicio').click();
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('click en módulo cierra drawer Y dispara onModuloOpen', () => {
-    const onOpenChange = vi.fn();
-    const onModuloOpen = vi.fn();
-    render(
-      <MobileSidebar
-        open={true}
-        onOpenChange={onOpenChange}
-        onModuloOpen={onModuloOpen}
-      />,
-    );
-    screen.getByRole('button', { name: /Compras/i }).click();
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(onModuloOpen).toHaveBeenCalledOnce();
-    expect(onModuloOpen.mock.calls[0][0]).toMatchObject({
-      moduloId: 'compras',
-    });
-  });
-
-  it('botón Cerrar del drawer dispara onOpenChange(false)', () => {
-    const onOpenChange = vi.fn();
-    render(
-      <MobileSidebar
-        open={true}
-        onOpenChange={onOpenChange}
-        onModuloOpen={() => {}}
-      />,
-    );
-    screen.getByRole('button', { name: /cerrar navegación/i }).click();
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('sin permisos del módulo no lo muestra (ni placeholders)', () => {
-    useAuthStore.setState({ permisos: [] });
-    render(
-      <MobileSidebar
-        open={true}
-        onOpenChange={() => {}}
-        onModuloOpen={() => {}}
-      />,
-    );
-    expect(screen.getByText('Inicio')).toBeInTheDocument();
-    expect(screen.queryByText('Compras')).not.toBeInTheDocument();
-    expect(screen.queryByText('Contabilidad')).not.toBeInTheDocument();
-  });
+vi.mock('@/lib/auth/useAuth', () => ({ useAuth: () => ({ logout: vi.fn() }) }));
+vi.mock('@/components/auth/EmpresaSelector', () => ({ EmpresaSelector: () => null }));
+vi.mock('@/components/auth/SucursalSelector', () => ({ SucursalSelector: () => null }));
+beforeEach(() => useAuthStore.setState({ permisos: [P.ComprasRequisicionesLeer] }));
+it('cerrado no renderiza el diálogo', () => {
+  render(<MobileSidebar open={false} onOpenChange={vi.fn()} />);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+it('muestra pantallas directamente y navega al cerrar, sin launcher', () => {
+  const close = vi.fn();
+  render(<MobileSidebar open onOpenChange={close} />);
+  expect(screen.getByRole('dialog', { name: 'Navegación principal' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('link', { name: 'Mis requisiciones' }));
+  expect(close).toHaveBeenCalledWith(false);
+  expect(screen.getByRole('link', { name: 'Mis requisiciones' })).toHaveAttribute(
+    'href',
+    '/compras/requisiciones',
+  );
+  expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+});
+it('botón de cierre y módulos sin permiso', () => {
+  const close = vi.fn();
+  useAuthStore.setState({ permisos: [] });
+  render(<MobileSidebar open onOpenChange={close} />);
+  expect(screen.queryByText('Compras')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar navegación' }));
+  expect(close).toHaveBeenCalledWith(false);
 });

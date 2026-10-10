@@ -1,5 +1,13 @@
 # Referencia visual en Figma
 
+> **Navegación y Administración, 10-oct-2026:** Eliam aprobó la maqueta
+> `outputs/Claridad_ERP_Millet/K_Propuesta_menu_y_administracion.html`, con
+> todas las pantallas visibles, sin desplegables. Sustituye el rail/panel y
+> AppLauncher descritos en el corte de abajo. Ver DESIGN §3 y ADR-0032.
+> Las demás pantallas conservan la referencia Figma. Revisión visual de
+> UI-NAV con la sesión real: pendiente de Claude.
+
+
 Archivo: [UI VIDRIOS MILLET](https://www.figma.com/design/npuhEBfcWiHrUfGZUDW8ZH/UI-VIDRIOS-MILLET?node-id=0-1).
 Eliam lo indicó el 1-oct-2026 como referencia de cómo debe comenzar a verse
 el ERP. Se revisaron estructura, renders y contexto de diseño de las 13 vistas

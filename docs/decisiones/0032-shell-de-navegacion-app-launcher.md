@@ -1,9 +1,37 @@
 # ADR-0032: Shell de navegación con App Launcher modal
 
-- **Estado**: Aceptada
+- **Estado**: Revisada el 10-oct-2026; el patrón modal original se conserva como historia.
 - **Fecha**: 2026-05-09
 - **Decisores**: Eduardo Paredes (owner)
 - **Etiquetas**: frontend, ux, shell, cross-module
+
+## Revisión vigente · decisión de Eliam, 10-oct-2026
+
+Eliam aprobó `outputs/Claridad_ERP_Millet/K_Propuesta_menu_y_administracion.html`
+y precisó «todo a la mano, sin desplegables». Esta decisión reemplaza el
+App Launcher modal, sus pestañas y el rail + panel de módulo por el menú
+oscuro de una columna de 248px (64px al contraer). Las pantallas permitidas
+permanecen visibles; configuración pasa a Administración → Por módulo.
+Administración usa filas en secciones simultáneas e índice por anclas.
+Los datos maestros pasan al módulo operativo que los usa, sin cambiar sus rutas.
+
+`nav.ts` conserva la API de navegación, gates, contexto y búsqueda; el catálogo
+se extrae internamente a `nav-catalog.ts` para que `admin/registry.ts` reutilice
+Configuración sin dependencias circulares. Ambos aplican `nav-permissions.ts`.
+No se amplían permisos ni se crean rutas, endpoints o pantallas de negocio.
+El modal y ModulePanel se retiran al no tener consumidores. AppLauncherCard
+permanece como componente de las páginas de entrada de módulos existentes.
+
+Móvil conserva la especificación de cuatro accesos inferior de DESIGN §3.4;
+en esta base solo existía un drawer, por lo que se implementa la tab bar.
+Módulos abre el drawer con pantallas directas; Pendientes lleva a la bandeja de Inicio.
+El único despliegue del menú es contraer toda la columna, elección explícita
+con preferencia local protegida por try/catch. Los selectores de empresa y
+sucursal conservan su comportamiento de selección de contexto.
+
+No se copian estados ni conteos ilustrativos de la maqueta. La revisión visual
+con sesión real queda a Claude; pruebas automatizadas no acreditan aceptación.
+Los apartados siguientes describen la decisión original, sustituida por esta revisión.
 
 ## Contexto y problema
 

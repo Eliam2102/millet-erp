@@ -1,7 +1,7 @@
 # Millet ERP — Design System (guía para agentes de IA)
 
 > **Para quién es:** cualquier agente (Codex, Claude Code, Cursor, Lovable…) o persona que construya pantallas del ERP de Vidrios Millet.
-> **Fuente de verdad visual:** el canvas "Millet ERP — Navegación" (12 pantallas). Si algo de esta guía y el canvas no coinciden, **manda el canvas** y se corrige esta guía.
+> **Fuente de verdad visual:** para navegación y Administración, la maqueta `outputs/Claridad_ERP_Millet/K_Propuesta_menu_y_administracion.html` aprobada por Eliam el 10-oct-2026, con la precisión de mostrar todo sin desplegables. Para las demás pantallas, el canvas "Millet ERP — Navegación" (12 pantallas). Si algo de esta guía y el canvas no coinciden, **manda el canvas** y se corrige esta guía.
 > **Stack:** React + TypeScript + Tailwind + shadcn/ui. Íconos: `lucide-react`.
 > **Archivos:** `tokens.json` (valores), `tokens.css` (variables), `tailwind.config.ts` (clases). Esta guía explica **cómo** usarlos.
 
@@ -14,7 +14,7 @@
 1. Usar solo colores, tamaños, radios y sombras de `tokens.json` / clases de `tailwind.config.ts`. Nada de hex sueltos ni de la paleta default de Tailwind (`blue-600`, `gray-500`, `slate-*`…).
 2. Usar **IBM Plex Sans** para la UI e **IBM Plex Mono** para folios, UUID, RFC y atajos de teclado.
 3. Usar **13px** como tamaño base (`text-sm`). Nunca subir el cuerpo de una pantalla de escritorio a 14–16px.
-4. Construir cada pantalla dentro del **App Shell** (sección 3): rail oscuro + (panel de módulo) + topbar + contenido.
+4. Construir cada pantalla dentro del **App Shell** (sección 3): menú oscuro de una columna + topbar + contenido.
 5. Empezar cada listado desde la **plantilla de Listado** (sección 5.1) y cada registro desde la de **Detalle** (5.2). No inventes layouts nuevos si uno existente aplica.
 6. Mostrar montos con `tabular-nums`, alineados a la derecha, en formato `$412,875.40`.
 7. Expresar estados con **Badge de estado** (sección 4.6) y su color semántico. Un estado = un color, siempre el mismo en todo el ERP.
@@ -23,7 +23,7 @@
 
 **NO DEBES**
 
-- Usar gradientes, glassmorphism, sombras grandes en tarjetas ni bordes laterales de color en tarjetas (el único borde lateral permitido es la selección de la lista maestra, 3px azul).
+- Usar gradientes, glassmorphism, sombras grandes en tarjetas ni bordes laterales de color en tarjetas (se permite la selección de la lista maestra, 3px azul, y la marca activa de 2px en el menú).
 - Usar emoji, ilustraciones ni logos (el producto no lleva logo en el rail).
 - Usar fuentes Inter, Roboto ni Arial.
 - Usar rojo/verde como único diferenciador: el estado siempre lleva texto.
@@ -114,16 +114,16 @@ Pesos permitidos: 400, 500 y 600. No se usa 700.
 
 - Usa `lucide-react` con `strokeWidth={1.6}` (1.8 en íconos de 14–15px y 2 en chevrons de 12px). Siempre de trazo, nunca rellenos (excepción: el pin cuando está fijado).
 - **Tamaños:**
-  - 20: rail.
+  - 18: menú lateral, trazo 1.6.
   - 18: topbar e íconos en cuadro de tarjeta de módulo.
   - 16: chevrons de fila y acciones.
   - 15: search.
   - 14: dentro de botones.
   - 12: chevrons de select.
 - **Equivalencias usadas:**
-  - Inicio `Home`, Compras `ShoppingCart`, Almacén `Package`, CxP `Receipt`.
-  - Tesorería `Landmark`, CxC `Inbox`, Facturación `FileText`, Centros de costo `PieChart`.
-  - Contabilidad `BookOpen`, Reportes `BarChart3`, Admin `SlidersHorizontal`.
+  - Inicio `Home`, Compras `ShoppingCart`, Almacén `Warehouse`, Cuentas por pagar `ReceiptText`.
+  - Facturación `FileCheck2`, Cobranza `Wallet`, Tesorería `Landmark`, Centros de costo `PieChart`.
+  - Contabilidad `BookOpen`, Reportes `BarChart3`, Administración `Settings`.
   - Buscar `Search`, Notificaciones `Bell`, Sucursal `MapPin`, Nuevo `Plus`, Exportar `Download`.
   - Acciones de fila `MoreHorizontal`, Fijar `Pin`, Advertencia `TriangleAlert`.
 
@@ -131,42 +131,71 @@ Pesos permitidos: 400, 500 y 600. No se usa 700.
 
 ## 3. App Shell (todas las pantallas de escritorio)
 
+Decisión de Eliam del 10-oct-2026: una columna, todo a la mano. Reemplaza
+el rail de 76px, el panel de módulo de 240px y el App Launcher modal (ADR-0032).
+
 ```
-┌──────┬──────────────┬───────────────────────────────────────────────┐
-│ Rail │ Panel módulo │ Topbar 56px                                    │
-│ 76px │ 240px        ├───────────────────────────────────────────────┤
-│ dark │ (opcional)   │ Contenido (padding 20/24)                      │
-│      │              │                                               │
-└──────┴──────────────┴───────────────────────────────────────────────┘
+┌─────────────────┬─────────────────────────────────────────────┐
+│ Menú 248px      │ Topbar 56px                                 │
+│ bg-rail         ├─────────────────────────────────────────────┤
+│ scroll propio   │ Contenido (padding 20/24), scroll propio    │
+│                 │                                             │
+└─────────────────┴─────────────────────────────────────────────┘
 ```
 
-Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La página no hace scroll: el scroll vive dentro de la tabla o lista.
+Referencia de 1440×900; mínimo de escritorio: 1280px. El shell ocupa el alto
+disponible. El documento no hace scroll; menú y contenido lo hacen por separado.
+El menú, el topbar y la tab bar móvil llevan `data-print="hidden"`. Al imprimir,
+el contenido vuelve a altura y desbordamiento libres para no cortar documentos.
 
-### 3.1 Rail de módulos
+### 3.1 Menú de una columna
 
-- Contenedor: `w-rail bg-rail flex flex-col items-center py-3 gap-1`.
-- Ítem (`<a>`): `w-rail-item pt-2 pb-1.5 rounded-md flex flex-col items-center gap-1`, con ícono de 20 y label `text-2xs leading-tight`.
-- **Estados:**
-  - Activo: `bg-rail-active text-white`.
-  - Normal: `text-rail-fg`.
-  - Sin acceso o fase posterior: `text-rail-disabled`.
-- Orden fijo: Inicio, Compras, Almacén, CxP, Tesorería, CxC, Facturación, C. Costo, Contab., Reportes. Admin va al fondo, separado por un `flex-grow`.
-- **Sin logo.** El rail empieza directo con "Inicio".
+- Ancho `w-menu` (248px), fondo `bg-rail`. Cabecera y pie permanecen visibles;
+  las pantallas tienen scroll propio dentro del menú.
+- Cabecera: empresa de la sesión y selector de sucursal; se conservan los
+  selectores nativos para cambiar contexto, sin duplicarlos en el topbar.
+- Input con label «Filtrar menú»: filtra nombres en vivo, sin acentos.
+- Inicio arriba, sin grupo. Grupos en `text-2xs uppercase tracking-[0.05em]
+  text-rail-fg`: Abastecimiento (Compras, Almacén, Cuentas por pagar), Ventas
+  (Facturación, Cobranza), Finanzas (Tesorería, Contabilidad, Centros de costo,
+  Reportes únicamente cuando tenga pantallas).
+- Todos los nombres de módulos son completos. Íconos de 18px y trazo 1.6;
+  ver equivalencias en §2.4. Módulos y pantallas usan los gates de `nav.ts`.
+- Contadores solo desde datos disponibles de la bandeja Inicio. Suman acciones
+  de sus bandejas, no documentos únicos. Si falla o carga un conteo, no se
+  presenta un total incompleto. Sin dato disponible, no se agrega badge.
+- Pie: un solo acceso a Administración, avatar, nombre y rol de la sesión.
+  Cuando no viene el rol del API, usar `[ROL]`, sin deducirlo de los permisos.
+  Cerrar sesión queda a la vista.
+- «Contraer menú» deja `w-menu-collapsed` (64px), solo íconos con nombres
+  accesibles y tooltip. «Expandir menú» restaura las pantallas. Preferencia en
+  localStorage con try/catch; el almacenamiento no condiciona la navegación.
 
-### 3.2 Panel de módulo (240px, solo dentro de un módulo)
+### 3.2 Pantallas y Administración por tareas
 
-- Contenedor: `bg-surface-card border-r border-line`.
-- Encabezado de 56px:
-  - Arriba, "MÓDULO" (`text-2xs uppercase tracking-[0.04em] text-ink-muted`).
-  - Debajo, el nombre del módulo (`text-lg font-semibold`).
-  - A la derecha, el botón "Contraer panel" (28×28).
-- Input "Filtrar menú": h-32, `rounded-[7px]`, `bg-surface-subtle border-line`.
-- Secciones: **Operación**, **Reportes** y **Configuración** (o **Consulta** en módulos de consulta). Su título va en `text-2xs font-semibold uppercase tracking-[0.05em] text-ink-muted`, con chevron.
-- **Ítem de menú:**
-  - Base: `h-8 px-2.5 rounded-sm text-sm flex justify-between`.
-  - Normal: `text-ink-strong`.
-  - Activo: `bg-surface-selected text-brand font-medium`.
-- **Contador del ítem:** `min-w-5 h-[18px] px-1.5 rounded-full text-2xs font-medium tabular-nums`, en neutral (`bg-neutral-bg text-ink-secondary`) o alerta (`bg-danger-bg text-danger-fg`).
+- Las pantallas de operación, consulta y reportes aparecen siempre debajo
+  del módulo, indentadas y con línea guía `border-rail-active`; no se usan
+  acordeones, secciones colapsables ni pestañas para navegar.
+- Fila: 28px en escritorio, texto 12px; mínimo táctil 44px en móvil. Activa
+  en blanco con marca izquierda de 2px `border-brand` y `aria-current="page"`.
+- Configuración se mueve a Administración → Por módulo. Se reutilizan las
+  rutas y permisos; el panel de módulo se retira del shell. Cuando un módulo
+  solo tiene configuración (Centros de costo), su entrada abre la página raíz
+  existente y sus configuraciones se listan directamente en Administración.
+- Datos maestros: Proveedores y Artículos en Compras; Clientes y Productos A+W
+  en Facturación. Conservan sus rutas, aunque estén bajo `/admin/datos-maestros`.
+- Administración: índice de 220px (`w-admin-index`), fijo dentro del scroll;
+  todas las secciones visibles a la derecha. Anclas y marca de sección visible.
+  Buscador superior filtra filas en vivo; secciones vacías se omiten.
+- Orden: Empresa y sucursales; Personas y accesos; Facturación y folios;
+  Reglas y parámetros; Catálogos; Por módulo; Bitácora de cambios.
+- Secciones `rounded-lg bg-surface-card shadow-card-flat`. Fila con ícono en
+  cuadro de 28px, nombre, descripción de una línea y chevron. Catálogos SAT
+  agrupados como «Del SAT · solo consulta». Conteos o estados solo si existen
+  respuestas del API que los comprueben.
+- «Falta configurar o validar» solo muestra hallazgos comprobados de endpoints
+  existentes. Usa warning para «Por validar» y «Datos de ejemplo». Una consulta
+  fallida se comunica como por confirmar y nunca como dato faltante.
 
 ### 3.3 Topbar (56px)
 
@@ -176,15 +205,16 @@ Diseño de referencia de 1440×900; mínimo soportado: 1280px de ancho. La pági
   2. Un spacer flexible.
   3. **Search** que abre ⌘K: w-340 (420 en Inicio) × h-34, `rounded-md border-line bg-surface-page text-ink-muted`. Lleva un ícono de 15, el texto "Buscar o ir a…" y `<kbd>⌘K</kbd>` (mono 11, `border-line-control bg-white rounded-xs px-[5px]`).
   4. Otro spacer flexible.
-  5. **Selector de sucursal**: botón secundario h-34 con ícono `MapPin`, el texto "Millet" en `text-ink-muted`, el nombre de la sucursal en `font-medium` y un chevron.
+  5. Empresa y sucursal viven en la cabecera del menú; no se duplican aquí.
   6. **Nuevo**: botón primario h-34 con ícono `Plus`.
   7. **Notificaciones**: icon-button de 34 con un punto `bg-notify` de 7px y halo blanco de 2px.
-  8. **Avatar**: 32px, `rounded-full bg-brand-avatar text-brand text-xs font-semibold`, con iniciales.
+  8. Avatar, nombre, rol y cerrar sesión viven al pie del menú. Se retira el engrane que llevaba a `/admin`.
 
 ### 3.4 Móvil (390px)
 
 - Header de 56px con breadcrumb (`Todas las sucursales › Inicio`, la pantalla actual en negritas), sin logo. Notificaciones y avatar como botones de 44×44.
 - Contenido con padding de 16, h1 de 17/600 y tarjetas `rounded-xl shadow-card-flat`. Filas de mínimo 64px; las filas de "Recientes" pueden ser de 52px.
+- El botón Módulos abre el drawer con todas las pantallas visibles y navegación directa. El acceso Pendientes lleva a la sección «Requiere tu acción» de Inicio.
 - Tab bar inferior de 64px con 4 tabs (Inicio, Pendientes, Buscar, Módulos), ícono de 22 y label de 11. Tab activa en `text-brand font-medium`, inactiva en `text-ink-muted`.
 - Todos los objetivos táctiles miden mínimo 44px.
 
@@ -334,7 +364,7 @@ Usa siempre una de estas cinco. Las referencias son artboards del canvas.
 ### 5.1 Listado de módulo (CxP Facturas, Almacén Recepciones, Compras OCs, Tesorería Pagos, CxC Cartera, Facturación Comprobantes, Centros de costo)
 
 ```
-Shell (rail + panel de módulo + topbar)
+Shell (menú de una columna + topbar)
 └ main  p-[20px_24px_0] flex-col gap-4
   ├ Header de página: H1 (22/600) + descripción 13 muted (1 línea: qué es y qué se hace aquí)
   │                   └ derecha: [Exportar] secondary + [Acción primaria]
@@ -348,7 +378,7 @@ Shell (rail + panel de módulo + topbar)
 ### 5.2 Detalle de registro (Factura FE-3391)
 
 ```
-Shell (rail + topbar con breadcrumb que termina en el folio)
+Shell (menú de una columna + topbar con breadcrumb que termina en el folio)
 └ [Lista maestra 320] | main p-[24px_28px] flex-col gap-5
                          ├ Encabezado: Folio (mono 22/600) + Badge · entidad + RFC  | Acciones
                          ├ <dl> de datos clave: grid-cols-4 en tarjeta (dt 12 muted, dd 13/500)
@@ -397,7 +427,7 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 - **Folios** en mono, tal como vienen del sistema: `OC-2026-0412`, `REC-2026-0931`, `FE-3391`, `CB-0931`.
 - **Abreviaturas aceptadas:**
   - Módulos: CxP, CxC, OC, CFDI, REPP, UUID, RFC, A+W.
-  - En el rail: "C. Costo", "Contab.".
+  - En el menú se escriben nombres completos: Cuentas por pagar, Cobranza, Centros de costo, Contabilidad.
 - **Descripciones de pantalla:** una oración que diga qué hay y qué se hace ("Captura, conciliación contra OC y recepción, y autorización para pago.").
 - **Mensajes de bloqueo:** di qué falta y qué lo destraba ("La línea 3 no tiene recepción en Almacén. La factura podrá autorizarse cuando se registre la recepción o se corrija la OC.").
 - **Placeholders** para datos desconocidos: `[MAYÚSCULAS ENTRE CORCHETES]`. Nunca uses lorem ipsum.
@@ -434,7 +464,7 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 
 ### 7.3 Navegación
 
-- Rail = módulo. Panel de módulo = pantallas del módulo. Breadcrumb = ubicación actual.
+- Menú de una columna = módulos y todas sus pantallas de operación. Administración = configuración por tareas. Breadcrumb = ubicación actual.
 - Las tarjetas de KPI y las filas de la bandeja llevan al listado ya filtrado.
 - El folio lleva al detalle. ⌘K lleva a cualquier pantalla, acción o registro.
 - **Atajos:** `⌘K` buscar; `G` + letras para ir a (`G A R` = Almacén › Recepciones); `N` + letra para nuevo (`N F` = Registrar factura).
@@ -453,7 +483,7 @@ Ver 3.4. Solo es para consultar y aprobar; la captura pesada es de escritorio.
 
 ## 9. Checklist antes de entregar una pantalla
 
-- [ ] Está dentro del App Shell, con el ítem correcto activo en el rail y en el panel de módulo.
+- [ ] Está dentro del App Shell, con la pantalla correcta activa en el menú de una columna.
 - [ ] El breadcrumb refleja la ubicación.
 - [ ] Usa una plantilla de la sección 5 y no tiene layouts inventados.
 - [ ] No hay hex, tamaños ni radios fuera de los tokens (`grep -E "#[0-9A-Fa-f]{6}"` en el componente debe dar 0).

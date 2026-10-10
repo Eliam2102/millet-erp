@@ -29,13 +29,11 @@ const cardEjemplo: NavCard = {
   icon: Inbox,
 };
 
-describe('<AppLauncherCard>', () => {
+describe('<AppLauncherCard> en páginas de módulo (sin modal del shell)', () => {
   it('renderiza título + descripción + link al destino', () => {
     render(<AppLauncherCard card={cardEjemplo} onSelect={() => {}} />);
     expect(screen.getByText('Mis requisiciones')).toBeInTheDocument();
-    expect(
-      screen.getByText(/bandeja general/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/bandeja general/i)).toBeInTheDocument();
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', '/compras/requisiciones');
   });
@@ -48,9 +46,7 @@ describe('<AppLauncherCard>', () => {
   });
 
   it('footer slot opcional: no se renderiza cuando footer=undefined', () => {
-    const { container } = render(
-      <AppLauncherCard card={cardEjemplo} onSelect={() => {}} />,
-    );
+    const { container } = render(<AppLauncherCard card={cardEjemplo} onSelect={() => {}} />);
     // El componente solo renderiza el footer block cuando footer != null.
     expect(container.querySelector('[class*="mt-auto"]')).toBeNull();
   });

@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import {
-  useAdminAccess,
-  useAdminRegistry,
-} from '@/lib/admin/use-admin-registry';
+import { useAdminAccess, useAdminRegistry } from '@/lib/admin/use-admin-registry';
 import { rutaPermitida } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -69,7 +66,11 @@ describe('useAdminRegistry / useAdminAccess', () => {
 });
 
 it('Mi empresa comparte permiso entre tarjeta y ruta directa', () => {
-  const escenarios: string[][] = [[], [PermisosCanonicos.AdminEmpresasLeer], [PermisosCanonicos.AdminEmpresasEditar]];
+  const escenarios: string[][] = [
+    [],
+    [PermisosCanonicos.AdminEmpresasLeer],
+    [PermisosCanonicos.AdminEmpresasEditar],
+  ];
   for (const permisos of escenarios) {
     useAuthStore.setState({ permisos });
     const { result, unmount } = renderHook(() => useAdminRegistry());
@@ -78,5 +79,30 @@ it('Mi empresa comparte permiso entre tarjeta y ruta directa', () => {
     expect(rutaPermitida('/admin/mi-empresa', permisos)).toBe(visible);
     unmount();
   }
+  useAuthStore.getState().clearSession();
+});
+
+it('mover configuración mantiene el gate alternativo y no amplía settings de Administración', () => {
+  const permisos = [PermisosCanonicos.CentrosCostoCatalogoAdministrar];
+  useAuthStore.setState({ permisos });
+  const { result, unmount } = renderHook(() => useAdminRegistry());
+  expect(result.current.some((entry) => entry.href === '/centros-costo/configuracion')).toBe(true);
+  expect(rutaPermitida('/centros-costo/configuracion', permisos)).toBe(true);
+  expect(rutaPermitida('/admin/admin/settings', permisos)).toBe(false);
+  unmount();
+  useAuthStore.getState().clearSession();
+});
+
+it('mover maestros conserva su permiso para rutas directas y settings previos', () => {
+  const permisos = [PermisosCanonicos.DatosMaestrosClientesGestionar];
+  useAuthStore.setState({ permisos });
+  const { result, unmount } = renderHook(() => useAdminRegistry());
+  expect(result.current.some((entry) => entry.href.startsWith('/admin/datos-maestros'))).toBe(
+    false,
+  );
+  expect(rutaPermitida('/admin/datos-maestros/clientes', permisos)).toBe(true);
+  expect(rutaPermitida('/admin/datos_maestros/settings', permisos)).toBe(true);
+  expect(rutaPermitida('/admin/datos_maestros/settings', [])).toBe(false);
+  unmount();
   useAuthStore.getState().clearSession();
 });

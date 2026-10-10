@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { cn } from '@/lib/utils';
 import { Search } from 'lucide-react';
 import { accesosNavegacion } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -26,7 +27,13 @@ const normalize = (value: string) =>
     .replace(/\p{Diacritic}/gu, '')
     .toLocaleLowerCase('es-MX');
 
-export function AccessSearch({ children }: { children?: ReactNode }) {
+export function AccessSearch({
+  children,
+  mobile = false,
+}: {
+  children?: ReactNode;
+  mobile?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const permisos = useAuthStore((state) => state.permisos);
@@ -46,9 +53,10 @@ export function AccessSearch({ children }: { children?: ReactNode }) {
         if (!useAuthStore.getState().isSwitchingEmpresa) setOpen((value) => !value);
       }
     }
+    if (mobile) return;
     document.addEventListener('keydown', shortcut);
     return () => document.removeEventListener('keydown', shortcut);
-  }, []);
+  }, [mobile]);
 
   function abrir(to: string) {
     const state = useAuthStore.getState();
@@ -65,18 +73,29 @@ export function AccessSearch({ children }: { children?: ReactNode }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          variant="secondary"
-          aria-label="Buscar o ir a"
+          variant={mobile ? 'ghost' : 'secondary'}
+          aria-label={mobile ? 'Buscar' : 'Buscar o ir a'}
           aria-keyshortcuts="Meta+K Control+K"
           disabled={switching}
           title={
             switching ? 'Espera a que termine el cambio de empresa' : 'Buscar accesos (⌘K o Ctrl+K)'
           }
-          className="ml-auto w-11 shrink-0 border-line bg-surface-page px-0 text-ink-muted [&_svg]:size-3.75 md:w-full md:max-w-80 md:flex-1 md:justify-start md:px-3"
+          className={cn(
+            mobile
+              ? 'flex min-h-11 flex-col gap-0 text-2xs text-ink-muted'
+              : 'ml-auto w-11 shrink-0 border-line bg-surface-page px-0 text-ink-muted [&_svg]:size-3.75 md:w-full md:max-w-80 md:flex-1 md:justify-start md:px-3',
+          )}
         >
-          <Search size={15} strokeWidth={1.8} aria-hidden="true" />
-          <span className="hidden md:inline">Buscar o ir a…</span>
-          <kbd className="ml-auto hidden rounded-xs border border-line-control bg-surface-card px-1 font-mono text-2xs md:inline">
+          <Search size={mobile ? 22 : 15} strokeWidth={1.8} aria-hidden="true" />
+          <span className={mobile ? '' : 'hidden md:inline'}>
+            {mobile ? 'Buscar' : 'Buscar o ir a…'}
+          </span>
+          <kbd
+            className={cn(
+              mobile && '!hidden',
+              'ml-auto hidden rounded-xs border border-line-control bg-surface-card px-1 font-mono text-2xs md:inline',
+            )}
+          >
             ⌘K
           </kbd>
         </Button>

@@ -102,6 +102,9 @@ export default {
         "list-selected": "inset 3px 0 0 var(--mt-primary)",
       },
       spacing: {
+        menu: "248px",
+        "menu-collapsed": "64px",
+        "admin-index": "220px",
         rail: "76px",
         "rail-item": "64px",
         "module-panel": "240px",

@@ -51,7 +51,7 @@ Para una acción deshabilitada, explica el bloqueo en texto cercano o tooltip.
 
 Las clases específicas que las pantallas ya pasan con `className` pueden
 sobrescribir la receta compartida; migrarlas requiere revisar cada consumidor.
-Segunda etapa: rail de 76px, panel de módulo de 240px con filtro y contraer/expandir, breadcrumb, topbar de 56px, Nuevo y avatar. Reutiliza rutas y permisos existentes; el menú móvil conserva el drawer/launcher. La búsqueda contextual y las acciones existentes siguen disponibles.
+Navegación vigente (Eliam, 10-oct): menú de una columna de 248px, 64px al contraer; pantallas siempre visibles, filtro, empresa y sucursal arriba, persona al pie. Configuración en Administración por tareas. Retira el panel de 240px y el launcher del shell; móvil usa tab bar y drawer con acceso directo. Reutiliza rutas y permisos existentes. La búsqueda contextual y las acciones existentes siguen disponibles.
 
 Buscador de accesos: botón Buscar o ir a, ⌘K/Ctrl+K, búsqueda sin acentos, navegación por teclado y permisos actualizados; reutiliza el catálogo de navegación y Administración. La búsqueda contextual permanece dentro del diálogo.
 

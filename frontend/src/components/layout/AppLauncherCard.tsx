@@ -4,8 +4,8 @@ import type { NavCard } from '@/lib/nav';
 import { cn } from '@/lib/utils';
 
 /**
- * <c>&lt;AppLauncherCard/&gt;</c> — card individual del modal de App
- * Launcher (ADR-0032). Anatomía:
+ * <c>&lt;AppLauncherCard/&gt;</c> — tarjeta reutilizada por las páginas de entrada
+ * de módulos. El launcher del shell se retiró el 10-oct-2026. Anatomía:
  *
  * <list>
  *   <item><b>Icono</b> (lucide) en cuadro tintado.</item>
@@ -32,11 +32,7 @@ export interface AppLauncherCardProps {
   footer?: React.ReactNode;
 }
 
-export function AppLauncherCard({
-  card,
-  onSelect,
-  footer,
-}: AppLauncherCardProps) {
+export function AppLauncherCard({ card, onSelect, footer }: AppLauncherCardProps) {
   const Icon = card.icon;
   return (
     <Card
@@ -45,19 +41,13 @@ export function AppLauncherCard({
         'focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30',
       )}
     >
-      <Link
-        to={card.to}
-        onClick={onSelect}
-        className="flex h-full flex-col gap-3 p-4 text-left"
-      >
+      <Link to={card.to} onClick={onSelect} className="flex h-full flex-col gap-3 p-4 text-left">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-foreground">
-              {card.label}
-            </div>
+            <div className="truncate text-sm font-semibold text-foreground">{card.label}</div>
             <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
               {card.description}
             </div>

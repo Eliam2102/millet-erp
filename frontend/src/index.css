@@ -171,6 +171,9 @@
   --shadow-sheet: var(--mt-shadow-sheet);
   --shadow-tab-active: inset 0 -2px 0 var(--mt-primary);
   --shadow-list-selected: inset 3px 0 0 var(--mt-primary);
+  --spacing-menu: 248px;
+  --spacing-menu-collapsed: 64px;
+  --spacing-admin-index: 220px;
   --spacing-rail: 76px;
   --spacing-rail-item: 64px;
   --spacing-module-panel: 240px;
@@ -267,4 +270,9 @@
     color: inherit !important;
     text-decoration: none !important;
   }
+}
+
+@media print {
+  [data-app-shell] { height: auto; overflow: visible; }
+  [data-app-content] { overflow: visible; }
 }

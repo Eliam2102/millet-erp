@@ -41,15 +41,14 @@ export function EmpresaSelector() {
 
   return (
     <div className="flex flex-col">
-      <label className="flex items-center gap-2">
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          Empresa:
-        </span>
+      <label className="flex flex-col gap-1">
+        <span className="text-sm text-rail-fg">Empresa:</span>
         <select
+          aria-label="Empresa activa"
           value={currentEmpresa?.id ?? ''}
           onChange={handleChange}
           disabled={isBusy}
-          className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-sm disabled:opacity-50"
+          className="w-full min-w-0 focus-visible:outline-2 focus-visible:outline-brand rounded-md border border-rail-active bg-rail-active text-white px-2 py-1 text-sm disabled:opacity-50"
         >
           {empresas.map((e) => (
             <option key={e.id} value={e.id}>
@@ -57,15 +56,9 @@ export function EmpresaSelector() {
             </option>
           ))}
         </select>
-        {isBusy && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        )}
+        {isBusy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </label>
-      {error && (
-        <span className="text-xs text-red-600 dark:text-red-400 mt-1">
-          {error}
-        </span>
-      )}
+      {error && <span className="text-xs text-danger-fg mt-1">{error}</span>}
     </div>
   );
 }

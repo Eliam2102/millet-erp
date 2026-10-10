@@ -54,6 +54,9 @@
   --mt-primary-disabled: #C8D1E8;
   --mt-avatar-bg: #E8EEFB;
 
+  --mt-menu-width: 248px;
+  --mt-menu-collapsed-width: 64px;
+  --mt-admin-index-width: 220px;
   --mt-rail-bg: #131B2C;
   --mt-rail-active-bg: #26324F;
   --mt-rail-fg: #9AA5BD;

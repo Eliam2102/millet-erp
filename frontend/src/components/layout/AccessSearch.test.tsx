@@ -7,7 +7,9 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { accesosNavegacion, rutaPermitida } from '@/lib/nav';
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a>,
+  Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
   useNavigate: () => navigate,
   useLocation: () => ({ pathname: '/compras/ordenes', search: { page: 5 } }),
 }));

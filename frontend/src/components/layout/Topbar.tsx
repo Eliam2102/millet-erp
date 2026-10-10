@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
-import { Bell, HelpCircle, Menu, PanelLeftOpen, Search, Settings } from 'lucide-react';
+import { Bell, HelpCircle, Menu, Search } from 'lucide-react';
 import { AccessSearch } from '@/components/layout/AccessSearch';
 import { contextoNavegacion } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
-import { EmpresaSelector } from '@/components/auth/EmpresaSelector';
-import { SucursalSelector } from '@/components/auth/SucursalSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UserMenu } from '@/components/layout/UserMenu';
 import { QuickCreateMenu } from '@/components/layout/QuickCreateMenu';
-import { useAdminAccess } from '@/lib/admin/use-admin-registry';
 
 /**
  * Topbar de la app: navegación móvil, breadcrumb, buscador general y
@@ -31,7 +27,6 @@ import { useAdminAccess } from '@/lib/admin/use-admin-registry';
 export interface TopbarProps {
   /** Callback al click del botón hamburger (visible solo sub-md). */
   onMenuClick?: () => void;
-  onExpandPanel?: () => void;
 }
 
 interface SearchableRouteConfig {
@@ -75,17 +70,12 @@ const SEARCHABLE_ROUTES: Record<string, SearchableRouteConfig> = {
   '/cxc/alertas': { placeholder: 'Buscar en alertas de cartera' },
 };
 
-export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
+export function Topbar({ onMenuClick }: TopbarProps = {}) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const permisos = useAuthStore((s) => s.permisos);
   const contexto = contextoNavegacion(pathname, permisos);
   const ayudaHref = resolveAyudaHref(pathname);
-  // El engrane lleva a <c>/admin</c> solo si el usuario tiene al menos
-  // una card visible en el área de Administración. Sin permisos, el
-  // icono se oculta — el shell evita mostrar entrypoints inertes.
-  const usuarioPuedeVerAdmin = useAdminAccess();
-
   const searchableConfig = SEARCHABLE_ROUTES[pathname];
   const placeholder = searchableConfig?.placeholder ?? 'Buscar…';
   const isSearchable = searchableConfig != null;
@@ -146,7 +136,10 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-topbar items-center gap-3 border-b border-line bg-surface-card px-3 md:gap-4 md:px-5">
+    <header
+      data-print="hidden"
+      className="sticky top-0 z-20 flex h-topbar items-center gap-3 border-b border-line bg-surface-card px-3 md:gap-4 md:px-5"
+    >
       {/* Hamburger — mobile only. Abre el <MobileSidebar/>. */}
       <Button
         variant="ghost"
@@ -158,17 +151,6 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
         <Menu className="h-5 w-5" />
       </Button>
 
-      {onExpandPanel && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden md:flex"
-          aria-label="Expandir panel"
-          onClick={onExpandPanel}
-        >
-          <PanelLeftOpen size={16} strokeWidth={1.6} />
-        </Button>
-      )}
       <nav aria-label="Ruta actual" className="hidden min-w-0 items-center gap-1.5 text-sm md:flex">
         {contexto ? (
           <>
@@ -230,9 +212,6 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
       </AccessSearch>
 
       <div className="ml-auto flex items-center gap-2">
-        <EmpresaSelector />
-        <SucursalSelector />
-
         <QuickCreateMenu />
 
         {ayudaHref != null && (
@@ -252,15 +231,6 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
         >
           <Bell className="h-4 w-4" />
         </Button>
-        {usuarioPuedeVerAdmin && (
-          <Button variant="ghost" size="icon" asChild aria-label="Configuración">
-            <Link to="/admin">
-              <Settings className="h-4 w-4" />
-            </Link>
-          </Button>
-        )}
-
-        <UserMenu />
       </div>
     </header>
   );

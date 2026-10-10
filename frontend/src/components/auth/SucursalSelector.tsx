@@ -17,7 +17,8 @@ export function SucursalSelector() {
   const { data: sucursales = [], isLoading } = useQuery({
     queryKey: ['auth', 'sucursales', empresaId],
     enabled: empresaId != null,
-    queryFn: async ({ signal }) => (await apiRequest<SucursalSesion[]>('/api/auth/sucursales', { signal })).data,
+    queryFn: async ({ signal }) =>
+      (await apiRequest<SucursalSesion[]>('/api/auth/sucursales', { signal })).data,
   });
 
   useEffect(() => {
@@ -28,17 +29,21 @@ export function SucursalSelector() {
 
   if (!empresaId || (sucursales.length === 0 && !isLoading)) return null;
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Sucursal:</span>
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-rail-fg">Sucursal:</span>
       <select
         aria-label="Sucursal activa"
         value={sucursalId ?? ''}
         disabled={isLoading}
         onChange={(e) => setSucursalId(e.target.value || null)}
-        className="max-w-44 rounded-md border border-input bg-background px-2 py-1"
+        className="w-full min-w-0 rounded-md border border-rail-active bg-rail-active text-white focus-visible:outline-2 focus-visible:outline-brand px-2 py-1"
       >
         <option value="">Todas las permitidas</option>
-        {sucursales.map((s) => <option key={s.id} value={s.id}>{s.clave} · {s.nombre}</option>)}
+        {sucursales.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.clave} · {s.nombre}
+          </option>
+        ))}
       </select>
     </label>
   );
