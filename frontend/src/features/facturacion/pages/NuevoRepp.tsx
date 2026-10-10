@@ -143,11 +143,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
             ) {
               return;
             }
-            toast.error(error.problem.title, {
-              description:
-                error.problem.detail ??
-                (error.traceId ? `Código: ${error.traceId}` : undefined),
-            });
+            // El aviso en el formulario (ErrorTimbradoAviso) muestra el motivo en lenguaje claro; sin toast técnico duplicado.
             return;
           }
           toast.error('Error inesperado al emitir el REPP.');

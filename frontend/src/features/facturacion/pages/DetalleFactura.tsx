@@ -538,7 +538,7 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
         },
         onError: (error) => {
           if (mostrarErrorReceptorFiscal(error)) return;
-          toast.error(esApiError(error) ? error.problem.title : 'No se pudo aplicar el pedimento.');
+          // El aviso (ErrorTimbradoAviso) muestra el motivo en lenguaje claro; sin toast técnico duplicado.
         },
       },
     );
