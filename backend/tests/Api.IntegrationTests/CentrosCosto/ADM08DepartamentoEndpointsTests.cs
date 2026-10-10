@@ -18,7 +18,15 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Domain.Audit;
 namespace Millet.Api.IntegrationTests.CentrosCosto;
 
+/// <summary>
+/// ADM08 cambia los permisos en caché de <c>dev-superadmin</c> (le quita el alcance total de centros de costo).
+/// Otras clases usan ese mismo usuario en paralelo; por eso esta corre sola, después de las demás.
+/// </summary>
+[CollectionDefinition(Nombre, DisableParallelization = true)]
+public sealed class ADM08SinParalelo { public const string Nombre = "ADM08 sin paralelo"; }
+
 /// <summary>ADM08: PostgreSQL desechable, fixtures propias y limpieza de catálogos compartidos.</summary>
+[Collection(ADM08SinParalelo.Nombre)]
 public sealed class ADM08DepartamentoEndpointsTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
 {
