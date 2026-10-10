@@ -1,4 +1,4 @@
-import { Inbox, PieChart, Receipt, SlidersHorizontal } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useAdminAccess } from '@/lib/admin/use-admin-registry';
 import { Link, useLocation } from '@tanstack/react-router';
 import { sidebarItemsVisibles, type NavModulo } from '@/lib/nav';
@@ -68,7 +68,6 @@ export function SidebarNav({
       'centros-costo': 'C. Costo',
       contabilidad: 'Contab.',
     };
-    const iconos = { cxp: Receipt, cxc: Inbox, 'centros-costo': PieChart };
     const railClass = (active: boolean) =>
       cn(
         'flex w-rail-item flex-col items-center gap-1 rounded-md pt-2 pb-1.5 text-2xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
@@ -85,14 +84,11 @@ export function SidebarNav({
         className="flex h-full w-rail flex-col items-center gap-1 overflow-y-auto bg-rail py-3"
       >
         {ordenados.map((item) => {
-          const Icon =
-            item.kind === 'modulo'
-              ? (iconos[item.moduloId as keyof typeof iconos] ?? item.icon)
-              : item.icon;
+          const Icon = item.icon;
           const active = item.kind === 'link' ? isLinkActive(item.to) : isModuloActive(item);
           const content = (
             <>
-              <Icon size={20} strokeWidth={1.6} aria-hidden="true" />
+              <Icon size={20} strokeWidth={2} aria-hidden="true" />
               <span>
                 {item.kind === 'modulo' ? (nombres[item.moduloId] ?? item.label) : item.label}
               </span>
@@ -123,7 +119,7 @@ export function SidebarNav({
         })}
         {puedeVerAdmin && (
           <Link to="/admin" className={cn(railClass(isLinkActive('/admin')), 'mt-auto')}>
-            <SlidersHorizontal size={20} strokeWidth={1.6} aria-hidden="true" />
+            <Settings size={20} strokeWidth={2} aria-hidden="true" />
             <span>Admin</span>
           </Link>
         )}
