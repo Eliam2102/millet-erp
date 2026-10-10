@@ -19,7 +19,7 @@ public sealed record ProvisionarProductoAwCommand(
     string UnidadMedida,
     string? ClaveUnidadSatSugerida,
     string? FraccionArancelaria = null,
-    decimal? PesoUnitarioKg = null) : IRequest<ProvisionarProductoAwResponse>;
+    decimal? PesoUnitarioKg = null, string? Tipo = null, string? Grupo = null, string? Wgr = null) : IRequest<ProvisionarProductoAwResponse>;
 
 public sealed record ProvisionarProductoAwResponse(
     Guid ProductoId,
@@ -31,7 +31,7 @@ public sealed record ProvisionarProductoAwResponse(
     decimal? TasaRetencionIva,
     decimal? TasaRetencionIsr,
     string Origen,
-    bool Creado);
+    bool Creado, string? Tipo = null, string? EstadoFiscal = null);
 
 public sealed class ProvisionarProductoAwValidator
     : AbstractValidator<ProvisionarProductoAwCommand>
@@ -67,7 +67,7 @@ public sealed class ProvisionarProductoAwHandler
             ClaveUnidadSatSugerida: request.ClaveUnidadSatSugerida,
             FraccionArancelaria: request.FraccionArancelaria,
             PesoUnitarioKg: request.PesoUnitarioKg,
-            SoloCrear: true), cancellationToken);
+            SoloCrear: true, Tipo: request.Tipo, Grupo: request.Grupo, Wgr: request.Wgr), cancellationToken);
 
         return Respuesta(r.Producto!, creado: r.Accion == AplicarProductoAwAccion.Creado);
     }
@@ -75,5 +75,5 @@ public sealed class ProvisionarProductoAwHandler
     private static ProvisionarProductoAwResponse Respuesta(ProductoAw p, bool creado) => new(
         p.Id, p.Descripcion, p.ClaveProdServSat, p.ClaveUnidadSat, p.ObjetoImp,
         p.TasaIvaTraslado, p.TasaRetencionIva, p.TasaRetencionIsr,
-        p.Origen.ToString(), creado);
+        p.Origen.ToString(), creado, p.Tipo, p.EstadoFiscal.ToString());
 }

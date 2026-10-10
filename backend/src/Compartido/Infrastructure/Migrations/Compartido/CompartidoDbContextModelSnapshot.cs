@@ -3992,12 +3992,210 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         });
                 });
 
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.CambioFiscalAw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Accion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("accion");
+
+                    b.Property<string>("AntesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("antes_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DespuesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("despues_json");
+
+                    b.Property<Guid>("EntidadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entidad_id");
+
+                    b.Property<string>("TipoEntidad")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo_entidad");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cambios_fiscales_aw");
+
+                    b.HasIndex("TipoEntidad", "EntidadId")
+                        .HasDatabaseName("ix_cambios_fiscales_aw_tipo_entidad_entidad_id");
+
+                    b.ToTable("cambios_fiscales_aw", "compartido");
+                });
+
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.ClasificacionCliente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activa");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nombre");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_clasificaciones_cliente");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("ix_clasificaciones_cliente_nombre");
+
+                    b.ToTable("clasificaciones_cliente", "compartido");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000012-0001-0000-0000-000000000001"),
+                            Activa = true,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Por validar con Millet (V37, Eliam 10-oct-2026).",
+                            Nombre = "Constructora",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000012-0001-0000-0000-000000000002"),
+                            Activa = true,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Por validar con Millet (V37, Eliam 10-oct-2026).",
+                            Nombre = "Cancelero",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000012-0001-0000-0000-000000000003"),
+                            Activa = true,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Por validar con Millet (V37, Eliam 10-oct-2026).",
+                            Nombre = "Particular",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000012-0001-0000-0000-000000000004"),
+                            Activa = true,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Por validar con Millet (V37, Eliam 10-oct-2026).",
+                            Nombre = "Distribuidor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000012-0001-0000-0000-000000000005"),
+                            Activa = true,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Por validar con Millet (V37, Eliam 10-oct-2026).",
+                            Nombre = "Gobierno",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        });
+                });
+
             modelBuilder.Entity("Millet.DatosMaestros.Domain.Cliente", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<bool>("BloqueadoPorAw")
+                        .HasColumnType("boolean")
+                        .HasColumnName("bloqueado_por_aw");
+
+                    b.Property<Guid?>("ClasificacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clasificacion_id");
 
                     b.Property<string>("Clave")
                         .IsRequired()
@@ -4127,6 +4325,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasKey("Id")
                         .HasName("pk_clientes");
 
+                    b.HasIndex("ClasificacionId")
+                        .HasDatabaseName("ix_clientes_clasificacion_id");
+
                     b.HasIndex("Clave")
                         .IsUnique()
                         .HasDatabaseName("ix_clientes_clave");
@@ -4159,6 +4360,80 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
 
                             t.HasCheckConstraint("ck_clientes_rfc_longitud", "rfc IS NULL OR char_length(rfc) BETWEEN 12 AND 13");
                         });
+                });
+
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.ClienteLigadoAw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("ReferenciaExterna")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("referencia_externa");
+
+                    b.Property<DateTimeOffset?>("RevisadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revisado_en");
+
+                    b.Property<Guid?>("RevisadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revisado_por");
+
+                    b.Property<string>("Rfc")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)")
+                        .HasColumnName("rfc");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("snapshot_json");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_clientes_ligados_aw");
+
+                    b.HasIndex("ClienteId")
+                        .HasDatabaseName("ix_clientes_ligados_aw_cliente_id");
+
+                    b.HasIndex("ReferenciaExterna")
+                        .IsUnique()
+                        .HasDatabaseName("ix_clientes_ligados_aw_referencia_externa");
+
+                    b.ToTable("clientes_ligados_aw", "compartido");
                 });
 
             modelBuilder.Entity("Millet.DatosMaestros.Domain.ClienteSincronizacionAw", b =>
@@ -4392,6 +4667,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(50)")
                         .HasColumnName("codigo_modelo");
 
+                    b.Property<DateTimeOffset?>("ConfirmadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmado_en");
+
+                    b.Property<Guid?>("ConfirmadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("confirmado_por");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -4409,6 +4692,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("descripcion");
+
+                    b.Property<short>("EstadoFiscal")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado_fiscal");
 
                     b.Property<short>("Estatus")
                         .HasColumnType("smallint")
@@ -4437,6 +4724,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("origen");
 
+                    b.Property<short>("OrigenFiscal")
+                        .HasColumnType("smallint")
+                        .HasColumnName("origen_fiscal");
+
                     b.Property<decimal?>("PesoUnitarioKg")
                         .HasPrecision(18, 6)
                         .HasColumnType("numeric(18,6)")
@@ -4447,6 +4738,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("referencia_externa");
+
+                    b.Property<Guid?>("ReglaFiscalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("regla_fiscal_id");
 
                     b.Property<decimal?>("TasaIvaTraslado")
                         .HasPrecision(5, 4)
@@ -4518,6 +4813,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasIndex("ReferenciaExterna")
                         .IsUnique()
                         .HasDatabaseName("ix_producto_aw_referencia_externa");
+
+                    b.HasIndex("ReglaFiscalId")
+                        .HasDatabaseName("ix_producto_aw_regla_fiscal_id");
 
                     b.HasIndex("UnidadMedidaId")
                         .HasDatabaseName("ix_producto_aw_unidad_medida_id");
@@ -4966,6 +5264,124 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
 
                             t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.ReglaFiscalAw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("activa");
+
+                    b.Property<string>("Campo")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("campo");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("valor");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reglas_fiscales_aw");
+
+                    b.HasIndex("Campo", "Valor")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reglas_fiscales_aw_campo_valor");
+
+                    b.ToTable("reglas_fiscales_aw", "compartido");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000012-0002-0000-0000-000000000001"),
+                            Activa = true,
+                            Campo = "Tipo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Fuente SAP VID80000 (#79); validar con Fiscal de Millet.",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "Vidrio plano",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000012-0002-0000-0000-000000000002"),
+                            Activa = true,
+                            Campo = "Tipo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Fuente SAP VID80001 (#79); validar con Fiscal de Millet.",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "VTE",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000012-0002-0000-0000-000000000003"),
+                            Activa = true,
+                            Campo = "Tipo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Fuente SAP VID80002 (#79); validar con Fiscal de Millet.",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "VC",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000012-0002-0000-0000-000000000004"),
+                            Activa = true,
+                            Campo = "Tipo",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Fuente SAP VID80003 (#79); validar con Fiscal de Millet.",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Valor = "VLA",
+                            Version = 1
                         });
                 });
 
@@ -5663,6 +6079,24 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasConstraintName("fk_articulos_unidades_medida_unidad_medida_id");
                 });
 
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.Cliente", b =>
+                {
+                    b.HasOne("Millet.DatosMaestros.Domain.ClasificacionCliente", null)
+                        .WithMany()
+                        .HasForeignKey("ClasificacionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_clientes_clasificacion_cliente_clasificacion_id");
+                });
+
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.ClienteLigadoAw", b =>
+                {
+                    b.HasOne("Millet.DatosMaestros.Domain.Cliente", null)
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_clientes_ligados_aw_clientes_cliente_id");
+                });
+
             modelBuilder.Entity("Millet.DatosMaestros.Domain.ClienteSincronizacionAw", b =>
                 {
                     b.HasOne("Millet.DatosMaestros.Domain.Cliente", null)
@@ -5680,6 +6114,12 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasForeignKey("CategoriaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_producto_aw_categorias_articulo_categoria_id");
+
+                    b.HasOne("Millet.DatosMaestros.Domain.ReglaFiscalAw", null)
+                        .WithMany()
+                        .HasForeignKey("ReglaFiscalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_producto_aw_regla_fiscal_aw_regla_fiscal_id");
 
                     b.HasOne("Millet.Catalogos.Domain.UnidadMedida", null)
                         .WithMany()
@@ -5716,6 +6156,91 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_producto_sincronizacion_aw_producto_aw_producto_aw_id");
+                });
+
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.ReglaFiscalAw", b =>
+                {
+                    b.OwnsOne("Millet.DatosMaestros.Domain.FichaFiscalProducto", "Ficha", b1 =>
+                        {
+                            b1.Property<Guid>("ReglaFiscalAwId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<string>("ClaveProdServSat")
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)")
+                                .HasColumnName("ficha_clave_prod_serv_sat");
+
+                            b1.Property<string>("ClaveUnidadSat")
+                                .HasMaxLength(5)
+                                .HasColumnType("character varying(5)")
+                                .HasColumnName("ficha_clave_unidad_sat");
+
+                            b1.Property<string>("ObjetoImp")
+                                .HasMaxLength(2)
+                                .HasColumnType("character varying(2)")
+                                .HasColumnName("ficha_objeto_imp");
+
+                            b1.Property<decimal?>("TasaIvaTraslado")
+                                .HasPrecision(8, 6)
+                                .HasColumnType("numeric(8,6)")
+                                .HasColumnName("ficha_tasa_iva_traslado");
+
+                            b1.Property<decimal?>("TasaRetencionIsr")
+                                .HasPrecision(8, 6)
+                                .HasColumnType("numeric(8,6)")
+                                .HasColumnName("ficha_tasa_retencion_isr");
+
+                            b1.Property<decimal?>("TasaRetencionIva")
+                                .HasPrecision(8, 6)
+                                .HasColumnType("numeric(8,6)")
+                                .HasColumnName("ficha_tasa_retencion_iva");
+
+                            b1.HasKey("ReglaFiscalAwId");
+
+                            b1.ToTable("reglas_fiscales_aw", "compartido");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ReglaFiscalAwId")
+                                .HasConstraintName("fk_reglas_fiscales_aw_reglas_fiscales_aw_id");
+
+                            b1.HasData(
+                                new
+                                {
+                                    ReglaFiscalAwId = new Guid("00000012-0002-0000-0000-000000000001"),
+                                    ClaveProdServSat = "30171708",
+                                    ClaveUnidadSat = "H87",
+                                    ObjetoImp = "02",
+                                    TasaIvaTraslado = 0.16m
+                                },
+                                new
+                                {
+                                    ReglaFiscalAwId = new Guid("00000012-0002-0000-0000-000000000002"),
+                                    ClaveProdServSat = "30171706",
+                                    ClaveUnidadSat = "H87",
+                                    ObjetoImp = "02",
+                                    TasaIvaTraslado = 0.16m
+                                },
+                                new
+                                {
+                                    ReglaFiscalAwId = new Guid("00000012-0002-0000-0000-000000000003"),
+                                    ClaveProdServSat = "30171710",
+                                    ClaveUnidadSat = "H87",
+                                    ObjetoImp = "02",
+                                    TasaIvaTraslado = 0.16m
+                                },
+                                new
+                                {
+                                    ReglaFiscalAwId = new Guid("00000012-0002-0000-0000-000000000004"),
+                                    ClaveProdServSat = "30171705",
+                                    ClaveUnidadSat = "H87",
+                                    ObjetoImp = "02",
+                                    TasaIvaTraslado = 0.16m
+                                });
+                        });
+
+                    b.Navigation("Ficha")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.Adjunto", b =>

@@ -103,6 +103,8 @@ public sealed class EmitirFacturaVentaHandler
                 "PERIODO_CERRADO",
                 $"El período contable {anio}-{mes:D2} está cerrado; no se puede emitir.");
 
+        await ValidadorProductoFiscal.ValidarAsync(command.Lineas.Select((l,i)=>new LineaFiscalAValidar(i+1,l.ProductoId,l.Descripcion,
+            l.ClaveProdServSat,l.ClaveUnidadSat,l.ObjetoImp,l.TasaIvaTraslado)),_productos,cancellationToken);
         // 2. Validación local previa de catálogos SAT.
         await ValidarCatalogosSatAsync(command, cancellationToken);
         await TipoCambioFactura.ValidarAsync(
@@ -134,13 +136,24 @@ public sealed class EmitirFacturaVentaHandler
         // 3.ter B2: si se emite desde un pedido, debe estar Importado (re-facturable).
         var pedido = await CargarYValidarPedidoAsync(command, cancellationToken);
 
+        if (pedido is not null && _productos is not null)
+        {
+            var lineasPedido = new List<LineaFiscalAValidar>();
+            foreach (var linea in pedido.Lineas.Where(l => l.ProductoId.HasValue))
+            {
+                var maestro = await _productos.ObtenerAsync(linea.ProductoId!.Value, cancellationToken);
+                lineasPedido.Add(new LineaFiscalAValidar(linea.Posicion, linea.ProductoId, linea.ProductoDescripcion,
+                    maestro?.ClaveProdServSat, maestro?.ClaveUnidadSat, maestro?.ObjetoImp, maestro?.TasaIvaTraslado));
+            }
+            await ValidadorProductoFiscal.ValidarAsync(lineasPedido, _productos, cancellationToken);
+        }
         if (pedido is not null && command.ClienteId is { } clienteId && clienteId != pedido.ClienteId)
             throw new ReceptorFiscalInvalidoException(
                 [new("clienteId", "El cliente seleccionado no corresponde al cliente del pedido; recarga el pedido.")], pedido.ClienteId);
 
         await _receptorFiscal.ValidarAsync(receptor, emisor, command.ClienteId ?? pedido?.ClienteId,
             cancellationToken, exportacionConCce: command.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,
-            numRegIdTrib: command.Cce?.ReceptorNumRegIdTrib, paisResidencia: command.Cce?.ReceptorPaisResidencia);
+            numRegIdTrib: command.Cce?.ReceptorNumRegIdTrib, paisResidencia: command.Cce?.ReceptorPaisResidencia, ventaNueva: true);
 
         // 4. Reserva atómica de folio (Cfdi) vía Compartido.Series.
         var reserva = await _sender.Send(

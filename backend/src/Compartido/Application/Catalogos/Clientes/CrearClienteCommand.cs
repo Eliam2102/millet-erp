@@ -5,6 +5,8 @@ using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application.Exceptions;
 
+// Comparación de RFC normalizado traducible por EF a SQL.
+#pragma warning disable CA1304, CA1311, CA1862
 namespace Millet.DatosMaestros.Application.Clientes;
 
 /// <summary>
@@ -32,7 +34,8 @@ public sealed record CrearClienteCommand(
     string? PaisResidencia = null,
     string? DomicilioExtranjeroCalle = null,
     string? DomicilioExtranjeroEstado = null,
-    string? DomicilioExtranjeroCodigoPostal = null) : IRequest<CrearClienteResponse>;
+    string? DomicilioExtranjeroCodigoPostal = null,
+    Guid? ClasificacionId = null) : IRequest<CrearClienteResponse>;
 
 public sealed record CrearClienteResponse(Guid Id, string Clave);
 
@@ -40,6 +43,7 @@ public sealed class CrearClienteValidator : AbstractValidator<CrearClienteComman
 {
     public CrearClienteValidator()
     {
+        RuleFor(c => c.ClasificacionId).NotNull().NotEqual(Guid.Empty).WithMessage("Elige una clasificación para guardar el cliente.");
         RuleFor(c => c.Clave).NotEmpty().MaximumLength(20);
         RuleFor(c => c.RazonSocial).NotEmpty().MaximumLength(254);
         RuleFor(c => c.ReferenciaExterna!).MaximumLength(50)
@@ -71,11 +75,25 @@ public sealed class CrearClienteHandler
 {
     private readonly CompartidoDbContext _db;
 
-    public CrearClienteHandler(CompartidoDbContext db) => _db = db;
+    private readonly IValidacionAltaClienteFiscal _fiscal;
+    public CrearClienteHandler(CompartidoDbContext db, IValidacionAltaClienteFiscal fiscal) { _db = db; _fiscal = fiscal; }
 
     public async Task<CrearClienteResponse> Handle(
         CrearClienteCommand request, CancellationToken cancellationToken)
     {
+        await ClasificacionClienteGuard.ValidarAsync(_db, request.ClasificacionId, cancellationToken);
+        var rfc = RfcCliente.Normalizar(request.Rfc);
+        await using var scope = await ClienteRfcScope.AbrirAsync(_db, rfc, cancellationToken);
+        if (RfcCliente.EsLigable(rfc))
+        {
+            var existentes = await _db.Clientes.AsNoTracking().Where(c => c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc)
+                .Select(c => new ClienteExistente(c.Id, c.Clave, c.RazonSocial)).ToListAsync(cancellationToken);
+            if (existentes.Count > 0) throw new ClienteRfcDuplicadoException(existentes);
+        }
+        await _fiscal.ValidarAsync(new AltaClienteFiscal(rfc, request.RazonSocial.Trim(), request.RegimenFiscal ?? "",
+            request.CodigoPostalFiscal ?? "", request.UsoCfdiDefault ?? "", request.PaisResidencia, request.FormaPagoDefault, request.MetodoPagoDefault, request.MonedaDefault), cancellationToken);
+        if (string.IsNullOrWhiteSpace(request.FormaPagoDefault) || string.IsNullOrWhiteSpace(request.MetodoPagoDefault))
+            throw new BusinessRuleException("CLIENTE_FISCAL_INCOMPLETO", "Indica la forma y el método de pago para el alta manual.");
         var claveExiste = await _db.Clientes.AsNoTracking()
             .AnyAsync(c => c.Clave == request.Clave, cancellationToken);
         if (claveExiste)
@@ -103,7 +121,7 @@ public sealed class CrearClienteHandler
             razonSocial: request.RazonSocial,
             origen: OrigenMaster.Manual,
             referenciaExterna: request.ReferenciaExterna,
-            rfc: request.Rfc,
+            rfc: rfc,
             regimenFiscal: request.RegimenFiscal,
             codigoPostalFiscal: request.CodigoPostalFiscal,
             usoCfdiDefault: request.UsoCfdiDefault,
@@ -119,9 +137,11 @@ public sealed class CrearClienteHandler
             domicilioExtranjeroEstado: request.DomicilioExtranjeroEstado,
             domicilioExtranjeroCodigoPostal: request.DomicilioExtranjeroCodigoPostal);
 
+        cliente.Clasificar(request.ClasificacionId!.Value);
         _db.Clientes.Add(cliente);
         await _db.SaveChangesAsync(cancellationToken);
 
+        await scope.ConfirmarAsync(cancellationToken);
         return new CrearClienteResponse(cliente.Id, cliente.Clave);
     }
 }

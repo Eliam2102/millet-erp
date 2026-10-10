@@ -1,14 +1,14 @@
 import { z } from 'zod';
+import { clasificacionRequerida } from '../api/f1a';
 
 /**
  * Schemas Zod del recurso Clientes (ADR-0048). Mirror de los validators
  * FluentValidation backend (<c>CrearClienteValidator</c>,
  * <c>ActualizarClienteValidator</c>).
  *
- * <para>Los datos fiscales (RFC, régimen, CP) son <b>opcionales</b> en
- * alta y edición — su ausencia NO bloquea el guardado, bloquea el
- * timbrado (bandeja "Fiscales incompletos"). Si el campo viene, debe
- * ser válido.</para>
+ * El alta manual exige la ficha fiscal y clasificación. A+W puede
+ * provisionar un cliente incompleto; editarlo exige clasificación y
+ * el timbrado conserva la validación fiscal del receptor (U1.9).
  */
 
 const RFC_RE = /^[A-Z&Ñ0-9]{12,13}$/;
@@ -100,6 +100,11 @@ const textoExtranjeroOpcional = (max: number) =>
     .transform((v) => (v != null && v.length === 0 ? null : v));
 
 export const CrearClienteSchema = z.object({
+  clasificacionId: clasificacionRequerida,
+  usoCfdiDefault: z.string().min(3, 'Elige un uso de CFDI'),
+  formaPagoDefault: z.string().length(2, 'Elige una forma de pago'),
+  metodoPagoDefault: z.enum(['PUE', 'PPD']),
+  paisResidencia: paisResidenciaOpcional,
   clave: z
     .string()
     .trim()
@@ -116,9 +121,9 @@ export const CrearClienteSchema = z.object({
     .max(50, 'Máximo 50 caracteres')
     .nullable()
     .transform((v) => (v != null && v.length === 0 ? null : v)),
-  rfc: rfcOpcional,
-  regimenFiscal: regimenOpcional,
-  codigoPostalFiscal: cpOpcional,
+  rfc: rfcOpcional.refine(v => Boolean(v), "RFC requerido"),
+  regimenFiscal: regimenOpcional.refine(v => Boolean(v), "Régimen fiscal requerido"),
+  codigoPostalFiscal: cpOpcional.refine(v => Boolean(v), "Código postal fiscal requerido"),
   email: emailOpcional,
   telefono: telefonoOpcional,
 });
@@ -131,6 +136,7 @@ export type CrearClienteValues = z.infer<typeof CrearClienteSchema>;
  * viajan con su flag <c>limpiarX</c> (mapping en el form).
  */
 export const ActualizarClienteSchema = z.object({
+  clasificacionId: clasificacionRequerida,
   razonSocial: z
     .string()
     .trim()

@@ -97,6 +97,44 @@ public sealed class ProductoAw : BaseEntity, IAuditable
     private readonly List<ProductoAwComponente> _componentes = [];
     public IReadOnlyList<ProductoAwComponente> Componentes => _componentes;
 
+    public Guid? ReglaFiscalId { get; private set; }
+    public OrigenFiscalProducto OrigenFiscal { get; private set; }
+    public EstadoFiscalProducto EstadoFiscal { get; private set; }
+    public Guid? ConfirmadoPor { get; private set; }
+    public DateTimeOffset? ConfirmadoEn { get; private set; }
+    public FichaFiscalProducto FichaFiscal() => new(ClaveProdServSat, ClaveUnidadSat, ObjetoImp, TasaIvaTraslado, TasaRetencionIva, TasaRetencionIsr);
+    public void AplicarReglaFiscal(ReglaFiscalAw regla, bool soloVacios = false)
+    {
+        var ficha = regla.Ficha;
+        if (soloVacios) ficha = new(ClaveProdServSat ?? ficha.ClaveProdServSat, ClaveUnidadSat ?? ficha.ClaveUnidadSat,
+            ObjetoImp ?? ficha.ObjetoImp, TasaIvaTraslado ?? ficha.TasaIvaTraslado,
+            TasaRetencionIva ?? ficha.TasaRetencionIva, TasaRetencionIsr ?? ficha.TasaRetencionIsr);
+        CapturarFicha(ficha);
+        ReglaFiscalId = regla.Id;
+        OrigenFiscal = ficha == regla.Ficha ? OrigenFiscalProducto.ReglaFamilia : OrigenFiscalProducto.ExcepcionProducto;
+        EstadoFiscal = DatosFiscalesCompletos ? EstadoFiscalProducto.PorReglaSinRevisar : EstadoFiscalProducto.FiscalPendiente;
+        ConfirmadoPor = null; ConfirmadoEn = null;
+    }
+    public void RegistrarExcepcionFiscal()
+    {
+        OrigenFiscal = OrigenFiscalProducto.ExcepcionProducto;
+        EstadoFiscal = EstadoFiscalProducto.FiscalPendiente;
+        ConfirmadoPor = null; ConfirmadoEn = null;
+    }
+    public void CapturarExcepcionFiscal(FichaFiscalProducto ficha)
+    { ficha.Validar(true); CapturarFicha(ficha); RegistrarExcepcionFiscal(); }
+    private void CapturarFicha(FichaFiscalProducto ficha)
+    {
+        ficha.Validar(false);
+        ClaveProdServSat = ficha.ClaveProdServSat; ClaveUnidadSat = ficha.ClaveUnidadSat; ObjetoImp = ficha.ObjetoImp;
+        TasaIvaTraslado = ficha.TasaIvaTraslado; TasaRetencionIva = ficha.TasaRetencionIva; TasaRetencionIsr = ficha.TasaRetencionIsr;
+    }
+    public void ConfirmarFiscal(Guid usuario, DateTimeOffset ahora)
+    {
+        FichaFiscal().Validar(true);
+        if (usuario == Guid.Empty) throw new BusinessRuleException("USUARIO_REQUERIDO", "Inicia sesión para confirmar la ficha fiscal.");
+        EstadoFiscal = EstadoFiscalProducto.Confirmada; ConfirmadoPor = usuario; ConfirmadoEn = ahora;
+    }
     private ProductoAw() { }
 
     public ProductoAw(
@@ -247,7 +285,8 @@ public sealed class ProductoAw : BaseEntity, IAuditable
     /// <summary>¿Puede facturarse? (clave prod/serv + clave unidad presentes.)</summary>
     public bool DatosFiscalesCompletos =>
         !string.IsNullOrWhiteSpace(ClaveProdServSat)
-        && !string.IsNullOrWhiteSpace(ClaveUnidadSat);
+        && !string.IsNullOrWhiteSpace(ClaveUnidadSat)
+        && !string.IsNullOrWhiteSpace(ObjetoImp) && TasaIvaTraslado.HasValue;
 
     public void CambiarEstatus(EstatusCatalogo nuevoEstatus) => Estatus = nuevoEstatus;
 

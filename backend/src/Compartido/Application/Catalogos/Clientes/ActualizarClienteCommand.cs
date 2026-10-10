@@ -6,6 +6,8 @@ using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
+// RFC normalizado: ToUpper es traducible por EF a SQL.
+#pragma warning disable CA1304, CA1311, CA1862
 namespace Millet.DatosMaestros.Application.Clientes;
 
 /// <summary>
@@ -45,12 +47,14 @@ public sealed record ActualizarClienteCommand(
     bool LimpiarPaisResidencia = false,
     bool LimpiarDomicilioExtranjeroCalle = false,
     bool LimpiarDomicilioExtranjeroEstado = false,
-    bool LimpiarDomicilioExtranjeroCodigoPostal = false) : IRequest;
+    bool LimpiarDomicilioExtranjeroCodigoPostal = false,
+    Guid? ClasificacionId = null) : IRequest;
 
 public sealed class ActualizarClienteValidator : AbstractValidator<ActualizarClienteCommand>
 {
     public ActualizarClienteValidator()
     {
+        RuleFor(c => c.ClasificacionId).NotNull().NotEqual(Guid.Empty).WithMessage("Elige una clasificación para guardar el cliente.");
         RuleFor(c => c.ClienteId).NotEmpty();
         RuleFor(c => c.RazonSocial!).NotEmpty().MaximumLength(254)
             .When(c => c.RazonSocial is not null);
@@ -99,6 +103,7 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
                 "CLIENTE_NO_ENCONTRADO",
                 $"No existe cliente con id '{request.ClienteId}'.");
 
+        await ClasificacionClienteGuard.ValidarAsync(_db, request.ClasificacionId, cancellationToken);
         // F1-ADM-06 D3: en clientes de origen A+W, cambiar un fiscal ya
         // poblado (o limpiarlo) requiere fiscal-editar; completar vacíos no.
         static bool Cambia(string? nuevo, string? actual) => !string.IsNullOrEmpty(nuevo) && nuevo != actual;
@@ -115,9 +120,19 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
                 "No tiene permiso para modificar los datos fiscales de un cliente con origen A+W.");
         }
 
+        var rfc = RfcCliente.Normalizar(request.Rfc ?? cliente.Rfc);
+        await using var scope = await ClienteRfcScope.AbrirAsync(_db, rfc, cancellationToken);
+        if (request.Rfc is not null && RfcCliente.EsLigable(rfc))
+        {
+            var existentes = await _db.Clientes.AsNoTracking()
+                .Where(c => c.Id != cliente.Id && c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc)
+                .Select(c => new ClienteExistente(c.Id, c.Clave, c.RazonSocial)).ToListAsync(cancellationToken);
+            if (existentes.Count > 0) throw new ClienteRfcDuplicadoException(existentes);
+        }
+        cliente.Clasificar(request.ClasificacionId!.Value);
         cliente.ActualizarDatos(
             razonSocial: request.RazonSocial,
-            rfc: request.Rfc,
+            rfc: request.Rfc is null ? null : rfc,
             regimenFiscal: request.RegimenFiscal,
             codigoPostalFiscal: request.CodigoPostalFiscal,
             usoCfdiDefault: request.UsoCfdiDefault,
@@ -149,5 +164,6 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
             limpiarDomicilioExtranjeroCodigoPostal: request.LimpiarDomicilioExtranjeroCodigoPostal);
 
         await _db.SaveChangesAsync(cancellationToken);
+        await scope.ConfirmarAsync(cancellationToken);
     }
 }

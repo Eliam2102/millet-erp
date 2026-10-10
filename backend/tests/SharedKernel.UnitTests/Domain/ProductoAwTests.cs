@@ -39,7 +39,7 @@ public class ProductoAwTests
     [Fact]
     public void Should_ReportarFiscalesCompletos_ConAmbasClaves()
     {
-        var p = Crear(claveProdServSat: "43211701", claveUnidadSat: "MTK");
+        var p = Crear(claveProdServSat: "43211701", claveUnidadSat: "MTK", objetoImp: "02", tasaIvaTraslado: 0.16m);
         Assert.True(p.DatosFiscalesCompletos);
     }
 
@@ -105,7 +105,7 @@ public class ProductoAwTests
 
         p.AsignarDatosFiscales(limpiarTasaIvaTraslado: true);
         Assert.Null(p.TasaIvaTraslado);
-        Assert.True(p.DatosFiscalesCompletos); // las claves no se limpian
+        Assert.False(p.DatosFiscalesCompletos); // sin tasa de IVA la ficha vuelve a estar incompleta
     }
 
     [Theory]
@@ -226,7 +226,7 @@ public class ProductoAwTests
     [Fact]
     public void Should_DarDeBaja_Idempotente_ConservaDatosYFechaOriginal()
     {
-        var p = Crear(claveProdServSat: "43211701", claveUnidadSat: "MTK");
+        var p = Crear(claveProdServSat: "43211701", claveUnidadSat: "MTK", objetoImp: "02", tasaIvaTraslado: 0.16m);
         p.AplicarVariantes([V("A", 1000)]);
         var f1 = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
 

@@ -144,8 +144,54 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureProveedor(modelBuilder);
         ConfigureArticulo(modelBuilder);
         ConfigureCliente(modelBuilder);
+        var clasificacion = modelBuilder.Entity<ClasificacionCliente>();
+        clasificacion.ToTable("clasificaciones_cliente"); clasificacion.HasKey(c => c.Id);
+        clasificacion.Property(c => c.Nombre).HasMaxLength(100).IsRequired();
+        clasificacion.Property(c => c.Descripcion).HasMaxLength(500).IsRequired();
+        clasificacion.HasIndex(c => c.Nombre).IsUnique();
+        clasificacion.Property(c => c.Version).IsConcurrencyToken();
+        var nombres = new[] { "Constructora", "Cancelero", "Particular", "Distribuidor", "Gobierno" };
+        for (var i = 0; i < nombres.Length; i++) clasificacion.HasData(new {
+            Id = Guid.Parse($"00000012-0001-0000-0000-{i+1:000000000000}"), Nombre = nombres[i],
+            Descripcion = "Por validar con Millet (V37, Eliam 10-oct-2026).", Activa = true, Version = 1,
+            CreatedAt = new DateTimeOffset(2026,10,10,0,0,0,TimeSpan.Zero), UpdatedAt = new DateTimeOffset(2026,10,10,0,0,0,TimeSpan.Zero),
+            CreatedBy = "seed", UpdatedBy = "seed", DeletedAt = (DateTimeOffset?)null });
+        var ligado = modelBuilder.Entity<ClienteLigadoAw>();
+        ligado.ToTable("clientes_ligados_aw"); ligado.HasKey(c => c.Id);
+        ligado.Property(c => c.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        ligado.Property(c => c.Rfc).HasMaxLength(13).IsRequired(); ligado.Property(c => c.SnapshotJson).HasColumnType("jsonb");
+        ligado.HasIndex(c => c.ReferenciaExterna).IsUnique(); ligado.Property(c => c.Version).IsConcurrencyToken();
+        ligado.HasOne<Cliente>().WithMany().HasForeignKey(c => c.ClienteId).OnDelete(DeleteBehavior.Restrict);
         ConfigureClienteSincronizacionAw(modelBuilder);
         ConfigureProductoAw(modelBuilder);
+        modelBuilder.Entity<ProductoAw>().HasOne<ReglaFiscalAw>().WithMany().HasForeignKey(p => p.ReglaFiscalId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ProductoAw>().Property(p => p.OrigenFiscal).HasConversion<short>();
+        modelBuilder.Entity<ProductoAw>().Property(p => p.EstadoFiscal).HasConversion<short>();
+        var regla = modelBuilder.Entity<ReglaFiscalAw>(); regla.ToTable("reglas_fiscales_aw"); regla.HasKey(r => r.Id);
+        regla.Property(r => r.Campo).HasMaxLength(10); regla.Property(r => r.Valor).HasMaxLength(100);
+        regla.Property(r => r.Descripcion).HasMaxLength(500); regla.HasIndex(r => new { r.Campo, r.Valor }).IsUnique();
+        regla.Property(r => r.Version).IsConcurrencyToken();
+        regla.OwnsOne(r => r.Ficha, f => {
+            f.Property(x => x.ClaveProdServSat).HasMaxLength(8); f.Property(x => x.ClaveUnidadSat).HasMaxLength(5);
+            f.Property(x => x.ObjetoImp).HasMaxLength(2);
+            f.Property(x => x.TasaIvaTraslado).HasPrecision(8,6); f.Property(x => x.TasaRetencionIva).HasPrecision(8,6); f.Property(x => x.TasaRetencionIsr).HasPrecision(8,6);
+            f.Ignore(x => x.Faltantes);
+        });
+        var tiposFiscales = new[] { ("Vidrio plano", "30171708", "VID80000"), ("VTE", "30171706", "VID80001"), ("VC", "30171710", "VID80002"), ("VLA", "30171705", "VID80003") };
+        for (var i = 0; i < tiposFiscales.Length; i++)
+        {
+            var id = Guid.Parse($"00000012-0002-0000-0000-{i+1:000000000000}");
+            regla.HasData(new { Id = id, Campo = "Tipo", Valor = tiposFiscales[i].Item1,
+                Descripcion = "Fuente SAP " + tiposFiscales[i].Item3 + " (#79); validar con Fiscal de Millet.", Activa = true, Version = 1,
+                CreatedAt = new DateTimeOffset(2026,10,10,0,0,0,TimeSpan.Zero), UpdatedAt = new DateTimeOffset(2026,10,10,0,0,0,TimeSpan.Zero),
+                CreatedBy = "seed", UpdatedBy = "seed", DeletedAt = (DateTimeOffset?)null });
+            regla.OwnsOne(r => r.Ficha).HasData(new { ReglaFiscalAwId = id, ClaveProdServSat = tiposFiscales[i].Item2,
+                ClaveUnidadSat = "H87", ObjetoImp = "02", TasaIvaTraslado = (decimal?)0.16m, TasaRetencionIva = (decimal?)null, TasaRetencionIsr = (decimal?)null });
+        }
+        var cambio = modelBuilder.Entity<CambioFiscalAw>(); cambio.ToTable("cambios_fiscales_aw"); cambio.HasKey(c => c.Id);
+        cambio.Property(c => c.TipoEntidad).HasMaxLength(20); cambio.Property(c => c.Accion).HasMaxLength(80);
+        cambio.Property(c => c.AntesJson).HasColumnType("jsonb"); cambio.Property(c => c.DespuesJson).HasColumnType("jsonb");
+        cambio.HasIndex(c => new { c.TipoEntidad, c.EntidadId });
         ConfigureProductoAwSincronizacion(modelBuilder);
         ConfigureSucursal(modelBuilder);
         ConfigureCanalVenta(modelBuilder);
@@ -1216,6 +1262,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         cliente.HasIndex(x => x.Clave).IsUnique();
         cliente.HasIndex(x => x.ReferenciaExterna).IsUnique();
         cliente.HasIndex(x => x.Rfc);
+        cliente.HasOne<ClasificacionCliente>().WithMany().HasForeignKey(c => c.ClasificacionId).OnDelete(DeleteBehavior.Restrict);
         cliente.HasIndex(x => x.Estatus);
     }
 

@@ -23,7 +23,8 @@ function setPermisos(permisos: string[]) {
 
 function cliente(origenAw: Partial<NonNullable<ClienteDetalle['origenAw']>>) {
   return {
-    id: 'c-1',
+    clasificacionId: '00000012-0001-0000-0000-000000000001',
+  id: 'c-1',
     clave: 'CLI-001',
     referenciaExterna: 'AW-777',
     razonSocial: 'Vidrios del Centro',

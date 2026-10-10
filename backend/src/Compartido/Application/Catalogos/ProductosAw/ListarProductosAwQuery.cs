@@ -93,8 +93,8 @@ public sealed class ListarProductosAwHandler
         if (query.FiscalesIncompletos is bool fi)
         {
             q = fi
-                ? q.Where(p => p.ClaveProdServSat == null || p.ClaveUnidadSat == null)
-                : q.Where(p => p.ClaveProdServSat != null && p.ClaveUnidadSat != null);
+                ? q.Where(p => p.ClaveProdServSat == null || p.ClaveUnidadSat == null || p.ObjetoImp == null || p.TasaIvaTraslado == null || p.EstadoFiscal == EstadoFiscalProducto.FiscalPendiente)
+                : q.Where(p => p.ClaveProdServSat != null && p.ClaveUnidadSat != null && p.ObjetoImp != null && p.TasaIvaTraslado != null && p.EstadoFiscal != EstadoFiscalProducto.FiscalPendiente);
         }
 
         if (!string.IsNullOrWhiteSpace(query.Tipo))
@@ -118,7 +118,7 @@ public sealed class ListarProductosAwHandler
                 p.UnidadMedidaId, p.CategoriaId, p.ClaveProdServSat,
                 p.ClaveUnidadSat, p.ObjetoImp, p.TasaIvaTraslado,
                 p.FraccionArancelaria, p.UnidadAduana, p.PesoUnitarioKg, p.Origen,
-                p.ClaveProdServSat != null && p.ClaveUnidadSat != null,
+                p.ClaveProdServSat != null && p.ClaveUnidadSat != null && p.ObjetoImp != null && p.TasaIvaTraslado != null,
                 p.Estatus, p.FechaBaja, p.Variantes.Count, p.Tipo, p.Componentes.Count, p.Grupo, p.Wgr, p.WgrDescripcion))
             .ToListAsync(cancellationToken);
 

@@ -303,7 +303,7 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
     }
 
     [Fact]
-    public async Task Estado_de_origen_presente_deja_Pendiente_y_no_cambia_Estatus()
+    public async Task V52_estado_de_origen_bloqueado_inactiva_y_conserva_id()
     {
         var r = NuevaRef();
         await Aplicar(Snap(r));
@@ -311,11 +311,13 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
 
         var res = await Aplicar(Snap(r) with { EstadoOrigenCrudo = 2 });
 
-        Assert.Equal(ResultadoSincronizacionAw.Pendiente, res.Resultado);
+        Assert.Equal(ResultadoSincronizacionAw.Aplicado, res.Resultado);
         var (cs, regs) = await Leer(r);
-        Assert.Equal(antes[0].Estatus, cs[0].Estatus);
+        Assert.Equal(antes[0].Id, cs[0].Id);
+        Assert.Equal(EstatusCatalogo.Inactivo, cs[0].Estatus);
+        Assert.True(cs[0].BloqueadoPorAw);
         Assert.Equal(2, regs[0].EstadoOrigenCrudo);
-        Assert.Equal(ResultadoSincronizacionAw.Pendiente, regs[0].Resultado);
+        Assert.Equal(ResultadoSincronizacionAw.Aplicado, regs[0].Resultado);
     }
 
     [Fact]

@@ -72,6 +72,18 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     internal static int ResolveStatus(Exception exception, HttpContext httpContext)
         => MapToProblemDetails(exception, httpContext).Status ?? StatusCodes.Status500InternalServerError;
 
+    private static ProblemDetails CreateProductosProblem(ProductosFiscalesIncompletosException e,HttpContext context,string traceId)
+    {
+        var p=CreateProblem(e.Code,e.Message,StatusCodes.Status422UnprocessableEntity,context,traceId);
+        p.Extensions["productos"] = e.Productos; return p;
+    }
+
+    private static ProblemDetails CreateClienteRfcProblem(Millet.DatosMaestros.Application.Clientes.ClienteRfcDuplicadoException e, HttpContext context, string traceId)
+    {
+        var p = CreateProblem(e.Code, e.Message, StatusCodes.Status422UnprocessableEntity, context, traceId);
+        p.Extensions["clientesExistentes"] = e.Clientes; return p;
+    }
+
     private static ProblemDetails MapToProblemDetails(Exception exception, HttpContext httpContext)
     {
         var traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
@@ -79,7 +91,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         return exception switch
         {
             ValidationException ve => CreateValidationProblem(ve, httpContext, traceId),
+            ProductosFiscalesIncompletosException pfi => CreateProductosProblem(pfi, httpContext, traceId),
             ReceptorFiscalInvalidoException rfi => CreateReceptorProblem(rfi, httpContext, traceId),
+            Millet.DatosMaestros.Application.Clientes.ClienteRfcDuplicadoException crd => CreateClienteRfcProblem(crd, httpContext, traceId),
             BusinessRuleException bre => CreateProblem(bre.Code, bre.Message, StatusCodes.Status422UnprocessableEntity, httpContext, traceId),
             EntityNotFoundException enfe => CreateProblem(enfe.Code, enfe.Message, StatusCodes.Status404NotFound, httpContext, traceId),
             ConcurrencyException ce => CreateProblem(ce.Code, ce.Message, StatusCodes.Status409Conflict, httpContext, traceId),

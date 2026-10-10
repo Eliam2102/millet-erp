@@ -161,6 +161,7 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         // (2) Completar régimen/CP/RFC fiscal en el ERP con `gestionar` (vacíos: no requiere fiscal-editar).
         (await c.PatchAsJsonAsync($"{Clientes}/{clienteId}", new
         {
+            ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"),
             Rfc = "XAXX010101000", RegimenFiscal = "601", CodigoPostalFiscal = "06600",
         })).EnsureSuccessStatusCode();
 
@@ -187,9 +188,9 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         Assert.Equal(clienteId, (await ListaAsync(c, b + 100)).GetProperty("id").GetGuid());
     }
 
-    // Paso 3: moneda <indf> no crea el cliente (no se asume MXN); estado desconocido y condición duplicada: Pendiente visible, sin éxito inventado.
+    // Paso 3: moneda <indf> no crea el cliente (no se asume MXN); bloqueo V52 aplicado y condición duplicada: Pendiente visible, sin éxito inventado.
     [Fact]
-    public async Task Demo100_estado_y_condicion_duplicada_quedan_Pendiente_y_moneda_sin_equivalencia_no_crea()
+    public async Task Demo100_bloqueo_V52_aplicado_condicion_duplicada_pendiente_y_moneda_sin_equivalencia_no_crea()
     {
         var b = NuevaBase();
         var origen = new OrigenFake([
@@ -203,20 +204,20 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         var e = await BarridoAsync(f, c);
 
         Assert.Equal("Parcial", e.GetProperty("ejecucion").GetProperty("estado").GetString());
-        Assert.Equal((3, 2, 2, 1), (N(e, "leidos"), N(e, "creados"), N(e, "pendientes"), N(e, "errores"))); // b+1 no se crea
+        Assert.Equal((3, 2, 1, 1), (N(e, "leidos"), N(e, "creados"), N(e, "pendientes"), N(e, "errores"))); // b+1 no se crea
         Assert.Equal(0, (await Json(await c.GetAsync($"{Clientes}?referenciaExterna={b + 1}"))).GetProperty("total").GetInt32());
         foreach (var r in new[] { b + 2, b + 3 })
         {
             var item = await ListaAsync(c, r);
-            Assert.Equal("Pendiente", item.GetProperty("origenAw").GetProperty("resultado").GetString());
+            Assert.Equal(r == b + 2 ? "Aplicado" : "Pendiente", item.GetProperty("origenAw").GetProperty("resultado").GetString());
             var o = (await DetalleAsync(c, item.GetProperty("id").GetGuid())).GetProperty("origenAw");
-            Assert.Equal("Pendiente", o.GetProperty("resultado").GetString());
-            if (r == b + 2) Assert.Equal(7, o.GetProperty("estadoOrigenCrudo").GetInt32());
+            Assert.Equal(r == b + 2 ? "Aplicado" : "Pendiente", o.GetProperty("resultado").GetString());
+            if (r == b + 2) { Assert.Equal(7, o.GetProperty("estadoOrigenCrudo").GetInt32()); Assert.Equal("Inactivo", item.GetProperty("estatus").GetString()); }
             if (r == b + 3) Assert.Equal(JsonValueKind.Null, o.GetProperty("diasNominalesOrigen").ValueKind); // no se elige una de las 2 filas
         }
-        // Filtro por resultado: los tres son localizables como Pendiente.
+        // La condición ambigua sigue pendiente; el bloqueo se aplicó.
         var pend = await Json(await c.GetAsync($"{Clientes}?resultadoSincronizacion=Pendiente&limit=200"));
-        Assert.True(new[] { b + 2, b + 3 }.All(r => pend.GetProperty("items").EnumerateArray()
+        Assert.True(new[] { b + 3 }.All(r => pend.GetProperty("items").EnumerateArray()
             .Any(i => i.GetProperty("referenciaExterna").GetString() == r.ToString())));
     }
 
@@ -313,7 +314,7 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         var c = await OperadorAsync(f);
         await BarridoAsync(f, c);
         var id = (await ListaAsync(c, b + 1)).GetProperty("id").GetGuid();
-        (await c.PatchAsJsonAsync($"{Clientes}/{id}", new { Rfc = "XAXX010101000", RegimenFiscal = "601", CodigoPostalFiscal = "06600" }))
+        (await c.PatchAsJsonAsync($"{Clientes}/{id}", new { ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), Rfc = "XAXX010101000", RegimenFiscal = "601", CodigoPostalFiscal = "06600" }))
             .EnsureSuccessStatusCode();
 
         origen.Filas[0] = Fila(b + 1, zahlbed: "60 DIAS", dias: 90);

@@ -10,11 +10,11 @@ using Millet.Facturacion.Infrastructure.Persistence;
 namespace Millet.Facturacion.Application.Timbrado;
 
 public sealed class ValidadorReceptorFiscal(
-    IClientesReadPort clientes, ICatalogosSatReadPort catalogos, FacturacionDbContext db)
+    IClientesReadPort clientes, ICatalogosSatReadPort catalogos, FacturacionDbContext db, IProductosReadPort? productos = null)
 {
     public async Task ValidarAsync(DatosFiscalesReceptor receptor, DatosFiscalesEmisor emisor,
         Guid? clienteId, CancellationToken ct, bool esRep = false,
-        bool exportacionConCce = false, string? numRegIdTrib = null, string? paisResidencia = null)
+        bool exportacionConCce = false, string? numRegIdTrib = null, string? paisResidencia = null, bool ventaNueva = false)
     {
         var errores = new List<CampoFiscalInvalido>();
         if (clienteId is { } id)
@@ -24,6 +24,7 @@ public sealed class ValidadorReceptorFiscal(
                 errores.Add(new("clienteId", "El cliente no existe en el maestro fiscal."));
             else
             {
+                if (ventaNueva && !maestro.Activo) errores.Add(new("clienteId", "El cliente está inactivo y no admite ventas nuevas. Su saldo y documentos anteriores se conservan."));
                 Comparar("rfc", "RFC", maestro.Rfc, receptor.Rfc);
                 if (string.IsNullOrWhiteSpace(maestro.RazonSocial)) errores.Add(new("razonSocial", "Falta la razón social en el maestro del cliente."));
                 Comparar("regimenFiscal", "régimen fiscal", maestro.RegimenFiscal, receptor.RegimenFiscal);
@@ -53,6 +54,13 @@ public sealed class ValidadorReceptorFiscal(
         if (factura is { ComportamientoFiscal: ComportamientoFiscal.ExportacionConCce, ComplementoCce: null }
             && db.Entry(factura).State != EntityState.Detached)
             await db.Entry(factura).Reference(f => f.ComplementoCce).LoadAsync(ct);
+        // REP cobra un documento anterior: la ficha actual no debe bloquear el cobro del saldo.
+        if (factura is not null && !esRep)
+        {
+            if (db.Entry(factura).State != EntityState.Detached) await db.Entry(factura).Collection(f=>f.Lineas).LoadAsync(ct);
+            await ValidadorProductoFiscal.ValidarAsync(factura.Lineas.Select((l,i)=>new LineaFiscalAValidar(i+1,l.ProductoId,l.Descripcion,
+                l.ClaveProdServSat,l.ClaveUnidadSat,l.ObjetoImp,l.TasaIvaTraslado)),productos,ct);
+        }
         await ValidarAsync(Snapshot(comprobante), comprobante.SnapshotEmisor(), clienteId, ct,
             esRep || comprobante is ReciboPago,
             factura?.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce,

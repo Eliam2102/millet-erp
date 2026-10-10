@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Integraciones.Aw.Application.Productos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.DatosMaestros.Application.Clientes;
@@ -35,6 +36,7 @@ public sealed class AwMasterProvisioningAdapter : IMasterProvisioningPort
 {
     private readonly IAwClientesReader _clientes;
     private readonly IAwArticulosReader _articulos;
+    private readonly IAwProductosOrigen? _productosOrigen;
     private readonly ISender _sender;
     private readonly AwPedidosOptions _options;
     private readonly ILogger<AwMasterProvisioningAdapter> _logger;
@@ -44,8 +46,9 @@ public sealed class AwMasterProvisioningAdapter : IMasterProvisioningPort
         IAwArticulosReader articulos,
         ISender sender,
         IOptions<AwPedidosOptions> options,
-        ILogger<AwMasterProvisioningAdapter> logger)
+        ILogger<AwMasterProvisioningAdapter> logger, IAwProductosOrigen? productosOrigen = null)
     {
+        _productosOrigen = productosOrigen;
         _clientes = clientes;
         _articulos = articulos;
         _sender = sender;
@@ -135,6 +138,13 @@ public sealed class AwMasterProvisioningAdapter : IMasterProvisioningPort
             return null;
         }
 
+        // Reutiliza la lectura rica de ADM-07; la vista mínima de pedidos no contiene Tipo/Grupo/Wgr.
+        AwProductoOrigenFila? clasificacion = null;
+        if (_productosOrigen is not null)
+        {
+            try { clasificacion = await _productosOrigen.LeerPorReferenciaAsync(articuloRef, cancellationToken); }
+            catch (AwProductosSyncException ex) { _logger.LogWarning("No se pudo leer la familia de producto {Referencia} ({Codigo}); su ficha quedará pendiente.", articuloRef, ex.Code); }
+        }
         // MapeoUnidadSat propone la clave unidad SAT desde la unidad A+W
         // (M2→MTK, PZA→H87, …); sin mapeo queda null → la completa el operador.
         _options.MapeoUnidadSat.TryGetValue(vista.UnidadMedida, out var claveUnidadSugerida);
@@ -148,7 +158,7 @@ public sealed class AwMasterProvisioningAdapter : IMasterProvisioningPort
                 // Contrato "como si A+W lo mandara": hoy null (la vista aún no
                 // los trae); cuando A+W los agregue viajan al alta del master.
                 FraccionArancelaria: vista.FraccionArancelaria,
-                PesoUnitarioKg: vista.PesoUnitarioKg),
+                PesoUnitarioKg: vista.PesoUnitarioKg, Tipo: clasificacion?.Tipo, Grupo: clasificacion?.Grupo, Wgr: clasificacion?.Wgr),
             cancellationToken);
 
         if (r.Creado)
@@ -162,6 +172,6 @@ public sealed class AwMasterProvisioningAdapter : IMasterProvisioningPort
         return new ProductoFiscalLectura(
             r.ProductoId, r.Descripcion, r.ClaveProdServSat, r.ClaveUnidadSat,
             r.ObjetoImp, r.TasaIvaTraslado, r.TasaRetencionIva,
-            r.TasaRetencionIsr, r.Origen);
+            r.TasaRetencionIsr, r.Origen, r.Tipo, r.EstadoFiscal);
     }
 }

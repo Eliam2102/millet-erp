@@ -81,6 +81,7 @@ public class ClientesOrigenAwLecturaTests : IClassFixture<WebApplicationFactory<
         {
             Clave = clave, RazonSocial = "CLIENTE MANUAL LECTURA", Rfc = "XAXX010101000",
             RegimenFiscal = "616", CodigoPostalFiscal = "06600", MonedaDefault = "MXN",
+            ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), UsoCfdiDefault = "S01", FormaPagoDefault = "01", MetodoPagoDefault = "PUE",
         });
         crear.EnsureSuccessStatusCode();
         var id = (await Json(crear)).GetProperty("id").GetGuid();

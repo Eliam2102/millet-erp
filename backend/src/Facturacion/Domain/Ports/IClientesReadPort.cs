@@ -76,4 +76,4 @@ public sealed record ClienteFiscalLectura(
     string? FormaPagoDefault,
     string? MetodoPagoDefault,
     string MonedaDefault,
-    bool EsGenerico);
+    bool EsGenerico, bool Activo = true);

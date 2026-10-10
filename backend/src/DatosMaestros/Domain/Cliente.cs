@@ -22,6 +22,9 @@ namespace Millet.DatosMaestros.Domain;
 /// </summary>
 public sealed class Cliente : BaseEntity, IAuditable
 {
+    public Guid? ClasificacionId { get; private set; }
+    public bool BloqueadoPorAw { get; private set; }
+
     public string Clave { get; private set; } = string.Empty;
 
     /// <summary>
@@ -243,6 +246,27 @@ public sealed class Cliente : BaseEntity, IAuditable
         !string.IsNullOrWhiteSpace(Rfc)
         && !string.IsNullOrWhiteSpace(RegimenFiscal)
         && !string.IsNullOrWhiteSpace(CodigoPostalFiscal);
+
+    public void Clasificar(Guid clasificacionId)
+    {
+        if (clasificacionId == Guid.Empty) throw new BusinessRuleException("CLIENTE_CLASIFICACION_REQUERIDA", "Elige una clasificación para guardar el cliente.");
+        ClasificacionId = clasificacionId;
+    }
+
+    public void LigarAw(string referencia, string rfc)
+    {
+        if (!RfcCliente.EsLigable(rfc) || RfcCliente.Normalizar(Rfc) != RfcCliente.Normalizar(rfc))
+            throw new BusinessRuleException("CLIENTE_RFC_NO_COINCIDE", "Solo se puede ligar un cliente con el mismo RFC no genérico.");
+        if (ReferenciaExterna is not null && ReferenciaExterna != referencia)
+            throw new BusinessRuleException("CLIENTE_YA_LIGADO", "El cliente ya está ligado a otra clave de A+W.");
+        ReferenciaExterna = referencia; Origen = OrigenMaster.Aw;
+    }
+
+    public void AplicarBloqueoAw(bool bloqueado)
+    {
+        if (bloqueado) { BloqueadoPorAw = true; Estatus = EstatusCatalogo.Inactivo; }
+        else if (BloqueadoPorAw) { BloqueadoPorAw = false; Estatus = EstatusCatalogo.Activo; }
+    }
 
     public void CambiarEstatus(EstatusCatalogo nuevoEstatus) => Estatus = nuevoEstatus;
 

@@ -28,6 +28,7 @@ import {
   ProductoAwOrigenSection,
   ProductoAwVariantesTable,
 } from '@/modules/datos-maestros/components/ProductoAwOrigenSection';
+import { F1AProductoFiscal } from './F1AFiscalPanel';
 import { ProductoAwDatosForm } from '@/modules/datos-maestros/components/ProductoAwDatosForm';
 import {
   EstatusCatalogoBadge,
@@ -150,6 +151,7 @@ export function ProductoAwDetalle() {
 
       <div className="px-4 pt-4 pb-6">
         <ProductoAwBajaAviso producto={producto} />
+        {canGestionar && <F1AProductoFiscal producto={producto} />}
         <ProductoAwDatosForm producto={producto} />
         <ProductoAwVariantesTable variantes={producto.variantes ?? []} unidadMedida={producto.unidadMedida} />
         <ProductoAwComposicion componentes={producto.componentes ?? []} />

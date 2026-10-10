@@ -120,6 +120,7 @@ public sealed class AplicarProductoAwService
             nuevo.AplicarVariantes(snap.Variantes);
             nuevo.AplicarClasificacion(snap.CodigoModelo, snap.Grupo, snap.Tipo, snap.Wgr, snap.WgrDescripcion);
             if (snap.Componentes is not null) nuevo.ReemplazarComponentes(snap.Componentes);
+            await AplicarFichaAsync(nuevo, ct, nuevo: true);
             if (snap.Baja) nuevo.DarDeBaja(DateTime.UtcNow);
 
             var registro = new ProductoSincronizacionAw(Guid.CreateVersion7(), nuevo.Id, snap.ReferenciaExterna);
@@ -147,7 +148,11 @@ public sealed class AplicarProductoAwService
         if (producto.Origen != OrigenMaster.Aw)
             return new(producto, AplicarProductoAwAccion.Conflicto, ResultadoSincronizacionAw.Conflicto);
         if (snap.SoloCrear)
+        {
+            await AplicarFichaAsync(producto, ct);
+            await _db.SaveChangesAsync(ct);
             return new(producto, AplicarProductoAwAccion.SinCambios, ResultadoSincronizacionAw.SinCambios);
+        }
         // Edición manual o escritor con versión vieja: no se sobrescribe en silencio (doc 06 §8).
         if (snap.VersionEsperada is { } esperada && esperada != producto.Version)
             return new(producto, AplicarProductoAwAccion.Conflicto, ResultadoSincronizacionAw.Conflicto);
@@ -162,6 +167,7 @@ public sealed class AplicarProductoAwService
         if (registro is not null && registro.HashOrigen == hash && registro.VersionMapeo == snap.VersionMapeo
             && registro.Resultado is ResultadoSincronizacionAw.Aplicado or ResultadoSincronizacionAw.SinCambios)
         {
+            await AplicarFichaAsync(producto, ct);
             registro.RegistrarComprobacion(snap.LeidoEnUtc, snap.EjecucionId);
             try
             {
@@ -207,12 +213,14 @@ public sealed class AplicarProductoAwService
                 if (_db.Entry(c).State == EntityState.Detached) _db.Entry(c).State = EntityState.Added;
         }
 
-        // Fiscales de la regla: solo lo que el producto aún no tiene; nunca pisa lo capturado por el operador.
-        producto.AsignarDatosFiscales(
-            claveProdServSat: producto.ClaveProdServSat is null ? Vacio(snap.ClaveProdServSat) : null,
-            claveUnidadSat: producto.ClaveUnidadSat is null ? Vacio(snap.ClaveUnidadSatSugerida) : null,
-            objetoImp: producto.ObjetoImp is null ? Vacio(snap.ObjetoImp) : null,
-            tasaIvaTraslado: producto.TasaIvaTraslado is null ? snap.TasaIvaTraslado : null);
+        // Compatibilidad #79: fiscales aportados por la configuración solo completan vacíos.
+        if (producto.OrigenFiscal != OrigenFiscalProducto.ExcepcionProducto)
+            producto.AsignarDatosFiscales(
+                claveProdServSat: producto.ClaveProdServSat is null ? Vacio(snap.ClaveProdServSat) : null,
+                claveUnidadSat: producto.ClaveUnidadSat is null ? Vacio(snap.ClaveUnidadSatSugerida) : null,
+                objetoImp: producto.ObjetoImp is null ? Vacio(snap.ObjetoImp) : null,
+                tasaIvaTraslado: producto.TasaIvaTraslado is null ? snap.TasaIvaTraslado : null);
+        await AplicarFichaAsync(producto, ct);
         producto.AsignarDatosAduana(
             fraccionArancelaria: producto.FraccionArancelaria is null ? Vacio(snap.FraccionArancelaria) : null,
             unidadAduana: producto.UnidadAduana is null ? Vacio(snap.UnidadAduana) : null);
@@ -226,6 +234,19 @@ public sealed class AplicarProductoAwService
             diferencias: DiferenciaAplicacionAw.Serializar(diferencias));
         await _db.SaveChangesAsync(ct);
         return new(producto, AplicarProductoAwAccion.Actualizado, ResultadoSincronizacionAw.Aplicado);
+    }
+
+    private async Task AplicarFichaAsync(ProductoAw producto, CancellationToken ct, bool nuevo = false)
+    {
+        if (producto.OrigenFiscal == OrigenFiscalProducto.ExcepcionProducto || producto.ConfirmadoEn.HasValue) return;
+        var reglas = await _db.Set<ReglaFiscalAw>().AsNoTracking().Where(r => r.Activa).ToListAsync(ct);
+        var regla = reglas.Where(r => r.Coincide(producto)).OrderByDescending(r => r.Campo == "Wgr" ? 3 : r.Campo == "Grupo" ? 2 : 1).FirstOrDefault();
+        if (regla is null) return;
+        if (producto.ReglaFiscalId == regla.Id && producto.DatosFiscalesCompletos) return;
+        var antes = System.Text.Json.JsonSerializer.Serialize(producto.FichaFiscal());
+        producto.AplicarReglaFiscal(regla, soloVacios: !nuevo);
+        _db.Add(new CambioFiscalAw(Guid.CreateVersion7(), producto.Id, "Producto", "Aplicar regla", antes,
+            System.Text.Json.JsonSerializer.Serialize(producto.FichaFiscal()), null));
     }
 
     /// <summary>Unidad del catálogo por código (como Provisionar); null = sin equivalencia.</summary>

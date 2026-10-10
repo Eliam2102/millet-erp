@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { ClasificacionClienteSelector } from './ClasificacionClienteSelector';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -110,6 +111,7 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
       {
         id: cliente.id,
         payload: {
+          clasificacionId: values.clasificacionId,
           razonSocial: values.razonSocial,
           monedaDefault: values.monedaDefault,
           esGenerico: values.esGenerico,
@@ -188,6 +190,9 @@ export function ClienteDatosForm({ cliente }: ClienteDatosFormProps) {
       noValidate
       className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-3xl"
     >
+      <Controller name="clasificacionId" control={form.control} render={({ field }) =>
+        <ClasificacionClienteSelector value={field.value} onChange={field.onChange} disabled={!canEditar} />} />
+      {form.formState.errors.clasificacionId && <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.clasificacionId.message}</p>}
       <FormRow label="Clave" hint="No editable.">
         <Input
           value={cliente.clave}
@@ -598,6 +603,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
 
 function buildDefaults(c: ClienteDetalle): ActualizarClienteValues {
   return {
+    clasificacionId: c.clasificacionId ?? '',
     razonSocial: c.razonSocial,
     rfc: c.rfc ?? null,
     regimenFiscal: c.regimenFiscal ?? null,

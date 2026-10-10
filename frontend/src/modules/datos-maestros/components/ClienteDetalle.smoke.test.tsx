@@ -36,6 +36,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const CLIENTE_DETALLE = {
+  clasificacionId: '00000012-0001-0000-0000-000000000001',
   id: 'c-1',
   clave: 'CLI-001',
   referenciaExterna: 'AW-777',

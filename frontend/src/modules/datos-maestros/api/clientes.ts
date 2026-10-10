@@ -253,6 +253,7 @@ export function aplanarDetalle(r: EjecucionSyncDetalleRespuesta): EjecucionSyncD
 
 function buildListarClientesPath(filtros: ListarClientesFiltros): string {
   const params = new URLSearchParams();
+  if (filtros.sinClasificar != null) params.set('sinClasificar', String(filtros.sinClasificar));
   if (filtros.rfc != null && filtros.rfc.length > 0)
     params.set('rfc', filtros.rfc);
   if (filtros.razonSocial != null && filtros.razonSocial.length > 0)

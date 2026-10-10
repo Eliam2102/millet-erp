@@ -19,6 +19,7 @@ import type { ClienteDetalle } from '@/modules/datos-maestros/api/types';
  */
 
 const CLIENTE: ClienteDetalle = {
+  clasificacionId: '00000012-0001-0000-0000-000000000001',
   id: 'c-1',
   clave: 'CLI-001',
   referenciaExterna: null,

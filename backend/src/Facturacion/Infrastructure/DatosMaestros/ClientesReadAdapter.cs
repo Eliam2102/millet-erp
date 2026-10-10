@@ -29,7 +29,7 @@ public sealed class ClientesReadAdapter : IClientesReadPort
             .Select(c => new ClienteFiscalLectura(
                 c.Id, c.Rfc, c.RazonSocial, c.RegimenFiscal,
                 c.CodigoPostalFiscal, c.UsoCfdiDefault, c.FormaPagoDefault,
-                c.MetodoPagoDefault, c.MonedaDefault, c.EsGenerico))
+                c.MetodoPagoDefault, c.MonedaDefault, c.EsGenerico, c.Estatus == EstatusCatalogo.Activo))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -41,7 +41,7 @@ public sealed class ClientesReadAdapter : IClientesReadPort
             .Select(c => new ClienteFiscalLectura(
                 c.Id, c.Rfc, c.RazonSocial, c.RegimenFiscal,
                 c.CodigoPostalFiscal, c.UsoCfdiDefault, c.FormaPagoDefault,
-                c.MetodoPagoDefault, c.MonedaDefault, c.EsGenerico))
+                c.MetodoPagoDefault, c.MonedaDefault, c.EsGenerico, c.Estatus == EstatusCatalogo.Activo))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

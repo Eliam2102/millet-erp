@@ -9,6 +9,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { ClienteDetalle } from '@/modules/datos-maestros/api/types';
 
 const base = {
+  clasificacionId: '00000012-0001-0000-0000-000000000001',
   id: 'c-1', clave: 'CLI-001', referenciaExterna: 'AW-777',
   razonSocial: 'Vidrios del Centro SA', rfc: 'VCE010101AAA', regimenFiscal: '601',
   codigoPostalFiscal: '76100', usoCfdiDefault: null, formaPagoDefault: null,
