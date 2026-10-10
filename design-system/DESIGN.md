@@ -165,7 +165,9 @@ el contenido vuelve a altura y desbordamiento libres para no cortar documentos.
   de sus bandejas, no documentos únicos. Si falla o carga un conteo, no se
   presenta un total incompleto. Sin dato disponible, no se agrega badge.
 - Pie: un solo acceso a Administración, avatar, nombre y rol de la sesión.
-  Cuando no viene el rol del API, usar `[ROL]`, sin deducirlo de los permisos.
+  Mostrar el nombre del rol solo si viene en la sesión. Cuando no viene del
+  API, omitir esa línea; no usar `[ROL]` ni deducirlo de los permisos (adenda
+  de Eliam del 10-oct-2026).
   Cerrar sesión queda a la vista.
 - «Contraer menú» deja `w-menu-collapsed` (64px), solo íconos con nombres
   accesibles y tooltip. «Expandir menú» restaura las pantallas. Preferencia en

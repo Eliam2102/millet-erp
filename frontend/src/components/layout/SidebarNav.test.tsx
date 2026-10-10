@@ -101,3 +101,10 @@ it('muestra un conteo disponible y no agrega números a los otros módulos', () 
   expect(screen.getByLabelText('3 pendientes en Compras')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Almacén' })).not.toHaveTextContent(/\d/);
 });
+it('muestra la persona sin inventar un rol ni dejar un marcador cuando la sesión no lo trae', () => {
+  useAuthStore.setState({ permisos: Object.values(P) });
+  render(<SidebarNav />);
+  expect(screen.getByText('Persona de prueba')).toBeInTheDocument();
+  expect(screen.queryByText('[ROL]')).not.toBeInTheDocument();
+  expect(screen.queryByText('Administrador')).not.toBeInTheDocument();
+});

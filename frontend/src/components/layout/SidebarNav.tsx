@@ -197,7 +197,6 @@ export function SidebarNav({
                 <p className="truncate text-xs font-medium text-white">
                   {user?.nombre ?? '[PERSONA]'}
                 </p>
-                <p className="text-2xs text-rail-fg">[ROL]</p>
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiQueryRequest } from '@/lib/api/query-request';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 interface SucursalSesion {
@@ -17,8 +17,9 @@ export function SucursalSelector() {
   const { data: sucursales = [], isLoading } = useQuery({
     queryKey: ['auth', 'sucursales', empresaId],
     enabled: empresaId != null,
-    queryFn: async ({ signal }) =>
-      (await apiRequest<SucursalSesion[]>('/api/auth/sucursales', { signal })).data,
+    queryFn: async (context) =>
+      (await apiQueryRequest<SucursalSesion[]>('/api/auth/sucursales', context)).data,
+    staleTime: 30_000,
   });
 
   useEffect(() => {

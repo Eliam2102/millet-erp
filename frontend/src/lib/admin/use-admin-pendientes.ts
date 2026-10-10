@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
+import { apiQueryRequest } from '@/lib/api/query-request';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import type {
@@ -23,11 +23,11 @@ export function useAdminPendientes() {
   const equivalencias = useQuery({
     queryKey: ['admin', 'pendientes', 'equivalencias', ...scope],
     enabled: !!empresaId && !!sucursalId && puedeEquivalencias,
-    queryFn: async ({ signal }) =>
+    queryFn: async (context) =>
       (
-        await apiRequest<EquivalenciaResumen[]>(
+        await apiQueryRequest<EquivalenciaResumen[]>(
           `/api/v1/centros-costo/equivalencias/${sucursalId}`,
-          { signal },
+          context,
         )
       ).data,
     staleTime: 30_000,
@@ -35,11 +35,11 @@ export function useAdminPendientes() {
   const series = useQuery({
     queryKey: ['admin', 'pendientes', 'series', ...scope],
     enabled: !!empresaId && !!sucursalId && puedeSeries,
-    queryFn: async ({ signal }) =>
+    queryFn: async (context) =>
       (
-        await apiRequest<ListarSeriesResponse>(
+        await apiQueryRequest<ListarSeriesResponse>(
           `/api/v1/admin/series?empresaId=${empresaId}&sucursalId=${sucursalId}&limit=1`,
-          { signal },
+          context,
         )
       ).data,
     staleTime: 30_000,
@@ -47,8 +47,8 @@ export function useAdminPendientes() {
   const parametros = useQuery({
     queryKey: ['admin', 'pendientes', 'parametros', user?.id, empresaId],
     enabled: !!empresaId && permisos.includes(P.AdminParametrosLeer),
-    queryFn: async ({ signal }) =>
-      (await apiRequest<ListarParametrosResponse>('/api/v1/admin/parametros?modulo=', { signal }))
+    queryFn: async (context) =>
+      (await apiQueryRequest<ListarParametrosResponse>('/api/v1/admin/parametros?modulo=', context))
         .data,
     staleTime: 30_000,
   });
