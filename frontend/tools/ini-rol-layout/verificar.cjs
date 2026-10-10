@@ -7,9 +7,10 @@ const fs = require('node:fs'); const path = require('node:path');
   const url=new URL(route.request().url());
   if(url.pathname.startsWith('/api/')){
    let data={items:[],total:12,offset:0,limit:1};
+   // Datos con la forma real de cada endpoint: los circuitos traen etapas; el flujo, la serie por día.
    if(url.pathname.includes('/inicio/'))data={valor:412875,total:12,contexto:'12 documentos de muestra · solo MXN · 2 vencidos',urgentes:2,
-    etapas:[{etiqueta:'Requisiciones',total:18},{etiqueta:'Por autorizar',total:7},{etiqueta:'OC abiertas',total:14},{etiqueta:'Por recibir',total:5},{etiqueta:'Por pagar',total:9}],
-    serie:['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map((dia,i)=>({dia,cobros:40000+(i*2500),pagos:35000+(i*2000)}))};
+    ...(url.pathname.endsWith('/circuito')?{etapas:[{etiqueta:'Requisiciones',total:18},{etiqueta:'Por autorizar',total:7},{etiqueta:'OC abiertas',total:14},{etiqueta:'Por recibir',total:5},{etiqueta:'Por pagar',total:9}]}:{}),
+    ...(url.pathname.endsWith('/flujo')?{serie:['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map((dia,i)=>({dia,cobros:40000+(i*2500),pagos:35000-(i*3000)}))}:{})};
    else if(url.pathname.endsWith('/admin/auditoria')) data={items:[1,2,3].map(i=>({id:`muestra-${i}`,entidad:'Factura',entidadEtiqueta:`Factura de muestra ${i}`,resumen:'Captura ficticia para prueba de layout',operacion:'Crear',timestamp:'2026-10-10T15:00:00Z'})),total:3};
    else if(url.pathname.endsWith('/kpis'))data={countPartidasAbiertas:11,countAtrasadas:2};
    else if(url.pathname.includes('/ordenes/pendientes'))data={totalCount:11,items:[]};

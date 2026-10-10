@@ -65,16 +65,16 @@ export function compararPrioridad(a: PrioridadInicio, b: PrioridadInicio): numbe
 }
 
 export const estiloNivel = {
-  normal: { texto: 'text-ink-muted', punto: 'bg-info-solid', etiqueta: null, variante: 'neutral' },
+  normal: { texto: 'text-ink-muted', punto: 'bg-info', etiqueta: null, variante: 'neutral' },
   atencion: {
     texto: 'text-warning-fg',
-    punto: 'bg-warning-solid',
+    punto: 'bg-warning',
     etiqueta: 'Atención',
     variante: 'warning',
   },
   critico: {
     texto: 'text-danger-fg',
-    punto: 'bg-danger-solid',
+    punto: 'bg-danger',
     etiqueta: 'Crítico',
     variante: 'danger',
   },

@@ -13,4 +13,6 @@ Necesita Playwright disponible. Si está instalado en otra ubicación, indicar l
 
 El navegador intercepta todas las solicitudes; sirve el build y fixtures en memoria, sin un servidor ni puertos abiertos. Recorre Compras, Almacén, Cobranza, Tesorería y Administrador a 1440×900, 1280×800 y 390×844. Falla ante scroll de página, desbordamiento horizontal o recorte de indicadores/visuales en escritorio. Genera `/tmp/ini-rol-layout.json` y una captura del Administrador a 1440×900.
 
-El build aislado pasó. La ejecución está **Por confirmar**: el sandbox rechazó el arranque de Chromium (`MachPortRendezvousServer: Permission denied (1100)`). Comparar además con la propuesta aprobada y verificar el shell con una sesión real autorizada; la prueba aislada reproduce las dimensiones del rail y topbar, sin modificar la navegación.
+**Ejecutada el 10-oct-2026 en la Mac mini:** los 5 perfiles a 1440×900 y 1280×800 caben sin scroll de página, sin desbordamiento horizontal y sin tarjetas recortadas. En 390×844 la página se desplaza, como pide la plantilla móvil de DESIGN §5.5. La ejecución detectó y corrigió dos fallas de color: las barras de «Flujo de la semana» y los puntos de urgencia usaban clases `*-solid` que no existen en los tokens.
+
+Pendiente: comparar con la propuesta aprobada y revisar el shell con una sesión real autorizada.

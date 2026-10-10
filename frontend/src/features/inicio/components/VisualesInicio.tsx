@@ -19,9 +19,10 @@ export function VisualesInicio({ items }: { items: PiezaResuelta[] }) {
             {data.serie.map(d => {
               const max = Math.max(1, ...data.serie!.flatMap(s => [s.cobros, s.pagos]));
               return <div key={d.dia} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1">
-                <div className="flex min-h-0 flex-1 items-end gap-1" title={`${d.dia}: cobros ${formatoMontoInicio(d.cobros)}, pagos ${formatoMontoInicio(d.pagos)}`}>
-                  <span className="w-1/2 rounded-sm bg-success-solid" style={{ height: `${d.cobros / max * 100}%` }} />
-                  <span className="w-1/2 rounded-sm bg-info-solid" style={{ height: `${d.pagos / max * 100}%` }} />
+                {/* Barras con posición absoluta: el alto en % no se resuelve dentro de contenedores flex sin alto definido. */}
+                <div className="relative min-h-0 flex-1" title={`${d.dia}: cobros ${formatoMontoInicio(d.cobros)}, pagos ${formatoMontoInicio(d.pagos)}`}>
+                  <span className="absolute bottom-0 left-0 w-[calc(50%-2px)] rounded-sm bg-success" style={{ height: `${d.cobros / max * 100}%` }} />
+                  <span className="absolute bottom-0 right-0 w-[calc(50%-2px)] rounded-sm bg-info" style={{ height: `${d.pagos / max * 100}%` }} />
                 </div><span className="text-center text-2xs text-ink-muted">{d.dia}</span>
               </div>;
             })}
