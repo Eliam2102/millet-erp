@@ -288,7 +288,7 @@ function SiguienteTramoForm({
             ) {
               return;
             }
-            toast.error(error.problem.title);
+            // El aviso en el formulario (ErrorTimbradoAviso) muestra el motivo; sin toast técnico duplicado.
             return;
           }
           toast.error('No se pudo crear el siguiente tramo.');
