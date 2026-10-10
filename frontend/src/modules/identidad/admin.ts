@@ -1,4 +1,4 @@
-import { KeyRound, Users } from 'lucide-react';
+import { ShieldCheck, UserRound } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -16,9 +16,8 @@ export const identidadAdminCards: readonly AdminSection[] = [
     id: 'identidad-usuarios',
     modulo: 'identidad',
     titulo: 'Cuentas de acceso',
-    descripcion:
-      'Consulta cuentas, vínculo con empleados, roles y estado de acceso.',
-    icon: Users,
+    descripcion: 'Cuentas de Microsoft, su perfil y su estado',
+    icon: UserRound,
     href: '/admin/usuarios',
     permisoRequerido: PermisosCanonicos.IdentidadUsuariosLeer,
     orden: 10,
@@ -29,9 +28,8 @@ export const identidadAdminCards: readonly AdminSection[] = [
     id: 'identidad-roles',
     modulo: 'identidad',
     titulo: 'Roles y permisos',
-    descripcion:
-      'Roles del sistema, matriz de permisos, asociación con grupos Entra ID.',
-    icon: KeyRound,
+    descripcion: 'Qué puede ver y hacer cada perfil',
+    icon: ShieldCheck,
     href: '/admin/roles',
     permisoRequerido: PermisosCanonicos.IdentidadRolesLeer,
     orden: 20,

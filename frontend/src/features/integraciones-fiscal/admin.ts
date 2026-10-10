@@ -1,4 +1,4 @@
-import { FileBadge } from 'lucide-react';
+import { PlugZap } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -15,14 +15,13 @@ export const integracionesFiscalAdminCards: readonly AdminSection[] = [
   {
     id: 'integraciones-fiscal',
     modulo: 'integraciones_fiscal',
-    titulo: 'Integraciones Fiscal',
-    descripcion:
-      'Configuración del PAC (FiscalAPI) + RFCs receptores por empresa para descarga masiva del SAT.',
-    icon: FileBadge,
+    titulo: 'Integraciones fiscales',
+    descripcion: 'Timbrado con el PAC y descarga de facturas del SAT',
+    icon: PlugZap,
     href: '/admin/integraciones/fiscal',
     permisoRequerido: PermisosCanonicos.IntegracionesFiscalLeer,
     orden: 60,
-    grupo: 'modulos',
+    grupo: 'facturacion_reglas',
     displayMode: 'custom',
   },
 ];

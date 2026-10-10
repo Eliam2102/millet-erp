@@ -20,8 +20,7 @@ export const comprasAdminCards: readonly AdminSection[] = [
     id: 'compras-configuracion',
     modulo: 'compras',
     titulo: 'Compras',
-    descripcion:
-      'Configuración del módulo Compras (auto-generación de OC, umbrales, etc.).',
+    descripcion: 'Generación de órdenes de compra y umbrales',
     icon: ShoppingCart,
     href: '/compras/configuracion',
     permisoRequerido: PermisosCanonicos.ComprasConfiguracionLeer,

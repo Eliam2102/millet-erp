@@ -1,4 +1,4 @@
-import { Boxes, Package, Truck, Users } from 'lucide-react';
+import { Factory, Layers, Package, Users } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -22,9 +22,8 @@ export const datosMaestrosAdminCards: readonly AdminSection[] = [
     id: 'datos-maestros-proveedores',
     modulo: 'datos_maestros',
     titulo: 'Proveedores',
-    descripcion:
-      'Catálogo maestro de proveedores compartido entre módulos.',
-    icon: Truck,
+    descripcion: 'Proveedores que usan todos los módulos',
+    icon: Factory,
     href: '/admin/datos-maestros/proveedores',
     permisoRequerido: PermisosCanonicos.DatosMaestrosProveedoresGestionar,
     orden: 20,
@@ -35,7 +34,7 @@ export const datosMaestrosAdminCards: readonly AdminSection[] = [
     id: 'datos-maestros-articulos',
     modulo: 'datos_maestros',
     titulo: 'Artículos',
-    descripcion: 'Catálogo maestro de artículos / SKUs / servicios.',
+    descripcion: 'Artículos y servicios que se compran',
     icon: Package,
     href: '/admin/datos-maestros/articulos',
     permisoRequerido: PermisosCanonicos.DatosMaestrosArticulosGestionar,
@@ -47,8 +46,7 @@ export const datosMaestrosAdminCards: readonly AdminSection[] = [
     id: 'datos-maestros-clientes',
     modulo: 'datos_maestros',
     titulo: 'Clientes',
-    descripcion:
-      'Master de clientes de facturación; completa los datos fiscales de los auto-provisionados por A+W.',
+    descripcion: 'Clientes a los que se factura',
     icon: Users,
     href: '/admin/datos-maestros/clientes',
     permisoRequerido: PermisosCanonicos.DatosMaestrosClientesGestionar,
@@ -60,9 +58,8 @@ export const datosMaestrosAdminCards: readonly AdminSection[] = [
     id: 'datos-maestros-productos-aw',
     modulo: 'datos_maestros',
     titulo: 'Productos A+W',
-    descripcion:
-      'Master de productos de venta A+W; completa las claves SAT antes de timbrar.',
-    icon: Boxes,
+    descripcion: 'Productos de vidrio de A+W y su clave del SAT',
+    icon: Layers,
     href: '/admin/datos-maestros/productos-aw',
     permisoRequerido: PermisosCanonicos.DatosMaestrosProductosAwGestionar,
     orden: 23,

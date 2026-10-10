@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from '@tanstack/react-router';
-import { ChevronDown, PanelLeftClose, Search } from 'lucide-react';
+import { PanelLeftClose, Search } from 'lucide-react';
 import type { NavModulo } from '@/lib/nav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,16 +65,11 @@ export function ModulePanel({ modulo, onCollapse }: { modulo: NavModulo; onColla
       </div>
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {secciones.map((seccion) => (
-          <details key={seccion.label} open className="group mb-4">
-            <summary className="flex cursor-pointer list-none items-center justify-between rounded-sm px-1 py-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted focus-visible:outline-2 focus-visible:outline-brand">
+          // Secciones siempre abiertas: todo el menú del módulo a la vista (Eliam, 10-oct).
+          <section key={seccion.label} aria-label={seccion.label} className="mb-4">
+            <h2 className="px-1 py-2 text-2xs font-semibold uppercase tracking-[0.05em] text-ink-muted">
               {seccion.label}
-              <ChevronDown
-                size={12}
-                strokeWidth={2}
-                className="group-open:rotate-180"
-                aria-hidden="true"
-              />
-            </summary>
+            </h2>
             <ul className="space-y-1">
               {seccion.cards.map((card) => (
                 <li key={card.to}>
@@ -93,7 +88,7 @@ export function ModulePanel({ modulo, onCollapse }: { modulo: NavModulo; onColla
                 </li>
               ))}
             </ul>
-          </details>
+          </section>
         ))}
         {secciones.length === 0 && (
           <p role="status" className="px-2.5 py-3 text-xs text-ink-muted">
