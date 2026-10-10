@@ -83,7 +83,8 @@ public sealed class DemoSesionSeedTests
                 var subMid = await (from sub in almacen.SubAlmacenes
                                     join al in almacen.Almacenes on sub.AlmacenId equals al.Id
                                     where al.SucursalId == ocMid.SucursalDestinoId && sub.Clave == "INSUMOS"
-                                    select sub).SingleAsync();
+                                    orderby al.Clave
+                                    select sub).FirstAsync();
                 var anterior = await almacen.Ubicaciones.SingleAsync(u => u.SubAlmacenId == subMid.Id && u.Clave == "R-01");
                 await almacen.AsignacionesArticuloUbicacion.Where(a => a.UbicacionId == anterior.Id).ExecuteDeleteAsync();
                 await almacen.SaldosInventario.Where(a => a.UbicacionId == anterior.Id).ExecuteDeleteAsync();
