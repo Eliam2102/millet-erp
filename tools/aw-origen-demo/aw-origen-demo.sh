@@ -12,7 +12,7 @@
 #   ./aw-origen-demo.sh psql -c "UPDATE aw_origen.ku_kunden SET name1='CLIENTE EDITADO' WHERE id=10"
 set -euo pipefail
 cd "$(dirname "$0")"
-C="${PG_CONTAINER:-millet-dev-postgres}"; U="${PG_USER:-pgadmin}"; P="${PG_PASSWORD:-pgadmin}"; DB="${AW_ORIGEN_DB:-millet_aw_origen}"
+C="${PG_CONTAINER:-millet-dev-postgres}"; PORT="${PG_PORT:-5432}"; U="${PG_USER:-pgadmin}"; P="${PG_PASSWORD:-pgadmin}"; DB="${AW_ORIGEN_DB:-millet_aw_origen}"
 pg() { docker exec -i -e PGOPTIONS='-c client_min_messages=warning' "$C" psql -v ON_ERROR_STOP=1 -q -U "$U" "$@"; }
 
 case "${1:-}" in
@@ -28,12 +28,12 @@ case "${1:-}" in
     RO="$(grep '^AW_SANDBOX_RO_PASSWORD=' ../aw-sandbox/.env | cut -d= -f2-)"
     dotnet run importar-desde-aw.cs -- \
       "${AW_SQL_CS:-Server=localhost,14330;Database=$AWDB;User Id=aw_ro;Password=$RO;Encrypt=True;TrustServerCertificate=True}" \
-      "Host=localhost;Port=5432;Database=$DB;Username=$U;Password=$P" 2>&1 | grep -v ': warning '
+      "Host=localhost;Port=$PORT;Database=$DB;Username=$U;Password=$P" 2>&1 | grep -v ': warning '
     pg -d "$DB" < pedidos.sql ;;
   pedidos) pg -d "$DB" < pedidos.sql ;;
   env)
     cat <<ENV
-export ConnectionStrings__AwOrigenPgDb='Host=localhost;Port=5432;Database=$DB;Username=$U;Password=$P'
+export ConnectionStrings__AwOrigenPgDb='Host=localhost;Port=$PORT;Database=$DB;Username=$U;Password=$P'
 export IntegracionesAw__OrigenDemo__Permitido=true
 ENV
     ;;
