@@ -144,13 +144,13 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
     }
 
     [Fact]
-    public async Task V52_Fila_con_KZ_STATUS_bloqueado_se_crea_inactiva_sin_pendiente()
+    public async Task Fila_con_KZ_STATUS_sin_mapeo_cuenta_como_Creado_y_ademas_Pendiente()
     {
         var filas = new List<AwClienteOrigenFila> { Fila(NuevaBase() + 1) with { KzStatus = 1 } };
         var e = await Ejec(await Barrido(new OrigenFake(filas), Opts()));
 
-        Assert.Equal((1, 1, 0), (e.Leidos, e.Creados, e.Pendientes));
-        Assert.Equal(EstatusCatalogo.Inactivo, Assert.Single((await Leer(Ids(filas))).Clientes).Estatus);
+        Assert.Equal((1, 1, 1), (e.Leidos, e.Creados, e.Pendientes));
+        Assert.Equal(EstatusCatalogo.Activo, Assert.Single((await Leer(Ids(filas))).Clientes).Estatus);
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -65,8 +66,11 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
             var conflictoId=conflicto.GetProperty("id").GetGuid();
             var revision=await c.PostAsJsonAsync($"/api/v1/datos-maestros/clientes/ligados-aw/{conflictoId}/revisar",new { id=conflictoId,clienteId=id,version=conflicto.GetProperty("version").GetInt32() }); revision.EnsureSuccessStatusCode();
             var detalle=await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"));
+            Assert.Equal("Activo", detalle.GetProperty("estatus").GetString());
             Assert.Equal(referencia,detalle.GetProperty("referenciaExterna").GetString()); Assert.Equal(Clasificacion,detalle.GetProperty("clasificacionId").GetString()); Assert.Equal("CLIENTE FICTICIO F1A",detalle.GetProperty("razonSocial").GetString());
-            Assert.Equal(1,(await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes?rfc={rfc}"))).GetProperty("total").GetInt32());
+            var listado = await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes?rfc={rfc}"));
+            Assert.Equal(1, listado.GetProperty("total").GetInt32());
+            Assert.Equal("Activo", listado.GetProperty("items")[0].GetProperty("estatus").GetString());
             var falta=await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}",new { telefono="9990000000" }); Assert.Equal(HttpStatusCode.BadRequest,falta.StatusCode);
         }
         finally { await LimpiarAsync(referencia,ids); }
@@ -119,6 +123,46 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
             await LimpiarAsync(valor, [], productos, creadas);
         }
     }
+    [Fact]
+    public async Task V52_configuracion_versionada_y_sin_mapeo_conservan_contrato_textual_en_endpoints()
+    {
+        await using var configurada = factory.WithWebHostBuilder(builder => builder
+            .UseSetting("IntegracionesAw:Clientes:MapeoEstatus:Version", "DEMO-v1")
+            .UseSetting("IntegracionesAw:Clientes:MapeoEstatus:KzStatus:42", "true")
+            .UseSetting("IntegracionesAw:Clientes:MapeoEstatus:KzStatus:0", "false"));
+        using var c = await ClienteAsync();
+        var referencia = "F1A-" + Guid.NewGuid().ToString("N")[..8]; var ids = new List<Guid>();
+        var snap = new AplicarClienteAwSnapshot(referencia, "FICTICIO V52", DateTime.UtcNow, "1", "F1A", MonedaDefault: "MXN", EstadoOrigenCrudo: 42);
+        try
+        {
+            using (var scope = configurada.Services.CreateScope())
+            {
+                var resultado = await scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>().AplicarAsync(snap, CancellationToken.None);
+                ids.Add(resultado.Cliente!.Id);
+            }
+            var id = ids.Single();
+            Assert.Equal("Inactivo", (await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"))).GetProperty("estatus").GetString());
+            using (var scope = factory.Services.CreateScope())
+            {
+                var svc = scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
+                await svc.AplicarAsync(snap with { EstadoOrigenCrudo = 0, LeidoEnUtc = snap.LeidoEnUtc.AddMinutes(1) }, CancellationToken.None);
+            }
+            // Sin mapeo no reactiva, aun con cero explícito.
+            Assert.Equal("Inactivo", (await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"))).GetProperty("estatus").GetString());
+            using (var scope = configurada.Services.CreateScope())
+            {
+                var svc = scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
+                await svc.AplicarAsync(snap with { EstadoOrigenCrudo = 0, LeidoEnUtc = snap.LeidoEnUtc.AddMinutes(2) }, CancellationToken.None);
+                var registro = await scope.ServiceProvider.GetRequiredService<CompartidoDbContext>().ClientesSincronizacionAw.SingleAsync(r => r.ClienteId == id);
+                Assert.Equal("F1A|DEMO-v1", registro.VersionMapeo);
+            }
+            var lista = await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes?referenciaExterna={referencia}"));
+            Assert.Equal(1, lista.GetProperty("total").GetInt32());
+            Assert.Equal("Activo", lista.GetProperty("items")[0].GetProperty("estatus").GetString());
+        }
+        finally { await LimpiarAsync(referencia, ids); }
+    }
+
     [Fact]
     public async Task Endpoints_nuevos_exigen_sesion()
     {

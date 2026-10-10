@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Application.ProductosAw;
@@ -40,6 +41,23 @@ public sealed class F1AFundacionesTests
         var r=await servicio.AplicarAsync(snap,CancellationToken.None); Assert.Equal(AplicarClienteAwAccion.Conflicto,r.Accion); Assert.Null(r.Cliente);
         await servicio.AplicarAsync(snap,CancellationToken.None); Assert.Equal(1,await db.Set<ClienteLigadoAw>().CountAsync()); Assert.Equal(1,await db.Clientes.CountAsync()); Assert.Null(manual.ReferenciaExterna);
     }
+    [Fact]
+    public async Task V38_revision_con_mapeo_conserva_snapshot_y_version_se_compone_una_sola_vez()
+    {
+        using var db = Db();
+        var manual = new Cliente(Guid.NewGuid(), "F1A-MAN", "FICTICIO", rfc: "AAA010101AAA");
+        db.Add(manual); await db.SaveChangesAsync();
+        var servicio = ServicioConMapeo(db);
+        var snap = ClienteSnapshot() with { Rfc = manual.Rfc, EstadoOrigenCrudo = 1 };
+        await servicio.AplicarAsync(snap, CancellationToken.None);
+        var conflicto = await db.Set<ClienteLigadoAw>().SingleAsync();
+        var recibido = System.Text.Json.JsonSerializer.Deserialize<AplicarClienteAwSnapshot>(conflicto.SnapshotJson)!;
+        Assert.Equal("F1A", recibido.VersionMapeo);
+        manual.LigarAw(recibido.ReferenciaExterna, recibido.Rfc!); await db.SaveChangesAsync();
+        await servicio.AplicarAsync(recibido, CancellationToken.None);
+        Assert.True(manual.BloqueadoPorAw);
+        Assert.Equal("F1A|DEMO-v1", (await db.ClientesSincronizacionAw.SingleAsync()).VersionMapeo);
+    }
     [Theory]
     [InlineData("XAXX010101000")]
     [InlineData("XEXX010101000")]
@@ -50,13 +68,116 @@ public sealed class F1AFundacionesTests
         Assert.Equal(AplicarClienteAwAccion.Creado,r.Accion); Assert.Equal(2,await db.Clientes.CountAsync()); Assert.Empty(await db.Set<ClienteLigadoAw>().ToListAsync());
         Assert.Throws<BusinessRuleException>(()=>manual.LigarAw("1",rfc));
     }
+    private static AplicarClienteAwService ServicioConMapeo(CompartidoDbContext db) => new(db, Options.Create(new MapeoEstatusClientesAwOptions
+    {
+        Version = "DEMO-v1", KzStatus = new() { [0] = false, [1] = true, [2] = true },
+        KzGesperrt = new() { [0] = false, [1] = true }
+    }));
     [Fact]
     public async Task V52_bloqueo_y_reactivacion_conservan_id_y_datos_fiscales()
     {
-        using var db=Db(); var s=new AplicarClienteAwService(db); var snap=ClienteSnapshot() with { EstadoOrigenCrudo=0,BloqueoOrigenCrudo=1 };
+        using var db=Db(); var s=ServicioConMapeo(db); var snap=ClienteSnapshot() with { EstadoOrigenCrudo=0,BloqueoOrigenCrudo=1 };
         var r=await s.AplicarAsync(snap,CancellationToken.None); var id=r.Cliente!.Id; Assert.True(r.Cliente.BloqueadoPorAw); Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Inactivo,r.Cliente.Estatus);
         var c=await s.AplicarAsync(snap with { BloqueoOrigenCrudo=0,LeidoEnUtc=snap.LeidoEnUtc.AddMinutes(1) },CancellationToken.None);
         Assert.Equal(id,c.Cliente!.Id); Assert.False(c.Cliente.BloqueadoPorAw); Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Activo,c.Cliente.Estatus);
+    }
+    [Theory]
+    [InlineData(null, null, false)]
+    [InlineData(null, 0, false)]
+    [InlineData(0, null, false)]
+    [InlineData(null, 1, true)]
+    [InlineData(1, null, true)]
+    [InlineData(2, 0, true)]
+    public async Task V52_alta_solo_inactiva_por_bloqueo_explicito(int? estado, int? bloqueo, bool inactivo)
+    {
+        using var db = Db();
+        var snapshot = ClienteSnapshot() with { EstadoOrigenCrudo = estado, BloqueoOrigenCrudo = bloqueo };
+        var resultado = await ServicioConMapeo(db).AplicarAsync(snapshot, CancellationToken.None);
+        Assert.Equal(inactivo, resultado.Cliente!.BloqueadoPorAw);
+        Assert.Equal(inactivo ? Millet.Catalogos.Domain.EstatusCatalogo.Inactivo : Millet.Catalogos.Domain.EstatusCatalogo.Activo, resultado.Cliente.Estatus);
+    }
+    [Fact]
+    public async Task V52_lectura_sin_estado_no_modifica_cliente_y_cero_explicito_reactiva()
+    {
+        using var db = Db(); var servicio = ServicioConMapeo(db);
+        var snapshot = ClienteSnapshot() with { Rfc = "AAA010101AAA", EstadoOrigenCrudo = 1 };
+        var alta = await servicio.AplicarAsync(snapshot, CancellationToken.None);
+        var clasificacion = Guid.NewGuid(); alta.Cliente!.Clasificar(clasificacion); await db.SaveChangesAsync();
+        var sinDato = await servicio.AplicarAsync(snapshot with { EstadoOrigenCrudo = null, LeidoEnUtc = snapshot.LeidoEnUtc.AddMinutes(1) }, CancellationToken.None);
+        Assert.True(sinDato.Cliente!.BloqueadoPorAw);
+        Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Inactivo, sinDato.Cliente.Estatus);
+        var reactivado = await servicio.AplicarAsync(snapshot with { EstadoOrigenCrudo = null, BloqueoOrigenCrudo = 0, LeidoEnUtc = snapshot.LeidoEnUtc.AddMinutes(2) }, CancellationToken.None);
+        Assert.Equal(alta.Cliente.Id, reactivado.Cliente!.Id);
+        Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Activo, reactivado.Cliente.Estatus);
+        Assert.Equal("AAA010101AAA", reactivado.Cliente.Rfc); Assert.Equal(clasificacion, reactivado.Cliente.ClasificacionId);
+        Assert.Single(await db.Clientes.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(2, 1)]
+    [InlineData(7, 9)]
+    public async Task V52_sin_mapeo_solo_registra_crudos_y_no_inactiva_ni_reactiva(int? estado, int? bloqueo)
+    {
+        using var db = Db(); var servicio = new AplicarClienteAwService(db);
+        var snap = ClienteSnapshot() with { EstadoOrigenCrudo = estado, BloqueoOrigenCrudo = bloqueo };
+        var alta = await servicio.AplicarAsync(snap, CancellationToken.None);
+        Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Activo, alta.Cliente!.Estatus);
+        Assert.False(alta.Cliente.BloqueadoPorAw);
+        alta.Cliente.AplicarBloqueoAw(true); await db.SaveChangesAsync();
+        await servicio.AplicarAsync(snap with { LeidoEnUtc = snap.LeidoEnUtc.AddMinutes(1) }, CancellationToken.None);
+        Assert.True(alta.Cliente.BloqueadoPorAw);
+        Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Inactivo, alta.Cliente.Estatus);
+        var registro = await db.ClientesSincronizacionAw.SingleAsync();
+        Assert.Equal(estado, registro.EstadoOrigenCrudo); Assert.Equal(bloqueo, registro.BloqueoOrigenCrudo);
+        Assert.Equal("F1A", registro.VersionMapeo);
+    }
+
+    [Fact]
+    public async Task V52_cambio_de_version_reprocesa_mismo_origen_y_baja_local_no_se_reactiva()
+    {
+        using var db = Db(); var snap = ClienteSnapshot() with { EstadoOrigenCrudo = 42 };
+        var alta = await new AplicarClienteAwService(db).AplicarAsync(snap, CancellationToken.None);
+        var mapeo = new MapeoEstatusClientesAwOptions { Version = "DEMO-v1", KzStatus = new() { [42] = true } };
+        var bloqueado = await new AplicarClienteAwService(db, Options.Create(mapeo)).AplicarAsync(snap, CancellationToken.None);
+        Assert.Equal(alta.Cliente!.Id, bloqueado.Cliente!.Id); Assert.True(bloqueado.Cliente.BloqueadoPorAw);
+        Assert.Equal("F1A|DEMO-v1", (await db.ClientesSincronizacionAw.SingleAsync()).VersionMapeo);
+        mapeo = new() { Version = "DEMO-v2", KzStatus = new() { [42] = false } };
+        var activo = await new AplicarClienteAwService(db, Options.Create(mapeo)).AplicarAsync(snap, CancellationToken.None);
+        Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Activo, activo.Cliente!.Estatus);
+        Assert.Equal("F1A|DEMO-v2", (await db.ClientesSincronizacionAw.SingleAsync()).VersionMapeo);
+        activo.Cliente.CambiarEstatus(Millet.Catalogos.Domain.EstatusCatalogo.Inactivo); await db.SaveChangesAsync();
+        await new AplicarClienteAwService(db, Options.Create(mapeo)).AplicarAsync(snap, CancellationToken.None);
+        Assert.Equal(Millet.Catalogos.Domain.EstatusCatalogo.Inactivo, activo.Cliente.Estatus);
+    }
+
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData(0, null, false)]
+    [InlineData(null, 0, false)]
+    [InlineData(42, null, true)]
+    [InlineData(0, 9, true)]
+    [InlineData(7, 0, null)]
+    [InlineData(7, 9, true)]
+    public void V52_mapeo_no_deduce_codigos_y_bloqueo_aprobado_prevalece(int? estado, int? bloqueo, bool? esperado)
+    {
+        var mapeo = new MapeoEstatusClientesAwOptions
+        { Version = "DEMO-v1", KzStatus = new() { [0] = false, [42] = true }, KzGesperrt = new() { [0] = false, [9] = true } };
+        Assert.Equal(esperado, mapeo.Resolver(estado, bloqueo));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("demasiado-larga")]
+    [InlineData("v|1")]
+    public void V52_mapeo_configurado_exige_version_valida(string? version)
+    {
+        using var db = Db();
+        Assert.Throws<OptionsValidationException>(() => new AplicarClienteAwService(db,
+            Options.Create(new MapeoEstatusClientesAwOptions { Version = version, KzStatus = new() { [1] = true } })));
     }
     [Fact]
     public async Task U19ba_regla_de_familia_y_sin_regla_no_bloquean_alta()
@@ -149,7 +270,7 @@ public sealed class F1AFundacionesTests
     [Fact]
     public async Task V52_relectura_del_hash_anterior_reclasifica_pendiente_como_aplicado()
     {
-        using var db = Db(); var servicio = new AplicarClienteAwService(db);
+        using var db = Db(); var servicio = ServicioConMapeo(db);
         var snap = ClienteSnapshot() with { EstadoOrigenCrudo = 1 };
         var resultado = await servicio.AplicarAsync(snap, CancellationToken.None);
         var registro = await db.ClientesSincronizacionAw.SingleAsync();

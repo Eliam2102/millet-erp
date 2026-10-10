@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Clientes;
@@ -309,7 +310,10 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
         await Aplicar(Snap(r));
         var (antes, _) = await Leer(r);
 
-        var res = await Aplicar(Snap(r) with { EstadoOrigenCrudo = 2 });
+        var res = await ConScopeAsync((db, _) => new AplicarClienteAwService(db, Options.Create(new MapeoEstatusClientesAwOptions
+        {
+            Version = "DEMO-v1", KzStatus = new() { [0] = false, [2] = true }
+        })).AplicarAsync(Snap(r) with { EstadoOrigenCrudo = 2 }, CancellationToken.None));
 
         Assert.Equal(ResultadoSincronizacionAw.Aplicado, res.Resultado);
         var (cs, regs) = await Leer(r);

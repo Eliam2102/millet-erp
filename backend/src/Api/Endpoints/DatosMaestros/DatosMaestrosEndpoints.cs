@@ -690,7 +690,7 @@ public static class DatosMaestrosEndpoints
         string? DomicilioExtranjeroEstado,
         string? DomicilioExtranjeroCodigoPostal,
         bool DatosFiscalesCompletos,
-        EstatusCatalogo Estatus,
+        [property: System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<EstatusCatalogo>))] EstatusCatalogo Estatus,
         int Version,
         ClienteOrigenAwDetalle? OrigenAw, Guid? ClasificacionId = null);
 

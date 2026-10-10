@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
@@ -37,7 +38,7 @@ public sealed record ClienteItem(
     bool EsGenerico,
     OrigenMaster Origen,
     bool DatosFiscalesCompletos,
-    EstatusCatalogo Estatus,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<EstatusCatalogo>))] EstatusCatalogo Estatus,
     ClienteOrigenAwResumen? OrigenAw = null, Guid? ClasificacionId = null);
 
 public sealed record ListarClientesResponse(

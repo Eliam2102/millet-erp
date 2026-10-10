@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application.Exceptions;
@@ -80,7 +81,7 @@ public sealed record AplicarClienteAwResultado(
 /// Cliente + registro de origen en una sola transacción, o actualizar el
 /// registro (+ Telefono/Email/Rfc/CP fiscal solo si vacíos). Nunca sobrescribe
 /// un Rfc o CP fiscal ya capturado, ni toca Régimen, RazonSocial, LineaCredito
-/// La clasificación y los datos del ERP se conservan; V52 aplica bloqueo/reactivación.
+/// La clasificación y los datos del ERP se conservan; V52 solo se aplica con mapeo aprobado.
 /// </summary>
 public sealed class AplicarClienteAwService
 {
@@ -92,12 +93,21 @@ public sealed class AplicarClienteAwService
     private const string IxClave = "ix_clientes_clave";
 
     private readonly CompartidoDbContext _db;
+    private readonly MapeoEstatusClientesAwOptions _mapeoEstatus;
 
-    public AplicarClienteAwService(CompartidoDbContext db) => _db = db;
+    public AplicarClienteAwService(CompartidoDbContext db, IOptions<MapeoEstatusClientesAwOptions>? mapeoEstatus = null)
+    {
+        _db = db;
+        _mapeoEstatus = mapeoEstatus?.Value ?? new();
+        if (!_mapeoEstatus.EsValido)
+            throw new OptionsValidationException(MapeoEstatusClientesAwOptions.SectionName,
+                typeof(MapeoEstatusClientesAwOptions), ["El mapeo de estatus de clientes A+W requiere una versión de 1 a 8 caracteres alfanuméricos, guion o guion bajo."]);
+    }
 
     public async Task<AplicarClienteAwResultado> AplicarAsync(
         AplicarClienteAwSnapshot snap, CancellationToken ct)
     {
+        _ = VersionMapeoEfectiva(snap);
         await using var scope = await ClienteRfcScope.AbrirAsync(_db, snap.Rfc, ct);
         var resultado = await AplicarCoreAsync(snap, ct);
         await scope.ConfirmarAsync(ct);
@@ -144,8 +154,7 @@ public sealed class AplicarClienteAwService
                 return new(null, AplicarClienteAwAccion.Conflicto, ResultadoSincronizacionAw.Conflicto);
             }
             var nuevo = CrearCliente(snap);
-            if (snap.EstadoOrigenCrudo.HasValue || snap.BloqueoOrigenCrudo.HasValue)
-                nuevo.AplicarBloqueoAw((snap.EstadoOrigenCrudo ?? 0) != 0 || (snap.BloqueoOrigenCrudo ?? 0) != 0);
+            AplicarEstatus(nuevo, snap);
             var registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), nuevo.Id, snap.ReferenciaExterna);
             var hash = CalcularHash(snap);
             var resultado = ResultadoDe(snap);
@@ -203,10 +212,9 @@ public sealed class AplicarClienteAwService
         if (registro is not null && snap.LeidoEnUtc < registro.LeidoEnUtc)
             return new(cliente, AplicarClienteAwAccion.SinCambios, registro.Resultado);
 
-        if (snap.EstadoOrigenCrudo.HasValue || snap.BloqueoOrigenCrudo.HasValue)
-            cliente.AplicarBloqueoAw((snap.EstadoOrigenCrudo ?? 0) != 0 || (snap.BloqueoOrigenCrudo ?? 0) != 0);
+        AplicarEstatus(cliente, snap);
         if (registro is not null && registro.HashOrigen == hash
-            && registro.VersionMapeo == snap.VersionMapeo
+            && registro.VersionMapeo == VersionMapeoEfectiva(snap)
             && registro.Resultado != ResultadoSincronizacionAw.Error
             && registro.Resultado == ResultadoDe(snap))
         {
@@ -267,7 +275,17 @@ public sealed class AplicarClienteAwService
             domicilioExtranjeroCodigoPostal: s.DomicilioExtranjeroCodigoPostal);
     }
 
-    private static void AplicarRegistro(
+    private string VersionMapeoEfectiva(AplicarClienteAwSnapshot snap)
+    {
+        // Se compone solo al persistir el registro; el snapshot del conflicto
+        // conserva su versión de origen para poder revisarlo sin añadirla dos veces.
+        var version = _mapeoEstatus.Habilitado ? $"{snap.VersionMapeo}|{_mapeoEstatus.Version}" : snap.VersionMapeo;
+        if (version.Length > 20)
+            throw new BusinessRuleException("CLIENTE_SYNC_VERSION_INVALIDA", "La versión del mapeo de clientes y estatus excede 20 caracteres.");
+        return version;
+    }
+
+    private void AplicarRegistro(
         ClienteSincronizacionAw r, AplicarClienteAwSnapshot s, string hash, ResultadoSincronizacionAw resultado,
         string? diferencias = null) =>
         r.Aplicar(
@@ -279,16 +297,20 @@ public sealed class AplicarClienteAwService
             s.CreditoReferenciaLimite, s.CreditoReferenciaLimite1, s.CreditoReferenciaNet,
             s.EstadoOrigenCrudo, s.BloqueoOrigenCrudo, s.FechaOrigen, s.TransaccionOrigenUtc,
             s.EjecucionId, s.LeidoEnUtc, DateTime.UtcNow,
-            hash, s.VersionContrato, s.VersionMapeo, resultado, diferencias: diferencias);
+            hash, s.VersionContrato, VersionMapeoEfectiva(s), resultado, diferencias: diferencias);
 
-    /// <summary>
-    /// Pendiente (sin baja/activación/conversión automática) si hay moneda o
-    /// condición de origen sin resolver, o un estado crudo sin mapeo aprobado.
-    /// </summary>
-    private static ResultadoSincronizacionAw ResultadoDe(AplicarClienteAwSnapshot s) =>
+    /// <summary>Solo aplica señales de bloqueo/desbloqueo con equivalencia aprobada.</summary>
+    private void AplicarEstatus(Cliente cliente, AplicarClienteAwSnapshot snap)
+    {
+        if (_mapeoEstatus.Resolver(snap.EstadoOrigenCrudo, snap.BloqueoOrigenCrudo) is { } bloqueado)
+            cliente.AplicarBloqueoAw(bloqueado);
+    }
+
+    /// <summary>Moneda, condición o códigos de estado sin equivalencia quedan pendientes.</summary>
+    private ResultadoSincronizacionAw ResultadoDe(AplicarClienteAwSnapshot s) =>
         (s.MonedaCodigoOrigen is not null && s.MonedaNormalizada is null)
         || (s.CondicionCodigoOrigen is not null && s.CondicionNumeroOrigen is null)
-
+        || _mapeoEstatus.TieneCodigoSinMapeo(s.EstadoOrigenCrudo, s.BloqueoOrigenCrudo)
             ? ResultadoSincronizacionAw.Pendiente
             : ResultadoSincronizacionAw.Aplicado;
 

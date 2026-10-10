@@ -1216,6 +1216,10 @@ builder.Services.AddDbContext<CompartidoDbContext>((sp, opts) =>
     opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
 });
 builder.Services.AddScoped<Millet.DatosMaestros.Domain.IValidacionAltaClienteFiscal, Millet.Facturacion.Infrastructure.DatosMaestros.ValidacionAltaClienteFiscalAdapter>();
+builder.Services.AddOptions<Millet.DatosMaestros.Application.Clientes.MapeoEstatusClientesAwOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.DatosMaestros.Application.Clientes.MapeoEstatusClientesAwOptions.SectionName))
+    .Validate(o => o.EsValido, "El mapeo de estatus de clientes A+W requiere una versión de 1 a 8 caracteres alfanuméricos, guion o guion bajo.")
+    .ValidateOnStart();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.Clientes.AplicarClienteAwService>();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.AplicarProductoAwService>();
 builder.Services.AddScoped<Millet.DatosMaestros.Application.ProductosAw.IProductoAwContratoReadPort, Millet.Compartido.Infrastructure.PublicAdapters.ProductoAwContratoReadAdapter>();

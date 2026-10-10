@@ -8,6 +8,7 @@ import {
 import type {
   ActualizarClientePayload,
   ClienteDetalle,
+  ClienteItem,
   CrearClientePayload,
   CrearClienteResponse,
   EjecucionSyncAceptada,
@@ -16,6 +17,16 @@ import type {
   ListarClientesResponse,
   ListarEjecucionesSyncResponse,
 } from '@/modules/datos-maestros/api/types';
+import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
+
+type EstatusClienteApi = EstatusCatalogo | keyof typeof EstatusCatalogo;
+type ClienteApi<T extends { estatus: EstatusCatalogo }> = Omit<T, 'estatus'> & { estatus: EstatusClienteApi };
+type ListarClientesApi = Omit<ListarClientesResponse, 'items'> & { items: ClienteApi<ClienteItem>[] };
+
+/** El contrato HTTP de clientes usa texto; los controles compartidos usan el enum numérico. */
+export function normalizarEstatusCliente(estatus: EstatusClienteApi): EstatusCatalogo {
+  return typeof estatus === 'string' ? EstatusCatalogo[estatus] : estatus;
+}
 
 /**
  * Hooks de TanStack Query del recurso Clientes (ADR-0048). Análogo a
@@ -41,10 +52,10 @@ export function useClientes(filtros: ListarClientesFiltros = {}) {
     queryKey: datosMaestrosKeys.clientesList(filtros),
     queryFn: async ({ signal }) => {
       const path = buildListarClientesPath(filtros);
-      const { data } = await apiRequest<ListarClientesResponse>(path, {
+      const { data } = await apiRequest<ListarClientesApi>(path, {
         signal,
       });
-      return data;
+      return { ...data, items: data.items.map(c => ({ ...c, estatus: normalizarEstatusCliente(c.estatus) })) };
     },
     staleTime: 30_000,
   });
@@ -58,11 +69,11 @@ export function useCliente(id: string | null | undefined) {
         : (['datos-maestros', 'noop'] as const),
     queryFn: async ({ signal }) => {
       if (id == null) throw new Error('useCliente invocado sin id');
-      const { data } = await apiRequest<ClienteDetalle>(
+      const { data } = await apiRequest<ClienteApi<ClienteDetalle>>(
         `/api/v1/datos-maestros/clientes/${id}`,
         { signal },
       );
-      return data;
+      return { ...data, estatus: normalizarEstatusCliente(data.estatus) };
     },
     enabled: id != null,
     staleTime: 0,

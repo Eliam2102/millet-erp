@@ -117,7 +117,7 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
         SqlPlumbing.GetStringOrNull(r, 11), SqlPlumbing.GetStringOrNull(r, 12), SqlPlumbing.GetStringOrNull(r, 13),
         SqlPlumbing.GetStringOrNull(r, 14), SqlPlumbing.GetStringOrNull(r, 15), SqlPlumbing.GetStringOrNull(r, 16),
         r.IsDBNull(17) ? null : r.GetDecimal(17), r.IsDBNull(18) ? null : r.GetDecimal(18),
-        r.IsDBNull(19) ? null : r.GetDouble(19), Int(r, 20), r.GetInt32(21),
+        r.IsDBNull(19) ? null : r.GetDouble(19), Int(r, 20), Int(r, 21),
         r.IsDBNull(22) ? null : DateOnly.FromDateTime(r.GetDateTime(22)),
         r.IsDBNull(23) ? null : r.GetDateTime(23),
         coincidencias);

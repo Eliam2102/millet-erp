@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.RegularExpressions;
 using Millet.Integraciones.Aw.Application.Clientes;
 using Millet.Integraciones.Aw.Infrastructure.Clientes;
@@ -119,6 +120,27 @@ public sealed class AwClientesOrigenTests
 
     // ---- Simulado ----
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("\"\"")]
+    [InlineData("\"  \"")]
+    public async Task Origen_con_estado_y_bloqueo_vacios_conserva_nulos(string valor)
+    {
+        var json = "{\"origen\":{\"KU_KUNDEN\":[{\"ID\":1,\"MANDANT\":1,\"NAME1\":\"CLIENTE FICTICIO\",\"KZ_STATUS\":" + valor + ",\"KZ_GESPERRT\":" + valor + "}]}}";
+        var fila = (await AwClientesOrigenSimulado.DesdeJson(json).LeerPorReferenciaAsync("1", default))!;
+        var snapshot = Mapear(fila).Snapshot!;
+        snapshot.EstadoOrigenCrudo.Should().BeNull();
+        snapshot.BloqueoOrigenCrudo.Should().BeNull();
+    }
+
+    [Fact]
+    public void Mapper_con_estado_y_bloqueo_ausentes_conserva_nulos()
+    {
+        var snapshot = Mapear(Fila() with { KzStatus = null, KzGesperrt = null }).Snapshot!;
+        snapshot.EstadoOrigenCrudo.Should().BeNull();
+        snapshot.BloqueoOrigenCrudo.Should().BeNull();
+    }
+
     private static AwClientesOrigenSimulado Simulado(int n) =>
         new(Enumerable.Range(1, n).Reverse().Select(i => Fila(i * 10)));
 
@@ -168,6 +190,20 @@ public sealed class AwClientesOrigenTests
     }
 
     // ---- SQL estatico ----
+
+    [Fact]
+    public void Lector_SQL_con_estado_y_bloqueo_DBNULL_conserva_ausencia()
+    {
+        using var tabla = new DataTable();
+        for (var i = 0; i < 24; i++) tabla.Columns.Add("c" + i, typeof(object));
+        var valores = Enumerable.Repeat<object>(DBNull.Value, 24).ToArray();
+        valores[0] = 1; valores[1] = 1; valores[2] = "CLIENTE FICTICIO";
+        tabla.Rows.Add(valores);
+        using var lector = tabla.CreateDataReader();
+        Assert.True(lector.Read());
+        var fila = AwClientesSqlOrigen.Fila(lector, []);
+        Assert.Null(fila.KzStatus); Assert.Null(fila.KzGesperrt);
+    }
 
     [Theory]
     [InlineData(AwClientesSqlOrigen.SqlPagina)]
