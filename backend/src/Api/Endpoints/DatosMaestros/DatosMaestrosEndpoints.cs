@@ -299,6 +299,7 @@ public static class DatosMaestrosEndpoints
             [FromQuery] OrigenMaster? origen,
             [FromQuery] EstatusCatalogo? estatus,
             [FromQuery] bool? fiscalesIncompletos,
+            [FromQuery] bool? sinClasificar,
             [FromQuery] string? referenciaExterna,
             [FromQuery] ResultadoSincronizacionAw? resultadoSincronizacion,
             [FromQuery] int? offset,
@@ -313,6 +314,7 @@ public static class DatosMaestrosEndpoints
                     Origen: origen,
                     Estatus: estatus,
                     FiscalesIncompletos: fiscalesIncompletos,
+                    SinClasificar: sinClasificar,
                     ReferenciaExterna: referenciaExterna,
                     ResultadoSincronizacion: resultadoSincronizacion,
                     Offset: offset ?? 0,
@@ -347,7 +349,7 @@ public static class DatosMaestrosEndpoints
                 c.NumRegIdTrib, c.PaisResidencia, c.DomicilioExtranjeroCalle,
                 c.DomicilioExtranjeroEstado, c.DomicilioExtranjeroCodigoPostal,
                 c.DatosFiscalesCompletos, c.Estatus, c.Version,
-                sync is null ? null : ClienteOrigenAwProyeccion.Detalle(sync, verOrigen)));
+                sync is null ? null : ClienteOrigenAwProyeccion.Detalle(sync, verOrigen), c.ClasificacionId));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesGestionar)
         .WithName("ObtenerClienteDatosMaestros")
@@ -381,7 +383,7 @@ public static class DatosMaestrosEndpoints
                     PaisResidencia: request.PaisResidencia,
                     DomicilioExtranjeroCalle: request.DomicilioExtranjeroCalle,
                     DomicilioExtranjeroEstado: request.DomicilioExtranjeroEstado,
-                    DomicilioExtranjeroCodigoPostal: request.DomicilioExtranjeroCodigoPostal),
+                    DomicilioExtranjeroCodigoPostal: request.DomicilioExtranjeroCodigoPostal, ClasificacionId: request.ClasificacionId),
                 ct);
             return Results.Created($"/api/v1/datos-maestros/clientes/{response.Id}", response);
         })
@@ -392,8 +394,7 @@ public static class DatosMaestrosEndpoints
         .WithDescription(
             "Alta manual (`origen = Manual`). UNIQUE(clave) → 422 " +
             "`CLIENTE_CLAVE_DUPLICADA`; UNIQUE(referenciaExterna) → 422 " +
-            "`CLIENTE_REFERENCIA_DUPLICADA`. Datos fiscales incompletos NO " +
-            "bloquean el alta (bloquean timbrado). Header `Idempotency-Key` " +
+            "`CLIENTE_REFERENCIA_DUPLICADA`. La clasificación y los datos fiscales completos son obligatorios en el alta manual. Header `Idempotency-Key` " +
             "obligatorio.")
         .Produces<CrearClienteResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
@@ -439,7 +440,7 @@ public static class DatosMaestrosEndpoints
                     LimpiarPaisResidencia: body.LimpiarPaisResidencia ?? false,
                     LimpiarDomicilioExtranjeroCalle: body.LimpiarDomicilioExtranjeroCalle ?? false,
                     LimpiarDomicilioExtranjeroEstado: body.LimpiarDomicilioExtranjeroEstado ?? false,
-                    LimpiarDomicilioExtranjeroCodigoPostal: body.LimpiarDomicilioExtranjeroCodigoPostal ?? false),
+                    LimpiarDomicilioExtranjeroCodigoPostal: body.LimpiarDomicilioExtranjeroCodigoPostal ?? false, ClasificacionId: body.ClasificacionId),
                 ct);
             return Results.NoContent();
         })
@@ -539,7 +540,7 @@ public static class DatosMaestrosEndpoints
                 p.Componentes.OrderBy(c => c.Orden)
                     .Select(c => new ProductoAwComponenteDato(c.Orden, c.Nivel, c.PadreOrden, c.ComponenteRef, c.Descripcion, c.Tipo, c.EspesorMm))
                     .ToList(),
-                p.Version));
+                p.Version, p.OrigenFiscal, p.EstadoFiscal, p.ReglaFiscalId, p.ConfirmadoPor, p.ConfirmadoEn));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProductosAwGestionar)
         .WithName("ObtenerProductoAw")
@@ -689,9 +690,9 @@ public static class DatosMaestrosEndpoints
         string? DomicilioExtranjeroEstado,
         string? DomicilioExtranjeroCodigoPostal,
         bool DatosFiscalesCompletos,
-        EstatusCatalogo Estatus,
+        [property: System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<EstatusCatalogo>))] EstatusCatalogo Estatus,
         int Version,
-        ClienteOrigenAwDetalle? OrigenAw);
+        ClienteOrigenAwDetalle? OrigenAw, Guid? ClasificacionId = null);
 
     public sealed record CrearClienteRequest(
         string Clave,
@@ -711,7 +712,7 @@ public static class DatosMaestrosEndpoints
         string? PaisResidencia = null,
         string? DomicilioExtranjeroCalle = null,
         string? DomicilioExtranjeroEstado = null,
-        string? DomicilioExtranjeroCodigoPostal = null);
+        string? DomicilioExtranjeroCodigoPostal = null, Guid? ClasificacionId = null);
 
     public sealed record ActualizarClienteRequest(
         string? RazonSocial,
@@ -742,7 +743,7 @@ public static class DatosMaestrosEndpoints
         bool? LimpiarPaisResidencia = null,
         bool? LimpiarDomicilioExtranjeroCalle = null,
         bool? LimpiarDomicilioExtranjeroEstado = null,
-        bool? LimpiarDomicilioExtranjeroCodigoPostal = null);
+        bool? LimpiarDomicilioExtranjeroCodigoPostal = null, Guid? ClasificacionId = null);
 
     public sealed record ProductoAwDetalle(
         Guid Id,
@@ -771,7 +772,7 @@ public static class DatosMaestrosEndpoints
         string? Wgr,
         string? WgrDescripcion,
         IReadOnlyList<ProductoAwComponenteDato> Componentes,
-        int Version);
+        int Version, OrigenFiscalProducto OrigenFiscal, EstadoFiscalProducto EstadoFiscal, Guid? ReglaFiscalId, Guid? ConfirmadoPor, DateTimeOffset? ConfirmadoEn);
 
     public sealed record CrearProductoAwRequest(
         string ReferenciaExterna,

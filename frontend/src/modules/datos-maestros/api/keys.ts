@@ -39,6 +39,7 @@ export interface ListarArticulosFiltros {
 }
 
 export interface ListarClientesFiltros {
+  sinClasificar?: boolean;
   rfc?: string;
   razonSocial?: string;
   origen?: OrigenMaster;

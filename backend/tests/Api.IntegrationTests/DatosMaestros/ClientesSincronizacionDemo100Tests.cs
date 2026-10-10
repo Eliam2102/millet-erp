@@ -161,6 +161,7 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         // (2) Completar régimen/CP/RFC fiscal en el ERP con `gestionar` (vacíos: no requiere fiscal-editar).
         (await c.PatchAsJsonAsync($"{Clientes}/{clienteId}", new
         {
+            ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"),
             Rfc = "XAXX010101000", RegimenFiscal = "601", CodigoPostalFiscal = "06600",
         })).EnsureSuccessStatusCode();
 
@@ -187,7 +188,7 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         Assert.Equal(clienteId, (await ListaAsync(c, b + 100)).GetProperty("id").GetGuid());
     }
 
-    // Paso 3: moneda <indf> no crea el cliente (no se asume MXN); estado desconocido y condición duplicada: Pendiente visible, sin éxito inventado.
+    // Paso 3: moneda <indf> no crea el cliente (no se asume MXN); estado sin mapeo y condición duplicada: Pendiente visible, sin éxito inventado.
     [Fact]
     public async Task Demo100_estado_y_condicion_duplicada_quedan_Pendiente_y_moneda_sin_equivalencia_no_crea()
     {
@@ -211,10 +212,10 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
             Assert.Equal("Pendiente", item.GetProperty("origenAw").GetProperty("resultado").GetString());
             var o = (await DetalleAsync(c, item.GetProperty("id").GetGuid())).GetProperty("origenAw");
             Assert.Equal("Pendiente", o.GetProperty("resultado").GetString());
-            if (r == b + 2) Assert.Equal(7, o.GetProperty("estadoOrigenCrudo").GetInt32());
+            if (r == b + 2) { Assert.Equal(7, o.GetProperty("estadoOrigenCrudo").GetInt32()); Assert.Equal("Activo", item.GetProperty("estatus").GetString()); }
             if (r == b + 3) Assert.Equal(JsonValueKind.Null, o.GetProperty("diasNominalesOrigen").ValueKind); // no se elige una de las 2 filas
         }
-        // Filtro por resultado: los tres son localizables como Pendiente.
+        // Estado sin mapeo y condición ambigua siguen pendientes.
         var pend = await Json(await c.GetAsync($"{Clientes}?resultadoSincronizacion=Pendiente&limit=200"));
         Assert.True(new[] { b + 2, b + 3 }.All(r => pend.GetProperty("items").EnumerateArray()
             .Any(i => i.GetProperty("referenciaExterna").GetString() == r.ToString())));
@@ -313,7 +314,7 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         var c = await OperadorAsync(f);
         await BarridoAsync(f, c);
         var id = (await ListaAsync(c, b + 1)).GetProperty("id").GetGuid();
-        (await c.PatchAsJsonAsync($"{Clientes}/{id}", new { Rfc = "XAXX010101000", RegimenFiscal = "601", CodigoPostalFiscal = "06600" }))
+        (await c.PatchAsJsonAsync($"{Clientes}/{id}", new { ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), Rfc = "XAXX010101000", RegimenFiscal = "601", CodigoPostalFiscal = "06600" }))
             .EnsureSuccessStatusCode();
 
         origen.Filas[0] = Fila(b + 1, zahlbed: "60 DIAS", dias: 90);
@@ -345,7 +346,7 @@ public class ClientesSincronizacionDemo100Tests : IClassFixture<WebApplicationFa
         Assert.Equal("Completa", e.GetProperty("ejecucion").GetProperty("estado").GetString());
         Assert.Equal(1, N(e, "leidos"));
         var d = await DetalleAsync(c, id);
-        Assert.Equal((int)EstatusCatalogo.Activo, d.GetProperty("estatus").GetInt32());
+        Assert.Equal("Activo", d.GetProperty("estatus").GetString());
         Assert.Equal("Aplicado", d.GetProperty("origenAw").GetProperty("resultado").GetString());
     }
 

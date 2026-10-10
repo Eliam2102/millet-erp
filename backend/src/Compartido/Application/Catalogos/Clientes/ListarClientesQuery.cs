@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
@@ -22,7 +23,8 @@ public sealed record ListarClientesQuery(
     string? ReferenciaExterna = null,
     ResultadoSincronizacionAw? ResultadoSincronizacion = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<ListarClientesResponse>;
+    int Limit = 50,
+    bool? SinClasificar = null) : IRequest<ListarClientesResponse>;
 
 public sealed record ClienteItem(
     Guid Id,
@@ -36,8 +38,8 @@ public sealed record ClienteItem(
     bool EsGenerico,
     OrigenMaster Origen,
     bool DatosFiscalesCompletos,
-    EstatusCatalogo Estatus,
-    ClienteOrigenAwResumen? OrigenAw = null);
+    [property: JsonConverter(typeof(JsonStringEnumConverter<EstatusCatalogo>))] EstatusCatalogo Estatus,
+    ClienteOrigenAwResumen? OrigenAw = null, Guid? ClasificacionId = null);
 
 public sealed record ListarClientesResponse(
     IReadOnlyList<ClienteItem> Items,
@@ -92,6 +94,7 @@ public sealed class ListarClientesHandler
         if (query.ResultadoSincronizacion is ResultadoSincronizacionAw rs)
             q = q.Where(c => _db.ClientesSincronizacionAw.Any(s => s.ClienteId == c.Id && s.Resultado == rs));
 
+        if (query.SinClasificar is bool sinClasificar) q = q.Where(c => (c.ClasificacionId == null) == sinClasificar);
         var total = await q.CountAsync(cancellationToken);
         // Left join 1:1 (UNIQUE cliente_id): un cliente manual queda con Sync = null.
         var rows = await q
@@ -104,7 +107,7 @@ public sealed class ListarClientesHandler
                     c.RegimenFiscal, c.CodigoPostalFiscal, c.MonedaDefault,
                     c.EsGenerico, c.Origen,
                     c.Rfc != null && c.RegimenFiscal != null && c.CodigoPostalFiscal != null,
-                    c.Estatus, null),
+                    c.Estatus, null, c.ClasificacionId),
                 Sync = _db.ClientesSincronizacionAw
                     .Where(s => s.ClienteId == c.Id)
                     .Select(s => new { s.Resultado, s.LeidoEnUtc })

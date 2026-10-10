@@ -39,7 +39,7 @@ public sealed class AwClientesOrigenSimulado : IAwClientesOrigen
                 Str(e, "UST_ID"), Str(e, "STEUERNUMMER"), Str(e, "TLF1"), Str(e, "TLF2"), Str(e, "MAIL"),
                 zahlbed, Str(e, "WAEHRUNG"),
                 Dec(e, "KREDIT_LIMIT"), Dec(e, "KREDIT_LIMIT1"), (double?)Dec(e, "KREDIT_LIMIT_NET"),
-                Int(e, "KZ_STATUS"), Int(e, "KZ_GESPERRT") ?? 0,
+                Int(e, "KZ_STATUS"), Int(e, "KZ_GESPERRT"),
                 Str(e, "DATUM") is { } d ? DateOnly.Parse(d, CultureInfo.InvariantCulture) : null,
                 Str(e, "TRANSACTION_TIME") is { } t ? DateTime.Parse(t, CultureInfo.InvariantCulture) : null,
                 coincidencias);
@@ -70,7 +70,8 @@ public sealed class AwClientesOrigenSimulado : IAwClientesOrigen
     private static string? Str(JsonElement e, string n) => Get(e, n) is { } v
         ? (v.ValueKind == JsonValueKind.String ? v.GetString() : v.GetRawText()) : null;
 
-    private static int? Int(JsonElement e, string n) => Str(e, n) is { } s ? int.Parse(s, CultureInfo.InvariantCulture) : null;
+    private static int? Int(JsonElement e, string n) => Str(e, n) is { } s && !string.IsNullOrWhiteSpace(s)
+        ? int.Parse(s, CultureInfo.InvariantCulture) : null;
 
     private static decimal? Dec(JsonElement e, string n) => Str(e, n) is { } s ? decimal.Parse(s, CultureInfo.InvariantCulture) : null;
 }

@@ -26,7 +26,7 @@ public sealed record AwClienteOrigenFila(
     decimal? KreditLimit1,
     double? KreditLimitNet,
     int? KzStatus,
-    int KzGesperrt,
+    int? KzGesperrt,
     DateOnly? Datum,
     DateTime? TransactionTime,
     IReadOnlyList<AwCondicionCoincidencia> CondicionCoincidencias,

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application;
 
 namespace Millet.DatosMaestros.Application.ProductosAw;
 
@@ -47,8 +48,8 @@ public sealed class ActualizarProductoAwValidator : AbstractValidator<Actualizar
             .When(c => c.UnidadMedida is not null);
         RuleFor(c => c.ClaveProdServSat!).Length(8).When(c => c.ClaveProdServSat is not null);
         RuleFor(c => c.ClaveUnidadSat!).MaximumLength(5).When(c => c.ClaveUnidadSat is not null);
-        RuleFor(c => c.ObjetoImp!).Must(o => o is "01" or "02" or "03")
-            .WithMessage("El objeto de impuesto debe ser 01, 02 o 03.")
+        RuleFor(c => c.ObjetoImp!).Must(o => o is "01" or "02" or "03" or "04" or "05" or "06" or "07" or "08")
+            .WithMessage("El objeto de impuesto debe ser una clave 01–08.")
             .When(c => c.ObjetoImp is not null);
         RuleFor(c => c.TasaIvaTraslado).InclusiveBetween(0m, 1m)
             .When(c => c.TasaIvaTraslado.HasValue);
@@ -70,7 +71,8 @@ public sealed class ActualizarProductoAwHandler : IRequestHandler<ActualizarProd
 {
     private readonly CompartidoDbContext _db;
 
-    public ActualizarProductoAwHandler(CompartidoDbContext db) => _db = db;
+    private readonly ICurrentUserContext? _user;
+    public ActualizarProductoAwHandler(CompartidoDbContext db, ICurrentUserContext? user = null) { _db = db; _user = user; }
 
     public async Task Handle(ActualizarProductoAwCommand request, CancellationToken cancellationToken)
     {
@@ -117,6 +119,7 @@ public sealed class ActualizarProductoAwHandler : IRequestHandler<ActualizarProd
             categoriaId: request.CategoriaId,
             limpiarCategoria: request.LimpiarCategoria);
 
+        var antesFiscal = System.Text.Json.JsonSerializer.Serialize(producto.FichaFiscal());
         producto.AsignarDatosFiscales(
             claveProdServSat: request.ClaveProdServSat,
             claveUnidadSat: request.ClaveUnidadSat,
@@ -136,6 +139,12 @@ public sealed class ActualizarProductoAwHandler : IRequestHandler<ActualizarProd
             limpiarUnidadAduana: request.LimpiarUnidadAduana,
             limpiarPesoUnitarioKg: request.LimpiarPesoUnitarioKg);
 
+        var despuesFiscal = System.Text.Json.JsonSerializer.Serialize(producto.FichaFiscal());
+        if (antesFiscal != despuesFiscal)
+        {
+            producto.RegistrarExcepcionFiscal();
+            _db.Add(new Millet.DatosMaestros.Domain.CambioFiscalAw(Guid.CreateVersion7(), producto.Id, "Producto", "Capturar excepción", antesFiscal, despuesFiscal, _user?.UserId));
+        }
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

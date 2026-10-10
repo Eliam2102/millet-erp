@@ -89,7 +89,10 @@ public sealed class ProvisionarClienteDesdeAwHandler
             Telefono: request.Telefono,
             SoloCrear: true), cancellationToken);
 
-        // SoloCrear nunca devuelve NoCreado: Cliente siempre viene.
+        if (r.Accion == AplicarClienteAwAccion.Conflicto || r.Cliente is null)
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("CLIENTE_LIGADO_PENDIENTE",
+                $"El cliente A+W {request.ReferenciaExterna} tiene el mismo RFC de un cliente manual. Revisa el ligado en Datos maestros → Clientes antes de importar el pedido.");
+        // No se usa un candidato sin revisión.
         return Respuesta(r.Cliente!, creado: r.Accion == AplicarClienteAwAccion.Creado);
     }
 

@@ -150,7 +150,7 @@ public class AwClientesSincronizadorTests : IClassFixture<WebApplicationFactory<
         var e = await Ejec(await Barrido(new OrigenFake(filas), Opts()));
 
         Assert.Equal((1, 1, 1), (e.Leidos, e.Creados, e.Pendientes));
-        Assert.Single((await Leer(Ids(filas))).Clientes);
+        Assert.Equal(EstatusCatalogo.Activo, Assert.Single((await Leer(Ids(filas))).Clientes).Estatus);
     }
 
     [Fact]

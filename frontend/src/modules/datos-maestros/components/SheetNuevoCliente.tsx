@@ -34,6 +34,11 @@ import {
   type CrearClienteValues,
 } from '@/modules/datos-maestros/schemas/cliente';
 import { useCrearCliente } from '@/modules/datos-maestros/api';
+import { ClasificacionClienteSelector } from './ClasificacionClienteSelector';
+import { UsoCfdiSelector } from '@/components/erp/selectors/UsoCfdiSelector';
+import { FormaPagoSelector } from '@/components/erp/selectors/FormaPagoSelector';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link } from '@tanstack/react-router';
 import { RegimenFiscalSelector } from '@/components/erp/selectors/RegimenFiscalSelector';
 
 /**
@@ -103,10 +108,7 @@ export function NuevoClienteProvider({ children }: { children: ReactNode }) {
           <SheetHeader>
             <SheetTitle>Nuevo cliente</SheetTitle>
             <SheetDescription>
-              Alta manual en el master de clientes. Los datos fiscales
-              pueden completarse después en el detalle — sin ellos el
-              cliente no puede timbrar (aparece en la bandeja «Fiscales
-              incompletos»).
+              Captura la clasificación y los datos fiscales completos para venta directa.
             </SheetDescription>
           </SheetHeader>
 
@@ -137,6 +139,7 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
   const form = useForm<CrearClienteValues>({
     resolver: zodResolver(CrearClienteSchema),
     defaultValues: {
+      clasificacionId: '', usoCfdiDefault: '', formaPagoDefault: '', metodoPagoDefault: 'PUE', paisResidencia: null,
       clave: '',
       razonSocial: '',
       referenciaExterna: null,
@@ -157,18 +160,19 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
     crear.mutate(
       {
         payload: {
+          clasificacionId: values.clasificacionId, paisResidencia: values.paisResidencia,
           clave: values.clave,
           razonSocial: values.razonSocial,
           referenciaExterna: values.referenciaExterna,
           rfc: values.rfc,
           regimenFiscal: values.regimenFiscal,
           codigoPostalFiscal: values.codigoPostalFiscal,
-          usoCfdiDefault: null,
-          formaPagoDefault: null,
-          metodoPagoDefault: null,
+          usoCfdiDefault: values.usoCfdiDefault,
+          formaPagoDefault: values.formaPagoDefault,
+          metodoPagoDefault: values.metodoPagoDefault,
           // null → el backend aplica el default MXN.
           monedaDefault: null,
-          esGenerico: null,
+          esGenerico: values.rfc === 'XAXX010101000' || values.rfc === 'XEXX010101000',
           email: values.email,
           telefono: values.telefono,
         },
@@ -227,6 +231,16 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
       noValidate
       className="space-y-4 rounded-md border bg-card p-4"
     >
+      <Controller name="clasificacionId" control={form.control} render={({ field }) => <ClasificacionClienteSelector value={field.value} onChange={field.onChange} />} />
+      {form.formState.errors.clasificacionId && <p role="alert" className="text-xs text-danger-fg">{form.formState.errors.clasificacionId.message}</p>}
+      {crear.error && esApiError(crear.error) && crear.error.problem.clientesExistentes &&
+        <div role="alert" className="rounded-md bg-warning-note-bg p-3 text-warning-note-fg"><p>Ya existe un cliente con ese RFC. Usa el existente:</p>
+          {crear.error.problem.clientesExistentes.map(c => <Link key={c.id} to="/admin/datos-maestros/clientes/$id" params={{ id: c.id }} className="block text-brand">{c.clave} · {c.razonSocial}</Link>)}
+        </div>}
+      <FormRow label="Uso de CFDI" error={form.formState.errors.usoCfdiDefault?.message}><Controller name="usoCfdiDefault" control={form.control} render={({ field }) => <UsoCfdiSelector value={field.value} onChange={field.onChange} />} /></FormRow>
+      <FormRow label="Forma de pago" error={form.formState.errors.formaPagoDefault?.message}><Controller name="formaPagoDefault" control={form.control} render={({ field }) => <FormaPagoSelector value={field.value} onChange={field.onChange} />} /></FormRow>
+      <FormRow label="Método de pago"><Controller name="metodoPagoDefault" control={form.control} render={({ field }) => <Select value={field.value} onValueChange={field.onChange}><SelectTrigger aria-label="Método de pago"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PUE">Pago en una sola exhibición</SelectItem><SelectItem value="PPD">Pago en parcialidades o diferido</SelectItem></SelectContent></Select>} /></FormRow>
+      <FormRow label="País de residencia" hint="Para RFC extranjero, clave SAT de tres letras distinta de MEX." error={form.formState.errors.paisResidencia?.message}><Controller name="paisResidencia" control={form.control} render={({ field }) => <UppercaseInput value={field.value ?? ''} onChange={e => field.onChange(e.target.value || null)} maxLength={3} aria-label="País de residencia" />} /></FormRow>
       <FormRow
         label="Clave"
         required
@@ -280,7 +294,7 @@ function NuevoClienteForm({ onClose, onDirtyChange }: NuevoClienteFormProps) {
 
       <FormRow
         label="RFC"
-        hint="Opcional aquí; requerido para timbrar."
+        hint="Requerido para el alta manual."
         error={form.formState.errors.rfc?.message}
       >
         <Controller

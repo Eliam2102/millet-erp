@@ -43,9 +43,9 @@ public sealed class EmitirFacturaVentaValidator : AbstractValidator<EmitirFactur
         RuleFor(c => c.Lineas).NotEmpty().WithMessage("La factura debe tener al menos una línea.");
         RuleForEach(c => c.Lineas).ChildRules(l =>
         {
-            l.RuleFor(x => x.ClaveProdServSat).NotEmpty().MaximumLength(10);
+            l.RuleFor(x => x.ClaveProdServSat).MaximumLength(10); // Faltantes se reportan por línea con 422 antes de folio/PAC.
             l.RuleFor(x => x.Descripcion).NotEmpty().MaximumLength(1000);
-            l.RuleFor(x => x.ClaveUnidadSat).NotEmpty().MaximumLength(10);
+            l.RuleFor(x => x.ClaveUnidadSat).MaximumLength(10);
             l.RuleFor(x => x.Cantidad).GreaterThan(0);
             l.RuleFor(x => x.ValorUnitario).GreaterThanOrEqualTo(0);
             l.RuleFor(x => x.Descuento).GreaterThanOrEqualTo(0);

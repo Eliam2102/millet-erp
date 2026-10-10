@@ -25,6 +25,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ListaClientesCompacta } from '@/modules/datos-maestros/components/ListaClientesCompacta';
 import { useNuevoCliente } from '@/modules/datos-maestros/components/nuevo-cliente-context';
 import { SheetSincronizacionClientes } from '@/modules/datos-maestros/components/SheetSincronizacionClientes';
+import { F1AClientesPanel } from './F1AClientesPanel';
 import { cn } from '@/lib/utils';
 
 /**
@@ -56,6 +57,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
   );
   const [syncAbierto, setSyncAbierto] = useState(false);
 
+  const [sinClasificar, setSinClasificar] = useState(false);
   const [rfcInput, setRfcInput] = useState('');
   const [razonInput, setRazonInput] = useState('');
   const [origen, setOrigen] = useState<string>('');
@@ -74,6 +76,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       origen: origen !== '' ? (Number(origen) as OrigenMaster) : undefined,
       estatus:
         estatus !== '' ? (Number(estatus) as EstatusCatalogo) : undefined,
+      sinClasificar: sinClasificar || undefined,
       fiscalesIncompletos: soloFiscalesIncompletos ? true : undefined,
       resultadoSincronizacion:
         resultadoSync !== ''
@@ -82,6 +85,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
       limit: 200,
     }),
     [
+      sinClasificar,
       rfcDebounced,
       razonDebounced,
       origen,
@@ -129,6 +133,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
           </div>
         </div>
 
+        <Button variant={sinClasificar ? "default" : "secondary"} size="sm" onClick={() => setSinClasificar(v => !v)}>Clientes sin clasificar</Button>
         <FiltrosBloque
           rfc={rfcInput}
           onRfc={setRfcInput}
@@ -162,7 +167,7 @@ export function ClientesLayout({ idActivo, detalle }: ClientesLayoutProps) {
         )}
         aria-label="Detalle de cliente"
       >
-        {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
+        {idActivo == null ? canGestionar ? <F1AClientesPanel /> : <p className="p-6 text-sm text-ink-muted">Selecciona un registro para consultar su detalle.</p> : detalle}
       </section>
 
       {canSincronizar && (
@@ -354,16 +359,4 @@ function RenderLista({
   }
 
   return <ListaClientesCompacta items={items} idActivo={idActivo} />;
-}
-
-function PlaceholderSinSeleccion() {
-  return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
-        <Users className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
-        <p className="text-sm">Selecciona un cliente de la lista</p>
-        <p className="text-xs">para ver su detalle.</p>
-      </div>
-    </div>
-  );
 }

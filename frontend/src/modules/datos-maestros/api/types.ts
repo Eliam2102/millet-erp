@@ -369,6 +369,7 @@ export interface EjecucionSyncAceptada {
 }
 
 export interface ClienteItem {
+  clasificacionId?: string | null;
   id: string;
   clave: string;
   /** Correlación con A+W (código de cliente en A+W); inmutable. */
@@ -395,6 +396,7 @@ export interface ListarClientesResponse {
 }
 
 export interface ClienteDetalle {
+  clasificacionId?: string | null;
   id: string;
   clave: string;
   referenciaExterna: string | null;
@@ -423,6 +425,7 @@ export interface ClienteDetalle {
 }
 
 export interface CrearClientePayload {
+  clasificacionId?: string | null;
   clave: string;
   razonSocial: string;
   referenciaExterna: string | null;
@@ -446,6 +449,7 @@ export interface CrearClientePayload {
 }
 
 export interface ActualizarClientePayload {
+  clasificacionId?: string | null;
   razonSocial?: string | null;
   rfc?: string | null;
   regimenFiscal?: string | null;
@@ -520,6 +524,11 @@ export interface ListarProductosAwResponse {
 }
 
 export interface ProductoAwDetalle {
+  origenFiscal?: number | string;
+  estadoFiscal?: number | string;
+  reglaFiscalId?: string | null;
+  confirmadoPor?: string | null;
+  confirmadoEn?: string | null;
   id: string;
   referenciaExterna: string;
   descripcion: string;

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Clientes;
@@ -303,19 +304,24 @@ public class AplicarClienteAwServiceTests : IClassFixture<WebApplicationFactory<
     }
 
     [Fact]
-    public async Task Estado_de_origen_presente_deja_Pendiente_y_no_cambia_Estatus()
+    public async Task V52_estado_de_origen_bloqueado_inactiva_y_conserva_id()
     {
         var r = NuevaRef();
         await Aplicar(Snap(r));
         var (antes, _) = await Leer(r);
 
-        var res = await Aplicar(Snap(r) with { EstadoOrigenCrudo = 2 });
+        var res = await ConScopeAsync((db, _) => new AplicarClienteAwService(db, Options.Create(new MapeoEstatusClientesAwOptions
+        {
+            Version = "DEMO-v1", KzStatus = new() { [0] = false, [2] = true }
+        })).AplicarAsync(Snap(r) with { EstadoOrigenCrudo = 2 }, CancellationToken.None));
 
-        Assert.Equal(ResultadoSincronizacionAw.Pendiente, res.Resultado);
+        Assert.Equal(ResultadoSincronizacionAw.Aplicado, res.Resultado);
         var (cs, regs) = await Leer(r);
-        Assert.Equal(antes[0].Estatus, cs[0].Estatus);
+        Assert.Equal(antes[0].Id, cs[0].Id);
+        Assert.Equal(EstatusCatalogo.Inactivo, cs[0].Estatus);
+        Assert.True(cs[0].BloqueadoPorAw);
         Assert.Equal(2, regs[0].EstadoOrigenCrudo);
-        Assert.Equal(ResultadoSincronizacionAw.Pendiente, regs[0].Resultado);
+        Assert.Equal(ResultadoSincronizacionAw.Aplicado, regs[0].Resultado);
     }
 
     [Fact]

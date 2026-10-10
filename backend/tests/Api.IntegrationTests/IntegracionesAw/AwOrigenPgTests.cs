@@ -130,13 +130,14 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         });
     }
 
-    private async Task<AwClientesEjecucion> BarridoClientes(IAwClientesOrigen origen, AwClientesOptions opts)
+    private async Task<AwClientesEjecucion> BarridoClientes(IAwClientesOrigen origen, AwClientesOptions opts, MapeoEstatusClientesAwOptions? mapeo = null)
     {
         using var scope = factory.Services.CreateScope();
         var sp = scope.ServiceProvider;
         using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var sync = new AwClientesSincronizador(sp.GetRequiredService<IntegracionesAwDbContext>(),
-            sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<AplicarClienteAwService>(),
+            sp.GetRequiredService<CompartidoDbContext>(),
+            mapeo is null ? sp.GetRequiredService<AplicarClienteAwService>() : new AplicarClienteAwService(sp.GetRequiredService<CompartidoDbContext>(), Options.Create(mapeo)),
             new ServiceCollection().AddSingleton(origen).BuildServiceProvider(), Options.Create(opts), TimeProvider.System,
             NullLogger<AwClientesSincronizador>.Instance);
         var id = await sync.IniciarBarridoAsync("test-origen-pg", CancellationToken.None);
@@ -289,6 +290,7 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
         Assert.Equal(Clientes - 1, cs.Count);
         Assert.Equal(cs.Count, regs.Count);
         Assert.DoesNotContain("58", cs.Keys);
+        // Sin mapeo aprobado, 1/2 se registran crudos y no cambian el estatus.
         Assert.All(cs.Values, c => Assert.Equal(EstatusCatalogo.Activo, c.Estatus));
 
         var (c10, r10) = (cs["10"], regs["10"]);
@@ -315,6 +317,39 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
             await db.Clientes.AsNoTracking().Where(x => x.ReferenciaExterna == "10" && x.Origen == OrigenMaster.Aw).Select(x => x.RazonSocial).SingleAsync(),
             await db.Set<ClienteSincronizacionAw>().AsNoTracking().Where(x => x.ReferenciaExterna == "10").Select(x => x.NombreComercialOrigen).SingleAsync()));
         Assert.Equal(("CLIENTE DEMO 010", "CLIENTE EDITADO EN ORIGEN"), (razon, origenNombre));
+    }
+
+    [Fact]
+    public async Task Barrido_con_estado_NULL_no_inactiva_y_mapeo_configurado_bloquea_y_reactiva_sin_duplicar()
+    {
+        await EjecutarAsync("UPDATE aw_origen.ku_kunden SET kz_status = NULL, kz_gesperrt = 0");
+        var fila = await OrigenClientes().LeerPorReferenciaAsync("19", default);
+        Assert.Null(fila!.KzStatus); Assert.Equal(0, fila.KzGesperrt);
+        await BarridoClientes(OrigenClientes(), OptsClientes());
+        var clienteId = await ConDb(async db =>
+        {
+            var clientes = await db.Clientes.AsNoTracking().Where(c => c.Origen == OrigenMaster.Aw && c.ReferenciaExterna != null).ToListAsync();
+            Assert.All(clientes.Where(c => int.TryParse(c.ReferenciaExterna, out var n) && n >= 1 && n <= Clientes), c => Assert.Equal(EstatusCatalogo.Activo, c.Estatus));
+            return clientes.Single(c => c.ReferenciaExterna == "19").Id;
+        });
+        var mapeo = new MapeoEstatusClientesAwOptions { Version = "DEMO-v1", KzGesperrt = new() { [0] = false, [1] = true } };
+        await EjecutarAsync("UPDATE aw_origen.ku_kunden SET kz_gesperrt = 1 WHERE id = 19");
+        await BarridoClientes(OrigenClientes(), OptsClientes(), mapeo);
+        await ConDb(async db =>
+        {
+            var cliente = await db.Clientes.SingleAsync(c => c.Id == clienteId);
+            Assert.Equal(EstatusCatalogo.Inactivo, cliente.Estatus); Assert.True(cliente.BloqueadoPorAw);
+            return 0;
+        });
+        await EjecutarAsync("UPDATE aw_origen.ku_kunden SET kz_gesperrt = 0 WHERE id = 19");
+        await BarridoClientes(OrigenClientes(), OptsClientes(), mapeo);
+        await ConDb(async db =>
+        {
+            var cliente = await db.Clientes.SingleAsync(c => c.ReferenciaExterna == "19");
+            Assert.Equal(clienteId, cliente.Id); Assert.Equal(EstatusCatalogo.Activo, cliente.Estatus);
+            Assert.False(cliente.BloqueadoPorAw);
+            return 0;
+        });
     }
 
     [Fact]

@@ -23,6 +23,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ListaProductosAwCompacta } from '@/modules/datos-maestros/components/ListaProductosAwCompacta';
 import { SheetSincronizacionProductosAw } from '@/modules/datos-maestros/components/SheetSincronizacionProductosAw';
 import { useNuevoProductoAw } from '@/modules/datos-maestros/components/nuevo-producto-aw-context';
+import { F1AFiscalPanel } from './F1AFiscalPanel';
 import { cn } from '@/lib/utils';
 
 /**
@@ -148,7 +149,7 @@ export function ProductosAwLayout({
         )}
         aria-label="Detalle de producto A+W"
       >
-        {idActivo == null ? <PlaceholderSinSeleccion /> : detalle}
+        {idActivo == null ? canGestionar ? <F1AFiscalPanel /> : <p className="p-6 text-sm text-ink-muted">Selecciona un registro para consultar su detalle.</p> : detalle}
       </section>
 
       {canGestionar && (
@@ -336,16 +337,4 @@ function RenderLista({
   }
 
   return <ListaProductosAwCompacta items={items} idActivo={idActivo} />;
-}
-
-function PlaceholderSinSeleccion() {
-  return (
-    <div className="flex h-full min-h-64 items-center justify-center rounded-md border border-dashed bg-muted/20 p-8 text-center">
-      <div className="space-y-1 text-muted-foreground">
-        <Boxes className="mx-auto h-8 w-8 opacity-50" aria-hidden="true" />
-        <p className="text-sm">Selecciona un producto de la lista</p>
-        <p className="text-xs">para ver su detalle.</p>
-      </div>
-    </div>
-  );
 }

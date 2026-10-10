@@ -45,7 +45,7 @@ public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory
         var id = await SembrarAwAsync(NuevaRef());
         var op = await ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosClientesGestionar);
 
-        var r = await op.PatchAsJsonAsync(Url(id), new { RazonSocial = "OTRA RAZON" });
+        var r = await op.PatchAsJsonAsync(Url(id), new { ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), RazonSocial = "OTRA RAZON" });
 
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
         Assert.Contains("CLIENTE_FISCAL_AW_SIN_PERMISO", await r.Content.ReadAsStringAsync());
@@ -58,7 +58,7 @@ public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory
         var id = await SembrarAwAsync(NuevaRef());
         var op = await ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosClientesGestionar);
 
-        var r = await op.PatchAsJsonAsync(Url(id), new { LimpiarRfc = true });
+        var r = await op.PatchAsJsonAsync(Url(id), new { ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), LimpiarRfc = true });
 
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
         Assert.Equal("XAXX010101000", (await Json(await op.GetAsync(Url(id)))).GetProperty("rfc").GetString());
@@ -72,6 +72,7 @@ public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory
 
         var r = await op.PatchAsJsonAsync(Url(id), new
         {
+            ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"),
             RegimenFiscal = "601", RazonSocial = "CLIENTE DEMO LECTURA", Rfc = "XAXX010101000", CodigoPostalFiscal = "06600",
         });
 
@@ -86,7 +87,7 @@ public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory
         var op = await ClienteConPermisosAsync(
             PermisosCanonicos.DatosMaestrosClientesGestionar, PermisosCanonicos.DatosMaestrosClientesFiscalEditar);
 
-        var r = await op.PatchAsJsonAsync(Url(id), new { RazonSocial = "RAZON CORREGIDA" });
+        var r = await op.PatchAsJsonAsync(Url(id), new { ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), RazonSocial = "RAZON CORREGIDA" });
 
         Assert.True(r.IsSuccessStatusCode, await r.Content.ReadAsStringAsync());
         Assert.Equal("RAZON CORREGIDA", (await Json(await op.GetAsync(Url(id)))).GetProperty("razonSocial").GetString());
@@ -100,10 +101,11 @@ public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory
         {
             Clave = "MAN-" + Guid.NewGuid().ToString("N")[..8], RazonSocial = "CLIENTE MANUAL FISCAL",
             Rfc = "XAXX010101000", RegimenFiscal = "616", CodigoPostalFiscal = "06600", MonedaDefault = "MXN",
+            ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), UsoCfdiDefault = "S01", FormaPagoDefault = "01", MetodoPagoDefault = "PUE",
         });
         var id = (await Json(crear)).GetProperty("id").GetGuid();
 
-        var r = await op.PatchAsJsonAsync(Url(id), new { RazonSocial = "MANUAL EDITADO", LimpiarRfc = true });
+        var r = await op.PatchAsJsonAsync(Url(id), new { ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), RazonSocial = "MANUAL EDITADO", LimpiarRfc = true });
 
         Assert.True(r.IsSuccessStatusCode, await r.Content.ReadAsStringAsync());
     }

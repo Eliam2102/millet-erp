@@ -40,6 +40,7 @@ export interface ProblemDetails {
    * como fallback para que el campo no se pierda en un toast genérico.
    */
   errors?: Record<string, string[]>;
+  clientesExistentes?: { id: string; clave: string; razonSocial: string }[];
 }
 
 /**

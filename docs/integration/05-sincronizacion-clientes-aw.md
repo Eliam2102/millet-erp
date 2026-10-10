@@ -176,9 +176,52 @@ Sección `IntegracionesAw:Clientes` (`AwClientesOptions`) y conexión `Connectio
 | `IntervaloProgramacionMinutos` | `60` | Cadencia del worker (mínimo efectivo 1). |
 | `ArchivoSimulado` | `""` | Ruta a JSON (formato de fixtures, `{origen:{KU_KUNDEN:[...],KA_ZAHLBED:[...]}}`) para el origen simulado; vacío = origen vacío. |
 | `MapeoMoneda` | `{}` | `WAEHRUNG` -> ISO. Vacío: no se normaliza (`PESOSMX`->`MXN` PENDIENTE). |
+| `MapeoEstatus` | `{}` | V05/V52: códigos aprobados para bloqueo de ventas nuevas. Vacío: solo registra crudos; no inactiva ni reactiva. Ver §10.1.1. |
 
 - El adaptador SQL solo se registra con `Origen=Sql` **y** un connection string real (una referencia Key Vault sin resolver se trata como ausente). La conexión exige TLS verificado (`Encrypt=True`, sin `TrustServerCertificate`); si no, falla al construirse.
 - Sincronizar exige `LecturaHabilitada` **y** `AplicacionHabilitada`; de lo contrario `AW_CLIENTES_LECTURA_DESHABILITADA` / `AW_CLIENTES_APLICACION_DESHABILITADA` (503).
+
+### 10.1.1 Mapeo aprobado de estatus (F1A, 10-oct-2026)
+
+V52 está implementada detrás de `IntegracionesAw:Clientes:MapeoEstatus`, **vacío por omisión**.
+El significado real de `KZ_STATUS` y `KZ_GESPERRT` sigue **PENDIENTE de aprobación de Millet (V05/V52)**.
+Sin esa configuración, el servicio registra ambos números crudos y conserva `Cliente.Estatus` y
+`BloqueadoPorAw`, incluso si trae 1, 2, 0 u otro código. No infiere que un número distinto de cero
+sea bloqueo. El barrido de la copia de demo conserva todos los clientes nuevos activos.
+
+Después de la aprobación, se configuran `Version`, `KzStatus` y/o `KzGesperrt`:
+los diccionarios declaran explícitamente cada código (`true` = bloqueado para ventas nuevas,
+`false` = desbloqueado). La versión es obligatoria cuando hay equivalencias: de 1 a 8 caracteres
+alfanuméricos, guion o guion bajo. Una configuración sin versión válida falla al iniciar.
+
+Ejemplo **FICTICIO, exclusivo de pruebas; no es un mapeo aprobado ni una recomendación para A+W real**:
+
+```json
+{
+  "IntegracionesAw": {
+    "Clientes": {
+      "MapeoEstatus": {
+        "Version": "DEMO-v1",
+        "KzStatus": { "0": false, "42": true },
+        "KzGesperrt": { "0": false, "9": true }
+      }
+    }
+  }
+}
+```
+
+- NULL, campo ausente o texto vacío significan ausencia de dato; no bloquean ni reactivan por sí solos.
+- Un código declarado como bloqueo prevalece sobre una señal de desbloqueo.
+- Un código informado sin equivalencia conserva el estatus; si hay otro bloqueo aprobado, este sí se aplica.
+  No se reactiva mientras exista un código informado sin equivalencia. El resultado queda `Pendiente`.
+- Solo se reactiva automáticamente un bloqueo previo de A+W, conservando ID, fiscales, clasificación,
+  documentos y cartera. Una baja local sin `BloqueadoPorAw` no se revierte por una señal de desbloqueo.
+- La versión efectiva se guarda en `ClienteSincronizacionAw.VersionMapeo` como
+  `<versión del mapper>|<versión aprobada>` (máximo 20 caracteres). Cambiar equivalencias requiere subir
+  `Version` y reiniciar con la configuración actualizada. La próxima lectura reprocesa la misma fila,
+  aunque su hash crudo no cambie; las lecturas atrasadas siguen ignorándose.
+- La configuración cubre el servicio común de barrido, reintento, alta automática y ligado revisado.
+  No se escribe en A+W ni se elimina al cliente. La falta de una fila nunca constituye baja.
 
 ### 10.2 Dispatcher vs. worker
 
@@ -245,7 +288,7 @@ Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 - **Mapeos PENDIENTES**: moneda (`PESOSMX`->`MXN`, catálogo), estado (`KZ_STATUS`/`KZ_GESPERRT`) y condición (cardinalidad de `KA_ZAHLBED`). Sin mapeo validado, el resultado queda pendiente y no hay cambios de moneda/estatus. `VersionMapeo` sigue en `0-borrador`.
 - **Conflicto con cliente manual**: la resolución (p. ej. clave `AW-{ref}` que choca con una clave manual, o mismo cliente dado de alta a mano) queda fuera de ADM-06; se registra el conflicto y no se fusiona.
 - **Gate de emisión fiscal sin dueño**: `Cliente.DatosFiscalesCompletos` no lo usa ningún gate de servidor; la emisión en Facturación recibe el receptor en el body y no lo coteja con el master, así que un cliente A+W incompleto sigue siendo timbrable. Corresponde a Facturación; ADM-06 solo garantiza que la sincronización no inventa fiscales. Por asignar (Eliam).
-- **Bajas explícitas**: no existe política; la ausencia de una fila nunca es baja y la sincronización no cambia `Estatus`.
+- **Bajas explícitas**: la ausencia de una fila nunca es baja. Sin mapeo aprobado, no se cambia `Estatus`; V52 se activa únicamente con la configuración versionada de §10.1.1.
 - **Cancelación a mitad de lote** no persiste los contadores de ese lote (`Leidos` exacto; al reanudar, esas filas cuentan como `SinCambios`).
 - **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
 
@@ -256,7 +299,7 @@ Todas son **PROPUESTA — cambiable**: se construyeron así para no inventar pol
 | # | Propuesta actual | Alternativa si Millet lo pide | Qué cambiaría |
 |---|---|---|---|
 | 1 | **Cliente inactivo e ingesta de pedidos.** `ResolverPorReferenciaAsync` (ingesta) y `ObtenerAsync` (cartera, reportes, detalle de pedido) siguen devolviendo al cliente inactivo; el bloqueo de uso nuevo está donde el usuario elige cliente (`BuscarAsync`, solo Activos). Un pedido A+W de un cliente inactivo se importa. | Rechazar o dejar en revisión ese pedido. | `ResolverPorReferenciaAsync` + `ProcesarSolicitudAwHandler` + su prueba. |
-| 2 | **Baja explícita en ERP** (`DesactivarClienteCommand`, permiso y auditoría). La sincronización nunca da de baja ni reactiva; la ausencia de una fila no es baja. | Mapear `KZ_STATUS`/`KZ_GESPERRT` a `Estatus` cuando Millet apruebe el mapeo. | `AplicarClienteAwService` + mapeo versionado. |
+| 2 | **Baja explícita en ERP** (`DesactivarClienteCommand`, permiso y auditoría). Sin mapeo aprobado la sincronización no da de baja ni reactiva; la ausencia de una fila nunca es baja. | Mapear `KZ_STATUS`/`KZ_GESPERRT` a `Estatus` cuando Millet apruebe el mapeo. | `IntegracionesAw:Clientes:MapeoEstatus`, ya implementado y vacío por omisión (§10.1.1). |
 | 3 | **Conflicto con cliente manual** (misma referencia o clave `AW-{ref}`): se registra `Conflicto` con causa, sin fusionar; lo resuelve una persona y se reprocesa. | Asistente de vinculación manual. | Nuevo comando de vinculación. |
 | 4 | **Fuera de orden:** orden por `LeidoEnUtc` + relectura; una lectura más vieja se ignora. | Campo de versión/fecha monotónico de A+W (Jorge). | Reemplazar la comparación en `AplicarClienteAwService`. |
 | 5 | **Mapeos** de moneda, estado, condición y RFC: quedan `Pendiente` con valor crudo (`VersionMapeo=0-borrador`). | Mapeo aprobado por Millet. | Tablas de mapeo + `VersionMapeo`. |
@@ -298,7 +341,7 @@ Pendiente después de esta verificación (lo define Millet, no el ERP): qué hac
 | `VersionMapeo` | `0-borrador` (sube al validar equivalencias RFC, moneda, estado, condición y dirección) |
 | Normalización del hash | Versionada con `VersionMapeo` (§7) |
 
-Cada ejecución y cada registro de origen guardan ambas versiones.
+Cada registro de origen guarda ambas versiones; con V52 configurado, `VersionMapeo` incluye la versión aprobada de §10.1.1. Los contadores de la ejecución no sustituyen la versión por registro.
 
 ## 12. Pendientes (resumen)
 
