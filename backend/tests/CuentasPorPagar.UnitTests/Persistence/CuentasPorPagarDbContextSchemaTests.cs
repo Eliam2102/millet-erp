@@ -36,7 +36,7 @@ public sealed class CuentasPorPagarDbContextSchemaTests
             .UseInMemoryDatabase(databaseName: $"cxp_test_{Guid.NewGuid()}")
             .Options;
         var empresaContext = new FakeEmpresaContext();
-        return new CuentasPorPagarDbContext(options, empresaContext);
+        return new CuentasPorPagarDbContext(options, empresaContext, new P8.PeriodoAbiertoStub(), new P8.PeriodoAbiertoStub());
     }
 
     private sealed class FakeEmpresaContext : ICurrentEmpresaContext

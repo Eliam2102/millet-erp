@@ -122,7 +122,7 @@ public class MovimientoInventarioTests
     }
 
     [Fact]
-    public void Vale_pendiente_regularizacion_se_marca_a_48h()
+    public void Vale_conserva_el_plazo_calculado_por_calendario_habil()
     {
         var mov = new MovimientoInventario(
             id: Guid.NewGuid(),
@@ -139,10 +139,10 @@ public class MovimientoInventarioTests
                 Guid.NewGuid(),             // personaDestinatariaId
             });
 
+        var limite = new DateTimeOffset(2026, 5, 27, 6, 0, 0, TimeSpan.Zero);
+        mov.EstablecerPlazoRegularizacion(limite);
         mov.PendienteRegularizacion.Should().BeTrue();
-        mov.FechaLimiteRegularizacion.Should().NotBeNull();
-        var diff = mov.FechaLimiteRegularizacion!.Value - DateTimeOffset.UtcNow;
-        diff.TotalHours.Should().BeApproximately(48, 1);
+        mov.FechaLimiteRegularizacion.Should().Be(limite);
     }
 
     [Theory]

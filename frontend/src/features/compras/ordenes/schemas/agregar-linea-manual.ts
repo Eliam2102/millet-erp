@@ -5,11 +5,8 @@ import {
   DECIMALES_FALLBACK,
 } from '@/components/erp/forms/decimales-unidad';
 
-const UUID_SHAPE_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const idLike = (msg: string) =>
-  z.string().regex(UUID_SHAPE_RE, msg);
+import { zId } from '@/lib/z-id';
+const idLike = (mensaje: string) => zId(mensaje);
 
 /**
  * Schema Zod del comando <c>POST /api/v1/compras/ordenes/{id}/lineas</c>
@@ -70,12 +67,10 @@ export function crearAgregarLineaManualSchema(
   // imposible de guardar — requerida pero no capturable. Ver ADR-0050.
   // El tipo inferido no cambia (string | null | undefined) en ninguna rama.
   centroCostoId: ccRequerido
-    ? z
-        .string()
-        .regex(UUID_SHAPE_RE, 'CC-Máquina requerido')
+    ? zId('Centro de costo requerido')
         .nullish()
-        .refine((v) => v != null, 'CC-Máquina requerido')
-    : z.string().regex(UUID_SHAPE_RE).nullish(),
+        .refine((v) => v != null, 'Centro de costo requerido')
+    : zId().nullish(),
 }).superRefine((data, ctx) => {
   if (data.descuentoTipo != null && data.descuentoValor == null) {
     ctx.addIssue({

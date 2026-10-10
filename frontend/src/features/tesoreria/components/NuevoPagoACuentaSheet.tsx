@@ -1,3 +1,4 @@
+import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -35,6 +36,7 @@ export function NuevoPagoACuentaSheet({
   const keyFor = useBodyScopedIdempotencyKey();
 
   const [proveedorId, setProveedorId] = useState<string | null>(null);
+  const [conceptoId, setConceptoId] = useState<string | null>(null);
   const [cuentaId, setCuentaId] = useState<string | null>(null);
   const [monto, setMonto] = useState('');
   const [fechaValor, setFechaValor] = useState(() =>
@@ -45,7 +47,7 @@ export function NuevoPagoACuentaSheet({
 
   const montoNum = Number(monto);
   const valido =
-    cuentaId != null &&
+    cuentaId != null && proveedorId != null &&
     Number.isFinite(montoNum) &&
     montoNum > 0 &&
     motivo.trim().length > 0;
@@ -53,6 +55,7 @@ export function NuevoPagoACuentaSheet({
   function limpiar() {
     setProveedorId(null);
     setCuentaId(null);
+    setConceptoId(null);
     setMonto('');
     setReferencia('');
     setMotivo('');
@@ -64,13 +67,14 @@ export function NuevoPagoACuentaSheet({
   }
 
   function confirmar() {
-    if (!valido || cuentaId == null) return;
+    if (!valido || cuentaId == null || proveedorId == null) return;
     const command = {
       cuentaBancariaId: cuentaId,
+      conceptoId: conceptoId ?? undefined,
       monto: montoNum,
       fechaValor,
       motivo: motivo.trim(),
-      proveedorId: proveedorId ?? undefined,
+      proveedorId,
       referenciaBancaria: referencia.trim() || undefined,
     };
     registrar.mutate(
@@ -118,7 +122,7 @@ export function NuevoPagoACuentaSheet({
         <div className="mt-4 space-y-4">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Proveedor (si se conoce)
+              Proveedor (obligatorio)
             </label>
             <ProveedorSelector value={proveedorId} onChange={setProveedorId} />
           </div>
@@ -128,6 +132,7 @@ export function NuevoPagoACuentaSheet({
             <CuentaBancariaSelector value={cuentaId} onChange={setCuentaId} />
           </div>
 
+          <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground" htmlFor="pac-monto">

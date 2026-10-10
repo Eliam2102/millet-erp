@@ -69,7 +69,7 @@ public sealed class FacturaPagoAplicadoMapperTests
         var options = new DbContextOptionsBuilder<CuentasPorPagarDbContext>()
             .UseInMemoryDatabase(databaseName: $"cxp_pago_mapper_{Guid.NewGuid():N}")
             .Options;
-        return new CuentasPorPagarDbContext(options, new FakeEmpresaContext());
+        return new CuentasPorPagarDbContext(options, new FakeEmpresaContext(), new P8.PeriodoAbiertoStub(), new P8.PeriodoAbiertoStub());
     }
 
     private sealed class CapturingIntegrationPublisher : IIntegrationEventPublisher

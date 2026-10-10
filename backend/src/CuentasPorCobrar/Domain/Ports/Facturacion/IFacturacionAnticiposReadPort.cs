@@ -14,7 +14,8 @@ public sealed record AnticipoSaldoClienteDto(
     decimal Saldo,
     decimal SaldoDisponible,
     string Moneda,
-    string? PedidoOrigenRef);
+    string? PedidoOrigenRef,
+    Guid? SucursalId = null);
 
 /// <summary>
 /// Puerto de lectura de saldos de anticipo por cliente (§6.1 del

@@ -150,6 +150,8 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
             SucursalId: sucursalId,
             ArticuloId: articuloId,
             Cantidad: totales?.Cantidad ?? 0m,
-            CantidadDisponible: totales?.Disponible ?? 0m);
+            CantidadDisponible: Math.Max(0m, (totales?.Disponible ?? 0m) - await _db.ApartadosRequisicion
+                .Where(a => a.SucursalId == sucursalId && a.ArticuloId == articuloId)
+                .SumAsync(a => a.Pendiente, cancellationToken)));
     }
 }

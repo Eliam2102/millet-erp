@@ -19,4 +19,5 @@ public enum EstadoOrdenCompra : short
     Cerrada = 4,
     Cancelada = 5,
     Rechazada = 6,
+    CancelacionSolicitada = 7,
 }

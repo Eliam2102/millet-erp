@@ -1,10 +1,13 @@
+import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
+import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
+import { ReclasificarMovimiento } from '../components/ReclasificarMovimiento';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowRightLeft, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
-import { useMovimiento, useRevertirPago } from '@/features/tesoreria/api/useTesoreria';
+import { useMovimiento, useRevertirPago, useDesligarPagoACuenta } from '@/features/tesoreria/api/useTesoreria';
 import type { AplicacionMovimientoDto } from '@/features/tesoreria/api/types';
 import {
   EstadoAplicacionBadge,
@@ -28,6 +31,10 @@ export function DetalleMovimiento({ id }: { id: string }) {
   const navigate = useNavigate();
   const query = useMovimiento(id);
   const revertir = useRevertirPago();
+  const desligar = useDesligarPagoACuenta();
+  const puedeDesligar = useHasPermission(PermisosCanonicos.TesoreriaPagosCuentaLigar);
+  const puedeReclasificar = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
+  const esPagoACuenta = query.data?.movimiento.motivoNoAplicado != null;
   const keyFor = useBodyScopedIdempotencyKey();
   const puedeRevertir = useHasPermission(PermisosCanonicos.TesoreriaPagosRevertir);
 
@@ -36,6 +43,13 @@ export function DetalleMovimiento({ id }: { id: string }) {
   function confirmarReversa(motivo: string) {
     if (revirtiendo == null) return;
     const command = { pagoId: revirtiendo.pagoId, motivo };
+    if (esPagoACuenta) {
+      desligar.mutate({ ...command, movimientoId: id, idempotencyKey: keyFor(command) }, {
+        onSuccess: () => { toast.success('Aplicación desligada; el movimiento bancario se conserva'); setRevirtiendo(null); },
+        onError: e => toast.error(esApiError(e) ? e.problem.detail ?? e.problem.title : 'No se pudo desligar'),
+      });
+      return;
+    }
     revertir.mutate(
       {
         ...command,
@@ -171,6 +185,9 @@ export function DetalleMovimiento({ id }: { id: string }) {
         )}
       </dl>
 
+      {m.motivoReversa && <p className="text-sm text-ink-secondary">Motivo de reversa: {m.motivoReversa}</p>}
+      {m.motivoReclasificacion && <p className="text-sm text-ink-secondary">Última reclasificación: {m.motivoReclasificacion}</p>}
+      {puedeReclasificar && <ReclasificarMovimiento key={m.id} movimiento={m} />}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">Aplicaciones a pasivos</h2>
         {aplicaciones.length === 0 ? (
@@ -205,20 +222,22 @@ export function DetalleMovimiento({ id }: { id: string }) {
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {a.revertida ? (
-                        <span className="text-rose-700">Revertida</span>
+                        <span className="text-danger-fg">Revertida</span>
                       ) : (
-                        <span className="text-emerald-700">Vigente</span>
+                        <span className="text-success-fg">Vigente</span>
                       )}
+                      {a.motivoReversa && <p className="text-xs text-ink-muted">{a.motivoReversa}</p>}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {puedeRevertir && !a.revertida && (
+                      <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.PagoProveedor} id={a.pagoId} />
+                      {(esPagoACuenta ? puedeDesligar : puedeRevertir) && !a.revertida && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setRevirtiendo(a)}
                         >
                           <RotateCcw className="mr-1 h-3 w-3" />
-                          Revertir
+                          {esPagoACuenta ? 'Desligar' : 'Revertir'}
                         </Button>
                       )}
                     </td>
@@ -261,11 +280,11 @@ export function DetalleMovimiento({ id }: { id: string }) {
         onOpenChange={(o) => {
           if (!o) setRevirtiendo(null);
         }}
-        titulo="Revertir pago"
-        descripcion="Se genera un contramovimiento ligado (nada se borra) y CxP regresa el pasivo a Autorizada si queda saldo. El motivo es obligatorio (RN-10)."
-        confirmLabel="Revertir"
+        titulo={esPagoACuenta ? "Desligar pago a cuenta" : "Revertir pago"}
+        descripcion={esPagoACuenta ? "Se revierte la aplicación y se recalcula el saldo disponible del pago, sin crear un movimiento bancario. Indica el motivo." : "Se genera un contramovimiento ligado con motivo y se restaura el saldo del pasivo."}
+        confirmLabel={esPagoACuenta ? "Desligar" : "Revertir"}
         onConfirm={confirmarReversa}
-        pending={revertir.isPending}
+        pending={revertir.isPending || desligar.isPending}
       />
     </div>
   );

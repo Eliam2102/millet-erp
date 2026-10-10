@@ -16,9 +16,9 @@ namespace Millet.Almacen.UnitTests.Recepciones;
 /// Los artículos de servicio no se reciben en Almacén ni generan existencia.
 /// Verifica que:
 /// 1) Si se intenta recibir especificando LineaOcId de una línea que no está en OcLectura.Lineas
-///    (filtrada por ser servicio), el handler rechaza con LINEA_OC_NO_ENCONTRADA.
-/// 2) Si se intenta recibir sin LineaOcId con un ArticuloId que no pertenece a las líneas recibibles
-///    de la OC, el handler rechaza con RECEPCION_ARTICULO_NO_EN_OC.
+///    (filtrada por ser servicio), el handler rechaza con RECEPCION_ARTICULO_NO_EN_OC.
+/// 2) Sin LineaOcId la recepción se rechaza con RECEPCION_LINEA_OC_REQUERIDA (P1: cada artículo indica su línea),
+///    así un servicio tampoco entra por artículo suelto.
 /// 3) Una línea física válida se registra exitosamente.
 /// </summary>
 public class RegistrarRecepcionServiciosCa210Tests
@@ -52,8 +52,8 @@ public class RegistrarRecepcionServiciosCa210Tests
             });
 
         var act = () => handler.Handle(cmd, CancellationToken.None);
-        (await act.Should().ThrowAsync<EntityNotFoundException>())
-            .Which.Code.Should().Be("LINEA_OC_NO_ENCONTRADA");
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Code.Should().Be("RECEPCION_ARTICULO_NO_EN_OC");
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class RegistrarRecepcionServiciosCa210Tests
 
         var act = () => handler.Handle(cmd, CancellationToken.None);
         (await act.Should().ThrowAsync<BusinessRuleException>())
-            .Which.Code.Should().Be("RECEPCION_ARTICULO_NO_EN_OC");
+            .Which.Code.Should().Be("RECEPCION_LINEA_OC_REQUERIDA");
     }
 
     [Fact]
@@ -143,8 +143,8 @@ public class RegistrarRecepcionServiciosCa210Tests
             });
 
         var act = () => handler.Handle(cmd, CancellationToken.None);
-        (await act.Should().ThrowAsync<EntityNotFoundException>())
-            .Which.Code.Should().Be("LINEA_OC_NO_ENCONTRADA");
+        (await act.Should().ThrowAsync<BusinessRuleException>())
+            .Which.Code.Should().Be("RECEPCION_ARTICULO_NO_EN_OC");
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class RegistrarRecepcionServiciosCa210Tests
 
         var act = () => handler.Handle(cmd, CancellationToken.None);
         (await act.Should().ThrowAsync<BusinessRuleException>())
-            .Which.Code.Should().Be("RECEPCION_ARTICULO_NO_EN_OC");
+            .Which.Code.Should().Be("RECEPCION_LINEA_OC_REQUERIDA");
     }
 
     // ─── Helpers y Fakes ──────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ public class RegistrarRecepcionServiciosCa210Tests
         var fakeOc = new FakeOcConFisico(ocId, artFisico, lineaFisicaId);
         return new RegistrarRecepcionConFacturaHandler(
             db, fakeOc, new FakeArticulos(), new FakeEvents(),
-            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true));
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true), new P7Support.Conversion());
     }
 
     private static RegistrarRecepcionConPackingListHandler NuevoPackingListHandler(
@@ -223,7 +223,7 @@ public class RegistrarRecepcionServiciosCa210Tests
         var fakeOc = new FakeOcConFisico(ocId, artFisico, lineaFisicaId);
         return new RegistrarRecepcionConPackingListHandler(
             db, fakeOc, new FakeArticulos(), new FakeEvents(),
-            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true));
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true), new P7Support.Conversion());
     }
 
     private sealed class FakeOcConFisico(Guid ocId, Guid artFisicoId, Guid lineaFisicaId) : IComprasOcReadPort

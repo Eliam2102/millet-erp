@@ -26,7 +26,7 @@ public class CicloCompletoTests
         conteo.AgregarLinea(new LineaConteo(
             Guid.NewGuid(), conteo.Id, Guid.NewGuid(),
             conteo.SubAlmacenId!.Value, Guid.NewGuid(), 100m, 50m));
-        conteo.Iniciar();
+        conteo.Iniciar(new Millet.Almacen.Domain.Conteos.ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         conteo.Tipo.Should().Be(TipoConteo.Anual);
         conteo.Estado.Should().Be(EstadoConteo.EnCurso);
     }

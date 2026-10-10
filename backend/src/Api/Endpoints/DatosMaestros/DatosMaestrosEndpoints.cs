@@ -102,7 +102,7 @@ public static class DatosMaestrosEndpoints
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial,
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
-                p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo));
+                p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -111,6 +111,24 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        proveedores.MapPut("/{id:guid}/tolerancia", async (
+            Guid id, [FromBody] ActualizarToleranciaProveedorRequest body,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ActualizarToleranciaProveedorCommand(id, body.MontoMxn), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar)
+        .WithName("ActualizarToleranciaProveedor")
+        .WithSummary("Configurar tolerancia factura contra OC en pesos; null usa la general")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // F1-ADM-05 G1.1: Validación de proveedor por CxP (comprobando expediente de G1.2)
         proveedores.MapPost("/{id:guid}/validar", async (
@@ -808,7 +826,12 @@ public static class DatosMaestrosEndpoints
         EstatusCatalogo Estatus,
         Guid? ValidadoPorId = null,
         DateTimeOffset? ValidadoEn = null,
-        string? MotivoRechazo = null);
+        string? MotivoRechazo = null,
+        decimal? ToleranciaFacturaContraOcMxn = null);
+
+    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
+    public sealed record ActualizarToleranciaProveedorRequest(
+        [property: System.Text.Json.Serialization.JsonRequired] decimal? MontoMxn);
 
     public sealed record RechazarProveedorRequest(string Motivo);
 

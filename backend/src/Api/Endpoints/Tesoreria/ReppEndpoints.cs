@@ -45,9 +45,15 @@ public static class ReppEndpoints
 
         app.MapPost("/api/v1/tesoreria/repp-recibidos", async (
             [FromBody] RegistrarReppRecibidoCommand command,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("factura_proveedor", command.FacturaProveedorId, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+            if (command.Pagos is not null)
+                foreach (var pago in command.Pagos)
+                    await scope.VerificarAsync("pago_proveedor", pago.PagoId,
+                        PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/tesoreria/repp-recibidos/{response.Id}", response);
         })

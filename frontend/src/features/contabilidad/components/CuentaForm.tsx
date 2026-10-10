@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
@@ -50,6 +51,7 @@ function valoresDe(c: Cuenta): CuentaValues {
     padreId: c.padreId ?? '',
     naturaleza: c.naturaleza ?? '',
     cuentaControl: c.cuentaControl,
+    noAfectableManual: c.noAfectableManual,
     rubroId: c.rubroId ?? '',
     codigoAgrupador: c.codigoAgrupador ?? '',
     grupoReporte: c.grupoReporte ?? '',
@@ -133,7 +135,7 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
     const opts = {
       // Toast SOLO tras 2xx: nada optimista.
       onSuccess: () => {
-        toast.success(editando ? 'Cuenta actualizada' : 'Cuenta creada');
+        toast.success('Solicitud pendiente de autorización del DAF');
         onGuardada();
       },
       onError: (error: unknown) =>
@@ -159,6 +161,7 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
           <AlertDescription>{mensaje}</AlertDescription>
         </Alert>
       )}
+      <p className="text-sm text-ink-muted">El catálogo vigente cambiará cuando otra persona con autorización del DAF apruebe la solicitud.</p>
       {bloqueado && <AvisoNota>{MOTIVO_BLOQUEO}</AvisoNota>}
 
       <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
@@ -210,6 +213,12 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
             </p>
           </Field>
         )}
+        <div className="flex items-center gap-2 md:col-span-2">
+          <Controller control={form.control} name="noAfectableManual" render={({ field }) => (
+            <Checkbox id="cta-no-manual" checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+          )} />
+          <Label htmlFor="cta-no-manual">No afectable por asiento manual</Label>
+        </div>
         {conRubro && (
           <Field label="Rubro de reporte" opcional htmlFor="cta-rubro" error={errors.rubroId?.message}>
             {/* Controlado: las opciones llegan después del valor inicial al editar. */}
@@ -239,7 +248,7 @@ export function CuentaForm({ cuenta, padreActual, onGuardada, onCancelar, onDirt
           Cancelar
         </Button>
         <Button type="submit" size="lg" disabled={guardando}>
-          {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear cuenta'}
+          {guardando ? 'Guardando…' : 'Solicitar autorización'}
         </Button>
       </div>
     </form>

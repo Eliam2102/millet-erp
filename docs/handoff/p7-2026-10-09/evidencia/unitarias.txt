@@ -1,0 +1,9 @@
+Runner real de xUnit en proceso; suites completas, sin TCP.
+
+almacen: TOTAL=314 FAILED=0 SKIPPED=0
+Compras: TOTAL=563 FAILED=0 SKIPPED=0
+Compartido: TOTAL=93 FAILED=0 SKIPPED=0
+CuentasPorPagar: TOTAL=427 FAILED=0 SKIPPED=0
+Tesoreria: TOTAL=107 FAILED=0 SKIPPED=0
+SharedKernel: TOTAL=258 FAILED=0 SKIPPED=0
+Total: 1762, 0 fallos, 0 omitidas.

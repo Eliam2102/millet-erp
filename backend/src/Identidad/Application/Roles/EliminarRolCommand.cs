@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Identidad.Infrastructure;
@@ -25,7 +26,12 @@ public sealed class EliminarRolHandler : IRequestHandler<EliminarRolCommand, Uni
 {
     private readonly IdentidadDbContext _db;
 
-    public EliminarRolHandler(IdentidadDbContext db) => _db = db;
+    private readonly IPermissionCache _cache;
+    public EliminarRolHandler(IdentidadDbContext db, IPermissionCache cache)
+    {
+        _db = db;
+        _cache = cache;
+    }
 
     public async Task<Unit> Handle(
         EliminarRolCommand command, CancellationToken cancellationToken)
@@ -47,6 +53,7 @@ public sealed class EliminarRolHandler : IRequestHandler<EliminarRolCommand, Uni
         {
             rol.Desactivar();
             await _db.SaveChangesAsync(cancellationToken);
+            await RolPermissionCache.InvalidarAsync(command.Id, _db, _cache, cancellationToken);
         }
 
         return Unit.Value;

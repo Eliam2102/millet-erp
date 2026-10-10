@@ -48,7 +48,7 @@ public sealed record PropuestaAplicacionPagoCreadaEvent(
     string Moneda,
     decimal AjusteNoFiscal,
     int NumeroFacturas,
-    IReadOnlyList<PropuestaAplicacionFacturaDetalle> Facturas)
+    IReadOnlyList<PropuestaAplicacionFacturaDetalle> Facturas, Guid? PropuestoPor = null, decimal SaldoAFavorPorIdentificar = 0)
     : IntegrationEvent("cuentas_por_cobrar.propuesta-aplicacion.creada.v1", EmpresaId, OcurridoEn);
 
 // ---- Decisión de liberación emitida (CXC-PR4) ----

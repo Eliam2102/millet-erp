@@ -22,7 +22,7 @@ public class ConteoInventarioTests
     public void Iniciar_sin_lineas_falla()
     {
         var c = Nuevo();
-        var act = () => c.Iniciar();
+        var act = () => c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONTEO_SIN_LINEAS");
     }
@@ -32,7 +32,7 @@ public class ConteoInventarioTests
     {
         var c = Nuevo();
         AgregarLinea(c, cantidadTeorica: 100m);
-        c.Iniciar();
+        c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         c.Estado.Should().Be(EstadoConteo.EnCurso);
         c.SnapshotCapturadoAt.Should().NotBeNull();
         c.FechaInicio.Should().NotBeNull();
@@ -43,7 +43,7 @@ public class ConteoInventarioTests
     {
         var c = Nuevo();
         AgregarLinea(c);
-        c.Iniciar();
+        c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         var act = () => AgregarLinea(c);
         act.Should().Throw<BusinessRuleException>()
             .Which.Code.Should().Be("CONTEO_NO_PLANIFICADO");
@@ -54,7 +54,7 @@ public class ConteoInventarioTests
     {
         var c = Nuevo();
         AgregarLinea(c, cantidadTeorica: 100m);
-        c.Iniciar();
+        c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         var linea = c.Lineas.Single();
         linea.Capturar(95m, Guid.NewGuid());
 
@@ -68,7 +68,7 @@ public class ConteoInventarioTests
     {
         var c = Nuevo();
         AgregarLinea(c);
-        c.Iniciar();
+        c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         // Sin capturar.
         var act = () => c.EnviarAConciliacion();
         act.Should().Throw<BusinessRuleException>()
@@ -80,7 +80,7 @@ public class ConteoInventarioTests
     {
         var c = Nuevo();
         AgregarLinea(c);
-        c.Iniciar();
+        c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         c.Lineas.Single().Capturar(100m, Guid.NewGuid());
         c.EnviarAConciliacion();
         c.Estado.Should().Be(EstadoConteo.EnConciliacion);
@@ -161,7 +161,7 @@ public class ConteoInventarioTests
     {
         var c = Nuevo();
         AgregarLinea(c);
-        c.Iniciar();
+        c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         c.Lineas.Single().Capturar(100m, Guid.NewGuid());
         c.EnviarAConciliacion();
         return c;

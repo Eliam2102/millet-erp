@@ -1,9 +1,11 @@
 # ADR-0050: Consumo del centro de costo de máquina (Dim3) en los documentos de compras
 
-- **Estado**: Aceptada
+- **Estado**: Reemplazada parcialmente por [ADR-0062](./0062-centro-costo-heredado-departamento.md) (09-oct-2026)
 - **Fecha**: 2026-07-18
 - **Decisores**: Eduardo Paredes, Victor
 - **Etiquetas**: centros-costo, compras, almacén, consumo, alcance, reportería
+
+> **Vigencia actual:** P203 y la decisión de Eliam del 09-oct reemplazan la máquina obligatoria en RQ y la separación total del departamento. El texto siguiente se conserva como historia. Para la herencia del departamento, la máquina opcional y la elección con alcance, aplicar ADR-0062.
 
 ## Contexto y problema
 

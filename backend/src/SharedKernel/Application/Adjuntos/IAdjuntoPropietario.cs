@@ -53,4 +53,6 @@ public interface IAdjuntoPropietario
     /// Lanza <c>ForbiddenException</c> si el usuario no tiene alcance; sin sucursal no hace nada.
     /// </summary>
     Task VerificarAlcanceAsync(AdjuntoPropietarioInfo info, CancellationToken cancellationToken);
+    Task VerificarAlcanceAsync(AdjuntoPropietarioInfo info, AdjuntoOperacion operacion, CancellationToken cancellationToken)
+        => VerificarAlcanceAsync(info, cancellationToken);
 }

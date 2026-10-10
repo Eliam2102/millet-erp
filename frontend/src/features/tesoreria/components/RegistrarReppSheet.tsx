@@ -1,3 +1,4 @@
+import { apiFetch } from '@/lib/auth/api-client';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -10,12 +11,13 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useRegistrarReppRecibido } from '@/features/tesoreria/api/useTesoreria';
 import type { ReppPendienteResponse } from '@/features/tesoreria/api/types';
 import { esUuidValido } from '@/features/tesoreria/lib/uuid';
 import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
-import { esApiError } from '@/lib/api';
+import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -25,6 +27,7 @@ import { TipoCfdi, type CfdiListItem } from '@/features/cxp/api/types';
 
 export interface RegistrarReppSheetProps {
   pendiente: ReppPendienteResponse | null;
+  pendientes?: ReppPendienteResponse[];
   onOpenChange: (open: boolean) => void;
 }
 
@@ -33,8 +36,7 @@ export interface RegistrarReppSheetProps {
  * de pago (CFDI tipo P) desde el repositorio de CFDIs de CxP — picker de
  * PorProcesar + "Cargar XML" (canal CargaManual) — y prellena UUID y
  * fecha, mismo molde que la captura de NC de CxP. El XML vive en el
- * repositorio documental de CxP; el registro manual con UUID a mano sigue
- * disponible como respaldo (T-G3, p. ej. solo llegó el PDF). Registrar
+ * repositorio documental de CxP; requiere el XML y el desglose de pagos. Registrar
  * publica <c>repp-proveedor.recibido.v1</c> → CxP libera FALTA_REPP. La
  * validación fiscal del UUID contra el SAT llega post-MVP [T-G10].
  *
@@ -43,6 +45,7 @@ export interface RegistrarReppSheetProps {
  */
 export function RegistrarReppSheet({
   pendiente,
+  pendientes = [],
   onOpenChange,
 }: RegistrarReppSheetProps) {
   return (
@@ -58,7 +61,7 @@ export function RegistrarReppSheet({
           </SheetDescription>
         </SheetHeader>
         {pendiente != null && (
-          <ReppForm pendiente={pendiente} onClose={() => onOpenChange(false)} />
+          <ReppForm pendiente={pendiente} pendientes={pendientes.filter(p => p.facturaProveedorId === pendiente.facturaProveedorId)} onClose={() => onOpenChange(false)} />
         )}
       </SheetContent>
     </Sheet>
@@ -67,12 +70,20 @@ export function RegistrarReppSheet({
 
 function ReppForm({
   pendiente,
+  pendientes,
   onClose,
 }: {
   pendiente: ReppPendienteResponse;
+  pendientes: ReppPendienteResponse[];
   onClose: () => void;
 }) {
   const registrar = useRegistrarReppRecibido();
+  const pagosDisponibles = pendientes.length > 0 ? pendientes : [pendiente];
+  const [importes, setImportes] = useState<Record<string, string>>({ [pendiente.pagoId]: String(pendiente.importePendiente) });
+  const pagos = pagosDisponibles.filter(p => importes[p.pagoId] !== undefined).map(p => ({ pagoId: p.pagoId, importe: Number(importes[p.pagoId]) }));
+  const idempotencyKey = useFormIdempotencyKey();
+  const [xmlBase64, setXmlBase64] = useState('');
+  const [cargandoXml, setCargandoXml] = useState(false);
   const hoy = hoyLocalISO();
 
   const [cfdiSel, setCfdiSel] = useState<CfdiListItem | null>(null);
@@ -84,10 +95,11 @@ function ReppForm({
   const [fecha, setFecha] = useState(hoy);
 
   const uuidValido = esUuidValido(uuid);
-  const valido = uuidValido && fecha !== '';
+  const valido = uuidValido && fecha !== '' && xmlBase64 !== '' && !cargandoXml && pagos.length > 0 && pagos.every(p => Number.isFinite(p.importe) && p.importe > 0 && p.importe <= pagosDisponibles.find(d => d.pagoId === p.pagoId)!.importePendiente);
 
   /** Prellena UUID y fecha desde el CFDI vinculado; al quitar, limpia. */
-  function vincular(cfdi: CfdiListItem | null) {
+  async function vincular(cfdi: CfdiListItem | null) {
+    setXmlBase64('');
     if (cfdi != null && cfdi.tipo !== TipoCfdi.Pago) {
       toast.error('El CFDI no es un complemento de pago (tipo P).', {
         description: `El UUID ${cfdi.uuidCfdi} quedó en el repositorio de CxP sin vincular.`,
@@ -98,6 +110,14 @@ function ReppForm({
     if (cfdi != null) {
       setUuid(cfdi.uuidCfdi);
       setFecha(cfdi.fechaCfdi.slice(0, 10));
+      setCargandoXml(true);
+      try {
+        const response = await apiFetch(`/api/v1/cuentas-por-pagar/cfdis/${cfdi.id}/xml`);
+        if (!response.ok) throw new Error('No se pudo leer el XML.');
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        setXmlBase64(btoa(Array.from(bytes, b => String.fromCharCode(b)).join('')));
+      } catch { toast.error('No se pudo leer el XML del complemento. Vuelve a seleccionarlo.'); }
+      finally { setCargandoXml(false); }
     } else {
       setUuid('');
       setFecha(hoy);
@@ -112,14 +132,16 @@ function ReppForm({
           facturaProveedorId: pendiente.facturaProveedorId,
           uuidComplemento: uuid.trim(),
           fechaComplemento: fecha,
+          xmlBase64,
+          pagos,
         },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
       },
       {
         onSuccess: () => {
           toast.success('REPP registrado', {
             description:
-              'CxP recibirá repp-proveedor.recibido.v1 y liberará el motivo FALTA_REPP.',
+              'El complemento validado cubre este pago. CxP liberará FALTA_REPP cuando estén cubiertos los pagos pendientes.',
           });
           onClose();
         },
@@ -185,7 +207,7 @@ function ReppForm({
           maxLength={36}
         />
         {uuid.length > 0 && !uuidValido && (
-          <p className="text-xs text-rose-600">
+          <p className="text-xs text-danger-fg">
             Debe ser el UUID del timbre del CFDI tipo P (8-4-4-4-12).
           </p>
         )}
@@ -203,6 +225,12 @@ function ReppForm({
         />
       </div>
 
+      <fieldset className="space-y-3"><legend className="mb-2 text-sm font-medium text-ink">Pagos que cubre el XML</legend>
+        {pagosDisponibles.map(p => <div key={p.pagoId} className="space-y-1">
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={importes[p.pagoId] !== undefined} onCheckedChange={checked => setImportes(prev => { const next = { ...prev }; if (checked === true) next[p.pagoId] = String(p.importePendiente); else delete next[p.pagoId]; return next; })} />{formatoFecha(p.fechaPrimerPago)} · pendiente {formatoMonto(p.importePendiente, p.moneda)}</label>
+          {importes[p.pagoId] !== undefined && <Input aria-label={`Importe del pago ${p.pagoId}`} type="number" min="0.01" step="0.01" max={p.importePendiente} value={importes[p.pagoId]} onChange={e => setImportes(prev => ({ ...prev, [p.pagoId]: e.target.value }))} />}
+        </div>)}
+      </fieldset>
       <div className="flex justify-end gap-2 pt-2">
         <Button
           variant="ghost"
@@ -211,7 +239,7 @@ function ReppForm({
         >
           Cancelar
         </Button>
-        <Button onClick={confirmar} disabled={registrar.isPending || !valido}>
+        <Button onClick={confirmar} disabled={registrar.isPending || !valido} title={!valido ? 'Selecciona el XML del complemento para validar el pago.' : undefined}>
           {registrar.isPending ? 'Registrando…' : 'Registrar REPP'}
         </Button>
       </div>

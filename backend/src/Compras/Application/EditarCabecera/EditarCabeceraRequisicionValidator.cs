@@ -7,6 +7,7 @@ public sealed class EditarCabeceraRequisicionValidator
 {
     public EditarCabeceraRequisicionValidator()
     {
+        RuleFor(c => c.Obra).MaximumLength(120);
         RuleFor(c => c.RequisicionId).NotEqual(Guid.Empty);
         // Descripcion: si viene un valor, validar longitud.
         RuleFor(c => c.Descripcion!)

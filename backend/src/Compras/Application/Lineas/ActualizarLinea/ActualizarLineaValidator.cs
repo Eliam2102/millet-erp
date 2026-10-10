@@ -10,11 +10,9 @@ public sealed class ActualizarLineaValidator : AbstractValidator<ActualizarLinea
         RuleFor(c => c.LineaId).NotEmpty().WithErrorCode("LINEA_REQUERIDA");
         RuleFor(c => c.ArticuloId).NotEmpty().WithErrorCode("ARTICULO_REQUERIDO");
 
-        // Fase E PR2.1: el CC-Máquina es OBLIGATORIO también al editar. El PATCH
-        // es replace completo (el FE prellenar con el CC actual de la línea), así
-        // que editar una línea histórica sin CC obliga a elegir uno.
-        RuleFor(c => c.CentroCostoId)
-            .NotNull().WithErrorCode("LINEA_RQ_CENTRO_COSTO_REQUERIDO");
+        // ADM08: null solicita la herencia. La regla autoritativa resuelve el centro.
+        RuleFor(c => c.CentroCostoId).NotEqual(Guid.Empty)
+            .When(c => c.CentroCostoId.HasValue).WithErrorCode("CECO_INVALIDO");
 
         RuleFor(c => c.Cantidad)
             .GreaterThan(0m).WithErrorCode("CANTIDAD_INVALIDA");

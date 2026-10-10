@@ -46,6 +46,8 @@ public sealed class CentrosCostoDbContext : BaseDbContext
     /// <summary>Alcance congelado usuario → Dim3 (§7). Filas de hecho: borrado físico.</summary>
     public DbSet<Asignacion> Asignaciones => Set<Asignacion>();
 
+    public DbSet<DepartamentoCentroCosto> DepartamentoCentrosCosto => Set<DepartamentoCentroCosto>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);
@@ -57,5 +59,6 @@ public sealed class CentrosCostoDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new Dim2Configuration());
         modelBuilder.ApplyConfiguration(new Dim3Configuration());
         modelBuilder.ApplyConfiguration(new AsignacionConfiguration());
+        modelBuilder.ApplyConfiguration(new DepartamentoCentroCostoConfiguration());
     }
 }

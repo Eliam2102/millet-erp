@@ -55,7 +55,7 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
 
         if (existente is null)
         {
-            _db.PasivosPendientesPago.Add(new PasivoPendientePago(
+            var nuevo = new PasivoPendientePago(
                 empresaId: p.EmpresaId,
                 facturaProveedorId: p.FacturaProveedorId,
                 proveedorId: p.ProveedorId,
@@ -68,9 +68,11 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
                 uuidCfdi: uuidCfdi,
                 folioProveedor: p.FolioProveedor,
                 recibidoEn: ahora,
-                metodoPago: p.MetodoPago));
+                metodoPago: p.MetodoPago);
+            nuevo.AceptarAutorizacion(p.OcurridoEn);
+            _db.PasivosPendientesPago.Add(nuevo);
         }
-        else
+        else if (existente.AceptarAutorizacion(p.OcurridoEn))
         {
             existente.ActualizarDesdeEvento(
                 montoTotal: p.MontoTotal,
@@ -132,7 +134,7 @@ public sealed class ProyectarPasivoAutorizadoHandler : IRequestHandler<Proyectar
                 fechaVencimiento: p.FechaVencimiento,
                 recibidoEn: ahora));
         }
-        else
+        else if (existente.AceptarAutorizacion(p.OcurridoEn))
         {
             existente.ActualizarDesdeEvento(
                 montoTotal: p.MontoTotal,

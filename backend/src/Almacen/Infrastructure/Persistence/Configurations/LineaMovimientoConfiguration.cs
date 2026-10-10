@@ -25,6 +25,8 @@ public sealed class LineaMovimientoConfiguration : IEntityTypeConfiguration<Line
         builder.Property(x => x.MovimientoId).IsRequired();
         builder.Property(x => x.Posicion).IsRequired();
         builder.Property(x => x.ArticuloId).IsRequired();
+        builder.Property(x => x.CantidadCapturada).HasPrecision(14, 4);
+        builder.Property(x => x.UnidadCapturada).HasMaxLength(20);
         builder.Property(x => x.Cantidad).HasPrecision(14, 4).IsRequired();
         builder.Property(x => x.UnidadMedida).HasMaxLength(20).IsRequired();
         builder.Property(x => x.CostoUnitarioMxn).HasPrecision(14, 4).IsRequired();
@@ -37,6 +39,10 @@ public sealed class LineaMovimientoConfiguration : IEntityTypeConfiguration<Line
         builder.Property(x => x.ProyectoId);
         // ADR-0043: línea de RQ surtida (canal de entrega). Nullable.
         builder.Property(x => x.LineaRqId);
+        builder.Property(x => x.LineaOcId);
+        builder.Property(x => x.LineaSalidaOrigenId);
+        builder.HasIndex(x => x.LineaSalidaOrigenId);
+        builder.HasIndex(x => x.LineaOcId);
         builder.Property(x => x.CantidadTeoricaAlContar).HasPrecision(14, 4);
         builder.Property(x => x.CantidadRealContada).HasPrecision(14, 4);
         builder.Property(x => x.UbicacionReferencia).HasMaxLength(100);

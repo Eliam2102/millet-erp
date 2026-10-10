@@ -28,7 +28,8 @@ public sealed record OrdenCompraDto(
     Guid SucursalId,
     decimal Total,
     string Estado,
-    IReadOnlyList<LineaOcDto> Lineas);
+    IReadOnlyList<LineaOcDto> Lineas,
+    string Moneda = "MXN", string? Obra = null);
 
 public sealed record LineaOcDto(
     Guid Id,
@@ -38,4 +39,5 @@ public sealed record LineaOcDto(
     decimal CantidadFacturada,
     decimal CantidadRecibida,
     // G1.6 (P3): CeCo de la línea de OC; viaja en factura.registrada.v1.
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null,
+    decimal? BaseNetaUnitaria = null);

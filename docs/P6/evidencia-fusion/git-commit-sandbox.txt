@@ -1,0 +1,1 @@
+fatal: Unable to create '/Users/eliamcv/Documents/Vidrios millet/millet_erp-review/.git/worktrees/millet_erp-P6-ADM/index.lock': Operation not permitted

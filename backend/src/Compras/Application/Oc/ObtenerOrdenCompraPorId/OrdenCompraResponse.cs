@@ -1,4 +1,5 @@
 using Millet.Compras.Domain.Oc;
+using Millet.Compras.Domain;
 
 namespace Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
 
@@ -17,10 +18,8 @@ namespace Millet.Compras.Application.Oc.ObtenerOrdenCompraPorId;
 /// </para>
 ///
 /// <para>
-/// Líneas, autorizaciones y adjuntos NO aparecen aquí porque F1-PR2 es
-/// walking skeleton: el agregado solo tiene cabecera. F2-PR1 trae líneas,
-/// F3-PR1 autorizaciones, F2-PR4 adjuntos — cada uno extiende este
-/// response al promoverse.
+/// Incluye líneas, adjuntos, firmas por ciclo y solicitudes de cancelación
+/// con su historial; la consulta carga las entidades hijas explícitamente.
 /// </para>
 /// </summary>
 public sealed record OrdenCompraResponse(
@@ -92,4 +91,21 @@ public sealed record OrdenCompraResponse(
     DescuentoTipo? DescuentoGlobalTipo,
     decimal? DescuentoGlobalValor,
     decimal GastosAdicionales,
-    decimal Redondeo);
+    decimal Redondeo)
+{
+    public string? Obra { get; init; }
+    public int CicloAutorizacion { get; init; }
+    public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];
+    public IReadOnlyList<SolicitudCancelacionOcResponse> SolicitudesCancelacion { get; init; } = [];
+}
+
+public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacion Nivel,
+    ResultadoAutorizacionOc Resultado, Guid UsuarioId, DateTimeOffset FechaHora,
+    Guid? MotivoRechazoId, string? MotivoRechazoTexto, string? Notas)
+{
+    public string? MotivoRechazoNombre { get; init; }
+}
+
+public sealed record SolicitudCancelacionOcResponse(Guid Id, Guid SolicitanteId,
+    DateTimeOffset FechaSolicitud, Guid MotivoCancelacionId, string MotivoSolicitud,
+    Guid? ResolutorId, DateTimeOffset? FechaResolucion, bool? Confirmada, string? MotivoResolucion);

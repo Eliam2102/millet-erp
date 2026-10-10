@@ -10,9 +10,8 @@ namespace Millet.Compras.UnitTests.PublicAdapters;
 
 /// <summary>
 /// Tests del <see cref="ComprasRequisicionReadAdapter"/> — en particular que la
-/// lectura de folio para presentación (<c>ObtenerFoliosAsync</c>) es
-/// state-agnostic: resuelve el folio aunque la RQ ya haya avanzado a un estado
-/// que <c>ObtenerAsync</c> (lectura operativa, gateada por estado) rechaza.
+/// lectura de folio para presentación (<c>ObtenerFoliosAsync</c>) resuelve
+/// el folio aunque la RQ ya haya avanzado a un estado que no admite salidas.
 /// ADR-0042. Cubre el caso de una salida histórica cuya RQ ya está Cerrada.
 /// </summary>
 public class ComprasRequisicionReadAdapterTests
@@ -27,14 +26,11 @@ public class ComprasRequisicionReadAdapterTests
 
         var adapter = new ComprasRequisicionReadAdapter(db);
 
-        // Lectura de presentación: state-agnostic. La RQ está Cerrada —un estado
-        // que la lectura operativa ObtenerAsync rechaza por su filtro (solo
-        // Autorizada/EnSurtido)— y aun así el folio resuelve.
+        // La RQ está Cerrada y su folio sigue resolviendo para presentación histórica.
         //
         // No ejercitamos ObtenerAsync aquí: su Include(Lineas) materializa el VO
         // Money, que el provider EF InMemory no sabe shapear (limitación del
-        // provider de test, no del código; en PostgreSQL funciona). Su filtro de
-        // estado está cubierto por los tests de surtido del flujo de salida.
+        // provider de test, no del código; se prueba con PostgreSQL en P1DocumentosValidosTests).
         var folios = await adapter.ObtenerFoliosAsync(new[] { rq.Id }, CancellationToken.None);
         folios.Should().ContainKey(rq.Id);
         folios[rq.Id].Should().Be("MID2026-000777");

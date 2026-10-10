@@ -162,7 +162,7 @@ public sealed class AutorizarNotaCargoHandler : IRequestHandler<AutorizarNotaCar
 
 // -----------------------------------------------------------------
 
-public sealed record AplicarNotaCargoCommand(Guid Id, int VersionEsperada) : IRequest<AplicarNotaCargoResponse>;
+public sealed record AplicarNotaCargoCommand(Guid Id, int VersionEsperada, Guid? FacturaOrigenId = null) : IRequest<AplicarNotaCargoResponse>;
 
 public sealed record AplicarNotaCargoResponse(Guid Id, EstadoNotaCargo Estado, int Version);
 
@@ -180,10 +180,11 @@ public sealed class AplicarNotaCargoHandler : IRequestHandler<AplicarNotaCargoCo
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
 
-    public AplicarNotaCargoHandler(CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock)
+    public AplicarNotaCargoHandler(CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos)
     {
-        _db = db; _currentUser = currentUser; _clock = clock;
+        _db = db; _currentUser = currentUser; _clock = clock; _pasivos = pasivos;
     }
 
     public async Task<AplicarNotaCargoResponse> Handle(AplicarNotaCargoCommand command, CancellationToken cancellationToken)
@@ -195,7 +196,18 @@ public sealed class AplicarNotaCargoHandler : IRequestHandler<AplicarNotaCargoCo
         if (nota.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(NotaCargo), nota.Id);
 
+        if (command.FacturaOrigenId is Guid elegida) nota.VincularFactura(elegida);
+        if (nota.FacturaOrigenId is not Guid facturaId)
+            throw new BusinessRuleException("NCG_FACTURA_REQUERIDA", "Vincula la nota de cargo a la factura antes de aplicarla.");
+        var factura = await _db.FacturasProveedor.FirstOrDefaultAsync(f => f.Id == facturaId, cancellationToken)
+            ?? throw new EntityNotFoundException("FACTURA_NO_ENCONTRADA", "No se encontró la factura de la nota de cargo.");
+        if (factura.ProveedorId != nota.ProveedorId || factura.Moneda != nota.Moneda)
+            throw new BusinessRuleException("NCG_FACTURA_DISTINTA", "La nota de cargo y la factura deben tener el mismo proveedor y moneda.");
+        factura.AplicarNotaCargo(nota.Monto, nota.Id, DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime));
         nota.Aplicar(_currentUser.UserId, _clock.UtcNow);
+        if (factura.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada)
+            await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
+                factura.EmpresaId, factura.Id, factura.OrdenCompraId, _clock.UtcNow), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return new AplicarNotaCargoResponse(nota.Id, nota.Estado, nota.Version);
     }

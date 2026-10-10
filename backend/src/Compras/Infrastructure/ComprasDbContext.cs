@@ -89,6 +89,7 @@ public sealed class ComprasDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new TipoDocumentoOcConfiguration());
         modelBuilder.ApplyConfiguration(new AdjuntoOcConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionOcConfiguration());
+        modelBuilder.ApplyConfiguration(new SolicitudCancelacionOcConfiguration());
         modelBuilder.ApplyConfiguration(new RegimenFiscalArticuloConfiguration());
         modelBuilder.ApplyConfiguration(new OrdenCompraPdfConfiguration());
     }

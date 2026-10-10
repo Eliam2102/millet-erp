@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -65,17 +65,13 @@ afterEach(() => {
 
 describe('<FormasPagoPage> — smoke (SAT read-only)', () => {
   it('muestra banner SAT + tabla y NO botón crear/editar', async () => {
-    mswServer.use(
-      http.get('*/api/v1/catalogos/formas-pago', () => HttpResponse.json(ITEMS)),
-    );
+    mswServer.use(http.get('*/api/v1/catalogos/formas-pago', () => HttpResponse.json(ITEMS)));
 
     render(<FormasPagoPage />, { wrapper: createQueryWrapper() });
 
     await waitFor(() => expect(screen.getByText('Efectivo')).toBeInTheDocument());
 
-    expect(
-      screen.getByText(/catálogo sat mantenido vía migración/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/claves oficiales se conservan/i)).toBeInTheDocument();
     expect(screen.getByText('Transferencia electrónica')).toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: /nuevo/i })).not.toBeInTheDocument();
@@ -83,4 +79,28 @@ describe('<FormasPagoPage> — smoke (SAT read-only)', () => {
     expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /desactivar/i })).not.toBeInTheDocument();
   });
+});
+
+it('administración incluye inactivas y cambia estado con permiso', async () => {
+  useAuthStore.setState({
+    permisos: [PermisosCanonicos.CompartidoCatalogosLeer, 'catalogos.formas-pago.gestionar'],
+  });
+  let activa = false;
+  mswServer.use(
+    http.get('*/api/v1/catalogos/formas-pago/administracion', () =>
+      HttpResponse.json([{ id: 'fp-2', claveSat: '02', descripcion: 'Cheque nominativo', activa }]),
+    ),
+    http.patch('*/api/v1/catalogos/formas-pago/fp-2/estado', async ({ request }) => {
+      expect(request.headers.get('Idempotency-Key')).toBeTruthy();
+      const body = (await request.json()) as { activa: boolean };
+      activa = body.activa;
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  render(<FormasPagoPage />, { wrapper: createQueryWrapper() });
+  const interruptor = await screen.findByRole('switch', { name: /Habilitar 02/ });
+  expect(interruptor).toHaveAttribute('aria-checked', 'false');
+  fireEvent.click(interruptor);
+  await waitFor(() => expect(interruptor).toHaveAttribute('aria-checked', 'true'));
+  expect(activa).toBe(true);
 });

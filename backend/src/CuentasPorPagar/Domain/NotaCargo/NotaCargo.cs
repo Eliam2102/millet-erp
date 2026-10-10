@@ -118,6 +118,14 @@ public sealed class NotaCargo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRele
         FechaAutorizacion = ahora;
     }
 
+    public void VincularFactura(Guid facturaId)
+    {
+        if (Estado is not (EstadoNotaCargo.Borrador or EstadoNotaCargo.Autorizada) || facturaId == Guid.Empty)
+            throw new BusinessRuleException("NCG_FACTURA_NO_VINCULABLE", "Elige la factura antes de aplicar la nota de cargo.");
+        if (FacturaOrigenId is not null && FacturaOrigenId != facturaId)
+            throw new BusinessRuleException("NCG_FACTURA_ORIGEN_DISTINTA", "La nota de cargo ya tiene otra factura de origen.");
+        FacturaOrigenId = facturaId;
+    }
     public void Aplicar(Guid? usuarioId, DateTimeOffset ahora)
     {
         if (Estado != EstadoNotaCargo.Autorizada)
@@ -146,6 +154,7 @@ public sealed class NotaCargo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRele
 
     public void Cancelar(string motivo, DateTimeOffset ahora)
     {
+        if (FechaCancelacion is not null) throw new BusinessRuleException("DOCUMENTO_YA_CANCELADO", "El documento ya está cancelado.");
         if (Estado is EstadoNotaCargo.Aplicada or EstadoNotaCargo.Formalizada)
         {
             throw new BusinessRuleException(

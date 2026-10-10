@@ -3,11 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { Building2, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  EmptyState,
-  ErrorState,
-  TableSkeleton,
-} from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { useEmpresa } from '@/modules/administracion/api';
 import { esApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth/useAuth';
@@ -24,17 +20,14 @@ export interface SucursalesLayoutProps {
 }
 
 export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
-  const { currentEmpresaId } = useAuth();
+  const { currentEmpresaId, empresas } = useAuth();
+  const empresaSesion = empresas.find((empresa) => empresa.id === currentEmpresaId);
   const empresaQuery = useEmpresa(currentEmpresaId);
   const [agregando, setAgregando] = useState(false);
   const [filtro, setFiltro] = useState('');
 
-  const canGestionar = useHasPermission(
-    PermisosCanonicos.AdminEmpresasSucursalesGestionar,
-  );
-  const canVerDatosEmpresa = useHasPermission(
-    PermisosCanonicos.AdminEmpresasLeer,
-  );
+  const canGestionar = useHasPermission(PermisosCanonicos.AdminEmpresasSucursalesGestionar);
+  const canVerDatosEmpresa = useHasPermission(PermisosCanonicos.AdminEmpresasLeer);
 
   const sucursales = useMemo(
     () => empresaQuery.data?.sucursales ?? [],
@@ -45,8 +38,7 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
     if (!filtro.trim()) return sucursales;
     const q = filtro.toLowerCase().trim();
     return sucursales.filter(
-      (s) =>
-        s.clave.toLowerCase().includes(q) || s.nombre.toLowerCase().includes(q),
+      (s) => s.clave.toLowerCase().includes(q) || s.nombre.toLowerCase().includes(q),
     );
   }, [sucursales, filtro]);
 
@@ -84,7 +76,9 @@ export function SucursalesLayout({ idActivo, detalle }: SucursalesLayoutProps) {
 
         {canVerDatosEmpresa && currentEmpresaId && (
           <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
-            <span>Vidrios Millet</span>
+            <span>
+              {empresaSesion?.razonSocial ?? empresaQuery.data?.empresa.razonSocial ?? '[EMPRESA]'}
+            </span>
             <Link
               to="/admin/empresas/$id"
               params={{ id: currentEmpresaId }}
@@ -155,10 +149,7 @@ function RenderLista({ query, items, idActivo, tieneFiltro }: RenderListaProps) 
   if (query.isLoading) {
     return (
       <div className="p-3">
-        <TableSkeleton
-          rows={6}
-          columns={[{ width: 'w-full' }, { width: 'w-full' }]}
-        />
+        <TableSkeleton rows={6} columns={[{ width: 'w-full' }, { width: 'w-full' }]} />
       </div>
     );
   }
@@ -190,9 +181,7 @@ function PlaceholderSinSeleccion() {
     <div className="flex h-full min-h-64 items-center justify-center p-8 text-center">
       <div className="space-y-2 text-muted-foreground">
         <Building2 className="mx-auto h-10 w-10 opacity-40" aria-hidden="true" />
-        <p className="text-base font-medium text-foreground">
-          Selecciona una sucursal de la lista
-        </p>
+        <p className="text-base font-medium text-foreground">Selecciona una sucursal de la lista</p>
         <p className="text-xs max-w-sm">
           Consulta y gestiona sus datos generales, departamentos, puestos y colaboradores asignados.
         </p>

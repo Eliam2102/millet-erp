@@ -34,7 +34,6 @@ import {
   NivelReorden,
   NivelReordenLabels,
   ObjetivoReposicion,
-  ObjetivoReposicionLabels,
   type ConfiguracionReordenListItem,
 } from '@/features/almacen/api/types';
 
@@ -58,12 +57,6 @@ export interface ReordenSheetProps {
 const NIVEL_OPTIONS: readonly NivelReorden[] = [
   NivelReorden.Sucursal,
   NivelReorden.Almacen,
-];
-
-const OBJETIVO_OPTIONS: readonly ObjetivoReposicion[] = [
-  ObjetivoReposicion.Minimo,
-  ObjetivoReposicion.Maximo,
-  ObjetivoReposicion.Reorden,
 ];
 
 const DEFAULTS: CrearReordenValues = {
@@ -98,7 +91,8 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
               maximo: editando.maximo,
               puntoReorden: editando.puntoReorden,
               autoRequisicion: editando.autoRequisicion,
-              objetivo: editando.objetivo,
+              objetivo: ObjetivoReposicion.Maximo,
+              cantidadFija: editando.cantidadFija ?? null,
             }
           : DEFAULTS,
       );
@@ -125,7 +119,8 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
             maximo: values.maximo,
             puntoReorden: values.puntoReorden,
             autoRequisicion: values.autoRequisicion,
-            objetivo: values.objetivo,
+            objetivo: ObjetivoReposicion.Maximo,
+            cantidadFija: values.cantidadFija ?? null,
           },
           idempotencyKey,
         },
@@ -274,32 +269,12 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
           <div className="border-t pt-3" />
 
           {/* ── Política: objetivo · mín/máx/punto-reorden · auto-RQ ── */}
-          <Field
-            label="Objetivo"
-            required
-            error={form.formState.errors.objetivo?.message}
-          >
-            <Controller
-              name="objetivo"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  value={String(field.value)}
-                  onValueChange={(v) => field.onChange(Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar objetivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OBJETIVO_OPTIONS.map((o) => (
-                      <SelectItem key={o} value={String(o)}>
-                        {ObjetivoReposicionLabels[o]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+          <p className="text-xs text-ink-muted">Al alcanzar el punto de reorden, repone hasta el máximo. Una cantidad fija sustituye ese cálculo.</p>
+          <Field label="Cantidad fija (opcional)" error={form.formState.errors.cantidadFija?.message}>
+            <Controller name="cantidadFija" control={form.control} render={({ field }) => (
+              <Input type="number" min="0" step="0.0001" value={field.value ?? ''}
+                onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
+            )} />
           </Field>
 
           <div className="grid grid-cols-3 gap-2">
@@ -335,7 +310,7 @@ export function ReordenSheet({ open, onOpenChange, editando }: ReordenSheetProps
                   checked={field.value}
                   onCheckedChange={(v) => field.onChange(v === true)}
                 />
-                Genera requisición automática al caer por debajo del objetivo
+                Genera borrador de requisición al alcanzar el punto de reorden
               </label>
             )}
           />

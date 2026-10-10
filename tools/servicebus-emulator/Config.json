@@ -221,7 +221,7 @@
                     "Properties": {
                       "FilterType": "Sql",
                       "SqlFilter": {
-                        "SqlExpression": "user.EventType IN ('cuentas_por_pagar.pasivo.autorizado-para-pago.v1', 'cuentas_por_pagar.deposito-viaticos.esperado.v1')"
+                        "SqlExpression": "user.EventType IN ('cuentas_por_pagar.pasivo.autorizado-para-pago.v1', 'cuentas_por_pagar.pasivo.retirado-de-pago.v1', 'cuentas_por_pagar.deposito-viaticos.esperado.v1')"
                       }
                     }
                   }
@@ -367,6 +367,29 @@
                       "FilterType": "Sql",
                       "SqlFilter": {
                         "SqlExpression": "user.EventType IN ('tesoreria.pago-cliente.confirmado.v1')"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "cuentas-por-cobrar-tesoreria-sub",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": false,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "EventTypeFilter",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "user.EventType IN ('tesoreria.pago-cliente.confirmado.v1', 'tesoreria.propuesta-aplicacion.rechazada.v1')"
                       }
                     }
                   }

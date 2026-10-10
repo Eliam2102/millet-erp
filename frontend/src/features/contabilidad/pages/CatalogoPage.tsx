@@ -14,6 +14,7 @@ import type { ClaseCuenta, FiltroEstatus, TipoCuenta } from '../api/types';
 import { ArbolCuentas } from '../components/ArbolCuentas';
 import { SELECT_CLASS } from '../lib/estilos';
 import { InsigniasCuenta } from '../components/InsigniasCuenta';
+import { SolicitudesCatalogo } from '../components/SolicitudesCatalogo';
 import { NuevaCuentaSheet } from '../components/NuevaCuentaSheet';
 
 const SELECT = SELECT_CLASS;
@@ -24,6 +25,7 @@ export function CatalogoPage() {
   const puedeAdministrar = useHasPermission(PermisosCanonicos.ContabilidadCatalogoAdministrar);
   const puedeImportar = useHasPermission(PermisosCanonicos.ContabilidadCatalogoImportar);
 
+  const [solicitudes, setSolicitudes] = useState(false);
   const [vista, setVista] = useState<'arbol' | 'lista'>('arbol');
   const [busqueda, setBusqueda] = useState('');
   const [estatus, setEstatus] = useState<FiltroEstatus>('');
@@ -71,6 +73,7 @@ export function CatalogoPage() {
           <p className="text-sm text-ink-muted">Consulta, alta y baja lógica de cuentas contables; marca las pendientes de validación.</p>
         </div>
         <div className="ml-auto flex items-center gap-2" data-print="hidden">
+          <Button variant="outline" aria-pressed={solicitudes} onClick={() => setSolicitudes(!solicitudes)}>Autorizaciones</Button>
           {puedeImportar && (
             <Button asChild variant="outline">
               <Link to="/contabilidad/importacion"><Upload className="mr-1 size-4" aria-hidden="true" />Importar</Link>
@@ -83,6 +86,8 @@ export function CatalogoPage() {
           )}
         </div>
       </header>
+
+      {solicitudes && <SolicitudesCatalogo />}
 
       <div className="flex flex-wrap items-center gap-3" data-print="hidden">
         <div className="relative">

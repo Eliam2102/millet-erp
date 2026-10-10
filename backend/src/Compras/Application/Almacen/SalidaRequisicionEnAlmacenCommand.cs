@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Infrastructure.PublicAdapters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain.Events;
@@ -45,15 +46,17 @@ public sealed class SalidaRequisicionEnAlmacenHandler
     public const string EventType = "almacen.salida_requisicion.registrada.v1";
 
     private readonly ComprasDbContext _db;
+    private readonly TransaccionApartadosRq _apartadosTx;
     private readonly IPublisher _publisher;
     private readonly ILogger<SalidaRequisicionEnAlmacenHandler> _logger;
 
     public SalidaRequisicionEnAlmacenHandler(
         ComprasDbContext db,
         IPublisher publisher,
-        ILogger<SalidaRequisicionEnAlmacenHandler> logger)
+        ILogger<SalidaRequisicionEnAlmacenHandler> logger, TransaccionApartadosRq apartadosTx)
     {
         _db = db;
+        _apartadosTx = apartadosTx;
         _publisher = publisher;
         _logger = logger;
     }
@@ -89,6 +92,9 @@ public sealed class SalidaRequisicionEnAlmacenHandler
                 "REQUISICION_NO_ENCONTRADA",
                 $"No se encontró RQ '{rqId}' al proyectar la entrega de la salida {p.SalidaId}.");
 
+        await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await using var union = await _apartadosTx.UnirAsync(cancellationToken);
+        await _apartadosTx.Apartados.BloquearAsync(rq.SucursalId, rq.Lineas.Select(l => l.ArticuloId), cancellationToken);
         var eventosCierre = new List<RequisicionCerradaEvent>();
 
         foreach (var linea in p.Lineas)
@@ -130,6 +136,9 @@ public sealed class SalidaRequisicionEnAlmacenHandler
         // mapper de Cerrada inserte la fila a outbox en la MISMA TX (mismo
         // patrón que RegistrarRecepcionHandler). En el PR #1 esto queda
         // dormido (el cierre viejo cierra antes).
+        if (eventosCierre.Count > 0)
+            await _apartadosTx.Apartados.LiberarAsync(rq.Id, cancellationToken);
+
         foreach (var cierre in eventosCierre)
         {
             await _publisher.Publish(cierre, cancellationToken);
@@ -141,6 +150,7 @@ public sealed class SalidaRequisicionEnAlmacenHandler
         // Dedupe + acumulación de la RQ (+ outbox del cierre si aplica) en
         // una sola transacción → idempotencia fuerte.
         await _db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
 
         _logger.LogInformation(
             "[SalidaRequisicionEnAlmacenHandler] Entrega de salida {SalidaId} aplicada a RQ {RqId}. Lineas={Lineas} Cerrada={Cerrada}",

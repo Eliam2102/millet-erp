@@ -39,6 +39,33 @@ public sealed class EventosContablesG16Tests
         return (db, cuenta, pasivo);
     }
 
+    [Fact]
+    public async Task P3_pago_manual_respeta_recibido_y_no_reutiliza_pagado_ante_evento_atrasado()
+    {
+        var (db, cuenta, pasivo) = Escenario(null);
+        await using var _ = db;
+        await db.SaveChangesAsync();
+        var limite = new ElegibleFijo();
+        var handler = new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(),
+            new SinDatosDeProveedor(), limite, new Captura(), new FakeClock());
+        var excesivo = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 1000m)]), default);
+        await excesivo.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PAGO_EXCEDE_ELEGIBLE");
+        await handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 800m)]), default);
+        var duplicado = () => handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 1m)]), default);
+        await duplicado.Should().ThrowAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>()
+            .Where(e => e.Code == "PAGO_EXCEDE_ELEGIBLE");
+        limite.Monto = 1000m;
+        await handler.Handle(new(cuenta.Id, Fecha, [new(pasivo.FacturaProveedorId, 200m)]), default);
+        (await db.AplicacionesPagoProveedor.SumAsync(a => a.ImporteAplicado)).Should().Be(1000m);
+    }
+
+    private sealed class ElegibleFijo : IElegibleFacturaReadPort
+    {
+        public decimal Monto { get; set; } = 800m;
+        public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid facturaId, CancellationToken cancellationToken) => Task.FromResult(Monto);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData(17.5)]
@@ -49,7 +76,7 @@ public sealed class EventosContablesG16Tests
         await db.SaveChangesAsync();
         var publisher = new Captura();
 
-        await new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), new SinDatosDeProveedor(), publisher, new FakeClock())
+        await new RegistrarPagoProveedorHandler(db, new FakeEmpresa(), new FakeUser(), new Abierto(), new SinDatosDeProveedor(), new ElegibleSinLimite(), publisher, new FakeClock())
             .Handle(new RegistrarPagoProveedorCommand(cuenta.Id, Fecha,
                 [new AplicacionPagoItem(pasivo.FacturaProveedorId, 400m)]), default);
 
@@ -123,4 +150,9 @@ public sealed class EventosContablesG16Tests
     {
         public DateTimeOffset UtcNow => Ahora;
     }
+    private sealed class ElegibleSinLimite : Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort
+    {
+        public Task<decimal> ObtenerLimiteAcumuladoAsync(Guid id, CancellationToken ct) => Task.FromResult(decimal.MaxValue);
+    }
+
 }

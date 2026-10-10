@@ -32,7 +32,7 @@ public sealed record MovimientoBancarioResponse(
     string? MotivoNoAplicado,
     Guid CreadoPor,
     DateTimeOffset CreadoEn,
-    int Version);
+    int Version, string? MotivoReversa = null, string? MotivoReclasificacion = null);
 
 internal static class MovimientoBancarioMapper
 {
@@ -40,7 +40,7 @@ internal static class MovimientoBancarioMapper
         new(m.Id, m.CuentaBancariaId, m.Sentido, m.Monto, m.Moneda, m.FechaValor,
             m.ReferenciaBancaria, m.ConceptoId, conceptoNombre, m.EstadoAplicacion,
             m.EstadoConciliacion, m.BeneficiarioTipo, m.BeneficiarioRef,
-            m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version);
+            m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version, m.MotivoReversa, m.MotivoReclasificacion);
 }
 
 // --------------------------------------------------- Libro (bandeja paginada)
@@ -53,7 +53,13 @@ public sealed record MovimientosBancariosQuery(
     DateOnly? Desde = null,
     DateOnly? Hasta = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<MovimientoBancarioResponse>>;
+    int Limit = 50) : IRequest<PagedResponse<MovimientoBancarioResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "movimiento_bancario";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class MovimientosBancariosHandler
     : IRequestHandler<MovimientosBancariosQuery, PagedResponse<MovimientoBancarioResponse>>
@@ -67,7 +73,8 @@ public sealed class MovimientosBancariosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.MovimientosBancarios.AsNoTracking();
+        var q = _db.MovimientosBancarios
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
         if (query.CuentaBancariaId is Guid cuenta) q = q.Where(m => m.CuentaBancariaId == cuenta);
         if (query.Sentido is SentidoMovimiento s) q = q.Where(m => m.Sentido == s);
         if (query.EstadoAplicacion is EstadoAplicacionMovimiento ea) q = q.Where(m => m.EstadoAplicacion == ea);
@@ -110,7 +117,7 @@ public sealed record AplicacionMovimientoDto(
     decimal ImporteAplicado,
     bool Revertida,
     Guid? CorridaId,
-    DateTimeOffset CreadoEn);
+    DateTimeOffset CreadoEn, string? MotivoReversa = null);
 
 /// <summary>
 /// Detalle del movimiento (TES-FE-PR2): el response base + sus
@@ -151,7 +158,7 @@ public sealed class MovimientoDetalleHandler : IRequestHandler<MovimientoDetalle
             .OrderBy(a => a.CreadoEn)
             .Select(a => new AplicacionMovimientoDto(
                 a.Id, a.FacturaProveedorId, a.ProveedorId,
-                a.ImporteAplicado, a.Revertida, a.CorridaId, a.CreadoEn))
+                a.ImporteAplicado, a.Revertida, a.CorridaId, a.CreadoEn, a.MotivoReversa))
             .ToListAsync(cancellationToken);
 
         var contramovimientos = await _db.MovimientosBancarios.AsNoTracking()

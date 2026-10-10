@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.CuentasPorPagar.Application.Common;
@@ -18,10 +20,14 @@ namespace Millet.Api.Endpoints.CuentasPorPagar;
 /// </summary>
 public static class NotasCargoEndpoints
 {
+    public sealed record AplicarNotaCargoBody(Guid? FacturaOrigenId);
+    public sealed record CancelarDocumentoBody(string Motivo);
+    public sealed record FormalizarCargoBody(Guid NotaCreditoId);
     public static IEndpointRouteBuilder MapNotasCargoEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/notas-cargo")
+            .WithDocumentoSucursalScope("nota_cargo", "cuentas_por_pagar.documentos")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 
@@ -46,8 +52,13 @@ public static class NotasCargoEndpoints
         group.MapPost("/", async (
             [FromBody] CrearNotaCargoCommand command,
             IMediator mediator,
+            DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarSucursalAsync(command.SucursalId, "cuentas_por_pagar.documentos.gestionar-todas-sucursales", cancellationToken);
+            if (command.FacturaOrigenId is Guid facturaId)
+                await scope.VerificarAsync("factura_proveedor", facturaId,
+                    PermisosCanonicos.CuentasPorPagarFacturasGestionarTodasSucursales, cancellationToken);
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/cuentas-por-pagar/notas-cargo/{response.Id}", response);
         })
@@ -91,10 +102,19 @@ public static class NotasCargoEndpoints
 
         group.MapPost("/{id:guid}/aplicar", async (
             Guid id,
+            [FromBody] AplicarNotaCargoBody? body,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            CuentasPorPagarDbContext scopeDb,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            // P4 puede elegir una factura al aplicar; si se omite, modifica la factura ya vinculada.
+            var facturaId = body?.FacturaOrigenId ?? await scopeDb.NotasCargo.AsNoTracking()
+                .Where(x => x.Id == id).Select(x => x.FacturaOrigenId).FirstOrDefaultAsync(cancellationToken);
+            if (facturaId is Guid factura)
+                await scope.VerificarAsync("factura_proveedor", factura,
+                    PermisosCanonicos.CuentasPorPagarFacturasGestionarTodasSucursales, cancellationToken);
             if (expectedVersion is not int v)
             {
                 return Results.Problem(
@@ -102,7 +122,7 @@ public static class NotasCargoEndpoints
                     statusCode: StatusCodes.Status428PreconditionRequired);
             }
 
-            var response = await mediator.Send(new AplicarNotaCargoCommand(id, v), cancellationToken);
+            var response = await mediator.Send(new AplicarNotaCargoCommand(id, v, body?.FacturaOrigenId), cancellationToken);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -132,6 +152,25 @@ public static class NotasCargoEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/cancelar", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? version,
+            [FromBody] CancelarDocumentoBody body, IMediator mediator, CancellationToken ct) =>
+        {
+            if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
+            await mediator.Send(new CancelarDocumentoP4Command(TipoDocumentoP4.NotaCargo, id, v, body.Motivo), ct);
+            return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+          .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarNotasCargoCrear)
+          .ProducesProblem(422).ProducesProblem(409).ProducesProblem(428);
+        group.MapPost("/{id:guid}/formalizar", async (Guid id, [FromHeader(Name = "X-Expected-Version")] int? version,
+            [FromBody] FormalizarCargoBody body, DocumentoSucursalScope scope, IMediator mediator, CancellationToken ct) =>
+        {
+            await scope.VerificarAsync("nota_credito_proveedor", body.NotaCreditoId,
+                PermisosCanonicos.CuentasPorPagarDocumentosGestionarTodasSucursales, ct);
+            if (version is not int v) return Results.Problem(title: "X-Expected-Version requerido", statusCode: 428);
+            await mediator.Send(new FormalizarNotaCargoCommand(id, v, body.NotaCreditoId), ct); return Results.NoContent();
+        }).WithMetadata(new RequireIdempotencyKeyAttribute())
+          .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarNotasCargoAplicar).ProducesProblem(422);
 
         return app;
 

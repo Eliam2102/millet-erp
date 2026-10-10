@@ -45,9 +45,8 @@ beforeEach(() => {
     ),
     // Fase E PR2.1: prellenado del CC. Exactamente 1 Dim3 en alcance → el form
     // autocompleta centroCostoId, así el submit pasa la validación obligatoria.
-    http.get('*/api/v1/centros-costo/dim3/buscar', () =>
-      HttpResponse.json([
-        {
+    http.get('*/api/v1/compras/requisiciones/:id/lineas/centro-costo-captura', () =>
+      HttpResponse.json({ heredado: {
           id: '0c000000-0000-0000-0000-000000000001',
           clave: 'MCLC101',
           nombre: 'Gantry',
@@ -57,8 +56,7 @@ beforeEach(() => {
           dim1Clave: 'D1',
           dim1Nombre: 'Planta',
           estatus: 0,
-        },
-      ]),
+        }, puedeElegir: true, unicaOpcion: null, mensaje: null }),
     ),
   );
   useAuthStore.setState({

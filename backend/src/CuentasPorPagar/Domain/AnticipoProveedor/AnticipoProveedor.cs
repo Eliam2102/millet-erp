@@ -74,11 +74,11 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
         if (string.IsNullOrWhiteSpace(moneda) || moneda.Length != 3)
             throw new BusinessRuleException("ANTICIPO_MONEDA_INVALIDA",
                 "La moneda debe ser código ISO 4217 de 3 letras.");
-        if (!string.Equals(serie?.Trim(), SerieEstandar, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(serie) || serie.Trim().Length > 25)
         {
             throw new BusinessRuleException(
                 "ANTICIPO_SERIE_INVALIDA",
-                $"La serie del CFDI de anticipo debe ser '{SerieEstandar}' (recibida: '{serie}').");
+                $"La serie del CFDI de anticipo es obligatoria y admite hasta 25 caracteres.");
         }
 
         return new AnticipoProveedor
@@ -88,7 +88,7 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
             CfdiRecibidoId = cfdiRecibidoId,
             UuidCfdi = uuidCfdi.Trim().ToUpperInvariant(),
             ProveedorId = proveedorId,
-            Serie = SerieEstandar,
+            Serie = serie.Trim().ToUpperInvariant(),
             FolioProveedor = folioProveedor,
             FechaCfdi = fechaCfdi,
             Moneda = moneda.ToUpperInvariant(),
@@ -138,6 +138,7 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
 
     public void Cancelar(string motivo, DateTimeOffset ahora)
     {
+        if (FechaCancelacion is not null) throw new BusinessRuleException("DOCUMENTO_YA_CANCELADO", "El documento ya está cancelado.");
         if (Estado == EstadoAnticipo.Amortizado)
         {
             throw new BusinessRuleException(

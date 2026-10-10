@@ -74,7 +74,7 @@ public sealed class AdjuntoAcceso
 
         try
         {
-            await propietario.VerificarAlcanceAsync(info, ct);
+            await propietario.VerificarAlcanceAsync(info, operacion, ct);
         }
         catch (ForbiddenException ex)
         {

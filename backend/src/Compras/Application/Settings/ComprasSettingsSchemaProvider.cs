@@ -38,6 +38,11 @@ public sealed class ComprasSettingsSchemaProvider : ISettingsSchemaProvider
 
         return new[]
         {
+            new SettingItem(Clave: "ApartarExistenciaAlAutorizar", Etiqueta: "Apartar existencia al autorizar requisición",
+                Descripcion: "Reserva el material disponible para la RQ autorizada. D3/P7; desactivar afecta sólo autorizaciones futuras, los apartados existentes se liberan al surtir, cancelar o cerrar.",
+                Tipo: TipoSetting.Booleano, Default: true, Valor: current.ApartarExistenciaAlAutorizar, Validacion: null,
+                PermisoLeer: "compras.configuracion.leer", PermisoEditar: "compras.configuracion.editar",
+                Mostrar: DisplayMode.Auto, RutaCustom: null, AlertaCambio: "Confirma la regla de apartado con Millet antes de desactivarla."),
             new SettingItem(
                 Clave: ClaveAutoGenerarOc,
                 Etiqueta: "Auto-generar OC al autorizar requisición",
@@ -70,7 +75,7 @@ public sealed class ComprasSettingsSchemaProvider : ISettingsSchemaProvider
         JsonElement valor,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(clave, ClaveAutoGenerarOc, StringComparison.Ordinal))
+        if (clave is not (ClaveAutoGenerarOc or "ApartarExistenciaAlAutorizar"))
         {
             throw new InvalidOperationException(
                 $"Clave '{clave}' no existe en el schema de Compras. El endpoint " +
@@ -81,13 +86,14 @@ public sealed class ComprasSettingsSchemaProvider : ISettingsSchemaProvider
         var flag = valor.GetBoolean();
 
         await _mediator.Send(
-            new ActualizarComprasSettingsCommand(AutoGenerarOcAlAutorizar: flag),
+            clave == ClaveAutoGenerarOc ? new ActualizarComprasSettingsCommand(AutoGenerarOcAlAutorizar: flag)
+                : new ActualizarComprasSettingsCommand(ApartarExistenciaAlAutorizar: flag),
             cancellationToken);
 
         // Re-leer el schema actualizado para retornar el SettingItem con
         // el Valor reciente. Costo aceptable (1 query) por simplicidad
         // — el caller espera ver el estado post-PATCH.
         var items = await ObtenerSchemaAsync(cancellationToken);
-        return items.First(i => i.Clave == ClaveAutoGenerarOc);
+        return items.First(i => i.Clave == clave);
     }
 }

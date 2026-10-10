@@ -195,7 +195,7 @@ public sealed class CajaSesionesTests
 
         var handler = new RegistrarCajaMovimientoHandler(
             db, new FakeEmpresaContext(Empresa), new FakeUserContext(Cajero),
-            new FakeClock(Ahora), new FakeSucursalesReadPort());
+            new FakeClock(Ahora), new FakeSucursalesReadPort(), new FakeCatalogosSatReadPort());
 
         var retiro = await handler.Handle(new RegistrarCajaMovimientoCommand(
             sesion.Id, TipoCajaMovimiento.Retiro, "01", 200m, "Retiro parcial"), CancellationToken.None);
@@ -203,7 +203,7 @@ public sealed class CajaSesionesTests
 
         var ajeno = new RegistrarCajaMovimientoHandler(
             db, new FakeEmpresaContext(Empresa), new FakeUserContext(Guid.NewGuid()),
-            new FakeClock(Ahora), new FakeSucursalesReadPort());
+            new FakeClock(Ahora), new FakeSucursalesReadPort(), new FakeCatalogosSatReadPort());
         var act = () => ajeno.Handle(new RegistrarCajaMovimientoCommand(
             sesion.Id, TipoCajaMovimiento.Deposito, "01", 50m, "Depósito"), CancellationToken.None);
         await act.Should().ThrowAsync<ForbiddenException>().Where(e => e.Code == "SESION_RESPONSABLE_DISTINTO");
@@ -220,7 +220,7 @@ public sealed class CajaSesionesTests
 
         var handler = new RegistrarCajaMovimientoHandler(
             db, new FakeEmpresaContext(Empresa), new FakeUserContext(Cajero),
-            new FakeClock(Ahora.AddDays(1)), new FakeSucursalesReadPort());
+            new FakeClock(Ahora.AddDays(1)), new FakeSucursalesReadPort(), new FakeCatalogosSatReadPort());
 
         var act = () => handler.Handle(new RegistrarCajaMovimientoCommand(
             sesion.Id, TipoCajaMovimiento.Deposito, "01", 50m, "Depósito tardío"), CancellationToken.None);
@@ -241,7 +241,7 @@ public sealed class CajaSesionesTests
 
         var movimientos = new RegistrarCajaMovimientoHandler(
             db, new FakeEmpresaContext(Empresa), new FakeUserContext(Cajero),
-            new FakeClock(Ahora), new FakeSucursalesReadPort());
+            new FakeClock(Ahora), new FakeSucursalesReadPort(), new FakeCatalogosSatReadPort());
         await movimientos.Handle(new RegistrarCajaMovimientoCommand(
             abierta.Id, TipoCajaMovimiento.Deposito, "03", 1000m, "Transferencia recibida"), CancellationToken.None);
         await movimientos.Handle(new RegistrarCajaMovimientoCommand(

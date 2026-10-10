@@ -29,7 +29,16 @@ public sealed class DepositoConfirmacionTests
     private static DepositoConfirmacion Propuesta(decimal monto = 5_000m, string moneda = "MXN") =>
         DepositoConfirmacion.CrearDesdePropuesta(
             EmpresaId, Guid.NewGuid(), Guid.NewGuid(), "DEP-123", monto, moneda,
-            """[{"FacturaVentaId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","Folio":"VEN-1","ImporteAplicado":5000.00}]""");
+            """[{"FacturaVentaId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","Folio":"VEN-1","ImporteAplicado":5000.00}]""", propuestoPor: Guid.NewGuid());
+
+    [Fact]
+    public void Quien_propone_no_confirma_aunque_tenga_todos_los_permisos()
+    {
+        var deposito = DepositoConfirmacion.CrearDesdePropuesta(EmpresaId, Guid.NewGuid(), Guid.NewGuid(), "P5", 5000, "MXN", "[]", UsuarioId);
+        var act = () => deposito.Confirmar(Ingreso(), UsuarioId, Ahora);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "DEP_MISMO_USUARIO");
+        deposito.Estado.Should().Be(EstadoDepositoConfirmacion.Pendiente);
+    }
 
     [Fact]
     public void Confirmar_liga_movimiento_y_resuelve()

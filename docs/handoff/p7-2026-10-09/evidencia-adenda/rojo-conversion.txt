@@ -1,0 +1,9 @@
+FAIL Millet.Compartido.UnitTests.P7.ConversionUnidadAdapterTests.Usa_factor_catalogado_y_conserva_unidades_de_documento(capturada: "CajaDemo", documento: "PZA", cantidad: 2, enBase: 24, enDocumento: 24) Configura en el catálogo la unidad del artículo, la capturada y su equivalencia antes de registrar.
+   at Millet.Compartido.Infrastructure.PublicAdapters.ConversionUnidadAdapter.ConvertirAsync(Guid articuloId, Decimal cantidad, String unidadCapturada, String unidadDocumento, CancellationToken ct) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/src/Compartido/Infrastructure/PublicAdapters/ConversionUnidadAdapter.cs:line 28
+   at Millet.Compartido.UnitTests.P7.ConversionUnidadAdapterTests.Usa_factor_catalogado_y_conserva_unidades_de_documento(String capturada, String documento, Decimal cantidad, Decimal enBase, Decimal enDocumento) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compartido.UnitTests/P7/ConversionUnidadAdapterTests.cs:line 23
+   at Millet.Compartido.UnitTests.P7.ConversionUnidadAdapterTests.Usa_factor_catalogado_y_conserva_unidades_de_documento(String capturada, String documento, Decimal cantidad, Decimal enBase, Decimal enDocumento) in /Users/eliamcv/Documents/Vidrios millet/millet_erp-P7-RES/backend/tests/Compartido.UnitTests/P7/ConversionUnidadAdapterTests.cs:line 28
+   at Xunit.Sdk.TestInvoker`1.<>c__DisplayClass47_0.<<InvokeTestMethodAsync>b__1>d.MoveNext() in /_/src/xunit.execution/Sdk/Frameworks/Runners/TestInvoker.cs:line 259
+--- End of stack trace from previous location ---
+   at Xunit.Sdk.ExecutionTimer.AggregateAsync(Func`1 asyncAction) in /_/src/xunit.execution/Sdk/Frameworks/ExecutionTimer.cs:line 48
+   at Xunit.Sdk.ExceptionAggregator.RunAsync(Func`1 code) in /_/src/xunit.core/Sdk/ExceptionAggregator.cs:line 90
+TOTAL=94 FAILED=1 SKIPPED=0

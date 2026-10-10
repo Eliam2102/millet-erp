@@ -1,0 +1,25 @@
+{
+  "base": "7aeec1d",
+  "unitarias": {
+    "unitarias-almacen": 326,
+    "unitarias-api": 40,
+    "unitarias-compartido": 100,
+    "unitarias-compras": 565,
+    "unitarias-cxp": 444,
+    "unitarias-identidad": 113,
+    "unitarias-tesoreria": 132
+  },
+  "unitarias_total": 1720,
+  "build_exit": 0,
+  "tsc_exit": 0,
+  "tsc_app_exit": 0,
+  "typecheck_test_exit": 0,
+  "lint_exit": 0,
+  "lint_errores": 0,
+  "lint_advertencias": 10,
+  "vitest_exit": 0,
+  "vitest_archivos": 364,
+  "vitest_pruebas": 2085,
+  "integracion_postgresql": "Por confirmar: socket Docker bloqueado",
+  "commit_push": "No ejecutados por instruccion vigente"
+}

@@ -223,7 +223,7 @@ public class GenerarBorradoresReordenTests : IClassFixture<WebApplicationFactory
         await db.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO almacen.configuraciones_reorden
                 (id, articulo_id, nivel, entidad_id, minimo, maximo, punto_reorden, auto_requisicion, objetivo, estatus, version, created_at, updated_at)
-            VALUES ({id}, {art}, {nivel}, {entidad}, 0, {max}, 0, {auto}, 1, 0, 0, NOW(), NOW())");
+            VALUES ({id}, {art}, {nivel}, {entidad}, 0, {max}, {max / 2}, {auto}, 1, 0, 0, NOW(), NOW())");
 
     private static async Task Limpiar(
         AlmacenDbContext db, Guid[] articulos, Guid[] ubics, Guid[] subs, Guid[] alms)

@@ -88,6 +88,7 @@ const VARIANTES_OC: Record<EstadoOrdenCompra, EstadoVariant> = {
   [EstadoOrdenCompra.Borrador]: 'neutral',
   [EstadoOrdenCompra.EnAutorizacionJefeCompras]: 'warning',
   [EstadoOrdenCompra.EnAutorizacionDireccion]: 'warning',
+  [EstadoOrdenCompra.CancelacionSolicitada]: 'warning',
   [EstadoOrdenCompra.Autorizada]: 'info',
   [EstadoOrdenCompra.Cerrada]: 'success',
   [EstadoOrdenCompra.Cancelada]: 'neutral',

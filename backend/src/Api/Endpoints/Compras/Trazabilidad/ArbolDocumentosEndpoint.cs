@@ -1,4 +1,8 @@
 using MediatR;
+using Millet.Api.Web;
+using Millet.Compras.Infrastructure;
+using Millet.Administracion.Application.Abstractions;
+using Millet.SharedKernel.Application;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -24,10 +28,35 @@ public static class ArbolDocumentosEndpoint
         group.MapGet("/arbol-documentos", async (
             [FromQuery] TipoDocumentoTrazabilidad desde,
             [FromQuery] Guid id,
+            ComprasDbContext scopeDb,
+            ICurrentUserContext user,
+            ICurrentUserPermissions permisos,
+            IUsuarioSucursalReadPort sucursales,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            async Task VerificarNodoAsync(TipoDocumentoTrazabilidad tipo, Guid nodoId)
+            {
+                if (tipo == TipoDocumentoTrazabilidad.Requisicion)
+                    await RqSucursalScope.VerificarAsync(nodoId, scopeDb, user, permisos, sucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.OrdenCompra)
+                    await Oc.OcSucursalScope.VerificarAsync(nodoId, scopeDb, user, permisos, sucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.Recepcion)
+                    await documentos.VerificarAsync("recepcion", nodoId, PermisosCanonicos.AlmacenEntradasLeerTodasSucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.FacturaProveedor)
+                    await documentos.VerificarAsync("factura_proveedor", nodoId, PermisosCanonicos.CuentasPorPagarFacturasLeerTodasSucursales, cancellationToken);
+                else if (tipo == TipoDocumentoTrazabilidad.PagoProveedor)
+                    await documentos.VerificarAsync("pago_proveedor", nodoId, PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales, cancellationToken);
+            }
+            async Task VerificarArbolAsync(NodoArbolDocumento nodo)
+            {
+                await VerificarNodoAsync(nodo.TipoDocumento, nodo.Id);
+                foreach (var hijo in nodo.Ascendentes.Concat(nodo.Descendentes)) await VerificarArbolAsync(hijo);
+            }
+            await VerificarNodoAsync(desde, id);
             var arbol = await mediator.Send(new ObtenerArbolDocumentosQuery(desde, id), cancellationToken);
+            if (arbol is not null) await VerificarArbolAsync(arbol);
             return arbol is null ? Results.NotFound() : Results.Ok(arbol);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesLeer)
@@ -35,10 +64,8 @@ public static class ArbolDocumentosEndpoint
         .WithSummary("Árbol de trazabilidad RQ → OC → ... (F7-PR2)")
         .WithDescription(
             "Construye el árbol cross-módulo de documentos relacionados " +
-            "desde el nodo origen. V1 conoce RQ y OC: desde una RQ devuelve " +
-            "las OCs descendientes; desde una OC devuelve las RQs ascendentes. " +
-            "CxP/Recepción/Tesorería se incorporan cuando los módulos implementen " +
-            "su provider del servicio.")
+            "desde RQ, OC, recepción, factura o pago. Expande RQ → OC → " +
+            "recepciones → facturas → pagos aplicados, con sus ascendentes y filtro de empresa.")
         .Produces<NodoArbolDocumento>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)

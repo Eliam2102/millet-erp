@@ -49,6 +49,7 @@ public sealed class EmitirFacturaVentaHandler
     private readonly ICurrentEmpresaContext _empresa;
     private readonly ICurrentUserContext _user;
     private readonly IClock _clock;
+    private readonly IProductosReadPort? _productos;
 
     public EmitirFacturaVentaHandler(
         FacturacionDbContext db,
@@ -62,7 +63,10 @@ public sealed class EmitirFacturaVentaHandler
         IContabilidadAsientoPort contabilidad,
         ICurrentEmpresaContext empresa,
         ICurrentUserContext user,
-        IClock clock, ValidadorReceptorFiscal receptorFiscal)
+        IClock clock, ValidadorReceptorFiscal receptorFiscal,
+        // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
+        // romper composiciones existentes (sin puerto, TipoProducto = null).
+        IProductosReadPort? productos = null)
     {
         _receptorFiscal = receptorFiscal;
         _db = db;
@@ -77,6 +81,7 @@ public sealed class EmitirFacturaVentaHandler
         _empresa = empresa;
         _user = user;
         _clock = clock;
+        _productos = productos;
     }
 
     public async Task<EmitirFacturaVentaResponse> Handle(
@@ -100,6 +105,8 @@ public sealed class EmitirFacturaVentaHandler
 
         // 2. Validación local previa de catálogos SAT.
         await ValidarCatalogosSatAsync(command, cancellationToken);
+        await TipoCambioFactura.ValidarAsync(
+            _catalogos, command.Moneda, command.TipoCambio, ahora, cancellationToken);
 
         var receptor = new DatosFiscalesReceptor(
             Rfc: command.ReceptorRfc,
@@ -266,9 +273,9 @@ public sealed class EmitirFacturaVentaHandler
         // misma TX vía el interceptor). Solo si quedó Timbrada.
         if (factura.Estado == EstadoTimbrado.Timbrado)
         {
-            await _eventos.PublishAsync(new FacturaVentaTimbradaIntegrationEvent(
-                factura.EmpresaId, ahora, factura.Id, factura.Uuid!, factura.Total, factura.Moneda, factura.PedidoFacturableId,
-                factura.ReceptorRfc, factura.ReceptorNombre, factura.Folio, factura.MetodoPago, factura.FechaTimbrado),
+            await _eventos.PublishAsync(EventosContablesFacturacion.FacturaVentaTimbrada(
+                factura, ahora, command.ClienteId ?? pedido?.ClienteId,
+                await EventosContablesFacturacion.TiposProductoAsync(_productos, factura, cancellationToken)),
                 cancellationToken);
             await _contabilidad.RegistrarAsientoAsync(new AsientoContableSolicitud(
                 factura.Id, "FacturaVenta", $"Factura {factura.Folio}", factura.Total, factura.Moneda, anio, mes), cancellationToken);
@@ -481,8 +488,8 @@ public sealed class EmitirFacturaVentaHandler
             _db.NotasCredito.Add(nc);
 
             // F10-PR1: evento de NC de amortización timbrada.
-            await _eventos.PublishAsync(new NotaCreditoTimbradaIntegrationEvent(
-                nc.EmpresaId, ahora, nc.Id, nc.Motivo.ToString(), nc.Uuid!, nc.Total, factura.Id, a.Anticipo.Id),
+            await _eventos.PublishAsync(EventosContablesFacturacion.NotaCreditoTimbrada(
+                nc, ahora, factura.Id, a.Anticipo.Id, a.Anticipo.ClienteId),
                 cancellationToken);
 
             emitidas.Add(new NotaCreditoAmortizacionEmitida(
@@ -506,7 +513,7 @@ public sealed class EmitirFacturaVentaHandler
         if (!await _catalogos.ExisteMonedaAsync(command.Moneda, cancellationToken))
             throw new BusinessRuleException("MONEDA_INVALIDA", $"La moneda '{command.Moneda}' no existe en el catálogo SAT.");
         if (!await _catalogos.ExisteFormaPagoAsync(command.FormaPago, cancellationToken))
-            throw new BusinessRuleException("FORMA_PAGO_INVALIDA", $"La forma de pago '{command.FormaPago}' no existe en el catálogo SAT.");
+            throw new BusinessRuleException("FORMA_PAGO_INVALIDA", $"La forma de pago '{command.FormaPago}' no existe o está desactivada en el catálogo SAT. Selecciona una forma de pago activa.");
         if (!await _catalogos.ExisteRegimenFiscalAsync(command.RegimenFiscalEmisor, cancellationToken))
             throw new BusinessRuleException("REGIMEN_EMISOR_INVALIDO", $"El régimen fiscal del emisor '{command.RegimenFiscalEmisor}' no existe en el catálogo SAT.");
     }

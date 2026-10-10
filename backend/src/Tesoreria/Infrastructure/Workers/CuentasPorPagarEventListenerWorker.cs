@@ -162,6 +162,11 @@ public sealed class CuentasPorPagarEventListenerWorker : BackgroundService
                     break;
                 }
 
+                case PasivoRetiradoDePagoPayload.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<PasivoRetiradoDePagoPayload>(body, JsonOpts) ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new RetirarPasivoDePagoCommand(eventId, payload), cancellationToken); break;
+                }
                 case DepositoViaticosEsperadoPayload.EventType:
                 {
                     var payload = JsonSerializer.Deserialize<DepositoViaticosEsperadoPayload>(body, JsonOpts)

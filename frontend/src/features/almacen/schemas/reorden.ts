@@ -18,6 +18,7 @@ const UUID_SHAPE_RE =
 
 /** Política común (min/máx/punto-reorden/bandera/objetivo). */
 const politica = {
+  cantidadFija: z.number().positive('La cantidad fija debe ser positiva').nullish(),
   minimo: z.number().min(0, 'No puede ser negativo'),
   maximo: z.number().min(0, 'No puede ser negativo'),
   puntoReorden: z.number().min(0, 'No puede ser negativo'),

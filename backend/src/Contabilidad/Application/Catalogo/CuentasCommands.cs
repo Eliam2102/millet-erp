@@ -16,11 +16,11 @@ public sealed record CuentaResponse(
     Guid Id, string Codigo, string Nombre, Guid? PadreId, int Nivel, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
     string Estatus, bool Activa, CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte,
     bool PendienteValidacion, int Version, ClaseCuenta Clase, Guid? RubroId,
-    bool? Usada = null, IReadOnlyList<OrigenCuentaDto>? Origenes = null)
+    bool? Usada = null, IReadOnlyList<OrigenCuentaDto>? Origenes = null, bool NoAfectableManual = false, Guid? SolicitudId = null)
 {
     public static CuentaResponse De(CuentaContable c, bool? usada = null, IReadOnlyList<OrigenCuentaDto>? origenes = null) => new(
         c.Id, c.Codigo, c.Nombre, c.PadreId, c.Nivel, c.Naturaleza, c.Tipo, c.Estatus.ToString(), c.Activa,
-        c.CuentaControl, c.CodigoAgrupador, c.GrupoReporte, c.PendienteValidacion, c.Version, c.Clase, c.RubroId, usada, origenes);
+        c.CuentaControl, c.CodigoAgrupador, c.GrupoReporte, c.PendienteValidacion, c.Version, c.Clase, c.RubroId, usada, origenes, c.NoAfectableManual);
 }
 
 /// <summary>Reglas R1–R9 que dependen del árbol y de la configuración (compartidas por crear/editar/baja).</summary>
@@ -121,7 +121,7 @@ internal sealed class PoliticaCatalogo(ContabilidadDbContext db, FormatoCatalogo
 public sealed record CrearCuentaCommand(
     string Codigo, string Nombre, Guid? PadreId, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
     CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte,
-    ClaseCuenta Clase = ClaseCuenta.Cuenta, Guid? RubroId = null) : IRequest<CuentaResponse>;
+    ClaseCuenta Clase = ClaseCuenta.Cuenta, Guid? RubroId = null, bool NoAfectableManual = false) : IRequest<CuentaResponse>;
 
 public sealed class CrearCuentaValidator : AbstractValidator<CrearCuentaCommand>
 {
@@ -134,12 +134,15 @@ public sealed class CrearCuentaValidator : AbstractValidator<CrearCuentaCommand>
     }
 }
 
-public sealed class CrearCuentaHandler(ContabilidadDbContext db, FormatoCatalogo formato)
+public sealed class CrearCuentaHandler(ContabilidadDbContext db, FormatoCatalogo formato, SolicitudesCatalogo solicitudes)
     : IRequestHandler<CrearCuentaCommand, CuentaResponse>
 {
     private readonly PoliticaCatalogo _p = new(db, formato);
 
-    public async Task<CuentaResponse> Handle(CrearCuentaCommand request, CancellationToken cancellationToken)
+    public Task<CuentaResponse> Handle(CrearCuentaCommand request, CancellationToken cancellationToken) =>
+        solicitudes.PrepararCuentaAsync(request, () => AplicarAsync(request, cancellationToken), cancellationToken);
+
+    internal async Task<CuentaResponse> AplicarAsync(CrearCuentaCommand request, CancellationToken cancellationToken, Guid? cuentaId = null)
     {
         var codigo = _p.NormalizarCodigo(request.Codigo);
         // R1 (incluye inactivas, P9): el índice único es la autoridad; esto solo mejora el mensaje.
@@ -153,16 +156,11 @@ public sealed class CrearCuentaHandler(ContabilidadDbContext db, FormatoCatalogo
         var tipo = _p.Deriva ? CuentaContable.DerivarTipo(nivel, tieneHijas: false) : request.Tipo;
         await _p.ConvertirPadreSiAfectableAsync(padre, cancellationToken);
 
-        var cuenta = new CuentaContable(Guid.CreateVersion7(), codigo, request.Nombre.Trim(), padre?.Id, nivel,
+        var cuenta = new CuentaContable(cuentaId ?? Guid.CreateVersion7(), codigo, request.Nombre.Trim(), padre?.Id, nivel,
             request.Naturaleza, tipo, _p.ResolverControl(codigo, request.CuentaControl),
-            FormatoCatalogo.Texto(request.CodigoAgrupador), FormatoCatalogo.Texto(request.GrupoReporte), request.Clase);
+            FormatoCatalogo.Texto(request.CodigoAgrupador), FormatoCatalogo.Texto(request.GrupoReporte), request.Clase, request.NoAfectableManual);
         cuenta.AsignarRubro(await _p.ValidarRubroAsync(request.RubroId, cancellationToken));
         db.Cuentas.Add(cuenta);
-        try { await db.SaveChangesAsync(cancellationToken); }
-        catch (DbUpdateException e) when (PoliticaCatalogo.EsViolacionUnica(e, "ux_cuentas_contables_codigo"))
-        {
-            throw new ConflictException("CONTAB_CUENTA_CODIGO_DUPLICADO", $"Ya existe una cuenta con el código '{codigo}'.");
-        }
         return CuentaResponse.De(cuenta);
     }
 }
@@ -171,7 +169,7 @@ public sealed class CrearCuentaHandler(ContabilidadDbContext db, FormatoCatalogo
 
 public sealed record EditarCuentaCommand(
     Guid Id, int VersionEsperada, string Nombre, Guid? PadreId, NaturalezaCuenta? Naturaleza, TipoCuenta? Tipo,
-    CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte, Guid? RubroId = null) : IRequest<CuentaResponse>;
+    CuentaControl CuentaControl, string? CodigoAgrupador, string? GrupoReporte, Guid? RubroId = null, bool NoAfectableManual = false) : IRequest<CuentaResponse>;
 
 public sealed class EditarCuentaValidator : AbstractValidator<EditarCuentaCommand>
 {
@@ -184,12 +182,15 @@ public sealed class EditarCuentaValidator : AbstractValidator<EditarCuentaComman
     }
 }
 
-public sealed class EditarCuentaHandler(ContabilidadDbContext db, FormatoCatalogo formato)
+public sealed class EditarCuentaHandler(ContabilidadDbContext db, FormatoCatalogo formato, SolicitudesCatalogo solicitudes)
     : IRequestHandler<EditarCuentaCommand, CuentaResponse>
 {
     private readonly PoliticaCatalogo _p = new(db, formato);
 
-    public async Task<CuentaResponse> Handle(EditarCuentaCommand request, CancellationToken cancellationToken)
+    public Task<CuentaResponse> Handle(EditarCuentaCommand request, CancellationToken cancellationToken) =>
+        solicitudes.PrepararCuentaAsync(request, () => AplicarAsync(request, cancellationToken), cancellationToken);
+
+    internal async Task<CuentaResponse> AplicarAsync(EditarCuentaCommand request, CancellationToken cancellationToken)
     {
         var cuenta = await db.Cuentas.FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken)
             ?? throw new EntityNotFoundException("CONTAB_CUENTA_NO_ENCONTRADA", $"No existe la cuenta '{request.Id}'.");
@@ -231,10 +232,9 @@ public sealed class EditarCuentaHandler(ContabilidadDbContext db, FormatoCatalog
 
         var delta = nivel - cuenta.Nivel;
         cuenta.Editar(request.Nombre.Trim(), request.PadreId, nivel, request.Naturaleza, tipo, _p.ResolverControl(cuenta.Codigo, request.CuentaControl),
-            FormatoCatalogo.Texto(request.CodigoAgrupador), FormatoCatalogo.Texto(request.GrupoReporte));
+            FormatoCatalogo.Texto(request.CodigoAgrupador), FormatoCatalogo.Texto(request.GrupoReporte), request.NoAfectableManual);
         cuenta.AsignarRubro(await _p.ValidarRubroAsync(request.RubroId, cancellationToken));
         foreach (var d in descendientes) d.FijarNivel(d.Nivel + delta);
-        await db.SaveChangesAsync(cancellationToken);
         return CuentaResponse.De(cuenta);
     }
 
@@ -252,9 +252,12 @@ public sealed class EditarCuentaHandler(ContabilidadDbContext db, FormatoCatalog
 
 public sealed record DesactivarCuentaCommand(Guid Id, int VersionEsperada) : IRequest<CuentaResponse>;
 
-public sealed class DesactivarCuentaHandler(ContabilidadDbContext db) : IRequestHandler<DesactivarCuentaCommand, CuentaResponse>
+public sealed class DesactivarCuentaHandler(ContabilidadDbContext db, SolicitudesCatalogo solicitudes) : IRequestHandler<DesactivarCuentaCommand, CuentaResponse>
 {
-    public async Task<CuentaResponse> Handle(DesactivarCuentaCommand request, CancellationToken cancellationToken)
+    public Task<CuentaResponse> Handle(DesactivarCuentaCommand request, CancellationToken cancellationToken) =>
+        solicitudes.PrepararCuentaAsync(request, () => AplicarAsync(request, cancellationToken), cancellationToken);
+
+    internal async Task<CuentaResponse> AplicarAsync(DesactivarCuentaCommand request, CancellationToken cancellationToken)
     {
         var cuenta = await db.Cuentas.FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken)
             ?? throw new EntityNotFoundException("CONTAB_CUENTA_NO_ENCONTRADA", $"No existe la cuenta '{request.Id}'.");
@@ -264,16 +267,18 @@ public sealed class DesactivarCuentaHandler(ContabilidadDbContext db) : IRequest
             throw new BusinessRuleException("CONTAB_CUENTA_BAJA_CON_HIJAS_ACTIVAS",
                 $"La cuenta {cuenta.Codigo} tiene hijas activas; desactívelas primero (no hay baja en cascada).");
         cuenta.Desactivar();
-        await db.SaveChangesAsync(cancellationToken);
         return CuentaResponse.De(cuenta);
     }
 }
 
 public sealed record ReactivarCuentaCommand(Guid Id, int VersionEsperada) : IRequest<CuentaResponse>;
 
-public sealed class ReactivarCuentaHandler(ContabilidadDbContext db) : IRequestHandler<ReactivarCuentaCommand, CuentaResponse>
+public sealed class ReactivarCuentaHandler(ContabilidadDbContext db, SolicitudesCatalogo solicitudes) : IRequestHandler<ReactivarCuentaCommand, CuentaResponse>
 {
-    public async Task<CuentaResponse> Handle(ReactivarCuentaCommand request, CancellationToken cancellationToken)
+    public Task<CuentaResponse> Handle(ReactivarCuentaCommand request, CancellationToken cancellationToken) =>
+        solicitudes.PrepararCuentaAsync(request, () => AplicarAsync(request, cancellationToken), cancellationToken);
+
+    internal async Task<CuentaResponse> AplicarAsync(ReactivarCuentaCommand request, CancellationToken cancellationToken)
     {
         var cuenta = await db.Cuentas.FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken)
             ?? throw new EntityNotFoundException("CONTAB_CUENTA_NO_ENCONTRADA", $"No existe la cuenta '{request.Id}'.");
@@ -282,7 +287,6 @@ public sealed class ReactivarCuentaHandler(ContabilidadDbContext db) : IRequestH
         if (cuenta.PadreId is { } pid && !await db.Cuentas.AnyAsync(c => c.Id == pid && c.Estatus == EstatusCatalogo.Activo, cancellationToken))
             throw new BusinessRuleException("CONTAB_CUENTA_PADRE_INVALIDO", "No se puede reactivar: la cuenta padre está inactiva.");
         cuenta.Reactivar();
-        await db.SaveChangesAsync(cancellationToken);
         return CuentaResponse.De(cuenta);
     }
 }

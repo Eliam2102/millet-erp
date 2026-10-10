@@ -97,12 +97,14 @@ public sealed record PagoFacturaProveedorRevertidoIntegrationEvent(
 /// Efecto en CxP: <c>MarcarReppRecibido()</c> — libera el motivo de
 /// revisión <c>FALTA_REPP</c>.
 /// </summary>
+public sealed record ReppPagoDetalle(Guid PagoId, decimal Importe);
+
 public sealed record ReppProveedorRecibidoIntegrationEvent(
     Guid EmpresaId,
     DateTimeOffset OcurridoEn,
     Guid FacturaProveedorId,
     string UuidComplementoPago,
-    DateTimeOffset FechaComplemento)
+    DateTimeOffset FechaComplemento, IReadOnlyList<ReppPagoDetalle>? Pagos = null)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.repp-proveedor.recibido.v1";
@@ -160,7 +162,7 @@ public sealed record PagoClienteConfirmadoIntegrationEvent(
     string Moneda,
     DateOnly FechaValor,
     string? Referencia,
-    IReadOnlyList<PagoClienteFacturaAplicada> Facturas)
+    IReadOnlyList<PagoClienteFacturaAplicada> Facturas, Guid? ConfirmadaPor = null, decimal SaldoAFavorPorIdentificar = 0)
     : IntegrationEvent(WireEventType, EmpresaId, OcurridoEn)
 {
     public const string WireEventType = "tesoreria.pago-cliente.confirmado.v1";
@@ -169,10 +171,7 @@ public sealed record PagoClienteConfirmadoIntegrationEvent(
 /// <summary>
 /// <c>tesoreria.propuesta-aplicacion.rechazada.v1</c> — Tesorería rechazó
 /// la propuesta (depósito no aparece, monto no coincide) para que CxC
-/// re-proponga [T-G7]. PLATFORM-TODO(&lt;PropuestaRechazadaConsumerCxC&gt;):
-/// CxC aún NO consume `tesoreria-events` — mientras tanto el rechazo se
-/// resuelve espejo en CxC vía su endpoint interino A2 (el agregado
-/// <c>PropuestaAplicacionPago</c> ya contempla <c>Rechazada</c>).
+/// re-proponga. CxC consume el evento y libera las reservas de la propuesta.
 /// </summary>
 public sealed record PropuestaAplicacionRechazadaIntegrationEvent(
     Guid EmpresaId,

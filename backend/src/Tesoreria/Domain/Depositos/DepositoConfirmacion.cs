@@ -29,6 +29,9 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
 {
     public Guid EmpresaId { get; set; }
 
+    public Guid? PropuestoPor { get; private set; }
+    public decimal SaldoAFavorPorIdentificar { get; private set; }
+
     public Guid? MovimientoId { get; private set; }
     public Guid? PropuestaCxcId { get; private set; }
 
@@ -80,7 +83,7 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
         string depositoRef,
         decimal montoDeposito,
         string moneda,
-        string facturasJson)
+        string facturasJson, Guid? propuestoPor = null, decimal saldoAFavorPorIdentificar = 0)
     {
         if (propuestaCxcId == Guid.Empty)
             throw new BusinessRuleException("DEP_PROPUESTA_VACIA", "La propuesta de CxC es obligatoria.");
@@ -94,6 +97,8 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
             Id = Guid.CreateVersion7(),
             EmpresaId = empresaId,
             PropuestaCxcId = propuestaCxcId,
+            PropuestoPor = propuestoPor,
+            SaldoAFavorPorIdentificar = saldoAFavorPorIdentificar,
             ClienteId = clienteId,
             DepositoRef = depositoRef?.Trim(),
             MontoEsperado = montoDeposito,
@@ -176,6 +181,10 @@ public sealed class DepositoConfirmacion : BaseEntity, IPerteneceAEmpresa, IAudi
         AsegurarPendiente();
         if (usuarioId == Guid.Empty)
             throw new BusinessRuleException("DEP_USUARIO_VACIO", "El usuario que confirma es obligatorio.");
+        if (PropuestaCxcId is not null && (PropuestoPor is null || PropuestoPor == Guid.Empty))
+            throw new BusinessRuleException("DEP_PROPONENTE_NO_IDENTIFICADO", "La propuesta no identifica quién la creó. Recházala y solicita una nueva a CxC.");
+        if (PropuestoPor == usuarioId)
+            throw new BusinessRuleException("DEP_MISMO_USUARIO", "Quien propone el cobro no puede confirmarlo. Solicita la confirmación a otra persona de Tesorería.");
         if (movimiento.Sentido != SentidoMovimiento.Ingreso)
             throw new BusinessRuleException("DEP_MOVIMIENTO_NO_INGRESO",
                 "Solo un movimiento bancario de ingreso puede confirmar un depósito (RN-6).");

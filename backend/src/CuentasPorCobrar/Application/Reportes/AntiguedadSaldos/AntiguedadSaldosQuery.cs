@@ -24,7 +24,13 @@ namespace Millet.CuentasPorCobrar.Application.Reportes.AntiguedadSaldos;
 public sealed record AntiguedadSaldosQuery(
     DateOnly? FechaCorte = null,
     Guid? ClienteId = null,
-    string? Moneda = null) : IRequest<ReporteJsonResponse>;
+    string? Moneda = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
+    public string TipoDocumento => "factura_cartera";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class AntiguedadSaldosHandler : IRequestHandler<AntiguedadSaldosQuery, ReporteJsonResponse>
 {
@@ -47,7 +53,8 @@ public sealed class AntiguedadSaldosHandler : IRequestHandler<AntiguedadSaldosQu
     {
         var fechaCorte = query.FechaCorte ?? DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
 
-        var q = _db.FacturasCartera.AsNoTracking()
+        var q = _db.FacturasCartera
+            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking()
             .Where(f => f.Estado == EstadoFacturaCartera.Abierta
                      || f.Estado == EstadoFacturaCartera.Parcial);
         if (query.ClienteId is Guid c) q = q.Where(f => f.ClienteId == c);

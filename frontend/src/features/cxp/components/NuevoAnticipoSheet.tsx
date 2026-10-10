@@ -1,6 +1,7 @@
+import { SerieAnticipoProveedor } from '@/features/cxp/components/SerieAnticipoProveedor';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Upload } from 'lucide-react';
@@ -54,7 +55,7 @@ export function NuevoAnticipoSheet({
         <SheetHeader>
           <SheetTitle>Capturar anticipo a proveedor</SheetTitle>
           <SheetDescription>
-            CFDI con serie FANT. Se publica evento para que Compras lo
+            CFDI con serie configurada por proveedor (FANT por omisión). Se publica evento para que Compras lo
             asocie a la OC.
           </SheetDescription>
         </SheetHeader>
@@ -90,6 +91,8 @@ function Form({ onClose }: { onClose: () => void }) {
       ordenCompraId: null,
     },
   });
+
+  const proveedorId = useWatch({ control: form.control, name: 'proveedorId' });
 
   /**
    * Auto-resuelve el proveedor desde el RFC emisor del CFDI (match exacto
@@ -159,6 +162,7 @@ function Form({ onClose }: { onClose: () => void }) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
+      <SerieAnticipoProveedor key={proveedorId} proveedorId={proveedorId} />
       <div className="space-y-1">
         <Label className="text-xs">CFDI del anticipo</Label>
         <div className="flex gap-2">

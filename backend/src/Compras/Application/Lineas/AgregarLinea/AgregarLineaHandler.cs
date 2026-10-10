@@ -34,18 +34,18 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
     private readonly ComprasDbContext _db;
     private readonly CompartidoDbContext _compartido;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
-    private readonly Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort _dim3ElegibilidadPort;
+    private readonly Millet.CentrosCosto.Application.PublicPorts.ICentroCostoCapturaPort _capturaCentroCosto;
 
     public AgregarLineaHandler(
         ComprasDbContext db,
         CompartidoDbContext compartido,
         IDecimalesUnidadGuard decimalesGuard,
-        Millet.CentrosCosto.Application.PublicPorts.IDim3ElegibilidadPort dim3ElegibilidadPort)
+        Millet.CentrosCosto.Application.PublicPorts.ICentroCostoCapturaPort capturaCentroCosto)
     {
         _db = db;
         _compartido = compartido;
         _decimalesGuard = decimalesGuard;
-        _dim3ElegibilidadPort = dim3ElegibilidadPort;
+        _capturaCentroCosto = capturaCentroCosto;
     }
 
     public async Task<AgregarLineaResponse> Handle(
@@ -80,16 +80,8 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
             new[] { new CantidadAValidar(command.ArticuloId, command.Cantidad, command.UnidadMedida) },
             cancellationToken);
 
-        // G1.11 / ADR-0050 §1: línea de RQ es captura del dueño del gasto.
-        // Valida existe + activo + en alcance del usuario actual.
-        if (command.CentroCostoId is Guid centroCostoId)
-        {
-            await CentroCostoLineaGuard.ValidarAsync(
-                _dim3ElegibilidadPort,
-                centroCostoId,
-                aplicarAlcance: true,
-                cancellationToken);
-        }
+        var centroCostoId = await CentroCostoRqResolver.ResolverAsync(
+            requisicion, _compartido, _capturaCentroCosto, command.CentroCostoId, cancellationToken);
 
         var linea = requisicion.AgregarLinea(
             lineaId: Guid.CreateVersion7(),
@@ -98,7 +90,7 @@ public sealed class AgregarLineaHandler : IRequestHandler<AgregarLineaCommand, A
             unidadMedida: command.UnidadMedida,
             precioEstimado: Money.Of(command.PrecioEstimadoMonto, command.PrecioEstimadoMoneda),
             cuentaContableId: command.CuentaContableId,
-            centroCostoId: command.CentroCostoId,
+            centroCostoId: centroCostoId,
             proyecto: command.Proyecto,
             fechaRequerida: command.FechaRequerida,
             notas: command.Notas);

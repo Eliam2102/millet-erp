@@ -27,8 +27,7 @@ export const EstadoCfdiRecibido = {
   Duplicado: 3,
   Descartado: 4,
 } as const satisfies Record<string, number>;
-export type EstadoCfdiRecibido =
-  (typeof EstadoCfdiRecibido)[keyof typeof EstadoCfdiRecibido];
+export type EstadoCfdiRecibido = (typeof EstadoCfdiRecibido)[keyof typeof EstadoCfdiRecibido];
 
 /** Tipo del CFDI según el SAT (00-Ingreso, 01-Egreso, etc.). */
 export const TipoCfdi = {
@@ -49,8 +48,7 @@ export const CanalOrigenCfdi = {
   CargaManual: 3,
   PortalProveedor: 4,
 } as const satisfies Record<string, number>;
-export type CanalOrigenCfdi =
-  (typeof CanalOrigenCfdi)[keyof typeof CanalOrigenCfdi];
+export type CanalOrigenCfdi = (typeof CanalOrigenCfdi)[keyof typeof CanalOrigenCfdi];
 
 export interface CfdiListItem {
   id: string;
@@ -73,7 +71,19 @@ export interface CfdiListItem {
 }
 
 /** Respuesta de GET /cfdis/{id}/parseado — XML re-parseado on-demand. */
+export interface NotaCreditoAdjunta {
+  cfdiRecibidoId: string;
+  lineas: { lineaOcId: string; base: number }[];
+}
+export interface RetencionCfdi {
+  impuesto: string;
+  tasa: number | null;
+  importe: number;
+}
+
 export interface CfdiParseado {
+  descuentos?: number;
+  retencionesDetalle?: RetencionCfdi[] | null;
   id: string;
   uuidCfdi: string;
   total: number;
@@ -194,8 +204,7 @@ export const MotivoCancelacion = {
   ErrorCaptura: 3,
   OtroConTexto: 99,
 } as const satisfies Record<string, number>;
-export type MotivoCancelacion =
-  (typeof MotivoCancelacion)[keyof typeof MotivoCancelacion];
+export type MotivoCancelacion = (typeof MotivoCancelacion)[keyof typeof MotivoCancelacion];
 
 export const EstadoPasivoLabels: Record<EstadoPasivo, string> = {
   [EstadoPasivo.Capturada]: 'Capturada',
@@ -213,6 +222,7 @@ export const MotivoCancelacionLabels: Record<MotivoCancelacion, string> = {
 };
 
 export interface FacturaListItem {
+  uuidCfdi?: string | null;
   id: string;
   proveedorId: string;
   sucursalId: string;
@@ -246,6 +256,12 @@ export interface FacturaLinea {
 }
 
 export interface FacturaDetalle {
+  obra?: string | null;
+  conceptoRetencion?: string | null;
+  alertaRetenciones?: string | null;
+  elegible: number;
+  retenido: number;
+  retencionesDetalle?: RetencionCfdi[] | null;
   id: string;
   empresaId: string;
   cfdiRecibidoId: string | null;
@@ -269,6 +285,7 @@ export interface FacturaDetalle {
   diferenciaContraOc: number;
   anticipoAplicadoTotal: number;
   ncAplicadasTotal: number;
+  cargosAplicadosTotal?: number;
   importePagado: number;
   saldoPendiente: number;
   motivoCancelacion: MotivoCancelacion | null;
@@ -296,6 +313,10 @@ export interface CapturarFacturaConOcLinea {
 }
 
 export interface CapturarFacturaConOcCommand {
+  obra?: string | null;
+  conceptoRetencion?: string | null;
+  notasCredito?: NotaCreditoAdjunta[];
+  retencionesDetalle?: RetencionCfdi[] | null;
   ordenCompraId: string;
   proveedorId: string;
   sucursalId: string;
@@ -317,6 +338,7 @@ export interface CapturarFacturaConOcCommand {
 }
 
 export interface CapturarFacturaConOcResponse {
+  motivoCancelacionTexto?: string | null;
   id: string;
   estado: EstadoPasivo;
   diferenciaContraOc: number;
@@ -337,6 +359,8 @@ export interface CancelarFacturaResponse {
 }
 
 export interface EditarCabeceraFacturaCommand {
+  obra?: string | null;
+  conceptoRetencion?: string | null;
   folioProveedor: string | null;
   serieProveedor: string | null;
   fechaVencimiento: string;
@@ -420,8 +444,7 @@ export const EstadoFirmaFisica = {
   Pendiente: 2,
   Recibida: 3,
 } as const satisfies Record<string, number>;
-export type EstadoFirmaFisica =
-  (typeof EstadoFirmaFisica)[keyof typeof EstadoFirmaFisica];
+export type EstadoFirmaFisica = (typeof EstadoFirmaFisica)[keyof typeof EstadoFirmaFisica];
 
 export const TipoEvidenciaLabels: Record<TipoEvidencia, string> = {
   [TipoEvidencia.CapturaWhatsapp]: 'Captura WhatsApp',
@@ -464,24 +487,21 @@ export const EstadoNotaCredito = {
   Aplicada: 3,
   Cancelada: 4,
 } as const satisfies Record<string, number>;
-export type EstadoNotaCredito =
-  (typeof EstadoNotaCredito)[keyof typeof EstadoNotaCredito];
+export type EstadoNotaCredito = (typeof EstadoNotaCredito)[keyof typeof EstadoNotaCredito];
 
 export const TipoNotaCredito = {
   Descuento: 1,
   Devolucion: 2,
   AmortizacionAnticipo: 3,
 } as const satisfies Record<string, number>;
-export type TipoNotaCredito =
-  (typeof TipoNotaCredito)[keyof typeof TipoNotaCredito];
+export type TipoNotaCredito = (typeof TipoNotaCredito)[keyof typeof TipoNotaCredito];
 
 export const TipoRelacionCfdi = {
   NotaCredito: 1,
   Devolucion: 3,
   AmortizacionAnticipo: 7,
 } as const satisfies Record<string, number>;
-export type TipoRelacionCfdi =
-  (typeof TipoRelacionCfdi)[keyof typeof TipoRelacionCfdi];
+export type TipoRelacionCfdi = (typeof TipoRelacionCfdi)[keyof typeof TipoRelacionCfdi];
 
 export const EstadoNotaCreditoLabels: Record<EstadoNotaCredito, string> = {
   [EstadoNotaCredito.EnEspera]: 'En espera',
@@ -510,6 +530,7 @@ export interface NotaCreditoListItem {
   uuidRelacionCfdi: string;
   facturaOrigenId: string | null;
   saldoPorAplicar: number;
+  cargoReconocidoPendiente?: number;
   estado: EstadoNotaCredito;
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
@@ -541,6 +562,7 @@ export interface NotaCreditoDetalle {
   facturaOrigenId: string | null;
   montoAplicado: number;
   saldoPorAplicar: number;
+  cargoReconocidoPendiente?: number;
   estado: EstadoNotaCredito;
   fechaCaptura: string;
   fechaMatch: string | null;
@@ -580,6 +602,8 @@ export interface CapturarNotaCreditoResponse {
 
 export interface VincularFacturaNotaCreditoCommand {
   facturaOrigenId: string;
+  excepcionRelacion?: boolean;
+  motivoExcepcion?: string;
 }
 
 export interface VincularFacturaNotaCreditoResponse {
@@ -595,8 +619,7 @@ export const EstadoAnticipo = {
   Amortizado: 2,
   Cancelado: 3,
 } as const satisfies Record<string, number>;
-export type EstadoAnticipo =
-  (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
+export type EstadoAnticipo = (typeof EstadoAnticipo)[keyof typeof EstadoAnticipo];
 
 export const EstadoAnticipoLabels: Record<EstadoAnticipo, string> = {
   [EstadoAnticipo.Abierto]: 'Abierto',
@@ -651,13 +674,12 @@ export const EstadoNotaCargo = {
   Formalizada: 4,
   Cancelada: 5,
 } as const satisfies Record<string, number>;
-export type EstadoNotaCargo =
-  (typeof EstadoNotaCargo)[keyof typeof EstadoNotaCargo];
+export type EstadoNotaCargo = (typeof EstadoNotaCargo)[keyof typeof EstadoNotaCargo];
 
 export const EstadoNotaCargoLabels: Record<EstadoNotaCargo, string> = {
   [EstadoNotaCargo.Borrador]: 'Borrador',
   [EstadoNotaCargo.Autorizada]: 'Autorizada',
-  [EstadoNotaCargo.Aplicada]: 'Aplicada',
+  [EstadoNotaCargo.Aplicada]: 'Aplicada sin formalizar',
   [EstadoNotaCargo.Formalizada]: 'Formalizada',
   [EstadoNotaCargo.Cancelada]: 'Cancelada',
 };
@@ -770,20 +792,14 @@ export const EstadoComprobacionGastos = {
 export type EstadoComprobacionGastos =
   (typeof EstadoComprobacionGastos)[keyof typeof EstadoComprobacionGastos];
 
-export const TipoComprobacionGastosLabels: Record<
-  TipoComprobacionGastos,
-  string
-> = {
+export const TipoComprobacionGastosLabels: Record<TipoComprobacionGastos, string> = {
   [TipoComprobacionGastos.ReembolsoCajaChica]: 'Caja chica',
   [TipoComprobacionGastos.GastosAduanales]: 'Aduanales',
   [TipoComprobacionGastos.Viaticos]: 'Viáticos',
   [TipoComprobacionGastos.TarjetaCredito]: 'Tarjeta crédito',
 };
 
-export const EstadoComprobacionGastosLabels: Record<
-  EstadoComprobacionGastos,
-  string
-> = {
+export const EstadoComprobacionGastosLabels: Record<EstadoComprobacionGastos, string> = {
   [EstadoComprobacionGastos.Borrador]: 'Borrador',
   [EstadoComprobacionGastos.PorRevisar]: 'Por revisar',
   [EstadoComprobacionGastos.Autorizada]: 'Autorizada',
@@ -995,13 +1011,9 @@ export const TipoDestinoViatico = {
   Nacional: 1,
   Internacional: 2,
 } as const satisfies Record<string, number>;
-export type TipoDestinoViatico =
-  (typeof TipoDestinoViatico)[keyof typeof TipoDestinoViatico];
+export type TipoDestinoViatico = (typeof TipoDestinoViatico)[keyof typeof TipoDestinoViatico];
 
-export const EstadoSolicitudViaticosLabels: Record<
-  EstadoSolicitudViaticos,
-  string
-> = {
+export const EstadoSolicitudViaticosLabels: Record<EstadoSolicitudViaticos, string> = {
   [EstadoSolicitudViaticos.Solicitada]: 'Solicitada',
   [EstadoSolicitudViaticos.AutorizadaPorJefe]: 'Autorizada por jefe',
   [EstadoSolicitudViaticos.RequiereDireccionFinanzas]: 'Requiere DF',
@@ -1181,8 +1193,7 @@ export const TipoMovimientoTc = {
   Anualidad: 5,
   ComisionDivisa: 6,
 } as const satisfies Record<string, number>;
-export type TipoMovimientoTc =
-  (typeof TipoMovimientoTc)[keyof typeof TipoMovimientoTc];
+export type TipoMovimientoTc = (typeof TipoMovimientoTc)[keyof typeof TipoMovimientoTc];
 
 export const EstadoMovimientoTc = {
   Registrado: 1,
@@ -1191,8 +1202,7 @@ export const EstadoMovimientoTc = {
   Reversado: 4,
   PagadoAlBanco: 5,
 } as const satisfies Record<string, number>;
-export type EstadoMovimientoTc =
-  (typeof EstadoMovimientoTc)[keyof typeof EstadoMovimientoTc];
+export type EstadoMovimientoTc = (typeof EstadoMovimientoTc)[keyof typeof EstadoMovimientoTc];
 
 export const EstadoTarjetaLabels: Record<EstadoTarjeta, string> = {
   [EstadoTarjeta.Activa]: 'Activa',
@@ -1341,16 +1351,14 @@ export const EstadoCuentaTcStatus = {
   Cerrado: 3,
   PagadoBanco: 4,
 } as const satisfies Record<string, number>;
-export type EstadoCuentaTcStatus =
-  (typeof EstadoCuentaTcStatus)[keyof typeof EstadoCuentaTcStatus];
+export type EstadoCuentaTcStatus = (typeof EstadoCuentaTcStatus)[keyof typeof EstadoCuentaTcStatus];
 
-export const EstadoCuentaTcStatusLabels: Record<EstadoCuentaTcStatus, string> =
-  {
-    [EstadoCuentaTcStatus.EnConciliacion]: 'En conciliación',
-    [EstadoCuentaTcStatus.Conciliado]: 'Conciliado',
-    [EstadoCuentaTcStatus.Cerrado]: 'Cerrado',
-    [EstadoCuentaTcStatus.PagadoBanco]: 'Pagado al banco',
-  };
+export const EstadoCuentaTcStatusLabels: Record<EstadoCuentaTcStatus, string> = {
+  [EstadoCuentaTcStatus.EnConciliacion]: 'En conciliación',
+  [EstadoCuentaTcStatus.Conciliado]: 'Conciliado',
+  [EstadoCuentaTcStatus.Cerrado]: 'Cerrado',
+  [EstadoCuentaTcStatus.PagadoBanco]: 'Pagado al banco',
+};
 
 export interface EstadoCuentaTc {
   id: string;
@@ -1470,8 +1478,7 @@ export const TipoGastoAprobador = {
   TarjetaCreditoEmpresarial: 3,
   OtrosSinOc: 4,
 } as const satisfies Record<string, number>;
-export type TipoGastoAprobador =
-  (typeof TipoGastoAprobador)[keyof typeof TipoGastoAprobador];
+export type TipoGastoAprobador = (typeof TipoGastoAprobador)[keyof typeof TipoGastoAprobador];
 
 export const TipoGastoAprobadorLabels: Record<TipoGastoAprobador, string> = {
   [TipoGastoAprobador.ReembolsoCajaChica]: 'Caja chica',

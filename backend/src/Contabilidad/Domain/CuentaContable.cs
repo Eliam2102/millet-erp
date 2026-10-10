@@ -44,6 +44,7 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     public TipoCuenta? Tipo { get; private set; }
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
     public CuentaControl CuentaControl { get; private set; }
+    public bool NoAfectableManual { get; private set; }
     public string? CodigoAgrupador { get; private set; }
     public string? GrupoReporte { get; private set; }
     public ClaseCuenta Clase { get; private set; }
@@ -67,19 +68,19 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
     public CuentaContable(
         Guid id, string codigo, string nombre, Guid? padreId, int nivel,
         NaturalezaCuenta? naturaleza, TipoCuenta? tipo, CuentaControl control,
-        string? codigoAgrupador, string? grupoReporte, ClaseCuenta clase = ClaseCuenta.Cuenta) : base(id)
+        string? codigoAgrupador, string? grupoReporte, ClaseCuenta clase = ClaseCuenta.Cuenta, bool noAfectableManual = false) : base(id)
     {
         if (string.IsNullOrWhiteSpace(codigo) || codigo.Length > 30)
             throw new BusinessRuleException("CONTAB_CUENTA_CODIGO_INVALIDO",
                 "El código es requerido y no puede exceder 30 caracteres.");
         Codigo = codigo;
         Clase = Enum.IsDefined(clase) ? clase : throw new BusinessRuleException("CONTAB_CUENTA_RUBRO_INVALIDO", "La clase de cuenta no es válida.");
-        Editar(nombre, padreId, nivel, naturaleza, tipo, control, codigoAgrupador, grupoReporte);
+        Editar(nombre, padreId, nivel, naturaleza, tipo, control, codigoAgrupador, grupoReporte, noAfectableManual);
     }
 
     public void Editar(
         string nombre, Guid? padreId, int nivel, NaturalezaCuenta? naturaleza, TipoCuenta? tipo,
-        CuentaControl control, string? codigoAgrupador, string? grupoReporte)
+        CuentaControl control, string? codigoAgrupador, string? grupoReporte, bool noAfectableManual = false)
     {
         if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 254)
             throw new BusinessRuleException("CONTAB_CUENTA_NOMBRE_INVALIDO",
@@ -104,6 +105,7 @@ public sealed class CuentaContable : BaseEntity, IAuditable, IPerteneceAEmpresa
         Naturaleza = naturaleza;
         Tipo = tipo;
         CuentaControl = control;
+        NoAfectableManual = noAfectableManual;
         CodigoAgrupador = codigoAgrupador;
         GrupoReporte = grupoReporte;
     }

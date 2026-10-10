@@ -10,9 +10,10 @@ namespace Millet.Almacen.Application.Reorden;
 
 // ============================================================================
 // Cálculo del faltante del motor de reorden (ADR-0047 PR5.B). Read query:
-// faltante = max(0, objetivo − existencia física − vivo de origen sistema), por
+// P7/D6: si existencia física + pedido vivo ≤ punto de reorden, reponer a máximo
+// o cantidad fija; en otro caso, cero. Se calcula por
 // cada configuración activa. El cálculo vive en Almacén (dueño de config + saldos)
-// y cruza a Compras SOLO por IComprasPedidoVivoReadPort para "lo vivo de sistema".
+// y cruza a Compras SOLO por IComprasPedidoVivoReadPort para lo pedido vivo de sistema y manual.
 //
 // Es una consulta pura (sin efectos). El worker (PR5.D) la consumirá y filtrará
 // AutoRequisicion && Faltante > 0 para generar borradores.
@@ -86,13 +87,18 @@ public sealed class EvaluarReordenHandler
             ? await _pedidoVivo.ObtenerVivoDeSistemaAsync(pares.ToList(), cancellationToken)
             : new Dictionary<PedidoVivoClave, decimal>();
 
+        var sucursalPorAlmacen = await _db.Almacenes.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.SucursalId, cancellationToken);
+        var clavesManual = configs.Select(c => new PedidoVivoSucursalClave(c.ArticuloId,
+            c.Nivel == NivelReorden.Sucursal ? c.EntidadId : sucursalPorAlmacen[c.EntidadId])).Distinct().ToList();
+        var manual = await _pedidoVivo.ObtenerVivoManualAsync(clavesManual, cancellationToken);
+
         // NOTA: la existencia se resuelve por config (N+1 sobre el puerto de saldos).
         // El motor (5.D) corre por ciclo con un universo acotado de configs; si crece,
         // batchear ConsultarDisponibilidad* es la optimización natural.
         var resultado = new List<FaltanteReorden>(configs.Count);
         foreach (var c in configs)
         {
-            var objetivo = c.ResolverObjetivo();
+            var objetivo = c.CantidadFija ?? c.Maximo;
 
             decimal existencia;
             decimal vivoTotal;
@@ -112,7 +118,11 @@ public sealed class EvaluarReordenHandler
                     .Sum(alm => vivo.GetValueOrDefault(new PedidoVivoClave(c.ArticuloId, alm)));
             }
 
-            var faltante = Math.Max(0m, objetivo - existencia - vivoTotal);
+            // No asignar una OC manual sin almacén a un destino inventado: para N2
+            // se considera la demanda de su sucursal como cobertura conservadora.
+            vivoTotal += manual.GetValueOrDefault(new PedidoVivoSucursalClave(c.ArticuloId,
+                c.Nivel == NivelReorden.Sucursal ? c.EntidadId : sucursalPorAlmacen[c.EntidadId]));
+            var faltante = c.CalcularReposicion(existencia, vivoTotal);
             resultado.Add(new FaltanteReorden(
                 c.Id, c.ArticuloId, c.Nivel, c.EntidadId, c.Objetivo,
                 objetivo, existencia, vivoTotal, faltante, c.AutoRequisicion));

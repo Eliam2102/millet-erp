@@ -109,6 +109,7 @@ export interface ConfiguracionReordenListItem {
   entidadId: string;
   minimo: number;
   maximo: number;
+  cantidadFija?: number | null;
   puntoReorden: number;
   autoRequisicion: boolean;
   objetivo: ObjetivoReposicion;
@@ -125,6 +126,7 @@ export interface ConfiguracionReordenResponse {
   entidadId: string;
   minimo: number;
   maximo: number;
+  cantidadFija?: number | null;
   puntoReorden: number;
   autoRequisicion: boolean;
   objetivo: ObjetivoReposicion;
@@ -139,6 +141,7 @@ export interface CrearConfiguracionReordenPayload {
   entidadId: string;
   minimo: number;
   maximo: number;
+  cantidadFija?: number | null;
   puntoReorden: number;
   autoRequisicion: boolean;
   objetivo: ObjetivoReposicion;
@@ -151,6 +154,7 @@ export interface EditarConfiguracionReordenPayload {
   id: string;
   minimo: number;
   maximo: number;
+  cantidadFija?: number | null;
   puntoReorden: number;
   autoRequisicion: boolean;
   objetivo: ObjetivoReposicion;
@@ -284,6 +288,9 @@ export interface RecepcionListItem {
 }
 
 export interface RecepcionLineaItem {
+  centroCostoId?: string | null;
+  centroCostoClave?: string | null;
+  centroCostoNombre?: string | null;
   id: string;
   posicion: number;
   articuloId: string;
@@ -292,6 +299,8 @@ export interface RecepcionLineaItem {
   articuloDescripcion: string | null;
   cantidad: number;
   unidadMedida: string;
+  cantidadCapturada?: number | null;
+  unidadCapturada?: string | null;
   costoUnitarioMxn: number;
   montoTotalMxn: number;
 }
@@ -361,6 +370,7 @@ export interface RegistrarRecepcionConPackingListCommand {
 }
 
 export interface RegistrarRecepcionLineaInput {
+  unidadCapturada?: string | null;
   articuloId: string;
   lineaOcId: string | null;
   cantidad: number;
@@ -378,6 +388,9 @@ export interface RegistrarRecepcionResponse {
 // ─── Salidas (FE-F3-PR1) ────────────────────────────────────────────────────
 
 export interface SalidaListItem {
+  pendienteRegularizacion: boolean;
+  fechaLimiteRegularizacion: string | null;
+  vencido: boolean;
   id: string;
   folio: string;
   fechaMovimiento: string;
@@ -415,6 +428,8 @@ export interface SalidaLineaItem {
   articuloDescripcion: string | null;
   cantidad: number;
   unidadMedida: string;
+  cantidadCapturada?: number | null;
+  unidadCapturada?: string | null;
   costoUnitarioMxn: number;
   montoTotalMxn: number;
   centroCostoId: string | null;
@@ -426,6 +441,9 @@ export interface SalidaLineaItem {
 }
 
 export interface SalidaDetalle {
+  pendienteRegularizacion: boolean;
+  fechaLimiteRegularizacion: string | null;
+  vencido: boolean;
   id: string;
   folio: string;
   fechaMovimiento: string;
@@ -482,6 +500,7 @@ export interface RegistrarSalidaPorValeCommand {
 }
 
 export interface RegistrarSalidaLineaInput {
+  unidadCapturada?: string | null;
   articuloId: string;
   lineaRqId: string | null;
   cantidad: number;

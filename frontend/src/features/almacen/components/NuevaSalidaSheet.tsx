@@ -204,7 +204,7 @@ function NuevaSalidaFormBody({
         // Solo 'invalidos' bloquea; 'no-resoluble' avisa (sin bloquear) en la fila.
         if (
           evaluarDecimalesFila(lookup, {
-            unidadMedida: f.unidadMedida,
+            unidadMedida: f.unidadCapturada?.trim() || f.unidadMedida,
             cantidad: f.cantidad,
           }) === 'invalidos'
         ) {
@@ -222,6 +222,7 @@ function NuevaSalidaFormBody({
           articuloId: f.articuloId,
           lineaRqId: f.lineaRqId,
           cantidad: f.cantidad,
+          unidadCapturada: f.unidadCapturada?.trim() || null,
           centroCostoId: f.centroCostoId ?? null,
           proyectoId: f.proyectoId ?? null,
           ubicacionReferencia: f.ubicacionReferencia ?? null,
@@ -294,6 +295,7 @@ function NuevaSalidaFormBody({
             articuloId: l.articuloId,
             lineaRqId: null,
             cantidad: l.cantidad,
+            unidadCapturada: l.unidadCapturada?.trim() || null,
             centroCostoId: l.centroCostoId ?? null,
             proyectoId: l.proyectoId ?? null,
             ubicacionReferencia: l.ubicacionReferencia ?? null,
@@ -842,6 +844,11 @@ function FilaLineaRq({
 
           {incluida && (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <Field label="Unidad capturada (opcional)">
+                <Controller name={`filas.${index}.unidadCapturada` as const} control={control}
+                  render={({ field }) => <Input {...field} value={field.value ?? ''} maxLength={20} placeholder={fila.unidadMedida} />} />
+                <p className="text-xs text-ink-muted">Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar.</p>
+              </Field>
               <Field
                 label="Cantidad a entregar"
                 required
@@ -856,7 +863,7 @@ function FilaLineaRq({
                       inputMode="decimal"
                       step={stepParaDecimales(decimalesFila)}
                       min="0"
-                      max={fila.pendienteEntregar}
+                      max={fila.unidadCapturada?.trim() ? undefined : fila.pendienteEntregar}
                       value={field.value ?? ''}
                       onChange={(e) =>
                         field.onChange(
@@ -876,7 +883,7 @@ function FilaLineaRq({
                 <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
               </Field>
 
-              <Field label="CC-Máquina">
+              <Field label="Centro de costo">
                 {/* Fase E PR5 Camino 1: el CC-Máquina se HEREDA de la línea de
                     RQ y queda BLOQUEADO (read-only). Mismo molde que la UM/CC
                     heredada de OC (LineaInlineFormOc). El backend lo re-deriva
@@ -886,7 +893,7 @@ function FilaLineaRq({
                   type="text"
                   readOnly
                   tabIndex={-1}
-                  aria-label="CC-Máquina (heredado de la requisición, no editable)"
+                  aria-label="Centro de costo (heredado de la requisición, no editable)"
                   className="bg-muted/50"
                   value={
                     fila.centroCostoId
@@ -1203,6 +1210,10 @@ function LineaLibreForm({
           />
         </Field>
 
+        <Field label="Unidad capturada (opcional)">
+          <Controller name={`lineas.${index}.unidadCapturada` as const} control={control}
+            render={({ field }) => <Input {...field} value={field.value ?? ''} maxLength={20} placeholder="Código del catálogo, por ejemplo CAJA" />} />
+        </Field>
         <Field label="Cantidad" required error={errors?.cantidad?.message}>
           <Controller
             name={`lineas.${index}.cantidad` as const}
@@ -1447,6 +1458,7 @@ type SalidaFormValues = {
   lineas?: {
     articuloId: string;
     unidadMedidaId?: string | null;
+    unidadCapturada?: string | null;
     lineaRqId?: string | null;
     cantidad: number;
     centroCostoId?: string | null;

@@ -52,9 +52,11 @@ public static class RecepcionesEndpoints
         // --- Obtener Recepción por Id ---
         group.MapGet("/{id:guid}", async (
             Guid id,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("recepcion", id, PermisosCanonicos.AlmacenEntradasLeerTodasSucursales, ct);
             var detalle = await mediator.Send(new ObtenerRecepcionPorIdQuery(id), ct);
             return detalle is null ? Results.NotFound() : Results.Ok(detalle);
         })
@@ -67,9 +69,15 @@ public static class RecepcionesEndpoints
         // --- Registrar Recepción Variante A (factura/CFDI) ---
         group.MapPost("/", async (
             RegistrarRecepcionConFacturaCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("orden_compra", command.OrdenCompraId, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
+            foreach (var bin in (command.Lineas ?? []).Select(l => l.UbicacionId).OfType<Guid>().Distinct())
+                await documentos.VerificarAsync("ubicacion_almacen", bin, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
+            if (command.CfdiRecibidoId is Guid cfdi)
+                await documentos.VerificarAsync("cfdi_recibido", cfdi, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/recepciones/{response.RecepcionId}",
@@ -87,9 +95,13 @@ public static class RecepcionesEndpoints
         // --- Registrar Recepción Variante B (packing list, factura pendiente) ---
         group.MapPost("/packing-list", async (
             RegistrarRecepcionConPackingListCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("orden_compra", command.OrdenCompraId, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
+            foreach (var bin in (command.Lineas ?? []).Select(l => l.UbicacionId).OfType<Guid>().Distinct())
+                await documentos.VerificarAsync("ubicacion_almacen", bin, PermisosCanonicos.AlmacenEntradasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/recepciones/{response.RecepcionId}",

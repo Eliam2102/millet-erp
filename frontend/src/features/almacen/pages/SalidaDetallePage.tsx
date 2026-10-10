@@ -1,6 +1,7 @@
+import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft, Check, FileDown, Printer, RotateCw } from 'lucide-react';
+import { ArrowLeft, FileDown, Printer, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
@@ -72,17 +73,7 @@ export function SalidaDetallePage() {
                 {query.data.folio}
               </h1>
               <EstadoMovimientoBadge estado={query.data.estado} />
-              {query.data.esPorVale && query.data.rqRegularizadoraId && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                  <Check className="h-3 w-3" />
-                  Vale regularizado
-                </span>
-              )}
-              {query.data.esPorVale && !query.data.rqRegularizadoraId && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                  Vale pendiente de regularizar
-                </span>
-              )}
+              {query.data.esPorVale && <RegularizacionValeBadge salida={query.data} />}
             </div>
             <p className="text-sm text-muted-foreground">
               Fecha de movimiento: {query.data.fechaMovimiento}
@@ -146,6 +137,9 @@ export function SalidaDetallePage() {
                 mono
               />
             )}
+            {query.data.esPorVale && query.data.fechaLimiteRegularizacion && (
+              <Campo label="Límite de regularización" valor={new Date(query.data.fechaLimiteRegularizacion).toLocaleString('es-MX')} />
+            )}
             {query.data.esPorVale && query.data.rqRegularizadoraId && (
               <Campo
                 label="RQ regularizadora"
@@ -173,7 +167,7 @@ export function SalidaDetallePage() {
                   <tr>
                     <th className="px-3 py-2 text-left">#</th>
                     <th className="px-3 py-2 text-left">Artículo</th>
-                    <th className="px-3 py-2 text-left">CC-Máquina</th>
+                    <th className="px-3 py-2 text-left">Centro de costo</th>
                     <th className="px-3 py-2 text-right">Cantidad</th>
                     <th className="px-3 py-2 text-left">UM</th>
                     <th className="px-3 py-2 text-right">Costo unitario</th>
@@ -198,7 +192,7 @@ export function SalidaDetallePage() {
                           {l.articuloId}
                         </td>
                       )}
-                      {/* CC-Máquina resuelto por el read-port (ADR-0050):
+                      {/* Centro de costo resuelto por el read-port (ADR-0050):
                           "clave — nombre" / "No catalogado" / "—" si sin CC. */}
                       <td className="px-3 py-2">
                         {l.centroCostoId
@@ -214,7 +208,7 @@ export function SalidaDetallePage() {
                           maximumFractionDigits: 4,
                         })}
                       </td>
-                      <td className="px-3 py-2">{l.unidadMedida}</td>
+                      <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
                       <td className="px-3 py-2 text-right font-mono">
                         {formatearMonto(l.costoUnitarioMxn)}
                       </td>

@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
@@ -39,7 +40,10 @@ public sealed record SalidaListItem(
     /// bandeja lo muestra como "Vale · {folio}" para distinguirlo de una
     /// RQ directa. Null si el vale no se ha regularizado.
     /// </summary>
-    string? RqRegularizadoraFolio = null);
+    string? RqRegularizadoraFolio = null,
+    bool PendienteRegularizacion = false,
+    DateTimeOffset? FechaLimiteRegularizacion = null,
+    bool Vencido = false);
 
 public sealed record SalidaDetalle(
     Guid Id,
@@ -67,7 +71,10 @@ public sealed record SalidaDetalle(
     /// </summary>
     Guid? RqRegularizadoraId,
     string? RqRegularizadoraFolio,
-    IReadOnlyList<SalidaLineaItem> Lineas);
+    IReadOnlyList<SalidaLineaItem> Lineas,
+    bool PendienteRegularizacion = false,
+    DateTimeOffset? FechaLimiteRegularizacion = null,
+    bool Vencido = false);
 
 public sealed record SalidaLineaItem(
     Guid Id,
@@ -86,7 +93,7 @@ public sealed record SalidaLineaItem(
     // "No catalogado".
     string? CentroCostoClave,
     string? CentroCostoNombre,
-    Guid? ProyectoId);
+    Guid? ProyectoId, decimal? CantidadCapturada = null, string? UnidadCapturada = null);
 
 public sealed record ListarSalidasQuery(
     EstadoMovimiento? Estado,
@@ -104,7 +111,14 @@ public sealed record ListarSalidasQuery(
     /// </summary>
     bool? NoRegularizados,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<SalidaListItem>>;
+    int Limit,
+    bool? SoloVencidos = null, bool? SoloPorVencer = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "salida_almacen";
+    public string PermisoTodasSucursales => "almacen.salidas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarSalidasHandler
     : IRequestHandler<ListarSalidasQuery, AlmacenPagedResponse<SalidaListItem>>
@@ -124,6 +138,7 @@ public sealed class ListarSalidasHandler
         IQueryable<MovimientoInventario> query = _db.Movimientos.AsNoTracking()
             .Where(m => m.Tipo == TipoMovimiento.SalidaConsumo
                 || m.Tipo == TipoMovimiento.SalidaPorVale);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
         if (request.Estado is EstadoMovimiento e) query = query.Where(m => m.Estado == e);
         // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
         if (request.SubAlmacenId is Guid sid)
@@ -143,9 +158,17 @@ public sealed class ListarSalidasHandler
             // no pasa SoloVales=true.
             query = query.Where(m =>
                 m.Tipo == TipoMovimiento.SalidaPorVale
-                && m.RqRegularizadoraId == null);
+                && m.PendienteRegularizacion);
         }
 
+        var ahora = DateTimeOffset.UtcNow;
+        if (request.SoloVencidos is true)
+            query = query.Where(m => m.PendienteRegularizacion && m.FechaLimiteRegularizacion <= ahora);
+        if (request.SoloPorVencer is true)
+        {
+            var horizonte = ahora.AddHours(24);
+            query = query.Where(m => m.PendienteRegularizacion && m.FechaLimiteRegularizacion > ahora && m.FechaLimiteRegularizacion <= horizonte);
+        }
         var total = await query.CountAsync(cancellationToken);
         var items = await query
             .OrderByDescending(m => m.FechaMovimiento).ThenByDescending(m => m.FechaRegistro)
@@ -166,7 +189,10 @@ public sealed class ListarSalidasHandler
                 m.Estado,
                 m.RqRegularizadoraId,
                 null,
-                null))
+                null,
+                m.PendienteRegularizacion,
+                m.FechaLimiteRegularizacion,
+                m.PendienteRegularizacion && m.FechaLimiteRegularizacion <= ahora))
             .ToListAsync(cancellationToken);
 
         // Folios de RQ en batch (ADR-0042): una sola llamada con los ids
@@ -283,7 +309,7 @@ public sealed class ObtenerSalidaPorIdHandler
                     l.Cantidad, l.UnidadMedida,
                     l.CostoUnitarioMxn, l.MontoTotalMxn,
                     l.CentroCostoId, CentroCostoClave: null, CentroCostoNombre: null,
-                    l.ProyectoId);
+                    l.ProyectoId, l.CantidadCapturada, l.UnidadCapturada);
             })
             .ToList();
 
@@ -317,7 +343,10 @@ public sealed class ObtenerSalidaPorIdHandler
             RqRegularizadoraId: mov.RqRegularizadoraId,
             RqRegularizadoraFolio: mov.RqRegularizadoraId is Guid rrId
                 && folios.TryGetValue(rrId, out var rf) ? rf : null,
-            Lineas: lineas);
+            Lineas: lineas,
+            PendienteRegularizacion: mov.PendienteRegularizacion,
+            FechaLimiteRegularizacion: mov.FechaLimiteRegularizacion,
+            Vencido: mov.PendienteRegularizacion && mov.FechaLimiteRegularizacion <= DateTimeOffset.UtcNow);
     }
 
     /// <summary>

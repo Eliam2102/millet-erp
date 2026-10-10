@@ -12,7 +12,7 @@ namespace Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaCon
 ///   <item>Resuelve la OC vía <c>IComprasOcReadPort</c>.</item>
 ///   <item>Resuelve la tolerancia del proveedor (master + default
 ///         global del módulo).</item>
-///   <item>Calcula la diferencia entre <c>Total</c> y total de OC; si
+///   <item>Concilia cantidades pendientes y precios por línea con la OC; si
 ///         pasa la tolerancia, persiste como
 ///         <see cref="EstadoPasivo.Capturada"/>; si no pasa, cancela
 ///         con motivo <c>RechazadaPorTolerancia</c>.</item>
@@ -45,7 +45,12 @@ public sealed record CapturarFacturaConOcCommand(
     decimal Total,
     IReadOnlyList<CapturarFacturaConOcLinea> Lineas,
     // G1.6 (P2): desglose de retenciones del CFDI (ObtenerCfdiParseado). Null en captura manual.
-    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null) : IRequest<CapturarFacturaConOcResponse>;
+    IReadOnlyList<RetencionCfdi>? RetencionesDetalle = null,
+    IReadOnlyList<NotaCreditoAdjunta>? NotasCredito = null,
+    string? Obra = null, string? ConceptoRetencion = null) : IRequest<CapturarFacturaConOcResponse>;
+
+public sealed record NotaCreditoAdjunta(Guid CfdiRecibidoId, IReadOnlyList<CompensacionNcLinea> Lineas);
+public sealed record CompensacionNcLinea(Guid LineaOcId, decimal Base);
 
 public sealed record CapturarFacturaConOcLinea(
     Guid? ArticuloId,
@@ -66,12 +71,15 @@ public sealed record CapturarFacturaConOcResponse(
     decimal DiferenciaContraOc,
     decimal SaldoPendiente,
     MotivoCancelacion? MotivoCancelacion,
-    int Version);
+    int Version,
+    string? MotivoCancelacionTexto = null);
 
 public sealed class CapturarFacturaConOcValidator : AbstractValidator<CapturarFacturaConOcCommand>
 {
     public CapturarFacturaConOcValidator()
     {
+        RuleFor(c => c.Obra).MaximumLength(120);
+        RuleFor(c => c.ConceptoRetencion).MaximumLength(80);
         RuleFor(c => c.OrdenCompraId).NotEmpty();
         RuleFor(c => c.ProveedorId).NotEmpty();
         RuleFor(c => c.SucursalId).NotEmpty();
@@ -86,6 +94,18 @@ public sealed class CapturarFacturaConOcValidator : AbstractValidator<CapturarFa
             r.RuleFor(x => x.Impuesto).NotEmpty().MaximumLength(3);
             r.RuleFor(x => x.Importe).GreaterThanOrEqualTo(0);
         });
+        RuleFor(c => c.NotasCredito).Must(n => n is null || n.Select(x => x.CfdiRecibidoId).Distinct().Count() == n.Count)
+            .WithMessage("No adjuntes la misma nota de crédito más de una vez.");
+        RuleForEach(c => c.NotasCredito).ChildRules(n =>
+        {
+            n.RuleFor(x => x.CfdiRecibidoId).NotEmpty();
+            n.RuleFor(x => x.Lineas).NotEmpty();
+            n.RuleForEach(x => x.Lineas).ChildRules(l =>
+            {
+                l.RuleFor(x => x.LineaOcId).NotEmpty();
+                l.RuleFor(x => x.Base).GreaterThan(0);
+            });
+        });
         RuleFor(c => c.Lineas).NotEmpty().WithMessage("La factura debe tener al menos una línea.");
         RuleForEach(c => c.Lineas).ChildRules(l =>
         {
@@ -93,6 +113,7 @@ public sealed class CapturarFacturaConOcValidator : AbstractValidator<CapturarFa
             l.RuleFor(x => x.Cantidad).GreaterThan(0);
             l.RuleFor(x => x.Importe).GreaterThanOrEqualTo(0);
             l.RuleFor(x => x.PrecioUnitario).GreaterThanOrEqualTo(0);
+            l.RuleFor(x => x.Descuento).GreaterThanOrEqualTo(0);
             l.RuleFor(x => x.ClaveUnidad).NotEmpty().MaximumLength(40);
         });
     }

@@ -1,3 +1,4 @@
+import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { useMemo, useState } from 'react';
 import {
   Link,
@@ -218,6 +219,7 @@ export function DetalleRequisicion() {
         </div>
 
         <CabeceraRequisicion rq={rq} resolverNombre={resolverNombre} />
+        <DocumentoAdjuntosSection base={`/api/v1/compras/requisiciones/${rq.id}`} tipo="requisicion" permiso="compras.requisiciones" />
 
         <section className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">

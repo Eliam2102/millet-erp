@@ -1,3 +1,6 @@
+import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
+import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
+import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,6 +33,7 @@ export function RecepcionDetallePage() {
 
   return (
     <div className="space-y-4">
+      {query.data && <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />}
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/recepciones" search={{}}>
@@ -141,6 +145,7 @@ export function RecepcionDetallePage() {
                     <th className="px-3 py-2 text-left">Artículo</th>
                     <th className="px-3 py-2 text-right">Cantidad</th>
                     <th className="px-3 py-2 text-left">UM</th>
+                    <th className="px-3 py-2 text-left">Centro de costo</th>
                     <th className="px-3 py-2 text-right">Costo unitario</th>
                     <th className="px-3 py-2 text-right">Monto</th>
                   </tr>
@@ -169,7 +174,8 @@ export function RecepcionDetallePage() {
                           maximumFractionDigits: 4,
                         })}
                       </td>
-                      <td className="px-3 py-2">{l.unidadMedida}</td>
+                      <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
+                      <td className="px-3 py-2 text-sm text-ink">{l.centroCostoId ? formatCcMaquinaLabel({ clave: l.centroCostoClave, nombre: l.centroCostoNombre }) : '—'}</td>
                       <td className="px-3 py-2 text-right font-mono">
                         {formatearMonto(l.costoUnitarioMxn)}
                       </td>

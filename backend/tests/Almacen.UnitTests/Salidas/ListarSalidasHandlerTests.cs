@@ -109,6 +109,34 @@ public class ListarSalidasHandlerTests
 
     // ─── Infra de test ───
 
+    [Theory]
+    [InlineData(false, false, 3)]
+    [InlineData(true, false, 2)]
+    [InlineData(false, true, 1)]
+    public async Task Expone_plazo_y_filtra_vales_pendientes_y_vencidos(bool pendientes, bool vencidos, int total)
+    {
+        await using var db = await NuevaDbAsync();
+        var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
+        var limitePasado = DateTimeOffset.UtcNow.AddDays(-2);
+        AgregarSalida(db, null, fecha);
+        AgregarSalida(db, null, fecha);
+        AgregarSalida(db, null, fecha, RqReg);
+        var vales = db.ChangeTracker.Entries<MovimientoInventario>().Select(e => e.Entity).ToArray();
+        vales[0].EstablecerPlazoRegularizacion(limitePasado);
+        vales[1].EstablecerPlazoRegularizacion(DateTimeOffset.UtcNow.AddDays(2));
+        await db.SaveChangesAsync();
+
+        var page = await new ListarSalidasHandler(db, new FakeRequisicionReadPort()).Handle(
+            new(null, null, null, null, null, null, null, pendientes, 0, 50, vencidos), default);
+
+        page.Items.Should().HaveCount(total);
+        var vencido = page.Items.Single(i => i.Id == vales[0].Id);
+        vencido.PendienteRegularizacion.Should().BeTrue();
+        vencido.Vencido.Should().BeTrue();
+        vencido.FechaLimiteRegularizacion.Should().Be(limitePasado);
+        page.Items.Should().NotContain(i => i.Id != vales[0].Id && i.Vencido);
+    }
+
     private static readonly Guid UbicId = Guid.NewGuid();
     private static readonly Guid SubId = Guid.NewGuid();
 

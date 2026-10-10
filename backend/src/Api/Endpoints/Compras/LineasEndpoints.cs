@@ -1,3 +1,6 @@
+using Millet.SharedKernel.Application;
+using Millet.Administracion.Application.Abstractions;
+using Millet.Compras.Infrastructure;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -35,12 +38,22 @@ public static class LineasEndpoints
             .WithTags("Compras")
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasRequisicionesEditar);
 
+        group.MapGet("/centro-costo-captura", async (Guid id, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales, CancellationToken ct) =>
+        {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, ct, escritura: true);
+            return Results.Ok(await mediator.Send(new Millet.Compras.Application.ObtenerRequisicionPorId.ObtenerCentroCostoCapturaQuery(id), ct));
+        });
+
         group.MapPost("/", async (
             Guid id,
             [FromBody] AgregarLineaRequest request,
             IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             var command = new AgregarLineaCommand(
                 RequisicionId: id,
                 ArticuloId: request.ArticuloId,
@@ -80,8 +93,10 @@ public static class LineasEndpoints
             Guid lineaId,
             [FromBody] ActualizarLineaRequest request,
             IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             var command = new ActualizarLineaCommand(
                 RequisicionId: id,
                 LineaId: lineaId,
@@ -117,8 +132,10 @@ public static class LineasEndpoints
             Guid lineaId,
             [FromBody] ActualizarNotasLineaRequest request,
             IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
                 new ActualizarNotasLineaCommand(id, lineaId, request.Notas),
                 cancellationToken);
@@ -141,8 +158,10 @@ public static class LineasEndpoints
             Guid id,
             Guid lineaId,
             IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser, ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
             CancellationToken cancellationToken) =>
         {
+            await RqSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(new EliminarLineaCommand(id, lineaId), cancellationToken);
             return Results.NoContent();
         })

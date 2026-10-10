@@ -9,7 +9,11 @@ namespace Millet.Compras.Application.Oc.ListarHermanasDuplicadas;
 /// <c>oc_origen_id</c> apunta a él.
 /// </summary>
 public sealed record ListarHermanasDuplicadasQuery(
-    Guid OrdenCompraOrigenId) : IRequest<ListarHermanasDuplicadasResponse>;
+    Guid OrdenCompraOrigenId) : IRequest<ListarHermanasDuplicadasResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "compras.ordenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record ListarHermanasDuplicadasResponse(
     IReadOnlyList<OrdenCompraResumen> Hermanas);

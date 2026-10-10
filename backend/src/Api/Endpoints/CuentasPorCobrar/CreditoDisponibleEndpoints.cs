@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Api.Web;
 using Microsoft.AspNetCore.Http;
 using Millet.Api.Auth;
 using Millet.CuentasPorCobrar.Application.CreditoDisponible;
@@ -18,9 +19,12 @@ public static class CreditoDisponibleEndpoints
     {
         app.MapGet("/api/v1/cuentas-por-cobrar/credito-disponible/{clienteId:guid}", async (
             Guid clienteId,
+            DocumentoSucursalScope scope,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
+            await scope.VerificarAsync("cliente_cartera", clienteId,
+                PermisosCanonicos.CuentasPorCobrarCarteraLeerTodasSucursales, cancellationToken);
             var response = await mediator.Send(new CreditoDisponibleQuery(clienteId), cancellationToken);
             return Results.Ok(response);
         })

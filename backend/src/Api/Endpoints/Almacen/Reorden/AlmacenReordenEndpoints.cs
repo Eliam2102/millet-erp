@@ -52,9 +52,11 @@ public static class AlmacenReordenEndpoints
         // --- Obtener por Id ---
         g.MapGet("/{id:guid}", async (
             Guid id,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("reorden", id, PermisosCanonicos.AlmacenReordenLeerTodasSucursales, ct);
             var detalle = await mediator.Send(new ObtenerConfiguracionReordenPorIdQuery(id), ct);
             return detalle is null ? Results.NotFound() : Results.Ok(detalle);
         })
@@ -67,9 +69,14 @@ public static class AlmacenReordenEndpoints
         // --- Crear (o reactivar) ---
         g.MapPost("/", async (
             CrearConfiguracionReordenCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            if (command.Nivel == NivelReorden.Sucursal)
+                await documentos.VerificarSucursalAsync(command.EntidadId, PermisosCanonicos.AlmacenReordenGestionarTodasSucursales, ct);
+            else
+                await documentos.VerificarAsync("almacen", command.EntidadId, PermisosCanonicos.AlmacenReordenGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created($"/api/v1/almacen/reorden/{response.Id}", response);
         })
@@ -86,10 +93,12 @@ public static class AlmacenReordenEndpoints
         g.MapPatch("/{id:guid}", async (
             Guid id,
             EditarConfiguracionReordenCommand body,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
             if (id != body.Id) return Results.BadRequest(new { error = "ID en URL no coincide con el body" });
+            await documentos.VerificarAsync("reorden", id, PermisosCanonicos.AlmacenReordenGestionarTodasSucursales, ct);
             var response = await mediator.Send(body, ct);
             return Results.Ok(response);
         })
@@ -105,9 +114,11 @@ public static class AlmacenReordenEndpoints
         // --- Desactivar (idempotente) ---
         g.MapPost("/{id:guid}/desactivar", async (
             Guid id,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("reorden", id, PermisosCanonicos.AlmacenReordenGestionarTodasSucursales, ct);
             var response = await mediator.Send(new DesactivarConfiguracionReordenCommand(id), ct);
             return Results.Ok(response);
         })

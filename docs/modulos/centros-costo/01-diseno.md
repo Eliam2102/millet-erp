@@ -1,5 +1,8 @@
 # Diseño — Módulo Centros de Costo (`Millet.CentrosCosto`)
 
+> **Actualización ADM08 · 09-oct-2026:** [ADR-0062](../../decisiones/0062-centro-costo-heredado-departamento.md), basado en P203 y la decisión de Eliam, prevalece sobre las secciones históricas que exigen máquina o separación total del departamento. En RQ se hereda el centro del departamento, solo lectura sin alcance; con alcance se puede elegir otro centro o máquina. Máquina opcional; OC/entrada/salida heredan el dato guardado. Equivalencias DEMO **por validar con Laura (V49)**. Ver [entrega ADM08](../../entregas/ADM08-ceco-heredado-departamento.md).
+
+
 > **Versión:** 0.5 · **Fecha:** 2026-07-16
 > **Basado en:** [`00-levantamiento.md`](00-levantamiento.md) v0.2.
 > Estado: diseño cerrado (modelo Dim, decisión 2026-07-16 — ver

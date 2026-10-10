@@ -34,6 +34,7 @@ public sealed class RequisicionConfiguration : IEntityTypeConfiguration<Requisic
             t.HasCheckConstraint("ck_requisiciones_origen", "origen BETWEEN 0 AND 1");
         });
 
+        builder.Property(x => x.Obra).HasMaxLength(120);
         builder.HasKey(r => r.Id);
 
         builder.Property(r => r.EmpresaId).IsRequired();

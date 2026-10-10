@@ -78,11 +78,11 @@ public class EventosContablesG16Tests
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
         var h = new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion());
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConFacturaCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             Guid.NewGuid(), null, null,
-            [new RegistrarRecepcionLineaInput(ArticuloId, null, 5m, null, null, BinId)]), default);
+            [new RegistrarRecepcionLineaInput(ArticuloId, ArticuloId, 5m, null, null, BinId)]), default);
 
         if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
@@ -100,11 +100,11 @@ public class EventosContablesG16Tests
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
         var h = new RegistrarRecepcionConPackingListHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion());
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarRecepcionConPackingListCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             "blob://pl", null,
-            [new RegistrarRecepcionLineaInput(ArticuloId, null, 5m, null, null, BinId)]), default);
+            [new RegistrarRecepcionLineaInput(ArticuloId, ArticuloId, 5m, null, null, BinId)]), default);
 
         if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
@@ -121,12 +121,14 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
+        db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 100, 25));
+        await db.SaveChangesAsync();
         var h = new RegistrarSalidaConRequisicionHandler(db, new FakeRq(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P7Support.Conversion(), P7Support.Apartados(db));
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaConRequisicionCommand(Guid.NewGuid(), new DateOnly(2026, 5, 23),
             null, null,
-            [new RegistrarSalidaLineaInput(ArticuloId, null, 1m, null, null, null, null, BinId)]), default);
+            [new RegistrarSalidaLineaInput(ArticuloId, ArticuloId, 1m, null, null, null, null, BinId)]), default);
 
         if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
@@ -142,10 +144,12 @@ public class EventosContablesG16Tests
     {
         await using var db = await NuevaDbAsync();
         var events = new CapturaEventos();
-        var h = new RegistrarSalidaPorValeHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto));
+        db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 100, 25));
+        await db.SaveChangesAsync();
+        var h = new RegistrarSalidaPorValeHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(periodoAbierto), new P1Fixture.Calendario(), new P1Fixture.Centros(), new P7Support.Conversion(), P7Support.Apartados(db));
 
         Func<Task> registrar = async () => await h.Handle(new RegistrarSalidaPorValeCommand(new DateOnly(2026, 5, 23), "blob://vale", null, null,
-            [new RegistrarSalidaLineaInput(ArticuloId, null, 1m, null, null, null, null, BinId)]), default);
+            [new RegistrarSalidaLineaInput(ArticuloId, ArticuloId, 1m, null, null, null, null, BinId)]), default);
 
         if (!await VerificarPeriodoAsync(registrar, periodoAbierto, db, events)) return;
 
@@ -161,7 +165,7 @@ public class EventosContablesG16Tests
         var conteo = new ConteoInventario(Guid.NewGuid(), EmpresaId, TipoConteo.Rotativo,
             new DateOnly(2026, 5, 25), Guid.NewGuid(), SubId);
         conteo.AgregarLinea(new LineaConteo(Guid.NewGuid(), conteo.Id, ArticuloId, SubId, BinId, 100m, 50m));
-        conteo.Iniciar();
+        conteo.Iniciar(new Millet.Almacen.Domain.Conteos.ConteoUmbrales(5m, 1000m, 1000m, 10000m));
         conteo.Lineas.Single().Capturar(95m, Guid.NewGuid());
         conteo.EnviarAConciliacion();
         conteo.Aprobar(Guid.NewGuid());
@@ -169,7 +173,7 @@ public class EventosContablesG16Tests
         await db.SaveChangesAsync();
 
         var events = new CapturaEventos();
-        await new AplicarConteoHandler(db, events, new FakeUser(), new FakeEmpresa())
+        await new AplicarConteoHandler(db, events, new FakeUser(), new FakeEmpresa(), new PeriodoContableStub(true))
             .Handle(new AplicarConteoCommand(conteo.Id), default);
 
         var e = events.Unico<AjusteInventarioAplicadoIntegrationEvent>();
@@ -180,31 +184,29 @@ public class EventosContablesG16Tests
     }
 
     [Fact]
-    public async Task Entrada_valorada_por_diferencia_de_precio_publica_dimensiones()
+    public async Task D18_diferencia_de_precio_no_crea_movimientos_ni_eventos_de_valoracion()
     {
         await using var db = await NuevaDbAsync();
         var ocId = Guid.NewGuid();
         var events = new CapturaEventos();
         // Recepción real (misma BD) y saldo remanente para que el handler valore.
         await new RegistrarRecepcionConFacturaHandler(db, new FakeOc(), new FakeArticulos(), events,
-            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true))
+            new FakeUser(), new FakeEmpresa(), new FakeDecimales(), new PeriodoContableStub(true), new P7Support.Conversion())
             .Handle(new RegistrarRecepcionConFacturaCommand(ocId, new DateOnly(2026, 5, 23), Guid.NewGuid(),
-                null, null, [new RegistrarRecepcionLineaInput(ArticuloId, null, 5m, null, null, BinId)]), default);
+                null, null, [new RegistrarRecepcionLineaInput(ArticuloId, ArticuloId, 5m, null, null, BinId)]), default);
         db.SaldosInventario.Add(new SaldoInventario(BinId, SubId, ArticuloId, 5m, 10m));
         await db.SaveChangesAsync();
         events.Eventos.Clear();
 
-        await new DiferenciaPrecioFacturaDetectadaHandler(db, events,
+        var movimientosAntes = await db.Movimientos.CountAsync();
+        await new DiferenciaPrecioFacturaDetectadaHandler(db,
                 NullLogger<DiferenciaPrecioFacturaDetectadaHandler>.Instance)
             .Handle(new DiferenciaPrecioFacturaDetectadaCommand(Guid.NewGuid(),
                 new DiferenciaPrecioFacturaDetectadaPayload(EmpresaId, DateTimeOffset.UtcNow,
                     Guid.NewGuid(), ocId, ArticuloId, 5m, 11m, 10m, 1m, 5m)), default);
 
-        var e = events.Unico<EntradaInventarioValoradaIntegrationEvent>();
-        e.AlmacenId.Should().Be(AlmacenId);
-        e.SucursalId.Should().Be(SucursalId);
-        e.Lineas.Single().SubAlmacenId.Should().Be(SubId);
-        e.Lineas.Single().UbicacionId.Should().Be(BinId);
+        events.Eventos.Should().BeEmpty();
+        (await db.Movimientos.CountAsync()).Should().Be(movimientosAntes);
     }
 
     [Theory]
@@ -237,8 +239,14 @@ public class EventosContablesG16Tests
     public async Task Devolucion_a_proveedor_publica_almacen_y_sucursal_del_subalmacen_de_salida()
     {
         await using var db = await NuevaDbAsync();
-        var dev = new DevolucionAProveedor(Guid.NewGuid(), EmpresaId, Guid.NewGuid(), "no conforme", Guid.NewGuid());
-        dev.AgregarLinea(new LineaDevolucionProveedor(Guid.NewGuid(), dev.Id, 1, ArticuloId, 2m, "PZA", 10m));
+        var origen = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.EntradaCompra, EmpresaId, new DateOnly(2026, 5, 23));
+        origen.VincularRecepcionVarianteA(Guid.NewGuid(), null, Guid.NewGuid(), null);
+        var lineaOrigen = new LineaMovimiento(Guid.NewGuid(), origen.Id, 1, ArticuloId, 10, "PZA", 10, ubicacionId: BinId);
+        origen.AgregarLinea(lineaOrigen);
+        origen.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, 2026, 99), EmpresaId);
+        db.Movimientos.Add(origen);
+        var dev = new DevolucionAProveedor(Guid.NewGuid(), EmpresaId, EmpresaId, "no conforme", Guid.NewGuid(), recepcionOrigenId: origen.Id, ordenCompraOrigenId: origen.OcId);
+        dev.AgregarLinea(new LineaDevolucionProveedor(Guid.NewGuid(), dev.Id, 1, ArticuloId, 2m, "PZA", 10m, lineaOrigen.Id));
         dev.AgregarEvidencia(new EvidenciaDevolucionProveedor(Guid.NewGuid(), dev.Id, "Foto", "e.jpg", "blob://e.jpg"));
         dev.SolicitarAutorizacion();
         dev.Autorizar(Guid.NewGuid());
@@ -246,7 +254,7 @@ public class EventosContablesG16Tests
         await db.SaveChangesAsync();
 
         var events = new CapturaEventos();
-        await new RegistrarSalidaDevolucionAProveedorHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeOc())
+        await new RegistrarSalidaDevolucionAProveedorHandler(db, events, new FakeUser(), new FakeEmpresa(), new FakeOc(), new PeriodoContableStub(true))
             .Handle(new RegistrarSalidaDevolucionAProveedorCommand(dev.Id, SubId, new DateOnly(2026, 6, 1),
                 [new DevolucionProveedorSalidaLineaBin(dev.Lineas.Single().Id, BinId)]), default);
 
@@ -321,7 +329,7 @@ public class EventosContablesG16Tests
 
     private sealed class FakeOc : IComprasOcReadPort
     {
-        public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) => Task.FromResult<OcLectura?>(null);
+        public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct) => Task.FromResult<OcLectura?>(new(ocId, "OC-P1", EmpresaId, EmpresaId, "Autorizada", [new(ArticuloId, ArticuloId, "PZA", 100, 0, 10)]));
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
             IReadOnlyCollection<Guid> ocIds, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
@@ -330,7 +338,7 @@ public class EventosContablesG16Tests
     private sealed class FakeRq : IComprasRequisicionReadPort
     {
         public Task<RequisicionLectura?> ObtenerAsync(Guid rqId, CancellationToken ct) =>
-            Task.FromResult<RequisicionLectura?>(null);
+            Task.FromResult<RequisicionLectura?>(new(rqId, "RQ-P1", EmpresaId, EmpresaId, AlmacenId, null, "EnSurtido", [new(ArticuloId, ArticuloId, "PZA", 100, 0, null, null, 100)]));
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
             IReadOnlyCollection<Guid> rqIds, CancellationToken ct) =>
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());

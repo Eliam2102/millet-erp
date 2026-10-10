@@ -1,5 +1,16 @@
 # Requisiciones — Ficha de usuario
 
+## Centro de costo por departamento (ADM08, P203)
+
+Al agregar una línea, el centro de costo se prellena desde tu departamento. Si aparece «Heredado del departamento. Solo lectura», no necesitas escoger máquina. Si tienes alcance para elegir, puedes cambiarlo por un centro o máquina permitido; cada línea puede tener un centro diferente. Con una única máquina disponible y sin equivalencia del departamento, se prellena esa opción.
+
+Si aparece «Tu departamento no tiene centro de costo asignado; pídelo a Contabilidad», solicita la equivalencia. Con alcance también puedes escoger una opción válida para continuar. Un centro inactivo no se puede usar.
+
+Al transmitir la RQ, queda guardado el centro de cada línea. La OC y los movimientos de almacén lo heredan. Una modificación posterior del catálogo de equivalencias no cambia esos documentos.
+
+Las equivalencias de demostración están marcadas **DEMO · por validar con Laura (V49)**. No son asignaciones definitivas aprobadas.
+
+
 ## Qué hace el módulo
 
 Gestiona la solicitud interna de materiales y servicios: cualquier área captura

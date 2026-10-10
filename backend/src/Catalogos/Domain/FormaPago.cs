@@ -24,6 +24,8 @@ public sealed class FormaPago : BaseEntity, IAuditable
 
     public bool Activa { get; private set; } = true;
 
+    public void CambiarEstado(bool activa) => Activa = activa;
+
     private FormaPago() { }
 
     public FormaPago(Guid id, string claveSat, string descripcion, bool activa = true)

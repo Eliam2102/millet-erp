@@ -222,15 +222,14 @@ export function AccionesOC({ oc }: AccionesOCProps) {
       {accCancelarDoble.visible && (
         <Button
           size="sm"
-          variant="outline"
+          variant="secondary-danger"
           onClick={abrirCancelarDoble}
           disabled={!accCancelarDoble.habilitada || isPending}
           title={accCancelarDoble.motivoDeshabilitada}
           data-action="cancelar-doble-firma"
-          className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
         >
           <Ban className="mr-1 h-3.5 w-3.5" />
-          Cancelar (doble firma)
+          Solicitar cancelación
         </Button>
       )}
       {accDuplicar.visible && (
@@ -385,7 +384,7 @@ export function AccionesOC({ oc }: AccionesOCProps) {
               command: values,
               idempotencyKey: crypto.randomUUID(),
             });
-            toast.success(`OC ${oc.folio} cancelada (doble firma).`);
+            toast.success(`Cancelación de OC ${oc.folio} solicitada. Pendiente de Dirección.`);
             setCancelarDobleOpen(false);
           } catch (err) {
             if (

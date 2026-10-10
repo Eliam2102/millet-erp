@@ -27,15 +27,14 @@ public sealed class ReppRecibidoTests
     public async Task Registrar_guarda_xml_y_publica_evento_congelado()
     {
         using var db = CrearDbContext();
-        var facturaId = await SembrarPasivoAsync(db, metodoPago: "PPD");
+        var facturaId = await SembrarPasivoConPagoAsync(db, "PPD", new(2026, 7, 1));
         var blob = new FakeBlob();
         var publisher = new FakePublisher();
         var handler = Handler(db, blob, publisher);
 
         var uuid = Guid.NewGuid();
-        var xml = Convert.ToBase64String("<pago20:Pagos/>"u8.ToArray());
-        var response = await handler.Handle(new RegistrarReppRecibidoCommand(
-            facturaId, uuid, new DateOnly(2026, 7, 14), xml), CancellationToken.None);
+        var command = Complemento(db, facturaId, uuid, new(2026, 7, 14));
+        var response = await handler.Handle(command, CancellationToken.None);
 
         response.XmlBlobRef.Should().NotBeNull();
         blob.Guardados.Should().ContainSingle();
@@ -49,21 +48,18 @@ public sealed class ReppRecibidoTests
     }
 
     [Fact]
-    public async Task Registrar_sin_xml_es_valido_y_uuid_duplicado_rechaza()
+    public async Task Registrar_sin_xml_rechaza_y_uuid_duplicado_rechaza()
     {
         using var db = CrearDbContext();
-        var facturaId = await SembrarPasivoAsync(db, metodoPago: "PPD");
+        var facturaId = await SembrarPasivoConPagoAsync(db, "PPD", new(2026, 7, 1));
         var handler = Handler(db, new FakeBlob(), new FakePublisher());
         var uuid = Guid.NewGuid();
-
-        var response = await handler.Handle(new RegistrarReppRecibidoCommand(
-            facturaId, uuid, new DateOnly(2026, 7, 14)), CancellationToken.None);
-        response.XmlBlobRef.Should().BeNull();
-
-        var act = () => handler.Handle(new RegistrarReppRecibidoCommand(
-            facturaId, uuid, new DateOnly(2026, 7, 14)), CancellationToken.None);
-        await act.Should().ThrowAsync<BusinessRuleException>()
-            .Where(e => e.Code == "REPP_UUID_DUPLICADO");
+        var sinXml = () => handler.Handle(Complemento(db, facturaId, uuid, new(2026, 7, 14)) with { XmlBase64 = null }, default);
+        await sinXml.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "REPP_XML_REQUERIDO");
+        var command = Complemento(db, facturaId, uuid, new(2026, 7, 14));
+        await handler.Handle(command, default);
+        var duplicado = () => handler.Handle(command, default);
+        await duplicado.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "REPP_UUID_DUPLICADO");
     }
 
     [Fact]
@@ -75,6 +71,16 @@ public sealed class ReppRecibidoTests
         var act = () => handler.Handle(new RegistrarReppRecibidoCommand(
             Guid.NewGuid(), Guid.NewGuid(), new DateOnly(2026, 7, 14)), CancellationToken.None);
         await act.Should().ThrowAsync<EntityNotFoundException>();
+    }
+
+    [Fact]
+    public async Task Registro_anterior_a_P4_sin_desglose_se_completa_con_XML_validado_sin_duplicar_UUID()
+    {
+        using var db=CrearDbContext();var facturaId=await SembrarPasivoConPagoAsync(db,"PPD",new(2026,7,1));var uuid=Guid.NewGuid();
+        var previo=Millet.Tesoreria.Domain.Repp.ReppProveedorRecibido.Registrar(EmpresaId,facturaId,uuid,new(2026,7,14),null,UsuarioId,Ahora);
+        db.Add(previo);await db.SaveChangesAsync();
+        var response=await Handler(db,new FakeBlob(),new FakePublisher()).Handle(Complemento(db,facturaId,uuid,new(2026,7,14)),default);
+        response.Id.Should().Be(previo.Id);(await db.ReppsProveedorRecibidos.CountAsync()).Should().Be(1);(await db.ReppPagosProveedor.CountAsync()).Should().Be(1);
     }
 
     // ------------------------------------------------------------ pendientes
@@ -90,17 +96,16 @@ public sealed class ReppRecibidoTests
         var facturaCubierta = await SembrarPasivoConPagoAsync(db, "PPD", new DateOnly(2026, 7, 1));
 
         var registrar = Handler(db, new FakeBlob(), new FakePublisher());
-        await registrar.Handle(new RegistrarReppRecibidoCommand(
-            facturaCubierta, Guid.NewGuid(), new DateOnly(2026, 7, 10)), CancellationToken.None);
+        await registrar.Handle(Complemento(db, facturaCubierta, Guid.NewGuid(), new(2026, 7, 10)), CancellationToken.None);
 
-        var handler = new ReppPendientesHandler(db, new FakeProveedores(), new FakeClock(Ahora));
+        var handler = new ReppPendientesHandler(db, new FakeProveedores(), new FakeClock(Ahora), new Calendario());
         var page = await handler.Handle(new ReppPendientesQuery(), CancellationToken.None);
 
         page.Items.Select(i => i.FacturaProveedorId)
             .Should().BeEquivalentTo([facturaPpd, facturaSinDato]);
 
         var ppd = page.Items.Single(i => i.FacturaProveedorId == facturaPpd);
-        ppd.DiasSinRepp.Should().Be(14);
+        ppd.DiasSinRepp.Should().Be(10);
         ppd.VencidoSla.Should().BeTrue(); // SLA 5 días
 
         var sinDato = page.Items.Single(i => i.FacturaProveedorId == facturaSinDato);
@@ -123,14 +128,14 @@ public sealed class ReppRecibidoTests
 
     private static RegistrarReppRecibidoHandler Handler(
         TesoreriaDbContext db, FakeBlob blob, FakePublisher publisher) =>
-        new(db, new FakeEmpresaContext(), new FakeUserContext(), blob, publisher, new FakeClock(Ahora));
+        new(db, new FakeEmpresaContext(), new FakeUserContext(), blob, publisher, new FakeClock(Ahora), new FakeProveedores());
 
     private static async Task<Guid> SembrarPasivoAsync(TesoreriaDbContext db, string? metodoPago)
     {
         var facturaId = Guid.NewGuid();
         db.PasivosPendientesPago.Add(new Domain.Pasivos.PasivoPendientePago(
             EmpresaId, facturaId, Guid.NewGuid(), null, 1_000m, 0m, "MXN", null,
-            new DateOnly(2026, 8, 1), null, "F-001", Ahora, metodoPago));
+            new DateOnly(2026, 8, 1), Guid.NewGuid(), "F-001", Ahora, metodoPago));
         await db.SaveChangesAsync();
         return facturaId;
     }
@@ -157,6 +162,29 @@ public sealed class ReppRecibidoTests
             .UseInMemoryDatabase(databaseName: $"tesoreria_test_{Guid.NewGuid()}")
             .Options;
         return new TesoreriaDbContext(options, new FakeEmpresaContext());
+    }
+
+    private static RegistrarReppRecibidoCommand Complemento(TesoreriaDbContext db, Guid factura, Guid uuid, DateOnly fecha)
+    {
+        var pasivo = db.PasivosPendientesPago.Single(p => p.FacturaProveedorId == factura);
+        var aplicacion = db.AplicacionesPagoProveedor.Single(a => a.FacturaProveedorId == factura);
+        var movimiento = db.MovimientosBancarios.Single(m => m.Id == aplicacion.MovimientoId);
+        var xml = $"""
+            <cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="P" Fecha="{fecha:yyyy-MM-dd}T12:00:00">
+              <cfdi:Emisor Rfc="AAA010101AAA"/><cfdi:Complemento>
+                <t:TimbreFiscalDigital xmlns:t="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="{uuid}"/>
+                <p:Pagos xmlns:p="http://www.sat.gob.mx/Pagos20" Version="2.0"><p:Pago FechaPago="{movimiento.FechaValor:yyyy-MM-dd}T12:00:00" MonedaP="MXN" Monto="1000">
+                  <p:DoctoRelacionado IdDocumento="{pasivo.UuidCfdi}" MonedaDR="MXN" ImpPagado="1000" NumParcialidad="1" ImpSaldoAnt="1000" ImpSaldoInsoluto="0"/>
+                </p:Pago></p:Pagos>
+              </cfdi:Complemento>
+            </cfdi:Comprobante>
+            """;
+        return new(factura, uuid, fecha, Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(xml)), [new(aplicacion.Id, 1000)]);
+    }
+    private sealed class Calendario : Millet.SharedKernel.Application.Calendario.ICalendarioHabil
+    {
+        public Task<int> ContarDiasAsync(DateOnly desde, DateOnly hasta, CancellationToken ct) => Task.FromResult(Millet.SharedKernel.Application.Calendario.CalendarioHabil.ContarDias(desde, hasta, new HashSet<DateOnly>()));
+        public Task<DateTimeOffset> SumarHorasAsync(DateOnly fecha, int horas, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class FakeBlob : IReppXmlBlobStorage
@@ -189,7 +217,7 @@ public sealed class ReppRecibidoTests
     private sealed class FakeProveedores : IProveedorBancoReadPort
     {
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken) =>
-            Task.FromResult<ProveedorBancoDto?>(null);
+            Task.FromResult<ProveedorBancoDto?>(new(proveedorId, "FIX-P4", "Proveedor ficticio", null, null, null, Rfc: "AAA010101AAA"));
 
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(
             IReadOnlyCollection<Guid> proveedorIds, CancellationToken cancellationToken) =>

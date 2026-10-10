@@ -296,3 +296,19 @@ function buildListarProveedoresPath(
     ? `/api/v1/datos-maestros/proveedores?${query}`
     : '/api/v1/datos-maestros/proveedores';
 }
+
+export function useActualizarToleranciaProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; montoMxn: number | null; idempotencyKey: string }>({
+    mutationFn: async ({ id, montoMxn, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/datos-maestros/proveedores/${id}/tolerancia`, {
+        method: 'PUT',
+        body: { montoMxn },
+        idempotencyKey,
+      });
+    },
+    onSuccess: (_data, vars) => queryClient.invalidateQueries({
+      queryKey: datosMaestrosKeys.proveedor(vars.id),
+    }),
+  });
+}

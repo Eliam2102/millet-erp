@@ -1,3 +1,5 @@
+using Millet.Compras.Infrastructure.PublicAdapters;
+using Millet.SharedKernel.Application.UnidadesMedida;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
@@ -28,8 +30,8 @@ namespace Millet.Compras.Application.Autorizar;
 ///         <c>EnSurtido</c>).</item>
 ///   <item><b>F4-PR2 / PR4</b>: en la <b>misma transacción EF</b>, invoca
 ///         <see cref="IGenerarSolicitudCompraPort"/> con el saldo si hay
-///         líneas con <c>CantidadDeCompra &gt; 0</c> (ADR-0047: las RQ ya
-///         NO reservan stock; la porción de almacén queda como stock libre).
+///         líneas con <c>CantidadDeCompra &gt; 0</c> (ADR-0061: las RQ
+///         apartan stock según D3 (P7)).
 ///         Si el puerto lanza, la TX se descarta y el agregado regresa a
 ///         <c>EnAutorizacion</c>. La excepción se propaga como
 ///         <see cref="BusinessRuleException"/> con código
@@ -48,6 +50,8 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
     private readonly IConsultarStockPort _stock;
     private readonly IGenerarSolicitudCompraPort _ocPort;
     private readonly IClock _clock;
+    private readonly TransaccionApartadosRq _apartadosTx;
+    private readonly IConversionUnidadPort _conversion;
 
     public AutorizarRequisicionHandler(
         ComprasDbContext db,
@@ -56,7 +60,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         IRequiereNivelEvaluator evaluator,
         IConsultarStockPort stock,
         IGenerarSolicitudCompraPort ocPort,
-        IClock clock)
+        IClock clock, TransaccionApartadosRq apartadosTx, IConversionUnidadPort conversion)
     {
         _db = db;
         _mediator = mediator;
@@ -65,6 +69,8 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         _stock = stock;
         _ocPort = ocPort;
         _clock = clock;
+        _apartadosTx = apartadosTx;
+        _conversion = conversion;
     }
 
     public async Task<Unit> Handle(AutorizarRequisicionCommand command, CancellationToken cancellationToken)
@@ -150,14 +156,12 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
     {
         await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
 
+        await using var union = await _apartadosTx.UnirAsync(cancellationToken);
+        await _apartadosTx.Apartados.BloquearAsync(requisicion.SucursalId,
+            requisicion.Lineas.Select(l => l.ArticuloId), cancellationToken);
         // 1. Calcular cubrimiento por línea consultando stock.
         var cubrimientos = await CalcularCubrimientosAsync(requisicion, cancellationToken);
         var cubrimientoResultado = requisicion.RegistrarCubrimiento(cubrimientos, _clock.UtcNow);
-
-        // 2. (PR4 / ADR-0047) Las requisiciones YA NO reservan inventario. La
-        // porción cubierta por almacén (CantidadDeAlmacen) queda como stock
-        // libre; el surtido decrementa el físico al entregar. El faltante
-        // (CantidadDeCompra) va a OC (paso 3).
 
         // 3. OC borrador con líneas de saldo (si hay y el setting está ON).
         //
@@ -225,9 +229,14 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         Requisicion requisicion,
         CancellationToken cancellationToken)
     {
+        var apartar = await _db.ComprasSettings.AsNoTracking()
+            .Where(s => s.EmpresaId == requisicion.EmpresaId)
+            .Select(s => (bool?)s.ApartarExistenciaAlAutorizar).FirstOrDefaultAsync(cancellationToken) ?? true;
         var resultado = new List<CubrimientoLinea>(requisicion.Lineas.Count);
+        var disponiblesEnBase = new Dictionary<Guid, decimal>();
         foreach (var linea in requisicion.Lineas)
         {
+            var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
             var disponibilidad = await _stock.ConsultarPorSucursalAsync(
                 requisicion.SucursalId,
                 linea.ArticuloId,
@@ -236,9 +245,19 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
             // Reparto conservador (todo el disponible hasta el tope; el resto
             // es saldo para OC) vía la función pura del dominio — MISMA pieza
             // que usa el preview read-only (PR-C), sin drift.
-            var (cantidadDeAlmacen, cantidadDeCompra) =
-                Cubrimiento.Repartir(disponibilidad.Disponible, linea.Cantidad);
+            // No partir cajas indivisibles ni redondear hacia arriba al guardar numeric(14,4).
+            var escala = (decimal)Math.Pow(10, Math.Min(4, conversion.DecimalesDocumento));
+            var disponibleBase = apartar ? disponibilidad.Disponible : disponiblesEnBase.GetValueOrDefault(linea.ArticuloId, disponibilidad.Disponible);
+            var disponibleDocumento = decimal.Floor(disponibleBase / conversion.FactorDocumentoABase * escala) / escala;
+            var (cantidadDeAlmacen, cantidadDeCompra) = Cubrimiento.Repartir(disponibleDocumento, linea.Cantidad);
 
+            if (apartar)
+            {
+                cantidadDeAlmacen = await _apartadosTx.Apartados.ApartarAsync(requisicion.EmpresaId,
+                    requisicion.SucursalId, requisicion.Id, linea.Id, linea.ArticuloId, cantidadDeAlmacen * conversion.FactorDocumentoABase, cancellationToken) / conversion.FactorDocumentoABase;
+                cantidadDeCompra = linea.Cantidad - cantidadDeAlmacen;
+            }
+            disponiblesEnBase[linea.ArticuloId] = disponibleBase - cantidadDeAlmacen * conversion.FactorDocumentoABase;
             resultado.Add(new CubrimientoLinea(linea.Id, cantidadDeAlmacen, cantidadDeCompra));
         }
         return resultado;

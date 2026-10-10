@@ -23,6 +23,7 @@ public static class EvidenciasEndpoints
     {
         var group = app
             .MapGroup("/api/v1/cuentas-por-pagar/facturas/{facturaId:guid}/evidencias")
+            .WithDocumentoSucursalScope("factura_proveedor", "cuentas_por_pagar.facturas", "facturaId")
             .WithTags("CuentasPorPagar")
             .RequireAuthorization();
 

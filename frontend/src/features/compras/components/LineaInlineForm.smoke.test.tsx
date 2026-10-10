@@ -43,7 +43,7 @@ beforeEach(() => {
     ),
     // Modo agregar dispara el prellenado del CC-Máquina (/dim3/buscar?limit=2);
     // lista vacía → sin prellenado, no interfiere con estos smoke tests.
-    http.get('*/api/v1/centros-costo/dim3/buscar', () => HttpResponse.json([])),
+    http.get('*/api/v1/compras/requisiciones/:id/lineas/centro-costo-captura', () => HttpResponse.json({ heredado: null, puedeElegir: true, unicaOpcion: null, mensaje: null })),
   );
   useAuthStore.setState({
     status: 'authenticated',
@@ -159,7 +159,7 @@ describe('<LineaInlineForm> — smoke', () => {
     });
     // Sin expandir "Detalles": el combobox de máquina ya está montado.
     expect(
-      screen.getByRole('combobox', { name: /seleccionar máquina/i }),
+      screen.getByRole('combobox', { name: /seleccionar centro de costo/i }),
     ).toBeInTheDocument();
   });
 
@@ -178,4 +178,15 @@ describe('<LineaInlineForm> — smoke', () => {
     );
     expect(screen.getByText('MCLC101 — Gantry')).toBeInTheDocument();
   });
+  it('ADM08: edición sin alcance muestra el heredado aunque el ID ya coincida', async () => {
+    mswServer.use(http.get('*/api/v1/compras/requisiciones/:id/lineas/centro-costo-captura', () => HttpResponse.json({
+      heredado: { id: 'cc-depto', clave: 'AREA', nombre: 'DEMO departamento', nivel: 2, activo: true, dim1Id: 'p', dim2Id: 'cc-depto' },
+      puedeElegir: false, unicaOpcion: null, mensaje: null,
+    })));
+    render(<LineaInlineForm requisicionId="rq-1" linea={makeLinea({ centroCostoId: 'cc-depto' })} onCancel={() => {}} />, { wrapper: createQueryWrapper() });
+    const campo = await screen.findByRole('textbox', { name: /centro de costo.*heredado/i });
+    expect(campo).toHaveValue('AREA — DEMO departamento');
+    expect(campo).toHaveAttribute('readonly');
+  });
+
 });

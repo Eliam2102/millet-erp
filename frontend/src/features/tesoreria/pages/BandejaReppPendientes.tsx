@@ -43,7 +43,7 @@ export function BandejaReppPendientes() {
             REPP de proveedor
           </h1>
           <p className="text-sm text-muted-foreground">
-            Pagos sin complemento de pago del proveedor (SLA 5 días).
+            Pagos sin complemento de pago del proveedor (SLA 5 días hábiles).
             Registrar el REPP recibido libera el motivo FALTA_REPP en Cuentas
             por Pagar.
           </p>
@@ -54,7 +54,7 @@ export function BandejaReppPendientes() {
               checked={soloVencidos}
               onCheckedChange={(v) => setSoloVencidos(v === true)}
             />
-            Solo vencidos (&gt;5 días)
+            Solo vencidos (&gt;5 días hábiles)
           </label>
           <label className="flex cursor-pointer items-center gap-2">
             <Checkbox
@@ -99,14 +99,15 @@ export function BandejaReppPendientes() {
                 <th className="px-3 py-2 font-medium">Factura</th>
                 <th className="px-3 py-2 font-medium">Método</th>
                 <th className="px-3 py-2 text-right font-medium">Pagado</th>
-                <th className="px-3 py-2 font-medium">Primer pago</th>
+                <th className="px-3 py-2 text-right font-medium">Falta complementar</th>
+                <th className="px-3 py-2 font-medium">Pago</th>
                 <th className="px-3 py-2 text-right font-medium">Sin REPP</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y">
               {items.map((r) => (
-                <tr key={r.facturaProveedorId} className="hover:bg-muted/30">
+                <tr key={r.pagoId} className="hover:bg-muted/30">
                   <td className="max-w-64 px-3 py-2">
                     <p className="truncate">
                       {r.proveedorRazonSocial ?? r.proveedorId.slice(0, 8)}
@@ -123,8 +124,8 @@ export function BandejaReppPendientes() {
                       variant="outline"
                       className={cn(
                         r.metodoPago === 'PPD'
-                          ? 'border-sky-300 bg-sky-50 text-sky-700'
-                          : 'border-slate-300 bg-slate-50 text-slate-600',
+                          ? 'border-info-border bg-info-bg text-info-fg'
+                          : 'border-line bg-surface-subtle text-ink-muted',
                       )}
                     >
                       {r.metodoPago ?? 'Sin dato'}
@@ -133,16 +134,17 @@ export function BandejaReppPendientes() {
                   <td className="px-3 py-2 text-right font-mono tabular-nums">
                     {formatoMonto(r.montoPagado, r.moneda)}
                   </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatoMonto(r.importePendiente, r.moneda)}</td>
                   <td className="px-3 py-2 text-xs">
                     {formatoFecha(r.fechaPrimerPago)}
                   </td>
                   <td
                     className={cn(
                       'px-3 py-2 text-right tabular-nums',
-                      r.vencidoSla && 'font-semibold text-rose-700',
+                      r.vencidoSla && 'font-semibold text-danger-fg',
                     )}
                   >
-                    {r.diasSinRepp} d{r.vencidoSla ? ' ⚠' : ''}
+                    {r.diasSinRepp} días hábiles{r.vencidoSla ? ' ⚠' : ''}
                   </td>
                   <td className="px-3 py-2 text-right">
                     {puedeRegistrar && (
@@ -166,7 +168,7 @@ export function BandejaReppPendientes() {
           </p>
         )}
 
-      <RegistrarReppSheet
+      <RegistrarReppSheet pendientes={items}
         pendiente={registrando}
         onOpenChange={(o) => {
           if (!o) setRegistrando(null);

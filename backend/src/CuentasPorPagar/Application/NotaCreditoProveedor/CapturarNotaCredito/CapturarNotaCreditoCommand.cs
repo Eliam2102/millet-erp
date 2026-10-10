@@ -71,16 +71,19 @@ public sealed class CapturarNotaCreditoHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IMediator _mediator;
     private readonly IClock _clock;
+    private readonly Domain.Ports.DatosMaestros.IProveedorReadPort _proveedores;
+    private readonly Domain.Cfdi.ICfdiBlobStorage _blob;
+    private readonly Domain.Cfdi.IXmlCfdiParser _parser;
 
     public CapturarNotaCreditoHandler(
         CuentasPorPagarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IMediator mediator,
-        IClock clock)
+        IClock clock, Domain.Ports.DatosMaestros.IProveedorReadPort proveedores, Domain.Cfdi.ICfdiBlobStorage blob, Domain.Cfdi.IXmlCfdiParser parser)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _mediator = mediator; _clock = clock;
+        _mediator = mediator; _clock = clock; _proveedores = proveedores; _blob = blob; _parser = parser;
     }
 
     public async Task<CapturarNotaCreditoResponse> Handle(
@@ -94,6 +97,22 @@ public sealed class CapturarNotaCreditoHandler
                 "El usuario no tiene una empresa seleccionada en el JWT actual.");
         }
 
+        if (command.CfdiRecibidoId is Guid cfdiId)
+        {
+            var documento = await _db.CfdisRecibidos.FirstOrDefaultAsync(c => c.Id == cfdiId, cancellationToken)
+                ?? throw new EntityNotFoundException("CFDI_NO_ENCONTRADO", "No se encontró el CFDI de la NC.");
+            var proveedor = await _proveedores.ObtenerAsync(command.ProveedorId, cancellationToken)
+                ?? throw new EntityNotFoundException("PROVEEDOR_NO_ENCONTRADO", "No se encontró el proveedor de la NC.");
+            if (documento.XmlBlobRef is null) throw new BusinessRuleException("NC_XML_REQUERIDO", "El CFDI ligado requiere su XML original.");
+            await using var stream = await _blob.LeerXmlAsync(documento.XmlBlobRef, cancellationToken)
+                ?? throw new BusinessRuleException("NC_XML_REQUERIDO", "No se pudo leer el XML original de la NC.");
+            var datos = _parser.Parsear(stream);
+            if (datos.RfcEmisor != proveedor.Rfc || datos.Tipo != Domain.Cfdi.TipoCfdi.Egreso || !string.Equals(datos.UuidCfdi, command.UuidCfdi.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                datos.Total != command.Total || !string.Equals(datos.Moneda, command.Moneda, StringComparison.OrdinalIgnoreCase) ||
+                datos.CfdiRelacionados is not { Count: 1 } || datos.CfdiRelacionados[0].TipoRelacion != ((int)command.TipoRelacionCfdi).ToString("00") ||
+                datos.CfdiRelacionados[0].Uuids.Count != 1 || !string.Equals(datos.CfdiRelacionados[0].Uuids[0], command.UuidRelacionCfdi, StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException("NC_XML_NO_COINCIDE", "El XML de la NC debe coincidir en proveedor, UUID, tipo, moneda, importe y relación fiscal.");
+        }
         // Dedup por UUID del CFDI — el SAT garantiza unicidad global.
         var uuidNormalizado = command.UuidCfdi.Trim().ToUpperInvariant();
         var existe = await _db.NotasCreditoProveedor
@@ -134,7 +153,7 @@ public sealed class CapturarNotaCreditoHandler
             tipo: command.Tipo,
             tipoRelacionCfdi: command.TipoRelacionCfdi,
             uuidRelacionCfdi: command.UuidRelacionCfdi,
-            facturaOrigenId: facturaOrigen?.Id,
+            facturaOrigenId: command.TipoRelacionCfdi == TipoRelacionCfdi.AmortizacionAnticipo ? null : facturaOrigen?.Id,
             capturadoPor: _currentUser.UserId,
             ahora: ahora);
 
@@ -156,42 +175,20 @@ public sealed class CapturarNotaCreditoHandler
             Moneda: nc.Moneda,
             TipoCambio: nc.TipoCambio), cancellationToken);
 
-        // F6-PR3: ciclo bidireccional con Almacén — si la NC tiene
-        // TipoRelacionCfdi=03 (Devolucion) y resolvimos la factura
-        // origen, buscamos una NotaCargo creada por una devolución a
-        // proveedor cuyo factura_origen_id sea el mismo. Si la
-        // encontramos y está Aplicada, formalizamos; en cualquier caso,
-        // publicamos el evento para que Almacén marque la devolución
-        // como conciliada con NC fiscal (ConciliadaConNcFiscal=true).
-        if (command.TipoRelacionCfdi == TipoRelacionCfdi.Devolucion
-            && facturaOrigen is not null)
+        await new NotaCargo.FormalizacionNotaCargoService(_db, _mediator).IntentarAsync(nc, ahora, cancellationToken);
+        if (nc.TipoRelacionCfdi == TipoRelacionCfdi.AmortizacionAnticipo)
         {
-            var notaCargoMatch = await _db.NotasCargo
-                .Where(n =>
-                    n.FacturaOrigenId == facturaOrigen.Id
-                    && n.DevolucionAProveedorId != null
-                    && n.NotaCreditoProveedorId == null
-                    && n.Estado != EstadoNotaCargo.Cancelada)
-                .OrderBy(n => n.FechaCreacion)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (notaCargoMatch is not null)
-            {
-                if (notaCargoMatch.Estado == EstadoNotaCargo.Aplicada)
-                {
-                    notaCargoMatch.Formalizar(nc.Id, ahora);
-                }
-
-                await _mediator.Publish(new NotaCreditoFiscalDevolucionRecibidaDomainEvent(
-                    EmpresaId: empresaId,
-                    NotaCreditoProveedorId: nc.Id,
-                    NotaCargoId: notaCargoMatch.Id,
-                    DevolucionAProveedorId: notaCargoMatch.DevolucionAProveedorId!.Value,
-                    ProveedorId: nc.ProveedorId,
-                    Total: nc.Total,
-                    UuidCfdi: nc.UuidCfdi,
-                    OcurridoEn: ahora), cancellationToken);
-            }
+            var anticipo = await _db.AnticiposProveedor.FirstOrDefaultAsync(a => a.UuidCfdi == uuidRelacionNormalizado &&
+                a.ProveedorId == nc.ProveedorId && a.Moneda == nc.Moneda, cancellationToken);
+            if (anticipo is not null) nc.VincularAnticipoOrigen(anticipo.Id, ahora);
+        }
+        if (command.CfdiRecibidoId is Guid documentoId)
+        {
+            var documento = await _db.CfdisRecibidos.FirstOrDefaultAsync(c => c.Id == documentoId, cancellationToken)
+                ?? throw new EntityNotFoundException("CFDI_NO_ENCONTRADO", "No se encontró el CFDI de la NC.");
+            if (documento.UuidCfdi.Valor != nc.UuidCfdi || documento.Tipo != Domain.Cfdi.TipoCfdi.Egreso || documento.Moneda != nc.Moneda || documento.Total != nc.Total)
+                throw new BusinessRuleException("NC_CFDI_NO_COINCIDE", "El CFDI ligado debe coincidir con el UUID, moneda e importe de la NC y ser de tipo Egreso.");
+            documento.MarcarConvertidoEnPasivo(nc.Id);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

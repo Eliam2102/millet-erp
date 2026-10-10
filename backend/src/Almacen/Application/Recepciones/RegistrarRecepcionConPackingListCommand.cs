@@ -61,6 +61,7 @@ public sealed class RegistrarRecepcionConPackingListValidator
         {
             linea.RuleFor(l => l.ArticuloId).NotEqual(Guid.Empty);
             linea.RuleFor(l => l.Cantidad).GreaterThan(0);
+            linea.RuleFor(l => l.UnidadCapturada).MaximumLength(20);
             linea.RuleFor(l => l.UbicacionId)
                 .NotNull().NotEqual(Guid.Empty)
                 .WithMessage("La ubicación (rack) es obligatoria en la entrada.");
@@ -83,6 +84,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IPeriodoContableReadPort _periodoContable;
     private readonly IDecimalesUnidadGuard _decimalesGuard;
+    private readonly IConversionUnidadPort _conversion;
 
     public RegistrarRecepcionConPackingListHandler(
         AlmacenDbContext db,
@@ -92,7 +94,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable)
+        IPeriodoContableReadPort periodoContable, IConversionUnidadPort conversion)
     {
         _db = db;
         _ocPort = ocPort;
@@ -102,6 +104,7 @@ public sealed class RegistrarRecepcionConPackingListHandler
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
         _periodoContable = periodoContable;
+        _conversion = conversion;
     }
 
     public async Task<RegistrarRecepcionResponse> Handle(
@@ -109,20 +112,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
     {
         // 1. Validar OC.
         var oc = await _ocPort.ObtenerAsync(request.OrdenCompraId, cancellationToken);
-        if (oc is not null)
-        {
-            if (!string.Equals(oc.Estado, "Autorizada", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(oc.Estado, "Recibida", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_OC_NO_AUTORIZADA",
-                    $"La OC '{oc.Folio}' está en estado '{oc.Estado}'; no acepta recepción.");
-            }
-        }
-
-        // 3. Construir movimiento. El sub-almacén ya no viene en cabecera: se
-        //    deriva del bin de cada línea (guard en el loop); la FK del bin
-        //    cubre la existencia.
+        // Primero valida identidad/estado; después aplica el techo a cantidades equivalentes.
+        await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), _articuloPort, cancellationToken);
+        // El cierre se rechaza antes de consultar equivalencias o ubicaciones (P1/P7).
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
 
@@ -130,10 +122,17 @@ public sealed class RegistrarRecepcionConPackingListHandler
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
             _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
 
+        var conversiones = new List<ConversionUnidad>();
+        foreach (var input in request.Lineas)
+            conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
+                input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
+        var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
+        var lineasOc = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, _articuloPort, cancellationToken);
+
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
         await _decimalesGuard.ValidarAsync(
-            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad)),
+            request.Lineas.Select((l, i) => new CantidadAValidar(l.ArticuloId, conversiones[i].CantidadBase)),
             cancellationToken);
 
         var movimientoId = Guid.CreateVersion7();
@@ -167,20 +166,25 @@ public sealed class RegistrarRecepcionConPackingListHandler
                 _db, input.UbicacionId!.Value, input.ArticuloId, cancellationToken);
             subsDerivados.Add(subLinea);
 
-            var (costo, um, lineaOcId) = await ResolverCostoYUmAsync(oc, input, cancellationToken);
+            var origen = lineasOc[input.LineaOcId!.Value];
+            var (costo, um, lineaOcId) = (origen.PrecioUnitarioMxn, origen.UnidadMedida, origen.LineaId);
 
+            var conversion = conversiones[posicion - 1];
             var lineaId = Guid.CreateVersion7();
             var linea = new LineaMovimiento(
                 id: lineaId,
                 movimientoId: movimientoId,
                 posicion: posicion++,
                 articuloId: input.ArticuloId,
-                cantidad: input.Cantidad,
-                unidadMedida: um,
-                costoUnitarioMxn: costo,
+                cantidad: conversion.CantidadBase,
+                unidadMedida: conversion.UnidadBase,
+                costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
+                centroCostoId: origen.CentroCostoId,
                 ubicacionReferencia: input.UbicacionReferencia,
                 comentarioLinea: input.Comentario,
-                ubicacionId: input.UbicacionId);
+                ubicacionId: input.UbicacionId,
+                lineaOcId: lineaOcId);
+            linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
             movimiento.AgregarLinea(linea);
 
             payloadLineas.Add(new LineaRecepcionPayload(
@@ -188,9 +192,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
                 LineaOcId: lineaOcId,
                 ArticuloId: input.ArticuloId,
                 UnidadMedida: um,
-                Cantidad: input.Cantidad,
+                Cantidad: conversion.CantidadDocumento,
                 CostoUnitarioMxn: costo,
-                MontoTotalMxn: Math.Round(input.Cantidad * costo, 2),
+                MontoTotalMxn: Math.Round(conversion.CantidadDocumento * costo, 2),
                 // PR4: bin N4 real de la línea (el guard ya garantizó que viene
                 // poblado y es válido para el sub-almacén).
                 UbicacionId: input.UbicacionId!.Value,

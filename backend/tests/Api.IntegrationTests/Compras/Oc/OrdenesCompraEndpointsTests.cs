@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Catalogos.Domain;
 using Millet.CentrosCosto.Application.Catalogo;
 using Millet.CentrosCosto.Infrastructure.Persistence;
+using Millet.Api.IntegrationTests.Fixtures;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
@@ -39,7 +40,7 @@ namespace Millet.Api.IntegrationTests.Compras.Oc;
 /// es constante para que las corridas reusen la misma fila de
 /// folio_secuencias_oc y los folios sean consecutivos.
 /// </summary>
-public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string EndpointBase = "/api/v1/compras/ordenes";
     private const string SuperAdminOid = "dev-superadmin";
@@ -47,7 +48,7 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
 
     // SucursalId fijo. El folio se forma con SucursalCodigo+Anio+secuencial;
     // mantener constante permite folios consecutivos entre corridas.
-    private static readonly Guid SucursalIdFija = Guid.Parse("00000003-0002-0000-0000-000000000001");
+    private static readonly Guid SucursalIdFija = TestComprasFixtures.SucursalMid;
 
     // Proveedores del seed compartido (CatalogosTestSeedHostedService).
     private static readonly Guid ProveedorActivoId = Guid.Parse("00000005-0001-0000-0000-000000000001");
@@ -645,11 +646,16 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
         var createResp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
         createResp.EnsureSuccessStatusCode();
         var createdId = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        // La suite comparte documentos: una OC recién creada no tiene por qué caer
+        // en la primera página global (FechaDocumento DESC, Folio DESC).
+        var referencia = $"LISTADO-{Guid.NewGuid():N}";
+        await SetReferenciaProveedorAsync(referencia, createdId);
 
-        var listResp = await client.GetAsync($"{EndpointBase}?page=1&pageSize=200");
+        var listResp = await client.GetAsync($"{EndpointBase}?referenciaProveedor={referencia}&page=1&pageSize=200");
 
         Assert.Equal(HttpStatusCode.OK, listResp.StatusCode);
         var body = await ReadJsonAsync(listResp);
+        Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
         var items = body.GetProperty("items");
         Assert.Equal(JsonValueKind.Array, items.ValueKind);
         Assert.True(items.GetArrayLength() >= 1);
@@ -717,6 +723,8 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
         var idSinRecepcion = await CrearOcAsync(client);
         var idParcial = await CrearOcAsync(client);
         var idCompleta = await CrearOcAsync(client);
+        var referencia = $"PENDIENTE-{Guid.NewGuid():N}";
+        await SetReferenciaProveedorAsync(referencia, idSinRecepcion, idParcial, idCompleta);
 
         await SetSubEstadoRecepcionAsync(idParcial, 1);   // Parcial
         await SetSubEstadoRecepcionAsync(idCompleta, 2);  // Completa
@@ -724,17 +732,19 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
 
         // Con filtro: las pendientes (0 y 1) presentes, la Completa (2) ausente.
         var filtrada = await client.GetAsync(
-            $"{EndpointBase}?soloConPendienteRecepcion=true&pageSize=200");
+            $"{EndpointBase}?referenciaProveedor={referencia}&soloConPendienteRecepcion=true&pageSize=200");
         filtrada.EnsureSuccessStatusCode();
         var idsFiltradas = await IdsDeAsync(filtrada);
+        Assert.Equal(2, idsFiltradas.Count);
         Assert.Contains(idSinRecepcion, idsFiltradas);
         Assert.Contains(idParcial, idsFiltradas);
         Assert.DoesNotContain(idCompleta, idsFiltradas);
 
         // Control sin filtro: la Completa SÍ aparece (está en rango).
-        var sinFiltro = await client.GetAsync($"{EndpointBase}?pageSize=200");
+        var sinFiltro = await client.GetAsync($"{EndpointBase}?referenciaProveedor={referencia}&pageSize=200");
         sinFiltro.EnsureSuccessStatusCode();
         var idsSinFiltro = await IdsDeAsync(sinFiltro);
+        Assert.Equal(3, idsSinFiltro.Count);
         Assert.Contains(idCompleta, idsSinFiltro);
     }
 
@@ -743,6 +753,16 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
         var resp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
         resp.EnsureSuccessStatusCode();
         return (await ReadJsonAsync(resp)).GetProperty("id").GetGuid();
+    }
+
+    private async Task SetReferenciaProveedorAsync(string referencia, params Guid[] ids)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        foreach (var oc in await db.OrdenesCompra.Where(x => ids.Contains(x.Id)).ToListAsync())
+            oc.ActualizarReferenciaProveedor(referencia);
+        await db.SaveChangesAsync();
     }
 
     private async Task SetSubEstadoRecepcionAsync(Guid ocId, short subEstado)
@@ -1219,6 +1239,9 @@ public class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationFactory<P
             identidad.UsuarioPreferencias.Add(new UsuarioPreferencia(Guid.CreateVersion7(), usuarioId));
             identidad.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(
                 Guid.CreateVersion7(), usuarioId, EmpresaInicialId, rolId, asignadoPorUsuarioId: null));
+            // ADR-0050 permite captura por proxy; la sucursal del documento sigue autorizada.
+            identidad.UsuarioSucursales.Add(new UsuarioSucursal(
+                Guid.CreateVersion7(), usuarioId, SucursalIdFija, EmpresaInicialId));
             await identidad.SaveChangesAsync();
         }
 
