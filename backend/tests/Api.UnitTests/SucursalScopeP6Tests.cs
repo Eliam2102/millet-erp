@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Web;
 using Millet.SharedKernel.Application;
@@ -10,6 +11,32 @@ public sealed class SucursalScopeP6Tests
 {
     private static readonly Guid Cancun = Guid.NewGuid();
     private static readonly Guid Circuito = Guid.NewGuid();
+    [Fact]
+    public async Task Pendientes_reutilizados_respetan_sucursal_del_topbar()
+    {
+        var propio = Guid.NewGuid();
+        var puerto = new Puerto([new(propio, [Cancun]), new(Guid.NewGuid(), [Circuito])]);
+        var permisos = new Permisos(true);
+        var http = new HttpContextAccessor { HttpContext = new DefaultHttpContext() };
+        http.HttpContext.Request.Headers["X-Inicio-Sucursal-Id"] = Cancun.ToString();
+        var query = new Consulta();
+        var behavior = new SucursalScopeQueryBehavior<Consulta, bool>(new Usuario(), permisos, new Sucursales(), Scope(permisos, puerto), http);
+        await behavior.Handle(query, () => {
+            Assert.Equal(new[] { Cancun }, query.SucursalesPermitidas);
+            Assert.Equal(new[] { propio }, query.DocumentosPermitidos);
+            return Task.FromResult(true);
+        }, CancellationToken.None);
+    }
+    [Fact]
+    public async Task Pendientes_reutilizados_rechazan_sucursal_ajena()
+    {
+        var puerto = new Puerto([]); var permisos = new Permisos(false);
+        var http = new HttpContextAccessor { HttpContext = new DefaultHttpContext() };
+        http.HttpContext.Request.Headers["X-Inicio-Sucursal-Id"] = Circuito.ToString();
+        var query = new Consulta();
+        var behavior = new SucursalScopeQueryBehavior<Consulta, bool>(new Usuario(), permisos, new Sucursales(), Scope(permisos, puerto), http);
+        await Assert.ThrowsAsync<ForbiddenException>(() => behavior.Handle(query, () => Task.FromResult(true), CancellationToken.None));
+    }
     [Fact]
     public async Task Documento_mixto_exige_todas_las_sucursales_y_documento_sin_origen_exige_corporativo()
     {
@@ -36,6 +63,36 @@ public sealed class SucursalScopeP6Tests
             else { Assert.Equal(new[] { Cancun }, query.SucursalesPermitidas); Assert.Equal(new[] { propia }, query.DocumentosPermitidos); }
             return Task.FromResult(true);
         }, CancellationToken.None);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Inicio_seleccionado_restringe_incluso_al_corporativo(bool corporativo)
+    {
+        var propio = Guid.NewGuid(); var ajeno = Guid.NewGuid();
+        var puerto = new Puerto([new(propio, [Cancun]), new(ajeno, [Circuito])]);
+        var permisos = new Permisos(corporativo);
+        var query = new Millet.Tesoreria.Application.Inicio.ResumenInicioQuery("pagos", Cancun);
+        var behavior = new SucursalScopeQueryBehavior<Millet.Tesoreria.Application.Inicio.ResumenInicioQuery, bool>(
+            new Usuario(), permisos, new Sucursales(), Scope(permisos, puerto));
+        await behavior.Handle(query, () => {
+            Assert.Equal(new[] { Cancun }, query.SucursalesPermitidas);
+            Assert.Equal(new[] { propio }, query.DocumentosPermitidos);
+            return Task.FromResult(true);
+        }, CancellationToken.None);
+    }
+    [Fact]
+    public async Task Inicio_seleccionado_ajeno_es_403_antes_del_handler()
+    {
+        var puerto = new Puerto([]); var permisos = new Permisos(false);
+        var query = new Millet.Tesoreria.Application.Inicio.ResumenInicioQuery("pagos", Circuito);
+        var behavior = new SucursalScopeQueryBehavior<Millet.Tesoreria.Application.Inicio.ResumenInicioQuery, bool>(
+            new Usuario(), permisos, new Sucursales(), Scope(permisos, puerto));
+        var ejecutado = false;
+        await Assert.ThrowsAsync<ForbiddenException>(() => behavior.Handle(query, () => {
+            ejecutado = true; return Task.FromResult(true);
+        }, CancellationToken.None));
+        Assert.False(ejecutado);
     }
     private static DocumentoSucursalScope Scope(Permisos permisos, Puerto puerto)
         => new(new Usuario(), permisos, new Sucursales(), puerto, puerto, puerto, puerto, puerto, puerto);

@@ -42,6 +42,13 @@ public sealed class TesoreriaReportesSucursalP6Tests
         var permitidos = documentos.Where(x => DocumentoSucursalScope.Permitido(x, [propia])).Select(x => x.Id).ToArray();
         Assert.Equal(new[] { cuentas[0].Id }, permitidos);
         Assert.Empty(documentos.Single(x => x.Id == cuentas[3].Id).Sucursales);
+        var saldos = new Millet.Tesoreria.Application.Cuentas.SaldosPorCuentaHandler(db, new SinPermisos());
+        var propios = await saldos.Handle(new Millet.Tesoreria.Application.Cuentas.SaldosPorCuentaQuery
+            { DocumentosPermitidos = permitidos }, CancellationToken.None);
+        Assert.Single(propios);
+        Assert.Equal(800m, propios[0].Saldo);
+        var todos = await saldos.Handle(new Millet.Tesoreria.Application.Cuentas.SaldosPorCuentaQuery(), CancellationToken.None);
+        Assert.Equal(4, todos.Count);
         var flujo = new FlujoEfectivoReporteHandler(db, new Reloj());
         var query = new FlujoEfectivoReporteQuery(new(2026, 10, 8), new(2026, 10, 10)) { DocumentosPermitidos = permitidos };
         var reporte = await flujo.Handle(query, CancellationToken.None);
@@ -55,6 +62,10 @@ public sealed class TesoreriaReportesSucursalP6Tests
         Assert.Equal(800m, (await auxiliar.Handle(auxQuery, CancellationToken.None)).Totales!["saldo"]);
         await Assert.ThrowsAsync<EntityNotFoundException>(() => auxiliar.Handle(auxQuery with { CuentaBancariaId = cuentas[1].Id }, CancellationToken.None));
         Assert.Equal(900m, (await auxiliar.Handle(auxQuery with { CuentaBancariaId = cuentas[1].Id, DocumentosPermitidos = null }, CancellationToken.None)).Totales!["saldo"]);
+    }
+    private sealed class SinPermisos : ICurrentUserPermissions
+    {
+        public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) => ValueTask.FromResult(false);
     }
     private static readonly DateTimeOffset Ahora = new(2026, 10, 9, 12, 0, 0, TimeSpan.Zero);
     private sealed class Reloj : IClock { public DateTimeOffset UtcNow => Ahora; }

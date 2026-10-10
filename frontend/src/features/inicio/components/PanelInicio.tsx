@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -7,7 +8,10 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { useResumenInicio } from '../api/useResumenInicio';
 import { IndicadoresInicio } from './IndicadoresInicio';
 import { RecientesInicio } from './RecientesInicio';
-import { AccesosRapidos } from './AccesosRapidos';
+import { VisualesInicio } from './VisualesInicio';
+import { CrearRapido } from './CrearRapido';
+import { usePiezasInicio, type PeriodoInicio } from '../api/usePiezasInicio';
+import { Button } from '@/components/ui/button';
 
 export function PanelInicio() {
   const sinEmpresas = useAuthStore((s) => s.empresas.length === 0);
@@ -15,11 +19,19 @@ export function PanelInicio() {
   const empresaId = useAuthStore((s) => s.currentEmpresaId);
   const puedeVerActividad = useAuthStore((s) => s.permisos.includes(P.AdminAuditoriaLeer));
   const resumen = useResumenInicio();
+  const [periodo, setPeriodo] = useState<PeriodoInicio>('Mes');
+  const piezas = usePiezasInicio(periodo);
   return (
-    <div className="grid min-w-0 grid-cols-1 items-start gap-6 p-4 font-sans text-sm text-ink lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:px-8 lg:py-7">
-      <EncabezadoInicio />
+    <div data-inicio-layout="cuatro-franjas" className="grid min-w-0 grid-cols-1 gap-3 p-4 font-sans text-sm text-ink lg:h-[calc(100dvh-3.5rem)] lg:min-h-0 lg:grid-rows-[auto_auto_minmax(0,1fr)_auto] lg:overflow-hidden lg:px-6 lg:py-5">
+      <div className="min-w-0 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+      <EncabezadoInicio urgentes={resumen.filas.filter(f => f.prioridad.urgente).reduce((n, f) => n + f.prioridad.total, 0)} pendientes={resumen.filas.reduce((n, f) => n + f.prioridad.total, 0)} cargando={resumen.cargando} />
+      {piezas.visuales.some(v => v.pieza.id !== 'flujo') && <div role="group" aria-label="Periodo de los circuitos" className="flex gap-2">
+        {(['Hoy', 'Semana', 'Mes'] as const).map(p => <Button key={p} variant={p === periodo ? 'secondary' : 'outline'} size="sm" aria-pressed={p === periodo} onClick={() => setPeriodo(p)}>{p}</Button>)}
+      </div>}
+      </div>
       {sinEmpresas && (
-        <Alert className="lg:col-span-2 border-line bg-warning-bg text-warning-fg [&>svg]:text-warning-fg">
+        <Alert className="border-line bg-warning-bg text-warning-fg [&>svg]:text-warning-fg">
           <ShieldAlert className="size-4" strokeWidth={1.6} aria-hidden="true" />
           <AlertTitle className="font-semibold">
             Cuenta activa sin asignaciones de empresa o rol
@@ -31,9 +43,13 @@ export function PanelInicio() {
           </AlertDescription>
         </Alert>
       )}
-      <IndicadoresInicio items={resumen.kpis} />
-      <MisPendientes resumen={resumen} />
-      <div className="min-w-0 space-y-6">
+      </div>
+      <div className="min-w-0"><IndicadoresInicio items={piezas.indicadores} /></div>
+      <div className="grid min-h-0 min-w-0 gap-3 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <MisPendientes resumen={resumen} />
+        <VisualesInicio items={piezas.visuales} />
+      </div>
+      <div className={`grid min-w-0 gap-3 ${puedeVerActividad ? 'lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]' : 'lg:grid-cols-1'}`}>
         {puedeVerActividad && usuarioId && empresaId && (
           <RecientesInicio
             key={`${usuarioId}:${empresaId}`}
@@ -41,7 +57,7 @@ export function PanelInicio() {
             empresaId={empresaId}
           />
         )}
-        <AccesosRapidos />
+        <CrearRapido />
       </div>
     </div>
   );

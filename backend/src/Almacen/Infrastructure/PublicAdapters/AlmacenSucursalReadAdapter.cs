@@ -18,6 +18,16 @@ public sealed class AlmacenSucursalReadAdapter(AlmacenDbContext db, IComprasSucu
         var subs = await db.SubAlmacenes.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.AlmacenId, ct);
         IReadOnlyList<Guid> DelSub(Guid sub) => subs.TryGetValue(sub, out var almacen) && almacenes.TryGetValue(almacen, out var sucursal)
             ? [sucursal] : [];
+        if (tipo == "conteo")
+        {
+            var conteos = await db.Conteos.AsNoTracking().Select(c => new { c.Id, c.SubAlmacenId,
+                Subs = c.Lineas.Select(l => l.SubAlmacenId).ToArray() }).ToListAsync(ct);
+            return conteos.Select(c => {
+                var origenes = c.SubAlmacenId is Guid sub ? new[] { DelSub(sub) } : c.Subs.Distinct().Select(DelSub).ToArray();
+                return new DocumentoSucursales(c.Id, origenes.Length == 0 || origenes.Any(x => x.Count == 0)
+                    ? Array.Empty<Guid>() : origenes.SelectMany(x => x).Distinct().ToArray());
+            }).ToArray();
+        }
         if (tipo == "reorden")
         {
             var configs = await db.ConfiguracionesReorden.AsNoTracking().Select(x => new { x.Id, x.Nivel, x.EntidadId }).ToListAsync(ct);

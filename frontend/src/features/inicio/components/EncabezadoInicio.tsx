@@ -4,7 +4,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { TIMEZONE } from '@/lib/datetime';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
-export function EncabezadoInicio() {
+export function EncabezadoInicio({ urgentes = 0, pendientes = 0, cargando = false }: { urgentes?: number; pendientes?: number; cargando?: boolean }) {
   const nombre = useAuthStore((s) => s.user?.nombre);
   const empresa = useAuthStore((s) => s.empresas.find((e) => e.id === s.currentEmpresaId));
   const ahora = toZonedTime(new Date(), TIMEZONE);
@@ -20,7 +20,7 @@ export function EncabezadoInicio() {
           {saludo}, {nombre?.trim().split(/\s+/)[0] || 'Usuario'}
         </h1>
         <p className="text-sm text-ink-muted">
-          {empresa?.razonSocial ?? 'Sin empresa activa seleccionada'}
+          {empresa?.razonSocial ?? 'Sin empresa activa seleccionada'} · {cargando ? 'Consultando tus pendientes…' : `tienes ${urgentes} urgentes y ${pendientes} pendientes`}
         </p>
       </div>
     </header>

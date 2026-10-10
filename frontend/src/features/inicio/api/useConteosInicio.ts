@@ -1,5 +1,6 @@
 import { useQueries } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { comprasKeys } from '@/features/compras/api/keys';
 import type { PagedResponse, RequisicionListItemResponse } from '@/features/compras/api/types';
@@ -44,17 +45,21 @@ function consulta<T>(
 ) {
   return {
     queryKey: [...familia, 'conteo', filtros],
-    queryFn: async ({ signal }: { signal: AbortSignal }) => {
+    queryFn: async (sucursal?: string | null) => {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(filtros)) {
         if (value !== undefined) params.set(key, String(value));
       }
       const qs = params.toString();
-      const { data } = await apiRequest<T>(qs ? `${path}?${qs}` : path, { signal });
+      const { data } = await apiRequest<T>(qs ? `${path}?${qs}` : path, {
+        headers: sucursal ? { 'X-Inicio-Sucursal-Id': sucursal } : undefined,
+      });
       return resumir(data);
     },
-    retry: 1,
+    retry: false,
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   };
 }
 
@@ -74,6 +79,9 @@ export function nivelRequisiciones(permisos: readonly string[]) {
 }
 
 export function useConteosInicio(ids: readonly ConteoId[], permisos: readonly string[]) {
+  const usuario = useAuthStore(s => s.user?.id);
+  const empresa = useAuthStore(s => s.currentEmpresaId);
+  const sucursal = useAuthStore(s => s.currentSucursalId);
   const nivelRq = nivelRequisiciones(permisos);
   const nivelOc = nivelPorPermisos(
     permisos,
@@ -151,5 +159,12 @@ export function useConteosInicio(ids: readonly ConteoId[], permisos: readonly st
     ),
   };
   // Solo se crean observadores para las filas visibles; las demás no consultan el API.
-  return useQueries({ queries: ids.map((id) => consultas[id]) });
+  return useQueries({ queries: ids.map((id) => {
+    const original = consultas[id];
+    return {
+      ...original,
+      queryKey: ['inicio-pendientes', usuario, empresa, sucursal, [...permisos].sort().join(','), ...original.queryKey],
+      queryFn: () => original.queryFn(sucursal),
+    };
+  }) });
 }

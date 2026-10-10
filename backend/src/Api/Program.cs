@@ -745,6 +745,8 @@ builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider,
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasOcReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.ComprasOcReadAdapter>();
+builder.Services.AddScoped<Millet.Almacen.Domain.Ports.IComprasRecepcionesReadPort,
+    Millet.Compras.Infrastructure.PublicAdapters.ComprasOcReadAdapter>();
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IComprasRequisicionReadPort,
     Millet.Compras.Infrastructure.PublicAdapters.ComprasRequisicionReadAdapter>();
@@ -1678,6 +1680,8 @@ Millet.Api.Endpoints.CuentasPorCobrar.PropuestasAplicacionEndpoints.MapPropuesta
 Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
+Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
+
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.MovimientosEndpoints.MapTesoreriaMovimientosEndpoints(app);

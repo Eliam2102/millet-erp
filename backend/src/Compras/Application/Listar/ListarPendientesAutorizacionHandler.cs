@@ -60,12 +60,8 @@ public sealed class ListarPendientesAutorizacionHandler
         // hay firma N1; falta N2 ⇒ hay N1 y no hay N2.
         if (query.NivelPendiente is NivelAutorizacion nivel)
         {
-            q = nivel == NivelAutorizacion.Nivel1
-                ? q.Where(r =>
-                    !r.Autorizaciones.Any(a => a.Nivel == NivelAutorizacion.Nivel1))
-                : q.Where(r =>
-                    r.Autorizaciones.Any(a => a.Nivel == NivelAutorizacion.Nivel1)
-                    && !r.Autorizaciones.Any(a => a.Nivel == NivelAutorizacion.Nivel2));
+            q = PendientesAutorizacionLectura.Requisiciones(q,
+                nivel == NivelAutorizacion.Nivel1, nivel == NivelAutorizacion.Nivel2);
         }
 
         var total = await q.CountAsync(cancellationToken);

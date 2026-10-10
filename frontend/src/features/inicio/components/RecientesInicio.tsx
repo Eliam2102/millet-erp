@@ -2,7 +2,11 @@ import { Link } from '@tanstack/react-router';
 import { format, subDays } from 'date-fns';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuditoria } from '@/modules/administracion/api/auditoria';
+import { useQuery } from '@tanstack/react-query';
+import { buildAuditoriaPath } from '@/modules/administracion/api/auditoria';
+import type { ConsultarBitacoraResponse } from '@/modules/administracion/api/types';
+import { apiRequest } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { formatRelative, hoyLocalISO, parseDateOnlyLocal } from '@/lib/datetime';
 
 /** Solo se monta con permiso de auditoría e identidad/empresa presentes. */
@@ -15,13 +19,23 @@ export function RecientesInicio({
 }) {
   const hasta = hoyLocalISO();
   const desde = format(subDays(parseDateOnlyLocal(hasta), 6), 'yyyy-MM-dd');
-  const query = useAuditoria({ desde, hasta, usuarioId, empresaId, offset: 0, limit: 4 });
+  const sucursalId = useAuthStore(s => s.currentSucursalId);
+  const filtros = { desde, hasta, usuarioId, empresaId, sucursalId: sucursalId ?? undefined, offset: 0, limit: 3 };
+  const query = useQuery({
+    queryKey: ['inicio-recientes', filtros],
+    queryFn: async () => (await apiRequest<ConsultarBitacoraResponse>(buildAuditoriaPath(filtros))).data,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   return (
     <section aria-labelledby="recientes-inicio">
       <Card className="rounded-xl bg-surface-card shadow-card-flat">
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between space-y-0 px-3 py-2">
           <h2 id="recientes-inicio" className="text-lg font-semibold">
-            Recientes
+            Lo último que hiciste
           </h2>
           <p className="text-xs text-ink-muted">Tu actividad de los últimos 7 días.</p>
         </CardHeader>
@@ -52,13 +66,13 @@ export function RecientesInicio({
             <p className="text-xs text-ink-muted">Sin actividad reciente.</p>
           </CardContent>
         ) : (
-          <ul>
+          <ul className="grid grid-cols-1 gap-2 px-4 pb-3 md:grid-cols-3">
             {query.data.items.map((evento) => (
-              <li key={evento.id} className="border-t border-line-row">
+              <li key={evento.id} className="min-w-0 rounded-md bg-surface-subtle">
                 <Link
                   to="/admin/auditoria"
                   search={{}}
-                  className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand hover:bg-surface-subtle"
+                  className="flex flex-col items-start gap-1 rounded-md px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand hover:bg-surface-subtle"
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-mono text-xs font-medium text-brand">
