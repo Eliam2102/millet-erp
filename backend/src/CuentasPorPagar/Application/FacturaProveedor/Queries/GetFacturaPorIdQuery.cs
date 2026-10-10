@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
+using Millet.CuentasPorPagar.Domain.Ports.Compras;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -48,7 +49,8 @@ public sealed record FacturaDetalleResponse(
     decimal Elegible = 0,
     decimal Retenido = 0,
     IReadOnlyList<Domain.Cfdi.RetencionCfdi>? RetencionesDetalle = null,
-    string? Obra = null, string? ConceptoRetencion = null, string? AlertaRetenciones = null, decimal CargosAplicadosTotal = 0);
+    string? Obra = null, string? ConceptoRetencion = null, string? AlertaRetenciones = null, decimal CargosAplicadosTotal = 0,
+    string? OrdenCompraFolio = null);
 
 public sealed record FacturaLineaResponse(
     Guid Id,
@@ -69,17 +71,20 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
     private readonly CuentasPorPagarDbContext _db;
     private readonly IProveedorReadPort _proveedores;
     private readonly ISucursalReadPort _sucursales;
+    private readonly IComprasOcReadPort _ordenes;
     private readonly Elegibilidad.ElegibilidadFacturaService _elegibilidad;
 
     public GetFacturaPorIdHandler(
         CuentasPorPagarDbContext db,
         IProveedorReadPort proveedores,
-        ISucursalReadPort sucursales, Elegibilidad.ElegibilidadFacturaService elegibilidad)
+        ISucursalReadPort sucursales, Elegibilidad.ElegibilidadFacturaService elegibilidad,
+        IComprasOcReadPort ordenes)
     {
         _db = db;
         _proveedores = proveedores;
         _sucursales = sucursales;
         _elegibilidad = elegibilidad;
+        _ordenes = ordenes;
     }
 
     public async Task<FacturaDetalleResponse> Handle(GetFacturaPorIdQuery query, CancellationToken cancellationToken)
@@ -93,6 +98,7 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
 
         var proveedor = await _proveedores.ObtenerAsync(f.ProveedorId, cancellationToken);
         var sucursal = await _sucursales.ObtenerAsync(f.SucursalId, cancellationToken);
+        var orden = f.OrdenCompraId is Guid ocId ? await _ordenes.ObtenerAsync(ocId, cancellationToken) : null;
 
         var elegibilidad = await _elegibilidad.CalcularAsync(f, cancellationToken);
         return new FacturaDetalleResponse(
@@ -115,6 +121,7 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
             Retenciones: f.Retenciones,
             Total: f.Total,
             OrdenCompraId: f.OrdenCompraId,
+            OrdenCompraFolio: orden?.Folio,
             Estado: f.Estado,
             DiferenciaContraOc: f.DiferenciaContraOc,
             AnticipoAplicadoTotal: f.AnticipoAplicadoTotal,

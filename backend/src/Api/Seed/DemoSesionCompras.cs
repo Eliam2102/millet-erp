@@ -30,6 +30,15 @@ public sealed partial class DemoSesionSeedHostedService
             .ToListAsync(ct);
         if (tipos.Count != 2) throw new InvalidOperationException("DEMO: faltan los tipos de adjunto de OC; aplicar migraciones.");
 
+        // Corrige solo la referencia ficticia del seed anterior; conserva estado y líneas operadas.
+        var rqAnterior = await db.Requisiciones.SingleOrDefaultAsync(r => r.EmpresaId == EmpresaId &&
+            r.Id == Id("DEMO-RQ-MID") && r.RequisitanteId == ActorId, ct);
+        if (rqAnterior is not null)
+        {
+            db.Entry(rqAnterior).Property(r => r.RequisitanteId).CurrentValue = CapturistaComprasDemoId;
+            await db.SaveChangesAsync(ct);
+        }
+
         foreach (var sucursal in new[] { "MID", "MTY" })
         {
             var clave = "DEMO-OC-" + sucursal;
@@ -48,7 +57,7 @@ public sealed partial class DemoSesionSeedHostedService
                     {
                         rq = new Requisicion(Id("DEMO-RQ-MID"), EmpresaId, Millet.Compras.Domain.Folio.Parse("DEMO2026-000001"), 2026,
                             Clasificacion.OrdenCompra, sucursales[sucursal].Id, departamento.Id, null,
-                            ActorId, ActorId, Prioridad.Normal, Fecha, proveedorSugeridoId: proveedor.Id, descripcion: "DEMO-RQ-MID");
+                            CapturistaComprasDemoId, ActorId, Prioridad.Normal, Fecha, proveedorSugeridoId: proveedor.Id, descripcion: "DEMO-RQ-MID");
                         rq.AgregarLinea(Id("DEMO-RQ-LINEA"), articulo.Id, 10, "PZA", Money.Mxn(100));
                         rq.EnviarAAutorizacion(Fecha);
                         rq.RegistrarAutorizacion(Id("DEMO-RQ-N1"), NivelAutorizacion.Nivel1, ActorId, Fecha, RequiereNivel.N1YN2, "DEMO autorización ficticia");

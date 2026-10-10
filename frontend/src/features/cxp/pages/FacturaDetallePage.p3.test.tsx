@@ -10,7 +10,8 @@ import { createQueryWrapper } from '@/test/test-query-client';
 const escenario = vi.hoisted(() => ({ cancelada: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
-  Link: ({ children }: { children: ReactNode }) => <a href="/cxp/facturas">{children}</a>,
+  Link: ({ children, to, params }: { children: ReactNode; to: string; params?: { id: string } }) =>
+    <a href={params ? to.replace('$id', params.id) : to}>{children}</a>,
 }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 vi.mock('@/features/cxp/api/useFacturas', () => ({
@@ -19,7 +20,7 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
     id: 'factura-ficticia-p3', proveedorId: 'proveedor', sucursalId: 'sucursal',
     folioProveedor: 'P3-FICTICIA', serieProveedor: null, estado: escenario.cancelada ? EstadoPasivo.Cancelada : EstadoPasivo.Autorizada,
     fechaDocumento: '2026-10-09', fechaContabilizacion: '2026-10-09', fechaVencimiento: '2026-11-09',
-    moneda: 'MXN', tipoCambio: null, ordenCompraId: 'oc', uuidCfdi: null,
+    moneda: 'MXN', tipoCambio: null, ordenCompraId: '11111111-1111-4111-8111-111111111111', ordenCompraFolio: 'OC-DEMO2026-000101', uuidCfdi: null,
     subtotal: 200, descuentos: 0, impuestosTrasladados: 32, retenciones: 33.33, total: 198.67,
     anticipoAplicadoTotal: 0, ncAplicadasTotal: 0, importePagado: 0, saldoPendiente: 198.67,
     elegible: 158.94, retenido: 39.73, diferenciaContraOc: 0, enRevision: false, version: 1, lineas: [],
@@ -45,6 +46,15 @@ beforeEach(() => {
 function importe(label: string) { return screen.getByText(label).nextElementSibling?.textContent; }
 
 describe('P3: detalle fiscal y recepción', () => {
+  it('muestra el folio enlazado a la OC y no muestra su GUID ni IDs de catálogos', () => {
+    escenario.cancelada = false;
+    render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.getByRole('link', { name: 'OC-DEMO2026-000101' }))
+      .toHaveAttribute('href', '/compras/ordenes/11111111-1111-4111-8111-111111111111');
+    expect(screen.queryByText('11111111-1111-4111-8111-111111111111')).not.toBeInTheDocument();
+    expect(screen.getByText('[PROVEEDOR POR CONFIRMAR]')).toBeInTheDocument();
+    expect(screen.getByText('[SUCURSAL POR CONFIRMAR]')).toBeInTheDocument();
+  });
   it('presenta ISR, IVA retenido, total, elegible y retenido por separado', async () => {
     escenario.cancelada = false;
     render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });

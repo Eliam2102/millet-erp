@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
@@ -367,11 +368,7 @@ function FormInner({
             ) {
               return;
             }
-            toast.error(error.problem.title, {
-              description:
-                error.problem.detail ??
-                (error.traceId ? `Código: ${error.traceId}` : undefined),
-            });
+            // El aviso en el formulario (ErrorTimbradoAviso) muestra el motivo en lenguaje claro; sin toast técnico duplicado.
             return;
           }
           toast.error('Error inesperado al emitir la factura.');
@@ -382,6 +379,7 @@ function FormInner({
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
+      <ErrorTimbradoAviso error={emitir.error} />
       {prefill?.pedidoFacturableId && (
         <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
           Facturando un pedido — líneas, datos comerciales y fiscales vienen

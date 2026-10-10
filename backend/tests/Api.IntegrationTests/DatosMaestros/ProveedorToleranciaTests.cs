@@ -170,6 +170,9 @@ public sealed class ProveedorToleranciaTests(WebApplicationFactory<Program> fact
         public Task<OrdenCompraDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OrdenCompraDto?>(
             new(id, "OC-DEMO-G113", ProveedorId, AdjuntosProveedorAmbiente.EmpresaInicialId, SucursalId, 10000, "Autorizada",
                 [new(id, ArticuloId, 1, 10000, 0, 1)]));
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(true && ids.Contains(Id)
+                ? new Dictionary<Guid, string> { [Id] = "OC-DEMO-G113" } : new Dictionary<Guid, string>());
         public Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(Guid id, CancellationToken ct) => Task.FromResult<IReadOnlyList<OrdenCompraDto>>([]);
     }
 

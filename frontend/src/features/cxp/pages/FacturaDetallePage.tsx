@@ -216,15 +216,24 @@ export function FacturaDetallePage() {
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
               label="Proveedor"
-              valor={query.data.proveedorNombre ?? query.data.proveedorId}
+              valor={query.data.proveedorNombre?.trim() || '[PROVEEDOR POR CONFIRMAR]'}
               mono={query.data.proveedorNombre == null}
             />
             <Campo
               label="Sucursal"
-              valor={query.data.sucursalNombre ?? query.data.sucursalId}
+              valor={query.data.sucursalNombre?.trim() || '[SUCURSAL POR CONFIRMAR]'}
               mono={query.data.sucursalNombre == null}
             />
-            <Campo label="Orden de compra" valor={query.data.ordenCompraId ?? '—'} mono />
+            <div>
+              <dt className="text-xs text-ink-muted">Orden de compra</dt>
+              <dd className="font-mono text-xs">
+                {query.data.ordenCompraId ? (
+                  <Link to="/compras/ordenes/$id" params={{ id: query.data.ordenCompraId }} className="text-brand underline">
+                    {query.data.ordenCompraFolio?.trim() || '[FOLIO POR CONFIRMAR]'}
+                  </Link>
+                ) : '—'}
+              </dd>
+            </div>
             <Campo label="UUID CFDI" valor={query.data.uuidCfdi ?? '—'} mono />
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo

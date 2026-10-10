@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from './ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -92,11 +93,7 @@ export function TimbradoFallidoBanner({
         },
         onError: (error) => {
           if (mostrarErrorReceptorFiscal(error)) return;
-          toast.error(
-            esApiError(error)
-              ? error.problem.detail ?? error.problem.title
-              : 'Error inesperado al reintentar el timbrado.',
-          );
+          // El aviso (ErrorTimbradoAviso) muestra el motivo en lenguaje claro; sin toast técnico duplicado.
         },
       },
     );
@@ -141,6 +138,7 @@ export function TimbradoFallidoBanner({
         {errorMensaje ? `: ${errorMensaje}` : null}
       </p>
 
+      <ErrorTimbradoAviso error={reintentar.error} />
       {puedeReintentar && (
         <>
           {esAmbiguo && (

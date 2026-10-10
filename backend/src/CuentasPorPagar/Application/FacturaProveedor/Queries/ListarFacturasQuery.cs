@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorPagar.Application.Common;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.CuentasPorPagar.Domain.Ports.DatosMaestros;
+using Millet.CuentasPorPagar.Domain.Ports.Compras;
 using Millet.CuentasPorPagar.Infrastructure.Persistence;
 
 namespace Millet.CuentasPorPagar.Application.FacturaProveedor.Queries;
@@ -33,18 +34,20 @@ public sealed record FacturaListItemResponse(
     Guid? OrdenCompraId,
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042); null si el
-    // id no resuelve — el FE degrada al GUID abreviado.
-    string? ProveedorNombre = null, string? UuidCfdi = null);
+    // id no resuelve — el FE indica Por confirmar.
+    string? ProveedorNombre = null, string? UuidCfdi = null, string? OrdenCompraFolio = null);
 
 public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery, PagedResponse<FacturaListItemResponse>>
 {
     private readonly CuentasPorPagarDbContext _db;
     private readonly IProveedorReadPort _proveedores;
+    private readonly IComprasOcReadPort _ordenes;
 
-    public ListarFacturasHandler(CuentasPorPagarDbContext db, IProveedorReadPort proveedores)
+    public ListarFacturasHandler(CuentasPorPagarDbContext db, IProveedorReadPort proveedores, IComprasOcReadPort ordenes)
     {
         _db = db;
         _proveedores = proveedores;
+        _ordenes = ordenes;
     }
 
     public async Task<PagedResponse<FacturaListItemResponse>> Handle(
@@ -82,7 +85,7 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
                 f.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null, f.UuidCfdi))
+                null, f.UuidCfdi, null))
             .ToListAsync(cancellationToken);
 
         // Enriquecer etiqueta del proveedor en batch sobre los ids DISTINTOS
@@ -98,6 +101,15 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
                 .ToList();
         }
 
+        var ocIds = items.Where(i => i.OrdenCompraId != null).Select(i => i.OrdenCompraId!.Value).Distinct().ToArray();
+        if (ocIds.Length > 0)
+        {
+            var folios = await _ordenes.ObtenerFoliosAsync(ocIds, cancellationToken);
+            items = items.Select(i => i with
+            {
+                OrdenCompraFolio = i.OrdenCompraId is Guid id ? folios.GetValueOrDefault(id) : null,
+            }).ToList();
+        }
         return new PagedResponse<FacturaListItemResponse>(items, offset, limit, total);
     }
 }

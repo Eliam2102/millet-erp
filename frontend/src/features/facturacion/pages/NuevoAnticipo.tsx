@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -203,11 +204,7 @@ function FormInner({
             ) {
               return;
             }
-            toast.error(error.problem.title, {
-              description:
-                error.problem.detail ??
-                (error.traceId ? `Código: ${error.traceId}` : undefined),
-            });
+            // El aviso en el formulario (ErrorTimbradoAviso) muestra el motivo en lenguaje claro; sin toast técnico duplicado.
             return;
           }
           toast.error('Error inesperado al emitir el anticipo.');
@@ -218,6 +215,7 @@ function FormInner({
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
+      <ErrorTimbradoAviso error={emitir.error} />
       {/* Emisor fijo (datos de la empresa) — solo informativo. */}
       <EmisorInfoBar emisor={emisor} />
 

@@ -227,6 +227,9 @@ public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory) : I
         public Task<IReadOnlyDictionary<Guid,string>> ObtenerNombresPorIdsAsync(IReadOnlyCollection<Guid> ids,CancellationToken ct)=>Task.FromResult<IReadOnlyDictionary<Guid,string>>(ids.ToDictionary(id=>id,_=>"FIX Proveedor P8"));
         Task<OrdenCompraDto?> IComprasOcReadPort.ObtenerAsync(Guid id,CancellationToken ct)=>Task.FromResult<OrdenCompraDto?>(
             new(OcId,"FIX-OC-P8",ProveedorId,EmpresaBootstrapId,SucursalId,116,"Autorizada",[new(LineaId,Guid.NewGuid(),100,100,0,100)]));
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(true && ids.Contains(OcId)
+                ? new Dictionary<Guid, string> { [OcId] = "FIX-OC-P8" } : new Dictionary<Guid, string>());
         public Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(Guid id,CancellationToken ct)=>Task.FromResult<IReadOnlyList<OrdenCompraDto>>([]);
     }
 }

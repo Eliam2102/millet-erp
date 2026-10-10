@@ -47,6 +47,17 @@ public sealed class ComprasOcReadPortAdapter : IComprasOcReadPort
 
     public ComprasOcReadPortAdapter(ComprasDbContext db) { _db = db; }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
+        IReadOnlyCollection<Guid> ordenCompraIds, CancellationToken cancellationToken)
+    {
+        if (ordenCompraIds.Count == 0) return new Dictionary<Guid, string>();
+        var ids = ordenCompraIds.Distinct().ToArray();
+        var filas = await _db.OrdenesCompra.AsNoTracking().Where(o => ids.Contains(o.Id))
+            .Select(o => new { o.Id, o.Folio }).ToListAsync(cancellationToken);
+        // Folio es un value object convertido: su Valor se lee después de materializar.
+        return filas.ToDictionary(o => o.Id, o => o.Folio.Valor);
+    }
+
     // Nota: sin AsNoTracking — las queries no-tracking sobre agregados con
     // owned types (DescuentoLinea/DescuentoGlobal) fallan en el provider
     // InMemory que usan los unit tests (KeyNotFoundException en el shaper).

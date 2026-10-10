@@ -106,9 +106,9 @@ function EntradaTimeline({ entrada }: EntradaTimelineProps) {
   const Icon = config.icon;
   const label = HISTORICO_TIPO_LABEL[entrada.tipo] ?? `Tipo ${entrada.tipo}`;
   // Actor resuelto en backend (ADR-0042): sin actor → "Sistema"; no resuelto
-  // (service principal / borrado) → cae al id.
+  // (service principal / borrado) → indica Por confirmar.
   const actor =
-    entrada.actorId == null ? 'Sistema' : entrada.actorNombre ?? entrada.actorId;
+    entrada.actorId == null ? 'Sistema' : entrada.actorNombre?.trim() || '[RESPONSABLE POR CONFIRMAR]';
   const cambiosLegible = formatearCambios(entrada.cambios);
 
   return (

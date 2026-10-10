@@ -118,7 +118,7 @@ describe('<ListaPendientesCompacta>', () => {
     expect(screen.getByText(/Pepe Pérez/)).toBeInTheDocument();
   });
 
-  it('cae al requisitanteId si el backend no resolvió el nombre', () => {
+  it('indica Por confirmar si el backend no resolvió el nombre', () => {
     render(
       <ListaPendientesCompacta
         items={[makeItem({ requisitanteId: 'u-sin-nombre', requisitanteNombre: null })]}
@@ -127,7 +127,7 @@ describe('<ListaPendientesCompacta>', () => {
       />,
       { wrapper: createQueryWrapper() },
     );
-    expect(screen.getByText('u-sin-nombre')).toBeInTheDocument();
+    expect(screen.getByText('[REQUISITANTE POR CONFIRMAR]')).toBeInTheDocument();
   });
 
   it('item activo lleva aria-current="page"', () => {

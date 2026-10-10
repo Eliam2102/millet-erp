@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Millet.CuentasPorPagar.Application.EventListeners;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaConOc;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.Elegibilidad;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.Queries;
+using Millet.CuentasPorPagar.Domain.Ports.Administracion;
 using Millet.CuentasPorPagar.Application.Integration;
 using Millet.CuentasPorPagar.Application.Integration.Mappers;
 using Millet.CuentasPorPagar.Domain.Cfdi;
@@ -65,6 +67,23 @@ public sealed class P3FacturaConOcTests
         outbox.Should().ContainSingle();
         outbox[0].EventType.Should().Be(esperado == EstadoPasivo.Cancelada
             ? "cuentas_por_pagar.factura.rechazada-por-tolerancia.v1" : "cuentas_por_pagar.factura.registrada.v1");
+    }
+
+    [Theory]
+    [InlineData(true, "OC-P3-FICTICIA")]
+    [InlineData(false, null)]
+    public async Task Detalle_resuelve_folio_por_puerto_y_tolera_OC_que_no_resuelve(bool disponible, string? folio)
+    {
+        await using var a = new Ambiente();
+        var captura = await a.Handler.Handle(a.Command(10, 20), default);
+        a.OcDisponible = disponible;
+        var detalle = await new GetFacturaPorIdHandler(a.Db, a, new SucursalDetalleStub(), a.Elegibilidad, a)
+            .Handle(new GetFacturaPorIdQuery(captura.Id), default);
+        detalle.OrdenCompraFolio.Should().Be(folio);
+        detalle.OrdenCompraId.Should().NotBeNull();
+        detalle.ProveedorNombre.Should().Be("Proveedor ficticio P3");
+        var listado = await new ListarFacturasHandler(a.Db, a, a).Handle(new ListarFacturasQuery(), default);
+        listado.Items.Should().ContainSingle().Which.OrdenCompraFolio.Should().Be(folio);
     }
 
     [Fact]
@@ -220,6 +239,7 @@ public sealed class P3FacturaConOcTests
         public ElegibilidadFacturaService Elegibilidad { get; }
         public OcRecepcionRegistradaHandler Recepciones { get; }
         public CapturaEventos Eventos { get; } = new();
+        public bool OcDisponible { get; set; } = true;
         private OrdenCompraDto _oc;
         private readonly Dictionary<string, string> _xmls = [];
         private readonly ServiceProvider _services;
@@ -279,7 +299,10 @@ public sealed class P3FacturaConOcTests
                 CanalOrigenCfdi.CargaManual, Ahora, path, null, new string('a', 64));
             Db.CfdisRecibidos.Add(cfdi); await Db.SaveChangesAsync(); return cfdi;
         }
-        public Task<OrdenCompraDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OrdenCompraDto?>(_oc);
+        public Task<OrdenCompraDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<OrdenCompraDto?>(OcDisponible ? _oc : null);
+        public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(OcDisponible && ids.Contains(_oc.Id)
+                ? new Dictionary<Guid, string> { [_oc.Id] = _oc.Folio } : new Dictionary<Guid, string>());
         public Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(Guid id, CancellationToken ct) => Task.FromResult<IReadOnlyList<OrdenCompraDto>>([_oc]);
         Task<ProveedorDto?> IProveedorReadPort.ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorDto?>(new(_oc.ProveedorId, "AAA010101AAA", "Proveedor ficticio P3", null, false, true));
         public Task<ProveedorDto?> ObtenerPorRfcAsync(string rfc, CancellationToken ct) => ((IProveedorReadPort)this).ObtenerAsync(_oc.ProveedorId, ct);
@@ -302,6 +325,14 @@ public sealed class P3FacturaConOcTests
             await Db.DisposeAsync(); await _services.DisposeAsync();
         }
     }
+    private sealed class SucursalDetalleStub : ISucursalReadPort
+    {
+        public Task<SucursalDto?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<SucursalDto?>(new(id, Guid.NewGuid(), "MID", "Mérida", true));
+        public Task<IReadOnlyList<SucursalDto>> ListarPorEmpresaAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<SucursalDto>>([]);
+    }
+
     private sealed class CapturaEventos : IIntegrationEventPublisher,
         INotificationHandler<FacturaProveedorRegistradaDomainEvent>, INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>,
         INotificationHandler<DiferenciaPrecioFacturaDetectadaDomainEvent>

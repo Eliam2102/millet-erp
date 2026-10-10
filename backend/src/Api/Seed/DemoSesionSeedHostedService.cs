@@ -53,6 +53,7 @@ public sealed partial class DemoSesionSeedHostedService(
                 await SembrarMaestrosAsync(sp, ct);
                 await SembrarUsuariosAsync(sp, usuarios, ct);
                 await SembrarComprasAsync(sp, ct);
+                await SembrarAlmacenAsync(sp, ct);
                 await SembrarFacturacionAsync(sp, ct);
                 await SembrarFinanzasAsync(sp, ct);
             }, cancellationToken);

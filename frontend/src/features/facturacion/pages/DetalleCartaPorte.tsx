@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -287,7 +288,7 @@ function SiguienteTramoForm({
             ) {
               return;
             }
-            toast.error(error.problem.title);
+            // El aviso en el formulario (ErrorTimbradoAviso) muestra el motivo; sin toast técnico duplicado.
             return;
           }
           toast.error('No se pudo crear el siguiente tramo.');
@@ -303,6 +304,7 @@ function SiguienteTramoForm({
       data-print="hidden"
       className="space-y-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3"
     >
+      <ErrorTimbradoAviso error={crear.error} />
       <h3 className="text-sm font-medium">
         Crear siguiente tramo (continúa desde {previa.destino})
       </h3>

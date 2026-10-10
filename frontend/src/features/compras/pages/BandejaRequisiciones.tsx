@@ -46,7 +46,7 @@ const BANDEJA_FROM = '/_app/compras/requisiciones/' as const;
  * <para>Los nombres de requisitante y departamento vienen resueltos del
  * backend (ADR-0042: <c>requisitanteNombre</c>, <c>departamentoNombre</c>,
  * <c>departamentoClave</c>); el front ya no lee los catálogos completos.
- * Fallback al id si el backend no resolvió la clave.</para>
+ * Etiqueta Por confirmar si el backend no resolvió el nombre.</para>
  */
 export function BandejaRequisiciones() {
   const search = useSearch({ from: BANDEJA_FROM });

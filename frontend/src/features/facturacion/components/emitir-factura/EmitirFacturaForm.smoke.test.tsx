@@ -27,7 +27,7 @@ vi.mock('@/components/erp/selectors/MonedaSelector', () => ({
 // smoke corre sin RouterProvider (mismo patrón que DetallePedido.smoke).
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navegar,
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
 const EMISOR = {
@@ -106,6 +106,58 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     expect(screen.queryByDisplayValue('Torre Cancún – Fase 1')).not.toBeInTheDocument();
     expect(screen.queryByText('Vidrio p-2')).not.toBeInTheDocument();
     expect(screen.queryByText('100920.00 MXN')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [400, 'CONFIG_PAC_NO_DISPONIBLE', 'No hay configuración de PAC activa.', 'No hay timbrado configurado para esta empresa. Pide a un administrador que lo active en Administración → Integraciones fiscales.'],
+    [422, 'REGLA_FISCAL', 'El importe no cumple la validación fiscal.', 'El importe no cumple la validación fiscal.'],
+    [409, 'CONFLICTO_FISCAL', 'El comprobante cambió. Recarga los datos.', 'El comprobante cambió. Recarga los datos.'],
+    [500, 'FALLO_FISCAL', 'No fue posible contactar al servicio fiscal.', 'No fue posible contactar al servicio fiscal.'],
+  ])('muestra un HTTP %s aunque el error apunte a un campo ausente y permite reintentar', async (status, code, detail, mensaje) => {
+    const onSuccess = vi.fn();
+    mswServer.use(http.post('*/api/v1/facturacion/facturas/', () => HttpResponse.json({
+      type: 'about:blank', title: 'No se pudo timbrar', status, code, detail,
+      errores: [{ campo: 'configuracionPac', codigo: code, mensaje: detail }],
+    }, { status })));
+    render(<EmitirFacturaForm prefill={pedido('11111111-1111-4111-8111-111111111111', 'Obra', 4000)}
+      onSuccess={onSuccess} onCancel={() => {}} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    expect(await screen.findByText(mensaje)).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(mensaje);
+    expect(screen.getByRole('button', { name: 'Emitir y timbrar' })).toBeEnabled();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.queryByRole('link', { name: 'Abrir integraciones fiscales' })).not.toBeInTheDocument();
+  });
+
+  it('permite emitir de nuevo después de un 422 genérico y retira el aviso', async () => {
+    let intentos = 0;
+    const onSuccess = vi.fn();
+    mswServer.use(http.post('*/api/v1/facturacion/facturas/', () => {
+      intentos += 1;
+      return intentos === 1
+        ? HttpResponse.json({ type: 'about:blank', title: 'Validación fiscal', status: 422, detail: 'Revisa los datos fiscales.' }, { status: 422 })
+        : HttpResponse.json({ id: 'f-correcta', folio: 'FA-2', total: 4640, version: 1, estado: 'Timbrado', uuid: 'uuid-ficticio' }, { status: 201 });
+    }));
+    render(<EmitirFacturaForm prefill={pedido('11111111-1111-4111-8111-111111111111', 'Obra', 4000)}
+      onSuccess={onSuccess} onCancel={() => {}} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    expect(await screen.findByText('Revisa los datos fiscales.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir y timbrar' }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'f-correcta' })));
+    expect(intentos).toBe(2);
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('ofrece la ruta fiscal solo con permiso de consulta', async () => {
+    setPermisos([PermisosCanonicos.IntegracionesFiscalLeer]);
+    mswServer.use(http.post('*/api/v1/facturacion/facturas/', () => HttpResponse.json({
+      type: 'about:blank', title: 'Sin PAC', status: 400, code: 'CONFIG_PAC_NO_DISPONIBLE',
+    }, { status: 400 })));
+    render(<EmitirFacturaForm prefill={pedido('11111111-1111-4111-8111-111111111111', 'Obra', 4000)}
+      onSuccess={() => {}} onCancel={() => {}} />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Emitir y timbrar' }));
+    expect(await screen.findByRole('link', { name: 'Abrir integraciones fiscales' }))
+      .toHaveAttribute('href', '/admin/integraciones/fiscal');
   });
 
   it.each(['403', '400'])('un HTTP 201 con rechazo PAC %s muestra error y acceso al reintento', async (codigo) => {

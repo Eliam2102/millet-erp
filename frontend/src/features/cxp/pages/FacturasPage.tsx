@@ -346,11 +346,7 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                 {folioLabel}
               </td>
               <td className="max-w-56 truncate px-3 py-2">
-                {f.proveedorNombre ?? (
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {abreviar(f.proveedorId)}
-                  </span>
-                )}
+                {f.proveedorNombre?.trim() || '[PROVEEDOR POR CONFIRMAR]'}
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
                 {formatearFecha(f.fechaDocumento)}
@@ -359,7 +355,7 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                 {f.fechaVencimiento}
               </td>
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                {f.ordenCompraId ? abreviar(f.ordenCompraId) : '—'}
+                {f.ordenCompraId ? (f.ordenCompraFolio?.trim() || '[FOLIO POR CONFIRMAR]') : '—'}
               </td>
               <td className="px-3 py-2 text-right font-mono">
                 {formatearMonto(f.total, f.moneda)}
@@ -377,10 +373,6 @@ function TablaFacturas({ items }: TablaFacturasProps) {
       </table>
     </div>
   );
-}
-
-function abreviar(id: string): string {
-  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }
 
 function formatearMonto(v: number, moneda: string): string {
