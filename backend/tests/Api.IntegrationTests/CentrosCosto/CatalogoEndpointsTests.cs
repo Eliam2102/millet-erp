@@ -13,6 +13,8 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.CentrosCosto;
 
+// Cambia los permisos en caché de dev-superadmin: corre sola, igual que ADM-08 (#76).
+[Collection(ADM08SinParalelo.Nombre)]
 public sealed class CatalogoEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string Catalogo = "/api/v1/centros-costo";
