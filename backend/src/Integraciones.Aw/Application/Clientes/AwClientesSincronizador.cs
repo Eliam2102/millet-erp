@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Integraciones.Aw.Application.Origen;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -7,6 +8,7 @@ using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Domain;
 using Millet.Integraciones.Aw.Domain;
 using Millet.Integraciones.Aw.Infrastructure.Persistence;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Integraciones.Aw.Application.Clientes;
 
@@ -54,7 +56,7 @@ public sealed class AwClientesSincronizador
     public async Task<Guid> IniciarBarridoAsync(string actor, CancellationToken ct)
     {
         VerificarOperable();
-        var origen = _options.Origen.ToString();
+        var origen = await NombreOrigenActivoAsync(ct);
         if (await _db.ClientesEjecuciones.AnyAsync(e =>
                 e.Origen == origen && e.Tipo == AwClientesEjecucionTipo.Barrido
                 && (e.Estado == AwClientesEjecucionEstado.Pendiente || e.Estado == AwClientesEjecucionEstado.EnCurso), ct))
@@ -99,7 +101,7 @@ public sealed class AwClientesSincronizador
             {
                 // Error de lectura del origen (conexión/esquema/timeout): la ejecución falla; lo ya aplicado queda.
                 _logger.LogError("Barrido de clientes {EjecucionId} falló leyendo el origen ({Tipo}).", ejec.Id, ex.GetType().Name);
-                ejec.Fallar($"lectura_origen_fallida ({ex.GetType().Name})", _time.GetUtcNow());
+                ejec.Fallar(DescribirErrorOrigen(ex), _time.GetUtcNow());
                 await _db.SaveChangesAsync(CancellationToken.None);
                 return;
             }
@@ -140,7 +142,7 @@ public sealed class AwClientesSincronizador
         var origen = ObtenerOrigen();
         referencia = referencia.Trim();
 
-        var ejec = AwClientesEjecucion.Crear(_options.Origen.ToString(), AwClientesEjecucionTipo.Referencia, actor, _time.GetUtcNow());
+        var ejec = AwClientesEjecucion.Crear(await NombreOrigenActivoAsync(ct), AwClientesEjecucionTipo.Referencia, actor, _time.GetUtcNow());
         ejec.Iniciar();
         _db.ClientesEjecuciones.Add(ejec);
         await _db.SaveChangesAsync(ct);
@@ -153,7 +155,7 @@ public sealed class AwClientesSincronizador
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError("Reintento de cliente {Referencia} falló leyendo el origen ({Tipo}).", referencia, ex.GetType().Name);
-            ejec.Fallar($"lectura_origen_fallida ({ex.GetType().Name})", _time.GetUtcNow());
+            ejec.Fallar(DescribirErrorOrigen(ex), _time.GetUtcNow());
             await _db.SaveChangesAsync(CancellationToken.None);
             return ejec.Id;
         }
@@ -174,7 +176,7 @@ public sealed class AwClientesSincronizador
     {
         var referencia = fila.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var ahora = _time.GetUtcNow();
-        var mapeo = AwClienteSnapshotMapper.Mapear(fila, _options.MapeoMoneda, ahora.UtcDateTime);
+        var mapeo = AwClienteSnapshotMapper.Mapear(fila, _options.MapeoMoneda, ahora.UtcDateTime, fila.AplicarFiscalesDeOrigen);
         if (!mapeo.EsValido)
         {
             ejec.RegistrarError(referencia, "fila_invalida", mapeo.Error!, ahora);
@@ -217,7 +219,26 @@ public sealed class AwClientesSincronizador
             throw new AwClientesSyncException("aplicacion_deshabilitada", "La aplicación de clientes A+W está deshabilitada (IntegracionesAw:Clientes:AplicacionHabilitada).");
     }
 
-    // Origen=Sql sin connection string no registra el adaptador: error claro en vez de fallar en DI.
+    private async Task<string> NombreOrigenActivoAsync(CancellationToken ct)
+    {
+        // Sin provider en los tests/consumidores previos, se conserva el nombre de su área.
+        var activo = _sp.GetService<IAwOrigenActivo>();
+        if (activo is null) return _options.Origen.ToString();
+        var estado = await activo.LeerAsync(ct);
+        if (estado.Origen != "Demo") return _options.Origen.ToString();
+        AwOrigenActivo.VerificarDemo(estado);
+        return "Demo";
+    }
+
+    // Solo mensajes de configuración controlados; nunca exponer mensajes de proveedores/credenciales.
+    private static string DescribirErrorOrigen(Exception ex) => ex switch
+    {
+        AwClientesSyncException { Code: "origen_sin_configurar" } => $"origen_sin_configurar: {ex.Message}",
+        BusinessRuleException { Code: "AW_DEMO_NO_CONFIGURADA" or "AW_DEMO_NO_PERMITIDO" } => ex.Message,
+        _ => $"lectura_origen_fallida ({ex.GetType().Name})",
+    };
+
+    // Compatible con consumidores sin selector; el selector rechaza al usar un Real no configurado.
     private IAwClientesOrigen ObtenerOrigen() =>
         _sp.GetService<IAwClientesOrigen>()
         ?? throw new AwClientesSyncException("origen_sin_configurar",

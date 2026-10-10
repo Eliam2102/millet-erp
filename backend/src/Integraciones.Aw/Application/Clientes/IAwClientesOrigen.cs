@@ -29,7 +29,8 @@ public sealed record AwClienteOrigenFila(
     int KzGesperrt,
     DateOnly? Datum,
     DateTime? TransactionTime,
-    IReadOnlyList<AwCondicionCoincidencia> CondicionCoincidencias);
+    IReadOnlyList<AwCondicionCoincidencia> CondicionCoincidencias,
+    bool AplicarFiscalesDeOrigen = false);
 
 /// <summary><c>SiguienteCursor</c> = último ID leído, o null si ya no hay más páginas.</summary>
 public sealed record AwClientesPagina(IReadOnlyList<AwClienteOrigenFila> Filas, string? SiguienteCursor);

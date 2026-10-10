@@ -12,6 +12,20 @@ public sealed class AwProductosSqlOrigenTests
     private static string? Componer(params decimal?[] capas) => AwProductosSqlOrigen.ComponerComposicion(capas);
 
     [Fact]
+    public void Mapper_aplica_la_regla_fiscal_sin_depender_del_origen()
+    {
+        var f = AwProductosSqlOrigen.ConstruirFila(7, "VT6", 0, 6m, 0m, 0m, null, "DEMO", null, null,
+            "m²", [], [], "G", "VTE", [], "37*", "TEMPLADO");
+        var reglas = new Dictionary<string, ReglaFiscalProductoAw>
+        {
+            ["VTE"] = new() { ClaveProdServSat = "30171706", ClaveUnidadSat = "H87", ObjetoImp = "02", TasaIvaTraslado = 0.16m }
+        };
+        var s = AwProductoSnapshotMapper.Mapear(f, DateTime.UtcNow, reglas).Snapshot!;
+        (s.ClaveProdServSat, s.ClaveUnidadSatSugerida, s.ObjetoImp, s.TasaIvaTraslado)
+            .Should().Be(("30171706", "H87", "02", 0.16m));
+    }
+
+    [Fact]
     public void Composicion_une_espesores_con_mas_sin_ceros_sobrantes()
     {
         Componer(6m, 0.89m, 6m).Should().Be("6+0.89+6");

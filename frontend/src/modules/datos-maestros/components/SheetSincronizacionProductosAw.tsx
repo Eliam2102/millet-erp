@@ -1,3 +1,4 @@
+import { ControlOrigenAw } from '@/modules/datos-maestros/components/ControlOrigenAw';
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -103,6 +104,7 @@ export function SheetSincronizacionProductosAw({
             que ya completaste no se sobrescriben.
           </SheetDescription>
         </SheetHeader>
+        <ControlOrigenAw area="productos" enabled={open} />
         <div className="mt-4 space-y-3">
           <Button size="sm" onClick={handleIniciar} disabled={sincronizar.isPending}>
             <RefreshCw className="mr-1.5 h-4 w-4" />

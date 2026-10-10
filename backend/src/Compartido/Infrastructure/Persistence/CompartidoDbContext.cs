@@ -313,6 +313,11 @@ public sealed class CompartidoDbContext : BaseDbContext
         parametro.Property(x => x.Modulo).HasMaxLength(50);
         parametro.Property(x => x.Descripcion).HasMaxLength(500).IsRequired();
 
+        parametro.HasData(SeedParametro("00000006-0001-0000-0000-00000000000c",
+            AwOrigenParametro.Clave, "Real", TipoParametro.Texto,
+            "Origen activo de A+W: Real o Demo. Cambiar desde la sincronización de Datos maestros.",
+            new DateTimeOffset(2026, 10, 9, 0, 0, 0, TimeSpan.Zero), "integraciones.aw"));
+
         var umbralesTime = new DateTimeOffset(2026, 10, 8, 0, 0, 0, TimeSpan.Zero);
         parametro.HasData(
             SeedParametro("00000006-0001-0000-0000-000000000009",

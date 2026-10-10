@@ -70,6 +70,7 @@ Política: **aplica** = se escribe en el maestro ERP; **solo registra** = se gua
 | `PLZ` (como CP fiscal) | nvarchar | candidato `CodigoPostalFiscal` | Candidato fiscal | Fiscal | Ninguna | Nulo posible | Facturación | Solo registra; **nunca pisa** CP fiscal local | PENDIENTE |
 | `UST_ID` | nvarchar | `CandidatoFiscalUstId` (registro) | Candidato fiscal | Fiscal | Trim, sin normalizar a RFC | Nulo posible | Facturación | Solo registra; **nunca pisa** `Rfc` | PENDIENTE (equivalencia RFC/TaxId) |
 | `STEUERNUMMER` | nvarchar | `CandidatoFiscalSteuernummer` (registro) | Candidato fiscal | Fiscal | Trim | Nulo posible | Facturación | Solo registra; **nunca pisa** `Rfc` | PENDIENTE (equivalencia RFC) |
+
 | `TLF1`, `TLF2` | nvarchar | `Cliente.Telefono` (TLF1) / registro (TLF2) | Comercial recibido | A+W | Trim; validar longitud | Nulo posible | UI, CxC | Aplica solo si `Telefono` local vacío; si no, **nunca pisa** y registra | PENDIENTE (campos acordados) |
 | `MAIL` | nvarchar | `Cliente.Email` | Comercial recibido | A+W | Trim; validar formato | Nulo posible | UI, CxC | Aplica solo si `Email` local vacío; si no, **nunca pisa** | PENDIENTE |
 | `KU_KUNDEN.ZAHLBED` | nvarchar NOT NULL | `CondicionCodigoOrigen` (registro) | Comercial recibido | A+W | Sin sustituir por enum genérico | No nulo | Facturación, CxC (referencia) | Solo registra | validado en forma; mapeo PENDIENTE |
@@ -90,6 +91,19 @@ Notas:
 - Los nombres `*Origen`/`*Referencia` son lógicos; el nombre físico y si va en tabla auxiliar o campos propios se decide en la Entrega B.
 - No se guarda payload completo de la tabla ni secretos.
 - Los datos de receptor extranjero (`NumRegIdTrib`, `PaisResidencia`, domicilio extranjero) siguen el gap ya documentado en el reader (`PLATFORM-TODO(<AwClienteNumRegIdTrib>)`); no se infieren desde `UST_ID`.
+
+**Excepción exclusiva de la copia de demo (decisión de Eliam, 9-oct-2026):** cuando el origen activo es `Demo`,
+el adaptador `AwClientesPgOrigen` autoriza explícitamente `aplicarFiscalesDeOrigen` en el mapper. Un `UST_ID`
+con forma de RFC se propone como `Rfc` y `PLZ` de cinco dígitos como `CodigoPostalFiscal`.
+`AplicarClienteAwService` los llena al crear y completa únicamente campos locales vacíos; conserva siempre
+lo capturado. Los valores inválidos siguen como candidatos. `STEUERNUMMER` nunca se promueve.
+
+En `Real` (SQL Server o simulado), el mapper conserva la regla de esta matriz: RFC y CP de origen son
+candidatos y **nunca se aplican** por esta sincronización. La equivalencia de `UST_ID`/`PLZ` con datos fiscales
+sigue **PENDIENTE de validación con Fiscal de Millet (Guadalupe)**. Esta excepción de demo no acredita esa
+validación ni modifica las consultas o el contrato del camino real. El control de origen se describe en
+[07-sandbox-aw.md](07-sandbox-aw.md).
+
 
 ## 5. Nulo != 0 != desconocido
 

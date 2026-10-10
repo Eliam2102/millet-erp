@@ -17,7 +17,7 @@ namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
 /// </summary>
 public sealed class AwClientesSqlOrigen : IAwClientesOrigen
 {
-    private const string Columnas = """
+    internal const string Columnas = """
         k.ID, k.MANDANT, k.NAME1, k.NAME2, k.NAME3, k.STRASSE, k.ORT, k.PLZ, k.PROVINZ, k.LAND,
         k.UST_ID, k.STEUERNUMMER, k.TLF1, k.TLF2, k.MAIL, k.ZAHLBED, k.WAEHRUNG,
         k.KREDIT_LIMIT, k.KREDIT_LIMIT1, k.KREDIT_LIMIT_NET, k.KZ_STATUS, k.KZ_GESPERRT,
@@ -109,7 +109,7 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
             return resultado;
         }, ct);
 
-    private static AwClienteOrigenFila Fila(DbDataReader r, List<AwCondicionCoincidencia> coincidencias) => new(
+    internal static AwClienteOrigenFila Fila(DbDataReader r, List<AwCondicionCoincidencia> coincidencias) => new(
         r.GetInt32(0), r.GetInt32(1),
         SqlPlumbing.GetStringOrNull(r, 2), SqlPlumbing.GetStringOrNull(r, 3), SqlPlumbing.GetStringOrNull(r, 4),
         SqlPlumbing.GetStringOrNull(r, 5), SqlPlumbing.GetStringOrNull(r, 6), SqlPlumbing.GetStringOrNull(r, 7),

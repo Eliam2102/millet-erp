@@ -45,3 +45,83 @@ Segunda BD en el mismo contenedor (no toca `AW_SANDBOX`, que sigue siendo el fix
 - Uso (requiere VPN): `tools/aw-sandbox/extraer-esquema-completo.sh > schema/full/01-esquema-completo.sql` (solo estructura), `tools/aw-sandbox/cargar-completo.sh [esquema|datos|todo]` (solo `SELECT` al real vía `bcp queryout`; reanudable; `AW_ANIOS`, `AW_DESDE`, `PAR`).
 - Lector: `aw_ro` (solo `SELECT` sobre `SYSADM`), `localhost,14330`, BD `AW_FULL`.
 - **Datos reales (PII de clientes): solo viven en el volumen Docker `aw_sandbox_data`, fuera del repo.** Prohibido volcarlos a seeds, evidencias o commits. Decisión del owner (2026-10-02), levanta la restricción "solo estructura y agregados" del plan para esta BD local.
+
+
+## Copia PostgreSQL alternable de demo (AW-DEMO, 9-oct-2026)
+
+Conviven el camino vigente de A+W (`Real`, SQL Server o simulado según cada área) y una copia independiente
+(`Demo`, PostgreSQL). Los adaptadores de copia están en `Infrastructure/OrigenPg/`; los lectores SQL Server,
+sus parámetros y su manejo de errores se conservan. La demo no sustituye Azure Hybrid Connection ni
+acredita una integración en vivo. Se puede cargar una copia de datos de Millet en la base de demo; esos
+datos nunca se guardan en archivos versionados del repositorio. `seed.sql` contiene únicamente datos sintéticos.
+
+### Preparar la copia
+
+Desde un equipo con Docker y el PostgreSQL local ya disponible:
+
+```sh
+bash tools/aw-origen-demo/aw-origen-demo.sh up
+# Muestra SOLO la conexión PostgreSQL de copia y el permiso de ambiente:
+bash tools/aw-origen-demo/aw-origen-demo.sh env
+```
+
+`up` crea `millet_aw_origen` y aplica `schema.sql`, `seed.sql` y `pedidos.sql` (60 clientes, 47 productos,
+3 solicitudes). `env` exporta únicamente `ConnectionStrings__AwOrigenPgDb` y
+`IntegracionesAw__OrigenDemo__Permitido=true`; **no elige el origen** ni reconfigura los modos reales.
+Conservar la conexión fuera del repositorio. `reseed` restaura clientes/productos sintéticos; `pedidos`
+restaura la cola de copia. Re-sembrar pedidos exige un ERP de prueba nuevo o limpiar sus controles de
+ingesta sintéticos, porque la idempotencia del ERP recuerda las versiones procesadas.
+
+Para copiar desde el sandbox A+W o una copia autorizada, `aw-origen-demo.sh importar` invoca
+`importar-desde-aw.cs`: copia clientes, condiciones y productos en una transacción PostgreSQL, sin exportar
+clientes/proveedores a archivos del repositorio. Usa credenciales de lectura de SQL Server; la herramienta
+no escribe en A+W. El importador reemplaza el contenido de `aw_origen.*` y el script vuelve a preparar los
+pedidos de demo. Las credenciales y datos originales se mantienen fuera de Git.
+
+### Habilitar y usar el control
+
+- `IntegracionesAw:OrigenDemo:Permitido` es `false` por defecto y `true` en Development.
+- En QA o demo de Azure habilitar explícitamente esta opción y configurar
+  `ConnectionStrings:AwOrigenPgDb` (App Settings/Key Vault). Usar un ambiente `QA` o `Demo`;
+  `Production` bloquea siempre el cambio, incluso con la opción encendida.
+- Se conservan los candados operativos de sincronización: clientes exige `LecturaHabilitada` y
+  `AplicacionHabilitada`; productos exige `OrigenHabilitado`. Para pedidos se conservan los candados del
+  worker (`Disabled`, `EmpresaId`), las equivalencias de sucursal/canal y el resto del doc 04.
+- Un usuario con `integraciones.aw.administracion.configuracion` ve «A+W real / Copia de demo» en ambos
+  sheets de sincronización de Datos maestros. El cambio solicita confirmación porque la sincronización
+  **guarda datos en esta base del ERP**. Los usuarios de esos sheets siempre ven la etiqueta del origen.
+
+El origen se persiste en `compartido.parametros_globales`, clave `integraciones.aw.origen-activo`, Id
+`00000006-0001-0000-0000-00000000000c`, valor inicial `Real`. En la serie existente se verificaron
+`…0001` a `…000a`; `…000b` se respeta como reservado. La migración solo agrega este parámetro.
+El PATCH genérico de parámetros rechaza esta clave; no permite eludir los controles del endpoint de A+W.
+
+`GET /api/v1/integraciones/aw/origen` devuelve origen activo, permiso de ambiente, configuración de copia,
+modo real por área, último actor/fecha y versión (ETag). Está disponible a usuarios autenticados para mostrar
+la etiqueta. `PUT` exige el permiso administrativo y `Idempotency-Key`; acepta `If-Match` y devuelve ETag.
+Un ETag obsoleto produce 409. Cada cambio real genera `AuditLogEntry` mediante el interceptor vigente, con
+actor y diff de valor anterior/nuevo en la misma transacción. Repetir el valor vigente no crea un cambio ficticio.
+
+Los selectores son scoped y renuevan la selección al iniciar cada barrido, lectura por referencia y ciclo
+de solicitudes. Las páginas, masters y write-back de ese ciclo conservan el origen elegido, por lo que un
+cambio administrativo durante un ciclo aplica al siguiente. No se cachea en un singleton ni requiere reiniciar.
+El despachador de clientes también relee el origen activo por ciclo para ejecutar los barridos encolados
+como `Demo`; al volver a `Real` atiende los del modo configurado en el área (`Sql` o `Simulado`).
+La fábrica PostgreSQL consulta `AwOrigenPgDb` al crear cada conexión, aun si el adaptador ya estaba resuelto.
+Elegir `Demo` sin conexión resuelta produce 422: «La copia de demo de A+W no está configurada en este ambiente».
+Con el ambiente bloqueado produce 422: «El origen de demo no está permitido en este ambiente».
+No existe fallback silencioso.
+En `Real` con clientes `Sql` sin cadena, usar el selector falla con
+«Origen 'Sql' sin adaptador: falta ConnectionStrings:AwClientesDb.»; el barrido o reintento queda
+`Fallida` con esa explicación, sin leer de otro origen.
+
+Las reglas fiscales de productos por `BA_PRODUKTART` se reutilizan de la rama de Geovany
+(VID80000–VID80003) y se aplican en ambos orígenes; solo completan campos vacíos. RFC/CP de clientes
+solo se aplican desde la copia de demo; en Real siguen pendientes de Fiscal, según el doc 05 §4.
+
+### Verificación pendiente en PostgreSQL desechable
+
+`AwOrigenEndpointsTests`, `AwOrigenPgTests` y `AwOrigenPgPedidosTests` cubren permiso, ambiente,
+auditoría, concurrencia, sincronización, reglas fiscales, ingesta y write-back. Limpian sus catálogos y
+pedidos sintéticos. Ejecutar `tools/validate-integration-isolated.sh` completo en un equipo con Docker;
+las pruebas escritas/compiladas no equivalen a una corrida verde ni a aceptación de Millet.

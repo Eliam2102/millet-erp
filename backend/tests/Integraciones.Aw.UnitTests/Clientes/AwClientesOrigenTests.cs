@@ -21,6 +21,18 @@ public sealed class AwClientesOrigenTests
     private static AwClienteMapeoResultado Mapear(AwClienteOrigenFila f, IReadOnlyDictionary<string, string>? m = null) =>
         AwClienteSnapshotMapper.Mapear(f, m ?? SinMapeo, Ahora);
 
+    [Theory]
+    [InlineData(false, null, null)]
+    [InlineData(true, "XEXX010101000", "00000")]
+    public void Fiscales_de_origen_solo_se_aplican_en_demo(bool demo, string? rfc, string? cp)
+    {
+        var s = AwClienteSnapshotMapper.Mapear(Fila(ust: "XEXX010101000"), SinMapeo, Ahora,
+            aplicarFiscalesDeOrigen: demo).Snapshot!;
+        s.Rfc.Should().Be(rfc);
+        s.CodigoPostalFiscal.Should().Be(cp);
+        s.CandidatoFiscalUstId.Should().Be("XEXX010101000");
+    }
+
     [Fact]
     public void Alta_valida_mapea_campos_y_versiones()
     {

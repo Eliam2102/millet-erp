@@ -1,3 +1,4 @@
+import { ControlOrigenAw } from '@/modules/datos-maestros/components/ControlOrigenAw';
 import { useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -69,6 +70,7 @@ export function SheetSincronizacionClientes({
             existentes no se sobrescriben.
           </SheetDescription>
         </SheetHeader>
+        <ControlOrigenAw area="clientes" enabled={open} />
         <div className="mt-4">
           {detalleId == null ? (
             <ListaEjecuciones onAbrir={setDetalleId} />
