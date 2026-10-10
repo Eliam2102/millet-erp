@@ -1,6 +1,6 @@
 # Inicio por perfil · INI-ROL
 
-Implementación local del 10-oct-2026 en `feat/INI-ROL-inicio-por-perfil`. La base del worktree coincide con `origin/main` (`d560a289`); la referencia local `main` era anterior. Sin commit, push ni publicación, conforme a la última instrucción de la ficha.
+Implementación local del 10-oct-2026 en `feat/INI-ROL-inicio-por-perfil`. La base del worktree coincide con `origin/main` (`d560a289`); la referencia local `main` era anterior. Commit, puerta de calidad y PR los hizo Claude el 10-oct-2026 (el sandbox de Codex no tiene Docker).
 
 Se leyeron la propuesta aprobada `N_Propuesta_Inicio_ERP.html`, las instrucciones del repo/frontend y `design-system/DESIGN.md`. Se reutilizan `PanelInicio`, `IndicadoresInicio`, `MisPendientes`, `RecientesInicio`, `AccesosRapidos`, `pendienteVisible` y la prioridad existente. No se cambian navegación, Administración, infraestructura, variables de entorno ni acceso a la aplicación.
 
