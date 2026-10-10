@@ -100,7 +100,7 @@ export function DetalleRequisicion() {
    * Resuelve sucursal / almacén por id (catálogos chicos que el backend aún
    * no enriquece en el DTO). Requisitante, departamento (ADR-0042) y proveedor
    * sugerido (addendum) ya vienen resueltos en el DTO. Si no matchea, devuelve
-   * el id raw (fallback del frontend: mostrar id ≠ crash).
+   * una etiqueta Por confirmar.
    */
   const resolverNombre = useMemo(
     () => (id: string | null | undefined): string => {
@@ -109,7 +109,7 @@ export function DetalleRequisicion() {
       if (s) return s.nombre;
       const a = almacenesMap.get(id);
       if (a) return a.nombre;
-      return id;
+      return '[NOMBRE POR CONFIRMAR]';
     },
     [sucursalesMap, almacenesMap],
   );
@@ -279,7 +279,7 @@ function RenderLineas({ rq }: { rq: import('@/features/compras/api/types').Requi
   );
   const resolverArticulo = (articuloId: string): string => {
     const a = articulosMap.get(articuloId);
-    return a ? `${a.clave} — ${a.nombre}` : articuloId;
+    return a ? `${a.clave} — ${a.nombre}` : '[ARTÍCULO POR CONFIRMAR]';
   };
 
   return (

@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useEffect, useState } from 'react';
@@ -157,6 +158,7 @@ export function NuevoRepp({ onClose, onDirtyChange }: NuevoReppProps) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
+      <ErrorTimbradoAviso error={emitir.error} />
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo label="Sucursal" required error={form.formState.errors.sucursalId?.message}>
           <Controller

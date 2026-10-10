@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -218,6 +219,7 @@ function FormInner({
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
+      <ErrorTimbradoAviso error={emitir.error} />
       {/* Emisor fijo (datos de la empresa) — solo informativo. */}
       <EmisorInfoBar emisor={emisor} />
 

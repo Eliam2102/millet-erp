@@ -1,3 +1,4 @@
+import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -551,6 +552,7 @@ function PedimentoForm({ facturaId }: { facturaId: string }) {
       <div className="sm:col-span-4 text-sm font-medium">
         Factura retenida por pedimento — aplícalo para timbrar
       </div>
+      <div className="sm:col-span-4"><ErrorTimbradoAviso error={aplicar.error} /></div>
       <div className="sm:col-span-2">
         <Label className="text-xs">Pedimento *</Label>
         <Input
@@ -631,6 +633,7 @@ function NcBonificacionForm({
       <div className="sm:col-span-4 text-sm font-medium">
         Nota de crédito por bonificación (relación 01)
       </div>
+      <div className="sm:col-span-4"><ErrorTimbradoAviso error={emitir.error} /></div>
       <div>
         <Label className="text-xs">Monto total *</Label>
         <Input

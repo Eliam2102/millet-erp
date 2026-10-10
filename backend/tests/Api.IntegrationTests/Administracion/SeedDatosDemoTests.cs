@@ -31,8 +31,23 @@ public class SeedDatosDemoTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task DatosDemo_Habilitado_Siembra_Los_Conteos_Esperados_Y_El_Segundo_Arranque_No_Duplica()
     {
-        var (deptos1, puestos1, asignaciones1, empleados1, inactivos1) = await ArrancarYContarAsync();
-        var (deptos2, puestos2, asignaciones2, empleados2, inactivos2) = await ArrancarYContarAsync();
+        (int, int, int, int, int) r1, r2;
+        try
+        {
+            r1 = await ArrancarYContarAsync();
+            r2 = await ArrancarYContarAsync();
+        }
+        finally
+        {
+            // Con DatosDemo encendido también corre ADM08EquivalenciasDemoHostedService, que deja equivalencias
+            // departamento → centro de costo ficticias en la base compartida. Si quedan, LineasEndpointsTests
+            // (y cualquier prueba de centro de costo heredado) encuentra una herencia que no espera.
+            using var limpieza = _base.Services.CreateScope();
+            await limpieza.ServiceProvider.GetRequiredService<CompartidoDbContext>().Database.ExecuteSqlRawAsync(
+                "DELETE FROM centros_costo.departamento_centros_costo WHERE observaciones LIKE '%equivalencia ficticia, no aprobada%'");
+        }
+        var (deptos1, puestos1, asignaciones1, empleados1, inactivos1) = r1;
+        var (deptos2, puestos2, asignaciones2, empleados2, inactivos2) = r2;
 
         // Conteos del primer arranque: exactamente el contenido del seed.
         Assert.Equal(CatalogosTestSeedHostedService.DemoDepartamentos.Length, deptos1);

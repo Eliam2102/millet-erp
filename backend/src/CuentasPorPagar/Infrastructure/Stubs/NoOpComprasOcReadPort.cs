@@ -24,6 +24,10 @@ public sealed class NoOpComprasOcReadPort : IComprasOcReadPort
         return Task.FromResult<OrdenCompraDto?>(null);
     }
 
+    public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(
+        IReadOnlyCollection<Guid> ordenCompraIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+
     public Task<IReadOnlyList<OrdenCompraDto>> ListarAutorizadasPorProveedorAsync(
         Guid proveedorId,
         CancellationToken cancellationToken)
