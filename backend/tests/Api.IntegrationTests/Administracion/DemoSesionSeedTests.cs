@@ -65,6 +65,8 @@ public sealed class DemoSesionSeedTests
             foreach (var (clave, valor) in entornoDemo)
                 Environment.SetEnvironmentVariable(clave, valor);
 
+            var permisoLeerTodasId = PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales).Id;
+            var permisoRegistrarId = PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaMovimientosRegistrar).Id;
             Snapshot primera;
             await using (var factory = CrearFactory(demo.ConnectionString, blobs))
             {
@@ -113,7 +115,7 @@ public sealed class DemoSesionSeedTests
                 var permisoAgregado = PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales);
                 identidad.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rolTesoreria.Id, permisoAgregado.Id));
                 // También conserva una revocación manual.
-                await identidad.RolPermisos.Where(r => r.RolId == rolTesoreria.Id && r.PermisoId == PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaMovimientosRegistrar).Id).ExecuteDeleteAsync();
+                await identidad.RolPermisos.Where(r => r.RolId == rolTesoreria.Id && r.PermisoId == permisoRegistrarId).ExecuteDeleteAsync();
                 await identidad.SaveChangesAsync();
             }
             await using (var factory = CrearFactory(demo.ConnectionString, blobs))
@@ -123,8 +125,8 @@ public sealed class DemoSesionSeedTests
                 using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
                 var tesoreriaRol = await identidad.Roles.SingleAsync(r => r.Codigo == "DEMO-ROL-Tesorería");
-                Assert.True(await identidad.RolPermisos.AnyAsync(r => r.RolId == tesoreriaRol.Id && r.PermisoId == PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales).Id));
-                Assert.False(await identidad.RolPermisos.AnyAsync(r => r.RolId == tesoreriaRol.Id && r.PermisoId == PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaMovimientosRegistrar).Id));
+                Assert.True(await identidad.RolPermisos.AnyAsync(r => r.RolId == tesoreriaRol.Id && r.PermisoId == permisoLeerTodasId));
+                Assert.False(await identidad.RolPermisos.AnyAsync(r => r.RolId == tesoreriaRol.Id && r.PermisoId == permisoRegistrarId));
                 var id = DemoSesionSeedHostedService.Id("DEMO-USUARIO-FIXTURE");
                 var asignacion = await identidad.UsuarioEmpresaRoles.SingleAsync(a => a.UsuarioId == id);
                 Assert.Equal(DemoSesionSeedHostedService.Id("DEMO-ROL-Compras"), asignacion.RolId);

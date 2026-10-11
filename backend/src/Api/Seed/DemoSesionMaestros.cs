@@ -35,6 +35,12 @@ public sealed partial class DemoSesionSeedHostedService
                 codigoPostal: "42501", tasaIvaDefault: .16m);
             db.Empresas.Add(empresa);
         }
+        else if (empresa.RazonSocial.StartsWith("Empresa inicial pendiente", StringComparison.Ordinal))
+        {
+            // La empresa que crea la migración inicial queda con datos DEMO una sola vez; después se respeta
+            // lo que un administrador edite (PRU-A: reiniciar la API ya no regresa la razón social).
+            empresa.ActualizarDatos(razonSocial: "MILLET INDUSTRIA DE VIDRIO (DEMO)", regimenFiscal: "601", codigoPostal: "42501", tasaIvaDefault: .16m);
+        }
 
 
         foreach (var c in ClientesSat)

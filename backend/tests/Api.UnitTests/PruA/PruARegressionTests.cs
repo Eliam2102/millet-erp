@@ -200,7 +200,9 @@ public sealed class PruARegressionTests
             var error = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(cmd, default));
             Assert.Equal("DEP_MISMO_USUARIO", error.Code);
             a.Tes.ChangeTracker.Clear();
-            Assert.Empty(await a.Tes.MovimientosBancarios.ToListAsync()); Assert.Empty(await a.Tes.OutboxEntries.ToListAsync());
+            // Solo lo de esta prueba: la base es compartida con otras pruebas.
+            Assert.Empty(await a.Tes.MovimientosBancarios.Where(m => m.CuentaBancariaId == cuenta.Id).ToListAsync());
+            Assert.DoesNotContain(await a.Tes.OutboxEntries.ToListAsync(), e => e.EventType == "tesoreria.pago-cliente.confirmado.v1" && e.Payload.Contains(deposito.Id.ToString()));
             Assert.Equal(EstadoDepositoConfirmacion.Pendiente, (await a.Tes.DepositosConfirmacion.SingleAsync()).Estado);
         }
         else
@@ -265,7 +267,9 @@ public sealed class PruARegressionTests
         await new PagoFacturaProveedorAplicadoHandler(a.Cxp, a, a.Mediator, NullLogger<PagoFacturaProveedorAplicadoHandler>.Instance)
             .Handle(new(Guid.NewGuid(), new(a.Empresa, a.UtcNow, f.Id, Guid.NewGuid(), 660, "MXN", new(2026, 10, 10), "FIX pago", null)), default);
         var entries = await a.Cxp.OutboxEntries.Where(e => e.EventType == FacturaPagoAplicadoCommandHandler.EventType).OrderBy(e => e.CreatedAt).ToListAsync();
-        var eventos = entries.Select(e => JsonSerializer.Deserialize<FacturaPagoAplicadoIntegrationEvent>(e.Payload)!).OrderBy(e => e.MontoPagadoAcumuladoOc).ToArray();
+        var eventos = entries.Select(e => JsonSerializer.Deserialize<FacturaPagoAplicadoIntegrationEvent>(e.Payload)!)
+            .Where(e => e.FacturaProveedorId == f.Id) // la base es compartida con otras pruebas
+            .OrderBy(e => e.MontoPagadoAcumuladoOc).ToArray();
         Assert.Equal(EsperadosSaldados, eventos.Select(e => e.MontoPagadoAcumuladoOc));
         Assert.Equal(3, eventos.Select(e => e.AplicacionId).Distinct().Count()); Assert.All(eventos, e => Assert.NotNull(e.AplicacionId));
         var consumer = new FacturaPagoAplicadoCommandHandler(a.Compras, a.Mediator, NullLogger<FacturaPagoAplicadoCommandHandler>.Instance);
@@ -278,7 +282,8 @@ public sealed class PruARegressionTests
         a.Compras.ChangeTracker.Clear(); a.Cxp.ChangeTracker.Clear();
         Assert.Equal(0m, (await a.Cxp.FacturasProveedor.SingleAsync()).SaldoPendiente);
         Assert.Equal(EstadoOrdenCompra.Cerrada, await a.Compras.OrdenesCompra.Select(o => o.Estado).SingleAsync());
-        Assert.Equal(3, await a.Compras.EventosProcesados.CountAsync());
+        var aplicaciones = eventos.Select(e => e.AplicacionId!.Value).ToArray();
+        Assert.Equal(3, await a.Compras.EventosProcesados.CountAsync(p => aplicaciones.Contains(p.EventoId)));
     }
 
     [Fact]
