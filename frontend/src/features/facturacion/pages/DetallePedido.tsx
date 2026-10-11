@@ -262,7 +262,7 @@ function Contenido({
             <tfoot>
               <tr className="border-t bg-muted/30 font-semibold">
                 <td className="px-3 py-2" colSpan={6}>
-                  Total
+                  Subtotal sin impuestos
                 </td>
                 <td className="px-3 py-2 text-right font-mono">
                   {p.total.toFixed(2)} {p.moneda}
@@ -282,6 +282,9 @@ function Contenido({
             </tfoot>
           </table>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Los impuestos y el total fiscal se calculan al preparar la factura.
+        </p>
       </section>
 
       <section className="space-y-2">
