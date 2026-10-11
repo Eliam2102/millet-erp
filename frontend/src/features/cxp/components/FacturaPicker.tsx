@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/popover';
 import { useFacturas } from '@/features/cxp/api/useFacturas';
 import {
+  EstadoPasivo,
   EstadoPasivoLabels,
   type FacturaListItem,
 } from '@/features/cxp/api/types';
@@ -39,6 +40,7 @@ export interface FacturaPickerProps {
   onChange: (id: string | null) => void;
   /** Pre-filtro server-side por proveedor. Null → sin filtro. */
   proveedorId?: string | null;
+  soloConSaldo?: boolean;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -48,6 +50,7 @@ export function FacturaPicker({
   value,
   onChange,
   proveedorId = null,
+  soloConSaldo = false,
   placeholder = 'Selecciona factura…',
   disabled,
   className,
@@ -59,7 +62,7 @@ export function FacturaPicker({
     limit: 200,
   });
 
-  const items = query.data?.items ?? [];
+  const items = (query.data?.items ?? []).filter(f => !soloConSaldo || (f.estado !== EstadoPasivo.Pagada && f.estado !== EstadoPasivo.Cancelada && f.saldoPendiente > 0));
   const seleccionada = value ? items.find((f) => f.id === value) : undefined;
 
   function folioDe(f: FacturaListItem) {

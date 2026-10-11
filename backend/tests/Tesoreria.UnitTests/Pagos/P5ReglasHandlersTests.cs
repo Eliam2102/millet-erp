@@ -22,6 +22,26 @@ public sealed class P5ReglasHandlersTests
     private static readonly DateOnly Fecha = new(2026, 10, 9);
     private static readonly DateTimeOffset Ahora = new(2026, 10, 9, 12, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Bandeja_pagos_enmascara_clabe_del_proveedor_sin_permiso_de_tesoreria(bool permitido)
+    {
+        await using var db = Db(); var pasivo = Pasivo(db); await db.SaveChangesAsync();
+        var port = new ProveedoresConClabe();
+        var resultado = await new Millet.Tesoreria.Application.Pasivos.BandejaPasivosPendientesHandler(db, port, new Permisos(permitido)).Handle(new(), default);
+        resultado.Items.Single().Clabe.Should().Be(permitido ? "000000000000001234" : Clabe.Enmascarar("000000000000001234"));
+    }
+    private sealed class ProveedoresConClabe : IProveedorBancoReadPort
+    {
+        public Task<ProveedorBancoDto?> ObtenerAsync(Guid id, CancellationToken ct) => Task.FromResult<ProveedorBancoDto?>(new(id, "PRU", "Proveedor", "Banco", "000000000000001234", "Proveedor"));
+        public async Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
+        {
+            var result = new Dictionary<Guid, ProveedorBancoDto>();
+            foreach (var id in ids) result[id] = (await ObtenerAsync(id, ct))!;
+            return result;
+        }
+    }
     [Fact]
     public async Task Un_pago_no_admite_dos_proveedores()
     {

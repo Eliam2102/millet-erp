@@ -279,6 +279,12 @@ public static class CatalogosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        proveedores.MapPost("/{id:guid}/poner-revision", async (Guid id, PonerProveedorEnRevisionPayload body, MediatR.IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new Millet.Compartido.Application.Catalogos.Proveedores.PonerProveedorEnRevisionCommand(id, body.Motivo), ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+            .WithName("PonerProveedorEnRevision");
+
         // === B.5: CRUD de proveedores ===
 
         proveedores.MapPost("/", async (
@@ -494,6 +500,8 @@ public static class CatalogosEndpoints
 
         return app;
     }
+
+    public sealed record PonerProveedorEnRevisionPayload(string Motivo);
 
     /// <summary>Body del POST /articulos/reclasificar-naturaleza.</summary>
     public sealed record ReclasificarNaturalezaArticulosRequest(

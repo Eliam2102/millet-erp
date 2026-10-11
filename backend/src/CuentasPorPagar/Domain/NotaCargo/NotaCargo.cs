@@ -113,6 +113,10 @@ public sealed class NotaCargo : BaseEntity, IPerteneceAEmpresa, IFiscalmenteRele
                 "NCG_NO_AUTORIZABLE",
                 $"Solo notas en Borrador pueden autorizarse (actual: {Estado}).");
         }
+        if (usuarioId is null || usuarioId == Guid.Empty)
+            throw new BusinessRuleException("NCG_USUARIO_REQUERIDO", "Identifica al usuario que autoriza la nota de cargo.");
+        if (CreadoPor == usuarioId)
+            throw new BusinessRuleException("NCG_AUTOAUTORIZACION", "Quien creó la nota de cargo no puede autorizarla.");
         Estado = EstadoNotaCargo.Autorizada;
         AutorizadoPor = usuarioId;
         FechaAutorizacion = ahora;

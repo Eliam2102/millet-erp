@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Domain.Ports.Identidad;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
@@ -12,11 +13,13 @@ public sealed class ListarOrdenesCompraHandler
 
     private readonly ComprasDbContext _db;
     private readonly IProveedorReadPort _proveedores;
+    private readonly IUsuarioReadPort _usuarios;
 
-    public ListarOrdenesCompraHandler(ComprasDbContext db, IProveedorReadPort proveedores)
+    public ListarOrdenesCompraHandler(ComprasDbContext db, IProveedorReadPort proveedores, IUsuarioReadPort usuarios)
     {
         _db = db;
         _proveedores = proveedores;
+        _usuarios = usuarios;
     }
 
     public async Task<ListarOrdenesCompraResponse> Handle(
@@ -131,6 +134,8 @@ public sealed class ListarOrdenesCompraHandler
                 .ToList();
         }
 
+        var nombres = await _usuarios.ObtenerNombresAsync(items.Select(i => i.CompradorTitularId).Distinct().ToArray(), cancellationToken);
+        items = items.Select(i => i with { CompradorNombre = nombres.GetValueOrDefault(i.CompradorTitularId) }).ToList();
         return new ListarOrdenesCompraResponse(items, page, pageSize, total);
     }
 }

@@ -227,6 +227,15 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// </summary>
     public void CambiarEstatus(EstatusCatalogo nuevoEstatus) => Estatus = nuevoEstatus;
 
+    public void PonerEnRevision(string motivo)
+    {
+        if (Estatus != EstatusCatalogo.Activo)
+            throw new BusinessRuleException("PROVEEDOR_NO_ACTIVO", "Solo puedes poner en revisión a un proveedor activo.");
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length < 5 || motivo.Length > 500)
+            throw new BusinessRuleException("PROVEEDOR_MOTIVO_INVALIDO", "Indica el motivo de revisión (de 5 a 500 caracteres).");
+        Estatus = EstatusCatalogo.EnRevision;
+    }
+
     /// <summary>
     /// Valida el proveedor en revisión tras comprobar la completitud de su expediente (F1-ADM-05 G1.1).
     /// Pasa de EnRevision a Activo.

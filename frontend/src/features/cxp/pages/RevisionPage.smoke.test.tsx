@@ -26,6 +26,7 @@ beforeEach(() => {
     permisos: ['cuentas_por_pagar.facturas.liberar-revision'],
     errorMessage: null,
   });
+  mswServer.use(http.get('*/api/v1/cuentas-por-pagar/catalogos/dependencias-revisoras', () => HttpResponse.json([{ id: 'area-mtto', nombre: 'Mantenimiento', codigo: 'MTTO', activa: true }])));
   // Catálogo de motivos siempre devuelve vacío en estos tests.
   mswServer.use(
     http.get(

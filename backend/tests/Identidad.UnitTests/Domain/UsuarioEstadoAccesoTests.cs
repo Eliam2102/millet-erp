@@ -19,6 +19,17 @@ public sealed class UsuarioEstadoAccesoTests
         new(Guid.CreateVersion7(), entraOid, "ana.lopez@millet.mx", "Ana López", estado, esCuentaTecnica);
 
     [Fact]
+    public void Modelo_permite_dos_roles_distintos_en_la_misma_empresa()
+    {
+        var usuario = new Usuario(Guid.CreateVersion7(), OidReal, "a@millet.mx", "A");
+        var empresa = Guid.CreateVersion7();
+        var uno = usuario.AsignarRolEnEmpresa(empresa, Guid.CreateVersion7(), Guid.CreateVersion7());
+        var dos = usuario.AsignarRolEnEmpresa(empresa, Guid.CreateVersion7(), Guid.CreateVersion7());
+        Assert.Equal(uno.EmpresaId, dos.EmpresaId);
+        Assert.NotEqual(uno.RolId, dos.RolId);
+    }
+
+    [Fact]
     public void Should_Default_Activo_NoTecnica_ParaCompatibilidadConAutoProvision()
     {
         var usuario = new Usuario(Guid.CreateVersion7(), OidReal, "a@millet.mx", "A");

@@ -43,7 +43,7 @@ public sealed class P4EndpointsTests(WebApplicationFactory<Program> factory) : I
             Guid fId,cargoId,ncId,antiId,nc07Id,anti07Id,ncManualId;int cargoV,ncV,antiV,nc07V,anti07V,ncManualV;
             using(var scope=app.Services.CreateScope()) {
                 var db=scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>();var f=p.NuevaFactura();f.Autorizar(null,p.Ahora);
-                var cargo=p.NuevaCargo(f.Id,10000);cargo.Autorizar(null,p.Ahora);var nc=p.NuevaNc(f.Id,10000,TipoRelacionCfdi.Devolucion,f.UuidCfdi!);
+                var cargo=p.NuevaCargo(f.Id,10000);cargo.Autorizar(Guid.NewGuid(),p.Ahora);var nc=p.NuevaNc(f.Id,10000,TipoRelacionCfdi.Devolucion,f.UuidCfdi!);
                 var anti=p.NuevaAnticipo();var anti07=p.NuevaAnticipo();var nc07=p.NuevaNc(null,100,TipoRelacionCfdi.AmortizacionAnticipo,anti07.UuidCfdi);
                 var ncManual=p.NuevaNc(null,100,TipoRelacionCfdi.NotaCredito,Guid.NewGuid().ToString());
                 db.AddRange(f,cargo,nc,anti,anti07,nc07,ncManual);await db.SaveChangesAsync();

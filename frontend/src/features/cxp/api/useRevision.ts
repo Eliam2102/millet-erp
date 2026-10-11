@@ -182,3 +182,12 @@ export function useAdjuntarEvidencia() {
     },
   });
 }
+
+export function useDependenciasRevisoras() {
+  return useQuery({
+    queryKey: ['cxp', 'catalogos', 'dependencias-revisoras'],
+    queryFn: async ({ signal }) => (await apiRequest<{ id: string; codigo: string; nombre: string; activa: boolean }[]>(
+      '/api/v1/cuentas-por-pagar/catalogos/dependencias-revisoras', { signal },
+    )).data,
+  });
+}

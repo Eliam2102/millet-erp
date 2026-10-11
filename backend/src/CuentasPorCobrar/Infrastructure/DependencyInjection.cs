@@ -26,6 +26,7 @@ public static class DependencyInjection
     {
         // CXC-PR3: resolución RFC → cliente para la proyección de cartera.
         services.AddScoped<IClienteReadPort, ClienteReadPortAdapter>();
+        services.AddScoped<IBeneficiarioCreditoReadPort, BeneficiarioCreditoReadPortAdapter>();
 
         // CXC-PR6: buckets de antigüedad configurables (levantamiento §1.2).
         services

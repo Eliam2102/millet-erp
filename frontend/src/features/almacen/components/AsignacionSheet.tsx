@@ -86,7 +86,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
         return;
       }
       toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+        description: error.problem.detail,
       });
       return;
     }

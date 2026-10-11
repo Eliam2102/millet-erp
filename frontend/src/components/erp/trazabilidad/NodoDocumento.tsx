@@ -19,6 +19,7 @@ import {
   type NodoArbolDocumento,
 } from '@/components/erp/trazabilidad/types';
 import { cn } from '@/lib/utils';
+import { formatearFechaDocumento } from './fecha-documento';
 
 /**
  * <c>&lt;NodoDocumento/&gt;</c> — chip individual que renderea un nodo
@@ -87,7 +88,7 @@ export function NodoDocumento({ nodo, esActual = false }: NodoDocumentoProps) {
         </span>
         {nodo.fecha ? (
           <span className="text-muted-foreground">
-            {new Date(nodo.fecha).toLocaleDateString()}
+            {formatearFechaDocumento(nodo.fecha, nodo.tipoDocumento)}
           </span>
         ) : null}
       </div>

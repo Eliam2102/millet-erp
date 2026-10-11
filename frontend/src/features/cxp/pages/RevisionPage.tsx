@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -17,6 +16,7 @@ import {
 import {
   useFacturasEnRevision,
   useMotivosRevision,
+  useDependenciasRevisoras,
 } from '@/features/cxp/api/useRevision';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -39,6 +39,7 @@ export function RevisionPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const motivos = useMotivosRevision();
+  const dependencias = useDependenciasRevisoras();
   const query = useFacturasEnRevision(
     search.dependenciaRevisoraId,
     search.motivoRevisionId,
@@ -73,20 +74,12 @@ export function RevisionPage() {
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">
-            Dependencia revisora (UUID)
-          </label>
-          <Input
-            aria-label="Filtrar por dependencia revisora"
-            value={search.dependenciaRevisoraId ?? ''}
-            onChange={(e) =>
-              actualizarSearch({
-                dependenciaRevisoraId: e.target.value || undefined,
-              })
-            }
-            placeholder="00000000-0000-…"
-            className="w-72 font-mono text-xs"
-          />
+          <label htmlFor="filtro-area" className="text-xs text-muted-foreground">Área revisora</label>
+          <Select value={search.dependenciaRevisoraId ?? SENTINEL_ALL} onValueChange={v => actualizarSearch({ dependenciaRevisoraId: v === SENTINEL_ALL ? undefined : v })}>
+            <SelectTrigger id="filtro-area" aria-label="Filtrar por dependencia revisora" className="w-72"><SelectValue placeholder="Selecciona un área" /></SelectTrigger>
+            <SelectContent><SelectItem value={SENTINEL_ALL}>Selecciona un área</SelectItem>{dependencias.data?.map(d => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent>
+          </Select>
+          {dependencias.isError && <p role="alert" className="text-danger-fg">No se pudo cargar el catálogo de áreas.</p>}
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Motivo</label>
@@ -129,7 +122,7 @@ export function RevisionPage() {
       {!filaConDependencia ? (
         <EmptyState
           title="Selecciona una dependencia"
-          description="Para listar facturas en revisión, indica el UUID de la dependencia revisora arriba."
+          description="Para listar facturas en revisión, selecciona el área revisora arriba."
         />
       ) : query.isError ? (
         <ErrorState

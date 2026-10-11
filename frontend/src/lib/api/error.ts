@@ -183,3 +183,9 @@ export function esCodigoEspecifico(
 ): error is ApiError {
   return esApiError(error) && error.code === code;
 }
+
+/** Motivo de negocio del servidor para acciones que no tienen errores por campo. */
+export function mensajeErrorAccion(error: unknown): string {
+  return esApiError(error) ? error.problem.detail ?? error.problem.title
+    : error instanceof Error ? error.message : 'No se pudo realizar la acción.';
+}

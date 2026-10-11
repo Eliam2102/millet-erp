@@ -14,7 +14,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useFormIdempotencyKey, esApiError } from '@/lib/api';
+import { useFormIdempotencyKey } from '@/lib/api';
+import { mensajeErrorAccion } from '@/lib/api/error';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
@@ -317,11 +318,7 @@ export function AccionesOC({ oc }: AccionesOCProps) {
               setRechazarOpen(false);
               return;
             }
-            const msg = esApiError(err)
-              ? err.problem.title
-              : err instanceof Error
-                ? err.message
-                : 'Error desconocido.';
+            const msg = mensajeErrorAccion(err);
             toast.error('No se pudo rechazar la OC.', { description: msg });
           }
         }}
@@ -360,11 +357,7 @@ export function AccionesOC({ oc }: AccionesOCProps) {
               setCancelar1Open(false);
               return;
             }
-            const msg = esApiError(err)
-              ? err.problem.title
-              : err instanceof Error
-                ? err.message
-                : 'Error desconocido.';
+            const msg = mensajeErrorAccion(err);
             toast.error('No se pudo cancelar la OC.', { description: msg });
           }
         }}
@@ -397,11 +390,7 @@ export function AccionesOC({ oc }: AccionesOCProps) {
               setCancelarDobleOpen(false);
               return;
             }
-            const msg = esApiError(err)
-              ? err.problem.title
-              : err instanceof Error
-                ? err.message
-                : 'Error desconocido.';
+            const msg = mensajeErrorAccion(err);
             toast.error('No se pudo cancelar la OC.', { description: msg });
           }
         }}
@@ -455,11 +444,7 @@ export function AccionesOC({ oc }: AccionesOCProps) {
               setDuplicarOpen(false);
               return;
             }
-            const msg = esApiError(err)
-              ? err.problem.title
-              : err instanceof Error
-                ? err.message
-                : 'Error desconocido.';
+            const msg = mensajeErrorAccion(err);
             toast.error('No se pudo duplicar la OC.', { description: msg });
           }
         }}
@@ -527,12 +512,8 @@ function ConfirmDialog({
         onClose();
         return;
       }
-      const msg = esApiError(err)
-        ? err.problem.title
-        : err instanceof Error
-          ? err.message
-          : 'Error desconocido.';
-      toast.error('La acción falló.', { description: msg });
+      const msg = mensajeErrorAccion(err);
+      toast.error(msg);
     }
   }
 

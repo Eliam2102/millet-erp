@@ -199,10 +199,10 @@ function Tabla({ items, puedeAutorizar, puedeAplicar }: TablaProps) {
         idempotencyKey: crypto.randomUUID(),
       },
       {
-        onSuccess: () => toast.success(`NC ${n.folio} autorizada`),
+        onSuccess: () => toast.success(`Nota de cargo ${n.folio} autorizada`),
         onError: (error) => {
           if (esApiError(error)) {
-            toast.error(error.problem.title);
+            toast.error(error.problem.detail ?? error.problem.title);
             return;
           }
           toast.error('Error al autorizar.');
@@ -219,10 +219,10 @@ function Tabla({ items, puedeAutorizar, puedeAplicar }: TablaProps) {
         idempotencyKey: crypto.randomUUID(),
       },
       {
-        onSuccess: () => toast.success(`NC ${n.folio} aplicada`),
+        onSuccess: () => toast.success(`Nota de cargo ${n.folio} aplicada`),
         onError: (error) => {
           if (esApiError(error)) {
-            toast.error(error.problem.title);
+            toast.error(error.problem.detail ?? error.problem.title);
             return;
           }
           toast.error('Error al aplicar.');

@@ -199,6 +199,7 @@ public sealed class FiscalApiTimbradoAdapterTests
 
         var r = await Adapter(invoices, ConfigSandbox()).TimbrarAsync(EmisionIngreso(), CancellationToken.None);
 
+        r.FechaTimbrado.Should().Be(new DateTimeOffset(2026, 7, 9, 18, 0, 5, TimeSpan.Zero));
         r.Estado.Should().Be(TimbradoEstado.Timbrado);
         r.Uuid.Should().Be("AAAAAAAA-1111-2222-3333-444444444444");
         r.SelloCfdi.Should().Be("SELLO_CFDI_B64");
@@ -209,8 +210,8 @@ public sealed class FiscalApiTimbradoAdapterTests
         var inv = invoices.UltimoCreado!;
         inv.TypeCode.Should().Be("I");
         inv.Series.Should().Be("FA");
-        // El folio interno de Millet NO viaja: FiscalAPI lo calcula
-        // internamente y rechaza folios del cliente.
+        // El folio interno de Millet NO viaja hasta probar en el sandbox que
+        // FiscalAPI acepta folio propio (PRU-B #18, pendiente).
         inv.Number.Should().BeNull();
         inv.ExpeditionZipCode.Should().Be("76120");
         inv.ExportCode.Should().Be("01");

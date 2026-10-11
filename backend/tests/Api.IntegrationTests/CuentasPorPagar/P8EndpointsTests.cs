@@ -69,7 +69,7 @@ public sealed class P8EndpointsTests(WebApplicationFactory<Program> factory) : I
                 var nc = Nc.Capturar(EmpresaBootstrapId, null, Guid.NewGuid().ToString(), puertos.ProveedorId, "FIX-P8", null, fecha, "MXN", null, 100, 0, 0, 100,
                     TipoNotaCredito.Descuento, TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), f.Id, null, fecha);
                 var cargo = Cargo.Crear(EmpresaBootstrapId, FolioInternoNotaCargo.FromAnioSecuencial(2026, Random.Shared.Next(800000, 999999)), puertos.ProveedorId, puertos.SucursalId,
-                    "FIX-P8", null, 100, "MXN", null, f.Id, null, null, fecha); cargo.Autorizar(null, fecha);
+                    "FIX-P8", null, 100, "MXN", null, f.Id, null, null, fecha); cargo.Autorizar(Guid.NewGuid(), fecha);
                 db.AddRange(f, anticipo, nc, cargo); await db.SaveChangesAsync();
                 facturaId=f.Id; version=f.Version; anticipoId=anticipo.Id; anticipoVersion=anticipo.Version;
                 ncId=nc.Id; ncVersion=nc.Version; cargoId=cargo.Id; cargoVersion=cargo.Version;

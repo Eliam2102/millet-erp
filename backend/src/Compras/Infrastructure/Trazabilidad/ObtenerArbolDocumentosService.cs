@@ -7,7 +7,7 @@ namespace Millet.Compras.Infrastructure.Trazabilidad;
 /// <summary>
 /// Árbol recursivo RQ → OC → recepción → factura → pago, con entrada desde
 /// cualquier documento. Los proveedores conservan el filtro de empresa.
-/// El camino visitado evita ciclos y cada nivel elimina enlaces duplicados.
+/// Los documentos visitados evitan ciclos y repeticiones entre ramas.
 /// </summary>
 public sealed class ObtenerArbolDocumentosService : IObtenerArbolDocumentosService
 {
@@ -40,48 +40,45 @@ public sealed class ObtenerArbolDocumentosService : IObtenerArbolDocumentosServi
         => ExpandirAsync(tipoDocumento, id, new HashSet<(TipoDocumentoTrazabilidad, Guid)>(), true, true, cancellationToken);
 
     private async Task<NodoArbolDocumento?> ExpandirAsync(TipoDocumentoTrazabilidad tipo, Guid id,
-        HashSet<(TipoDocumentoTrazabilidad, Guid)> camino, bool subir, bool bajar, CancellationToken ct)
+        HashSet<(TipoDocumentoTrazabilidad, Guid)> visitados, bool subir, bool bajar, CancellationToken ct)
     {
-        if (!camino.Add((tipo, id))) return null;
-        try
+        if (!visitados.Add((tipo, id))) return null;
+        // Un documento compartido por varias ramas se expande una sola vez.
+        NodoArbolDocumento? nodo = tipo switch
         {
-            NodoArbolDocumento? nodo = tipo switch
+            TipoDocumentoTrazabilidad.Requisicion => await ConstruirDesdeRqAsync(id, ct),
+            TipoDocumentoTrazabilidad.OrdenCompra => await ConstruirDesdeOcAsync(id, ct),
+            _ => null,
+        };
+        if (nodo is null)
+            foreach (var provider in _providers)
             {
-                TipoDocumentoTrazabilidad.Requisicion => await ConstruirDesdeRqAsync(id, ct),
-                TipoDocumentoTrazabilidad.OrdenCompra => await ConstruirDesdeOcAsync(id, ct),
-                _ => null,
-            };
-            if (nodo is null)
-                foreach (var provider in _providers)
-                {
-                    nodo = await provider.ObtenerNodoAsync(tipo, id, ct);
-                    if (nodo is not null) break;
-                }
-            if (nodo is null) return null;
-            var padres = nodo.Ascendentes.ToList();
-            var hijos = nodo.Descendentes.ToList();
-            if (tipo is not (TipoDocumentoTrazabilidad.Requisicion or TipoDocumentoTrazabilidad.OrdenCompra))
-            {
-                foreach (var provider in _providers)
-                {
-                    if (subir) padres.AddRange(await provider.ObtenerAscendentesAsync(tipo, id, ct));
-                    if (bajar) hijos.AddRange(await provider.ObtenerDescendentesAsync(tipo, id, ct));
-                }
+                nodo = await provider.ObtenerNodoAsync(tipo, id, ct);
+                if (nodo is not null) break;
             }
-            async Task<List<NodoArbolDocumento>> ExpandirLista(List<NodoArbolDocumento> nodos, bool arriba)
+        if (nodo is null) return null;
+        var padres = nodo.Ascendentes.ToList();
+        var hijos = nodo.Descendentes.ToList();
+        if (tipo is not (TipoDocumentoTrazabilidad.Requisicion or TipoDocumentoTrazabilidad.OrdenCompra))
+        {
+            foreach (var provider in _providers)
             {
-                var resultado = new List<NodoArbolDocumento>();
-                foreach (var n in nodos.DistinctBy(n => (n.TipoDocumento, n.Id)))
-                {
-                    var expandido = await ExpandirAsync(n.TipoDocumento, n.Id, camino, arriba, !arriba, ct);
-                    if (expandido is not null) resultado.Add(expandido);
-                }
-                return resultado;
+                if (subir) padres.AddRange(await provider.ObtenerAscendentesAsync(tipo, id, ct));
+                if (bajar) hijos.AddRange(await provider.ObtenerDescendentesAsync(tipo, id, ct));
             }
-            return nodo with { Ascendentes = subir ? await ExpandirLista(padres, true) : [],
-                Descendentes = bajar ? await ExpandirLista(hijos, false) : [] };
         }
-        finally { camino.Remove((tipo, id)); }
+        async Task<List<NodoArbolDocumento>> ExpandirLista(List<NodoArbolDocumento> nodos, bool arriba)
+        {
+            var resultado = new List<NodoArbolDocumento>();
+            foreach (var n in nodos.DistinctBy(n => (n.TipoDocumento, n.Id)))
+            {
+                var expandido = await ExpandirAsync(n.TipoDocumento, n.Id, visitados, arriba, !arriba, ct);
+                if (expandido is not null) resultado.Add(expandido);
+            }
+            return resultado;
+        }
+        return nodo with { Ascendentes = subir ? await ExpandirLista(padres, true) : [],
+            Descendentes = bajar ? await ExpandirLista(hijos, false) : [] };
     }
 
     private async Task<NodoArbolDocumento?> ConstruirDesdeRqAsync(Guid rqId, CancellationToken ct)

@@ -208,6 +208,12 @@ public sealed class DemoSesionSeedTests
         Assert.Equal("MILLET INDUSTRIA DE VIDRIO (DEMO)", empresa.RazonSocial);
         Assert.Equal("42501", empresa.CodigoPostal);
         Assert.Equal("601", empresa.RegimenFiscal);
+        var departamentosDemo = await maestros.SucursalDepartamentos.Where(a => a.Estatus == EstatusCatalogo.Activo).ToListAsync();
+        Assert.NotEmpty(departamentosDemo);
+        foreach (var departamento in departamentosDemo)
+            Assert.True(await maestros.SucursalPuestos.AnyAsync(a => a.SucursalId == departamento.SucursalId
+                && a.DepartamentoId == departamento.DepartamentoId && a.Estatus == EstatusCatalogo.Activo
+                && maestros.Puestos.Any(p => p.Id == a.PuestoId && p.Estatus == EstatusCatalogo.Activo)));
         Assert.False(await maestros.Articulos.AnyAsync(a => a.Clave.StartsWith("ART-TEST-")));
         Assert.False(await maestros.Proveedores.AnyAsync(p => p.RazonSocial.Contains("Test")));
         var revision = await maestros.Proveedores.SingleAsync(p => p.Clave == "DEMO-PROV-REV");
@@ -321,11 +327,12 @@ public sealed class DemoSesionSeedTests
             await maestros.Articulos.CountAsync(a => a.Clave.StartsWith("DEMO-")), await maestros.Clientes.CountAsync(c => c.Clave.StartsWith("DEMO-")),
             await maestros.Adjuntos.CountAsync(), await compras.OrdenesCompra.CountAsync(), await compras.Requisiciones.CountAsync(),
             pedidos.Count, await tesoreria.CuentasBancarias.CountAsync(), periodos.Count, await contabilidad.Cuentas.CountAsync(),
-            await contabilidad.Importaciones.CountAsync(), await compras.OutboxEntries.CountAsync());
+            await contabilidad.Importaciones.CountAsync(), await compras.OutboxEntries.CountAsync(),
+            await maestros.Puestos.CountAsync(), await maestros.SucursalPuestos.CountAsync());
     }
 
     private sealed record Snapshot(int Proveedores, int Articulos, int Clientes, int Adjuntos, int Ocs, int Rqs,
-        int Pedidos, int Bancos, int Periodos, int Cuentas, int Lotes, int Outbox);
+        int Pedidos, int Bancos, int Periodos, int Cuentas, int Lotes, int Outbox, int Puestos, int AsignacionesPuestos);
 
     private sealed class MigrarBaseDemo(IServiceScopeFactory scopes, string conexionEsperada) : IHostedService
     {

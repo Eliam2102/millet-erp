@@ -119,7 +119,7 @@ public static class DependencyInjection
         services.AddScoped<ISucursalReadPort, Adapters.SucursalReadPortAdapter>();
         services.AddScoped<IEmpleadoReadPort, Adapters.EmpleadoReadPortAdapter>();
         services.AddScoped<IPuestoReadPort, Adapters.PuestoReadPortAdapter>();
-        services.AddScoped<IDependenciaRevisoraReadPort, NoOpDependenciaRevisoraReadPort>();
+        services.AddScoped<IDependenciaRevisoraReadPort, Adapters.DependenciaRevisoraReadPortAdapter>();
         services.AddScoped<ITipoCambioReadPort, NoOpTipoCambioReadPort>();
         services.AddScoped<IProveedorReadPort, Adapters.ProveedorReadPortAdapter>();
         services.AddScoped<Domain.Ports.Administracion.IToleranciaGeneralReadPort, Adapters.ToleranciaGeneralReadPortAdapter>();

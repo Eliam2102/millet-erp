@@ -3,8 +3,13 @@ import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import { useNotaCargo } from '@/features/cxp/api/useNotasYAnticipos';
+import { useNotaCargo, useAutorizarNotaCargo } from '@/features/cxp/api/useNotasYAnticipos';
 import { esApiError } from '@/lib/api';
+import { toast } from 'sonner';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { EstadoNotaCargo } from '@/features/cxp/api/types';
 import { EstadoNotaCargoChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import { formatearFechaHora } from '@/features/cxp/lib/formato';
@@ -21,6 +26,10 @@ const FROM = '/_app/cxp/notas-cargo/$id' as const;
 export function NotaCargoDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useNotaCargo(id);
+  const autorizar = useAutorizarNotaCargo();
+  const puedeAutorizar = useHasPermission(PermisosCanonicos.CuentasPorPagarNotasCargoAutorizar);
+  const usuarioId = useAuthStore(s => s.user?.id);
+
 
   return (
     <div className="space-y-4">
@@ -64,6 +73,13 @@ export function NotaCargoDetallePage() {
             </p>
           </header>
 
+          {puedeAutorizar && query.data.estado === EstadoNotaCargo.Borrador && <div className="space-y-1">
+            <Button disabled={autorizar.isPending || query.data.creadoPor === usuarioId} onClick={() => autorizar.mutate({ id, versionEsperada: query.data!.version, idempotencyKey: crypto.randomUUID() }, {
+              onSuccess: () => { toast.success('Se autorizó la nota de cargo.'); void query.refetch(); },
+              onError: error => toast.error(esApiError(error) ? error.problem.detail ?? error.problem.title : 'No se pudo autorizar la nota de cargo.'),
+            })}>Autorizar</Button>
+            {query.data.creadoPor === usuarioId && <p className="text-xs text-ink-muted">Quien creó la nota de cargo no puede autorizarla.</p>}
+          </div>}
           <DocumentoP4Acciones tipo="notas-cargo" documento={query.data} />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">

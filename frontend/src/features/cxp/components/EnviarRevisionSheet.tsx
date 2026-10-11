@@ -11,7 +11,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -32,19 +31,11 @@ import {
 import {
   useEnviarFacturaARevision,
   useMotivosRevision,
+  useDependenciasRevisoras,
 } from '@/features/cxp/api/useRevision';
 import type { FacturaDetalle } from '@/features/cxp/api/types';
 
-/**
- * <c>&lt;EnviarRevisionSheet/&gt;</c> — slide-from-right que envía una
- * factura a revisión por dependencia. Selecciona motivo del catálogo
- * (con SLA visible) + indica el UUID de la dependencia revisora.
- *
- * <para>PLATFORM-TODO(&lt;DependenciasRevisorasPicker&gt;): hoy se pega
- * el UUID de la dependencia a mano. Cuando se conecte el catálogo de
- * dependencias revisoras (PLATFORM-TODO &lt;DependenciasRevisorasEnAdmin&gt;
- * del backend), agregar combobox.</para>
- */
+/** Envía la factura a un área activa del catálogo organizacional. */
 export interface EnviarRevisionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -58,6 +49,7 @@ export function EnviarRevisionSheet({
 }: EnviarRevisionSheetProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const motivos = useMotivosRevision();
+  const dependencias = useDependenciasRevisoras();
   const enviar = useEnviarFacturaARevision();
 
   const form = useForm<EnviarRevisionValues>({
@@ -162,25 +154,20 @@ export function EnviarRevisionSheet({
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="dependenciaRevisoraId">
-              Dependencia revisora (UUID)
-            </Label>
-            <Input
-              id="dependenciaRevisoraId"
-              placeholder="00000000-0000-…"
-              autoComplete="off"
-              {...form.register('dependenciaRevisoraId')}
-            />
+            <Label htmlFor="dependenciaRevisoraId">Área revisora</Label>
+            <Controller control={form.control} name="dependenciaRevisoraId" render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger id="dependenciaRevisoraId"><SelectValue placeholder="Selecciona un área…" /></SelectTrigger>
+                <SelectContent>{dependencias.data?.map(d => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent>
+              </Select>
+            )} />
+            {dependencias.isError && <p role="alert" className="text-xs text-danger-fg">No se pudo cargar el catálogo de áreas.</p>}
             {form.formState.errors.dependenciaRevisoraId && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.dependenciaRevisoraId.message}
               </p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Identificador de la dependencia que revisa. Cuando el catálogo
-              esté integrado, se reemplaza por un combobox (PLATFORM-TODO
-              <code>DependenciasRevisorasPicker</code>).
-            </p>
+
           </div>
 
           <SheetFooter className="px-0">

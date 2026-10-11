@@ -39,6 +39,26 @@ public sealed class ValidacionProveedoresHandlersTests
     }
 
     [Fact]
+    public async Task Proveedor_activo_en_revision_queda_bloqueado_para_compras_y_registra_motivo()
+    {
+        var empresa = new FakeEmpresa();
+        using var db = CrearDb(empresa);
+        var proveedor = new Proveedor(Guid.NewGuid(), "P01", "Prov 1", "PRO010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+        db.Proveedores.Add(proveedor);
+        await db.SaveChangesAsync();
+        var audit = new FakeAudit();
+        var handler = new PonerProveedorEnRevisionHandler(db, new FakeUser(), empresa, new FakeClock(), audit);
+        var res = await handler.Handle(new(proveedor.Id, "Revisar expediente bancario"), default);
+        Assert.Equal(EstatusCatalogo.EnRevision, res.Estatus);
+        Assert.Equal("Revisar expediente bancario", res.MotivoRevision);
+        Assert.Equal(EstatusCatalogo.EnRevision, proveedor.Estatus);
+        var registro = Assert.Single(audit.Registros);
+        Assert.Equal("proveedor.en-revision", registro.Operacion);
+        Assert.Contains("Revisar expediente bancario", registro.Resumen);
+        Assert.False(new PonerProveedorEnRevisionValidator().Validate(new PonerProveedorEnRevisionCommand(proveedor.Id, "")).IsValid);
+    }
+
+    [Fact]
     public async Task ValidarProveedor_NotFound_ThrowsEntityNotFoundException()
     {
         var empresa = new FakeEmpresa();

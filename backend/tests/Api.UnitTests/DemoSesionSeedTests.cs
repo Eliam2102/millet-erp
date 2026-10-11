@@ -14,6 +14,13 @@ namespace Millet.Api.UnitTests;
 public sealed class DemoSesionSeedTests
 {
     [Theory]
+    [InlineData("Mantenimiento", "Ingeniería de manufactura", false)]
+    [InlineData("Mantenimiento", "Mantenimiento", true)]
+    [InlineData("Ingeniería", "Ingenieria de manufactura", true)]
+    public void Equivalencia_demo_no_asigna_areas_de_otro_departamento(string departamento, string area, bool coincide) =>
+        Assert.Equal(coincide, Millet.CentrosCosto.Infrastructure.Seed.ADM08EquivalenciasDemoHostedService.CorrespondeAlDepartamento(departamento, area));
+
+    [Theory]
     [InlineData("Capturista Compras", false, false)]
     [InlineData("Jefe Compras", true, false)]
     [InlineData("Dirección", false, true)]

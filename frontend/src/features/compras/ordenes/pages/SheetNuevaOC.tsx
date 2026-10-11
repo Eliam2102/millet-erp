@@ -293,6 +293,10 @@ export function SheetNuevaOC({
       return;
     }
 
+    if (!values.sinRequisicionPrevia && rqsSeleccionadas.length === 0) {
+      toast.error('Selecciona una requisición o marca «Esta orden va sin requisición previa» e indica el motivo y la evidencia.');
+      return;
+    }
     try {
       const response = await crearMut.mutateAsync({
         command: {
@@ -339,7 +343,7 @@ export function SheetNuevaOC({
 
       if (rqsSeleccionadas.length === 0) {
         toast.success(`OC creada: ${response.folio}`, {
-          description: 'Continuá en el detalle para agregar líneas.',
+          description: 'Continúa en el detalle para agregar líneas.',
         });
       } else if (rqsConError.length === 0) {
         toast.success(`OC creada: ${response.folio}`, {
@@ -424,7 +428,7 @@ export function SheetNuevaOC({
                 Esta OC va sin requisición previa
               </span>
               <span className="text-muted-foreground">
-                (FOC11 — requiere motivo y evidencia)
+                (requiere motivo y evidencia)
               </span>
             </label>
           )}

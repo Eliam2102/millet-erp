@@ -35,18 +35,38 @@ public sealed class ADM08EquivalenciasDemoHostedService(IServiceScopeFactory sco
                 .OrderBy(x => x.SucursalId).ThenBy(x => x.DepartamentoId).ToListAsync(token);
             var areas = await db.Dim2s.AsNoTracking().Where(x => x.Estatus == EstatusCatalogo.Activo &&
                 db.Dim1s.Any(p => p.Id == x.Dim1Id && p.Estatus == EstatusCatalogo.Activo))
-                .OrderBy(x => x.Clave).Select(x => x.Id).ToArrayAsync(token);
+                .OrderBy(x => x.Clave).ToArrayAsync(token);
             if (areas.Length == 0) return;
-            var existentes = await db.DepartamentoCentrosCosto.AsNoTracking().ToListAsync(token);
+            var existentes = await db.DepartamentoCentrosCosto.ToListAsync(token);
+            var nombres = await organizacion.Departamentos.AsNoTracking().Where(d => departamentos.Contains(d.Id)).ToDictionaryAsync(d => d.Id, d => d.Nombre, token);
             for (var i = 0; i < asignaciones.Count; i++)
             {
                 var a = asignaciones[i];
-                if (existentes.Any(x => x.EmpresaId == a.EmpresaId && x.SucursalId == a.SucursalId && x.DepartamentoId == a.DepartamentoId)) continue;
-                db.DepartamentoCentrosCosto.Add(new DepartamentoCentroCosto(Guid.CreateVersion7(), a.EmpresaId,
-                    a.SucursalId, a.DepartamentoId, areas[i % areas.Length], "DEMO · por validar con Laura (V49) · equivalencia ficticia, no aprobada"));
+                var existente = existentes.SingleOrDefault(x => x.EmpresaId == a.EmpresaId && x.SucursalId == a.SucursalId && x.DepartamentoId == a.DepartamentoId);
+                const string marcaAnterior = "DEMO · por validar con Laura (V49) · equivalencia ficticia, no aprobada";
+                if (existente is not null && existente.Observaciones != marcaAnterior) continue;
+                var matches = areas.Where(area => CorrespondeAlDepartamento(nombres[a.DepartamentoId], area.Nombre)).ToArray();
+                // Nunca elegir un área por posición: sin coincidencia única queda pendiente la equivalencia.
+                if (matches.Length != 1)
+                {
+                    if (existente is not null) db.DepartamentoCentrosCosto.Remove(existente);
+                    continue;
+                }
+                var motivo = "DEMO · coincidencia con el nombre del departamento; por validar con Contabilidad";
+                if (existente is not null) existente.Cambiar(matches[0].Id, motivo);
+                else db.DepartamentoCentrosCosto.Add(new DepartamentoCentroCosto(Guid.CreateVersion7(), a.EmpresaId,
+                    a.SucursalId, a.DepartamentoId, matches[0].Id, motivo));
             }
             await db.SaveChangesAsync(token);
         }, cancellationToken);
+    }
+    public static bool CorrespondeAlDepartamento(string departamento, string area)
+    {
+        static string Normalizar(string texto) => new string(texto.Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray()).ToUpperInvariant().Trim();
+        var nombre = Normalizar(departamento);
+        var destino = Normalizar(area);
+        return nombre == destino || destino.StartsWith(nombre + " ", StringComparison.Ordinal);
     }
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

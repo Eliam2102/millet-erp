@@ -206,6 +206,34 @@ public sealed class DecidirLiberacionHandlerTests
         return autorizacion;
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Autorizacion_solo_se_crea_para_beneficiario_con_permiso(bool permitido)
+    {
+        await using var db = CrearDbContext();
+        var handler = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoHandler(
+            db, new FakeEmpresaContext(EmpresaId), new FakeUserContext(Guid.NewGuid()), new FakeClock(), new Beneficiarios(permitido));
+        var command = new Millet.CuentasPorCobrar.Application.Autorizaciones.CrearAutorizacionCreditoCommand(Guid.NewGuid(), "Pago en tránsito", "FIX-PRUB", 24);
+        if (permitido)
+        {
+            var res = await handler.Handle(command, default);
+            res.BeneficiarioUsuarioId.Should().Be(command.BeneficiarioUsuarioId);
+            db.AutorizacionesCredito.Should().ContainSingle();
+        }
+        else
+        {
+            var act = () => handler.Handle(command, default);
+            await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "AC_BENEFICIARIO_SIN_PERMISO");
+            db.AutorizacionesCredito.Should().BeEmpty();
+        }
+    }
+    private sealed class Beneficiarios(bool permitir) : Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros.IBeneficiarioCreditoReadPort
+    {
+        public Task<bool> PuedeDecidirAsync(Guid usuario, Guid empresa, CancellationToken ct) => Task.FromResult(permitir);
+        public Task<IReadOnlyList<Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros.BeneficiarioCreditoDto>> ListarAsync(Guid empresa, CancellationToken ct) => Task.FromResult<IReadOnlyList<Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros.BeneficiarioCreditoDto>>([]);
+    }
+
     private static CuentasPorCobrarDbContext CrearDbContext()
     {
         var options = new DbContextOptionsBuilder<CuentasPorCobrarDbContext>()

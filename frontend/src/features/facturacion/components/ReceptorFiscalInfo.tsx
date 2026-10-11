@@ -90,8 +90,7 @@ export function ReceptorIncompletoBanner({
         <>{textoSinCliente}</>
       ) : puedeCorregirEnCatalogo ? (
         <>
-          Datos fiscales del cliente incompletos en el master (gap G12:
-          régimen y CP no vienen de A+W) —{' '}
+          Los datos fiscales del cliente están incompletos;{' '}
           <Link
             to="/admin/datos-maestros/clientes/$id"
             params={{ id: clienteId }}
@@ -136,7 +135,7 @@ function DatoFiscal({
         )}
         title={vacio ? undefined : valor}
       >
-        {vacio ? 'Falta en el master' : valor}
+        {vacio ? 'Falta en el catálogo' : valor}
       </dd>
     </div>
   );

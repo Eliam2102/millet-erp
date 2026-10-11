@@ -30,7 +30,7 @@ public sealed class AplicacionesP8Tests
     {
         await using var a = new P8Fixture(); var f = a.Nueva(); f.Autorizar(null, f.FechaDocumento);
         var cargo = Cargo.Crear(a.Current!.Value, FolioInternoNotaCargo.FromAnioSecuencial(2026, 1), a.Proveedor, a.Sucursal,
-            "FIX cargo", null, 100, "MXN", null, f.Id, null, null, a.UtcNow); cargo.Autorizar(null, a.UtcNow);
+            "FIX cargo", null, 100, "MXN", null, f.Id, null, null, a.UtcNow); cargo.Autorizar(Guid.NewGuid(), a.UtcNow);
         a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
         var pub = new Publicador(a.Db); var mapper = new PasivoAutorizadoParaPagoMapper(pub, a.Db, new ElegibilidadFacturaService(a.Db, a));
         await new AplicarNotaCargoHandler(a.Db, a, a, mapper).Handle(new(cargo.Id, cargo.Version), default);
@@ -59,7 +59,7 @@ public sealed class AplicacionesP8Tests
             "MXN", null, 100, 0, 0, 100, TipoNotaCredito.Descuento, TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), f.Id, null, a.UtcNow);
         var cargo = Cargo.Crear(a.Current.Value, FolioInternoNotaCargo.FromAnioSecuencial(2026, 1), a.Proveedor, a.Sucursal,
             "FIX cargo", null, 50, "MXN", null, f.Id, null, null, a.UtcNow);
-        cargo.Autorizar(null, a.UtcNow); cargo.Aplicar(null, a.UtcNow); cargo.Formalizar(nc.Id, a.UtcNow);
+        cargo.Autorizar(Guid.NewGuid(), a.UtcNow); cargo.Aplicar(null, a.UtcNow); cargo.Formalizar(nc.Id, a.UtcNow);
         if (historialCargo) f.AplicarNotaCargo(50, cargo.Id, new(2026, 10, 9));
         a.Db.AddRange(f, nc, cargo); await a.Db.SaveChangesAsync();
         var mapper = new PasivoAutorizadoParaPagoMapper(new Publicador(a.Db), a.Db, new ElegibilidadFacturaService(a.Db, a));
