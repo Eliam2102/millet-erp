@@ -301,7 +301,8 @@ public sealed partial class P6SucursalEndpointsTests
                 mapa["nc07"] = nc07.Id; mapa["nc03"] = nc03.Id;
                 db.AddRange(nc07, nc03);
                 var cargo = (await db.NotasCargo.FindAsync(mapa["nota_cargo"]))!;
-                if (accion is "aplicar" or "formalizar") cargo.Autorizar(datos.UsuarioId, DateTimeOffset.UtcNow);
+                // PRU-B: quien crea la nota de cargo no puede autorizarla; autoriza otro usuario.
+                if (accion is "aplicar" or "formalizar") cargo.Autorizar(Guid.NewGuid(), DateTimeOffset.UtcNow);
                 if (accion == "formalizar")
                 {
                     factura.AplicarNotaCargo(cargo.Monto, cargo.Id, DateOnly.FromDateTime(DateTime.UtcNow));

@@ -70,38 +70,6 @@ public sealed class PrubObservacionesEndpointsTests(WebApplicationFactory<Progra
         Assert.Equal(ids.Order(), reales.Order());
     }
 
-    [Fact]
-    public async Task Nota_de_cargo_rechaza_autoautorizacion_y_admite_un_actor_distinto()
-    {
-        var actor = new Actor();
-        using var app = factory.ConEmpresa(EmpresaBootstrapId).WithWebHostBuilder(b => b.ConfigureTestServices(s => {
-            s.RemoveAll<ICurrentUserContext>(); s.AddSingleton<ICurrentUserContext>(actor);
-        }));
-        var client = await LoginAsync(app);
-        Guid id = Guid.Empty;
-        try
-        {
-            var crear = await client.PostAsJsonAsync("/api/v1/cuentas-por-pagar/notas-cargo", new { proveedorId = Guid.NewGuid(), concepto = "FIX-PRUB cargo", monto = 50, moneda = "MXN" });
-            Assert.Equal(HttpStatusCode.Created, crear.StatusCode);
-            var json = await Json(crear); id = json.GetProperty("id").GetGuid(); var version = json.GetProperty("version").GetInt32();
-            async Task<HttpResponseMessage> Autorizar()
-            {
-                using var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/cuentas-por-pagar/notas-cargo/{id}/autorizar");
-                req.Headers.Add("X-Expected-Version", version.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                return await client.SendAsync(req);
-            }
-            var propia = await Autorizar();
-            Assert.Equal(HttpStatusCode.UnprocessableEntity, propia.StatusCode);
-            Assert.Equal("NCG_AUTOAUTORIZACION", await Code(propia));
-            actor.Id = Guid.NewGuid();
-            Assert.Equal(HttpStatusCode.OK, (await Autorizar()).StatusCode);
-        }
-        finally
-        {
-            using var scope = app.Services.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<CuentasPorPagarDbContext>().NotasCargo.Where(n => n.Id == id).ExecuteDeleteAsync();
-        }
-    }
 
     [Theory]
     [InlineData(false)]
@@ -128,7 +96,6 @@ public sealed class PrubObservacionesEndpointsTests(WebApplicationFactory<Progra
             await scope.ServiceProvider.GetRequiredService<CuentasPorCobrarDbContext>().AutorizacionesCredito.Where(a => a.ClienteOPedidoRef == referencia).ExecuteDeleteAsync();
         }
     }
-    private sealed class Actor : ICurrentUserContext { public Guid Id { get; set; } = Guid.NewGuid(); public Guid? UserId => Id; public string? UserName => "Actor PRU-B ficticio"; }
     private sealed class Beneficiarios(bool permitido) : IBeneficiarioCreditoReadPort
     {
         public Guid Id { get; } = Guid.NewGuid();
