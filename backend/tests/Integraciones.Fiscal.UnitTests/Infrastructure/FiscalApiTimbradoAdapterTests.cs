@@ -384,6 +384,31 @@ public sealed class FiscalApiTimbradoAdapterTests
         tax.TaxFlagCode.Should().Be("T");
     }
 
+    [Theory]
+    [InlineData("MXN")]
+    [InlineData("USD")]
+    public void PRUA_REP_redondea_seis_decimales_y_distribuye_residuo_sin_desbalance(string moneda)
+    {
+        var emision = EmisionPago();
+        var complemento = emision.ComplementoPago! with
+        {
+            Moneda = moneda, Monto = 100.010000m,
+            Documentos = [
+                new DocumentoPagoCfdi(Guid.NewGuid().ToString(), null, null, moneda, 1, 100.000000m, 50.005000m, 49.995000m),
+                new DocumentoPagoCfdi(Guid.NewGuid().ToString(), null, null, moneda, 1, 100.000000m, 50.005000m, 49.995000m),
+            ],
+        };
+        var pago = FiscalApiTimbradoAdapter.MapInvoice(emision with { ComplementoPago = complemento }).Complement!.Payment!;
+        pago.Amount.Should().Be(100.01m);
+        pago.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture).Should().Be("100.01");
+        pago.PaidInvoices!.Sum(d => d.PaymentAmount).Should().Be(pago.Amount);
+        foreach (var doc in pago.PaidInvoices!)
+        {
+            doc.RemainingBalance.Should().Be(doc.PreviousBalance - doc.PaymentAmount);
+            doc.RemainingBalance.Should().BeGreaterThanOrEqualTo(0);
+        }
+    }
+
     [Fact]
     public async Task Timbrar_rechazo_del_pac_es_fallido_con_codigo_sat()
     {

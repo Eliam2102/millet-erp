@@ -94,7 +94,7 @@ public sealed class SeguimientoCobranza : BaseEntity, IPerteneceAEmpresa, IAudit
             Id = Guid.CreateVersion7(),
             EmpresaId = empresaId,
             ClienteId = clienteId,
-            Fecha = fecha,
+            Fecha = fecha.ToUniversalTime(),
             UsuarioId = usuarioId,
             Canal = canal,
             Resultado = resultado,

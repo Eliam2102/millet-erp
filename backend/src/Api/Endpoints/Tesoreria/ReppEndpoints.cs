@@ -1,4 +1,7 @@
 using MediatR;
+using Millet.CuentasPorPagar.Application.Cfdi.ListarCfdis;
+using Millet.CuentasPorPagar.Application.Cfdi.DescargarCfdiBlob;
+using Millet.SharedKernel.Application.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Api.Auth;
@@ -65,6 +68,26 @@ public static class ReppEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        app.MapGet("/api/v1/tesoreria/cfdis-repp", async (Guid facturaProveedorId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarReppParaTesoreriaQuery(facturaProveedorId), ct)))
+            .WithTags("Tesoreria").RequireAuthorization(permiso)
+            .WithName("ListarCfdisReppTesoreria")
+            .WithSummary("Complementos recibidos de las facturas de las sucursales permitidas")
+            .Produces<IReadOnlyList<CfdiListItemResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+        app.MapGet("/api/v1/tesoreria/cfdis-repp/{id:guid}/xml", async (Guid id, Guid facturaProveedorId, IMediator mediator, CancellationToken ct) =>
+        {
+            var permitidos = await mediator.Send(new ListarReppParaTesoreriaQuery(facturaProveedorId), ct);
+            if (!permitidos.Any(c => c.Id == id))
+                throw new ForbiddenException("REPP_NO_ACCESIBLE", "El complemento no corresponde a una factura de tus sucursales.");
+            var blob = await mediator.Send(new DescargarCfdiBlobQuery(id, false), ct);
+            return Results.Stream(blob.Contenido, blob.ContentType, blob.FileName);
+        }).WithTags("Tesoreria").RequireAuthorization(permiso)
+            .WithName("DescargarXmlReppTesoreria")
+            .WithSummary("XML original de un complemento accesible desde Tesorería")
+            .Produces(StatusCodes.Status200OK, contentType: "application/xml")
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return app;
     }

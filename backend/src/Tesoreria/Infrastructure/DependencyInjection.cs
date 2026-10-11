@@ -2,7 +2,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Tesoreria.Domain.Ports;
-using Millet.Tesoreria.Infrastructure.Stubs;
 
 namespace Millet.Tesoreria.Infrastructure;
 
@@ -25,9 +24,8 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // TES-PR2 (RN-8): candado de período contable — stub siempre-abierto
-        // hasta que exista Contabilidad. PLATFORM-TODO(<PeriodoContableCerrado>).
-        services.AddSingleton<IPeriodoContablePort, NoOpPeriodoContablePort>();
+        // C1.2: falla cerrada mediante el puerto público de Contabilidad.
+        services.AddScoped<IPeriodoContablePort, Adapters.PeriodoContableAdapter>();
 
         // TES-PR3 [T-G1]: datos bancarios del proveedor desde DatosMaestros
         // (resuelve PLATFORM-TODO(PayloadEnriquecido) de CxP).

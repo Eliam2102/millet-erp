@@ -77,7 +77,7 @@ public sealed class LineaComprobacionViaticos : BaseEntity, IPerteneceAEmpresa, 
         UuidCfdi = uuidCfdi?.Trim().ToUpperInvariant();
         ProveedorId = proveedorId;
         FolioProveedor = folioProveedor;
-        FechaGasto = fechaGasto;
+        FechaGasto = fechaGasto.ToUniversalTime();
         Subtotal = subtotal;
         ImpuestosTrasladados = impuestosTrasladados;
         Retenciones = retenciones;

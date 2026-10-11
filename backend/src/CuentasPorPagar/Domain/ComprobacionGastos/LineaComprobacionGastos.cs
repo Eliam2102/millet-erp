@@ -76,7 +76,7 @@ public sealed class LineaComprobacionGastos : BaseEntity, IPerteneceAEmpresa, IA
         UuidCfdi = uuidCfdi;
         ProveedorId = proveedorId;
         FolioProveedor = folioProveedor;
-        FechaCfdi = fechaCfdi;
+        FechaCfdi = fechaCfdi.ToUniversalTime();
         Subtotal = subtotal;
         ImpuestosTrasladados = impuestosTrasladados;
         Retenciones = retenciones;

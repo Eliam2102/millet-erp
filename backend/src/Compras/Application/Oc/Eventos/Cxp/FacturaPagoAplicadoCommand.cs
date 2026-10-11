@@ -50,6 +50,8 @@ public sealed class FacturaPagoAplicadoCommandHandler
     public async Task Handle(FacturaPagoAplicadoCommand command, CancellationToken cancellationToken)
     {
         var p = command.Payload;
+        var correlacion = p.AplicacionId ?? command.EventoId;
+        if (await _db.EventosProcesados.AsNoTracking().AnyAsync(e => e.EventoId == correlacion && e.EventoTipo == EventType, cancellationToken)) return;
 
         var notification = new PagoFacturaProveedorEvent(
             OrdenCompraId: p.OrdenCompraId,
@@ -59,7 +61,7 @@ public sealed class FacturaPagoAplicadoCommandHandler
         await _publisher.Publish(notification, cancellationToken);
 
         await MarcarProcesado(
-            command.EventoId,
+            correlacion,
             $"FacturaId={p.FacturaProveedorId} OcId={p.OrdenCompraId} AcumuladoOc={p.MontoPagadoAcumuladoOc}",
             cancellationToken);
 

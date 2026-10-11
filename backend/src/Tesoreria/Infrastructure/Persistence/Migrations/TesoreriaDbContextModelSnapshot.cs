@@ -1034,6 +1034,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
                     b.Property<Guid>("CuentaBancariaId")
                         .HasColumnType("uuid")
                         .HasColumnName("cuenta_bancaria_id");

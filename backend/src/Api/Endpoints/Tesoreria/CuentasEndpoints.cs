@@ -41,6 +41,13 @@ public static class CuentasEndpoints
         .WithName("ListarCuentasBancariasConSaldo")
         .Produces<IReadOnlyList<CuentaSaldoResponse>>(StatusCodes.Status200OK);
 
+        cuentas.MapGet("/para-ingresos", async (IMediator mediator, CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ListarCuentasParaIngresosQuery(), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaMovimientosRegistrar)
+        .WithName("ListarCuentasParaIngresos")
+        .WithSummary("Cuentas activas con número enmascarado para registrar ingresos")
+        .Produces<IReadOnlyList<CuentaParaIngresoResponse>>(StatusCodes.Status200OK);
+
         cuentas.MapPost("/", async (
             [FromBody] CrearCuentaBancariaCommand command,
             IMediator mediator,

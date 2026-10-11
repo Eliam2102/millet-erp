@@ -27,7 +27,7 @@ public sealed class SaldosP4Tests
         await using var a = new P8Fixture(); var f = a.Nueva(total: 50000); f.Autorizar(null, a.UtcNow);
         var cargo = NuevoCargo(a, f.Id, 10000); a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
         var eventos = new Eventos(); var mapper = new PasivoAutorizadoParaPagoMapper(eventos, a.Db, new ElegibilidadFacturaService(a.Db, a));
-        await new AplicarNotaCargoHandler(a.Db, a, a, mapper).Handle(new(cargo.Id, cargo.Version), default);
+        await new AplicarNotaCargoHandler(a.Db, a, a, mapper, new(new Eventos(), a.Db)).Handle(new(cargo.Id, cargo.Version), default);
         f.SaldoPendiente.Should().Be(40000); cargo.Estado.Should().Be(EstadoNotaCargo.Aplicada);
         eventos.Items.OfType<Application.Integration.PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(40000);
         var nc = NuevaNc(a, f.Id, 10000); a.Db.Add(nc); await a.Db.SaveChangesAsync();
@@ -40,7 +40,7 @@ public sealed class SaldosP4Tests
         await using var a = new P8Fixture(); var f = a.Nueva(); var anticipo = NuevoAnticipo(a, "USD");
         a.Db.AddRange(f, anticipo); await a.Db.SaveChangesAsync();
         var mapper = new PasivoAutorizadoParaPagoMapper(new Eventos(), a.Db, new ElegibilidadFacturaService(a.Db, a));
-        Func<Task> aplicar = async () => await new AplicarAnticipoAFacturaHandler(a.Db, a, mapper).Handle(new(f.Id, f.Version, anticipo.Id, anticipo.Version, 10), default);
+        Func<Task> aplicar = async () => await new AplicarAnticipoAFacturaHandler(a.Db, a, mapper, new(new Eventos(), a.Db)).Handle(new(f.Id, f.Version, anticipo.Id, anticipo.Version, 10), default);
         await aplicar.Should().ThrowAsync<BusinessRuleException>(); anticipo.MontoAmortizado.Should().Be(0); f.SaldoPendiente.Should().Be(1000);
     }
     [Theory] [InlineData(1)] [InlineData(2)]

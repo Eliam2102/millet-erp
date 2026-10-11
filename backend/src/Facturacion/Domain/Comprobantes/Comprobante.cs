@@ -342,6 +342,17 @@ public abstract class Comprobante : BaseEntity, IPerteneceAEmpresa, IFiscalmente
     /// master. En comprobantes históricos pre-F12 Nombre/LugarExpedicion vienen
     /// vacíos y <see cref="DatosFiscalesEmisor.Validar"/> lo rechaza.
     /// </summary>
+    public void ActualizarEmisorParaReintento(DatosFiscalesEmisor emisor)
+    {
+        if (Estado != EstadoTimbrado.TimbradoFallido)
+            throw new BusinessRuleException("EMISOR_INMUTABLE", "Solo se pueden actualizar los datos del emisor de un comprobante cuyo timbrado falló.");
+        emisor.Validar();
+        RfcEmisor = emisor.Rfc.ToUpperInvariant();
+        NombreEmisor = emisor.Nombre;
+        RegimenFiscalEmisor = emisor.RegimenFiscal;
+        LugarExpedicion = emisor.LugarExpedicion;
+    }
+
     public DatosFiscalesEmisor SnapshotEmisor() =>
         new(RfcEmisor, NombreEmisor, RegimenFiscalEmisor, LugarExpedicion);
 

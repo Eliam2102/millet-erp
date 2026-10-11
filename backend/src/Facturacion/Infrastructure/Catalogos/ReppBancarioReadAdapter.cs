@@ -25,7 +25,7 @@ public sealed class ReppBancarioReadAdapter(CompartidoDbContext db, IOptions<Rep
         var ids = await sucursales.Select(s => s.Id).Take(2).ToListAsync(cancellationToken);
         if (ids.Count != 1)
             throw new BusinessRuleException("REPP_SUCURSAL_FALTANTE",
-                "Configura una sucursal emisora activa en Facturacion:ReppAutomatico:SucursalClave.");
+                "No hay una sucursal emisora configurada para los complementos de pago. Pide al administrador configurar una sucursal activa y vuelve a emitir.");
         return ids[0];
     }
 }

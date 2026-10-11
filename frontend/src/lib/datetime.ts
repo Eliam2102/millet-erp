@@ -76,3 +76,9 @@ export function parseDateOnlyLocal(value: string): Date {
   if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   return parseISO(value);
 }
+
+/** Fecha fiscal de un instante UTC, para llenar campos de calendario en México. */
+export function fechaLocalISO(utc: string | Date): string {
+  const date = typeof utc === 'string' ? parseISO(utc) : utc;
+  return format(toZonedTime(date, TIMEZONE), 'yyyy-MM-dd');
+}

@@ -218,7 +218,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         RequisicionId = requisicionId;
         LineaRequisicionId = lineaRequisicionId;
         CentroCostoId = centroCostoId;
-        FechaEntregaLinea = fechaEntregaLinea;
+        FechaEntregaLinea = fechaEntregaLinea?.ToUniversalTime();
         TextoAdicional = textoAdicional;
         CantidadRecibida = 0m;
         CantidadFacturada = 0m;
@@ -341,7 +341,7 @@ public sealed class LineaOrdenCompra : BaseEntity, IAuditable, IBelongsToAggrega
         }
         else if (limpiarDescripcionExtendida) DescripcionExtendida = null;
 
-        if (fechaEntregaLinea is not null) FechaEntregaLinea = fechaEntregaLinea;
+        if (fechaEntregaLinea is not null) FechaEntregaLinea = fechaEntregaLinea?.ToUniversalTime();
         else if (limpiarFechaEntregaLinea) FechaEntregaLinea = null;
 
         if (centroCostoId is Guid cc)

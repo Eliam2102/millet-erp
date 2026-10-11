@@ -106,7 +106,7 @@ public sealed class NotaCreditoProveedor : BaseEntity, IPerteneceAEmpresa, IFisc
         ProveedorId = proveedorId;
         FolioProveedor = folioProveedor;
         SerieProveedor = serieProveedor;
-        FechaCfdi = fechaCfdi;
+        FechaCfdi = fechaCfdi.ToUniversalTime();
         Moneda = moneda;
         TipoCambio = tipoCambio;
         Subtotal = subtotal;

@@ -39,11 +39,11 @@ public sealed class ListarCotizacionesHandler
         }
         if (request.Desde is { } desde)
         {
-            query = query.Where(e => e.SubmittedAt >= desde);
+            query = query.Where(e => e.SubmittedAt >= desde.ToUniversalTime());
         }
         if (request.Hasta is { } hasta)
         {
-            query = query.Where(e => e.SubmittedAt <= hasta);
+            query = query.Where(e => e.SubmittedAt <= hasta.ToUniversalTime());
         }
         if (!string.IsNullOrWhiteSpace(request.QuoteReference))
         {
