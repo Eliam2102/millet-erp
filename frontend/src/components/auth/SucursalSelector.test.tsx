@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { StrictMode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -29,6 +30,7 @@ describe('<SucursalSelector>', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     useAuthStore.setState({
       status: 'idle',
       accessToken: null,
@@ -40,6 +42,34 @@ describe('<SucursalSelector>', () => {
       permisos: [],
       errorMessage: null,
     });
+  });
+
+  it('comparte una sola consulta durante el remontaje de StrictMode', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    let solicitudes = 0;
+    mswServer.use(http.get('*/api/auth/sucursales', () => {
+      solicitudes += 1;
+      return HttpResponse.json([{ id: 'suc-1', clave: 'CNK', nombre: 'Conkal' }]);
+    }));
+    const QueryWrapper = createQueryWrapper();
+    render(<SucursalSelector />, { wrapper: ({ children }) => <StrictMode><QueryWrapper>{children}</QueryWrapper></StrictMode> });
+    await waitFor(() => expect(useAuthStore.getState().currentSucursalId).toBe('suc-1'));
+    expect(solicitudes).toBe(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('reutiliza las sucursales al remontar dentro de treinta segundos', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    mswServer.use(http.get('*/api/auth/sucursales', () => HttpResponse.json([
+      { id: 'suc-1', clave: 'CNK', nombre: 'Conkal' },
+    ])));
+    const wrapper = createQueryWrapper();
+    const first = render(<SucursalSelector />, { wrapper });
+    await waitFor(() => expect(useAuthStore.getState().currentSucursalId).toBe('suc-1'));
+    first.unmount();
+    render(<SucursalSelector />, { wrapper });
+    await screen.findByRole('option', { name: 'CNK · Conkal' });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('una sola sucursal permitida: se fija sola sin mezclar otros registros', async () => {
