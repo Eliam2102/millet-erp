@@ -36,12 +36,14 @@ public sealed class AplicarNotaCreditoAFacturaValidator : AbstractValidator<Apli
 public sealed class AplicarNotaCreditoAFacturaHandler
     : IRequestHandler<AplicarNotaCreditoAFacturaCommand, AplicarNotaCreditoAFacturaResponse>
 {
+    private readonly Integration.Mappers.FacturaPagoAplicadoMapper _pagosOc;
     private readonly CuentasPorPagarDbContext _db;
     private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
     private readonly Millet.SharedKernel.Application.IClock _clock;
 
-    public AplicarNotaCreditoAFacturaHandler(CuentasPorPagarDbContext db, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos, Millet.SharedKernel.Application.IClock clock)
-    { _db = db; _pasivos = pasivos; _clock = clock; }
+    public AplicarNotaCreditoAFacturaHandler(CuentasPorPagarDbContext db, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos, Millet.SharedKernel.Application.IClock clock, Integration.Mappers.FacturaPagoAplicadoMapper pagosOc)
+    {
+        _pagosOc = pagosOc; _db = db; _pasivos = pasivos; _clock = clock; }
 
     public async Task<AplicarNotaCreditoAFacturaResponse> Handle(
         AplicarNotaCreditoAFacturaCommand command, CancellationToken cancellationToken)
@@ -95,6 +97,10 @@ public sealed class AplicarNotaCreditoAFacturaHandler
         if (factura.Estado == EstadoPasivo.Autorizada)
             await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
                 factura.EmpresaId, factura.Id, factura.OrdenCompraId, _clock.UtcNow), cancellationToken);
+        var aplicacion = factura.Movimientos.LastOrDefault();
+        if (command.Monto > reconocido && aplicacion is not null)
+            await _pagosOc.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorPagoAplicadoDomainEvent(
+                factura.EmpresaId, factura.Id, factura.OrdenCompraId, factura.ImporteSaldado, _clock.UtcNow, aplicacion.Id), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new AplicarNotaCreditoAFacturaResponse(

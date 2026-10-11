@@ -14,7 +14,7 @@ namespace Millet.CuentasPorPagar.Application.Integration.Mappers;
 /// <c>&lt;TesoreriaEventListenerCompras&gt;</c>).
 ///
 /// <para>
-/// El acumulado = Σ <c>importe_pagado</c> de las DEMÁS facturas de la
+/// El acumulado incluye pagos, anticipos, notas de crédito y cargos de las DEMÁS facturas de la
 /// misma OC (query) + el <c>ImportePagadoFactura</c> del evento (el de
 /// la factura corriente viene del agregado en memoria, porque el
 /// SaveChanges que persiste el cambio ocurre después de este mapper en
@@ -46,7 +46,7 @@ public sealed class FacturaPagoAplicadoMapper
             .AsNoTracking()
             .Where(f => f.OrdenCompraId == ordenCompraId
                 && f.Id != notification.FacturaProveedorId)
-            .SumAsync(f => f.ImportePagado, cancellationToken);
+            .SumAsync(f => f.ImportePagado + f.AnticipoAplicadoTotal + f.NcAplicadasTotal + f.CargosAplicadosTotal, cancellationToken);
 
         await _publisher.PublishAsync(new FacturaPagoAplicadoIntegrationEvent(
             EmpresaId: notification.EmpresaId,
@@ -54,7 +54,8 @@ public sealed class FacturaPagoAplicadoMapper
             FacturaProveedorId: notification.FacturaProveedorId,
             OrdenCompraId: ordenCompraId,
             ImportePagadoFactura: notification.ImportePagadoFactura,
-            MontoPagadoAcumuladoOc: pagadoOtrasFacturas + notification.ImportePagadoFactura),
+            MontoPagadoAcumuladoOc: pagadoOtrasFacturas + notification.ImportePagadoFactura,
+            AplicacionId: notification.AplicacionId),
             cancellationToken);
     }
 }

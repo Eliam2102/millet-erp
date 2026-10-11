@@ -135,7 +135,7 @@ public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteR
         Tipo = tipo;
         Folio = folio;
         Serie = serie;
-        FechaCfdi = fechaCfdi;
+        FechaCfdi = fechaCfdi.ToUniversalTime();
         Total = total;
         Subtotal = subtotal;
         ImpuestosTrasladados = impuestosTrasladados;
@@ -143,7 +143,7 @@ public sealed class CfdiRecibido : BaseEntity, IPerteneceAEmpresa, IFiscalmenteR
         Moneda = moneda;
         TipoCambio = tipoCambio;
         CanalOrigen = canalOrigen;
-        FechaRecepcion = fechaRecepcion;
+        FechaRecepcion = fechaRecepcion.ToUniversalTime();
         XmlBlobRef = xmlBlobRef;
         PdfBlobRef = pdfBlobRef;
         XmlHashSha256 = xmlHashSha256;

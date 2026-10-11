@@ -81,8 +81,8 @@ public sealed class PagoFacturaProveedorAplicadoHandler : IRequestHandler<PagoFa
             EmpresaId: factura.EmpresaId,
             FacturaProveedorId: factura.Id,
             OrdenCompraId: factura.OrdenCompraId,
-            ImportePagadoFactura: factura.ImportePagado,
-            OcurridoEn: _clock.UtcNow), cancellationToken);
+            ImportePagadoFactura: factura.ImporteSaldado,
+            OcurridoEn: _clock.UtcNow, AplicacionId: p.PagoId), cancellationToken);
 
         await RegistrarProcesado(request.EventId, EventType,
             $"Factura={p.FacturaProveedorId} monto={p.Monto} pago={p.PagoId}", cancellationToken);
@@ -154,8 +154,8 @@ public sealed class PagoFacturaProveedorRevertidoHandler : IRequestHandler<PagoF
                 EmpresaId: factura.EmpresaId,
                 FacturaProveedorId: factura.Id,
                 OrdenCompraId: factura.OrdenCompraId,
-                ImportePagadoFactura: factura.ImportePagado,
-                OcurridoEn: _clock.UtcNow), cancellationToken);
+                ImportePagadoFactura: factura.ImporteSaldado,
+                OcurridoEn: _clock.UtcNow, AplicacionId: request.EventId), cancellationToken);
         }
 
         _db.EventosProcesados.Add(new EventoProcesado(

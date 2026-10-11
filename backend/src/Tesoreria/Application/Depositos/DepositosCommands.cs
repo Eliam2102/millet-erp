@@ -7,6 +7,8 @@ using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.EventListeners;
 using Millet.Tesoreria.Application.Integration;
 using Millet.Tesoreria.Domain.Depositos;
+using Millet.Tesoreria.Application.Movimientos;
+using Millet.Tesoreria.Domain.Ports;
 using Millet.Tesoreria.Infrastructure.Persistence;
 
 namespace Millet.Tesoreria.Application.Depositos;
@@ -78,14 +80,17 @@ internal static class DepositoMapper
 public sealed record ConfirmarDepositoCommand(
     Guid DepositoId,
     Guid MovimientoBancarioId,
-    int VersionEsperada) : IRequest<DepositoConfirmacionResponse>;
+    int VersionEsperada,
+    RegistrarMovimientoIngresoCommand? Ingreso = null) : IRequest<DepositoConfirmacionResponse>;
 
 public sealed class ConfirmarDepositoValidator : AbstractValidator<ConfirmarDepositoCommand>
 {
     public ConfirmarDepositoValidator()
     {
         RuleFor(c => c.DepositoId).NotEmpty();
-        RuleFor(c => c.MovimientoBancarioId).NotEmpty();
+        RuleFor(c => c.MovimientoBancarioId).NotEmpty().When(c => c.Ingreso is null);
+        RuleFor(c => c.MovimientoBancarioId).Empty().When(c => c.Ingreso is not null);
+        RuleFor(c => c.Ingreso!).SetValidator(new RegistrarMovimientoIngresoValidator()).When(c => c.Ingreso is not null);
     }
 }
 
@@ -97,16 +102,17 @@ public sealed class ConfirmarDepositoHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly IIntegrationEventPublisher _publisher;
     private readonly IClock _clock;
+    private readonly IPeriodoContablePort? _periodos;
 
     public ConfirmarDepositoHandler(
         TesoreriaDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
         IIntegrationEventPublisher publisher,
-        IClock clock)
+        IClock clock, IPeriodoContablePort? periodos = null)
     {
         _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser;
-        _publisher = publisher; _clock = clock;
+        _publisher = publisher; _clock = clock; _periodos = periodos;
     }
 
     public async Task<DepositoConfirmacionResponse> Handle(
@@ -126,13 +132,17 @@ public sealed class ConfirmarDepositoHandler
         if (deposito.Version != command.VersionEsperada)
             throw new ConcurrencyException(nameof(DepositoConfirmacion), deposito.Id);
 
-        var movimiento = await _db.MovimientosBancarios
-            .FirstOrDefaultAsync(m => m.Id == command.MovimientoBancarioId, cancellationToken)
-            ?? throw new EntityNotFoundException("MOV_NO_ENCONTRADO",
-                $"No se encontró el movimiento bancario '{command.MovimientoBancarioId}'.");
+        var movimiento = command.Ingreso is not null
+            ? await new RegistrarMovimientoIngresoHandler(_db, _currentEmpresa, _currentUser,
+                _periodos ?? throw new InvalidOperationException("Falta el puerto contable."), _clock)
+                .CrearAsync(command.Ingreso, cancellationToken)
+            : await _db.MovimientosBancarios.FirstOrDefaultAsync(m => m.Id == command.MovimientoBancarioId, cancellationToken)
+                ?? throw new EntityNotFoundException("MOV_NO_ENCONTRADO", "No se encontró el ingreso bancario.");
 
         // RN-6 + cotejo monto/moneda validados en el dominio.
         deposito.Confirmar(movimiento, usuarioId, _clock.UtcNow);
+
+        if (command.Ingreso is not null) _db.MovimientosBancarios.Add(movimiento);
 
         // La confirmación ES el documento que aplica el ingreso (§4.2):
         // el movimiento queda Aplicado y deja de ofrecerse para otra liga.

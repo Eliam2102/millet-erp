@@ -70,9 +70,8 @@ public static class DependencyInjection
         // CRUD de Cajas (alcance solo con sucursales activas).
         services.AddScoped<ISucursalesReadPort, DatosMaestros.SucursalesReadAdapter>();
 
-        // --- Candado de período (Contabilidad): stub "siempre abierto" ---
-        // PLATFORM-TODO(<PeriodoContableCerrado>)
-        services.AddScoped<IPeriodoContablePort, NoOpPeriodoContablePort>();
+        // C1.2: falla cerrada mediante el puerto público de Contabilidad.
+        services.AddScoped<IPeriodoContablePort, Adapters.PeriodoContableAdapter>();
 
         // --- Emisión fiscal: adapter REAL del puerto ICfdiTimbradoPort ---
         // (SDK FiscalAPI, Integraciones.Fiscal). F12-PR3: registro incondicional

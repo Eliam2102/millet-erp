@@ -90,7 +90,7 @@ public sealed class AnticipoProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalm
             ProveedorId = proveedorId,
             Serie = serie.Trim().ToUpperInvariant(),
             FolioProveedor = folioProveedor,
-            FechaCfdi = fechaCfdi,
+            FechaCfdi = fechaCfdi.ToUniversalTime(),
             Moneda = moneda.ToUpperInvariant(),
             TipoCambio = tipoCambio,
             MontoEntregado = montoEntregado,

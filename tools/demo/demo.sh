@@ -97,6 +97,13 @@ api() {
   export ServiceBus__Modo=EmuladorLocal
   export ConnectionStrings__AwOrigenPgDb="Host=localhost;Port=$PG_PORT;Database=${AW_ORIGEN_DB:-millet_aw_origen};Username=pgadmin;Password=pgadmin"
   export IntegracionesAw__OrigenDemo__Permitido=true
+  export IntegracionesAw__Clientes__LecturaHabilitada="${IntegracionesAw__Clientes__LecturaHabilitada:-true}"
+  export IntegracionesAw__Clientes__AplicacionHabilitada="${IntegracionesAw__Clientes__AplicacionHabilitada:-true}"
+  export IntegracionesAw__Productos__OrigenHabilitado="${IntegracionesAw__Productos__OrigenHabilitado:-true}"
+  export IntegracionesAw__Clientes__MapeoMoneda__PESOSMX="${IntegracionesAw__Clientes__MapeoMoneda__PESOSMX:-MXN}"
+  export IntegracionesAw__Clientes__MapeoMoneda__USD="${IntegracionesAw__Clientes__MapeoMoneda__USD:-USD}"
+  export IntegracionesAw__Clientes__MapeoMoneda__Euro="${IntegracionesAw__Clientes__MapeoMoneda__Euro:-EUR}"
+  export Facturacion__ReppAutomatico__SucursalClave="${Facturacion__ReppAutomatico__SucursalClave:-MID}"
   export Cors__AllowedOrigins__0=http://localhost:5173
   cd "$raiz/backend"
   exec dotnet run --project src/Api/Millet.Api.csproj --no-launch-profile --urls http://localhost:5080

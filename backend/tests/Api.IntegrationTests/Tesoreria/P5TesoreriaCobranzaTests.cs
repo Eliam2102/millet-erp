@@ -6,6 +6,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.CuentasPorCobrar.Application.AplicacionPagos;
 using Millet.CuentasPorCobrar.Application.EventListeners;
 using Millet.CuentasPorCobrar.Domain.AplicacionPagos;
@@ -156,7 +157,14 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
     [Fact]
     public async Task Saldo_inicial_y_reclasificacion_persisten_con_bitacora()
     {
-        var (client, _) = await Login();
+        // Este caso prueba saldo y reclasificación; declara el período de operación.
+        // PRU-A cubre el candado con el adaptador real y calendario aislado.
+        await using var appConPeriodo = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<Millet.Tesoreria.Domain.Ports.IPeriodoContablePort>();
+            services.AddSingleton<Millet.Tesoreria.Domain.Ports.IPeriodoContablePort, PeriodoSaldoFixture>();
+        }));
+        var (client, _) = await Login(appConPeriodo);
         var crear = await Post(client, $"{Tes}/cuentas", new { banco = "Banco ficticio P5", numeroCuenta = DateTime.UtcNow.Ticks.ToString(), moneda = "MXN", sucursal = "Ejemplo P5", titular = "Millet ficticio", finalidad = "Pruebas", firmantes = "Firmante ficticio" });
         crear.EnsureSuccessStatusCode(); var cuenta = (await crear.Content.ReadFromJsonAsync<CuentaSaldoResponse>())!;
         _cuentas.Add(cuenta.Id);
@@ -259,9 +267,15 @@ public sealed class P5TesoreriaCobranzaTests(WebApplicationFactory<Program> fact
         await cxc.PropuestasAplicacionPago.Where(p => _propuestas.Contains(p.Id)).ExecuteDeleteAsync();
         await cxc.FacturasCartera.Where(f => _facturas.Contains(f.Id)).ExecuteDeleteAsync();
     }
-    private async Task<(HttpClient, Guid)> Login()
+    private sealed class PeriodoSaldoFixture : Millet.Tesoreria.Domain.Ports.IPeriodoContablePort
     {
-        var client = factory.CreateClient();
+        public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) =>
+            Task.FromResult(año == Fecha.Year && mes == Fecha.Month);
+    }
+
+    private async Task<(HttpClient, Guid)> Login(WebApplicationFactory<Program>? app = null)
+    {
+        var client = (app ?? factory).CreateClient();
         var r = await client.PostAsJsonAsync("/api/dev/fake-login", new { entraOid = "dev-superadmin", email = "p5@dev.local", nombre = "Pruebas P5", empresaId = (Guid?)null }); r.EnsureSuccessStatusCode();
         var body = await r.Content.ReadFromJsonAsync<JsonElement>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.GetProperty("accessToken").GetString());

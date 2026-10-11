@@ -13,6 +13,12 @@ public interface IEmpresaFiscalReadPort
     /// <summary>Resuelve los datos fiscales de la empresa emisora.</summary>
     Task<EmpresaFiscalLectura?> ObtenerAsync(Guid empresaId, CancellationToken cancellationToken);
 
+    async Task<Millet.Facturacion.Domain.Comprobantes.DatosFiscalesEmisor?> ObtenerEmisorAsync(Guid empresaId, Guid sucursalId, CancellationToken ct)
+    {
+        var empresa = await ObtenerAsync(empresaId, ct);
+        return empresa is null ? null : new(empresa.Rfc, empresa.RazonSocial, empresa.RegimenFiscal, empresa.CodigoPostal ?? "");
+    }
+
     /// <summary>
     /// Id de la única sucursal activa, o <c>null</c> si hay cero o más de una
     /// (en ese caso el usuario elige en el formulario). MVP opera con sucursal

@@ -39,7 +39,7 @@ import type {
   RelacionRepp,
   EmisionPendiente,
 } from '../api/useReppPendientes';
-import { bloqueoRelacion, formatoImporte, totalRelacion } from '../lib/repp-pendiente';
+import { bloqueoRelacion, formatoImporte, totalRelacion, mensajeFalloEmision } from '../lib/repp-pendiente';
 
 export function PendientesRepp() {
   const [estado, setEstado] = useState<EstadoPendiente | ''>('Pendiente');
@@ -87,6 +87,8 @@ export function PendientesRepp() {
         idempotencyKey: crypto.randomUUID(),
       });
       setResultados(respuesta);
+      const mensaje = mensajeFalloEmision(respuesta);
+      if (mensaje) toast.error('No se pudieron emitir todos los complementos', { description: mensaje });
       setSeleccion([]);
     } catch {
       toast.error(
@@ -142,7 +144,7 @@ export function PendientesRepp() {
                 <Button variant="link" onClick={() => setAbierto(r.id)}>
                   Ver pago
                 </Button>
-                {r.emitido ? 'REP emitido' : `${r.codigo}: ${r.mensaje}`}
+                {r.emitido ? 'REP emitido' : r.mensaje ?? 'No se pudo emitir. Consulta el pago antes de reintentar.'}
               </li>
             ))}
           </ul>
@@ -375,7 +377,9 @@ function RevisionPago({
   }
   async function emitir() {
     try {
-      await acciones.emitirUno.mutateAsync({ id: pago.id, idempotencyKey: crypto.randomUUID() });
+      const resultado = await acciones.emitirUno.mutateAsync({ id: pago.id, idempotencyKey: crypto.randomUUID() });
+      const mensaje = mensajeFalloEmision([resultado]);
+      if (mensaje) { toast.error('No se pudo emitir el complemento', { description: mensaje }); return; }
       toast.success('REP emitido.');
       cerrar(true);
     } catch {
@@ -502,7 +506,7 @@ function RevisionPago({
         </fieldset>
         {pago.ultimoErrorMensaje && (
           <p role="alert" className="rounded-md bg-danger-bg p-3 text-danger-fg">
-            {pago.ultimoErrorCodigo}: {pago.ultimoErrorMensaje}
+            {pago.ultimoErrorMensaje}
           </p>
         )}
         {pago.estado === 'Pendiente' && (bloqueoEmision || pago.bloqueos.length > 0) && (

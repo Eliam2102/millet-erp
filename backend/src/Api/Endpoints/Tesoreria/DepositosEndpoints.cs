@@ -6,6 +6,9 @@ using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Application.Depositos;
+using Millet.Tesoreria.Application.Movimientos;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Domain.Depositos;
 
 namespace Millet.Api.Endpoints.Tesoreria;
@@ -55,18 +58,34 @@ public static class DepositosEndpoints
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
             [FromBody] ConfirmarBody body,
+            HttpContext http,
             IMediator mediator,
             DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
-            await scope.VerificarAsync("movimiento_bancario", body.MovimientoBancarioId,
-                PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+            var ingreso = body.Ingreso;
+            if (ingreso is not null)
+            {
+                // Además del permiso de confirmar, el alta exige el permiso de registrar.
+                var permisos = http.RequestServices.GetRequiredService<ICurrentUserPermissions>();
+                if (!await permisos.TieneAsync(PermisosCanonicos.TesoreriaMovimientosRegistrar, cancellationToken))
+                    throw new ForbiddenException("INGRESO_SIN_PERMISO", "No tienes permiso para registrar ingresos.");
+                var documento = (await scope.Puerto("deposito").ListarAsync("deposito", cancellationToken)).SingleOrDefault(d => d.Id == id);
+                var sucursal = ingreso.SucursalId ?? (documento?.Sucursales.Count == 1 ? documento.Sucursales[0] : (Guid?)null);
+                if (sucursal is null || documento is null || !documento.Sucursales.Contains(sucursal.Value))
+                    throw new BusinessRuleException("INGRESO_SUCURSAL_REQUERIDA", "Selecciona una sucursal del depósito para registrar el ingreso.");
+                await scope.VerificarSucursalAsync(sucursal, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+                ingreso = ingreso with { SucursalId = sucursal };
+            }
+            else
+                await scope.VerificarAsync("movimiento_bancario", body.MovimientoBancarioId,
+                    PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
 
             if (expectedVersion is not int v)
                 return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
 
             var response = await mediator.Send(
-                new ConfirmarDepositoCommand(id, body.MovimientoBancarioId, v), cancellationToken);
+                new ConfirmarDepositoCommand(id, body.MovimientoBancarioId, v, ingreso), cancellationToken);
             return Results.Ok(response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -102,6 +121,6 @@ public static class DepositosEndpoints
         return app;
     }
 
-    public sealed record ConfirmarBody(Guid MovimientoBancarioId);
+    public sealed record ConfirmarBody(Guid MovimientoBancarioId, RegistrarMovimientoIngresoCommand? Ingreso = null);
     public sealed record RechazarBody(string Motivo);
 }

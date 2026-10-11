@@ -41,6 +41,7 @@ export const tesoreriaKeys = {
 
   // Cuentas bancarias con saldo (TES-FE-PR2; CRUD TES-7 revisada)
   cuentasAll: () => [...tesoreriaKeys.all, 'cuentas'] as const,
+  cuentasParaIngresos: () => [...tesoreriaKeys.cuentasAll(), 'para-ingresos'] as const,
   cuentas: (soloActivas: boolean) =>
     [...tesoreriaKeys.cuentasAll(), { soloActivas }] as const,
 

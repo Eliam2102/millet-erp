@@ -73,8 +73,8 @@ public sealed class CartaPorte : Comprobante
         OperadorId = operadorId;
         CartaPortePreviaId = cartaPortePreviaId;
         PedidoFacturableId = pedidoFacturableId;
-        FechaSalida = fechaSalida;
-        FechaLlegadaEstimada = fechaLlegadaEstimada;
+        FechaSalida = fechaSalida.ToUniversalTime();
+        FechaLlegadaEstimada = fechaLlegadaEstimada.ToUniversalTime();
     }
 
     /// <summary>

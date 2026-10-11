@@ -86,6 +86,7 @@ public static class DependencyInjection
             Millet.Integraciones.Fiscal.Domain.Ports.ICfdiRepositorioPort,
             Cfdi.CfdiArchivoRepository>();
 
+        services.AddScoped<Domain.Ports.IMonedaPrecisionReadPort, SdkAdapter.MonedaPrecisionReadAdapter>();
         return services;
     }
 }

@@ -36,7 +36,7 @@ public sealed class ReciboPago : Comprobante
                periodoAnio: periodoAnio, periodoMes: periodoMes)
     {
         EstablecerCanalVenta(canalVentaId);
-        FechaPago = fechaPago;
+        FechaPago = fechaPago.ToUniversalTime();
         MonedaPago = monedaPago;
         // CFDI tipo P: el comprobante no lleva importe (todo va en el complemento).
         EstablecerTotales(0m, 0m, 0m, 0m, 0m);

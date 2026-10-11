@@ -143,7 +143,7 @@ public sealed class CapturarNotaCreditoHandler
             proveedorId: command.ProveedorId,
             folioProveedor: command.FolioProveedor,
             serieProveedor: command.SerieProveedor,
-            fechaCfdi: command.FechaCfdi,
+            fechaCfdi: command.FechaCfdi.ToUniversalTime(),
             moneda: command.Moneda,
             tipoCambio: command.TipoCambio,
             subtotal: command.Subtotal,

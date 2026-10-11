@@ -75,7 +75,7 @@ Abre http://localhost:5173 y entra con «Continuar con Microsoft».
 ## 6. Antes de presentar
 
 - **Clientes y productos de A+W:** en Clientes → Sincronizar, elige «Copia de demo» y pulsa «Iniciar sincronización». Repite en Productos A+W.
-- **Cuentas de demo:** la primera vez que cada cuenta entra, se crea sin perfil. Su perfil y sus sucursales se asignan con `Seed:DemoSesion:Usuarios`; al reiniciar la API, cada cuenta queda con su papel.
+- **Cuentas de demo:** la primera vez que cada cuenta entra, se crea sin perfil. Su perfil y sus sucursales se asignan con `Seed:DemoSesion:Usuarios`; el sembrador crea las asignaciones que faltan. Los reinicios conservan la razón social editada, los permisos agregados o retirados de los roles DEMO y las asignaciones de usuario ya configuradas.
 - **Pedidos de A+W en Facturación:** las sucursales necesitan su clave de A+W (`CIRCUITO`, `CANCUN`), según el LEEME del paquete.
 
 ## Si algo falla
@@ -83,3 +83,25 @@ Abre http://localhost:5173 y entra con «Continuar con Microsoft».
 - **«Docker no está corriendo»:** abre OrbStack o Docker Desktop.
 - **El puerto 5432 está ocupado:** cambia `PG_PORT` en `.env.demo.local` (por ejemplo a 5434) y vuelve a correr `preparar`.
 - **La pantalla dice que tu cuenta no tiene empresa ni roles:** revisa `Auth__InitialAdminEntraOid` y reinicia la API.
+
+## Configuración incluida para PRU-A
+
+La función `api` de `demo.sh` exporta estos valores públicos por omisión. Un valor definido por el operador conserva precedencia; no contienen contraseñas ni llaves:
+
+```sh
+IntegracionesAw__Clientes__LecturaHabilitada=true
+IntegracionesAw__Clientes__AplicacionHabilitada=true
+IntegracionesAw__Productos__OrigenHabilitado=true
+IntegracionesAw__Clientes__MapeoMoneda__PESOSMX=MXN
+IntegracionesAw__Clientes__MapeoMoneda__USD=USD
+IntegracionesAw__Clientes__MapeoMoneda__Euro=EUR
+Facturacion__ReppAutomatico__SucursalClave=MID
+```
+
+La copia creada por `seed-aw-copy.sql` usa `PESOSMX`, `USD` y `Euro`. Si el paquete recibido usa otras claves, agrega su equivalencia ISO. Las banderas habilitan lectura y aplicación de clientes y el origen de productos; la sincronización se inicia desde las pantallas correspondientes.
+
+El nombre histórico de la opción `ReppAutomatico` solo configura la sucursal emisora del cobro bancario. **El REP se emite manualmente desde Pendientes de REP** (decisión U1.1, #52). Confirmar un depósito crea el pendiente; no timbra. CXC-07 se documenta como comportamiento acordado.
+
+En la bandeja, «Emitir seleccionados» informa si falta la sucursal emisora. Corrige la configuración antes de reintentar. La fecha de cierre de septiembre se registra con el instante real del sembrado. Las fechas fijas de operaciones ficticias conservan el escenario de demo.
+
+`.env.demo.example` trae el mismo bloque comentado; solo hace falta descomentarlo para cambiar un valor.

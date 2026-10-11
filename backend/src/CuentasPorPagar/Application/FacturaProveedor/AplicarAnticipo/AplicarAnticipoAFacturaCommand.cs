@@ -37,12 +37,14 @@ public sealed class AplicarAnticipoAFacturaValidator : AbstractValidator<Aplicar
 public sealed class AplicarAnticipoAFacturaHandler
     : IRequestHandler<AplicarAnticipoAFacturaCommand, AplicarAnticipoAFacturaResponse>
 {
+    private readonly Integration.Mappers.FacturaPagoAplicadoMapper _pagosOc;
     private readonly CuentasPorPagarDbContext _db;
     private readonly IClock _clock;
     private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
 
-    public AplicarAnticipoAFacturaHandler(CuentasPorPagarDbContext db, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos)
+    public AplicarAnticipoAFacturaHandler(CuentasPorPagarDbContext db, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos, Integration.Mappers.FacturaPagoAplicadoMapper pagosOc)
     {
+        _pagosOc = pagosOc;
         _db = db; _clock = clock; _pasivos = pasivos;
     }
 
@@ -81,6 +83,10 @@ public sealed class AplicarAnticipoAFacturaHandler
         if (factura.Estado == EstadoPasivo.Autorizada)
             await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
                 factura.EmpresaId, factura.Id, factura.OrdenCompraId, ahora), cancellationToken);
+        var aplicacion = factura.Movimientos.LastOrDefault();
+        if (aplicacion is not null)
+            await _pagosOc.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorPagoAplicadoDomainEvent(
+                factura.EmpresaId, factura.Id, factura.OrdenCompraId, factura.ImporteSaldado, _clock.UtcNow, aplicacion.Id), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new AplicarAnticipoAFacturaResponse(

@@ -63,8 +63,8 @@ public sealed class ControlAnticiposResumenHandler
         if (query.ClienteId is { } clienteId) q = q.Where(x => x.a.ClienteId == clienteId);
         if (query.Estado is { } estado) q = q.Where(x => x.a.Estado == estado);
         if (query.ObraId is { } obraId) q = q.Where(x => x.a.ObraId == obraId);
-        if (query.Desde is { } desde) q = q.Where(x => x.f.FechaTimbrado >= desde);
-        if (query.Hasta is { } hasta) q = q.Where(x => x.f.FechaTimbrado <= hasta);
+        if (query.Desde is { } desde) q = q.Where(x => x.f.FechaTimbrado >= desde.ToUniversalTime());
+        if (query.Hasta is { } hasta) q = q.Where(x => x.f.FechaTimbrado <= hasta.ToUniversalTime());
 
         var rows = await q
             .OrderByDescending(x => x.f.FolioNumero)

@@ -36,9 +36,10 @@ function buildQuery(filtros: object): string {
   return params.toString();
 }
 
-export function useCfdis(filtros: ListarCfdisFiltros = {}) {
+export function useCfdis(filtros: ListarCfdisFiltros = {}, enabled = true) {
   return useQuery({
     queryKey: cxpKeys.cfdisList(filtros),
+    enabled,
     queryFn: async ({ signal }) => {
       const query = buildQuery(filtros);
       const path = query

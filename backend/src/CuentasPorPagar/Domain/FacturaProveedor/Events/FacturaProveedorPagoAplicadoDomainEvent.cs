@@ -25,4 +25,4 @@ public sealed record FacturaProveedorPagoAplicadoDomainEvent(
     Guid FacturaProveedorId,
     Guid? OrdenCompraId,
     decimal ImportePagadoFactura,
-    DateTimeOffset OcurridoEn) : INotification;
+    DateTimeOffset OcurridoEn, Guid? AplicacionId = null) : INotification;

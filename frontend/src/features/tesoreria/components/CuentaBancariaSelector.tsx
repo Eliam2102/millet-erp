@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCuentasBancarias } from '@/features/tesoreria/api/useTesoreria';
+import { useCuentasBancarias, useCuentasParaIngresos } from '@/features/tesoreria/api/useTesoreria';
 import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { mensajeErrorCatalogo } from '@/components/erp/selectors/catalogo-error';
 
@@ -20,6 +20,7 @@ export interface CuentaBancariaSelectorProps {
    */
   moneda?: string | null;
   disabled?: boolean;
+  paraIngresos?: boolean;
 }
 
 /**
@@ -32,8 +33,11 @@ export function CuentaBancariaSelector({
   onChange,
   moneda = null,
   disabled = false,
+  paraIngresos = false,
 }: CuentaBancariaSelectorProps) {
-  const query = useCuentasBancarias(true);
+  const saldos = useCuentasBancarias(true, !paraIngresos);
+  const ingresos = useCuentasParaIngresos(paraIngresos);
+  const query = paraIngresos ? ingresos : saldos;
 
   const cuentas = useMemo(() => {
     const todas = query.data ?? [];
@@ -69,7 +73,7 @@ export function CuentaBancariaSelector({
                   {c.numeroCuenta}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {formatoMonto(c.saldo, c.moneda)}
+                  {'saldo' in c && typeof c.saldo === 'number' ? formatoMonto(c.saldo, c.moneda) : c.moneda}
                 </span>
               </span>
             </SelectItem>

@@ -29,12 +29,13 @@ public sealed class TesoreriaSucursalReadAdapter(TesoreriaDbContext db, ICxpSucu
             SucursalesDeposito(x.PropuestaCxcId, x.CajaSesionId))).ToArray();
         if (tipo is "movimiento_bancario" or "cuenta_bancaria")
         {
-            var movimientos = await db.MovimientosBancarios.AsNoTracking().Select(x => new { x.Id, x.ContramovimientoDe, x.CuentaBancariaId }).ToListAsync(ct);
+            var movimientos = await db.MovimientosBancarios.AsNoTracking().Select(x => new { x.Id, x.ContramovimientoDe, x.CuentaBancariaId, x.SucursalId }).ToListAsync(ct);
             var alcances = movimientos.Select(x => {
                 var origenes = aplicaciones.Where(a => a.MovimientoId == x.Id || a.MovimientoId == x.ContramovimientoDe)
                     .Select(a => facturas.GetValueOrDefault(a.FacturaProveedorId) ?? Array.Empty<Guid>())
                     .Concat(depositos.Where(d => d.MovimientoId == x.Id || (x.ContramovimientoDe != null && d.MovimientoId == x.ContramovimientoDe))
                         .Select(d => SucursalesDeposito(d.PropuestaCxcId, d.CajaSesionId))).ToArray();
+                if (x.SucursalId is Guid sucursal) origenes = origenes.Concat(new IReadOnlyList<Guid>[] { new[] { sucursal } }).ToArray();
                 return new DocumentoSucursales(x.Id, origenes.Length == 0 || origenes.Any(o => o.Count == 0)
                     ? Array.Empty<Guid>() : origenes.SelectMany(o => o).Distinct().ToArray());
             }).ToArray();

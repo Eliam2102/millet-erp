@@ -166,7 +166,7 @@ public sealed class P3FacturaConOcTests
             Domain.NotaCreditoProveedor.TipoRelacionCfdi.NotaCredito, Guid.NewGuid().ToString(), factura.Id, null, a.Ahora);
         a.Db.NotasCreditoProveedor.Add(nc);
         await a.Db.SaveChangesAsync();
-        var handler = new AplicarNotaCreditoAFacturaHandler(a.Db, new(a.Eventos, a.Db, a.Elegibilidad), a);
+        var handler = new AplicarNotaCreditoAFacturaHandler(a.Db, new(a.Eventos, a.Db, a.Elegibilidad), a, new(a.Eventos, a.Db));
         await handler.Handle(new(factura.Id, factura.Version, nc.Id, nc.Version, 20), default);
         var actualizado = a.Eventos.Integraciones.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Single();
         actualizado.SaldoPendiente.Should().Be(144);

@@ -177,13 +177,15 @@ public sealed class AplicarNotaCargoValidator : AbstractValidator<AplicarNotaCar
 
 public sealed class AplicarNotaCargoHandler : IRequestHandler<AplicarNotaCargoCommand, AplicarNotaCargoResponse>
 {
+    private readonly Integration.Mappers.FacturaPagoAplicadoMapper _pagosOc;
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
     private readonly Integration.Mappers.PasivoAutorizadoParaPagoMapper _pasivos;
 
-    public AplicarNotaCargoHandler(CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos)
+    public AplicarNotaCargoHandler(CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock, Integration.Mappers.PasivoAutorizadoParaPagoMapper pasivos, Integration.Mappers.FacturaPagoAplicadoMapper pagosOc)
     {
+        _pagosOc = pagosOc;
         _db = db; _currentUser = currentUser; _clock = clock; _pasivos = pasivos;
     }
 
@@ -208,6 +210,10 @@ public sealed class AplicarNotaCargoHandler : IRequestHandler<AplicarNotaCargoCo
         if (factura.Estado == Domain.FacturaProveedor.EstadoPasivo.Autorizada)
             await _pasivos.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorAutorizadaDomainEvent(
                 factura.EmpresaId, factura.Id, factura.OrdenCompraId, _clock.UtcNow), cancellationToken);
+        var aplicacion = factura.Movimientos.LastOrDefault();
+        if (aplicacion is not null)
+            await _pagosOc.Handle(new Domain.FacturaProveedor.Events.FacturaProveedorPagoAplicadoDomainEvent(
+                factura.EmpresaId, factura.Id, factura.OrdenCompraId, factura.ImporteSaldado, _clock.UtcNow, aplicacion.Id), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return new AplicarNotaCargoResponse(nota.Id, nota.Estado, nota.Version);
     }

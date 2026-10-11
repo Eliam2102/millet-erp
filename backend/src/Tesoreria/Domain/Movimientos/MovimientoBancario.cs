@@ -27,6 +27,8 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
 {
     public Guid EmpresaId { get; set; }
 
+    public Guid? SucursalId { get; private set; }
+
     public Guid CuentaBancariaId { get; private set; }
     public SentidoMovimiento Sentido { get; private set; }
     public decimal Monto { get; private set; }
@@ -72,7 +74,8 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         BeneficiarioTipo? beneficiarioTipo,
         Guid? beneficiarioRef,
         Guid creadoPor,
-        DateTimeOffset ahora)
+        DateTimeOffset ahora,
+        Guid? sucursalId = null)
     {
         cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
@@ -90,6 +93,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         {
             Id = Guid.CreateVersion7(),
             EmpresaId = empresaId,
+            SucursalId = sucursalId,
             CuentaBancariaId = cuenta.Id,
             Sentido = SentidoMovimiento.Ingreso,
             Monto = monto,
