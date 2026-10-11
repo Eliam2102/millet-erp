@@ -258,7 +258,8 @@ public sealed class PruARegressionTests
             "MXN", null, 300, oc.Id, a.UserId, a.UtcNow);
         var cargo = NotaCargo.Crear(a.Empresa, FolioInternoNotaCargo.FromAnioSecuencial(2026, 1), a.Proveedor, a.Sucursal,
             "FIX ajuste", null, 200, "MXN", null, f.Id, null, a.UserId, a.UtcNow);
-        cargo.Autorizar(a.UserId, a.UtcNow); a.Cxp.AnticiposProveedor.Add(anticipo); a.Cxp.NotasCargo.Add(cargo); await a.Cxp.SaveChangesAsync();
+        // Autoriza alguien distinto de quien la creó (PRU-B).
+        cargo.Autorizar(Guid.NewGuid(), a.UtcNow); a.Cxp.AnticiposProveedor.Add(anticipo); a.Cxp.NotasCargo.Add(cargo); await a.Cxp.SaveChangesAsync();
         var mapper = new FacturaPagoAplicadoMapper(a.Eventos, a.Cxp);
         var pasivos = new PasivoAutorizadoParaPagoMapper(a.Eventos, a.Cxp, new ElegibilidadFacturaService(a.Cxp, a));
         await new AplicarAnticipoAFacturaHandler(a.Cxp, a, pasivos, mapper).Handle(new(f.Id, f.Version, anticipo.Id, anticipo.Version, 300), default);
