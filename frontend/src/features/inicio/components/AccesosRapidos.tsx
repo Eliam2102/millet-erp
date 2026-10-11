@@ -2,21 +2,27 @@ import { Link } from '@tanstack/react-router';
 import { Card } from '@/components/ui/card';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { modulosInicio } from '../modulos';
+import { accesosNavegacion } from '@/lib/nav';
 
-export function AccesosRapidos() {
+export function AccesosRapidos({ titulo = 'Módulos', principal = false }: { titulo?: string; principal?: boolean }) {
   const permisos = useAuthStore((s) => s.permisos);
-  const accesos = modulosInicio(permisos);
+  const modulos = modulosInicio(permisos);
+  const principalModulo = modulos[0];
+  const accesos = principal && principalModulo
+    ? accesosNavegacion(permisos).filter(a => a.modulo === principalModulo.modulo).slice(0, 6)
+        .map(a => ({ ...a, icon: principalModulo.icon }))
+    : modulos;
   return (
     <section aria-labelledby="modulos-inicio" className="min-w-0 space-y-3">
       <h2 id="modulos-inicio" className="text-lg font-semibold text-ink">
-        Módulos
+        {titulo}
       </h2>
       {accesos.length === 0 ? (
         <p className="text-xs text-ink-muted">No hay módulos disponibles para tu rol.</p>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {accesos.map(({ to, description, modulo, icon: Icon }) => (
-            <Card key={modulo} className="min-w-0 bg-surface-card text-ink shadow-card-flat">
+            <Card key={to} className="min-w-0 bg-surface-card text-ink shadow-card-flat">
               <Link
                 to={to}
                 search={{}}

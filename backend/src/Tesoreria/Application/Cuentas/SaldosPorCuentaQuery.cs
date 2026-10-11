@@ -36,7 +36,15 @@ public sealed record CuentaSaldoResponse(
     string? Firmantes = null, decimal? SaldoInicial = null, DateOnly? FechaCorteSaldoInicial = null);
 
 public sealed record SaldosPorCuentaQuery(bool SoloActivas = true)
-    : IRequest<IReadOnlyList<CuentaSaldoResponse>>;
+    : IRequest<IReadOnlyList<CuentaSaldoResponse>>, IDocumentoScopedQuery,
+      Millet.SharedKernel.Application.Inicio.ISucursalSeleccionadaQuery
+{
+    public Guid? SucursalId { get; init; }
+    public string PermisoTodasSucursales => "tesoreria.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "cuenta_bancaria";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class SaldosPorCuentaHandler
     : IRequestHandler<SaldosPorCuentaQuery, IReadOnlyList<CuentaSaldoResponse>>
@@ -52,7 +60,8 @@ public sealed class SaldosPorCuentaHandler
     public async Task<IReadOnlyList<CuentaSaldoResponse>> Handle(
         SaldosPorCuentaQuery query, CancellationToken cancellationToken)
     {
-        var cuentasQuery = _db.CuentasBancarias.AsNoTracking();
+        var cuentasQuery = _db.CuentasBancarias.AsNoTracking()
+            .Where(c => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(c.Id));
         if (query.SoloActivas) cuentasQuery = cuentasQuery.Where(c => c.Activa);
 
         var cuentas = await cuentasQuery

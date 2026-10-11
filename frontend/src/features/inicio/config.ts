@@ -199,3 +199,67 @@ export const prioridadAccesos = [
   '/facturacion/pedidos',
   '/contabilidad/periodos',
 ];
+
+export interface FuenteInicio {
+  endpoint: string;
+  permisos: readonly string[];
+  alguno?: readonly string[];
+  excluirSi?: string;
+}
+export interface PiezaInicio {
+  id: string;
+  tipo: 'indicador' | 'visual';
+  titulo: string;
+  to: string;
+  prioridad: number;
+  moneda?: boolean;
+  fuentes: readonly FuenteInicio[];
+}
+const fuente = (endpoint: string, ...permisos: string[]): FuenteInicio => ({ endpoint: `/api/v1/${endpoint}`, permisos });
+/** Registro único: permiso de cada fuente, composición y prioridad. No depende del nombre del rol. */
+export const piezasInicio: readonly PiezaInicio[] = [
+  { id: 'autorizar', tipo: 'indicador', titulo: 'Por autorizar', to: '/compras/pendientes', prioridad: 100, fuentes: [
+    { ...fuente('compras/inicio/autorizar-rq', P.ComprasRequisicionesLeer), alguno: [P.ComprasRequisicionesAutorizarNivel1, P.ComprasRequisicionesAutorizarNivel2] },
+    { ...fuente('compras/inicio/autorizar-oc', P.ComprasOrdenesLeer), alguno: [P.ComprasOrdenesAutorizarNivel1, P.ComprasOrdenesAutorizarNivel2] },
+  ] },
+  { id: 'requisicionesPropias', tipo: 'indicador', titulo: 'Tus requisiciones', to: '/compras/requisiciones', prioridad: 70, fuentes: [fuente('compras/inicio/requisiciones', P.ComprasRequisicionesLeer)] },
+  { id: 'recepciones', tipo: 'indicador', titulo: 'Recepciones pendientes', to: '/almacen/recepciones', prioridad: 80, fuentes: [
+    fuente('almacen/inicio/recepciones', P.AlmacenEntradasLeer),
+    { ...fuente('compras/inicio/recepciones', P.ComprasOrdenesLeer), excluirSi: P.AlmacenEntradasLeer },
+  ] },
+  { id: 'conteos', tipo: 'indicador', titulo: 'Conteos abiertos', to: '/almacen/conteos', prioridad: 70, fuentes: [fuente('almacen/inicio/conteos', P.AlmacenInventariosLeer)] },
+  { id: 'vales', tipo: 'indicador', titulo: 'Vales por regularizar', to: '/almacen/salidas', prioridad: 90, fuentes: [fuente('almacen/inicio/vales', P.AlmacenSalidasLeerTodas)] },
+  { id: 'facturas', tipo: 'indicador', titulo: 'Facturas de proveedor en revisión', to: '/cxp/facturas', prioridad: 85, fuentes: [fuente('cuentas-por-pagar/inicio/facturas', P.CuentasPorPagarFacturasLeer)] },
+  { id: 'pagos', tipo: 'indicador', titulo: 'Por pagar esta semana', to: '/tesoreria/pasivos', prioridad: 95, moneda: true, fuentes: [fuente('tesoreria/inicio/pagos', P.TesoreriaPasivosVer)] },
+  { id: 'bancos', tipo: 'indicador', titulo: 'Saldo en bancos', to: '/tesoreria/cuentas', prioridad: 65, moneda: true, fuentes: [fuente('tesoreria/inicio/bancos', P.TesoreriaCuentasVer)] },
+  { id: 'cartera', tipo: 'indicador', titulo: 'Por cobrar vencido', to: '/cxc/cartera', prioridad: 95, moneda: true, fuentes: [fuente('cuentas-por-cobrar/inicio/vencido', P.CuentasPorCobrarCarteraLeer)] },
+  // No hay pedidos.leer/comprobantes.leer canónicos: facturas.leer es la lectura fiscal más cercana.
+  { id: 'pedidos', tipo: 'indicador', titulo: 'Pedidos por facturar', to: '/facturacion/pedidos', prioridad: 75, fuentes: [fuente('facturacion/inicio/pedidos', P.FacturacionFacturasLeer)] },
+  { id: 'timbrado', tipo: 'indicador', titulo: 'Timbrado con problema', to: '/facturacion/comprobantes', prioridad: 100, fuentes: [fuente('facturacion/inicio/timbrado', P.FacturacionFacturasLeer)] },
+  // El recurso no tiene un permiso de lectura separado; coincide con la bandeja de depósitos.
+  { id: 'depositos', tipo: 'indicador', titulo: 'Depósitos por confirmar', to: '/tesoreria/depositos', prioridad: 80, fuentes: [fuente('tesoreria/inicio/depositos', P.TesoreriaDepositosConfirmar)] },
+  { id: 'periodo', tipo: 'indicador', titulo: 'Periodo contable', to: '/contabilidad/periodos', prioridad: 60, fuentes: [fuente('contabilidad/inicio/periodo', P.ContabilidadPeriodoLeer)] },
+  { id: 'compra', tipo: 'visual', titulo: 'Circuito de compra', to: '/compras/ordenes', prioridad: 80, fuentes: [fuente('compras/inicio/circuito', P.ComprasOrdenesLeer)] },
+  { id: 'venta', tipo: 'visual', titulo: 'Circuito de venta', to: '/cxc/cartera', prioridad: 80, fuentes: [
+    fuente('facturacion/inicio/circuito', P.FacturacionFacturasLeer),
+    fuente('cuentas-por-cobrar/inicio/circuito', P.CuentasPorCobrarCarteraLeer),
+  ] },
+  { id: 'flujo', tipo: 'visual', titulo: 'Flujo de la semana', to: '/tesoreria/movimientos', prioridad: 90, fuentes: [fuente('tesoreria/inicio/flujo', P.TesoreriaMovimientosVer)] },
+];
+export function fuentePermitida(f: FuenteInicio, permisos: readonly string[]) {
+  return f.permisos.every(p => permisos.includes(p)) && (!f.alguno || f.alguno.some(p => permisos.includes(p))) && (!f.excluirSi || !permisos.includes(f.excluirSi));
+}
+export function piezasPermitidas(permisos: readonly string[]) {
+  return piezasInicio.flatMap(p => {
+    const fuentes = p.fuentes.filter(f => fuentePermitida(f, permisos));
+    return fuentes.length ? [{ ...p, fuentes }] : [];
+  });
+}
+
+export const accionesInicio = [
+  { id: 'rq', titulo: 'Requisición', permiso: P.ComprasRequisicionesCrear },
+  { id: 'oc', titulo: 'Orden de compra', permiso: P.ComprasOrdenesCrear },
+  { id: 'recepcion', titulo: 'Recepción', permiso: P.AlmacenEntradasCapturar },
+  { id: 'factura', titulo: 'Factura de proveedor', permiso: P.CuentasPorPagarFacturasCapturar },
+  { id: 'gestion', titulo: 'Gestión de cobranza', permiso: P.CuentasPorCobrarCobranzaRegistrar },
+] as const;

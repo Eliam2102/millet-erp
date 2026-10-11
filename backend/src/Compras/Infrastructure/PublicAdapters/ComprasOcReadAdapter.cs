@@ -10,7 +10,7 @@ namespace Millet.Compras.Infrastructure.PublicAdapters;
 /// el estado se devuelve siempre para que el consumidor aplique su regla
 /// (recepción/surtido o consulta histórica de una devolución).
 /// </summary>
-public sealed class ComprasOcReadAdapter : IComprasOcReadPort
+public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcionesReadPort
 {
     private readonly ComprasDbContext _db;
 
@@ -80,6 +80,17 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort
             .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(x => x.Id, x => x.Folio.Valor);
+    }
+
+    public async Task<RecepcionesPendientesLectura> ResumirRecepcionesAsync(
+        IReadOnlyList<Guid>? sucursales, CancellationToken cancellationToken)
+    {
+        var q = _db.OrdenesCompra.AsNoTracking()
+            .Where(o => sucursales == null || (sucursales ?? Array.Empty<Guid>()).Contains(o.SucursalDestinoId))
+            .Where(o => o.Estado == EstadoOrdenCompra.Autorizada &&
+                o.Lineas.Any(l => !l.EsServicio && l.CantidadRecibida < l.Cantidad));
+        return new(await q.CountAsync(cancellationToken),
+            await q.CountAsync(o => o.SubEstadoRecepcion == SubEstadoRecepcion.Parcial, cancellationToken));
     }
 
     private static decimal ConvertirAMxn(string moneda, decimal? tipoCambio)

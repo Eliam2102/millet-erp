@@ -32,15 +32,12 @@ public sealed class FlujoEfectivoReporteHandler(TesoreriaDbContext db, IClock cl
 {
     public async Task<ReporteJsonResponse> Handle(FlujoEfectivoReporteQuery query, CancellationToken cancellationToken)
     {
-        var cuentas = await db.CuentasBancarias.AsNoTracking()
-            .Where(c => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(c.Id))
-            .Where(c => (query.CuentaBancariaId == null || c.Id == query.CuentaBancariaId) &&
-                (query.Moneda == null || c.Moneda == query.Moneda))
+        var cuentas = await FlujoLectura.Cuentas(db, query.DocumentosPermitidos, query.Moneda, query.CuentaBancariaId)
             .OrderBy(c => c.Moneda).ThenBy(c => c.Banco).ToListAsync(cancellationToken);
         if (cuentas.Any(c => c.FechaCorteSaldoInicial >= query.Desde))
             throw new BusinessRuleException("FLUJO_ANTERIOR_AL_CORTE", "El inicio del reporte debe ser posterior al corte del saldo inicial de las cuentas seleccionadas.");
         var ids = cuentas.Select(c => c.Id).ToList();
-        var movimientos = db.MovimientosBancarios.AsNoTracking().Where(m => ids.Contains(m.CuentaBancariaId));
+        var movimientos = FlujoLectura.Movimientos(db, ids);
         var anteriores = await movimientos.Where(m => m.FechaValor < query.Desde)
             .GroupBy(m => m.CuentaBancariaId)
             .Select(g => new { Id = g.Key, Neto = g.Sum(m => m.Sentido == SentidoMovimiento.Ingreso ? m.Monto : -m.Monto) })

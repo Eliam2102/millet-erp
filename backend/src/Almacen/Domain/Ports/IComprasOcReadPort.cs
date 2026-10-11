@@ -34,3 +34,11 @@ public sealed record OcLineaLectura(
     decimal CantidadRecibida,
     decimal PrecioUnitarioMxn,
     Guid? CentroCostoId = null);
+
+public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
+
+/// <summary>Lectura agregada de órdenes para el Inicio de Almacén, sin importes ni datos del proveedor.</summary>
+public interface IComprasRecepcionesReadPort
+{
+    Task<RecepcionesPendientesLectura> ResumirRecepcionesAsync(IReadOnlyList<Guid>? sucursales, CancellationToken cancellationToken);
+}

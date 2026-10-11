@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Application.Oc.ListarOrdenesCompra;
 using Millet.Compras.Domain;
+using Millet.Compras.Application.Listar;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure;
 
@@ -30,22 +31,12 @@ public sealed class ListarPendientesAutorizacionOcHandler
             _ => request.PageSize,
         };
 
-        var estadosPendientes = request.Nivel switch
-        {
-            NivelAutorizacion.Nivel1 => new[] { EstadoOrdenCompra.EnAutorizacionJefeCompras },
-            NivelAutorizacion.Nivel2 => new[] { EstadoOrdenCompra.EnAutorizacionDireccion, EstadoOrdenCompra.CancelacionSolicitada },
-            _ => new[]
-            {
-                EstadoOrdenCompra.EnAutorizacionJefeCompras,
-                EstadoOrdenCompra.EnAutorizacionDireccion,
-                EstadoOrdenCompra.CancelacionSolicitada,
-            },
-        };
-
         var query = _db.OrdenesCompra
             .Where(x => request.SucursalesPermitidas == null || (request.SucursalesPermitidas ?? Array.Empty<Guid>()).Contains(x.SucursalDestinoId))
-            .AsNoTracking()
-            .Where(o => estadosPendientes.Contains(o.Estado));
+            .AsNoTracking();
+        query = PendientesAutorizacionLectura.Ordenes(query,
+            request.Nivel is null or NivelAutorizacion.Nivel1,
+            request.Nivel is null or NivelAutorizacion.Nivel2);
 
         var total = await query.CountAsync(cancellationToken);
 

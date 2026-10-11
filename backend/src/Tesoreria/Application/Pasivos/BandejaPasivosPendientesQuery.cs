@@ -83,8 +83,7 @@ public sealed class BandejaPasivosPendientesHandler
         var offset = Math.Max(0, query.Offset);
 
         // P4: excluye pasivos bloqueados; P6: solo documentos de las sucursales permitidas.
-        var q = _db.PasivosPendientesPago.AsNoTracking().Where(p => !p.PagoBloqueado)
-            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id));
+        var q = PasivosPendientesLectura.Consultar(_db, query.DocumentosPermitidos, false);
         if (query.SoloConSaldo) q = q.Where(p => p.SaldoPendiente > 0);
         if (!string.IsNullOrWhiteSpace(query.TipoBeneficiario))
             q = q.Where(p => p.TipoBeneficiario == query.TipoBeneficiario);
@@ -176,4 +175,14 @@ public sealed class BandejaPasivosPendientesHandler
 
         return new PagedResponse<PasivoPendienteResponse>(responses, offset, limit, total);
     }
+}
+
+/// <summary>Regla única de elegibilidad de la bandeja y del resumen del Inicio.</summary>
+public static class PasivosPendientesLectura
+{
+    public static IQueryable<Millet.Tesoreria.Domain.Pasivos.PasivoPendientePago> Consultar(
+        TesoreriaDbContext db, IReadOnlyList<Guid>? ids, bool soloConSaldo = true) =>
+        db.PasivosPendientesPago.AsNoTracking().Where(p => !p.PagoBloqueado)
+            .Where(p => ids == null || (ids ?? Array.Empty<Guid>()).Contains(p.Id))
+            .Where(p => !soloConSaldo || p.SaldoPendiente > 0);
 }

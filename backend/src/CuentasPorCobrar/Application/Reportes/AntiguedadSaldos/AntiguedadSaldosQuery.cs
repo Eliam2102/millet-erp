@@ -24,8 +24,10 @@ namespace Millet.CuentasPorCobrar.Application.Reportes.AntiguedadSaldos;
 public sealed record AntiguedadSaldosQuery(
     DateOnly? FechaCorte = null,
     Guid? ClienteId = null,
-    string? Moneda = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+    string? Moneda = null) : IRequest<ReporteJsonResponse>, Millet.SharedKernel.Application.IDocumentoScopedQuery,
+    Millet.SharedKernel.Application.Inicio.ISucursalSeleccionadaQuery
 {
+    public Guid? SucursalId { get; init; }
     public string PermisoTodasSucursales => "cuentas_por_cobrar.cartera.leer-todas-sucursales";
     public string TipoDocumento => "factura_cartera";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }

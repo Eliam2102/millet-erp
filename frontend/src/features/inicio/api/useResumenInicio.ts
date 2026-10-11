@@ -37,7 +37,7 @@ export function useResumenInicio() {
   indicadores.sort((a, b) => compararPrioridad(a.prioridad, b.prioridad));
   return {
     // Pendiente: pin/personalización cuando exista persistencia de preferencias.
-    kpis: indicadores.slice(0, 4),
+    kpis: indicadores.slice(0, 5),
     filas: indicadores.filter((i) => i.estado === 'listo' && i.prioridad.total > 0),
     errores: indicadores.filter((i) => i.estado === 'error'),
     cargando: indicadores.some((i) => i.estado === 'cargando'),

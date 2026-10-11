@@ -23,6 +23,7 @@ export interface PrioridadInicio {
   motivo: string;
   antiguedad: string;
   urgente: boolean;
+  atrasadas?: number;
 }
 
 /** DateOnly conserva su calendario; instantes se convierten a la zona del ERP. */
@@ -54,7 +55,7 @@ export function calcularPrioridad(conteo: ConteoInicio, ahora: Date): PrioridadI
     total === 0
       ? 'Sin pendientes'
       : `${base}${antiguedad ? ` · el más antiguo: ${antiguedad}` : ''}${atrasadas > 0 ? ` · ${atrasadas} atrasadas` : ''}`;
-  return { nivel, dias, total, motivo, antiguedad, urgente: (dias ?? 0) > u.diasAtencion };
+  return { nivel, dias, total, motivo, antiguedad, atrasadas, urgente: (dias ?? 0) > u.diasAtencion || atrasadas > 0 };
 }
 
 const orden: Record<NivelInicio, number> = { critico: 2, atencion: 1, normal: 0 };
@@ -64,17 +65,24 @@ export function compararPrioridad(a: PrioridadInicio, b: PrioridadInicio): numbe
 }
 
 export const estiloNivel = {
-  normal: { texto: 'text-ink-muted', punto: 'bg-info-solid', etiqueta: null, variante: 'neutral' },
+  normal: { texto: 'text-ink-muted', punto: 'bg-info', etiqueta: null, variante: 'neutral' },
   atencion: {
     texto: 'text-warning-fg',
-    punto: 'bg-warning-solid',
+    punto: 'bg-warning',
     etiqueta: 'Atención',
     variante: 'warning',
   },
   critico: {
     texto: 'text-danger-fg',
-    punto: 'bg-danger-solid',
+    punto: 'bg-danger',
     etiqueta: 'Crítico',
     variante: 'danger',
   },
 } as const;
+
+export type FiltroPendientes = 'Todo' | 'Autorizar' | 'Revisar' | 'Vencido';
+export function filtrarPendientes<T extends { fila: { id: string }; prioridad: PrioridadInicio }>(items: T[], filtro: FiltroPendientes): T[] {
+  return items.filter(i => filtro === 'Todo' ||
+    (filtro === 'Autorizar' ? ['requisiciones', 'ordenes'].includes(i.fila.id) :
+      filtro === 'Vencido' ? (i.prioridad.atrasadas ?? 0) > 0 : !['requisiciones', 'ordenes'].includes(i.fila.id)));
+}

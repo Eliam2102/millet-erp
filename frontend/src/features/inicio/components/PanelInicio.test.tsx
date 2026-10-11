@@ -1,332 +1,196 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { StrictMode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
-import { rutaPermitida } from '@/lib/nav';
 import { mswServer } from '@/test/mocks/server';
 import { createTestQueryClient } from '@/test/test-query-client';
-import { modulosInicio } from '../modulos';
-import { AccesosRapidos } from './AccesosRapidos';
+import { piezasInicio, piezasPermitidas } from '../config';
+import { componerPiezas, type ResumenPieza } from '../api/usePiezasInicio';
 import { PanelInicio } from './PanelInicio';
 
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  // Solo props DOM explícitas; search se refleja en href y no pasa al <a>.
-  Link: ({
-    children,
-    to,
-    search,
-    className,
-    'aria-label': label,
-    'aria-busy': busy,
-  }: {
-    children?: ReactNode;
-    to: string;
-    search?: Record<string, string | number | boolean>;
-    className?: string;
-    'aria-label'?: string;
-    'aria-busy'?: ComponentProps<'a'>['aria-busy'];
-  }) => {
-    const params = new URLSearchParams(
-      Object.entries(search ?? {}).map(([k, v]) => [k, String(v)]),
-    );
-    return (
-      <a
-        href={`${to}${params.size ? `?${params}` : ''}`}
-        className={className}
-        aria-label={label}
-        aria-busy={busy}
-      >
-        {children}
-      </a>
-    );
-  },
+vi.mock('@tanstack/react-router', async (original) => ({
+  ...(await original<typeof import('@tanstack/react-router')>()),
+  Link: ({ to, children, className, 'aria-busy': busy }: { to: string; children?: ReactNode; className?: string; 'aria-busy'?: boolean }) =>
+    <a href={to} className={className} aria-busy={busy}>{children}</a>,
 }));
-const facturas = '/api/v1/cuentas-por-pagar/facturas';
-const depositos = '/api/v1/tesoreria/depositos';
-const requisiciones = '/api/v1/compras/pendientes-autorizacion';
-const ordenes = '/api/v1/compras/ordenes/pendientes-autorizacion';
-const permisosDosFilas = [P.CuentasPorPagarFacturasLeer, P.TesoreriaDepositosConfirmar];
-let client: ReturnType<typeof createTestQueryClient>;
-let solicitudes: URL[];
-const registrar = ({ request }: { request: Request }) => solicitudes.push(new URL(request.url));
-beforeAll(() => {
-  // El setup global ya inició MSW con warn; reiniciarlo permite exigir error aquí.
-  mswServer.close();
-  mswServer.listen({ onUnhandledRequest: 'error' });
-  mswServer.events.on('request:start', registrar);
-});
-afterAll(() => mswServer.events.removeListener('request:start', registrar));
-beforeEach(() => {
-  solicitudes = [];
-  client = createTestQueryClient();
-  // Conserva retry: 1 del hook, acelerando solamente la espera del test.
-  client.setDefaultOptions({ queries: { ...client.getDefaultOptions().queries, retryDelay: 0 } });
-  useAuthStore.setState({
-    ...useAuthStore.getInitialState(),
-    status: 'authenticated',
-    accessToken: 'test-token',
-    expiresAt: new Date(Date.now() + 3600_000),
-    user: { id: 'oid-privado-test', nombre: '  Ana María Prueba ', email: 'ana@example.test' },
-    currentEmpresaId: 'empresa-activa',
-    empresas: [
-      { id: 'otra', razonSocial: 'Otra empresa ficticia', rfc: 'OTRA', esLaActual: false },
-      { id: 'empresa-activa', razonSocial: 'Vidrios Demo SA de CV', rfc: 'DEMO', esLaActual: true },
-    ],
-    permisos: [],
-  });
-});
-afterEach(() => {
-  cleanup();
-  client.clear();
-  useAuthStore.setState(useAuthStore.getInitialState());
-});
-function montar(permisos: string[] = []) {
-  useAuthStore.setState({ permisos });
-  return render(
-    <QueryClientProvider client={client}>
-      <PanelInicio />
-    </QueryClientProvider>,
-  );
-}
-function responder(path: string, total: number) {
-  // Patrón de Compras: wildcard del origen para las URLs absolutas de apiRequest.
-  mswServer.use(
-    http.get(`*${path}`, () => HttpResponse.json({ items: [], total, offset: 0, limit: 1 })),
-  );
-}
-function pendientes() {
-  return within(screen.getByRole('region', { name: 'Requiere tu acción' }));
-}
-function indicadores() {
-  return within(screen.getByRole('region', { name: 'Indicadores' }));
-}
-async function fila(titulo: string) {
-  return pendientes().findByRole('link', { name: new RegExp(`^${titulo}:`) });
-}
+vi.mock('@/features/compras/components/nueva-requisicion-context', () => ({ useNuevaRequisicion: () => ({ abrir: vi.fn() }) }));
+vi.mock('@/features/compras/ordenes/components/nueva-orden-compra-context', () => ({ useNuevaOrdenCompra: () => ({ abrir: vi.fn() }) }));
+vi.mock('@/features/cxc/components/registrar-gestion-context', () => ({ useRegistrarGestion: () => ({ abrir: vi.fn() }) }));
 
-describe('PanelInicio v2', () => {
-  it('es el componente registrado en la ruta de inicio', async () => {
-    const { Route } = await vi.importActual<{ Route: { options: { component: unknown } } }>(
-      '@/routes/_app/index',
-    );
+const perfiles = {
+  Compras: [P.ComprasRequisicionesLeer, P.ComprasRequisicionesCrear, P.ComprasOrdenesLeer],
+  Almacén: [P.AlmacenEntradasLeer, P.AlmacenSalidasLeerTodas, P.AlmacenInventariosLeer],
+  Cobranza: [P.CuentasPorCobrarCarteraLeer, P.TesoreriaDepositosConfirmar],
+  Tesorería: [P.TesoreriaPasivosVer, P.TesoreriaCuentasVer, P.TesoreriaDepositosConfirmar, P.TesoreriaMovimientosVer],
+  Administrador: Object.values(P),
+};
+let llamadas: URL[];
+let client: ReturnType<typeof createTestQueryClient>;
+const resumen: ResumenPieza = { valor: 3, total: 3, contexto: '3 documentos de prueba en tu alcance', urgentes: 0, etapas: [{ etiqueta: 'Por revisar', total: 3 }] };
+beforeEach(() => {
+  llamadas = [];
+  client = createTestQueryClient();
+  useAuthStore.setState({ ...useAuthStore.getInitialState(), status: 'authenticated', accessToken: 'test',
+    user: { id: 'usuario-prueba', nombre: 'Ana Prueba', email: 'ana@example.test' },
+    currentEmpresaId: 'empresa-prueba', empresas: [{ id: 'empresa-prueba', razonSocial: 'Empresa ficticia', rfc: 'DEMO', esLaActual: true }],
+  });
+  mswServer.use(http.get('*/api/*', ({ request }) => {
+    const url = new URL(request.url);
+    llamadas.push(url);
+    if (url.pathname.includes('/inicio/')) return HttpResponse.json(resumen);
+    if (url.pathname.endsWith('/kpis')) return HttpResponse.json({ countPartidasAbiertas: 1, countAtrasadas: 1 });
+    if (url.pathname.endsWith('/pendientes-autorizacion') && url.pathname.includes('/ordenes/')) return HttpResponse.json({ totalCount: 2, items: [] });
+    return HttpResponse.json({ items: [], total: 2, offset: 0, limit: 1 });
+  }));
+});
+afterEach(() => { cleanup(); client.clear(); useAuthStore.setState(useAuthStore.getInitialState()); });
+function montar(permisos: string[], estricto = false) {
+  useAuthStore.setState({ permisos });
+  const contenido = <QueryClientProvider client={client}><PanelInicio /></QueryClientProvider>;
+  return render(estricto ? <StrictMode>{contenido}</StrictMode> : contenido);
+}
+async function listo() { await waitFor(() => expect(client.isFetching()).toBe(0)); }
+const indicadores = () => within(screen.getByRole('region', { name: 'Indicadores' }));
+
+describe('INI-ROL: pantalla y peticiones por permiso', () => {
+  it.each(Object.entries(perfiles))('%s consulta solo fuentes autorizadas y cada endpoint una vez', async (_, permisos) => {
+    const vista = montar(permisos, true);
+    await listo();
+    const permitidas = piezasPermitidas(permisos);
+    const visuales = permitidas.filter(p => p.tipo === 'visual').sort((a, b) => b.prioridad - a.prioridad).slice(0, 2);
+    const esperadas = new Set([...permitidas.filter(p => p.tipo === 'indicador'), ...visuales].flatMap(p => p.fuentes.map(f => f.endpoint)));
+    const resueltas = llamadas.filter(u => u.pathname.includes('/inicio/')).map(u => u.pathname);
+    expect(new Set(resueltas)).toEqual(esperadas);
+    expect(resueltas).toHaveLength(esperadas.size);
+    expect(new Set(llamadas.map(u => u.href)).size).toBe(llamadas.length);
+    expect(vista.container.querySelectorAll('[data-pieza]').length).toBeLessThanOrEqual(5);
+    const antes = llamadas.length;
+    vista.rerender(<StrictMode><QueryClientProvider client={client}><PanelInicio /></QueryClientProvider></StrictMode>);
+    await act(async () => {});
+    expect(llamadas).toHaveLength(antes);
+  });
+  it('capturista de Compras no ve ni consulta bancos, cartera o pasivos', async () => {
+    montar(perfiles.Compras);
+    await listo();
+    expect(screen.queryByText('Saldo en bancos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Por cobrar vencido')).not.toBeInTheDocument();
+    expect(screen.queryByText('Por pagar esta semana')).not.toBeInTheDocument();
+    expect(screen.getByText('Tus requisiciones')).toBeInTheDocument();
+    expect(screen.getByText('Circuito de compra')).toBeInTheDocument();
+    expect(llamadas.some(u => /tesoreria|cuentas-por-cobrar/.test(u.pathname))).toBe(false);
+    expect(screen.queryByText('Lo último que hiciste')).not.toBeInTheDocument();
+    expect(llamadas.some(u => u.pathname.includes('/admin/auditoria'))).toBe(false);
+  });
+  it('Almacén muestra recepciones y vales; no muestra cartera ni bancos', async () => {
+    montar(perfiles.Almacén);
+    await listo();
+    expect(indicadores().getByText('Recepciones pendientes')).toBeInTheDocument();
+    expect(indicadores().getByText('Vales por regularizar')).toBeInTheDocument();
+    expect(indicadores().getByText('Conteos abiertos')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Accesos de tu módulo' })).toBeInTheDocument();
+    expect(llamadas.some(u => u.pathname.includes('tesoreria') || u.pathname.includes('cuentas-por-cobrar'))).toBe(false);
+  });
+  it('Cobranza ve su circuito de cartera sin consultar Facturación sin permiso', async () => {
+    montar(perfiles.Cobranza);
+    await listo();
+    expect(indicadores().getByText('Por cobrar vencido')).toBeInTheDocument();
+    expect(screen.getByText('Circuito de venta')).toBeInTheDocument();
+    expect(llamadas.some(u => u.pathname.includes('facturacion'))).toBe(false);
+  });
+  it('Tesorería ve bancos, pasivos, depósitos y flujo', async () => {
+    montar(perfiles.Tesorería);
+    await listo();
+    for (const titulo of ['Saldo en bancos', 'Por pagar esta semana', 'Depósitos por confirmar'])
+      expect(indicadores().getByText(titulo)).toBeInTheDocument();
+    expect(screen.getByText('Flujo de la semana')).toBeInTheDocument();
+    expect(screen.queryByText('Por cobrar vencido')).not.toBeInTheDocument();
+  });
+  it('tres piezas permitidas producen exactamente tres tarjetas, sin espacios vacíos', async () => {
+    const vista = montar([P.TesoreriaCuentasVer, P.TesoreriaPasivosVer, P.ContabilidadPeriodoLeer]);
+    await listo();
+    expect(vista.container.querySelectorAll('[data-pieza]')).toHaveLength(3);
+    expect(screen.getByText('Accesos de tu módulo')).toBeInTheDocument();
+    expect(indicadores().queryByText(/bloquead/i)).not.toBeInTheDocument();
+  });
+  it('cero con contexto sigue siendo útil y no crea tarjetas bloqueadas', async () => {
+    mswServer.use(http.get('*/api/v1/tesoreria/inicio/bancos', () => HttpResponse.json({ ...resumen, valor: 0, total: 0, contexto: 'Sin cuentas activas en MXN en tus sucursales' })));
+    montar([P.TesoreriaCuentasVer]); await listo();
+    expect(indicadores().getByText('$0')).toBeInTheDocument();
+    expect(indicadores().getByText('Sin cuentas activas en MXN en tus sucursales')).toBeInTheDocument();
+  });
+  it('sin permisos no consulta fuentes ni presenta indicadores', async () => {
+    montar([]); await listo();
+    expect(llamadas).toHaveLength(0);
+    expect(screen.queryByRole('region', { name: 'Indicadores' })).not.toBeInTheDocument();
+    expect(screen.getByText('No tienes pendientes')).toBeInTheDocument();
+  });
+  it('envía la sucursal del topbar y vuelve a consultar una vez al cambiarla', async () => {
+    useAuthStore.setState({ currentSucursalId: 'sucursal-uno' });
+    montar([P.TesoreriaCuentasVer]); await listo();
+    expect(llamadas).toHaveLength(1);
+    expect(llamadas[0].searchParams.get('sucursalId')).toBe('sucursal-uno');
+    act(() => useAuthStore.setState({ currentSucursalId: 'sucursal-dos' }));
+    await listo();
+    expect(llamadas).toHaveLength(2);
+    expect(llamadas[1].searchParams.get('sucursalId')).toBe('sucursal-dos');
+  });
+  it('al revocar permisos retira datos ya cacheados sin otra petición', async () => {
+    montar([P.TesoreriaCuentasVer]); await listo();
+    act(() => useAuthStore.setState({ permisos: [] }));
+    expect(screen.queryByText('Saldo en bancos')).not.toBeInTheDocument();
+    expect(llamadas).toHaveLength(1);
+  });
+  it('un error de resumen no repite llamadas ni inventa un cero', async () => {
+    mswServer.use(http.get('*/api/v1/tesoreria/inicio/bancos', ({ request }) => {
+      llamadas.push(new URL(request.url)); return HttpResponse.json({}, { status: 500 });
+    }));
+    montar([P.TesoreriaCuentasVer]); await listo();
+    expect(llamadas).toHaveLength(1);
+    expect(indicadores().getByText('No se pudo cargar. Por confirmar.')).toBeInTheDocument();
+    expect(indicadores().queryByText('$0')).not.toBeInTheDocument();
+  });
+  it('las pestañas filtran la bandeja existente', async () => {
+    montar([P.ComprasRequisicionesLeer, P.ComprasRequisicionesAutorizarNivel1, P.CuentasPorPagarFacturasLeer]);
+    await listo();
+    const region = within(screen.getByRole('region', { name: 'Requiere tu acción' }));
+    fireEvent.click(region.getByRole('tab', { name: /Autorizar/ }));
+    expect(region.getByText('Requisiciones por autorizar')).toBeInTheDocument();
+    expect(region.queryByText('Facturas en revisión')).not.toBeInTheDocument();
+    fireEvent.click(region.getByRole('tab', { name: /Revisar/ }));
+    expect(region.getByText('Facturas en revisión')).toBeInTheDocument();
+  });
+  it('no entra en refetch al montar y rerenderizar en StrictMode', async () => {
+    montar([P.TesoreriaCuentasVer], true); await listo();
+    expect(llamadas).toHaveLength(1);
+  });
+  it('Hoy/Semana/Mes filtra solo los circuitos y no vuelve a consultar saldos', async () => {
+    montar([...perfiles.Compras, P.TesoreriaCuentasVer]); await listo();
+    const circuito = '/api/v1/compras/inicio/circuito';
+    expect(llamadas.find(u => u.pathname === circuito)?.searchParams.get('periodo')).toBe('Mes');
+    fireEvent.click(screen.getByRole('button', { name: 'Hoy' })); await listo();
+    expect(llamadas.filter(u => u.pathname === circuito).map(u => u.searchParams.get('periodo'))).toEqual(['Mes', 'Hoy']);
+    expect(llamadas.filter(u => u.pathname.endsWith('/bancos'))).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Semana' })); await listo();
+    expect(llamadas.filter(u => u.pathname === circuito)).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Mes' })); await listo();
+    expect(llamadas.filter(u => u.pathname === circuito)).toHaveLength(3);
+  });
+  it('conserva la ruta real de Inicio', async () => {
+    const { Route } = await vi.importActual<{ Route: { options: { component: unknown } } }>('@/routes/_app/index');
     expect(Route.options.component).toBe(PanelInicio);
   });
-  it('solo consulta y muestra KPI y filas permitidos', async () => {
-    responder(facturas, 7);
-    responder(depositos, 3);
-    montar(permisosDosFilas);
-    expect(await within(await fila('Facturas en revisión')).findByText('7')).toBeInTheDocument();
-    expect(await within(await fila('Depósitos por confirmar')).findByText('3')).toBeInTheDocument();
-    expect(pendientes().getAllByRole('link')).toHaveLength(2);
-    expect(indicadores().getAllByRole('link')).toHaveLength(2);
-    expect(indicadores().getByText('7')).toBeInTheDocument();
-    expect(indicadores().getByText('3')).toBeInTheDocument();
-    for (const modulo of ['Compras', 'Almacén', 'CxC', 'Proveedores', 'Contabilidad'])
-      expect(pendientes().queryByText(modulo)).not.toBeInTheDocument();
-    expect(solicitudes.map((url) => url.pathname).sort()).toEqual([facturas, depositos].sort());
-    expect(screen.queryByRole('region', { name: 'Recientes' })).not.toBeInTheDocument();
-  });
-  it('sin permisos no tiene filas ni HTTP y usa módulos permitidos', async () => {
-    montar();
-    await act(async () => {});
-    expect(pendientes().getByText('No tienes pendientes')).toBeInTheDocument();
-    expect(pendientes().queryAllByRole('listitem')).toHaveLength(0);
-    expect(indicadores().queryAllByRole('link')).toHaveLength(0);
-    const modulos = within(screen.getByRole('region', { name: 'Módulos' }));
-    expect(modulos.queryAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(
-      modulosInicio([]).map((a) => a.to),
-    );
-    expect(solicitudes).toHaveLength(0);
-    expect(client.getQueryCache().getAll()).toHaveLength(0);
-  });
-  it('aísla error 500 y permite reintentar sin romper el resto', async () => {
-    mswServer.use(
-      http.get(`*${facturas}`, () =>
-        HttpResponse.json({ title: 'Error', status: 500 }, { status: 500 }),
-      ),
-    );
-    responder(depositos, 3);
-    montar(permisosDosFilas);
-    const boton = await screen.findByRole('button', { name: 'Reintentar Facturas en revisión' });
-    expect(within(await fila('Depósitos por confirmar')).getByText('3')).toBeInTheDocument();
-    expect(indicadores().getByText('No se pudo cargar')).toBeInTheDocument();
-    expect(pendientes().queryByText('No tienes pendientes')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      /^(Buenos días|Buenas tardes|Buenas noches), Ana$/,
-    );
-    responder(facturas, 9);
-    fireEvent.click(boton);
-    expect(within(await fila('Facturas en revisión')).getByText('9')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument();
-  });
-  it('conteo cero deja la bandeja vacía y un KPI normal sin tag', async () => {
-    responder(depositos, 0);
-    montar([P.TesoreriaDepositosConfirmar]);
-    expect(await pendientes().findByText('No tienes pendientes')).toBeInTheDocument();
-    expect(pendientes().queryAllByRole('link')).toHaveLength(0);
-    expect(indicadores().getByText('0')).toBeInTheDocument();
-    expect(indicadores().queryByText('Atención')).not.toBeInTheDocument();
-    expect(indicadores().queryByText('Crítico')).not.toBeInTheDocument();
-  });
-  it('muestra carga sin inventar un número o un estado vacío', async () => {
-    let resolver!: () => void;
-    const respuesta = new Promise<void>((resolve) => {
-      resolver = resolve;
-    });
-    mswServer.use(
-      http.get(`*${depositos}`, async () => {
-        await respuesta;
-        return HttpResponse.json({ items: [], total: 6 });
-      }),
-    );
-    montar([P.TesoreriaDepositosConfirmar]);
-    try {
-      await waitFor(() => expect(solicitudes).toHaveLength(1));
-      expect(indicadores().getByRole('link')).toHaveAttribute('aria-busy', 'true');
-      expect(indicadores().queryByText(/^\d+$/)).not.toBeInTheDocument();
-      expect(pendientes().queryByText('No tienes pendientes')).not.toBeInTheDocument();
-    } finally {
-      resolver();
-    }
-    expect(within(await fila('Depósitos por confirmar')).getByText('6')).toBeInTheDocument();
-  });
-  it.each([
-    { niveles: [P.ComprasRequisicionesAutorizarNivel1], nivel: '1' },
-    { niveles: [P.ComprasRequisicionesAutorizarNivel2], nivel: '2' },
-    {
-      niveles: [P.ComprasRequisicionesAutorizarNivel1, P.ComprasRequisicionesAutorizarNivel2],
-      nivel: null,
-    },
-  ])('filtra petición y enlaces de requisiciones por nivel $nivel', async ({ niveles, nivel }) => {
-    responder(requisiciones, 4);
-    montar([P.ComprasRequisicionesLeer, ...niveles]);
-    const link = await fila('Requisiciones por autorizar');
-    expect(solicitudes).toHaveLength(1);
-    expect(Object.fromEntries(solicitudes[0].searchParams)).toEqual({
-      offset: '0',
-      limit: '1',
-      ...(nivel ? { nivelPendiente: nivel } : {}),
-    });
-    const href = `/compras/pendientes${nivel ? `?nivelPendiente=${nivel}` : ''}`;
-    expect(link).toHaveAttribute('href', href);
-    expect(indicadores().getByRole('link')).toHaveAttribute('href', href);
-  });
-  it('OC usa totalCount, FIFO y antigüedad urgente con danger y ring crítico', async () => {
-    const fecha = new Date(Date.now() - 9 * 86400000).toISOString();
-    mswServer.use(
-      http.get(`*${ordenes}`, () =>
-        HttpResponse.json({
-          items: [{ fechaDocumento: fecha }],
-          totalCount: 12,
-          page: 1,
-          pageSize: 1,
-        }),
-      ),
-    );
-    montar([P.ComprasOrdenesLeer, P.ComprasOrdenesAutorizarNivel1]);
-    const link = await fila('OC por autorizar');
-    expect(within(link).getByText('12')).toBeInTheDocument();
-    expect(within(link).getByText('hace 9 días')).toHaveClass('text-danger-fg', 'font-medium');
-    expect(indicadores().getByText('Crítico')).toBeInTheDocument();
-    expect(indicadores().getByRole('link').parentElement).toHaveClass('ring-danger-ring');
-    expect(Object.fromEntries(solicitudes[0].searchParams)).toEqual({
-      page: '1',
-      pageSize: '1',
-      nivel: 'Nivel1',
-    });
-  });
-  it('no usa fechas de una API que entrega el más reciente primero', async () => {
-    mswServer.use(
-      http.get(`*${depositos}`, () =>
-        HttpResponse.json({ items: [{ createdAt: '2020-01-01' }], total: 1 }),
-      ),
-    );
-    montar([P.TesoreriaDepositosConfirmar]);
-    const link = await fila('Depósitos por confirmar');
-    expect(link).not.toHaveTextContent(/hace|ayer|hoy/);
-  });
-  it('elige cuatro KPI por prioridad entre cinco elegibles, conservando todas las filas positivas', async () => {
-    responder(facturas, 1);
-    responder(depositos, 11);
-    responder(requisiciones, 2);
-    mswServer.use(http.get(`*${ordenes}`, () => HttpResponse.json({ items: [], totalCount: 26 })));
-    mswServer.use(
-      http.get('*/api/v1/compras/ordenes/partidas-abiertas/kpis', () =>
-        HttpResponse.json({ countPartidasAbiertas: 7, countAtrasadas: 1 }),
-      ),
-    );
-    montar([
-      ...permisosDosFilas,
-      P.ComprasRequisicionesLeer,
-      P.ComprasRequisicionesAutorizarNivel1,
-      P.ComprasOrdenesLeer,
-      P.ComprasOrdenesAutorizarNivel1,
-      P.ComprasOrdenesReportesPartidasAbiertas,
-    ]);
-    await waitFor(() => expect(pendientes().getAllByRole('link')).toHaveLength(5));
-    const links = indicadores().getAllByRole('link');
-    expect(links).toHaveLength(4);
-    expect(links.map((l) => l.getAttribute('aria-label')?.split(':')[0])).toEqual([
-      'OC por autorizar',
-      'Depósitos por confirmar',
-      'Partidas abiertas',
-      'Requisiciones por autorizar',
-    ]);
-    expect(indicadores().queryByText('Facturas en revisión')).not.toBeInTheDocument();
-  });
-  it('muestra el nombre y empresa; no inventa rol ni expone datos de sesión', () => {
-    montar();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      /^(Buenos días|Buenas tardes|Buenas noches), Ana$/,
-    );
-    expect(screen.getByText('Vidrios Demo SA de CV')).toBeInTheDocument();
-    expect(screen.queryByText('[ROL]')).not.toBeInTheDocument(); // sin rol real en sesión: no se muestra marcador
-    expect(document.body).not.toHaveTextContent(/OID|oid-privado-test|ana@example.test|María/);
-  });
-  it('conserva la alerta cuando no hay empresas', () => {
-    useAuthStore.setState({ empresas: [], currentEmpresaId: null });
-    montar();
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Cuenta activa sin asignaciones de empresa o rol',
-    );
-  });
-  it('presenta una tarjeta por módulo, con rutas permitidas', () => {
-    const permisos = Object.values(P);
-    useAuthStore.setState({ permisos });
-    render(<AccesosRapidos />);
-    const esperados = modulosInicio(permisos);
-    const enlaces = screen.getAllByRole('link');
-    expect(enlaces.map((l) => l.getAttribute('href'))).toEqual(esperados.map((a) => a.to));
-    expect(new Set(esperados.map((a) => a.modulo)).size).toBe(enlaces.length);
-    for (const l of enlaces) expect(rutaPermitida(l.getAttribute('href')!, permisos)).toBe(true);
-  });
-  it('consulta Recientes por usuario y empresa solo con permiso de auditoría', async () => {
-    mswServer.use(
-      http.get('*/api/v1/admin/auditoria', () =>
-        HttpResponse.json({
-          items: [
-            {
-              id: 'evento',
-              entidadEtiqueta: 'OC-PRUEBA',
-              resumen: 'Autorizó la orden',
-              timestamp: new Date().toISOString(),
-            },
-          ],
-          total: 1,
-        }),
-      ),
-    );
-    montar([P.AdminAuditoriaLeer]);
-    const recientes = within(screen.getByRole('region', { name: 'Recientes' }));
-    expect(await recientes.findByText('OC-PRUEBA')).toHaveClass('font-mono', 'text-brand');
-    expect(recientes.getByText('Autorizó la orden')).toBeInTheDocument();
-    expect(solicitudes).toHaveLength(1);
-    expect(solicitudes[0].searchParams.get('usuarioId')).toBe('oid-privado-test');
-    expect(solicitudes[0].searchParams.get('empresaId')).toBe('empresa-activa');
-    expect(solicitudes[0].searchParams.get('limit')).toBe('4');
+});
+
+describe('composición pura', () => {
+  it('elige máximo cinco por urgencia y prioridad', () => {
+    const piezas = piezasInicio.filter(p => p.tipo === 'indicador');
+    const items = piezas.map(pieza => ({ pieza, data: { ...resumen, urgentes: pieza.id === 'bancos' ? 5 : 0 }, estado: 'listo' as const }));
+    const compuesta = componerPiezas(items);
+    expect(compuesta.indicadores).toHaveLength(5);
+    expect(compuesta.indicadores[0].pieza.id).toBe('bancos');
   });
 });
