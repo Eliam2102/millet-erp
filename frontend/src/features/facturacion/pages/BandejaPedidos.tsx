@@ -195,7 +195,7 @@ export function BandejaPedidos() {
                 <th className="px-3 py-2 text-left">Folio / Pedido</th>
                 <th className="px-3 py-2 text-left">Origen</th>
                 <th className="px-3 py-2 text-left">Cliente</th>
-                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2 text-right">Subtotal sin impuestos</th>
                 <th className="px-3 py-2 text-left">Estado</th>
                 <th className="px-3 py-2 text-left">Creado</th>
                 <th className="px-3 py-2 text-right">Acción</th>

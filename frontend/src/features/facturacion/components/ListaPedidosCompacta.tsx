@@ -59,11 +59,15 @@ export function ListaPedidosCompacta({
             </div>
             <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span className="truncate">{p.clienteNombre}</span>
-              <span className="shrink-0 font-mono tabular-nums">
+              <span
+                className="shrink-0 font-mono tabular-nums"
+                title="Subtotal sin impuestos"
+              >
                 {p.total.toFixed(2)} {p.moneda}
               </span>
             </div>
             <div className="mt-0.5 text-right text-[11px] text-muted-foreground">
+              <span className="mr-2">Subtotal sin impuestos</span>
               <DateTimeDisplay value={p.createdAt} />
             </div>
           </Link>
