@@ -30,15 +30,6 @@ public sealed class NoOpStubsTests
     // PuestoReadPortAdapter) se cubren en Adapters/PuestoEmpleadoReadAdaptersTests.
 
     [Fact]
-    public async Task NoOpDependenciaRevisoraReadPort_devuelve_seed_local_de_4_dependencias()
-    {
-        var port = new NoOpDependenciaRevisoraReadPort(NullLogger<NoOpDependenciaRevisoraReadPort>.Instance);
-        var lista = await port.ListarAsync(CancellationToken.None);
-        lista.Should().HaveCount(4);
-        lista.Select(d => d.Codigo).Should().Contain(["COMPRAS", "ALMACEN", "PRODUCCION", "DIRECCION_F"]);
-    }
-
-    [Fact]
     public async Task NoOpTipoCambioReadPort_devuelve_1_para_misma_moneda_y_null_en_otra_combinacion()
     {
         var port = new NoOpTipoCambioReadPort(NullLogger<NoOpTipoCambioReadPort>.Instance);

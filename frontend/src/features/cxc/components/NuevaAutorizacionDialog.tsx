@@ -12,7 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useUsuarios } from '@/features/catalogos/api';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
 import { useCrearAutorizacionCredito } from '@/features/cxc/api/useLiberaciones';
 import {
   NuevaAutorizacionSchema,
@@ -60,10 +61,15 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearAutorizacionCredito();
   const usuarioActualId = useAuthStore((s) => s.user?.id ?? null);
-  const usuarios = useUsuarios();
+  const usuarios = useQuery({
+    queryKey: ['cxc', 'beneficiarios-credito'],
+    queryFn: async ({ signal }) => (await apiRequest<{ id: string; nombre: string; email: string }[]>(
+      '/api/v1/cuentas-por-cobrar/autorizaciones/beneficiarios', { signal },
+    )).data,
+  });
 
-  const candidatos = (usuarios.data?.items ?? []).filter(
-    (u) => u.activo && u.id !== usuarioActualId,
+  const candidatos = (usuarios.data ?? []).filter(
+    (u) => u.id !== usuarioActualId,
   );
 
   const form = useForm<NuevaAutorizacionValues>({
@@ -97,9 +103,7 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
               return;
             }
             toast.error(error.problem.title, {
-              description:
-                error.problem.detail ??
-                (error.traceId ? `Código: ${error.traceId}` : undefined),
+              description: error.problem.detail,
             });
             return;
           }
@@ -131,8 +135,7 @@ function FormAutorizacion({ onClose }: { onClose: () => void }) {
         </select>
         {usuarios.isError && (
           <p className="text-xs text-destructive">
-            No se pudo cargar el catálogo de usuarios (se requiere
-            identidad.usuarios.leer).
+            No se pudo cargar la lista de beneficiarios con permiso de Crédito y Cobranza.
           </p>
         )}
         {form.formState.errors.beneficiarioUsuarioId && (

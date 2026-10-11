@@ -74,7 +74,9 @@ export function backendToShellShape(data: BackendReporteResponse): ReporteShellS
       alineacion: null,
       anchoPx: null,
     })),
-    filas: [...data.filas, ...filasTotalesMoneda(data.totales)],
+    filas: [...data.filas.map((fila) => Object.fromEntries(Object.entries(fila).map(
+      ([key, value]) => [key, typeof value === 'boolean' ? (value ? 'Sí' : 'No') : value],
+    ))), ...filasTotalesMoneda(data.totales)],
     totales: Object.keys(totales).length > 0 ? totales : null,
   };
 }

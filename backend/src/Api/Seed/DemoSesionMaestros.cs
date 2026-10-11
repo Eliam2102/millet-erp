@@ -59,6 +59,30 @@ public sealed partial class DemoSesionSeedHostedService
             if (!await db.Series.AnyAsync(s => s.EmpresaId == EmpresaId && s.SucursalId == null && s.TipoDocumento == tipo && s.Activa, ct))
                 db.Series.Add(new Serie(Id(prefijo), EmpresaId, null, tipo, prefijo, null, ReinicioPeriodo.None));
         await db.SaveChangesAsync(ct);
+        // Completa sólo las asignaciones DEMO faltantes, sin reemplazar puestos operados.
+        var sucursalesDemo = await db.Sucursales.Where(s => s.EmpresaId == EmpresaId && (s.Clave == "MID" || s.Clave == "MTY" || s.Clave == "QRO")).Select(s => s.Id).ToArrayAsync(ct);
+        var asignacionesDemo = await db.SucursalDepartamentos.Where(a => a.EmpresaId == EmpresaId && sucursalesDemo.Contains(a.SucursalId) && a.Estatus == EstatusCatalogo.Activo).ToListAsync(ct);
+        foreach (var a in asignacionesDemo)
+        {
+            if (await db.SucursalPuestos.AnyAsync(p => p.SucursalId == a.SucursalId && p.DepartamentoId == a.DepartamentoId && p.Estatus == EstatusCatalogo.Activo && db.Puestos.Any(puesto => puesto.Id == p.PuestoId && puesto.Estatus == EstatusCatalogo.Activo), ct)) continue;
+            var departamento = await db.Departamentos.SingleAsync(d => d.Id == a.DepartamentoId, ct);
+            var claveBase = "DEMO-" + departamento.Clave[..Math.Min(departamento.Clave.Length, 15)];
+            for (var intento = 0; ; intento++)
+            {
+                var sufijo = intento == 0 ? "" : "-" + intento.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var clavePuesto = claveBase[..Math.Min(claveBase.Length, 20 - sufijo.Length)] + sufijo;
+                var puesto = await db.Puestos.SingleOrDefaultAsync(p => p.EmpresaId == EmpresaId && p.Clave == clavePuesto, ct);
+                if (puesto is not null && (puesto.Estatus != EstatusCatalogo.Activo || await db.SucursalPuestos.AnyAsync(p => p.SucursalId == a.SucursalId && p.DepartamentoId == a.DepartamentoId && p.PuestoId == puesto.Id, ct))) continue;
+                if (puesto is null)
+                {
+                    puesto = new Puesto(Guid.CreateVersion7(), EmpresaId, clavePuesto, "DEMO · Personal de " + departamento.Nombre);
+                    db.Puestos.Add(puesto);
+                }
+                db.SucursalPuestos.Add(new SucursalPuesto(Guid.CreateVersion7(), EmpresaId, a.SucursalId, puesto.Id, a.DepartamentoId));
+                await db.SaveChangesAsync(ct);
+                break;
+            }
+        }
 
         var tipos = await db.AdjuntoTiposDocumento.Where(t => t.TipoEntidad == "proveedor" && t.Activo && t.Obligatorio)
             .OrderBy(t => t.Orden).ToListAsync(ct);

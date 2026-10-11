@@ -259,8 +259,8 @@ function RenderTabla({
                 ? (proveedor.nombreComercial ?? proveedor.razonSocial)
                 : oc.proveedorId;
             const comprador =
-              usuariosMap.get(oc.compradorTitularId)?.nombre ??
-              oc.compradorTitularId;
+              oc.compradorNombre ?? usuariosMap.get(oc.compradorTitularId)?.nombre ??
+              '[NOMBRE POR CONFIRMAR]';
             return (
               <tr
                 key={oc.id}

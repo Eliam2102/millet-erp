@@ -61,4 +61,5 @@ public sealed record OrdenCompraResumen(
     Guid CompradorTitularId,
     string Moneda,
     DateOnly FechaDocumento,
-    string? ReferenciaProveedor);
+    string? ReferenciaProveedor,
+    string? CompradorNombre = null);

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
 import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
 import {
@@ -36,6 +38,7 @@ import {
   useProveedor,
   useRechazarProveedor,
   useValidarProveedor,
+  datosMaestrosKeys,
 } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
 import { useExpediente } from '@/components/erp/adjuntos/api';
@@ -69,6 +72,19 @@ export function ProveedorDetalle() {
   const [confirmValidar, setConfirmValidar] = useState(false);
   const [modalRechazar, setModalRechazar] = useState(false);
   const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [revisionOpen, setRevisionOpen] = useState(false);
+  const [motivoRevision, setMotivoRevision] = useState('');
+  const cache = useQueryClient();
+  const ponerRevision = useMutation({
+    mutationFn: () => apiRequest(`/api/v1/catalogos/proveedores/${id}/poner-revision`, { method: 'POST', body: { motivo: motivoRevision.trim() }, idempotencyKey: crypto.randomUUID() }),
+    onSuccess: () => {
+      void cache.invalidateQueries({ queryKey: datosMaestrosKeys.proveedores() });
+      void cache.invalidateQueries({ queryKey: ['catalogos', 'proveedores'] });
+      toast.success('Se puso al proveedor en revisión.');
+      setRevisionOpen(false);
+    },
+    onError: (error) => toast.error(esApiError(error) ? error.problem.detail ?? error.problem.title : 'No se pudo poner al proveedor en revisión.'),
+  });
 
   const canDesactivar = useHasPermission(
     PermisosCanonicos.CompartidoCatalogosAdministrar,
@@ -302,6 +318,27 @@ export function ProveedorDetalle() {
           </div>
         )}
 
+        {canValidar && proveedor.estatus === EstatusCatalogo.Activo && (
+          <Button variant="secondary" onClick={() => setRevisionOpen(true)}>Poner en revisión</Button>
+        )}
+        <Dialog open={revisionOpen} onOpenChange={setRevisionOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Poner proveedor en revisión</DialogTitle>
+              <DialogDescription>
+                El proveedor dejará de estar disponible para nuevas órdenes de compra. El motivo se guardará en la bitácora.
+              </DialogDescription>
+            </DialogHeader>
+            <label htmlFor="motivo-revision-proveedor" className="text-sm text-ink">Motivo de revisión</label>
+            <Textarea id="motivo-revision-proveedor" value={motivoRevision} maxLength={500} onChange={e => setMotivoRevision(e.target.value)} />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setRevisionOpen(false)}>Cancelar</Button>
+              <Button disabled={motivoRevision.trim().length < 5 || ponerRevision.isPending} onClick={() => ponerRevision.mutate()}>
+                Poner en revisión
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <ProveedorDatosForm proveedor={proveedor} />
         <ProveedorToleranciaSection key={proveedor.id} proveedorId={proveedor.id} montoMxn={proveedor.toleranciaFacturaContraOcMxn} />
         <ProveedorBancariosSection proveedorId={proveedor.id} />

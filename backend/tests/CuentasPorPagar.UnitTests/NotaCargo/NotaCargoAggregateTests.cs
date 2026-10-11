@@ -22,6 +22,16 @@ public sealed class NotaCargoAggregateTests
             ahora: DateTimeOffset.UtcNow);
 
     [Fact]
+    public void Quien_crea_no_puede_autorizar_y_el_rechazo_conserva_el_borrador()
+    {
+        var nota = Crear();
+        var act = () => nota.Autorizar(nota.CreadoPor, DateTimeOffset.UtcNow);
+        act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NCG_AUTOAUTORIZACION");
+        nota.Estado.Should().Be(EstadoNotaCargo.Borrador);
+        nota.AutorizadoPor.Should().BeNull();
+    }
+
+    [Fact]
     public void Crear_nace_Borrador_con_folio_y_monto()
     {
         var n = Crear(monto: 500m);
@@ -59,8 +69,8 @@ public sealed class NotaCargoAggregateTests
     public void Autorizar_solo_permitido_desde_Borrador()
     {
         var n = Crear();
-        n.Autorizar(usuarioId: null, DateTimeOffset.UtcNow);
-        var act = () => n.Autorizar(usuarioId: null, DateTimeOffset.UtcNow);
+        n.Autorizar(usuarioId: Guid.NewGuid(), DateTimeOffset.UtcNow);
+        var act = () => n.Autorizar(usuarioId: Guid.NewGuid(), DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NCG_NO_AUTORIZABLE");
     }
 
@@ -76,7 +86,7 @@ public sealed class NotaCargoAggregateTests
     public void Ciclo_Borrador_Autorizada_Aplicada()
     {
         var n = Crear();
-        n.Autorizar(usuarioId: null, DateTimeOffset.UtcNow);
+        n.Autorizar(usuarioId: Guid.NewGuid(), DateTimeOffset.UtcNow);
         n.Aplicar(usuarioId: null, DateTimeOffset.UtcNow);
         n.Estado.Should().Be(EstadoNotaCargo.Aplicada);
         n.FechaAplicacion.Should().NotBeNull();
@@ -103,7 +113,7 @@ public sealed class NotaCargoAggregateTests
     public void Cancelar_desde_Aplicada_no_permitido()
     {
         var n = Crear();
-        n.Autorizar(usuarioId: null, DateTimeOffset.UtcNow);
+        n.Autorizar(usuarioId: Guid.NewGuid(), DateTimeOffset.UtcNow);
         n.Aplicar(usuarioId: null, DateTimeOffset.UtcNow);
         var act = () => n.Cancelar("error", DateTimeOffset.UtcNow);
         act.Should().Throw<BusinessRuleException>().Where(e => e.Code == "NCG_NO_CANCELABLE");

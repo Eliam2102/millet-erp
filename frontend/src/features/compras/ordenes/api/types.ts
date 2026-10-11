@@ -187,6 +187,7 @@ export interface OrdenCompraResumen {
    */
   sucursalId: string;
   compradorTitularId: string;
+  compradorNombre?: string | null;
   moneda: string;
   /** ISO 8601 UTC. */
   fechaDocumento: string;
@@ -232,6 +233,7 @@ export interface OrdenCompraDetalleResponse {
   moneda: string;
   tipoCambio: number | null;
   compradorTitularId: string;
+  compradorNombre?: string | null;
   encargadoComprasId: string;
   observaciones: string | null;
   sinRequisicionPrevia: boolean;

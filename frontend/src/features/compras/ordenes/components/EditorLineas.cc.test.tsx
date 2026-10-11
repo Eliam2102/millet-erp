@@ -5,6 +5,7 @@ import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { EditorLineas } from '@/features/compras/ordenes/components/EditorLineas';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { DescuentoTipo, EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import type {
   LineaOrdenCompraResponse,
@@ -92,6 +93,14 @@ afterEach(() => {
 });
 
 describe('<EditorLineas> (OC) — columna CC-Máquina (Fase E PR3)', () => {
+  it('una orden directa en borrador permite agregar, editar y eliminar líneas', () => {
+    useAuthStore.setState({ permisos: [PermisosCanonicos.ComprasOrdenesCrear] });
+    const { rerender } = render(<EditorLineas oc={makeOc([])} />, { wrapper: createQueryWrapper() });
+    expect(screen.getByRole('button', { name: /Agregar línea manual/ })).toBeEnabled();
+    rerender(<EditorLineas oc={makeOc([makeLinea()])} />);
+    expect(screen.getByRole('button', { name: 'Editar línea 1' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Eliminar línea 1' })).toBeEnabled();
+  });
   it.each([
     [DescuentoTipo.Monto, 0, 100, 'Sin descuento'],
     [DescuentoTipo.Monto, 10, 90, 'Descuento: $10.00'],

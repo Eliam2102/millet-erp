@@ -24,6 +24,20 @@ public class PuestoEmpleadoReadAdaptersTests
     }
 
     [Fact]
+    public async Task Dependencias_revisoras_provienen_del_catalogo_real_solo_activo()
+    {
+        await using var db = NewDb();
+        var activo = new Departamento(Guid.CreateVersion7(), Guid.CreateVersion7(), "MTTO", "Mantenimiento");
+        var inactivo = new Departamento(Guid.CreateVersion7(), activo.EmpresaId, "BAJA", "Área cerrada", EstatusCatalogo.Inactivo);
+        db.Departamentos.AddRange(activo, inactivo);
+        await db.SaveChangesAsync();
+        var port = new DependenciaRevisoraReadPortAdapter(db);
+        (await port.ListarAsync(default)).Should().ContainSingle(d => d.Id == activo.Id && d.Nombre == "Mantenimiento");
+        (await port.ObtenerAsync(Guid.NewGuid(), default)).Should().BeNull();
+        (await port.ObtenerAsync(inactivo.Id, default))!.Activa.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task PuestoAdapter_Obtener_mapea_codigo_y_activo()
     {
         await using var db = NewDb();

@@ -238,7 +238,7 @@ describe('<EmitirFacturaForm> — smoke (FAC-UX-PR2/PR3)', () => {
     // No hay inputs de captura del receptor para nadie: el resumen de
     // solo lectura marca lo que falta en el master.
     expect(screen.queryByText('RFC receptor')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Falta en el master').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Falta en el catálogo').length).toBeGreaterThan(0);
     // El CTA al catálogo lo controla el permiso — sin él no aparece.
     expect(screen.queryByText(/Corregir en catálogo/i)).not.toBeInTheDocument();
     expect(

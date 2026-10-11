@@ -101,7 +101,7 @@ public sealed class SaldosP4Tests
         (await lector.Handle(new(Guid.NewGuid()),default)).Should().Be("FANT");
     }
     private static Anticipo NuevoAnticipo(P8Fixture a,string moneda="MXN")=>Anticipo.Capturar(a.Current!.Value,null,Guid.NewGuid().ToString(),a.Proveedor,"FANT","FIX",a.UtcNow,moneda,null,100,null,null,a.UtcNow);
-    private static Cargo NuevoCargo(P8Fixture a,Guid f,decimal monto) { var n=Cargo.Crear(a.Current!.Value,FolioInternoNotaCargo.FromAnioSecuencial(2026,1),a.Proveedor,a.Sucursal,"FIX",null,monto,"MXN",null,f,null,null,a.UtcNow); n.Autorizar(null,a.UtcNow); return n; }
+    private static Cargo NuevoCargo(P8Fixture a,Guid f,decimal monto) { var n=Cargo.Crear(a.Current!.Value,FolioInternoNotaCargo.FromAnioSecuencial(2026,1),a.Proveedor,a.Sucursal,"FIX",null,monto,"MXN",null,f,null,null,a.UtcNow); n.Autorizar(Guid.NewGuid(),a.UtcNow); return n; }
     private static Nc NuevaNc(P8Fixture a,Guid? f,decimal monto)=>Nc.Capturar(a.Current!.Value,null,Guid.NewGuid().ToString(),a.Proveedor,"FIX",null,a.UtcNow,"MXN",null,monto,0,0,monto,TipoNotaCredito.Devolucion,TipoRelacionCfdi.Devolucion,Guid.NewGuid().ToString(),f,null,a.UtcNow);
     private sealed class Eventos:IIntegrationEventPublisher { public List<object> Items{get;}=[]; public Task PublishAsync(object e,CancellationToken ct=default){Items.Add(e);return Task.CompletedTask;} }
     private sealed class Notificaciones:IPublisher { public Task Publish(object e,CancellationToken ct=default)=>Task.CompletedTask; public Task Publish<T>(T e,CancellationToken ct=default) where T:INotification=>Task.CompletedTask; }

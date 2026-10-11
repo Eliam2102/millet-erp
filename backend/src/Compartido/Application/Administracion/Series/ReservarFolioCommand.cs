@@ -125,10 +125,9 @@ public sealed class ReservarFolioHandler
         {
             throw new BusinessRuleException(
                 "SERIE_NO_CONFIGURADA",
-                $"No existe una serie activa para EmpresaId={command.EmpresaId}, " +
-                $"SucursalId={command.SucursalId?.ToString() ?? "null"}, " +
-                $"TipoDocumento={command.TipoDocumento}. " +
-                "Configúrala en Administración → Series.");
+                command.TipoDocumento == TipoDocumentoSerie.FacturaAnticipo
+                    ? "Configura una serie activa FANT para facturas de anticipo en Administración → Series, para la sucursal emisora."
+                    : "Configura una serie activa para este documento y la sucursal emisora en Administración → Series.");
         }
 
         if (Serie.EsFiscal(serie.TipoDocumento) && serie.ReinicioPeriodo != ReinicioPeriodo.None)

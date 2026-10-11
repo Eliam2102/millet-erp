@@ -38,7 +38,7 @@ public sealed class NotaCargoSucursalNullableTests
     public void Ciclo_completo_funciona_con_sucursal_nula()
     {
         var n = CrearSinSucursal();
-        n.Autorizar(usuarioId: null, DateTimeOffset.UtcNow);
+        n.Autorizar(usuarioId: Guid.NewGuid(), DateTimeOffset.UtcNow);
         n.Aplicar(usuarioId: null, DateTimeOffset.UtcNow);
         n.Formalizar(notaCreditoProveedorId: Guid.NewGuid(), DateTimeOffset.UtcNow);
         n.Estado.Should().Be(EstadoNotaCargo.Formalizada);

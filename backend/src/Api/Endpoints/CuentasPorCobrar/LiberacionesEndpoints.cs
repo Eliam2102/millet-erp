@@ -95,6 +95,11 @@ public static class LiberacionesEndpoints
         .WithName("ListarAutorizacionesCredito")
         .Produces<PagedResponse<AutorizacionCreditoResponse>>(StatusCodes.Status200OK);
 
+        autorizaciones.MapGet("/beneficiarios", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarBeneficiariosCreditoQuery(), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorCobrarLiberacionOverride)
+            .WithName("ListarBeneficiariosCredito");
+
         autorizaciones.MapPost("/", async (
             [FromBody] CrearAutorizacionCreditoCommand command,
             IMediator mediator,

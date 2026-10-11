@@ -101,13 +101,15 @@ function Form({ onClose }: { onClose: () => void }) {
    */
   async function resolverProveedorPorRfc(rfcEmisor: string) {
     if (form.getValues('proveedorId')) return;
+    const cfdiId = form.getValues('cfdiRecibidoId');
     try {
       const matches = await fetchProveedoresPorRfc(rfcEmisor);
+      if (form.getValues('proveedorId') || cfdiId !== form.getValues('cfdiRecibidoId')) return;
       if (matches.length === 1) {
         form.setValue('proveedorId', matches[0].id, { shouldValidate: true });
-      } else if (matches.length === 0) {
+      } else {
         toast.info(
-          `Ningún proveedor activo con RFC ${rfcEmisor}; selecciónalo manualmente.`,
+          `No se encontró un proveedor único con RFC ${rfcEmisor}; selecciónalo manualmente.`,
         );
       }
     } catch {

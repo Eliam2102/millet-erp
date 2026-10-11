@@ -1,4 +1,5 @@
 using FluentValidation;
+using Millet.CuentasPorCobrar.Domain.Ports.DatosMaestros;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CuentasPorCobrar.Application.Common;
@@ -61,14 +62,15 @@ public sealed class CrearAutorizacionCreditoHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly IBeneficiarioCreditoReadPort _beneficiarios;
 
     public CrearAutorizacionCreditoHandler(
         CuentasPorCobrarDbContext db,
         ICurrentEmpresaContext currentEmpresa,
         ICurrentUserContext currentUser,
-        IClock clock)
+        IClock clock, IBeneficiarioCreditoReadPort beneficiarios)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clock = clock; _beneficiarios = beneficiarios;
     }
 
     public async Task<AutorizacionCreditoResponse> Handle(
@@ -80,6 +82,9 @@ public sealed class CrearAutorizacionCreditoHandler
         if (_currentUser.UserId is not Guid supervisorId)
             throw new ForbiddenException("USUARIO_NO_IDENTIFICADO",
                 "No se pudo identificar al supervisor.");
+
+        if (!await _beneficiarios.PuedeDecidirAsync(command.BeneficiarioUsuarioId, empresaId, cancellationToken))
+            throw new BusinessRuleException("AC_BENEFICIARIO_SIN_PERMISO", "El beneficiario debe tener permiso para decidir liberaciones en Crédito y Cobranza.");
 
         var autorizacion = AutorizacionCredito.Crear(
             empresaId: empresaId,
@@ -157,4 +162,12 @@ public sealed class ListarAutorizacionesCreditoHandler
             items.Select(AutorizacionCreditoMapper.ToResponse).ToList(),
             offset, limit, total);
     }
+}
+
+public sealed record ListarBeneficiariosCreditoQuery : IRequest<IReadOnlyList<BeneficiarioCreditoDto>>;
+public sealed class ListarBeneficiariosCreditoHandler(IBeneficiarioCreditoReadPort port, ICurrentEmpresaContext empresa)
+    : IRequestHandler<ListarBeneficiariosCreditoQuery, IReadOnlyList<BeneficiarioCreditoDto>>
+{
+    public Task<IReadOnlyList<BeneficiarioCreditoDto>> Handle(ListarBeneficiariosCreditoQuery query, CancellationToken cancellationToken) =>
+        port.ListarAsync(empresa.Current ?? throw new ForbiddenException("EMPRESA_NO_SELECCIONADA", "Selecciona una empresa."), cancellationToken);
 }

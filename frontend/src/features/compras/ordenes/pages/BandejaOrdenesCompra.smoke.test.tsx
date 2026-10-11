@@ -112,6 +112,12 @@ afterEach(() => {
 });
 
 describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
+  it('muestra el nombre de comprador enriquecido sin consultar el padrón', async () => {
+    mswServer.use(http.get('*/api/v1/compras/ordenes', () => HttpResponse.json({ items: [{ id: 'oc-prub', folio: 'OC-PRUB', estado: EstadoOrdenCompra.Borrador, proveedorId: 'prov', compradorTitularId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', compradorNombre: 'Carla Compras', fechaDocumento: '2026-10-10', moneda: 'MXN' }], page: 1, pageSize: 50, totalCount: 1 })));
+    renderConProvider(<BandejaOrdenesCompra />);
+    expect(await screen.findByText('Carla Compras')).toBeInTheDocument();
+    expect(screen.queryByText('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).not.toBeInTheDocument();
+  });
   it('estado loading: muestra el header sin truenos', () => {
     mswServer.use(
       http.get(

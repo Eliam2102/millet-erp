@@ -350,7 +350,7 @@ function useSeleccion<T>(inicial: readonly T[]) {
 
 function toastResultado(nombre: string) {
   return {
-    onSuccess: () => toast.success(`${nombre} actualizado.`),
+    onSuccess: () => toast.success(nombre.includes('alcance') ? 'Se actualizaron las sucursales de la caja.' : 'Se actualizaron los cajeros de la caja.'),
     onError: (error: unknown) =>
       toast.error(
         esApiError(error) ? error.problem.title : `No se pudo actualizar ${nombre}.`,

@@ -140,13 +140,12 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
             SelloCfdi: timbre.InvoiceBase64Sello,
             SelloSat: timbre.SatBase64Sello,
             NoCertificadoSat: timbre.SatCertificateNumber,
-            FechaTimbrado: new DateTimeOffset(timbre.InvoiceSignatureDate, TimeSpan.Zero),
+            FechaTimbrado: FechaTimbradoUtc(timbre.InvoiceSignatureDate),
             RfcProveedorCertificacion: null, // no viene en el envelope; el XML lo trae (TFD)
             XmlTimbrado: xml,
             ErrorCodigo: null,
             ErrorMensaje: null,
-            // Folio que FiscalAPI asignó al CFDI (consecutivo por RFC emisor;
-            // el atributo Folio del XML). El folio interno de Millet no viaja.
+            // Folio confirmado por el PAC; se envía el folio reservado de la serie del ERP.
             FolioPac: resp.Data.Number);
     }
 
@@ -243,6 +242,13 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
 
     // ───────────────────────── Mapeo CfdiEmision → Invoice ─────────────────────────
 
+    internal static DateTimeOffset FechaTimbradoUtc(DateTime fechaLocal)
+    {
+        var local = DateTime.SpecifyKind(fechaLocal, DateTimeKind.Unspecified);
+        var zona = TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City");
+        return new DateTimeOffset(local, zona.GetUtcOffset(local)).ToUniversalTime();
+    }
+
     internal static SdkModels.Invoice MapInvoice(CfdiEmision e, IReadOnlyDictionary<string, int>? precisiones = null)
     {
         var esConImporte = e.Tipo is TipoCfdi.Ingreso or TipoCfdi.Egreso;
@@ -251,11 +257,9 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
         {
             VersionCode = "4.0",
             Series = e.Serie,
-            // Number (Folio del CFDI) DEBE ir null: FiscalAPI lo calcula
-            // internamente (consecutivo por RFC emisor) y rechaza folios del
-            // cliente. El folio interno de Millet (e.Folio) queda como
-            // control en el comprobante; el del PAC regresa en la respuesta
-            // y se persiste como FolioPac.
+            // Number (Folio del CFDI) va null: FiscalAPI lo calcula (consecutivo por RFC emisor).
+            // PRU-B #18 (folio del XML = folio del ERP) queda pendiente de probarse en el sandbox
+            // antes de enviar el folio propio; ver docs/qa/PRU-B-observaciones-uziel-10oct.md.
             Number = null,
             Date = e.FechaLocal.DateTime, // ya convertida a America/Mexico_City por el builder
             TypeCode = e.Tipo switch

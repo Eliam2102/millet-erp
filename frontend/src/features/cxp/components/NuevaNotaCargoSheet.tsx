@@ -179,6 +179,7 @@ function Form({ onClose }: { onClose: () => void }) {
           name="facturaOrigenId"
           render={({ field }) => (
             <FacturaPicker
+                soloConSaldo
               value={field.value ?? null}
               onChange={(id) => field.onChange(id)}
               proveedorId={proveedorIdSel || null}

@@ -241,7 +241,7 @@ function Contenido({
         <Dato label="Moneda">{f.moneda}</Dato>
         <Dato label="Método de pago">{f.metodoPago ?? 'Por confirmar'}</Dato>
         <Dato label="Fecha de timbrado">
-          {f.fechaTimbrado ? new Date(f.fechaTimbrado).toLocaleString('es-MX') : '—'}
+          {f.fechaTimbrado ? new Date(f.fechaTimbrado).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : '—'}
         </Dato>
         <Dato label="Versión">{f.version}</Dato>
       </section>

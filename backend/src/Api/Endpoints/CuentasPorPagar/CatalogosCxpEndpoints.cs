@@ -36,6 +36,10 @@ public static class CatalogosCxpEndpoints
         .WithSummary("Catálogo de motivos de revisión (con SLA por motivo)")
         .Produces<IReadOnlyList<MotivoRevisionResponse>>(StatusCodes.Status200OK);
 
+        group.MapGet("/dependencias-revisoras", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarDependenciasRevisorasQuery(), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarFacturasLeer)
+            .WithName("ListarDependenciasRevisoras");
         return app;
     }
 }

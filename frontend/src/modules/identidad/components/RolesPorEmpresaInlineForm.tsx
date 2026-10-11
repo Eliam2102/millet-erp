@@ -203,6 +203,7 @@ function FormReady({
     >
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
         <Field
+          id="asignar-empresa"
           label="Empresa"
           required
           error={form.formState.errors.empresaId?.message}
@@ -219,7 +220,7 @@ function FormReady({
                 }
                 disabled={isPending}
               >
-                <SelectTrigger>
+                <SelectTrigger id="asignar-empresa">
                   <SelectValue placeholder="Selecciona empresa" />
                 </SelectTrigger>
                 <SelectContent>
@@ -238,6 +239,7 @@ function FormReady({
         </Field>
 
         <Field
+          id="asignar-rol"
           label="Rol"
           required
           error={form.formState.errors.rolId?.message}
@@ -254,16 +256,13 @@ function FormReady({
                 }
                 disabled={isPending}
               >
-                <SelectTrigger>
+                <SelectTrigger id="asignar-rol">
                   <SelectValue placeholder="Selecciona rol" />
                 </SelectTrigger>
                 <SelectContent>
                   {roles.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      <span className="font-mono text-xs">{r.codigo}</span>
-                      <span className="ml-2 text-muted-foreground">
-                        {r.nombre}
-                      </span>
+                      {r.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -304,6 +303,7 @@ function FormReady({
 }
 
 interface FieldProps {
+  id: string;
   label: string;
   required?: boolean;
   error?: string;
@@ -311,10 +311,10 @@ interface FieldProps {
   children: React.ReactNode;
 }
 
-function Field({ label, required, error, className, children }: FieldProps) {
+function Field({ id, label, required, error, className, children }: FieldProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label htmlFor={id} className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
         {label}
         {required && (
           <span aria-hidden="true" className="text-rose-600">
