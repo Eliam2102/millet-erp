@@ -124,7 +124,7 @@ public sealed class RegistrarPagoProveedorHandler
             ?? throw new EntityNotFoundException("CTA_NO_ENCONTRADA",
                 $"No se encontró la cuenta bancaria '{command.CuentaBancariaId}'.");
 
-        // RN-8: candado de período (stub hoy).
+        // RN-8: candado real de Contabilidad.
         if (command.ConceptoId is Guid conceptoId && !await _db.ConceptosMovimiento.AnyAsync(c => c.Id == conceptoId && c.Activo, cancellationToken))
             throw new BusinessRuleException("MOV_CONCEPTO_INVALIDO", "Selecciona un concepto activo.");
 

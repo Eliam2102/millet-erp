@@ -54,6 +54,7 @@ public sealed class ReintentarTimbradoHandler
     private readonly IContabilidadAsientoPort _contabilidad;
     private readonly IClock _clock;
     private readonly IProductosReadPort? _productos;
+    private readonly IEmpresaFiscalReadPort? _empresaFiscal;
 
     public ReintentarTimbradoHandler(
         FacturacionDbContext db,
@@ -66,7 +67,7 @@ public sealed class ReintentarTimbradoHandler
         IClock clock, ValidadorReceptorFiscal receptorFiscal,
         // U1.6: tipo A+W de las líneas en el evento contable; opcional para no
         // romper composiciones existentes (sin puerto, TipoProducto = null).
-        IProductosReadPort? productos = null)
+        IProductosReadPort? productos = null, IEmpresaFiscalReadPort? empresaFiscal = null)
     {
         _receptorFiscal = receptorFiscal;
         _db = db;
@@ -78,6 +79,7 @@ public sealed class ReintentarTimbradoHandler
         _contabilidad = contabilidad;
         _clock = clock;
         _productos = productos;
+        _empresaFiscal = empresaFiscal;
     }
 
     public async Task<ReintentarTimbradoResponse> Handle(
@@ -113,6 +115,18 @@ public sealed class ReintentarTimbradoHandler
                 "PERIODO_CERRADO",
                 $"El período contable {ahora.Year}-{ahora.Month:D2} está cerrado; no se puede timbrar.");
 
+        if (comprobante is ReciboPago recibo)
+        {
+            var fechaPagoFiscal = CfdiEmisionBuilder.FechaFiscal(recibo.FechaPago);
+            if (!await _periodo.EstaAbiertoAsync(fechaPagoFiscal.Year, fechaPagoFiscal.Month, ct))
+                throw new BusinessRuleException("PERIODO_CERRADO", $"El período {fechaPagoFiscal.Year}/{fechaPagoFiscal.Month:D2} está cerrado.");
+        }
+        if (_empresaFiscal is not null)
+        {
+            var emisor = await _empresaFiscal.ObtenerEmisorAsync(comprobante.EmpresaId, comprobante.SucursalId, ct)
+                ?? throw new BusinessRuleException("EMISOR_NO_DISPONIBLE", "Revisa los datos fiscales de la empresa y que la sucursal emisora esté activa.");
+            comprobante.ActualizarEmisorParaReintento(emisor);
+        }
         await _receptorFiscal.ValidarComprobanteAsync(comprobante, ct);
         comprobante.ReabrirParaReintentoTimbrado();
 

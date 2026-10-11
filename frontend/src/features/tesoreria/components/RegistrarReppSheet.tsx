@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/auth/api-client';
-import { hoyLocalISO } from '@/lib/datetime';
+import { hoyLocalISO, fechaLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Upload } from 'lucide-react';
@@ -109,10 +109,10 @@ function ReppForm({
     setCfdiSel(cfdi);
     if (cfdi != null) {
       setUuid(cfdi.uuidCfdi);
-      setFecha(cfdi.fechaCfdi.slice(0, 10));
+      setFecha(fechaLocalISO(cfdi.fechaCfdi));
       setCargandoXml(true);
       try {
-        const response = await apiFetch(`/api/v1/cuentas-por-pagar/cfdis/${cfdi.id}/xml`);
+        const response = await apiFetch(`/api/v1/tesoreria/cfdis-repp/${cfdi.id}/xml?facturaProveedorId=${pendiente.facturaProveedorId}`);
         if (!response.ok) throw new Error('No se pudo leer el XML.');
         const bytes = new Uint8Array(await response.arrayBuffer());
         setXmlBase64(btoa(Array.from(bytes, b => String.fromCharCode(b)).join('')));
@@ -141,7 +141,7 @@ function ReppForm({
         onSuccess: () => {
           toast.success('REPP registrado', {
             description:
-              'El complemento validado cubre este pago. CxP liberará FALTA_REPP cuando estén cubiertos los pagos pendientes.',
+              'El complemento validado cubre este pago. Cuentas por Pagar actualizará la factura cuando estén cubiertos los pagos pendientes.',
           });
           onClose();
         },
@@ -152,7 +152,7 @@ function ReppForm({
               : 'No se pudo registrar el REPP',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? 'Revisa el XML y los pagos seleccionados antes de reintentar.')
                 : undefined,
             },
           );
@@ -170,6 +170,7 @@ function ReppForm({
         <div className="flex gap-2">
           <CfdiPorProcesarPicker
             tipo={TipoCfdi.Pago}
+            facturaReppTesoreriaId={pendiente.facturaProveedorId}
             value={cfdiSel?.id ?? null}
             onSelect={vincular}
             placeholder="Vincular complemento de pago…"

@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Millet.Integraciones.Fiscal.UnitTests" />
+    <InternalsVisibleTo Include="Millet.Api.UnitTests" />
+    <InternalsVisibleTo Include="Millet.Api.IntegrationTests" />
     <InternalsVisibleTo Include="Millet.Integraciones.Fiscal.IntegrationTests" />
   </ItemGroup>
 

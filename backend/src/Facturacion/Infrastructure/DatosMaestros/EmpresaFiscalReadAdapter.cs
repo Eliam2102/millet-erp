@@ -27,6 +27,17 @@ public sealed class EmpresaFiscalReadAdapter : IEmpresaFiscalReadPort
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<Domain.Comprobantes.DatosFiscalesEmisor?> ObtenerEmisorAsync(Guid empresaId, Guid sucursalId, CancellationToken ct)
+    {
+        var empresa = await ObtenerAsync(empresaId, ct);
+        var sucursal = await _db.Sucursales.AsNoTracking()
+            .Where(s => s.Id == sucursalId && s.EmpresaId == empresaId && s.Estatus == EstatusCatalogo.Activo)
+            .Select(s => s.CodigoPostal).SingleOrDefaultAsync(ct);
+        if (empresa is null || sucursal is null) return null;
+        // Misma regla fiscal de emisión: CP fiscal de la empresa (F12-PR1).
+        return new(empresa.Rfc, empresa.RazonSocial, empresa.RegimenFiscal, empresa.CodigoPostal ?? "");
+    }
+
     public async Task<Guid?> ObtenerSucursalUnicaActivaAsync(CancellationToken cancellationToken)
     {
         var ids = await _db.Sucursales.AsNoTracking()

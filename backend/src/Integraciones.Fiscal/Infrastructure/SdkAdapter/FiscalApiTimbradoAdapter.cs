@@ -1,4 +1,5 @@
 using System.Text;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Millet.Integraciones.Fiscal.Domain;
@@ -34,15 +35,16 @@ namespace Millet.Integraciones.Fiscal.Infrastructure.SdkAdapter;
 public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
 {
     private readonly IFiscalApiSdkClientFactory _factory;
+    private readonly IMonedaPrecisionReadPort? _monedas;
     private readonly IConfiguracionPacResolver _configResolver;
     private readonly ILogger<FiscalApiTimbradoAdapter> _logger;
 
     public FiscalApiTimbradoAdapter(
         IFiscalApiSdkClientFactory factory,
         IConfiguracionPacResolver configResolver,
-        ILogger<FiscalApiTimbradoAdapter> logger)
+        ILogger<FiscalApiTimbradoAdapter> logger, IMonedaPrecisionReadPort? monedas = null)
     {
-        _factory = factory;
+        _factory = factory; _monedas = monedas;
         _configResolver = configResolver;
         _logger = logger;
     }
@@ -69,7 +71,10 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
         }
 
         emision = SustituirIdentidadesSandbox(emision, config);
-        var invoice = MapInvoice(emision);
+        IReadOnlyDictionary<string, int>? precisiones = null;
+        if (emision.ComplementoPago is { } pago && _monedas is not null)
+            precisiones = await _monedas.ObtenerAsync(pago.Documentos.Select(d => d.Moneda).Append(pago.Moneda).Distinct().ToArray(), cancellationToken);
+        var invoice = MapInvoice(emision, precisiones);
         invoice.Issuer.TaxCredentials =
         [
             new SdkModels.TaxCredential
@@ -238,7 +243,7 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
 
     // ───────────────────────── Mapeo CfdiEmision → Invoice ─────────────────────────
 
-    internal static SdkModels.Invoice MapInvoice(CfdiEmision e)
+    internal static SdkModels.Invoice MapInvoice(CfdiEmision e, IReadOnlyDictionary<string, int>? precisiones = null)
     {
         var esConImporte = e.Tipo is TipoCfdi.Ingreso or TipoCfdi.Egreso;
 
@@ -290,7 +295,7 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
             // El complemento Pago 2.0 viaja en Complement.Payment (singular) —
             // ver MapComplement. Invoice.Payments (plural) es del lado respuesta
             // y el endpoint /api/v4/invoices NO lo lee al construir el CFDI.
-            Complement = MapComplement(e),
+            Complement = MapComplement(e, precisiones),
         };
     }
 
@@ -302,14 +307,14 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
     /// for invoice request" (P9-H2). Si un CFDI trajera varios complementos, se
     /// componen en el mismo nodo.
     /// </summary>
-    private static SdkModels.Complement? MapComplement(CfdiEmision e)
+    private static SdkModels.Complement? MapComplement(CfdiEmision e, IReadOnlyDictionary<string, int>? precisiones)
     {
         if (e.ComplementoPago is null && e.ComplementoCce is null && e.ComplementoCartaPorte is null)
             return null;
 
         return new SdkModels.Complement
         {
-            Payment = e.ComplementoPago is null ? null : MapPayment(e.ComplementoPago),
+            Payment = e.ComplementoPago is null ? null : MapPayment(e.ComplementoPago, precisiones),
             ComercioExterior = e.ComplementoCce is null ? null : MapComercioExterior(e.ComplementoCce),
             CartaPorte = e.ComplementoCartaPorte is null ? null : MapCartaPorte(e.ComplementoCartaPorte),
         };
@@ -495,45 +500,55 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
     internal static decimal TasaCatalogoSat(decimal tasa) =>
         Math.Round(tasa, 6) + 0.000000m;
 
-    private static SdkModels.InvoicePayment MapPayment(ComplementoPagoCfdi p) => new()
+    internal static decimal ImporteMoneda(decimal importe, string moneda, IReadOnlyDictionary<string, int>? precisiones = null)
     {
-        PaymentDate = p.FechaPago.DateTime,
-        PaymentFormCode = p.FormaPago,
-        CurrencyCode = p.Moneda,
-        ExchangeRate = p.TipoCambio ?? 1m,
-        Amount = p.Monto,
-        OperationNumber = p.ReferenciaPago,
-        SourceBankAccount = p.CuentaOrdenante,
-        TargetBankAccount = p.CuentaBeneficiaria,
-        PaidInvoices = p.Documentos.Select(d => new SdkModels.PaidInvoice
+        // Los valores por omisión conservan los tests de mapping sin catálogo; el runtime siempre usa el puerto registrado.
+        var decimales = precisiones is null ? moneda.ToUpperInvariant() switch { "MXN" or "USD" or "EUR" => 2, "JPY" => 0, _ => -1 }
+            : precisiones.TryGetValue(moneda, out var d) ? d : -1;
+        if (decimales is < 0 or > 6)
+            throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("REPP_MONEDA_PRECISION", "Configura los decimales de la moneda del pago en el catálogo de monedas.");
+        return decimal.Parse(Math.Round(importe, decimales, MidpointRounding.AwayFromZero)
+            .ToString($"F{decimales}", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+    }
+
+    private static SdkModels.InvoicePayment MapPayment(ComplementoPagoCfdi p, IReadOnlyDictionary<string, int>? precisiones)
+    {
+        var documentos = p.Documentos.Select(d => new SdkModels.PaidInvoice
         {
-            Uuid = d.FacturaUuid,
-            Series = d.Serie,
-            Number = d.Folio,
-            CurrencyCode = d.Moneda,
+            Uuid = d.FacturaUuid, Series = d.Serie, Number = d.Folio, CurrencyCode = d.Moneda,
             PartialityNumber = d.NumParcialidad,
-            PreviousBalance = d.SaldoAnterior,
-            PaymentAmount = d.ImportePagado,
-            RemainingBalance = d.SaldoInsoluto,
-            // ObjetoImpDR de la factura pagada. "02" (sí objeto) exige el
-            // desglose ImpuestosDR (base/tasa) prorrateado al pago; sin él
-            // FiscalAPI rechaza. Base y tasa vienen ya calculados por Facturación.
-            TaxObjectCode = d.ObjetoImpDR,
-            Equivalence = d.Equivalencia,
-            Subtotal = d.Subtotal,
-            PaidInvoiceTaxes = d.Impuestos is null or { Count: 0 }
-                ? null
-                : d.Impuestos.Select(i => new SdkModels.PaidInvoiceTax
-                {
-                    Base = i.BaseDR,
-                    TaxCode = i.Impuesto,
-                    TaxTypeCode = i.TipoFactor,
-                    TaxRate = TasaCatalogoSat(i.TasaOCuota),
-                    // c_TipoImpuesto: T = traslado, R = retención.
-                    TaxFlagCode = i.EsRetencion ? "R" : "T",
-                }).ToList(),
-        }).ToList(),
-    };
+            PreviousBalance = ImporteMoneda(d.SaldoAnterior, d.Moneda, precisiones),
+            PaymentAmount = ImporteMoneda(d.ImportePagado, d.Moneda, precisiones),
+            TaxObjectCode = d.ObjetoImpDR, Equivalence = d.Equivalencia, Subtotal = d.Subtotal,
+            PaidInvoiceTaxes = d.Impuestos is null or { Count: 0 } ? null : d.Impuestos.Select(i => new SdkModels.PaidInvoiceTax
+            {
+                Base = i.BaseDR, TaxCode = i.Impuesto, TaxTypeCode = i.TipoFactor,
+                TaxRate = TasaCatalogoSat(i.TasaOCuota), TaxFlagCode = i.EsRetencion ? "R" : "T",
+            }).ToList(),
+        }).ToList();
+        var monto = ImporteMoneda(p.Monto, p.Moneda, precisiones);
+        // Una división en varios documentos puede dejar un centavo por distribuir.
+        // Asignarlo a un documento con capacidad conserva monto total y saldos no negativos.
+        if (documentos.Count > 0 && p.Documentos.All(d => string.Equals(d.Moneda, p.Moneda, StringComparison.OrdinalIgnoreCase)))
+        {
+            var diferencia = monto - documentos.Sum(d => d.PaymentAmount);
+            foreach (var d in documentos.AsEnumerable().Reverse())
+            {
+                if (diferencia == 0) break;
+                var ajuste = diferencia > 0 ? Math.Min(diferencia, d.PreviousBalance - d.PaymentAmount) : -Math.Min(-diferencia, d.PaymentAmount);
+                d.PaymentAmount += ajuste; diferencia -= ajuste;
+            }
+            if (diferencia != 0)
+                throw new Millet.SharedKernel.Application.Exceptions.BusinessRuleException("REPP_REDONDEO_INVALIDO", "Los importes del pago no cuadran con los saldos de las facturas. Revisa la relación antes de emitir.");
+        }
+        foreach (var d in documentos) d.RemainingBalance = d.PreviousBalance - d.PaymentAmount;
+        return new SdkModels.InvoicePayment
+        {
+            PaymentDate = p.FechaPago.DateTime, PaymentFormCode = p.FormaPago, CurrencyCode = p.Moneda,
+            ExchangeRate = p.TipoCambio ?? 1m, Amount = monto, OperationNumber = p.ReferenciaPago,
+            SourceBankAccount = p.CuentaOrdenante, TargetBankAccount = p.CuentaBeneficiaria, PaidInvoices = documentos,
+        };
+    }
 
     // ───────────────────────── Identidades sandbox ─────────────────────────
 

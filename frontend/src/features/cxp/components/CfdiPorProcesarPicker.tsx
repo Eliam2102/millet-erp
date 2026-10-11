@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +52,7 @@ export interface CfdiPorProcesarPickerProps {
   rfcEmisor?: string;
   /** Tipo de comprobante SAT a filtrar. Default: Ingreso. */
   tipo?: TipoCfdi;
+  facturaReppTesoreriaId?: string;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -60,18 +63,28 @@ export function CfdiPorProcesarPicker({
   onSelect,
   rfcEmisor,
   tipo = TipoCfdi.Ingreso,
+  facturaReppTesoreriaId,
   placeholder = 'Vincular CFDI recibido…',
   disabled,
   className,
 }: CfdiPorProcesarPickerProps) {
   const [open, setOpen] = useState(false);
 
-  const query = useCfdis({
+  const generales = useCfdis({
     estado: EstadoCfdiRecibido.PorProcesar,
     tipo,
     rfcEmisor,
     limit: 200,
+  }, !facturaReppTesoreriaId);
+  const tesoreria = useQuery({
+    queryKey: ['tesoreria', 'cfdis-repp', facturaReppTesoreriaId],
+    enabled: !!facturaReppTesoreriaId,
+    queryFn: async () => {
+      const { data } = await apiRequest<CfdiListItem[]>(`/api/v1/tesoreria/cfdis-repp?facturaProveedorId=${facturaReppTesoreriaId}`);
+      return { items: data };
+    },
   });
+  const query = facturaReppTesoreriaId ? tesoreria : generales;
 
   const items = query.data?.items ?? [];
   const seleccionado = value ? items.find((c) => c.id === value) : undefined;
@@ -129,8 +142,7 @@ export function CfdiPorProcesarPicker({
                  CFDIs") y nadie sospechaba del permiso faltante. */
               <div className="px-4 py-6 text-sm text-muted-foreground" role="alert">
                 {esApiError(query.error) && query.error.status === 403
-                  ? 'Sin permiso para consultar el repositorio de CFDIs ' +
-                    '(cuentas_por_pagar.cfdis.leer). Pídelo al administrador.'
+                  ? 'No tienes acceso a estos comprobantes. Revisa tus permisos y sucursales con el administrador.'
                   : 'No se pudo consultar el repositorio de CFDIs. Reintenta más tarde.'}
               </div>
             ) : (

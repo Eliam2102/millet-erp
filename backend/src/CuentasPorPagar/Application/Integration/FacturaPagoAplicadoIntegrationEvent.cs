@@ -34,5 +34,5 @@ public sealed record FacturaPagoAplicadoIntegrationEvent(
     Guid FacturaProveedorId,
     Guid OrdenCompraId,
     decimal ImportePagadoFactura,
-    decimal MontoPagadoAcumuladoOc)
+    decimal MontoPagadoAcumuladoOc, Guid? AplicacionId = null)
     : IntegrationEvent("cuentas_por_pagar.factura.pago-aplicado.v1", EmpresaId, OcurridoEn);

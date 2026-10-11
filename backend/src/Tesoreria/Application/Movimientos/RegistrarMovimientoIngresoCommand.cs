@@ -23,7 +23,8 @@ public sealed record RegistrarMovimientoIngresoCommand(
     string? ReferenciaBancaria = null,
     Guid? ConceptoId = null,
     BeneficiarioTipo? BeneficiarioTipo = null,
-    Guid? BeneficiarioRef = null) : IRequest<MovimientoBancarioResponse>;
+    Guid? BeneficiarioRef = null,
+    Guid? SucursalId = null) : IRequest<MovimientoBancarioResponse>;
 
 public sealed class RegistrarMovimientoIngresoValidator : AbstractValidator<RegistrarMovimientoIngresoCommand>
 {
@@ -64,6 +65,14 @@ public sealed class RegistrarMovimientoIngresoHandler
     public async Task<MovimientoBancarioResponse> Handle(
         RegistrarMovimientoIngresoCommand command, CancellationToken cancellationToken)
     {
+        var movimiento = await CrearAsync(command, cancellationToken);
+        _db.MovimientosBancarios.Add(movimiento);
+        await _db.SaveChangesAsync(cancellationToken);
+        return MovimientoBancarioMapper.ToResponse(movimiento);
+    }
+
+    public async Task<MovimientoBancario> CrearAsync(RegistrarMovimientoIngresoCommand command, CancellationToken cancellationToken)
+    {
         if (_currentEmpresa.Current is not Guid empresaId)
             throw new ForbiddenException("EMPRESA_NO_SELECCIONADA",
                 "El usuario no tiene una empresa seleccionada.");
@@ -85,8 +94,7 @@ public sealed class RegistrarMovimientoIngresoHandler
                     $"El concepto '{conceptoId}' no existe o está inactivo.");
         }
 
-        // RN-8: registro bloqueado en período cerrado (stub siempre-abierto
-        // hasta Contabilidad — PLATFORM-TODO(<PeriodoContableCerrado>)).
+        // RN-8: registro bloqueado por el estado real de Contabilidad.
         var abierto = await _periodoContable.EstaAbiertoAsync(
             command.FechaValor.Year, command.FechaValor.Month, cancellationToken);
         if (!abierto)
@@ -103,11 +111,8 @@ public sealed class RegistrarMovimientoIngresoHandler
             beneficiarioTipo: command.BeneficiarioTipo,
             beneficiarioRef: command.BeneficiarioRef,
             creadoPor: usuarioId,
-            ahora: _clock.UtcNow);
+            ahora: _clock.UtcNow, sucursalId: command.SucursalId);
 
-        _db.MovimientosBancarios.Add(movimiento);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return MovimientoBancarioMapper.ToResponse(movimiento);
+        return movimiento;
     }
 }

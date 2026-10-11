@@ -105,13 +105,26 @@ public sealed class DemoSesionSeedTests
                 identidad.Usuarios.Add(new Usuario(DemoSesionSeedHostedService.Id("DEMO-USUARIO-FIXTURE"),
                     Guid.NewGuid().ToString(), "compras-demo@example.invalid", "DEMO Compras", esCuentaTecnica: true));
                 await identidad.SaveChangesAsync();
+                var maestrosEditados = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                var empresaEditada = await maestrosEditados.Empresas.SingleAsync();
+                empresaEditada.ActualizarDatos(razonSocial: "ESCUELA KEMPER URGATE");
+                await maestrosEditados.SaveChangesAsync();
+                var rolTesoreria = await identidad.Roles.SingleAsync(r => r.Codigo == "DEMO-ROL-Tesorería");
+                var permisoAgregado = PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales);
+                identidad.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rolTesoreria.Id, permisoAgregado.Id));
+                // También conserva una revocación manual.
+                await identidad.RolPermisos.Where(r => r.RolId == rolTesoreria.Id && r.PermisoId == PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaMovimientosRegistrar).Id).ExecuteDeleteAsync();
+                await identidad.SaveChangesAsync();
             }
             await using (var factory = CrearFactory(demo.ConnectionString, blobs))
             {
-                Assert.Equal(primera, await VerificarAsync(factory));
+                Assert.Equal(primera, await VerificarAsync(factory, "ESCUELA KEMPER URGATE"));
                 using var scope = factory.Services.CreateScope();
                 using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
                 var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+                var tesoreriaRol = await identidad.Roles.SingleAsync(r => r.Codigo == "DEMO-ROL-Tesorería");
+                Assert.True(await identidad.RolPermisos.AnyAsync(r => r.RolId == tesoreriaRol.Id && r.PermisoId == PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales).Id));
+                Assert.False(await identidad.RolPermisos.AnyAsync(r => r.RolId == tesoreriaRol.Id && r.PermisoId == PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaMovimientosRegistrar).Id));
                 var id = DemoSesionSeedHostedService.Id("DEMO-USUARIO-FIXTURE");
                 var asignacion = await identidad.UsuarioEmpresaRoles.SingleAsync(a => a.UsuarioId == id);
                 Assert.Equal(DemoSesionSeedHostedService.Id("DEMO-ROL-Compras"), asignacion.RolId);
@@ -195,7 +208,7 @@ public sealed class DemoSesionSeedTests
             });
         });
 
-    private static async Task<Snapshot> VerificarAsync(WebApplicationFactory<Program> factory)
+    private static async Task<Snapshot> VerificarAsync(WebApplicationFactory<Program> factory, string razonSocial = "MILLET INDUSTRIA DE VIDRIO (DEMO)")
     {
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -205,7 +218,7 @@ public sealed class DemoSesionSeedTests
         var facturacion = scope.ServiceProvider.GetRequiredService<FacturacionDbContext>();
         var tesoreria = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
         var empresa = Assert.Single(await maestros.Empresas.ToListAsync());
-        Assert.Equal("MILLET INDUSTRIA DE VIDRIO (DEMO)", empresa.RazonSocial);
+        Assert.Equal(razonSocial, empresa.RazonSocial);
         Assert.Equal("42501", empresa.CodigoPostal);
         Assert.Equal("601", empresa.RegimenFiscal);
         Assert.False(await maestros.Articulos.AnyAsync(a => a.Clave.StartsWith("ART-TEST-")));
@@ -263,7 +276,12 @@ public sealed class DemoSesionSeedTests
         }
         var periodos = await contabilidad.Periodos.Where(p => p.Anio == 2026).ToListAsync();
         Assert.Equal(13, periodos.Count);
-        Assert.All(periodos.Where(p => p.Numero <= 9), p => Assert.Equal(EstadoPeriodo.Cerrado, p.Estado));
+        Assert.All(periodos.Where(p => p.Numero <= 9), p =>
+        {
+            Assert.Equal(EstadoPeriodo.Cerrado, p.Estado);
+            Assert.NotNull(p.CerradoEn);
+            Assert.True(p.CerradoEn <= DateTimeOffset.UtcNow, "El cierre del sembrador no debe tener una fecha futura.");
+        });
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));

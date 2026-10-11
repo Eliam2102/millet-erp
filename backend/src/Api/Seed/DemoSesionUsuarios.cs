@@ -59,11 +59,10 @@ public sealed partial class DemoSesionSeedHostedService
                 rol = new Rol(Id(codigo), codigo, "DEMO " + nombre, descripcion: "Perfil ficticio de la sesión del 12-oct.");
                 db.Roles.Add(rol);
             }
-            var permisos = PermisosCanonicos.Todos.Where(p => PermisoDelRol(nombre, p.Codigo)).Select(p => p.Id).ToHashSet();
-            var actuales = await db.RolPermisos.Where(p => p.RolId == rol.Id).ToListAsync(ct);
-            db.RolPermisos.RemoveRange(actuales.Where(p => !permisos.Contains(p.PermisoId)));
-            foreach (var permiso in permisos.Except(actuales.Select(p => p.PermisoId)))
-                db.RolPermisos.Add(new RolPermiso(Id($"{codigo}/{permiso}"), rol.Id, permiso));
+            // Los permisos iniciales se crean junto al rol; los cambios del administrador se conservan.
+            if (db.Entry(rol).State == EntityState.Added)
+                foreach (var permiso in PermisosCanonicos.Todos.Where(p => PermisoDelRol(nombre, p.Codigo)))
+                    db.RolPermisos.Add(new RolPermiso(Id($"{codigo}/{permiso.Id}"), rol.Id, permiso.Id));
         }
         await db.SaveChangesAsync(ct);
 
@@ -104,23 +103,16 @@ public sealed partial class DemoSesionSeedHostedService
                 throw new InvalidOperationException($"DEMO: {entrada.Correo} debe ser un usuario activo con identidad resuelta.");
             var rolId = Id("DEMO-ROL-" + entrada.Rol);
             var asignaciones = await db.UsuarioEmpresaRoles.Where(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId).ToListAsync(ct);
-            // Configuración autoritativa para estas cuentas DEMO: evita conservar
-            // super-admin y que la escena de rechazo de MTY produzca un falso éxito.
-            db.UsuarioEmpresaRoles.RemoveRange(asignaciones.Where(a => a.RolId != rolId));
-            if (!asignaciones.Any(a => a.RolId == rolId))
+            // Solo completa identidades sin configuración; nunca restablece roles, overrides o alcance editados.
+            if (asignaciones.Count == 0)
                 db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{usuario.Id}/{rolId}"), usuario.Id, EmpresaId, rolId));
-            db.UsuarioPermisoOverrides.RemoveRange(await db.UsuarioPermisoOverrides
-                .Where(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId).ToListAsync(ct));
-            var deseadas = entrada.Sucursales.Select(clave => sucursales.TryGetValue(clave, out var s)
-                ? s.Id : throw new InvalidOperationException($"DEMO: falta la sucursal canónica {clave}.")).ToHashSet();
-            var alcances = await db.UsuarioSucursales.Where(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId).ToListAsync(ct);
-            foreach (var alcance in alcances)
-            {
-                if (deseadas.Contains(alcance.SucursalId)) alcance.Activar();
-                else alcance.Desactivar();
-            }
-            foreach (var sucursalId in deseadas.Except(alcances.Select(a => a.SucursalId)))
-                db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{usuario.Id}/{sucursalId}"), usuario.Id, sucursalId, EmpresaId));
+            if (!await db.UsuarioSucursales.AnyAsync(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId, ct))
+                foreach (var clave in entrada.Sucursales)
+                {
+                    var sucursalId = sucursales.TryGetValue(clave, out var sucursal) ? sucursal.Id
+                        : throw new InvalidOperationException($"DEMO: falta la sucursal canónica {clave}.");
+                    db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{usuario.Id}/{sucursalId}"), usuario.Id, sucursalId, EmpresaId));
+                }
             await db.SaveChangesAsync(ct);
         }
     }

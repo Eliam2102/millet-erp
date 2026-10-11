@@ -116,6 +116,29 @@ public sealed class ReintentarTimbradoHandlerTests
             new FakeCfdiRepositorioPort(), eventos ?? new FakeIntegrationEventPublisher(),
             contabilidad ?? new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
 
+    private sealed class EmisorCorregido : Millet.Facturacion.Domain.Ports.IEmpresaFiscalReadPort
+    {
+        public Task<Millet.Facturacion.Domain.Ports.EmpresaFiscalLectura?> ObtenerAsync(Guid id, CancellationToken ct) =>
+            Task.FromResult<Millet.Facturacion.Domain.Ports.EmpresaFiscalLectura?>(new(id, "EKU9003173C9", "ESCUELA KEMPER URGATE", "601", .16m, "42501"));
+        public Task<Guid?> ObtenerSucursalUnicaActivaAsync(CancellationToken ct) => Task.FromResult<Guid?>(null);
+    }
+    [Fact]
+    public async Task PRUA_reintento_reconstruye_emisor_con_datos_corregidos_y_conserva_folio()
+    {
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var factura = CrearFacturaFallida(db, empresaId);
+        var handler = new ReintentarTimbradoHandler(db, new FakeSender(new ReservarFolioResponse("SIN-NUEVO-FOLIO", 2, "")),
+            new FakePeriodoContablePort(true), new FakeFiscalApiClient(), new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(),
+            new FakeContabilidadAsientoPort(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db), empresaFiscal: new EmisorCorregido());
+        var respuesta = await handler.Handle(new(factura.Id), default);
+        respuesta.Folio.Should().Be("COTT-2026-000001");
+        factura.NombreEmisor.Should().Be("ESCUELA KEMPER URGATE");
+        factura.Estado.Should().Be(EstadoTimbrado.Timbrado);
+        Action cambiar = () => factura.ActualizarEmisorParaReintento(new("AAA010101AAA", "Otro", "601", "97000"));
+        cambiar.Should().Throw<BusinessRuleException>();
+    }
+
     [Fact]
     public async Task Reintento_exitoso_timbra_mismo_folio_limpia_error_y_publica_efectos()
     {

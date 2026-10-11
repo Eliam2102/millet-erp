@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bloqueoRelacion, totalRelacion, RevisionReppSchema } from './repp-pendiente';
+import { bloqueoRelacion, totalRelacion, RevisionReppSchema, mensajeFalloEmision } from './repp-pendiente';
 const id = '00000000-0000-0000-0000-000000000001';
 const otro = '00000000-0000-0000-0000-000000000002';
 describe('Revisión de REP', () => {
@@ -32,5 +32,16 @@ describe('Revisión de REP', () => {
     expect(bloqueoRelacion(100, '03', [{ facturaVentaId: id, importe: -1 }])).not.toBeNull();
     expect(bloqueoRelacion(100, '03', [])).not.toBeNull();
     expect(bloqueoRelacion(100, '99', [{ facturaVentaId: id, importe: 100 }])).not.toBeNull();
+  });
+});
+
+describe('Avisos de emisión', () => {
+  it('explica la falta de sucursal emisora al emitir un lote', () => {
+    const mensaje = 'No hay una sucursal emisora configurada para estos pagos. Pide al administrador que la configure antes de emitir.';
+    expect(mensajeFalloEmision([{ emitido: true, mensaje: null }, { emitido: false, mensaje }])).toBe(mensaje);
+  });
+  it('solo anuncia éxito cuando todos los complementos fueron emitidos', () => {
+    expect(mensajeFalloEmision([{ emitido: true, mensaje: null }])).toBeNull();
+    expect(mensajeFalloEmision([{ emitido: false, mensaje: null }])).toContain('No se pudo emitir');
   });
 });

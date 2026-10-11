@@ -35,8 +35,7 @@ public sealed partial class DemoSesionSeedHostedService
                 codigoPostal: "42501", tasaIvaDefault: .16m);
             db.Empresas.Add(empresa);
         }
-        else if (empresa.RazonSocial != "MILLET INDUSTRIA DE VIDRIO (DEMO)" || empresa.RegimenFiscal != "601" || empresa.CodigoPostal != "42501")
-            empresa.ActualizarDatos(razonSocial: "MILLET INDUSTRIA DE VIDRIO (DEMO)", regimenFiscal: "601", codigoPostal: "42501", tasaIvaDefault: .16m);
+
 
         foreach (var c in ClientesSat)
             if (!await db.Clientes.AnyAsync(x => x.Clave == c.Clave, ct))

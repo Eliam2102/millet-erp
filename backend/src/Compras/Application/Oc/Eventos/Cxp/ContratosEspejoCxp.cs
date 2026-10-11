@@ -55,4 +55,4 @@ public sealed record FacturaPagoAplicadoPayload(
     Guid FacturaProveedorId,
     Guid OrdenCompraId,
     decimal ImportePagadoFactura,
-    decimal MontoPagadoAcumuladoOc);
+    decimal MontoPagadoAcumuladoOc, Guid? AplicacionId = null);

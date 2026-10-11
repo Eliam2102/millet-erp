@@ -69,8 +69,8 @@ public static class MovimientosEndpoints
             DocumentoSucursalScope scope,
             CancellationToken cancellationToken) =>
         {
-            // Sin documento origen ni sucursal, el alta pertenece al alcance corporativo.
-            await scope.VerificarSucursalAsync(null, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
+            // El operativo registra en sus sucursales; sin sucursal requiere corporativo.
+            await scope.VerificarSucursalAsync(command.SucursalId, PermisosCanonicos.TesoreriaDocumentosGestionarTodasSucursales, cancellationToken);
 
             var response = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/v1/tesoreria/movimientos/{response.Id}", response);

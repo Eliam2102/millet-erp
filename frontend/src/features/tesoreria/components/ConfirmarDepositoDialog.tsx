@@ -22,7 +22,6 @@ import {
 import {
   useConfirmarDeposito,
   useMovimientos,
-  useRegistrarMovimientoIngreso,
 } from '@/features/tesoreria/api/useTesoreria';
 import {
   BeneficiarioTipo,
@@ -66,11 +65,8 @@ export function ConfirmarDepositoDialog({
 }: ConfirmarDepositoDialogProps) {
   const confirmar = useConfirmarDeposito();
   const queryClient = useQueryClient();
-  const registrarIngreso = useRegistrarMovimientoIngreso();
-  // Un holder por mutación: confirmar y alta-de-ingreso reintentan por
-  // separado sin pisarse la key.
+  // La alta rápida y confirmación comparten petición y clave.
   const keyConfirmar = useBodyScopedIdempotencyKey();
-  const keyIngreso = useBodyScopedIdempotencyKey();
 
   // Candidatos: ingresos sin aplicar (RN-6). El cotejo fino (moneda/monto)
   // se marca visualmente; el backend es la autoridad.
@@ -93,7 +89,7 @@ export function ConfirmarDepositoDialog({
   const [referencia, setReferencia] = useState('');
 
   const esPropuesta = deposito?.propuestaCxcId != null;
-  const pending = confirmar.isPending || registrarIngreso.isPending;
+  const pending = confirmar.isPending;
 
   const items = useMemo(() => {
     const todos = candidatos.data?.items ?? [];
@@ -121,11 +117,12 @@ export function ConfirmarDepositoDialog({
     onOpenChange(next);
   }
 
-  function confirmarCon(id: string) {
+  function confirmarCon(id?: string, ingreso?: { cuentaBancariaId: string; monto: number; fechaValor: string; referenciaBancaria?: string; conceptoId?: string; beneficiarioTipo?: BeneficiarioTipo; beneficiarioRef?: string }) {
     if (deposito == null) return;
     const command = {
       depositoId: deposito.id,
       movimientoBancarioId: id,
+      ingreso,
       versionEsperada: deposito.version,
     };
     confirmar.mutate(
@@ -137,7 +134,7 @@ export function ConfirmarDepositoDialog({
         onSuccess: () => {
           toast.success('Depósito confirmado', {
             description: esPropuesta
-              ? 'Hecho bancario confirmado; Facturación emitirá el REPP (el timbrado se refleja aparte).'
+              ? 'Hecho bancario confirmado; el complemento queda en Pendientes de REP para su emisión manual.'
               : 'Expectativa de Caja ligada al depósito en banco.',
           });
           cerrar(false);
@@ -164,7 +161,7 @@ export function ConfirmarDepositoDialog({
               : 'No se pudo confirmar el depósito',
             {
               description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
+                ? (error.problem.detail ?? 'Revisa los datos del depósito antes de reintentar.')
                 : undefined,
             },
           );
@@ -180,8 +177,7 @@ export function ConfirmarDepositoDialog({
       return;
     }
     if (cuentaId == null || deposito.montoEsperado == null) return;
-    // Alta rápida: registrar el ingreso y confirmar en seguida. Si la
-    // confirmación falla, el movimiento queda NoAplicado y re-seleccionable.
+    // El servidor valida y guarda ambos documentos en una sola transacción.
     const command = {
       cuentaBancariaId: cuentaId,
       conceptoId: conceptoId ?? undefined,
@@ -193,29 +189,7 @@ export function ConfirmarDepositoDialog({
         deposito.clienteId != null ? BeneficiarioTipo.Cliente : undefined,
       beneficiarioRef: deposito.clienteId ?? undefined,
     };
-    registrarIngreso.mutate(
-      {
-        command,
-        // Reintentar el alta rápida con el mismo ingreso no crea un SEGUNDO
-        // movimiento de ingreso (key ligada al contenido).
-        idempotencyKey: keyIngreso(command),
-      },
-      {
-        onSuccess: (movimiento) => confirmarCon(movimiento.id),
-        onError: (error) => {
-          toast.error(
-            esApiError(error)
-              ? error.problem.title
-              : 'No se pudo registrar el ingreso',
-            {
-              description: esApiError(error)
-                ? (error.problem.detail ?? `Código: ${error.traceId}`)
-                : undefined,
-            },
-          );
-        },
-      },
-    );
+    confirmarCon(undefined, command);
   }
 
   const puedeEnviar = altaRapida
@@ -301,6 +275,7 @@ export function ConfirmarDepositoDialog({
                   Cuenta bancaria
                 </label>
                 <CuentaBancariaSelector
+                  paraIngresos
                   value={cuentaId}
                   onChange={setCuentaId}
                   moneda={deposito?.moneda}

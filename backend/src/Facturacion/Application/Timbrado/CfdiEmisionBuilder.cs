@@ -135,7 +135,7 @@ public static class CfdiEmisionBuilder
             .FirstOrDefault() ?? "03";
 
         var complementoPago = new ComplementoPagoCfdi(
-            FechaPago: repp.FechaPago,
+            FechaPago: FechaFiscal(repp.FechaPago),
             FormaPago: primeraForma,
             Moneda: repp.MonedaPago,
             TipoCambio: repp.FacturasPagadas.Select(f => f.TcPago).FirstOrDefault(),
@@ -228,8 +228,8 @@ public static class CfdiEmisionBuilder
             RfcDestinatario: cp.ReceptorRfc,
             NombreDestinatario: cp.ReceptorNombre,
             DistanciaKm: cp.DistanciaKm,
-            FechaSalida: cp.FechaSalida,
-            FechaLlegadaEstimada: cp.FechaLlegadaEstimada,
+            FechaSalida: FechaFiscal(cp.FechaSalida),
+            FechaLlegadaEstimada: FechaFiscal(cp.FechaLlegadaEstimada),
             Vehiculo: new VehiculoCartaPorteCfdi(
                 vehiculo.Placa, vehiculo.ConfigVehicular, vehiculo.AnioModelo, vehiculo.PesoBrutoVehicular,
                 vehiculo.TipoPermisoSct, vehiculo.NumPermisoSct, vehiculo.Aseguradora, vehiculo.PolizaSeguro),

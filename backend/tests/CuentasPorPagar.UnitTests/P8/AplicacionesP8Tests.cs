@@ -33,7 +33,7 @@ public sealed class AplicacionesP8Tests
             "FIX cargo", null, 100, "MXN", null, f.Id, null, null, a.UtcNow); cargo.Autorizar(null, a.UtcNow);
         a.Db.AddRange(f, cargo); await a.Db.SaveChangesAsync();
         var pub = new Publicador(a.Db); var mapper = new PasivoAutorizadoParaPagoMapper(pub, a.Db, new ElegibilidadFacturaService(a.Db, a));
-        await new AplicarNotaCargoHandler(a.Db, a, a, mapper).Handle(new(cargo.Id, cargo.Version), default);
+        await new AplicarNotaCargoHandler(a.Db, a, a, mapper, new(pub, a.Db)).Handle(new(cargo.Id, cargo.Version), default);
         f.SaldoPendiente.Should().Be(900); f.CargosAplicadosTotal.Should().Be(100); f.NcAplicadasTotal.Should().Be(0);
         (await a.Db.MovimientosPasivo.SingleAsync()).Tipo.Should().Be(TipoMovimientoPasivo.NotaCargo);
         pub.Eventos.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(900);
@@ -46,7 +46,7 @@ public sealed class AplicacionesP8Tests
             a.Proveedor, "FANT", "FIX-P8", a.UtcNow, "MXN", null, 100, null, null, a.UtcNow);
         a.Db.AddRange(f, anticipo); await a.Db.SaveChangesAsync();
         var pub = new Publicador(a.Db); var mapper = new PasivoAutorizadoParaPagoMapper(pub, a.Db, new ElegibilidadFacturaService(a.Db, a));
-        await new AplicarAnticipoAFacturaHandler(a.Db, a, mapper).Handle(new(f.Id, f.Version, anticipo.Id, anticipo.Version, 100), default);
+        await new AplicarAnticipoAFacturaHandler(a.Db, a, mapper, new(pub, a.Db)).Handle(new(f.Id, f.Version, anticipo.Id, anticipo.Version, 100), default);
         pub.Eventos.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Single().SaldoPendiente.Should().Be(900);
         (await a.Db.MovimientosPasivo.SingleAsync()).DocumentoId.Should().Be(anticipo.Id);
     }
@@ -63,7 +63,7 @@ public sealed class AplicacionesP8Tests
         if (historialCargo) f.AplicarNotaCargo(50, cargo.Id, new(2026, 10, 9));
         a.Db.AddRange(f, nc, cargo); await a.Db.SaveChangesAsync();
         var mapper = new PasivoAutorizadoParaPagoMapper(new Publicador(a.Db), a.Db, new ElegibilidadFacturaService(a.Db, a));
-        var handler = new AplicarNotaCreditoAFacturaHandler(a.Db, mapper, a);
+        var handler = new AplicarNotaCreditoAFacturaHandler(a.Db, mapper, a, new(new Publicador(a.Db), a.Db));
         await handler.Handle(new(f.Id, f.Version, nc.Id, nc.Version, 50), default);
         f.NcAplicadasTotal.Should().Be(historialCargo ? 0 : 50); f.SaldoPendiente.Should().Be(950);
         await handler.Handle(new(f.Id, f.Version, nc.Id, nc.Version, 50), default);

@@ -1,3 +1,4 @@
+using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Contabilidad.Application;
 using Millet.Contabilidad.Application.Importacion;
@@ -43,9 +44,9 @@ public sealed partial class DemoSesionSeedHostedService
             foreach (var periodo in periodos)
             {
                 periodo.EmpresaId = EmpresaId;
-                if (periodo.Numero <= 10) periodo.Abrir(null, "DEMO apertura inicial", null, "DEMO sembrador", Fecha);
+                if (periodo.Numero <= 10) periodo.Abrir(null, "DEMO apertura inicial", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
                 if (periodo.Numero <= 9) periodo.Cerrar(periodos.Where(p => p.Numero < periodo.Numero),
-                    "DEMO cierre secuencial previo a octubre", null, "DEMO sembrador", Fecha);
+                    "DEMO cierre secuencial previo a octubre", null, "DEMO sembrador", sp.GetRequiredService<IClock>().UtcNow);
             }
             db.Ejercicios.Add(ejercicio);
             db.Periodos.AddRange(periodos);

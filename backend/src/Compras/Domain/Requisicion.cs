@@ -181,7 +181,7 @@ public sealed class Requisicion : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         RequisitanteId = requisitanteId;
         CreadorId = creadorId;
         Prioridad = prioridad;
-        FechaSolicitud = fechaSolicitud;
+        FechaSolicitud = fechaSolicitud.ToUniversalTime();
         FechaEntregaDeseada = fechaEntregaDeseada;
         ProveedorSugeridoId = proveedorSugeridoId;
         Descripcion = descripcion;

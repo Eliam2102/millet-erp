@@ -1,4 +1,7 @@
-import { useMemo } from 'react';
+import { RegistrarIngresoSheet } from '../components/RegistrarIngresoSheet';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,6 +39,8 @@ const SENTINEL_ALL = '__all__';
  * detalle con aplicaciones y contramovimientos.
  */
 export function BandejaMovimientos() {
+  const [registrar, setRegistrar] = useState(false);
+  const puedeRegistrar = useHasPermission(PermisosCanonicos.TesoreriaMovimientosRegistrar);
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
 
@@ -67,14 +72,16 @@ export function BandejaMovimientos() {
 
   return (
     <div className="space-y-4 px-4 py-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
+      <RegistrarIngresoSheet open={registrar} onOpenChange={setRegistrar} />
+      <div className="flex items-center justify-between gap-4">
+        <div><h1 className="text-2xl font-semibold tracking-tight">
           Movimientos bancarios
         </h1>
         <p className="text-sm text-muted-foreground">
           Libro por cuenta: ingresos manuales, pagos a proveedor, pagos a
           cuenta y contramovimientos.
-        </p>
+        </p></div>
+        {puedeRegistrar && <Button onClick={() => setRegistrar(true)}>Registrar ingreso</Button>}
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

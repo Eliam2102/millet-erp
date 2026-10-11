@@ -30,14 +30,28 @@ const BASE = '/api/v1/tesoreria';
 // ─── Cuentas ─────────────────────────────────────────────────────────
 
 /** <c>useCuentasBancarias()</c> — catálogo con saldo (GET only en v1 [TES-7]). */
-export function useCuentasBancarias(soloActivas = true) {
+export function useCuentasBancarias(soloActivas = true, enabled = true) {
   return useQuery<CuentaSaldoResponse[]>({
     queryKey: tesoreriaKeys.cuentas(soloActivas),
+    enabled,
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<CuentaSaldoResponse[]>(
         `${BASE}/cuentas?soloActivas=${soloActivas}`,
         { signal },
       );
+      return data;
+    },
+  });
+}
+
+export type CuentaParaIngresoResponse = Pick<CuentaSaldoResponse, 'id' | 'banco' | 'numeroCuenta' | 'moneda'>;
+
+export function useCuentasParaIngresos(enabled: boolean) {
+  return useQuery<CuentaParaIngresoResponse[]>({
+    queryKey: tesoreriaKeys.cuentasParaIngresos(),
+    enabled,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CuentaParaIngresoResponse[]>(`${BASE}/cuentas/para-ingresos`, { signal });
       return data;
     },
   });
@@ -258,6 +272,7 @@ export function useRegistrarPagoACuenta() {
     mutationFn: async (args: {
       command: {
         cuentaBancariaId: string;
+        sucursalId?: string;
         monto: number;
         fechaValor: string;
         motivo: string;
@@ -347,7 +362,11 @@ export function useConfirmarDeposito() {
   return useMutation({
     mutationFn: async (args: {
       depositoId: string;
-      movimientoBancarioId: string;
+      movimientoBancarioId?: string;
+      ingreso?: {
+        cuentaBancariaId: string; monto: number; fechaValor: string; referenciaBancaria?: string;
+        conceptoId?: string; beneficiarioTipo?: BeneficiarioTipo; beneficiarioRef?: string;
+      };
       versionEsperada: number;
       idempotencyKey: string;
     }) => {
@@ -355,7 +374,7 @@ export function useConfirmarDeposito() {
         `${BASE}/depositos/${args.depositoId}/confirmar`,
         {
           method: 'POST',
-          body: { movimientoBancarioId: args.movimientoBancarioId },
+          body: { movimientoBancarioId: args.movimientoBancarioId ?? "00000000-0000-0000-0000-000000000000", ingreso: args.ingreso },
           idempotencyKey: args.idempotencyKey,
           headers: { 'X-Expected-Version': String(args.versionEsperada) },
         },

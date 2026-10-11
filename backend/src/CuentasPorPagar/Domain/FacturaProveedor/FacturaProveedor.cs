@@ -103,6 +103,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
     public decimal ImportePagado { get; private set; }
 
     /// <summary>Saldo pendiente = Total − Anticipos − NCs − Pagado. Calculado, persistido.</summary>
+    public decimal ImporteSaldado => ImportePagado + AnticipoAplicadoTotal + NcAplicadasTotal + CargosAplicadosTotal;
+
     public decimal SaldoPendiente => Total - AnticipoAplicadoTotal - NcAplicadasTotal - CargosAplicadosTotal - ImportePagado;
 
     /// <summary>
@@ -203,8 +205,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         SucursalId = sucursalId;
         FolioProveedor = folioProveedor;
         SerieProveedor = serieProveedor;
-        FechaDocumento = fechaDocumento;
-        FechaContabilizacion = fechaContabilizacion;
+        FechaDocumento = fechaDocumento.ToUniversalTime();
+        FechaContabilizacion = fechaContabilizacion.ToUniversalTime();
         FechaVencimiento = fechaVencimiento;
         Moneda = moneda;
         TipoCambio = tipoCambio;
@@ -691,7 +693,7 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         FolioProveedor = folioProveedor;
         SerieProveedor = serieProveedor;
         FechaVencimiento = fechaVencimiento;
-        FechaContabilizacion = fechaContabilizacion;
+        FechaContabilizacion = fechaContabilizacion.ToUniversalTime();
     }
 
     public void AplicarNotaCargo(decimal monto, Guid notaCargoId, DateOnly fecha)

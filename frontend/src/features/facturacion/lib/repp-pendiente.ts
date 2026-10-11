@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { zId } from '@/lib/z-id';
-import type { RelacionRepp } from '../api/useReppPendientes';
+import type { RelacionRepp, EmisionPendiente } from '../api/useReppPendientes';
 
 export const RevisionReppSchema = z.object({
   formaPago: z
@@ -28,4 +28,9 @@ export function bloqueoRelacion(
 }
 export function formatoImporte(monto: number): string {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(monto);
+}
+
+export function mensajeFalloEmision(resultados: Pick<EmisionPendiente, 'emitido' | 'mensaje'>[]): string | null {
+  const fallo = resultados.find((resultado) => !resultado.emitido);
+  return fallo ? fallo.mensaje?.trim() || 'No se pudo emitir el complemento. Consulta el pago antes de reintentar.' : null;
 }

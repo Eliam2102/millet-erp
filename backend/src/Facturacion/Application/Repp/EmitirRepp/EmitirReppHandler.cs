@@ -66,6 +66,12 @@ public sealed class EmitirReppHandler : IRequestHandler<EmitirReppCommand, Emiti
         if (!await _periodo.EstaAbiertoAsync(anio, mes, cancellationToken))
             throw new BusinessRuleException("PERIODO_CERRADO", $"El período contable {anio}-{mes:D2} está cerrado; no se puede emitir.");
 
+        // La fecha fiscal se interpreta en México, aunque la persistencia use UTC.
+        var fechaPagoFiscal = CfdiEmisionBuilder.FechaFiscal(command.FechaPago);
+        if (!await _periodo.EstaAbiertoAsync(fechaPagoFiscal.Year, fechaPagoFiscal.Month, cancellationToken))
+            throw new BusinessRuleException("PERIODO_CERRADO",
+                $"El período {fechaPagoFiscal.Year}/{fechaPagoFiscal.Month:D2} está cerrado.");
+
         // Cargar y validar las facturas cubiertas (timbradas, PPD, mismo cliente).
         var ids = command.Facturas.Select(f => f.FacturaVentaId).ToList();
         var facturas = await _db.FacturasVenta

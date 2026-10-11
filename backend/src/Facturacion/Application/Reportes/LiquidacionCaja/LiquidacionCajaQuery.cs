@@ -46,7 +46,7 @@ public sealed class LiquidacionCajaHandler
     {
         var sesiones = _db.CajaSesiones.AsNoTracking()
             .Where(s => s.Estado == EstadoCajaSesion.Cerrada
-                        && s.FechaCierre >= query.Desde && s.FechaCierre <= query.Hasta);
+                        && s.FechaCierre >= query.Desde.ToUniversalTime() && s.FechaCierre <= query.Hasta.ToUniversalTime());
         if (query.SucursalId is { } suc) sesiones = sesiones.Where(s => s.SucursalId == suc);
 
         var rows = await sesiones
