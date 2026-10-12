@@ -20,6 +20,7 @@ import {
 } from '@/components/erp/trazabilidad/types';
 import { cn } from '@/lib/utils';
 import { formatearFechaDocumento } from './fecha-documento';
+import { humanizarEstado } from './humanizar-estado';
 
 /**
  * <c>&lt;NodoDocumento/&gt;</c> — chip individual que renderea un nodo
@@ -83,8 +84,11 @@ export function NodoDocumento({ nodo, esActual = false }: NodoDocumentoProps) {
         {nodo.folio}
       </div>
       <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5 text-xs">
-        <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
-          {nodo.estado}
+        <span
+          className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground"
+          data-estado={nodo.estado}
+        >
+          {humanizarEstado(nodo.estado)}
         </span>
         {nodo.fecha ? (
           <span className="text-muted-foreground">

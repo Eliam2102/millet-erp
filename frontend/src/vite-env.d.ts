@@ -27,6 +27,9 @@ interface ImportMetaEnv {
    * MSAL pide tokens con esta scope; el API los valida con el mismo valor.
    */
   readonly VITE_API_AUDIENCE: string;
+
+  /** Activa TanStack Query Devtools en DEV. Solo `'true'` lo habilita; opt-in. */
+  readonly VITE_QUERY_DEVTOOLS?: string;
 }
 
 interface ImportMeta {
