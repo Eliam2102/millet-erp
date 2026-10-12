@@ -230,3 +230,34 @@ sub-almacén de MID con una **asignación activa** de `ART-CRT-01` y `ART-EST-01
 a ese rack; **datos bancarios** del proveedor `DEMO-PROV-ACT` (banco, CLABE y
 beneficiario); una **cuenta bancaria MXN** en Tesorería (`DEMO-CTA-MXN`); y el
 **periodo contable 2026-10 abierto**. Todo eso ya viene en el respaldo.
+
+## Apéndice B. Estado de todos los problemas encontrados en el recorrido
+Las capturas de esta guía se tomaron con el código de `main`, **antes** de los
+arreglos. Los marcados "Corregido" ya están en la rama
+`feature/acceso-todas-sucursales-ui`.
+
+| # | Problema | Estado |
+|---|---|---|
+| 1 | Panel "Capturar factura desde OC" sin scroll: el botón quedaba fuera de pantalla a 1440×900 | **Corregido** (`fbb71e12`; medido en navegador: botón en y=850, clicable) |
+| 2 | A quien creó la OC se le ofrecía "Aprobar Nivel 1/2"; tras firmar N1 se ofrecía N2 | **Corregido** (`2a2f12c5`): botones deshabilitados con motivo |
+| 3 | Sub-estados de la OC con "~50 %" fijo y sin dato real | **Corregido** (`2a2f12c5`): Recepción/Facturación muestran el avance real; Pago solo el estado |
+| 4 | Barra fija tapaba la fila "Recepción" de la OC y la primera fila del detalle de requisición | **Corregido** (`7931d47a`; medido: cabecera 76–127 px, fila en 167–183 px) |
+| 5 | Botón flotante de isla con palmera tapaba botones | **Corregido**: era el devtools de React Query; ahora apagado por defecto (`VITE_QUERY_DEVTOOLS=true` lo enciende) |
+| 6 | Estado en crudo "EnSurtido" en la trazabilidad | **Corregido**: se muestra "En surtido" |
+| 7 | Hora del evento "Creado" corrida 4 horas | **No era error**: la OC se creó a las 00:09:59 (hora de Mérida) y la pantalla dice 12:09:59 a.m. |
+| 8 | fio ve "Aprobar Nivel 2" habilitado tras su N1 **en la requisición** | **No es error**: la requisición no tiene regla de segregación en el dominio; solo la OC la tiene |
+| 9 | "Couldn't load plugin" en el PDF de la cotización y de la OC | **Por verificar**: probablemente el navegador sin interfaz no trae visor de PDF; abrirlo una vez en uno normal |
+| 10 | Reportes Cartera y Antigüedad de CxP: 422 `CXP_HISTORICO_POR_CONFIRMAR` sin filtrar por proveedor | **Pendiente (dato)**: la factura `MOD-1002` está pagada sin movimiento. Filtrar por `DEMO-PROV-ACT` |
+| 11 | Historial y Autorización de la OC con textos técnicos ("Creó AutorizacionOC…", `EnAutorizacionJefeCompras`) | **Pendiente** (cosmético) |
+| 12 | Texto rojo "Selecciona la línea de OC…" visible tras elegir la línea, en la captura de factura | **Pendiente** (cosmético; la factura se captura bien) |
+| 13 | El selector de CFDI de la recepción solo trae RFC genérico, ninguno del proveedor | **Pendiente (dato)**: usar el folio fiscal manual |
+| 14 | Saldos de Almacén: "INSUMOS" sin el almacén y `DEMO-ART-PIEZA` repetido 3 veces | **Pendiente** (cosmético/dato) |
+| 15 | Pestaña Líneas de la OC muy ancha a 1440 px (precio, subtotal e IVA fuera de vista) | **Pendiente** (cosmético): usar zoom 90 % o desplazarse |
+| 16 | Tabla de líneas de la requisición sin columna de centro de costo; "Servicio" preseleccionado como clasificación | **Pendiente** (cosmético): el CeCo se ve en el formulario de la línea |
+| 17 | "Eliminar" visible en una requisición ajena en autorización | **Pendiente**: el backend decide si lo permite; no pulsarlo |
+| 18 | Tesorería muestra el folio sin serie (`7001`), el pago sin folio propio y conceptos "(ejemplo por validar)" | **Pendiente** (cosmético/dato) |
+| 19 | `DEMO-CTA-MXN` con saldo negativo; deja pagar sin fondos | **Pendiente (dato)** |
+| 20 | `DEMO-PROV-REV` bloqueado: faltan 2 de 5 documentos | **Esperado**: sirve para mostrar el bloqueo, no se puede usar en una OC |
+| 21 | Con elegible 0, Tesorería responde `PASIVO_NO_PAGABLE_CXP` (no `PAGO_EXCEDE_ELEGIBLE`) | **Corregido en la guía** |
+
+Los toasts verdes que tapan unos segundos la barra superior no son un error.

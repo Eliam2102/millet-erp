@@ -371,8 +371,11 @@ Estado resultante: **En autorización Jefe de Compras**; barra de pasos
 Borrador (verde) > Jefe Compras (N1, activo) > Dirección (N2) > Autorizada;
 botones "Aprobar Nivel 1", "Rechazar", "Cancelar OC"; versión v2.
 
-Aviso: a Geovany (creador) también se le muestra "Aprobar Nivel 1"; el
-backend lo rechazaría con `OC_AUTOAUTORIZACION`. No lo pulses.
+Nota: a Geovany (creador de la OC) el botón "Aprobar Nivel 1" le sale
+**deshabilitado** con el motivo "Quien crea la OC no puede firmarla." (arreglo de
+la rama `feature/acceso-todas-sucursales-ui`; en `main` salía habilitado y el
+backend lo rechazaba con `OC_AUTOAUTORIZACION`). Y tras firmar N1, esa misma
+persona ve "Aprobar Nivel 2" deshabilitado ("Ya firmaste el nivel 1…").
 
 Si sale error:
 
