@@ -147,3 +147,14 @@ describe('<CapturarFacturaSheet> — OcSelector deriva proveedor/sucursal', () =
     expect(sucursal).toBeDisabled();
   });
 });
+
+describe('<CapturarFacturaSheet> — scroll del panel', () => {
+  it('el contenedor del panel tiene overflow-y-auto para que el botón de enviar sea alcanzable', () => {
+    render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    const panel = screen.getByRole('dialog');
+    expect(panel).toHaveClass('overflow-y-auto');
+  });
+});

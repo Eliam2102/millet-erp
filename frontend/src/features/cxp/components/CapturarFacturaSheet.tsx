@@ -302,7 +302,7 @@ export function CapturarFacturaSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="w-full max-w-3xl sm:max-w-3xl">
+      <SheetContent side="right" className="w-full max-w-3xl overflow-y-auto sm:max-w-3xl">
         <SheetHeader>
           <SheetTitle>Capturar factura desde OC</SheetTitle>
           <SheetDescription>
