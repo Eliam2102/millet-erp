@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Plus, Pencil, Trash2, Send, CheckCircle2, XCircle, Ban, Copy, Paperclip, FileText, AlertTriangle } from 'lucide-react';
 import { ErrorState, TableSkeleton, EmptyState } from '@/components/erp';
 import { useHistoricoOrdenCompra } from '@/features/compras/ordenes/api/useHistoricoOrdenCompra';
+import { accionHistorial, resumenHistorialLegible } from '@/features/compras/ordenes/lib/historial-etiquetas';
 import { useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -81,6 +82,7 @@ export function TimelineOrdenCompra({
         const usuario =
           evento.usuarioId && usuariosMap.get(evento.usuarioId)?.nombre;
         const { Icon, color } = resolverEventoVisual(evento.operacion, evento.entidad);
+        const resumenLegible = resumenHistorialLegible(evento.resumen);
         return (
           <li
             key={evento.id}
@@ -104,10 +106,7 @@ export function TimelineOrdenCompra({
             <div className="rounded-md border bg-card p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                 <span className="font-medium">
-                  {labelOperacion(evento.operacion)}{' '}
-                  <span className="text-muted-foreground">
-                    en {evento.entidad}
-                  </span>
+                  {accionHistorial(evento.operacion, evento.entidad)}
                 </span>
                 <time
                   className="text-xs text-muted-foreground tabular-nums"
@@ -116,9 +115,12 @@ export function TimelineOrdenCompra({
                   {new Date(evento.timestamp).toLocaleString()}
                 </time>
               </div>
-              {evento.resumen && (
-                <p className="mt-1 text-xs text-muted-foreground line-clamp-3">
-                  {evento.resumen}
+              {resumenLegible && (
+                <p
+                  className="mt-1 text-xs text-muted-foreground line-clamp-3"
+                  title={evento.resumen ?? undefined}
+                >
+                  {resumenLegible}
                 </p>
               )}
               {usuario && (
@@ -135,19 +137,6 @@ export function TimelineOrdenCompra({
 }
 
 // ─── Helpers visuales ─────────────────────────────────────────────
-
-function labelOperacion(op: string): string {
-  switch (op) {
-    case 'crear':
-      return 'Creado';
-    case 'actualizar':
-      return 'Actualizado';
-    case 'borrar':
-      return 'Eliminado';
-    default:
-      return op;
-  }
-}
 
 function resolverEventoVisual(operacion: string, entidad: string) {
   // Mapping heurístico operación + entidad → ícono + color. Se afina
