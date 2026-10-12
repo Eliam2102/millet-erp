@@ -17,6 +17,9 @@ beforeEach(() => {
     http.get('*/api/v1/almacen/sub-almacenes', () =>
       HttpResponse.json({ items: [], offset: 0, limit: 500, total: 0 }),
     ),
+    http.get('*/api/v1/almacen/almacenes', () =>
+      HttpResponse.json({ items: [], offset: 0, limit: 500, total: 0 }),
+    ),
     // El <ArticuloSelector> del filtro consulta este catálogo al montar.
     http.get('*/api/v1/catalogos/articulos', () =>
       HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
@@ -55,9 +58,7 @@ describe('<SaldosPage> — smoke', () => {
       ),
     );
     render(<SaldosPage />, { wrapper: createQueryWrapper() });
-    await waitFor(() =>
-      expect(screen.getByText(/Sin saldos/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Sin saldos/i)).toBeInTheDocument());
   });
 
   it('columna muestra clave·nombre cuando vienen, y cae al id cuando son null', async () => {
@@ -96,15 +97,88 @@ describe('<SaldosPage> — smoke', () => {
     );
     render(<SaldosPage />, { wrapper: createQueryWrapper() });
     // (a) clave + nombre presentes; el id 'a-1' ya NO se muestra.
-    await waitFor(() =>
-      expect(screen.getByText('ACC-001')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('ACC-001')).toBeInTheDocument());
     expect(screen.getByText(/Tornillo M6/)).toBeInTheDocument();
     expect(screen.queryByText('a-1')).not.toBeInTheDocument();
     // (b) fallback al id en la fila sin clave/nombre.
     expect(screen.getByText('a-2')).toBeInTheDocument();
     // Total valor 5000 + 10000 = 15000.
     expect(screen.getByText(/\$15,000\.00/)).toBeInTheDocument();
+  });
+
+  it('sub-almacén muestra "clave almacén · nombre" y distingue el mismo artículo en dos almacenes', async () => {
+    mswServer.use(
+      http.get('*/api/v1/almacen/sub-almacenes', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'sa-mid',
+              almacenId: 'al-mid',
+              clave: 'INSUMOS',
+              nombre: 'INSUMOS',
+              tipo: 1,
+              estatus: 1,
+            },
+            {
+              id: 'sa-mty',
+              almacenId: 'al-mty',
+              clave: 'INSUMOS',
+              nombre: 'INSUMOS',
+              tipo: 1,
+              estatus: 1,
+            },
+          ],
+          offset: 0,
+          limit: 500,
+          total: 2,
+        }),
+      ),
+      http.get('*/api/v1/almacen/almacenes', () =>
+        HttpResponse.json({
+          items: [
+            { id: 'al-mid', clave: 'ALM-MID-G', nombre: 'MID G', sucursalId: 's-1', estatus: 1 },
+            { id: 'al-mty', clave: 'ALM-MTY-G', nombre: 'MTY G', sucursalId: 's-2', estatus: 1 },
+          ],
+          offset: 0,
+          limit: 500,
+          total: 2,
+        }),
+      ),
+      http.get('*/api/v1/almacen/saldos', () =>
+        HttpResponse.json({
+          items: [
+            {
+              subAlmacenId: 'sa-mid',
+              articuloId: 'a-pieza',
+              cantidad: 10,
+              cantidadDisponible: 10,
+              costoPromedioMxn: 5,
+              valorInventarioMxn: 50,
+              articuloClave: 'DEMO-ART-PIEZA',
+              articuloDescripcion: 'Pieza demo',
+            },
+            {
+              subAlmacenId: 'sa-mty',
+              articuloId: 'a-pieza',
+              cantidad: 20,
+              cantidadDisponible: 20,
+              costoPromedioMxn: 5,
+              valorInventarioMxn: 100,
+              articuloClave: 'DEMO-ART-PIEZA',
+              articuloDescripcion: 'Pieza demo',
+            },
+          ],
+          offset: 0,
+          limit: 500,
+          total: 2,
+        }),
+      ),
+    );
+    render(<SaldosPage />, { wrapper: createQueryWrapper() });
+    await waitFor(() => expect(screen.getByText('ALM-MID-G · INSUMOS')).toBeInTheDocument());
+    expect(screen.getByText('ALM-MTY-G · INSUMOS')).toBeInTheDocument();
+    // Mismo artículo en dos almacenes: dos filas, etiquetas distintas.
+    expect(screen.getAllByText('DEMO-ART-PIEZA')).toHaveLength(2);
   });
 
   it('(c) el filtro de artículo es el ArticuloSelector, no el input de GUID', async () => {
@@ -116,17 +190,11 @@ describe('<SaldosPage> — smoke', () => {
     render(<SaldosPage />, { wrapper: createQueryWrapper() });
     // El selector está presente (combobox con su aria-label)…
     await waitFor(() =>
-      expect(
-        screen.getByRole('combobox', { name: /Seleccionar artículo/i }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole('combobox', { name: /Seleccionar artículo/i })).toBeInTheDocument(),
     );
     // …y el viejo input de GUID ya no existe.
-    expect(
-      screen.queryByPlaceholderText('GUID del artículo'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText('Filtrar por artículo'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('GUID del artículo')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Filtrar por artículo')).not.toBeInTheDocument();
   });
 
   it('axe-core: cero violations en estado con datos', async () => {

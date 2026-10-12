@@ -19,8 +19,12 @@ import {
 } from '@/components/erp';
 import { mapById } from '@/features/catalogos/api';
 import { useSaldos } from '@/features/almacen/api/useSaldosCierreReportes';
-import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
-import type { SaldoListItem } from '@/features/almacen/api/types';
+import { useAlmacenes, useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
+import type {
+  AlmacenListItem,
+  SaldoListItem,
+  SubAlmacenListItem,
+} from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import type { SaldosSearch } from '@/features/almacen/lib/saldos-search-schema';
 
@@ -50,6 +54,10 @@ export function SaldosPage() {
     () => mapById(subAlmacenesQuery.data?.items),
     [subAlmacenesQuery.data],
   );
+  // Clave del almacén padre del sub-almacén (ALM-MID-G, ALM-MTY-G, ...): sin
+  // ella, las filas de INSUMOS de distintos almacenes se ven idénticas.
+  const almacenesQuery = useAlmacenes({ limit: 500 });
+  const almacenesMap = useMemo(() => mapById(almacenesQuery.data?.items), [almacenesQuery.data]);
 
   const query = useSaldos({
     subAlmacenId: search.subAlmacenId,
@@ -87,8 +95,8 @@ export function SaldosPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Saldos</h1>
         <p className="text-sm text-muted-foreground">
-          Existencias materializadas por sub-almacén y artículo, con costo
-          promedio ponderado y valor de inventario.
+          Existencias materializadas por sub-almacén y artículo, con costo promedio ponderado y
+          valor de inventario.
         </p>
       </header>
 
@@ -129,12 +137,14 @@ export function SaldosPage() {
         />
       ) : (
         <>
-          <TablaSaldos items={items} subAlmacenesMap={subAlmacenesMap} />
+          <TablaSaldos
+            items={items}
+            subAlmacenesMap={subAlmacenesMap}
+            almacenesMap={almacenesMap}
+          />
           <div className="flex justify-end gap-6 rounded-md border bg-muted/30 px-4 py-2 text-sm">
             <div>
-              <span className="text-muted-foreground">
-                Cantidad total:{' '}
-              </span>
+              <span className="text-muted-foreground">Cantidad total: </span>
               <span className="font-mono font-semibold">
                 {totales.totalCantidad.toLocaleString('es-MX', {
                   minimumFractionDigits: 2,
@@ -143,9 +153,7 @@ export function SaldosPage() {
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground">
-                Valor inventario:{' '}
-              </span>
+              <span className="text-muted-foreground">Valor inventario: </span>
               <span className="font-mono font-semibold">
                 {new Intl.NumberFormat('es-MX', {
                   style: 'currency',
@@ -175,8 +183,7 @@ function FiltrosToolbar({
   articuloInitialLabel,
   onChange,
 }: FiltrosToolbarProps) {
-  const algun =
-    search.subAlmacenId || search.articuloId || search.soloConStock;
+  const algun = search.subAlmacenId || search.articuloId || search.soloConStock;
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -184,9 +191,7 @@ function FiltrosToolbar({
         <label className="text-xs text-muted-foreground">Sub-almacén</label>
         <Select
           value={search.subAlmacenId ?? SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-          }
+          onValueChange={(v) => onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })}
         >
           <SelectTrigger aria-label="Filtrar por sub-almacén" className="w-56">
             <SelectValue placeholder="Todos" />
@@ -216,9 +221,7 @@ function FiltrosToolbar({
           id="solo-con-stock"
           type="checkbox"
           checked={search.soloConStock ?? false}
-          onChange={(e) =>
-            onChange({ soloConStock: e.target.checked || undefined })
-          }
+          onChange={(e) => onChange({ soloConStock: e.target.checked || undefined })}
           className="h-4 w-4"
         />
         <label htmlFor="solo-con-stock" className="text-sm">
@@ -243,30 +246,48 @@ function FiltrosToolbar({
   );
 }
 
+/**
+ * Etiqueta "ALM-MID-G · INSUMOS" de la columna Sub-almacén: clave del almacén
+ * padre + nombre del sub-almacén. Si el almacén no está en el catálogo cargado
+ * cae solo al nombre; si el sub-almacén no existe, al id (fallback existente).
+ */
+function etiquetaSubAlmacen(
+  sub: Pick<SubAlmacenListItem, 'nombre' | 'clave'> | undefined,
+  almacen: Pick<AlmacenListItem, 'clave'> | undefined,
+  subAlmacenIdFallback: string,
+): string {
+  if (!sub) return subAlmacenIdFallback;
+  const subTexto = sub.nombre || sub.clave;
+  return almacen ? `${almacen.clave} · ${subTexto}` : subTexto;
+}
+
 function TablaSaldos({
   items,
   subAlmacenesMap,
+  almacenesMap,
 }: {
   items: readonly SaldoListItem[];
-  subAlmacenesMap: Map<string, { id: string; clave: string; nombre: string }>;
+  subAlmacenesMap: Map<string, SubAlmacenListItem>;
+  almacenesMap: Map<string, AlmacenListItem>;
 }) {
   const [sort, setSort] = useState<SortState<SortKey> | null>(null);
 
   const enriquecidos = useMemo(
     () =>
-      items.map((s) => ({
-        ...s,
-        subAlmacen:
-          subAlmacenesMap.get(s.subAlmacenId)?.clave ?? s.subAlmacenId,
-      })),
-    [items, subAlmacenesMap],
+      items.map((s) => {
+        const sub = subAlmacenesMap.get(s.subAlmacenId);
+        const almacen = sub ? almacenesMap.get(sub.almacenId) : undefined;
+        return {
+          ...s,
+          subAlmacen: etiquetaSubAlmacen(sub, almacen, s.subAlmacenId),
+        };
+      }),
+    [items, subAlmacenesMap, almacenesMap],
   );
 
   const ordenados = useMemo(() => {
     if (sort == null) return enriquecidos;
-    return [...enriquecidos].sort((a, b) =>
-      compareItemsBy(a, b, sort.key, sort.dir),
-    );
+    return [...enriquecidos].sort((a, b) => compareItemsBy(a, b, sort.key, sort.dir));
   }, [enriquecidos, sort]);
 
   return (
@@ -326,17 +347,12 @@ function TablaSaldos({
         </thead>
         <tbody>
           {ordenados.map((s) => (
-            <tr
-              key={`${s.subAlmacenId}-${s.articuloId}`}
-              className="border-t"
-            >
+            <tr key={`${s.subAlmacenId}-${s.articuloId}`} className="border-t">
               <td className="px-3 py-2 font-mono text-xs">{s.subAlmacen}</td>
               <td className="px-3 py-2 text-xs">
                 {s.articuloClave ? (
                   <>
-                    <span className="font-mono text-muted-foreground">
-                      {s.articuloClave}
-                    </span>
+                    <span className="font-mono text-muted-foreground">{s.articuloClave}</span>
                     {s.articuloDescripcion ? ` · ${s.articuloDescripcion}` : ''}
                   </>
                 ) : (
