@@ -7,10 +7,9 @@ import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerC
  * §11.3.
  *
  * <para>Permiso requerido: <c>identidad.usuarios.leer</c>. Si el
- * usuario actual no lo tiene, el endpoint devuelve 403 y el selector
- * muestra empty list — el caller debería esconder el selector vía
- * <c>useHasPermission</c> antes de renderizarlo (no esperar a que
- * falle el endpoint).</para>
+ * usuario actual no lo tiene, el hook no consulta el endpoint.
+ * El caller debe esconder o deshabilitar el selector vía
+ * <c>useHasPermission</c> para evitar ofrecer una lista vacía.</para>
  */
 export interface UsuarioSelectorProps {
   value: string | null | undefined;

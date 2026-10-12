@@ -131,6 +131,28 @@ public static class SeriesEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // --- ACTIVAR ---
+        group.MapPost("/{id:guid}/activar", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (expectedVersion is not int version)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            return Results.Ok(await mediator.Send(new ActivarSerieCommand(id, version), ct));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminSeriesGestionar)
+        .WithName("ActivarSerie")
+        .WithSummary("Reactivar serie conservando la secuencia de folios")
+        .Produces<SerieResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
         // --- DESACTIVAR ---
         group.MapPost("/{id:guid}/desactivar", async (
             Guid id,

@@ -80,6 +80,7 @@ Abre http://localhost:5173 y entra con «Continuar con Microsoft».
 
 ## Si algo falla
 
+- **No llega el correo de acceso:** la configuración local lo captura en Mailpit, no en Outlook/Gmail. `preparar` levanta el buzón; si ya preparaste la demo, ejecuta `tools/demo/demo.sh correos`, abre http://localhost:8025 y pulsa «Reenviar acceso» en el ERP. El destinatario es el correo de contacto del empleado. Para entrega real se requiere `Entra__Proveedor=Graph`, `Entra__Correo__Proveedor=Graph`, un buzón remitente en `Auth__EntraId__SenderEmail` y permiso `Mail.Send` de la aplicación en Microsoft Graph.
 - **«Docker no está corriendo»:** abre OrbStack o Docker Desktop.
 - **El puerto 5432 está ocupado:** cambia `PG_PORT` en `.env.demo.local` (por ejemplo a 5434) y vuelve a correr `preparar`.
 - **La pantalla dice que tu cuenta no tiene empresa ni roles:** revisa `Auth__InitialAdminEntraOid` y reinicia la API.

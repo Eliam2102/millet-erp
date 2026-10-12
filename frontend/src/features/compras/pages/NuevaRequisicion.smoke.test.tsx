@@ -94,15 +94,21 @@ describe('<NuevaRequisicion> — smoke', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('SÍ muestra UsuarioSelector cuando el usuario tiene seleccionar-requisitante', () => {
+  it('SÍ muestra UsuarioSelector cuando puede delegar y leer usuarios', () => {
     useAuthStore.setState({
       ...useAuthStore.getState(),
-      permisos: ['compras.requisiciones.seleccionar-requisitante'],
+      permisos: ['compras.requisiciones.seleccionar-requisitante', 'identidad.usuarios.leer'],
     });
     render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
     expect(
       screen.getByText(/requisitante \(delegación\)/i),
     ).toBeInTheDocument();
+  });
+
+  it('NO muestra delegación cuando puede delegar pero no leer usuarios', () => {
+    useAuthStore.setState({ permisos: ['compras.requisiciones.seleccionar-requisitante'] });
+    render(<NuevaRequisicion />, { wrapper: createQueryWrapper() });
+    expect(screen.queryByText(/requisitante \(delegación\)/i)).not.toBeInTheDocument();
   });
 
   it('muestra modal "Recuperar borrador" cuando hay draft persistido', () => {

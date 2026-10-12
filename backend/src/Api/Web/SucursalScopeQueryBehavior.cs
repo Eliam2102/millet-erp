@@ -13,7 +13,8 @@ public sealed class SucursalScopeQueryBehavior<TRequest, TResponse>(ICurrentUser
     {
         if (request is ISucursalScopedQuery query)
         {
-            query.SucursalesPermitidas = await permisos.TieneAsync(query.PermisoTodasSucursales, cancellationToken)
+            query.SucursalesPermitidas = (await permisos.TieneAsync(query.PermisoTodasSucursales, cancellationToken)
+                || (user.UserId is Guid corporativo && await sucursales.EsCorporativoAsync(corporativo, cancellationToken)))
                 ? null : user.UserId is Guid id ? await sucursales.ListarIdsAsync(id, cancellationToken) : Array.Empty<Guid>();
             var seleccion = (query as Millet.SharedKernel.Application.Inicio.ISucursalSeleccionadaQuery)?.SucursalId;
             // Inicio reutiliza los listados existentes para pendientes. Este encabezado aplica

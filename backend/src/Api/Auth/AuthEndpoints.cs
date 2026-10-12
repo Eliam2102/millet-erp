@@ -97,6 +97,7 @@ public static class AuthEndpoints
             ICurrentEmpresaContext currentEmpresa,
             ICurrentUserPermissions permisos,
             Millet.Identidad.Infrastructure.IdentidadDbContext identidadDb,
+            Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort sucursalesPort,
             CancellationToken ct) =>
         {
             if (currentUser.UserId is not Guid usuarioId || currentEmpresa.Current is null)
@@ -110,9 +111,8 @@ public static class AuthEndpoints
                 Millet.Identidad.Domain.PermisosCanonicos.AdminSucursalesUsuariosGestionar, ct);
             if (!puedeVerTodas)
             {
-                query = query.Where(s => identidadDb.UsuarioSucursales.Any(a =>
-                    a.UsuarioId == usuarioId && a.SucursalId == s.Id &&
-                    a.Estatus == EstatusCatalogo.Activo));
+                var permitidas = await sucursalesPort.ListarIdsAsync(usuarioId, ct);
+                query = query.Where(s => permitidas.Contains(s.Id));
             }
 
             var items = await query.OrderBy(s => s.Nombre)

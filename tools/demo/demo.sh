@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Demo local del ERP Millet en cualquier Mac (Apple Silicon o Intel).
-# Uso: tools/demo/demo.sh {preparar [paquete.tar.gz] | eventos | api | web | estado}
+# Uso: tools/demo/demo.sh {preparar [paquete.tar.gz] | correos | eventos | api | web | estado}
 #
 #  preparar   PostgreSQL en Docker, base de la demo, migraciones, copia de A+W de demo
 #             y dependencias del frontend. Con la ruta del paquete de datos de Geovany
 #             (paquete-demo-real.tar.gz) también carga esos clientes, productos y proveedores.
 #  eventos    Levanta el emulador de Service Bus (para que los módulos se pasen eventos).
+#  correos    Levanta el buzón de prueba en http://localhost:8025.
 #  api        Arranca la API en http://localhost:5080 (deja esta terminal abierta).
 #  web        Arranca la pantalla en http://localhost:5173 (otra terminal).
 #  estado     Revisa que todo responda.
@@ -46,6 +47,7 @@ preparar() {
     POSTGRES_PORT="$PG_PORT" docker compose -f "$raiz/docker-compose.dev.yml" up -d postgres
   fi
   for _ in $(seq 60); do docker exec "$CONTENEDOR" pg_isready -U pgadmin >/dev/null 2>&1 && break; sleep 2; done
+  correos
   psql_c -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DEMO_DB'" | grep -q 1 \
     || psql_c -d postgres -c "CREATE DATABASE $DEMO_DB"
 
@@ -90,6 +92,12 @@ preparar() {
 
 eventos() { "$raiz/tools/servicebus-emulator/levantar.sh"; }
 
+correos() {
+  paso "Buzón local de correos (Mailpit)"
+  docker compose -f "$raiz/docker-compose.dev.yml" --profile adm-qa up -d mailpit
+  echo "   Abre http://localhost:${MAILPIT_UI_PORT:-8025}. Los correos se capturan aquí; no se entregan a Internet."
+}
+
 api() {
   export ASPNETCORE_ENVIRONMENT=Development
   export ConnectionStrings__Postgres="$CADENA"
@@ -114,12 +122,14 @@ web() { cd "$raiz/frontend"; exec npm run dev -- --port 5173 --strictPort; }
 estado() {
   printf 'PostgreSQL: '; docker exec "$CONTENEDOR" pg_isready -U pgadmin >/dev/null 2>&1 && echo ok || echo "no responde"
   printf 'Service Bus: '; (nc -z localhost 5672 >/dev/null 2>&1 && echo ok) || echo "no responde (tools/demo/demo.sh eventos)"
+  printf 'Correos: '; curl -fsS -o /dev/null "http://localhost:${MAILPIT_UI_PORT:-8025}/api/v1/messages" && echo ok || echo "no responde (tools/demo/demo.sh correos)"
   printf 'API: '; curl -fsS -o /dev/null http://localhost:5080/health/ready && echo ok || echo "no responde (tools/demo/demo.sh api)"
   printf 'Pantalla: '; curl -fsS -o /dev/null http://localhost:5173 && echo ok || echo "no responde (tools/demo/demo.sh web)"
 }
 
 case "${1:-}" in
   preparar) shift; preparar "${1:-}" ;;
+  correos) correos ;;
   eventos) eventos ;;
   api) api ;;
   web) web ;;

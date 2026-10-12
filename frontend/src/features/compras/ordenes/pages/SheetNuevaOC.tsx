@@ -565,6 +565,11 @@ export function SheetNuevaOC({
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
                 />
+                <p className="mt-1 text-xs text-ink-muted">
+                  {sucursalesMap.get(field.value)?.clave
+                    ? `Esta compra se registrará para ${sucursalesMap.get(field.value)?.clave} · ${sucursalesMap.get(field.value)?.nombre}.`
+                    : 'Elige para qué sucursal se realiza esta compra.'} Tu cuenta conserva su alcance corporativo o sus sucursales autorizadas.
+                </p>
               </FieldGroup>
             )}
           />

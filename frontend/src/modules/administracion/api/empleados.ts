@@ -76,7 +76,7 @@ export interface AltaColaboradorCommand {
   id: string;
   clave?: string | null;
   nombre: string;
-  sucursalId: string;
+  sucursalId: string | null;
   departamentoId: string;
   puestoId: string;
   acceso: 0 | 1 | 2;
@@ -290,4 +290,7 @@ function invalidar(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['identidad', 'usuarios'] });
   queryClient.invalidateQueries({ queryKey: ['admin', 'colaboradores'] });
   queryClient.invalidateQueries({ queryKey: adminKeys.auditoria() });
+  queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios'] });
+  queryClient.invalidateQueries({ queryKey: ['auth'] });
+  queryClient.invalidateQueries({ queryKey: ['compras'] });
 }

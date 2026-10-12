@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -136,6 +137,15 @@ public partial class OrdenesCompraEndpointsTests
         }
         var response = await client.PostAsJsonAsync($"{EndpointBase}/{id}/autorizaciones", new { Nivel = nivel });
         await AssertCodigoP2(response, HttpStatusCode.UnprocessableEntity, "OC_AUTOAUTORIZACION");
+
+        // Verificar en una lectura posterior: el 422 no basta si se hubiera
+        // persistido una firma o avanzado el estado antes de devolver el error.
+        var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{id}"));
+        Assert.Equal((int)(nivel == 1
+            ? EstadoOrdenCompra.EnAutorizacionJefeCompras
+            : EstadoOrdenCompra.EnAutorizacionDireccion), detalle.GetProperty("estado").GetInt32());
+        Assert.Equal(nivel - 1, detalle.GetProperty("autorizaciones").GetArrayLength());
+        Assert.Equal(JsonValueKind.Null, detalle.GetProperty("fechaContabilizacion").ValueKind);
     }
 
     [Fact]
@@ -146,6 +156,11 @@ public partial class OrdenesCompraEndpointsTests
         (await client.PostAsJsonAsync($"{EndpointBase}/{id}/autorizaciones", new { Nivel = 1 })).EnsureSuccessStatusCode();
         await AssertCodigoP2(await client.PostAsJsonAsync($"{EndpointBase}/{id}/autorizaciones", new { Nivel = 2 }),
             HttpStatusCode.UnprocessableEntity, "OC_FIRMA_MISMA_PERSONA");
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{id}"));
+        Assert.Equal((int)EstadoOrdenCompra.EnAutorizacionDireccion, detalle.GetProperty("estado").GetInt32());
+        Assert.Equal(1, detalle.GetProperty("autorizaciones").GetArrayLength());
+        Assert.Equal(JsonValueKind.Null, detalle.GetProperty("fechaContabilizacion").ValueKind);
     }
 
     [Theory]

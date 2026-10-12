@@ -148,6 +148,27 @@ export function useDesactivarSerie() {
   });
 }
 
+export function useActivarSerie() {
+  const queryClient = useQueryClient();
+  return useMutation<SerieResponse, Error, DesactivarSerieArgs>({
+    mutationFn: async ({ id, versionEsperada, idempotencyKey }) => {
+      const { data } = await apiRequest<SerieResponse>(
+        `/api/v1/admin/series/${id}/activar`,
+        {
+          method: 'POST',
+          idempotencyKey,
+          headers: { 'X-Expected-Version': String(versionEsperada) },
+        },
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.serie(vars.id) });
+      queryClient.invalidateQueries({ queryKey: adminKeys.series() });
+    },
+  });
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function buildListarPath(filtros: ListarSeriesFiltros): string {

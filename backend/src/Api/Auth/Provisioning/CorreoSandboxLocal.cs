@@ -58,11 +58,12 @@ public sealed class CorreoSandboxLocal : ICorreoSalientePort
             await smtp.SendMailAsync(mensaje, ct);
             _logger.LogInformation("[CorreoSandboxLocal] Correo entregado a servidor SMTP local en {Host}:{Puerto}", _options.Host, _options.Puerto);
         }
-        catch (Exception ex)
+        catch (SmtpException ex)
         {
             _logger.LogWarning(ex,
-                "[CorreoSandboxLocal] No hay servidor SMTP local escuchando en {Host}:{Puerto}. La contraseña temporal se registró arriba en los logs.",
+                "[CorreoSandboxLocal] No se pudo entregar el correo al buzón local en {Host}:{Puerto}. Levanta Mailpit y reintenta el envío.",
                 _options.Host, _options.Puerto);
+            throw;
         }
     }
 }

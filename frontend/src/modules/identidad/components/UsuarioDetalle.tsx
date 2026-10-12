@@ -1,3 +1,4 @@
+import { AlcanceUsuarioPanel } from '@/modules/administracion/components/AlcanceUsuarioPanel';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { PowerOff, Power, X } from 'lucide-react';
@@ -267,6 +268,7 @@ export function UsuarioDetalle() {
         {tab === 'datos' && (
           <div id="tab-panel-datos" role="tabpanel">
             <UsuarioDatosForm usuario={usuario} />
+            <AlcanceUsuarioPanel key={usuario.id} usuarioId={usuario.id} />
           </div>
         )}
         {tab === 'roles' && (

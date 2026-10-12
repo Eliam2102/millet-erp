@@ -33,7 +33,8 @@ internal static class EmpleadoSucursalScope
         IUsuarioSucursalReadPort usuarioSucursales,
         CancellationToken ct)
     {
-        if (await TieneBypassAsync(permisos, ct)) return;
+        if (await TieneBypassAsync(permisos, ct)
+            || (currentUser.UserId is Guid uid && await usuarioSucursales.EsCorporativoAsync(uid, ct))) return;
 
         var empleado = await db.Empleados.AsNoTracking()
             .Where(e => e.Id == empleadoId)
@@ -54,7 +55,8 @@ internal static class EmpleadoSucursalScope
         IUsuarioSucursalReadPort usuarioSucursales,
         CancellationToken ct)
     {
-        if (await TieneBypassAsync(permisos, ct)) return;
+        if (await TieneBypassAsync(permisos, ct)
+            || (currentUser.UserId is Guid uid && await usuarioSucursales.EsCorporativoAsync(uid, ct))) return;
 
         if (sucursalId is not Guid sid)
         {

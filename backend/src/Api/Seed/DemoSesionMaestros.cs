@@ -56,8 +56,16 @@ public sealed partial class DemoSesionSeedHostedService
         // La NC automática de ranura reserva su propio folio. Ambas series son
         // fiscales, continuas y globales para la única empresa del sandbox.
         foreach (var (tipo, prefijo) in new[] { (TipoDocumentoSerie.Cfdi, "DEMO-F"), (TipoDocumentoSerie.NotaCredito, "DEMO-NC") })
+        {
+            var serieId = Id(prefijo);
+            // Una serie DEMO desactivada, editada o eliminada conserva su ID.
+            // Respetar ese registro antes de buscar una alternativa activa evita
+            // recrearlo y chocar con la clave primaria durante un reinicio.
+            if (await db.Series.IgnoreQueryFilters().AnyAsync(s => s.Id == serieId, ct))
+                continue;
             if (!await db.Series.AnyAsync(s => s.EmpresaId == EmpresaId && s.SucursalId == null && s.TipoDocumento == tipo && s.Activa, ct))
-                db.Series.Add(new Serie(Id(prefijo), EmpresaId, null, tipo, prefijo, null, ReinicioPeriodo.None));
+                db.Series.Add(new Serie(serieId, EmpresaId, null, tipo, prefijo, null, ReinicioPeriodo.None));
+        }
         await db.SaveChangesAsync(ct);
         await SembrarSedesMilletAsync(db, ct);
         // Completa sólo las asignaciones DEMO faltantes, sin reemplazar puestos operados.

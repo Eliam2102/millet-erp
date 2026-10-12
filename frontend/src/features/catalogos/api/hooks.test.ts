@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -12,6 +12,9 @@ import {
   esCatalogoSinPermiso,
 } from '@/features/catalogos/api/hooks';
 import { ApiError } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
+
+afterEach(() => useAuthStore.setState({ permisos: [] }));
 
 describe('useDepartamentos', () => {
   it('devuelve la lista paginada del endpoint', async () => {
@@ -91,6 +94,7 @@ describe('useSucursales / useAlmacenes / useUsuarios — smoke', () => {
   });
 
   it('useUsuarios: llama al endpoint con identidad.usuarios.leer', async () => {
+    useAuthStore.setState({ permisos: ['identidad.usuarios.leer'] });
     let urlVisto: string | null = null;
     mswServer.use(
       http.get('*/api/v1/identidad/usuarios', ({ request }) => {
@@ -103,6 +107,21 @@ describe('useSucursales / useAlmacenes / useUsuarios — smoke', () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(urlVisto).toContain('/api/v1/identidad/usuarios');
+  });
+
+  it('useUsuarios: sin permiso no consulta el endpoint, incluso al remontar', async () => {
+    useAuthStore.setState({ permisos: [] });
+    const request = vi.fn(() => HttpResponse.json({}, { status: 403 }));
+    mswServer.use(http.get('*/api/v1/identidad/usuarios', request));
+    const wrapper = createQueryWrapper();
+    const first = renderHook(() => useUsuarios(), { wrapper });
+    expect(first.result.current.fetchStatus).toBe('idle');
+    first.unmount();
+    const second = renderHook(() => useUsuarios(), { wrapper });
+    expect(second.result.current.fetchStatus).toBe('idle');
+    // Da oportunidad a un fetch accidental de alcanzar el servidor mock.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(request).not.toHaveBeenCalled();
   });
 });
 

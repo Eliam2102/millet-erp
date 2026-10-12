@@ -2,13 +2,148 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Demo: servicios locales",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "docker start millet-dev-postgres millet-servicebus-sqledge millet-servicebus-emulator >/dev/null || exit 1; for intento in {1..60}; do docker exec millet-dev-postgres pg_isready -U pgadmin >/dev/null 2>&1 && exit 0; sleep 1; done; echo \"PostgreSQL no quedó listo. Revisa OrbStack o Docker Desktop.\" >&2; exit 1"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "Demo: API",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "tools/demo/demo.sh",
+        "api"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "millet-demo",
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "problemMatcher": [
+        {
+          "owner": "millet-demo-api",
+          "pattern": [
+            {
+              "regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(.+)$",
+              "file": 1,
+              "line": 2,
+              "column": 3,
+              "severity": 4,
+              "message": 5
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*Building.*$",
+            "endsPattern": ".*Now listening on:.*5080.*"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Demo: pantalla",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "tools/demo/demo.sh",
+        "web"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "millet-demo",
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "problemMatcher": [
+        {
+          "owner": "millet-demo-web",
+          "pattern": [
+            {
+              "regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(.+)$",
+              "file": 1,
+              "line": 2,
+              "column": 3,
+              "severity": 4,
+              "message": 5
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*VITE.*$",
+            "endsPattern": ".*Local:.*localhost:5173.*"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Demo: API y pantalla",
+      "dependsOn": [
+        "Demo: API",
+        "Demo: pantalla"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "Demo: iniciar Millet",
+      "dependsOn": [
+        "Demo: servicios locales",
+        "Demo: API y pantalla"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
       "label": "backend: build",
       "type": "shell",
       "command": "dotnet",
-      "args": ["build", "${workspaceFolder}/backend/Millet.sln", "--configuration", "Release"],
-      "group": { "kind": "build", "isDefault": true },
+      "args": [
+        "build",
+        "${workspaceFolder}/backend/Millet.sln",
+        "--configuration",
+        "Release"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
       "problemMatcher": "$msCompile",
-      "presentation": { "reveal": "silent", "panel": "shared", "clear": true }
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "clear": true
+      }
     },
     {
       "label": "backend: test",
@@ -22,16 +157,30 @@
         "--filter",
         "FullyQualifiedName~UnitTests"
       ],
-      "group": { "kind": "test", "isDefault": true },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
       "problemMatcher": "$msCompile",
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
     },
     {
       "label": "backend: watch (dev)",
       "type": "shell",
       "command": "dotnet",
-      "args": ["watch", "run", "--project", "src/Api/Millet.Api.csproj"],
-      "options": { "cwd": "${workspaceFolder}/backend" },
+      "args": [
+        "watch",
+        "run",
+        "--project",
+        "src/Api/Millet.Api.csproj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
       "isBackground": true,
       "presentation": {
         "reveal": "always",
@@ -41,7 +190,16 @@
       "problemMatcher": [
         {
           "owner": "dotnet-watch",
-          "pattern": [{ "regexp": "^.*$" }],
+          "pattern": [
+            {
+              "regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(.+)$",
+              "file": 1,
+              "line": 2,
+              "column": 3,
+              "severity": 4,
+              "message": 5
+            }
+          ],
           "background": {
             "activeOnStart": true,
             "beginsPattern": "^.*Building.*$",
@@ -54,26 +212,49 @@
       "label": "frontend: build",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "build"],
-      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "args": [
+        "run",
+        "build"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
       "problemMatcher": "$tsc",
-      "presentation": { "reveal": "silent", "panel": "shared", "clear": true }
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "clear": true
+      }
     },
     {
       "label": "frontend: lint",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "lint"],
-      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "args": [
+        "run",
+        "lint"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
       "problemMatcher": "$eslint-stylish",
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
     },
     {
       "label": "frontend: dev",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "dev"],
-      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "args": [
+        "run",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
       "isBackground": true,
       "presentation": {
         "reveal": "always",
@@ -83,7 +264,16 @@
       "problemMatcher": [
         {
           "owner": "vite",
-          "pattern": [{ "regexp": "^.*$" }],
+          "pattern": [
+            {
+              "regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(.+)$",
+              "file": 1,
+              "line": 2,
+              "column": 3,
+              "severity": 4,
+              "message": 5
+            }
+          ],
           "background": {
             "activeOnStart": true,
             "beginsPattern": ".*VITE.*",
@@ -94,14 +284,22 @@
     },
     {
       "label": "dev: start all",
-      "dependsOn": ["backend: watch (dev)", "frontend: dev"],
+      "dependsOn": [
+        "backend: watch (dev)",
+        "frontend: dev"
+      ],
       "dependsOrder": "parallel",
       "problemMatcher": [],
       "group": "build"
     },
     {
       "label": "validate all (CI mirror)",
-      "dependsOn": ["backend: build", "backend: test", "frontend: build", "frontend: lint"],
+      "dependsOn": [
+        "backend: build",
+        "backend: test",
+        "frontend: build",
+        "frontend: lint"
+      ],
       "dependsOrder": "sequence",
       "problemMatcher": []
     },
@@ -109,8 +307,17 @@
       "label": "infra: bicep build",
       "type": "shell",
       "command": "az",
-      "args": ["bicep", "build", "--file", "${workspaceFolder}/infra/main.bicep"],
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+      "args": [
+        "bicep",
+        "build",
+        "--file",
+        "${workspaceFolder}/infra/main.bicep"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
     }
   ]
 }

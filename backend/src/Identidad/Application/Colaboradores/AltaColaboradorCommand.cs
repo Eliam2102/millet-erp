@@ -70,7 +70,7 @@ public sealed record AltaColaboradorCommand(
     Guid Id,
     string? Clave,
     string Nombre,
-    Guid SucursalId,
+    Guid? SucursalId,
     Guid DepartamentoId,
     Guid PuestoId,
     TipoAccesoColaborador Acceso,
@@ -92,7 +92,7 @@ public sealed record AccesoColaboradorResponse(
     bool UsuarioReutilizado,
     Guid EmpresaId,
     Guid RolId,
-    Guid SucursalId);
+    Guid? SucursalId);
 
 public sealed class AltaColaboradorValidator : AbstractValidator<AltaColaboradorCommand>
 {
@@ -104,7 +104,7 @@ public sealed class AltaColaboradorValidator : AbstractValidator<AltaColaborador
     {
         RuleFor(c => c.Clave!).MaximumLength(20).When(c => !string.IsNullOrWhiteSpace(c.Clave));
         RuleFor(c => c.Nombre).NotEmpty().MaximumLength(254);
-        RuleFor(c => c.SucursalId).NotEmpty();
+        RuleFor(c => c.SucursalId).NotEqual(Guid.Empty).When(c => c.SucursalId.HasValue);
         RuleFor(c => c.DepartamentoId).NotEmpty();
         RuleFor(c => c.PuestoId).NotEmpty();
         RuleFor(c => c.Acceso).IsInEnum();
@@ -157,6 +157,7 @@ public sealed class AltaColaboradorHandler
     private readonly IAuditCorrelationContext _correlacion;
     private readonly IAuditLogWriter _auditWriter;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ICurrentEmpresaContext _empresaContext;
 
     public AltaColaboradorHandler(
         IMediator mediator,
@@ -167,7 +168,8 @@ public sealed class AltaColaboradorHandler
         IOptionsMonitor<EntraDirectorioOptions> entraOptions,
         IAuditCorrelationContext correlacion,
         IAuditLogWriter auditWriter,
-        ICurrentUserContext currentUser)
+        ICurrentUserContext currentUser,
+        ICurrentEmpresaContext empresaContext)
     {
         _mediator = mediator;
         _identidad = identidad;
@@ -178,6 +180,7 @@ public sealed class AltaColaboradorHandler
         _correlacion = correlacion;
         _auditWriter = auditWriter;
         _currentUser = currentUser;
+        _empresaContext = empresaContext;
     }
 
     public async Task<AltaColaboradorResponse> Handle(
@@ -185,18 +188,19 @@ public sealed class AltaColaboradorHandler
     {
         using var correlacion = _correlacion.Begin(Guid.CreateVersion7());
 
+        var empresaId = _empresaContext.Current
+            ?? throw new BusinessRuleException("EMPRESA_NO_SELECCIONADA", "Selecciona una empresa para crear el colaborador.");
         var sucursal = await _compartido.Sucursales.AsNoTracking()
             .Where(s => s.Id == command.SucursalId)
             .Select(s => new { s.Id, s.EmpresaId, s.Nombre, s.Clave })
-            .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new BusinessRuleException(
-                "EMPLEADO_SUCURSAL_NO_EXISTE",
-                $"No existe la sucursal '{command.SucursalId}'.");
+            .FirstOrDefaultAsync(cancellationToken);
+        if (command.SucursalId.HasValue && sucursal is null)
+            throw new BusinessRuleException("EMPLEADO_SUCURSAL_NO_EXISTE", $"No existe la sucursal '{command.SucursalId}'.");
 
         if (command.Acceso == TipoAccesoColaborador.SinAcceso)
         {
             var soloEmpleado = await _mediator.Send(
-                CrearEmpleado(command, sucursal.EmpresaId, usuarioId: null), cancellationToken);
+                CrearEmpleado(command, empresaId, usuarioId: null), cancellationToken);
             return new AltaColaboradorResponse(soloEmpleado, Acceso: null);
         }
 
@@ -250,31 +254,20 @@ public sealed class AltaColaboradorHandler
             }
 
             var empleado = await _mediator.Send(
-                CrearEmpleado(command, sucursal.EmpresaId, usuarioId), cancellationToken);
+                CrearEmpleado(command, empresaId, usuarioId), cancellationToken);
 
             var tieneRol = await _identidad.UsuarioEmpresaRoles.IgnoreQueryFilters().AsNoTracking()
                 .AnyAsync(
-                    uer => uer.UsuarioId == usuarioId && uer.EmpresaId == sucursal.EmpresaId && uer.RolId == rolId,
+                    uer => uer.UsuarioId == usuarioId && uer.EmpresaId == empresaId && uer.RolId == rolId,
                     cancellationToken);
             if (!tieneRol)
             {
                 await _mediator.Send(
-                    new AsignarRolAUsuarioCommand(usuarioId, sucursal.EmpresaId, rolId), cancellationToken);
+                    new AsignarRolAUsuarioCommand(usuarioId, empresaId, rolId), cancellationToken);
             }
 
-            var asignacionSucursal = await _identidad.UsuarioSucursales.IgnoreQueryFilters().AsNoTracking()
-                .FirstOrDefaultAsync(us => us.UsuarioId == usuarioId && us.SucursalId == sucursal.Id,
-                    cancellationToken);
-            if (asignacionSucursal is null)
-            {
-                await _mediator.Send(
-                    new AsignarUsuarioASucursalCommand(sucursal.Id, usuarioId), cancellationToken);
-            }
-            else if (asignacionSucursal.Estatus != EstatusCatalogo.Activo)
-            {
-                await _mediator.Send(
-                    new ReactivarAsignacionUsuarioSucursalCommand(sucursal.Id, usuarioId), cancellationToken);
-            }
+            await AlcanceSucursalesColaborador.AsignarAsync(
+                command.SucursalId, empresaId, usuarioId, _compartido, _identidad, _mediator, cancellationToken);
 
             var usuario = await _identidad.Usuarios.AsNoTracking()
                 .SingleAsync(u => u.Id == usuarioId, cancellationToken);
@@ -287,9 +280,9 @@ public sealed class AltaColaboradorHandler
                     usuario.EntraOid,
                     usuario.EstadoAcceso,
                     UsuarioReutilizado: existente is not null,
-                    sucursal.EmpresaId,
+                    empresaId,
                     rolId,
-                    sucursal.Id));
+                    command.SucursalId));
         }, cancellationToken);
 
         string actorTipo;
@@ -309,8 +302,8 @@ public sealed class AltaColaboradorHandler
         }
 
         var rolNombre = rol?.Nombre ?? "Rol";
-        var sucursalNombre = sucursal.Nombre ?? "Sucursal";
-        var sucursalClave = sucursal.Clave;
+        var sucursalNombre = sucursal?.Nombre ?? "Corporativo";
+        var sucursalClave = sucursal?.Clave;
 
         var tipoAccesoTexto = command.Acceso == TipoAccesoColaborador.CuentaNueva
             ? "Crear cuenta Microsoft"
@@ -331,7 +324,8 @@ public sealed class AltaColaboradorHandler
 
         var metadatosObj = new Dictionary<string, object?>
         {
-            ["sucursalId"] = sucursal.Id,
+            ["sucursalId"] = command.SucursalId,
+            ["adscripcion"] = command.SucursalId.HasValue ? "Sucursal" : "Corporativo",
             ["sucursalClave"] = sucursalClave,
             ["empleadoId"] = response.Empleado.Id,
             ["usuarioId"] = response.Acceso?.UsuarioId,

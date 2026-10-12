@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Catalogos.Domain;
+using Millet.Administracion.Domain;
 
 namespace Millet.Identidad.Infrastructure.PublicAdapters;
 
@@ -23,24 +24,32 @@ public sealed class UsuarioSucursalReadAdapter : IUsuarioSucursalReadPort
 
     public UsuarioSucursalReadAdapter(IdentidadDbContext db) => _db = db;
 
-    public async Task<IReadOnlyList<Guid>> ListarIdsAsync(
-        Guid usuarioId, CancellationToken cancellationToken)
+    private IQueryable<Guid> EmpresasCorporativas(Guid usuarioId) =>
+        _db.UsuarioEmpresaAlcances.Where(a => a.UsuarioId == usuarioId && a.EsCorporativo &&
+            _db.Usuarios.Any(u => u.Id == usuarioId && u.Activo) &&
+            _db.UsuarioEmpresaRoles.Any(r => r.UsuarioId == usuarioId && r.EmpresaId == a.EmpresaId &&
+                _db.Roles.Any(rol => rol.Id == r.RolId && rol.Activo)))
+            .Select(a => a.EmpresaId);
+
+    public Task<bool> EsCorporativoAsync(Guid usuarioId, CancellationToken cancellationToken) =>
+        EmpresasCorporativas(usuarioId).AnyAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> ListarIdsAsync(Guid usuarioId, CancellationToken cancellationToken)
     {
-        return await _db.UsuarioSucursales.AsNoTracking()
-            .Where(a => a.UsuarioId == usuarioId && a.Estatus == EstatusCatalogo.Activo)
-            .Select(a => a.SucursalId)
-            .ToListAsync(cancellationToken);
+        var empresas = EmpresasCorporativas(usuarioId);
+        var corporativas = _db.Set<Sucursal>().Where(s => empresas.Contains(s.EmpresaId)).Select(s => s.Id);
+        var asignadas = from a in _db.UsuarioSucursales
+                        join s in _db.Set<Sucursal>() on a.SucursalId equals s.Id
+                        where a.UsuarioId == usuarioId && a.Estatus == EstatusCatalogo.Activo
+                        select a.SucursalId;
+        return await corporativas.Union(asignadas).ToListAsync(cancellationToken);
     }
 
-    public async Task<bool> EstaAsociadoAsync(
-        Guid usuarioId, Guid sucursalId, CancellationToken cancellationToken)
+    public async Task<bool> EstaAsociadoAsync(Guid usuarioId, Guid sucursalId, CancellationToken cancellationToken)
     {
-        return await _db.UsuarioSucursales
-            .AsNoTracking()
-            .AnyAsync(
-                a => a.UsuarioId == usuarioId
-                  && a.SucursalId == sucursalId
-                  && a.Estatus == EstatusCatalogo.Activo,
-                cancellationToken);
+        var empresas = EmpresasCorporativas(usuarioId);
+        return await _db.Set<Sucursal>().AnyAsync(s => s.Id == sucursalId &&
+            (empresas.Contains(s.EmpresaId) || _db.UsuarioSucursales.Any(a => a.UsuarioId == usuarioId &&
+                a.SucursalId == sucursalId && a.Estatus == EstatusCatalogo.Activo)), cancellationToken);
     }
 }

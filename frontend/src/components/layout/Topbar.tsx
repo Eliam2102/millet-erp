@@ -1,6 +1,7 @@
+import { NotificacionesCompras } from './NotificacionesCompras';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
-import { Bell, HelpCircle, Menu, PanelLeftOpen, Search, Settings } from 'lucide-react';
+import { HelpCircle, Menu, PanelLeftOpen, Search, Settings } from 'lucide-react';
 import { AccessSearch } from '@/components/layout/AccessSearch';
 import { contextoNavegacion } from '@/lib/nav';
 import { useAuthStore } from '@/lib/auth/auth-store';
@@ -243,15 +244,7 @@ export function Topbar({ onMenuClick, onExpandPanel }: TopbarProps = {}) {
           </Button>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          disabled
-          aria-label="Notificaciones"
-          title="Las notificaciones aún no están disponibles"
-        >
-          <Bell className="h-4 w-4" />
-        </Button>
+        <NotificacionesCompras />
         {usuarioPuedeVerAdmin && (
           <Button variant="ghost" size="icon" asChild aria-label="Configuración">
             <Link to="/admin">

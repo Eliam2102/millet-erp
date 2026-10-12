@@ -38,6 +38,7 @@ public sealed class IdentidadDbContext : BaseDbContext
     // F1-ADM-01 Fase 1: scoping de usuarios por sucursal. UNIQUE
     // (UsuarioId, SucursalId). FK física cross-schema a
     // compartido.sucursales, mismo patrón que UsuarioServicio → Empresa.
+    public DbSet<UsuarioEmpresaAlcance> UsuarioEmpresaAlcances => Set<UsuarioEmpresaAlcance>();
     public DbSet<UsuarioSucursal> UsuarioSucursales => Set<UsuarioSucursal>();
     // ADR-0053: excepciones de permisos (Conceder/Denegar) por usuario/empresa
     // sobre la base del rol. UNIQUE (UsuarioId, EmpresaId, PermisoId).
@@ -66,6 +67,12 @@ public sealed class IdentidadDbContext : BaseDbContext
         ConfigureUsuarioServicio(modelBuilder);
         ConfigureUsuarioServicioPermiso(modelBuilder);
         ConfigureUsuarioSucursal(modelBuilder);
+        var alcance = modelBuilder.Entity<UsuarioEmpresaAlcance>();
+        alcance.ToTable("usuario_empresa_alcances");
+        alcance.HasKey(x => x.Id);
+        alcance.HasIndex(x => new { x.UsuarioId, x.EmpresaId }).IsUnique();
+        alcance.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+        alcance.HasOne<Empresa>().WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
         ConfigureUsuarioPermisoOverride(modelBuilder);
 
         SeedPermisosCanonicos(modelBuilder);

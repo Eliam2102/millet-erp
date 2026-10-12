@@ -97,11 +97,11 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
             await _compartido.SaveChangesAsync(ct);
         }
 
-        if (empleado.SucursalId is not Guid sucursalId ||
-            empleado.DepartamentoId is not Guid departamentoId ||
+        var sucursalId = empleado.SucursalId;
+        if (empleado.DepartamentoId is not Guid departamentoId ||
             empleado.PuestoId is null)
             throw new BusinessRuleException("COLABORADOR_ESTRUCTURA_INCOMPLETA",
-                "Asigna sucursal, departamento y puesto antes de dar acceso.");
+                "Asigna departamento y puesto antes de dar acceso.");
 
         var correo = request.CorreoCorporativo.Trim();
         if (!_options.CurrentValue.PermiteCorreo(correo))
@@ -182,12 +182,8 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
             if (!tieneRol)
                 await _mediator.Send(new AsignarRolAUsuarioCommand(usuarioId, empleado.EmpresaId, rolId), ct);
 
-            var asignacionSucursal = await _identidad.UsuarioSucursales.IgnoreQueryFilters().AsNoTracking()
-                .FirstOrDefaultAsync(a => a.UsuarioId == usuarioId && a.SucursalId == sucursalId, ct);
-            if (asignacionSucursal is null)
-                await _mediator.Send(new AsignarUsuarioASucursalCommand(sucursalId, usuarioId), ct);
-            else if (asignacionSucursal.Estatus != EstatusCatalogo.Activo)
-                await _mediator.Send(new ReactivarAsignacionUsuarioSucursalCommand(sucursalId, usuarioId), ct);
+            await AlcanceSucursalesColaborador.AsignarAsync(
+                sucursalId, empleado.EmpresaId, usuarioId, _compartido, _identidad, _mediator, ct);
 
             var final = await _identidad.Usuarios.AsNoTracking().SingleAsync(u => u.Id == usuarioId, ct);
             var empleadoResponse = new EmpleadoResponse(
@@ -216,7 +212,7 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
         }
 
         var rolNombre = rol?.Nombre ?? "Rol";
-        var sucursalNombre = sucursal?.Nombre ?? "Sucursal";
+        var sucursalNombre = sucursal?.Nombre ?? "Corporativo";
         var sucursalClave = sucursal?.Clave;
 
         var tipoAccesoTexto = request.Acceso == TipoAccesoColaborador.CuentaNueva
@@ -239,6 +235,7 @@ public sealed class DarAccesoColaboradorHandler : IRequestHandler<DarAccesoColab
         var metadatosObj = new Dictionary<string, object?>
         {
             ["sucursalId"] = sucursalId,
+            ["adscripcion"] = sucursalId.HasValue ? "Sucursal" : "Corporativo",
             ["sucursalClave"] = sucursalClave,
             ["empleadoId"] = empleado.Id,
             ["usuarioId"] = response.Acceso?.UsuarioId,
