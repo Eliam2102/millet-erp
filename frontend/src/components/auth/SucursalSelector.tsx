@@ -19,6 +19,7 @@ export function SucursalSelector() {
     queryKey: ['auth', 'alcance', usuarioId, empresaId],
     enabled: Boolean(usuarioId && empresaId),
     queryFn: async (context) => (await apiQueryRequest<{ esCorporativo: boolean }>('/api/auth/alcance', context)).data,
+    staleTime: 30_000,
   });
   const { data: sucursales = [], isLoading } = useQuery({
     queryKey: ['auth', 'sucursales', empresaId],

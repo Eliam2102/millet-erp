@@ -16,6 +16,7 @@ import { useAuthStore } from '@/lib/auth/auth-store';
  */
 describe('<SucursalSelector>', () => {
   beforeEach(() => {
+    mswServer.use(http.get('*/api/auth/alcance', () => HttpResponse.json({ esCorporativo: false })));
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'test-token',
@@ -55,7 +56,8 @@ describe('<SucursalSelector>', () => {
     render(<SucursalSelector />, { wrapper: ({ children }) => <StrictMode><QueryWrapper>{children}</QueryWrapper></StrictMode> });
     await waitFor(() => expect(useAuthStore.getState().currentSucursalId).toBe('suc-1'));
     expect(solicitudes).toBe(1);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes('/api/auth/sucursales'))).toHaveLength(1);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes('/api/auth/alcance'))).toHaveLength(1);
   });
 
   it('reutiliza las sucursales al remontar dentro de treinta segundos', async () => {
@@ -69,7 +71,8 @@ describe('<SucursalSelector>', () => {
     first.unmount();
     render(<SucursalSelector />, { wrapper });
     await screen.findByRole('option', { name: 'CNK · Conkal' });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes('/api/auth/sucursales'))).toHaveLength(1);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes('/api/auth/alcance'))).toHaveLength(1);
   });
 
   it('una sola sucursal permitida: se fija sola sin mezclar otros registros', async () => {
@@ -89,6 +92,17 @@ describe('<SucursalSelector>', () => {
     expect(select.value).toBe('suc-1');
     // Solo la propia sucursal — no se agregó ni mezcló ninguna otra.
     expect(screen.getAllByRole('option')).toHaveLength(2); // "Todas" + MTY
+  });
+
+  it('corporativo no se adscribe automáticamente aunque sólo exista una sucursal', async () => {
+    mswServer.use(
+      http.get('*/api/auth/alcance', () => HttpResponse.json({ esCorporativo: true })),
+      http.get('*/api/auth/sucursales', () => HttpResponse.json([{ id: 'suc-1', clave: 'MTY', nombre: 'Monterrey' }])),
+    );
+    render(<SucursalSelector />, { wrapper: createQueryWrapper() });
+    expect(await screen.findByText('Corporativo · Millet:')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Todas las sucursales' })).toBeInTheDocument();
+    expect(useAuthStore.getState().currentSucursalId).toBeNull();
   });
 
   it('varias sucursales permitidas: ofrece selector manual sin auto-elegir', async () => {
