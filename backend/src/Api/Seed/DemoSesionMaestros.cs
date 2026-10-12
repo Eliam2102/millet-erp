@@ -59,8 +59,9 @@ public sealed partial class DemoSesionSeedHostedService
             if (!await db.Series.AnyAsync(s => s.EmpresaId == EmpresaId && s.SucursalId == null && s.TipoDocumento == tipo && s.Activa, ct))
                 db.Series.Add(new Serie(Id(prefijo), EmpresaId, null, tipo, prefijo, null, ReinicioPeriodo.None));
         await db.SaveChangesAsync(ct);
+        await SembrarSedesMilletAsync(db, ct);
         // Completa sólo las asignaciones DEMO faltantes, sin reemplazar puestos operados.
-        var sucursalesDemo = await db.Sucursales.Where(s => s.EmpresaId == EmpresaId && (s.Clave == "MID" || s.Clave == "MTY" || s.Clave == "QRO")).Select(s => s.Id).ToArrayAsync(ct);
+        var sucursalesDemo = await db.Sucursales.Where(s => s.EmpresaId == EmpresaId && ClavesSedesDemo.Contains(s.Clave)).Select(s => s.Id).ToArrayAsync(ct);
         var asignacionesDemo = await db.SucursalDepartamentos.Where(a => a.EmpresaId == EmpresaId && sucursalesDemo.Contains(a.SucursalId) && a.Estatus == EstatusCatalogo.Activo).ToListAsync(ct);
         foreach (var a in asignacionesDemo)
         {
@@ -123,5 +124,54 @@ public sealed partial class DemoSesionSeedHostedService
                 throw;
             }
         }
+    }
+
+    // Sedes de Millet en la demo: una empresa con 5 sedes (Conkal, Chichí Suárez, Circuito, Cancún y Planta Pintura).
+    // Las 3 sucursales del catálogo de pruebas (MID, MTY y QRO) se renombran en su lugar para conservar órdenes,
+    // usuarios y almacenes ya ligados; la clave interna no cambia (es inmutable). Circuito y Planta Pintura se agregan.
+    // Solo renombra si conserva el nombre de prueba: respeta lo que un administrador haya editado.
+    // Los domicilios son ficticios (sin datos reales de Millet en el repositorio).
+    public static readonly string[] ClavesSedesDemo = ["MID", "MTY", "QRO", "CIR", "PIN"];
+
+    private static readonly (string Clave, string NombrePrueba, string Nombre, TipoSucursal Tipo, string Ciudad, string Municipio, string Estado, string Cp)[] SedesMillet =
+    [
+        ("MID", "Planta México Centro", "Conkal", TipoSucursal.Planta, "Conkal", "Conkal", "Yucatán", "97345"),
+        ("MTY", "Planta Monterrey", "Cancún", TipoSucursal.Taller, "Cancún", "Benito Juárez", "Quintana Roo", "77500"),
+        ("QRO", "Planta Querétaro", "Chichí Suárez", TipoSucursal.Taller, "Mérida", "Mérida", "Yucatán", "97306"),
+        ("CIR", "", "Circuito", TipoSucursal.Taller, "Mérida", "Mérida", "Yucatán", "97000"),
+        ("PIN", "", "Planta Pintura", TipoSucursal.Planta, "Mérida", "Mérida", "Yucatán", "97000"),
+    ];
+
+    private static async Task SembrarSedesMilletAsync(CompartidoDbContext db, CancellationToken ct)
+    {
+        foreach (var sede in SedesMillet)
+        {
+            var sucursal = await db.Sucursales.SingleOrDefaultAsync(s => s.EmpresaId == EmpresaId && s.Clave == sede.Clave, ct);
+            if (sucursal is null)
+            {
+                sucursal = new Sucursal(Id("DEMO-SEDE/" + sede.Clave), EmpresaId, sede.Clave, sede.Nombre, sede.Tipo,
+                    "Domicilio DEMO", "S/N", "Colonia DEMO", sede.Ciudad, sede.Municipio, sede.Estado, sede.Cp, "México");
+                db.Sucursales.Add(sucursal);
+            }
+            else if (sucursal.Nombre == sede.NombrePrueba)
+            {
+                sucursal.ActualizarDatos(nombre: sede.Nombre, tipo: sede.Tipo, ciudad: sede.Ciudad, municipio: sede.Municipio,
+                    estado: sede.Estado, codigoPostal: sede.Cp);
+            }
+        }
+        await db.SaveChangesAsync(ct);
+
+        // Las sedes nuevas reciben los mismos departamentos que la sede principal, para dar de alta empleados.
+        var principal = await db.Sucursales.SingleAsync(s => s.EmpresaId == EmpresaId && s.Clave == "MID", ct);
+        var departamentos = await db.SucursalDepartamentos.Where(a => a.SucursalId == principal.Id && a.Estatus == EstatusCatalogo.Activo)
+            .Select(a => a.DepartamentoId).ToListAsync(ct);
+        foreach (var clave in new[] { "CIR", "PIN" })
+        {
+            var sede = await db.Sucursales.SingleAsync(s => s.EmpresaId == EmpresaId && s.Clave == clave, ct);
+            foreach (var departamentoId in departamentos)
+                if (!await db.SucursalDepartamentos.AnyAsync(a => a.SucursalId == sede.Id && a.DepartamentoId == departamentoId, ct))
+                    db.SucursalDepartamentos.Add(new SucursalDepartamento(Id($"DEMO-SEDE-DEPTO/{clave}/{departamentoId}"), EmpresaId, sede.Id, departamentoId));
+        }
+        await db.SaveChangesAsync(ct);
     }
 }
