@@ -222,6 +222,13 @@ public sealed class DemoSesionSeedTests
         var empresa = Assert.Single(await maestros.Empresas.ToListAsync());
         Assert.Equal(razonSocial, empresa.RazonSocial);
         Assert.Equal("42501", empresa.CodigoPostal);
+        // Las 5 sedes de Millet: las 3 de prueba renombradas en su lugar y Circuito y Planta Pintura agregadas.
+        var sedes = await maestros.Sucursales.Where(s => s.EmpresaId == empresa.Id).ToDictionaryAsync(s => s.Clave, s => s.Nombre);
+        Assert.Equal("Conkal", sedes["MID"]);
+        Assert.Equal("Cancún", sedes["MTY"]);
+        Assert.Equal("Chichí Suárez", sedes["QRO"]);
+        Assert.Equal("Circuito", sedes["CIR"]);
+        Assert.Equal("Planta Pintura", sedes["PIN"]);
         Assert.Equal("601", empresa.RegimenFiscal);
         var departamentosDemo = await maestros.SucursalDepartamentos.Where(a => a.Estatus == EstatusCatalogo.Activo).ToListAsync();
         Assert.NotEmpty(departamentosDemo);
@@ -265,7 +272,7 @@ public sealed class DemoSesionSeedTests
             Assert.StartsWith("DEMO", usuario.Nombre);
             Assert.Equal(DemoSesionSeedHostedService.Id("DEMO-ROL-" + rol),
                 (await identidad.UsuarioEmpresaRoles.SingleAsync(a => a.UsuarioId == id && a.EmpresaId == empresa.Id)).RolId);
-            Assert.Equal(rol == "Capturista Compras" ? 1 : 3,
+            Assert.Equal(rol == "Capturista Compras" ? 1 : DemoSesionSeedHostedService.ClavesSedesDemo.Length,
                 await identidad.UsuarioSucursales.CountAsync(a => a.UsuarioId == id && a.EmpresaId == empresa.Id));
         }
         Assert.Equal(10m, Assert.Single(oc.Lineas).Cantidad);
