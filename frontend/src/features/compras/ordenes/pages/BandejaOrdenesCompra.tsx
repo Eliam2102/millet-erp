@@ -216,7 +216,16 @@ function RenderTabla({
 
   return (
     <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full min-w-[820px] text-sm">
+      <table className="w-full min-w-[1040px] table-fixed text-sm">
+        <colgroup>
+          <col className="w-[180px]" />
+          <col className="w-[110px]" />
+          <col />
+          <col className="w-[150px]" />
+          <col className="w-[230px]" />
+          <col className="w-[84px]" />
+          <col className="w-[76px]" />
+        </colgroup>
         <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left">
@@ -266,9 +275,9 @@ function RenderTabla({
                 key={oc.id}
                 className={i % 2 === 1 ? 'bg-muted/20' : undefined}
               >
-                <td className="px-3 py-2 font-mono">{oc.folio}</td>
+                <td className="whitespace-nowrap px-3 py-2 font-mono">{oc.folio}</td>
                 <td className="px-3 py-2">
-                  <DateTimeDisplay value={oc.fechaDocumento} />
+                  <DateTimeDisplay value={oc.fechaDocumento} className="whitespace-nowrap" />
                 </td>
                 <td className="px-3 py-2 truncate" title={proveedorLabel}>
                   {proveedorLabel}
