@@ -182,7 +182,7 @@ Sección **"Datos de origen A+W"** (solo lectura, de la copia):
 ### 3c. Sincronización de clientes desde la copia de demo
 
 - **Ruta:** `/admin/datos-maestros/clientes` > botón **"Sincronizar"** del encabezado izquierdo.
-- **Captura del diálogo:** `03c-sincronizar-dialogo.png`.
+- **Capturas del diálogo:** `03c-sincronizar-dialogo.png` (antes de elegir) y `03d-sincronizar-origen-copia-de-demo.png` (con el origen "Copia de demo" elegido).
 
 | Control | Qué poner | Por qué |
 |---|---|---|
