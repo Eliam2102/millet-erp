@@ -41,10 +41,7 @@ import {
   type CrearProveedorValues,
 } from '@/modules/datos-maestros/schemas/proveedor';
 import { useCrearProveedor } from '@/modules/datos-maestros/api';
-import {
-  EstatusCatalogo,
-  TipoPersonaProveedor,
-} from '@/modules/datos-maestros/api/types';
+import { TipoPersonaProveedor } from '@/modules/datos-maestros/api/types';
 
 /**
  * <c>&lt;NuevoProveedorProvider/&gt;</c> + Sheet asociado (P4 del
@@ -185,7 +182,7 @@ function NuevoProveedorForm({
       {
         onSuccess: (resp) => {
           toast.success(`Proveedor ${resp.clave} creado`);
-          if (resp.estatus === EstatusCatalogo.EnRevision) {
+          if (resp.posibleDuplicadoDeId != null) {
             toast.warning(
               `${resp.clave} quedó en revisión: posible duplicado`,
               {

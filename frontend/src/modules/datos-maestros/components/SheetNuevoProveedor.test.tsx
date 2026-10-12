@@ -161,4 +161,36 @@ describe('<SheetNuevoProveedor>', () => {
       ),
     );
   });
+
+  it('alta normal (estatus EnRevision sin posibleDuplicadoDeId) no avisa duplicado', async () => {
+    vi.mocked(toast.warning).mockClear();
+    mswServer.use(
+      http.post('*/api/v1/catalogos/proveedores', () =>
+        HttpResponse.json(
+          {
+            id: 'p-nuevo',
+            clave: 'P-010',
+            estatus: 2, // EstatusCatalogo.EnRevision: todo alta nace así
+            posibleDuplicadoDeId: null,
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    render(
+      <NuevoProveedorProvider>
+        <AbrirAlMontar />
+      </NuevoProveedorProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+
+    await screen.findByPlaceholderText('P-001');
+    llenarYEnviar();
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Proveedor P-010 creado'),
+    );
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
 });
