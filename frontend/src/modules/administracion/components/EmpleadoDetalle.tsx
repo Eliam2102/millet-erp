@@ -145,7 +145,6 @@ export function EmpleadoDetalle() {
           <ErrorState title="No se pudieron consultar los roles" onRetry={() => usuario.refetch()} /> :
           <RolesPorEmpresaPanel usuarioId={empleado.usuarioId} asignaciones={usuario.data?.asignaciones ?? []} />}
         {empresaActivaId != null && <PermisosPersonalizadosPanel usuarioId={empleado.usuarioId} empresaId={empresaActivaId} />}
-        <Button asChild variant="link" size="sm"><Link to="/admin/usuarios/$id" params={{ id: empleado.usuarioId }}>Abrir cuenta de acceso</Link></Button>
       </>}
       {empleado.usuarioId && !puedeLeerUsuarios && <p className="text-sm text-muted-foreground">No tienes permiso para consultar el detalle de roles de esta cuenta.</p>}
     </section>}

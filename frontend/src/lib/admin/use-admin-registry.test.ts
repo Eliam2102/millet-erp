@@ -55,6 +55,17 @@ describe('useAdminRegistry / useAdminAccess', () => {
     expect(result.current).toHaveLength(0);
   });
 
+  it('no expone la card identidad-usuarios aunque el usuario tenga identidad.usuarios.leer', () => {
+    useAuthStore.setState({
+      permisos: [PermisosCanonicos.IdentidadUsuariosLeer, PermisosCanonicos.IdentidadRolesLeer],
+    });
+
+    const { result } = renderHook(() => useAdminRegistry());
+
+    expect(result.current.map((card) => card.id)).not.toContain('identidad-usuarios');
+    expect(result.current.map((card) => card.id)).toContain('identidad-roles');
+  });
+
   it('useAdminAccess es true si y solo si useAdminRegistry tiene al menos una card', () => {
     useAuthStore.setState({ permisos: [] });
     const sinPermisos = renderHook(() => useAdminAccess());

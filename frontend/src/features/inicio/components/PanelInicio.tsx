@@ -39,7 +39,7 @@ export function PanelInicio() {
           <AlertDescription className="text-xs">
             Tu usuario aún no tiene empresas o roles asignados dentro del ERP. Solicita a tu
             administrador que configure tus permisos desde{' '}
-            <strong>Administración &gt; Usuarios</strong>.
+            <strong>Administración &gt; Empleados</strong>.
           </AlertDescription>
         </Alert>
       )}
