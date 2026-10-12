@@ -4,7 +4,7 @@
 
 Repetir, sin adivinar, el recorrido de **Maestros y A+W** de la demo: qué se escribe o elige en cada campo de cada pantalla, con el valor exacto que se usó, y por qué. Sirve para que Eliam reproduzca el recorrido en su laptop.
 
-Base de la guía: el recorrido real del 12-oct-2026 documentado en `.verification/demo-tour/maestros/pasos.md` (copia de demo `millet_demo`, rama `feature/acceso-todas-sucursales-ui`). Las razones de negocio salen del código (`backend/`, `frontend/`) y de `docs/`. Cuando una razón no se sustenta en código o docs, se marca **(razón no verificada)**.
+Base de la guía: el recorrido real del 12-oct-2026 documentado en `.verification/demo-tour/maestros/pasos.md` (copia de demo `millet_demo`, rama `fix/demo-12oct-correcciones`). Las razones de negocio salen del código (`backend/`, `frontend/`) y de `docs/`. Cuando una razón no se sustenta en código o docs, se marca **(razón no verificada)**.
 
 Diapositiva de la demo:
 - **CONSTRUIDO:** artículos, clientes y proveedores desde la copia de A+W.

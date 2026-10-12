@@ -158,9 +158,9 @@ Capturas: `04a-facturas-bandeja-antes.png`, `04b-capturar-factura-sheet-vacio.pn
 
 > **Panel que no se desplazaba (problema 1, corregido):** en `main` el panel "Capturar
 > factura desde OC" no hacía scroll y a 1440x900 el botón "Capturar factura" quedaba fuera
-> de pantalla. La rama `feature/acceso-todas-sucursales-ui` lo corrige (commit `fbb71e12`,
-> `overflow-y-auto` en `CapturarFacturaSheet.tsx`). Si ejecutas esta rama no hace falta nada;
-> si ejecutas `main` sin ese commit, baja el zoom del navegador a **67 %** (Ctrl y el signo
+> de pantalla. La rama `fix/demo-12oct-correcciones` lo corrige
+> (`overflow-y-auto` en `CapturarFacturaSheet.tsx`). Si ejecutas esta rama no hace falta nada;
+> si ejecutas `main` sin esta corrección, baja el zoom del navegador a **67 %** (Ctrl y el signo
 > menos, 3 veces) o usa una ventana de al menos 1350 px de alto.
 
 **Orden obligatorio de llenado** (porque unos campos se derivan de otros):
@@ -421,7 +421,7 @@ Capturas: `08c`, `09a`, `09b`, `09c`.
 | Pantalla | Qué debe verse | Cuándo |
 |---|---|---|
 | CxP, factura (`08c`) | Estado **Pagada**; Elegible para pago 0.00 MXN; Total 1740.00; **Pagado 1740.00 MXN**; **Saldo pendiente 0.00 MXN**; barra de acciones vacía. El CFDI `DEMO-7001` en `/cxp/cfdis` pasa a "Convertido en pasivo" | Casi inmediato tras el pago (CxP consume `tesoreria.pago-factura-proveedor.aplicado.v1`) |
-| Compras, OC (`09a`) | OC Autorizada (v7). Sub-estados **Recepción parcial (20 %)**, **Facturación parcial (20 %)** y **Pago parcial** (sin porcentaje: el dato de avance de pago no lo expone la OC). Los porcentajes son por cantidades (6 de 30 piezas). En el recorrido original, hecho con `main`, decían "~50 %" fijo y la fila Recepción quedaba tapada por la barra superior; ambos defectos están corregidos en la rama `feature/acceso-todas-sucursales-ui` | **< 1 minuto** (no hizo falta esperar 60 s) |
+| Compras, OC (`09a`) | OC Autorizada (v7). Sub-estados **Recepción parcial (20 %)**, **Facturación parcial (20 %)** y **Pago parcial** (sin porcentaje: el dato de avance de pago no lo expone la OC). Los porcentajes son por cantidades (6 de 30 piezas). En el recorrido original, hecho con `main`, decían "~50 %" fijo y la fila Recepción quedaba tapada por la barra superior; ambos defectos están corregidos en la rama `fix/demo-12oct-correcciones` | **< 1 minuto** (no hizo falta esperar 60 s) |
 | Compras, OC > pestaña Líneas (`09b`) | Línea 1 `ART-CRT-01`: Cantidad 10.00, **Recibido 6.00, Por surtir 4.00**; línea 2 `ART-EST-01`: Cantidad 20.00, Recibido 0.00, Por surtir 20.00. La tabla **no** tiene columnas de facturado ni pagado | — |
 | Compras, botón **Trazabilidad** (`09c`) | Origen Requisición `MID2026-010008` (EnSurtido) → Actual OC `OC-MID2026-000007` (Autorizada) → Derivados: Recepción `M-ENT2026-000011` (Registrado, 12/10/2026), Factura de proveedor `DEMO-7001` (Pagada, 12/10/2026) y, debajo, **Pago a proveedor `SPEI-DEMO-0001` (Aplicado, 12/10/2026)** | Igual |
 
@@ -517,10 +517,10 @@ Nombres canónicos de la triada (CLAUDE.md): `OcRecepcionRegistradaEvent`, `Fact
 
 | # | Problema | Cómo esquivarlo |
 |---|---|---|
-| 1 | **El panel "Capturar factura desde OC" no se desplaza a 1440x900** y el botón "Capturar factura" queda inalcanzable (el formulario mide ~1,270 px; el botón estaba en y=1220). Causa probable: `frontend/src/features/cxp/components/CapturarFacturaSheet.tsx`, `<form className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-[260px_1fr]">` sin scroll interno | **Corregido** en la rama `feature/acceso-todas-sucursales-ui` (commit `fbb71e12`). Solo si ejecutas `main` sin ese commit: zoom del navegador a 67 % o ventana de ≥ 1350 px de alto |
+| 1 | **El panel "Capturar factura desde OC" no se desplaza a 1440x900** y el botón "Capturar factura" queda inalcanzable (el formulario mide ~1,270 px; el botón estaba en y=1220). Causa probable: `frontend/src/features/cxp/components/CapturarFacturaSheet.tsx`, `<form className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-[260px_1fr]">` sin scroll interno | **Corregido** en la rama `fix/demo-12oct-correcciones` . Solo si ejecutas `main` sin ese commit: zoom del navegador a 67 % o ventana de ≥ 1350 px de alto |
 | 2 | Texto rojo "Selecciona la línea de OC que corresponde a este concepto." sigue visible tras elegir la línea | Ignorarlo; no impide capturar |
 | 3 | **Reportes Cartera y Antigüedad: 422 `CXP_HISTORICO_POR_CONFIRMAR`** sin filtro de proveedor. Mensaje: "No se pudo cargar el reporte. Por confirmar: hay aplicaciones anteriores a P8 sin fecha reconstruible…". Causa: la factura `MOD-1002` (Herrajes Industriales del Bajío) tiene `importe_pagado = 3,873.2400` pero ningún renglón de pago en `cuentas_por_pagar.movimientos_pasivo` (dato sembrado antes; `SaldosHistoricos.VerificarHistorial`) | **Siempre filtrar por proveedor `DEMO-PROV-ACT`**. Antes de la demo conviene reparar o retirar ese dato (no se hizo: no se fuerzan pagos ni saldos por SQL) |
-| 4 | ~~En el detalle de OC la fila "Recepción" quedaba oculta bajo la barra superior y decía "~50 %" fijo~~ **Corregido** en la rama (commits `2a2f12c5` y `7931d47a`): ahora muestra el avance real y la fila se ve completa | Solo si ejecutas `main` sin esos commits: usar la pestaña **Líneas** (`09b`) y la **Trazabilidad** (`09c`) |
+| 4 | ~~En el detalle de OC la fila "Recepción" quedaba oculta bajo la barra superior y decía "~50 %" fijo~~ **Corregido** en la rama : ahora muestra el avance real y la fila se ve completa | Solo si ejecutas `main` sin las correcciones de esta rama: usar la pestaña **Líneas** (`09b`) y la **Trazabilidad** (`09c`) |
 | 5 | **"Autorizar" actúa de inmediato**, sin diálogo ni evidencia y sin vuelta atrás desde esa pantalla | Avisarlo antes de pulsarlo |
 | 6 | Tesorería muestra el folio sin serie (`7001`, no `DEMO-7001`) y el pago **no tiene folio propio** (solo la referencia tecleada) | Identificar el pago por `SPEI-DEMO-0001` |
 | 7 | `DEMO-CTA-MXN` con **saldo negativo** (-4,704.38 → -6,444.38); el sistema permite pagar sin fondos. Los 13 conceptos de flujo dicen "(ejemplo por validar)" | Opcional (no hecho): Tesorería > Movimientos bancarios > **Registrar ingreso** para dejar saldo positivo |

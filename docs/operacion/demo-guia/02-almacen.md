@@ -170,7 +170,7 @@ Cada línea muestra: **Línea #N**, artículo, UM, y tres datos de solo lectura:
 |---|---|
 | **Registrar recepción** | Valida en pantalla y envía `POST /api/v1/almacen/recepciones` con Idempotency-Key (un doble clic no duplica). Muestra "Registrando…" mientras responde |
 | **Cancelar** / X | Cierra el panel sin registrar nada |
-| Botón flotante de la esquina inferior derecha (icono de isla con palmera) | Es el **devtools de TanStack Query** (herramienta de desarrollo), no parte del producto; tapaba parcialmente "Registrar recepción". En la rama `feature/acceso-todas-sucursales-ui` queda **apagado por defecto** (se activa con `VITE_QUERY_DEVTOOLS=true`); en `main` sigue visible y es clicable por los lados |
+| Botón flotante de la esquina inferior derecha (icono de isla con palmera) | Es el **devtools de TanStack Query** (herramienta de desarrollo), no parte del producto; tapaba parcialmente "Registrar recepción". En la rama `fix/demo-12oct-correcciones` queda **apagado por defecto** (se activa con `VITE_QUERY_DEVTOOLS=true`); en `main` sigue visible y es clicable por los lados |
 
 - **Petición real de la demo:** 201 `{"recepcionId":"01a12f9d-e2b4-7439-b8ef-051dd22e3ec6","folio":"M-ENT2026-000011"}`. Cuerpo: `cfdiRecibidoId: null`, `cfdiUuidFiscal` con el UUID, `ubicacionHelperId` = id de `R-A1`, una línea con `cantidad: 6` y `ubicacionId` = `R-A1`.
 - **Debe verse:** toast verde "Recepción M-ENT2026-000011 registrada" y navegación automática al detalle (Paso 4). No sale error de periodo contable.
@@ -237,7 +237,7 @@ Cada línea muestra: **Línea #N**, artículo, UM, y tres datos de solo lectura:
 | Botón de cancelar | Cambió de "Cancelar OC" a **"Solicitar cancelación"** | Ya hay recepción: la cancelación pasa a doble firma |
 | Línea 1 `ART-CRT-01` | Cantidad 10.00, **Recibido 6.00, Por surtir 4.00** | Recibido llega del evento; Por surtir = Cantidad − Recibido |
 | Línea 2 `ART-EST-01` | Cantidad 20.00, **Recibido 0.00, Por surtir 20.00** | No se marcó en la recepción |
-| Fila "Recepción" de la cabecera | Dice **"Recepción parcial (20 %)"** (6 de 30 piezas) y se ve completa | **Corregido** en la rama (commits `2a2f12c5` y `7931d47a`). En `main` decía "~50 %" fijo y quedaba tapada por la barra de acciones; ahí lo que vale son las columnas Recibido / Por surtir |
+| Fila "Recepción" de la cabecera | Dice **"Recepción parcial (20 %)"** (6 de 30 piezas) y se ve completa | **Corregido** en la rama . En `main` decía "~50 %" fijo y quedaba tapada por la barra de acciones; ahí lo que vale son las columnas Recibido / Por surtir |
 
 **Cuánto tarda.** Flujo: Outbox de Almacén → emulador de Service Bus → `AlmacenEventListenerWorker` de Compras. El publicador del Outbox consulta cada **5 segundos** (`PollIntervalSeconds = 5`); en el recorrido real, al abrir la OC (menos de un minuto después) ya estaba actualizado. Si no cambia: recargar la página tras 10–30 segundos; si pasa más de un minuto, revisar que el emulador esté encendido y los workers corriendo.
 

@@ -29,23 +29,23 @@ Git con acceso al repo. Detalle en `tools/demo/README.md`, sección 1.
 
 ## 2. Baja la rama correcta
 
-Los arreglos de esta demo están en la rama
-`feature/acceso-todas-sucursales-ui`, no en `main`:
+Las correcciones de esta demo están en la rama `fix/demo-12oct-correcciones`,
+que sale de `main` (ya con tu PR #94 de alcance corporativo y el #95 de OC):
 
 ```bash
 git clone https://github.com/Eliam2102/millet-erp.git   # si no lo tienes
 cd millet-erp
 git fetch origin
-git checkout feature/acceso-todas-sucursales-ui
+git checkout fix/demo-12oct-correcciones
 git pull
 ```
 
-Qué trae esa rama respecto de `main` (commits separados por tema):
-1. **Acceso a todas las sucursales** desde el alta de empleado y "Dar acceso",
-   con el interruptor en el panel de permisos personalizados, y la sección
-   "Cuentas de acceso" oculta del menú de Admin.
+Qué trae esa rama respecto de `main` (commits separados por tema; **no toca el
+backend de producto**, solo pruebas):
+1. **Oculta "Cuentas de acceso"** del menú de Admin (la gestión de usuarios vive en
+   Empleados → Roles y accesos; las rutas `/admin/usuarios` siguen por URL directa).
 2. **Pruebas estabilizadas** (mocks de Vitest, aislamiento de pruebas de
-   integración).
+   integración que dependían del orden o del entorno).
 3. **Arreglos de la demo** (cada uno con su prueba):
    - El panel "Capturar factura desde OC" hace scroll y el texto rojo "Selecciona la
      línea de OC…" ya no aparece antes de enviar.
@@ -58,7 +58,15 @@ Qué trae esa rama respecto de `main` (commits separados por tema):
    - El alta de proveedor ya no avisa de "posible duplicado" salvo que el backend lo
      detecte; el botón flotante de la palmera (devtools de React Query) viene apagado
      (se enciende con `VITE_QUERY_DEVTOOLS=true`).
-4. **Documentación** de la demo.
+4. **Documentación** de la demo, el archivo de usuarios y permisos
+   (`demo-usuarios-permisos.md` / `.csv`) y el verificador
+   `tools/demo/verificar-usuarios-demo.sh`.
+
+**Acceso a todas las sucursales ("nivel todo").** Ya está en `main` (tu alcance
+corporativo, PR #94): en el alta de empleado, una sucursal vacía crea al usuario
+como **corporativo**, y en Empleados → Roles y accesos (o en el detalle de la cuenta)
+la casilla **"Usuario corporativo de Millet"** lo cambia después; requiere el permiso
+`admin.empleados.gestionar-todas-sucursales`. Esta rama no agrega otro mecanismo.
 
 ## 3. Configura lo privado
 
@@ -94,6 +102,15 @@ docker exec -i millet-dev-postgres pg_restore -U pgadmin -d millet_demo \
   --no-owner --no-privileges < millet_demo-2026-10-12.dump
 ```
 
+**Aplica las migraciones nuevas.** El respaldo se hizo antes del PR #94, así que
+no trae la tabla del alcance corporativo (migración `AlcanceCorporativoUsuario`) ni
+cualquier otra migración posterior. Vuelve a correr la preparación, que solo aplica lo
+que falte y no borra datos:
+
+```bash
+tools/demo/demo.sh preparar
+```
+
 Comprueba que quedó completa:
 
 ```bash
@@ -111,6 +128,13 @@ select 'clientes', count(*) from compartido.clientes"
 Debe dar: `usuarios 8`, `requisiciones 9`, `ordenes 9`, `facturas 7`,
 `ubicaciones 15`. Además, para Maestros: `compartido.proveedores` 20,
 `compartido.articulos` 13 y `compartido.clientes` 80.
+
+Después verifica **usuarios, roles, sucursales y permisos** con el verificador
+(compara contra `docs/operacion/demo-usuarios-permisos.csv`; debe terminar en `OK`):
+
+```bash
+tools/demo/verificar-usuarios-demo.sh
+```
 
 Si prefieres **no** usar el respaldo y reconstruir a mano lo que se cambió
 en la base, mira el apéndice A.
@@ -259,14 +283,14 @@ beneficiario); una **cuenta bancaria MXN** en Tesorería (`DEMO-CTA-MXN`); y el
 ## Apéndice B. Estado de todos los problemas encontrados en el recorrido
 Las capturas de esta guía se tomaron con el código de `main`, **antes** de los
 arreglos. Los marcados "Corregido" ya están en la rama
-`feature/acceso-todas-sucursales-ui`.
+`fix/demo-12oct-correcciones`.
 
 | # | Problema | Estado |
 |---|---|---|
-| 1 | Panel "Capturar factura desde OC" sin scroll: el botón quedaba fuera de pantalla a 1440×900 | **Corregido** (`fbb71e12`; medido en navegador: botón en y=850, clicable) |
-| 2 | A quien creó la OC se le ofrecía "Aprobar Nivel 1/2"; tras firmar N1 se ofrecía N2 | **Corregido** (`2a2f12c5`): botones deshabilitados con motivo |
-| 3 | Sub-estados de la OC con "~50 %" fijo y sin dato real | **Corregido** (`2a2f12c5`): Recepción/Facturación muestran el avance real; Pago solo el estado |
-| 4 | Barra fija tapaba la fila "Recepción" de la OC y la primera fila del detalle de requisición | **Corregido** (`7931d47a`; medido: cabecera 76–127 px, fila en 167–183 px) |
+| 1 | Panel "Capturar factura desde OC" sin scroll: el botón quedaba fuera de pantalla a 1440×900 | **Corregido** (medido en navegador: botón en y=850, clicable) |
+| 2 | A quien creó la OC se le ofrecía "Aprobar Nivel 1/2"; tras firmar N1 se ofrecía N2 | **Corregido**: botones deshabilitados con motivo |
+| 3 | Sub-estados de la OC con "~50 %" fijo y sin dato real | **Corregido**: Recepción/Facturación muestran el avance real; Pago solo el estado |
+| 4 | Barra fija tapaba la fila "Recepción" de la OC y la primera fila del detalle de requisición | **Corregido** (medido: cabecera 76–127 px, fila en 167–183 px) |
 | 5 | Botón flotante de isla con palmera tapaba botones | **Corregido**: era el devtools de React Query; ahora apagado por defecto (`VITE_QUERY_DEVTOOLS=true` lo enciende) |
 | 6 | Estado en crudo "EnSurtido" en la trazabilidad | **Corregido**: se muestra "En surtido" |
 | 7 | Hora del evento "Creado" corrida 4 horas | **No era error**: la OC se creó a las 00:09:59 (hora de Mérida) y la pantalla dice 12:09:59 a.m. |

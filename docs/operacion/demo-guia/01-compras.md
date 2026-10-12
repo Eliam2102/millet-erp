@@ -373,7 +373,7 @@ botones "Aprobar Nivel 1", "Rechazar", "Cancelar OC"; versión v2.
 
 Nota: a Geovany (creador de la OC) el botón "Aprobar Nivel 1" le sale
 **deshabilitado** con el motivo "Quien crea la OC no puede firmarla." (arreglo de
-la rama `feature/acceso-todas-sucursales-ui`; en `main` salía habilitado y el
+la rama `fix/demo-12oct-correcciones`; en `main` salía habilitado y el
 backend lo rechazaba con `OC_AUTOAUTORIZACION`). Y tras firmar N1, esa misma
 persona ve "Aprobar Nivel 2" deshabilitado ("Ya firmaste el nivel 1…").
 
