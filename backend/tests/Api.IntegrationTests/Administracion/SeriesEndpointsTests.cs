@@ -325,6 +325,50 @@ public class SeriesEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal("CONCURRENCY_CONFLICT", (await ReadJsonAsync(stale)).GetProperty("code").GetString());
     }
 
+    [Fact]
+    public async Task Activar_Conserva_Secuencia_Y_Rechaza_Version_Antigua()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        var id = await CrearSerieAsync(client, sucursal, 2, RandomPrefijo());
+        var reserva = new { EmpresaId = EmpresaBootstrapId, SucursalId = sucursal,
+            TipoDocumento = 2, FechaReferencia = "2026-05-14" };
+        var antes = await client.PostAsJsonAsync($"{EndpointBase}/reservar", reserva);
+        antes.EnsureSuccessStatusCode();
+        var numero = (await ReadJsonAsync(antes)).GetProperty("numero").GetInt64();
+        var versionAntigua = await ObtenerVersionSerieAsync(client, id);
+        (await DesactivarSerieAsync(client, id, versionAntigua)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await ActivarSerieAsync(client, id, versionAntigua)).StatusCode);
+        var activada = await ActivarSerieAsync(client, id, await ObtenerVersionSerieAsync(client, id));
+        activada.EnsureSuccessStatusCode();
+        Assert.True((await ReadJsonAsync(activada)).GetProperty("activa").GetBoolean());
+        var despues = await client.PostAsJsonAsync($"{EndpointBase}/reservar", reserva);
+        despues.EnsureSuccessStatusCode();
+        Assert.Equal(numero + 1, (await ReadJsonAsync(despues)).GetProperty("numero").GetInt64());
+    }
+
+    [Fact]
+    public async Task Activar_Rechaza_Otra_Serie_Fiscal_Activa()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var sucursal = Guid.NewGuid();
+        var id = await CrearSerieAsync(client, sucursal, 2, RandomPrefijo());
+        (await DesactivarSerieAsync(client, id, await ObtenerVersionSerieAsync(client, id))).EnsureSuccessStatusCode();
+        await CrearSerieAsync(client, sucursal, 2, RandomPrefijo());
+        var response = await ActivarSerieAsync(client, id, await ObtenerVersionSerieAsync(client, id));
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("SERIE_ACTIVA_DUPLICADA", (await ReadJsonAsync(response)).GetProperty("code").GetString());
+    }
+
+    private static async Task<HttpResponseMessage> ActivarSerieAsync(HttpClient client, Guid id, int version)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{EndpointBase}/{id}/activar");
+        request.Headers.Add("X-Expected-Version", version.ToString());
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("D"));
+        return await client.SendAsync(request);
+    }
+
     // --- DESACTIVAR ---
 
     [Fact]

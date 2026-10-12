@@ -221,6 +221,7 @@ public static class OrganizacionEndpoints
             [FromQuery] int? limit,
             CompartidoDbContext db,
             IdentidadDbContext identidadDb,
+            Millet.Administracion.Application.Abstractions.IUsuarioSucursalReadPort sucursalesPort,
             ICurrentUserContext currentUser,
             ICurrentUserPermissions permisos,
             CancellationToken ct) =>
@@ -229,12 +230,11 @@ public static class OrganizacionEndpoints
             IQueryable<Empleado> query = db.Empleados.AsNoTracking();
             // El catálogo contiene correo y vínculo de acceso: una persona
             // operativa nunca debe listar empleados de sucursales ajenas.
-            if (!await permisos.TieneAsync(PermisosCanonicos.AdminEmpleadosLeerTodasSucursales, ct))
+            if (!await permisos.TieneAsync(PermisosCanonicos.AdminEmpleadosLeerTodasSucursales, ct)
+                && !(currentUser.UserId is Guid corporativo && await sucursalesPort.EsCorporativoAsync(corporativo, ct)))
             {
                 var sucursalesPermitidas = currentUser.UserId is Guid uid
-                    ? await identidadDb.UsuarioSucursales.AsNoTracking()
-                        .Where(a => a.UsuarioId == uid && a.Estatus == EstatusCatalogo.Activo)
-                        .Select(a => a.SucursalId).ToListAsync(ct)
+                    ? await sucursalesPort.ListarIdsAsync(uid, ct)
                     : [];
                 if (sucursalId is Guid solicitada && !sucursalesPermitidas.Contains(solicitada))
                     throw new ForbiddenException("SUCURSAL_NO_ASOCIADA",

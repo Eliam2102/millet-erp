@@ -58,7 +58,7 @@ public sealed class GestionColaboradorHandlers :
         {
             var actual = await _compartido.Empleados.AsNoTracking()
                 .Where(e => e.Id == patch.Id)
-                .Select(e => new { e.UsuarioId, e.Email, e.EmpresaId })
+                .Select(e => new { e.UsuarioId, e.Email, e.EmpresaId, e.SucursalId })
                 .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new EntityNotFoundException("EMPLEADO_NO_ENCONTRADO", "No existe el empleado.");
 
@@ -133,6 +133,26 @@ public sealed class GestionColaboradorHandlers :
                 if (patch.DepartamentoId.HasValue || patch.LimpiarDepartamento)
                 {
                     usuario.AsignarDepartamento(patch.LimpiarDepartamento ? null : patch.DepartamentoId);
+                }
+
+                if (patch.SucursalId.HasValue || patch.LimpiarSucursal)
+                {
+                    var nuevaSucursal = patch.LimpiarSucursal ? null : patch.SucursalId;
+                    var alcance = await _identidad.UsuarioEmpresaAlcances.SingleOrDefaultAsync(a =>
+                        a.UsuarioId == usuarioId && a.EmpresaId == actual.EmpresaId, cancellationToken);
+                    if (alcance is null) _identidad.UsuarioEmpresaAlcances.Add(new Millet.Identidad.Domain.UsuarioEmpresaAlcance(
+                        Guid.CreateVersion7(), usuarioId, actual.EmpresaId, nuevaSucursal is null));
+                    else alcance.Cambiar(nuevaSucursal is null);
+                    var asignaciones = await _identidad.UsuarioSucursales.Where(a =>
+                        a.UsuarioId == usuarioId && a.EmpresaId == actual.EmpresaId).ToListAsync(cancellationToken);
+                    foreach (var asignacion in asignaciones)
+                        if (nuevaSucursal is null || asignacion.SucursalId == actual.SucursalId) asignacion.Desactivar();
+                    if (nuevaSucursal is Guid sid)
+                    {
+                        var asignacion = asignaciones.SingleOrDefault(a => a.SucursalId == sid);
+                        if (asignacion is not null) asignacion.Activar();
+                        else _identidad.UsuarioSucursales.Add(new(Guid.CreateVersion7(), usuarioId, sid, actual.EmpresaId));
+                    }
                 }
 
                 await _identidad.SaveChangesAsync(cancellationToken);

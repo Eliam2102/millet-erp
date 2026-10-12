@@ -5,6 +5,7 @@ using Millet.Compras.Domain;
 using Millet.Compras.Application.Listar;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Compras.Application.Oc.ListarPendientesAutorizacion;
 
@@ -14,10 +15,14 @@ public sealed class ListarPendientesAutorizacionOcHandler
     private const int MaxPageSize = 200;
 
     private readonly ComprasDbContext _db;
+    private readonly ICurrentUserContext? _user;
+    private readonly ICurrentUserPermissions? _permisos;
 
-    public ListarPendientesAutorizacionOcHandler(ComprasDbContext db)
+    public ListarPendientesAutorizacionOcHandler(ComprasDbContext db, ICurrentUserContext? user = null, ICurrentUserPermissions? permisos = null)
     {
         _db = db;
+        _user = user;
+        _permisos = permisos;
     }
 
     public async Task<ListarOrdenesCompraResponse> Handle(
@@ -37,6 +42,18 @@ public sealed class ListarPendientesAutorizacionOcHandler
         query = PendientesAutorizacionLectura.Ordenes(query,
             request.Nivel is null or NivelAutorizacion.Nivel1,
             request.Nivel is null or NivelAutorizacion.Nivel2);
+
+        if (request.SoloAccionables)
+        {
+            var usuarioId = _user?.UserId ?? throw new UnauthorizedAccessException("Sin usuario autenticado.");
+            var n1 = _permisos is not null && await _permisos.TieneAsync("compras.ordenes.autorizar-nivel1", cancellationToken);
+            var n2 = _permisos is not null && await _permisos.TieneAsync("compras.ordenes.autorizar-nivel2", cancellationToken);
+            // Los avisos son tareas que puede firmar esta persona, no sus propias OCs.
+            query = query.Where(o => o.CompradorTitularId != usuarioId &&
+                ((n1 && o.Estado == EstadoOrdenCompra.EnAutorizacionJefeCompras) ||
+                 (n2 && o.Estado == EstadoOrdenCompra.EnAutorizacionDireccion &&
+                    !o.Autorizaciones.Any(a => a.Ciclo == o.CicloAutorizacion && a.Nivel == NivelAutorizacion.Nivel1 && a.UsuarioId == usuarioId))));
+        }
 
         var total = await query.CountAsync(cancellationToken);
 

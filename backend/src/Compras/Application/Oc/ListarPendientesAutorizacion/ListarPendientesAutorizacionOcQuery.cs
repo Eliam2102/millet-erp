@@ -15,7 +15,8 @@ namespace Millet.Compras.Application.Oc.ListarPendientesAutorizacion;
 public sealed record ListarPendientesAutorizacionOcQuery(
     NivelAutorizacion? Nivel = null,
     int Page = 1,
-    int PageSize = 50) : IRequest<ListarOrdenesCompraResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
+    int PageSize = 50,
+    bool SoloAccionables = false) : IRequest<ListarOrdenesCompraResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {
     public string PermisoTodasSucursales => "compras.ordenes.leer-todas-sucursales";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }

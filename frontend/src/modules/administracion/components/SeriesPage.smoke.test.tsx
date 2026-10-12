@@ -87,6 +87,25 @@ afterEach(() => {
 });
 
 describe('<SeriesPage> — smoke', () => {
+  it('reactiva una serie inactiva y refresca su estatus', async () => {
+    let serie = { ...SERIE_OC, activa: false };
+    mswServer.use(
+      http.get('*/api/v1/admin/series', () => HttpResponse.json({ items: [serie], total: 1 })),
+      http.get('*/api/v1/admin/empresas', () => HttpResponse.json({ items: [EMPRESA_E1], total: 1 })),
+      http.post('*/api/v1/admin/series/srv-1/activar', ({ request }) => {
+        expect(request.headers.get('X-Expected-Version')).toBe('1');
+        expect(request.headers.get('Idempotency-Key')).toBeTruthy();
+        serie = { ...serie, activa: true, version: 2 };
+        return HttpResponse.json(serie);
+      }),
+    );
+    render(<NuevaSerieProvider><SeriesPage /></NuevaSerieProvider>, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: /^activar$/i }));
+    await waitFor(() => expect(screen.getByText('Activa')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /^activar$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^desactivar$/i })).toBeInTheDocument();
+  });
+
   it('renderiza la tabla con una fila + botón "Nueva serie" cuando hay permiso', async () => {
     mswServer.use(
       http.get('*/api/v1/admin/series', () =>

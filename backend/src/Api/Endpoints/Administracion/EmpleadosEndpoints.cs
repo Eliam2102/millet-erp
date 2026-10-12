@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Millet.SharedKernel.Application.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Administracion.Application.Empleados;
@@ -89,6 +91,9 @@ public static class EmpleadosEndpoints
                 await EmpleadoSucursalScope.VerificarSucursalAsync(
                     payload.LimpiarSucursal ? null : payload.SucursalId,
                     currentUser, permisos, usuarioSucursales, ct);
+                if (await db.Empleados.AnyAsync(e => e.Id == id && e.UsuarioId != null, ct)
+                    && !await permisos.TieneAsync(PermisosCanonicos.AdminSucursalesUsuariosGestionar, ct))
+                    throw new ForbiddenException("ALCANCE_USUARIO_DENEGADO", "El cambio de adscripción de una cuenta con acceso requiere administrar sus sucursales operativas.");
             }
             var response = await mediator.Send(
                 new ActualizarColaboradorCommand(new ActualizarEmpleadoCommand(

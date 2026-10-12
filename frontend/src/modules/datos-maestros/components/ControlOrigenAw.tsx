@@ -5,11 +5,12 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { esApiError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { useAwOrigen, useCambiarAwOrigen, etiquetaAwOrigen, puedeCambiarAwOrigen,
   type AwOrigen } from '@/modules/datos-maestros/api/aw-origen';
 
 /** Control global compartido por ambos sheets. La etiqueta no requiere permiso de administración. */
-export function ControlOrigenAw({ area, enabled }: { area: 'clientes' | 'productos'; enabled: boolean }) {
+export function ControlOrigenAw({ area, enabled, className }: { area: 'clientes' | 'productos'; enabled: boolean; className?: string }) {
   const consulta = useAwOrigen(enabled);
   const cambiar = useCambiarAwOrigen();
   const permisos = useAuthStore((s) => s.permisos);
@@ -27,7 +28,7 @@ export function ControlOrigenAw({ area, enabled }: { area: 'clientes' | 'product
   }
 
   return (
-    <div className="mt-4 space-y-2 rounded-md bg-surface-subtle p-3 text-sm text-ink">
+    <div className={cn("mt-4 space-y-2 rounded-md bg-surface-subtle p-3 text-sm text-ink", className)}>
       <p role="status">{estado ? etiquetaAwOrigen(estado, area) : 'Origen: Por confirmar'}</p>
       {consulta.isError && <p className="text-xs text-danger-fg">No se pudo consultar el origen de A+W. Reintenta al abrir esta pantalla.</p>}
       {visible && estado && (

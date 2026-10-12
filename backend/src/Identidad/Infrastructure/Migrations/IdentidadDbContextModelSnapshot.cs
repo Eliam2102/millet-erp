@@ -4515,6 +4515,63 @@ namespace Millet.Identidad.Infrastructure.Migrations
                     b.ToTable("usuarios", "identidad");
                 });
 
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioEmpresaAlcance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("EsCorporativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("es_corporativo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_usuario_empresa_alcances");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_usuario_empresa_alcances_empresa_id");
+
+                    b.HasIndex("UsuarioId", "EmpresaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_usuario_empresa_alcances_usuario_id_empresa_id");
+
+                    b.ToTable("usuario_empresa_alcances", "identidad");
+                });
+
             modelBuilder.Entity("Millet.Identidad.Domain.UsuarioEmpresaRol", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5067,6 +5124,23 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_rol_permisos_roles_rol_id");
+                });
+
+            modelBuilder.Entity("Millet.Identidad.Domain.UsuarioEmpresaAlcance", b =>
+                {
+                    b.HasOne("Millet.Administracion.Domain.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_empresa_alcances_empresas_empresa_id");
+
+                    b.HasOne("Millet.Identidad.Domain.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuario_empresa_alcances_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Millet.Identidad.Domain.UsuarioEmpresaRol", b =>

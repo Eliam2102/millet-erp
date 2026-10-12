@@ -4,6 +4,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Application.UsuarioSucursales;
 using Millet.Identidad.Domain;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Api.Endpoints.Administracion;
 
@@ -37,8 +38,23 @@ namespace Millet.Api.Endpoints.Administracion;
 /// </summary>
 public static class SucursalUsuariosEndpoints
 {
+    public sealed record AlcanceUsuarioPayload(bool EsCorporativo, Guid[] Sucursales);
     public static IEndpointRouteBuilder MapSucursalUsuariosEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/auth/alcance", async (ICurrentUserContext user, IMediator mediator, CancellationToken ct) =>
+            user.UserId is Guid id ? Results.Ok(await mediator.Send(new ObtenerAlcanceUsuarioQuery(id), ct)) : Results.Unauthorized())
+            .RequireAuthorization().WithTags("Auth");
+        app.MapGet("/api/v1/admin/usuarios/{usuarioId:guid}/alcance", async (
+            Guid usuarioId, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ObtenerAlcanceUsuarioQuery(usuarioId), ct)))
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.IdentidadUsuariosLeer)
+            .WithTags("Administracion");
+        app.MapPut("/api/v1/admin/usuarios/{usuarioId:guid}/alcance", async (
+            Guid usuarioId, AlcanceUsuarioPayload payload, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ActualizarAlcanceUsuarioCommand(usuarioId, payload.EsCorporativo, payload.Sucursales), ct)))
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AdminSucursalesUsuariosGestionar)
+            .WithTags("Administracion");
         app.MapGet("/api/v1/admin/usuarios/{usuarioId:guid}/sucursales", async (
             Guid usuarioId, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ListarSucursalesDeUsuarioQuery(usuarioId), ct)))

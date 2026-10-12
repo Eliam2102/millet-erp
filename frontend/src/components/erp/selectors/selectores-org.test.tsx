@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { useAuthStore } from '@/lib/auth/auth-store';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
@@ -10,6 +11,7 @@ import { UsuarioSelector } from '@/components/erp/selectors/UsuarioSelector';
 import { EstatusCatalogo } from '@/features/compras/api/types';
 
 describe('Selectores org (eager)', () => {
+  afterEach(() => useAuthStore.setState({ permisos: [] }));
   it('<DepartamentoSelector>: muestra clave · nombre del seleccionado', async () => {
     mswServer.use(
       http.get('*/api/v1/catalogos/departamentos', () =>
@@ -79,6 +81,7 @@ describe('Selectores org (eager)', () => {
   });
 
   it('<UsuarioSelector>: filtra inactivos del listado', async () => {
+    useAuthStore.setState({ permisos: ['identidad.usuarios.leer'] });
     mswServer.use(
       http.get('*/api/v1/identidad/usuarios', () =>
         HttpResponse.json({

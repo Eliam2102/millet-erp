@@ -117,6 +117,7 @@ export function NuevaRequisicion({
   const canSelectRequisitante = useHasPermission(
     PermisosCanonicos.ComprasRequisicionesSeleccionarRequisitante,
   );
+  const canReadUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosLeer);
 
   const idempotencyKey = useFormIdempotencyKey();
   const draftKey = useMemo(
@@ -331,7 +332,7 @@ export function NuevaRequisicion({
 
 
         {/* Requisitante (gateado por permiso) */}
-        {canSelectRequisitante && (
+        {canSelectRequisitante && canReadUsuarios && (
           <FormRow
             label="Requisitante (delegación)"
             error={form.formState.errors.requisitanteId?.message}

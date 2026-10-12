@@ -874,6 +874,7 @@ public static class OrdenesCompraEndpoints
         group.MapGet("/pendientes-autorizacion", async (
             IMediator mediator,
             [FromQuery] NivelAutorizacion? nivel,
+            [FromQuery] bool soloAccionables = false,
             // Defaults explícitos (= 0): mismo motivo que la bandeja general
             // — sin esto el endpoint truena con 500 si la URL no trae los
             // params. Ver comentario en MapGet("/").
@@ -885,7 +886,8 @@ public static class OrdenesCompraEndpoints
                 new ListarPendientesAutorizacionOcQuery(
                     Nivel: nivel,
                     Page: page == 0 ? 1 : page,
-                    PageSize: pageSize == 0 ? 50 : pageSize),
+                    PageSize: pageSize == 0 ? 50 : pageSize,
+                    SoloAccionables: soloAccionables),
                 cancellationToken);
             return Results.Ok(response);
         })

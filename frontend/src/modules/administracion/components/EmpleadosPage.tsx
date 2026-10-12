@@ -87,9 +87,7 @@ function getMotivosReasignacion(
 ): string[] {
   if (e.estatus !== EstatusCatalogo.Activo) return [];
   const motivos: string[] = [];
-  if (!e.sucursalId) {
-    motivos.push('Sin sucursal');
-  } else if (sucursalesMap.get(e.sucursalId)?.estatus === EstatusCatalogo.Inactivo) {
+  if (e.sucursalId && (sucursalesMap.get(e.sucursalId)?.estatus === EstatusCatalogo.Inactivo)) {
     motivos.push('Sucursal inactiva');
   }
 
@@ -791,6 +789,7 @@ export function EmpleadosPage() {
                             {e.departamentoNombre && (
                               <span>· {e.departamentoNombre}</span>
                             )}
+                            {!e.sucursalId && <Badge variant="info">Corporativo</Badge>}
                             {e.sucursalNombre && (
                               <span className="inline-flex items-center gap-1 font-medium">
                                 <Building2 className="h-3 w-3 text-muted-foreground" />

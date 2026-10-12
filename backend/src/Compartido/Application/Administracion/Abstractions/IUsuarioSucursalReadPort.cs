@@ -21,6 +21,9 @@ namespace Millet.Administracion.Application.Abstractions;
 /// </summary>
 public interface IUsuarioSucursalReadPort
 {
+    /// <summary>Alcance corporativo dentro de la empresa activa, independiente del rol.</summary>
+    Task<bool> EsCorporativoAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult(false);
+
     Task<IReadOnlyList<Guid>> ListarIdsAsync(
         Guid usuarioId, CancellationToken cancellationToken);
 

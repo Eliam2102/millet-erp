@@ -8,6 +8,15 @@ import { EstatusCatalogo } from '@/modules/administracion/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 describe('<EmpleadoInlineForm>', () => {
+  it('identifica Corporativo como predeterminado y permite avanzar sin sucursal', async () => {
+    useAuthStore.setState({ permisos: ['admin.empleados.gestionar-todas-sucursales'] });
+    render(<EmpleadoInlineForm onCancel={vi.fn()} />, { wrapper: createQueryWrapper() });
+    expect(screen.getByText('Corporativo · todas las sucursales')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Juana Pérez'), { target: { value: 'Administrativo' } });
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    expect(screen.getByText('Paso 2 de 4:')).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     sessionStorage.clear();
     useAuthStore.setState({

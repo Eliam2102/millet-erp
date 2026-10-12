@@ -1,3 +1,5 @@
+import { useAlcanceUsuario } from '../api/alcance-usuario';
+import { AlcanceUsuarioPanel } from './AlcanceUsuarioPanel';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -39,6 +41,7 @@ export function EmpleadoDetalle() {
   const puedeEditarEmpleado = useHasPermission(PermisosCanonicos.AdminEmpleadosGestionar);
   const puedeLeerUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosLeer);
   const empresaActivaId = useAuthStore((s) => s.currentEmpresaId);
+  const alcance = useAlcanceUsuario(puedeLeerUsuarios ? empleado?.usuarioId ?? null : null);
   const usuario = useUsuario(puedeLeerUsuarios ? empleado?.usuarioId : null);
   const puedeGestionarSucursales = useHasPermission(PermisosCanonicos.AdminSucursalesUsuariosGestionar);
   const asignaciones = useSucursalesDeUsuario(puedeGestionarSucursales ? empleado?.usuarioId ?? null : null);
@@ -78,7 +81,7 @@ export function EmpleadoDetalle() {
     </nav>
 
     {tab === 'datos' && <section role="tabpanel" className="space-y-3">
-      <p className="text-sm">Sucursal base: {sucursalBase?.nombre ?? 'Sin asignar'}</p>
+      <p className="text-sm">Sucursal base: {sucursalBase?.nombre ?? (alcance.data?.esCorporativo ? 'Corporativo · Millet' : 'Sin adscripción')}</p>
       <p className="text-sm">Correo: {empleado.email ?? 'Sin registrar'}</p>
       <p className="text-sm">Código de nómina: <span className="font-mono">{empleado.codigoNomina || 'Sin registrar'}</span></p>
       <p className="text-sm">Correo personal de contacto: {empleado.emailContacto || 'Sin registrar'}</p>
@@ -94,9 +97,11 @@ export function EmpleadoDetalle() {
     </section>}
 
     {tab === 'sucursales' && <section role="tabpanel" className="space-y-3">
+      {empleado.usuarioId && puedeLeerUsuarios && <AlcanceUsuarioPanel key={empleado.usuarioId} usuarioId={empleado.usuarioId} />}
       <p className="text-sm text-muted-foreground">La sucursal base es un dato laboral. Las sucursales operativas son permisos de alcance independientes.</p>
       {empleado.usuarioId == null ? <p className="text-sm">Este empleado aún no tiene cuenta de acceso; primero asígnala en Roles y accesos.</p>
         : !puedeGestionarSucursales ? <p className="text-sm">No tienes permiso para consultar o gestionar las asignaciones operativas de esta cuenta.</p>
+        : alcance.data?.esCorporativo ? <p className="text-sm">Acceso corporativo a todas las sucursales de Millet. No requiere asignaciones individuales.</p>
         : asignaciones.isLoading ? <TableSkeleton rows={3} />
         : asignaciones.isError ? <ErrorState title="No se pudieron consultar las asignaciones" onRetry={() => asignaciones.refetch()} />
         : <>

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest, esApiError } from '@/lib/api';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type {
   AlmacenListItem,
   ArticuloDetalle,
@@ -31,7 +33,8 @@ import {
  *
  * <para><b>Permisos</b>: <c>compartido.catalogos.leer</c> para
  * sucursales/departamentos/almacenes; <c>identidad.usuarios.leer</c>
- * para usuarios. Los hooks incluyen <c>retry: false</c> implícito vía
+ * para usuarios; <c>useUsuarios</c> no consulta si falta ese permiso.
+ * Los hooks incluyen <c>retry: false</c> implícito vía
  * el <c>queryClient</c> default (no reintentan 4xx); el caller que
  * use el hook debe tolerar <c>error.status === 403</c> con un
  * fallback (mostrar el id raw).</para>
@@ -259,8 +262,10 @@ export function useAlmacenes(sucursalId?: string) {
 }
 
 export function useUsuarios() {
+  const puedeLeerUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosLeer);
   return useQuery({
     queryKey: catalogosKeys.usuarios(),
+    enabled: puedeLeerUsuarios,
     queryFn: async ({ signal }) => {
       const { data } = await apiRequest<PagedCatalogoResponse<UsuarioListItem>>(
         `/api/v1/identidad/usuarios?limit=${LIMIT_FULL}`,

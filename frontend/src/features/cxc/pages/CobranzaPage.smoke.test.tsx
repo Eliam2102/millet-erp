@@ -43,6 +43,7 @@ beforeEach(() => {
     empresas: [],
     currentEmpresaId: 'e-test',
     permisos: [
+      'identidad.usuarios.leer',
       'cuentas_por_cobrar.cartera.leer',
       'cuentas_por_cobrar.cobranza.registrar',
       'cuentas_por_cobrar.lineas-credito.leer',

@@ -59,7 +59,7 @@ beforeEach(() => {
     user: { id: USER_ID, email: 'p@m.com', nombre: 'Pedro García' },
     empresas: [],
     currentEmpresaId: 'e-1',
-    permisos: ['compras.aprobadores.administrar'],
+    permisos: ['compras.aprobadores.administrar', 'identidad.usuarios.leer'],
     errorMessage: null,
   });
 });

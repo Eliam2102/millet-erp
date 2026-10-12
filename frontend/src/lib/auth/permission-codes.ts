@@ -163,6 +163,7 @@ export const PermisosCanonicos = {
   // empleados — habilitador de reglas de viáticos por puesto.
   AdminPuestosGestionar: 'admin.puestos.gestionar',
   AdminEmpleadosGestionar: 'admin.empleados.gestionar',
+  AdminEmpleadosGestionarTodasSucursales: 'admin.empleados.gestionar-todas-sucursales',
   AdminSeriesGestionar: 'admin.series.gestionar',
   AdminParametrosLeer: 'admin.parametros.leer',
   AdminParametrosEditar: 'admin.parametros.editar',

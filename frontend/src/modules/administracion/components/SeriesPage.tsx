@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Hash, Pencil, Plus, PowerOff, X } from 'lucide-react';
+import { Hash, Pencil, Plus, Power, PowerOff, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useSucursales } from '@/features/catalogos/api';
 import {
   useDesactivarSerie,
+  useActivarSerie,
   useEmpresas,
   useSeries,
 } from '@/modules/administracion/api';
@@ -63,7 +64,7 @@ const TIPO_DOC_VALUES: readonly TipoDocumentoSerie[] = [
  * y Tipo de Documento; paginación inferior si <c>total &gt; 50</c>.
  *
  * <para>Acciones por fila: Editar (despliega <c>SerieFilaEditable</c>
- * inline) y Desactivar (con AlertDialog confirm). El preview del
+ * inline), Activar y Desactivar (con AlertDialog confirm). El preview del
  * próximo folio NO se muestra en la tabla (requiere fetch del detail
  * por cada fila); aparece solo en el inline edit.</para>
  *
@@ -301,6 +302,7 @@ function SeriesTabla({
 }: SeriesTablaProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const desactivar = useDesactivarSerie();
+  const activar = useActivarSerie();
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [confirmDesactivarId, setConfirmDesactivarId] = useState<string | null>(
     null,
@@ -345,6 +347,20 @@ function SeriesTabla({
           ) : undefined
         }
       />
+    );
+  }
+
+  function handleActivar(serie: SerieResponse) {
+    activar.mutate(
+      { id: serie.id, versionEsperada: serie.version, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: () => toast.success('Serie activada'),
+        onError: (err) => {
+          toast.error('No se pudo activar la serie', {
+            description: esApiError(err) ? err.problem.detail ?? err.problem.title : undefined,
+          });
+        },
+      },
     );
   }
 
@@ -471,6 +487,19 @@ function SeriesTabla({
                             ) : (
                               <Pencil className="h-4 w-4" />
                             )}
+                          </Button>
+                        )}
+                        {canGestionar && !serie.activa && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleActivar(serie)}
+                            disabled={activar.isPending}
+                            aria-label="Activar"
+                            title="Activar serie"
+                          >
+                            <Power className="h-4 w-4" />
                           </Button>
                         )}
                         {canGestionar && serie.activa && (

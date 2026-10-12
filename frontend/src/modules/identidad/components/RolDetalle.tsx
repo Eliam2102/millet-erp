@@ -21,16 +21,15 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RolDatosForm } from '@/modules/identidad/components/RolDatosForm';
 import { MatrizPermisos } from '@/modules/identidad/components/MatrizPermisos';
-import { GruposEntraIdPanel } from '@/modules/identidad/components/GruposEntraIdPanel';
 import { cn } from '@/lib/utils';
 
-type Tab = 'datos' | 'permisos' | 'grupos';
+type Tab = 'datos' | 'permisos';
 
 /**
  * Detalle de rol (P3 del patrón cross-módulo). Sub-topbar sticky con
  * identidad (código + nombre + badges Sistema/Inactivo) + acción
  * "Eliminar" (soft-delete, deshabilitada si <c>esDelSistema</c>) +
- * botón cerrar. Tabs: Datos | Permisos | Grupos Entra ID.
+ * botón cerrar. Tabs: Datos | Permisos.
  *
  * <para>403/404 caen al <c>ErrorState</c>; tabs se renderizan siempre
  * a partir del detalle cargado.</para>
@@ -75,7 +74,7 @@ export function RolDetalle() {
     );
   }
 
-  const { rol, permisoIds, gruposEntraId } = rolQuery.data;
+  const { rol, permisoIds } = rolQuery.data;
   const puedeEliminar = canEliminar && !rol.esDelSistema && rol.activo;
 
   function handleConfirmarEliminar() {
@@ -177,16 +176,6 @@ export function RolDetalle() {
               ({permisoIds.length})
             </span>
           </TabButton>
-          <TabButton
-            activa={tab === 'grupos'}
-            onClick={() => setTab('grupos')}
-            ariaControls="tab-panel-grupos"
-          >
-            Grupos Entra ID{' '}
-            <span className="ml-1 text-xs text-muted-foreground">
-              ({gruposEntraId.length})
-            </span>
-          </TabButton>
         </nav>
 
       <div className="px-4 pt-4 pb-6">
@@ -202,15 +191,6 @@ export function RolDetalle() {
               permisoIdsIniciales={permisoIds}
               disabled={matrizDisabled}
               disabledHint={matrizDisabledHint}
-            />
-          </div>
-        )}
-        {tab === 'grupos' && (
-          <div id="tab-panel-grupos" role="tabpanel">
-            <GruposEntraIdPanel
-              rolId={rol.id}
-              grupos={gruposEntraId}
-              bloqueado={rol.esDelSistema}
             />
           </div>
         )}

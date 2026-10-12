@@ -110,6 +110,10 @@ public sealed class DemoSesionSeedTests
                 var maestrosEditados = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
                 var empresaEditada = await maestrosEditados.Empresas.SingleAsync();
                 empresaEditada.ActualizarDatos(razonSocial: "ESCUELA KEMPER URGATE");
+                // Un operador puede desactivar las series de la demo. El siguiente
+                // arranque debe respetarlas, sin reactivarlas ni volver a insertarlas.
+                foreach (var serie in await maestrosEditados.Series.Where(s => s.Prefijo == "DEMO-F" || s.Prefijo == "DEMO-NC").ToListAsync())
+                    serie.Desactivar();
                 await maestrosEditados.SaveChangesAsync();
                 var rolTesoreria = await identidad.Roles.SingleAsync(r => r.Codigo == "DEMO-ROL-Tesorería");
                 var permisoAgregado = PermisosCanonicos.Todos.Single(p => p.Codigo == PermisosCanonicos.TesoreriaDocumentosLeerTodasSucursales);
@@ -132,6 +136,9 @@ public sealed class DemoSesionSeedTests
                 Assert.Equal(DemoSesionSeedHostedService.Id("DEMO-ROL-Compras"), asignacion.RolId);
                 var alcance = await identidad.UsuarioSucursales.SingleAsync(a => a.UsuarioId == id && a.Estatus == EstatusCatalogo.Activo);
                 var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                var seriesDemo = await compartido.Series.Where(s => s.Prefijo == "DEMO-F" || s.Prefijo == "DEMO-NC").ToListAsync();
+                Assert.Equal(2, seriesDemo.Count);
+                Assert.All(seriesDemo, serie => Assert.False(serie.Activa));
                 Assert.Equal("MID", (await compartido.Sucursales.SingleAsync(s => s.Id == alcance.SucursalId)).Clave);
                 Assert.Single(await identidad.Usuarios.Where(u => u.Email == "compras-demo@example.invalid").ToListAsync());
                 // P6: verifica el recorrido HTTP con el perfil DEMO real del seed, sin bypass territorial.

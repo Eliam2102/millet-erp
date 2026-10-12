@@ -398,6 +398,63 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Alta_Corporativa_Conserva_Adscripcion_Y_Asigna_Todas_Las_Sucursales_De_La_Empresa()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var cuenta = await CrearCuentaEntraSimuladaAsync();
+        var response = await client.PostAsJsonAsync(ColaboradoresEndpoint, new
+        {
+            Id = Guid.Empty, Nombre = "Administrativo corporativo", SucursalId = (Guid?)null,
+            org.DepartamentoId, org.PuestoId, Acceso = CuentaExistente,
+            CorreoCorporativo = cuenta.Upn, org.RolId,
+        });
+        response.EnsureSuccessStatusCode();
+        var body = await ReadJsonAsync(response);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("empleado").GetProperty("sucursalId").ValueKind);
+        var usuarioId = body.GetProperty("acceso").GetProperty("usuarioId").GetGuid();
+        var empresaId = body.GetProperty("empleado").GetProperty("empresaId").GetGuid();
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        var permitidas = (await new Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter(identidad)
+            .ListarIdsAsync(usuarioId, default)).OrderBy(id => id).ToList();
+        Assert.True(await identidad.UsuarioEmpresaAlcances.AnyAsync(a => a.UsuarioId == usuarioId && a.EmpresaId == empresaId && a.EsCorporativo));
+        Assert.False(await identidad.UsuarioSucursales.AnyAsync(a => a.UsuarioId == usuarioId && a.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo));
+        var esperadas = await compartido.Sucursales
+            .Where(s => s.EmpresaId == empresaId && s.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo)
+            .Select(s => s.Id).OrderBy(id => id).ToListAsync();
+        Assert.Equal(esperadas, permitidas);
+        var empleadoId = body.GetProperty("empleado").GetProperty("id").GetGuid();
+        var audit = await compartido.Set<AuditLogEntry>().SingleAsync(a => a.EntidadId == empleadoId && a.Operacion == "autorizacion");
+        Assert.Contains("Corporativo", audit.Resumen);
+        Assert.Contains("Corporativo", audit.Metadatos!);
+        Assert.True(await identidad.UsuarioEmpresaRoles.AnyAsync(r => r.UsuarioId == usuarioId && r.RolId == org.RolId));
+    }
+
+    [Fact]
+    public async Task Dar_Acceso_A_Corporativo_Sin_Usuario_Asigna_Todas_Las_Sucursales()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var org = await CrearOrganizacionAsync(client);
+        var alta = await client.PostAsJsonAsync(ColaboradoresEndpoint, new
+        {
+            Id = Guid.Empty, Nombre = "Corporativo sin acceso", SucursalId = (Guid?)null,
+            org.DepartamentoId, org.PuestoId, Acceso = SinAcceso,
+        });
+        alta.EnsureSuccessStatusCode();
+        var empleadoId = (await ReadJsonAsync(alta)).GetProperty("empleado").GetProperty("id").GetGuid();
+        var cuenta = await CrearCuentaEntraSimuladaAsync();
+        var response = await client.PostAsJsonAsync($"{ColaboradoresEndpoint}/{empleadoId}/acceso", new
+        {
+            Acceso = CuentaExistente, CorreoCorporativo = cuenta.Upn, org.RolId,
+        });
+        response.EnsureSuccessStatusCode();
+        Assert.Equal(JsonValueKind.Null, (await ReadJsonAsync(response)).GetProperty("empleado").GetProperty("sucursalId").ValueKind);
+    }
+
     // ====================================================================
     // Helpers
     // ====================================================================

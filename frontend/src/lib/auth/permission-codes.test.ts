@@ -283,6 +283,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // PermisosCanonicos.cs: 00000005-0007/0008.
   'admin.puestos.gestionar',
   'admin.empleados.gestionar',
+  'admin.empleados.gestionar-todas-sucursales',
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {

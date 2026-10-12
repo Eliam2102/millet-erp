@@ -73,6 +73,7 @@ export function EmpleadoInlineForm({
   const canCrearUsuarios = useHasPermission(PermisosCanonicos.IdentidadUsuariosCrear);
   const canAsignar = useHasPermission(PermisosCanonicos.IdentidadAsignacionesAdministrar);
   const canDarAcceso = canCrearUsuarios && canAsignar;
+  const canGestionarCorporativos = useHasPermission(PermisosCanonicos.AdminEmpleadosGestionarTodasSucursales);
   const roles = useRoles({ soloActivos: true, limit: 200 }, !esEditar && canDarAcceso);
   const [paso, setPaso] = useState(0);
   const [acceso, setAcceso] = useState<0 | 1 | 2>(0);
@@ -384,8 +385,8 @@ export function EmpleadoInlineForm({
       return;
     }
 
-    if (!values.sucursalId || !values.departamentoId || !values.puestoId) {
-      toast.error('Selecciona sucursal, departamento y puesto para el alta.');
+    if (!values.departamentoId || !values.puestoId) {
+      toast.error('Selecciona departamento y puesto para el alta.');
       return;
     }
     if (acceso !== 0 && (!canDarAcceso || !values.email || !rolId)) {
@@ -403,7 +404,7 @@ export function EmpleadoInlineForm({
       nombre: values.nombre,
       puestoId: values.puestoId,
       jefeDirectoId: values.jefeDirectoId || null,
-      sucursalId: values.sucursalId,
+      sucursalId: values.sucursalId || null,
       departamentoId: values.departamentoId,
       acceso,
       correoCorporativo: values.email || null,
@@ -436,8 +437,8 @@ export function EmpleadoInlineForm({
 
   function siguientePaso() {
     const values = form.getValues();
-    if (paso === 0 && (!values.nombre.trim() || !values.sucursalId)) {
-      toast.error('Indica nombre y sucursal.');
+    if (paso === 0 && (!values.nombre.trim() || (!values.sucursalId && !canGestionarCorporativos))) {
+      toast.error(canGestionarCorporativos ? 'Indica el nombre del colaborador.' : 'Indica nombre y sucursal.');
       return;
     }
     if (paso === 1) {
@@ -623,11 +624,19 @@ export function EmpleadoInlineForm({
                   }
                 }}
                 disabled={sucursalFija}
+                placeholder={canGestionarCorporativos ? "Corporativo · todas las sucursales" : undefined}
                 className="w-full"
               />
             )}
           />
         </Field>
+
+        {paso === 0 && !sucursalSeleccionada && canGestionarCorporativos && (
+          <p className="text-xs text-info-fg md:col-span-12" role="note">
+            Corporativo: si le das acceso al ERP, podrá operar en todas las sucursales de esta empresa, según el rol que elijas.
+            La bitácora registrará la sucursal de cada operación.
+          </p>
+        )}
 
         <Field
           label="Departamento"
@@ -1097,7 +1106,7 @@ export function EmpleadoInlineForm({
               {form.getValues('clave') || siguienteClaveQuery.data?.siguienteClave || 'Autogenerada'}
             </span>
           </p>
-          <p className="text-muted-foreground text-xs">Sucursal, departamento y puesto seleccionados.</p>
+          <p className="text-muted-foreground text-xs">{sucursalSeleccionada ? "Adscripción a sucursal" : "Corporativo · acceso a todas las sucursales"}. Departamento y puesto seleccionados.</p>
           <p>
             {acceso === 0
               ? 'Sin acceso al ERP'

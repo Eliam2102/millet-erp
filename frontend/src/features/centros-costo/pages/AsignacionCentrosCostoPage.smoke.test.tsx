@@ -82,7 +82,7 @@ function conPermisos(permisos: string[]) {
 
 beforeEach(() => {
   instalar();
-  conPermisos(['centros_costo.asignaciones.administrar']);
+  conPermisos(['centros_costo.asignaciones.administrar', 'identidad.usuarios.leer']);
 });
 afterEach(() => {
   useAuthStore.setState({

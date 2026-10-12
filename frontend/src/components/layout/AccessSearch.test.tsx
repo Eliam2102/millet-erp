@@ -1,3 +1,4 @@
+import { createQueryWrapper } from '@/test/test-query-client';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { AccessSearch } from './AccessSearch';
@@ -59,7 +60,7 @@ vi.mock('@/components/layout/UserMenu', () => ({ UserMenu: () => null }));
 vi.mock('@/lib/admin/use-admin-registry', () => ({ useAdminAccess: () => false }));
 
 it('conserva la búsqueda contextual separada y reinicia la paginación', async () => {
-  render(<Topbar />);
+  render(<Topbar />, { wrapper: createQueryWrapper() });
   fireEvent.click(screen.getByRole('button', { name: 'Buscar o ir a' }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Buscar accesos' }), {
     target: { value: 'ordenes' },
