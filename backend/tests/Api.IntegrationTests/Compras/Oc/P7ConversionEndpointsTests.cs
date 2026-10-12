@@ -22,7 +22,7 @@ public partial class OrdenesCompraEndpointsTests
     public async Task P7_Endpoints_RecibirDosCajasDeDoce_YSalirUna_ActualizaStockBaseYPreservaCaptura()
     {
         using var client = await CreateSuperAdminClientAsync();
-        await Contabilidad.ContabTestKit.AsegurarPeriodosAbiertosAsync(client, new DateOnly(2026, 10, 9));
+        await Contabilidad.ContabTestKit.AsegurarPeriodosAbiertosAsync(client, DateOnly.FromDateTime(DateTime.UtcNow));
         using var scope = _factory.Services.CreateScope();
         var sp = scope.ServiceProvider;
         using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();

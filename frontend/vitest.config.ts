@@ -24,6 +24,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Los tests nunca deben alcanzar un API real, aunque haya uno vivo en :5000.
+    // Vacío evita que .env.development (localhost:5000) haga salir peticiones sin handler MSW.
+    env: { VITE_API_BASE_URL: '' },
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist', '.git'],
     coverage: {

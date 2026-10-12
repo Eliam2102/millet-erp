@@ -23,6 +23,8 @@ public sealed class P6FormasPagoTests(WebApplicationFactory<Program> factory) : 
         var loginRes = await client.PostAsJsonAsync("/api/dev/fake-login", new { EntraOid = "dev-superadmin", Email = "superadmin@dev.local", Nombre = "Super Admin Dev" });
         loginRes.EnsureSuccessStatusCode();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken);
+        // La factura de prueba exige periodo contable abierto; sin esto el rechazo llega como PERIODO_CERRADO.
+        await Millet.Api.IntegrationTests.Contabilidad.ContabTestKit.AsegurarPeriodosAbiertosAsync(client, DateOnly.FromDateTime(DateTime.UtcNow));
         Guid id; bool estadoOriginal;
         using (var scope = factory.Services.CreateScope())
         {

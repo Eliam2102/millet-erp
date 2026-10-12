@@ -189,7 +189,8 @@ public class OutboxPublisherWorkerTests : IClassFixture<StubsWebApplicationFacto
             id: Guid.CreateVersion7(),
             eventType: $"test.outbox.worker.{marker}.v1",
             payload: $"{{\"marker\":\"{marker}\"}}",
-            occurredAt: DateTimeOffset.UtcNow,
+            // El worker toma los BatchSize (50) más antiguos por FIFO; otras clases dejan >50 filas pendientes.
+            occurredAt: DateTimeOffset.UnixEpoch,
             empresaId: Guid.CreateVersion7());
 
         db.OutboxEntries.Add(entry);

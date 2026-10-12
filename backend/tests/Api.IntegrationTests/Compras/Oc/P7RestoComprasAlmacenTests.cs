@@ -239,7 +239,7 @@ public partial class OrdenesCompraEndpointsTests
             oc.RegistrarRecepcionLinea(lineaOc.Id, 10, DateTimeOffset.UtcNow);
             await db.SaveChangesAsync();
             var totales = oc.CalcularTotales();
-            await Millet.Api.IntegrationTests.Contabilidad.ContabTestKit.AsegurarPeriodosAbiertosAsync(client, new DateOnly(2026, 10, 9));
+            await Millet.Api.IntegrationTests.Contabilidad.ContabTestKit.AsegurarPeriodosAbiertosAsync(client, DateOnly.FromDateTime(DateTime.UtcNow));
             var captura = await client.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", new
             {
                 OrdenCompraId = oc.Id, ProveedorId = oc.ProveedorId, SucursalId = oc.SucursalDestinoId,
