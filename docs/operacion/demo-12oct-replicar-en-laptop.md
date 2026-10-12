@@ -1,4 +1,4 @@
-# Replicar la demo del 12-oct en otra laptop (Compras, Almacén, CxP y Tesorería)
+# Replicar la demo del 12-oct en otra laptop (Maestros y A+W, Compras, Almacén, CxP y Tesorería)
 
 > Para Eliam. Con esto levantas **exactamente el estado** en que Geovany
 > ensayó la demo: mismo código, mismos usuarios y roles, mismos datos. Se apoya
@@ -7,7 +7,7 @@
 > cuentas y datos que el recorrido necesita.
 >
 > Los pasos de pantalla, campo por campo, están en `docs/operacion/demo-guia/`
-> (`01-compras.md`, `02-almacen.md`, `03-cxp-tesoreria.md`).
+> (`00-maestros.md`, `01-compras.md`, `02-almacen.md`, `03-cxp-tesoreria.md`).
 
 ## 0. Qué necesitas recibir de Geovany (no va en GitHub)
 
@@ -19,7 +19,7 @@
 | `CFDI DEMO-7001.xml` (opcional) | Solo si quieres repetir la captura de factura con ese mismo CFDI | Está en `.verification/demo-tour/cxp-tesoreria/` de la laptop de Geovany |
 
 Huella del respaldo para comprobar que llegó íntegro:
-`sha256 a2d5cbc4730588de34eed00fb6e13813e1a56254c9c0a7b72446ff98dec69b67`
+`sha256 30c3e17f0fe6a0c1e7311c5e6a338b5af10ac599159c3dad4d4819706a4c201e`
 (`shasum -a 256 millet_demo-2026-10-12.dump`).
 
 ## 1. Requisitos (una sola vez)
@@ -46,11 +46,18 @@ Qué trae esa rama respecto de `main` (commits separados por tema):
    "Cuentas de acceso" oculta del menú de Admin.
 2. **Pruebas estabilizadas** (mocks de Vitest, aislamiento de pruebas de
    integración).
-3. **Arreglos de la demo**: el panel "Capturar factura desde OC" ya hace
-   scroll; la OC no ofrece firmar a quien la creó o ya firmó N1; el avance de
-   recepción deja de decir "~50 %" fijo; y la cabecera fija de los detalles de
-   OC y de requisición ya no tapa el primer bloque (se verificó midiendo en el
-   navegador: la fila "Recepción parcial (20 %)" queda visible).
+3. **Arreglos de la demo** (cada uno con su prueba):
+   - El panel "Capturar factura desde OC" hace scroll y el texto rojo "Selecciona la
+     línea de OC…" ya no aparece antes de enviar.
+   - La OC no ofrece firmar a quien la creó ni a quien ya firmó N1; los sub-estados
+     muestran el avance real (adiós "~50 %" fijo); la cabecera fija de OC y de
+     requisición ya no tapa el primer bloque (medido en navegador: la fila
+     "Recepción parcial (20 %)" queda visible).
+   - Historial y Autorización de la OC en palabras ("Creó la firma de autorización");
+     la trazabilidad dice "En surtido"; Saldos muestra "ALM-MID-G · INSUMOS".
+   - El alta de proveedor ya no avisa de "posible duplicado" salvo que el backend lo
+     detecte; el botón flotante de la palmera (devtools de React Query) viene apagado
+     (se enciende con `VITE_QUERY_DEVTOOLS=true`).
 4. **Documentación** de la demo.
 
 ## 3. Configura lo privado
@@ -95,11 +102,15 @@ select 'usuarios', count(*) from identidad.usuarios union all
 select 'requisiciones', count(*) from compras.requisiciones union all
 select 'ordenes', count(*) from compras.ordenes_compra union all
 select 'facturas', count(*) from cuentas_por_pagar.facturas_proveedor union all
-select 'ubicaciones', count(*) from almacen.ubicaciones"
+select 'ubicaciones', count(*) from almacen.ubicaciones union all
+select 'proveedores', count(*) from compartido.proveedores union all
+select 'articulos', count(*) from compartido.articulos union all
+select 'clientes', count(*) from compartido.clientes"
 ```
 
 Debe dar: `usuarios 8`, `requisiciones 9`, `ordenes 9`, `facturas 7`,
-`ubicaciones 15`.
+`ubicaciones 15`. Además, para Maestros: `compartido.proveedores` 20,
+`compartido.articulos` 13 y `compartido.clientes` 80.
 
 Si prefieres **no** usar el respaldo y reconstruir a mano lo que se cambió
 en la base, mira el apéndice A.
@@ -150,7 +161,12 @@ Con Geovany:
 2. La trazabilidad de esa OC muestra RQ → OC → recepción **M-ENT2026-000011** →
    factura **DEMO-7001** → pago.
 3. `/cxp/facturas` → **DEMO-7001** en estado **Pagada**.
-4. Crea una requisición nueva (paso 2 de `01-compras.md`) para comprobar que
+4. `/admin/datos-maestros/proveedores` → `TOUR-PROV-OK` **Activo** con "Expediente
+   completo" y `DEMO-PROV-REV` **En revisión** con su banner de documentos faltantes.
+5. `/admin/datos-maestros/clientes` → Sincronizar → origen **Copia de demo**: el
+   diálogo debe listar las ejecuciones previas (la API ya trae las variables de A+W
+   por `demo.sh api`).
+6. Crea una requisición nueva (paso 2 de `01-compras.md`) para comprobar que
    el formulario y los selectores cargan sin avisos rojos.
 
 Con fio y con Mariana: entra en `/compras/ordenes/pendientes-autorizacion` y en
@@ -173,6 +189,15 @@ cambian al repetir:
 - Factura: UUID y folio nuevos (se deduplica por UUID): el CFDI
   `DEMO-7001.xml` ya está usado; edita su `UUID` y su `Folio` si lo reutilizas.
 - Pago: referencia nueva (el ensayo usó `SPEI-DEMO-0001`).
+- Maestros: el ensayo dejó `TOUR-ART-001`, `TOUR-PROV-OK` (validado) y
+  `TOUR-PROV-NO` (rechazado). En vivo usa **claves nuevas** (p. ej. `TOUR-ART-002`,
+  `TOUR-PROV-OK2`), un RFC de 12 caracteres con formato válido distinto, y 5 PDF
+  de prueba cualquiera. **No toques `DEMO-PROV-REV`**: se deja en revisión para
+  mostrar el bloqueo y subirle en vivo los 2 documentos que le faltan.
+- Sincronización A+W: dará **0 creados** porque la copia de demo ya está
+  sincronizada; los 1–2 errores (`NAME1 vacío`, `descripcion vacía`,
+  `UNIDAD_SIN_EQUIVALENCIA`) sirven para explicar causa y acción sugerida. La
+  medida `1800x2600` del guion no existe en la copia: usa `1830x2440` o `2440x3660`.
 
 ## 10. Si algo falla
 
@@ -248,10 +273,10 @@ arreglos. Los marcados "Corregido" ya están en la rama
 | 8 | fio ve "Aprobar Nivel 2" habilitado tras su N1 **en la requisición** | **No es error**: la requisición no tiene regla de segregación en el dominio; solo la OC la tiene |
 | 9 | "Couldn't load plugin" en el PDF de la cotización y de la OC | **Por verificar**: probablemente el navegador sin interfaz no trae visor de PDF; abrirlo una vez en uno normal |
 | 10 | Reportes Cartera y Antigüedad de CxP: 422 `CXP_HISTORICO_POR_CONFIRMAR` sin filtrar por proveedor | **Pendiente (dato)**: la factura `MOD-1002` está pagada sin movimiento. Filtrar por `DEMO-PROV-ACT` |
-| 11 | Historial y Autorización de la OC con textos técnicos ("Creó AutorizacionOC…", `EnAutorizacionJefeCompras`) | **Pendiente** (cosmético) |
-| 12 | Texto rojo "Selecciona la línea de OC…" visible tras elegir la línea, en la captura de factura | **Pendiente** (cosmético; la factura se captura bien) |
+| 11 | Historial y Autorización de la OC con textos técnicos ("Creó AutorizacionOC…", `EnAutorizacionJefeCompras`) | **Corregido**: "Creó la firma de autorización", "Se creó la orden de compra"; el estado sale en palabras (sin tilde); el id crudo queda solo en el tooltip |
+| 12 | Texto rojo "Selecciona la línea de OC…" visible tras elegir la línea, en la captura de factura | **Corregido**: se validaba al elegir la OC, antes de enviar; ahora solo tras intentar enviar y desaparece al elegir la línea |
 | 13 | El selector de CFDI de la recepción solo trae RFC genérico, ninguno del proveedor | **Pendiente (dato)**: usar el folio fiscal manual |
-| 14 | Saldos de Almacén: "INSUMOS" sin el almacén y `DEMO-ART-PIEZA` repetido 3 veces | **Pendiente** (cosmético/dato) |
+| 14 | Saldos de Almacén: "INSUMOS" sin el almacén y `DEMO-ART-PIEZA` repetido 3 veces | **Corregido**: ahora "ALM-MID-G · INSUMOS" |
 | 15 | Pestaña Líneas de la OC muy ancha a 1440 px (precio, subtotal e IVA fuera de vista) | **Pendiente** (cosmético): usar zoom 90 % o desplazarse |
 | 16 | Tabla de líneas de la requisición sin columna de centro de costo; "Servicio" preseleccionado como clasificación | **Pendiente** (cosmético): el CeCo se ve en el formulario de la línea |
 | 17 | "Eliminar" visible en una requisición ajena en autorización | **Pendiente**: el backend decide si lo permite; no pulsarlo |
@@ -259,5 +284,12 @@ arreglos. Los marcados "Corregido" ya están en la rama
 | 19 | `DEMO-CTA-MXN` con saldo negativo; deja pagar sin fondos | **Pendiente (dato)** |
 | 20 | `DEMO-PROV-REV` bloqueado: faltan 2 de 5 documentos | **Esperado**: sirve para mostrar el bloqueo, no se puede usar en una OC |
 | 21 | Con elegible 0, Tesorería responde `PASIVO_NO_PAGABLE_CXP` (no `PAGO_EXCEDE_ELEGIBLE`) | **Corregido en la guía** |
+| 22 | Maestros: el aviso de "posible duplicado / RFC genérico" salía en **toda** alta de proveedor | **Corregido** (el aviso solo sale si el backend detecta duplicado o RFC genérico) |
+| 23 | Maestros: contadores de la sincronización de productos inconsistentes (Errores 1 pero 2 listados; "Pendientes 1" sin explicación) | **Pendiente** (cosmético) |
+| 24 | Maestros: texto interno "Por validar con Millet (V37, Eliam 10-oct-2026)" en las clasificaciones de clientes | **Pendiente** (cosmético; no abrirlo en la demo) |
+| 25 | Maestros: la bitácora muestra enums e ids crudos ("EnRevision → Activo", "ProductoAw 01a12c5c") | **Pendiente** (cosmético) |
+| 26 | Maestros: cliente AW-1 con condición de pago `<indf>` y moneda `PESOSMX` crudas | **Pendiente (dato)** de la copia de A+W; mapeos pendientes de Millet |
+| 27 | Maestros: la medida `1800x2600` del guion no existe en la copia (existen `1830x2440` y `2440x3660`) | **Dato**: usar esas medidas en la demo |
+| 28 | Maestros: la sincronización da "0 creados" y 1–2 errores | **Esperado**: ya estaba sincronizado; los errores (`NAME1 vacío`, `descripcion vacía`, `UNIDAD_SIN_EQUIVALENCIA`) sirven para explicar causa y acción sugerida |
 
 Los toasts verdes que tapan unos segundos la barra superior no son un error.
