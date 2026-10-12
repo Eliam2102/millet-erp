@@ -18,7 +18,7 @@ export function SucursalSelector() {
   const { data: alcance, isPending: cargandoAlcance } = useQuery({
     queryKey: ['auth', 'alcance', usuarioId, empresaId],
     enabled: Boolean(usuarioId && empresaId),
-    queryFn: async ({ signal }) => (await apiRequest<{ esCorporativo: boolean }>('/api/auth/alcance', { signal })).data,
+    queryFn: async (context) => (await apiQueryRequest<{ esCorporativo: boolean }>('/api/auth/alcance', context)).data,
   });
   const { data: sucursales = [], isLoading } = useQuery({
     queryKey: ['auth', 'sucursales', empresaId],
