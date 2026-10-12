@@ -29,7 +29,7 @@ import {
  * señales visuales para ser robusta a daltonismo y bajo contraste:
  * (a) color de fondo semántico, (b) patrón diagonal cuando el estado
  * es Parcial, (c) etiqueta textual con el label del sub-estado y un
- * porcentaje aproximado. El tooltip extra agrega la definición del
+ * porcentaje sólo cuando el estado acredita 0 o 100 %. El tooltip extra agrega la definición del
  * glosario.</para>
  *
  * <para><b>Verify WCAG AA contraste</b>: cada par fondo/texto se
@@ -61,9 +61,9 @@ interface BarraInfo {
 const PROGRESO_FILL: Record<BarraInfo['progreso'], string> = {
   // Vacío (Sin*): tracker visible pero sin fill.
   vacio: 'w-0 bg-slate-300',
-  // Parcial: 50% de fill ámbar + patrón diagonal.
+  // Parcial: indicador rayado, sin inventar un porcentaje.
   parcial:
-    'w-1/2 bg-amber-400 [background-image:repeating-linear-gradient(45deg,_rgba(0,0,0,0.12)_0_4px,_transparent_4px_8px)]',
+    'w-full bg-amber-400 [background-image:repeating-linear-gradient(45deg,_rgba(0,0,0,0.12)_0_4px,_transparent_4px_8px)]',
   // Completo (Completa / Pagada): 100% verde.
   completo: 'w-full bg-emerald-500',
 };
@@ -95,7 +95,7 @@ function porcentajeAprox(p: BarraInfo['progreso']): string {
     case 'vacio':
       return '0 %';
     case 'parcial':
-      return '~50 %';
+      return '';
     case 'completo':
       return '100 %';
   }
@@ -159,13 +159,14 @@ export function SubEstadosBar({
               )}
               role="progressbar"
               aria-label={`${b.dimension}: ${b.label}`}
+              aria-valuetext={b.label}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={
                 b.progreso === 'completo'
                   ? 100
                   : b.progreso === 'parcial'
-                    ? 50
+                    ? undefined
                     : 0
               }
             >
@@ -183,7 +184,7 @@ export function SubEstadosBar({
                 b.progreso === 'parcial' && 'text-amber-800',
               )}
             >
-              {b.label} ({porcentajeAprox(b.progreso)})
+              {b.label}{b.progreso !== 'parcial' && ` (${porcentajeAprox(b.progreso)})`}
             </span>
           </div>
         </DomainTermTooltip>

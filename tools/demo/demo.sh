@@ -93,7 +93,9 @@ eventos() { "$raiz/tools/servicebus-emulator/levantar.sh"; }
 api() {
   export ASPNETCORE_ENVIRONMENT=Development
   export ConnectionStrings__Postgres="$CADENA"
-  export Seed__DemoSesion__Habilitado=true Seed__DatosDemo__Habilitado=false
+  # Una base restaurada ya contiene usuarios, series y documentos del ensayo.
+  # Permite arrancarla sin volver a sembrar ni reemplazar su configuración.
+  export Seed__DemoSesion__Habilitado="${Seed__DemoSesion__Habilitado:-true}" Seed__DatosDemo__Habilitado=false
   export ServiceBus__Modo=EmuladorLocal
   export ConnectionStrings__AwOrigenPgDb="Host=localhost;Port=$PG_PORT;Database=${AW_ORIGEN_DB:-millet_aw_origen};Username=pgadmin;Password=pgadmin"
   export IntegracionesAw__OrigenDemo__Permitido=true
