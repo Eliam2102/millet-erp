@@ -78,6 +78,7 @@ type ConfirmAction = 'transmitir' | 'aprobar-n1' | 'aprobar-n2' | null;
 
 export function AccionesOC({ oc }: AccionesOCProps) {
   const permisos = useAuthStore((s) => s.permisos);
+  const usuarioId = useAuthStore((s) => s.user?.id);
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -89,8 +90,8 @@ export function AccionesOC({ oc }: AccionesOCProps) {
   const duplicarMut = useDuplicarOrdenCompra();
 
   const accTransmitir = accionTransmitirAAutorizacion(oc, permisos);
-  const accN1 = accionAprobarNivel1(oc, permisos);
-  const accN2 = accionAprobarNivel2(oc, permisos);
+  const accN1 = accionAprobarNivel1(oc, permisos, usuarioId);
+  const accN2 = accionAprobarNivel2(oc, permisos, usuarioId);
   const accRechazar = accionRechazar(oc, permisos);
   const accCancelar1 = accionCancelar1Firma(oc, permisos);
   const accCancelarDoble = accionCancelarDobleFirma(oc, permisos);

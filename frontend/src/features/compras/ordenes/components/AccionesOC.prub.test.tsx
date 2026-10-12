@@ -26,3 +26,16 @@ describe('Motivos de rechazo de negocio en órdenes', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(motivo));
   });
 });
+describe('Firma: creador no puede aprobar', () => {
+  it('deshabilita Aprobar Nivel 1 al usuario que creó la OC', () => {
+    useAuthStore.setState({
+      user: { id: 'creador', email: 'c@x.mx', nombre: 'Creador' },
+      permisos: [PermisosCanonicos.ComprasOrdenesAutorizarNivel1],
+    });
+    const oc = { id: 'oc-1', folio: 'OC-1', estado: EstadoOrdenCompra.EnAutorizacionJefeCompras, compradorTitularId: 'creador', lineas: [], adjuntos: [], autorizaciones: [] } as unknown as OrdenCompraDetalleResponse;
+    render(<AccionesOC oc={oc} />, { wrapper: createQueryWrapper() });
+    const btn = screen.getByRole('button', { name: 'Aprobar Nivel 1' });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('title', expect.stringMatching(/no puede firmarla/));
+  });
+});

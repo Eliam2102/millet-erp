@@ -8,6 +8,7 @@ import {
   subEstadoFacturacionToString,
   subEstadoPagoToString,
   subEstadoRecepcionToString,
+  type LineaOrdenCompraResponse,
 } from '@/features/compras/ordenes/api/types';
 
 /**
@@ -28,8 +29,9 @@ import {
  * <para><b>Accesibilidad (doc 05 §12)</b>: cada barra combina <b>3</b>
  * señales visuales para ser robusta a daltonismo y bajo contraste:
  * (a) color de fondo semántico, (b) patrón diagonal cuando el estado
- * es Parcial, (c) etiqueta textual con el label del sub-estado y un
- * porcentaje aproximado. El tooltip extra agrega la definición del
+ * es Parcial, (c) etiqueta textual con el label del sub-estado y el
+ * porcentaje real cuando el DTO lo permite (Recepción/Facturación por
+ * cantidades; Pago no expone avance → solo estado). El tooltip extra agrega la definición del
  * glosario.</para>
  *
  * <para><b>Verify WCAG AA contraste</b>: cada par fondo/texto se
@@ -41,6 +43,15 @@ export interface SubEstadosBarProps {
   recepcion: SubEstadoRecepcion;
   facturacion: SubEstadoFacturacion;
   pago: SubEstadoPago;
+  /**
+   * Líneas de la OC: de ellas sale el % real de Recepción y Facturación
+   * (cantidad recibida/facturada ÷ pedida). Sin líneas, un sub-estado
+   * Parcial se muestra sin porcentaje (no se inventa uno).
+   */
+  lineas?: readonly Pick<
+    LineaOrdenCompraResponse,
+    'cantidad' | 'cantidadRecibida' | 'cantidadFacturada' | 'esServicio'
+  >[];
   /** Override de clases del contenedor exterior. */
   className?: string;
 }
@@ -54,6 +65,8 @@ interface BarraInfo {
   glosarioTerm: string;
   /** Aproximación visual del progreso. */
   progreso: 'vacio' | 'parcial' | 'completo';
+  /** % real (0-100) del avance; undefined si el DTO no lo expone. */
+  porcentaje?: number;
   /** Identificador estable para tests/scraping. */
   data: string;
 }
@@ -61,7 +74,8 @@ interface BarraInfo {
 const PROGRESO_FILL: Record<BarraInfo['progreso'], string> = {
   // Vacío (Sin*): tracker visible pero sin fill.
   vacio: 'w-0 bg-slate-300',
-  // Parcial: 50% de fill ámbar + patrón diagonal.
+  // Parcial: ámbar + patrón diagonal. w-1/2 es solo marcador indeterminado;
+  // con % real el style inline del render pisa el ancho.
   parcial:
     'w-1/2 bg-amber-400 [background-image:repeating-linear-gradient(45deg,_rgba(0,0,0,0.12)_0_4px,_transparent_4px_8px)]',
   // Completo (Completa / Pagada): 100% verde.
@@ -90,21 +104,36 @@ function progresoPago(s: SubEstadoPago): BarraInfo['progreso'] {
   return 'vacio';
 }
 
-function porcentajeAprox(p: BarraInfo['progreso']): string {
-  switch (p) {
-    case 'vacio':
-      return '0 %';
-    case 'parcial':
-      return '~50 %';
-    case 'completo':
-      return '100 %';
-  }
+/**
+ * % real de avance por cantidades: Σ(campo) ÷ Σ(cantidad) de las líneas.
+ * Recepción excluye servicios (no se reciben en Almacén, GAP-9).
+ * undefined si no hay líneas o nada que recibir/facturar.
+ */
+export function porcentajeLineas(
+  lineas: SubEstadosBarProps['lineas'],
+  campo: 'cantidadRecibida' | 'cantidadFacturada',
+): number | undefined {
+  const base = (lineas ?? []).filter(
+    (l) => !(campo === 'cantidadRecibida' && l.esServicio),
+  );
+  const pedido = base.reduce((a, l) => a + l.cantidad, 0);
+  if (pedido <= 0) return undefined;
+  const avance = base.reduce((a, l) => a + l[campo], 0);
+  return Math.min(100, Math.round((avance / pedido) * 100));
+}
+
+/** Texto del % entre paréntesis; '' si es Parcial sin dato real. */
+function textoPorcentaje(b: BarraInfo): string {
+  if (b.progreso === 'vacio') return ' (0 %)';
+  if (b.progreso === 'completo') return ' (100 %)';
+  return b.porcentaje === undefined ? '' : ` (${b.porcentaje} %)`;
 }
 
 export function SubEstadosBar({
   recepcion,
   facturacion,
   pago,
+  lineas,
   className,
 }: SubEstadosBarProps) {
   const barras: BarraInfo[] = [
@@ -113,6 +142,7 @@ export function SubEstadosBar({
       label: subEstadoRecepcionToString(recepcion),
       glosarioTerm: 'SubEstado',
       progreso: progresoRecepcion(recepcion),
+      porcentaje: porcentajeLineas(lineas, 'cantidadRecibida'),
       data: 'recepcion',
     },
     {
@@ -120,6 +150,7 @@ export function SubEstadosBar({
       label: subEstadoFacturacionToString(facturacion),
       glosarioTerm: 'SubEstado',
       progreso: progresoFacturacion(facturacion),
+      porcentaje: porcentajeLineas(lineas, 'cantidadFacturada'),
       data: 'facturacion',
     },
     {
@@ -147,7 +178,9 @@ export function SubEstadosBar({
           definicion={definicion}
         >
           <div
-            className="grid grid-cols-[6.5rem_1fr_8rem] items-center gap-2 text-xs"
+            // scroll-mt-32 = topbar (56px) + sub-topbar sticky del detalle (~72px):
+            // al hacer scroll/foco a una fila, no queda tapada por las barras fijas.
+            className="grid scroll-mt-32 grid-cols-[6.5rem_1fr_11rem] items-center gap-2 text-xs"
             data-sub-estado={b.data}
             data-progreso={b.progreso}
           >
@@ -165,7 +198,7 @@ export function SubEstadosBar({
                 b.progreso === 'completo'
                   ? 100
                   : b.progreso === 'parcial'
-                    ? 50
+                    ? b.porcentaje
                     : 0
               }
             >
@@ -174,6 +207,11 @@ export function SubEstadosBar({
                   'h-full rounded-full transition-[width]',
                   PROGRESO_FILL[b.progreso],
                 )}
+                style={
+                  b.progreso === 'parcial' && b.porcentaje !== undefined
+                    ? { width: `${b.porcentaje}%` }
+                    : undefined
+                }
               />
             </div>
             <span
@@ -183,7 +221,7 @@ export function SubEstadosBar({
                 b.progreso === 'parcial' && 'text-amber-800',
               )}
             >
-              {b.label} ({porcentajeAprox(b.progreso)})
+              {b.label}{textoPorcentaje(b)}
             </span>
           </div>
         </DomainTermTooltip>

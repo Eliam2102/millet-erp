@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SubEstadosBar } from '@/features/compras/ordenes/components/SubEstadosBar';
+import {
+  SubEstadosBar,
+  porcentajeLineas,
+} from '@/features/compras/ordenes/components/SubEstadosBar';
 import {
   SubEstadoFacturacion,
   SubEstadoPago,
   SubEstadoRecepcion,
+  subEstadoPagoToString,
 } from '@/features/compras/ordenes/api/types';
 
 describe('<SubEstadosBar>', () => {
@@ -110,7 +114,8 @@ describe('<SubEstadosBar>', () => {
     const bars = container.querySelectorAll('[role="progressbar"]');
     expect(bars).toHaveLength(3);
     const valores = Array.from(bars).map((b) => b.getAttribute('aria-valuenow'));
-    expect(valores).toEqual(['100', '50', '0']);
+    // Parcial sin líneas: sin valor (indeterminado), no un 50 inventado.
+    expect(valores).toEqual(['100', null, '0']);
   });
 
   it('container expone aria-label de grupo', () => {
@@ -124,5 +129,37 @@ describe('<SubEstadosBar>', () => {
     const root = container.querySelector('[data-component="sub-estados-bar"]');
     expect(root?.getAttribute('role')).toBe('group');
     expect(root?.getAttribute('aria-label')).toMatch(/Sub-estados/i);
+  });
+
+  it('muestra el % real por cantidades (6/10 + 0/20 = 20 %) y no el literal ~50', () => {
+    render(
+      <SubEstadosBar
+        recepcion={SubEstadoRecepcion.Parcial}
+        facturacion={SubEstadoFacturacion.Parcial}
+        pago={SubEstadoPago.Parcial}
+        lineas={[
+          { cantidad: 10, cantidadRecibida: 6, cantidadFacturada: 5 },
+          { cantidad: 20, cantidadRecibida: 0, cantidadFacturada: 0 },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Recepción parcial (20 %)')).toBeInTheDocument();
+    expect(screen.getByText('Facturación parcial (17 %)')).toBeInTheDocument();
+    // Pago: el DTO no expone avance -> solo estado, sin porcentaje inventado.
+    expect(screen.getByText(subEstadoPagoToString(SubEstadoPago.Parcial))).toBeInTheDocument();
+    expect(screen.queryByText(/~50/)).toBeNull();
+  });
+
+  it('porcentajeLineas excluye servicios en recepción y devuelve undefined sin líneas', () => {
+    expect(porcentajeLineas(undefined, 'cantidadRecibida')).toBeUndefined();
+    expect(
+      porcentajeLineas(
+        [
+          { cantidad: 10, cantidadRecibida: 5, cantidadFacturada: 0 },
+          { cantidad: 90, cantidadRecibida: 0, cantidadFacturada: 0, esServicio: true },
+        ],
+        'cantidadRecibida',
+      ),
+    ).toBe(50);
   });
 });

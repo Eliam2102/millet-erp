@@ -595,3 +595,41 @@ describe('matriz §6.1 — cobertura', () => {
     }
   });
 });
+
+describe('Firma: reglas de dominio espejadas en UI', () => {
+  const PERMS = [
+    PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
+    PermisosCanonicos.ComprasOrdenesAutorizarNivel2,
+  ];
+  const base = { compradorTitularId: 'creador', cicloAutorizacion: 1 };
+  const firmaN1 = (usuarioId: string, ciclo = 1) => ({
+    id: 'a', ciclo, nivel: 1 as const, resultado: 1 as const, usuarioId,
+    fechaHora: '', motivoRechazoId: null, motivoRechazoTexto: null, notas: null,
+  });
+
+  it('N1: el creador (OC_AUTOAUTORIZACION) la ve deshabilitada con motivo', () => {
+    const oc = { ...base, estado: EstadoOrdenCompra.EnAutorizacionJefeCompras };
+    const r = accionAprobarNivel1(oc, PERMS, 'creador');
+    expect(r).toMatchObject({ visible: true, habilitada: false });
+    expect(r.motivoDeshabilitada).toMatch(/crea la OC no puede firmarla/);
+    expect(accionAprobarNivel1(oc, PERMS, 'otro').habilitada).toBe(true);
+    expect(accionAprobarNivel1(oc, PERMS).habilitada).toBe(true);
+  });
+
+  it('N2: creador y quien firmó N1 del ciclo vigente (OC_FIRMA_MISMA_PERSONA) no pueden', () => {
+    const oc = {
+      ...base,
+      estado: EstadoOrdenCompra.EnAutorizacionDireccion,
+      autorizaciones: [firmaN1('jefe')],
+    };
+    expect(accionAprobarNivel2(oc, PERMS, 'creador').habilitada).toBe(false);
+    const r = accionAprobarNivel2(oc, PERMS, 'jefe');
+    expect(r).toMatchObject({ visible: true, habilitada: false });
+    expect(r.motivoDeshabilitada).toMatch(/Ya firmaste el nivel 1/);
+    expect(accionAprobarNivel2(oc, PERMS, 'director').habilitada).toBe(true);
+    // firma N1 de un ciclo anterior no cuenta
+    const viejo = { ...oc, cicloAutorizacion: 2, autorizaciones: [firmaN1('jefe', 1)] };
+    expect(accionAprobarNivel2(viejo, PERMS, 'jefe').habilitada).toBe(true);
+  });
+});
+

@@ -328,9 +328,32 @@ export function accionTransmitirAAutorizacion(
   );
 }
 
+type OcFirma = Pick<
+  OrdenCompraDetalleResponse,
+  'estado' | 'compradorTitularId' | 'autorizaciones' | 'cicloAutorizacion'
+>;
+
+const MOTIVO_AUTOFIRMA = 'Quien crea la OC no puede firmarla.';
+const MOTIVO_MISMA_PERSONA =
+  'Ya firmaste el nivel 1; el nivel 2 lo firma otra persona.';
+
+/**
+ * Espejo UX de <c>OC_AUTOAUTORIZACION</c> (OrdenCompra.cs:1069): el
+ * comprador titular no firma en ningún nivel. El backend sigue siendo la
+ * autoridad; sin <c>usuarioId</c> (sesión desconocida) no se deshabilita.
+ */
+function motivoNoPuedeFirmar(
+  oc: OcFirma,
+  usuarioId: string | null | undefined,
+): string | undefined {
+  if (usuarioId && usuarioId === oc.compradorTitularId) return MOTIVO_AUTOFIRMA;
+  return undefined;
+}
+
 /**
  * <b>Aprobar Nivel 1 (Jefe de Compras)</b> — solo en
  * <c>EnAutorizacionJefeCompras</c>. Permiso: <c>autorizar.nivel1</c>.
+ * Deshabilitada para quien creó la OC (<c>OC_AUTOAUTORIZACION</c>).
  *
  * <para><b>Aprobar N2 nunca aparece antes de N1</b>: si la OC sigue
  * en N1, el botón Nivel 2 está oculto (no deshabilitado con tooltip
@@ -338,32 +361,55 @@ export function accionTransmitirAAutorizacion(
  * <c>EnAutorizJefeCompras</c>.</para>
  */
 export function accionAprobarNivel1(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
+  oc: OcFirma | Pick<OrdenCompraDetalleResponse, 'estado'>,
   permisos: readonly string[],
+  usuarioId?: string | null,
 ): AccionDisponible {
+  const motivo = motivoNoPuedeFirmar(oc as OcFirma, usuarioId);
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesAutorizarNivel1],
-    oc.estado === EstadoOrdenCompra.EnAutorizacionJefeCompras
-      ? HABILITADA
-      : OCULTO,
+    oc.estado !== EstadoOrdenCompra.EnAutorizacionJefeCompras
+      ? OCULTO
+      : motivo
+        ? DISABLED(motivo)
+        : HABILITADA,
   );
 }
 
 /**
  * <b>Aprobar Nivel 2 (Dirección)</b> — solo en
  * <c>EnAutorizacionDireccion</c>. Permiso: <c>autorizar.nivel2</c>.
+ * Deshabilitada para el creador (<c>OC_AUTOAUTORIZACION</c>) y para quien
+ * ya firmó el nivel 1 del ciclo vigente (<c>OC_FIRMA_MISMA_PERSONA</c>,
+ * OrdenCompra.cs:1073).
  */
 export function accionAprobarNivel2(
-  oc: Pick<OrdenCompraDetalleResponse, 'estado'>,
+  oc: OcFirma | Pick<OrdenCompraDetalleResponse, 'estado'>,
   permisos: readonly string[],
+  usuarioId?: string | null,
 ): AccionDisponible {
+  const ocF = oc as OcFirma;
+  const firmoN1 =
+    !!usuarioId &&
+    !!ocF.autorizaciones?.some(
+      (a) =>
+        a.nivel === 1 &&
+        a.resultado === 1 &&
+        a.usuarioId === usuarioId &&
+        a.ciclo === (ocF.cicloAutorizacion ?? a.ciclo),
+    );
+  const motivo =
+    motivoNoPuedeFirmar(ocF, usuarioId) ??
+    (firmoN1 ? MOTIVO_MISMA_PERSONA : undefined);
   return gatePermisos(
     permisos,
     [PermisosCanonicos.ComprasOrdenesAutorizarNivel2],
-    oc.estado === EstadoOrdenCompra.EnAutorizacionDireccion
-      ? HABILITADA
-      : OCULTO,
+    oc.estado !== EstadoOrdenCompra.EnAutorizacionDireccion
+      ? OCULTO
+      : motivo
+        ? DISABLED(motivo)
+        : HABILITADA,
   );
 }
 

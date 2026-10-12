@@ -235,6 +235,7 @@ export function DetalleOrdenCompra() {
         </div>
 
         <SubEstadosBar
+          lineas={oc.lineas}
           recepcion={oc.subEstadoRecepcion}
           facturacion={oc.subEstadoFacturacion}
           pago={oc.subEstadoPago}
