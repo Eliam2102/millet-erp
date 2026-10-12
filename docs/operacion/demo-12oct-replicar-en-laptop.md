@@ -13,14 +13,14 @@
 
 | Pieza | Para qué | Cómo se pasa |
 |---|---|---|
-| `millet_demo-2026-10-12.dump` (1 MB) | La base de la demo completa: usuarios, roles, requisición/OC/recepción/factura/pago de ejemplo | Por un canal privado (AirDrop, USB, gestor de archivos). **No lo subas a GitHub**: trae correos y OID del equipo y datos de la copia de A+W |
+| `base-practica.dump` (1 MB) | La base de la demo completa: usuarios, roles, requisición/OC/recepción/factura/pago de ejemplo | Por un canal privado (AirDrop, USB, gestor de archivos). **No lo subas a GitHub**: trae correos y OID del equipo y datos de la copia de A+W |
 | Valores de Entra (`TenantId`, `ClientId`, `Audience`, secreto) | Inicio de sesión con Microsoft | Gestor de contraseñas. Ver `tools/demo/README.md`, sección 3 |
 | Tu «Id. de objeto» de Microsoft | Variable `Auth__InitialAdminEntraOid`: te vuelve super administrador | Portal de Azure → Microsoft Entra ID → Usuarios |
 | `CFDI DEMO-7001.xml` (opcional) | Solo si quieres repetir la captura de factura con ese mismo CFDI | Está en `.verification/demo-tour/cxp-tesoreria/` de la laptop de Geovany |
 
 Huella del respaldo para comprobar que llegó íntegro:
-`sha256 30c3e17f0fe6a0c1e7311c5e6a338b5af10ac599159c3dad4d4819706a4c201e`
-(`shasum -a 256 millet_demo-2026-10-12.dump`).
+`sha256 9b59a1232ca265c5de6240694ed97a2f5660ebfe59d876cb6a30afcc14c4d5b4`
+(`shasum -a 256 base-practica.dump`).
 
 ## 1. Requisitos (una sola vez)
 
@@ -89,45 +89,21 @@ dependencias del frontend. Tarda unos minutos.
 
 ## 5. Restaura la base con el estado del ensayo
 
-Esto **reemplaza** `millet_demo` por la de Geovany. Haz esto con la API
-**detenida**:
+Deja el archivo `base-practica.dump` en `~/.millet-demo/` (créalo si no existe) y corre:
 
 ```bash
-# desde la carpeta donde dejaste el .dump
-docker exec millet-dev-postgres psql -U pgadmin -d postgres \
-  -c "DROP DATABASE IF EXISTS millet_demo WITH (FORCE)"
-docker exec millet-dev-postgres psql -U pgadmin -d postgres \
-  -c "CREATE DATABASE millet_demo"
-docker exec -i millet-dev-postgres pg_restore -U pgadmin -d millet_demo \
-  --no-owner --no-privileges < millet_demo-2026-10-12.dump
+mkdir -p ~/.millet-demo && cp base-practica.dump ~/.millet-demo/
+tools/demo/restablecer-demo.sh
 ```
 
-**Aplica las migraciones nuevas.** El respaldo se hizo antes del PR #94, así que
-no trae la tabla del alcance corporativo (migración `AlcanceCorporativoUsuario`) ni
-cualquier otra migración posterior. Vuelve a correr la preparación, que solo aplica lo
-que falte y no borra datos:
+Reemplaza `millet_demo` por la base de Geovany en unos segundos (solo opera sobre bases
+`millet_demo*`, nunca sobre dev) y muestra los conteos antes y después. La copia ya trae
+las migraciones de esta rama (incluida `AlcanceCorporativoUsuario`). Si algún día tu código
+es más nuevo que la copia, usa `tools/demo/restablecer-demo.sh --migrar`.
 
-```bash
-tools/demo/demo.sh preparar
-```
-
-Comprueba que quedó completa:
-
-```bash
-docker exec millet-dev-postgres psql -U pgadmin -d millet_demo -Atc "
-select 'usuarios', count(*) from identidad.usuarios union all
-select 'requisiciones', count(*) from compras.requisiciones union all
-select 'ordenes', count(*) from compras.ordenes_compra union all
-select 'facturas', count(*) from cuentas_por_pagar.facturas_proveedor union all
-select 'ubicaciones', count(*) from almacen.ubicaciones union all
-select 'proveedores', count(*) from compartido.proveedores union all
-select 'articulos', count(*) from compartido.articulos union all
-select 'clientes', count(*) from compartido.clientes"
-```
-
-Debe dar: `usuarios 8`, `requisiciones 9`, `ordenes 9`, `facturas 7`,
-`ubicaciones 15`. Además, para Maestros: `compartido.proveedores` 20,
-`compartido.articulos` 13 y `compartido.clientes` 80.
+Debe dar: `usuarios 8`, `requisiciones 9`, `ordenes 9`, `facturas 7`, `proveedores 20`,
+`articulos 13` y `clientes 80`. **Reinicia la API** (`tools/demo/demo.sh api`) y recarga el
+navegador: la API guarda permisos en memoria.
 
 Después verifica **usuarios, roles, sucursales y permisos** con el verificador
 (compara contra `docs/operacion/demo-usuarios-permisos.csv`; debe terminar en `OK`):
@@ -235,6 +211,24 @@ cambian al repetir:
 | Reportes Cartera/Antigüedad de CxP dan 422 `CXP_HISTORICO_POR_CONFIRMAR` | La factura `MOD-1002` está pagada sin movimiento. Filtra por proveedor `DEMO-PROV-ACT` |
 | El puerto 5432 está ocupado | Cambia `PG_PORT` en `.env.demo.local` y repite `preparar` |
 | El PDF de la cotización/OC no se ve | Ábrelo en un navegador normal; en pruebas automáticas no hay visor de PDF |
+
+## Practicar la presentación y volver a empezar
+
+Cuantas veces quieras, sin perder el estado de ensayo:
+
+| Quiero… | Comando |
+|---|---|
+| Volver al estado de ensayo (borra lo que hiciste practicando) | `tools/demo/restablecer-demo.sh` y luego reiniciar la API |
+| Ver cuántos registros hay ahora y cuándo se hizo la copia | `tools/demo/restablecer-demo.sh --estado` |
+| Guardar **el estado actual** como nueva base de práctica | `tools/demo/restablecer-demo.sh --guardar` (deja `base-practica.dump.anterior`) |
+| Comprobar usuarios, roles y permisos | `tools/demo/verificar-usuarios-demo.sh` |
+
+Qué trae el estado de ensayo: el ejemplo terminado (requisición `MID2026-010008`, OC
+`OC-MID2026-000007` autorizada, recepción 6 de 10, factura `DEMO-7001` pagada) y los
+prerrequisitos (usuarios fio y Mariana con sus roles, periodo contable abierto, rack con
+asignaciones, cuenta bancaria `DEMO-CTA-MXN`, `DEMO-PROV-REV` en revisión con 3 de 5
+documentos). Para practicar en vivo **crea documentos nuevos** (sección 9) y restablece al
+terminar. La API debe estar apagada o reiniciarse después de restablecer.
 
 ## Apéndice A. Reconstruir a mano lo que cambió en la base (sin respaldo)
 
