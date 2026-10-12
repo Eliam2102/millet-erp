@@ -21,15 +21,10 @@ describe('resetLineaOcIds', () => {
 
     // Una llamada por línea (incluida la que ya era null: idempotente y simple).
     expect(setValueMock).toHaveBeenCalledTimes(3);
-    expect(setValueMock).toHaveBeenNthCalledWith(1, 'lineas.0.lineaOcId', null, {
-      shouldValidate: true,
-    });
-    expect(setValueMock).toHaveBeenNthCalledWith(2, 'lineas.1.lineaOcId', null, {
-      shouldValidate: true,
-    });
-    expect(setValueMock).toHaveBeenNthCalledWith(3, 'lineas.2.lineaOcId', null, {
-      shouldValidate: true,
-    });
+    // Sin validar: el error no debe aparecer antes de que el usuario envíe.
+    expect(setValueMock).toHaveBeenNthCalledWith(1, 'lineas.0.lineaOcId', null);
+    expect(setValueMock).toHaveBeenNthCalledWith(2, 'lineas.1.lineaOcId', null);
+    expect(setValueMock).toHaveBeenNthCalledWith(3, 'lineas.2.lineaOcId', null);
   });
 
   it('sin líneas no hace nada', () => {

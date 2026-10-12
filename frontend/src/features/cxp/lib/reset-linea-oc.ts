@@ -19,6 +19,8 @@ export function resetLineaOcIds(
 ): void {
   const lineas = getValues('lineas') ?? [];
   lineas.forEach((_, i) => {
-    setValue(`lineas.${i}.lineaOcId`, null, { shouldValidate: true });
+    // Sin shouldValidate: validar aquí mostraba el error antes del submit, y el
+    // selector de línea no revalida hasta que el form se envía.
+    setValue(`lineas.${i}.lineaOcId`, null);
   });
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -156,5 +156,45 @@ describe('<CapturarFacturaSheet> — scroll del panel', () => {
 
     const panel = screen.getByRole('dialog');
     expect(panel).toHaveClass('overflow-y-auto');
+  });
+});
+
+// LineaOcSelector real depende del detalle de la OC; aquí lo sustituimos por
+// un botón que elige una línea fija, para probar solo el ciclo error→elegida.
+vi.mock('@/components/erp', async () => {
+  const react = await vi.importActual<typeof import('react')>('react');
+  const actual = await vi.importActual<typeof import('@/components/erp')>('@/components/erp');
+  return {
+    ...actual,
+    LineaOcSelector: (props: { onChange: (id: string | null) => void }) =>
+      react.createElement(
+        'button',
+        { type: 'button', onClick: () => props.onChange(LINEA_OC_ID) },
+        'Elegir línea',
+      ),
+  };
+});
+
+const LINEA_OC_ID = '55555555-5555-4555-8555-555555555555';
+const MSG_LINEA = 'Selecciona la línea de OC que corresponde a este concepto.';
+
+describe('<CapturarFacturaSheet> — error de línea de OC', () => {
+  it('con OC elegida, el mensaje aparece solo tras enviar y desaparece al elegir la línea', async () => {
+    render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    // Elegir la OC resetea lineaOcId de las líneas: NO debe mostrar error
+    // antes de que el usuario intente enviar.
+    fireEvent.click(screen.getByRole('combobox', { name: /orden de compra/i }));
+    fireEvent.click(await screen.findByText('OC-MID2026-000123'));
+    await screen.findByDisplayValue('Proveedor Demo SA');
+    expect(screen.queryByText(MSG_LINEA)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capturar factura' }));
+    expect(await screen.findByText(MSG_LINEA)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir línea' }));
+    await waitFor(() => expect(screen.queryByText(MSG_LINEA)).not.toBeInTheDocument());
   });
 });
