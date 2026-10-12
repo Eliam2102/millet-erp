@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { DomainTermTooltip } from '@/components/erp/feedback/DomainTermTooltip';
 import { obtenerDefinicionOc } from '@/features/compras/lib/glosario';
+import { porcentajeLineas } from '@/features/compras/ordenes/lib/porcentaje-lineas';
 import {
   SubEstadoFacturacion,
   SubEstadoPago,
@@ -104,24 +105,6 @@ function progresoPago(s: SubEstadoPago): BarraInfo['progreso'] {
   return 'vacio';
 }
 
-/**
- * % real de avance por cantidades: Σ(campo) ÷ Σ(cantidad) de las líneas.
- * Recepción excluye servicios (no se reciben en Almacén, GAP-9).
- * undefined si no hay líneas o nada que recibir/facturar.
- */
-export function porcentajeLineas(
-  lineas: SubEstadosBarProps['lineas'],
-  campo: 'cantidadRecibida' | 'cantidadFacturada',
-): number | undefined {
-  const base = (lineas ?? []).filter(
-    (l) => !(campo === 'cantidadRecibida' && l.esServicio),
-  );
-  const pedido = base.reduce((a, l) => a + l.cantidad, 0);
-  if (pedido <= 0) return undefined;
-  const avance = base.reduce((a, l) => a + l[campo], 0);
-  return Math.min(100, Math.round((avance / pedido) * 100));
-}
-
 /** Texto del % entre paréntesis; '' si es Parcial sin dato real. */
 function textoPorcentaje(b: BarraInfo): string {
   if (b.progreso === 'vacio') return ' (0 %)';
@@ -178,9 +161,7 @@ export function SubEstadosBar({
           definicion={definicion}
         >
           <div
-            // scroll-mt-32 = topbar (56px) + sub-topbar sticky del detalle (~72px):
-            // al hacer scroll/foco a una fila, no queda tapada por las barras fijas.
-            className="grid scroll-mt-32 grid-cols-[6.5rem_1fr_11rem] items-center gap-2 text-xs"
+            className="grid grid-cols-[6.5rem_1fr_11rem] items-center gap-2 text-xs"
             data-sub-estado={b.data}
             data-progreso={b.progreso}
           >

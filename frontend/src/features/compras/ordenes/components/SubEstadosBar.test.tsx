@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import {
-  SubEstadosBar,
-  porcentajeLineas,
-} from '@/features/compras/ordenes/components/SubEstadosBar';
+import { SubEstadosBar } from '@/features/compras/ordenes/components/SubEstadosBar';
+import { porcentajeLineas } from '@/features/compras/ordenes/lib/porcentaje-lineas';
 import {
   SubEstadoFacturacion,
   SubEstadoPago,
