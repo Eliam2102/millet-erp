@@ -61,7 +61,7 @@ export function CabeceraRequisicion({
         </Item>
         <Item label="Prioridad">{prioridadToString(rq.prioridad)}</Item>
         <Item label="Fecha entrega deseada">
-          <DateTimeDisplay value={rq.fechaEntregaDeseada} />
+          <DateTimeDisplay value={rq.fechaEntregaDeseada} className="whitespace-nowrap" />
         </Item>
         <Item label="Proveedor sugerido">
           {rq.proveedorSugeridoId
@@ -117,8 +117,8 @@ function Item({
   mono?: boolean;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-[max-content_1fr] gap-x-2">
-      <dt className="text-muted-foreground">{label}</dt>
+    <div className="grid min-w-0 gap-y-1">
+      <dt className="text-xs text-ink-muted">{label}</dt>
       <dd className={mono ? 'min-w-0 break-words font-mono' : 'min-w-0 break-words'}>
         {children}
       </dd>
