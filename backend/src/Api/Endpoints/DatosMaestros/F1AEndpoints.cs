@@ -22,6 +22,8 @@ public static class F1AEndpoints
         ligados.MapGet("/",async(ISender sender,CancellationToken ct)=>Results.Ok(await sender.Send(new ListarLigadosClienteQuery(),ct)));
         ligados.MapPost("/{id:guid}/revisar",async(Guid id,RevisarLigadoClienteCommand body,ISender sender,CancellationToken ct)=>
         { await sender.Send(body with { Id=id },ct); return Results.NoContent(); }).WithMetadata(new RequireIdempotencyKeyAttribute());
+        ligados.MapPost("/{id:guid}/descartar",async(Guid id,DescartarLigadoClienteCommand body,ISender sender,CancellationToken ct)=>
+        { await sender.Send(body with { Id=id },ct); return Results.NoContent(); }).WithMetadata(new RequireIdempotencyKeyAttribute());
         var fiscal=app.MapGroup("/api/v1/datos-maestros/productos-aw/fiscal")
             .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProductosAwGestionar);
         fiscal.MapGet("/reglas",async(ISender sender,CancellationToken ct)=>Results.Ok(await sender.Send(new ListarReglasFiscalesAwQuery(),ct)));

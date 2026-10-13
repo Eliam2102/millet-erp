@@ -2,6 +2,7 @@ using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application;
@@ -42,7 +43,14 @@ public sealed class GuardarClasificacionClienteHandler(CompartidoDbContext db) :
             throw new ConflictException("CLASIFICACION_CAMBIO", "La clasificación cambió. Recarga antes de guardar.");
         c.Editar(nombre, request.Descripcion, request.Activa);
         if (request.Id is null) db.Add(c);
-        await db.SaveChangesAsync(cancellationToken); return c.Id;
+        // La comprobación de arriba no es atómica: dos altas simultáneas pueden pasarla.
+        // El índice único ix_clasificaciones_cliente_nombre es la autoridad y su colisión es 422, no 500.
+        try { await db.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "ix_clasificaciones_cliente_nombre" })
+        {
+            throw new BusinessRuleException("CLASIFICACION_DUPLICADA", "Ya existe una clasificación con ese nombre.");
+        }
+        return c.Id;
     }
 }
 
@@ -86,5 +94,23 @@ public sealed class RevisarLigadoClienteHandler(CompartidoDbContext db, ICurrent
         var snap = JsonSerializer.Deserialize<AplicarClienteAwSnapshot>(c.SnapshotJson)!;
         await aplicar.AplicarAsync(snap with { SoloCrear = false }, cancellationToken);
         await tx.CommitAsync(cancellationToken);
+    }
+}
+public sealed record DescartarLigadoClienteCommand(Guid Id, int Version) : IRequest;
+public sealed class DescartarLigadoClienteValidator : AbstractValidator<DescartarLigadoClienteCommand>
+{
+    public DescartarLigadoClienteValidator() { RuleFor(c => c.Id).NotEmpty(); RuleFor(c => c.Version).GreaterThan(0); }
+}
+public sealed class DescartarLigadoClienteHandler(CompartidoDbContext db, ICurrentUserContext user) : IRequestHandler<DescartarLigadoClienteCommand>
+{
+    public async Task Handle(DescartarLigadoClienteCommand request, CancellationToken cancellationToken)
+    {
+        var usuario = user.UserId ?? throw new ForbiddenException("USUARIO_REQUERIDO", "Inicia sesión para revisar el ligado.");
+        var c = await db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(c => c.Id == request.Id, cancellationToken)
+            ?? throw new EntityNotFoundException("LIGADO_NO_ENCONTRADO", "No existe ese conflicto de ligado.");
+        if (c.Version != request.Version || c.RevisadoEn is not null)
+            throw new ConflictException("LIGADO_CAMBIO", "El conflicto cambió o ya fue revisado. Recarga la bandeja.");
+        c.Descartar(usuario, DateTimeOffset.UtcNow);
+        await db.SaveChangesAsync(cancellationToken);
     }
 }

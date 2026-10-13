@@ -27,4 +27,7 @@ public sealed class ClienteLigadoAw : BaseEntity, IAuditable
     }
     public void Revisar(Guid clienteId, Guid usuario, DateTimeOffset ahora)
     { ClienteId = clienteId; RevisadoPor = usuario; RevisadoEn = ahora; }
+    public bool Descartado => RevisadoEn.HasValue && ClienteId is null;
+    public void Descartar(Guid? usuario, DateTimeOffset ahora)
+    { if (RevisadoEn.HasValue) throw new BusinessRuleException("LIGADO_YA_REVISADO", "Este ligado ya fue revisado."); ClienteId = null; RevisadoPor = usuario; RevisadoEn = ahora; }
 }

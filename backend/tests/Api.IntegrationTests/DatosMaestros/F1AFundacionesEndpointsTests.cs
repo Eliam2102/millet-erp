@@ -76,6 +76,57 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
         finally { await LimpiarAsync(referencia,ids); }
     }
     [Fact]
+    public async Task Descartar_ligado_cierra_conflicto_y_segunda_vez_es_409()
+    {
+        using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var ids=new List<Guid>();
+        var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+        try
+        {
+            var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); ids.Add(alta.GetProperty("id").GetGuid());
+            using(var scope=factory.Services.CreateScope())
+            {
+                var svc=scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
+                var r=await svc.AplicarAsync(new(referencia,"NOMBRE DE A+W",DateTime.UtcNow,"1","F1A",Rfc:rfc,MonedaDefault:"MXN"),CancellationToken.None);
+                Assert.Equal(AplicarClienteAwAccion.Conflicto,r.Accion);
+            }
+            var conflictos=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw")); var conflicto=conflictos.EnumerateArray().Single(x=>x.GetProperty("referenciaExterna").GetString()==referencia);
+            var conflictoId=conflicto.GetProperty("id").GetGuid(); var version=conflicto.GetProperty("version").GetInt32();
+            var descarte=await c.PostAsJsonAsync($"/api/v1/datos-maestros/clientes/ligados-aw/{conflictoId}/descartar",new { id=conflictoId,version }); Assert.Equal(HttpStatusCode.NoContent,descarte.StatusCode);
+            var restantes=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw"));
+            Assert.DoesNotContain(restantes.EnumerateArray(),x=>x.GetProperty("referenciaExterna").GetString()==referencia);
+            var repetido=await c.PostAsJsonAsync($"/api/v1/datos-maestros/clientes/ligados-aw/{conflictoId}/descartar",new { id=conflictoId,version }); Assert.Equal(HttpStatusCode.Conflict,repetido.StatusCode);
+            Assert.Contains("LIGADO_CAMBIO",await repetido.Content.ReadAsStringAsync());
+            using(var scope=factory.Services.CreateScope())
+            {
+                var svc=scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
+                var r=await svc.AplicarAsync(new(referencia,"NOMBRE DE A+W",DateTime.UtcNow.AddMinutes(1),"1","F1A",Rfc:rfc,MonedaDefault:"MXN"),CancellationToken.None);
+                Assert.Equal(AplicarClienteAwAccion.Creado,r.Accion); ids.Add(r.Cliente!.Id);
+            }
+        }
+        finally { await LimpiarAsync(referencia,ids); }
+    }
+    [Fact]
+    public async Task Cambiar_rfc_del_manual_cierra_el_ligado_huerfano()
+    {
+        using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var ids=new List<Guid>();
+        var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+        var nuevoRfc="FIA261011"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+        try
+        {
+            var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); var id=alta.GetProperty("id").GetGuid(); ids.Add(id);
+            using(var scope=factory.Services.CreateScope())
+            {
+                var svc=scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
+                var r=await svc.AplicarAsync(new(referencia,"NOMBRE DE A+W",DateTime.UtcNow,"1","F1A",Rfc:rfc,MonedaDefault:"MXN"),CancellationToken.None);
+                Assert.Equal(AplicarClienteAwAccion.Conflicto,r.Accion);
+            }
+            var antes=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw")); Assert.Contains(antes.EnumerateArray(),x=>x.GetProperty("referenciaExterna").GetString()==referencia);
+            var patch=await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}",new { clasificacionId=Clasificacion,rfc=nuevoRfc }); Assert.Equal(HttpStatusCode.NoContent,patch.StatusCode);
+            var despues=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw")); Assert.DoesNotContain(despues.EnumerateArray(),x=>x.GetProperty("referenciaExterna").GetString()==referencia);
+        }
+        finally { await LimpiarAsync(referencia,ids); }
+    }
+    [Fact]
     public async Task Clasificacion_CRUD_baja_logica_y_filtro_sin_clasificar()
     {
         using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var clientes=new List<Guid>(); Guid? clasificacionId=null;
@@ -91,6 +142,68 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
         {
             await LimpiarAsync(referencia,clientes);
             if(clasificacionId is {} id) { using var scope=factory.Services.CreateScope(); var db=scope.ServiceProvider.GetRequiredService<CompartidoDbContext>(); db.Remove(await db.Set<ClasificacionCliente>().SingleAsync(c=>c.Id==id)); await db.SaveChangesAsync(); }
+        }
+    }
+    [Fact]
+    public async Task Lista_trae_nombre_de_clasificacion_y_filtro_sin_clasificar_false()
+    {
+        using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var refAw=referencia+"W"; var clientes=new List<Guid>();
+        var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+        try
+        {
+            var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); clientes.Add(alta.GetProperty("id").GetGuid());
+            using(var scope=factory.Services.CreateScope())
+            {
+                // Sin RFC para no generar conflicto de ligado con el manual.
+                var servicio=scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
+                var r=await servicio.AplicarAsync(new(refAw,"FICTICIO",DateTime.UtcNow,"1","F1A",MonedaDefault:"MXN"),CancellationToken.None); clientes.Add(r.Cliente!.Id);
+            }
+            var lista=await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes?rfc={rfc}"));
+            Assert.Equal("Constructora",lista.GetProperty("items")[0].GetProperty("clasificacionNombre").GetString());
+            var conClasificacion=await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes?sinClasificar=false&rfc={rfc}")); Assert.Equal(1,conClasificacion.GetProperty("total").GetInt32());
+            var sinClasificacion=await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes?sinClasificar=true&referenciaExterna={refAw}")); Assert.Equal(1,sinClasificacion.GetProperty("total").GetInt32());
+            Assert.Equal(JsonValueKind.Null,sinClasificacion.GetProperty("items")[0].GetProperty("clasificacionNombre").ValueKind);
+        }
+        finally { await LimpiarAsync(referencia,clientes); }
+    }
+    private static async Task DesactivarClasificacionAsync(HttpClient c,Guid id,string nombre)
+    {
+        var listado=await Json(await c.GetAsync("/api/v1/datos-maestros/clasificaciones-cliente")); var item=listado.EnumerateArray().Single(x=>x.GetProperty("id").GetGuid()==id);
+        (await c.PutAsJsonAsync($"/api/v1/datos-maestros/clasificaciones-cliente/{id}",new { nombre,descripcion="FICTICIO",activa=false,version=item.GetProperty("version").GetInt32() })).EnsureSuccessStatusCode();
+    }
+    [Fact]
+    public async Task Clasificacion_inactiva_asignada_permite_guardar_y_no_se_puede_asignar_otra_inactiva()
+    {
+        using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var clientes=new List<Guid>(); var clasificaciones=new List<Guid>();
+        var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+        try
+        {
+            var altaA=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clasificaciones-cliente",new { nombre=referencia+"A",descripcion="FICTICIO",activa=true })); var clasA=altaA.GetProperty("id").GetGuid(); clasificaciones.Add(clasA);
+            var cliente=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",new { clave=referencia,razonSocial="CLIENTE FICTICIO F1A",rfc,regimenFiscal="601",codigoPostalFiscal="97000",usoCfdiDefault="G03",formaPagoDefault="03",metodoPagoDefault="PUE",monedaDefault="MXN",clasificacionId=clasA })); var id=cliente.GetProperty("id").GetGuid(); clientes.Add(id);
+            await DesactivarClasificacionAsync(c,clasA,referencia+"A");
+
+            // (a) la clasificación inactiva ya asignada no bloquea guardar otros campos.
+            var patchA=await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}",new { clasificacionId=clasA,telefono="9990000000" });
+            Assert.Equal(HttpStatusCode.NoContent,patchA.StatusCode);
+            Assert.Equal("9990000000",(await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"))).GetProperty("telefono").GetString());
+
+            // (b) no se puede asignar otra clasificación inactiva.
+            var altaB=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clasificaciones-cliente",new { nombre=referencia+"B",descripcion="FICTICIO",activa=true })); var clasB=altaB.GetProperty("id").GetGuid(); clasificaciones.Add(clasB);
+            await DesactivarClasificacionAsync(c,clasB,referencia+"B");
+            var patchB=await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}",new { clasificacionId=clasB,telefono="9990000001" });
+            Assert.Equal(HttpStatusCode.UnprocessableEntity,patchB.StatusCode);
+            Assert.Contains("CLIENTE_CLASIFICACION_REQUERIDA",await patchB.Content.ReadAsStringAsync());
+
+            // (c) el alta nueva con clasificación inactiva también se rechaza.
+            var nuevo=await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",new { clave=referencia+"N",razonSocial="CLIENTE FICTICIO F1A",rfc,regimenFiscal="601",codigoPostalFiscal="97000",usoCfdiDefault="G03",formaPagoDefault="03",metodoPagoDefault="PUE",monedaDefault="MXN",clasificacionId=clasA });
+            Assert.Equal(HttpStatusCode.UnprocessableEntity,nuevo.StatusCode);
+            Assert.Contains("CLIENTE_CLASIFICACION_REQUERIDA",await nuevo.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            await LimpiarAsync(referencia,clientes);
+            using var scope=factory.Services.CreateScope(); var db=scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            db.RemoveRange(await db.Set<ClasificacionCliente>().Where(x=>clasificaciones.Contains(x.Id)).ToListAsync()); await db.SaveChangesAsync();
         }
     }
     [Fact]
@@ -169,5 +282,47 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
         using var c=factory.CreateClient();
         foreach(var path in new[]{"/api/v1/datos-maestros/clasificaciones-cliente","/api/v1/datos-maestros/clientes/ligados-aw","/api/v1/datos-maestros/productos-aw/fiscal/reglas"})
             Assert.Equal(HttpStatusCode.Unauthorized,(await c.GetAsync(path)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Desactivar_conserva_clasificacion_y_reactivar_vuelve_a_activo()
+    {
+        using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var ids=new List<Guid>();
+        var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+        try
+        {
+            var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); var id=alta.GetProperty("id").GetGuid(); ids.Add(id);
+            Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/v1/datos-maestros/clientes/{id}")).StatusCode);
+            var inactivo=await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"));
+            Assert.Equal("Inactivo",inactivo.GetProperty("estatus").GetString()); Assert.Equal(Guid.Parse(Clasificacion),inactivo.GetProperty("clasificacionId").GetGuid());
+            Assert.Equal(HttpStatusCode.NoContent,(await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}",new { clasificacionId=Clasificacion,telefono="9990000001" })).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent,(await c.PostAsync($"/api/v1/datos-maestros/clientes/{id}/reactivar",null)).StatusCode);
+            Assert.Equal("Activo",(await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"))).GetProperty("estatus").GetString());
+        }
+        finally { await LimpiarAsync(referencia,ids); }
+    }
+
+    [Fact]
+    public async Task Reactivar_con_la_misma_Idempotency_Key_repite_204_y_deja_el_cliente_activo()
+    {
+        // M-92: el segundo reactivar con la misma clave y cuerpo vacío es replay del 204 (Idempotent-Replayed).
+        using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var ids=new List<Guid>();
+        var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
+        try
+        {
+            var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); var id=alta.GetProperty("id").GetGuid(); ids.Add(id);
+            Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/v1/datos-maestros/clientes/{id}")).StatusCode);
+            var key=Guid.NewGuid().ToString("D");
+            using var primera=new HttpRequestMessage(HttpMethod.Post,$"/api/v1/datos-maestros/clientes/{id}/reactivar");
+            primera.Headers.Add("Idempotency-Key",key);
+            using var segunda=new HttpRequestMessage(HttpMethod.Post,$"/api/v1/datos-maestros/clientes/{id}/reactivar");
+            segunda.Headers.Add("Idempotency-Key",key);
+            Assert.Equal(HttpStatusCode.NoContent,(await c.SendAsync(primera)).StatusCode);
+            var replay=await c.SendAsync(segunda);
+            Assert.Equal(HttpStatusCode.NoContent,replay.StatusCode);
+            Assert.True(replay.Headers.Contains("Idempotent-Replayed"));
+            Assert.Equal("Activo",(await Json(await c.GetAsync($"/api/v1/datos-maestros/clientes/{id}"))).GetProperty("estatus").GetString());
+        }
+        finally { await LimpiarAsync(referencia,ids); }
     }
 }

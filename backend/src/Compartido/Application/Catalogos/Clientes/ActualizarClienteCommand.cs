@@ -88,11 +88,13 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
 
     private readonly CompartidoDbContext _db;
     private readonly ICurrentUserPermissions _permissions;
+    private readonly ICurrentUserContext _user;
 
-    public ActualizarClienteHandler(CompartidoDbContext db, ICurrentUserPermissions permissions)
+    public ActualizarClienteHandler(CompartidoDbContext db, ICurrentUserPermissions permissions, ICurrentUserContext user)
     {
         _db = db;
         _permissions = permissions;
+        _user = user;
     }
 
     public async Task Handle(ActualizarClienteCommand request, CancellationToken cancellationToken)
@@ -103,7 +105,7 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
                 "CLIENTE_NO_ENCONTRADO",
                 $"No existe cliente con id '{request.ClienteId}'.");
 
-        await ClasificacionClienteGuard.ValidarAsync(_db, request.ClasificacionId, cancellationToken);
+        await ClasificacionClienteGuard.ValidarAsync(_db, request.ClasificacionId, cliente.ClasificacionId, cancellationToken);
         // F1-ADM-06 D3: en clientes de origen A+W, cambiar un fiscal ya
         // poblado (o limpiarlo) requiere fiscal-editar; completar vacíos no.
         static bool Cambia(string? nuevo, string? actual) => !string.IsNullOrEmpty(nuevo) && nuevo != actual;
@@ -112,7 +114,9 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
                 || (Cambia(request.Rfc, cliente.Rfc) && !string.IsNullOrEmpty(cliente.Rfc))
                 || (Cambia(request.RegimenFiscal, cliente.RegimenFiscal) && !string.IsNullOrEmpty(cliente.RegimenFiscal))
                 || (Cambia(request.CodigoPostalFiscal, cliente.CodigoPostalFiscal) && !string.IsNullOrEmpty(cliente.CodigoPostalFiscal))
-                || request.LimpiarRfc || request.LimpiarRegimenFiscal || request.LimpiarCodigoPostalFiscal)
+                || (request.LimpiarRfc && !string.IsNullOrEmpty(cliente.Rfc))
+                || (request.LimpiarRegimenFiscal && !string.IsNullOrEmpty(cliente.RegimenFiscal))
+                || (request.LimpiarCodigoPostalFiscal && !string.IsNullOrEmpty(cliente.CodigoPostalFiscal)))
             && !await _permissions.TieneAsync(PermisoFiscalEditar, cancellationToken))
         {
             throw new ForbiddenException(
@@ -130,6 +134,7 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
             if (existentes.Count > 0) throw new ClienteRfcDuplicadoException(existentes);
         }
         cliente.Clasificar(request.ClasificacionId!.Value);
+        var rfcAnterior = RfcCliente.Normalizar(cliente.Rfc);
         cliente.ActualizarDatos(
             razonSocial: request.RazonSocial,
             rfc: request.Rfc is null ? null : rfc,
@@ -162,6 +167,16 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
             limpiarDomicilioExtranjeroCalle: request.LimpiarDomicilioExtranjeroCalle,
             limpiarDomicilioExtranjeroEstado: request.LimpiarDomicilioExtranjeroEstado,
             limpiarDomicilioExtranjeroCodigoPostal: request.LimpiarDomicilioExtranjeroCodigoPostal);
+
+        // F1-ADM-06 D6: sin candidatos manuales el conflicto queda huérfano; se cierra como "mantener separados". ponytail: el candado es del RFC nuevo; un barrido simultáneo del RFC anterior puede reabrir una fila (se descarta desde el panel).
+        if (cliente.Origen == OrigenMaster.Manual && RfcCliente.EsLigable(rfcAnterior) && RfcCliente.Normalizar(cliente.Rfc) != rfcAnterior
+            && !await _db.Clientes.AnyAsync(m => m.Id != cliente.Id && m.Origen == OrigenMaster.Manual && m.Rfc != null && m.Rfc.Trim().ToUpper() == rfcAnterior, cancellationToken))
+        {
+            var huerfanos = await _db.Set<ClienteLigadoAw>()
+                .Where(l => l.RevisadoEn == null && l.Rfc == rfcAnterior)
+                .ToListAsync(cancellationToken);
+            foreach (var l in huerfanos) l.Descartar(_user.UserId, DateTimeOffset.UtcNow);
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
         await scope.ConfirmarAsync(cancellationToken);

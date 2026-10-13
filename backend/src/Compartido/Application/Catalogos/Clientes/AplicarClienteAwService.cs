@@ -148,10 +148,14 @@ public sealed class AplicarClienteAwService
             if (RfcCliente.EsLigable(rfc) && await _db.Clientes.AnyAsync(c => c.Origen == OrigenMaster.Manual && c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc, ct))
             {
                 var conflicto = await _db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(c => c.ReferenciaExterna == snap.ReferenciaExterna, ct);
-                if (conflicto is null) _db.Add(new ClienteLigadoAw(Guid.CreateVersion7(), snap.ReferenciaExterna, rfc, System.Text.Json.JsonSerializer.Serialize(snap)));
-                else if (conflicto.RevisadoEn is null) conflicto.Actualizar(rfc, System.Text.Json.JsonSerializer.Serialize(snap));
-                await _db.SaveChangesAsync(ct);
-                return new(null, AplicarClienteAwAccion.Conflicto, ResultadoSincronizacionAw.Conflicto);
+                // Ligado descartado por el operador (mantener separados): se crea el cliente A+W aparte.
+                if (conflicto is not { Descartado: true })
+                {
+                    if (conflicto is null) _db.Add(new ClienteLigadoAw(Guid.CreateVersion7(), snap.ReferenciaExterna, rfc, System.Text.Json.JsonSerializer.Serialize(snap)));
+                    else if (conflicto.RevisadoEn is null) conflicto.Actualizar(rfc, System.Text.Json.JsonSerializer.Serialize(snap));
+                    await _db.SaveChangesAsync(ct);
+                    return new(null, AplicarClienteAwAccion.Conflicto, ResultadoSincronizacionAw.Conflicto);
+                }
             }
             var nuevo = CrearCliente(snap);
             AplicarEstatus(nuevo, snap);

@@ -283,4 +283,42 @@ public sealed class F1AFundacionesTests
         Assert.Equal(ResultadoSincronizacionAw.Aplicado, registro.Resultado);
     }
 
+    [Fact]
+    public async Task V38_descartar_ligado_crea_cliente_aw_aparte_en_la_siguiente_aplicacion()
+    {
+        using var db = Db();
+        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA"); db.Add(manual); await db.SaveChangesAsync();
+        var servicio = new AplicarClienteAwService(db); var snap = ClienteSnapshot() with { Rfc = "AAA010101AAA" };
+        await servicio.AplicarAsync(snap, CancellationToken.None);
+        var conflicto = await db.Set<ClienteLigadoAw>().SingleAsync();
+        await new DescartarLigadoClienteHandler(db, new Usuario()).Handle(new(conflicto.Id, conflicto.Version), CancellationToken.None);
+        var r = await servicio.AplicarAsync(snap with { LeidoEnUtc = snap.LeidoEnUtc.AddMinutes(1) }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Creado, r.Accion);
+        Assert.Equal(2, await db.Clientes.CountAsync());
+        Assert.True(conflicto.Descartado);
+    }
+
+    [Fact]
+    public async Task V38_descartar_ligado_ya_revisado_es_conflicto()
+    {
+        using var db = Db();
+        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA"); db.Add(manual); await db.SaveChangesAsync();
+        await new AplicarClienteAwService(db).AplicarAsync(ClienteSnapshot() with { Rfc = "AAA010101AAA" }, CancellationToken.None);
+        var conflicto = await db.Set<ClienteLigadoAw>().SingleAsync();
+        var handler = new DescartarLigadoClienteHandler(db, new Usuario()); var version = conflicto.Version;
+        await handler.Handle(new(conflicto.Id, version), CancellationToken.None);
+        await Assert.ThrowsAsync<ConflictException>(() => handler.Handle(new(conflicto.Id, version), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task M79_reactivar_cliente_bloqueado_por_aw_es_422()
+    {
+        using var db = Db();
+        var cliente = new Cliente(Guid.NewGuid(), "MAN-R", "FICTICIO", rfc: "AAA010101AAA");
+        cliente.AplicarBloqueoAw(true);
+        db.Add(cliente); await db.SaveChangesAsync();
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => new ReactivarClienteHandler(db).Handle(new(cliente.Id), CancellationToken.None));
+        Assert.Equal("CLIENTE_BLOQUEADO_POR_AW", ex.Code);
+    }
+
 }
