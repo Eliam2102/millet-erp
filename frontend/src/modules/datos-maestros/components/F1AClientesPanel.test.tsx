@@ -82,31 +82,7 @@ afterEach(() => {
   } as never);
 });
 
-describe('F1AClientesPanel — mantener separados y catálogo', () => {
-  it('(a) con un ligado sin candidatos muestra el aviso y "Mantener separados"; confirmar hace POST a /descartar con {id, version}', async () => {
-    let body: unknown = null;
-    let llamadas = 0;
-    mswServer.use(
-      http.post('*/api/v1/datos-maestros/clientes/ligados-aw/:id/descartar', async ({ request }) => {
-        llamadas += 1;
-        body = await request.json();
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-
-    render(<F1AClientesPanel />, { wrapper: createQueryWrapper() });
-
-    expect(await screen.findByText('Sin candidatos manuales con este RFC.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Mantener separados' }));
-    expect(screen.getByRole('note')).toHaveTextContent('creará el cliente A+W 990001 como un cliente aparte');
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar: mantener separados' }));
-
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Cambio guardado'));
-    expect(llamadas).toBe(1);
-    expect(body).toEqual({ id: 'l-1', version: 3 });
-    expect(screen.queryByRole('note')).not.toBeInTheDocument();
-  });
-
+describe('F1AClientesPanel — ligados y catálogo', () => {
   it('(M-61) "Revisar ligado" muestra el aviso; "Aprobar ligado revisado" hace POST a /revisar con {id, clienteId, version}, toast y cierra el aviso', async () => {
     const LIGADO_CON_CANDIDATO = {
       ...LIGADO_SIN_CANDIDATOS,
@@ -136,6 +112,7 @@ describe('F1AClientesPanel — mantener separados y catálogo', () => {
     expect(llamadas).toBe(1);
     expect(body).toEqual({ id: 'l-1', clienteId: 'm-1', version: 3 });
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mantener separados/ })).not.toBeInTheDocument();
   });
 
   it('(b) "Guardar clasificación" está deshabilitado con el nombre vacío y se habilita al escribir', async () => {

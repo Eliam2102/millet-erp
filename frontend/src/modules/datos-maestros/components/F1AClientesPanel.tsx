@@ -17,13 +17,12 @@ export function F1AClientesPanel() {
   const [descripcion, setDescripcion] = useState('');
   const [pagina, setPagina] = useState(0);
   const [revision, setRevision] = useState<{ conflicto: LigadoCliente; clienteId: string } | null>(null);
-  const [descarte, setDescarte] = useState<LigadoCliente | null>(null);
   // Bandera en ref (no en estado): el doble clic llega antes de que React re-renderice el botón deshabilitado.
   const enVuelo = useRef(false);
   function ejecutar(path: string, body: unknown, method: 'POST' | 'PUT' = 'POST') {
     if (enVuelo.current) return;
     enVuelo.current = true;
-    guardar.mutate({ path, body, method }, { onSuccess: () => { toast.success('Cambio guardado'); setEditar(null); setNombre(''); setDescripcion(''); setRevision(null); setDescarte(null); }, onError: e => toast.error(mensajeF1A(e)), onSettled: () => { enVuelo.current = false; } });
+    guardar.mutate({ path, body, method }, { onSuccess: () => { toast.success('Cambio guardado'); setEditar(null); setNombre(''); setDescripcion(''); setRevision(null); }, onError: e => toast.error(mensajeF1A(e)), onSettled: () => { enVuelo.current = false; } });
   }
   return <div className="space-y-5 p-6 text-sm text-ink">
     <h1 className="text-lg font-semibold">Clasificación y ligados de clientes</h1>
@@ -45,9 +44,8 @@ export function F1AClientesPanel() {
     <section className="rounded-lg bg-surface-card p-4 shadow-card-flat">
       <h2 className="text-lg font-semibold">Ligados pendientes de revisión</h2>
       {ligados.data?.length === 0 && <p className="text-ink-muted">No hay coincidencias pendientes.</p>}
-      {ligados.data?.map(c => <div key={c.id} className="space-y-2 border-b border-line-row py-3"><p><span className="font-mono">A+W {c.referenciaExterna} · {c.rfc}</span> · {c.razonSocialAw}</p>{c.candidatos.length === 0 && <p className="text-ink-muted">Sin candidatos manuales con este RFC.</p>}{c.candidatos.map(m => <div key={m.id} className="flex items-center gap-3"><Link to="/admin/datos-maestros/clientes/$id" params={{ id: m.id }} className="text-brand">{m.clave} · {m.razonSocial}</Link><Button variant="secondary" size="sm" onClick={() => setRevision({ conflicto: c, clienteId: m.id })}>Revisar ligado</Button></div>)}<Button variant="secondary" size="sm" onClick={() => setDescarte(c)}>Mantener separados</Button></div>)}
+      {ligados.data?.map(c => <div key={c.id} className="space-y-2 border-b border-line-row py-3"><p><span className="font-mono">A+W {c.referenciaExterna} · {c.rfc}</span> · {c.razonSocialAw}</p>{c.candidatos.map(m => <div key={m.id} className="flex items-center gap-3"><Link to="/admin/datos-maestros/clientes/$id" params={{ id: m.id }} className="text-brand">{m.clave} · {m.razonSocial}</Link><Button variant="secondary" size="sm" onClick={() => setRevision({ conflicto: c, clienteId: m.id })}>Revisar ligado</Button></div>)}</div>)}
       {revision && <div role="note" className="mt-3 space-y-3 rounded-md bg-warning-note-bg p-3 text-warning-note-fg"><p>Al aprobar, la clave A+W {revision.conflicto.referenciaExterna} se ligará al cliente seleccionado. Se conservarán sus datos fiscales, clasificación y saldo.</p><Button disabled={guardar.isPending} onClick={() => ejecutar(`${LIGADOS}/${revision.conflicto.id}/revisar`, { id: revision.conflicto.id, clienteId: revision.clienteId, version: revision.conflicto.version })}>Aprobar ligado revisado</Button><Button variant="ghost" onClick={() => setRevision(null)}>Cancelar</Button></div>}
-      {descarte && <div role="note" className="mt-3 space-y-3 rounded-md bg-warning-note-bg p-3 text-warning-note-fg"><p>Al mantenerlos separados se cierra este conflicto y la siguiente sincronización creará el cliente A+W {descarte.referenciaExterna} como un cliente aparte con el mismo RFC.</p><Button disabled={guardar.isPending} onClick={() => ejecutar(`${LIGADOS}/${descarte.id}/descartar`, { id: descarte.id, version: descarte.version })}>Confirmar: mantener separados</Button><Button variant="ghost" onClick={() => setDescarte(null)}>Cancelar</Button></div>}
     </section>
   </div>;
 }
