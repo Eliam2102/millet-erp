@@ -370,6 +370,7 @@ export interface EjecucionSyncAceptada {
 
 export interface ClienteItem {
   clasificacionId?: string | null;
+  clasificacionNombre?: string | null;
   id: string;
   clave: string;
   /** Correlación con A+W (código de cliente en A+W); inmutable. */
