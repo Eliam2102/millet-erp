@@ -140,6 +140,18 @@ public sealed class ClientesAltaManualEndpointsTests(WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task Alta_manual_y_aw_simultaneas_por_ust_id_nunca_comparten_clave()
+    {
+        await CarreraAltaManualVsAwAsync(modoReal: true);
+    }
+
+    [Fact]
+    public async Task Alta_manual_y_aw_simultaneas_por_rfc_demo_nunca_comparten_clave()
+    {
+        await CarreraAltaManualVsAwAsync(modoReal: false);
+    }
+
+    [Fact]
     public async Task Patch_con_rfc_de_otro_es_422_con_existentes()
     {
         var c = await SuperAdminAsync();
@@ -381,13 +393,73 @@ public sealed class ClientesAltaManualEndpointsTests(WebApplicationFactory<Progr
         return await LoginAsync(oid, email);
     }
 
-    private async Task<AplicarClienteAwResultado> AplicarAwAsync(string referencia, string rfc, DateTime leidoEnUtc, string razonSocial = "FICTICIO")
+    private async Task<AplicarClienteAwResultado> AplicarAwAsync(string referencia, string? rfc, DateTime leidoEnUtc, string razonSocial = "FICTICIO", string? ustId = null)
     {
         using var scope = factory.Services.CreateScope();
         var svc = scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
         return await svc.AplicarAsync(
-            new(referencia, razonSocial, leidoEnUtc, "1", "F1A", Rfc: rfc, MonedaDefault: "MXN"),
+            new(referencia, razonSocial, leidoEnUtc, "1", "F1A", Rfc: rfc, MonedaDefault: "MXN", CandidatoFiscalUstId: ustId),
             CancellationToken.None);
+    }
+
+    // Repite la carrera para que colisione de verdad. Modo real: A+W trae Rfc null y la clave en CandidatoFiscalUstId con guiones.
+    // Modo demo: A+W copia el RFC en el campo fiscal.
+    private async Task CarreraAltaManualVsAwAsync(bool modoReal)
+    {
+        const int iteraciones = 12;
+        var c = await SuperAdminAsync();
+        for (var i = 0; i < iteraciones; i++)
+        {
+            var rfc = RfcNuevo();
+            var referencia = "AW-" + Guid.NewGuid().ToString("N")[..8];
+            var ids = new List<Guid>();
+            try
+            {
+                var manualTask = c.PostAsJsonAsync(Base, Alta(ClaveNueva(), rfc));
+                var awTask = modoReal
+                    ? AplicarAwAsync(referencia, null, DateTime.UtcNow, ustId: $"{rfc[..3]}-{rfc[3..9]}-{rfc[9..]}")
+                    : AplicarAwAsync(referencia, rfc, DateTime.UtcNow);
+                await Task.WhenAll(manualTask, awTask);
+                var manual = await manualTask;
+                var aw = await awTask;
+
+                var cuerpo = await manual.Content.ReadAsStringAsync();
+                Assert.True(manual.StatusCode is HttpStatusCode.Created or HttpStatusCode.UnprocessableEntity,
+                    $"Iteración {i}: POST manual devolvió {(int)manual.StatusCode}: {cuerpo}");
+                var manualId = await IdSiCreadoAsync(manual);
+                if (manualId is Guid id) ids.Add(id);
+                var (clientesAw, clientesRfc, ligados) = await EstadoPorReferenciaAsync(referencia, rfc);
+
+                if (manualId is not null)
+                {
+                    Assert.True(aw.Accion == AplicarClienteAwAccion.Conflicto,
+                        $"Iteración {i}: alta manual 201 pero la aplicación A+W dio {aw.Accion}.");
+                    Assert.True(clientesAw == 0 && clientesRfc == 1 && ligados == 1,
+                        $"Iteración {i}: tras 201 se esperaba 0 clientes A+W, 1 cliente con RFC y 1 ligado pendiente; hubo {clientesAw}, {clientesRfc} y {ligados}.");
+                }
+                else
+                {
+                    await Cuerpo(manual, "CLIENTE_RFC_DUPLICADO");
+                    Assert.True(aw.Accion == AplicarClienteAwAccion.Creado,
+                        $"Iteración {i}: alta manual 422 pero la aplicación A+W dio {aw.Accion}.");
+                    // En modo demo el cliente A+W copia el RFC en su campo fiscal; en modo real queda sin RFC.
+                    var rfcEnAw = modoReal ? 0 : 1;
+                    Assert.True(clientesAw == 1 && clientesRfc == rfcEnAw && ligados == 0,
+                        $"Iteración {i}: tras 422 se esperaba 1 cliente A+W, {rfcEnAw} cliente con RFC y 0 ligados; hubo {clientesAw}, {clientesRfc} y {ligados}.");
+                }
+            }
+            finally { await LimpiarAsync(ids, new[] { referencia }); }
+        }
+    }
+
+    private async Task<(int ClientesAw, int ClientesRfc, int LigadosPendientes)> EstadoPorReferenciaAsync(string referencia, string rfc)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+        return (
+            await db.Clientes.CountAsync(c => c.ReferenciaExterna == referencia),
+            await db.Clientes.CountAsync(c => c.Rfc == rfc),
+            await db.Set<ClienteLigadoAw>().CountAsync(l => l.ReferenciaExterna == referencia && l.Rfc == rfc && l.RevisadoEn == null));
     }
 
     private async Task<Guid> IdPorReferenciaAsync(string referencia)
