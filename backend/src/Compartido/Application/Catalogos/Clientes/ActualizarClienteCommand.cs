@@ -88,13 +88,11 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
 
     private readonly CompartidoDbContext _db;
     private readonly ICurrentUserPermissions _permissions;
-    private readonly ICurrentUserContext _user;
 
-    public ActualizarClienteHandler(CompartidoDbContext db, ICurrentUserPermissions permissions, ICurrentUserContext user)
+    public ActualizarClienteHandler(CompartidoDbContext db, ICurrentUserPermissions permissions)
     {
         _db = db;
         _permissions = permissions;
-        _user = user;
     }
 
     public async Task Handle(ActualizarClienteCommand request, CancellationToken cancellationToken)
@@ -128,13 +126,10 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
         await using var scope = await ClienteRfcScope.AbrirAsync(_db, rfc, cancellationToken);
         if (request.Rfc is not null && RfcCliente.EsLigable(rfc))
         {
-            var existentes = await _db.Clientes.AsNoTracking()
-                .Where(c => c.Id != cliente.Id && c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc)
-                .Select(c => new ClienteExistente(c.Id, c.Clave, c.RazonSocial)).ToListAsync(cancellationToken);
+            var existentes = (await ClientesPorRfc.BuscarAsync(_db, new[] { rfc }, cliente.Id, cancellationToken)).Select(x => x.Cliente).DistinctBy(x => x.Id).ToList();
             if (existentes.Count > 0) throw new ClienteRfcDuplicadoException(existentes);
         }
         cliente.Clasificar(request.ClasificacionId!.Value);
-        var rfcAnterior = RfcCliente.Normalizar(cliente.Rfc);
         cliente.ActualizarDatos(
             razonSocial: request.RazonSocial,
             rfc: request.Rfc is null ? null : rfc,
@@ -167,16 +162,6 @@ public sealed class ActualizarClienteHandler : IRequestHandler<ActualizarCliente
             limpiarDomicilioExtranjeroCalle: request.LimpiarDomicilioExtranjeroCalle,
             limpiarDomicilioExtranjeroEstado: request.LimpiarDomicilioExtranjeroEstado,
             limpiarDomicilioExtranjeroCodigoPostal: request.LimpiarDomicilioExtranjeroCodigoPostal);
-
-        // F1-ADM-06 D6: sin candidatos manuales el conflicto queda huérfano; se cierra como "mantener separados". ponytail: el candado es del RFC nuevo; un barrido simultáneo del RFC anterior puede reabrir una fila (se descarta desde el panel).
-        if (cliente.Origen == OrigenMaster.Manual && RfcCliente.EsLigable(rfcAnterior) && RfcCliente.Normalizar(cliente.Rfc) != rfcAnterior
-            && !await _db.Clientes.AnyAsync(m => m.Id != cliente.Id && m.Origen == OrigenMaster.Manual && m.Rfc != null && m.Rfc.Trim().ToUpper() == rfcAnterior, cancellationToken))
-        {
-            var huerfanos = await _db.Set<ClienteLigadoAw>()
-                .Where(l => l.RevisadoEn == null && l.Rfc == rfcAnterior)
-                .ToListAsync(cancellationToken);
-            foreach (var l in huerfanos) l.Descartar(_user.UserId, DateTimeOffset.UtcNow);
-        }
 
         await _db.SaveChangesAsync(cancellationToken);
         await scope.ConfirmarAsync(cancellationToken);

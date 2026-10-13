@@ -76,37 +76,7 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
         finally { await LimpiarAsync(referencia,ids); }
     }
     [Fact]
-    public async Task Descartar_ligado_cierra_conflicto_y_segunda_vez_es_409()
-    {
-        using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var ids=new List<Guid>();
-        var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
-        try
-        {
-            var alta=await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes",Alta(referencia,rfc))); ids.Add(alta.GetProperty("id").GetGuid());
-            using(var scope=factory.Services.CreateScope())
-            {
-                var svc=scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
-                var r=await svc.AplicarAsync(new(referencia,"NOMBRE DE A+W",DateTime.UtcNow,"1","F1A",Rfc:rfc,MonedaDefault:"MXN"),CancellationToken.None);
-                Assert.Equal(AplicarClienteAwAccion.Conflicto,r.Accion);
-            }
-            var conflictos=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw")); var conflicto=conflictos.EnumerateArray().Single(x=>x.GetProperty("referenciaExterna").GetString()==referencia);
-            var conflictoId=conflicto.GetProperty("id").GetGuid(); var version=conflicto.GetProperty("version").GetInt32();
-            var descarte=await c.PostAsJsonAsync($"/api/v1/datos-maestros/clientes/ligados-aw/{conflictoId}/descartar",new { id=conflictoId,version }); Assert.Equal(HttpStatusCode.NoContent,descarte.StatusCode);
-            var restantes=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw"));
-            Assert.DoesNotContain(restantes.EnumerateArray(),x=>x.GetProperty("referenciaExterna").GetString()==referencia);
-            var repetido=await c.PostAsJsonAsync($"/api/v1/datos-maestros/clientes/ligados-aw/{conflictoId}/descartar",new { id=conflictoId,version }); Assert.Equal(HttpStatusCode.Conflict,repetido.StatusCode);
-            Assert.Contains("LIGADO_CAMBIO",await repetido.Content.ReadAsStringAsync());
-            using(var scope=factory.Services.CreateScope())
-            {
-                var svc=scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
-                var r=await svc.AplicarAsync(new(referencia,"NOMBRE DE A+W",DateTime.UtcNow.AddMinutes(1),"1","F1A",Rfc:rfc,MonedaDefault:"MXN"),CancellationToken.None);
-                Assert.Equal(AplicarClienteAwAccion.Creado,r.Accion); ids.Add(r.Cliente!.Id);
-            }
-        }
-        finally { await LimpiarAsync(referencia,ids); }
-    }
-    [Fact]
-    public async Task Cambiar_rfc_del_manual_cierra_el_ligado_huerfano()
+    public async Task Cambiar_rfc_del_manual_oculta_el_conflicto_y_la_siguiente_aplicacion_crea_el_cliente()
     {
         using var c=await ClienteAsync(); var referencia="F1A-"+Guid.NewGuid().ToString("N")[..8]; var ids=new List<Guid>();
         var rfc="FIA261010"+Guid.NewGuid().ToString("N")[..3].ToUpperInvariant();
@@ -123,6 +93,17 @@ public sealed class F1AFundacionesEndpointsTests(WebApplicationFactory<Program> 
             var antes=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw")); Assert.Contains(antes.EnumerateArray(),x=>x.GetProperty("referenciaExterna").GetString()==referencia);
             var patch=await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{id}",new { clasificacionId=Clasificacion,rfc=nuevoRfc }); Assert.Equal(HttpStatusCode.NoContent,patch.StatusCode);
             var despues=await Json(await c.GetAsync("/api/v1/datos-maestros/clientes/ligados-aw")); Assert.DoesNotContain(despues.EnumerateArray(),x=>x.GetProperty("referenciaExterna").GetString()==referencia);
+            using(var scope=factory.Services.CreateScope())
+            {
+                var svc=scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>();
+                var r=await svc.AplicarAsync(new(referencia,"NOMBRE DE A+W",DateTime.UtcNow.AddMinutes(1),"1","F1A",Rfc:rfc,MonedaDefault:"MXN"),CancellationToken.None);
+                Assert.Equal(AplicarClienteAwAccion.Creado,r.Accion); ids.Add(r.Cliente!.Id);
+            }
+            using(var scope=factory.Services.CreateScope())
+            {
+                var db=scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                Assert.Equal(0,await db.Set<ClienteLigadoAw>().CountAsync(l=>l.ReferenciaExterna==referencia&&l.RevisadoEn==null));
+            }
         }
         finally { await LimpiarAsync(referencia,ids); }
     }

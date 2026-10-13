@@ -65,7 +65,9 @@ public sealed class ListarLigadosClienteHandler(CompartidoDbContext db) : IReque
         var candidatos = await db.Clientes.AsNoTracking().Where(c => c.Origen == OrigenMaster.Manual && c.Rfc != null && rfcs.Contains(c.Rfc.Trim().ToUpper())).ToListAsync(cancellationToken);
         return conflictos.Select(c => new ClienteLigadoDto(c.Id,c.ReferenciaExterna,c.Rfc,
             JsonSerializer.Deserialize<AplicarClienteAwSnapshot>(c.SnapshotJson)!.RazonSocial,c.Version,
-            candidatos.Where(m => RfcCliente.Normalizar(m.Rfc) == c.Rfc).Select(m => new ClienteExistente(m.Id,m.Clave,m.RazonSocial)).ToArray())).ToArray();
+            candidatos.Where(m => RfcCliente.Normalizar(m.Rfc) == c.Rfc).Select(m => new ClienteExistente(m.Id,m.Clave,m.RazonSocial)).ToArray()))
+            // Sin candidatos vigentes (p. ej. el manual cambió su RFC) no hay nada que revisar.
+            .Where(d => d.Candidatos.Count > 0).ToArray();
     }
 }
 public sealed record RevisarLigadoClienteCommand(Guid Id, Guid ClienteId, int Version) : IRequest;
@@ -94,23 +96,5 @@ public sealed class RevisarLigadoClienteHandler(CompartidoDbContext db, ICurrent
         var snap = JsonSerializer.Deserialize<AplicarClienteAwSnapshot>(c.SnapshotJson)!;
         await aplicar.AplicarAsync(snap with { SoloCrear = false }, cancellationToken);
         await tx.CommitAsync(cancellationToken);
-    }
-}
-public sealed record DescartarLigadoClienteCommand(Guid Id, int Version) : IRequest;
-public sealed class DescartarLigadoClienteValidator : AbstractValidator<DescartarLigadoClienteCommand>
-{
-    public DescartarLigadoClienteValidator() { RuleFor(c => c.Id).NotEmpty(); RuleFor(c => c.Version).GreaterThan(0); }
-}
-public sealed class DescartarLigadoClienteHandler(CompartidoDbContext db, ICurrentUserContext user) : IRequestHandler<DescartarLigadoClienteCommand>
-{
-    public async Task Handle(DescartarLigadoClienteCommand request, CancellationToken cancellationToken)
-    {
-        var usuario = user.UserId ?? throw new ForbiddenException("USUARIO_REQUERIDO", "Inicia sesión para revisar el ligado.");
-        var c = await db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(c => c.Id == request.Id, cancellationToken)
-            ?? throw new EntityNotFoundException("LIGADO_NO_ENCONTRADO", "No existe ese conflicto de ligado.");
-        if (c.Version != request.Version || c.RevisadoEn is not null)
-            throw new ConflictException("LIGADO_CAMBIO", "El conflicto cambió o ya fue revisado. Recarga la bandeja.");
-        c.Descartar(usuario, DateTimeOffset.UtcNow);
-        await db.SaveChangesAsync(cancellationToken);
     }
 }

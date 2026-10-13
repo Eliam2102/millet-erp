@@ -21,4 +21,8 @@
     <PackageReference Include="Azure.Storage.Blobs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Millet.Compartido.UnitTests" />
+  </ItemGroup>
+
 </Project>

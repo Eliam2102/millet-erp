@@ -219,6 +219,13 @@ public sealed class F1AFundacionesTests
         public Task ValidarAsync(AltaClienteFiscal datos, CancellationToken ct) { Recibido = datos; return Task.CompletedTask; }
     }
     [Fact]
+    public void Cliente_normaliza_rfc()
+    {
+        Assert.Equal("AAA010101AAA", new Cliente(Guid.NewGuid(), "C-1", "X", rfc: " aaa010101aaa ").Rfc);
+        Assert.Null(new Cliente(Guid.NewGuid(), "C-2", "X", rfc: "   ").Rfc);
+    }
+
+    [Fact]
     public async Task M22a_alta_normaliza_rfc_y_ofrece_existente_sin_crear_segundo_cliente()
     {
         using var db = Db();
@@ -284,33 +291,6 @@ public sealed class F1AFundacionesTests
     }
 
     [Fact]
-    public async Task V38_descartar_ligado_crea_cliente_aw_aparte_en_la_siguiente_aplicacion()
-    {
-        using var db = Db();
-        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA"); db.Add(manual); await db.SaveChangesAsync();
-        var servicio = new AplicarClienteAwService(db); var snap = ClienteSnapshot() with { Rfc = "AAA010101AAA" };
-        await servicio.AplicarAsync(snap, CancellationToken.None);
-        var conflicto = await db.Set<ClienteLigadoAw>().SingleAsync();
-        await new DescartarLigadoClienteHandler(db, new Usuario()).Handle(new(conflicto.Id, conflicto.Version), CancellationToken.None);
-        var r = await servicio.AplicarAsync(snap with { LeidoEnUtc = snap.LeidoEnUtc.AddMinutes(1) }, CancellationToken.None);
-        Assert.Equal(AplicarClienteAwAccion.Creado, r.Accion);
-        Assert.Equal(2, await db.Clientes.CountAsync());
-        Assert.True(conflicto.Descartado);
-    }
-
-    [Fact]
-    public async Task V38_descartar_ligado_ya_revisado_es_conflicto()
-    {
-        using var db = Db();
-        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA"); db.Add(manual); await db.SaveChangesAsync();
-        await new AplicarClienteAwService(db).AplicarAsync(ClienteSnapshot() with { Rfc = "AAA010101AAA" }, CancellationToken.None);
-        var conflicto = await db.Set<ClienteLigadoAw>().SingleAsync();
-        var handler = new DescartarLigadoClienteHandler(db, new Usuario()); var version = conflicto.Version;
-        await handler.Handle(new(conflicto.Id, version), CancellationToken.None);
-        await Assert.ThrowsAsync<ConflictException>(() => handler.Handle(new(conflicto.Id, version), CancellationToken.None));
-    }
-
-    [Fact]
     public async Task M79_reactivar_cliente_bloqueado_por_aw_es_422()
     {
         using var db = Db();
@@ -319,6 +299,114 @@ public sealed class F1AFundacionesTests
         db.Add(cliente); await db.SaveChangesAsync();
         var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => new ReactivarClienteHandler(db).Handle(new(cliente.Id), CancellationToken.None));
         Assert.Equal("CLIENTE_BLOQUEADO_POR_AW", ex.Code);
+    }
+
+    [Theory]
+    [InlineData("abc-010101-ab1", "ABC010101AB1")]
+    [InlineData("ABC 010101 AB1", "ABC010101AB1")]
+    [InlineData("ABCD010101AB1", "ABCD010101AB1")]
+    [InlineData("XAXX010101000", null)]
+    [InlineData("XEXX-010101-000", null)]
+    [InlineData("DEMO005", null)]
+    [InlineData("123456789012", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void V38_clave_de_ligado(string? entrada, string? esperado)
+        => Assert.Equal(esperado, RfcCliente.ClaveLigado(entrada));
+
+    [Fact]
+    public async Task V38_buscar_por_clave_encuentra_por_rfc_y_por_ust_id_y_excluye_el_propio()
+    {
+        using var db = Db();
+        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA");
+        db.Add(manual); await db.SaveChangesAsync();
+        var aw = await new AplicarClienteAwService(db).AplicarAsync(ClienteSnapshot("AW-1") with { CandidatoFiscalUstId = "bbb-010101-bbb" }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Creado, aw.Accion);
+        Assert.Null(aw.Cliente!.Rfc);
+        var awId = aw.Cliente.Id;
+        await db.SaveChangesAsync();
+
+        var claves = new[] { "AAA010101AAA", "BBB010101BBB" };
+        var todos = await ClientesPorRfc.BuscarAsync(db, claves, null, CancellationToken.None);
+        Assert.Equal(2, todos.Count);
+        Assert.Contains(todos, x => x.Clave == "AAA010101AAA" && x.Cliente.Id == manual.Id);
+        Assert.Contains(todos, x => x.Clave == "BBB010101BBB" && x.Cliente.Id == awId);
+
+        var sinPropio = await ClientesPorRfc.BuscarAsync(db, claves, awId, CancellationToken.None);
+        Assert.Single(sinPropio);
+    }
+
+    [Fact]
+    public async Task V38_ust_id_con_la_clave_de_un_manual_queda_en_conflicto_sin_copiar_rfc()
+    {
+        using var db = Db();
+        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA");
+        db.Add(manual); await db.SaveChangesAsync();
+        var r = await new AplicarClienteAwService(db).AplicarAsync(ClienteSnapshot("AW-1") with { Rfc = null, CandidatoFiscalUstId = "aaa-010101-aaa" }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Conflicto, r.Accion);
+        Assert.Equal(1, await db.Clientes.CountAsync());
+        Assert.Equal("AAA010101AAA", (await db.Set<ClienteLigadoAw>().SingleAsync()).Rfc);
+    }
+
+    [Fact]
+    public async Task V38_ust_id_sin_forma_de_rfc_no_liga()
+    {
+        using var db = Db();
+        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA");
+        db.Add(manual); await db.SaveChangesAsync();
+        var r = await new AplicarClienteAwService(db).AplicarAsync(ClienteSnapshot("AW-1") with { CandidatoFiscalUstId = "DEMO005" }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Creado, r.Accion);
+        Assert.Equal(2, await db.Clientes.CountAsync());
+        Assert.Equal(0, await db.Set<ClienteLigadoAw>().CountAsync());
+    }
+
+    [Fact]
+    public async Task V38_conflicto_obsoleto_se_elimina_y_se_crea_el_cliente()
+    {
+        using var db = Db();
+        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA");
+        db.Add(manual); await db.SaveChangesAsync();
+        var servicio = new AplicarClienteAwService(db);
+        var primero = await servicio.AplicarAsync(ClienteSnapshot("AW-1") with { Rfc = "AAA010101AAA" }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Conflicto, primero.Accion);
+        Assert.Equal(1, await db.Set<ClienteLigadoAw>().CountAsync());
+
+        manual.ActualizarDatos(rfc: "BBB010101BBB"); await db.SaveChangesAsync();
+        var segundo = await servicio.AplicarAsync(ClienteSnapshot("AW-1") with { Rfc = "AAA010101AAA", LeidoEnUtc = DateTime.UtcNow.AddMinutes(1) }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Creado, segundo.Accion);
+        Assert.Equal(0, await db.Set<ClienteLigadoAw>().CountAsync());
+    }
+
+    [Fact]
+    public async Task V38_no_completa_rfc_que_ya_tiene_otro_cliente()
+    {
+        using var db = Db();
+        var servicio = new AplicarClienteAwService(db);
+        var primero = await servicio.AplicarAsync(ClienteSnapshot("AW-1"), CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Creado, primero.Accion);
+        var manual = new Cliente(Guid.NewGuid(), "MAN-F1A", "CLIENTE FICTICIO", rfc: "AAA010101AAA");
+        db.Add(manual); await db.SaveChangesAsync();
+
+        var segundo = await servicio.AplicarAsync(ClienteSnapshot("AW-1") with { Rfc = "AAA010101AAA", LeidoEnUtc = DateTime.UtcNow.AddMinutes(1) }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Actualizado, segundo.Accion);
+        Assert.Null((await db.Clientes.SingleAsync(c => c.ReferenciaExterna == "AW-1")).Rfc);
+        Assert.Equal(1, await db.Clientes.CountAsync(c => c.Rfc == "AAA010101AAA"));
+    }
+
+    [Fact]
+    public async Task V38_dos_clientes_aw_con_el_mismo_rfc_no_duplican_el_campo_rfc_y_el_ligado_entre_aw_esta_diferido()
+    {
+        using var db = Db();
+        var servicio = new AplicarClienteAwService(db);
+        var uno = await servicio.AplicarAsync(ClienteSnapshot("AW-1") with { Rfc = "AAA010101AAA" }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Creado, uno.Accion);
+        Assert.Equal("AAA010101AAA", uno.Cliente!.Rfc);
+        var dos = await servicio.AplicarAsync(ClienteSnapshot("AW-2") with { Rfc = "AAA010101AAA" }, CancellationToken.None);
+        Assert.Equal(AplicarClienteAwAccion.Creado, dos.Accion);
+        Assert.Null(dos.Cliente!.Rfc);
+        Assert.Equal(2, await db.Clientes.CountAsync());
+        Assert.Equal(0, await db.Set<ClienteLigadoAw>().CountAsync());
+        Assert.Equal(1, await db.Clientes.CountAsync(c => c.Rfc == "AAA010101AAA"));
     }
 
 }

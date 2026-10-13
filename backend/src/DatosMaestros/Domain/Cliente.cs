@@ -98,6 +98,8 @@ public sealed class Cliente : BaseEntity, IAuditable
         string? domicilioExtranjeroEstado = null,
         string? domicilioExtranjeroCodigoPostal = null) : base(id)
     {
+        // RFC persistido normalizado (trim + mayúsculas) para el índice único ux_clientes_rfc_no_generico.
+        rfc = string.IsNullOrWhiteSpace(rfc) ? null : RfcCliente.Normalizar(rfc);
         if (string.IsNullOrWhiteSpace(clave) || clave.Length > 20)
             throw new BusinessRuleException("CLIENTE_CLAVE_INVALIDA",
                 "La clave es requerida y no puede exceder 20 caracteres.");
@@ -161,6 +163,8 @@ public sealed class Cliente : BaseEntity, IAuditable
         bool limpiarEmail = false,
         bool limpiarTelefono = false)
     {
+        // Blanco = sin cambio (null), igual que el resto del PATCH.
+        rfc = string.IsNullOrWhiteSpace(rfc) ? null : RfcCliente.Normalizar(rfc);
         if (razonSocial is not null)
         {
             if (razonSocial.Length is 0 or > 254)

@@ -4340,7 +4340,9 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasDatabaseName("ix_clientes_referencia_externa");
 
                     b.HasIndex("Rfc")
-                        .HasDatabaseName("ix_clientes_rfc");
+                        .IsUnique()
+                        .HasDatabaseName("ux_clientes_rfc_no_generico")
+                        .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
 
                     b.ToTable("clientes", "compartido", t =>
                         {

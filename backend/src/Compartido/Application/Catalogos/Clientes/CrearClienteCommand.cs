@@ -86,8 +86,7 @@ public sealed class CrearClienteHandler
         await using var scope = await ClienteRfcScope.AbrirAsync(_db, rfc, cancellationToken);
         if (RfcCliente.EsLigable(rfc))
         {
-            var existentes = await _db.Clientes.AsNoTracking().Where(c => c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc)
-                .Select(c => new ClienteExistente(c.Id, c.Clave, c.RazonSocial)).ToListAsync(cancellationToken);
+            var existentes = (await ClientesPorRfc.BuscarAsync(_db, new[] { rfc }, null, cancellationToken)).Select(x => x.Cliente).DistinctBy(x => x.Id).ToList();
             if (existentes.Count > 0) throw new ClienteRfcDuplicadoException(existentes);
         }
         await _fiscal.ValidarAsync(new AltaClienteFiscal(rfc, request.RazonSocial.Trim(), request.RegimenFiscal ?? "",

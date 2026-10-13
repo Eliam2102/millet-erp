@@ -11,6 +11,7 @@ using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Domain;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application.Exceptions;
+using Npgsql;
 
 namespace Millet.Api.IntegrationTests.DatosMaestros;
 
@@ -155,8 +156,6 @@ public sealed class LigadosClienteEndpointsTests(WebApplicationFactory<Program> 
             using var sinGestion = await ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosClientesSincronizar);
             Assert.Equal(HttpStatusCode.Forbidden, (await sinGestion.GetAsync(Ligados)).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, (await RevisarAsync(sinGestion, conflictoId, clienteId, version)).StatusCode);
-            var descarte = await sinGestion.PostAsJsonAsync($"{Ligados}/{conflictoId}/descartar", new { id = conflictoId, version });
-            Assert.Equal(HttpStatusCode.Forbidden, descarte.StatusCode);
 
             // El conflicto sigue abierto para quien sí tiene gestionar.
             Assert.Equal(conflictoId, (await ConflictoAsync(admin, referencia)).GetProperty("id").GetGuid());
@@ -209,6 +208,75 @@ public sealed class LigadosClienteEndpointsTests(WebApplicationFactory<Program> 
             Assert.Equal(conflictoId, (await ConflictoAsync(c, referencia)).GetProperty("id").GetGuid());
         }
         finally { await LimpiarAsync(referencia, ids); }
+    }
+
+    [Fact]
+    public async Task Alta_y_edicion_manual_con_rfc_igual_al_ust_id_de_un_cliente_aw_ofrecen_el_existente()
+    {
+        using var c = await ClienteAsync(); var referencia = NuevaRef(); var ids = new List<Guid>();
+        try
+        {
+            var rfc = NuevoRfc();
+            var ust = rfc[..3] + "-" + rfc[3..9] + "-" + rfc[9..];
+            Guid awId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var r = await scope.ServiceProvider.GetRequiredService<AplicarClienteAwService>().AplicarAsync(
+                    new(referencia, "AW CON UST", DateTime.UtcNow, "1", "LIG", MonedaDefault: "MXN", CandidatoFiscalUstId: ust), CancellationToken.None);
+                Assert.Equal(AplicarClienteAwAccion.Creado, r.Accion);
+                awId = r.Cliente!.Id; ids.Add(awId);
+            }
+
+            var alta = await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes", Alta(NuevaRef(), rfc));
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, alta.StatusCode);
+            var cuerpoAlta = await alta.Content.ReadAsStringAsync();
+            Assert.Contains("CLIENTE_RFC_DUPLICADO", cuerpoAlta);
+            Assert.Contains(awId.ToString(), cuerpoAlta);
+
+            var manual = await Json(await c.PostAsJsonAsync("/api/v1/datos-maestros/clientes", Alta(NuevaRef(), NuevoRfc())));
+            var manualId = manual.GetProperty("id").GetGuid(); ids.Add(manualId);
+
+            var edicion = await c.PatchAsJsonAsync($"/api/v1/datos-maestros/clientes/{manualId}", new { clasificacionId = Clasificacion, rfc });
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, edicion.StatusCode);
+            var cuerpoEdicion = await edicion.Content.ReadAsStringAsync();
+            Assert.Contains("CLIENTE_RFC_DUPLICADO", cuerpoEdicion);
+            Assert.Contains(awId.ToString(), cuerpoEdicion);
+        }
+        finally { await LimpiarAsync(referencia, ids); }
+    }
+
+    [Fact]
+    public async Task Indice_unico_rechaza_rfc_no_generico_repetido_y_permite_generico()
+    {
+        var rfc = NuevoRfc();
+        var creados = new List<Guid>();
+        try
+        {
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                var primero = new Cliente(Guid.CreateVersion7(), NuevaRef(), "IDX PRIMERO", rfc: rfc);
+                db.Add(primero); await db.SaveChangesAsync(); creados.Add(primero.Id);
+
+                db.Add(new Cliente(Guid.CreateVersion7(), NuevaRef(), "IDX SEGUNDO", rfc: rfc));
+                var ex = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+                Assert.Equal("ux_clientes_rfc_no_generico", Assert.IsType<PostgresException>(ex.InnerException).ConstraintName);
+            }
+
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+                var a = new Cliente(Guid.CreateVersion7(), NuevaRef(), "IDX GENERICO A", rfc: "XAXX010101000");
+                var b = new Cliente(Guid.CreateVersion7(), NuevaRef(), "IDX GENERICO B", rfc: "XAXX010101000");
+                db.AddRange(a, b); await db.SaveChangesAsync(); creados.Add(a.Id); creados.Add(b.Id);
+            }
+        }
+        finally
+        {
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            db.RemoveRange(await db.Clientes.Where(c => creados.Contains(c.Id)).ToListAsync()); await db.SaveChangesAsync();
+        }
     }
 
     // --- Helpers (copiados de F1AFundacionesEndpointsTests y ClientesProteccionFiscalTests) ---
