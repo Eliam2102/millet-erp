@@ -58,7 +58,7 @@ VALUES (@numero_pedido, @operacion, @version);
 
 ## 3.bis Nudge de baja latencia (opcional pero recomendado)
 
-Sin nudge, el ERP drena la cola cada ~2 minutos (polling). Para latencia de
+Sin nudge, el ERP drena la cola cada ~30 segundos (polling). Para latencia de
 segundos, **después del INSERT** llamar al exe que el equipo ERP entrega
 (instalado en SER-DATA, p.ej. `C:\Millet\aw-pedido-notify\`):
 
