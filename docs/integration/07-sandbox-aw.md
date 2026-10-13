@@ -21,7 +21,7 @@ Pruebas (opt-in; sin `AW_SANDBOX_CONN` retornan temprano en verde): `dotnet test
 Requieren una BD PostgreSQL desechable (`TestAssemblyInit`), nunca `millet_dev`.
 
 ## Cobertura (10 clientes + 10 productos, todas verdes)
-consulta/recepción paginada · actualización (fiscales/clave SAT del operador no se pisan) · duplicado (RFC/`UST_ID`/`BA_MCODE` repetidos no fusionan; barrido repetido = `SinCambios`) · dato inválido (moneda/estado/unidad) · baja y "ausencia ≠ baja" · conflicto de versión · fallo a mitad (contenedor detenido) · credenciales erróneas (error `auth`, sin filtrar la contraseña) · reintento (converge) · conciliación origen/destino con diferencias explícitas (`AwConciliacion`).
+consulta/recepción paginada · actualización (fiscales/clave SAT del operador no se pisan) · duplicado (`UST_ID` sin forma de RFC y `BA_MCODE` repetidos no ligan; un RFC válido repetido va a la bandeja de ligados; barrido repetido = `SinCambios`) · dato inválido (moneda/estado/unidad) · baja y "ausencia ≠ baja" · conflicto de versión · fallo a mitad (contenedor detenido) · credenciales erróneas (error `auth`, sin filtrar la contraseña) · reintento (converge) · conciliación origen/destino con diferencias explícitas (`AwConciliacion`).
 
 El seed sintético solo informa las columnas relevantes: `03-defaults-temporales.sql` pone defaults mientras se siembra y `04-quitar-defaults.sql` los quita, de modo que la estructura final es idéntica a la real. **Nunca** usar `reset` si `AW_FULL` está cargada: borra el volumen `aw_sandbox_data` (usar `reseed`).
 
