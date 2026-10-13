@@ -121,7 +121,7 @@ public sealed class AwSolicitudesOptions
     public const string SectionName = "Facturacion:Workers:AwSolicitudes";
 
     public bool Disabled { get; init; }
-    public int IntervalSeconds { get; init; } = 120;
+    public int IntervalSeconds { get; init; } = 30;
     public int BatchSize { get; init; } = 50;
 
     /// <summary>Empresa a la que pertenecen los pedidos de la cola A+W (MVP single-tenant). Vacío → no procesa.</summary>

@@ -33,7 +33,7 @@ Pedido pasa a "en firme"
                                             ▲          │
                                             │          │  Hybrid Connection hc-aw-business-sql
                              write-back     │          ▼  (SER-DATA:1433, ya en producción)
-                             (claim,        │   AwSolicitudesWorker (Facturación, cada N min)
+                             (claim,        │   AwSolicitudesWorker (Facturación, cada 30 s)
                               resultado,    │     ├─ IAwSolicitudesReader (Integraciones.Aw)
                               uuid,         │     │    ├─ barre solicitudes pendientes en orden
                               estado)       │     │    └─ lee vistas vw_erp_pedido_* (cabecera/líneas/BOM)
@@ -55,7 +55,7 @@ Este flujo solo implementa los puertos reales y el master de datos.
 
 ### 1.bis Nudge de baja latencia (PR7)
 
-El polling (IntervalSeconds, default 120s) es el transporte garantizado. Para
+El polling (IntervalSeconds, default 30s) es el transporte garantizado. Para
 latencia de segundos, la customización A+W llama **tras su INSERT** al exe
 `MilletAwPedidoNotify` (`on-prem/aw-pedido-notify/`), que hace
 `POST /api/v1/integraciones/aw/pedidos/nudge` con la API key
