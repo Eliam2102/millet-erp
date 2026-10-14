@@ -353,6 +353,49 @@ public sealed class CobrosMostradorTests
         (await db.CobrosMostrador.SingleAsync()).Origen.Should().Be(OrigenCobroMostrador.LiquidacionRuta);
     }
 
+    [Theory]
+    [InlineData("04", null)]
+    [InlineData("28", "  ")]
+    public async Task Registrar_tarjeta_sin_referencia_del_voucher_falla(string forma, string? referencia)
+    {
+        // FIX-12: el corte adjunta los comprobantes de la terminal (Manual de
+        // Sucursales §2.4, CA6.10); un cobro con tarjeta sin referencia no se
+        // podría identificar en el corte.
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var factura = FacturaTimbrada(300m);
+        db.FacturasVenta.Add(factura);
+        await db.SaveChangesAsync();
+
+        var act = () => RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            factura.Id, [new CobroFormaPagoInput("01", 100m), new CobroFormaPagoInput(forma, 200m, referencia)]),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COBRO_TARJETA_SIN_REFERENCIA");
+        (await db.CobrosMostrador.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Registrar_repp_con_pago_en_dolares_falla_porque_la_caja_solo_cobra_pesos()
+    {
+        // Matriz de validación F-04: «La caja opera únicamente en pesos»; el
+        // CFDI de pago lleva Moneda = XXX, así que se valida la moneda del pago.
+        using var db = NewDb();
+        await SembrarSesionAsync(db);
+        var repp = ReciboPago.CrearBorrador(Empresa, "P-USD", 1, SucursalId, null, null, Receptor(), Emisor(),
+            2026, 7, Ahora, "USD", 1);
+        repp.EstablecerImporteTotalPago(100m);
+        repp.MarcarTimbradoEnProceso();
+        repp.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
+        db.RecibosPago.Add(repp);
+        await db.SaveChangesAsync();
+
+        var act = () => RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
+            repp.Id, [new CobroFormaPagoInput("01", 100m)]), CancellationToken.None);
+
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "COBRO_MONEDA_INVALIDA");
+    }
+
     // ---- Cancelar ----
 
     [Fact]
@@ -424,7 +467,7 @@ public sealed class CobrosMostradorTests
             new CancelarCobroMostradorCommand(primero.Id, "Error de captura"), CancellationToken.None);
 
         var segundo = await RegistrarHandler(db).Handle(new RegistrarCobroMostradorCommand(
-            factura.Id, [new CobroFormaPagoInput("04", 200m)]), CancellationToken.None);
+            factura.Id, [new CobroFormaPagoInput("04", 200m, "AUT-0042")]), CancellationToken.None);
 
         segundo.Estado.Should().Be("Registrado");
         (await db.CobrosMostrador.CountAsync()).Should().Be(2);
