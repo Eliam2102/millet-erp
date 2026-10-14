@@ -51,9 +51,16 @@ public sealed class LiquidacionCajaHandler
     public async Task<ReporteResponse<LiquidacionCajaFila>> Handle(
         LiquidacionCajaQuery query, CancellationToken cancellationToken)
     {
+        // FIX-12: el rango es de días de operación (fecha local de la sucursal,
+        // `[Decisión 12-8]`), no de instantes UTC. La pantalla envía fechas sin
+        // hora ("2026-10-13"); comparar contra `FechaCierre` en UTC dejaba fuera
+        // los cierres del último día del rango y movía al día siguiente los de
+        // la noche. Se toma la fecha calendario tal como la envió el cliente.
+        var desde = DateOnly.FromDateTime(query.Desde.DateTime);
+        var hasta = DateOnly.FromDateTime(query.Hasta.DateTime);
         var sesiones = _db.CajaSesiones.AsNoTracking()
             .Where(s => s.Estado == EstadoCajaSesion.Cerrada
-                        && s.FechaCierre >= query.Desde.ToUniversalTime() && s.FechaCierre <= query.Hasta.ToUniversalTime());
+                        && s.DiaOperacion >= desde && s.DiaOperacion <= hasta);
         if (query.SucursalId is { } suc) sesiones = sesiones.Where(s => s.SucursalId == suc);
 
         var rows = await sesiones

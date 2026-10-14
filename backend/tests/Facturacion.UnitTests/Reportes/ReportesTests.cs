@@ -76,6 +76,43 @@ public sealed class ReportesTests
     }
 
     [Fact]
+    public async Task LiquidacionCaja_filtra_por_dia_de_operacion_local_no_por_hora_UTC()
+    {
+        // FIX-12: la pantalla pide «hasta hoy» con una fecha sin hora. Un cierre
+        // a las 19:30 de Mérida (01:30 UTC del día siguiente) pertenece al día de
+        // operación local y debe aparecer; una sesión del día anterior, no.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var caja = Millet.Facturacion.Domain.Cajas.Caja.Crear(empresaId, "Caja Mostrador", null);
+        db.Cajas.Add(caja);
+
+        var cierreNocturno = new DateTimeOffset(2026, 5, 31, 1, 30, 0, TimeSpan.Zero);
+        var delDia = Millet.Facturacion.Domain.Cajas.CajaSesion.Abrir(
+            empresaId, caja.Id, Guid.NewGuid(), Guid.NewGuid(), 500m,
+            new DateOnly(2026, 5, 30), new DateTimeOffset(2026, 5, 30, 14, 0, 0, TimeSpan.Zero), null);
+        delDia.IniciarArqueo(new Dictionary<string, decimal> { ["01"] = 500m });
+        delDia.Cerrar(500m, null, cierreExtemporaneo: false, cierreNocturno);
+        db.CajaSesiones.Add(delDia);
+
+        var diaAnterior = Millet.Facturacion.Domain.Cajas.CajaSesion.Abrir(
+            empresaId, caja.Id, Guid.NewGuid(), Guid.NewGuid(), 500m,
+            new DateOnly(2026, 5, 29), new DateTimeOffset(2026, 5, 29, 14, 0, 0, TimeSpan.Zero), null);
+        diaAnterior.IniciarArqueo(new Dictionary<string, decimal> { ["01"] = 500m });
+        diaAnterior.Cerrar(500m, null, cierreExtemporaneo: false, new DateTimeOffset(2026, 5, 30, 1, 0, 0, TimeSpan.Zero));
+        db.CajaSesiones.Add(diaAnterior);
+        await db.SaveChangesAsync();
+
+        // Así llega «desde = hasta = 2026-05-30» al enlazar una fecha sin hora.
+        var dia = new DateTimeOffset(2026, 5, 30, 0, 0, 0, TimeSpan.Zero);
+        var r = await new LiquidacionCajaHandler(db, new FakeClock(Ahora), new FakeUsuariosReadPort())
+            .Handle(new LiquidacionCajaQuery(null, dia, dia), CancellationToken.None);
+
+        var fila = r.Filas.Should().ContainSingle().Subject;
+        fila.SesionId.Should().Be(delDia.Id);
+        fila.DiaOperacion.Should().Be("2026-05-30");
+    }
+
+    [Fact]
     public async Task EstadosFacturasAnticipo_lista_con_saldos()
     {
         var empresaId = Guid.NewGuid();
