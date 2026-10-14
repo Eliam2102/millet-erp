@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { AlertTriangle, Copy, Plus, Truck, Wallet } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { AlertTriangle, Copy, FileText, Plus, Truck, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -263,14 +264,23 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
               {formatearMxn(sesion.fondoApertura)}
             </p>
           </div>
-          <span
-            className={cn(
-              'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-              enArqueo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800',
-            )}
-          >
-            {enArqueo ? 'En arqueo' : 'Abierta'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                enArqueo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800',
+              )}
+            >
+              {enArqueo ? 'En arqueo' : 'Abierta'}
+            </span>
+            {/* FIX-12: corte de caja de la sesión (vista previa mientras está abierta). */}
+            <Button asChild size="sm" variant="outline">
+              <Link to="/facturacion/caja/corte/$sesionId" params={{ sesionId: sesion.id }}>
+                <FileText className="mr-1 h-3.5 w-3.5" />
+                Ver corte
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -667,6 +677,7 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
   const puedeLiquidar = useHasPermission(PermisosCanonicos.FacturacionCajaLiquidar);
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
   const cerrar = useCerrarSesion();
+  const navigate = useNavigate();
   const reabrir = useReabrirSesion();
   const [declarado, setDeclarado] = useState('');
   const [notas, setNotas] = useState('');
@@ -686,7 +697,14 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
         body: { efectivoDeclarado: monto, notasCierre: notas.trim() === '' ? null : notas.trim() },
       },
       {
-        onSuccess: () => toast.success('Sesión cerrada. El corte quedó congelado.'),
+        onSuccess: () => {
+          toast.success('Sesión cerrada. El corte quedó congelado.');
+          // FIX-12: al cerrar, el cajero imprime o descarga su corte.
+          void navigate({
+            to: '/facturacion/caja/corte/$sesionId',
+            params: { sesionId: props.sesion.id },
+          });
+        },
         onError: (error) => toastError(error, 'No se pudo cerrar la sesión.'),
       },
     );
