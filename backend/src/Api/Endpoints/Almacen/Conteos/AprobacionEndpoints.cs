@@ -20,9 +20,11 @@ public static class AprobacionEndpoints
         app.MapPost("/api/v1/almacen/conteos/{id:guid}/lineas/{lineaId:guid}/recuento", async (
             Guid id, Guid lineaId,
             AgregarRecuentoRequest req,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             var response = await mediator.Send(
                 new AgregarRecuentoCommand(id, lineaId, req.CantidadRecontada), ct);
             return Results.Created(
@@ -38,8 +40,9 @@ public static class AprobacionEndpoints
 
         // POST /{id}/evaluar-variaciones
         app.MapPost("/api/v1/almacen/conteos/{id:guid}/evaluar-variaciones", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             var marcadas = await mediator.Send(new EvaluarVariacionesConteoCommand(id), ct);
             return Results.Ok(new { lineas_marcadas_para_recuento = marcadas });
         })
@@ -53,9 +56,11 @@ public static class AprobacionEndpoints
         app.MapPost("/api/v1/almacen/conteos/{id:guid}/lineas/{lineaId:guid}/aprobar-individualmente", async (
             Guid id, Guid lineaId,
             AprobarLineaRequest req,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             await mediator.Send(new AprobarLineaIndividualmenteCommand(id, lineaId, req.Justificacion), ct);
             return Results.NoContent();
         })
@@ -67,8 +72,9 @@ public static class AprobacionEndpoints
 
         // POST /{id}/aprobar (Aprobador firma el conteo)
         app.MapPost("/api/v1/almacen/conteos/{id:guid}/aprobar", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             await mediator.Send(new AprobarConteoCommand(id), ct);
             return Results.NoContent();
         })
@@ -84,9 +90,11 @@ public static class AprobacionEndpoints
         app.MapPost("/api/v1/almacen/conteos/{id:guid}/rechazar", async (
             Guid id,
             RechazarConteoRequest req,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             await mediator.Send(new RechazarConteoCommand(id, req.Motivo), ct);
             return Results.NoContent();
         })
@@ -97,8 +105,9 @@ public static class AprobacionEndpoints
 
         // POST /{id}/aplicar — genera ajustes en batch.
         app.MapPost("/api/v1/almacen/conteos/{id:guid}/aplicar", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             var response = await mediator.Send(new AplicarConteoCommand(id), ct);
             return Results.Ok(response);
         })

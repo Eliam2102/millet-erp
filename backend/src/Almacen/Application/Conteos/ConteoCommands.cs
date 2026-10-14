@@ -50,6 +50,9 @@ public sealed class CrearConteoHandler : IRequestHandler<CrearConteoCommand, Cre
     {
         var empresaId = _empresa.Current ?? throw new BusinessRuleException(
             "CONTEO_SIN_EMPRESA", "Contexto de empresa requerido.");
+        if (request.SubAlmacenId is Guid subAlmacenId
+            && !await _db.SubAlmacenes.AsNoTracking().AnyAsync(s => s.Id == subAlmacenId, cancellationToken))
+            throw new EntityNotFoundException("SUBALMACEN_NO_ENCONTRADO", "El sub-almacén del conteo no existe.");
         var conteo = new ConteoInventario(
             id: Guid.CreateVersion7(),
             empresaId: empresaId,
@@ -74,10 +77,13 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
 
     private readonly IConteoUmbralesProvider _umbrales;
 
-    public IniciarConteoHandler(AlmacenDbContext db, IConteoUmbralesProvider umbrales)
+    private readonly IArticuloReadPort _articulos;
+
+    public IniciarConteoHandler(AlmacenDbContext db, IConteoUmbralesProvider umbrales, IArticuloReadPort articulos)
     {
         _db = db;
         _umbrales = umbrales;
+        _articulos = articulos;
     }
 
     public async Task Handle(IniciarConteoCommand request, CancellationToken cancellationToken)
@@ -96,8 +102,7 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
 
         // Snapshot: poblar líneas con cantidad teórica + costo promedio del saldo.
         // Filtro: sub_almacen específico si conteo.SubAlmacenId presente; cualquier
-        // sub-almacén si null. F7-PR1 no filtra por familia (F7-PR2 lo agrega
-        // cuando exista la columna `categoria` en saldo o vía IArticuloReadPort).
+        // sub-almacén si null.
         var saldosQuery = _db.SaldosInventario.AsNoTracking().AsQueryable();
         if (conteo.SubAlmacenId is Guid sid)
             saldosQuery = saldosQuery.Where(s => s.SubAlmacenId == sid);
@@ -109,6 +114,16 @@ public sealed class IniciarConteoHandler : IRequestHandler<IniciarConteoCommand>
         // filas-en-0 de las asignaciones también entran (teórica 0), que es
         // lo que el conteo inicial siembra por rack.
         var saldos = await saldosQuery.ToListAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(conteo.FiltroFamilia))
+        {
+            var arts = await _articulos.ObtenerPorIdsAsync(
+                saldos.Select(s => s.ArticuloId).Distinct().ToArray(), cancellationToken);
+            var familia = conteo.FiltroFamilia.Trim();
+            saldos = saldos
+                .Where(s => arts.TryGetValue(s.ArticuloId, out var a)
+                    && string.Equals(a.Categoria?.Trim(), familia, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
         foreach (var saldo in saldos)
         {
             conteo.AgregarLinea(new LineaConteo(

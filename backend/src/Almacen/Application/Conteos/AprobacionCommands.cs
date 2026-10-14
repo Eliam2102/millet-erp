@@ -296,7 +296,7 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
         var registradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
             "CONTEO_SIN_USUARIO", "Se requiere usuario autenticado.");
 
-        var fecha = DateOnly.FromDateTime(DateTime.UtcNow);
+        var fecha = Cierre.FechaNegocio.Hoy(DateTimeOffset.UtcNow);
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(_db, empresaId, fecha, _periodoContable, cancellationToken);
         var anio = fecha.Year;
 

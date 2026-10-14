@@ -222,10 +222,7 @@ const moduloAlmacen: NavModulo = {
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
           to: '/almacen/salidas',
           icon: PackageMinus,
-          permissionsAny: [
-            PermisosCanonicos.AlmacenSalidasLeerPropias,
-            PermisosCanonicos.AlmacenSalidasLeerTodas,
-          ],
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
           label: 'Devoluciones',
