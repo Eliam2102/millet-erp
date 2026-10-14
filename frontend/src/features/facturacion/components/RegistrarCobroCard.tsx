@@ -17,7 +17,12 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
-import { formasPagoCaja, formasPagoVigentes } from '@/features/facturacion/lib/formas-pago-caja';
+import {
+  esFormaTarjeta,
+  faltaVoucherTarjeta,
+  formasPagoCaja,
+  formasPagoVigentes,
+} from '@/features/facturacion/lib/formas-pago-caja';
 
 /** Origen del cobro (espejo de OrigenCobroMostrador backend). */
 const ORIGEN_MOSTRADOR = 1;
@@ -43,6 +48,14 @@ export function RegistrarCobroCard(props: {
   folio: string;
   total: number;
   moneda: string;
+  /**
+   * FIX-12 · bandeja «Por cobrar» de Mi caja: el formulario arranca abierto
+   * (sin el botón «Registrar cobro») y avisa al cerrar o al cobrar para que
+   * el panel lateral se cierre. Sin estas props se comporta como siempre.
+   */
+  abiertoInicial?: boolean;
+  onCerrar?: () => void;
+  onRegistrado?: () => void;
 }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
   const sesion = useSesionActual();
@@ -51,7 +64,7 @@ export function RegistrarCobroCard(props: {
   const disponibles = formasPagoCaja(catalogo.data ?? []);
   const idempotencyKey = useFormIdempotencyKey();
 
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(props.abiertoInicial ?? false);
   const [origen, setOrigen] = useState(String(ORIGEN_MOSTRADOR));
   const [formas, setFormas] = useState<FormaLocal[]>([
     { formaPago: '01', importe: props.total.toFixed(2) },
@@ -71,6 +84,7 @@ export function RegistrarCobroCard(props: {
     disponibles,
   );
   const cuadra = Math.abs(suma - props.total) < 0.005;
+  const sinVoucher = faltaVoucherTarjeta(formas);
 
   function actualizarForma(i: number, parcial: Partial<FormaLocal>) {
     setFormas((prev) => prev.map((f, j) => (j === i ? { ...f, ...parcial } : f)));
@@ -79,6 +93,10 @@ export function RegistrarCobroCard(props: {
   function onCobrar() {
     if (!vigentes) {
       toast.error('Selecciona una forma de pago SAT activa para cada importe.');
+      return;
+    }
+    if (sinVoucher) {
+      toast.error('Captura la referencia o autorización del voucher en cada pago con tarjeta.');
       return;
     }
     if (!cuadra) {
@@ -100,6 +118,7 @@ export function RegistrarCobroCard(props: {
         onSuccess: () => {
           setRegistrado(true);
           toast.success(`Cobro de ${props.folio} registrado en tu sesión.`);
+          props.onRegistrado?.();
         },
         onError: (error) =>
           toast.error(esApiError(error) ? error.problem.title : 'No se pudo registrar el cobro.', {
@@ -172,15 +191,20 @@ export function RegistrarCobroCard(props: {
             />
           </div>
           <div className="w-44 space-y-1">
-            <Label>Referencia</Label>
+            <Label htmlFor={`cobro-referencia-${i}`}>
+              {esFormaTarjeta(f.formaPago) ? 'Voucher (autorización)' : 'Referencia'}
+            </Label>
             <Input
+              id={`cobro-referencia-${i}`}
               value={f.referencia ?? ''}
               onChange={(e) =>
                 actualizarForma(i, {
                   referencia: e.target.value === '' ? null : e.target.value,
                 })
               }
-              placeholder="Opcional"
+              placeholder={esFormaTarjeta(f.formaPago) ? 'Obligatorio' : 'Opcional'}
+              aria-invalid={esFormaTarjeta(f.formaPago) && (f.referencia ?? '').trim() === ''}
+              aria-required={esFormaTarjeta(f.formaPago)}
             />
           </div>
           {formas.length > 1 && (
@@ -216,14 +240,27 @@ export function RegistrarCobroCard(props: {
               Suma {suma.toFixed(2)} ≠ total {props.total.toFixed(2)}
             </span>
           )}
-          <Button size="sm" variant="ghost" onClick={() => setAbierto(false)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setAbierto(false);
+              props.onCerrar?.();
+            }}
+          >
             Cancelar
           </Button>
           <Button
             size="sm"
             onClick={onCobrar}
-            disabled={registrar.isPending || !cuadra || !vigentes}
-            title={!vigentes ? 'Selecciona formas de pago SAT activas.' : undefined}
+            disabled={registrar.isPending || !cuadra || !vigentes || sinVoucher}
+            title={
+              !vigentes
+                ? 'Selecciona formas de pago SAT activas.'
+                : sinVoucher
+                  ? 'Captura el voucher de cada pago con tarjeta.'
+                  : undefined
+            }
           >
             Cobrar
           </Button>

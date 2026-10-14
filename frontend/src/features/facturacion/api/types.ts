@@ -1415,6 +1415,55 @@ export interface CobroMostradorItem {
   formasPago: CobroFormaPagoItem[];
 }
 
+// ─── Corte de caja de una sesión (FIX-12) ────────────────────────────
+
+export interface CorteCajaFila {
+  fecha: string;
+  tipo: string;
+  formaPago: string;
+  comprobante: string | null;
+  cliente: string | null;
+  origen: string | null;
+  referencia: string | null;
+  /** Informativo, una sola vez por cobro: no es dinero de la caja. */
+  totalComprobante: number | null;
+  notasCredito: number | null;
+  importe: number;
+  estadoCobro: string | null;
+}
+
+export interface CorteCajaEncabezado {
+  sesionId: string;
+  caja: string;
+  sucursal: string;
+  cajeroUsuarioId: string;
+  cajero: string;
+  estado: string;
+  diaOperacion: string;
+  fechaApertura: string;
+  fechaCierre: string | null;
+  fondoApertura: number;
+  efectivoEsperado: number | null;
+  efectivoContado: number | null;
+  diferencia: number | null;
+  cierreExtemporaneo: boolean;
+  notasCierre: string | null;
+}
+
+export interface CorteCajaFormaPago {
+  formaPago: string;
+  descripcion: string;
+  cobros: number;
+  montoSistema: number;
+  montoDeclarado: number | null;
+}
+
+export interface CorteCajaResponse {
+  encabezado: CorteCajaEncabezado;
+  porFormaPago: CorteCajaFormaPago[];
+  reporte: ReporteBackend<CorteCajaFila>;
+}
+
 // ─── Liquidación de ruta + ajustes de caja (CAJAS-PR7) ────────────────
 
 /** Un cobro del batch de liquidación de ruta ([Decisión 12-7]). */

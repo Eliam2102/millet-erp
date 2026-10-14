@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { AlertTriangle, Copy, Plus, Truck, Wallet } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { AlertTriangle, Copy, FileText, Plus, Truck, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,13 +30,23 @@ import {
   useRegistrarMovimiento,
   useSesionActual,
 } from '@/features/facturacion/api/useCajaSesiones';
-import type { CajaSesionDetalleResponse } from '@/features/facturacion/api/types';
+import type {
+  CajaSesionDetalleResponse,
+  CobroMostradorItem,
+} from '@/features/facturacion/api/types';
+import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
+import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
-import { formasPagoCaja, formasPagoVigentes } from '@/features/facturacion/lib/formas-pago-caja';
+import {
+  esFormaTarjeta,
+  faltaVoucherTarjeta,
+  formasPagoCaja,
+  formasPagoVigentes,
+} from '@/features/facturacion/lib/formas-pago-caja';
 
 /** Tipos de movimiento manual (espejo de TipoCajaMovimiento backend). */
 const TIPO_DEPOSITO = 2;
@@ -250,6 +261,7 @@ function AperturaSesionCard() {
 function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: boolean }) {
   const { sesion } = props;
   const enArqueo = sesion.estado === 'EnArqueo';
+  const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
 
   return (
     <div className="space-y-4">
@@ -263,14 +275,23 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
               {formatearMxn(sesion.fondoApertura)}
             </p>
           </div>
-          <span
-            className={cn(
-              'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-              enArqueo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800',
-            )}
-          >
-            {enArqueo ? 'En arqueo' : 'Abierta'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                enArqueo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800',
+              )}
+            >
+              {enArqueo ? 'En arqueo' : 'Abierta'}
+            </span>
+            {/* FIX-12: corte de caja de la sesión (vista previa mientras está abierta). */}
+            <Button asChild size="sm" variant="outline">
+              <Link to="/facturacion/caja/corte/$sesionId" params={{ sesionId: sesion.id }}>
+                <FileText className="mr-1 h-3.5 w-3.5" />
+                Ver corte
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -289,6 +310,9 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
         !props.bloqueada && <MovimientosAcciones sesion={sesion} />
       )}
       {!enArqueo && props.bloqueada && <IniciarArqueoBoton sesion={sesion} />}
+
+      {/* FIX-12: cobrar desde la caja sin pasar por Facturas (mismo comando y reglas). */}
+      {!enArqueo && !props.bloqueada && puedeOperar && <PorCobrarCaja />}
 
       <MovimientosTabla sesion={sesion} />
       <CobrosTabla sesionId={sesion.id} />
@@ -361,8 +385,10 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   const idempotencyKey = useFormIdempotencyKey();
 
   // Selección: comprobanteId → forma de pago (la ruta se cobra completa por
-  // comprobante; el total lo fija el CFDI y el backend lo valida).
+  // comprobante; el total lo fija el CFDI y el backend lo valida). Con
+  // tarjeta, el chofer entrega el voucher (Manual de Sucursales §5.2).
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
+  const [vouchers, setVouchers] = useState<Record<string, string>>({});
 
   const items = cobrables.data ?? [];
   const seleccionados = items.filter((c) => seleccion[c.comprobanteId] != null);
@@ -371,6 +397,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
     disponibles,
   );
   const total = seleccionados.reduce((s, c) => s + c.total, 0);
+  const sinVoucher = faltaVoucherTarjeta(
+    seleccionados.map((c) => ({
+      formaPago: seleccion[c.comprobanteId],
+      referencia: vouchers[c.comprobanteId],
+    })),
+  );
 
   function alternar(comprobanteId: string) {
     setSeleccion((prev) => {
@@ -390,11 +422,23 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       toast.error('Selecciona formas de pago SAT activas para los comprobantes de la ruta.');
       return;
     }
+    if (sinVoucher) {
+      toast.error('Captura el voucher de cada comprobante cobrado con tarjeta.');
+      return;
+    }
     liquidar.mutate(
       {
         cobros: seleccionados.map((c) => ({
           comprobanteId: c.comprobanteId,
-          formasPago: [{ formaPago: seleccion[c.comprobanteId], importe: c.total }],
+          formasPago: [
+            {
+              formaPago: seleccion[c.comprobanteId],
+              importe: c.total,
+              referencia: esFormaTarjeta(seleccion[c.comprobanteId])
+                ? (vouchers[c.comprobanteId] ?? '').trim()
+                : null,
+            },
+          ],
         })),
         idempotencyKey,
       },
@@ -507,6 +551,18 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           </SelectContent>
                         </Select>
                       )}
+                      {marcado && esFormaTarjeta(seleccion[c.comprobanteId]) && (
+                        <Input
+                          className="mt-1 h-8 w-44"
+                          value={vouchers[c.comprobanteId] ?? ''}
+                          onChange={(e) =>
+                            setVouchers((prev) => ({ ...prev, [c.comprobanteId]: e.target.value }))
+                          }
+                          placeholder="Voucher (obligatorio)"
+                          aria-label={`Voucher de ${c.folio}`}
+                          aria-required
+                        />
+                      )}
                     </td>
                   </tr>
                 );
@@ -528,8 +584,14 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <Button
           size="sm"
           onClick={onRegistrar}
-          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes}
-          title={!vigentes ? 'Selecciona formas de pago SAT activas.' : undefined}
+          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher}
+          title={
+            !vigentes
+              ? 'Selecciona formas de pago SAT activas.'
+              : sinVoucher
+                ? 'Captura el voucher de cada pago con tarjeta.'
+                : undefined
+          }
         >
           Registrar liquidación
         </Button>
@@ -667,6 +729,7 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
   const puedeLiquidar = useHasPermission(PermisosCanonicos.FacturacionCajaLiquidar);
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
   const cerrar = useCerrarSesion();
+  const navigate = useNavigate();
   const reabrir = useReabrirSesion();
   const [declarado, setDeclarado] = useState('');
   const [notas, setNotas] = useState('');
@@ -686,7 +749,14 @@ function ArqueoPanel(props: { sesion: CajaSesionDetalleResponse }) {
         body: { efectivoDeclarado: monto, notasCierre: notas.trim() === '' ? null : notas.trim() },
       },
       {
-        onSuccess: () => toast.success('Sesión cerrada. El corte quedó congelado.'),
+        onSuccess: () => {
+          toast.success('Sesión cerrada. El corte quedó congelado.');
+          // FIX-12: al cerrar, el cajero imprime o descarga su corte.
+          void navigate({
+            to: '/facturacion/caja/corte/$sesionId',
+            params: { sesionId: props.sesion.id },
+          });
+        },
         onError: (error) => toastError(error, 'No se pudo cerrar la sesión.'),
       },
     );
@@ -820,9 +890,40 @@ function CobrosTabla(props: { sesionId: string }) {
   const query = useListarCobros(props.sesionId);
   const cancelar = useCancelarCobro();
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
+  // Cobro en confirmación de cancelación (diálogo del ERP, no window.prompt).
+  const [porCancelar, setPorCancelar] = useState<CobroMostradorItem | null>(null);
+  const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
 
   const cobros = query.data ?? [];
   if (query.isLoading || cobros.length === 0) return null;
+
+  function cerrarDialogo() {
+    setPorCancelar(null);
+    setErrorCancelar(null);
+  }
+
+  async function confirmarCancelacion(motivo: string) {
+    if (porCancelar == null) return;
+    setErrorCancelar(null);
+    try {
+      // Key fresca por cancelación: una key compartida entre filas daría
+      // KEY_REUSED (body distinto) o cachearía la cancelación de otro cobro.
+      // La doble cancelación la frena el estado del cobro en el backend.
+      await cancelar.mutateAsync({
+        cobroId: porCancelar.id,
+        motivo,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      toast.success('Cobro cancelado.');
+      cerrarDialogo();
+    } catch (error) {
+      setErrorCancelar(
+        esApiError(error)
+          ? (error.problem.detail ?? error.problem.title ?? 'No se pudo cancelar el cobro.')
+          : 'No se pudo cancelar el cobro.',
+      );
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -857,25 +958,10 @@ function CobrosTabla(props: { sesionId: string }) {
                         variant="ghost"
                         className="text-destructive"
                         disabled={cancelar.isPending}
+                        aria-label={`Cancelar el cobro de ${c.comprobanteFolio}`}
                         onClick={() => {
-                          const motivo = window.prompt('Motivo de la cancelación del cobro:');
-                          if (motivo == null || motivo.trim() === '') return;
-                          cancelar.mutate(
-                            // Key fresca por clic: una key compartida entre
-                            // filas daría KEY_REUSED (body distinto) o cachearía
-                            // la cancelación de otro cobro. La doble-cancelación
-                            // la frena el estado del cobro en el backend.
-                            {
-                              cobroId: c.id,
-                              motivo: motivo.trim(),
-                              idempotencyKey: crypto.randomUUID(),
-                            },
-                            {
-                              onSuccess: () => toast.success('Cobro cancelado.'),
-                              onError: (error) =>
-                                toastError(error, 'No se pudo cancelar el cobro.'),
-                            },
-                          );
+                          setErrorCancelar(null);
+                          setPorCancelar(c);
                         }}
                       >
                         Cancelar
@@ -888,6 +974,15 @@ function CobrosTabla(props: { sesionId: string }) {
           </tbody>
         </table>
       </div>
+      {porCancelar && (
+        <CancelarCobroDialog
+          folio={porCancelar.comprobanteFolio}
+          total={formatearMxn(porCancelar.total)}
+          onConfirmar={confirmarCancelacion}
+          onCerrar={cerrarDialogo}
+          error={errorCancelar}
+        />
+      )}
     </div>
   );
 }

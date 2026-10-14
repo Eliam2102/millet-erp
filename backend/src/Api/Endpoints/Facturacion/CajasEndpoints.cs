@@ -5,6 +5,7 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Facturacion.Application.Cajas;
 using Millet.Facturacion.Application.Cajas.Sesiones;
+using Millet.Facturacion.Application.Reportes.CorteCaja;
 using Millet.Facturacion.Domain.Cajas;
 using Millet.Identidad.Domain;
 
@@ -312,6 +313,20 @@ public static class CajasEndpoints
         .WithName("CajaSesionDetalle")
         .WithSummary("Detalle de una sesión (movimientos + cortes + versión)")
         .Produces<CajaSesionDetalleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // GET: corte de caja de la sesión (FIX-12) — el cajero ve el suyo;
+        // supervisar ∨ administrar ∨ liquidar ven cualquiera (OR en el handler).
+        group.MapGet("/sesiones/{id:guid}/corte", async (
+            Guid id,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new CorteCajaSesionQuery(id), cancellationToken)))
+        .RequireAuthorization()
+        .WithName("CorteCajaSesion")
+        .WithSummary("Corte de caja de una sesión: cajero, cobros por forma de pago con voucher, comprobantes y ajustes")
+        .Produces<CorteCajaResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
