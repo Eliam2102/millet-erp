@@ -103,8 +103,11 @@ public sealed class ListarComprobantesCobrablesHandler
         var alcance = await _alcance.ResolverAsync(cancellationToken);
         var q = alcance.AplicarA(_db.Comprobantes.AsNoTracking())
             .Where(c => c.Estado == EstadoTimbrado.Timbrado)
+            // El REPP lleva Moneda = XXX en el CFDI: lo que se cobra es la
+            // moneda del pago, y la caja solo cobra pesos (Matriz F-04).
             .Where(c => (c.Tipo == TipoComprobante.Ingreso && c.MetodoPago != "PPD" && c.Moneda == "MXN")
-                        || c.Tipo == TipoComprobante.Pago)
+                        || (c.Tipo == TipoComprobante.Pago
+                            && _db.RecibosPago.Any(r => r.Id == c.Id && r.MonedaPago == "MXN")))
             .Where(c => !_db.CobrosMostrador.Any(
                 x => x.ComprobanteId == c.Id && x.Estado == EstadoCobroMostrador.Registrado));
 
