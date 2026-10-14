@@ -30,7 +30,11 @@ import {
   useRegistrarMovimiento,
   useSesionActual,
 } from '@/features/facturacion/api/useCajaSesiones';
-import type { CajaSesionDetalleResponse } from '@/features/facturacion/api/types';
+import type {
+  CajaSesionDetalleResponse,
+  CobroMostradorItem,
+} from '@/features/facturacion/api/types';
+import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
@@ -881,9 +885,40 @@ function CobrosTabla(props: { sesionId: string }) {
   const query = useListarCobros(props.sesionId);
   const cancelar = useCancelarCobro();
   const puedeSupervisar = useHasPermission(PermisosCanonicos.FacturacionCajaSupervisar);
+  // Cobro en confirmación de cancelación (diálogo del ERP, no window.prompt).
+  const [porCancelar, setPorCancelar] = useState<CobroMostradorItem | null>(null);
+  const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
 
   const cobros = query.data ?? [];
   if (query.isLoading || cobros.length === 0) return null;
+
+  function cerrarDialogo() {
+    setPorCancelar(null);
+    setErrorCancelar(null);
+  }
+
+  async function confirmarCancelacion(motivo: string) {
+    if (porCancelar == null) return;
+    setErrorCancelar(null);
+    try {
+      // Key fresca por cancelación: una key compartida entre filas daría
+      // KEY_REUSED (body distinto) o cachearía la cancelación de otro cobro.
+      // La doble cancelación la frena el estado del cobro en el backend.
+      await cancelar.mutateAsync({
+        cobroId: porCancelar.id,
+        motivo,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      toast.success('Cobro cancelado.');
+      cerrarDialogo();
+    } catch (error) {
+      setErrorCancelar(
+        esApiError(error)
+          ? (error.problem.detail ?? error.problem.title ?? 'No se pudo cancelar el cobro.')
+          : 'No se pudo cancelar el cobro.',
+      );
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -918,25 +953,10 @@ function CobrosTabla(props: { sesionId: string }) {
                         variant="ghost"
                         className="text-destructive"
                         disabled={cancelar.isPending}
+                        aria-label={`Cancelar el cobro de ${c.comprobanteFolio}`}
                         onClick={() => {
-                          const motivo = window.prompt('Motivo de la cancelación del cobro:');
-                          if (motivo == null || motivo.trim() === '') return;
-                          cancelar.mutate(
-                            // Key fresca por clic: una key compartida entre
-                            // filas daría KEY_REUSED (body distinto) o cachearía
-                            // la cancelación de otro cobro. La doble-cancelación
-                            // la frena el estado del cobro en el backend.
-                            {
-                              cobroId: c.id,
-                              motivo: motivo.trim(),
-                              idempotencyKey: crypto.randomUUID(),
-                            },
-                            {
-                              onSuccess: () => toast.success('Cobro cancelado.'),
-                              onError: (error) =>
-                                toastError(error, 'No se pudo cancelar el cobro.'),
-                            },
-                          );
+                          setErrorCancelar(null);
+                          setPorCancelar(c);
                         }}
                       >
                         Cancelar
@@ -949,6 +969,15 @@ function CobrosTabla(props: { sesionId: string }) {
           </tbody>
         </table>
       </div>
+      {porCancelar && (
+        <CancelarCobroDialog
+          folio={porCancelar.comprobanteFolio}
+          total={formatearMxn(porCancelar.total)}
+          onConfirmar={confirmarCancelacion}
+          onCerrar={cerrarDialogo}
+          error={errorCancelar}
+        />
+      )}
     </div>
   );
 }
