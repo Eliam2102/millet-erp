@@ -116,7 +116,7 @@ Hereda los ADRs transversales. La tabla resume los aplicados.
 | A2 | **Folio de movimiento** | `M-{tipo_prefijo}{año}-{secuencial:6}`. Ej: `M-ENT2026-000001`, `M-SAL2026-000001`, `M-AJP2026-000001`, `M-DEV2026-000001`. Secuencia atómica PostgreSQL por (tipo, año). | Si el área quiere preservar nomenclatura SAP, se ajusta. |
 | A3 | **Costo promedio ponderado** como método de valoración | Estándar industria. Confirmar con Finanzas que SAP actual usa el mismo método antes de migrar saldos. | Si SAP usa FIFO o último costo, se cambia el algoritmo (impacta la tabla `costos_inventario`). |
 | A4 | **Saldo de inventario calculado vs materializado** | **Materializado** en tabla `saldos_inventario` actualizada por cada movimiento (consistencia eventual no — actualización en la misma transacción del movimiento). Razón: bandejas de stock requieren acceso O(1); calcular por agregación es prohibitivo con 5K movimientos/mes. | Si el equipo prefiere derivar siempre, se elimina la tabla y se materializa en vista. |
-| A5 | **Tolerancia de recepción por material** | `tolerancia_cantidad_porcentaje` en el master de `Articulo` (`DatosMaestros`). Default 0% (no tolerancia, igualdad estricta). Recepción fuera de tolerancia requiere autorización del Supervisor de Insumos o Jefe Almacén con captura del motivo. | Si el área prefiere tolerancia por OC, se mueve a `LineaOrdenCompra`. |
+| A5 | **Tolerancia de recepción por material** | `tolerancia_cantidad_porcentaje` en `compartido.articulos` (0 a 100, dos decimales; NULL = 0 %). **Implementado en 86e3pc50v** (§16.1): rechazo duro con 422 `RECEPCION_EXCEDE_TOLERANCIA`. La autorización de supervisor para recibir fuera de tolerancia no se implementó (decisión del owner, D1). | Si el área prefiere tolerancia por OC, se mueve a `LineaOrdenCompra`. |
 | A6 | **Umbral de "captura sin sesgo"** | Cantidad teórica oculta al contador en la pantalla de captura. Solo visible para el aprobador al cerrar. Implementación: campo `cantidad_teorica` en `lineas_conteo` no se envía al endpoint de captura del contador. | Estándar; no negociable según §7.6. |
 | A7 | **Umbral de recuento obligatorio en inventario físico** | Variación > 5% en cantidad **o** > $1,000 MXN en valor → recuento obligatorio (§7.4 del levantamiento). Configurable como parámetro global del módulo. | Confirmar con Finanzas. |
 | A8 | **Política de autorización de ajustes** (§10.4 levantamiento) | Por monto: pequeño (< $1,000 MXN) Almacenista, mediano (1K–10K) Supervisor, grande (> 10K) Jefe Almacén + notificación Finanzas. Umbrales configurables. | Confirmar con Finanzas antes del go-live. |
@@ -866,6 +866,8 @@ Ver §14 del [00-levantamiento](00-levantamiento.md#14-dependencias-de-plataform
 - `NoOpContabilidadEventPublisher` — loggea sin emitir. `PLATFORM-TODO(<ContabilidadEvents>)`.
 - C1.2 (07-oct-2026, implementación local): retirado `NoOpPeriodoContableReadPort`; el adaptador real se registra en `Almacen/Infrastructure/DependencyInjection.cs`. Recepciones con factura/packing list, salidas con requisición/vale y devoluciones internas comprueban ambos cierres. El cierre mensual de inventario no consulta Contabilidad. Evidencia y pendientes: [entrega C1.2](02-c12-periodo-contable-entrega.md).
 
+- **Cerrado en 86e3pc50v:** `<ArticuloReadAdapter>`. `Program.cs` registra `Compartido.Infrastructure.PublicAdapters.ArticuloReadAdapter` para `IArticuloReadPort` de Almacén; el catálogo devuelve la tolerancia y la categoría reales. Los NoOp de Compras (`NoOpComprasOcReadPort`, `NoOpComprasRequisicionReadPort`) siguen en `NoOpReadPorts.cs`, pero `Program.cs` los sustituye en el arranque por `ComprasOcReadAdapter` y `ComprasRequisicionReadAdapter`.
+
 Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/Almacen`.
 
 ---
@@ -912,11 +914,82 @@ Cada `PLATFORM-TODO` busca-able con `rg "PLATFORM-TODO" backend/src/Almacen`.
 
 - **Compras-OC:** confirmar que el listener para `OcRecepcionRegistradaEvent` y `OcDevolucionRegistradaEvent` está cableado.
 - **CxP:** confirmar consumo de `FacturaProveedorRegistradaEvent` con flag `factura_pendiente` (variante B) y `DiferenciaPrecioFacturaDetectadaEvent`.
-- **DatosMaestros:** ampliar entidad `Articulo` con `tolerancia_cantidad_porcentaje` (A5) y `sub_almacen_default_id`.
+- **DatosMaestros:** ampliar entidad `Articulo` con `tolerancia_cantidad_porcentaje` (A5, implementado en 86e3pc50v, ver §16.1) y `sub_almacen_default_id`.
 - **Contabilidad (futuro):** definir mapeo de conceptos contables para los 7 eventos de Almacén.
 - **Finanzas (futuro):** integración con calendario fiscal vía `PeriodoContableCerradoEvent`.
 
 ---
+
+## 16. Cambios implementados en 86e3pc50v (CONT-MOD-ALM)
+
+Esta sección describe lo que quedó implementado en la tarea 86e3pc50v (rama `fix/almacen-recepcion-tolerancia-86e3pc50v`). Donde el diseño original de §A5, §10 o §15 difiera, prevalece lo descrito aquí. Los nombres de columna, permisos, rutas y códigos se verificaron contra el código.
+
+### 16.1 Tolerancia de recepción por material (A5)
+
+- **Columna:** `compartido.articulos.tolerancia_cantidad_porcentaje`, `numeric(5,2)` NULL (NULL equivale a 0 %), con el CHECK `ck_articulos_tolerancia_rango` (0 a 100). Migración `20261014093932_ArticuloToleranciaRecepcion`, esquema `compartido`.
+- **Edición:** sección propia en el detalle del artículo, con el endpoint `PUT /api/v1/datos-maestros/articulos/{id}/tolerancia-recepcion`. No forma parte del alta ni de la carga masiva: un artículo nuevo nace con 0 %.
+- **Permiso:** `datos_maestros.articulos.tolerancia-editar` (GUID `00000004-0010-0000-0000-000000000002`), registrado por la migración `20261014094250_PermisosContModAlm` de Identidad. El rol de sistema `admin-datos-maestros` no lo recibe (`BootstrapSuperAdminHostedService`); lo asigna el administrador al Jefe de Almacén.
+- **Lectura:** `ArticuloReadAdapter` (Compartido) devuelve la tolerancia y la categoría reales al puerto `IArticuloReadPort` de Almacén.
+- **Límite único:** `RecepcionOcGuard.Limite(solicitada, recibidaCompras, recibidaPropia, tolerancia)` calcula `solicitada × (1 + tolerancia/100) − max(recibidaCompras, recibidaPropia)`. El registro de la recepción y la pantalla usan esta misma función. La pantalla la consume desde `GET /api/v1/almacen/recepciones/ordenes/{ordenCompraId}/lineas-recibibles` (`LineasRecibiblesQuery`), que calcula el máximo recibible en servidor.
+- **Recibido propio** (`RecibidoPorLineaOc`): entradas `EntradaCompra` registradas por `linea_oc_id`, menos las devoluciones 8.B en estado `Registrada` o `ConciliadaConNcFiscal`. Una devolución `Rechazada` no cuenta. El resultado se expresa en la unidad de la OC.
+- **Concurrencia:** las recepciones con factura o con packing list abren `DevolucionOrigenLock.AbrirAsync(db, ordenCompraId)`, que ejecuta `pg_advisory_xact_lock` por OC. Serializa las recepciones de una misma OC. El lock es por OC, no por línea (ver §16.7).
+- **Rechazo duro:** recibir por encima del límite responde 422 `RECEPCION_EXCEDE_TOLERANCIA`. No existe autorización de supervisor.
+
+### 16.2 Triada con Compras y CxP (F2)
+
+- **Línea de OC obligatoria en la recepción:** las recepciones nuevas exigen `LineaOcId` por línea; si falta responde 422 `RECEPCION_LINEA_OC_REQUERIDA`, y si el artículo no coincide con la línea responde `RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE`. Las recepciones históricas sin `LineaOcId` no se backfillean (M-036).
+- **Resolución en Compras:** el consumidor de Compras resuelve las líneas sin `LineaOcId` por artículo único o falla visible sin marcar el evento como procesado (código `RECEPCION_LINEA_OC_NO_RESOLUBLE` en Compras; `DEVOLUCION_LINEA_OC_NO_RESOLUBLE` en la devolución). Ver `docs/modulos/compras-ordenes-compra/01-diseno.md` §8.5.
+- **Campos aditivos de los eventos de Almacén:** `OcRecepcionRegistradaIntegrationEvent` agrega `ToleranciaPorcentaje` y `CantidadRecibidaAcumulada`. `OcDevolucionRegistradaIntegrationEvent` agrega `CantidadDocumento` (unidad de la OC). Son opcionales y no implican cambio de versión.
+- **Devolución 8.B:** la cantidad que se publica a Compras está en la unidad de la OC (`CantidadDocumento`), no en la unidad base del inventario.
+
+### 16.3 CFDI de la recepción con factura (F3 y F4)
+
+- **Listado por OC:** `GET /api/v1/almacen/recepciones/ordenes/{ordenCompraId}/cfdis` resuelve en servidor el RFC del proveedor de la OC y consulta CxP (`ListarCfdisParaRecepcionQuery`): estado `PorProcesar`, tipo `Ingreso` y RFC igual al del proveedor. Si el RFC del proveedor es nulo, genérico (`XAXX010101000` o `XEXX010101000`) o inválido, la respuesta es lista vacía con `aviso`.
+- **Validación de servidor del CFDI vinculado:** el registro verifica con `ICxpDocumentosReadPort` la existencia, el estado y el tipo, y el RFC del proveedor. Los códigos son `RECEPCION_CFDI_NO_ENCONTRADO`, `RECEPCION_CFDI_NO_VINCULABLE` (estado distinto de `PorProcesar` o tipo distinto de `Ingreso`) y `RECEPCION_CFDI_PROVEEDOR_DISTINTO`.
+- **Precedencia (M-074):** si llega `CfdiRecibidoId`, prevalece el repositorio de CxP y ese CFDI se valida. El folio fiscal capturado a mano (`CfdiUuidFiscal`) se guarda en el movimiento sin validarlo contra CxP; el enlace posterior con el CFDI lo hace la triada mediante `CfdiRecibidoIngresadoEvent`.
+- **Sin CFDI:** si no llega ni `CfdiRecibidoId` ni `CfdiUuidFiscal`, el handler responde 422 `RECEPCION_SIN_CFDI`. La regla salió del validador FluentValidation y vive en el handler; el dominio (`MovimientoInventario`) lanza el mismo código como defensa adicional.
+- **Códigos 422 alineados con la pantalla:** `SALIDA_STOCK_INSUFICIENTE` (el trigger de saldos emite `SALDO_INSUFICIENTE` o `SALDO_INEXISTENTE` y `GlobalExceptionHandler` lo traduce a 422), los códigos `CIERRE_*` y `VALE_RQ_REGULARIZADORA_INVALIDA`.
+
+### 16.4 Regla de sucursal (F5 y ADR-0051)
+
+- **Mismatch de sucursal:** la recepción A y B, la salida con RQ, la regularización de vale y la devolución 8.B responden 422 cuando la OC, la RQ o la recepción origen pertenece a otra sucursal que el almacén. Los códigos son `RECEPCION_SUCURSAL_DISTINTA`, `SALIDA_SUCURSAL_DISTINTA`, `VALE_SUCURSAL_DISTINTA` y `DEVOLUCION_SUCURSAL_DISTINTA`. La regla aplica aunque el usuario tenga el permiso de bypass. Los mensajes no nombran las sucursales (desviación menor de M-080, para no añadir dependencias a cinco handlers).
+- **Alcance de datos:** `SucursalScopeGuard` y `DocumentoSucursalScope` acotan conteos, aprobación de conteos, devoluciones 8.A y 8.B, MAT-REV, saldos, reportes ALFAK y MP-CNK, cierre de mes, y la lectura y descarga de salidas y vales.
+- **Bypass por recurso:** sin tablas ni roles por sucursal, según ADR-0051. Permisos nuevos en 86e3pc50v (`PermisosCanonicos`):
+  - `almacen.inventarios.leer-todas-sucursales` y `almacen.inventarios.gestionar-todas-sucursales`
+  - `almacen.devoluciones-proveedor.leer-todas-sucursales` y `almacen.devoluciones-proveedor.gestionar-todas-sucursales`
+  - `almacen.devoluciones-internas.gestionar-todas-sucursales`
+  - `almacen.almacenes.leer-todas-sucursales` (saldos y jerarquía)
+  - `almacen.reportes.leer-todas-sucursales`
+  - `almacen.cierre-mes.gestionar-todas-sucursales`
+- **Permisos previos** que ya seguían el mismo patrón: `almacen.entradas.{leer,gestionar}-todas-sucursales`, `almacen.salidas.{leer,gestionar}-todas-sucursales` y `almacen.reorden.{leer,gestionar}-todas-sucursales`.
+- **Usuarios operativos:** quien tenía acceso sin bypass a conteos, devoluciones, saldos o reportes de todas las sucursales deja de verlos hasta que se le asigne el bypass correspondiente. Los perfiles corporativos deben recibir estos permisos tras el despliegue.
+- **Blobs:** la descarga del archivo asociado a una salida o a un vale pasa por `DocumentoSucursalScope` (`ValeBlobEndpoints.cs`, línea 126). No hay endpoint de descarga de packing list ni de evidencias de recepción. `PackingListBlobRef` y `ValeBlobRef` son referencias que envía el cliente y no se validan contra el blob (brecha, §16.7).
+
+### 16.5 Cierre de mes
+
+- **Endpoint y permisos:** `POST /api/v1/almacen/cierre-mes` exige `almacen.cierre-mes.ejecutar`. El handler exige además `almacen.cierre-mes.gestionar-todas-sucursales` (`VerificarSucursalAsync` sin sucursal), porque el cierre bloquea movimientos de todas las sucursales. Un usuario con solo `ejecutar` no puede cerrar hasta recibir el bypass.
+- **Periodo concluido:** solo se cierran meses ya concluidos, medidos con el día local de negocio `America/Mexico_City` (`FechaNegocio`). El mes en curso o uno futuro responde 422 `CIERRE_PERIODO_FUTURO`. Un periodo ya cerrado responde 422 `PERIODO_YA_CERRADO`.
+- **Pendientes:** responden 422 `CIERRE_CONTEOS_PENDIENTES`, `CIERRE_MOVIMIENTOS_PENDIENTES` o `CIERRE_VALES_PENDIENTES`, según el caso.
+- **Respuesta:** `{ periodoId, anio, mes, cerradoAt }` (`EjecutarCierreMensualResponse`).
+- **Alcance del periodo:** el periodo es de la empresa completa. No se notifica a Finanzas ni se regenera ALFAK al cerrar (brecha M-282, §16.7).
+
+### 16.6 Inmutabilidad de recepción, salida y devolución interna (D17)
+
+Las recepciones, las salidas y las devoluciones internas 8.A no tienen endpoints de edición ni de eliminación (`PUT`, `PATCH` o `DELETE`). Una corrección se registra como documento nuevo dentro de su propio flujo, por ejemplo una devolución 8.B o una regularización de vale. Esta decisión cubre M-118, M-149 y M-181.
+
+### 16.7 Brechas documentadas (fuera de alcance de 86e3pc50v)
+
+1. **Autorización de supervisor** para recibir fuera de tolerancia (A5): rechazo duro por decisión del owner.
+2. **Tolerancia por línea de OC** (§10.7): la tolerancia es por material. Las tres tolerancias siguen siendo ortogonales.
+3. **Backfill de `linea_oc_id` histórico** y herramienta de reproceso de eventos ya marcados como procesados (M-036). Ticket aparte.
+4. **Validación de existencia y reutilización** de `PackingListBlobRef` y `ValeBlobRef` (M-109 y M-142). Ticket aparte. Las pruebas de integración vigentes registran referencias ficticias.
+5. **Responsable del conteo:** se valida que el sub-almacén exista (P-30), pero no que el responsable exista (M-201, parcial). Requiere un puerto de empleados en el alta del conteo.
+6. **Notificación a Finanzas y ALFAK automática al cerrar**, y reapertura de periodo en Almacén (M-282 y M-274).
+7. **Valor a fecha de corte y N+1 de ALFAK**, y rótulo "Disponible" de MP-CNK (M-295, M-296 y M-300).
+8. **Segregación de funciones** (solicitante distinto de autorizador, capturista distinto de aprobador) (M-167 y M-220).
+9. **Lista y detalle propios de devoluciones internas 8.A** (M-181).
+10. **Lock por OC, no por línea:** la consistencia del recibido entre Almacén y Compras es eventual (Compras lee el acumulado que calcula Almacén).
+11. **Permiso `almacen.documentos.leer-todas-sucursales`:** lo usa `ResumenInicioQuery` de Almacén, pero no está definido en `PermisosCanonicos`. Revisar en otra tarea.
 
 ## Rev.
 
