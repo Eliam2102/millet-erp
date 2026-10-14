@@ -9,6 +9,8 @@
  * <c>compras/api/types.ts</c>).</para>
  */
 
+import type { CfdiListItem } from '@/features/cxp/api/types';
+
 /** Estatus catálogo (alineado a <c>Catalogos.Domain.EstatusCatalogo</c>). */
 export const EstatusCatalogo = {
   Activo: 0,
@@ -328,6 +330,32 @@ export interface RecepcionDetalle {
   cfdiUuidFiscal: string | null;
   /** Folio del proveedor de la factura CxP (ADR-0042); null → id truncado. */
   facturaFolio: string | null;
+}
+
+/**
+ * Línea de una OC que todavía admite recepción, con el máximo que el
+ * servidor calcula (pendiente más tolerancia). Respuesta de
+ * <c>GET /api/v1/almacen/recepciones/ordenes/{ordenCompraId}/lineas-recibibles</c>.
+ */
+export interface LineaRecibible {
+  lineaOcId: string;
+  articuloId: string;
+  unidadMedida: string;
+  cantidadSolicitada: number;
+  cantidadRecibida: number;
+  toleranciaPorcentaje: number;
+  pendiente: number;
+  maximoRecibible: number;
+}
+
+/**
+ * CFDIs candidatos para vincular a una recepción de la OC. Respuesta de
+ * <c>GET /api/v1/almacen/recepciones/ordenes/{ordenCompraId}/cfdis</c>.
+ */
+export interface CfdisParaRecepcion {
+  rfcEmisor: string | null;
+  aviso: string | null;
+  items: CfdiListItem[];
 }
 
 /**
@@ -967,7 +995,7 @@ export interface EjecutarCierreMensualCommand {
 }
 
 export interface EjecutarCierreMensualResponse {
-  cierreId: string;
+  periodoId: string;
   anio: number;
   mes: number;
   cerradoAt: string;

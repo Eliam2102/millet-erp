@@ -838,13 +838,13 @@ namespace Millet.Compras.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_oc_lineas_descuento_tipo", "descuento_tipo BETWEEN 0 AND 1");
 
-                            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= cantidad");
+                            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)");
 
                             t.HasCheckConstraint("ck_oc_lineas_facturada_nn", "cantidad_facturada >= 0");
 
                             t.HasCheckConstraint("ck_oc_lineas_precio_nn", "precio_unitario >= 0");
 
-                            t.HasCheckConstraint("ck_oc_lineas_recibida_max", "cantidad_recibida <= cantidad");
+                            t.HasCheckConstraint("ck_oc_lineas_recibida_max", "cantidad_recibida <= cantidad * 2");
 
                             t.HasCheckConstraint("ck_oc_lineas_recibida_nn", "cantidad_recibida >= 0");
 

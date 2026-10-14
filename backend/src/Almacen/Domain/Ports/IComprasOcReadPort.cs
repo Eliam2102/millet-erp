@@ -24,7 +24,8 @@ public sealed record OcLectura(
     Guid ProveedorId,
     Guid EmpresaId,
     string Estado,
-    IReadOnlyList<OcLineaLectura> Lineas);
+    IReadOnlyList<OcLineaLectura> Lineas,
+    Guid? SucursalDestinoId = null);
 
 public sealed record OcLineaLectura(
     Guid LineaId,

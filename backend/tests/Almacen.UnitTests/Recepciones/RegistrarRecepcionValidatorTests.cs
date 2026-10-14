@@ -61,12 +61,12 @@ public class RegistrarRecepcionValidatorTests
     }
 
     [Fact]
-    public void Command_sin_cfdi_ni_uuid_fiscal_falla()
+    public void Command_sin_cfdi_ni_uuid_fiscal_no_reporta_error_en_validator()
     {
+        // El vínculo fiscal obligatorio se valida en el handler (RECEPCION_SIN_CFDI), no aquí.
         var cmd = NuevoComandoValido() with { CfdiRecibidoId = null, CfdiUuidFiscal = null };
         var result = _validator.Validate(cmd);
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == nameof(cmd.CfdiRecibidoId));
+        result.Errors.Should().NotContain(e => e.PropertyName == nameof(cmd.CfdiRecibidoId));
     }
 
     [Fact]

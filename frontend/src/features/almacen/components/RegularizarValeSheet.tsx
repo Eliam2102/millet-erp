@@ -100,10 +100,21 @@ function FormBody({
               toast.error('Este vale ya fue regularizado previamente.');
               return;
             }
-            if (error.code === 'RQ_NO_APROBADA') {
+            if (error.code === 'VALE_RQ_REGULARIZADORA_INVALIDA') {
               form.setError('rqRegularizadoraId', {
                 type: error.code,
-                message: 'La RQ no está aprobada o no existe.',
+                message:
+                  error.problem.detail ??
+                  'La RQ no está aprobada o no cubre el vale.',
+              });
+              return;
+            }
+            if (error.code === 'VALE_SUCURSAL_DISTINTA') {
+              form.setError('rqRegularizadoraId', {
+                type: error.code,
+                message:
+                  error.problem.detail ??
+                  'La RQ es de otra sucursal.',
               });
               return;
             }

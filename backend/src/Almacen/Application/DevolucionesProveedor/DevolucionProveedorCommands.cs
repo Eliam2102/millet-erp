@@ -316,6 +316,7 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly IComprasOcReadPort _ocPort;
     private readonly IPeriodoContableReadPort _periodoContable;
+    private readonly IConversionUnidadPort _conversion;
 
     public RegistrarSalidaDevolucionAProveedorHandler(
         AlmacenDbContext db,
@@ -323,11 +324,13 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IComprasOcReadPort ocPort,
-        IPeriodoContableReadPort periodoContable)
+        IPeriodoContableReadPort periodoContable,
+        IConversionUnidadPort conversion)
     {
         _periodoContable = periodoContable;
         _db = db; _events = events; _currentUser = currentUser; _currentEmpresa = currentEmpresa;
         _ocPort = ocPort;
+        _conversion = conversion;
     }
 
     public async Task<RegistrarSalidaDevolucionAProveedorResponse> Handle(
@@ -357,6 +360,28 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
             dev.RecepcionOrigenId, dev.ProveedorId,
             dev.Lineas.Select(l => new LineaOrigenDevolucion(l.LineaRecepcionOrigenId, l.ArticuloId, l.Cantidad)).ToArray(),
             dev.Id, cancellationToken);
+
+        // F5 (86e3pc50v): la salida debe hacerse desde la sucursal donde se recibió la mercancía.
+        // Se valida ANTES de crear el movimiento para que un rechazo no deje nada escrito.
+        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
+            .ResolverAsync(_db, request.SubAlmacenId, cancellationToken);
+        var binOrigen = recepcion.Lineas.Select(l => l.UbicacionId).FirstOrDefault(u => u != null);
+        if (binOrigen is Guid bin)
+        {
+            var subOrigen = await _db.Ubicaciones.AsNoTracking()
+                .Where(u => u.Id == bin).Select(u => (Guid?)u.SubAlmacenId).FirstOrDefaultAsync(cancellationToken);
+            if (subOrigen is Guid subOrigenId)
+            {
+                var (_, sucursalOrigen) = await Catalogo.AlmacenSucursalResolver
+                    .ResolverAsync(_db, subOrigenId, cancellationToken);
+                Catalogo.SucursalDestinoGuard.Validar(sucursalOrigen, sucursalId, "DEVOLUCION_SUCURSAL_DISTINTA",
+                    "La devolución debe salir de un almacén de la misma sucursal donde se recibió la mercancía.");
+            }
+        }
+
+        var ocOrigen = dev.OrdenCompraOrigenId is Guid ocId
+            ? await _ocPort.ObtenerAsync(ocId, cancellationToken)
+            : null;
 
         // Crear movimiento físico tipo SalidaPorDevolucionAProveedor.
         var movId = Guid.CreateVersion7();
@@ -393,6 +418,10 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
         foreach (var linea in dev.Lineas.OrderBy(l => l.Posicion))
         {
             var origen = recepcion.Lineas.Single(l => l.Id == linea.LineaRecepcionOrigenId);
+            var lineaOc = ocOrigen?.Lineas.FirstOrDefault(l => l.LineaId == origen.LineaOcId);
+            decimal? cantidadDocumento = lineaOc is null ? null : Math.Round(
+                linea.Cantidad / await Recepciones.RecibidoPorLineaOc.FactorDocumentoABaseAsync(
+                    _conversion, linea.ArticuloId, lineaOc.UnidadMedida, cancellationToken), 4);
             var movLineaId = Guid.CreateVersion7();
             var ubicacionLinea = binPorLinea.TryGetValue(linea.Id, out var ubi)
                 ? ubi
@@ -420,7 +449,8 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
                 UnidadMedida: linea.UnidadMedida,
                 Cantidad: linea.Cantidad,
                 CostoUnitarioMxn: origen.CostoUnitarioMxn,
-                MontoTotalMxn: Math.Round(linea.Cantidad * origen.CostoUnitarioMxn, 2)));
+                MontoTotalMxn: Math.Round(linea.Cantidad * origen.CostoUnitarioMxn, 2),
+                CantidadDocumento: cantidadDocumento));
             montoTotal += Math.Round(linea.Cantidad * origen.CostoUnitarioMxn, 2);
         }
 
@@ -444,8 +474,6 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
         dev.MarcarRegistrada(movId, folio.Valor);
 
         // Publicar OcDevolucionRegistradaEvent (G1.6: almacén/sucursal del sub-almacén de salida).
-        var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
-            .ResolverAsync(_db, request.SubAlmacenId, cancellationToken);
         await _events.PublishAsync(new OcDevolucionRegistradaIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: DateTimeOffset.UtcNow,

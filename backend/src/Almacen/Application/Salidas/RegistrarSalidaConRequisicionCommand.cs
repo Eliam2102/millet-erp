@@ -165,6 +165,9 @@ public sealed class RegistrarSalidaConRequisicionHandler
         // G1.6: dimensiones contables del evento (una consulta).
         var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
             .ResolverAsync(_db, subAlmacenId, cancellationToken);
+        // F5 (86e3pc50v): la RQ y el almacén de la salida deben ser de la misma sucursal.
+        Catalogo.SucursalDestinoGuard.Validar(rq?.SucursalId, sucursalId, "SALIDA_SUCURSAL_DISTINTA",
+            "La requisición es de otra sucursal: entrega desde un almacén de la sucursal de la requisición.");
 
         // F7-PR3 (A18): si hay bloqueo activo de salidas para el sub DERIVADO,
         // rechazar — está en conteo anual.

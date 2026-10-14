@@ -341,6 +341,27 @@ public sealed class RegularizarSalidaPorValeHandler
                 g.Sum(l => l.Cantidad) > rq.Lineas.Where(l => l.ArticuloId == g.Key).Sum(l => l.CantidadDisponibleEntregar)))
             throw new BusinessRuleException("VALE_RQ_REGULARIZADORA_INVALIDA",
                 "La requisición regularizadora debe existir, estar autorizada o en surtido y cubrir todos los artículos y cantidades del vale.");
+
+        // F5 (86e3pc50v): la RQ regularizadora y el almacén del vale deben ser de la misma sucursal.
+        // Se valida antes de RegularizarVale/SaveChanges; si el bin no resuelve sub-almacén, no se valida.
+        var binVale = await _db.LineasMovimiento.AsNoTracking()
+            .Where(l => l.MovimientoId == mov.Id)
+            .Select(l => l.UbicacionId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (binVale is Guid bin)
+        {
+            var subVale = await _db.Ubicaciones.AsNoTracking()
+                .Where(u => u.Id == bin)
+                .Select(u => (Guid?)u.SubAlmacenId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (subVale is Guid sub)
+            {
+                var (_, sucursalVale) = await Catalogo.AlmacenSucursalResolver.ResolverAsync(_db, sub, cancellationToken);
+                Catalogo.SucursalDestinoGuard.Validar(rq.SucursalId, sucursalVale, "VALE_SUCURSAL_DISTINTA",
+                    "La requisición regularizadora es de otra sucursal que la del almacén del vale.");
+            }
+        }
+
         mov.RegularizarVale(request.RqRegularizadoraId);
         await _db.SaveChangesAsync(cancellationToken);
     }

@@ -92,7 +92,7 @@ public class RegistrarSalidaDevolucionAProveedorPr6aTests
     // ─────────────────────────── Fixture ───────────────────────────
 
     private static RegistrarSalidaDevolucionAProveedorHandler Handler(AlmacenDbContext db) =>
-        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), new OcPortNulo(), new PeriodoContableStub(true));
+        new(db, new NoOpEvents(), new FakeUser(), new FakeEmpresa(EmpresaId), new OcPortNulo(), new PeriodoContableStub(true), new P7Support.Conversion());
 
     private static async Task<(Guid SubId, Guid UnicaId, Guid RackId)> SembrarSubConUnicaAsync(
         AlmacenDbContext db, bool conUnica)

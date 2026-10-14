@@ -22,7 +22,8 @@ public sealed record RequisicionLectura(
     Guid? AlmacenDestinoId,
     Guid? PersonaDestinatariaId,
     string Estado,
-    IReadOnlyList<RequisicionLineaLectura> Lineas);
+    IReadOnlyList<RequisicionLineaLectura> Lineas,
+    Guid? SucursalId = null);
 
 public sealed record RequisicionLineaLectura(
     Guid LineaId,
