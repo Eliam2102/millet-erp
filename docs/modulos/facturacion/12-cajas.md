@@ -396,6 +396,38 @@ Tesorería), `CobroMostradorRegistradoEvent`, `CobroMostradorCanceladoEvent`.
 | PR6 | `facturacion-fe/cajas-pr6-operacion` | Panel "Mi caja", flujo emitir→cobrar, badge Sin asignar, apertura ajena, liquidación de ruta |
 | PR7 | `facturacion/cajas-pr7-hardening` | Batch liquidación de ruta, UI ajustes pendientes, telemetría (foldable) |
 
+## 14. Corte de caja por cajero (FIX-12)
+
+Requisito: Manual de Sucursales §2.4 («cortes de caja desglosados por
+usuario/cajero y por sucursal, detallando la forma de pago y adjuntando
+comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
+
+- **Endpoint:** `GET /api/v1/facturacion/cajas/sesiones/{id}/corte`
+  (`CorteCajaSesionQuery`). Lo ve el cajero responsable de la sesión; los
+  demás requieren `caja.supervisar`, `caja.administrar` o `caja.liquidar`.
+- **Fuente única = `caja_movimiento`:** cada fila del corte es un movimiento
+  de la sesión, así que la suma por forma de pago es exactamente el esperado
+  del arqueo (sin duplicar ni omitir). Cada cobro se enriquece con su
+  comprobante (factura, anticipo o complemento de pago), cliente, origen
+  (mostrador o liquidación de ruta) y voucher. El total del CFDI y las NC
+  acreditadas aparecen una sola vez por cobro y son informativos (la caja
+  cobra el neto, Matriz de validación I2). Ajustes de sesiones anteriores y
+  reversas tienen su propia fila.
+- **Fuera del corte, por diseño:** la ruta bancaria (CxC → Tesorería → REP
+  automático), ventas de obra, administrativas y de exportación (Matriz
+  F-04). La conciliación facturado contra ingresado por sucursal es F6.7.
+- **Nombre del cajero:** puerto `IUsuariosReadPort` (adapter en `Millet.Api`
+  sobre `identidad.usuarios`); también se muestra en *Liquidación de caja*.
+- **Reglas de cobro agregadas:** las formas 04 y 28 (tarjeta) exigen la
+  referencia del voucher (`COBRO_TARJETA_SIN_REFERENCIA`), en el cobro
+  unitario y en la liquidación de ruta; un complemento de pago solo se cobra
+  en caja si la moneda del pago es MXN (`COBRO_MONEDA_INVALIDA`; el CFDI de
+  pago lleva `Moneda = XXX`).
+- **Frontend:** `/facturacion/caja/corte/$sesionId` (cuelga de «Mi caja»):
+  encabezado, resumen por forma de pago y detalle con PDF, Excel e
+  impresión. Se abre desde «Ver corte» en *Mi caja*, al cerrar la sesión y
+  desde cada fila de *Liquidación de caja*.
+
 ---
 
 ## Rev.
@@ -404,3 +436,4 @@ Tesorería), `CobroMostradorRegistradoEvent`, `CobroMostradorCanceladoEvent`.
 |---|---|---|
 | 0.5 | 2026-07-10 | Borrador inicial (chat, no versionado): concepto de caja, capas A/B, D1–D3, P1–P6 |
 | 0.6 | 2026-07-10 | Revisión contra código y docs: 12 gaps cerrados (`[Decisión 12-1..12]`), decisiones de diseño 12-A..E, P1–P6 resueltos, modelo de datos, permisos, endpoints y plan de PRs |
+| 0.7 | 2026-10-13 | §14 Corte de caja por cajero (FIX-12): endpoint, fuente única en movimientos, voucher obligatorio en tarjeta y REPP solo en pesos |
