@@ -9,7 +9,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { TableSkeleton } from '@/components/erp';
+import { ErrorState, TableSkeleton } from '@/components/erp';
+import { esApiError } from '@/lib/api';
 import { useComprobantesCobrables } from '@/features/facturacion/api/useCajaSesiones';
 import type { ComprobanteCobrableItem } from '@/features/facturacion/api/types';
 import { RegistrarCobroCard } from '@/features/facturacion/components/RegistrarCobroCard';
@@ -73,6 +74,12 @@ export function PorCobrarCaja() {
 
       {cobrables.isLoading ? (
         <TableSkeleton rows={3} />
+      ) : cobrables.isError ? (
+        <ErrorState
+          title="No se pudieron cargar los comprobantes por cobrar"
+          problem={esApiError(cobrables.error) ? cobrables.error.problem : undefined}
+          onRetry={() => cobrables.refetch()}
+        />
       ) : items.length === 0 ? (
         <p className="rounded-md border bg-card px-3 py-4 text-center text-sm text-muted-foreground">
           {busqueda === ''
@@ -150,7 +157,7 @@ export function PorCobrarCaja() {
                   comprobanteId={cobrando.comprobanteId}
                   folio={cobrando.folio}
                   total={cobrando.total}
-                  moneda={cobrando.moneda}
+                  moneda={cobrando.tipo === 'Pago' ? 'MXN' : cobrando.moneda}
                   abiertoInicial
                   onCerrar={() => setCobrando(null)}
                   onRegistrado={() => setCobrando(null)}

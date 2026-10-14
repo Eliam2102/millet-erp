@@ -129,4 +129,43 @@ describe('PorCobrarCaja (FIX-12)', () => {
     );
     expect(buscados).toContain('NO-EXISTE');
   });
+
+  it('muestra un fallo de consulta sin afirmar que no hay comprobantes y permite reintentar', async () => {
+    let consultas = 0;
+    mswServer.use(
+      http.get('*/api/v1/facturacion/cobros/cobrables', () => {
+        consultas += 1;
+        return consultas === 1
+          ? HttpResponse.json({ title: 'Consulta no disponible', status: 500 }, { status: 500 })
+          : HttpResponse.json(cobrables);
+      }),
+    );
+    render(<PorCobrarCaja />, { wrapper: createQueryWrapper() });
+
+    expect(await screen.findByText('No se pudieron cargar los comprobantes por cobrar')).toBeInTheDocument();
+    expect(screen.queryByText('No hay comprobantes por cobrar en tu caja.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    expect(await screen.findByText('FIX12-UZ-F1')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(consultas).toBe(2);
+  });
+
+  it('muestra MXN al cobrar un complemento cuyo CFDI conserva la moneda XXX', async () => {
+    mswServer.use(
+      http.get('*/api/v1/facturacion/cobros/cobrables', () => HttpResponse.json(cobrables)),
+      http.get('*/api/v1/facturacion/cajas/sesion-actual', () =>
+        HttpResponse.json({ sesion, diaAnteriorPendiente: false }),
+      ),
+      http.get('*/api/v1/catalogos/formas-pago', () =>
+        HttpResponse.json([{ id: 'ef', claveSat: '01', descripcion: 'Efectivo', activa: true }]),
+      ),
+    );
+    render(<PorCobrarCaja />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Cobrar FIX12-UZ-P1' }));
+
+    const panel = await screen.findByRole('dialog');
+    expect(await within(panel).findByText('Cobrar FIX12-UZ-P1 — total 750.00 MXN')).toBeInTheDocument();
+    expect(within(panel).queryByText(/750\.00 XXX/)).not.toBeInTheDocument();
+  });
 });
