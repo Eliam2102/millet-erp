@@ -35,6 +35,7 @@ import type {
   CobroMostradorItem,
 } from '@/features/facturacion/api/types';
 import { CancelarCobroDialog } from '@/features/facturacion/components/CancelarCobroDialog';
+import { PorCobrarCaja } from '@/features/facturacion/components/PorCobrarCaja';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
@@ -260,6 +261,7 @@ function AperturaSesionCard() {
 function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: boolean }) {
   const { sesion } = props;
   const enArqueo = sesion.estado === 'EnArqueo';
+  const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
 
   return (
     <div className="space-y-4">
@@ -308,6 +310,9 @@ function SesionPanel(props: { sesion: CajaSesionDetalleResponse; bloqueada: bool
         !props.bloqueada && <MovimientosAcciones sesion={sesion} />
       )}
       {!enArqueo && props.bloqueada && <IniciarArqueoBoton sesion={sesion} />}
+
+      {/* FIX-12: cobrar desde la caja sin pasar por Facturas (mismo comando y reglas). */}
+      {!enArqueo && !props.bloqueada && puedeOperar && <PorCobrarCaja />}
 
       <MovimientosTabla sesion={sesion} />
       <CobrosTabla sesionId={sesion.id} />

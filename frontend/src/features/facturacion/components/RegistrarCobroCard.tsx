@@ -48,6 +48,14 @@ export function RegistrarCobroCard(props: {
   folio: string;
   total: number;
   moneda: string;
+  /**
+   * FIX-12 · bandeja «Por cobrar» de Mi caja: el formulario arranca abierto
+   * (sin el botón «Registrar cobro») y avisa al cerrar o al cobrar para que
+   * el panel lateral se cierre. Sin estas props se comporta como siempre.
+   */
+  abiertoInicial?: boolean;
+  onCerrar?: () => void;
+  onRegistrado?: () => void;
 }) {
   const puedeOperar = useHasPermission(PermisosCanonicos.FacturacionCajaOperar);
   const sesion = useSesionActual();
@@ -56,7 +64,7 @@ export function RegistrarCobroCard(props: {
   const disponibles = formasPagoCaja(catalogo.data ?? []);
   const idempotencyKey = useFormIdempotencyKey();
 
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(props.abiertoInicial ?? false);
   const [origen, setOrigen] = useState(String(ORIGEN_MOSTRADOR));
   const [formas, setFormas] = useState<FormaLocal[]>([
     { formaPago: '01', importe: props.total.toFixed(2) },
@@ -110,6 +118,7 @@ export function RegistrarCobroCard(props: {
         onSuccess: () => {
           setRegistrado(true);
           toast.success(`Cobro de ${props.folio} registrado en tu sesión.`);
+          props.onRegistrado?.();
         },
         onError: (error) =>
           toast.error(esApiError(error) ? error.problem.title : 'No se pudo registrar el cobro.', {
@@ -231,7 +240,14 @@ export function RegistrarCobroCard(props: {
               Suma {suma.toFixed(2)} ≠ total {props.total.toFixed(2)}
             </span>
           )}
-          <Button size="sm" variant="ghost" onClick={() => setAbierto(false)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setAbierto(false);
+              props.onCerrar?.();
+            }}
+          >
             Cancelar
           </Button>
           <Button
