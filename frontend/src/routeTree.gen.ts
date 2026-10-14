@@ -161,6 +161,7 @@ import { Route as AppAdminCatalogosImpuestosIndexRouteImport } from './routes/_a
 import { Route as AppAdminCatalogosFormasPagoIndexRouteImport } from './routes/_app/admin/catalogos/formas-pago/index';
 import { Route as AppAdminCatalogosCondicionesPagoIndexRouteImport } from './routes/_app/admin/catalogos/condiciones-pago/index';
 import { Route as AppAdminCatalogosCategoriasArticuloIndexRouteImport } from './routes/_app/admin/catalogos/categorias-articulo/index';
+import { Route as AppFacturacionCajaCorteSesionIdRouteImport } from './routes/_app/facturacion/caja_.corte.$sesionId';
 import { Route as AppFacturacionAnticiposFacturasIdRouteImport } from './routes/_app/facturacion/anticipos/facturas/$id';
 import { Route as AppComprasTrazabilidadOcIdRouteImport } from './routes/_app/compras/trazabilidad/oc/$id';
 import { Route as AppComprasArticulosIdHistorialComprasRouteImport } from './routes/_app/compras/articulos/$id/historial-compras';
@@ -1000,6 +1001,12 @@ const AppAdminCatalogosCategoriasArticuloIndexRoute =
     path: '/admin/catalogos/categorias-articulo/',
     getParentRoute: () => AppRoute,
   } as any);
+const AppFacturacionCajaCorteSesionIdRoute =
+  AppFacturacionCajaCorteSesionIdRouteImport.update({
+    id: '/facturacion/caja_/corte/$sesionId',
+    path: '/facturacion/caja/corte/$sesionId',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionAnticiposFacturasIdRoute =
   AppFacturacionAnticiposFacturasIdRouteImport.update({
     id: '/facturacion/anticipos/facturas/$id',
@@ -1213,6 +1220,7 @@ export interface FileRoutesByFullPath {
   '/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
   '/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
   '/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
+  '/facturacion/caja/corte/$sesionId': typeof AppFacturacionCajaCorteSesionIdRoute;
   '/admin/catalogos/categorias-articulo/': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   '/admin/catalogos/condiciones-pago/': typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   '/admin/catalogos/formas-pago/': typeof AppAdminCatalogosFormasPagoIndexRoute;
@@ -1377,6 +1385,7 @@ export interface FileRoutesByTo {
   '/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
   '/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
   '/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
+  '/facturacion/caja/corte/$sesionId': typeof AppFacturacionCajaCorteSesionIdRoute;
   '/admin/catalogos/categorias-articulo': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   '/admin/catalogos/condiciones-pago': typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   '/admin/catalogos/formas-pago': typeof AppAdminCatalogosFormasPagoIndexRoute;
@@ -1543,6 +1552,7 @@ export interface FileRoutesById {
   '/_app/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
   '/_app/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
   '/_app/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
+  '/_app/facturacion/caja_/corte/$sesionId': typeof AppFacturacionCajaCorteSesionIdRoute;
   '/_app/admin/catalogos/categorias-articulo/': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   '/_app/admin/catalogos/condiciones-pago/': typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   '/_app/admin/catalogos/formas-pago/': typeof AppAdminCatalogosFormasPagoIndexRoute;
@@ -1709,6 +1719,7 @@ export interface FileRouteTypes {
     | '/compras/articulos/$id/historial-compras'
     | '/compras/trazabilidad/oc/$id'
     | '/facturacion/anticipos/facturas/$id'
+    | '/facturacion/caja/corte/$sesionId'
     | '/admin/catalogos/categorias-articulo/'
     | '/admin/catalogos/condiciones-pago/'
     | '/admin/catalogos/formas-pago/'
@@ -1873,6 +1884,7 @@ export interface FileRouteTypes {
     | '/compras/articulos/$id/historial-compras'
     | '/compras/trazabilidad/oc/$id'
     | '/facturacion/anticipos/facturas/$id'
+    | '/facturacion/caja/corte/$sesionId'
     | '/admin/catalogos/categorias-articulo'
     | '/admin/catalogos/condiciones-pago'
     | '/admin/catalogos/formas-pago'
@@ -2038,6 +2050,7 @@ export interface FileRouteTypes {
     | '/_app/compras/articulos/$id/historial-compras'
     | '/_app/compras/trazabilidad/oc/$id'
     | '/_app/facturacion/anticipos/facturas/$id'
+    | '/_app/facturacion/caja_/corte/$sesionId'
     | '/_app/admin/catalogos/categorias-articulo/'
     | '/_app/admin/catalogos/condiciones-pago/'
     | '/_app/admin/catalogos/formas-pago/'
@@ -3128,6 +3141,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminCatalogosCategoriasArticuloIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/facturacion/caja_/corte/$sesionId': {
+      id: '/_app/facturacion/caja_/corte/$sesionId';
+      path: '/facturacion/caja/corte/$sesionId';
+      fullPath: '/facturacion/caja/corte/$sesionId';
+      preLoaderRoute: typeof AppFacturacionCajaCorteSesionIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/facturacion/anticipos/facturas/$id': {
       id: '/_app/facturacion/anticipos/facturas/$id';
       path: '/facturacion/anticipos/facturas/$id';
@@ -3368,6 +3388,7 @@ interface AppRouteChildren {
   AppComprasArticulosIdHistorialComprasRoute: typeof AppComprasArticulosIdHistorialComprasRoute;
   AppComprasTrazabilidadOcIdRoute: typeof AppComprasTrazabilidadOcIdRoute;
   AppFacturacionAnticiposFacturasIdRoute: typeof AppFacturacionAnticiposFacturasIdRoute;
+  AppFacturacionCajaCorteSesionIdRoute: typeof AppFacturacionCajaCorteSesionIdRoute;
   AppAdminCatalogosCategoriasArticuloIndexRoute: typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
   AppAdminCatalogosCondicionesPagoIndexRoute: typeof AppAdminCatalogosCondicionesPagoIndexRoute;
   AppAdminCatalogosFormasPagoIndexRoute: typeof AppAdminCatalogosFormasPagoIndexRoute;
@@ -3542,6 +3563,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasTrazabilidadOcIdRoute: AppComprasTrazabilidadOcIdRoute,
   AppFacturacionAnticiposFacturasIdRoute:
     AppFacturacionAnticiposFacturasIdRoute,
+  AppFacturacionCajaCorteSesionIdRoute: AppFacturacionCajaCorteSesionIdRoute,
   AppAdminCatalogosCategoriasArticuloIndexRoute:
     AppAdminCatalogosCategoriasArticuloIndexRoute,
   AppAdminCatalogosCondicionesPagoIndexRoute:

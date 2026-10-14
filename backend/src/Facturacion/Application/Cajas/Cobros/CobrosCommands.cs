@@ -135,6 +135,9 @@ public sealed class RegistrarCobroMostradorHandler
 /// </summary>
 internal static class CobroMostradorRegistrador
 {
+    /// <summary>c_FormaPago de tarjeta: 04 crédito, 28 débito.</summary>
+    private static readonly HashSet<string> FormasPagoTarjeta = ["04", "28"];
+
     public static async Task<CobroMostrador> RegistrarAsync(
         FacturacionDbContext db,
         IIntegrationEventPublisher eventos,
@@ -161,6 +164,16 @@ internal static class CobroMostradorRegistrador
             && comprobante.Tipo != TipoComprobante.Pago)
             throw new BusinessRuleException("COBRO_MONEDA_INVALIDA", "La caja solo cobra MXN en v1 (P6).");
 
+        // FIX-12: el corte de caja adjunta el comprobante de la terminal
+        // (Manual de Sucursales §2.4, CA6.10); sin su referencia el voucher
+        // no se puede identificar en el corte.
+        var tarjetaSinReferencia = formasPago.FirstOrDefault(
+            f => FormasPagoTarjeta.Contains(f.FormaPago) && string.IsNullOrWhiteSpace(f.Referencia));
+        if (tarjetaSinReferencia is not null)
+            throw new BusinessRuleException(
+                "COBRO_TARJETA_SIN_REFERENCIA",
+                $"El cobro con tarjeta (forma {tarjetaSinReferencia.FormaPago}) requiere la referencia o número de autorización del voucher.");
+
         var cobroVigente = await db.CobrosMostrador.AsNoTracking()
             .AnyAsync(c => c.ComprobanteId == comprobante.Id && c.Estado == EstadoCobroMostrador.Registrado,
                 cancellationToken);
@@ -176,10 +189,17 @@ internal static class CobroMostradorRegistrador
         decimal totalEsperado;
         if (comprobante.Tipo == TipoComprobante.Pago)
         {
-            totalEsperado = await db.RecibosPago.AsNoTracking()
+            var pago = await db.RecibosPago.AsNoTracking()
                 .Where(r => r.Id == comprobante.Id)
-                .Select(r => r.ImporteTotalPago)
+                .Select(r => new { r.ImporteTotalPago, r.MonedaPago })
                 .SingleAsync(cancellationToken);
+            // El REPP lleva Moneda = XXX en el CFDI; lo que entra a caja es la
+            // moneda del pago, y la caja solo opera en pesos (Matriz F-04).
+            if (!string.Equals(pago.MonedaPago, "MXN", StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException(
+                    "COBRO_MONEDA_INVALIDA",
+                    $"La caja solo cobra MXN: el complemento '{comprobante.Folio}' es un pago en {pago.MonedaPago} y entra por la ruta bancaria.");
+            totalEsperado = pago.ImporteTotalPago;
         }
         else
         {

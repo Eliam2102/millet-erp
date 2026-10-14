@@ -48,10 +48,10 @@ public sealed class LiquidacionRutaTests
         return fv;
     }
 
-    private static ReciboPago Repp(decimal importe, string folio)
+    private static ReciboPago Repp(decimal importe, string folio, string monedaPago = "MXN")
     {
         var repp = ReciboPago.CrearBorrador(Empresa, folio, 1, SucursalId, null, null, Receptor(), Emisor(),
-            2026, 7, Ahora, "MXN", 1);
+            2026, 7, Ahora, monedaPago, 1);
         repp.EstablecerImporteTotalPago(importe);
         repp.MarcarTimbradoEnProceso();
         repp.MarcarTimbrado(Guid.NewGuid().ToString(), null, null, null, Ahora, null, null);
@@ -163,7 +163,7 @@ public sealed class LiquidacionRutaTests
     // ---- Cobrables ----
 
     [Fact]
-    public async Task Cobrables_lista_timbrados_sin_cobro_y_excluye_ppd_borradores_y_cobrados()
+    public async Task Cobrables_lista_timbrados_sin_cobro_y_excluye_ppd_borradores_cobrados_y_repp_en_dolares()
     {
         using var db = NewDb();
         await SembrarSesionAsync(db);
@@ -172,8 +172,9 @@ public sealed class LiquidacionRutaTests
         var borrador = Factura(600m, "F-3", timbrar: false);
         var cobrada = Factura(700m, "F-4");
         var repp = Repp(750m, "P-1");
+        var reppUsd = Repp(100m, "P-USD", monedaPago: "USD");
         db.FacturasVenta.AddRange(cobrable, ppd, borrador, cobrada);
-        db.RecibosPago.Add(repp);
+        db.RecibosPago.AddRange(repp, reppUsd);
         await db.SaveChangesAsync();
 
         // Cobra F-4 para que salga de la lista.
@@ -186,6 +187,7 @@ public sealed class LiquidacionRutaTests
         var handler = new ListarComprobantesCobrablesHandler(db, new FakeAlcanceCajaEvaluator());
         var items = await handler.Handle(new ListarComprobantesCobrablesQuery(), CancellationToken.None);
 
+        // P-USD no aparece: la caja solo cobra pesos (Matriz F-04).
         items.Select(i => i.Folio).Should().BeEquivalentTo(["F-1", "P-1"]);
         items.Single(i => i.Folio == "P-1").Total.Should().Be(750m); // ImporteTotalPago
         items.Single(i => i.Folio == "F-1").Total.Should().Be(400m);

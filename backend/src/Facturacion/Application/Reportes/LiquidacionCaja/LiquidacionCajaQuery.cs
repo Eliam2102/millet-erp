@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Facturacion.Domain.Cajas;
+using Millet.Facturacion.Domain.Ports;
 using Millet.Facturacion.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 
@@ -13,6 +14,8 @@ namespace Millet.Facturacion.Application.Reportes.LiquidacionCaja;
 /// esperado/declarado de efectivo y diferencia del arqueo. Sustituye a la
 /// versión pre-cajas que agrupaba facturas por forma de pago. Contrato JSON
 /// ADR-0036; export client-side; misma firma de filtros (el FE no cambia).
+/// FIX-12: incluye el cajero responsable (Manual de Sucursales §2.4) y el id
+/// de la sesión (no es columna) para abrir su corte desde la fila.
 /// </summary>
 public sealed record LiquidacionCajaQuery(
     Guid? SucursalId,
@@ -20,8 +23,10 @@ public sealed record LiquidacionCajaQuery(
     DateTimeOffset Hasta) : IRequest<ReporteResponse<LiquidacionCajaFila>>;
 
 public sealed record LiquidacionCajaFila(
+    Guid SesionId,
     string DiaOperacion,
     string Caja,
+    string Cajero,
     string FechaCierre,
     decimal FondoApertura,
     decimal EfectivoTeorico,
@@ -34,19 +39,28 @@ public sealed class LiquidacionCajaHandler
 {
     private readonly FacturacionDbContext _db;
     private readonly IClock _clock;
+    private readonly IUsuariosReadPort _usuarios;
 
-    public LiquidacionCajaHandler(FacturacionDbContext db, IClock clock)
+    public LiquidacionCajaHandler(FacturacionDbContext db, IClock clock, IUsuariosReadPort usuarios)
     {
         _db = db;
         _clock = clock;
+        _usuarios = usuarios;
     }
 
     public async Task<ReporteResponse<LiquidacionCajaFila>> Handle(
         LiquidacionCajaQuery query, CancellationToken cancellationToken)
     {
+        // FIX-12: el rango es de días de operación (fecha local de la sucursal,
+        // `[Decisión 12-8]`), no de instantes UTC. La pantalla envía fechas sin
+        // hora ("2026-10-13"); comparar contra `FechaCierre` en UTC dejaba fuera
+        // los cierres del último día del rango y movía al día siguiente los de
+        // la noche. Se toma la fecha calendario tal como la envió el cliente.
+        var desde = DateOnly.FromDateTime(query.Desde.DateTime);
+        var hasta = DateOnly.FromDateTime(query.Hasta.DateTime);
         var sesiones = _db.CajaSesiones.AsNoTracking()
             .Where(s => s.Estado == EstadoCajaSesion.Cerrada
-                        && s.FechaCierre >= query.Desde.ToUniversalTime() && s.FechaCierre <= query.Hasta.ToUniversalTime());
+                        && s.DiaOperacion >= desde && s.DiaOperacion <= hasta);
         if (query.SucursalId is { } suc) sesiones = sesiones.Where(s => s.SucursalId == suc);
 
         var rows = await sesiones
@@ -59,10 +73,14 @@ public sealed class LiquidacionCajaHandler
             .Select(c => new { c.Id, c.Nombre })
             .ToListAsync(cancellationToken);
         var nombrePorCaja = cajas.ToDictionary(c => c.Id, c => c.Nombre);
+        var cajeros = await _usuarios.ObtenerNombresAsync(
+            rows.Select(s => s.ResponsableUsuarioId).Distinct().ToList(), cancellationToken);
 
         var filas = rows.Select(s => new LiquidacionCajaFila(
+            s.Id,
             s.DiaOperacion.ToString("yyyy-MM-dd"),
             nombrePorCaja.GetValueOrDefault(s.CajaId, s.CajaId.ToString()),
+            cajeros.GetValueOrDefault(s.ResponsableUsuarioId) ?? s.ResponsableUsuarioId.ToString(),
             s.FechaCierre!.Value.ToString("o"),
             s.FondoApertura,
             s.EfectivoTeorico ?? 0m,
@@ -83,6 +101,7 @@ public sealed class LiquidacionCajaHandler
             [
                 new("diaOperacion", "Día de operación", "texto"),
                 new("caja", "Caja", "texto"),
+                new("cajero", "Cajero", "texto"),
                 new("fechaCierre", "Cierre", "fecha"),
                 new("fondoApertura", "Fondo", "moneda", "derecha"),
                 new("efectivoTeorico", "Efectivo esperado", "moneda", "derecha"),
