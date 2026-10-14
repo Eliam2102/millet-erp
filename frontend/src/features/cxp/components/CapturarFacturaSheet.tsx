@@ -302,7 +302,7 @@ export function CapturarFacturaSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="w-full max-w-3xl sm:max-w-3xl">
+      <SheetContent side="right" className="w-full max-w-3xl overflow-hidden sm:max-w-3xl">
         <SheetHeader>
           <SheetTitle>Capturar factura desde OC</SheetTitle>
           <SheetDescription>
@@ -313,7 +313,7 @@ export function CapturarFacturaSheet({
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-[260px_1fr]"
+          className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto px-4 pb-4"
         >
           {/* Columna izquierda: metadata del CFDI seleccionado */}
           <aside className="space-y-2 rounded-md border bg-muted/30 p-3 text-xs">
@@ -379,7 +379,7 @@ export function CapturarFacturaSheet({
           </aside>
 
           {/* Columna derecha: campos editables */}
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Campo
                 label="Orden de compra"

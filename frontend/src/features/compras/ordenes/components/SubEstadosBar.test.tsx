@@ -110,7 +110,9 @@ describe('<SubEstadosBar>', () => {
     const bars = container.querySelectorAll('[role="progressbar"]');
     expect(bars).toHaveLength(3);
     const valores = Array.from(bars).map((b) => b.getAttribute('aria-valuenow'));
-    expect(valores).toEqual(['100', '50', '0']);
+    expect(valores).toEqual(['100', null, '0']);
+    expect(bars[1]).toHaveAttribute('aria-valuetext', 'Facturación parcial');
+    expect(screen.queryByText(/~50/)).not.toBeInTheDocument();
   });
 
   it('container expone aria-label de grupo', () => {
