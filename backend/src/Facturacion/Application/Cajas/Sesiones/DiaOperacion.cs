@@ -10,10 +10,14 @@ namespace Millet.Facturacion.Application.Cajas.Sesiones;
 public static class DiaOperacion
 {
     /// <summary>Fecha local "hoy" en la zona dada; cae al default de sucursal (Yucatán) si la zona viene nula.</summary>
-    public static DateOnly HoyLocal(DateTimeOffset ahoraUtc, string? zonaHorariaIana)
+    public static DateOnly HoyLocal(DateTimeOffset ahoraUtc, string? zonaHorariaIana) =>
+        DateOnly.FromDateTime(ALocal(ahoraUtc, zonaHorariaIana).DateTime);
+
+    /// <summary>Instante en la hora local de la sucursal (misma regla de zona que <see cref="HoyLocal"/>).</summary>
+    public static DateTimeOffset ALocal(DateTimeOffset instante, string? zonaHorariaIana)
     {
         var tz = TimeZoneInfo.FindSystemTimeZoneById(
             string.IsNullOrWhiteSpace(zonaHorariaIana) ? Sucursal.ZonaHorariaDefault : zonaHorariaIana);
-        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(ahoraUtc, tz).DateTime);
+        return TimeZoneInfo.ConvertTime(instante, tz);
     }
 }

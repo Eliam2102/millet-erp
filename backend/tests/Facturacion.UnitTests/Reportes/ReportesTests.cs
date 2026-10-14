@@ -45,8 +45,9 @@ public sealed class ReportesTests
         var caja = Millet.Facturacion.Domain.Cajas.Caja.Crear(empresaId, "Caja Mostrador", null);
         db.Cajas.Add(caja);
 
+        var cajero = Guid.NewGuid();
         var sesion = Millet.Facturacion.Domain.Cajas.CajaSesion.Abrir(
-            empresaId, caja.Id, Guid.NewGuid(), Guid.NewGuid(), 500m,
+            empresaId, caja.Id, Guid.NewGuid(), cajero, 500m,
             new DateOnly(2026, 5, 30), Ahora.AddHours(-8), null);
         sesion.IniciarArqueo(new Dictionary<string, decimal> { ["01"] = 900m, ["03"] = 2000m });
         sesion.Cerrar(880m, "faltante", cierreExtemporaneo: false, Ahora.AddMinutes(-5));
@@ -58,11 +59,15 @@ public sealed class ReportesTests
             new DateOnly(2026, 5, 30), Ahora.AddHours(-1), null));
         await db.SaveChangesAsync();
 
-        var r = await new LiquidacionCajaHandler(db, new FakeClock(Ahora))
+        var r = await new LiquidacionCajaHandler(db, new FakeClock(Ahora),
+                new FakeUsuariosReadPort(new Dictionary<Guid, string> { [cajero] = "Ana Cajera" }))
             .Handle(new LiquidacionCajaQuery(null, Ahora.AddHours(-1), Ahora.AddHours(1)), CancellationToken.None);
 
         var fila = r.Filas.Should().ContainSingle().Subject;
         fila.Caja.Should().Be("Caja Mostrador");
+        // FIX-12: corte por cajero (Manual de Sucursales §2.4) y enlace a su sesión.
+        fila.Cajero.Should().Be("Ana Cajera");
+        fila.SesionId.Should().Be(sesion.Id);
         fila.EfectivoTeorico.Should().Be(900m);
         fila.EfectivoDeclarado.Should().Be(880m);
         fila.Diferencia.Should().Be(-20m);

@@ -40,4 +40,12 @@ public sealed class SucursalesReadAdapter : ISucursalesReadPort
             .Select(s => s.ZonaHoraria)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<string?> ObtenerNombreAsync(Guid sucursalId, CancellationToken cancellationToken)
+    {
+        return await _db.Sucursales.AsNoTracking()
+            .Where(s => s.Id == sucursalId)
+            .Select(s => s.Clave + " — " + s.Nombre)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

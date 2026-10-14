@@ -880,6 +880,8 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
 builder.Services.AddTesoreriaModule(builder.Configuration);
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
+// FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones

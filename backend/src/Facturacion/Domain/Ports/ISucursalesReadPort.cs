@@ -23,4 +23,10 @@ public interface ISucursalesReadPort
     /// sucursal no existe.
     /// </summary>
     Task<string?> ObtenerZonaHorariaAsync(Guid sucursalId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Nombre de la sucursal para encabezados de reportes («CLAVE — Nombre»;
+    /// FIX-12, corte de caja). <c>null</c> si la sucursal no existe.
+    /// </summary>
+    Task<string?> ObtenerNombreAsync(Guid sucursalId, CancellationToken cancellationToken);
 }
