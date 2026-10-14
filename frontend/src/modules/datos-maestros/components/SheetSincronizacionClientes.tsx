@@ -102,6 +102,11 @@ function ListaEjecuciones({ onAbrir }: { onAbrir: (id: string) => void }) {
   const query = useEjecucionesSync({ limit: 20 });
   const iniciar = useIniciarSincronizacion();
   useInvalidarF1AAlTerminar(query.data?.items ?? SIN_EJECUCIONES);
+  // Ocupado mientras se envía, mientras haya una ejecución viva y en el refresco que sigue al envío.
+  const ocupado =
+    iniciar.isPending ||
+    (query.data?.items.some((e) => e.estado === 'Pendiente' || e.estado === 'EnCurso') ?? false) ||
+    (iniciar.isSuccess && query.isFetching);
 
   function handleIniciar() {
     iniciar.mutate(undefined, {
@@ -117,9 +122,9 @@ function ListaEjecuciones({ onAbrir }: { onAbrir: (id: string) => void }) {
 
   return (
     <div className="space-y-3">
-      <Button size="sm" onClick={handleIniciar} disabled={iniciar.isPending}>
-        <RefreshCw className="mr-1.5 h-4 w-4" />
-        {iniciar.isPending ? 'Enviando…' : 'Iniciar sincronización'}
+      <Button size="sm" onClick={handleIniciar} disabled={ocupado} aria-busy={ocupado}>
+        <RefreshCw className={cn('mr-1.5 h-4 w-4', ocupado && 'animate-spin')} />
+        {ocupado ? 'Sincronizando…' : 'Iniciar sincronización'}
       </Button>
 
       {query.isLoading ? (
