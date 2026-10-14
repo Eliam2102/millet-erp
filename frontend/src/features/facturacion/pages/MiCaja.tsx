@@ -36,7 +36,12 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useFormasPago } from '@/modules/catalogos/api/formas-pago';
-import { formasPagoCaja, formasPagoVigentes } from '@/features/facturacion/lib/formas-pago-caja';
+import {
+  esFormaTarjeta,
+  faltaVoucherTarjeta,
+  formasPagoCaja,
+  formasPagoVigentes,
+} from '@/features/facturacion/lib/formas-pago-caja';
 
 /** Tipos de movimiento manual (espejo de TipoCajaMovimiento backend). */
 const TIPO_DEPOSITO = 2;
@@ -371,8 +376,10 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
   const idempotencyKey = useFormIdempotencyKey();
 
   // Selección: comprobanteId → forma de pago (la ruta se cobra completa por
-  // comprobante; el total lo fija el CFDI y el backend lo valida).
+  // comprobante; el total lo fija el CFDI y el backend lo valida). Con
+  // tarjeta, el chofer entrega el voucher (Manual de Sucursales §5.2).
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
+  const [vouchers, setVouchers] = useState<Record<string, string>>({});
 
   const items = cobrables.data ?? [];
   const seleccionados = items.filter((c) => seleccion[c.comprobanteId] != null);
@@ -381,6 +388,12 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
     disponibles,
   );
   const total = seleccionados.reduce((s, c) => s + c.total, 0);
+  const sinVoucher = faltaVoucherTarjeta(
+    seleccionados.map((c) => ({
+      formaPago: seleccion[c.comprobanteId],
+      referencia: vouchers[c.comprobanteId],
+    })),
+  );
 
   function alternar(comprobanteId: string) {
     setSeleccion((prev) => {
@@ -400,11 +413,23 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
       toast.error('Selecciona formas de pago SAT activas para los comprobantes de la ruta.');
       return;
     }
+    if (sinVoucher) {
+      toast.error('Captura el voucher de cada comprobante cobrado con tarjeta.');
+      return;
+    }
     liquidar.mutate(
       {
         cobros: seleccionados.map((c) => ({
           comprobanteId: c.comprobanteId,
-          formasPago: [{ formaPago: seleccion[c.comprobanteId], importe: c.total }],
+          formasPago: [
+            {
+              formaPago: seleccion[c.comprobanteId],
+              importe: c.total,
+              referencia: esFormaTarjeta(seleccion[c.comprobanteId])
+                ? (vouchers[c.comprobanteId] ?? '').trim()
+                : null,
+            },
+          ],
         })),
         idempotencyKey,
       },
@@ -517,6 +542,18 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
                           </SelectContent>
                         </Select>
                       )}
+                      {marcado && esFormaTarjeta(seleccion[c.comprobanteId]) && (
+                        <Input
+                          className="mt-1 h-8 w-44"
+                          value={vouchers[c.comprobanteId] ?? ''}
+                          onChange={(e) =>
+                            setVouchers((prev) => ({ ...prev, [c.comprobanteId]: e.target.value }))
+                          }
+                          placeholder="Voucher (obligatorio)"
+                          aria-label={`Voucher de ${c.folio}`}
+                          aria-required
+                        />
+                      )}
                     </td>
                   </tr>
                 );
@@ -538,8 +575,14 @@ function LiquidarRutaForm(props: { onCerrar: () => void }) {
         <Button
           size="sm"
           onClick={onRegistrar}
-          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes}
-          title={!vigentes ? 'Selecciona formas de pago SAT activas.' : undefined}
+          disabled={liquidar.isPending || seleccionados.length === 0 || !vigentes || sinVoucher}
+          title={
+            !vigentes
+              ? 'Selecciona formas de pago SAT activas.'
+              : sinVoucher
+                ? 'Captura el voucher de cada pago con tarjeta.'
+                : undefined
+          }
         >
           Registrar liquidación
         </Button>
