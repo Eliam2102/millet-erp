@@ -1261,7 +1261,12 @@ public sealed class CompartidoDbContext : BaseDbContext
 
         cliente.HasIndex(x => x.Clave).IsUnique();
         cliente.HasIndex(x => x.ReferenciaExterna).IsUnique();
-        cliente.HasIndex(x => x.Rfc);
+        // ClienteRfcUnico (owner 2026-10-13, M2.2): un RFC no genérico identifica a un solo cliente.
+        // Rfc se persiste normalizado (Trim + ToUpperInvariant) desde el dominio; el filtro excluye genéricos SAT.
+        cliente.HasIndex(x => x.Rfc)
+            .IsUnique()
+            .HasDatabaseName("ux_clientes_rfc_no_generico")
+            .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         cliente.HasOne<ClasificacionCliente>().WithMany().HasForeignKey(c => c.ClasificacionId).OnDelete(DeleteBehavior.Restrict);
         cliente.HasIndex(x => x.Estatus);
     }

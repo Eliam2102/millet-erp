@@ -104,6 +104,11 @@ export const CrearClienteSchema = z.object({
   usoCfdiDefault: z.string().min(3, 'Elige un uso de CFDI'),
   formaPagoDefault: z.string().length(2, 'Elige una forma de pago'),
   metodoPagoDefault: z.enum(['PUE', 'PPD']),
+  monedaDefault: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(MONEDA_RE, 'Código ISO de 3 letras (ej. MXN, USD)'),
   paisResidencia: paisResidenciaOpcional,
   clave: z
     .string()
@@ -126,6 +131,10 @@ export const CrearClienteSchema = z.object({
   codigoPostalFiscal: cpOpcional.refine(v => Boolean(v), "Código postal fiscal requerido"),
   email: emailOpcional,
   telefono: telefonoOpcional,
+  numRegIdTrib: numRegIdTribOpcional,
+  domicilioExtranjeroCalle: textoExtranjeroOpcional(200),
+  domicilioExtranjeroEstado: textoExtranjeroOpcional(100),
+  domicilioExtranjeroCodigoPostal: textoExtranjeroOpcional(12),
 });
 
 export type CrearClienteValues = z.infer<typeof CrearClienteSchema>;

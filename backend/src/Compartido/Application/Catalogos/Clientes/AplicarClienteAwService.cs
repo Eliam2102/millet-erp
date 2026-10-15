@@ -108,7 +108,7 @@ public sealed class AplicarClienteAwService
         AplicarClienteAwSnapshot snap, CancellationToken ct)
     {
         _ = VersionMapeoEfectiva(snap);
-        await using var scope = await ClienteRfcScope.AbrirAsync(_db, snap.Rfc, ct);
+        await using var scope = await ClienteRfcScope.AbrirAsync(_db, Clave(snap), ct);
         var resultado = await AplicarCoreAsync(snap, ct);
         await scope.ConfirmarAsync(ct);
         return resultado;
@@ -144,8 +144,9 @@ public sealed class AplicarClienteAwService
             if (!snap.SoloCrear && snap.MonedaDefault is null)
                 return new(null, AplicarClienteAwAccion.NoCreado, ResultadoSincronizacionAw.Pendiente);
 
-            var rfc = RfcCliente.Normalizar(snap.Rfc);
-            if (RfcCliente.EsLigable(rfc) && await _db.Clientes.AnyAsync(c => c.Origen == OrigenMaster.Manual && c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc, ct))
+            // Clave de ligado = RFC o UST_ID normalizado (M2.2). Solo contra clientes manuales: el ligado entre clientes de A+W está diferido hasta aclarar con Millet (ver aclaracion-rfc-repetido.md).
+            var rfc = Clave(snap);
+            if (rfc is not null && await _db.Clientes.AnyAsync(c => c.Origen == OrigenMaster.Manual && c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc, ct))
             {
                 var conflicto = await _db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(c => c.ReferenciaExterna == snap.ReferenciaExterna, ct);
                 if (conflicto is null) _db.Add(new ClienteLigadoAw(Guid.CreateVersion7(), snap.ReferenciaExterna, rfc, System.Text.Json.JsonSerializer.Serialize(snap)));
@@ -153,7 +154,13 @@ public sealed class AplicarClienteAwService
                 await _db.SaveChangesAsync(ct);
                 return new(null, AplicarClienteAwAccion.Conflicto, ResultadoSincronizacionAw.Conflicto);
             }
-            var nuevo = CrearCliente(snap);
+            // Sin coincidencia vigente: un conflicto pendiente de esta referencia quedó obsoleto (p. ej. el manual cambió su RFC).
+            var obsoleto = await _db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(l => l.ReferenciaExterna == snap.ReferenciaExterna && l.RevisadoEn == null, ct);
+            if (obsoleto is not null) _db.Remove(obsoleto);
+            // Nunca dos clientes con el mismo campo RFC (también en modo demo, donde A+W sí copia el RFC). Si otro cliente ya tiene ese RFC se crea sin él (el ligado entre clientes de A+W está diferido); no cambia el hash ni el registro de origen.
+            var rfcCampo = RfcCliente.Normalizar(snap.Rfc);
+            var rfcOcupado = RfcCliente.EsLigable(rfcCampo) && await _db.Clientes.AnyAsync(c => c.Rfc != null && c.Rfc.Trim().ToUpper() == rfcCampo, ct);
+            var nuevo = CrearCliente(rfcOcupado ? snap with { Rfc = null } : snap);
             AplicarEstatus(nuevo, snap);
             var registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), nuevo.Id, snap.ReferenciaExterna);
             var hash = CalcularHash(snap);
@@ -191,7 +198,7 @@ public sealed class AplicarClienteAwService
         if (cliente.Origen != OrigenMaster.Aw)
         {
             var rfcManual = RfcCliente.Normalizar(cliente.Rfc);
-            if (RfcCliente.EsLigable(rfcManual) && rfcManual == RfcCliente.Normalizar(snap.Rfc))
+            if (RfcCliente.EsLigable(rfcManual) && rfcManual == Clave(snap))
             {
                 var conflicto = await _db.Set<ClienteLigadoAw>().SingleOrDefaultAsync(c => c.ReferenciaExterna == snap.ReferenciaExterna, ct);
                 if (conflicto is null) _db.Add(new ClienteLigadoAw(Guid.CreateVersion7(), snap.ReferenciaExterna, rfcManual, System.Text.Json.JsonSerializer.Serialize(snap)));
@@ -235,6 +242,8 @@ public sealed class AplicarClienteAwService
         var telefono = string.IsNullOrWhiteSpace(cliente.Telefono) ? Vacio(snap.Telefono) : null;
         var email = string.IsNullOrWhiteSpace(cliente.Email) ? Vacio(snap.Email) : null;
         var rfc = string.IsNullOrWhiteSpace(cliente.Rfc) ? Vacio(snap.Rfc) : null;
+        // Nunca dos clientes con el mismo RFC no genérico: no se completa un RFC que ya ocupa otro cliente.
+        if (rfc is not null && RfcCliente.EsLigable(rfc) && await _db.Clientes.AnyAsync(c => c.Id != cliente.Id && c.Rfc != null && c.Rfc.Trim().ToUpper() == RfcCliente.Normalizar(rfc), ct)) rfc = null;
         var cpFiscal = string.IsNullOrWhiteSpace(cliente.CodigoPostalFiscal) ? Vacio(snap.CodigoPostalFiscal) : null;
         if (telefono is not null || email is not null || rfc is not null || cpFiscal is not null)
             cliente.ActualizarDatos(rfc: rfc, codigoPostalFiscal: cpFiscal, telefono: telefono, email: email);
@@ -334,6 +343,9 @@ public sealed class AplicarClienteAwService
         Dif("Correo", s.Email, c.Email, "Solo se completa si el local está vacío.");
         return d;
     }
+
+    /// <summary>Clave de ligado del snapshot: RFC, o UST_ID si el RFC no sirve (M2.2).</summary>
+    private static string? Clave(AplicarClienteAwSnapshot s) => RfcCliente.ClaveLigado(s.Rfc) ?? RfcCliente.ClaveLigado(s.CandidatoFiscalUstId);
 
     private static string? Vacio(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 

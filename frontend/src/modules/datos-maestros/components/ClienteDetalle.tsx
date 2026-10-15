@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import { PowerOff, X } from 'lucide-react';
+import { Power, PowerOff, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +17,7 @@ import { ErrorState, TableSkeleton } from '@/components/erp';
 import {
   useCliente,
   useDesactivarCliente,
+  useReactivarCliente,
 } from '@/modules/datos-maestros/api';
 import { EstatusCatalogo } from '@/modules/datos-maestros/api/types';
 import { esApiError } from '@/lib/api';
@@ -48,6 +49,7 @@ export function ClienteDetalle() {
     PermisosCanonicos.DatosMaestrosClientesGestionar,
   );
   const desactivar = useDesactivarCliente();
+  const reactivar = useReactivarCliente();
 
   if (clienteQuery.isError) {
     const problem = esApiError(clienteQuery.error)
@@ -99,6 +101,29 @@ export function ClienteDetalle() {
     );
   }
 
+  function handleReactivar() {
+    reactivar.mutate(
+      // Key fresca por acción (ADR-0020); misma razón que en desactivar.
+      { id: cliente.id, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: () => {
+          toast.success(`Cliente ${cliente.clave} reactivado`);
+        },
+        onError: (error) => {
+          if (esApiError(error)) {
+            toast.error(error.problem.title, {
+              description: error.traceId
+                ? `Código: ${error.traceId}`
+                : undefined,
+            });
+          } else {
+            toast.error('Error al reactivar el cliente.');
+          }
+        },
+      },
+    );
+  }
+
   return (
     <div className="flex flex-col">
       {/* Header NO sticky: viaja con el scroll para no tapar la primera
@@ -131,6 +156,18 @@ export function ClienteDetalle() {
             >
               <PowerOff className="mr-1.5 h-4 w-4" />
               Desactivar
+            </Button>
+          )}
+          {canGestionar && !activo && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={reactivar.isPending}
+              onClick={handleReactivar}
+            >
+              <Power className="mr-1.5 h-4 w-4" />
+              Reactivar
             </Button>
           )}
           <Button asChild variant="ghost" size="icon">

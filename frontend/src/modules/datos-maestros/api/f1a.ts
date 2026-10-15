@@ -20,8 +20,10 @@ export const fichaFiscalSchema = z.object({
   tasaRetencionIva: z.number({ error: "Indica una tasa numérica" }).min(0, "La tasa no puede ser negativa").max(1, "La tasa no puede ser mayor que 1").nullable(),
   tasaRetencionIsr: z.number({ error: "Indica una tasa numérica" }).min(0, "La tasa no puede ser negativa").max(1, "La tasa no puede ser mayor que 1").nullable(),
 });
+/** Prefijo de las consultas F1A; invalidarlo refresca todos los paneles F1A. */
+export const F1A_QUERY_KEY = ['datos-maestros', 'F1A'] as const;
 export function useF1AQuery<T>(path: string, enabled = true) {
-  return useQuery({ queryKey: ['datos-maestros', 'F1A', path], enabled,
+  return useQuery({ queryKey: [...F1A_QUERY_KEY, path], enabled,
     queryFn: async ({ signal }) => (await apiRequest<T>(path, { signal })).data });
 }
 export function useF1AMutation<T = void>() {

@@ -81,19 +81,16 @@ public sealed class CrearClienteHandler
     public async Task<CrearClienteResponse> Handle(
         CrearClienteCommand request, CancellationToken cancellationToken)
     {
-        await ClasificacionClienteGuard.ValidarAsync(_db, request.ClasificacionId, cancellationToken);
+        await ClasificacionClienteGuard.ValidarAsync(_db, request.ClasificacionId, null, cancellationToken);
         var rfc = RfcCliente.Normalizar(request.Rfc);
         await using var scope = await ClienteRfcScope.AbrirAsync(_db, rfc, cancellationToken);
         if (RfcCliente.EsLigable(rfc))
         {
-            var existentes = await _db.Clientes.AsNoTracking().Where(c => c.Rfc != null && c.Rfc.Trim().ToUpper() == rfc)
-                .Select(c => new ClienteExistente(c.Id, c.Clave, c.RazonSocial)).ToListAsync(cancellationToken);
+            var existentes = (await ClientesPorRfc.BuscarAsync(_db, new[] { rfc }, null, cancellationToken)).Select(x => x.Cliente).DistinctBy(x => x.Id).ToList();
             if (existentes.Count > 0) throw new ClienteRfcDuplicadoException(existentes);
         }
         await _fiscal.ValidarAsync(new AltaClienteFiscal(rfc, request.RazonSocial.Trim(), request.RegimenFiscal ?? "",
             request.CodigoPostalFiscal ?? "", request.UsoCfdiDefault ?? "", request.PaisResidencia, request.FormaPagoDefault, request.MetodoPagoDefault, request.MonedaDefault), cancellationToken);
-        if (string.IsNullOrWhiteSpace(request.FormaPagoDefault) || string.IsNullOrWhiteSpace(request.MetodoPagoDefault))
-            throw new BusinessRuleException("CLIENTE_FISCAL_INCOMPLETO", "Indica la forma y el método de pago para el alta manual.");
         var claveExiste = await _db.Clientes.AsNoTracking()
             .AnyAsync(c => c.Clave == request.Clave, cancellationToken);
         if (claveExiste)
