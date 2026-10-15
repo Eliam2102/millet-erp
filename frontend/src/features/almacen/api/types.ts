@@ -466,6 +466,11 @@ export interface SalidaLineaItem {
   centroCostoClave: string | null;
   centroCostoNombre: string | null;
   proyectoId: string | null;
+  /** Comentario capturado en la línea al registrar la salida. */
+  comentarioLinea: string | null;
+  /** Ruta de la ubicación (bin) de donde salió la línea, "ALM › SUB · BIN".
+   * Null = línea sin bin (histórico) o no resuelto. */
+  ubicacionCodigo: string | null;
 }
 
 export interface SalidaDetalle {
@@ -863,7 +868,12 @@ export interface LineaConteoComparacionDto {
   ubicacionClave: string;
   cantidadTeorica: number;
   costoPromedioSnapshot: number;
+  /** Captura original del contador (sin recuentos). */
   cantidadRealCapturada: number | null;
+  /** A7: último recuento si existe; si no, la captura original. Base de varianza y ajuste. */
+  cantidadVigente: number | null;
+  /** true si la línea tiene al menos un recuento. */
+  recuentoRealizado: boolean;
   variacionAbsoluta: number | null;
   variacionPorcentaje: number | null;
   variacionValorMxn: number | null;

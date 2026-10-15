@@ -11,6 +11,7 @@ import {
   requisicionLabel,
   rqRegularizadoraLabel,
   subAlmacenLabel,
+  ubicacionLabel,
 } from './salida-display';
 
 const SUB_ID = '00000008-0001-0000-0000-000000000001';
@@ -123,6 +124,20 @@ describe('salida-display — nombres con fallback al id', () => {
         salida({ rqRegularizadoraId: 'rr-id', rqRegularizadoraFolio: 'MID2026-000999' }),
       ),
     ).toBe('MID2026-000999');
+  });
+});
+
+describe('ubicacionLabel — bin de la línea en pantalla y PDF', () => {
+  it('muestra la ruta resuelta por el backend', () => {
+    const linea: SalidaLineaItem = {
+      ...salida().lineas[0],
+      ubicacionCodigo: 'ALM-01 › ALM-CEN · U1',
+    };
+    expect(ubicacionLabel(linea)).toBe('ALM-01 › ALM-CEN · U1');
+  });
+
+  it('línea sin bin: guion largo "—" (U+2014)', () => {
+    expect(ubicacionLabel({ ...salida().lineas[0], ubicacionCodigo: null })).toBe('—');
   });
 });
 
