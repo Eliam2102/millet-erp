@@ -49,7 +49,7 @@ public sealed class ActualizarToleranciaArticuloHandler(
         articulo.ActualizarToleranciaRecepcion(request.Porcentaje);
         await db.SaveChangesAsync(cancellationToken);
         await audit.RegistrarAsync(
-            operacion: "articulo.tolerancia-recepcion-cambiada",
+            operacion: "articulo.tolerancia-recepcion",
             modulo: "DatosMaestros", entidad: "Articulo",
             entidadId: articulo.Id, aggregateRootId: articulo.Id,
             actorNombre: usuario.UserName ?? "Usuario", actorTipo: "usuario", actorEmail: usuario.Email,

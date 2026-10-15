@@ -32,7 +32,7 @@ public sealed class ActualizarToleranciaArticuloTests
         Assert.Equal(1m, articulo.ToleranciaCantidadPorcentaje);
         Assert.Equal(usuario.UserId, audit.UsuarioId);
         Assert.Equal(articulo.Id, audit.EntidadId);
-        Assert.Equal("articulo.tolerancia-recepcion-cambiada", audit.Operacion);
+        Assert.Equal("articulo.tolerancia-recepcion", audit.Operacion);
         using var cambios = JsonDocument.Parse(audit.Cambios!);
         Assert.Equal(5m, cambios.RootElement.GetProperty("toleranciaCantidadPorcentaje").GetProperty("antes").GetDecimal());
         Assert.Equal(1m, cambios.RootElement.GetProperty("toleranciaCantidadPorcentaje").GetProperty("despues").GetDecimal());
