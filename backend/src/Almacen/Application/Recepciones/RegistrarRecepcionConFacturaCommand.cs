@@ -73,6 +73,9 @@ public sealed class RegistrarRecepcionConFacturaValidator
             .Matches(@"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$")
             .When(c => !string.IsNullOrWhiteSpace(c.CfdiUuidFiscal))
             .WithMessage("El folio fiscal no cumple el formato UUID del SAT (8-4-4-4-12 hex).");
+        RuleFor(c => c.Observaciones!).MaximumLength(500)
+            .When(c => c.Observaciones is not null)
+            .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
@@ -265,11 +268,11 @@ public sealed class RegistrarRecepcionConFacturaHandler
                 throw new BusinessRuleException("RECEPCION_CFDI_PROVEEDOR_DISTINTO", $"El CFDI es del RFC {cfdi.RfcEmisor} y el proveedor de la orden de compra tiene RFC {(string.IsNullOrEmpty(rfcProveedor) ? "sin registrar" : rfcProveedor)}; vincula un CFDI del proveedor.");
         }
 
-        // 5. Reservar folio atómicamente. El UPSERT en folio_secuencias_movimiento
-        //    con SELECT ... FOR UPDATE (lo hace EF + el lock del INSERT/UPDATE)
-        //    garantiza secuencias sin huecos por race condition.
+        // 5. Reservar folio. Lock por (prefijo, año) antes de leer la secuencia (M-094);
+        //    la transacción ya está abierta arriba, así que el helper no abre otra.
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.EntradaCompra.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken);
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)

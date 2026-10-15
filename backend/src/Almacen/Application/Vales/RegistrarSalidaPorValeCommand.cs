@@ -49,6 +49,9 @@ public sealed class RegistrarSalidaPorValeValidator
             .Must(f => f.Year is >= 2020 and <= 2099)
             .WithMessage("Fecha de movimiento fuera de rango razonable.");
         RuleFor(c => c.ValeBlobRef).NotEmpty().MaximumLength(500);
+        RuleFor(c => c.Observaciones!).MaximumLength(500)
+            .When(c => c.Observaciones is not null)
+            .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
@@ -252,6 +255,7 @@ public sealed class RegistrarSalidaPorValeHandler
 
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.SalidaPorVale.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken); // M-094: tx ya abierta (txApartados)
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)

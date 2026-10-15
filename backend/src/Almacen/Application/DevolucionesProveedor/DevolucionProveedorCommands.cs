@@ -457,6 +457,7 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
         // Folio + Registrar.
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.SalidaPorDevolucionAProveedor.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken); // M-094: tx ya abierta (transaccion)
         var sec = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (sec is null)

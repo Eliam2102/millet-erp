@@ -109,6 +109,56 @@ public class RegistrarRecepcionValidatorTests
         result.Errors.Should().Contain(e => e.PropertyName.Contains("ArticuloId"));
     }
 
+    [Fact]
+    public void Observaciones_con_tope_exacto_factura_pasa()
+    {
+        var cmd = NuevoComandoValido() with { Observaciones = new string('x', 500) };
+        var result = _validator.Validate(cmd);
+        result.Errors.Should().NotContain(e => e.PropertyName == nameof(cmd.Observaciones));
+    }
+
+    [Fact]
+    public void Observaciones_con_tope_mas_uno_factura_falla()
+    {
+        var cmd = NuevoComandoValido() with { Observaciones = new string('x', 501) };
+        var result = _validator.Validate(cmd);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(cmd.Observaciones));
+    }
+
+    [Fact]
+    public void Observaciones_con_tope_exacto_packing_list_pasa()
+    {
+        var cmd = NuevoComandoPackingList() with { Observaciones = new string('x', 500) };
+        var result = new RegistrarRecepcionConPackingListValidator().Validate(cmd);
+        result.Errors.Should().NotContain(e => e.PropertyName == nameof(cmd.Observaciones));
+    }
+
+    [Fact]
+    public void Observaciones_con_tope_mas_uno_packing_list_falla()
+    {
+        var cmd = NuevoComandoPackingList() with { Observaciones = new string('x', 501) };
+        var result = new RegistrarRecepcionConPackingListValidator().Validate(cmd);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(cmd.Observaciones));
+    }
+
+    private static RegistrarRecepcionConPackingListCommand NuevoComandoPackingList() => new(
+        OrdenCompraId: Guid.NewGuid(),
+        FechaMovimiento: new DateOnly(2026, 5, 23),
+        PackingListBlobRef: "packing-list/prueba.pdf",
+        Observaciones: null,
+        Lineas: new List<RegistrarRecepcionLineaInput>
+        {
+            new(
+                ArticuloId: Guid.NewGuid(),
+                LineaOcId: null,
+                Cantidad: 10,
+                UbicacionReferencia: "A-3-2",
+                Comentario: null,
+                UbicacionId: Guid.NewGuid())
+        });
+
     private static RegistrarRecepcionConFacturaCommand NuevoComandoValido() => new(
         OrdenCompraId: Guid.NewGuid(),
         FechaMovimiento: new DateOnly(2026, 5, 23),
