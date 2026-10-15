@@ -94,6 +94,28 @@ public sealed class OcDevolucionEnAlmacenHandlerTests
         (await db.EventosProcesados.CountAsync()).Should().Be(1);
     }
 
+    [Fact]
+    public async Task Devolucion_que_deja_recibido_bajo_facturado_se_omite_y_marca_procesado()
+    {
+        await using var db = await CreateDbAsync();
+        var publisher = new CapturingPublisher();
+        var handler = new OcDevolucionEnAlmacenHandler(db, publisher, NullLogger<OcDevolucionEnAlmacenHandler>.Instance);
+        var articulo = Guid.NewGuid();
+        var ocId = await SembrarOcAsync(db, articulo);
+        var linea = db.OrdenesCompra.Local.Single(o => o.Id == ocId).Lineas.Single();
+        // Recibido 110 de 100 y facturado 110; devolver 10 violaría cantidad_facturada <= max(cantidad, recibida).
+        typeof(LineaOrdenCompra).GetProperty(nameof(LineaOrdenCompra.CantidadRecibida))!.SetValue(linea, 110m);
+        typeof(LineaOrdenCompra).GetProperty(nameof(LineaOrdenCompra.CantidadFacturada))!.SetValue(linea, 110m);
+        await db.SaveChangesAsync();
+
+        await handler.Handle(new OcDevolucionEnAlmacenCommand(Guid.NewGuid(), Payload(
+            ordenCompraId: ocId,
+            Linea(lineaOcId: linea.Id, cantidad: 10m, articuloId: articulo))), CancellationToken.None);
+
+        publisher.Published.Should().BeEmpty();
+        (await db.EventosProcesados.CountAsync()).Should().Be(1);
+    }
+
     private static async Task<Guid> SembrarOcAsync(ComprasDbContext db, params Guid[] articuloIds)
     {
         var oc = new OrdenCompra(

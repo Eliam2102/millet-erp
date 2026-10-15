@@ -424,6 +424,20 @@ public class OrdenCompraSubEstadosTests
         Assert.Equal(105m, linea.CantidadFacturada);
     }
 
+    [Fact]
+    public void RegistrarFacturacionLinea_ExcedenteDeUnaLinea_NoCompletaOtra()
+    {
+        var oc = NewOcAutorizada((100m, false), (100m, false));
+        var lineas = oc.Lineas.ToList();
+        var ahora = DateTimeOffset.UtcNow;
+
+        oc.RegistrarRecepcionLinea(lineas[0].Id, 105m, ahora, 5m);
+        oc.RegistrarFacturacionLinea(lineas[0].Id, 105m, ahora);
+        oc.RegistrarFacturacionLinea(lineas[1].Id, 95m, ahora);
+
+        Assert.Equal(SubEstadoFacturacion.Parcial, oc.SubEstadoFacturacion);
+    }
+
     // --- GAP-9: cierre manual ---
 
     [Fact]

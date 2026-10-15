@@ -34,6 +34,22 @@ namespace Millet.Identidad.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // rol_permisos y usuario_permiso_overrides.permiso_id son FK Restrict: si ya asignaron estos permisos, el DELETE fallaría.
+            migrationBuilder.Sql(
+                "DELETE FROM identidad.rol_permisos WHERE permiso_id IN (" +
+                "'00000004-0010-0000-0000-000000000002','00000006-0006-0006-0006-000000000036'," +
+                "'00000006-0006-0006-0006-000000000037','00000006-0006-0006-0006-000000000038'," +
+                "'00000006-0006-0006-0006-000000000039','00000006-0006-0006-0006-00000000003a'," +
+                "'00000006-0006-0006-0006-00000000003b','00000006-0006-0006-0006-00000000003c'," +
+                "'00000006-0006-0006-0006-00000000003d');");
+            migrationBuilder.Sql(
+                "DELETE FROM identidad.usuario_permiso_overrides WHERE permiso_id IN (" +
+                "'00000004-0010-0000-0000-000000000002','00000006-0006-0006-0006-000000000036'," +
+                "'00000006-0006-0006-0006-000000000037','00000006-0006-0006-0006-000000000038'," +
+                "'00000006-0006-0006-0006-000000000039','00000006-0006-0006-0006-00000000003a'," +
+                "'00000006-0006-0006-0006-00000000003b','00000006-0006-0006-0006-00000000003c'," +
+                "'00000006-0006-0006-0006-00000000003d');");
+
             migrationBuilder.DeleteData(
                 schema: "identidad",
                 table: "permisos",

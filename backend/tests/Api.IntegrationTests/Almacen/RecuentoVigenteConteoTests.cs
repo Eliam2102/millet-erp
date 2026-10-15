@@ -22,6 +22,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// Verifica comparación (HTTP), y que aplicar ajusta el inventario contra la vigente
 /// y no contra la captura original. PostgreSQL desechable; fixture aislado por GUIDs.
 /// </summary>
+[Collection(PeriodoContableSinParalelo.Nombre)]
 public sealed class RecuentoVigenteConteoTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
 {
@@ -133,7 +134,8 @@ public sealed class RecuentoVigenteConteoTests(WebApplicationFactory<Program> fa
                 await db.SaveChangesAsync();
                 db.ChangeTracker.Clear();
 
-                var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, empresaId, hoy.Year);
+                // Calendario de una empresa propia: el ejercicio del año de la empresa real lo crean/reutilizan otras pruebas (ux_ejercicios_contables_anio).
+                var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, Guid.NewGuid(), hoy.Year);
                 await using (calendario)
                 {
                     await calendario.SembrarAsync(hoy.Month);

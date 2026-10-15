@@ -34,7 +34,8 @@ public sealed record OcLineaLectura(
     decimal CantidadSolicitada,
     decimal CantidadRecibida,
     decimal PrecioUnitarioMxn,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null,
+    decimal CantidadFacturada = 0m);
 
 public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
 

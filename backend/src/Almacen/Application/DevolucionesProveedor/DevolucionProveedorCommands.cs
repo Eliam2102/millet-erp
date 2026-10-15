@@ -415,6 +415,7 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
         var posicion = 1;
         var payload = new List<LineaDevolucionProveedorPayload>(dev.Lineas.Count);
         decimal montoTotal = 0m;
+        var devueltoPorLineaOc = new Dictionary<Guid, decimal>();
         foreach (var linea in dev.Lineas.OrderBy(l => l.Posicion))
         {
             var origen = recepcion.Lineas.Single(l => l.Id == linea.LineaRecepcionOrigenId);
@@ -422,6 +423,17 @@ public sealed class RegistrarSalidaDevolucionAProveedorHandler
             decimal? cantidadDocumento = lineaOc is null ? null : Math.Round(
                 linea.Cantidad / await Recepciones.RecibidoPorLineaOc.FactorDocumentoABaseAsync(
                     _conversion, linea.ArticuloId, lineaOc.UnidadMedida, cancellationToken), 4);
+            if (lineaOc is not null)
+            {
+                // Triada: no se puede devolver lo ya facturado hasta que una NC o cancelación baje lo facturado en CxP.
+                var devuelto = devueltoPorLineaOc.GetValueOrDefault(lineaOc.LineaId) + (cantidadDocumento ?? 0m);
+                devueltoPorLineaOc[lineaOc.LineaId] = devuelto;
+                if (lineaOc.CantidadFacturada > 0m && lineaOc.CantidadRecibida - devuelto < lineaOc.CantidadFacturada)
+                    throw new BusinessRuleException(
+                        "DEVOLUCION_EXCEDE_NO_FACTURADO",
+                        $"No se puede devolver: la línea de la OC tiene {lineaOc.CantidadRecibida} recibidas y {lineaOc.CantidadFacturada} facturadas; " +
+                        "la devolución dejaría lo recibido por debajo de lo facturado. Registra primero la nota de crédito o cancela la factura en Cuentas por Pagar.");
+            }
             var movLineaId = Guid.CreateVersion7();
             var ubicacionLinea = binPorLinea.TryGetValue(linea.Id, out var ubi)
                 ? ubi

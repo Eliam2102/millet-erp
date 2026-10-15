@@ -22,6 +22,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// Mismo molde: fixture aislado por GUIDs vía SQL crudo, cleanup en finally,
 /// no toca el seed de millet_dev.</para>
 /// </summary>
+[Collection(PeriodoContableSinParalelo.Nombre)]
 public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;

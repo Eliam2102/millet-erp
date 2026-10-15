@@ -40,6 +40,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// millet_dev. Se siembra saldo en el rack y en la ÚNICA porque el trigger
 /// aborta la salida si no hay existencia (<c>SALDO_INEXISTENTE</c>).</para>
 /// </summary>
+[Collection(PeriodoContableSinParalelo.Nombre)]
 public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;

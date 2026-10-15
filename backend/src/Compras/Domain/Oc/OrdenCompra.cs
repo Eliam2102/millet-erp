@@ -1392,7 +1392,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         }
 
         var cantidadTotal = _lineas.Sum(l => l.Cantidad);
-        var facturadoTotal = _lineas.Sum(l => l.CantidadFacturada);
+        // igual que Recepción: el excedente facturado de una línea no completa a otra
+        var facturadoTotal = _lineas.Sum(l => Math.Min(l.CantidadFacturada, l.Cantidad));
 
         // GAP-9: los servicios no se reciben en Almacén — el sub-estado de
         // Recepción se calcula SOLO sobre las líneas físicas (!EsServicio).

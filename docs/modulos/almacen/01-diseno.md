@@ -172,6 +172,7 @@ Hereda los ADRs transversales. La tabla resume los aplicados.
 - `Salida.rq_id` (variante A) debe estar `Aprobada`. Si es Vale (variante B), `rq_id` es null + `pendiente_regularizacion = true` con `fecha_limite_regularizacion = fecha_salida + 48h`.
 - `DevolucionInterna.salida_origen_id` debe existir y `cantidad_devuelta <= salida_origen.cantidad - devoluciones_previas`.
 - `DevolucionAProveedor` requiere autorización de Dirección (vía evidencia, mismo patrón que `NotaCargo` en CxP).
+- `DevolucionAProveedor` (8.B): al registrar la salida, por cada línea de OC `cantidad_recibida − devuelto (acumulado de la devolución) >= cantidad_facturada`; si no, error `DEVOLUCION_EXCEDE_NO_FACTURADO` (422) hasta que una NC o la cancelación de la factura en CxP reduzca lo facturado. Se valida solo al registrar la salida (no al iniciar). Compras, si aun así recibe un evento que violaría esto, omite la línea, registra error y marca el evento procesado.
 - `ConteoInventario.estado = Aprobado` requiere que todas las líneas con `variacion > umbral` (A7) tengan al menos un recuento registrado.
 - `ConteoInventario.estado = Aplicado` genera movimientos `AjustePositivo` / `AjusteNegativo` por línea y bloquea el conteo (no se reabre).
 - `SaldoInventario.cantidad_reservada >= 0` y `SaldoInventario.cantidad >= cantidad_reservada` siempre (la reserva no puede exceder el físico).
