@@ -16,6 +16,20 @@ describe('diferencias del catálogo', () => {
       { campo: 'noAfectableManual', etiqueta: 'No afectable por asiento manual', antes: false, despues: true },
     ]);
   });
+  it('muestra el código de la cuenta padre y del rubro en lugar de su id; compara por id', () => {
+    const padre = '019a0000-0000-7000-8000-0000000000aa';
+    const rubro = '019a0000-0000-7000-8000-0000000000bb';
+    const despues = { ...antes, padreId: padre, rubroId: rubro, version: 2 };
+    const codigos = { [padre]: 'FIX-PADRE', [rubro]: 'FIX-RUBRO' };
+    expect(diferenciasCatalogo({ antes, despues }, codigos)).toEqual([
+      { campo: 'padreId', etiqueta: 'Cuenta padre', antes: null, despues: 'FIX-PADRE' },
+      { campo: 'rubroId', etiqueta: 'Rubro', antes: null, despues: 'FIX-RUBRO' },
+    ]);
+    // Sin código conocido (respuesta anterior del API) conserva el valor original.
+    expect(diferenciasCatalogo({ antes, despues })[0].despues).toBe(padre);
+    // Mismo id antes y después: no es una diferencia aunque el código no venga.
+    expect(diferenciasCatalogo({ antes: despues, despues: { ...despues, nombre: 'otro' } }, codigos).map((d) => d.campo)).toEqual(['nombre']);
+  });
   it('distingue alta, vacío y valores booleanos', () => {
     expect(diferenciasCatalogo({ antes: null, despues: antes }).every((d) => d.antes === undefined)).toBe(true);
     expect([true, false, null].map(valorDiferencia)).toEqual(['Sí', 'No', 'Sin valor']);
