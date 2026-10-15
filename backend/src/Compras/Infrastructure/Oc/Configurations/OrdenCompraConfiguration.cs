@@ -51,11 +51,14 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             // CHECK constraints del §10.1.
             t.HasCheckConstraint("ck_oc_tipo_cambio",
                 "(moneda = 'MXN' AND tipo_cambio IS NULL) OR (moneda <> 'MXN' AND tipo_cambio > 0)");
+            // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Una OC de importación puede
+            // crearse en Borrador (0) o Rechazada (6) sin incoterm ni país; ambos
+            // se exigen en BD a partir de cualquier otro estado, y el handler de
+            // transmitir los valida antes (422). El contenedor no es obligatorio
+            // en BD (embarque aéreo/terrestre no lo lleva).
             t.HasCheckConstraint("ck_oc_import_campos",
-                "(es_importacion = false) OR (es_importacion = true " +
-                "AND info_import_incoterm_id IS NOT NULL " +
-                "AND info_import_pais_origen IS NOT NULL " +
-                "AND info_import_numero_contenedor IS NOT NULL)");
+                "(es_importacion = false) OR (estado IN (0, 6)) OR " +
+                "(info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
             t.HasCheckConstraint("ck_oc_sin_rq_motivo",
                 "sin_requisicion_previa = false OR motivo_sin_requisicion IS NOT NULL");
 

@@ -1,14 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Millet.Compartido.Infrastructure.Persistence;
-using Millet.Compras.Application.Oc.EnviarAAutorizacion;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
-using Millet.SharedKernel.Application.Exceptions;
 using Millet.SharedKernel.Domain;
 
 namespace Millet.Api.IntegrationTests.Compras.Oc;
@@ -151,49 +147,48 @@ public partial class OrdenesCompraEndpointsTests
     }
 
     [Fact]
-    public async Task Enviar_Importacion_SinIncotermOPais_Lanza_CodigoEstable()
+    public async Task Crear_Importacion_SinDatosComercioExterior_Retorna_201()
     {
         var client = await CreateSuperAdminClientAsync();
-        var id = await CrearOcImportacionAsync(client);
+        var resp = await client.PostAsJsonAsync(EndpointBase, ValidBody() with
+        {
+            SinRequisicionPrevia = true,
+            MotivoSinRequisicion = "Integration comercio exterior",
+            EsImportacion = true,
+        });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        var id = (await ReadJsonAsync(resp)).GetProperty("id").GetGuid();
+
+        var detalle = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{id}"));
+        Assert.True(detalle.GetProperty("esImportacion").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Transmitir_Importacion_SinIncotermOPais_Retorna_422_Y_ConDatosPasa()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var id = await CrearOcImportacionBorradorAsync(client);
         var lineaResp = await client.PostAsJsonAsync($"{EndpointBase}/{id}/lineas", LineaManualBody(CentroCostoSeedId));
         Assert.Equal(HttpStatusCode.Created, lineaResp.StatusCode);
+        await AdjuntarDocumentosComercioExteriorAsync(id);
 
-        using var scope = _factory.Services.CreateScope();
-        var sp = scope.ServiceProvider;
-        using var bypass = sp.GetRequiredService<ICurrentEmpresaContext>().Bypass();
-        var db = sp.GetRequiredService<ComprasDbContext>();
-        var oc = await db.OrdenesCompra.Include(o => o.Adjuntos).SingleAsync(o => o.Id == id);
-        foreach (var tipo in await db.TiposDocumentoOc.Where(t => t.Clave == "cotizacion" || t.Clave == "ficha_tecnica").ToListAsync())
-            oc.AdjuntarDocumento(Guid.NewGuid(), tipo.Id, "DEMO-CE.pdf", "blob://DEMO/CE", "application/pdf", 10, DateTimeOffset.UtcNow, Guid.NewGuid());
-        await db.SaveChangesAsync();
+        // Sin incoterm ni país: el guard del handler responde 422 antes de llegar a la BD.
+        var sinIncoterm = await client.PostAsync($"{EndpointBase}/{id}/transmitir", null);
+        await AssertCodigoImportacionAsync(sinIncoterm, HttpStatusCode.UnprocessableEntity, "IMPORT_INCOTERM_REQUERIDO");
 
-        var handler = new EnviarAAutorizacionOcHandler(
-            db,
-            sp.GetRequiredService<CompartidoDbContext>(),
-            sp.GetRequiredService<IClock>(),
-            sp.GetRequiredService<IPublisher>(),
-            new Millet.Compras.Application.Oc.EvaluadorNivelOc(db, sp.GetRequiredService<IClock>()));
-        var incoterm = oc.InfoImportIncotermId;
-        var pais = oc.InfoImportPaisOrigen;
-        try
-        {
-            // ck_oc_import_campos impide persistir el dato incompleto: se simula
-            // solo en el agregado rastreado que lee el handler (sin SaveChanges).
-            db.Entry(oc).Property(nameof(OrdenCompra.InfoImportIncotermId)).CurrentValue = null;
-            var sinIncoterm = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new(id), default));
-            Assert.Equal("IMPORT_INCOTERM_REQUERIDO", sinIncoterm.Code);
+        var soloIncoterm = await client.PatchAsJsonAsync(
+            $"{EndpointBase}/{id}/informacion-importacion",
+            new { IncotermId = Guid.NewGuid() });
+        Assert.Equal(HttpStatusCode.NoContent, soloIncoterm.StatusCode);
+        var sinPais = await client.PostAsync($"{EndpointBase}/{id}/transmitir", null);
+        await AssertCodigoImportacionAsync(sinPais, HttpStatusCode.UnprocessableEntity, "IMPORT_PAIS_REQUERIDO");
 
-            db.Entry(oc).Property(nameof(OrdenCompra.InfoImportIncotermId)).CurrentValue = incoterm;
-            db.Entry(oc).Property(nameof(OrdenCompra.InfoImportPaisOrigen)).CurrentValue = null;
-            var sinPais = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new(id), default));
-            Assert.Equal("IMPORT_PAIS_REQUERIDO", sinPais.Code);
-            Assert.Equal(EstadoOrdenCompra.Borrador, oc.Estado);
-        }
-        finally
-        {
-            db.ChangeTracker.Clear();
-            await db.OrdenesCompra.Where(o => o.Id == id).ExecuteDeleteAsync();
-        }
+        var completa = await client.PatchAsJsonAsync(
+            $"{EndpointBase}/{id}/informacion-importacion",
+            new { IncotermId = Guid.NewGuid(), PaisOrigen = "US" });
+        Assert.Equal(HttpStatusCode.NoContent, completa.StatusCode);
+        var transmitida = await client.PostAsync($"{EndpointBase}/{id}/transmitir", null);
+        Assert.Equal(HttpStatusCode.NoContent, transmitida.StatusCode);
     }
 
     [Theory]
@@ -215,30 +210,46 @@ public partial class OrdenesCompraEndpointsTests
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
-    // ck_oc_import_campos exige incoterm, país y contenedor cuando es_importacion = true,
-    // así que la OC nace no-importación, captura la info y después activa la bandera.
-    private async Task<Guid> CrearOcImportacionAsync(HttpClient client)
+    // La OC de importación nace en Borrador con es_importacion = true sin incoterm
+    // ni país (ck_oc_import_campos solo los exige fuera de Borrador/Rechazada).
+    private static async Task<Guid> CrearOcImportacionBorradorAsync(HttpClient client)
     {
         var body = ValidBody() with
         {
             SinRequisicionPrevia = true,
             MotivoSinRequisicion = "Integration comercio exterior",
+            EsImportacion = true,
         };
         var resp = await client.PostAsJsonAsync(EndpointBase, body);
         resp.EnsureSuccessStatusCode();
-        var id = (await ReadJsonAsync(resp)).GetProperty("id").GetGuid();
+        return (await ReadJsonAsync(resp)).GetProperty("id").GetGuid();
+    }
 
+    private static async Task<Guid> CrearOcImportacionAsync(HttpClient client)
+    {
+        var id = await CrearOcImportacionBorradorAsync(client);
         var info = await client.PatchAsJsonAsync(
             $"{EndpointBase}/{id}/informacion-importacion",
             new { IncotermId = Guid.NewGuid(), PaisOrigen = "US", NumeroContenedor = "CONT-CE", CodigoRuta = "RUTA-CE", SemanaEmbarque = "S41" });
         Assert.Equal(HttpStatusCode.NoContent, info.StatusCode);
+        return id;
+    }
 
+    // Cotización, ficha técnica y correo de autorización (la OC va sin requisición previa).
+    private async Task AdjuntarDocumentosComercioExteriorAsync(Guid id)
+    {
         using var scope = _factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
-        var oc = await db.OrdenesCompra.FirstAsync(o => o.Id == id);
-        db.Entry(oc).Property(nameof(OrdenCompra.EsImportacion)).CurrentValue = true;
+        var oc = await db.OrdenesCompra.Include(o => o.Adjuntos).SingleAsync(o => o.Id == id);
+        foreach (var tipo in await db.TiposDocumentoOc.Where(t => t.Clave == "cotizacion" || t.Clave == "ficha_tecnica" || t.Clave == "correo_autorizacion").ToListAsync())
+            oc.AdjuntarDocumento(Guid.NewGuid(), tipo.Id, "DEMO-CE.pdf", "blob://DEMO/CE", "application/pdf", 10, DateTimeOffset.UtcNow, Guid.NewGuid());
         await db.SaveChangesAsync();
-        return id;
+    }
+
+    private static async Task AssertCodigoImportacionAsync(HttpResponseMessage response, HttpStatusCode status, string codigo)
+    {
+        Assert.Equal(status, response.StatusCode);
+        Assert.Contains(codigo, await response.Content.ReadAsStringAsync());
     }
 }

@@ -1222,7 +1222,7 @@ namespace Millet.Compras.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_oc_estado", "estado BETWEEN 0 AND 7");
 
-                            t.HasCheckConstraint("ck_oc_import_campos", "(es_importacion = false) OR (es_importacion = true AND info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL AND info_import_numero_contenedor IS NOT NULL)");
+                            t.HasCheckConstraint("ck_oc_import_campos", "(es_importacion = false) OR (estado IN (0, 6)) OR (info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_oc_sin_rq_motivo", "sin_requisicion_previa = false OR motivo_sin_requisicion IS NOT NULL");
 
