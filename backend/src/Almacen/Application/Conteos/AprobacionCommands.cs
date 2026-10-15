@@ -101,11 +101,12 @@ public sealed class EvaluarVariacionesConteoHandler : IRequestHandler<EvaluarVar
             ?? throw new EntityNotFoundException("CONTEO_NO_ENCONTRADO", "No existe el conteo.");
         var umbrales = conteo.ObtenerUmbrales();
         var lineas = conteo.Lineas;
+        var recuentos = await CantidadVigenteConteo.UltimosRecuentosAsync(_db, request.ConteoId, cancellationToken);
 
         var marcadas = 0;
         foreach (var l in lineas)
         {
-            if (l.CantidadRealCapturada is not decimal real) continue;
+            if (l.CantidadVigente(recuentos) is not decimal real) continue;
             var diff = real - l.CantidadTeorica;
             var diffAbs = Math.Abs(diff);
             var pct = l.CantidadTeorica == 0 ? 100m : diffAbs / l.CantidadTeorica * 100m;
@@ -152,7 +153,8 @@ public sealed class AprobarConteoHandler : IRequestHandler<AprobarConteoCommand>
             ?? throw new EntityNotFoundException("CONTEO_NO_ENCONTRADO",
                 $"No existe conteo con id '{request.ConteoId}'.");
 
-        var montoNeto = conteo.CalcularMontoNeto();
+        var vigentes = await CantidadVigenteConteo.UltimosRecuentosAsync(_db, request.ConteoId, cancellationToken);
+        var montoNeto = conteo.CalcularMontoNeto(vigentes);
         var nivel = conteo.ObtenerUmbrales().NivelRequerido(montoNeto);
         var autorizado = false;
         for (var candidato = nivel; candidato <= 3; candidato++)
@@ -300,6 +302,12 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
         await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(_db, empresaId, fecha, _periodoContable, cancellationToken);
         var anio = fecha.Year;
 
+        // M-094: locks por (prefijo, año) antes de leer las secuencias. Este handler no tenía
+        // transacción: la abre el primer lock y se confirma tras SaveChanges. El segundo lock
+        // reusa esa transacción (devuelve null), así que su retorno no se usa.
+        await using var transaccion = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, TipoMovimiento.AjustePositivo.PrefijoFolio(), anio, cancellationToken);
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, TipoMovimiento.AjusteNegativo.PrefijoFolio(), anio, cancellationToken);
+
         // Reservar secuencias (una sola vez para AjustePositivo y AjusteNegativo).
         var secPos = await ObtenerOSecuenciaAsync(TipoMovimiento.AjustePositivo, anio, cancellationToken);
         var secNeg = await ObtenerOSecuenciaAsync(TipoMovimiento.AjusteNegativo, anio, cancellationToken);
@@ -307,10 +315,11 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
         var payload = new List<AjusteInventarioPayload>();
         decimal montoNeto = 0m;
         var movimientosGenerados = 0;
+        var recuentos = await CantidadVigenteConteo.UltimosRecuentosAsync(_db, request.ConteoId, cancellationToken);
 
         foreach (var linea in conteo.Lineas)
         {
-            if (linea.CantidadRealCapturada is not decimal real) continue;
+            if (linea.CantidadVigente(recuentos) is not decimal real) continue;
             var diff = real - linea.CantidadTeorica;
             if (diff == 0) continue;
 
@@ -391,6 +400,7 @@ public sealed class AplicarConteoHandler : IRequestHandler<AplicarConteoCommand,
             SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
         return new AplicarConteoResponse(movimientosGenerados, Math.Round(montoNeto, 2));
     }

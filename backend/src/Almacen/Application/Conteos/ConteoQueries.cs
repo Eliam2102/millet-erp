@@ -95,7 +95,11 @@ public sealed record LineaConteoComparacionDto(
     // Artículo y sub-almacén legibles, mismo enriquecimiento que la captura.
     string? ArticuloClave = null,
     string? ArticuloDescripcion = null,
-    string? SubAlmacenClave = null);
+    string? SubAlmacenClave = null,
+    // A7: cantidad vigente = último recuento si existe, si no la captura original.
+    // Varianza y valor se calculan contra ella; CantidadRealCapturada se conserva.
+    decimal? CantidadVigente = null,
+    bool RecuentoRealizado = false);
 
 public sealed record ListarConteosQuery(
     EstadoConteo? Estado,
@@ -262,11 +266,13 @@ public sealed class ListarLineasComparacionHandler
             select new { Linea = l, UbicacionClave = u.Clave, SubAlmacenClave = s.Clave })
             .ToListAsync(cancellationToken);
 
+        var recuentos = await CantidadVigenteConteo.UltimosRecuentosAsync(_db, request.ConteoId, cancellationToken);
         var lineas = filas.Select(x =>
         {
             var l = x.Linea;
+            var vigente = l.CantidadVigente(recuentos);
             decimal? variacionAbs = null, variacionPct = null, variacionVal = null;
-            if (l.CantidadRealCapturada is decimal real)
+            if (vigente is decimal real)
             {
                 var diff = real - l.CantidadTeorica;
                 variacionAbs = diff;
@@ -282,7 +288,8 @@ public sealed class ListarLineasComparacionHandler
                 l.CantidadRealCapturada,
                 variacionAbs, variacionPct, variacionVal,
                 l.RequiereRecuento, l.AprobadoIndividualmente, l.Justificacion,
-                null, null, x.SubAlmacenClave);
+                null, null, x.SubAlmacenClave,
+                vigente, recuentos.ContainsKey(l.Id));
         }).ToList();
 
         return await EnriquecerYOrdenarConteoLineas.PorArticuloAsync(
