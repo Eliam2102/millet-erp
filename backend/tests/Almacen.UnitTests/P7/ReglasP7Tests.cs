@@ -109,6 +109,37 @@ public sealed class ReglasP7Tests
     }
 
     [Fact]
+    public async Task Salida_sin_apartados_y_mayor_a_existencia_responde_stock_insuficiente()
+    {
+        await using var f = new P1Fixture();
+        var saldo = await f.Db.SaldosInventario.SingleAsync();
+        f.Db.SaldosInventario.Remove(saldo);
+        f.Db.SaldosInventario.Add(new(f.BinId, f.SubId, f.ArticuloId, 2, 25));
+        await f.Db.SaveChangesAsync();
+        var sucursal = (await f.Db.Almacenes.SingleAsync()).SucursalId;
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => P7Support.Apartados(f.Db).ConsumirAsync(sucursal, Guid.NewGuid(), Guid.NewGuid(), f.ArticuloId, 3, default));
+        ex.Code.Should().Be("SALIDA_STOCK_INSUFICIENTE");
+        ex.Message.Should().Contain("2");
+    }
+
+    [Fact]
+    public async Task Salida_con_existencia_suficiente_pero_apartada_para_otra_rq_responde_existencia_apartada()
+    {
+        await using var f = new P1Fixture();
+        var saldo = await f.Db.SaldosInventario.SingleAsync();
+        f.Db.SaldosInventario.Remove(saldo);
+        f.Db.SaldosInventario.Add(new(f.BinId, f.SubId, f.ArticuloId, 5, 25));
+        await f.Db.SaveChangesAsync();
+        var sucursal = (await f.Db.Almacenes.SingleAsync()).SucursalId;
+        var servicio = P7Support.Apartados(f.Db);
+        (await servicio.ApartarAsync(P1Fixture.EmpresaId, sucursal, f.DocumentoId, f.LineaId, f.ArticuloId, 5, default)).Should().Be(5);
+        var apartada = await Assert.ThrowsAsync<BusinessRuleException>(() => servicio.ConsumirAsync(sucursal, Guid.NewGuid(), Guid.NewGuid(), f.ArticuloId, 1, default));
+        apartada.Code.Should().Be("SALIDA_EXISTENCIA_APARTADA");
+        var sinExistencia = await Assert.ThrowsAsync<BusinessRuleException>(() => servicio.ConsumirAsync(sucursal, Guid.NewGuid(), Guid.NewGuid(), f.ArticuloId, 6, default));
+        sinExistencia.Code.Should().Be("SALIDA_STOCK_INSUFICIENTE");
+    }
+
+    [Fact]
     public async Task Avisos_separan_vales_vencidos_por_vencer_y_regularizados()
     {
         await using var f = new P1Fixture();
