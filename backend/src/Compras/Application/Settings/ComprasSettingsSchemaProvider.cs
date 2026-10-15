@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediatR;
+using Millet.Compras.Domain;
 using Millet.SharedKernel.Application.Settings;
 
 namespace Millet.Compras.Application.Settings;
@@ -21,6 +22,7 @@ namespace Millet.Compras.Application.Settings;
 public sealed class ComprasSettingsSchemaProvider : ISettingsSchemaProvider
 {
     private const string ClaveAutoGenerarOc = "AutoGenerarOcAlAutorizar";
+    private const string ClaveModoNivel2 = "ModoNivel2";
 
     private readonly IMediator _mediator;
 
@@ -67,6 +69,24 @@ public sealed class ComprasSettingsSchemaProvider : ISettingsSchemaProvider
                     "Este cambio afecta el flujo de autorización de requisiciones. " +
                     "Las requisiciones autorizadas antes del cambio mantienen su " +
                     "comportamiento original."),
+            new SettingItem(
+                Clave: ClaveModoNivel2,
+                Etiqueta: "Condición para nivel 2 de autorización",
+                Descripcion:
+                    "Define qué exige nivel 2 además de la naturaleza crítica o de riesgo: " +
+                    "SoloMonto (en la requisición: sin criterio de disponibilidad; el monto " +
+                    "contra el umbral del departamento se valida en la orden de compra), " +
+                    "SoloDisponibilidad (alguna línea de inventario sin existencia suficiente) " +
+                    "o Ambos (en la requisición equivale a SoloDisponibilidad).",
+                Tipo: TipoSetting.Lista,
+                Default: nameof(ModoNivel2.SoloMonto),
+                Valor: current.ModoNivel2.ToString(),
+                Validacion: new ValidacionSetting(Opciones: Enum.GetNames<ModoNivel2>()),
+                PermisoLeer: "compras.configuracion.leer",
+                PermisoEditar: "compras.configuracion.editar",
+                Mostrar: DisplayMode.Auto,
+                RutaCustom: null,
+                AlertaCambio: "Afecta qué requisiciones requieren nivel 2 de autorización a partir de ahora."),
         };
     }
 
@@ -75,20 +95,23 @@ public sealed class ComprasSettingsSchemaProvider : ISettingsSchemaProvider
         JsonElement valor,
         CancellationToken cancellationToken)
     {
-        if (clave is not (ClaveAutoGenerarOc or "ApartarExistenciaAlAutorizar"))
+        if (clave is not (ClaveAutoGenerarOc or "ApartarExistenciaAlAutorizar" or ClaveModoNivel2))
         {
             throw new InvalidOperationException(
                 $"Clave '{clave}' no existe en el schema de Compras. El endpoint " +
                 "genérico debió haber retornado 404 antes de invocar este método.");
         }
 
-        // El endpoint genérico ya validó tipo Bool antes de invocar.
-        var flag = valor.GetBoolean();
+        // El endpoint genérico ya validó el tipo (Bool o Lista con Opciones) antes de invocar.
+        var comando = clave switch
+        {
+            ClaveAutoGenerarOc => new ActualizarComprasSettingsCommand(AutoGenerarOcAlAutorizar: valor.GetBoolean()),
+            ClaveModoNivel2 => new ActualizarComprasSettingsCommand(
+                ModoNivel2: Enum.Parse<ModoNivel2>(valor.GetString() ?? string.Empty)),
+            _ => new ActualizarComprasSettingsCommand(ApartarExistenciaAlAutorizar: valor.GetBoolean()),
+        };
 
-        await _mediator.Send(
-            clave == ClaveAutoGenerarOc ? new ActualizarComprasSettingsCommand(AutoGenerarOcAlAutorizar: flag)
-                : new ActualizarComprasSettingsCommand(ApartarExistenciaAlAutorizar: flag),
-            cancellationToken);
+        await _mediator.Send(comando, cancellationToken);
 
         // Re-leer el schema actualizado para retornar el SettingItem con
         // el Valor reciente. Costo aceptable (1 query) por simplicidad

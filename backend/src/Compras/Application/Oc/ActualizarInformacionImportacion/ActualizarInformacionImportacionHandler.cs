@@ -26,20 +26,22 @@ public sealed class ActualizarInformacionImportacionHandler
 
         // NumeroPedimento se IGNORA en este comando — tiene su propio
         // endpoint /numero-pedimento porque es editable post-autorización.
-        var info = (command.IncotermId, command.PaisOrigen, command.NumeroContenedor,
-                    command.CodigoRuta, command.SemanaEmbarque) switch
-        {
-            (null, null, null, null, null) => (InformacionImportacion?)null,
-            _ => new InformacionImportacion(
-                command.IncotermId,
-                command.PaisOrigen,
-                command.NumeroContenedor,
-                command.CodigoRuta,
-                command.SemanaEmbarque,
-                numeroPedimento: null),
-        };
+        var info = new InformacionImportacion(
+            command.IncotermId,
+            command.PaisOrigen,
+            command.NumeroContenedor,
+            command.CodigoRuta,
+            command.SemanaEmbarque,
+            numeroPedimento: null,
+            tipoOperacion: command.TipoOperacion,
+            numeroBl: command.NumeroBl,
+            tipoTransporte: command.TipoTransporte,
+            agenteAduanalNaviera: command.AgenteAduanalNaviera,
+            puertoAduanaEntrada: command.PuertoAduanaEntrada,
+            fechaEstimadaArribo: command.FechaEstimadaArribo,
+            certificadoOrigen: command.CertificadoOrigen);
 
-        oc.ActualizarInformacionImportacion(info);
+        oc.ActualizarInformacionImportacion(info.EsVacio ? null : info);
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

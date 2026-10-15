@@ -109,6 +109,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.Property(o => o.FechaDocumento).IsRequired();
         builder.Property(o => o.FechaContabilizacion);
         builder.Property(o => o.CicloAutorizacion).HasDefaultValue(1).IsRequired();
+        builder.Property(o => o.RequiereNivel2).HasDefaultValue(true).IsRequired();
         builder.Property(o => o.FechaEntregaEsperada);
 
         builder.Property(o => o.Estado)
@@ -157,6 +158,14 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.Property(o => o.InfoImportCodigoRuta).HasMaxLength(40);
         builder.Property(o => o.InfoImportSemanaEmbarque).HasMaxLength(40);
         builder.Property(o => o.InfoImportNumeroPedimento).HasMaxLength(60);
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
+        builder.Property(o => o.InfoImportTipoOperacion).HasConversion<short>();
+        builder.Property(o => o.InfoImportNumeroBl).HasMaxLength(50);
+        builder.Property(o => o.InfoImportTipoTransporte).HasConversion<short>();
+        builder.Property(o => o.InfoImportAgenteAduanalNaviera).HasMaxLength(120);
+        builder.Property(o => o.InfoImportPuertoAduanaEntrada).HasMaxLength(80);
+        builder.Property(o => o.InfoImportFechaEstimadaArribo);
+        builder.Property(o => o.InfoImportCertificadoOrigen).HasDefaultValue(false).IsRequired();
 
         // VOs computed (getters) — no se persisten.
         builder.Ignore(o => o.ContactoProveedor);

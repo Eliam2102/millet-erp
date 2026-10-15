@@ -23,7 +23,11 @@ public sealed class ActualizarNumeroPedimentoHandler
                 "ORDEN_COMPRA_NO_ENCONTRADA",
                 $"No se encontró orden de compra con id '{command.OrdenCompraId}'.");
 
-        oc.ActualizarNumeroPedimento(command.NumeroPedimento);
+        oc.ActualizarNumeroPedimento(
+            command.NumeroPedimento,
+            command.NumeroBl,
+            command.FechaEstimadaArribo,
+            command.AgenteAduanalNaviera);
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -103,6 +103,24 @@ public class ComprasSettingsEndpointsTests : IClassFixture<WebApplicationFactory
         Assert.True(settings.TryGetProperty("autoGenerarOcAlAutorizar", out _));
     }
 
+    [Fact]
+    public async Task Patch_ModoNivel2_Persiste_Y_Get_Posterior_Lo_Refleja()
+    {
+        var client = await CreateSuperAdminClientAsync();
+
+        var patch = await client.PatchAsJsonAsync(EndpointBase, new { ModoNivel2 = "Ambos" });
+        patch.EnsureSuccessStatusCode();
+        Assert.Equal("Ambos", (await ReadJsonAsync(patch)).GetProperty("modoNivel2").GetString());
+
+        var verify = await client.GetAsync(EndpointBase);
+        verify.EnsureSuccessStatusCode();
+        Assert.Equal("Ambos", (await ReadJsonAsync(verify)).GetProperty("modoNivel2").GetString());
+
+        // Restaurar el default para no afectar a otros tests de la misma factory.
+        var restore = await client.PatchAsJsonAsync(EndpointBase, new { ModoNivel2 = "SoloMonto" });
+        restore.EnsureSuccessStatusCode();
+    }
+
     private async Task<HttpClient> CreateSuperAdminClientAsync()
     {
         var client = _factory.CreateClientWithIdempotency();

@@ -44,7 +44,11 @@ public sealed class ComprasMapsterConfig : IRegister
             // Ídem CC-Máquina: la línea solo guarda CentroCostoId; el handler
             // resuelve clave/nombre tras el map (batch IDim3ReadPort). Null explícito.
             .Map(dest => dest.CentroCostoClave, src => (string?)null)
-            .Map(dest => dest.CentroCostoNombre, src => (string?)null);
+            .Map(dest => dest.CentroCostoNombre, src => (string?)null)
+            // Comprometido y saldo de OC: los resuelve el handler en lote
+            // (SaldoCompraRq). Explícitos en 0 para no depender del ctor posicional.
+            .Map(dest => dest.CantComprometidaEnOc, src => 0m)
+            .Map(dest => dest.CantSaldoPorComprar, src => 0m);
 
         // Autorizacion → AutorizacionResponse (B.0): convención.
         config.NewConfig<Autorizacion, AutorizacionResponse>();

@@ -1,3 +1,5 @@
+using Millet.Compras.Domain;
+
 namespace Millet.Compras.Application.Settings;
 
 /// <summary>
@@ -15,4 +17,5 @@ namespace Millet.Compras.Application.Settings;
 /// </param>
 public sealed record ComprasSettingsResponse(
     Guid EmpresaId,
-    bool AutoGenerarOcAlAutorizar, bool ApartarExistenciaAlAutorizar = true);
+    bool AutoGenerarOcAlAutorizar, bool ApartarExistenciaAlAutorizar = true,
+    ModoNivel2 ModoNivel2 = ModoNivel2.SoloMonto);
