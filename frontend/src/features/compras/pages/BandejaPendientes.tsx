@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   EmptyState,
   ErrorState,
@@ -21,6 +22,18 @@ import {
   type SortState,
 } from '@/components/erp';
 import { usePendientesAutorizacion } from '@/features/compras/api/usePendientesAutorizacion';
+import {
+  useAutorizarMasivo,
+  type AutorizacionMasivaItemResultado,
+} from '@/features/compras/api/useAutorizarMasivo';
+import {
+  NivelAutorizacion,
+  type PendienteAutorizacionItemResponse,
+} from '@/features/compras/api/types';
+import {
+  DisponibilidadBadge,
+  RecurrenteBadge,
+} from '@/features/compras/components/IndicadoresPendiente';
 import { useDepartamentos, mapById } from '@/features/catalogos/api';
 import {
   departamentoLabel,
@@ -87,6 +100,84 @@ export function BandejaPendientes() {
       compareItemsBy(a, b, sort.key, sort.dir),
     );
   }, [itemsFiltrados, sort]);
+
+  const puedeN1 = useHasPermission(
+    PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
+  );
+  const puedeN2 = useHasPermission(
+    PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
+  );
+  const autorizarMasivo = useAutorizarMasivo();
+  const [seleccion, setSeleccion] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [resultados, setResultados] = useState<
+    Record<string, AutorizacionMasivaItemResultado>
+  >({});
+  const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
+
+  function puedeAutorizar(r: PendienteAutorizacionItemResponse): boolean {
+    if (r.nivelPendiente === NivelAutorizacion.Nivel1) return puedeN1;
+    if (r.nivelPendiente === NivelAutorizacion.Nivel2) return puedeN2;
+    return false;
+  }
+
+  const autorizables = itemsOrdenados.filter(puedeAutorizar);
+  const seleccionadas = autorizables.filter((r) => seleccion.has(r.id));
+  const todasSeleccionadas =
+    autorizables.length > 0 && seleccionadas.length === autorizables.length;
+  const algunaSeleccionada =
+    seleccionadas.length > 0 && !todasSeleccionadas;
+
+  function alternarSeleccion(id: string, on: boolean) {
+    setSeleccion((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function alternarTodas(on: boolean) {
+    setSeleccion(on ? new Set(autorizables.map((r) => r.id)) : new Set());
+  }
+
+  /**
+   * Aprueba un lote. El endpoint masivo recibe un solo nivel, así que se
+   * agrupa por <c>nivelPendiente</c>. Cada id devuelve su propio resultado;
+   * se muestra por fila y las aprobadas salen de la selección.
+   */
+  async function aprobar(items: readonly PendienteAutorizacionItemResponse[]) {
+    setErrorAprobacion(null);
+    const porNivel = new Map<NivelAutorizacion, string[]>();
+    for (const r of items) {
+      if (r.nivelPendiente == null) continue;
+      const ids = porNivel.get(r.nivelPendiente) ?? [];
+      ids.push(r.id);
+      porNivel.set(r.nivelPendiente, ids);
+    }
+    for (const [nivel, ids] of porNivel) {
+      try {
+        const respuesta = await autorizarMasivo.mutateAsync({
+          ids,
+          nivel,
+          idempotencyKey: crypto.randomUUID(),
+        });
+        const porId = Object.fromEntries(
+          respuesta.resultados.map((x) => [x.id, x]),
+        );
+        setResultados((prev) => ({ ...prev, ...porId }));
+        const okIds = new Set(
+          respuesta.resultados.filter((x) => x.ok).map((x) => x.id),
+        );
+        setSeleccion((prev) => new Set([...prev].filter((id) => !okIds.has(id))));
+      } catch {
+        setErrorAprobacion(
+          'No se pudo completar la aprobación. Revisa la bandeja e intenta de nuevo.',
+        );
+      }
+    }
+  }
 
   function setSearch(next: PendientesSearch) {
     navigate({
@@ -182,14 +273,38 @@ export function BandejaPendientes() {
         )}
       </div>
 
+      {(seleccionadas.length > 0 || errorAprobacion) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {seleccionadas.length > 0 && (
+            <Button
+              type="button"
+              size="sm"
+              disabled={autorizarMasivo.isPending}
+              onClick={() => aprobar(seleccionadas)}
+            >
+              Aprobar seleccionadas ({seleccionadas.length})
+            </Button>
+          )}
+          {errorAprobacion && (
+            <p role="alert" className="text-sm text-danger-fg">
+              {errorAprobacion}
+            </p>
+          )}
+        </div>
+      )}
+
       {query.isLoading ? (
         <TableSkeleton
           rows={6}
           columns={[
+            { width: 'w-6' },
             { width: 'w-32' },
             { width: 'w-24' },
             { width: 'w-48' },
             { width: 'w-40' },
+            { width: 'w-24' },
+            { width: 'w-20' },
+            { width: 'w-20' },
             { width: 'w-24' },
             { width: 'w-20' },
             { width: 'w-12' },
@@ -214,9 +329,19 @@ export function BandejaPendientes() {
       ) : (
         <div className="overflow-x-auto rounded-md border bg-card">
           {/* Tabla — desktop md+ */}
-          <table className="hidden w-full min-w-[720px] text-sm md:table">
+          <table className="hidden w-full min-w-[960px] text-sm md:table">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
+                <th className="w-10 px-3 py-2 text-left">
+                  <Checkbox
+                    checked={
+                      todasSeleccionadas ? true : algunaSeleccionada ? 'indeterminate' : false
+                    }
+                    onCheckedChange={(v) => alternarTodas(v === true)}
+                    disabled={autorizables.length === 0}
+                    aria-label="Seleccionar todas las pendientes autorizables"
+                  />
+                </th>
                 <th className="px-3 py-2 text-left">
                   <SortableHeader
                     columnKey="folio"
@@ -237,7 +362,9 @@ export function BandejaPendientes() {
                 <th className="px-3 py-2 text-left font-medium">Departamento</th>
                 <th className="px-3 py-2 text-left font-medium">Estado</th>
                 <th className="px-3 py-2 text-left font-medium">Nivel</th>
-                <th className="px-3 py-2 text-right font-medium">Ver</th>
+                <th className="px-3 py-2 text-left font-medium">Disponibilidad</th>
+                <th className="px-3 py-2 text-left font-medium">Recurrente</th>
+                <th className="px-3 py-2 text-right font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -249,6 +376,14 @@ export function BandejaPendientes() {
                     key={r.id}
                     className={i % 2 === 1 ? 'bg-muted/20' : undefined}
                   >
+                    <td className="px-3 py-2">
+                      <Checkbox
+                        checked={seleccion.has(r.id)}
+                        onCheckedChange={(v) => alternarSeleccion(r.id, v === true)}
+                        disabled={!puedeAutorizar(r)}
+                        aria-label={`Seleccionar ${r.folio}`}
+                      />
+                    </td>
                     <td className="px-3 py-2 font-mono">{r.folio}</td>
                     <td className="px-3 py-2">
                       <DateTimeDisplay value={r.fechaSolicitud} />
@@ -263,21 +398,32 @@ export function BandejaPendientes() {
                         <NivelPendienteBadge nivel={r.nivelPendiente} />
                       )}
                     </td>
+                    <td className="px-3 py-2">
+                      <DisponibilidadBadge disponibilidad={r.disponibilidad} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <RecurrenteBadge esRecurrente={r.esRecurrente} />
+                    </td>
                     <td className="px-3 py-2 text-right">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link
-                          to="/compras/pendientes/$id"
-                          params={{ id: r.id }}
-                          // Pasamos la search actual de la bandeja P2
-                          // para que la lista master del detalle abra
-                          // con los mismos filtros y el botón "Cerrar"
-                          // del detalle vuelva sin perderlos.
-                          search={search}
-                          state={{ pendientesSearch: search } as never}
-                        >
-                          Ver
-                        </Link>
-                      </Button>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {resultados[r.id] && (
+                          <ResultadoFila resultado={resultados[r.id]} />
+                        )}
+                        <Button asChild variant="ghost" size="sm">
+                          <Link
+                            to="/compras/pendientes/$id"
+                            params={{ id: r.id }}
+                            // Pasamos la search actual de la bandeja P2
+                            // para que la lista master del detalle abra
+                            // con los mismos filtros y el botón "Cerrar"
+                            // del detalle vuelva sin perderlos.
+                            search={search}
+                            state={{ pendientesSearch: search } as never}
+                          >
+                            Ver
+                          </Link>
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -293,6 +439,13 @@ export function BandejaPendientes() {
               return (
                 <li key={r.id} className="p-3 text-sm">
                   <div className="flex items-start justify-between gap-3">
+                    <Checkbox
+                      className="mt-1"
+                      checked={seleccion.has(r.id)}
+                      onCheckedChange={(v) => alternarSeleccion(r.id, v === true)}
+                      disabled={!puedeAutorizar(r)}
+                      aria-label={`Seleccionar ${r.folio}`}
+                    />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs">{r.folio}</span>
@@ -300,6 +453,8 @@ export function BandejaPendientes() {
                         {r.nivelPendiente != null && (
                           <NivelPendienteBadge nivel={r.nivelPendiente} />
                         )}
+                        <DisponibilidadBadge disponibilidad={r.disponibilidad} />
+                        <RecurrenteBadge esRecurrente={r.esRecurrente} />
                       </div>
                       <div className="text-xs text-muted-foreground">
                         <DateTimeDisplay value={r.fechaSolicitud} />
@@ -336,6 +491,24 @@ export function BandejaPendientes() {
         </div>
       )}
     </div>
+  );
+}
+
+interface ResultadoFilaProps {
+  resultado: AutorizacionMasivaItemResultado;
+}
+
+/** Resultado por fila de la aprobación masiva (accesible: role="status"). */
+function ResultadoFila({ resultado }: ResultadoFilaProps) {
+  return (
+    <span
+      role="status"
+      className={
+        resultado.ok ? 'text-xs text-success-fg' : 'text-xs text-danger-fg'
+      }
+    >
+      {resultado.ok ? 'Aprobada' : (resultado.mensaje ?? 'Error al aprobar')}
+    </span>
   );
 }
 

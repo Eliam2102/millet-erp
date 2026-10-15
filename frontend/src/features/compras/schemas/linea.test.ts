@@ -42,9 +42,16 @@ describe('LineaSchema', () => {
     expect(result.cantidad).toBe(1.23456);
   });
 
-  it('rechaza precioEstimadoMonto ≤ 0', () => {
+  it('acepta línea sin precio estimado (opcional)', () => {
+    const { precioEstimadoMonto: _m, precioEstimadoMoneda: _c, ...sinPrecio } = baseValida;
+    void _m;
+    void _c;
+    expect(() => LineaSchema.parse(sinPrecio)).not.toThrow();
+  });
+
+  it('rechaza precioEstimadoMonto negativo', () => {
     expect(() =>
-      LineaSchema.parse({ ...baseValida, precioEstimadoMonto: 0 }),
+      LineaSchema.parse({ ...baseValida, precioEstimadoMonto: -1 }),
     ).toThrow();
   });
 
