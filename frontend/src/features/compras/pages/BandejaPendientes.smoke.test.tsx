@@ -302,8 +302,14 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
       key: expect.any(String),
     });
 
-    const filaN1 = screen.getAllByText('MID2026-000101')[0].closest('tr')!;
-    const filaN2 = screen.getAllByText('MID2026-000102')[0].closest('tr')!;
+    // El folio también aparece en el resumen; la fila es el ancestro <tr>.
+    const filaDe = (folio: string) =>
+      screen
+        .getAllByText(folio)
+        .map((el) => el.closest('tr'))
+        .find((tr) => tr != null)!;
+    const filaN1 = filaDe('MID2026-000101');
+    const filaN2 = filaDe('MID2026-000102');
     expect(await within(filaN1).findByRole('status')).toHaveTextContent('Aprobada');
     expect(await within(filaN2).findByRole('status')).toHaveTextContent(
       'Requiere firma de N1 previa',
@@ -312,5 +318,69 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
     expect(
       screen.getByRole('button', { name: 'Aprobar seleccionadas (1)' }),
     ).toBeInTheDocument();
+  });
+
+  it('el resumen de aprobación persiste aunque la lista se refresque sin las filas aprobadas', async () => {
+    useAuthStore.setState({
+      permisos: [
+        'compras.requisiciones.autorizar-nivel1',
+        'compras.requisiciones.autorizar-nivel2',
+      ],
+    });
+    let refrescada = false;
+    mswServer.use(
+      http.get('*/api/v1/compras/pendientes-autorizacion', () =>
+        HttpResponse.json(
+          refrescada
+            ? { items: [], offset: 0, limit: 50, total: 0 }
+            : { items: [itemN1, itemN2], offset: 0, limit: 50, total: 2 },
+        ),
+      ),
+      http.post(
+        '*/api/v1/compras/requisiciones/autorizaciones-masivas',
+        async ({ request }) => {
+          const body = (await request.json()) as { ids: string[] };
+          refrescada = true;
+          return HttpResponse.json({
+            resultados: body.ids.map((id) =>
+              id === 'rq-n2'
+                ? {
+                    id,
+                    ok: false,
+                    errorCodigo: 'SIN_FIRMA_PREVIA',
+                    mensaje: 'Requiere firma de N1 previa',
+                  }
+                : { id, ok: true, errorCodigo: null, mensaje: null },
+            ),
+          });
+        },
+      ),
+    );
+
+    render(<BandejaPendientes />, { wrapper: createQueryWrapper() });
+    fireEvent.click(
+      (await screen.findAllByRole('checkbox', { name: 'Seleccionar MID2026-000101' }))[0],
+    );
+    fireEvent.click(
+      screen.getAllByRole('checkbox', { name: 'Seleccionar MID2026-000102' })[0],
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }),
+    );
+
+    // La lista ya no tiene filas; el resumen debe seguir visible.
+    await screen.findByText(/no hay requisiciones pendientes/i);
+    const resumen = screen.getByRole('status', { name: 'Resumen de aprobación' });
+    expect(resumen).toHaveTextContent('1 aprobada · 1 con error');
+    expect(within(resumen).getByText('MID2026-000101')).toBeInTheDocument();
+    expect(within(resumen).getByText('MID2026-000102')).toBeInTheDocument();
+    expect(
+      within(resumen).getByText('Requiere firma de N1 previa'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(resumen).getByRole('button', { name: 'Entendido' }));
+    expect(
+      screen.queryByRole('status', { name: 'Resumen de aprobación' }),
+    ).not.toBeInTheDocument();
   });
 });

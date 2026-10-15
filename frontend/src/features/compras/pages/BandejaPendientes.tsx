@@ -34,6 +34,11 @@ import {
   DisponibilidadBadge,
   RecurrenteBadge,
 } from '@/features/compras/components/IndicadoresPendiente';
+import {
+  ResumenAprobacionMasiva,
+  resultadosConFolio,
+  type ResultadoAprobacionItem,
+} from '@/features/compras/components/ResumenAprobacionMasiva';
 import { useDepartamentos, mapById } from '@/features/catalogos/api';
 import {
   departamentoLabel,
@@ -115,6 +120,9 @@ export function BandejaPendientes() {
     Record<string, AutorizacionMasivaItemResultado>
   >({});
   const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
+  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>(
+    [],
+  );
 
   function puedeAutorizar(r: PendienteAutorizacionItemResponse): boolean {
     if (r.nivelPendiente === NivelAutorizacion.Nivel1) return puedeN1;
@@ -130,6 +138,7 @@ export function BandejaPendientes() {
     seleccionadas.length > 0 && !todasSeleccionadas;
 
   function alternarSeleccion(id: string, on: boolean) {
+    setResumen([]);
     setSeleccion((prev) => {
       const next = new Set(prev);
       if (on) next.add(id);
@@ -139,16 +148,21 @@ export function BandejaPendientes() {
   }
 
   function alternarTodas(on: boolean) {
+    setResumen([]);
     setSeleccion(on ? new Set(autorizables.map((r) => r.id)) : new Set());
   }
 
   /**
    * Aprueba un lote. El endpoint masivo recibe un solo nivel, así que se
    * agrupa por <c>nivelPendiente</c>. Cada id devuelve su propio resultado;
-   * se muestra por fila y las aprobadas salen de la selección.
+   * se muestra por fila, en el resumen persistente y las aprobadas salen de
+   * la selección.
    */
   async function aprobar(items: readonly PendienteAutorizacionItemResponse[]) {
     setErrorAprobacion(null);
+    setResumen([]);
+    const folioPorId = new Map(items.map((r) => [r.id, r.folio]));
+    const acumulado: ResultadoAprobacionItem[] = [];
     const porNivel = new Map<NivelAutorizacion, string[]>();
     for (const r of items) {
       if (r.nivelPendiente == null) continue;
@@ -167,6 +181,7 @@ export function BandejaPendientes() {
           respuesta.resultados.map((x) => [x.id, x]),
         );
         setResultados((prev) => ({ ...prev, ...porId }));
+        acumulado.push(...resultadosConFolio(respuesta.resultados, folioPorId));
         const okIds = new Set(
           respuesta.resultados.filter((x) => x.ok).map((x) => x.id),
         );
@@ -177,6 +192,7 @@ export function BandejaPendientes() {
         );
       }
     }
+    setResumen(acumulado);
   }
 
   function setSearch(next: PendientesSearch) {
@@ -194,6 +210,11 @@ export function BandejaPendientes() {
           Pendientes de autorización
         </h1>
       </div>
+
+      <ResumenAprobacionMasiva
+        resultados={resumen}
+        onCerrar={() => setResumen([])}
+      />
 
       <div
         className="flex flex-wrap items-center gap-2"

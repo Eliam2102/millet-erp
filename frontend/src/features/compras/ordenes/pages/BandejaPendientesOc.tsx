@@ -21,6 +21,11 @@ import {
   type AutorizacionMasivaOcItemResultado,
 } from '@/features/compras/ordenes/api/useAutorizarMasivoOc';
 import { IndicadoresOc } from '@/features/compras/ordenes/components/IndicadoresOc';
+import {
+  ResumenAprobacionMasiva,
+  resultadosConFolio,
+  type ResultadoAprobacionItem,
+} from '@/features/compras/components/ResumenAprobacionMasiva';
 import { NivelAutorizacion } from '@/features/compras/ordenes/schemas/autorizar';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
@@ -85,6 +90,9 @@ export function BandejaPendientesOc() {
     Record<string, AutorizacionMasivaOcItemResultado>
   >({});
   const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
+  const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>(
+    [],
+  );
 
   // Captura "ahora" una vez al montar — Date.now() es impuro y no puede
   // llamarse durante el render. El valor es solo informativo para
@@ -119,6 +127,7 @@ export function BandejaPendientesOc() {
   const algunaSeleccionada = seleccionadas.length > 0 && !todasSeleccionadas;
 
   function alternarSeleccion(id: string, on: boolean) {
+    setResumen([]);
     setSeleccion((prev) => {
       const next = new Set(prev);
       if (on) next.add(id);
@@ -128,18 +137,22 @@ export function BandejaPendientesOc() {
   }
 
   function alternarTodas(on: boolean) {
+    setResumen([]);
     setSeleccion(on ? new Set(autorizables.map((oc) => oc.id)) : new Set());
   }
 
   /**
    * Aprueba un lote con el nivel de la pestaña. Cada id devuelve su propio
-   * resultado; se muestra por fila y las aprobadas salen de la selección.
+   * resultado; se muestra por fila, en el resumen persistente y las aprobadas
+   * salen de la selección.
    */
-  async function aprobar(ids: readonly string[]) {
+  async function aprobar(ocs: readonly OrdenPendienteAutorizacion[]) {
     setErrorAprobacion(null);
+    setResumen([]);
+    const folioPorId = new Map(ocs.map((oc) => [oc.id, oc.folio]));
     try {
       const respuesta = await autorizarMasivo.mutateAsync({
-        ids,
+        ids: ocs.map((oc) => oc.id),
         nivel: nivelNumerico,
         idempotencyKey: crypto.randomUUID(),
       });
@@ -147,6 +160,7 @@ export function BandejaPendientesOc() {
         respuesta.resultados.map((x) => [x.id, x]),
       );
       setResultados((prev) => ({ ...prev, ...porId }));
+      setResumen(resultadosConFolio(respuesta.resultados, folioPorId));
       const okIds = new Set(
         respuesta.resultados.filter((x) => x.ok).map((x) => x.id),
       );
@@ -218,6 +232,11 @@ export function BandejaPendientesOc() {
         )}
       </header>
 
+      <ResumenAprobacionMasiva
+        resultados={resumen}
+        onCerrar={() => setResumen([])}
+      />
+
       {(seleccionadas.length > 0 || errorAprobacion) && (
         <div className="flex flex-wrap items-center gap-2">
           {seleccionadas.length > 0 && (
@@ -225,7 +244,7 @@ export function BandejaPendientesOc() {
               type="button"
               size="sm"
               disabled={autorizarMasivo.isPending}
-              onClick={() => aprobar(seleccionadas.map((oc) => oc.id))}
+              onClick={() => aprobar(seleccionadas)}
             >
               Aprobar seleccionadas ({seleccionadas.length})
             </Button>
@@ -285,7 +304,7 @@ export function BandejaPendientesOc() {
                   bloqueado={autorizarMasivo.isPending}
                   resultado={resultados[oc.id]}
                   onSeleccion={(on) => alternarSeleccion(oc.id, on)}
-                  onAprobarRapido={() => aprobar([oc.id])}
+                  onAprobarRapido={() => aprobar([oc])}
                 />
               ))}
             </tbody>

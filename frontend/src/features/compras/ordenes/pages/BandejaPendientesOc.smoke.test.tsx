@@ -172,6 +172,53 @@ describe('<BandejaPendientesOc>', () => {
     await waitFor(() => expect(llamadas).toEqual([['oc-1']]));
   });
 
+  it('el resumen de aprobación persiste aunque la lista se refresque sin las OC aprobadas', async () => {
+    let refrescada = false;
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/pendientes-autorizacion', () =>
+        HttpResponse.json(
+          refrescada
+            ? { items: [], page: 1, pageSize: 50, totalCount: 0 }
+            : { items: [ocA, ocB], page: 1, pageSize: 50, totalCount: 2 },
+        ),
+      ),
+      http.post(
+        '*/api/v1/compras/ordenes/autorizaciones-masivas',
+        async ({ request }) => {
+          const body = (await request.json()) as { ids: string[] };
+          refrescada = true;
+          return HttpResponse.json({
+            resultados: body.ids.map((id) =>
+              id === 'oc-1'
+                ? { id, ok: true, errorCodigo: null, mensaje: null }
+                : {
+                    id,
+                    ok: false,
+                    errorCodigo: 'OC_NO_AUTORIZABLE',
+                    mensaje: 'La OC ya no está en autorización',
+                  },
+            ),
+          });
+        },
+      ),
+    );
+
+    render(<BandejaPendientesOc />, { wrapper: createQueryWrapper() });
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar OC-2026-000001' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar OC-2026-000002' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }));
+
+    // La lista ya no tiene filas; el resumen debe seguir visible.
+    await screen.findByText(/sin ocs pendientes/i);
+    const resumen = screen.getByRole('status', { name: 'Resumen de aprobación' });
+    expect(resumen).toHaveTextContent('1 aprobada · 1 con error');
+    expect(within(resumen).getByText('OC-2026-000001')).toBeInTheDocument();
+    expect(within(resumen).getByText('OC-2026-000002')).toBeInTheDocument();
+    expect(
+      within(resumen).getByText('La OC ya no está en autorización'),
+    ).toBeInTheDocument();
+  });
+
   it('sin permiso de autorización: casillas deshabilitadas y sin botón Aprobar', async () => {
     useAuthStore.setState({ permisos: ['compras.ordenes.leer'] });
     mswServer.use(
