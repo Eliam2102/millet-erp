@@ -80,6 +80,10 @@ export function MovimientosPruebaPage() {
 
   const incompleto = !sucursalId || !tipoId || !cuenta || !fecha;
   const motivoIncompleto = 'Elige sucursal, tipo de documento, cuenta y fecha contable';
+  // Tras una validación (o registro) rechazada no se puede registrar la misma combinación:
+  // cualquier cambio en los campos limpia el resultado y vuelve a habilitar el botón.
+  const conErrores = resultado?.tipo === 'errores';
+  const motivoConErrores = 'Corrige los errores marcados para registrar el movimiento';
 
   function cuerpo(): MovimientoBody {
     return {
@@ -201,7 +205,10 @@ export function MovimientosPruebaPage() {
           <Button variant="outline" size="lg" disabled={incompleto || pendiente} title={incompleto ? motivoIncompleto : undefined} onClick={onValidar}>
             {validar.isPending ? 'Validando…' : 'Validar'}
           </Button>
-          <Button size="lg" disabled={incompleto || pendiente} title={incompleto ? motivoIncompleto : undefined} onClick={onRegistrar}>
+          <Button
+            size="lg" disabled={incompleto || pendiente || conErrores}
+            title={incompleto ? motivoIncompleto : conErrores ? motivoConErrores : undefined} onClick={onRegistrar}
+          >
             {confirmar.isPending ? 'Registrando…' : 'Registrar movimiento de prueba'}
           </Button>
         </div>

@@ -7,9 +7,19 @@ const CAMPOS: readonly [keyof Cuenta, string][] = [
   ['grupoReporte', 'Grupo de reporte'], ['clase', 'Clase'], ['rubroId', 'Rubro'],
 ];
 
-export function diferenciasCatalogo(cambio: CambioCuenta) {
+/** Campos que guardan el id de otra cuenta: se muestran con su código. */
+const REFERENCIAS: ReadonlySet<keyof Cuenta> = new Set(['padreId', 'rubroId']);
+
+/** Compara por id; `codigos` (id → código, del API) solo cambia lo que se muestra. */
+export function diferenciasCatalogo(cambio: CambioCuenta, codigos: Record<string, string> = {}) {
+  const ver = (campo: keyof Cuenta, valor: unknown) =>
+    REFERENCIAS.has(campo) && typeof valor === 'string' ? codigos[valor] ?? valor : valor;
   return CAMPOS.filter(([campo]) => !cambio.antes || cambio.antes[campo] !== cambio.despues[campo])
-    .map(([campo, etiqueta]) => ({ campo, etiqueta, antes: cambio.antes?.[campo], despues: cambio.despues[campo] }));
+    .map(([campo, etiqueta]) => ({
+      campo, etiqueta,
+      antes: cambio.antes ? ver(campo, cambio.antes[campo]) : undefined,
+      despues: ver(campo, cambio.despues[campo]),
+    }));
 }
 
 export function valorDiferencia(valor: unknown): string {
