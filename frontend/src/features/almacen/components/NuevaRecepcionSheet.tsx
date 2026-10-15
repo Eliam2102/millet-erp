@@ -1,5 +1,5 @@
 import { hoyLocalISO } from '@/lib/datetime';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Controller,
   useForm,
@@ -98,8 +98,33 @@ export function NuevaRecepcionSheet({
   open,
   onOpenChange,
 }: NuevaRecepcionSheetProps) {
+  // Patrón P4 (igual que NuevaRequisicionProvider / SheetNuevoCliente): el
+  // form reporta isDirty; los gestos de cerrar (Esc, clic fuera, X y
+  // Cancelar) piden confirmación si hay cambios. El registro exitoso cierra
+  // sin confirmar. Ref + setter estable: el form lo llama en cada cambio.
+  const dirtyRef = useRef(false);
+  const setDirty = useCallback((dirty: boolean) => {
+    dirtyRef.current = dirty;
+  }, []);
+
+  function solicitarCierre() {
+    if (dirtyRef.current && !window.confirm(MENSAJE_DESCARTAR_RECEPCION)) {
+      return;
+    }
+    dirtyRef.current = false;
+    onOpenChange(false);
+  }
+
+  function cerrarTrasRegistro() {
+    dirtyRef.current = false;
+    onOpenChange(false);
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
       <SheetContent side="right" className="sm:max-w-3xl">
         <SheetHeader>
           <SheetTitle>Nueva recepción</SheetTitle>
@@ -112,8 +137,9 @@ export function NuevaRecepcionSheet({
 
         {open && (
           <NuevaRecepcionFormBody
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => onOpenChange(false)}
+            onSuccess={cerrarTrasRegistro}
+            onCancel={solicitarCierre}
+            onDirtyChange={setDirty}
           />
         )}
       </SheetContent>
@@ -121,12 +147,17 @@ export function NuevaRecepcionSheet({
   );
 }
 
+const MENSAJE_DESCARTAR_RECEPCION =
+  'Tienes cambios sin guardar en la nueva recepción. ¿Descartarlos y cerrar?';
+
 function NuevaRecepcionFormBody({
   onSuccess,
   onCancel,
+  onDirtyChange,
 }: {
   onSuccess: () => void;
   onCancel: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
@@ -155,6 +186,14 @@ function NuevaRecepcionFormBody({
     resolver,
     defaultValues: defaultValuesParaVariante('A', hoyIso),
   });
+
+  // El packing list adjunto vive fuera de RHF: cuenta como cambio sin guardar.
+  const isDirty = form.formState.isDirty || packingListAdjunto != null;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+  // Al desmontar (cierre o cambio de visibilidad) ya no hay cambios pendientes.
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
 
   function cambiarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
