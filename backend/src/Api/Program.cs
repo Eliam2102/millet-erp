@@ -1400,6 +1400,8 @@ app.UseMiddleware<RequestContextLoggingMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 
 app.MapGet("/", () => "Hello World!");
+app.MapGet("/api/version", (IHostEnvironment environment) => Millet.Api.VersionInfo.Actual(environment.EnvironmentName))
+    .AllowAnonymous();
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
