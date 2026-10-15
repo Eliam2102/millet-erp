@@ -44,7 +44,7 @@ public static class AprobacionEndpoints
         {
             await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             var marcadas = await mediator.Send(new EvaluarVariacionesConteoCommand(id), ct);
-            return Results.Ok(new { lineas_marcadas_para_recuento = marcadas });
+            return Results.Ok(new { lineasMarcadasParaRecuento = marcadas });
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosCapturar)
         .WithTags("Almacen")
