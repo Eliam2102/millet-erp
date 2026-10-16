@@ -13,10 +13,16 @@ const MENSAJES_TRANSMISION: Readonly<Record<string, string>> = {
     'Falta el incoterm de la operación. Captúralo en la pestaña Información, sub-pestaña Importación, antes de enviar la OC a autorización.',
   IMPORT_PAIS_REQUERIDO:
     'Falta el país de origen de la operación. Captúralo en la pestaña Información, sub-pestaña Importación, antes de enviar la OC a autorización.',
+  // El servidor nombra las líneas sin precio; el texto de aquí es solo fallback.
+  OC_PRECIO_REQUERIDO:
+    'Captura el precio de las líneas sin precio antes de enviar a autorización.',
 };
 
 /** Mensaje para el usuario al fallar «Transmitir a autorización». */
 export function mensajeErrorTransmision(error: unknown): string {
   const code = esApiError(error) ? error.code : undefined;
+  if (code === 'OC_PRECIO_REQUERIDO' && esApiError(error) && error.problem.detail) {
+    return error.problem.detail;
+  }
   return (code && MENSAJES_TRANSMISION[code]) || mensajeErrorAccion(error);
 }

@@ -989,6 +989,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// <list type="bullet">
     ///   <item>Estado es Borrador o Rechazada.</item>
     ///   <item>Al menos 1 línea.</item>
+    ///   <item>Todas las líneas con <c>PrecioUnitario &gt; 0</c> (<c>OC_PRECIO_REQUERIDO</c>).</item>
     /// </list>
     ///
     /// <para>
@@ -1021,6 +1022,18 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             throw new BusinessRuleException(
                 "OC_TRANSMITIR_SIN_LINEAS",
                 "La OC debe tener al menos una línea para enviarse a autorización.");
+        }
+
+        var sinPrecio = _lineas
+            .Where(l => l.PrecioUnitario <= 0m)
+            .OrderBy(l => l.Posicion)
+            .Select(l => l.Posicion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .ToList();
+        if (sinPrecio.Count > 0)
+        {
+            throw new BusinessRuleException(
+                "OC_PRECIO_REQUERIDO",
+                $"Captura el precio de las líneas {string.Join(", ", sinPrecio)} antes de enviar a autorización.");
         }
 
         if (EsBorradorMinimo)
