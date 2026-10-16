@@ -39,6 +39,14 @@ public sealed class FacturaVenta : Comprobante
     /// <summary>Complemento de Comercio Exterior (1:1 opcional), presente solo en exportación con CCE (F7-PR1).</summary>
     public Cce.ComplementoCce? ComplementoCce { get; private set; }
 
+    public DatosEmbarqueCe? DatosEmbarqueCe { get; private set; }
+    public void TomarEmbarqueCe(DatosEmbarqueCe datos)
+    {
+        if (Estado != EstadoTimbrado.Borrador || DatosEmbarqueCe is not null)
+            throw new BusinessRuleException("FAC_EMBARQUE_INMUTABLE", "La copia del expediente se fija una sola vez al emitir.");
+        DatosEmbarqueCe = datos with { Contenedores = Array.AsReadOnly(datos.Contenedores.ToArray()) };
+    }
+
     private FacturaVenta() { }
 
     private FacturaVenta(

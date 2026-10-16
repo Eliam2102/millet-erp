@@ -37,3 +37,12 @@ describe.each([
     expect(guard).not.toThrow();
   });
 });
+
+import { Route as relacionIva } from '@/routes/_app/comercio-exterior/relacion-iva';
+it('relación IVA usa su permiso propio', () => {
+  const guard = relacionIva.options.beforeLoad as () => void;
+  useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesLeer] });
+  expect(guard).toThrow();
+  useAuthStore.setState({ permisos: [P.ComercioExteriorRelacionIvaLeer] });
+  expect(guard).not.toThrow();
+});

@@ -414,6 +414,8 @@ export const PermisosCanonicos = {
   ContabilidadPeriodoAdministrar: 'contabilidad.periodo.administrar',
   ContabilidadPeriodoCerrar: 'contabilidad.periodo.cerrar',
   ContabilidadPeriodoReabrir: 'contabilidad.periodo.reabrir',
+  ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
+  ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',
   ComercioExteriorExpedientesLeer: 'comercio_exterior.expedientes.leer',
   ComercioExteriorExpedientesCrear: 'comercio_exterior.expedientes.crear',
   ComercioExteriorExpedientesEditar: 'comercio_exterior.expedientes.editar',

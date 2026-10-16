@@ -19,6 +19,8 @@ public sealed class ModeloPersistenceTests
             typeof(Millet.ComercioExterior.Domain.DocumentoExpediente),
             typeof(Millet.ComercioExterior.Domain.ParticipanteExpediente),
             typeof(Millet.ComercioExterior.Domain.HitoExpediente),
+            typeof(Millet.ComercioExterior.Domain.ContenedorExpediente),
+            typeof(Millet.ComercioExterior.Domain.PartidaEmbarcada),
             typeof(Millet.ComercioExterior.Domain.AvisoHitoVencido)
         }
 
@@ -31,6 +33,8 @@ public sealed class ModeloPersistenceTests
             Assert.NotEmpty(entity.GetDeclaredQueryFilters());
         }
 
+        var vinculo = db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.VinculoPedidoExpediente))!;
+        Assert.Contains(vinculo.GetIndexes(), i => i.IsUnique && i.GetDatabaseName() == "ux_ce_pedido_expediente_abierto" && i.GetFilter() == "activo");
         Assert.Contains(db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.Expediente))!.GetIndexes(), i => i.GetDatabaseName() == "ux_ce_oc_abierta" && i.IsUnique);
     }
 
