@@ -9,12 +9,17 @@ public sealed class TipoDocumentoContableConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<TipoDocumentoContable> builder)
     {
-        builder.ToTable("tipos_documento_contable", t => t.HasCheckConstraint("ck_tipos_documento_estatus", "estatus BETWEEN 0 AND 2"));
+        builder.ToTable("tipos_documento_contable", t =>
+        {
+            t.HasCheckConstraint("ck_tipos_documento_estatus", "estatus BETWEEN 0 AND 2");
+            t.HasCheckConstraint("ck_tipos_documento_tipo_sat", "tipo_sat BETWEEN 1 AND 3");
+        });
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
         builder.Property(x => x.Clave).HasMaxLength(20).IsRequired();
         builder.Property(x => x.Nombre).HasMaxLength(120).IsRequired();
         builder.Property(x => x.Estatus).HasConversion<short>().IsRequired();
+        builder.Property(x => x.TipoSat).HasConversion<short>().IsRequired(); // La migración rellena los existentes con 3 (diario).
         builder.Ignore(x => x.Activo);
         builder.HasIndex(x => new { x.EmpresaId, x.Clave }).IsUnique().HasDatabaseName("ux_tipos_documento_clave");
     }

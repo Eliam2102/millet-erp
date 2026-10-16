@@ -517,6 +517,13 @@ public static class PermisosCanonicos
     public const string ContabilidadPeriodoAdministrar                  = "contabilidad.periodo.administrar";
     public const string ContabilidadPeriodoCerrar                       = "contabilidad.periodo.cerrar";
     public const string ContabilidadPeriodoReabrir                      = "contabilidad.periodo.reabrir";
+    // F1-CON-04: -0005 pólizas (C1.3, K10.3, K10.9). `capturar` (Analista) y `autorizar` (Supervisor) separados: R23, prepara el
+    // Analista y aprueba el Supervisor (además nadie autoriza su propia póliza). `anular` va aparte: crea la póliza en negativo.
+    // Literales duplicados en Contabilidad.Application.Polizas.PolizaAdjuntoPropietario (Contabilidad no referencia Identidad).
+    public const string ContabilidadPolizasLeer                         = "contabilidad.polizas.leer";
+    public const string ContabilidadPolizasCapturar                     = "contabilidad.polizas.capturar";
+    public const string ContabilidadPolizasAutorizar                    = "contabilidad.polizas.autorizar";
+    public const string ContabilidadPolizasAnular                       = "contabilidad.polizas.anular";
 
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
@@ -819,5 +826,9 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0004-0000-0000-000000000002"), ContabilidadPeriodoAdministrar,         "Crear ejercicios contables y abrir sus periodos"),
         (Guid.Parse("0000000d-0004-0000-0000-000000000003"), ContabilidadPeriodoCerrar,              "Cerrar periodos contables con motivo"),
         (Guid.Parse("0000000d-0004-0000-0000-000000000004"), ContabilidadPeriodoReabrir,             "Reabrir periodos contables cerrados con motivo (autorización de mayor nivel)"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000001"), ContabilidadPolizasLeer,                "Consultar pólizas contables, sus partidas, documentos soporte y los movimientos del periodo por cuenta"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000002"), ContabilidadPolizasCapturar,            "Capturar, editar y descartar pólizas manuales en borrador y adjuntar su documento soporte"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000003"), ContabilidadPolizasAutorizar,           "Autorizar pólizas manuales capturadas por otro usuario (asigna su número)"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000004"), ContabilidadPolizasAnular,              "Anular pólizas autorizadas con motivo (genera la póliza con las mismas partidas en negativo)"),
     };
 }
