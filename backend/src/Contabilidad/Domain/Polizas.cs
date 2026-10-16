@@ -300,9 +300,9 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
 
 /// <summary>
 /// Partida de una póliza (C1.3). En una partida normal solo hay cargo o abono, positivo. En una partida de anulación (K10.3) el
-/// importe es negativo y conserva el lado de la original.
+/// importe es negativo y conserva el lado de la original. Se audita (bitácora R23): solo se escribe al capturar o editar el borrador.
 /// </summary>
-public sealed class PolizaPartida : BaseEntity, IPerteneceAEmpresa
+public sealed class PolizaPartida : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
     public const int ConceptoMaximo = 300;
 
