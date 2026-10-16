@@ -21,11 +21,11 @@ import {
   type AutorizacionMasivaOcItemResultado,
 } from '@/features/compras/ordenes/api/useAutorizarMasivoOc';
 import { IndicadoresOc } from '@/features/compras/ordenes/components/IndicadoresOc';
+import { ResumenAprobacionMasiva } from '@/features/compras/components/ResumenAprobacionMasiva';
 import {
-  ResumenAprobacionMasiva,
   resultadosConFolio,
   type ResultadoAprobacionItem,
-} from '@/features/compras/components/ResumenAprobacionMasiva';
+} from '@/features/compras/lib/resultados-masivos';
 import { NivelAutorizacion } from '@/features/compras/ordenes/schemas/autorizar';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';

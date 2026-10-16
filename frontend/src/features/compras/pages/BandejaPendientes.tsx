@@ -34,11 +34,11 @@ import {
   DisponibilidadBadge,
   RecurrenteBadge,
 } from '@/features/compras/components/IndicadoresPendiente';
+import { ResumenAprobacionMasiva } from '@/features/compras/components/ResumenAprobacionMasiva';
 import {
-  ResumenAprobacionMasiva,
   resultadosConFolio,
   type ResultadoAprobacionItem,
-} from '@/features/compras/components/ResumenAprobacionMasiva';
+} from '@/features/compras/lib/resultados-masivos';
 import { useDepartamentos, mapById } from '@/features/catalogos/api';
 import {
   departamentoLabel,
