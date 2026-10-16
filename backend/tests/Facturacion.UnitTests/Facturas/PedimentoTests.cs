@@ -129,6 +129,43 @@ public sealed class PedimentoTests
     }
 
     [Fact]
+    public async Task AplicarPedimento_en_contexto_nuevo_conserva_las_mercancias_del_cce()
+    {
+        // Regresión U1.7 (15-oct): el handler cargaba solo Lineas; con un
+        // DbContext nuevo (request real) el CCE salía sin mercancías y el PAC
+        // rechazaba "'mercancias' requiere al menos una mercancía".
+        var empresaId = Guid.NewGuid();
+        var nombreDb = Guid.NewGuid().ToString();
+        FacturacionDbContext Db() => new(
+            new DbContextOptionsBuilder<FacturacionDbContext>().UseInMemoryDatabase(nombreDb).Options,
+            new FakeEmpresaContext(empresaId));
+
+        var cce = new EmitirFacturaVentaCce("2", "DDP", 17.5m, "123456789", "USA",
+            [new EmitirFacturaVentaCceLinea("7005299901", "06", 1m, 100m, 100m, AplicaIva0: true)],
+            ClaveDePedimento: "A1", ReceptorDomicilioEstado: "TX", ReceptorDomicilioCodigoPostal: "75001");
+        using (var emisionDb = Db())
+        {
+            await EmitirHandler(emisionDb, empresaId).Handle(
+                Command(requierePedimento: true) with { ComportamientoFiscal = ComportamientoFiscal.ExportacionConCce, Cce = cce },
+                CancellationToken.None);
+        }
+
+        using var db = Db();
+        var factura = await db.FacturasVenta.SingleAsync();
+        var fiscal = new FakeFiscalApiClient();
+        var handler = new AplicarPedimentoHandler(db, new FakeSender(new ReservarFolioResponse("NC-000001", 1, "")),
+            new FakePeriodoContablePort(), fiscal,
+            new FakeCfdiRepositorioPort(), new FakeIntegrationEventPublisher(), new FakeClock(Ahora), ReceptorFiscalTestFactory.Crear(db));
+        var resp = await handler.Handle(
+            new AplicarPedimentoCommand(factura.Id, "26 47 3807 6000123", new DateOnly(2026, 10, 15), null),
+            CancellationToken.None);
+
+        resp.Estado.Should().Be("Timbrado");
+        fiscal.UltimaEmision!.ComplementoCce!.Mercancias.Should().ContainSingle()
+            .Which.FraccionArancelaria.Should().Be("7005299901");
+    }
+
+    [Fact]
     public async Task AplicarPedimento_sobre_factura_no_retenida_es_rechazado()
     {
         var empresaId = Guid.NewGuid();
