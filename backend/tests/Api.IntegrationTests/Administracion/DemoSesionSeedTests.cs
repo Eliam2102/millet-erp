@@ -330,7 +330,7 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());
         Assert.Equal(2, await maestros.Series.CountAsync(s => s.Prefijo.StartsWith("DEMO-")));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
-        Assert.Equal(3, pedidos.Count);
+        Assert.Equal(8, pedidos.Count); // + DEMO de CE-02
         Assert.Equal(116m, pedidos.Single(p => p.NumeroPedido == "DEMO-PED-RANURA").Ranura);
         foreach (var pedido in pedidos) Assert.True(await maestros.Clientes.AnyAsync(c => c.Id == pedido.ClienteId));
         Assert.False((await maestros.Clientes.SingleAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO")).DatosFiscalesCompletos);

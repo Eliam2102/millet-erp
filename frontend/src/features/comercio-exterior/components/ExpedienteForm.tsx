@@ -170,7 +170,8 @@ export function ExpedienteForm({ onClose }: { onClose: () => void }) {
                     onChange={(id) => update({ sucursalId: id })}
                   />
                   <p className="text-xs text-ink-muted">
-                    Incoterm propuesto: DDP. Los pedidos se vincularán en CE-02.
+                    Incoterm propuesto: DDP. Vincule los clientes y asigne los pedidos en la pestaña
+                    Contenedores.
                   </p>
                 </>
               )}

@@ -1,3 +1,4 @@
+import { EmbarqueCeResumen } from '@/features/comercio-exterior/components/EmbarqueCeResumen';
 import { ErrorTimbradoAviso } from '@/features/facturacion/components/ErrorTimbradoAviso';
 import { mostrarErrorReceptorFiscal } from '@/features/facturacion/lib/mostrar-error-receptor-fiscal';
 import { useState } from 'react';
@@ -109,6 +110,7 @@ function Contenido({
 
   return (
     <div className="space-y-6">
+      {f.datosEmbarqueCe && <EmbarqueCeResumen datos={f.datosEmbarqueCe} />}
       {/* ── Sub-topbar de acciones (§6.5, no se imprime): sticky con
           cerrar (X) que vuelve a la bandeja preservando filtros ──── */}
       <div

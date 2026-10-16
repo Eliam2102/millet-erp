@@ -179,6 +179,15 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
             });
         }).GeneratePdf();
 
+    private static void MostrarEmbarqueCe(ColumnDescriptor col, FacturaVenta f)
+    {
+        if (f.DatosEmbarqueCe is not { } ce) return;
+        col.Item().Text($"Expediente: {ce.FolioExpediente} · Incoterm: {ce.Incoterm}");
+        col.Item().Text($"Pedimento de exportación: {ce.NumeroPedimento} · {ce.ClavePedimento} · {ce.FechaPedimento:yyyy-MM-dd}");
+        foreach (var c in ce.Contenedores)
+            col.Item().Text($"Contenedor: {c.Numero} · BL o guía: {c.BlGuia} · Embarque: {c.FechaEmbarqueReal:yyyy-MM-dd}");
+    }
+
     private static byte[] GenerarBilingue(FacturaVenta f) =>
         Document.Create(doc =>
         {
@@ -198,6 +207,7 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
                 page.Content().PaddingVertical(8).Column(col =>
                 {
                     col.Spacing(6);
+                    MostrarEmbarqueCe(col, f);
 
                     col.Item().Row(row =>
                     {
@@ -292,6 +302,7 @@ public sealed class QuestPdfFacturaGenerator : IGenerarPdfFacturaPort
                 page.Content().Column(col =>
                 {
                     col.Spacing(3);
+                    MostrarEmbarqueCe(col, f);
                     col.Item().AlignCenter().Text("MILLET").FontSize(12).Bold();
                     col.Item().AlignCenter().Text($"Folio: {f.Folio}");
                     col.Item().Text($"RFC emisor: {f.RfcEmisor}");
