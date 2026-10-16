@@ -1,4 +1,4 @@
-import { MoneyDisplay, DateTimeDisplay } from '@/components/erp';
+import { DateTimeDisplay } from '@/components/erp';
 import { CubrimientoBar } from '@/components/erp/display/CubrimientoBar';
 import { EmptyState } from '@/components/erp/feedback/EmptyState';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
@@ -40,7 +40,6 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
             <th className="px-3 py-2 text-left font-medium">Centro de costo</th>
             <th className="px-3 py-2 text-right font-medium">Cant.</th>
             <th className="px-3 py-2 text-left font-medium">UM</th>
-            <th className="px-3 py-2 text-right font-medium">Precio est.</th>
             <th className="px-3 py-2 text-left font-medium">Fecha req.</th>
             <th className="px-3 py-2 text-left font-medium">Cubrimiento</th>
           </tr>
@@ -90,12 +89,6 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
                     {l.cantidad}
                   </td>
                   <td className="px-3 py-2">{l.unidadMedida}</td>
-                  <td className="px-3 py-2 text-right">
-                    <MoneyDisplay
-                      amount={l.precioEstimadoMonto}
-                      currency={l.precioEstimadoMoneda}
-                    />
-                  </td>
                   <td className="px-3 py-2">
                     <DateTimeDisplay value={l.fechaRequerida} />
                   </td>
@@ -107,6 +100,7 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
                       cantRecibida={l.cantRecibida}
                       cantPendiente={l.cantPendiente}
                     />
+                    <ResumenParcialLinea linea={l} />
                   </td>
                 </tr>
               );
@@ -114,5 +108,26 @@ export function ListaLineas({ lineas, resolverArticulo }: ListaLineasProps) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * Vista consolidada del parcial de una línea: lo que surte almacén, lo ya
+ * entregado, lo comprometido en OC, lo recibido y lo que aún falta comprar.
+ * Se oculta si el backend no envió el saldo (respuesta sin los campos nuevos).
+ */
+function ResumenParcialLinea({ linea }: { linea: LineaResponse }) {
+  if (linea.cantSaldoPorComprar === undefined) return null;
+  const texto = [
+    `Almacén surte ${linea.cantDeAlmacen}`,
+    `Entregado ${linea.cantEntregadoDeAlmacen ?? 0}`,
+    `En OC ${linea.cantComprometidaEnOc ?? 0}`,
+    `Recibido ${linea.cantRecibida}`,
+    `Falta por comprar ${linea.cantSaldoPorComprar}`,
+  ].join(' · ');
+  return (
+    <p className="mt-1 text-xs text-muted-foreground" data-resumen-parcial="">
+      {texto}
+    </p>
   );
 }

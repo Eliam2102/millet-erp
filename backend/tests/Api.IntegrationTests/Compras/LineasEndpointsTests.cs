@@ -103,6 +103,30 @@ public class LineasEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task Agregar_Linea_Sin_Precio_Estimado_Retorna_201()
+    {
+        // El precio estimado es opcional en la RQ (minuta 12-oct): sin precio se guarda en 0 MXN.
+        var client = await CreateSuperAdminClientAsync();
+        var requisicionId = await CrearRequisicionAsync(client);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/compras/requisiciones/{requisicionId}/lineas",
+            new
+            {
+                ArticuloId = ArticuloSeedId,
+                Cantidad = 10m,
+                UnidadMedida = "PZA",
+                CuentaContableId = (Guid?)null,
+                CentroCostoId = (Guid?)CentroCostoSeedId,
+                Proyecto = (string?)null,
+                FechaRequerida = (DateOnly?)null,
+                Notas = (string?)null,
+            });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Agregar_Linea_Con_Cantidad_Invalida_Retorna_400()
     {
         var client = await CreateSuperAdminClientAsync();

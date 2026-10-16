@@ -51,11 +51,14 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
             // CHECK constraints del §10.1.
             t.HasCheckConstraint("ck_oc_tipo_cambio",
                 "(moneda = 'MXN' AND tipo_cambio IS NULL) OR (moneda <> 'MXN' AND tipo_cambio > 0)");
+            // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Una OC de importación puede
+            // crearse en Borrador (0) o Rechazada (6) sin incoterm ni país; ambos
+            // se exigen en BD a partir de cualquier otro estado, y el handler de
+            // transmitir los valida antes (422). El contenedor no es obligatorio
+            // en BD (embarque aéreo/terrestre no lo lleva).
             t.HasCheckConstraint("ck_oc_import_campos",
-                "(es_importacion = false) OR (es_importacion = true " +
-                "AND info_import_incoterm_id IS NOT NULL " +
-                "AND info_import_pais_origen IS NOT NULL " +
-                "AND info_import_numero_contenedor IS NOT NULL)");
+                "(es_importacion = false) OR (estado IN (0, 6)) OR " +
+                "(info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
             t.HasCheckConstraint("ck_oc_sin_rq_motivo",
                 "sin_requisicion_previa = false OR motivo_sin_requisicion IS NOT NULL");
 
@@ -109,6 +112,7 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.Property(o => o.FechaDocumento).IsRequired();
         builder.Property(o => o.FechaContabilizacion);
         builder.Property(o => o.CicloAutorizacion).HasDefaultValue(1).IsRequired();
+        builder.Property(o => o.RequiereNivel2).HasDefaultValue(true).IsRequired();
         builder.Property(o => o.FechaEntregaEsperada);
 
         builder.Property(o => o.Estado)
@@ -157,6 +161,14 @@ public sealed class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCom
         builder.Property(o => o.InfoImportCodigoRuta).HasMaxLength(40);
         builder.Property(o => o.InfoImportSemanaEmbarque).HasMaxLength(40);
         builder.Property(o => o.InfoImportNumeroPedimento).HasMaxLength(60);
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
+        builder.Property(o => o.InfoImportTipoOperacion).HasConversion<short>();
+        builder.Property(o => o.InfoImportNumeroBl).HasMaxLength(50);
+        builder.Property(o => o.InfoImportTipoTransporte).HasConversion<short>();
+        builder.Property(o => o.InfoImportAgenteAduanalNaviera).HasMaxLength(120);
+        builder.Property(o => o.InfoImportPuertoAduanaEntrada).HasMaxLength(80);
+        builder.Property(o => o.InfoImportFechaEstimadaArribo);
+        builder.Property(o => o.InfoImportCertificadoOrigen).HasDefaultValue(false).IsRequired();
 
         // VOs computed (getters) — no se persisten.
         builder.Ignore(o => o.ContactoProveedor);

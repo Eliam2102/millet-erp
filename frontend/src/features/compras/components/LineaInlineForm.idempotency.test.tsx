@@ -84,14 +84,6 @@ function umInput(): HTMLInputElement {
   ) as HTMLInputElement;
 }
 
-function fijarPrecio(valor: string) {
-  const moneda = screen.getByRole('combobox', { name: /moneda/i });
-  const precioInput = moneda.parentElement?.querySelector(
-    'input[type="number"]',
-  ) as HTMLInputElement;
-  fireEvent.change(precioInput, { target: { value: valor } });
-}
-
 describe('<LineaInlineForm> — Idempotency-Key por submit (regresión)', () => {
   it('dos adds seguidos envían Idempotency-Keys distintas', async () => {
     const keys: (string | null)[] = [];
@@ -113,20 +105,18 @@ describe('<LineaInlineForm> — Idempotency-Key por submit (regresión)', () => 
       wrapper: createQueryWrapper(),
     });
 
-    // Add #1 (precio > 0 lo exige el schema).
+    // Add #1.
     await seleccionarArticulo();
     await waitFor(() => expect(umInput().value).toBe('LT'));
-    fijarPrecio('100');
     fireEvent.click(screen.getByRole('button', { name: /agregar línea/i }));
     await waitFor(() => expect(keys).toHaveLength(1));
 
     // El form se resetea y queda abierto → esperamos el reset antes del 2º.
     await waitFor(() => expect(umInput().value).toBe(''));
 
-    // Add #2 con body distinto (otro precio).
+    // Add #2: cada submit lleva su propia Idempotency-Key.
     await seleccionarArticulo();
     await waitFor(() => expect(umInput().value).toBe('LT'));
-    fijarPrecio('200');
     fireEvent.click(screen.getByRole('button', { name: /agregar línea/i }));
     await waitFor(() => expect(keys).toHaveLength(2));
 

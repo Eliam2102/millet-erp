@@ -23,9 +23,21 @@ El sembrador corre después de catálogos y bootstrap. `CatalogosTestSeedHostedS
 
 ## Usuarios
 
-La lista `Seed:DemoSesion:Usuarios` admite objetos `{ correo, rol, sucursales: [] }`. Roles exactos: `Compras`, `CxP`, `Tesorería`, `Facturación`, `Contabilidad`, `Administrador`. Sucursales: MID/MTY/QRO; **Compras exige solo MID**.
+La lista `Seed:DemoSesion:Usuarios` admite objetos `{ correo, rol, sucursales: [] }`: **un solo rol por cuenta y empresa**, conforme a [ADR-0053](../decisiones/0053-permisos-personalizados-por-usuario.md) y [ADR-0051](../decisiones/0051-segmentacion-de-datos-por-sucursal.md). Variable de ejemplo: `Seed__DemoSesion__Usuarios__1__Rol='Jefe Compras y CxP'`. Roles exactos: `Compras`, `Jefe Compras`, `Dirección`, `Jefe Compras y CxP`, `Dirección y Tesorería`, `CxP`, `Tesorería`, `Facturación`, `Contabilidad`, `DAF`, `Administrador`. Los dos roles combinados reúnen los permisos de sus perfiles en un único rol DEMO; ninguno agrega acceso a todas las sucursales. Jefe Compras y CxP solo firma N1; Dirección y Tesorería solo firma N2. Sucursales: MID/MTY/QRO; **Compras exige solo MID**.
 
-Solo asigna usuarios ya existentes por correo, sin distinguir mayúsculas. Si falta uno, registra **Por confirmar**, continúa preparando los datos y pide iniciar sesión con Entra y reiniciar el API. Los roles se llaman `DEMO …`. Para los correos configurados, la lista reemplaza roles y excepciones individuales de permiso dentro de la empresa DEMO, y desactiva sucursales no listadas; evita que un super-admin heredado invalide el rechazo de MTY. Usar cuentas dedicadas para el ensayo y volver a iniciar sesión para renovar sus permisos.
+Solo asigna usuarios ya existentes por correo, sin distinguir mayúsculas. Si falta uno, registra **Por confirmar**, continúa preparando los datos y pide iniciar sesión con Entra y reiniciar el API. Los roles se llaman `DEMO …`. Por omisión (`Seed:DemoSesion:ReemplazarAsignaciones=false`), solo completa cuentas sin roles y cuentas sin asignaciones de sucursal; conserva las asignaciones ya configuradas.
+
+Con `Seed__DemoSesion__ReemplazarAsignaciones=true`, únicamente en Development y con la semilla habilitada, deja exactamente una asignación de rol por cada correo listado dentro de la empresa DEMO, la configurada; activa sus sucursales configuradas y desactiva las demás. Registra roles y sucursales antes → después en el log. **Falla sin cambiar las asignaciones** si una cuenta listada tiene `super-admin` en la empresa DEMO o corresponde a `Auth:InitialAdminEntraOid`: «el administrador queda fuera de las cuentas del ensayo». Nunca retira `super-admin`. Las excepciones individuales de permiso y los permisos de cada rol se conservan. Usar cuentas dedicadas sin privilegios adicionales para el ensayo, volver la bandera a `false` tras configurar y cerrar/abrir sesión para renovar permisos.
+
+Reparto para una OC nueva: A = Compras (MID), captura, prueba rechazo al autorizar su propia orden y recibe; B = Jefe Compras y CxP (MID), firma N1, liga factura y concilia pasivo; C = Dirección y Tesorería (MID), firma N2, prueba rechazo de doble firma y registra pago. Son **tres cuentas de Microsoft operativas más el administrador inicial aparte**. Las identidades técnicas de la semilla no sirven para iniciar sesión. Este reparto conserva las reglas actuales de OC; no acredita que el recorrido integrado haya pasado.
+
+### Sesiones simultáneas (§5)
+
+Usar una cuenta por perfil de Chrome; para dos sesiones, abrir dos perfiles, y para A/B/C, tres. Las pestañas del mismo perfil mantienen el estado de la aplicación en `sessionStorage`, pero comparten la cookie de Microsoft y pueden reutilizar la cuenta de Entra. Ver [arranque y sesiones](../../tools/demo/README.md#5-arranca-tres-terminales).
+
+### Ambiente identificado con versión
+
+`GET /api/version` es anónimo y devuelve `{ commit, fechaCompilacion, ambiente }`; commit y fecha UTC se incorporan al compilar, no se calculan al atender la petición. `demo.sh api` pasa `-p:SourceRevisionId=$(git rev-parse --short HEAD)`. El pie del menú de usuario muestra, por ejemplo, `Versión 5ee7270 · Desarrollo`; si la API no responde o no conoce el commit, omite la línea y mantiene el menú operativo. El commit identifica el checkout compilado; los cambios locales sin commit requieren identificarse aparte.
 
 Compras incluye operación de Almacén para recibir en la demo, sin permisos de acceso a todas las sucursales. Los demás perfiles operativos reciben permisos de su módulo; Administrador recibe los permisos canónicos. Estas son asignaciones ficticias para el ensayo, no la matriz definitiva de Millet. Las autorizaciones y adjuntos iniciales usan un identificador técnico `DEMO-SEMBRADOR`, sin crear una cuenta ni atribuir las firmas a una persona.
 
@@ -78,3 +90,21 @@ Resultados verificados en este worktree (07-oct-2026):
 **Pendiente obligatorio:** Claude debe ejecutar `tools/validate-integration-isolated.sh` completo y documentar rojo/verde. No se ejecutó integración PostgreSQL desde este sandbox, que no tiene Docker. Tampoco se arrancó `millet_demo`, se configuró PAC/CSD ni se ensayaron las 11 escenas.
 
 La nota para la bóveda es esta entrega local: construcción y validaciones de código, sin acreditación de demo operativa/UAT. Falta incorporarla a la nota de sesión y Bitácora; la bóveda queda fuera del worktree autorizado.
+
+## Actualización TR-01 · 15-oct-2026
+
+La semilla usa un rol por cuenta y empresa (ADR-0053), incluidos los roles DEMO combinados para B y C. La reasignación opt-in deja una sola asignación configurada y excluye al administrador inicial y a cualquier super-admin en la empresa DEMO. Se conservan `/api/version`, el target condicionado de compilación y el pie del menú. Las pruebas de regresión cubren unión de permisos sin firma ajena ni bypass territorial, reemplazo, administradores excluidos e idempotencia.
+
+Validación local de la corrección (15-oct-2026):
+
+| Comprobación | Resultado verificado |
+| --- | --- |
+| Build de `backend/Millet.sln` | Verde: 0 errores y 0 advertencias. Se usó `DOTNET_CLI_HOME` temporal, sin servidores de build y con `--no-restore -m:1 -nr:false`. |
+| `dotnet test` de Api.UnitTests | Bloqueado antes de ejecutar pruebas: VSTest no puede abrir su socket (`Permission denied`). |
+| Api.UnitTests con ejecutor xUnit dentro del proceso, temporal y fuera del repositorio | 91/92 en verde, 0 omitidas; las 41 de `DemoSesionSeedTests` pasan. Único rojo: `CorreoSandboxLocalTests.Buzon_No_Disponible_No_Reporta_Envio_Aceptado`, por socket bloqueado en el sandbox. |
+| `npx tsc --noEmit -p tsconfig.json` | Verde. |
+| `npm run -s lint` | Sin errores; 10 advertencias en componentes ajenos a la corrección. |
+| `npx vitest run src/components/layout/UserMenu.test.tsx` | Verde: 4/4. |
+| Integración PostgreSQL | Pruebas actualizadas y compiladas; ejecución **Por confirmar**, acceso al socket de Docker denegado. |
+
+El ensayo con Microsoft sigue **Por confirmar**. Siguiente comprobación: `tools/validate-integration-isolated.sh --filter 'FullyQualifiedName~DemoSesionSeedTests'` desde un entorno con Docker disponible. No se hizo commit ni push.

@@ -1,13 +1,18 @@
 using MapsterMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Millet.CentrosCosto.Application.PublicPorts;
+using Millet.Compras.Application.Disponibilidad;
+using Millet.Compras.Application.Oc;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Ports.Administracion;
+using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Domain.Ports.Identidad;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Application.UnidadesMedida;
 
 namespace Millet.Compras.Application.ObtenerRequisicionPorId;
 
@@ -41,6 +46,9 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
     private readonly IArticuloReadPort _articulos;
     private readonly IProveedorReadPort _proveedores;
     private readonly IDim3ReadPort _centrosCosto;
+    private readonly IConsultarStockPort _stock;
+    private readonly IConversionUnidadPort _conversion;
+    private readonly ILogger<ObtenerRequisicionPorIdHandler> _logger;
 
     public ObtenerRequisicionPorIdHandler(
         ComprasDbContext db,
@@ -49,7 +57,10 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
         IDepartamentoReadPort departamentos,
         IArticuloReadPort articulos,
         IProveedorReadPort proveedores,
-        IDim3ReadPort centrosCosto)
+        IDim3ReadPort centrosCosto,
+        IConsultarStockPort stock,
+        IConversionUnidadPort conversion,
+        ILogger<ObtenerRequisicionPorIdHandler> logger)
     {
         _db = db;
         _mapper = mapper;
@@ -58,6 +69,9 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
         _articulos = articulos;
         _proveedores = proveedores;
         _centrosCosto = centrosCosto;
+        _stock = stock;
+        _conversion = conversion;
+        _logger = logger;
     }
 
     public async Task<RequisicionResponse> Handle(
@@ -125,14 +139,26 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
         {
             proveedores.TryGetValue(provId, out prov);
         }
+        // Comprometido en OC y saldo por comprar por línea: dos consultas en lote
+        // (sin N+1) sobre todas las líneas de la RQ.
+        var lineaIds = requisicion.Lineas.Select(l => l.Id).ToList();
+        var comprometido = await SaldoCompraRq.ObtenerComprometidoAsync(_db, lineaIds, cancellationToken);
+        var saldos = await SaldoCompraRq.ObtenerAsync(_db, lineaIds, cancellationToken);
+        // "En almacén" (solo RQ previas a autorizar): estimación de solo lectura
+        // con el mismo reparto que el preview. Falla → false, nunca 500.
+        var (enAlmacen, almacenCubreTodo) = await CalcularCoberturaAlmacenAsync(
+            requisicion, cancellationToken);
         response = response with
         {
             ProveedorSugeridoRazonSocial = prov?.RazonSocial,
             ProveedorSugeridoClave = prov?.Clave,
-            // Se encadenan las dos reconstrucciones: cada `with` solo toca sus
-            // campos, así que artículo y CC-Máquina se pueblan sin pisarse.
-            Lineas = AplicarCentrosCosto(
-                AplicarArticulos(response.Lineas, articulos), centrosCosto),
+            EnAlmacen = enAlmacen,
+            AlmacenCubreTodo = almacenCubreTodo,
+            // Se encadenan las reconstrucciones: cada `with` solo toca sus
+            // campos, así que artículo, CC-Máquina y saldos se pueblan sin pisarse.
+            Lineas = AplicarSaldos(
+                AplicarCentrosCosto(AplicarArticulos(response.Lineas, articulos), centrosCosto),
+                comprometido, saldos),
         };
 
         return response;
@@ -160,6 +186,23 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
             .Select(l => articulos.TryGetValue(l.ArticuloId, out var a)
                 ? l with { ArticuloClave = a.Clave, ArticuloNombre = a.Nombre }
                 : l)
+            .ToList();
+
+    /// <summary>
+    /// Puebla <c>CantComprometidaEnOc</c>/<c>CantSaldoPorComprar</c> por línea
+    /// desde los diccionarios en lote (<c>lineaRqId → cantidad</c>). Una línea
+    /// sin OC queda en 0 comprometido; el saldo sin fila queda en 0. Puro.
+    /// </summary>
+    internal static IReadOnlyList<LineaResponse> AplicarSaldos(
+        IReadOnlyList<LineaResponse> lineas,
+        IReadOnlyDictionary<Guid, decimal> comprometido,
+        IReadOnlyDictionary<Guid, decimal> saldos) =>
+        lineas
+            .Select(l => l with
+            {
+                CantComprometidaEnOc = comprometido.GetValueOrDefault(l.Id),
+                CantSaldoPorComprar = saldos.GetValueOrDefault(l.Id),
+            })
             .ToList();
 
     /// <summary>
@@ -191,4 +234,49 @@ public sealed class ObtenerRequisicionPorIdHandler : IRequestHandler<ObtenerRequ
                 ? l with { CentroCostoClave = cc.Clave, CentroCostoNombre = cc.Nombre }
                 : l)
             .ToList();
+    /// <summary>
+    /// Calcula si una RQ previa a autorizar (Borrador/EnAutorizacion) tiene
+    /// surtido de almacén, con el mismo reparto que el preview de cubrimiento.
+    /// Solo lectura; si el stock o el reparto fallan, devuelve (false, false)
+    /// y registra un warning (no debe romper el detalle).
+    /// </summary>
+    private async Task<(bool EnAlmacen, bool AlmacenCubreTodo)> CalcularCoberturaAlmacenAsync(
+        Requisicion requisicion,
+        CancellationToken cancellationToken)
+    {
+        if (requisicion.Estado is not (EstadoRequisicion.Borrador or EstadoRequisicion.EnAutorizacion)
+            || requisicion.Lineas.Count == 0)
+        {
+            return (false, false);
+        }
+
+        try
+        {
+            var articulos = await _articulos.ObtenerPorIdsAsync(
+                requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList(), cancellationToken);
+            var repartos = await RepartoDisponibilidadService.RepartirAsync(
+                _stock, _conversion, articulos, requisicion.Clasificacion, requisicion.SucursalId,
+                requisicion.Lineas, cancellationToken);
+            return CalcularCobertura(repartos);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "No se pudo calcular 'En almacén' para la requisición {RequisicionId}; se muestra como no surtida.",
+                requisicion.Id);
+            return (false, false);
+        }
+    }
+
+    /// <summary>
+    /// Pura: <c>EnAlmacen</c> si alguna línea tiene cantidad de almacén &gt; 0;
+    /// <c>AlmacenCubreTodo</c> si además ninguna línea va a compra.
+    /// </summary>
+    internal static (bool EnAlmacen, bool AlmacenCubreTodo) CalcularCobertura(
+        IReadOnlyList<RepartoLinea> repartos)
+    {
+        var enAlmacen = repartos.Any(r => r.DeAlmacen > 0m);
+        var cubreTodo = enAlmacen && repartos.All(r => r.DeCompra <= 0m);
+        return (enAlmacen, cubreTodo);
+    }
 }

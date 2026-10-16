@@ -1,4 +1,6 @@
 import { LogOut, User as UserIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { apiBaseUrl } from '@/lib/auth/config';
 import { useAuth } from '@/lib/auth/useAuth';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -10,6 +12,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+const nombresAmbiente: Record<string, string> = {
+  Development: 'Desarrollo', Staging: 'Preproducción', Production: 'Producción',
+};
+
 /**
  * Avatar + dropdown del usuario autenticado en el topbar. Muestra nombre y
  * email, y expone "Cerrar sesión". El navegate a /login post-logout lo hace
@@ -17,6 +23,21 @@ import {
  */
 export function UserMenu() {
   const { user, logout } = useAuth();
+  const [version, setVersion] = useState<{ commit: string; ambiente: string } | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`${apiBaseUrl}/api/version`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json() as { commit?: unknown; ambiente?: unknown } | null;
+        if (!controller.signal.aborted && typeof data?.commit === 'string' && data.commit
+          && typeof data.ambiente === 'string' && data.ambiente)
+          setVersion({ commit: data.commit, ambiente: data.ambiente });
+      })
+      .catch(() => { /* La identificación de versión no bloquea el menú. */ });
+    return () => controller.abort();
+  }, []);
 
   const initials = (user?.nombre ?? '?')
     .split(' ')
@@ -46,6 +67,14 @@ export function UserMenu() {
           <LogOut className="h-4 w-4" />
           Cerrar sesión
         </DropdownMenuItem>
+        {version && (
+          <>
+            <DropdownMenuSeparator />
+            <p className="px-2 py-1.5 text-xs text-ink-muted">
+              Versión {version.commit.slice(0, 7)} · {nombresAmbiente[version.ambiente] ?? version.ambiente}
+            </p>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

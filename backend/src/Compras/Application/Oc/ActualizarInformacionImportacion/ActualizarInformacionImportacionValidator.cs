@@ -29,5 +29,26 @@ public sealed class ActualizarInformacionImportacionValidator
         RuleFor(c => c.SemanaEmbarque)
             .MaximumLength(40).WithErrorCode("SEMANA_DEMASIADO_LARGA")
             .When(c => c.SemanaEmbarque is not null);
+
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
+        RuleFor(c => c.TipoOperacion)
+            .IsInEnum().WithErrorCode("TIPO_OPERACION_INVALIDO")
+            .When(c => c.TipoOperacion.HasValue);
+
+        RuleFor(c => c.TipoTransporte)
+            .IsInEnum().WithErrorCode("TIPO_TRANSPORTE_INVALIDO")
+            .When(c => c.TipoTransporte.HasValue);
+
+        RuleFor(c => c.NumeroBl)
+            .MaximumLength(50).WithErrorCode("BL_DEMASIADO_LARGO")
+            .When(c => c.NumeroBl is not null);
+
+        RuleFor(c => c.AgenteAduanalNaviera)
+            .MaximumLength(120).WithErrorCode("AGENTE_DEMASIADO_LARGO")
+            .When(c => c.AgenteAduanalNaviera is not null);
+
+        RuleFor(c => c.PuertoAduanaEntrada)
+            .MaximumLength(80).WithErrorCode("PUERTO_DEMASIADO_LARGO")
+            .When(c => c.PuertoAduanaEntrada is not null);
     }
 }

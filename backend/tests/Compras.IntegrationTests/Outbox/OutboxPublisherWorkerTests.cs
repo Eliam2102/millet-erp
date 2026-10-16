@@ -189,7 +189,9 @@ public class OutboxPublisherWorkerTests : IClassFixture<StubsWebApplicationFacto
             id: Guid.CreateVersion7(),
             eventType: $"test.outbox.worker.{marker}.v1",
             payload: $"{{\"marker\":\"{marker}\"}}",
-            occurredAt: DateTimeOffset.UtcNow,
+            // El worker lee en orden FIFO por occurred_at en lotes de 50 y el outbox es
+            // compartido: con fecha antigua la fila sembrada siempre cae en el primer lote.
+            occurredAt: DateTimeOffset.UnixEpoch,
             empresaId: Guid.CreateVersion7());
 
         db.OutboxEntries.Add(entry);

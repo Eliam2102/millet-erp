@@ -1,4 +1,5 @@
 using Millet.CentrosCosto.Application.PublicPorts;
+using Millet.Compras.Application.Disponibilidad;
 using Millet.Compras.Application.ObtenerRequisicionPorId;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 
@@ -133,4 +134,42 @@ public class ObtenerRequisicionPorIdHandlerTests
         CantPendiente: 0m,
         CantEntregadoDeAlmacen: 0m,
         CantPendienteEntregar: 0m);
+    [Fact]
+    public void CalcularCobertura_sin_lineas_no_es_en_almacen()
+    {
+        ObtenerRequisicionPorIdHandler.CalcularCobertura(Array.Empty<RepartoLinea>())
+            .Should().Be((false, false));
+    }
+
+    [Fact]
+    public void CalcularCobertura_solo_compra_no_es_en_almacen()
+    {
+        var repartos = new[] { Reparto(deAlmacen: 0m, deCompra: 10m) };
+
+        ObtenerRequisicionPorIdHandler.CalcularCobertura(repartos).Should().Be((false, false));
+    }
+
+    [Fact]
+    public void CalcularCobertura_parcial_es_en_almacen_sin_cubrir_todo()
+    {
+        var repartos = new[]
+        {
+            Reparto(deAlmacen: 4m, deCompra: 6m),
+            Reparto(deAlmacen: 0m, deCompra: 3m),
+        };
+
+        ObtenerRequisicionPorIdHandler.CalcularCobertura(repartos).Should().Be((true, false));
+    }
+
+    [Fact]
+    public void CalcularCobertura_total_cubre_todo()
+    {
+        var repartos = new[] { Reparto(deAlmacen: 5m, deCompra: 0m) };
+
+        ObtenerRequisicionPorIdHandler.CalcularCobertura(repartos).Should().Be((true, true));
+    }
+
+    // Línea nula: el cálculo puro no la toca.
+    private static RepartoLinea Reparto(decimal deAlmacen, decimal deCompra) =>
+        new(null!, Disponible: deAlmacen, DeAlmacen: deAlmacen, DeCompra: deCompra, EsServicio: false);
 }

@@ -70,4 +70,17 @@
     <PackageReference Include="Azure.Identity" />
   </ItemGroup>
 
+  <!-- Sólo cuando se pasa el commit (demo.sh api): la fecha cambiante rompería la compilación incremental. -->
+  <Target Name="AgregarVersionCompilacion" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="InitializeSourceControlInformation" Condition="'$(SourceRevisionId)' != ''">
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>SourceRevisionId</_Parameter1>
+        <_Parameter2>$(SourceRevisionId)</_Parameter2>
+      </AssemblyAttribute>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>FechaCompilacion</_Parameter1>
+        <_Parameter2>$([System.DateTime]::UtcNow.ToString("O"))</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
 </Project>

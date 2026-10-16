@@ -37,6 +37,7 @@ public class PreviewCubrimientoEndpointsTests : IClassFixture<StubsWebApplicatio
     // Artículos sembrados (existen en el catálogo, así que la línea valida).
     private static readonly Guid ArticuloConStock = Guid.Parse("00000005-0002-0000-0000-000000000001");
     private static readonly Guid ArticuloSinStock = Guid.Parse("00000000-0000-0000-0000-000000000bbb");
+    private static readonly Guid ArticuloServicio = Guid.Parse("00000005-0002-0000-0000-000000000003"); // ART-SVC-01 (sembrado)
 
     private readonly StubsWebApplicationFactory _factory;
 
@@ -80,6 +81,27 @@ public class PreviewCubrimientoEndpointsTests : IClassFixture<StubsWebApplicatio
 
         // ── Invariante read-only: NADA se persistió ni se reservó ──
         await AssertCubrimientoPersistidoEnCeroAsync(rqId);
+    }
+
+    [Fact]
+    public async Task Preview_LineaDeServicio_VaCompleta_ACompra_SinConsultarStock()
+    {
+        // Aunque el stock reporte existencia para el servicio, no debe consultarse ni usarse.
+        var consultas = new List<Guid>();
+        await using var stockFactory = WithFakeStock(
+            disponiblePorArticulo: new() { [ArticuloServicio] = 50m },
+            consultas: consultas);
+        var client = await CreateSuperAdminClientAsync(stockFactory);
+
+        var rqId = await CrearTransmitirSinAutorizarAsync(client, new[] { (ArticuloServicio, 5m) });
+
+        var preview = await ReadJsonAsync(
+            await client.GetAsync($"/api/v1/compras/requisiciones/{rqId}/cubrimiento-estimado"));
+
+        var linea = Assert.Single(preview.GetProperty("lineas").EnumerateArray().ToList());
+        Assert.Equal(0m, linea.GetProperty("estimadoDeAlmacen").GetDecimal());
+        Assert.Equal(5m, linea.GetProperty("estimadoDeCompra").GetDecimal());
+        Assert.DoesNotContain(ArticuloServicio, consultas);
     }
 
     [Fact]
@@ -136,27 +158,33 @@ public class PreviewCubrimientoEndpointsTests : IClassFixture<StubsWebApplicatio
     // ── Override determinista del puerto de stock (patrón TwoLevelAuth) ──
 
     private WebApplicationFactory<Program> WithFakeStock(
-        Dictionary<Guid, decimal> disponiblePorArticulo) =>
+        Dictionary<Guid, decimal> disponiblePorArticulo,
+        List<Guid>? consultas = null) =>
         _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IConsultarStockPort>();
                 services.AddSingleton<IConsultarStockPort>(
-                    new FakeStock(disponiblePorArticulo));
+                    new FakeStock(disponiblePorArticulo, consultas));
             });
         });
 
     private sealed class FakeStock : IConsultarStockPort
     {
         private readonly IReadOnlyDictionary<Guid, decimal> _disponible;
+        private readonly List<Guid>? _consultas;
 
-        public FakeStock(IReadOnlyDictionary<Guid, decimal> disponible) =>
+        public FakeStock(IReadOnlyDictionary<Guid, decimal> disponible, List<Guid>? consultas = null)
+        {
             _disponible = disponible;
+            _consultas = consultas;
+        }
 
         public Task<DisponibilidadStock> ConsultarPorSucursalAsync(
             Guid sucursalId, Guid articuloId, CancellationToken cancellationToken)
         {
+            _consultas?.Add(articuloId);
             var disp = _disponible.TryGetValue(articuloId, out var d) ? d : 0m;
             return Task.FromResult(new DisponibilidadStock(
                 OnHand: disp, Disponible: disp));

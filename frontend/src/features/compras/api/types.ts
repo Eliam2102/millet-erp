@@ -260,6 +260,31 @@ export interface PagedResponse<T> {
 }
 
 /**
+ * Disponibilidad de almacén de una RQ pendiente (S2). Mirror de
+ * <c>DisponibilidadPendiente</c> (enum numérico del backend).
+ */
+export const DisponibilidadPendiente = {
+  Total: 0,
+  Parcial: 1,
+  Nula: 2,
+  SinDato: 3,
+} as const satisfies Record<string, number>;
+export type DisponibilidadPendiente =
+  (typeof DisponibilidadPendiente)[keyof typeof DisponibilidadPendiente];
+
+/**
+ * Item de la bandeja de pendientes (S2). Mirror de
+ * <c>PendienteAutorizacionItemResponse</c>: los campos de
+ * <c>RequisicionListItemResponse</c> más los indicadores para priorizar.
+ */
+export interface PendienteAutorizacionItemResponse
+  extends RequisicionListItemResponse {
+  disponibilidad: DisponibilidadPendiente;
+  /** Requisitante con ≥ 3 RQ en 60 días en la misma clasificación. */
+  esRecurrente: boolean;
+}
+
+/**
  * Item de bandeja (lista). Mirror de <c>RequisicionListItemResponse</c>.
  * Solo cabecera; el detalle completo se obtiene vía
  * <c>GET /requisiciones/{id}</c>.
@@ -384,6 +409,14 @@ export interface RequisicionResponse {
    * avisar, al eliminar una RQ de sistema, que el motor podría re-proponerla.
    */
   origen: OrigenRequisicion;
+  /**
+   * "En almacén" (aditivo, solo detalle): RQ previa a autorizar con al menos
+   * una línea con surtido de almacén según el reparto estimado. Ausente,
+   * <c>null</c> o <c>false</c> ⇒ no mostrar la insignia.
+   */
+  enAlmacen?: boolean | null;
+  /** true si además ninguna línea va a compra. Solo relevante con enAlmacen. */
+  almacenCubreTodo?: boolean | null;
 }
 
 /**
@@ -445,6 +478,19 @@ export interface LineaResponse {
    * "Nueva salida con RQ" la usa como default de cantidad a entregar.
    */
   cantPendienteEntregar?: number;
+  /**
+   * Cantidad de esta línea ya comprometida en OCs no canceladas (backend
+   * <c>LineaResponse.CantComprometidaEnOc</c>). Opcional por resiliencia
+   * ante respuestas viejas: si falta, la vista consolidada no la muestra.
+   */
+  cantComprometidaEnOc?: number;
+  /**
+   * Saldo de compra pendiente de la línea (backend
+   * <c>LineaResponse.CantSaldoPorComprar</c>): lo que aún falta comprar
+   * después de OCs vigentes y recibidas de OCs canceladas. Opcional por
+   * resiliencia ante respuestas viejas.
+   */
+  cantSaldoPorComprar?: number;
 }
 
 /** Mirror de <c>AutorizacionResponse</c>. */
@@ -661,4 +707,50 @@ export interface PreviewCubrimientoLinea {
   estimadoDeAlmacen: number;
   estimadoDeCompra: number;
   disponible: number;
+}
+
+// ============================================================================
+// Configuración del módulo Compras: umbrales N1/N2 y modo de nivel 2
+// ============================================================================
+
+/**
+ * Mirror de <c>ModoNivel2</c> (backend: <c>JsonStringEnumConverter</c>, así
+ * que el wire usa el nombre del miembro). Qué condiciones exigen nivel 2.
+ */
+export const ModoNivel2 = {
+  SoloMonto: 'SoloMonto',
+  SoloDisponibilidad: 'SoloDisponibilidad',
+  Ambos: 'Ambos',
+} as const;
+export type ModoNivel2 = (typeof ModoNivel2)[keyof typeof ModoNivel2];
+
+export const MODO_NIVEL2_LABEL: Record<ModoNivel2, string> = {
+  SoloMonto: 'Solo por monto',
+  SoloDisponibilidad: 'Solo por disponibilidad',
+  Ambos: 'Monto o disponibilidad',
+};
+
+/** Mirror de <c>ComprasSettingsResponse</c> (GET/PATCH /api/v1/compras/configuracion). */
+export interface ComprasConfiguracionResponse {
+  empresaId: string;
+  autoGenerarOcAlAutorizar: boolean;
+  apartarExistenciaAlAutorizar: boolean;
+  modoNivel2: ModoNivel2;
+}
+
+/** Mirror de <c>UmbralAprobacionResponse</c>. <c>umbralMenorCuantia</c> null = sin N1. */
+export interface UmbralAprobacionResponse {
+  departamentoId: string;
+  umbralMenorCuantia: number | null;
+  umbralMonto: number;
+  moneda: string;
+  vigenteDesde: string;
+}
+
+/** Body de <c>PUT /api/v1/compras/umbrales-aprobacion</c> (mirror de <c>UpsertUmbralCommand</c>). */
+export interface UpsertUmbralRequest {
+  departamentoId: string;
+  umbralMenorCuantia: number | null;
+  umbralMonto: number;
+  moneda: 'MXN';
 }

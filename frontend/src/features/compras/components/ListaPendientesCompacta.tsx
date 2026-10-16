@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router';
 import { EstadoBadge, NivelPendienteBadge, DateTimeDisplay } from '@/components/erp';
 import { requisitanteLabel } from '@/features/compras/lib/nombres';
-import type { RequisicionListItemResponse } from '@/features/compras/api/types';
+import type { PendienteAutorizacionItemResponse } from '@/features/compras/api/types';
+import { DisponibilidadBadge, RecurrenteBadge } from '@/features/compras/components/IndicadoresPendiente';
 import type { PendientesSearch } from '@/features/compras/lib/pendientes-search-schema';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +19,7 @@ import { cn } from '@/lib/utils';
  * filtros via <c>search</c> en el Link.</para>
  */
 export interface ListaPendientesCompactaProps {
-  items: readonly RequisicionListItemResponse[];
+  items: readonly PendienteAutorizacionItemResponse[];
   idActivo: string | null;
   search: PendientesSearch;
 }
@@ -48,7 +49,7 @@ export function ListaPendientesCompacta({
 }
 
 interface ItemCompactoProps {
-  item: RequisicionListItemResponse;
+  item: PendienteAutorizacionItemResponse;
   activo: boolean;
   requisitante: string;
   search: PendientesSearch;
@@ -84,6 +85,8 @@ function ItemCompacto({ item, activo, requisitante, search }: ItemCompactoProps)
             {item.nivelPendiente != null && (
               <NivelPendienteBadge nivel={item.nivelPendiente} />
             )}
+            <DisponibilidadBadge disponibilidad={item.disponibilidad} />
+            <RecurrenteBadge esRecurrente={item.esRecurrente} />
           </div>
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">

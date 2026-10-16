@@ -11,7 +11,6 @@ import {
   DatePickerField,
   DecimalField,
   DECIMALES_FALLBACK,
-  MoneyField,
   stepParaDecimales,
   TextAreaField,
   useDecimalesUnidad,
@@ -55,8 +54,8 @@ import { cn } from '@/lib/utils';
  * llama <c>onSaved</c>. Cancelar colapsa sin guardar. La fila
  * existente queda visible debajo durante la edición.</para>
  *
- * <para><b>Layout</b>: 5 campos críticos en grid (artículo, cantidad,
- * unidad, precio, fecha). Botón "+ Detalles" expande una segunda fila
+ * <para><b>Layout</b>: 4 campos críticos en grid (artículo, cantidad,
+ * unidad, fecha). Botón "+ Detalles" expande una segunda fila
  * con los opcionales (cuenta contable, centro de costo, proyecto,
  * notas).</para>
  *
@@ -85,8 +84,7 @@ const VALORES_INICIALES: LineaValues = {
   // UnidadMedidaDefault al seleccionar (campo read-only). No se puede
   // guardar una línea sin artículo (required), así que '' nunca persiste.
   unidadMedida: '',
-  precioEstimadoMonto: 0,
-  precioEstimadoMoneda: 'MXN',
+  // Precio estimado: fuera de la captura de RQ (minuta 12-oct); sin precio = 0 MXN en backend.
   cuentaContableId: null,
   // ADM08: el centro se hereda o elige; la máquina es opcional.
   centroCostoId: '',
@@ -362,43 +360,6 @@ export function LineaInlineForm({
             aria-label="Unidad de medida (heredada del artículo)"
             className="bg-muted/50"
             {...form.register('unidadMedida')}
-          />
-        </FieldInline>
-
-        <FieldInline
-          label="Precio"
-          required
-          error={
-            form.formState.errors.precioEstimadoMonto?.message ??
-            form.formState.errors.precioEstimadoMoneda?.message
-          }
-          className="md:col-span-3"
-        >
-          <Controller
-            name="precioEstimadoMonto"
-            control={form.control}
-            render={({ field: montoField }) => (
-              <Controller
-                name="precioEstimadoMoneda"
-                control={form.control}
-                render={({ field: monedaField }) => (
-                  <MoneyField
-                    value={
-                      montoField.value != null
-                        ? {
-                            amount: montoField.value,
-                            currency: monedaField.value || 'MXN',
-                          }
-                        : null
-                    }
-                    onChange={(money) => {
-                      montoField.onChange(money?.amount ?? 0);
-                      monedaField.onChange(money?.currency ?? 'MXN');
-                    }}
-                  />
-                )}
-              />
-            )}
           />
         </FieldInline>
 
