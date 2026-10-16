@@ -2,6 +2,13 @@
 
 set -euo pipefail
 
+# CE-01a exige EntraId y ejecuta únicamente sus pruebas HTTP con JWT firmado.
+ce_entra=false
+if [[ "${1:-}" == "--comercio-exterior" ]]; then
+  ce_entra=true
+  shift
+fi
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 backend_dir="$repo_root/backend"
@@ -57,15 +64,27 @@ export ASPNETCORE_ENVIRONMENT="Development"
 # El bootstrap que corre con las migraciones también lee user-secrets: sin
 # esto, un tenant real guardado ahí siembra su OID como SuperAdmin y los
 # tests (que entran como 'dev-superadmin') reciben 403.
+if [[ "$ce_entra" == true ]]; then
+  export Auth__Mode="EntraId"
+  export MILLET_CE_ENTRA_TESTS="1"
+  # Proveedor de altas de colaboradores (Graph), no del inicio de sesión.
+  export Entra__Proveedor="Simulado"
+else
 export Auth__Mode="FakeForLocalDev"
 export Auth__InitialAdminEntraOid="dev-superadmin"
 export Entra__Proveedor="Simulado"
+fi
 
 projects=(
   'tests/Integraciones.Aw.IntegrationTests/Millet.Integraciones.Aw.IntegrationTests.csproj'
   'tests/Compras.IntegrationTests/Millet.Compras.IntegrationTests.csproj'
   'tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj'
 )
+
+if [[ "$ce_entra" == true ]]; then
+  projects=('tests/Api.IntegrationTests/Millet.Api.IntegrationTests.csproj')
+  set -- --filter 'FullyQualifiedName~Millet.Api.IntegrationTests.ComercioExterior' "$@"
+fi
 
 # F1 (Parte F): argumentos extra (p. ej. --filter "FullyQualifiedName~Empleado")
 # se reenvían tal cual a cada `dotnet test`. Con VSTest 17.x, un proyecto sin
@@ -109,4 +128,4 @@ for project in "${projects[@]}"; do
   fi
 done
 
-echo "Gate de integración aprobado: las tres suites terminaron correctamente (ver conteos arriba)."
+echo "Gate de integración aprobado: todas las suites seleccionadas terminaron correctamente (ver conteos arriba)."
