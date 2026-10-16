@@ -74,6 +74,7 @@ import { Route as AppContabilidadCatalogoIndexRouteImport } from './routes/_app/
 import { Route as AppComprasRequisicionesIndexRouteImport } from './routes/_app/compras/requisiciones/index';
 import { Route as AppComprasPendientesIndexRouteImport } from './routes/_app/compras/pendientes/index';
 import { Route as AppComprasOrdenesIndexRouteImport } from './routes/_app/compras/ordenes/index';
+import { Route as AppComercioExteriorExpedientesIndexRouteImport } from './routes/_app/comercio-exterior/expedientes/index';
 import { Route as AppAlmacenSalidasIndexRouteImport } from './routes/_app/almacen/salidas/index';
 import { Route as AppAlmacenReportesIndexRouteImport } from './routes/_app/almacen/reportes/index';
 import { Route as AppAlmacenRecepcionesIndexRouteImport } from './routes/_app/almacen/recepciones/index';
@@ -133,6 +134,7 @@ import { Route as AppComprasOrdenesPendientesAutorizacionRouteImport } from './r
 import { Route as AppComprasOrdenesPartidasAbiertasRouteImport } from './routes/_app/compras/ordenes/partidas-abiertas';
 import { Route as AppComprasOrdenesIdRouteImport } from './routes/_app/compras/ordenes/$id';
 import { Route as AppComprasAdminAprobadoresRouteImport } from './routes/_app/compras/admin/aprobadores';
+import { Route as AppComercioExteriorExpedientesIdRouteImport } from './routes/_app/comercio-exterior/expedientes/$id';
 import { Route as AppAlmacenSalidasIdRouteImport } from './routes/_app/almacen/salidas/$id';
 import { Route as AppAlmacenReportesMpCnkRouteImport } from './routes/_app/almacen/reportes/mp-cnk';
 import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_app/almacen/reportes/alfak-historial';
@@ -521,6 +523,12 @@ const AppComprasOrdenesIndexRoute = AppComprasOrdenesIndexRouteImport.update({
   path: '/compras/ordenes/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppComercioExteriorExpedientesIndexRoute =
+  AppComercioExteriorExpedientesIndexRouteImport.update({
+    id: '/comercio-exterior/expedientes/',
+    path: '/comercio-exterior/expedientes/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenSalidasIndexRoute = AppAlmacenSalidasIndexRouteImport.update({
   id: '/almacen/salidas/',
   path: '/almacen/salidas/',
@@ -843,6 +851,12 @@ const AppComprasAdminAprobadoresRoute =
     path: '/compras/admin/aprobadores',
     getParentRoute: () => AppRoute,
   } as any);
+const AppComercioExteriorExpedientesIdRoute =
+  AppComercioExteriorExpedientesIdRouteImport.update({
+    id: '/comercio-exterior/expedientes/$id',
+    path: '/comercio-exterior/expedientes/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAlmacenSalidasIdRoute = AppAlmacenSalidasIdRouteImport.update({
   id: '/almacen/salidas/$id',
   path: '/almacen/salidas/$id',
@@ -1117,6 +1131,7 @@ export interface FileRoutesByFullPath {
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
+  '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
   '/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -1176,6 +1191,7 @@ export interface FileRoutesByFullPath {
   '/almacen/recepciones/': typeof AppAlmacenRecepcionesIndexRoute;
   '/almacen/reportes/': typeof AppAlmacenReportesIndexRoute;
   '/almacen/salidas/': typeof AppAlmacenSalidasIndexRoute;
+  '/comercio-exterior/expedientes/': typeof AppComercioExteriorExpedientesIndexRoute;
   '/compras/ordenes/': typeof AppComprasOrdenesIndexRoute;
   '/compras/pendientes/': typeof AppComprasPendientesIndexRoute;
   '/compras/requisiciones/': typeof AppComprasRequisicionesIndexRoute;
@@ -1282,6 +1298,7 @@ export interface FileRoutesByTo {
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
+  '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
   '/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -1341,6 +1358,7 @@ export interface FileRoutesByTo {
   '/almacen/recepciones': typeof AppAlmacenRecepcionesIndexRoute;
   '/almacen/reportes': typeof AppAlmacenReportesIndexRoute;
   '/almacen/salidas': typeof AppAlmacenSalidasIndexRoute;
+  '/comercio-exterior/expedientes': typeof AppComercioExteriorExpedientesIndexRoute;
   '/compras/ordenes': typeof AppComprasOrdenesIndexRoute;
   '/compras/pendientes': typeof AppComprasPendientesIndexRoute;
   '/compras/requisiciones': typeof AppComprasRequisicionesIndexRoute;
@@ -1449,6 +1467,7 @@ export interface FileRoutesById {
   '/_app/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/_app/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/_app/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
+  '/_app/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/_app/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
   '/_app/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/_app/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -1508,6 +1527,7 @@ export interface FileRoutesById {
   '/_app/almacen/recepciones/': typeof AppAlmacenRecepcionesIndexRoute;
   '/_app/almacen/reportes/': typeof AppAlmacenReportesIndexRoute;
   '/_app/almacen/salidas/': typeof AppAlmacenSalidasIndexRoute;
+  '/_app/comercio-exterior/expedientes/': typeof AppComercioExteriorExpedientesIndexRoute;
   '/_app/compras/ordenes/': typeof AppComprasOrdenesIndexRoute;
   '/_app/compras/pendientes/': typeof AppComprasPendientesIndexRoute;
   '/_app/compras/requisiciones/': typeof AppComprasRequisicionesIndexRoute;
@@ -1616,6 +1636,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/alfak-historial'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/salidas/$id'
+    | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
     | '/compras/ordenes/$id'
     | '/compras/ordenes/partidas-abiertas'
@@ -1675,6 +1696,7 @@ export interface FileRouteTypes {
     | '/almacen/recepciones/'
     | '/almacen/reportes/'
     | '/almacen/salidas/'
+    | '/comercio-exterior/expedientes/'
     | '/compras/ordenes/'
     | '/compras/pendientes/'
     | '/compras/requisiciones/'
@@ -1781,6 +1803,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/alfak-historial'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/salidas/$id'
+    | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
     | '/compras/ordenes/$id'
     | '/compras/ordenes/partidas-abiertas'
@@ -1840,6 +1863,7 @@ export interface FileRouteTypes {
     | '/almacen/recepciones'
     | '/almacen/reportes'
     | '/almacen/salidas'
+    | '/comercio-exterior/expedientes'
     | '/compras/ordenes'
     | '/compras/pendientes'
     | '/compras/requisiciones'
@@ -1947,6 +1971,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/reportes/alfak-historial'
     | '/_app/almacen/reportes/mp-cnk'
     | '/_app/almacen/salidas/$id'
+    | '/_app/comercio-exterior/expedientes/$id'
     | '/_app/compras/admin/aprobadores'
     | '/_app/compras/ordenes/$id'
     | '/_app/compras/ordenes/partidas-abiertas'
@@ -2006,6 +2031,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/recepciones/'
     | '/_app/almacen/reportes/'
     | '/_app/almacen/salidas/'
+    | '/_app/comercio-exterior/expedientes/'
     | '/_app/compras/ordenes/'
     | '/_app/compras/pendientes/'
     | '/_app/compras/requisiciones/'
@@ -2532,6 +2558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppComprasOrdenesIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/comercio-exterior/expedientes/': {
+      id: '/_app/comercio-exterior/expedientes/';
+      path: '/comercio-exterior/expedientes';
+      fullPath: '/comercio-exterior/expedientes/';
+      preLoaderRoute: typeof AppComercioExteriorExpedientesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/almacen/salidas/': {
       id: '/_app/almacen/salidas/';
       path: '/almacen/salidas';
@@ -2945,6 +2978,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppComprasAdminAprobadoresRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/comercio-exterior/expedientes/$id': {
+      id: '/_app/comercio-exterior/expedientes/$id';
+      path: '/comercio-exterior/expedientes/$id';
+      fullPath: '/comercio-exterior/expedientes/$id';
+      preLoaderRoute: typeof AppComercioExteriorExpedientesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/almacen/salidas/$id': {
       id: '/_app/almacen/salidas/$id';
       path: '/almacen/salidas/$id';
@@ -3287,6 +3327,7 @@ interface AppRouteChildren {
   AppAlmacenReportesAlfakHistorialRoute: typeof AppAlmacenReportesAlfakHistorialRoute;
   AppAlmacenReportesMpCnkRoute: typeof AppAlmacenReportesMpCnkRoute;
   AppAlmacenSalidasIdRoute: typeof AppAlmacenSalidasIdRoute;
+  AppComercioExteriorExpedientesIdRoute: typeof AppComercioExteriorExpedientesIdRoute;
   AppComprasAdminAprobadoresRoute: typeof AppComprasAdminAprobadoresRoute;
   AppComprasOrdenesIdRoute: typeof AppComprasOrdenesIdRoute;
   AppComprasOrdenesPartidasAbiertasRoute: typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -3346,6 +3387,7 @@ interface AppRouteChildren {
   AppAlmacenRecepcionesIndexRoute: typeof AppAlmacenRecepcionesIndexRoute;
   AppAlmacenReportesIndexRoute: typeof AppAlmacenReportesIndexRoute;
   AppAlmacenSalidasIndexRoute: typeof AppAlmacenSalidasIndexRoute;
+  AppComercioExteriorExpedientesIndexRoute: typeof AppComercioExteriorExpedientesIndexRoute;
   AppComprasOrdenesIndexRoute: typeof AppComprasOrdenesIndexRoute;
   AppComprasPendientesIndexRoute: typeof AppComprasPendientesIndexRoute;
   AppComprasRequisicionesIndexRoute: typeof AppComprasRequisicionesIndexRoute;
@@ -3450,6 +3492,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenReportesAlfakHistorialRoute: AppAlmacenReportesAlfakHistorialRoute,
   AppAlmacenReportesMpCnkRoute: AppAlmacenReportesMpCnkRoute,
   AppAlmacenSalidasIdRoute: AppAlmacenSalidasIdRoute,
+  AppComercioExteriorExpedientesIdRoute: AppComercioExteriorExpedientesIdRoute,
   AppComprasAdminAprobadoresRoute: AppComprasAdminAprobadoresRoute,
   AppComprasOrdenesIdRoute: AppComprasOrdenesIdRoute,
   AppComprasOrdenesPartidasAbiertasRoute:
@@ -3516,6 +3559,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenRecepcionesIndexRoute: AppAlmacenRecepcionesIndexRoute,
   AppAlmacenReportesIndexRoute: AppAlmacenReportesIndexRoute,
   AppAlmacenSalidasIndexRoute: AppAlmacenSalidasIndexRoute,
+  AppComercioExteriorExpedientesIndexRoute:
+    AppComercioExteriorExpedientesIndexRoute,
   AppComprasOrdenesIndexRoute: AppComprasOrdenesIndexRoute,
   AppComprasPendientesIndexRoute: AppComprasPendientesIndexRoute,
   AppComprasRequisicionesIndexRoute: AppComprasRequisicionesIndexRoute,

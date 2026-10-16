@@ -41,4 +41,5 @@
     <InternalsVisibleTo Include="Millet.Compras.IntegrationTests" />
   </ItemGroup>
 
+  <ItemGroup><InternalsVisibleTo Include="Millet.ComercioExterior.UnitTests" /></ItemGroup>
 </Project>

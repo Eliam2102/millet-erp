@@ -1,0 +1,474 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Millet.Api.Auth;
+using Millet.Api.Seed;
+using Millet.ComercioExterior.Infrastructure.Persistence;
+using Millet.Compartido.Infrastructure.Persistence;
+using Millet.Compras.Infrastructure;
+using Millet.Compras.Domain.Oc;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Domain.Adjuntos;
+using Millet.SharedKernel.Infrastructure.HealthChecks;
+using Npgsql;
+
+namespace Millet.Api.IntegrationTests.ComercioExterior;
+/// <summary>JWT del API firmado por el emisor real; middleware y carga de permisos de producción.</summary>
+public sealed class ExpedientesHttpTests
+{
+    private static readonly string[] ClientesDemo = ["FIX-CE cliente"];
+    private const string Base = "/api/v1/comercio-exterior/expedientes";
+    [Fact]
+    public async Task Abrir_desde_oc_repetir_concurrencia_y_sucursal()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var admin = await escenario.ClienteAsync(true);
+        var creado = await admin.PostAsJsonAsync(Base, escenario.Importacion());
+        Assert.Equal(HttpStatusCode.Created, creado.StatusCode);
+        var dto = await Json(creado);
+        var id = dto.GetProperty("expediente").GetProperty("id").GetGuid();
+        var etag = creado.Headers.ETag!.Tag;
+        Assert.Equal("EXW", dto.GetProperty("incotermCodigo").GetString());
+        Assert.Equal("USD", dto.GetProperty("expediente").GetProperty("moneda").GetString());
+        var repetido = await admin.PostAsJsonAsync(Base, escenario.Importacion());
+        Assert.Equal(HttpStatusCode.Conflict, repetido.StatusCode);
+        Assert.Equal("CE_OC_CON_EXPEDIENTE", (await Json(repetido)).GetProperty("code").GetString());
+        using var ninguno = await escenario.ClienteAsync(false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ninguno.GetAsync($"{Base}/{id}")).StatusCode);
+        using var otraSucursal = await escenario.ClienteAsync(true, asociar: false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await otraSucursal.GetAsync($"{Base}/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await otraSucursal.PostAsJsonAsync(Base, escenario.Importacion())).StatusCode);
+        var body = new
+        {
+            referencia = "FIX-CE edición",
+            incotermId = escenario.Incoterm,
+            moneda = "USD",
+            responsableUsuarioId = escenario.Responsable
+        };
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(otraSucursal, HttpMethod.Patch, $"{Base}/{id}", body, etag)).StatusCode);
+        var listadoAjeno = await otraSucursal.GetAsync(Base);
+        listadoAjeno.EnsureSuccessStatusCode();
+        Assert.Empty((await Json(listadoAjeno)).GetProperty("items").EnumerateArray());
+        var buscado = await admin.GetAsync($"{Base}?q=fix-ce");
+        buscado.EnsureSuccessStatusCode();
+        Assert.Contains((await Json(buscado)).GetProperty("items").EnumerateArray(), x => x.GetProperty("id").GetGuid() == id);
+        var editado = await Send(admin, HttpMethod.Patch, $"{Base}/{id}", body, etag);
+        Assert.Equal(HttpStatusCode.OK, editado.StatusCode);
+        var viejo = await Send(admin, HttpMethod.Patch, $"{Base}/{id}", body, etag);
+        Assert.Equal(HttpStatusCode.Conflict, viejo.StatusCode);
+        Assert.Equal("CONCURRENCY_CONFLICT", (await Json(viejo)).GetProperty("code").GetString());
+        Assert.Equal((HttpStatusCode)428, (await Send(admin, HttpMethod.Patch, $"{Base}/{id}", body, null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Versiones_conservan_pedimento_anterior_y_faltantes_son_estructurados()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var creado = await client.PostAsJsonAsync(Base, escenario.Importacion());
+        creado.EnsureSuccessStatusCode();
+        var id = (await Json(creado)).GetProperty("expediente").GetProperty("id").GetGuid();
+        var etag = creado.Headers.ETag!.Tag;
+        var incompleto = await Send(client, HttpMethod.Post, $"{Base}/{id}/revisar-documentos", null, etag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, incompleto.StatusCode);
+        var faltantes = await Json(incompleto);
+        Assert.Equal("CE_DOCUMENTOS_FALTANTES", faltantes.GetProperty("code").GetString());
+        Assert.True(faltantes.GetProperty("faltantes").GetArrayLength() > 0);
+        var pedimento = await escenario.TipoAsync("IMP_PEDIMENTO");
+        var a = await escenario.AdjuntoAsync(id, pedimento);
+        var primera = await Send(client, HttpMethod.Post, $"{Base}/{id}/documentos", new { tipoDocumentoId = pedimento, adjuntoId = a, noAplica = false }, etag);
+        primera.EnsureSuccessStatusCode();
+        etag = primera.Headers.ETag!.Tag;
+        var b = await escenario.AdjuntoAsync(id, pedimento);
+        var segunda = await Send(client, HttpMethod.Post, $"{Base}/{id}/documentos", new { tipoDocumentoId = pedimento, adjuntoId = b, noAplica = false, motivo = "FIX-CE rectificación de pedimento" }, etag);
+        segunda.EnsureSuccessStatusCode();
+        var versiones = (await Json(segunda)).GetProperty("documentos").EnumerateArray().Where(x => x.GetProperty("tipoDocumentoId").GetGuid() == pedimento).ToArray();
+        Assert.Equal(2, versiones.Length);
+        Assert.Equal(2, versiones[0].GetProperty("estado").GetInt32());
+        Assert.Equal(a, versiones[0].GetProperty("adjuntoId").GetGuid());
+        Assert.Equal(2, versiones[1].GetProperty("numeroVersion").GetInt32());
+        using var soloLeer = await escenario.ClienteAsync(true, soloLeer: true);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(soloLeer, HttpMethod.Post, $"{Base}/{id}/revisar-documentos", null, segunda.Headers.ETag!.Tag)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(EstadoOrdenCompra.Borrador)]
+    [InlineData(EstadoOrdenCompra.EnAutorizacionJefeCompras)]
+    [InlineData(EstadoOrdenCompra.EnAutorizacionDireccion)]
+    [InlineData(EstadoOrdenCompra.Rechazada)]
+    [InlineData(EstadoOrdenCompra.Cancelada)]
+    [InlineData(EstadoOrdenCompra.Cerrada)]
+    [InlineData(EstadoOrdenCompra.CancelacionSolicitada)]
+    public async Task Alta_y_selector_rechazan_oc_no_vigente(EstadoOrdenCompra estado)
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        await escenario.EstadoOcAsync(estado);
+        using var client = await escenario.ClienteAsync(true);
+        var respuesta = await client.PostAsJsonAsync(Base, escenario.Importacion());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, respuesta.StatusCode);
+        Assert.Equal("CE_OC_NO_VIGENTE", (await Json(respuesta)).GetProperty("code").GetString());
+        var lista = await client.GetAsync($"{Base}/ordenes-importacion");
+        lista.EnsureSuccessStatusCode();
+        Assert.Empty((await Json(lista)).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Selector_excluye_oc_con_expediente_y_respeta_alcance_de_gestion()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var lista = await client.GetAsync($"{Base}/ordenes-importacion");
+        lista.EnsureSuccessStatusCode();
+        Assert.Single((await Json(lista)).EnumerateArray());
+        using var lecturaGlobal = await escenario.ClienteAsync(true, asociar: false, leerTodas: true);
+        Assert.Empty((await Json(await lecturaGlobal.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray());
+        using var gestionGlobal = await escenario.ClienteAsync(true, asociar: false, gestionarTodas: true);
+        Assert.Single((await Json(await gestionGlobal.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray());
+        var creado = await client.PostAsJsonAsync(Base, escenario.Importacion());
+        creado.EnsureSuccessStatusCode();
+        Assert.Empty((await Json(await client.GetAsync($"{Base}/ordenes-importacion"))).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Baja_de_adjunto_vigente_marca_revision_pendiente_y_limpia_revisor()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var creado = await client.PostAsJsonAsync(Base, escenario.Importacion());
+        creado.EnsureSuccessStatusCode();
+        var dto = await Json(creado);
+        var id = dto.GetProperty("expediente").GetProperty("id").GetGuid();
+        var etag = creado.Headers.ETag!.Tag;
+        var adjuntos = new List<Guid>();
+        foreach (var requisito in dto.GetProperty("requisitos").EnumerateArray().Where(x => x.GetProperty("obligatorio").GetBoolean()))
+        {
+            var tipo = requisito.GetProperty("id").GetGuid();
+            var adjunto = await escenario.AdjuntoAsync(id, tipo);
+            adjuntos.Add(adjunto);
+            var registrado = await Send(client, HttpMethod.Post, $"{Base}/{id}/documentos", new { tipoDocumentoId = tipo, adjuntoId = adjunto, noAplica = false }, etag);
+            registrado.EnsureSuccessStatusCode();
+            etag = registrado.Headers.ETag!.Tag;
+        }
+        var revisado = await Send(client, HttpMethod.Post, $"{Base}/{id}/revisar-documentos", null, etag);
+        revisado.EnsureSuccessStatusCode();
+        Assert.Equal(JsonValueKind.String, (await Json(revisado)).GetProperty("revisadoPorId").ValueKind);
+        var baja = await Send(client, HttpMethod.Delete, $"{Base}/{id}/adjuntos/{adjuntos[0]}", new { motivo = "FIX-CE baja del documento revisado" }, null);
+        baja.EnsureSuccessStatusCode();
+        var detalle = await client.GetAsync($"{Base}/{id}");
+        detalle.EnsureSuccessStatusCode();
+        var actualizado = await Json(detalle);
+        Assert.True(actualizado.GetProperty("expediente").GetProperty("revisionPendiente").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, actualizado.GetProperty("revisadoPorId").ValueKind);
+        Assert.Single(actualizado.GetProperty("faltantes").EnumerateArray());
+        Assert.NotEqual(revisado.Headers.ETag!.Tag, detalle.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task Exportacion_sin_ddp_devuelve_error_de_negocio()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        await escenario.QuitarDdpAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var respuesta = await client.PostAsJsonAsync(Base, new { tipo = 2, sucursalId = escenario.SucursalId, referencia = "FIX-CE sin DDP", moneda = "USD", responsableUsuarioId = escenario.Responsable, clientes = ClientesDemo });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, respuesta.StatusCode);
+        Assert.Equal("CE_INCOTERM_REQUERIDO", (await Json(respuesta)).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Semilla_demo_dos_arranques_conserva_dos_expedientes_y_tres_de_cinco()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        var primero = await escenario.SnapshotAsync();
+        await escenario.SemillaAsync();
+        var segundo = await escenario.SnapshotAsync();
+        Assert.Equal(primero, segundo);
+        Assert.Equal((2, 3, 1), segundo);
+    }
+
+    [Fact]
+    public async Task Exportacion_propone_ddp_y_cancelacion_conserva_documentos()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var r = await client.PostAsJsonAsync(Base, new { tipo = 2, sucursalId = escenario.SucursalId, referencia = "FIX-CE solicitud contenedor", moneda = "USD", responsableUsuarioId = escenario.Responsable, clientes = ClientesDemo });
+        r.EnsureSuccessStatusCode();
+        var dto = await Json(r);
+        var id = dto.GetProperty("expediente").GetProperty("id").GetGuid();
+        Assert.Equal("DDP", dto.GetProperty("incotermCodigo").GetString());
+        var participante = Assert.Single(dto.GetProperty("participantes").EnumerateArray());
+        Assert.False(participante.TryGetProperty("empresaId", out _));
+        Assert.False(participante.TryGetProperty("createdAt", out _));
+        Assert.False(participante.TryGetProperty("aggregateRootId", out _));
+        Assert.False(dto.GetProperty("requisitos").EnumerateArray().Single(x => x.GetProperty("codigo").GetString() == "EXP_POD").GetProperty("obligatorio").GetBoolean());
+        var isf = await escenario.TipoAsync("EXP_ISF");
+        var noAplica = await Send(client, HttpMethod.Post, $"{Base}/{id}/documentos", new { tipoDocumentoId = isf, noAplica = true, motivo = "FIX-CE ruta sin ISF" }, r.Headers.ETag!.Tag);
+        noAplica.EnsureSuccessStatusCode();
+        var motivoCorto = await Send(client, HttpMethod.Post, $"{Base}/{id}/cancelar", new { motivo = "no" }, noAplica.Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, motivoCorto.StatusCode);
+        var cancelado = await Send(client, HttpMethod.Post, $"{Base}/{id}/cancelar", new { motivo = "FIX-CE cancelación de prueba" }, noAplica.Headers.ETag!.Tag);
+        cancelado.EnsureSuccessStatusCode();
+        Assert.Single((await Json(cancelado)).GetProperty("documentos").EnumerateArray());
+        Assert.Equal(2, (await Json(cancelado)).GetProperty("expediente").GetProperty("estado").GetInt32());
+    }
+
+    private static async Task<JsonElement> Json(HttpResponseMessage r)
+    {
+        using var doc = JsonDocument.Parse(await r.Content.ReadAsStringAsync());
+        return doc.RootElement.Clone();
+    }
+
+    private static Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string url, object? body, string? etag)
+    {
+        var request = new HttpRequestMessage(method, url);
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        if (etag is not null)
+            request.Headers.TryAddWithoutValidation("If-Match", etag);
+        return client.SendAsync(request);
+    }
+
+    private sealed class Escenario : IAsyncDisposable
+    {
+        private readonly string? _authAnterior;
+        private readonly string? _conexionAnterior;
+        private readonly string _conexionAdmin;
+        private readonly string _baseDatos;
+        private readonly string _blobs = Path.Combine(Path.GetTempPath(), "ce-blobs-" + Guid.NewGuid().ToString("N"));
+        private readonly WebApplicationFactory<Program> _factory;
+        public Guid Incoterm { get; private set; }
+        public Guid Responsable { get; } = DemoSesionSeedHostedService.CapturistaComprasDemoId;
+        private Guid Sucursal { get; set; }
+        public Guid SucursalId => Sucursal;
+        private Guid Oc { get; set; }
+
+        private Escenario(string conexion, string conexionAdmin, string baseDatos)
+        {
+            // Program lee Auth:Mode al construir el host. No sustituye esquemas ni handlers de autenticación.
+            _conexionAnterior = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
+            _conexionAdmin = conexionAdmin;
+            _baseDatos = baseDatos;
+            Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", conexion);
+            _authAnterior = Environment.GetEnvironmentVariable("Auth__Mode");
+            Environment.SetEnvironmentVariable("Auth__Mode", "EntraId");
+            _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+            {
+                b.UseEnvironment("Development");
+                b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Auth:Mode"] = "EntraId", ["Seed:DemoSesion:Habilitado"] = "true", ["Entra:Proveedor"] = "Graph", ["ConnectionStrings:Postgres"] = conexion, ["Adjuntos:BlobStorage:ConnectionString"] = "", ["Compras:Oc:BlobStorage:ConnectionString"] = "", }));
+                b.ConfigureTestServices(s =>
+                {
+                    s.RemoveAll<IHostedService>();
+                    s.AddSingleton<Millet.SharedKernel.Application.Blob.IBlobStoragePort>(new BlobsCe(_blobs));
+                    s.AddSingleton<Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort>(new BlobsCe(_blobs));
+                });
+            });
+        }
+
+        public static async Task<Escenario> CrearAsync()
+        {
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")))
+                throw new InvalidOperationException("Se requiere PostgreSQL aislado.");
+            var gate = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")!;
+            var nombre = "ce_integration_" + Guid.NewGuid().ToString("N");
+            var admin = new NpgsqlConnectionStringBuilder(gate)
+            {
+                Database = "postgres",
+                Pooling = false
+            };
+            var dbConexion = new NpgsqlConnectionStringBuilder(gate)
+            {
+                Database = nombre,
+                Pooling = false
+            };
+            await using (var conn = new NpgsqlConnection(admin.ConnectionString))
+            {
+                await conn.OpenAsync();
+                await using var cmd = new NpgsqlCommand($"CREATE DATABASE \"{nombre}\"", conn);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            var e = new Escenario(dbConexion.ConnectionString, admin.ConnectionString, nombre);
+            try
+            {
+                using var migraciones = e._factory.Services.CreateScope();
+                foreach (var type in e._factory.Services.GetRequiredService<MigrationsHealthCheckOptions>().ContextTypes)
+                    await ((DbContext)migraciones.ServiceProvider.GetRequiredService(type)).Database.MigrateAsync();
+                var catalogos = ActivatorUtilities.CreateInstance<Millet.Compartido.Infrastructure.Seed.CatalogosTestSeedHostedService>(e._factory.Services);
+                await catalogos.StartAsync(CancellationToken.None);
+                var almacen = ActivatorUtilities.CreateInstance<Millet.Almacen.Infrastructure.Seed.AlmacenSeedHostedService>(e._factory.Services);
+                await almacen.StartAsync(CancellationToken.None);
+                await e.SemillaAsync();
+            }
+            catch
+            {
+                await e.DisposeAsync();
+                throw;
+            }
+
+            using var scope = e._factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            e.Sucursal = (await db.Sucursales.SingleAsync(x => x.EmpresaId == DemoSesionSeedHostedService.EmpresaId && x.Clave == "MID")).Id;
+            e.Incoterm = (await db.Incoterms.SingleAsync(x => x.Codigo == "EXW")).Id;
+            var compras = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var origen = await compras.OrdenesCompra.SingleAsync(x => x.Id == DemoSesionSeedHostedService.Id("DEMO-CE-OC-IMPORTACION"));
+            // Otro origen DEMO independiente del expediente que la semilla ya abrió.
+            var id = Guid.NewGuid();
+            var oc = new Millet.Compras.Domain.Oc.OrdenCompra(id, origen.EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse("OC-FIXC2026-" + Random.Shared.Next(100000, 999999)), 2026, origen.ProveedorId, origen.SucursalDestinoId, origen.CondicionesPagoId, origen.UsoPrincipalId, e.Responsable, e.Responsable, new DateOnly(2026, 10, 15), moneda: "USD", tipoCambio: 18, sinRequisicionPrevia: true, esImportacion: true, motivoSinRequisicion: "FIX-CE prueba aislada");
+            oc.ActualizarInformacionImportacion(origen.InformacionImportacion);
+            compras.OrdenesCompra.Add(oc);
+            await compras.SaveChangesAsync();
+            e.Oc = id;
+            await e.EstadoOcAsync(EstadoOrdenCompra.Autorizada);
+            return e;
+        }
+
+        public object Importacion() => new
+        {
+            tipo = 1,
+            ocId = Oc,
+            referencia = "FIX-CE importación",
+            responsableUsuarioId = Responsable,
+            clientes = Array.Empty<string>()
+        };
+        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false)
+        {
+            using var scope = _factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var id = Guid.NewGuid();
+            var usuario = new Usuario(id, id.ToString(), $"ce-{id:N}@example.invalid", "FIX-CE usuario");
+            var rol = new Rol(Guid.NewGuid(), "FIX-CE-" + id.ToString("N")[..8], "FIX-CE rol");
+            db.Usuarios.Add(usuario);
+            db.Roles.Add(rol);
+            if (permisos)
+                foreach (var p in PermisosCanonicos.Todos.Where(p => p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer)))
+                    db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, p.Id));
+            foreach (var codigo in new[] { leerTodas ? PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales : null, gestionarTodas ? PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales : null }.OfType<string>())
+                db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, PermisosCanonicos.Todos.Single(p => p.Codigo == codigo).Id));
+            db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Guid.NewGuid(), usuario.Id, DemoSesionSeedHostedService.EmpresaId, rol.Id));
+            if (asociar)
+                db.UsuarioSucursales.Add(new UsuarioSucursal(Guid.NewGuid(), usuario.Id, Sucursal, DemoSesionSeedHostedService.EmpresaId));
+            else
+            {
+                var otra = await scope.ServiceProvider.GetRequiredService<CompartidoDbContext>().Sucursales.SingleAsync(x => x.EmpresaId == DemoSesionSeedHostedService.EmpresaId && x.Clave == "MTY");
+                db.UsuarioSucursales.Add(new UsuarioSucursal(Guid.NewGuid(), usuario.Id, otra.Id, DemoSesionSeedHostedService.EmpresaId));
+            }
+            await db.SaveChangesAsync();
+            var token = scope.ServiceProvider.GetRequiredService<IJwtTokenService>().CreateAccessToken(usuario, DemoSesionSeedHostedService.EmpresaId);
+            var client = _factory.CreateClientWithIdempotency();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+            return client;
+        }
+
+        public async Task EstadoOcAsync(EstadoOrdenCompra estado)
+        {
+            using var s = _factory.Services.CreateScope();
+            using var bypass = s.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = s.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var oc = await db.OrdenesCompra.SingleAsync(x => x.Id == Oc);
+            db.Entry(oc).Property(x => x.Estado).CurrentValue = estado;
+            await db.SaveChangesAsync();
+        }
+
+        public async Task QuitarDdpAsync()
+        {
+            using var s = _factory.Services.CreateScope();
+            var db = s.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var ddp = await db.Incoterms.SingleAsync(x => x.Codigo == "DDP");
+            db.Entry(ddp).Property(x => x.Codigo).CurrentValue = "FIX";
+            await db.SaveChangesAsync();
+        }
+
+        public async Task<Guid> TipoAsync(string codigo)
+        {
+            using var s = _factory.Services.CreateScope();
+            return await s.ServiceProvider.GetRequiredService<CompartidoDbContext>().AdjuntoTiposDocumento.Where(x => x.TipoEntidad == "expediente_ce" && x.Codigo == codigo).Select(x => x.Id).SingleAsync();
+        }
+
+        public async Task<Guid> AdjuntoAsync(Guid expediente, Guid tipo)
+        {
+            using var s = _factory.Services.CreateScope();
+            var db = s.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            var id = Guid.NewGuid();
+            db.Adjuntos.Add(new Adjunto(id, "expediente_ce", expediente, DemoSesionSeedHostedService.EmpresaId, tipo, "FIX-CE.pdf", "application/pdf", 10, new string ('a', 64), $"FIX-CE/{id}", null, Responsable, new DateTimeOffset(2026, 10, 15, 0, 0, 0, TimeSpan.Zero)));
+            await db.SaveChangesAsync();
+            return id;
+        }
+
+        public async Task SemillaAsync()
+        {
+            var configuracion = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Seed:DemoSesion:Habilitado"] = "true" }).Build();
+            var seed = ActivatorUtilities.CreateInstance<DemoSesionSeedHostedService>(_factory.Services, configuracion);
+            await seed.StartAsync(CancellationToken.None);
+        }
+
+        public async Task<(int, int, int)> SnapshotAsync()
+        {
+            using var s = _factory.Services.CreateScope();
+            using var bypass = s.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = s.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var ids = new[]
+            {
+                DemoSesionSeedHostedService.Id("DEMO-CE-IMPORTACION"),
+                DemoSesionSeedHostedService.Id("DEMO-CE-EXPORTACION")
+            };
+            return (await db.Expedientes.CountAsync(x => ids.Contains(x.Id)), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[0]), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[1] && x.NoAplica));
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await _factory.DisposeAsync();
+                await using var c = new NpgsqlConnection(_conexionAdmin);
+                await c.OpenAsync();
+                await using var cmd = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_baseDatos}\" WITH (FORCE)", c);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("Auth__Mode", _authAnterior);
+                Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", _conexionAnterior);
+                if (Directory.Exists(_blobs))
+                    Directory.Delete(_blobs, true);
+            }
+        }
+    }
+
+    private sealed class BlobsCe(string carpeta) : Millet.SharedKernel.Application.Blob.IBlobStoragePort, Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort
+    {
+        private string Ruta(string clave) => Path.Combine(carpeta, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clave))));
+        public async Task SubirAsync(string clave, Stream contenido, string contentType, CancellationToken cancellationToken)
+        {
+            Directory.CreateDirectory(carpeta);
+            await using var f = File.Create(Ruta(clave));
+            await contenido.CopyToAsync(f, cancellationToken);
+        }
+
+        public Task<Stream> ObtenerStreamAsync(string clave, CancellationToken cancellationToken) => Task.FromResult<Stream>(File.OpenRead(Ruta(clave)));
+        public Task EliminarAsync(string clave, CancellationToken cancellationToken)
+        {
+            File.Delete(Ruta(clave));
+            return Task.CompletedTask;
+        }
+
+        public async Task<string> SubirAsync(Guid adjuntoId, Stream contenido, string contentType, string nombreArchivo, CancellationToken cancellationToken)
+        {
+            var clave = adjuntoId.ToString();
+            await SubirAsync(clave, contenido, contentType, cancellationToken);
+            return clave;
+        }
+    }
+}

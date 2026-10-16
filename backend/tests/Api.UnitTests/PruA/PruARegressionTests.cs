@@ -175,7 +175,7 @@ public sealed class PruARegressionTests
         Assert.NotEqual(cuenta.NumeroCuenta, cuentaDisponible.NumeroCuenta);
         Assert.DoesNotContain(typeof(Millet.Tesoreria.Application.Cuentas.CuentaParaIngresoResponse).GetProperties(), p => p.Name == "Saldo");
         var port = new TesoreriaSucursalReadAdapter(a.Tes, a, a, a);
-        var scope = new DocumentoSucursalScope(a, a, a, a, a, a, port, a, a);
+        var scope = new DocumentoSucursalScope(a, a, a, a, a, a, port, a, a, a);
         await scope.VerificarAsync("movimiento_bancario", ingreso.Id, "tesoreria.documentos.gestionar-todas-sucursales", default);
         var doc = (await port.ListarAsync("movimiento_bancario", default)).Single(d => d.Id == ingreso.Id);
         Assert.True(DocumentoSucursalScope.Permitido(doc, [a.Sucursal]));
@@ -324,7 +324,7 @@ public sealed class PruARegressionTests
 
     private sealed class Ambiente : ICurrentEmpresaContext, ICurrentUserContext, IClock, ICurrentUserPermissions, IUsuarioSucursalReadPort,
         IProveedorReadPort, IProveedorBancoReadPort, IElegibleFacturaReadPort, IComprasOcReadPort, IEmpresaFiscalReadPort,
-        IReppBancarioReadPort, ICxpSucursalReadPort, ICxcSucursalReadPort, IFacturacionSucursalReadPort, IComprasSucursalReadPort, IAlmacenSucursalReadPort, IAsyncDisposable
+        IReppBancarioReadPort, ICxpSucursalReadPort, ICxcSucursalReadPort, IFacturacionSucursalReadPort, IComprasSucursalReadPort, IAlmacenSucursalReadPort, IComercioExteriorSucursalReadPort, IAsyncDisposable
     {
         public Guid Empresa { get; } = Guid.NewGuid(); public Guid Sucursal { get; } = Guid.NewGuid();
         public Guid Cliente { get; } = Guid.NewGuid(); public Guid Proveedor { get; } = Guid.NewGuid();

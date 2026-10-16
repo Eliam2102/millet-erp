@@ -102,10 +102,10 @@ describe('filtrarModuloPorPermisos', () => {
 });
 
 describe('navSidebarItems', () => {
-  it('arranca con Inicio (link), seguido de los 10 módulos del back-office', () => {
+  it('arranca con Inicio (link), seguido de los 11 módulos del back-office', () => {
     expect(navSidebarItems[0]).toMatchObject({ kind: 'link', label: 'Inicio' });
     const modulos = navSidebarItems.filter((i) => i.kind === 'modulo');
-    expect(modulos.length).toBe(10);
+    expect(modulos.length).toBe(11);
     expect(modulos.map((m) => m.moduloId)).toEqual([
       'facturacion',
       'cxc',
@@ -117,6 +117,7 @@ describe('navSidebarItems', () => {
       'activos',
       'contabilidad',
       'reportes',
+      'comercio-exterior',
     ]);
   });
 
@@ -132,6 +133,7 @@ describe('navSidebarItems', () => {
       'tesoreria',
       'centros-costo',
       'contabilidad',
+      'comercio-exterior',
     ]);
   });
 

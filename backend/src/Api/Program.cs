@@ -1,3 +1,6 @@
+using Millet.ComercioExterior.Application;
+using Millet.ComercioExterior.Infrastructure;
+using Millet.ComercioExterior.Infrastructure.Persistence;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.DataProtection;
@@ -685,6 +688,7 @@ builder.Services.AddMilletApplication(
     CuentasPorCobrarAssemblyMarker.Assembly,
     TesoreriaAssemblyMarker.Assembly,
     CentrosCostoAssemblyMarker.Assembly,
+    typeof(CrearExpedienteCommand).Assembly,
     ContabilidadAssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
@@ -889,6 +893,12 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 // catálogo general). DbContext abajo, junto a los demás contextos. Sin
 // endpoints ni outbox todavía — CRUD/jerarquía entran en A2/A3.
 builder.Services.AddCentrosCostoModule();
+builder.Services.AddComprasReadPorts();
+builder.Services.AddComercioExteriorModule();
+builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
+    .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
+    .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
+builder.Services.AddHostedService<OutboxPublisherWorker<ComercioExteriorDbContext>>();
 
 // === Módulo Contabilidad (F1-CON-01): catálogo contable ===
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
@@ -1314,6 +1324,12 @@ builder.Services.AddDbContext<CentrosCostoDbContext>((sp, opts) =>
 builder.Services.AddDbContext<ContabilidadDbContext>((sp, opts) =>
     ConfigureMilletDbContext(opts, sp));
 
+builder.Services.AddDbContext<ComercioExteriorDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
+
 // === Manejo de errores: Problem Details vía IExceptionHandler ===
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -1344,6 +1360,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
 
         typeof(CentrosCostoDbContext),
         typeof(ContabilidadDbContext),
+        typeof(ComercioExteriorDbContext),
     },
 });
 
@@ -1683,6 +1700,8 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
+
+Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
 
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);
