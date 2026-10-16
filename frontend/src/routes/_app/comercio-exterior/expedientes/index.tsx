@@ -8,6 +8,12 @@ const filtros = z.object({
   sucursalId: zId().or(z.literal('todas')).optional().catch(undefined),
   tipo: z.coerce.number().int().min(1).max(2).optional().catch(undefined),
   estado: z.coerce.number().int().min(1).max(2).optional().catch(undefined),
+  atraso: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .or(z.boolean())
+    .optional()
+    .catch(undefined),
   q: z.string().max(200).optional(),
   offset: z.coerce.number().int().min(0).optional().catch(0),
 });

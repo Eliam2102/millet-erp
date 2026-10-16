@@ -14,7 +14,7 @@ using Millet.SharedKernel.Domain.Adjuntos;
 namespace Millet.Api.Seed;
 public sealed partial class DemoSesionSeedHostedService
 {
-    // CE-01a: sin hitos, atrasos ni cierre. Referencias y archivos explícitamente ficticios.
+    // Referencias, archivos y compromisos explícitamente ficticios para la sesión DEMO.
     private static async Task SembrarComercioExteriorAsync(IServiceProvider sp, CancellationToken ct)
     {
         var maestros = sp.GetRequiredService<CompartidoDbContext>();
@@ -58,10 +58,20 @@ public sealed partial class DemoSesionSeedHostedService
         )
         {
             var clave = tipo == TipoExpediente.Importacion ? "DEMO-CE-IMPORTACION" : "DEMO-CE-EXPORTACION";
-            if (await ce.Expedientes.AnyAsync(e => e.Id == Id(clave), ct))
+            var existente = await ce.Expedientes.Include(e => e.Hitos).SingleOrDefaultAsync(e => e.Id == Id(clave), ct);
+            if (existente is not null)
+            {
+                existente.InicializarHitos(tipo == TipoExpediente.Importacion ? oc.FechaDocumento : FechaContable.HoyLocal(Fecha));
+                if (existente.Estado == EstadoExpediente.Abierto && tipo == TipoExpediente.Importacion && existente.Hitos.Single(h => h.Clave == "planeado") is { FechaCompromiso: null, FechaReal: null, Omitido: false })
+                    existente.CambiarCompromiso("planeado", new DateOnly(2026, 10, 14), CapturistaComprasDemoId, null);
+                await ce.SaveChangesAsync(ct);
                 continue;
+            }
             var e = new Expediente(Id(clave), EmpresaId, tipo == TipoExpediente.Importacion ? "CE-IMP-2026-900001" : "CE-EXP-2026-900002", tipo, sucursal.Id, clave + " · datos ficticios", tipo == TipoExpediente.Importacion ? ocId : null, tipo == TipoExpediente.Importacion ? exw.Id : ddp.Id, "USD", CapturistaComprasDemoId, tipo == TipoExpediente.Exportacion ? ["DEMO · Cliente de exportación"] : []);
-            e.AgregarParticipante(Id(clave + "/AGENTE"), "DEMO · Agente aduanal", "Agente aduanal", "Contacto ficticio DEMO", PapelParticipante.Revisa, null, null);
+            e.InicializarHitos(tipo == TipoExpediente.Importacion ? oc.FechaDocumento : FechaContable.HoyLocal(Fecha));
+            if (tipo == TipoExpediente.Importacion)
+                e.CambiarCompromiso("planeado", new DateOnly(2026, 10, 14), CapturistaComprasDemoId, null);
+            e.AgregarParticipante(Id(clave + "/AGENTE"), "DEMO · Agente aduanal", TipoParticipante.AgenteAduanal, "Contacto ficticio DEMO", PapelParticipante.Revisa, null, null);
             var codigos = tipo == TipoExpediente.Importacion ? new[]
             {
                 "IMP_FACTURA",

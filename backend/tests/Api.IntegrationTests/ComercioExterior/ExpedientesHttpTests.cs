@@ -193,7 +193,7 @@ public sealed class ExpedientesHttpTests
         await escenario.SemillaAsync();
         var segundo = await escenario.SnapshotAsync();
         Assert.Equal(primero, segundo);
-        Assert.Equal((2, 3, 1), segundo);
+        Assert.Equal((2, 3, 1, 30, 1), segundo);
     }
 
     [Fact]
@@ -222,6 +222,115 @@ public sealed class ExpedientesHttpTests
         Assert.Equal(2, (await Json(cancelado)).GetProperty("expediente").GetProperty("estado").GetInt32());
     }
 
+    [Fact]
+    public async Task Hitos_validan_permisos_sucursal_etag_secuencia_documentos_y_cierre_financiero()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var creado = await client.PostAsJsonAsync(Base, escenario.Importacion());
+        creado.EnsureSuccessStatusCode();
+        var dto = await Json(creado);
+        Assert.Equal(15, dto.GetProperty("hitos").GetArrayLength());
+        Assert.Equal("solicitado", dto.GetProperty("hitos")[0].GetProperty("clave").GetString());
+        Assert.Equal("2026-10-15", dto.GetProperty("hitos")[0].GetProperty("fechaReal").GetString());
+        var id = dto.GetProperty("expediente").GetProperty("id").GetGuid();
+        var etag = creado.Headers.ETag!.Tag;
+        var hoy = FechaContable.HoyLocal(escenario.Ahora);
+        var datos = new { clave = "planeado", fechaCompromiso = hoy.AddDays(-1), responsableUsuarioId = escenario.Responsable };
+        using var lectura = await escenario.ClienteAsync(true, soloLeer: true);
+        using var ajeno = await escenario.ClienteAsync(true, asociar: false);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(lectura, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/compromiso", datos, etag)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(ajeno, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/compromiso", datos, etag)).StatusCode);
+        var compromiso = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/compromiso", datos, etag);
+        compromiso.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/compromiso", datos, etag)).StatusCode);
+        etag = compromiso.Headers.ETag!.Tag;
+        var sinMotivo = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/compromiso", new { clave = "planeado", fechaCompromiso = hoy, responsableUsuarioId = escenario.Responsable }, etag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, sinMotivo.StatusCode);
+        Assert.Equal("CE_MOTIVO_INVALIDO", (await Json(sinMotivo)).GetProperty("code").GetString());
+        var salto = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/booking-confirmado/real", new { clave = "booking-confirmado", fechaReal = hoy, responsableUsuarioId = escenario.Responsable }, etag);
+        Assert.Equal("CE_HITO_ANTERIOR_PENDIENTE", (await Json(salto)).GetProperty("code").GetString());
+        foreach (var clave in new[] { "planeado", "booking-confirmado", "contenedor-asignado", "documentacion-en-proceso" })
+        {
+            var real = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/{clave}/real", new { clave, fechaReal = hoy, responsableUsuarioId = escenario.Responsable }, etag);
+            real.EnsureSuccessStatusCode();
+            etag = real.Headers.ETag!.Tag;
+            if (clave == "planeado")
+            {
+                var h = (await Json(real)).GetProperty("hitos")[1];
+                Assert.Equal(hoy.AddDays(-1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), h.GetProperty("fechaCompromiso").GetString());
+                Assert.False(h.GetProperty("atrasado").GetBoolean());
+            }
+        }
+        var incompleto = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/documentacion-completa/real", new { clave = "documentacion-completa", fechaReal = hoy, responsableUsuarioId = escenario.Responsable }, etag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, incompleto.StatusCode);
+        Assert.Equal("CE_DOCUMENTOS_FALTANTES", (await Json(incompleto)).GetProperty("code").GetString());
+        Assert.NotEmpty((await Json(incompleto)).GetProperty("faltantes").EnumerateArray());
+        var omitir = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/documentacion-completa/omitir", new { clave = "documentacion-completa", responsableUsuarioId = escenario.Responsable, motivo = "FIX-CE faltan documentos" }, etag);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, omitir.StatusCode);
+        Assert.Equal("CE_HITO_NO_OMITIBLE", (await Json(omitir)).GetProperty("code").GetString());
+        foreach (var ruta in new[] { "cerrar", "hitos/cerrado/real", "hitos/cerrado/omitir" })
+        {
+            var cierre = await Send(client, HttpMethod.Post, $"{Base}/{id}/{ruta}", new { clave = "cerrado", fechaReal = hoy, responsableUsuarioId = escenario.Responsable, motivo = "FIX-CE no aplica" }, etag);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, cierre.StatusCode);
+            Assert.Equal(ruta.EndsWith("omitir", StringComparison.Ordinal) ? "CE_HITO_NO_OMITIBLE" : "CE_CIERRE_FINANCIERO_PENDIENTE", (await Json(cierre)).GetProperty("code").GetString());
+        }
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(lectura, HttpMethod.Post, $"{Base}/{id}/cerrar", null, etag)).StatusCode);
+        Assert.Equal(4, await escenario.EventosHitoAsync(id));
+    }
+
+    [Fact]
+    public async Task Trabajo_diario_idempotente_y_nuevo_aviso_al_reprogramar_vencido()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var creado = await client.PostAsJsonAsync(Base, escenario.Importacion());
+        creado.EnsureSuccessStatusCode();
+        var id = (await Json(creado)).GetProperty("expediente").GetProperty("id").GetGuid();
+        var ayer = FechaContable.HoyLocal(escenario.Ahora).AddDays(-1);
+        var compromiso = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/compromiso", new { clave = "planeado", fechaCompromiso = ayer, responsableUsuarioId = escenario.Responsable }, creado.Headers.ETag!.Tag);
+        compromiso.EnsureSuccessStatusCode();
+        var etagAnterior = compromiso.Headers.ETag!.Tag;
+        await escenario.CorrerAvisosAsync();
+        await escenario.CorrerAvisosAsync();
+        var detalle = await client.GetAsync($"{Base}/{id}");
+        Assert.Single((await Json(detalle)).GetProperty("avisos").EnumerateArray());
+        Assert.Equal(etagAnterior, detalle.Headers.ETag!.Tag);
+        var patch = await Send(client, HttpMethod.Patch, $"{Base}/{id}", new { referencia = "FIX-CE edición tras aviso", incotermId = escenario.Incoterm, moneda = "USD", responsableUsuarioId = escenario.Responsable }, etagAnterior);
+        Assert.Equal(HttpStatusCode.OK, patch.StatusCode);
+        var listado = await Json(await client.GetAsync($"{Base}?atraso=true"));
+        Assert.Contains(listado.GetProperty("items").EnumerateArray(), e => e.GetProperty("id").GetGuid() == id && e.GetProperty("avisos").GetInt32() == 1 && e.GetProperty("hitosAtrasados").GetInt32() == 1);
+        var nuevo = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/compromiso", new { clave = "planeado", fechaCompromiso = ayer.AddDays(-1), responsableUsuarioId = escenario.Responsable, motivo = "FIX-CE nueva fecha compromiso" }, patch.Headers.ETag!.Tag);
+        nuevo.EnsureSuccessStatusCode();
+        await escenario.CorrerAvisosAsync();
+        await escenario.CorrerAvisosAsync();
+        Assert.Equal(2, (await Json(await client.GetAsync($"{Base}/{id}"))).GetProperty("avisos").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Hito_se_registra_con_incoterm_inactivo_y_valida_responsable_activo_con_sucursal()
+    {
+        await using var escenario = await Escenario.CrearAsync();
+        using var client = await escenario.ClienteAsync(true);
+        var creado = await client.PostAsJsonAsync(Base, escenario.Importacion());
+        creado.EnsureSuccessStatusCode();
+        var id = (await Json(creado)).GetProperty("expediente").GetProperty("id").GetGuid();
+        var etag = creado.Headers.ETag!.Tag;
+        await escenario.DesactivarIncotermAsync();
+        var hoy = FechaContable.HoyLocal(escenario.Ahora);
+        var sinSucursal = await escenario.ResponsablePruebaAsync(activo: true, asociar: false);
+        var inactivo = await escenario.ResponsablePruebaAsync(activo: false, asociar: true);
+        foreach (var responsable in new[] { sinSucursal, inactivo })
+        {
+            var rechazado = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/real", new { clave = "planeado", fechaReal = hoy, responsableUsuarioId = responsable }, etag);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, rechazado.StatusCode);
+            Assert.Equal("CE_RESPONSABLE_REQUERIDO", (await Json(rechazado)).GetProperty("code").GetString());
+        }
+        var real = await Send(client, HttpMethod.Post, $"{Base}/{id}/hitos/planeado/real", new { clave = "planeado", fechaReal = hoy, responsableUsuarioId = escenario.Responsable }, etag);
+        Assert.Equal(HttpStatusCode.OK, real.StatusCode);
+        Assert.NotNull((await Json(real)).GetProperty("hitos")[1].GetProperty("fechaReal").GetString());
+    }
+
     private static async Task<JsonElement> Json(HttpResponseMessage r)
     {
         using var doc = JsonDocument.Parse(await r.Content.ReadAsStringAsync());
@@ -247,6 +356,7 @@ public sealed class ExpedientesHttpTests
         private readonly string _baseDatos;
         private readonly string _blobs = Path.Combine(Path.GetTempPath(), "ce-blobs-" + Guid.NewGuid().ToString("N"));
         private readonly WebApplicationFactory<Program> _factory;
+        public DateTimeOffset Ahora => _factory.Services.GetRequiredService<IClock>().UtcNow;
         public Guid Incoterm { get; private set; }
         public Guid Responsable { get; } = DemoSesionSeedHostedService.CapturistaComprasDemoId;
         private Guid Sucursal { get; set; }
@@ -382,6 +492,31 @@ public sealed class ExpedientesHttpTests
             await db.SaveChangesAsync();
         }
 
+        public async Task DesactivarIncotermAsync()
+        {
+            using var s = _factory.Services.CreateScope();
+            var db = s.ServiceProvider.GetRequiredService<CompartidoDbContext>();
+            (await db.Incoterms.SingleAsync(x => x.Id == Incoterm)).CambiarEstatus(Millet.Catalogos.Domain.EstatusCatalogo.Inactivo);
+            await db.SaveChangesAsync();
+        }
+
+        public async Task<Guid> ResponsablePruebaAsync(bool activo, bool asociar)
+        {
+            using var s = _factory.Services.CreateScope();
+            using var bypass = s.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = s.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var id = Guid.NewGuid();
+            var usuario = new Usuario(id, id.ToString(), $"ce-{id:N}@example.invalid", "FIX-CE responsable");
+            if (!activo) usuario.Desactivar();
+            var rol = new Rol(Guid.NewGuid(), "FIX-CE-" + id.ToString("N")[..8], "FIX-CE rol");
+            db.Usuarios.Add(usuario);
+            db.Roles.Add(rol);
+            db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Guid.NewGuid(), id, DemoSesionSeedHostedService.EmpresaId, rol.Id));
+            if (asociar) db.UsuarioSucursales.Add(new UsuarioSucursal(Guid.NewGuid(), id, Sucursal, DemoSesionSeedHostedService.EmpresaId));
+            await db.SaveChangesAsync();
+            return id;
+        }
+
         public async Task QuitarDdpAsync()
         {
             using var s = _factory.Services.CreateScope();
@@ -407,6 +542,17 @@ public sealed class ExpedientesHttpTests
             return id;
         }
 
+        public Task<int> CorrerAvisosAsync() => ActivatorUtilities.CreateInstance<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorker>(_factory.Services).CorrerUnaVezAsync(CancellationToken.None);
+
+        public async Task<int> EventosHitoAsync(Guid expediente)
+        {
+            using var s = _factory.Services.CreateScope();
+            using var bypass = s.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = s.ServiceProvider.GetRequiredService<ComercioExteriorDbContext>();
+            var eventos = await db.OutboxEntries.Where(x => x.EventType == "expediente-ce.hito-registrado.v1").ToListAsync();
+            return eventos.Count(x => x.Payload.Contains(expediente.ToString(), StringComparison.OrdinalIgnoreCase));
+        }
+
         public async Task SemillaAsync()
         {
             var configuracion = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Seed:DemoSesion:Habilitado"] = "true" }).Build();
@@ -414,7 +560,7 @@ public sealed class ExpedientesHttpTests
             await seed.StartAsync(CancellationToken.None);
         }
 
-        public async Task<(int, int, int)> SnapshotAsync()
+        public async Task<(int, int, int, int, int)> SnapshotAsync()
         {
             using var s = _factory.Services.CreateScope();
             using var bypass = s.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -424,7 +570,7 @@ public sealed class ExpedientesHttpTests
                 DemoSesionSeedHostedService.Id("DEMO-CE-IMPORTACION"),
                 DemoSesionSeedHostedService.Id("DEMO-CE-EXPORTACION")
             };
-            return (await db.Expedientes.CountAsync(x => ids.Contains(x.Id)), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[0]), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[1] && x.NoAplica));
+            return (await db.Expedientes.CountAsync(x => ids.Contains(x.Id)), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[0]), await db.Documentos.CountAsync(x => x.ExpedienteId == ids[1] && x.NoAplica), await db.Hitos.CountAsync(x => ids.Contains(x.ExpedienteId)), await db.Hitos.CountAsync(x => x.ExpedienteId == ids[0] && x.Clave == "planeado" && x.FechaCompromiso == new DateOnly(2026, 10, 14)));
         }
 
         public async ValueTask DisposeAsync()

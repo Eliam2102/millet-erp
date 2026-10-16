@@ -36,6 +36,7 @@ public sealed class CrearExpedienteHandler(ComercioExteriorDbContext db, Expedie
         var folio = string.Create(CultureInfo.InvariantCulture, $"CE-{(request.Tipo == TipoExpediente.Importacion ? "IMP" : "EXP")}-{clock.HoyLocal().Year}-{numero:D6}");
         var e = new Expediente(Guid.CreateVersion7(), empresa.Current ?? throw new UnauthorizedAccessException(), folio, request.Tipo, sucursal, request.Referencia, request.OcId, incoterm, moneda, request.ResponsableUsuarioId, request.Clientes ?? []);
         e.Editar(request.Referencia, incoterm, moneda, request.Tc, request.FechaTc, request.FuenteTc, request.ResponsableUsuarioId);
+        e.InicializarHitos(oc?.FechaDocumento ?? clock.HoyLocal());
         db.Expedientes.Add(e);
         await eventos.PublishAsync(new ExpedienteCeAbiertoEvent(e.EmpresaId, clock.UtcNow, e.Id, e.Folio), cancellationToken);
         try
@@ -57,6 +58,8 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
     {
         var permiso = request.Accion switch
         {
+            "cerrar" => PermisosCanonicos.ComercioExteriorExpedientesCerrar,
+            "hito-compromiso" or "hito-real" or "hito-omitir" => PermisosCanonicos.ComercioExteriorExpedientesHitosRegistrar,
             "cancelar" => PermisosCanonicos.ComercioExteriorExpedientesCancelar,
             "revisar-documentos" => PermisosCanonicos.ComercioExteriorExpedientesDocumentosRevisar,
             "documentos" => PermisosCanonicos.ComercioExteriorExpedientesAdjuntosSubir,
@@ -69,6 +72,24 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
         e.ExigirAbierto();
         switch (request.Accion)
         {
+            case "cerrar":
+                e.Cerrar();
+                break;
+            case "hito-compromiso":
+            case "hito-real":
+            case "hito-omitir":
+                var h = request.Hito ?? throw new BusinessRuleException("CE_HITO_INVALIDO", "Faltan datos del hito.");
+                await catalogos.ValidarResponsableAsync(e.SucursalId, h.ResponsableUsuarioId, cancellationToken);
+                if (request.Accion == "hito-compromiso")
+                    e.CambiarCompromiso(h.Clave, h.FechaCompromiso ?? throw new BusinessRuleException("CE_FECHA_COMPROMISO_REQUERIDA", "Capture la fecha compromiso."), h.ResponsableUsuarioId, h.Motivo);
+                else if (request.Accion == "hito-omitir")
+                    e.OmitirHito(h.Clave, h.Motivo ?? "", h.ResponsableUsuarioId);
+                else
+                {
+                    e.RegistrarHito(h.Clave, h.FechaReal ?? throw new BusinessRuleException("CE_FECHA_REAL_REQUERIDA", "Capture la fecha real."), h.ResponsableUsuarioId, h.EvidenciaAdjuntoId, h.Motivo, await catalogos.RequisitosAsync(e.Tipo, cancellationToken), await catalogos.AdjuntosVigentesAsync(e.Id, cancellationToken), clock.HoyLocal());
+                    await eventos.PublishAsync(new ExpedienteCeHitoRegistradoEvent(e.EmpresaId, clock.UtcNow, e.Id, h.Clave, h.FechaReal!.Value, h.ResponsableUsuarioId), cancellationToken);
+                }
+                break;
             case "editar":
                 var d = request.Datos ?? throw new BusinessRuleException("CE_DATOS_INVALIDOS", "Faltan datos de edición.");
                 await catalogos.ValidarAsync(d.IncotermId, d.Moneda, e.SucursalId, d.ResponsableUsuarioId, cancellationToken);
@@ -78,9 +99,9 @@ public sealed class MutarExpedienteHandler(ComercioExteriorDbContext db, Expedie
                 var p = request.Participante ?? throw new BusinessRuleException("CE_PARTICIPANTE_INVALIDO", "Faltan datos del participante.");
                 await catalogos.ValidarParticipanteAsync(p.ProveedorId, p.ClienteId, cancellationToken);
                 if (request.ParticipanteId is Guid pid)
-                    e.EditarParticipante(pid, p.Nombre, p.Tipo, p.Contacto, p.Papel, p.ProveedorId, p.ClienteId);
+                    e.EditarParticipante(pid, p.Nombre, p.Tipo, p.Contacto, p.Papel, p.ProveedorId, p.ClienteId, p.Descripcion);
                 else
-                    e.AgregarParticipante(Guid.CreateVersion7(), p.Nombre, p.Tipo, p.Contacto, p.Papel, p.ProveedorId, p.ClienteId);
+                    e.AgregarParticipante(Guid.CreateVersion7(), p.Nombre, p.Tipo, p.Contacto, p.Papel, p.ProveedorId, p.ClienteId, p.Descripcion);
                 break;
             case "documentos":
                 var doc = request.Documento ?? throw new BusinessRuleException("CE_DOCUMENTO_INVALIDO", "Faltan datos del documento.");
@@ -117,7 +138,7 @@ public sealed class ObtenerExpedienteCeHandler(ExpedienteServicio servicio) : IR
     }
 }
 
-public sealed class ListarExpedientesHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos) : IRequestHandler<ListarExpedientesQuery, ExpedientesPagina>
+public sealed class ListarExpedientesHandler(ComercioExteriorDbContext db, ExpedienteServicio servicio, ICatalogosCeReadPort catalogos, IClock clock) : IRequestHandler<ListarExpedientesQuery, ExpedientesPagina>
 {
     public async Task<ExpedientesPagina> Handle(ListarExpedientesQuery request, CancellationToken cancellationToken)
     {
@@ -132,12 +153,15 @@ public sealed class ListarExpedientesHandler(ComercioExteriorDbContext db, Exped
             q = q.Where(x => x.Estado == estado);
         if (!string.IsNullOrWhiteSpace(request.Q))
             q = q.Where(x => EF.Functions.ILike(x.Folio, "%" + request.Q.Trim() + "%") || EF.Functions.ILike(x.Referencia, "%" + request.Q.Trim() + "%"));
+        var hoy = clock.HoyLocal();
+        if (request.Atraso is bool atraso)
+            q = q.Where(x => (x.Estado == EstadoExpediente.Abierto && x.Hitos.Any(h => h.FechaCompromiso < hoy && h.FechaReal == null && !h.Omitido)) == atraso);
         var total = await q.CountAsync(cancellationToken);
         var offset = Math.Max(0, request.Offset);
         var limit = Math.Clamp(request.Limit, 1, 100);
-        var items = await q.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id).Skip(offset).Take(limit).ToListAsync(cancellationToken);
+        var items = await q.Include(x => x.Hitos).Include(x => x.Avisos).AsSplitQuery().OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id).Skip(offset).Take(limit).ToListAsync(cancellationToken);
         var nombres = await catalogos.NombresAsync(items.Select(x => x.ResponsableUsuarioId).Distinct(), cancellationToken);
         var sucursales = await catalogos.SucursalesAsync(items.Select(x => x.SucursalId).Distinct(), cancellationToken);
-        return new(items.Select(x => ExpedienteServicio.Fila(x, nombres, sucursales)).ToArray(), total, offset, limit);
+        return new(items.Select(x => ExpedienteServicio.Fila(x, nombres, sucursales, hoy)).ToArray(), total, offset, limit);
     }
 }

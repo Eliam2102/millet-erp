@@ -7,6 +7,8 @@ using Millet.SharedKernel.Domain;
 namespace Millet.ComercioExterior.UnitTests;
 public sealed class ModeloPersistenceTests
 {
+    private static readonly string[] ClaveAviso = ["HitoId", "FechaCompromiso"];
+
     [Fact]
     public void Modelo_tiene_tenant_auditoria_concurrencia_y_oc_unica()
     {
@@ -15,7 +17,9 @@ public sealed class ModeloPersistenceTests
         {
             typeof(Millet.ComercioExterior.Domain.Expediente),
             typeof(Millet.ComercioExterior.Domain.DocumentoExpediente),
-            typeof(Millet.ComercioExterior.Domain.ParticipanteExpediente)
+            typeof(Millet.ComercioExterior.Domain.ParticipanteExpediente),
+            typeof(Millet.ComercioExterior.Domain.HitoExpediente),
+            typeof(Millet.ComercioExterior.Domain.AvisoHitoVencido)
         }
 
         )
@@ -28,6 +32,17 @@ public sealed class ModeloPersistenceTests
         }
 
         Assert.Contains(db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.Expediente))!.GetIndexes(), i => i.GetDatabaseName() == "ux_ce_oc_abierta" && i.IsUnique);
+    }
+
+    [Fact]
+    public void Hitos_usan_date_y_avisos_unicos_por_hito_y_compromiso()
+    {
+        using var db = new ComercioExteriorDbContext(new DbContextOptionsBuilder<ComercioExteriorDbContext>().UseNpgsql("Host=invalid;Database=ce_test").UseSnakeCaseNamingConvention().Options, new Empresa());
+        var h = db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.HitoExpediente))!;
+        Assert.Equal("date", h.FindProperty("FechaCompromiso")!.GetColumnType());
+        Assert.Equal("date", h.FindProperty("FechaReal")!.GetColumnType());
+        var aviso = db.Model.FindEntityType(typeof(Millet.ComercioExterior.Domain.AvisoHitoVencido))!;
+        Assert.Contains(aviso.GetIndexes(), i => i.IsUnique && i.Properties.Select(p => p.Name).SequenceEqual(ClaveAviso));
     }
 
     [Fact]

@@ -19,6 +19,6 @@ public sealed class MutarExpedienteValidator : AbstractValidator<MutarExpediente
     {
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Version).GreaterThan(0);
-        RuleFor(x => x.Accion).Must(x => x is "editar" or "participantes" or "documentos" or "revisar-documentos" or "cancelar");
+        RuleFor(x => x.Accion).Must(x => x is "editar" or "participantes" or "documentos" or "revisar-documentos" or "cancelar" or "cerrar" or "hito-compromiso" or "hito-real" or "hito-omitir");
     }
 }
