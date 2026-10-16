@@ -39,9 +39,14 @@ public sealed partial class DemoSesionSeedHostedService
             await db.SaveChangesAsync(ct);
         }
 
-        foreach (var sucursal in new[] { "MID", "MTY" })
+        // C1.2: DEMO-OC-USD permite capturar en CxP una factura en dólares con el TC del catálogo.
+        foreach (var (sucursal, clave, folio, moneda) in new[]
         {
-            var clave = "DEMO-OC-" + sucursal;
+            ("MID", "DEMO-OC-MID", "OC-DEMO2026-000101", "MXN"),
+            ("MTY", "DEMO-OC-MTY", "OC-DEMO2026-000102", "MXN"),
+            ("MID", "DEMO-OC-USD", "OC-DEMO2026-000103", "USD"),
+        })
+        {
             var ocId = Id(clave);
             if (await db.OrdenesCompra.AnyAsync(o => o.EmpresaId == EmpresaId && (o.Id == ocId || o.ReferenciaProveedor == clave), ct)) continue;
             var archivos = new List<string>();
@@ -49,7 +54,7 @@ public sealed partial class DemoSesionSeedHostedService
             try
             {
                 Requisicion? rq = null;
-                if (sucursal == "MID")
+                if (clave == "DEMO-OC-MID")
                 {
                     rq = await db.Requisiciones.Include(r => r.Lineas)
                         .SingleOrDefaultAsync(r => r.EmpresaId == EmpresaId && r.Descripcion == "DEMO-RQ-MID", ct);
@@ -68,10 +73,12 @@ public sealed partial class DemoSesionSeedHostedService
                             new RequisicionAutorizadaIntegrationEvent(EmpresaId, Fecha, rq.Id), ct);
                     }
                 }
-                var oc = new OrdenCompra(Id(clave), EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse(sucursal == "MID" ? "OC-DEMO2026-000101" : "OC-DEMO2026-000102"),
+                var oc = new OrdenCompra(Id(clave), EmpresaId, Millet.Compras.Domain.Oc.Folio.Parse(folio),
                     2026, proveedor.Id, sucursales[sucursal].Id, condicion.Id, uso.Id, CapturistaComprasDemoId, CapturistaComprasDemoId,
-                    new DateOnly(2026, 10, 12), sinRequisicionPrevia: rq is null,
-                    motivoSinRequisicion: rq is null ? "DEMO acceso restringido a MTY" : null, observaciones: clave);
+                    new DateOnly(2026, 10, 12), moneda: moneda, tipoCambio: moneda == "MXN" ? null : TipoCambioUsdDemo,
+                    sinRequisicionPrevia: rq is null,
+                    motivoSinRequisicion: rq is null ? (moneda == "MXN" ? "DEMO acceso restringido a MTY" : "DEMO compra en dólares (C1.2)") : null,
+                    observaciones: clave);
                 oc.ActualizarReferenciaProveedor(clave);
                 if (rq is not null)
                 {

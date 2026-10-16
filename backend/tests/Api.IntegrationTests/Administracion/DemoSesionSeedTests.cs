@@ -326,8 +326,13 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
-        Assert.Equal(2, await compras.OrdenesCompra.CountAsync());
-        Assert.Equal(3, await compras.OutboxEntries.CountAsync());
+        Assert.Equal(3, await compras.OrdenesCompra.CountAsync());
+        // C1.2: OC en dólares autorizada y TC USD del día en el catálogo.
+        var ocUsd = await compras.OrdenesCompra.SingleAsync(o => o.ReferenciaProveedor == "DEMO-OC-USD");
+        Assert.Equal(("USD", EstadoOrdenCompra.Autorizada, (decimal?)DemoSesionSeedHostedService.TipoCambioUsdDemo), (ocUsd.Moneda, ocUsd.Estado, ocUsd.TipoCambio));
+        Assert.True(await maestros.TiposCambio.AnyAsync(t => t.ValorEnMxn == DemoSesionSeedHostedService.TipoCambioUsdDemo
+            && maestros.Monedas.Any(m => m.Id == t.MonedaId && m.Codigo == "USD")));
+        Assert.Equal(4, await compras.OutboxEntries.CountAsync());
         Assert.Equal(2, await maestros.Series.CountAsync(s => s.Prefijo.StartsWith("DEMO-")));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
         Assert.Equal(3, pedidos.Count);
@@ -374,7 +379,7 @@ public sealed partial class DemoSesionSeedTests
         var ocPort = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Domain.Ports.Compras.IComprasOcReadPort>();
         var ocs = await compras.OrdenesCompra.ToListAsync();
         var folios = await ocPort.ObtenerFoliosAsync(ocs.Select(o => o.Id).Append(Guid.NewGuid()).ToArray(), CancellationToken.None);
-        Assert.Equal(2, folios.Count);
+        Assert.Equal(3, folios.Count);
         Assert.All(ocs, o => Assert.Equal(o.Folio.Valor, folios[o.Id]));
         return new Snapshot(await maestros.Proveedores.CountAsync(p => p.Clave.StartsWith("DEMO-")),
             await maestros.Articulos.CountAsync(a => a.Clave.StartsWith("DEMO-")), await maestros.Clientes.CountAsync(c => c.Clave.StartsWith("DEMO-")),
