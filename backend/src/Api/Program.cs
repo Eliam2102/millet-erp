@@ -714,9 +714,10 @@ builder.Services.AddScoped<
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FiscalCfdiReceiverAdapter>();
 
 // === Módulo Almacén (F0-PR1) ===
-// Foundation: registra los 9 puertos cross-module (Compras OC + Compras RQ +
-// Artículo + Proveedor + Sucursal + Empleado + TipoCambio + ConceptoContable
-// + PeriodoContable) con stubs NoOp* — cada uno con PLATFORM-TODO buscable.
+// Foundation: registra los puertos cross-module (Compras OC + Compras RQ +
+// Artículo + Proveedor + Sucursal + Empleado + ConceptoContable) con stubs
+// NoOp* — cada uno con PLATFORM-TODO buscable. PeriodoContable (C1.2/#54) y
+// TipoCambio (C1.2, abajo) ya usan adapters reales.
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();

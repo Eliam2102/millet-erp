@@ -147,3 +147,28 @@ describe('<CapturarFacturaSheet> — OcSelector deriva proveedor/sucursal', () =
     expect(sucursal).toBeDisabled();
   });
 });
+
+describe('<CapturarFacturaSheet> — tipo de cambio (C1.2)', () => {
+  const aviso = /se usa el del catálogo para la fecha del documento/i;
+
+  it('en moneda extranjera sin TC avisa que se toma del catálogo; al capturarlo desaparece', () => {
+    render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
+      wrapper: createQueryWrapper(),
+    });
+
+    // En MXN no aplica el catálogo.
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('MXN'), { target: { value: 'USD' } });
+    const tipoCambio = screen.getByPlaceholderText('1.0000');
+    expect(tipoCambio).toHaveValue(null);
+    expect(screen.getByText(aviso)).toBeInTheDocument();
+
+    fireEvent.change(tipoCambio, { target: { value: '18.42' } });
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+
+    // Vaciar el campo vuelve a «sin TC» (null), no a un número inválido.
+    fireEvent.change(tipoCambio, { target: { value: '' } });
+    expect(screen.getByText(aviso)).toBeInTheDocument();
+  });
+});

@@ -199,6 +199,8 @@ export function CapturarFacturaSheet({
     name: 'ordenCompraId',
   });
   const notasCredito = useWatch({ control: form.control, name: 'notasCredito' }) ?? [];
+  const monedaSel = useWatch({ control: form.control, name: 'moneda' });
+  const tipoCambioSel = useWatch({ control: form.control, name: 'tipoCambio' });
   const lineasActuales = useWatch({ control: form.control, name: 'lineas' });
   const puedeLeerRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesLeer);
   const catalogo = useRetenciones(open && puedeLeerRetenciones);
@@ -492,8 +494,16 @@ export function CapturarFacturaSheet({
                   step="0.0001"
                   min="0"
                   placeholder="1.0000"
-                  {...form.register('tipoCambio', { valueAsNumber: true })}
+                  // C1.2: vacío = sin TC (null), no NaN; el servidor toma el del catálogo.
+                  {...form.register('tipoCambio', {
+                    setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
+                  })}
                 />
+                {monedaSel?.trim().toUpperCase() !== 'MXN' && tipoCambioSel == null && (
+                  <p className="text-xs text-muted-foreground">
+                    Sin tipo de cambio en la factura se usa el del catálogo para la fecha del documento.
+                  </p>
+                )}
               </Campo>
             </section>
 
