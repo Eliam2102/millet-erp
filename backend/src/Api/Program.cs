@@ -652,6 +652,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Compras.Domain.Matriz.IRequiereNivelEvaluator,
     Millet.Compras.Application.Matriz.EvaluadorMultidimensional>();
+builder.Services.AddScoped<Millet.Compras.Application.Oc.EvaluadorNivelOc>();
 builder.Services.AddScoped<
     Millet.Compras.Domain.Ports.Matriz.IResolverAutorizadorPort,
     Millet.Compras.Application.Matriz.ResolverAutorizadorService>();
@@ -1417,6 +1418,7 @@ app.MapRequisicionesEndpoints();
 app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
+app.MapUmbralesAprobacionEndpoints();
 
 // === Settings genéricos /api/v1/{modulo}/settings (F-Admin-PR1.1, ADR-0034) ===
 app.MapSettingsEndpoints();

@@ -26,12 +26,15 @@ public sealed class AgregarLineaValidator : AbstractValidator<AgregarLineaComman
             .NotEmpty().WithErrorCode("UNIDAD_MEDIDA_REQUERIDA")
             .MaximumLength(20).WithErrorCode("UNIDAD_MEDIDA_DEMASIADO_LARGA");
 
+        // Precio estimado opcional (null = 0): solo se valida si viene.
         RuleFor(c => c.PrecioEstimadoMonto)
-            .GreaterThanOrEqualTo(0m).WithErrorCode("PRECIO_NEGATIVO");
+            .GreaterThanOrEqualTo(0m).WithErrorCode("PRECIO_NEGATIVO")
+            .When(c => c.PrecioEstimadoMonto.HasValue);
 
         RuleFor(c => c.PrecioEstimadoMoneda)
             .NotEmpty().WithErrorCode("MONEDA_REQUERIDA")
-            .Matches("^[A-Z]{3}$").WithErrorCode("MONEDA_FORMATO_INVALIDO");
+            .Matches("^[A-Z]{3}$").WithErrorCode("MONEDA_FORMATO_INVALIDO")
+            .When(c => c.PrecioEstimadoMoneda is not null);
 
         RuleFor(c => c.Proyecto)
             .MaximumLength(200).WithErrorCode("PROYECTO_DEMASIADO_LARGO")

@@ -111,7 +111,9 @@ public sealed class ActualizarLineaOcHandler : IRequestHandler<ActualizarLineaOc
             limpiarDescripcionExtendida: command.LimpiarDescripcionExtendida,
             limpiarFechaEntregaLinea: command.LimpiarFechaEntregaLinea,
             esServicio: esServicio,
-            centroCostoId: command.CentroCostoId);
+            centroCostoId: command.CentroCostoId,
+            fraccionArancelaria: command.FraccionArancelaria,
+            limpiarFraccionArancelaria: command.LimpiarFraccionArancelaria);
 
         await _db.SaveChangesAsync(cancellationToken);
         if (tx is not null) await tx.CommitAsync(cancellationToken);

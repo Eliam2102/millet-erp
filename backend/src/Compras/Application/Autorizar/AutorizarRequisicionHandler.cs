@@ -1,3 +1,4 @@
+using Millet.Compras.Application.Disponibilidad;
 using Millet.Compras.Infrastructure.PublicAdapters;
 using Millet.SharedKernel.Application.UnidadesMedida;
 using MediatR;
@@ -5,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
 using Millet.Compras.Domain.Ports.Almacen;
+using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Domain.Ports.OrdenCompra;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
@@ -52,6 +54,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
     private readonly IClock _clock;
     private readonly TransaccionApartadosRq _apartadosTx;
     private readonly IConversionUnidadPort _conversion;
+    private readonly IArticuloReadPort _articulos;
 
     public AutorizarRequisicionHandler(
         ComprasDbContext db,
@@ -60,7 +63,8 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         IRequiereNivelEvaluator evaluator,
         IConsultarStockPort stock,
         IGenerarSolicitudCompraPort ocPort,
-        IClock clock, TransaccionApartadosRq apartadosTx, IConversionUnidadPort conversion)
+        IClock clock, TransaccionApartadosRq apartadosTx, IConversionUnidadPort conversion,
+        IArticuloReadPort articulos)
     {
         _db = db;
         _mediator = mediator;
@@ -71,6 +75,7 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         _clock = clock;
         _apartadosTx = apartadosTx;
         _conversion = conversion;
+        _articulos = articulos;
     }
 
     public async Task<Unit> Handle(AutorizarRequisicionCommand command, CancellationToken cancellationToken)
@@ -130,11 +135,12 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         catch (Exception ex) when (ex is not BusinessRuleException && ex is not OperationCanceledException)
         {
             // Excepción runtime de un puerto (ej. Service Bus down,
-            // Almacén caído). Traduce a 422 con código estable y
-            // propaga el detalle en el mensaje para diagnostics.
+            // Almacén caído). Traduce a 422 con código estable. El detalle
+            // interno NO va en el mensaje (se filtraría al cliente); queda
+            // como InnerException para diagnostics.
             throw new BusinessRuleException(
                 "BIFURCACION_FALLO",
-                $"La bifurcación stock-aware falló: {ex.Message}",
+                "La bifurcación stock-aware falló. Reintente o consulte al administrador.",
                 ex);
         }
 
@@ -232,32 +238,30 @@ public sealed class AutorizarRequisicionHandler : IRequestHandler<AutorizarRequi
         var apartar = await _db.ComprasSettings.AsNoTracking()
             .Where(s => s.EmpresaId == requisicion.EmpresaId)
             .Select(s => (bool?)s.ApartarExistenciaAlAutorizar).FirstOrDefaultAsync(cancellationToken) ?? true;
-        var resultado = new List<CubrimientoLinea>(requisicion.Lineas.Count);
-        var disponiblesEnBase = new Dictionary<Guid, decimal>();
-        foreach (var linea in requisicion.Lineas)
+        // Reparto por línea vía la pieza compartida (mismo cálculo que matriz,
+        // bandeja y preview). Servicios: compra completa, sin consultar stock.
+        var articulos = await _articulos.ObtenerPorIdsAsync(
+            requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList(), cancellationToken);
+        var repartos = await RepartoDisponibilidadService.RepartirAsync(
+            _stock, _conversion, articulos, requisicion.Clasificacion, requisicion.SucursalId,
+            requisicion.Lineas, cancellationToken);
+
+        var resultado = new List<CubrimientoLinea>(repartos.Count);
+        foreach (var reparto in repartos)
         {
-            var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
-            var disponibilidad = await _stock.ConsultarPorSucursalAsync(
-                requisicion.SucursalId,
-                linea.ArticuloId,
-                cancellationToken);
+            var linea = reparto.Linea;
+            var cantidadDeAlmacen = reparto.DeAlmacen;
+            var cantidadDeCompra = reparto.DeCompra;
 
-            // Reparto conservador (todo el disponible hasta el tope; el resto
-            // es saldo para OC) vía la función pura del dominio — MISMA pieza
-            // que usa el preview read-only (PR-C), sin drift.
-            // No partir cajas indivisibles ni redondear hacia arriba al guardar numeric(14,4).
-            var escala = (decimal)Math.Pow(10, Math.Min(4, conversion.DecimalesDocumento));
-            var disponibleBase = apartar ? disponibilidad.Disponible : disponiblesEnBase.GetValueOrDefault(linea.ArticuloId, disponibilidad.Disponible);
-            var disponibleDocumento = decimal.Floor(disponibleBase / conversion.FactorDocumentoABase * escala) / escala;
-            var (cantidadDeAlmacen, cantidadDeCompra) = Cubrimiento.Repartir(disponibleDocumento, linea.Cantidad);
-
-            if (apartar)
+            // Lo único propio de la autorización: apartar la existencia real.
+            // Los servicios no tienen existencia que apartar.
+            if (apartar && !reparto.EsServicio)
             {
+                var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
                 cantidadDeAlmacen = await _apartadosTx.Apartados.ApartarAsync(requisicion.EmpresaId,
                     requisicion.SucursalId, requisicion.Id, linea.Id, linea.ArticuloId, cantidadDeAlmacen * conversion.FactorDocumentoABase, cancellationToken) / conversion.FactorDocumentoABase;
                 cantidadDeCompra = linea.Cantidad - cantidadDeAlmacen;
             }
-            disponiblesEnBase[linea.ArticuloId] = disponibleBase - cantidadDeAlmacen * conversion.FactorDocumentoABase;
             resultado.Add(new CubrimientoLinea(linea.Id, cantidadDeAlmacen, cantidadDeCompra));
         }
         return resultado;

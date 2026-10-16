@@ -15,6 +15,7 @@ using Millet.Compras.Application.Oc.ActualizarNumeroPedimento;
 using Millet.Compras.Application.Oc.ActualizarReferenciaProveedor;
 using Millet.Compras.Application.Oc.Adjuntos.AdjuntarDocumento;
 using Millet.Compras.Application.Oc.Adjuntos.RemoverAdjunto;
+using Millet.Compras.Application.Autorizar;
 using Millet.Compras.Application.Oc.Autorizar;
 using Millet.Compras.Application.Oc.Cancelar;
 using Millet.Compras.Application.Oc.CancelarConRecepciones;
@@ -44,6 +45,7 @@ using Millet.Identidad.Application;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain.Exceptions;
 
 namespace Millet.Api.Endpoints.Compras.Oc;
 
@@ -404,7 +406,9 @@ public static class OrdenesCompraEndpoints
                     FechaEntregaLinea: body.FechaEntregaLinea,
                     CentroCostoId: body.CentroCostoId,
                     LimpiarDescripcionExtendida: body.LimpiarDescripcionExtendida ?? false,
-                    LimpiarFechaEntregaLinea: body.LimpiarFechaEntregaLinea ?? false),
+                    LimpiarFechaEntregaLinea: body.LimpiarFechaEntregaLinea ?? false,
+                    FraccionArancelaria: body.FraccionArancelaria,
+                    LimpiarFraccionArancelaria: body.LimpiarFraccionArancelaria ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -599,7 +603,14 @@ public static class OrdenesCompraEndpoints
                     body.NumeroContenedor,
                     body.CodigoRuta,
                     body.SemanaEmbarque,
-                    body.NumeroPedimento),
+                    body.NumeroPedimento,
+                    TipoOperacion: body.TipoOperacion,
+                    NumeroBl: body.NumeroBl,
+                    TipoTransporte: body.TipoTransporte,
+                    AgenteAduanalNaviera: body.AgenteAduanalNaviera,
+                    PuertoAduanaEntrada: body.PuertoAduanaEntrada,
+                    FechaEstimadaArribo: body.FechaEstimadaArribo,
+                    CertificadoOrigen: body.CertificadoOrigen ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -751,6 +762,115 @@ public static class OrdenesCompraEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // S2 (OC): autorización masiva desde la bandeja de pendientes. Reutiliza
+        // AutorizarOrdenCompraCommand por id (mismas validaciones y bifurcación N1/N2).
+        // El permiso del nivel se valida una vez para el lote; el alcance por sucursal y
+        // los errores de dominio se evalúan por id sin abortar el resto.
+        group.MapPost("/autorizaciones-masivas", async Task<IResult> (
+            [FromBody] AutorizarOcMasivasRequest request,
+            IMediator mediator,
+            ICurrentUserContext currentUser,
+            ICurrentEmpresaContext currentEmpresa,
+            IPermissionCache permissionCache,
+            IPermissionLoader permissionLoader,
+            ComprasDbContext scopeDb,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
+            ILoggerFactory loggerFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (currentUser.UserId is not Guid userId)
+            {
+                return Results.Unauthorized();
+            }
+            if (currentEmpresa.Current is not Guid empresaId)
+            {
+                throw new ForbiddenException(
+                    "EMPRESA_NO_SELECCIONADA",
+                    "El usuario no tiene una empresa seleccionada en el JWT actual.");
+            }
+
+            var permisoRequerido = request.Nivel switch
+            {
+                NivelAutorizacion.Nivel1 => PermisosCanonicos.ComprasOrdenesAutorizarNivel1,
+                NivelAutorizacion.Nivel2 => PermisosCanonicos.ComprasOrdenesAutorizarNivel2,
+                _ => throw new BusinessRuleException(
+                    "NIVEL_INVALIDO",
+                    $"Nivel de autorización inválido: {request.Nivel}."),
+            };
+
+            var permisos = await permissionCache.GetAsync(userId, empresaId, cancellationToken);
+            if (permisos is null)
+            {
+                permisos = await permissionLoader.LoadForUserInEmpresaAsync(userId, empresaId, cancellationToken);
+                await permissionCache.SetAsync(userId, empresaId, permisos, cancellationToken);
+            }
+
+            if (!permisos.Contains(permisoRequerido))
+            {
+                throw new ForbiddenException(
+                    "AUTORIZAR_NIVEL_DENEGADO",
+                    $"El usuario no tiene permiso para autorizar OCs en {request.Nivel}.");
+            }
+
+            if (request.Ids is null || request.Ids.Count is < 1 or > 50)
+            {
+                return Results.Problem(
+                    title: "ids inválidos",
+                    detail: "ids debe contener entre 1 y 50 órdenes de compra.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var resultados = new List<AutorizacionMasivaItemResultado>(request.Ids.Count);
+            foreach (var id in request.Ids.Distinct())
+            {
+                try
+                {
+                    await OcSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+                    await mediator.Send(
+                        new AutorizarOrdenCompraCommand(id, request.Nivel, request.Notas),
+                        cancellationToken);
+                    resultados.Add(new AutorizacionMasivaItemResultado(id, true, null, null));
+                }
+                catch (DomainException ex)
+                {
+                    // Un fallo puede dejar cambios sin guardar en el DbContext compartido del
+                    // request: se descartan para no colarlos en el siguiente id del lote.
+                    scopeDb.ChangeTracker.Clear();
+                    resultados.Add(new AutorizacionMasivaItemResultado(id, false, ex.Code, ex.Message));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Fallo no previsto: mismo descarte. El detalle va solo al log; al cliente
+                    // se devuelve un mensaje genérico.
+                    scopeDb.ChangeTracker.Clear();
+                    loggerFactory.CreateLogger("OrdenesCompraEndpoints")
+                        .LogError(ex, "Error inesperado en autorización masiva de la OC {OrdenCompraId}", id);
+                    resultados.Add(new AutorizacionMasivaItemResultado(
+                        id,
+                        false,
+                        "ERROR_INESPERADO",
+                        "Ocurrió un error inesperado al autorizar la orden de compra. Intente de nuevo."));
+                }
+            }
+
+            return Results.Ok(new AutorizacionMasivaResponse(resultados));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization()
+        .WithName("AutorizarOrdenesCompraMasivas")
+        .WithSummary("Autorización masiva de órdenes de compra")
+        .WithDescription(
+            "Registra la firma del nivel indicado para hasta 50 OCs. Cada id se procesa con las " +
+            "mismas reglas que `POST /{id}/autorizaciones` y devuelve su resultado (`ok`, " +
+            "`errorCodigo`, `mensaje`) con HTTP 200; un id fallido no aborta el lote. Requiere el " +
+            "permiso del nivel (`compras.ordenes.autorizar-nivel1` o `nivel2`). Header " +
+            "`Idempotency-Key` obligatorio.")
+        .Produces<AutorizacionMasivaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // --- F4-PR2: crear OC desde RQ (flujo §4.1) ---
         group.MapPost("/desde-requisicion", async (
@@ -1059,11 +1179,12 @@ public static class OrdenesCompraEndpoints
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesCrear)
         .WithName("ListarRequisicionesDisponiblesParaOc")
-        .WithSummary("Listar RQs Autorizadas disponibles para consolidar en una OC (§4.2)")
+        .WithSummary("Listar RQs disponibles para consolidar en una OC (§4.2)")
         .WithDescription(
-            "Devuelve las RQs en estado Autorizada que no están " +
-            "comprometidas en ninguna OC activa, filtradas por " +
-            "`sucursalId` (restricción §10.5 cerrado del mapa funcional). " +
+            "Devuelve las RQs en estado EnSurtido que no están " +
+            "comprometidas en ninguna OC activa y tienen al menos una línea " +
+            "con saldo de compra (`faltantePorComprar` y `lineasConSaldo`), " +
+            "filtradas por `sucursalId` (restricción §10.5 cerrado del mapa funcional). " +
             "Alimenta el selector multiselección del módulo OC para crear " +
             "OC consolidada N:1. Requiere permiso `compras.ordenes.crear`.")
         .Produces<IReadOnlyList<RequisicionDisponibleResponse>>(StatusCodes.Status200OK)
@@ -1477,7 +1598,12 @@ public static class OrdenesCompraEndpoints
         {
             await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
             await mediator.Send(
-                new ActualizarNumeroPedimentoCommand(id, body.NumeroPedimento),
+                new ActualizarNumeroPedimentoCommand(
+                    id,
+                    body.NumeroPedimento,
+                    body.NumeroBl,
+                    body.FechaEstimadaArribo,
+                    body.AgenteAduanalNaviera),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -1500,6 +1626,9 @@ public static class OrdenesCompraEndpoints
 
     /// <summary>Body del POST /{id}/autorizaciones (F3-PR1).</summary>
     public sealed record AutorizarOcRequest(NivelAutorizacion Nivel, string? Notas);
+
+    /// <summary>Body del POST /autorizaciones-masivas de OC: 1 a 50 ids.</summary>
+    public sealed record AutorizarOcMasivasRequest(IReadOnlyList<Guid> Ids, NivelAutorizacion Nivel, string? Notas);
 
     /// <summary>Body del POST /{id}/rechazar (F3-PR2).</summary>
     public sealed record RechazarOcRequest(Guid MotivoRechazoId, string? MotivoRechazoTexto, string? Notas);
@@ -1531,16 +1660,31 @@ public static class OrdenesCompraEndpoints
         string? InstruccionesEnvio);
 
     /// <summary>Body del PATCH /informacion-importacion (F2-PR3).</summary>
+    // PLATFORM-TODO(F1-COM-06): campos de comercio exterior, supuesto Vilo.
     public sealed record InformacionImportacionRequest(
         Guid? IncotermId,
         string? PaisOrigen,
         string? NumeroContenedor,
         string? CodigoRuta,
         string? SemanaEmbarque,
-        string? NumeroPedimento);
+        string? NumeroPedimento,
+        TipoOperacionComercioExterior? TipoOperacion = null,
+        string? NumeroBl = null,
+        TipoTransporte? TipoTransporte = null,
+        string? AgenteAduanalNaviera = null,
+        string? PuertoAduanaEntrada = null,
+        DateOnly? FechaEstimadaArribo = null,
+        bool? CertificadoOrigen = null);
 
-    /// <summary>Body del PATCH /numero-pedimento (F2-PR3).</summary>
-    public sealed record NumeroPedimentoRequest(string? NumeroPedimento);
+    /// <summary>
+    /// Body del PATCH /numero-pedimento (F2-PR3). Reemplaza los cuatro campos
+    /// post-autorización: null limpia el valor.
+    /// </summary>
+    public sealed record NumeroPedimentoRequest(
+        string? NumeroPedimento,
+        string? NumeroBl = null,
+        DateOnly? FechaEstimadaArribo = null,
+        string? AgenteAduanalNaviera = null);
 
     /// <summary>Body del PATCH cabecera (F2-PR2). Todos los campos opcionales.</summary>
     public sealed record ActualizarCabeceraOcRequest(
@@ -1596,7 +1740,10 @@ public static class OrdenesCompraEndpoints
         // manual. En heredada el dominio lo rechaza (LINEA_OC_CC_HEREDADO_INMUTABLE).
         Guid? CentroCostoId,
         bool? LimpiarDescripcionExtendida,
-        bool? LimpiarFechaEntregaLinea);
+        bool? LimpiarFechaEntregaLinea,
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Solo OC de comercio exterior.
+        string? FraccionArancelaria = null,
+        bool? LimpiarFraccionArancelaria = null);
 
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);

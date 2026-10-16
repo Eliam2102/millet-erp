@@ -12,8 +12,7 @@ export function ConceptoSelector({ value, onChange }: { value: string | null; on
     <Select value={value ?? ''} onValueChange={onChange} disabled={query.isLoading}>
       <SelectTrigger id={id} className="w-full"><SelectValue placeholder="Selecciona un concepto" /></SelectTrigger>
       <SelectContent>{query.data?.map(c => <SelectItem key={c.id} value={c.id}>
-        {CLASIFICACION_FLUJO_LABELS[c.clasificacionFlujo]} · {c.nombre}{c.esEjemplo ? ' (ejemplo por validar)' : ''}
-      </SelectItem>)}</SelectContent>
+        {CLASIFICACION_FLUJO_LABELS[c.clasificacionFlujo]} · {c.nombre}      </SelectItem>)}</SelectContent>
     </Select>
     {query.isError && <p role="alert" className="text-xs text-danger-fg">No se pudieron cargar los conceptos.</p>}
   </div>;

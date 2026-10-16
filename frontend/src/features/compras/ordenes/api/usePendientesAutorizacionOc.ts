@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
-import type { ListarOrdenesCompraResponse } from '@/features/compras/ordenes/api/types';
+import type {
+  ListarOrdenesCompraResponse,
+  OrdenCompraResumen,
+} from '@/features/compras/ordenes/api/types';
 
 /**
  * Nivel de autorización pendiente. Mismo valor que el backend
@@ -9,6 +12,27 @@ import type { ListarOrdenesCompraResponse } from '@/features/compras/ordenes/api
  * raw al query string.
  */
 export type NivelAutorizacionFiltro = 'Nivel1' | 'Nivel2';
+
+/**
+ * Fila de la bandeja de pendientes: resumen de la OC más los indicadores de
+ * decisión que calcula el backend (siempre presentes en esta proyección).
+ */
+export type OrdenPendienteAutorizacion = OrdenCompraResumen & {
+  cantidadTotal: number;
+  numeroLineas: number;
+  totalAPagar: number;
+  esMenorCuantia: boolean;
+  esRecurrente: boolean;
+  proveedorConocido: boolean;
+  requiereNivel2: boolean;
+};
+
+export type ListarPendientesAutorizacionOcResponse = Omit<
+  ListarOrdenesCompraResponse,
+  'items'
+> & {
+  items: OrdenPendienteAutorizacion[];
+};
 
 export interface UsePendientesAutorizacionOcOpts {
   /** Si se omite, devuelve ambas bandejas N1+N2 mezcladas. */
@@ -38,7 +62,7 @@ export function usePendientesAutorizacionOc(
       if (nivel) params.set('nivel', nivel);
       params.set('page', String(page));
       params.set('pageSize', String(pageSize));
-      const { data } = await apiRequest<ListarOrdenesCompraResponse>(
+      const { data } = await apiRequest<ListarPendientesAutorizacionOcResponse>(
         `/api/v1/compras/ordenes/pendientes-autorizacion?${params}`,
         { signal },
       );

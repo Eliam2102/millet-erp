@@ -267,4 +267,50 @@ describe('<SelectorRequisicionesConsolidacion> (UF2-PR2)', () => {
       ).toBeInTheDocument(),
     );
   });
+
+  it('muestra el faltante por comprar de la RQ y el saldo vs almacén por línea', async () => {
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes/requisiciones-disponibles', () =>
+        HttpResponse.json([
+          makeRq({
+            id: 'rq-1',
+            folio: 'MID2026-000001',
+            faltantePorComprar: 7,
+            lineasConSaldo: [
+              {
+                lineaId: 'l-1',
+                articuloId: 'a-1',
+                articuloClave: 'TOR-10',
+                articuloNombre: 'Tornillo',
+                cantidadSaldo: 7,
+                cantidadDeAlmacen: 3,
+              },
+            ],
+          }),
+        ]),
+      ),
+    );
+
+    render(
+      <SelectorRequisicionesConsolidacion
+        open={true}
+        onOpenChange={() => {}}
+        sucursalId="s-1"
+        rqsPreviamenteSeleccionadas={[]}
+        onConfirm={() => {}}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('MID2026-000001')).toBeInTheDocument(),
+    );
+    const fila = document.querySelector('[data-rq="rq-1"]');
+    expect(fila).not.toBeNull();
+    expect(fila?.textContent).toContain('7');
+    const detalle = document.querySelector('[data-linea-saldo-de="rq-1"]');
+    expect(detalle?.textContent).toContain('TOR-10 · Tornillo');
+    expect(detalle?.textContent).toContain('Por comprar 7');
+    expect(detalle?.textContent).toContain('Almacén surte 3');
+  });
 });
