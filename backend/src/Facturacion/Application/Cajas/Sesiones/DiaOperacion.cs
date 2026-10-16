@@ -20,4 +20,16 @@ public static class DiaOperacion
             string.IsNullOrWhiteSpace(zonaHorariaIana) ? Sucursal.ZonaHorariaDefault : zonaHorariaIana);
         return TimeZoneInfo.ConvertTime(instante, tz);
     }
+
+    /// <summary>
+    /// Instante (en UTC, como lo exige Npgsql) en que termina el día de
+    /// operación: la medianoche local siguiente.
+    /// </summary>
+    public static DateTimeOffset FinDelDia(DateOnly dia, string? zonaHorariaIana)
+    {
+        var tz = TimeZoneInfo.FindSystemTimeZoneById(
+            string.IsNullOrWhiteSpace(zonaHorariaIana) ? Sucursal.ZonaHorariaDefault : zonaHorariaIana);
+        var medianoche = dia.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        return new DateTimeOffset(medianoche, tz.GetUtcOffset(medianoche)).ToUniversalTime();
+    }
 }
