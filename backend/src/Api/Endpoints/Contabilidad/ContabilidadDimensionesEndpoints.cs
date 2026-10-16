@@ -20,7 +20,7 @@ namespace Millet.Api.Endpoints.Contabilidad;
 /// </summary>
 public static class ContabilidadDimensionesEndpoints
 {
-    public sealed record EditarTipoDocumentoRequest(string Nombre, bool Activo);
+    public sealed record EditarTipoDocumentoRequest(string Nombre, bool Activo, Millet.Contabilidad.Domain.TipoPolizaSat? TipoSat = null);
 
     public sealed record EditarReglaRequest(RequerimientoDimension Requerimiento, DateOnly VigenteDesde, DateOnly? VigenteHasta, string? Nota);
 
@@ -59,7 +59,7 @@ public static class ContabilidadDimensionesEndpoints
             Guid id, [FromHeader(Name = "If-Match")] string? ifMatch, EditarTipoDocumentoRequest b, HttpResponse response, IMediator mediator, CancellationToken ct) =>
         {
             if (!Helpers.TryParseVersion(ifMatch, out var version)) return Helpers.IfMatchRequerido();
-            var r = await mediator.Send(new EditarTipoDocumentoCommand(id, version, b.Nombre, b.Activo), ct);
+            var r = await mediator.Send(new EditarTipoDocumentoCommand(id, version, b.Nombre, b.Activo, b.TipoSat), ct);
             Helpers.SetEtag(response, r.Version);
             return Results.Ok(r);
         })

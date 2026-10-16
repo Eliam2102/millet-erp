@@ -416,6 +416,11 @@ export const PermisosCanonicos = {
   ContabilidadPeriodoAdministrar: 'contabilidad.periodo.administrar',
   ContabilidadPeriodoCerrar: 'contabilidad.periodo.cerrar',
   ContabilidadPeriodoReabrir: 'contabilidad.periodo.reabrir',
+  // Pólizas (F1-CON-04): captura (analista), autorización (supervisor, distinto de quien capturó) y anulación con motivo.
+  ContabilidadPolizasLeer: 'contabilidad.polizas.leer',
+  ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',
+  ContabilidadPolizasAutorizar: 'contabilidad.polizas.autorizar',
+  ContabilidadPolizasAnular: 'contabilidad.polizas.anular',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */
