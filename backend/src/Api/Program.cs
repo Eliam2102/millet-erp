@@ -815,6 +815,11 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.ISucursalReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.SucursalReadAdapter>();
+// C1.2: TC de Almacén desde compartido.tipos_cambio; reemplaza el
+// NoOpTipoCambioReadPort (PLATFORM-TODO <TipoCambioReadAdapter> cerrado).
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.ITipoCambioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter>();
 
 // IUsuarioReadPort de Almacén → adapter hospedado en Identidad (ADR-0042).
 // Reemplaza el NoOpUsuarioReadPort que registró AddAlmacenModule(). El adapter

@@ -131,7 +131,7 @@ public sealed class ToleranciaProveedorCapturaTests
                 .AddSingleton<INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>>(Eventos)
                 .BuildServiceProvider();
             Handler = new(Cxp, _oc, new ProveedorReadPortAdapter(Maestros, Empresa), new SinBlobs(), new Millet.CuentasPorPagar.Infrastructure.Parsing.XmlCfdiParser(),
-                Empresa, new Mediator(_services), Clock, new ToleranciaGeneralReadPortAdapter(Maestros));
+                Empresa, new Mediator(_services), Clock, new ToleranciaGeneralReadPortAdapter(Maestros), new TipoCambioReadPortAdapter(Maestros));
         }
 
         public async Task PrepararAsync(decimal? monto)
