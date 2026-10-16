@@ -1,7 +1,7 @@
 using Millet.Compras.Domain.Oc;
 
 namespace Millet.Compras.Application.PublicPorts;
-public sealed record OcImportacionLectura(Guid Id, string Folio, Guid ProveedorId, string Moneda, Guid SucursalId, EstadoOrdenCompra Estado, bool EsImportacion, InformacionImportacion? InformacionImportacion);
+public sealed record OcImportacionLectura(Guid Id, string Folio, Guid ProveedorId, string Moneda, Guid SucursalId, EstadoOrdenCompra Estado, bool EsImportacion, InformacionImportacion? InformacionImportacion, DateOnly FechaDocumento);
 /// <summary>Lectura pública de origen CE; no copia los datos de importación al expediente.</summary>
 public interface IOcImportacionReadPort
 {

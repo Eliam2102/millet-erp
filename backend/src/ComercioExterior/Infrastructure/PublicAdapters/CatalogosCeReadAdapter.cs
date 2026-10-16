@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Administracion.Application.Abstractions;
 using Millet.ComercioExterior.Application;
 using Millet.ComercioExterior.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -7,7 +8,7 @@ using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.ComercioExterior.Infrastructure.PublicAdapters;
-public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock) : ICatalogosCeReadPort
+public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbContext identidad, IClock clock, IUsuarioSucursalReadPort sucursales) : ICatalogosCeReadPort
 {
     public async Task<IReadOnlyList<ReferenciaCe>> ReferenciasAsync(string tipo, string q, CancellationToken ct)
     {
@@ -31,6 +32,13 @@ public sealed class CatalogosCeReadAdapter(CompartidoDbContext db, IdentidadDbCo
             throw new BusinessRuleException("CE_SUCURSAL_INVALIDA", "Seleccione una sucursal de la empresa.");
         if (!await identidad.Usuarios.AnyAsync(x => x.Id == responsable && x.Activo && identidad.UsuarioEmpresaRoles.Any(r => r.UsuarioId == x.Id), ct))
             throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Seleccione un responsable existente.");
+    }
+
+    public async Task ValidarResponsableAsync(Guid sucursal, Guid responsable, CancellationToken ct)
+    {
+        if (!await identidad.Usuarios.AnyAsync(x => x.Id == responsable && x.Activo && identidad.UsuarioEmpresaRoles.Any(r => r.UsuarioId == x.Id), ct)
+            || !await sucursales.EstaAsociadoAsync(responsable, sucursal, ct))
+            throw new BusinessRuleException("CE_RESPONSABLE_REQUERIDO", "Seleccione un usuario activo con acceso a la sucursal del expediente.");
     }
 
     public async Task ValidarParticipanteAsync(Guid? proveedor, Guid? cliente, CancellationToken ct)

@@ -28,5 +28,5 @@ public sealed class OcImportacionReadAdapter(ComprasDbContext db) : IOcImportaci
         return query.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id).Take(50);
     }
 
-    private static OcImportacionLectura De(OrdenCompra oc) => new(oc.Id, oc.Folio.Valor, oc.ProveedorId, oc.Moneda, oc.SucursalDestinoId, oc.Estado, oc.EsImportacion, oc.InformacionImportacion);
+    private static OcImportacionLectura De(OrdenCompra oc) => new(oc.Id, oc.Folio.Valor, oc.ProveedorId, oc.Moneda, oc.SucursalDestinoId, oc.Estado, oc.EsImportacion, oc.InformacionImportacion, oc.FechaDocumento);
 }

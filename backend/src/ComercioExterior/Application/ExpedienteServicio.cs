@@ -9,7 +9,7 @@ using Millet.Identidad.Domain;
 
 namespace Millet.ComercioExterior.Application;
 /// <summary>Guardas compartidas por los casos de uso, incluidas las invocaciones fuera de HTTP.</summary>
-public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosCeReadPort catalogos, ICurrentUserContext user, ICurrentUserPermissions permisos, IUsuarioSucursalReadPort sucursales, IOcImportacionReadPort compras)
+public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosCeReadPort catalogos, ICurrentUserContext user, ICurrentUserPermissions permisos, IUsuarioSucursalReadPort sucursales, IOcImportacionReadPort compras, IClock clock)
 {
     public Guid Actor => user.UserId ?? throw new UnauthorizedAccessException();
 
@@ -43,7 +43,7 @@ public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosC
 
     public async Task<Expediente> CargarAsync(Guid id, bool escribir, CancellationToken ct)
     {
-        var e = await db.Expedientes.Include(x => x.Participantes).Include(x => x.Documentos).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new EntityNotFoundException("CE_EXPEDIENTE_NO_ENCONTRADO", "No existe el expediente.");
+        var e = await db.Expedientes.Include(x => x.Participantes).Include(x => x.Documentos).Include(x => x.Hitos).Include(x => x.Avisos).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new EntityNotFoundException("CE_EXPEDIENTE_NO_ENCONTRADO", "No existe el expediente.");
         await SucursalAsync(e.SucursalId, escribir, ct);
         return e;
     }
@@ -51,13 +51,17 @@ public sealed class ExpedienteServicio(ComercioExteriorDbContext db, ICatalogosC
     public async Task<ExpedienteDetalle> DetalleAsync(Expediente e, CancellationToken ct)
     {
         var requisitos = await catalogos.RequisitosAsync(e.Tipo, ct);
-        var faltantes = e.Faltantes(requisitos, await catalogos.AdjuntosVigentesAsync(e.Id, ct));
-        var nombres = await catalogos.NombresAsync(e.Documentos.Select(d => d.ResponsableUsuarioId).Append(e.ResponsableUsuarioId).Distinct(), ct);
+        var adjuntos = await catalogos.AdjuntosVigentesAsync(e.Id, ct);
+        var faltantes = e.Faltantes(requisitos, adjuntos);
+        var hoy = clock.HoyLocal();
+        var nombres = await catalogos.NombresAsync(e.Documentos.Select(d => d.ResponsableUsuarioId).Concat(e.Hitos.Select(h => h.ResponsableUsuarioId)).Append(e.ResponsableUsuarioId).Distinct(), ct);
         var sucursal = await catalogos.SucursalesAsync([e.SucursalId], ct);
         var incoterm = await catalogos.IncotermsAsync([e.IncotermId], ct);
         var oc = e.OcId is Guid id ? await compras.ObtenerAsync(id, ct) : null;
-        return new(Fila(e, nombres, sucursal), e.OcId, oc?.Folio, oc?.InformacionImportacion is { } info ? new ImportacionDto(info.IncotermId, info.PaisOrigen, info.NumeroContenedor, info.CodigoRuta, info.SemanaEmbarque, info.NumeroPedimento) : null, e.IncotermId, incoterm.GetValueOrDefault(e.IncotermId, "[INCOTERM]"), e.ResponsableUsuarioId, e.Tc, e.FechaTc, e.FuenteTc, e.MotivoCancelacion, e.RevisadoPorId, e.Participantes.Select(p => new ParticipanteDto(p.Id, p.Nombre, p.Tipo, p.Contacto, p.Papel, p.ProveedorId, p.ClienteId)).ToArray(), e.Documentos.OrderBy(d => d.TipoDocumentoId).ThenBy(d => d.NumeroVersion).Select(d => new DocumentoVersionDto(d.Id, d.TipoDocumentoId, d.NumeroVersion, d.AdjuntoId, d.ReemplazaA, d.Motivo, d.NoAplica, d.Estado, d.ResponsableUsuarioId, nombres.GetValueOrDefault(d.ResponsableUsuarioId, "[RESPONSABLE]"), d.CreatedAt)).ToArray(), requisitos, faltantes, faltantes.Count > 0 ? "Incompleto" : e.RevisionPendiente ? "Revisión pendiente" : e.RevisadoPorId is null ? "Por revisar" : "Revisado");
+        return new(Fila(e, nombres, sucursal, hoy), e.OcId, oc?.Folio, oc?.InformacionImportacion is { } info ? new ImportacionDto(info.IncotermId, info.PaisOrigen, info.NumeroContenedor, info.CodigoRuta, info.SemanaEmbarque, info.NumeroPedimento) : null, e.IncotermId, incoterm.GetValueOrDefault(e.IncotermId, "[INCOTERM]"), e.ResponsableUsuarioId, e.Tc, e.FechaTc, e.FuenteTc, e.MotivoCancelacion, e.RevisadoPorId, e.Participantes.Select(p => new ParticipanteDto(p.Id, p.Nombre, p.Tipo, p.Contacto, p.Papel, p.ProveedorId, p.ClienteId, p.Descripcion)).ToArray(), e.Documentos.OrderBy(d => d.TipoDocumentoId).ThenBy(d => d.NumeroVersion).Select(d => new DocumentoVersionDto(d.Id, d.TipoDocumentoId, d.NumeroVersion, d.AdjuntoId, d.ReemplazaA, d.Motivo, d.NoAplica, d.Estado, d.ResponsableUsuarioId, nombres.GetValueOrDefault(d.ResponsableUsuarioId, "[RESPONSABLE]"), d.CreatedAt)).ToArray(), requisitos, faltantes, faltantes.Count > 0 ? "Incompleto" : e.RevisionPendiente ? "Revisión pendiente" : e.RevisadoPorId is null ? "Por revisar" : "Revisado", e.EstadoFisico(requisitos, adjuntos), Expediente.FinancieroPendiente,
+            e.Hitos.OrderBy(h => h.Orden).Select(h => new HitoDto(h.Id, h.Clave, HitoExpediente.Catalogo[h.Orden - 1].Nombre, h.Orden, h.FechaCompromiso, h.FechaReal, h.ResponsableUsuarioId, nombres.GetValueOrDefault(h.ResponsableUsuarioId, "[RESPONSABLE]"), h.EvidenciaAdjuntoId, h.Omitido, h.Motivo, h.MotivoCambioCompromiso, e.Estado == EstadoExpediente.Abierto && h.EstaAtrasado(hoy), e.Estado == EstadoExpediente.Abierto && h.EstaAtrasado(hoy) ? hoy.DayNumber - h.FechaCompromiso!.Value.DayNumber : 0)).ToArray(),
+            e.Avisos.OrderByDescending(a => a.FechaAviso).ThenBy(a => a.Id).Select(a => new AvisoHitoDto(a.Id, a.HitoId, HitoExpediente.Catalogo[e.Hitos.Single(h => h.Id == a.HitoId).Orden - 1].Nombre, a.FechaCompromiso, a.FechaAviso)).ToArray());
     }
 
-    public static ExpedienteFila Fila(Expediente e, IReadOnlyDictionary<Guid, string> nombres, IReadOnlyDictionary<Guid, string> sucursales) => new(e.Id, e.Folio, e.Tipo, e.Referencia, e.SucursalId, sucursales.GetValueOrDefault(e.SucursalId, "[SUCURSAL]"), e.Estado, e.RevisionPendiente, e.Moneda, nombres.GetValueOrDefault(e.ResponsableUsuarioId, "[RESPONSABLE]"), e.Version);
+    public static ExpedienteFila Fila(Expediente e, IReadOnlyDictionary<Guid, string> nombres, IReadOnlyDictionary<Guid, string> sucursales, DateOnly hoy) => new(e.Id, e.Folio, e.Tipo, e.Referencia, e.SucursalId, sucursales.GetValueOrDefault(e.SucursalId, "[SUCURSAL]"), e.Estado, e.RevisionPendiente, e.Moneda, nombres.GetValueOrDefault(e.ResponsableUsuarioId, "[RESPONSABLE]"), e.Version, e.Estado == EstadoExpediente.Abierto ? e.Hitos.Count(h => h.EstaAtrasado(hoy)) : 0, e.Avisos.Count);
 }

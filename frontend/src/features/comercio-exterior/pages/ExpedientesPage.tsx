@@ -38,7 +38,7 @@ export function ExpedientesPage() {
         <div>
           <h1 className="text-3xl font-semibold text-ink">Expedientes</h1>
           <p className="mt-1 text-ink-muted">
-            Importaciones y exportaciones: participantes, documentos y requisitos.
+            Importaciones y exportaciones: documentos, hitos y avisos de atraso.
           </p>
         </div>
         {canCrear && (
@@ -95,6 +95,21 @@ export function ExpedientesPage() {
               <option value={2}>Exportación</option>
             </select>
           </label>
+          <label className="flex items-center gap-2 text-xs text-ink-secondary">
+            Atraso
+            <select
+              aria-label="Filtrar atraso"
+              value={search.atraso === undefined ? '' : String(search.atraso)}
+              className="h-ctl-md rounded-md border border-line-control bg-surface-card px-2"
+              onChange={(e) =>
+                filtrar({ atraso: e.target.value === '' ? undefined : e.target.value === 'true' })
+              }
+            >
+              <option value="">Todos</option>
+              <option value="true">Con atraso</option>
+              <option value="false">Sin atraso</option>
+            </select>
+          </label>
           {canLeerTodas && (
             <div className="flex items-center gap-2 text-xs text-ink-secondary">
               <span>Sucursal</span>
@@ -133,7 +148,16 @@ export function ExpedientesPage() {
             <table className="h-full w-full text-left text-sm">
               <thead className="h-9 bg-surface-subtle text-2xs uppercase tracking-wide text-ink-muted">
                 <tr>
-                  {['Folio', 'Referencia', 'Tipo', 'Sucursal', 'Responsable', 'Estado'].map((c) => (
+                  {[
+                    'Folio',
+                    'Referencia',
+                    'Tipo',
+                    'Sucursal',
+                    'Responsable',
+                    'Atraso',
+                    'Avisos',
+                    'Estado',
+                  ].map((c) => (
                     <th key={c} className="px-3 font-semibold">
                       {c}
                     </th>
@@ -156,6 +180,20 @@ export function ExpedientesPage() {
                     <td className="px-3">{e.tipo === 1 ? 'Importación' : 'Exportación'}</td>
                     <td className="px-3">{e.sucursalNombre}</td>
                     <td className="px-3">{e.responsableNombre}</td>
+                    <td className="px-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs ${e.hitosAtrasados > 0 ? 'font-medium text-danger-fg' : 'text-ink-secondary'}`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`size-[7px] shrink-0 rounded-full ${e.hitosAtrasados > 0 ? 'bg-danger-solid' : 'bg-success-solid'}`}
+                        />
+                        {e.hitosAtrasados > 0
+                          ? `${e.hitosAtrasados} ${e.hitosAtrasados === 1 ? 'hito vencido' : 'hitos vencidos'}`
+                          : 'Sin atraso'}
+                      </span>
+                    </td>
+                    <td className="px-3 tabular-nums">{e.avisos}</td>
                     <td className="px-3">
                       <EstadoExpedienteBadge estado={e.estado} />
                     </td>

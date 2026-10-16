@@ -15,14 +15,28 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { apiRequest, esApiError } from '@/lib/api';
 import { CE_BASE, useAccionExpediente, useExpediente, useExpedientes } from '../api/hooks';
 import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
+import { HitosPanel } from '../components/HitosPanel';
 import { DocumentosPanel } from '../components/DocumentosPanel';
-import type { ExpedienteDetalle, Participante } from '../api/types';
+import {
+  tiposParticipante,
+  type ExpedienteDetalle,
+  type Participante,
+  type TipoParticipante,
+} from '../api/types';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 
 export function ExpedienteDetallePage({ id }: { id: string }) {
   const query = useExpediente(id);
   const lista = useExpedientes({});
   const data = query.data?.data;
   const editar = useHasPermission(P.ComercioExteriorExpedientesEditar);
+  const cerrar = useHasPermission(P.ComercioExteriorExpedientesCerrar);
   const cancelar = useHasPermission(P.ComercioExteriorExpedientesCancelar);
   const accion = useAccionExpediente(id);
   const [edicion, setEdicion] = useState(false);
@@ -91,6 +105,11 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
                 Editar datos
               </Button>
             )}
+            {cerrar && abierto && (
+              <Button variant="outline" disabled title={data.estadoFinanciero}>
+                Cerrar expediente
+              </Button>
+            )}
             {cancelar && abierto && (
               <Button variant="ghost" onClick={() => setCancelando(!cancelando)}>
                 Cancelar expediente
@@ -153,6 +172,8 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             ['Origen', data.ocFolio ?? 'Solicitud de contenedor'],
             ['Responsable', data.expediente.responsableNombre],
             ['Documentación', data.estadoDocumental],
+            ['Físico', data.estadoFisico],
+            ['Financiero', data.estadoFinanciero],
             ['TC', data.tc === null ? 'Sin TC capturado' : String(data.tc)],
           ].map(([label, value]) => (
             <div key={label}>
@@ -166,6 +187,7 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
             <TabsTrigger value="participantes">Participantes</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="hitos">Hitos</TabsTrigger>
             <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           </TabsList>
           <TabsContent value="resumen" className="space-y-4">
@@ -200,6 +222,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           </TabsContent>
           <TabsContent value="documentos">
             <DocumentosPanel data={data} />
+          </TabsContent>
+          <TabsContent value="hitos">
+            <HitosPanel data={data} />
           </TabsContent>
           <TabsContent value="bitacora">
             <Bitacora id={id} />
@@ -310,7 +335,8 @@ function Participantes({ data, puedeEditar }: { data: ExpedienteDetalle; puedeEd
   const vacio = {
     id: '',
     nombre: '',
-    tipo: '',
+    tipo: 9 as TipoParticipante,
+    descripcion: '',
     contacto: '',
     papel: 1 as 1 | 2 | 3,
     proveedorId: null as string | null,
@@ -332,7 +358,11 @@ function Participantes({ data, puedeEditar }: { data: ExpedienteDetalle; puedeEd
     }
   }
   function editar(participante: Participante) {
-    setP({ ...participante, contacto: participante.contacto ?? '' });
+    setP({
+      ...participante,
+      contacto: participante.contacto ?? '',
+      descripcion: participante.descripcion ?? '',
+    });
   }
   return (
     <section className="space-y-4">
@@ -343,9 +373,10 @@ function Participantes({ data, puedeEditar }: { data: ExpedienteDetalle; puedeEd
             <div>
               <p className="font-medium">{p.nombre}</p>
               <p className="text-xs text-ink-muted">
-                {p.tipo} · {['', 'Captura', 'Revisa', 'Autoriza'][p.papel]} ·{' '}
+                {tiposParticipante[p.tipo]} · {['', 'Captura', 'Revisa', 'Autoriza'][p.papel]} ·{' '}
                 {p.contacto ?? 'Sin contacto capturado'}
               </p>
+              {p.descripcion && <p className="text-xs text-ink-muted">{p.descripcion}</p>}
             </div>
             {puedeEditar && (
               <Button size="sm" variant="ghost" onClick={() => editar(p)}>
@@ -362,24 +393,42 @@ function Participantes({ data, puedeEditar }: { data: ExpedienteDetalle; puedeEd
         >
           <h3 className="font-medium">{p.id ? 'Editar participante' : 'Agregar participante'}</h3>
           <div className="grid grid-cols-2 gap-4">
-            {(['nombre', 'tipo', 'contacto'] as const).map((k) => (
+            {(['nombre', 'contacto', 'descripcion'] as const).map((k) => (
               <div key={k} className="space-y-1.5">
                 <Label htmlFor={`ce-p-${k}`}>
                   {k === 'nombre'
                     ? 'Nombre'
-                    : k === 'tipo'
-                      ? 'Tipo (libre)'
-                      : 'Contacto (opcional)'}
+                    : k === 'contacto'
+                      ? 'Contacto (opcional)'
+                      : 'Descripción (opcional)'}
                 </Label>
                 <Input
                   id={`ce-p-${k}`}
-                  required={k !== 'contacto'}
-                  maxLength={k === 'tipo' ? 80 : k === 'contacto' ? 300 : 200}
+                  required={k === 'nombre'}
+                  maxLength={k === 'nombre' ? 200 : 300}
                   value={p[k]}
                   onChange={(e) => setP({ ...p, [k]: e.target.value })}
                 />
               </div>
             ))}
+            <div className="space-y-1.5">
+              <Label htmlFor="ce-p-tipo">Tipo de participante</Label>
+              <Select
+                value={String(p.tipo)}
+                onValueChange={(value) => setP({ ...p, tipo: Number(value) as TipoParticipante })}
+              >
+                <SelectTrigger id="ce-p-tipo">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(tiposParticipante).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="ce-p-papel">Papel en la etapa</Label>
               <select

@@ -33,7 +33,7 @@ public sealed class DocumentosFaltantesException(IReadOnlyList<RequisitoDocument
     public IReadOnlyList<RequisitoDocumento> Faltantes { get; } = faltantes;
 }
 
-public sealed class Expediente : BaseEntity, IAuditable, IPerteneceAEmpresa
+public sealed partial class Expediente : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
     public Guid EmpresaId { get; set; }
     public string Folio { get; private set; } = "";
@@ -81,7 +81,7 @@ public sealed class Expediente : BaseEntity, IAuditable, IPerteneceAEmpresa
         OcId = ocId;
         Editar(referencia, incotermId, moneda, null, null, null, responsable);
         foreach (var cliente in clientes)
-            AgregarParticipante(Guid.CreateVersion7(), cliente, "Cliente", null, PapelParticipante.Captura, null, null);
+            AgregarParticipante(Guid.CreateVersion7(), cliente, TipoParticipante.Cliente, null, PapelParticipante.Captura, null, null);
     }
 
     public void ExigirAbierto()
@@ -121,18 +121,18 @@ public sealed class Expediente : BaseEntity, IAuditable, IPerteneceAEmpresa
         RevisionContenido++;
     }
 
-    public void AgregarParticipante(Guid id, string nombre, string tipo, string? contacto, PapelParticipante papel, Guid? proveedorId, Guid? clienteId)
+    public void AgregarParticipante(Guid id, string nombre, TipoParticipante tipo, string? contacto, PapelParticipante papel, Guid? proveedorId, Guid? clienteId, string? descripcion = null)
     {
         ExigirAbierto();
-        _participantes.Add(new(id, EmpresaId, Id, nombre, tipo, contacto, papel, proveedorId, clienteId));
+        _participantes.Add(new(id, EmpresaId, Id, nombre, tipo, contacto, papel, proveedorId, clienteId, descripcion));
         RevisionContenido++;
     }
 
-    public void EditarParticipante(Guid id, string nombre, string tipo, string? contacto, PapelParticipante papel, Guid? proveedorId, Guid? clienteId)
+    public void EditarParticipante(Guid id, string nombre, TipoParticipante tipo, string? contacto, PapelParticipante papel, Guid? proveedorId, Guid? clienteId, string? descripcion = null)
     {
         ExigirAbierto();
         var participante = _participantes.SingleOrDefault(p => p.Id == id) ?? throw new EntityNotFoundException("CE_PARTICIPANTE_NO_ENCONTRADO", "No existe el participante.");
-        participante.Editar(nombre, tipo, contacto, papel, proveedorId, clienteId);
+        participante.Editar(nombre, tipo, contacto, papel, proveedorId, clienteId, descripcion);
         RevisionContenido++;
     }
 
