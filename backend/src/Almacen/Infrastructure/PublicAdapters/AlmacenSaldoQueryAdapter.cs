@@ -154,4 +154,52 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
                 .Where(a => a.SucursalId == sucursalId && a.ArticuloId == articuloId)
                 .SumAsync(a => a.Pendiente, cancellationToken)));
     }
+
+    public async Task<IReadOnlyDictionary<Guid, DisponibilidadArticuloSucursal>> ConsultarDisponibilidadPorSucursalLoteAsync(
+        Guid sucursalId,
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, DisponibilidadArticuloSucursal>();
+        if (articuloIds.Count == 0)
+        {
+            return resultado;
+        }
+
+        var ids = articuloIds.Distinct().ToList();
+
+        var saldos = await (
+            from s in _db.SaldosInventario.AsNoTracking()
+            join sa in _db.SubAlmacenes.AsNoTracking() on s.SubAlmacenId equals sa.Id
+            join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
+            where ids.Contains(s.ArticuloId) && al.SucursalId == sucursalId
+            select s)
+            .GroupBy(s => s.ArticuloId)
+            .Select(g => new
+            {
+                ArticuloId = g.Key,
+                Cantidad = g.Sum(x => x.Cantidad),
+                Disponible = g.Sum(x => x.CantidadDisponible),
+            })
+            .ToDictionaryAsync(x => x.ArticuloId, cancellationToken);
+
+        var apartados = await _db.ApartadosRequisicion
+            .Where(a => a.SucursalId == sucursalId && ids.Contains(a.ArticuloId))
+            .GroupBy(a => a.ArticuloId)
+            .Select(g => new { ArticuloId = g.Key, Pendiente = g.Sum(a => a.Pendiente) })
+            .ToDictionaryAsync(x => x.ArticuloId, x => x.Pendiente, cancellationToken);
+
+        foreach (var id in ids)
+        {
+            saldos.TryGetValue(id, out var t);
+            apartados.TryGetValue(id, out var apartado);
+            resultado[id] = new DisponibilidadArticuloSucursal(
+                sucursalId,
+                id,
+                t?.Cantidad ?? 0m,
+                Math.Max(0m, (t?.Disponible ?? 0m) - apartado));
+        }
+
+        return resultado;
+    }
 }

@@ -93,6 +93,9 @@ while IFS= read -r item; do
   fi
 done < "$contexts_file"
 
+# Fixture de pruebas: fila general de umbral que reproduce el comportamiento previo (RQ basta con N1 salvo naturaleza o monto; OC exige N2 por monto > 0). Las pruebas del modo por departamento siembran su propia fila.
+docker exec "$audit_container" psql -U pgadmin -d millet_dev -v ON_ERROR_STOP=1 -c "INSERT INTO compras.umbrales_aprobacion_departamento (empresa_id, departamento_id, vigente_desde, vigente_hasta, umbral_menor_cuantia, umbral_monto, moneda, modo_nivel2, monto_minimo_disponibilidad) VALUES ('00000003-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', '2020-01-01', NULL, NULL, 0, 'MXN', 2, 999999999999.99) ON CONFLICT DO NOTHING;" >/dev/null
+
 for project in "${projects[@]}"; do
   echo "Probando $(basename "$(dirname "$project")")"
   if [[ "$#" -gt 0 ]]; then

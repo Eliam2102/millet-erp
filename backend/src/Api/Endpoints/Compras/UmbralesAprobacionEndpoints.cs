@@ -58,12 +58,16 @@ public static class UmbralesAprobacionEndpoints
         .WithDescription(
             "Si la vigencia anterior es de un día previo, la cierra con hoy-1 e inserta " +
             "una nueva con vigenteDesde = hoy. Si ya existe una fila de hoy, la actualiza. " +
-            "umbralMenorCuantia (N1) debe ser menor que umbralMonto (N2) cuando se envía.")
+            "umbralMenorCuantia (N1) debe ser menor que umbralMonto (N2) cuando se envía. " +
+            "modoNivel2 (SoloMonto, SoloDisponibilidad o Ambos; default Ambos) y montoMinimoDisponibilidad " +
+            "(opcional, >= 0) definen cuándo una requisición del departamento exige N2. " +
+            "Responde 409 UMBRAL_GUARDADO_CONCURRENTE si otro usuario guarda el mismo departamento al mismo tiempo.")
         .Produces<UmbralAprobacionResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status403Forbidden);
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         return app;
     }

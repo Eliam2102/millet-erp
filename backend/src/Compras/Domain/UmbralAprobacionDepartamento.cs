@@ -16,16 +16,22 @@ namespace Millet.Compras.Domain;
 /// Vigencia con <c>VigenteDesde</c> y <c>VigenteHasta</c> (NULL = vigente).
 /// PK compuesta para permitir histórico por cambios.
 ///
-/// El motor v0 (<c>EvaluadorMontoVsUmbral</c>) lee la fila vigente. Si no
-/// existe, asume umbral = decimal.MaxValue (fail-open: solo N1 hasta que
-/// se configure).
+/// Sin fila vigente del departamento se usa la fila general
+/// (<c>DepartamentoId = Guid.Empty</c>); sin ninguna, la RQ y la OC exigen N2
+/// (fail-safe).
 ///
-/// No implementa <see cref="Millet.SharedKernel.Domain.IAuditable"/> ni
-/// <see cref="Millet.SharedKernel.Domain.IPerteneceAEmpresa"/>: los
-/// cambios al catálogo se versionan vía la PK compuesta y la EmpresaId
+/// <see cref="ModoNivel2"/>: modo de nivel 2 de la requisición para este
+/// departamento (default <see cref="Domain.ModoNivel2.Ambos"/>).
+/// <see cref="MontoMinimoDisponibilidad"/>: importe mínimo a comprar por
+/// disponibilidad para exigir N2 en modo SoloDisponibilidad/Ambos; <c>null</c>
+/// = sin mínimo.
+///
+/// Implementa <see cref="Millet.SharedKernel.Domain.IAuditable"/> (marcador):
+/// cada alta o cambio queda en <c>core.audit_log</c>. No implementa
+/// <see cref="Millet.SharedKernel.Domain.IPerteneceAEmpresa"/>: la EmpresaId
 /// es parte de la PK explícita (no necesita query filter).
 /// </summary>
-public sealed class UmbralAprobacionDepartamento
+public sealed class UmbralAprobacionDepartamento : Millet.SharedKernel.Domain.IAuditable
 {
     public Guid EmpresaId { get; private set; }
     public Guid DepartamentoId { get; private set; }
@@ -34,6 +40,8 @@ public sealed class UmbralAprobacionDepartamento
     public decimal? UmbralMenorCuantia { get; private set; }
     public decimal UmbralMonto { get; private set; }
     public string Moneda { get; private set; } = "MXN";
+    public ModoNivel2 ModoNivel2 { get; private set; } = ModoNivel2.Ambos;
+    public decimal? MontoMinimoDisponibilidad { get; private set; }
 
     private UmbralAprobacionDepartamento() { }
 
@@ -44,9 +52,11 @@ public sealed class UmbralAprobacionDepartamento
         decimal umbralMonto,
         string moneda = "MXN",
         DateOnly? vigenteHasta = null,
-        decimal? umbralMenorCuantia = null)
+        decimal? umbralMenorCuantia = null,
+        ModoNivel2 modoNivel2 = ModoNivel2.Ambos,
+        decimal? montoMinimoDisponibilidad = null)
     {
-        Validar(umbralMenorCuantia, umbralMonto);
+        Validar(umbralMenorCuantia, umbralMonto, modoNivel2, montoMinimoDisponibilidad);
 
         EmpresaId = empresaId;
         DepartamentoId = departamentoId;
@@ -55,6 +65,8 @@ public sealed class UmbralAprobacionDepartamento
         UmbralMenorCuantia = umbralMenorCuantia;
         UmbralMonto = umbralMonto;
         Moneda = moneda;
+        ModoNivel2 = modoNivel2;
+        MontoMinimoDisponibilidad = montoMinimoDisponibilidad;
     }
 
     /// <summary>
@@ -62,13 +74,16 @@ public sealed class UmbralAprobacionDepartamento
     /// solo sobre la fila que se creó hoy; cambios de días previos
     /// versionan con una fila nueva.
     /// </summary>
-    public void ActualizarMontos(decimal? umbralMenorCuantia, decimal umbralMonto, string moneda)
+    public void ActualizarMontos(decimal? umbralMenorCuantia, decimal umbralMonto, string moneda,
+        ModoNivel2 modoNivel2 = ModoNivel2.Ambos, decimal? montoMinimoDisponibilidad = null)
     {
-        Validar(umbralMenorCuantia, umbralMonto);
+        Validar(umbralMenorCuantia, umbralMonto, modoNivel2, montoMinimoDisponibilidad);
 
         UmbralMenorCuantia = umbralMenorCuantia;
         UmbralMonto = umbralMonto;
         Moneda = moneda;
+        ModoNivel2 = modoNivel2;
+        MontoMinimoDisponibilidad = montoMinimoDisponibilidad;
     }
 
     /// <summary>Cierra la vigencia. <paramref name="hasta"/> no puede ser anterior a <c>VigenteDesde</c>.</summary>
@@ -83,8 +98,19 @@ public sealed class UmbralAprobacionDepartamento
         VigenteHasta = hasta;
     }
 
-    private static void Validar(decimal? umbralMenorCuantia, decimal umbralMonto)
+    private static void Validar(
+        decimal? umbralMenorCuantia, decimal umbralMonto,
+        ModoNivel2 modoNivel2, decimal? montoMinimoDisponibilidad)
     {
+        if (!Enum.IsDefined(modoNivel2))
+            throw new ValidationException([new ValidationError(
+                nameof(ModoNivel2), "UMBRAL_MODO_NIVEL2_INVALIDO", "El modo de nivel 2 no es válido.")]);
+
+        if (montoMinimoDisponibilidad < 0)
+            throw new ValidationException([new ValidationError(
+                nameof(MontoMinimoDisponibilidad), "UMBRAL_MONTO_MINIMO_NEGATIVO",
+                "El monto mínimo por disponibilidad no puede ser negativo.")]);
+
         if (umbralMonto < 0)
             throw new ValidationException([new ValidationError(
                 nameof(UmbralMonto), "UMBRAL_MONTO_NEGATIVO", "El umbral N2 no puede ser negativo.")]);

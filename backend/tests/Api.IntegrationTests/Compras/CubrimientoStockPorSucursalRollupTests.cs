@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Millet.Almacen.Domain.Ports.Externos;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Compras.Domain.Ports.Almacen;
 
@@ -113,6 +114,52 @@ public class CubrimientoStockPorSucursalRollupTests : IClassFixture<WebApplicati
 
         Assert.Equal(0m, disp.OnHand);
         Assert.Equal(0m, disp.Disponible);
+    }
+
+    [Fact]
+    public async Task Lote_devuelve_lo_mismo_que_la_consulta_por_articulo()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        var puerto = scope.ServiceProvider.GetRequiredService<IAlmacenSaldoQueryPort>();
+
+        var sucursalId = Guid.NewGuid();
+        var almacenes = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        var subs = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        var ubics = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        var articuloA = Guid.NewGuid();
+        var articuloB = Guid.NewGuid();
+        var articuloSinSaldo = Guid.NewGuid();
+        var claveBase = $"S{Guid.NewGuid():N}".Substring(0, 10);
+
+        try
+        {
+            await SembrarAlmacenConSaldoAsync(db, sucursalId, almacenes[0], subs[0], ubics[0], claveBase + "A", articuloA, cantidad: 10m);
+            await SembrarAlmacenConSaldoAsync(db, sucursalId, almacenes[1], subs[1], ubics[1], claveBase + "B", articuloA, cantidad: 20m);
+            await SembrarAlmacenConSaldoAsync(db, sucursalId, almacenes[2], subs[2], ubics[2], claveBase + "C", articuloB, cantidad: 5m);
+
+            var ids = new[] { articuloA, articuloB, articuloSinSaldo };
+            var lote = await puerto.ConsultarDisponibilidadPorSucursalLoteAsync(sucursalId, ids, CancellationToken.None);
+
+            Assert.Equal(3, lote.Count);
+            foreach (var id in ids)
+            {
+                var unitario = await puerto.ConsultarDisponibilidadPorSucursalAsync(sucursalId, id, CancellationToken.None);
+                Assert.Equal(unitario, lote[id]);
+            }
+
+            Assert.Equal(30m, lote[articuloA].Cantidad);
+            Assert.Equal(5m, lote[articuloB].Cantidad);
+            Assert.Equal(0m, lote[articuloSinSaldo].Cantidad);
+            Assert.Equal(0m, lote[articuloSinSaldo].CantidadDisponible);
+        }
+        finally
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.saldos_inventario WHERE sub_almacen_id IN ({subs[0]}, {subs[1]}, {subs[2]})");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.ubicaciones WHERE id IN ({ubics[0]}, {ubics[1]}, {ubics[2]})");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.sub_almacenes WHERE id IN ({subs[0]}, {subs[1]}, {subs[2]})");
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM almacen.almacenes WHERE id IN ({almacenes[0]}, {almacenes[1]}, {almacenes[2]})");
+        }
     }
 
     private static async Task SembrarAlmacenConSaldoAsync(

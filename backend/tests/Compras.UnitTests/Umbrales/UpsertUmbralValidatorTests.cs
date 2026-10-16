@@ -1,4 +1,5 @@
 using Millet.Compras.Application.Umbrales;
+using Millet.Compras.Domain;
 
 namespace Millet.Compras.UnitTests.Umbrales;
 
@@ -38,5 +39,30 @@ public class UpsertUmbralValidatorTests
         var cmd = new UpsertUmbralCommand(Guid.CreateVersion7(), null, 10_000m, "USD");
 
         Assert.False(_validator.Validate(cmd).IsValid);
+    }
+
+    [Fact]
+    public void Minimo_Negativo_Falla()
+    {
+        var cmd = new UpsertUmbralCommand(Guid.CreateVersion7(), null, 10_000m, MontoMinimoDisponibilidad: -1m);
+
+        Assert.False(_validator.Validate(cmd).IsValid);
+    }
+
+    [Fact]
+    public void Modo_Fuera_Del_Enum_Falla()
+    {
+        var cmd = new UpsertUmbralCommand(Guid.CreateVersion7(), null, 10_000m, ModoNivel2: (ModoNivel2)99);
+
+        Assert.False(_validator.Validate(cmd).IsValid);
+    }
+
+    [Fact]
+    public void Modo_Omitido_Es_Valido()
+    {
+        var cmd = new UpsertUmbralCommand(Guid.CreateVersion7(), null, 10_000m);
+
+        Assert.Equal(ModoNivel2.Ambos, cmd.ModoNivel2);
+        Assert.True(_validator.Validate(cmd).IsValid);
     }
 }

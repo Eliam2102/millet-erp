@@ -60,6 +60,15 @@ public interface IAlmacenSaldoQueryPort
         Guid sucursalId,
         Guid articuloId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Igual que <c>ConsultarDisponibilidadPorSucursalAsync</c>, para varios artículos en una sola ida a la BD.
+    /// Devuelve una entrada por cada id solicitado (cero si no hay saldo).
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, DisponibilidadArticuloSucursal>> ConsultarDisponibilidadPorSucursalLoteAsync(
+        Guid sucursalId,
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>

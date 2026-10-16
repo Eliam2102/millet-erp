@@ -1,8 +1,15 @@
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -13,7 +20,12 @@ import {
 } from '@/components/ui/table';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useDepartamentos } from '@/features/catalogos/api/hooks';
-import { EstatusCatalogo, type UmbralAprobacionResponse } from '@/features/compras/api/types';
+import {
+  EstatusCatalogo,
+  MODO_NIVEL2_LABEL,
+  ModoNivel2,
+  type UmbralAprobacionResponse,
+} from '@/features/compras/api/types';
 import {
   useGuardarUmbral,
   useUmbralesAprobacion,
@@ -85,7 +97,10 @@ export function UmbralesAprobacionSection({ puedeEditar }: UmbralesAprobacionSec
         </h2>
         <p className="text-xs text-ink-muted">
           N1 = menor cuantía (aprobación rápida); N2 = por encima de este monto la OC también
-          requiere Dirección. N1 es opcional y debe ser menor que N2. Montos en MXN.
+          requiere Dirección. El modo de nivel 2 decide si la requisición pide N2 por monto, por
+          disponibilidad (si algo no está en almacén y su importe a comprar supera el mínimo) o
+          por ambos. Sin umbral del departamento se usa la fila General; sin ninguna, la
+          requisición pide N2. Montos en MXN.
         </p>
         {departamentos.length === 0 && (
           <p className="text-xs text-ink-muted">
@@ -104,6 +119,8 @@ export function UmbralesAprobacionSection({ puedeEditar }: UmbralesAprobacionSec
             <TableHead>Departamento</TableHead>
             <TableHead className="text-right">N1 menor cuantía (MXN)</TableHead>
             <TableHead className="text-right">N2 monto (MXN)</TableHead>
+            <TableHead>Modo de nivel 2</TableHead>
+            <TableHead className="text-right">Mínimo por disponibilidad (MXN)</TableHead>
             <TableHead>Vigente desde</TableHead>
             <TableHead>
               <span className="sr-only">Acciones</span>
@@ -117,7 +134,7 @@ export function UmbralesAprobacionSection({ puedeEditar }: UmbralesAprobacionSec
               <FilaUmbral
                 // Remonta la fila cuando cambia el umbral del servidor, para
                 // que el formulario tome los valores nuevos sin efectos.
-                key={`${entidad.id}-${umbral?.vigenteDesde ?? ''}-${umbral?.umbralMonto ?? ''}-${umbral?.umbralMenorCuantia ?? ''}`}
+                key={`${entidad.id}-${umbral?.vigenteDesde ?? ''}-${umbral?.umbralMonto ?? ''}-${umbral?.umbralMenorCuantia ?? ''}-${umbral?.modoNivel2 ?? ''}-${umbral?.montoMinimoDisponibilidad ?? ''}`}
                 departamento={entidad}
                 umbral={umbral}
                 puedeEditar={puedeEditar}
@@ -221,6 +238,46 @@ function FilaUmbral({ departamento, umbral, puedeEditar }: FilaUmbralProps) {
         {errores.umbralMonto && (
           <p id={`n2-err-${departamento.id}`} role="alert" className="mt-1 text-xs text-danger-fg">
             {errores.umbralMonto.message}
+          </p>
+        )}
+      </TableCell>
+      <TableCell>
+        <Controller
+          name="modoNivel2"
+          control={form.control}
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange} disabled={bloqueado}>
+              <SelectTrigger aria-label={`Modo de nivel 2 de ${nombre}`} className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(ModoNivel2).map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {MODO_NIVEL2_LABEL[m]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <Input
+          form={`umbral-form-${departamento.id}`}
+          inputMode="decimal"
+          aria-label={`Mínimo por disponibilidad de ${nombre}`}
+          aria-invalid={errores.montoMinimoDisponibilidad ? true : undefined}
+          aria-describedby={
+            errores.montoMinimoDisponibilidad ? `min-err-${departamento.id}` : undefined
+          }
+          disabled={bloqueado}
+          placeholder="Sin mínimo"
+          className="ml-auto w-36 text-right tabular-nums"
+          {...form.register('montoMinimoDisponibilidad')}
+        />
+        {errores.montoMinimoDisponibilidad && (
+          <p id={`min-err-${departamento.id}`} role="alert" className="mt-1 text-xs text-danger-fg">
+            {errores.montoMinimoDisponibilidad.message}
           </p>
         )}
       </TableCell>
