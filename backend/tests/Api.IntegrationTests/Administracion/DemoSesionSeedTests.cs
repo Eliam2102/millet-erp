@@ -315,6 +315,24 @@ public sealed class DemoSesionSeedTests
         Assert.Equal(116m, pedidos.Single(p => p.NumeroPedido == "DEMO-PED-RANURA").Ranura);
         foreach (var pedido in pedidos) Assert.True(await maestros.Clientes.AnyAsync(c => c.Id == pedido.ClienteId));
         Assert.False((await maestros.Clientes.SingleAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO")).DatosFiscalesCompletos);
+        // FIX-12: caja de Conkal con un día cerrado y cuadrado, listo para el corte.
+        var caja = await facturacion.Cajas.Include(c => c.Sucursales).Include(c => c.Usuarios)
+            .SingleAsync(c => c.Nombre == DemoSesionSeedHostedService.CajaDemoNombre);
+        Assert.Equal("MID", await maestros.Sucursales
+            .Where(s => s.Id == Assert.Single(caja.Sucursales).SucursalId).Select(s => s.Clave).SingleAsync());
+        Assert.Contains(caja.Usuarios, u => u.UsuarioId == DemoSesionSeedHostedService.CajeraDemoId);
+        var sesionCaja = await facturacion.CajaSesiones.Include(s => s.Cortes).SingleAsync(s => s.CajaId == caja.Id);
+        Assert.Equal(Millet.Facturacion.Domain.Cajas.EstadoCajaSesion.Cerrada, sesionCaja.Estado);
+        Assert.Equal(DemoSesionSeedHostedService.CajeraDemoId, sesionCaja.ResponsableUsuarioId);
+        Assert.Equal(0m, sesionCaja.Diferencia);
+        Assert.Equal(2_160m, sesionCaja.EfectivoTeorico);
+        Assert.Equal(4, sesionCaja.Cortes.Count);
+        Assert.Equal(4, await facturacion.CobrosMostrador.CountAsync(c => c.CajaSesionId == sesionCaja.Id));
+        var movimientosCaja = await facturacion.CajaMovimientos.Where(m => m.CajaSesionId == sesionCaja.Id).ToListAsync();
+        Assert.Equal(7, movimientosCaja.Count);
+        Assert.All(movimientosCaja, m => Assert.Equal(sesionCaja.DiaOperacion,
+            DateOnly.FromDateTime(Millet.Facturacion.Application.Cajas.Sesiones.DiaOperacion.ALocal(m.CreatedAt, null).DateTime)));
+        Assert.Equal(4, await facturacion.FacturasVenta.CountAsync(f => f.Folio.StartsWith("DEMO-CAJA-")));
         var rq = await compras.Requisiciones.Include(r => r.Lineas).SingleAsync(r => r.Descripcion == "DEMO-RQ-MID");
         Assert.Equal(10m, Assert.Single(rq.Lineas).CantidadDeCompra);
         Assert.Equal(oc.Id, rq.ComprometidaEnOcId);

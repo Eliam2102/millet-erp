@@ -55,6 +55,7 @@ public sealed partial class DemoSesionSeedHostedService(
                 await SembrarComprasAsync(sp, ct);
                 await SembrarAlmacenAsync(sp, ct);
                 await SembrarFacturacionAsync(sp, ct);
+                await SembrarCajaAsync(sp, ct);
                 await SembrarFinanzasAsync(sp, ct);
             }, cancellationToken);
         logger.LogInformation("DEMO: preparación terminada. Los usuarios ausentes requieren iniciar sesión y reiniciar el API.");

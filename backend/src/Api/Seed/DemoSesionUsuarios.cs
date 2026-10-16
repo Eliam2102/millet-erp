@@ -73,6 +73,7 @@ public sealed partial class DemoSesionSeedHostedService
             (CapturistaComprasDemoId, "capturista-compras", "DEMO Capturista Compras", "Capturista Compras"),
             (JefeComprasDemoId, "jefe-compras", "DEMO Jefe de Compras", "Jefe Compras"),
             (DireccionDemoId, "direccion", "DEMO Dirección", "Dirección"),
+            (CajeraDemoId, "cajera-mid", "DEMO Cajera Mostrador Conkal", "Facturación"),
         })
         {
             if (!await db.Usuarios.AnyAsync(u => u.Id == id, ct))
@@ -81,7 +82,8 @@ public sealed partial class DemoSesionSeedHostedService
             var rolId = Id("DEMO-ROL-" + rol);
             if (!await db.UsuarioEmpresaRoles.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.RolId == rolId, ct))
                 db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{id}/{rolId}"), id, EmpresaId, rolId));
-            foreach (var sucursal in sucursales.Values.Where(s => rol != "Capturista Compras" || s.Clave == "MID"))
+            // Capturista y cajera operan solo en MID (Conkal); el resto ve todas las sucursales.
+            foreach (var sucursal in sucursales.Values.Where(s => rol is not ("Capturista Compras" or "Facturación") || s.Clave == "MID"))
             {
                 if (!await db.UsuarioSucursales.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.SucursalId == sucursal.Id, ct))
                     db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{id}/{sucursal.Id}"), id, sucursal.Id, EmpresaId));
