@@ -226,7 +226,8 @@ public sealed class BootstrapSuperAdminHostedService : IHostedService
                 p => p.Codigo.StartsWith("compartido.catalogos", StringComparison.Ordinal)
                      || (p.Codigo.StartsWith("datos_maestros.", StringComparison.Ordinal)
                          && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar
-                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar)
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosProveedoresToleranciaEditar
+                         && p.Codigo != PermisosCanonicos.DatosMaestrosArticulosToleranciaEditar)
             ),
             (
                 Guid.Parse("00000002-0003-0000-0000-000000000006"),

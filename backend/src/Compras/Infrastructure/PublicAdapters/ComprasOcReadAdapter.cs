@@ -40,7 +40,8 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
                 CantidadSolicitada: l.Cantidad,
                 CantidadRecibida: l.CantidadRecibida,
                 PrecioUnitarioMxn: Math.Round(l.PrecioUnitario * conversionMxn, 4),
-                CentroCostoId: l.CentroCostoId))
+                CentroCostoId: l.CentroCostoId,
+                CantidadFacturada: l.CantidadFacturada))
             .ToList();
 
         return new OcLectura(
@@ -49,7 +50,8 @@ public sealed class ComprasOcReadAdapter : IComprasOcReadPort, IComprasRecepcion
             ProveedorId: oc.ProveedorId,
             EmpresaId: oc.EmpresaId,
             Estado: oc.Estado.ToString(),
-            Lineas: lineas);
+            Lineas: lineas,
+            SucursalDestinoId: oc.SucursalDestinoId);
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(

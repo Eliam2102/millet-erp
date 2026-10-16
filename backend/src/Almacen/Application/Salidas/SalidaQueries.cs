@@ -93,7 +93,13 @@ public sealed record SalidaLineaItem(
     // "No catalogado".
     string? CentroCostoClave,
     string? CentroCostoNombre,
-    Guid? ProyectoId, decimal? CantidadCapturada = null, string? UnidadCapturada = null);
+    Guid? ProyectoId, decimal? CantidadCapturada = null, string? UnidadCapturada = null,
+    // Comentario libre de la línea (captura en el registro). Null = sin comentario.
+    string? ComentarioLinea = null,
+    // Ruta de la ubicación (bin N4) de donde salió la línea, "ALM › SUB · BIN"
+    // (mismo formato que los selectores de Almacén). Null = la línea no lleva bin
+    // (histórico) o el bin no resuelve.
+    string? UbicacionCodigo = null);
 
 public sealed record ListarSalidasQuery(
     EstadoMovimiento? Estado,
@@ -297,19 +303,42 @@ public sealed class ObtenerSalidaPorIdHandler
             nombres.TryGetValue(personaId, out personaNombre);
         }
 
+        // Ubicación (bin N4) de las líneas: una sola consulta con los bins
+        // distintos (anti-N+1). Ruta "ALM › SUB · BIN" como en los selectores.
+        // Bin null (histórico) o no resuelto → no entra al diccionario.
+        var ubicacionIds = mov.Lineas
+            .Where(l => l.UbicacionId is not null)
+            .Select(l => l.UbicacionId!.Value)
+            .Distinct()
+            .ToArray();
+        Dictionary<Guid, string> rutasUbicacion = ubicacionIds.Length > 0
+            ? (await (
+                from u in _db.Ubicaciones.AsNoTracking()
+                join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
+                where ubicacionIds.Contains(u.Id)
+                select new { u.Id, u.Clave, SubClave = sa.Clave, AlmacenClave = al.Clave })
+                .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.Id, x => $"{x.AlmacenClave} › {x.SubClave} · {x.Clave}")
+            : new Dictionary<Guid, string>();
+
         // Líneas base (artículo resuelto; CC-Máquina clave/nombre = null aún).
         var lineas = mov.Lineas
             .OrderBy(l => l.Posicion)
             .Select(l =>
             {
                 articulos.TryGetValue(l.ArticuloId, out var art);
+                var ubicacionCodigo = l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta)
+                    ? ruta
+                    : null;
                 return new SalidaLineaItem(
                     l.Id, l.Posicion, l.ArticuloId,
                     art?.Clave, art?.Descripcion,
                     l.Cantidad, l.UnidadMedida,
                     l.CostoUnitarioMxn, l.MontoTotalMxn,
                     l.CentroCostoId, CentroCostoClave: null, CentroCostoNombre: null,
-                    l.ProyectoId, l.CantidadCapturada, l.UnidadCapturada);
+                    l.ProyectoId, l.CantidadCapturada, l.UnidadCapturada, l.ComentarioLinea,
+                    UbicacionCodigo: ubicacionCodigo);
             })
             .ToList();
 

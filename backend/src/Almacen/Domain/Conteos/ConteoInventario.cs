@@ -39,9 +39,11 @@ public sealed class ConteoInventario : BaseEntity, IPerteneceAEmpresa, IAuditabl
     public ConteoUmbrales ObtenerUmbrales() => new(VariacionPctParaRecuento,
         VariacionValorParaRecuento, UmbralNivel1Maximo, UmbralNivel2Maximo);
 
-    // Misma valoración y redondeo por línea que AplicarConteo.
-    public decimal CalcularMontoNeto() => Lineas.Sum(l => l.CantidadRealCapturada is decimal real
-        ? Math.Round((real - l.CantidadTeorica) * l.CostoPromedioSnapshot, 2) : 0m);
+    // Misma valoración y redondeo por línea que AplicarConteo. Usa la cantidad
+    // vigente (último recuento o captura original; ver LineaConteo.CantidadVigente).
+    public decimal CalcularMontoNeto(IReadOnlyDictionary<Guid, decimal>? recuentosVigentes = null) =>
+        Lineas.Sum(l => l.CantidadVigente(recuentosVigentes) is decimal real
+            ? Math.Round((real - l.CantidadTeorica) * l.CostoPromedioSnapshot, 2) : 0m);
 
     public string? MotivoRechazo { get; private set; }
 

@@ -135,6 +135,26 @@ public class ConteoInventarioTests
     }
 
     // ─── Helpers ───
+    [Fact]
+    public void Cantidad_vigente_usa_el_recuento_y_monto_neto_lo_valora_contra_el_recuento()
+    {
+        var c = Nuevo();
+        AgregarLinea(c, cantidadTeorica: 100m, costoSnap: 50m);
+        var linea = c.Lineas.Single();
+        linea.Capturar(4m, Guid.NewGuid());
+        c.Iniciar(new ConteoUmbrales(5m, 1000m, 1000m, 10000m));
+
+        // Sin recuentos: captura original (4 - 100) * 50 = -4800.
+        linea.CantidadVigente(null).Should().Be(4m);
+        c.CalcularMontoNeto().Should().Be(-4800m);
+
+        // Con recuento: la cantidad vigente es 98; la captura original se conserva.
+        var vigentes = new Dictionary<Guid, decimal> { [linea.Id] = 98m };
+        linea.CantidadVigente(vigentes).Should().Be(98m);
+        linea.CantidadRealCapturada.Should().Be(4m);
+        c.CalcularMontoNeto(vigentes).Should().Be(-100m);
+    }
+
     private static ConteoInventario Nuevo() =>
         new(
             id: Guid.NewGuid(),

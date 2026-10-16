@@ -46,4 +46,6 @@ public sealed record LineaDevolucionProveedorPayload(
     string UnidadMedida,
     decimal Cantidad,
     decimal CostoUnitarioMxn,
-    decimal MontoTotalMxn);
+    decimal MontoTotalMxn,
+    // Aditivo (86e3pc50v): cantidad devuelta en unidad de la línea de OC (Cantidad va en unidad base del inventario).
+    decimal? CantidadDocumento = null);
