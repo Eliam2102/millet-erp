@@ -15,6 +15,7 @@ import {
   CreditCard,
   FileBadge,
   FileCheck2,
+  FileSpreadsheet,
   FileText,
   FlaskConical,
   Gauge,
@@ -933,6 +934,27 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/periodos',
           icon: CalendarRange,
           permission: PermisosCanonicos.ContabilidadPeriodoLeer,
+        },
+      ],
+    },
+    {
+      label: 'Pólizas',
+      cards: [
+        {
+          label: 'Pólizas',
+          description:
+            'Captura de pólizas manuales en borrador, autorización con folio por tipo de operación (TT-000123) y anulación con motivo.',
+          to: '/contabilidad/polizas',
+          icon: FileSpreadsheet,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Movimientos por cuenta',
+          description:
+            'Cargos, abonos y saldo del periodo por cuenta con las pólizas autorizadas; una anulada y su anulación se compensan.',
+          to: '/contabilidad/polizas/saldos',
+          icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
         },
       ],
     },

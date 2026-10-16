@@ -11,20 +11,42 @@ import {
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { esApiError } from '@/lib/api';
 
+/**
+ * Permisos explícitos para entidades cuyo backend no sigue la convención `{permiso}.adjuntos-*`
+ * (p. ej. pólizas: ver = leer, subir y baja = capturar).
+ */
+export interface PermisosAdjuntos {
+  ver: string;
+  subir: string;
+  baja: string;
+}
+
 export function DocumentoAdjuntosSection({
   base,
   tipo,
   permiso,
+  permisos,
+  soloLectura = false,
 }: {
   base: string;
-  tipo: 'requisicion' | 'factura_proveedor';
-  permiso: string;
+  tipo: 'requisicion' | 'factura_proveedor' | 'poliza';
+  /** Prefijo de la convención `{permiso}.adjuntos-ver|subir|baja`. Se ignora si llegan `permisos`. */
+  permiso?: string;
+  permisos?: PermisosAdjuntos;
+  /** Oculta subir y dar de baja aunque haya permiso (p. ej. póliza ya autorizada). */
+  soloLectura?: boolean;
 }) {
-  const canVer = useHasPermission(`${permiso}.adjuntos-ver`);
-  const canSubir = useHasPermission(`${permiso}.adjuntos-subir`);
-  const canBaja = useHasPermission(`${permiso}.adjuntos-baja`);
+  const codigos = permisos ?? {
+    ver: `${permiso}.adjuntos-ver`,
+    subir: `${permiso}.adjuntos-subir`,
+    baja: `${permiso}.adjuntos-baja`,
+  };
+  const canVer = useHasPermission(codigos.ver);
+  const canSubir = useHasPermission(codigos.subir) && !soloLectura;
+  const tienePermisoBaja = useHasPermission(codigos.baja);
+  const canBaja = tienePermisoBaja && !soloLectura;
   const [verBajas, setVerBajas] = useState(false);
-  const lista = useAdjuntos(base, { enabled: canVer, incluirBajas: canBaja && verBajas });
+  const lista = useAdjuntos(base, { enabled: canVer, incluirBajas: tienePermisoBaja && verBajas });
   const tipos = useTiposDocumento(tipo, { enabled: canVer });
   const subir = useSubirAdjunto(base);
   const baja = useDarDeBajaAdjunto(base);
@@ -59,7 +81,7 @@ export function DocumentoAdjuntosSection({
         canUpload={canSubir}
         canRemove={canBaja}
         modoBaja
-        puedeVerBajas={canBaja}
+        puedeVerBajas={tienePermisoBaja}
         verBajas={verBajas}
         onVerBajasChange={setVerBajas}
         onUpload={async (args) => {
