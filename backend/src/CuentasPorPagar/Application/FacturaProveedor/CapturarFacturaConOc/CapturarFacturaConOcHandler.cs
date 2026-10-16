@@ -157,7 +157,7 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             throw new BusinessRuleException("CFDI_UUID_DISTINTO", "El UUID capturado no coincide con el XML ligado.");
         if (xml is not null && (xml.TipoCambio ?? 1) != (command.TipoCambio ?? 1))
             throw new BusinessRuleException("CFDI_TIPO_CAMBIO_DISTINTO", "El tipo de cambio capturado debe coincidir con el XML ligado.");
-        var tipoCambio = await ResolverTipoCambioAsync(command, xml, cancellationToken);
+        var tipoCambio = await ResolverTipoCambioAsync(command, cancellationToken);
         var uuidNormalizado = command.UuidCfdi?.Trim().ToUpperInvariant();
         if (!string.IsNullOrWhiteSpace(command.UuidCfdi) && await _db.FacturasProveedor.AnyAsync(
             f => f.UuidCfdi == uuidNormalizado && f.Estado != EstadoPasivo.Cancelada, cancellationToken))
@@ -414,21 +414,21 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
     }
 
     /// <summary>
-    /// C1.2: manda el TC del CFDI (capturado o leído del XML). Solo si la factura en moneda extranjera
-    /// no trae ninguno se toma el del catálogo para la fecha del documento; sin TC registrado no se
-    /// inventa uno: 422 <c>TIPO_CAMBIO_NO_REGISTRADO</c>.
+    /// C1.2 (ficha regla 3 y CA C1.2-b; plan de construcción: «una factura en USD usa el TC de su
+    /// fecha»): el pasivo en moneda extranjera se registra con el TC oficial del catálogo para la fecha
+    /// del documento. El TC del CFDI es dato fiscal del proveedor y no sustituye al del catálogo. Sin TC
+    /// registrado no se inventa uno: 422 <c>TIPO_CAMBIO_NO_REGISTRADO</c> (CA C1.2-c).
     /// </summary>
     private async Task<decimal?> ResolverTipoCambioAsync(
-        CapturarFacturaConOcCommand command, DatosCfdiParseados? xml, CancellationToken cancellationToken)
+        CapturarFacturaConOcCommand command, CancellationToken cancellationToken)
     {
-        if (command.TipoCambio is not null || xml?.TipoCambio is not null
-            || string.Equals(command.Moneda, "MXN", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(command.Moneda, "MXN", StringComparison.OrdinalIgnoreCase))
             return command.TipoCambio;
         var fecha = DateOnly.FromDateTime(command.FechaDocumento.DateTime);
         return await _tiposCambio.ObtenerAsync(command.Moneda, "MXN", fecha, cancellationToken)
             ?? throw new BusinessRuleException("TIPO_CAMBIO_NO_REGISTRADO",
                 $"No hay tipo de cambio de {command.Moneda.ToUpperInvariant()} registrado para {fecha:yyyy-MM-dd}. " +
-                "Captura el de la factura o regístralo en Catálogos.");
+                "Regístralo en Catálogos › Monedas antes de capturar la factura.");
     }
 
     private async Task<Tolerancia> ResolverToleranciaAsync(ProveedorDto proveedor, CancellationToken cancellationToken)

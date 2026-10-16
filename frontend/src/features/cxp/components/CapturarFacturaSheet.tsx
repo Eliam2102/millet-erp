@@ -200,7 +200,6 @@ export function CapturarFacturaSheet({
   });
   const notasCredito = useWatch({ control: form.control, name: 'notasCredito' }) ?? [];
   const monedaSel = useWatch({ control: form.control, name: 'moneda' });
-  const tipoCambioSel = useWatch({ control: form.control, name: 'tipoCambio' });
   const lineasActuales = useWatch({ control: form.control, name: 'lineas' });
   const puedeLeerRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesLeer);
   const catalogo = useRetenciones(open && puedeLeerRetenciones);
@@ -495,14 +494,14 @@ export function CapturarFacturaSheet({
                   step="0.0001"
                   min="0"
                   placeholder="1.0000"
-                  // C1.2: vacío = sin TC (null), no NaN; el servidor toma el del catálogo.
+                  // C1.2: vacío = null, no NaN; en moneda extranjera el servidor aplica el TC del catálogo.
                   {...form.register('tipoCambio', {
                     setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
                   })}
                 />
-                {monedaSel?.trim().toUpperCase() !== 'MXN' && tipoCambioSel == null && (
+                {monedaSel?.trim().toUpperCase() !== 'MXN' && (
                   <p className="text-xs text-muted-foreground">
-                    Sin tipo de cambio en la factura se usa el del catálogo para la fecha del documento.
+                    El pasivo usa el tipo de cambio oficial del catálogo para la fecha del documento; el del CFDI es informativo.
                   </p>
                 )}
               </Campo>

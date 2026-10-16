@@ -109,10 +109,10 @@ public sealed class C12AdaptadoresRealesTests(WebApplicationFactory<Program> fac
             Assert.Equal(HttpStatusCode.Created, conCatalogo.StatusCode);
             Assert.Equal(18.25m, await TipoCambioGuardadoAsync(ambiente, (await Json(conCatalogo)).GetProperty("id").GetGuid()));
 
-            // El TC capturado de la factura manda sobre el catálogo.
+            // Aunque la factura traiga otro TC (dato del CFDI), el pasivo usa el oficial del catálogo (ficha C1.2, regla 3).
             var capturado = await admin.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", Comando(Dia, 18.40m));
             Assert.Equal(HttpStatusCode.Created, capturado.StatusCode);
-            Assert.Equal(18.40m, await TipoCambioGuardadoAsync(ambiente, (await Json(capturado)).GetProperty("id").GetGuid()));
+            Assert.Equal(18.25m, await TipoCambioGuardadoAsync(ambiente, (await Json(capturado)).GetProperty("id").GetGuid()));
 
             // C1.2-c: sin TC para la fecha no se inventa uno.
             var sinTc = await admin.PostAsJsonAsync("/api/v1/cuentas-por-pagar/facturas", Comando(Dia.AddDays(1), null));

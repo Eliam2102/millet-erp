@@ -149,9 +149,9 @@ describe('<CapturarFacturaSheet> — OcSelector deriva proveedor/sucursal', () =
 });
 
 describe('<CapturarFacturaSheet> — tipo de cambio (C1.2)', () => {
-  const aviso = /se usa el del catálogo para la fecha del documento/i;
+  const aviso = /usa el tipo de cambio oficial del catálogo para la fecha del documento/i;
 
-  it('en moneda extranjera sin TC avisa que se toma del catálogo; al capturarlo desaparece', () => {
+  it('en moneda extranjera avisa que el pasivo usa el TC del catálogo y acepta dejar el campo vacío', () => {
     render(<CapturarFacturaSheet open onOpenChange={() => {}} />, {
       wrapper: createQueryWrapper(),
     });
@@ -160,15 +160,15 @@ describe('<CapturarFacturaSheet> — tipo de cambio (C1.2)', () => {
     expect(screen.queryByText(aviso)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByDisplayValue('MXN'), { target: { value: 'USD' } });
+    expect(screen.getByText(aviso)).toBeInTheDocument();
+
+    // El TC del CFDI es informativo: capturarlo no quita el aviso.
     const tipoCambio = screen.getByPlaceholderText('1.0000');
-    expect(tipoCambio).toHaveValue(null);
+    fireEvent.change(tipoCambio, { target: { value: '18.40' } });
     expect(screen.getByText(aviso)).toBeInTheDocument();
 
-    fireEvent.change(tipoCambio, { target: { value: '18.42' } });
-    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
-
-    // Vaciar el campo vuelve a «sin TC» (null), no a un número inválido.
+    // Vaciar el campo deja «sin TC» (null), no un número inválido.
     fireEvent.change(tipoCambio, { target: { value: '' } });
-    expect(screen.getByText(aviso)).toBeInTheDocument();
+    expect(tipoCambio).toHaveValue(null);
   });
 });
