@@ -34,9 +34,8 @@ public sealed record OcRecepcionRegistradaAlmacenPayload(
 
 /// <summary>
 /// Detalle por línea de la recepción. <c>LineaOcId</c> puede ser null en
-/// variante B antes de conciliación; en ese caso Compras loggea + skip
-/// (no puede actualizar sub-estado sin línea destino). El handler de
-/// conciliación posterior (cuando llegue la factura) cerrará la brecha.
+/// variante B antes de conciliación; en ese caso Compras lo resuelve por
+/// (OC, artículo) único o falla visible.
 /// </summary>
 public sealed record LineaRecepcionAlmacenPayload(
     Guid LineaRecepcionId,
@@ -45,7 +44,10 @@ public sealed record LineaRecepcionAlmacenPayload(
     string UnidadMedida,
     decimal Cantidad,
     decimal CostoUnitarioMxn,
-    decimal MontoTotalMxn);
+    decimal MontoTotalMxn,
+    // Aditivos (86e3pc50v): tolerancia del artículo aplicada y recibido neto acumulado de la línea de OC tras este evento, en unidad de la OC, calculado por Almacén.
+    decimal? ToleranciaPorcentaje = null,
+    decimal? CantidadRecibidaAcumulada = null);
 
 /// <summary>
 /// Espejo de <c>almacen.salida_requisicion.registrada.v1</c> (ADR-0043).
@@ -103,4 +105,6 @@ public sealed record LineaDevolucionAlmacenPayload(
     string UnidadMedida,
     decimal Cantidad,
     decimal CostoUnitarioMxn,
-    decimal MontoTotalMxn);
+    decimal MontoTotalMxn,
+    // Aditivo (86e3pc50v): cantidad devuelta en unidad de la línea de OC (Cantidad va en unidad base del inventario).
+    decimal? CantidadDocumento = null);

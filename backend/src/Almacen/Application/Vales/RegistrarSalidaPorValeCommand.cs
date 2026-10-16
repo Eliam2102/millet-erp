@@ -49,6 +49,9 @@ public sealed class RegistrarSalidaPorValeValidator
             .Must(f => f.Year is >= 2020 and <= 2099)
             .WithMessage("Fecha de movimiento fuera de rango razonable.");
         RuleFor(c => c.ValeBlobRef).NotEmpty().MaximumLength(500);
+        RuleFor(c => c.Observaciones!).MaximumLength(500)
+            .When(c => c.Observaciones is not null)
+            .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
@@ -252,6 +255,7 @@ public sealed class RegistrarSalidaPorValeHandler
 
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.SalidaPorVale.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken); // M-094: tx ya abierta (txApartados)
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)
@@ -341,6 +345,27 @@ public sealed class RegularizarSalidaPorValeHandler
                 g.Sum(l => l.Cantidad) > rq.Lineas.Where(l => l.ArticuloId == g.Key).Sum(l => l.CantidadDisponibleEntregar)))
             throw new BusinessRuleException("VALE_RQ_REGULARIZADORA_INVALIDA",
                 "La requisición regularizadora debe existir, estar autorizada o en surtido y cubrir todos los artículos y cantidades del vale.");
+
+        // F5 (86e3pc50v): la RQ regularizadora y el almacén del vale deben ser de la misma sucursal.
+        // Se valida antes de RegularizarVale/SaveChanges; si el bin no resuelve sub-almacén, no se valida.
+        var binVale = await _db.LineasMovimiento.AsNoTracking()
+            .Where(l => l.MovimientoId == mov.Id)
+            .Select(l => l.UbicacionId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (binVale is Guid bin)
+        {
+            var subVale = await _db.Ubicaciones.AsNoTracking()
+                .Where(u => u.Id == bin)
+                .Select(u => (Guid?)u.SubAlmacenId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (subVale is Guid sub)
+            {
+                var (_, sucursalVale) = await Catalogo.AlmacenSucursalResolver.ResolverAsync(_db, sub, cancellationToken);
+                Catalogo.SucursalDestinoGuard.Validar(rq.SucursalId, sucursalVale, "VALE_SUCURSAL_DISTINTA",
+                    "La requisición regularizadora es de otra sucursal que la del almacén del vale.");
+            }
+        }
+
         mov.RegularizarVale(request.RqRegularizadoraId);
         await _db.SaveChangesAsync(cancellationToken);
     }

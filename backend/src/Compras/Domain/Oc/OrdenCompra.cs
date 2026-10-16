@@ -1382,11 +1382,12 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public RecalcularSubEstadosResultado RegistrarRecepcionLinea(
         Guid lineaId,
         decimal cantidadAcumulada,
-        DateTimeOffset ocurridoEn)
+        DateTimeOffset ocurridoEn,
+        decimal toleranciaPorcentaje = 0m)
     {
         ValidarEstadoParaRegistrarMovimiento();
         var linea = BuscarLineaOLanzar(lineaId);
-        linea.SetCantidadRecibida(cantidadAcumulada);
+        linea.SetCantidadRecibida(cantidadAcumulada, toleranciaPorcentaje);
         return RecalcularSubEstadosYAjustarEstado(ocurridoEn);
     }
 
@@ -1446,7 +1447,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         }
 
         var cantidadTotal = _lineas.Sum(l => l.Cantidad);
-        var facturadoTotal = _lineas.Sum(l => l.CantidadFacturada);
+        // igual que Recepción: el excedente facturado de una línea no completa a otra
+        var facturadoTotal = _lineas.Sum(l => Math.Min(l.CantidadFacturada, l.Cantidad));
 
         // GAP-9: los servicios no se reciben en Almacén — el sub-estado de
         // Recepción se calcula SOLO sobre las líneas físicas (!EsServicio).
@@ -1456,7 +1458,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // y Pago siguen calculándose sobre todas las líneas.
         var lineasFisicas = _lineas.Where(l => !l.EsServicio).ToList();
         var cantidadFisicaTotal = lineasFisicas.Sum(l => l.Cantidad);
-        var recibidoTotal = lineasFisicas.Sum(l => l.CantidadRecibida);
+        // el excedente por tolerancia de una línea no completa a otra
+        var recibidoTotal = lineasFisicas.Sum(l => Math.Min(l.CantidadRecibida, l.Cantidad));
 
         SubEstadoRecepcion = recibidoTotal switch
         {

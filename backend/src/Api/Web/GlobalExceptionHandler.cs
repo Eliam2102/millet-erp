@@ -84,6 +84,20 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         p.Extensions["clientesExistentes"] = e.Clientes; return p;
     }
 
+    // Trigger de saldos de Almacén: RAISE EXCEPTION 'SALDO_INSUFICIENTE|SALDO_INEXISTENTE: …' USING ERRCODE = '23514'.
+    private static bool EsSaldoInsuficiente(PostgresException pg)
+        => pg.SqlState == PostgresErrorCodes.CheckViolation
+            && (pg.MessageText.StartsWith("SALDO_INSUFICIENTE", StringComparison.Ordinal)
+                || pg.MessageText.StartsWith("SALDO_INEXISTENTE", StringComparison.Ordinal));
+
+    private static ProblemDetails CreateSaldoInsuficienteProblem(HttpContext httpContext, string traceId)
+        => CreateProblem(
+            "SALIDA_STOCK_INSUFICIENTE",
+            "La ubicación (bin) no tiene existencia suficiente para alguna línea; revisa el saldo disponible del bin.",
+            StatusCodes.Status422UnprocessableEntity,
+            httpContext,
+            traceId);
+
     private static ProblemDetails MapToProblemDetails(Exception exception, HttpContext httpContext)
     {
         var traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
@@ -115,6 +129,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                     StatusCodes.Status409Conflict,
                     httpContext,
                     traceId),
+            // 86e3pc50v F4: el trigger es la autoridad del saldo; no se exponen los ids del mensaje.
+            DbUpdateException { InnerException: PostgresException pgs } when EsSaldoInsuficiente(pgs)
+                => CreateSaldoInsuficienteProblem(httpContext, traceId),
+            PostgresException pgd when EsSaldoInsuficiente(pgd)
+                => CreateSaldoInsuficienteProblem(httpContext, traceId),
             ForbiddenException fe => CreateProblem(fe.Code, fe.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             CrossTenantViolationException cte => CreateProblem(cte.Code, cte.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             MissingEmpresaContextException mece => CreateProblem(mece.Code, mece.Message, StatusCodes.Status500InternalServerError, httpContext, traceId),

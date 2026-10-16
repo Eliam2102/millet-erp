@@ -51,6 +51,10 @@ public sealed class Articulo : BaseEntity, IAuditable
 
     public decimal? PrecioReferenciaMonto { get; private set; }
     public string? PrecioReferenciaMoneda { get; private set; }
+
+    /// <summary>Tolerancia de recepción por material (A5), 0–100 %; null = 0 %.</summary>
+    public decimal? ToleranciaCantidadPorcentaje { get; private set; }
+
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
 
     private Articulo() { }
@@ -208,6 +212,19 @@ public sealed class Articulo : BaseEntity, IAuditable
             PrecioReferenciaMonto = nuevoMonto;
             PrecioReferenciaMoneda = nuevaMoneda;
         }
+    }
+
+    /// <summary>
+    /// Asigna la tolerancia de recepción (A5). Rango 0–100 con máximo 2
+    /// decimales; <c>null</c> equivale a 0 %.
+    /// </summary>
+    public void ActualizarToleranciaRecepcion(decimal? porcentaje)
+    {
+        if (porcentaje < 0 || porcentaje > 100 ||
+            (porcentaje.HasValue && decimal.Round(porcentaje.Value, 2) != porcentaje.Value))
+            throw new BusinessRuleException("ARTICULO_TOLERANCIA_INVALIDA",
+                "La tolerancia de recepción debe estar entre 0 y 100 % con máximo 2 decimales.");
+        ToleranciaCantidadPorcentaje = porcentaje;
     }
 
     /// <summary>

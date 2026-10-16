@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Millet.Compras.Domain.Idempotencia;
 using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Infrastructure;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Compras.Application.Almacen;
 
@@ -15,8 +16,9 @@ namespace Millet.Compras.Application.Almacen;
 /// que la tabla canónica de la triada asigna a Compras no ocurría).
 ///
 /// <para>
-/// Por cada línea con <c>LineaOcId</c> calcula el acumulado ajustado
-/// (<c>CantidadRecibida actual − cantidad devuelta</c>) y publica el
+/// Por cada línea resuelve la línea de OC (<c>LineaOcId</c> o, si es null,
+/// artículo único no-servicio en la OC), calcula el acumulado ajustado
+/// (<c>CantidadRecibida actual − cantidad devuelta en unidad de la OC</c>) y publica el
 /// evento in-proc <see cref="OcDevolucionRegistradaEvent"/> que
 /// <c>OcDevolucionRegistradaListener</c> (F5-PR2, hasta hoy huérfano)
 /// consume invocando <c>OrdenCompra.RegistrarRecepcionLinea</c> (set) —
@@ -63,38 +65,86 @@ public sealed class OcDevolucionEnAlmacenHandler
 
         if (p.OrdenCompraOrigenId is Guid ordenCompraId)
         {
-            // Proyección de acumulados actuales por línea (scalars; el
-            // listener in-proc carga el agregado tracked por su cuenta).
-            var acumuladosActuales = await _db.OrdenesCompra
+            // Proyección de líneas actuales (scalars; el listener in-proc
+            // carga el agregado tracked por su cuenta).
+            var lineasOc = await _db.OrdenesCompra
                 .AsNoTracking()
                 .Where(o => o.Id == ordenCompraId)
-                .SelectMany(o => o.Lineas.Select(l => new { l.Id, l.CantidadRecibida }))
-                .ToDictionaryAsync(l => l.Id, l => l.CantidadRecibida, cancellationToken);
+                .SelectMany(o => o.Lineas.Select(l => new { l.Id, l.ArticuloId, l.EsServicio, l.CantidadRecibida, l.CantidadFacturada }))
+                .ToListAsync(cancellationToken);
 
+            if (lineasOc.Count == 0)
+            {
+                throw new EntityNotFoundException("ORDEN_COMPRA_NO_ENCONTRADA", $"No se encontró la OC '{ordenCompraId}' al registrar la devolución.");
+            }
+
+            // Saldo corriente por línea de OC: varias devoluciones sobre la misma línea
+            // se descuentan en secuencia (cada evento lleva el acumulado post-descuento anterior).
+            var saldo = lineasOc.ToDictionary(l => l.Id, l => l.CantidadRecibida);
+            var facturada = lineasOc.ToDictionary(l => l.Id, l => l.CantidadFacturada);
+
+            // Resolver todas las líneas antes de publicar: el listener hace SaveChanges
+            // por evento, así que una excepción a mitad del bucle dejaría líneas aplicadas
+            // y, al reintentar el evento, se descontarían dos veces.
+            var eventosDescuento = new List<OcDevolucionRegistradaEvent>();
             foreach (var linea in p.Lineas)
             {
-                if (linea.LineaOcId is not { } lineaOcId)
+                // Las excepciones de este bucle se lanzan ANTES de agregar EventoProcesado
+                // (más abajo): el evento queda sin marcar y el worker reintenta / dead-letter.
+                Guid lineaOcId;
+                if (linea.LineaOcId is { } idDirecto)
                 {
-                    _logger.LogInformation(
-                        "[OcDevolucionEnAlmacenHandler] Línea sin LineaOcId — sin efecto en Compras. Devolucion={DevolucionId} LineaDevolucion={LineaDevolucionId}",
-                        p.DevolucionId, linea.LineaDevolucionId);
-                    continue;
+                    lineaOcId = idDirecto;
                 }
-
-                if (!acumuladosActuales.TryGetValue(lineaOcId, out var recibidaActual))
+                else
                 {
+                    var candidatas = lineasOc
+                        .Where(l => !l.EsServicio && l.ArticuloId == linea.ArticuloId)
+                        .ToList();
+                    if (candidatas.Count != 1)
+                    {
+                        throw new BusinessRuleException(
+                            "DEVOLUCION_LINEA_OC_NO_RESOLUBLE",
+                            $"La devolución {p.DevolucionId} trae una línea sin línea de OC y el artículo {linea.ArticuloId} no es único en la OC {ordenCompraId}; corrige y reprocesa el evento.");
+                    }
+
+                    lineaOcId = candidatas[0].Id;
                     _logger.LogWarning(
-                        "[OcDevolucionEnAlmacenHandler] LineaOcId {LineaOcId} no existe en OC {OcId}. Skip línea pero acepto el evento.",
-                        lineaOcId, ordenCompraId);
-                    continue;
+                        "[OcDevolucionEnAlmacenHandler] Línea sin LineaOcId resuelta por artículo. Devolucion={DevolucionId} LineaOc={LineaOcId}",
+                        p.DevolucionId, lineaOcId);
                 }
 
-                await _publisher.Publish(new OcDevolucionRegistradaEvent(
+                if (!saldo.TryGetValue(lineaOcId, out var saldoActual))
+                {
+                    throw new BusinessRuleException(
+                        "DEVOLUCION_LINEA_OC_NO_RESOLUBLE",
+                        $"La línea de OC {lineaOcId} de la devolución {p.DevolucionId} no existe en la OC {ordenCompraId}.");
+                }
+
+                // CantidadDocumento = unidad de la OC (M-170); eventos viejos caen a Cantidad.
+                var nuevoSaldo = saldoActual - (linea.CantidadDocumento ?? linea.Cantidad);
+                if (nuevoSaldo < facturada[lineaOcId])
+                {
+                    // Recibido no puede quedar bajo lo facturado (check de BD): Almacén ya lo bloquea; si llega
+                    // (evento viejo / carrera) se omite la línea y se marca procesado para no entrar en dead-letter.
+                    _logger.LogError(
+                        "[OcDevolucionEnAlmacenHandler] Devolución {DevolucionId} omitida en línea {LineaOcId}: dejaría recibido ({Saldo}) bajo lo facturado ({Facturada}).",
+                        p.DevolucionId, lineaOcId, nuevoSaldo, facturada[lineaOcId]);
+                    continue;
+                }
+                saldo[lineaOcId] = nuevoSaldo;
+
+                eventosDescuento.Add(new OcDevolucionRegistradaEvent(
                     OrdenCompraId: ordenCompraId,
                     LineaOrdenCompraId: lineaOcId,
                     EmpresaId: p.EmpresaId,
-                    CantidadAcumuladaAjustada: recibidaActual - linea.Cantidad,
-                    OcurridoEn: p.OcurridoEn), cancellationToken);
+                    CantidadAcumuladaAjustada: saldo[lineaOcId],
+                    OcurridoEn: p.OcurridoEn));
+            }
+
+            foreach (var evento in eventosDescuento)
+            {
+                await _publisher.Publish(evento, cancellationToken);
             }
         }
         else

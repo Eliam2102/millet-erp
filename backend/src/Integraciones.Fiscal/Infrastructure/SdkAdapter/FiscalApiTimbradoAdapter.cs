@@ -75,21 +75,7 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
         if (emision.ComplementoPago is { } pago && _monedas is not null)
             precisiones = await _monedas.ObtenerAsync(pago.Documentos.Select(d => d.Moneda).Append(pago.Moneda).Distinct().ToArray(), cancellationToken);
         var invoice = MapInvoice(emision, precisiones);
-        invoice.Issuer.TaxCredentials =
-        [
-            new SdkModels.TaxCredential
-            {
-                Base64File = config.Csd.CertificadoBase64,
-                FileType = SdkModels.FileType.CertificateCsd,
-                Password = config.Csd.Password,
-            },
-            new SdkModels.TaxCredential
-            {
-                Base64File = config.Csd.LlavePrivadaBase64,
-                FileType = SdkModels.FileType.PrivateKeyCsd,
-                Password = config.Csd.Password,
-            },
-        ];
+        invoice.Issuer.TaxCredentials = CredencialesCsd(config.Csd);
 
         Fiscalapi.Common.ApiResponse<SdkModels.Invoice> resp;
         try
@@ -165,6 +151,20 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
             solicitud = solicitud with { RfcEmisor = emisorSbx.Rfc };
         }
 
+        // La cancelación por valores también exige el CSD del emisor
+        // (TaxCredentials); sin él FiscalAPI rechaza siempre. Rechazo limpio
+        // antes de llamar al PAC, igual que en el timbrado.
+        if (config?.Csd is null)
+        {
+            _logger.LogWarning(
+                "[FiscalApiTimbradoAdapter] Cancelación de {Uuid} (empresa {EmpresaId}) sin CSD configurado — rechazada pre-vuelo.",
+                solicitud.Uuid, solicitud.EmpresaId);
+            return new CancelacionResultado(
+                CancelacionEstado.Error, null,
+                "CSD_NO_CONFIGURADO: la configuración del PAC no tiene el CSD del emisor (.cer + .key + password). " +
+                "Captúralo en Integraciones Fiscal → Configuración del PAC y vuelve a solicitar la cancelación.");
+        }
+
         Fiscalapi.Common.ApiResponse<SdkModels.CancelInvoiceResponse> resp;
         try
         {
@@ -174,6 +174,7 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 Rfc = solicitud.RfcEmisor,
                 CancellationReasonCode = solicitud.MotivoSat,
                 ReplacementUuid = solicitud.UuidSustituto,
+                TaxCredentials = CredencialesCsd(config.Csd),
             });
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -651,6 +652,13 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 },
             };
         }
+        else if (emisor is not null && (e.Receptor.EsGenerico || EsRfcGenerico(e.Receptor.Rfc)))
+        {
+            // Receptor genérico (XAXX/XEXX): su CP debe ser el LugarExpedicion
+            // (CFDI40149). El emisor sandbox cambió ese lugar, así que el CP
+            // del receptor lo sigue (U1.7, exportación en sandbox, 15-oct).
+            e = e with { Receptor = e.Receptor with { CodigoPostal = e.Emisor.LugarExpedicion } };
+        }
 
         return e;
     }
@@ -720,6 +728,26 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
 
     private static TimbradoResultado Fallido(string codigo, string? mensaje) => new(
         TimbradoEstado.Fallido, null, null, null, null, null, null, null, codigo, mensaje);
+
+    /// <summary>
+    /// CSD del emisor como las 2 TaxCredentials que FiscalAPI exige en la
+    /// operación por valores (timbrado y cancelación): .cer + .key.
+    /// </summary>
+    private static List<SdkModels.TaxCredential> CredencialesCsd(CsdResuelto csd) =>
+    [
+        new SdkModels.TaxCredential
+        {
+            Base64File = csd.CertificadoBase64,
+            FileType = SdkModels.FileType.CertificateCsd,
+            Password = csd.Password,
+        },
+        new SdkModels.TaxCredential
+        {
+            Base64File = csd.LlavePrivadaBase64,
+            FileType = SdkModels.FileType.PrivateKeyCsd,
+            Password = csd.Password,
+        },
+    ];
 
     /// <summary>Extrae el código de validación SAT (p.ej. CFDI40139) del mensaje del PAC.</summary>
     private static string? ExtraerCodigoSat(string? mensaje)

@@ -90,7 +90,9 @@ public static class CartaPorteEndpoints
             var response = await mediator.Send(new CrearSiguienteTramoCommand(
                 id, body.TipoCfdi, body.SucursalId, body.Origen, body.Destino, body.DistanciaKm,
                 body.VehiculoId, body.OperadorId, body.FechaSalida, body.FechaLlegadaEstimada,
-                body.MontoServicio, body.TasaIvaServicio), ct);
+                body.MontoServicio, body.TasaIvaServicio,
+                body.OrigenCodigoPostal, body.OrigenEstado,
+                body.DestinoCodigoPostal, body.DestinoEstado), ct);
             return Results.Created($"/api/v1/facturacion/carta-porte/{response.Id}", response);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -196,7 +198,13 @@ public static class CartaPorteEndpoints
         DateTimeOffset FechaSalida,
         DateTimeOffset FechaLlegadaEstimada,
         decimal MontoServicio,
-        decimal? TasaIvaServicio);
+        decimal? TasaIvaServicio,
+        // Domicilio SAT del tramo nuevo (CP 3.1); sin ellos el comando falla
+        // con CARTA_PORTE_DATOS_SAT_INCOMPLETOS (U1.7, 15-oct).
+        string? OrigenCodigoPostal = null,
+        string? OrigenEstado = null,
+        string? DestinoCodigoPostal = null,
+        string? DestinoEstado = null);
 
     /// <summary>
     /// Body del PATCH de vehículo (el id viene en la ruta). Si viene
