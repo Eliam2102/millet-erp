@@ -70,7 +70,7 @@ function Solicitud({ solicitud: s }: { solicitud: SolicitudCatalogo }) {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-subtle text-ink-muted"><tr><th className="p-2">Cuenta</th><th className="p-2">Dato</th><th className="p-2">Antes</th><th className="p-2">Después</th></tr></thead>
-            <tbody>{s.cambios.flatMap((c) => diferenciasCatalogo(c).map((d) => (
+            <tbody>{s.cambios.flatMap((c) => diferenciasCatalogo(c, s.codigos ?? undefined).map((d) => (
               <tr key={`${c.despues.id}-${d.campo}`} className="border-b border-line-row">
                 <td className="p-2"><span className="font-mono">{c.despues.codigo}</span> · {c.despues.nombre}</td>
                 <td className="p-2">{d.etiqueta}</td><td className="p-2">{valorDiferencia(d.antes)}</td><td className="p-2">{valorDiferencia(d.despues)}</td>

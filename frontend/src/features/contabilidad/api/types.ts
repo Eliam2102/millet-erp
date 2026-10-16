@@ -198,4 +198,6 @@ export interface SolicitudCatalogo {
   motivoRechazo: string | null;
   version: number;
   cambios: CambioCuenta[];
+  /** Código de cada cuenta padre y rubro que aparece en los cambios (id → código). */
+  codigos?: Record<string, string> | null;
 }

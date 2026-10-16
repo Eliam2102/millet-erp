@@ -114,7 +114,7 @@ api() {
   export Facturacion__ReppAutomatico__SucursalClave="${Facturacion__ReppAutomatico__SucursalClave:-MID}"
   export Cors__AllowedOrigins__0=http://localhost:5173
   cd "$raiz/backend"
-  exec dotnet run --project src/Api/Millet.Api.csproj --no-launch-profile --urls http://localhost:5080
+  exec dotnet run --project src/Api/Millet.Api.csproj -p:SourceRevisionId="$(git rev-parse --short HEAD)" --no-launch-profile --urls http://localhost:5080
 }
 
 web() { cd "$raiz/frontend"; exec npm run dev -- --port 5173 --strictPort; }
