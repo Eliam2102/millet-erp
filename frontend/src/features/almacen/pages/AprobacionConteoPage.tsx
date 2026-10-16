@@ -386,6 +386,13 @@ function BloqueoInventarioAnualBanner() {
 
 // ─── Tabla de comparación ───────────────────────────────────────────────────
 
+function formatearCantidad(valor: number): string {
+  return valor.toLocaleString('es-MX', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
 function TablaComparacion({
   items,
   puedeAccionar,
@@ -446,12 +453,12 @@ function TablaComparacion({
                 })}
               </td>
               <td className="px-3 py-2 text-right font-mono">
-                {l.cantidadRealCapturada != null
-                  ? l.cantidadRealCapturada.toLocaleString('es-MX', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })
-                  : '—'}
+                {l.cantidadVigente != null ? formatearCantidad(l.cantidadVigente) : '—'}
+                {l.recuentoRealizado && l.cantidadRealCapturada != null && (
+                  <div className="text-xs font-normal text-muted-foreground">
+                    Captura original: {formatearCantidad(l.cantidadRealCapturada)}
+                  </div>
+                )}
               </td>
               <td className="px-3 py-2">
                 <VariacionBadge

@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   EmptyState,
-  MoneyDisplay,
   DateTimeDisplay,
 } from '@/components/erp';
 import { CubrimientoBar } from '@/components/erp/display/CubrimientoBar';
@@ -217,7 +216,6 @@ export function EditorLineas({ rq }: EditorLineasProps) {
                 <th className="px-3 py-2 text-left font-medium">Artículo</th>
                 <th className="px-3 py-2 text-right font-medium">Cant.</th>
                 <th className="px-3 py-2 text-left font-medium">UM</th>
-                <th className="px-3 py-2 text-right font-medium">Precio est.</th>
                 <th className="px-3 py-2 text-left font-medium">Fecha req.</th>
                 <th className="px-3 py-2 text-left font-medium">Cubrimiento</th>
                 <th className="px-3 py-2 text-left font-medium">Notas</th>
@@ -233,7 +231,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
                   // editar. <td colSpan> ocupa todas las columnas de
                   // la tabla — la cabecera sigue arriba.
                   const totalColumnas =
-                    8 +
+                    7 +
                     (canEditarEstructural.visible || canEliminar.visible
                       ? 1
                       : 0);
@@ -428,12 +426,6 @@ function FilaLinea({
       </td>
       <td className="px-3 py-2 text-right tabular-nums">{linea.cantidad}</td>
       <td className="px-3 py-2">{linea.unidadMedida}</td>
-      <td className="px-3 py-2 text-right">
-        <MoneyDisplay
-          amount={linea.precioEstimadoMonto}
-          currency={linea.precioEstimadoMoneda}
-        />
-      </td>
       <td className="px-3 py-2">
         <DateTimeDisplay value={linea.fechaRequerida} />
       </td>

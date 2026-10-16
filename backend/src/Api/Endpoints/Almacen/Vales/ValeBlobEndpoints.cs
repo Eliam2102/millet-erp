@@ -143,7 +143,21 @@ public static class ValeBlobEndpoints
                     "Esta salida no tiene vale escaneado adjunto.");
             }
 
-            var descriptor = await blob.ObtenerDescriptorAsync(salida.ValeBlobRef, cancellationToken);
+            BlobDescriptor descriptor;
+            try
+            {
+                descriptor = await blob.ObtenerDescriptorAsync(salida.ValeBlobRef, cancellationToken);
+            }
+            catch (FileNotFoundException)
+            {
+                // Stub local: el archivo del vale ya no existe en el filesystem.
+                return Results.NotFound();
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == StatusCodes.Status404NotFound)
+            {
+                // Azure Blob: el blob referenciado por la salida no existe.
+                return Results.NotFound();
+            }
 
             // Filename amistoso: vale-{folio}{ext} si conocemos el original.
             var ext = !string.IsNullOrWhiteSpace(descriptor.NombreArchivo)

@@ -34,7 +34,7 @@ namespace Millet.Api.IntegrationTests.Administracion;
 /// No deja proveedores, artículos, usuarios ni periodos en los catálogos compartidos
 /// con las otras suites. La base y los blobs se eliminan incluso si falla un assert.
 /// </summary>
-public sealed class DemoSesionSeedTests
+public sealed partial class DemoSesionSeedTests
 {
     [Fact]
     public async Task DosArranques_NoDuplican_YConservanEstadosAdjuntosYUsuarios()
@@ -265,6 +265,25 @@ public sealed class DemoSesionSeedTests
         Assert.Equal(DemoSesionSeedHostedService.DireccionDemoId,
             Assert.Single(oc.Autorizaciones, a => a.Nivel == Millet.Compras.Domain.NivelAutorizacion.Nivel2).UsuarioId);
         var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        foreach (var (nombre, perfil1, perfil2, firmaPropia, firmaAjena) in new[]
+        {
+            ("Jefe Compras y CxP", "Jefe Compras", "CxP", PermisosCanonicos.ComprasOrdenesAutorizarNivel1, PermisosCanonicos.ComprasOrdenesAutorizarNivel2),
+            ("Dirección y Tesorería", "Dirección", "Tesorería", PermisosCanonicos.ComprasOrdenesAutorizarNivel2, PermisosCanonicos.ComprasOrdenesAutorizarNivel1),
+        })
+        {
+            var rol = await identidad.Roles.SingleAsync(r => r.Codigo == "DEMO-ROL-" + nombre);
+            Assert.Equal("DEMO " + nombre, rol.Nombre);
+            var permisos = await (from rp in identidad.RolPermisos
+                join permiso in identidad.Permisos on rp.PermisoId equals permiso.Id
+                where rp.RolId == rol.Id
+                select permiso.Codigo).ToArrayAsync();
+            var esperados = PermisosCanonicos.Todos.Where(p => DemoSesionSeedHostedService.PermisoDelRol(perfil1, p.Codigo)
+                || DemoSesionSeedHostedService.PermisoDelRol(perfil2, p.Codigo)).Select(p => p.Codigo);
+            Assert.Equal(esperados.Order(), permisos.Order());
+            Assert.Contains(firmaPropia, permisos);
+            Assert.DoesNotContain(firmaAjena, permisos);
+            Assert.DoesNotContain(permisos, p => p.Contains("todas-sucursales", StringComparison.Ordinal));
+        }
         foreach (var (id, rol) in new[]
         {
             (DemoSesionSeedHostedService.CapturistaComprasDemoId, "Capturista Compras"),
@@ -315,6 +334,24 @@ public sealed class DemoSesionSeedTests
         Assert.Equal(116m, pedidos.Single(p => p.NumeroPedido == "DEMO-PED-RANURA").Ranura);
         foreach (var pedido in pedidos) Assert.True(await maestros.Clientes.AnyAsync(c => c.Id == pedido.ClienteId));
         Assert.False((await maestros.Clientes.SingleAsync(c => c.Clave == "DEMO-CLI-INCOMPLETO")).DatosFiscalesCompletos);
+        // FIX-12: caja de Conkal con un día cerrado y cuadrado, listo para el corte.
+        var caja = await facturacion.Cajas.Include(c => c.Sucursales).Include(c => c.Usuarios)
+            .SingleAsync(c => c.Nombre == DemoSesionSeedHostedService.CajaDemoNombre);
+        Assert.Equal("MID", await maestros.Sucursales
+            .Where(s => s.Id == Assert.Single(caja.Sucursales).SucursalId).Select(s => s.Clave).SingleAsync());
+        Assert.Contains(caja.Usuarios, u => u.UsuarioId == DemoSesionSeedHostedService.CajeraDemoId);
+        var sesionCaja = await facturacion.CajaSesiones.Include(s => s.Cortes).SingleAsync(s => s.CajaId == caja.Id);
+        Assert.Equal(Millet.Facturacion.Domain.Cajas.EstadoCajaSesion.Cerrada, sesionCaja.Estado);
+        Assert.Equal(DemoSesionSeedHostedService.CajeraDemoId, sesionCaja.ResponsableUsuarioId);
+        Assert.Equal(0m, sesionCaja.Diferencia);
+        Assert.Equal(2_160m, sesionCaja.EfectivoTeorico);
+        Assert.Equal(4, sesionCaja.Cortes.Count);
+        Assert.Equal(4, await facturacion.CobrosMostrador.CountAsync(c => c.CajaSesionId == sesionCaja.Id));
+        var movimientosCaja = await facturacion.CajaMovimientos.Where(m => m.CajaSesionId == sesionCaja.Id).ToListAsync();
+        Assert.Equal(7, movimientosCaja.Count);
+        Assert.All(movimientosCaja, m => Assert.Equal(sesionCaja.DiaOperacion,
+            DateOnly.FromDateTime(Millet.Facturacion.Application.Cajas.Sesiones.DiaOperacion.ALocal(m.CreatedAt, null).DateTime)));
+        Assert.Equal(4, await facturacion.FacturasVenta.CountAsync(f => f.Folio.StartsWith("DEMO-C") && f.Folio.Length <= 7));
         var rq = await compras.Requisiciones.Include(r => r.Lineas).SingleAsync(r => r.Descripcion == "DEMO-RQ-MID");
         Assert.Equal(10m, Assert.Single(rq.Lineas).CantidadDeCompra);
         Assert.Equal(oc.Id, rq.ComprometidaEnOcId);

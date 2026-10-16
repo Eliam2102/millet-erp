@@ -55,10 +55,14 @@ public sealed class ActualizarComprasSettingsHandler
         if (command.ApartarExistenciaAlAutorizar is bool apartar)
             row.EstablecerApartarExistenciaAlAutorizar(apartar);
 
+        if (command.ModoNivel2 is ModoNivel2 modo)
+            row.EstablecerModoNivel2(modo);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return new ComprasSettingsResponse(
             EmpresaId: row.EmpresaId,
-            AutoGenerarOcAlAutorizar: row.AutoGenerarOcAlAutorizar, ApartarExistenciaAlAutorizar: row.ApartarExistenciaAlAutorizar);
+            AutoGenerarOcAlAutorizar: row.AutoGenerarOcAlAutorizar, ApartarExistenciaAlAutorizar: row.ApartarExistenciaAlAutorizar,
+            ModoNivel2: row.ModoNivel2);
     }
 }

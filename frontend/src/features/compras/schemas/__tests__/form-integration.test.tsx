@@ -144,7 +144,7 @@ describe('Form integration: react-hook-form + Controller + zodResolver(LineaSche
     );
   });
 
-  it('Zod rechaza precio ≤ 0 y NO ejecuta onSubmit', async () => {
+  it('Zod acepta precio opcional en 0 y ejecuta onSubmit sin error de precio', async () => {
     const submited: SubmitedValues[] = [];
     render(
       <FormDePrueba
@@ -152,12 +152,12 @@ describe('Form integration: react-hook-form + Controller + zodResolver(LineaSche
       />,
     );
 
-    // precio queda en 0 (default).
+    // precio queda en 0 (default): sin precio la RQ guarda 0 MXN.
     fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(submited).toHaveLength(0);
-    expect(screen.getByTestId('error-precio')).toBeInTheDocument();
+    expect(submited).toHaveLength(1);
+    expect(screen.queryByTestId('error-precio')).not.toBeInTheDocument();
   });
 
   it('TextAreaField propaga null al field cuando está vacío', async () => {

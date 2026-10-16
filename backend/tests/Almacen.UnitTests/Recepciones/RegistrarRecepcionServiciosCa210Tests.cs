@@ -214,7 +214,8 @@ public class RegistrarRecepcionServiciosCa210Tests
         var fakeOc = new FakeOcConFisico(ocId, artFisico, lineaFisicaId);
         return new RegistrarRecepcionConFacturaHandler(
             db, fakeOc, new FakeArticulos(), new FakeEvents(),
-            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true), new P7Support.Conversion());
+            new FakeUser(), new FakeEmpresa(EmpresaId), new FakeDecimales(), new PeriodoContableStub(abierto: true), new P7Support.Conversion(),
+            CfdiFake.Valido(), new ProveedorRfcFake());
     }
 
     private static RegistrarRecepcionConPackingListHandler NuevoPackingListHandler(

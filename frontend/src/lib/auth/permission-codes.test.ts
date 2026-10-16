@@ -86,6 +86,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.validar',
   'datos_maestros.proveedores.tolerancia-editar',
   'datos_maestros.articulos.gestionar',
+  'datos_maestros.articulos.tolerancia-editar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
   'datos_maestros.clientes.sincronizar',

@@ -41,6 +41,11 @@ export function articuloLabel(linea: SalidaLineaItem): string {
     : linea.articuloDescripcion;
 }
 
+/** Ubicación de una línea: la ruta del backend; '—' si la línea no lleva bin. */
+export function ubicacionLabel(linea: SalidaLineaItem): string {
+  return linea.ubicacionCodigo ?? '—';
+}
+
 /**
  * CC-Máquina de una línea para el detalle/PDF (Fase E PR5): "clave — nombre"
  * (formatCcMaquinaLabel), "No catalogado" si el id es irresoluble, y guion largo

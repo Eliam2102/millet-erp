@@ -32,6 +32,8 @@ describe('usePendientesAutorizacion', () => {
               descripcion: null,
               fechaSolicitud: '2026-05-09T10:00:00Z',
               fechaEntregaDeseada: null,
+              disponibilidad: 0,
+              esRecurrente: true,
             },
           ],
           offset: 0,
@@ -49,6 +51,8 @@ describe('usePendientesAutorizacion', () => {
     expect(urlVisto).toContain('/pendientes-autorizacion');
     expect(urlVisto).not.toContain('?');
     expect(result.current.data?.items[0].folio).toBe('MID2026-000050');
+    expect(result.current.data?.items[0].esRecurrente).toBe(true);
+    expect(result.current.data?.items[0].disponibilidad).toBe(0);
   });
 
   it('inyecta departamentoId + offset + limit como query params', async () => {

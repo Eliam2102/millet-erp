@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
@@ -13,6 +14,8 @@ public sealed partial class DemoSesionSeedHostedService
 
     public static bool PermisoDelRol(string rol, string codigo)
     {
+        if (rol == "Jefe Compras y CxP") return PermisoDelRol("Jefe Compras", codigo) || PermisoDelRol("CxP", codigo);
+        if (rol == "Dirección y Tesorería") return PermisoDelRol("Dirección", codigo) || PermisoDelRol("Tesorería", codigo);
         if (rol == "Administrador") return true;
         if (rol is "Capturista Compras" or "Jefe Compras" or "Dirección")
         {
@@ -47,10 +50,29 @@ public sealed partial class DemoSesionSeedHostedService
     private async Task SembrarUsuariosAsync(IServiceProvider sp, DemoSesionUsuario[] usuarios, CancellationToken ct)
     {
         var db = sp.GetRequiredService<IdentidadDbContext>();
+        var reemplazar = environment.IsDevelopment()
+            && configuration.GetValue<bool>("Seed:DemoSesion:Habilitado")
+            && configuration.GetValue<bool>("Seed:DemoSesion:ReemplazarAsignaciones");
+        if (reemplazar)
+        {
+            var correosAdmin = await (from asignacion in db.UsuarioEmpresaRoles
+                join rol in db.Roles on asignacion.RolId equals rol.Id
+                join usuario in db.Usuarios on asignacion.UsuarioId equals usuario.Id
+                where asignacion.EmpresaId == EmpresaId && rol.Codigo == "super-admin"
+                select usuario.Email).ToListAsync(ct);
+            if (configuration["Auth:InitialAdminEntraOid"]?.Trim() is { Length: > 0 } adminOid)
+            {
+                var oidLiteral = PatronLiteral(adminOid);
+                correosAdmin.AddRange(await db.Usuarios.Where(u => EF.Functions.ILike(u.EntraOid, oidLiteral, "\\"))
+                    .Select(u => u.Email).ToArrayAsync(ct));
+            }
+            if (usuarios.Any(u => correosAdmin.Contains(u.Correo.Trim(), StringComparer.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("DEMO: el administrador queda fuera de las cuentas del ensayo (super-admin en la empresa DEMO o Auth:InitialAdminEntraOid); use tres cuentas operativas aparte.");
+        }
         var sucursales = await sp.GetRequiredService<CompartidoDbContext>().Sucursales
             .Where(s => s.EmpresaId == EmpresaId).ToDictionaryAsync(s => s.Clave, ct);
         foreach (var nombre in new[] { "Compras", "CxP", "Tesorería", "Facturación", "Contabilidad", "DAF", "Administrador",
-            "Capturista Compras", "Jefe Compras", "Dirección" })
+            "Capturista Compras", "Jefe Compras", "Dirección", "Jefe Compras y CxP", "Dirección y Tesorería" })
         {
             var codigo = "DEMO-ROL-" + nombre;
             var rol = await db.Roles.SingleOrDefaultAsync(r => r.Codigo == codigo, ct);
@@ -73,6 +95,7 @@ public sealed partial class DemoSesionSeedHostedService
             (CapturistaComprasDemoId, "capturista-compras", "DEMO Capturista Compras", "Capturista Compras"),
             (JefeComprasDemoId, "jefe-compras", "DEMO Jefe de Compras", "Jefe Compras"),
             (DireccionDemoId, "direccion", "DEMO Dirección", "Dirección"),
+            (CajeraDemoId, "cajera-mid", "DEMO Cajera Mostrador Conkal", "Facturación"),
         })
         {
             if (!await db.Usuarios.AnyAsync(u => u.Id == id, ct))
@@ -81,7 +104,8 @@ public sealed partial class DemoSesionSeedHostedService
             var rolId = Id("DEMO-ROL-" + rol);
             if (!await db.UsuarioEmpresaRoles.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.RolId == rolId, ct))
                 db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{id}/{rolId}"), id, EmpresaId, rolId));
-            foreach (var sucursal in sucursales.Values.Where(s => rol != "Capturista Compras" || s.Clave == "MID"))
+            // Capturista y cajera operan solo en MID (Conkal); el resto ve todas las sucursales.
+            foreach (var sucursal in sucursales.Values.Where(s => rol is not ("Capturista Compras" or "Facturación") || s.Clave == "MID"))
             {
                 if (!await db.UsuarioSucursales.AnyAsync(a => a.UsuarioId == id && a.EmpresaId == EmpresaId && a.SucursalId == sucursal.Id, ct))
                     db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{id}/{sucursal.Id}"), id, sucursal.Id, EmpresaId));
@@ -89,10 +113,10 @@ public sealed partial class DemoSesionSeedHostedService
         }
         await db.SaveChangesAsync(ct);
 
+        var codigosRoles = await db.Roles.ToDictionaryAsync(r => r.Id, r => r.Codigo, ct);
         foreach (var entrada in usuarios)
         {
-            var correo = entrada.Correo.Trim().Replace("\\", "\\\\", StringComparison.Ordinal)
-                .Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal);
+            var correo = PatronLiteral(entrada.Correo.Trim());
             var usuario = await db.Usuarios.SingleOrDefaultAsync(u => EF.Functions.ILike(u.Email, correo, "\\"), ct);
             if (usuario is null)
             {
@@ -101,19 +125,42 @@ public sealed partial class DemoSesionSeedHostedService
             }
             if (!usuario.Activo || usuario.TieneOidPendiente)
                 throw new InvalidOperationException($"DEMO: {entrada.Correo} debe ser un usuario activo con identidad resuelta.");
-            var rolId = Id("DEMO-ROL-" + entrada.Rol);
+            var rolDeseado = Id("DEMO-ROL-" + entrada.Rol);
+            var sucursalesDeseadas = entrada.Sucursales.Select(clave => sucursales.TryGetValue(clave, out var sucursal) ? sucursal.Id
+                : throw new InvalidOperationException($"DEMO: falta la sucursal canónica {clave}.")).ToArray();
             var asignaciones = await db.UsuarioEmpresaRoles.Where(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId).ToListAsync(ct);
-            // Solo completa identidades sin configuración; nunca restablece roles, overrides o alcance editados.
-            if (asignaciones.Count == 0)
-                db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{usuario.Id}/{rolId}"), usuario.Id, EmpresaId, rolId));
-            if (!await db.UsuarioSucursales.AnyAsync(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId, ct))
-                foreach (var clave in entrada.Sucursales)
+            var alcance = await db.UsuarioSucursales.Where(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId).ToListAsync(ct);
+            var rolesAntes = asignaciones.Select(a => codigosRoles[a.RolId]).Order().ToArray();
+            var sucursalesAntes = alcance.Where(a => a.Estatus == EstatusCatalogo.Activo)
+                .Select(a => sucursales.Values.Single(s => s.Id == a.SucursalId).Clave).Order().ToArray();
+            if (reemplazar)
+            {
+                // ADR-0053: una sola asignación por usuario y empresa; administradores excluidos arriba.
+                db.UsuarioEmpresaRoles.RemoveRange(asignaciones.Where(a => a.RolId != rolDeseado));
+                foreach (var asociacion in alcance)
                 {
-                    var sucursalId = sucursales.TryGetValue(clave, out var sucursal) ? sucursal.Id
-                        : throw new InvalidOperationException($"DEMO: falta la sucursal canónica {clave}.");
-                    db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{usuario.Id}/{sucursalId}"), usuario.Id, sucursalId, EmpresaId));
+                    if (sucursalesDeseadas.Contains(asociacion.SucursalId)) asociacion.Activar();
+                    else asociacion.Desactivar();
                 }
+            }
+            // Sin bandera solo completa cuentas sin roles o sin alcance, como antes.
+            if ((reemplazar || asignaciones.Count == 0) && asignaciones.All(a => a.RolId != rolDeseado))
+                db.UsuarioEmpresaRoles.Add(new UsuarioEmpresaRol(Id($"DEMO-ASIGNACION/{usuario.Id}/{rolDeseado}"), usuario.Id, EmpresaId, rolDeseado));
+            if (reemplazar || alcance.Count == 0)
+                foreach (var sucursalId in sucursalesDeseadas.Where(id => alcance.All(a => a.SucursalId != id)))
+                    db.UsuarioSucursales.Add(new UsuarioSucursal(Id($"DEMO-SUCURSAL/{usuario.Id}/{sucursalId}"), usuario.Id, sucursalId, EmpresaId));
             await db.SaveChangesAsync(ct);
+            if (reemplazar)
+            {
+                var rolesDespues = await db.UsuarioEmpresaRoles.Where(a => a.UsuarioId == usuario.Id && a.EmpresaId == EmpresaId)
+                    .Select(a => a.RolId).ToArrayAsync(ct);
+                logger.LogInformation("DEMO: {Correo}, roles {RolesAntes} → {RolesDespues}; sucursales {SucursalesAntes} → {SucursalesDespues}",
+                    entrada.Correo, string.Join(", ", rolesAntes), string.Join(", ", rolesDespues.Select(id => codigosRoles[id]).Order()),
+                    string.Join(", ", sucursalesAntes), string.Join(", ", entrada.Sucursales.Order()));
+            }
         }
     }
+
+    private static string PatronLiteral(string valor) => valor.Replace("\\", "\\\\", StringComparison.Ordinal)
+        .Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal);
 }

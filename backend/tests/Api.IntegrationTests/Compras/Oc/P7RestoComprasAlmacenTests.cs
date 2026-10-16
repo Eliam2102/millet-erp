@@ -14,6 +14,7 @@ using Millet.Compras.Domain.Matriz;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Domain.Ports.OrdenCompra;
+using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
 using Millet.Compras.Infrastructure.PublicAdapters;
 using Millet.Compartido.Infrastructure.Persistence;
@@ -51,7 +52,7 @@ public partial class OrdenesCompraEndpointsTests
         // La BD exige motivo por CHECK. Simula el dato incompleto sólo en el
         // agregado rastreado que lee el handler, sin persistir un estado inválido.
         if (caso == "motivo") db.Entry(oc).Property(o => o.MotivoSinRequisicion).CurrentValue = null;
-        var handler = new EnviarAAutorizacionOcHandler(db, sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<IClock>(), sp.GetRequiredService<IPublisher>());
+        var handler = new EnviarAAutorizacionOcHandler(db, sp.GetRequiredService<CompartidoDbContext>(), sp.GetRequiredService<IClock>(), sp.GetRequiredService<IPublisher>(), new Millet.Compras.Application.Oc.EvaluadorNivelOc(db, sp.GetRequiredService<IClock>()));
         try
         {
             if (codigo is not null)
@@ -107,12 +108,16 @@ public partial class OrdenesCompraEndpointsTests
             db.AddRange(rqs); await db.SaveChangesAsync();
             AutorizarRequisicionHandler Handler() => new(db, sp.GetRequiredService<IMediator>(), new UsuarioP2(Guid.NewGuid()), new NivelP7(),
                 sp.GetRequiredService<IConsultarStockPort>(), fallo ? new OcFallaP7() : sp.GetRequiredService<IGenerarSolicitudCompraPort>(),
-                sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>(), sp.GetRequiredService<IConversionUnidadPort>());
+                sp.GetRequiredService<IClock>(), sp.GetRequiredService<TransaccionApartadosRq>(), sp.GetRequiredService<IConversionUnidadPort>(),
+                sp.GetRequiredService<IArticuloReadPort>());
             if (fallo)
             {
                 var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => Handler().Handle(new(rqs[0].Id, NivelAutorizacion.Nivel1), default));
                 Assert.Equal("BIFURCACION_FALLO", ex.Code);
-                Assert.Contains("Fallo DEMO P7", ex.Message);
+                // El mensaje al cliente es genérico; el detalle interno queda en InnerException.
+                Assert.NotNull(ex.InnerException);
+                Assert.Contains("Fallo DEMO P7", ex.InnerException!.Message);
+                Assert.DoesNotContain("Fallo DEMO P7", ex.Message);
                 // Una lectura en otro scope acredita rollback persistido, sin
                 // depender del agregado mutado ni del contexto que falló.
                 using var lectura = _factory.Services.CreateScope();

@@ -74,6 +74,11 @@ export const comprasKeys = {
   aprobadoresHistorico: (filtros: ListarAprobadoresHistoricoFiltros) =>
     [...comprasKeys.aprobadores(), 'historico', filtros] as const,
 
+  /** Umbrales N1/N2 vigentes por departamento (configuración). */
+  umbralesAprobacion: () => [...comprasKeys.all, 'umbrales-aprobacion'] as const,
+  /** Configuración del módulo Compras de la empresa actual. */
+  configuracion: () => [...comprasKeys.all, 'configuracion'] as const,
+
   /** Histórico de transiciones de una RQ (UF7-PR4 — endpoint
    * <c>GET /requisiciones/{id}/historico</c>). Anidado bajo
    * <c>requisiciones</c> para que un <c>invalidateQueries</c> sobre

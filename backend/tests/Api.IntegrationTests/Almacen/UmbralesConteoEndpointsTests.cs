@@ -101,7 +101,7 @@ public sealed class UmbralesConteoEndpointsTests(WebApplicationFactory<Program> 
                 conteos.Add(c.Id);
                 db.Conteos.Add(c);
                 await db.SaveChangesAsync();
-                await new IniciarConteoHandler(db, provider).Handle(new(c.Id), default);
+                await new IniciarConteoHandler(db, provider, scope.ServiceProvider.GetRequiredService<IArticuloReadPort>()).Handle(new(c.Id), default);
                 var linea = Assert.Single(c.Lineas);
                 linea.Capturar(20000 + monto, actorId);
                 c.EnviarAConciliacion();
@@ -205,8 +205,10 @@ public sealed class UmbralesConteoEndpointsTests(WebApplicationFactory<Program> 
 
     private sealed class PermisosDelRequest(IHttpContextAccessor accessor) : ICurrentUserPermissions
     {
+        // Alcance corporativo (-todas-sucursales) concedido: el usuario dev no está asociado a la sucursal sintética.
         public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult(permiso == $"almacen.inventarios.aprobar-nivel{accessor.HttpContext?.Request.Headers["X-Test-Nivel"]}");
+            ValueTask.FromResult(permiso.EndsWith("-todas-sucursales", StringComparison.Ordinal)
+                || permiso == $"almacen.inventarios.aprobar-nivel{accessor.HttpContext?.Request.Headers["X-Test-Nivel"]}");
     }
     private sealed class Avisos : INotificacionService
     {

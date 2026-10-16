@@ -42,6 +42,21 @@ public sealed class ComprasSettings : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     public bool AutoGenerarOcAlAutorizar { get; private set; }
 
+    /// <summary>
+    /// Condición(es) que elevan la requisición a nivel 2 de autorización.
+    /// En la requisición <see cref="ModoNivel2.SoloMonto"/> significa «sin criterio
+    /// de disponibilidad» (el monto se valida en la OC). Default <see cref="ModoNivel2.SoloMonto"/>.
+    /// </summary>
+    public ModoNivel2 ModoNivel2 { get; private set; } = ModoNivel2.SoloMonto;
+
+    public void EstablecerModoNivel2(ModoNivel2 valor)
+    {
+        if (!Enum.IsDefined(valor))
+            throw new BusinessRuleException("COMPRAS_SETTINGS_MODO_NIVEL2_INVALIDO", "El modo de nivel 2 no es válido.");
+
+        ModoNivel2 = valor;
+    }
+
     /// <summary>Constructor de EF Core.</summary>
     private ComprasSettings() { }
 

@@ -21,6 +21,14 @@ public static class PermisosCanonicos
     public const string AlmacenSalidasGestionarTodasSucursales = "almacen.salidas.gestionar-todas-sucursales";
     public const string AlmacenReordenLeerTodasSucursales = "almacen.reorden.leer-todas-sucursales";
     public const string AlmacenReordenGestionarTodasSucursales = "almacen.reorden.gestionar-todas-sucursales";
+    public const string AlmacenInventariosLeerTodasSucursales = "almacen.inventarios.leer-todas-sucursales";
+    public const string AlmacenInventariosGestionarTodasSucursales = "almacen.inventarios.gestionar-todas-sucursales";
+    public const string AlmacenDevolucionesProveedorLeerTodasSucursales = "almacen.devoluciones-proveedor.leer-todas-sucursales";
+    public const string AlmacenDevolucionesProveedorGestionarTodasSucursales = "almacen.devoluciones-proveedor.gestionar-todas-sucursales";
+    public const string AlmacenDevolucionesInternasGestionarTodasSucursales = "almacen.devoluciones-internas.gestionar-todas-sucursales";
+    public const string AlmacenAlmacenesLeerTodasSucursales = "almacen.almacenes.leer-todas-sucursales";
+    public const string AlmacenReportesLeerTodasSucursales = "almacen.reportes.leer-todas-sucursales";
+    public const string AlmacenCierreMesGestionarTodasSucursales = "almacen.cierre-mes.gestionar-todas-sucursales";
 
     public const string CuentasPorPagarDocumentosLeerTodasSucursales = "cuentas_por_pagar.documentos.leer-todas-sucursales";
     public const string CuentasPorPagarDocumentosGestionarTodasSucursales = "cuentas_por_pagar.documentos.gestionar-todas-sucursales";
@@ -156,6 +164,8 @@ public static class PermisosCanonicos
     // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
     public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
+    // 86e3pc50v: tolerancia de recepción por material; solo la configura quien tenga este permiso.
+    public const string DatosMaestrosArticulosToleranciaEditar         = "datos_maestros.articulos.tolerancia-editar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
@@ -538,6 +548,14 @@ public static class PermisosCanonicos
         (Guid.Parse("00000006-0006-0006-0006-000000000033"), AlmacenSalidasGestionarTodasSucursales, "Operar salidas de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000034"), AlmacenReordenLeerTodasSucursales, "Consultar reorden de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000035"), AlmacenReordenGestionarTodasSucursales, "Operar reorden de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000036"), AlmacenInventariosLeerTodasSucursales, "Consultar conteos de inventario de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000037"), AlmacenInventariosGestionarTodasSucursales, "Operar conteos de inventario de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000038"), AlmacenDevolucionesProveedorLeerTodasSucursales, "Consultar devoluciones a proveedor de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000039"), AlmacenDevolucionesProveedorGestionarTodasSucursales, "Operar devoluciones a proveedor de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003a"), AlmacenDevolucionesInternasGestionarTodasSucursales, "Operar devoluciones internas y MAT-REV de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003b"), AlmacenAlmacenesLeerTodasSucursales, "Consultar saldos de inventario de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003c"), AlmacenReportesLeerTodasSucursales, "Consultar reportes de Almacén de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003d"), AlmacenCierreMesGestionarTodasSucursales, "Ejecutar el cierre mensual de Almacén (afecta a todas las sucursales)"),
         (Guid.Parse("00000006-0006-0006-0006-000000000020"), CuentasPorPagarDocumentosLeerTodasSucursales, "Consultar documentos de CxP de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000021"), CuentasPorPagarDocumentosGestionarTodasSucursales, "Operar documentos de CxP de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000001"), CatalogosFormasPagoGestionar, "Habilitar y deshabilitar formas de pago SAT"),
@@ -638,6 +656,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000008"), DatosMaestrosProveedoresToleranciaEditar, "Editar tolerancia factura contra OC en pesos del proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000007"), DatosMaestrosProveedoresValidar,              "Validar o rechazar el expediente documental del proveedor para activación en el ERP"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
+        (Guid.Parse("00000004-0010-0000-0000-000000000002"), DatosMaestrosArticulosToleranciaEditar,       "Editar la tolerancia de recepción por material del artículo"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
         (Guid.Parse("00000004-0011-0000-0000-000000000003"), DatosMaestrosClientesOrigenVer,               "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)"),

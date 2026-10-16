@@ -349,6 +349,95 @@ public class OrdenCompraSubEstadosTests
         Assert.Equal(SubEstadoRecepcion.SinRecepcion, oc.SubEstadoRecepcion);
     }
 
+    // --- Tolerancia por material (techo de recepción y facturación) ---
+
+    [Fact]
+    public void RegistrarRecepcionLinea_DentroDeTolerancia_AceptaYCompleta()
+    {
+        var oc = NewOcAutorizada((100m, false));
+        var linea = oc.Lineas.Single();
+
+        oc.RegistrarRecepcionLinea(linea.Id, 105m, DateTimeOffset.UtcNow, 5m);
+
+        Assert.Equal(105m, linea.CantidadRecibida);
+        Assert.Equal(SubEstadoRecepcion.Completa, oc.SubEstadoRecepcion);
+    }
+
+    [Fact]
+    public void RegistrarRecepcionLinea_SobreTechoConTolerancia_Lanza()
+    {
+        var oc = NewOcAutorizada((100m, false));
+        var linea = oc.Lineas.Single();
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            oc.RegistrarRecepcionLinea(linea.Id, 106m, DateTimeOffset.UtcNow, 5m));
+        Assert.Equal("LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE", ex.Code);
+    }
+
+    [Fact]
+    public void RegistrarRecepcionLinea_ExcesoSinTolerancia_Lanza()
+    {
+        var oc = NewOcAutorizada((100m, false));
+        var linea = oc.Lineas.Single();
+
+        var ex = Assert.Throws<BusinessRuleException>(() =>
+            oc.RegistrarRecepcionLinea(linea.Id, 105m, DateTimeOffset.UtcNow));
+        Assert.Equal("LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE", ex.Code);
+    }
+
+    [Fact]
+    public void RegistrarRecepcionLinea_BajaDesdeExcedente_SinTecho_Acepta()
+    {
+        var oc = NewOcAutorizada((100m, false));
+        var linea = oc.Lineas.Single();
+        var ahora = DateTimeOffset.UtcNow;
+
+        oc.RegistrarRecepcionLinea(linea.Id, 105m, ahora, 5m);
+        oc.RegistrarRecepcionLinea(linea.Id, 103m, ahora);
+
+        Assert.Equal(103m, linea.CantidadRecibida);
+    }
+
+    [Fact]
+    public void RegistrarRecepcionLinea_ExcedenteDeUnaLinea_NoCompletaOtra()
+    {
+        var oc = NewOcAutorizada((100m, false), (100m, false));
+        var lineas = oc.Lineas.ToList();
+        var ahora = DateTimeOffset.UtcNow;
+
+        oc.RegistrarRecepcionLinea(lineas[0].Id, 105m, ahora, 5m);
+        oc.RegistrarRecepcionLinea(lineas[1].Id, 95m, ahora);
+
+        Assert.Equal(SubEstadoRecepcion.Parcial, oc.SubEstadoRecepcion);
+    }
+
+    [Fact]
+    public void RegistrarFacturacionLinea_HastaLoRecibidoConTolerancia_Acepta()
+    {
+        var oc = NewOcAutorizada((100m, false));
+        var linea = oc.Lineas.Single();
+        var ahora = DateTimeOffset.UtcNow;
+
+        oc.RegistrarRecepcionLinea(linea.Id, 105m, ahora, 5m);
+        oc.RegistrarFacturacionLinea(linea.Id, 105m, ahora);
+
+        Assert.Equal(105m, linea.CantidadFacturada);
+    }
+
+    [Fact]
+    public void RegistrarFacturacionLinea_ExcedenteDeUnaLinea_NoCompletaOtra()
+    {
+        var oc = NewOcAutorizada((100m, false), (100m, false));
+        var lineas = oc.Lineas.ToList();
+        var ahora = DateTimeOffset.UtcNow;
+
+        oc.RegistrarRecepcionLinea(lineas[0].Id, 105m, ahora, 5m);
+        oc.RegistrarFacturacionLinea(lineas[0].Id, 105m, ahora);
+        oc.RegistrarFacturacionLinea(lineas[1].Id, 95m, ahora);
+
+        Assert.Equal(SubEstadoFacturacion.Parcial, oc.SubEstadoFacturacion);
+    }
+
     // --- GAP-9: cierre manual ---
 
     [Fact]

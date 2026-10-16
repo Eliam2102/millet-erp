@@ -129,6 +129,8 @@ export const PermisosCanonicos = {
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
+  DatosMaestrosArticulosToleranciaEditar:
+    'datos_maestros.articulos.tolerancia-editar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular
   // también para las mutaciones (no el grueso

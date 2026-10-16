@@ -253,7 +253,7 @@ La OC autorizada tiene tres dimensiones de progreso que avanzan
   - `SinRecepcion` si `SUM(linea.cantidad_recibida) = 0`.
   - `Parcial` si `0 < SUM(linea.cantidad_recibida) < SUM(linea.cantidad)`.
   - `Completa` si `SUM(linea.cantidad_recibida) = SUM(linea.cantidad)`.
-- `SubEstadoFacturacion`: equivalente, contra `cantidad_facturada`.
+- `SubEstadoFacturacion`: equivalente, contra `cantidad_facturada`, con tope por línea: se suma `MIN(cantidad_facturada, cantidad)` (el excedente facturado de una línea no completa a otra). Tope de captura por línea: `MAX(cantidad, cantidad_recibida)`; una devolución a proveedor no puede dejar `cantidad_recibida < cantidad_facturada` (ver Almacén 8.B, `DEVOLUCION_EXCEDE_NO_FACTURADO`).
 - `SubEstadoPago`: equivalente, contra `monto_pagado` vs `total_facturado`.
 
 **Transición a `Cerrada`:** se ejecuta automáticamente cuando las tres
@@ -1015,6 +1015,24 @@ Estos avanzan solo cuando `Estado = Autorizada`.
 | `OrdenCompraDuplicadaEvent` | Tras `DuplicarOrdenCompra()` | Auditoría (vincula OC nueva ↔ OC origen) |
 | `LineaRqLiberadaEvent` | Tras quitar línea o cancelar OC en Borrador | Requisiciones (mismo BC) |
 | `RqComprometidaEnOcEvent` | Tras agregar línea con FK a RQ | Requisiciones (mismo BC) |
+
+**Implementado en 86e3pc50v (contratos espejo de Almacén y reglas de línea).** Los eventos `almacen.oc_recepcion.registrada.v1` y `almacen.oc_devolucion.registrada.v1` que consume Compras (§8.6) ganaron campos aditivos opcionales, sin cambio de versión:
+
+- `almacen.oc_recepcion.registrada.v1`: `ToleranciaPorcentaje` (decimal?, por defecto 0) y `CantidadRecibidaAcumulada` (decimal?, acumulado post-evento ya calculado por Almacén; regla de oro de la triada, D7).
+- `almacen.oc_devolucion.registrada.v1`: `CantidadDocumento` (decimal?, en unidad de la OC). Si falta, el consumidor usa `Cantidad` (eventos viejos).
+
+Reglas de `LineaOrdenCompra` (D6):
+
+- `SetCantidadRecibida(acumulado, tolerancia)` acepta hasta `Cantidad × (1 + tolerancia/100)` cuando el acumulado sube. Si el acumulado baja (devolución), no aplica techo. Si excede, responde `LINEA_OC_CANTIDAD_RECIBIDA_EXCEDE`.
+- `SetCantidadFacturada(acumulado)` acepta hasta `max(Cantidad, CantidadRecibida)`, de modo que se puede facturar lo recibido dentro de tolerancia (three-way match). Si excede, responde `LINEA_OC_CANTIDAD_FACTURADA_EXCEDE`.
+- El sub-estado de recepción suma `min(CantidadRecibida, Cantidad)` por línea, para que el exceso dentro de tolerancia no infle el avance.
+
+Consumidores (D7, D8):
+
+- `OcRecepcionEnAlmacenCommand`: una línea sin `LineaOcId` se resuelve por (OC, artículo) si el artículo no servicio es único en la OC. Si no es único, o si el `LineaOcId` no existe en la OC, lanza `BusinessRuleException("RECEPCION_LINEA_OC_NO_RESOLUBLE")` antes de registrar `EventoProcesado`. El evento queda sin marcar y el worker reintenta o lo envía a dead-letter. El acumulado es `max(CantidadRecibida actual, CantidadRecibidaAcumulada)`; sin acumulado en el payload, usa `actual + Cantidad`. El delta hacia la RQ sigue siendo `Cantidad`. La idempotencia se resuelve por `EventoId`.
+- `OcDevolucionEnAlmacenCommand`: mismo criterio, con `DEVOLUCION_LINEA_OC_NO_RESOLUBLE`. Descuenta `CantidadDocumento ?? Cantidad` (unidad de la OC, M-170).
+
+Persistencia (migración `20261014125116_RelajarChecksRecibidaFacturadaOc`, esquema de Compras; P-15a): los CHECK de la tabla `orden_compra_lineas` se relajaron con cotas y conservan sus nombres. `ck_oc_lineas_recibida_max` pasa a `cantidad_recibida <= cantidad * 2` (la tolerancia máxima es 100 %, igual que `ck_articulos_tolerancia_rango`). `ck_oc_lineas_facturada_max` pasa a `cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)`. El CHECK es una red de seguridad; el techo de tolerancia por línea lo aplica el dominio.
 
 ### 8.6 Eventos de integración consumidos
 

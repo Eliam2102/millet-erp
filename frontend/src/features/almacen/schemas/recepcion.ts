@@ -14,14 +14,6 @@ const UUID_SHAPE_RE =
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Tolerancia client-side default para sobre-recepción (5%). El backend
- * revalida con la tolerancia real del artículo (<c>IArticuloReadPort</c>)
- * y rechaza si excede; el cliente usa este valor solo para feedback
- * inmediato al usuario.
- */
-export const TOLERANCIA_RECEPCION_DEFAULT = 0.05;
-
-/**
  * Schema de una fila de recepción derivada de una línea de OC. La fila
  * es read-only excepto por <c>incluida</c>, <c>cantidad</c>,
  * <c>ubicacionReferencia</c> y <c>comentario</c>. El resto viene del
@@ -42,6 +34,10 @@ export const FilaRecepcionSchema = z
     cantidadSolicitada: z.number(),
     cantidadYaRecibida: z.number(),
     pendiente: z.number(),
+    // Tolerancia real del artículo (%) y máximo recibible calculado por el
+    // servidor (LineaRecibible). La pantalla no calcula tolerancias propias.
+    toleranciaPorcentaje: z.number(),
+    maximo: z.number(),
     incluida: z.boolean(),
     cantidad: z
       .number({ message: 'Cantidad requerida' })
@@ -71,12 +67,11 @@ export const FilaRecepcionSchema = z
         message: 'Elige la ubicación (rack) destino.',
       });
     }
-    const max = v.pendiente * (1 + TOLERANCIA_RECEPCION_DEFAULT);
-    if (!v.unidadCapturada?.trim() && v.cantidad > max) {
+    if (!v.unidadCapturada?.trim() && v.cantidad > v.maximo) {
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],
-        message: `Excede el pendiente (${v.pendiente}) + 5% de tolerancia (${max.toFixed(4)}).`,
+        message: `Excede el pendiente (${v.pendiente}) + ${v.toleranciaPorcentaje}% de tolerancia (${v.maximo.toFixed(4)}).`,
       });
     }
   });

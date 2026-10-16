@@ -96,6 +96,9 @@ export function EditorLineas({ oc }: EditorLineasProps) {
   const accAgregarManual = accionAgregarLineaManual(oc, permisos);
   const accEditar = accionEditarLineaEstructural(oc, permisos);
   const accEliminar = accionEliminarLinea(oc, permisos);
+  // Fracción arancelaria: columna solo en OC de comercio exterior (PLATFORM-TODO(<F1-COM-06>): supuesto Vilo).
+  const mostrarFraccion = oc.esImportacion;
+  const mostrarAcciones = accEditar.visible || accEliminar.visible;
 
   function abrirAgregar() {
     setLineaEnEdicionId(null);
@@ -211,6 +214,9 @@ export function EditorLineas({ oc }: EditorLineasProps) {
             <tr>
               <th className="px-3 py-2 text-right font-medium w-12">#</th>
               <th className="px-3 py-2 text-left font-medium">Artículo</th>
+              {mostrarFraccion && (
+                <th className="px-3 py-2 text-left font-medium">Fracción arancelaria</th>
+              )}
               <th className="px-3 py-2 text-left font-medium">CC-Máquina</th>
               <th className="px-3 py-2 text-right font-medium">Cantidad</th>
               <th className="px-3 py-2 text-left font-medium">UM</th>
@@ -230,7 +236,8 @@ export function EditorLineas({ oc }: EditorLineasProps) {
                 // La fila se reemplaza por el form inline en modo editar.
                 const totalColumnas =
                   10 +
-                  (accEditar.visible || accEliminar.visible ? 1 : 0);
+                  (mostrarFraccion ? 1 : 0) +
+                  (mostrarAcciones ? 1 : 0);
                 return (
                   <tr key={linea.id}>
                     <td colSpan={totalColumnas} className="p-2">
@@ -254,6 +261,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
                   articuloClave={linea.articuloClave ?? articulo?.clave ?? null}
                   articuloNombre={linea.articuloNombre ?? articulo?.nombre ?? null}
                   bgClass={i % 2 === 1 ? 'bg-muted/20' : undefined}
+                  mostrarFraccion={mostrarFraccion}
                   canEditar={accEditar.habilitada}
                   canEliminar={accEliminar.habilitada}
                   showAcciones={
@@ -267,7 +275,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
           </tbody>
           <tfoot>
             <tr className="border-t bg-muted/30 font-medium">
-              <td colSpan={8} className="px-3 py-2 text-right">
+              <td colSpan={mostrarFraccion ? 9 : 8} className="px-3 py-2 text-right">
                 Totales
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
@@ -344,6 +352,7 @@ interface FilaLineaProps {
    * el artículo no está en el catálogo cargado. */
   articuloNombre: string | null;
   bgClass?: string;
+  mostrarFraccion: boolean;
   canEditar: boolean;
   canEliminar: boolean;
   showAcciones: boolean;
@@ -356,6 +365,7 @@ function FilaLinea({
   articuloClave,
   articuloNombre,
   bgClass,
+  mostrarFraccion,
   canEditar,
   canEliminar,
   showAcciones,
@@ -399,6 +409,11 @@ function FilaLinea({
           </p>
         )}
       </td>
+      {mostrarFraccion && (
+        <td className="px-3 py-2 font-mono text-xs" data-testid="oc-linea-fraccion">
+          {linea.fraccionArancelaria ?? <span className="text-muted-foreground">—</span>}
+        </td>
+      )}
       <td className="px-3 py-2">
         {/* CC-Máquina resuelto por el read-port (ADR-0050): "clave — nombre",
             "No catalogado" si el id no resuelve, "—" si la línea no lleva CC. */}
