@@ -58,6 +58,46 @@ public sealed class PolizaConfiguration : IEntityTypeConfiguration<Poliza>
         builder.HasIndex(x => new { x.EmpresaId, x.Estado, x.Fecha }).HasDatabaseName("ix_polizas_estado_fecha");
         builder.HasIndex(x => new { x.EmpresaId, x.OrigenModulo, x.OrigenTipo, x.OrigenDocumentoId })
             .HasFilter("origen_documento_id IS NOT NULL").HasDatabaseName("ix_polizas_documento_origen");
+
+        // K10.4: ligas de reversa y reclasificación (consulta en ambos sentidos) y pólizas por plantilla recurrente.
+        builder.Property(x => x.Relacion).HasConversion<short?>();
+        builder.HasIndex(x => x.PolizaRelacionadaId).HasFilter("poliza_relacionada_id IS NOT NULL").HasDatabaseName("ix_polizas_relacionada");
+        builder.HasIndex(x => x.PlantillaRecurrenteId).HasFilter("plantilla_recurrente_id IS NOT NULL").HasDatabaseName("ix_polizas_plantilla_recurrente");
+    }
+}
+
+/// <summary>
+/// <c>contabilidad.plantillas_recurrentes</c> (K10.4). Las partidas fijas van como JSON: se leen y escriben siempre con la plantilla.
+/// </summary>
+public sealed class PlantillaRecurrenteConfiguration : IEntityTypeConfiguration<PlantillaRecurrente>
+{
+    public void Configure(EntityTypeBuilder<PlantillaRecurrente> builder)
+    {
+        builder.ToTable("plantillas_recurrentes", t =>
+        {
+            t.HasCheckConstraint("ck_plantillas_recurrentes_estado", "estado BETWEEN 0 AND 3");
+            t.HasCheckConstraint("ck_plantillas_recurrentes_periodos", "numero_periodos BETWEEN 1 AND 120");
+            t.HasCheckConstraint("ck_plantillas_recurrentes_mes", "mes_inicio BETWEEN 1 AND 12");
+            t.HasCheckConstraint("ck_plantillas_recurrentes_dia", "dia_del_mes BETWEEN 0 AND 28");
+        });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Nombre).HasMaxLength(120).IsRequired();
+        builder.Property(x => x.Concepto).HasMaxLength(Poliza.ConceptoMaximo).IsRequired();
+        builder.Property(x => x.Estado).HasConversion<short>().IsRequired();
+        builder.Property(x => x.CreadaPor).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.ActivadaPor).HasMaxLength(200);
+        builder.Ignore(x => x.TotalCargos);
+        builder.Ignore(x => x.TotalAbonos);
+        builder.OwnsMany(x => x.Partidas, b =>
+        {
+            b.ToJson("partidas");
+            b.Property(p => p.Cargo).HasPrecision(18, 2);
+            b.Property(p => p.Abono).HasPrecision(18, 2);
+        });
+        builder.Navigation(x => x.Partidas).HasField("_partidas").UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.HasOne<TipoDocumentoContable>().WithMany().HasForeignKey(x => x.TipoOperacionId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => new { x.EmpresaId, x.Estado }).HasDatabaseName("ix_plantillas_recurrentes_estado");
     }
 }
 
