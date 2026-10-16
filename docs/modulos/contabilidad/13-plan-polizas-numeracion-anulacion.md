@@ -33,6 +33,18 @@ Ninguna fuente define estos casos; se construye con el supuesto y se ajusta si M
 | V39 | El consecutivo se **reinicia cada año** (el del periodo de la póliza) | Laura Cerón (V39) | `ConsecutivoPoliza` (llave empresa, tipo, año) |
 | — | **AN** aparece en SAP para el anticipo de clientes y el de proveedores: se precarga uno solo, como diario | Laura Cerón (V39) | Catálogo de tipos |
 
+Fuentes revisadas antes de proponer preguntas (16-oct): carpeta de Millet en Drive y todo Drive, bóveda del equipo (registro de
+validaciones, bitácora, planos, transcripciones JUNTA-01 a 06), cuestionario 08 completo con sus imágenes, matriz de validación,
+anteproyectos, inventario funcional, arquitectura A+W–SAP y el layout de numeración con los comentarios de Contabilidad.
+Respaldo encontrado: C-06 (anulación en negativo), RNF-05 (motivo), 08 Auditoría y C-02 (prepara el Analista, aprueba el
+Supervisor), JUNTA-03 (con periodo cerrado, Contabilidad decide reabrir o corregir en el periodo actual: respalda D5). V39 y D21
+ya están pedidos para la sesión contable del 16-oct.
+
+Sin respuesta en ninguna fuente: el tipo y número de la anulación (D1), la relación de cada tipo con el tipo de póliza del SAT y si
+se conserva un número de transacción global como el «Nº trans.» de SAP (7 dígitos, común a todos los tipos, visible en una captura
+del cuestionario 08). Hoy no se construye ese número global; si Contabilidad lo pide, se agrega como secuencia propia de la póliza.
+La bóveda se contradice en el reinicio (K10.9 «anual», Plano C1 «por tipo y mes»): se sigue la ficha y V39.
+
 Contraste descartado: el libro «Layout Numeración avanzada» usa AS, AM, AC, PP y RC con otro significado y 8 dígitos; es
 una propuesta de folios de **documentos**, no de pólizas, y no se mezcla con K10.9.
 
