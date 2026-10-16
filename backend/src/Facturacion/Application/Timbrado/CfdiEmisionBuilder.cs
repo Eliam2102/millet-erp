@@ -57,7 +57,10 @@ public static class CfdiEmisionBuilder
                 Descuento: l.Descuento,
                 ObjetoImp: l.ObjetoImp,
                 Impuestos: ImpuestosDeLinea(l),
-                Pedimento: l.Pedimento is null
+                // InformacionAduanera solo para la primera venta de producto
+                // importado (§3.bis.5). Con CCE el SAT la prohíbe (CFDI40195): el
+                // pedimento se conserva en la línea pero no viaja en el XML.
+                Pedimento: l.Pedimento is null || esExportacion
                     ? null
                     : new PedimentoCfdi(l.Pedimento, l.FechaDocAduanero, l.IdentificacionMercancia),
                 NoIdentificacion: esExportacion ? NoIdentificacionCce(l) : null))
