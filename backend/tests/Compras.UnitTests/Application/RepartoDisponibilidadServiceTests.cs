@@ -85,6 +85,40 @@ public sealed class RepartoDisponibilidadServiceTests
         Assert.True(repartos[0].EsServicio);
     }
 
+    [Fact]
+    public async Task Consulta_Stock_Una_Sola_Vez_Por_Requisicion()
+    {
+        var otro = Guid.CreateVersion7();
+        var requisicion = CrearRequisicion(
+            Clasificacion.MateriaPrima,
+            (Articulo, 1m, 100m),
+            (Articulo, 1m, 100m),
+            (otro, 1m, 100m));
+        var stock = new StockLoteContador();
+
+        await RepartoDisponibilidadService.RepartirAsync(
+            stock, new ConversionIdentidad(), Articulos(), Clasificacion.MateriaPrima,
+            Sucursal, requisicion.Lineas, default);
+
+        Assert.Equal(1, stock.LlamadasLote);
+        Assert.Equal(0, stock.LlamadasUnitarias);
+        Assert.Equal(new[] { Articulo, otro }.OrderBy(x => x), stock.IdsDelLote.OrderBy(x => x));
+    }
+
+    [Fact]
+    public async Task Rq_Solo_De_Servicios_No_Consulta_Stock()
+    {
+        var requisicion = CrearRequisicion(Clasificacion.Servicio, (Articulo, 1m, 100m));
+        var stock = new StockLoteContador();
+
+        await RepartoDisponibilidadService.RepartirAsync(
+            stock, new ConversionIdentidad(), Articulos(), Clasificacion.Servicio,
+            Sucursal, requisicion.Lineas, default);
+
+        Assert.Equal(0, stock.LlamadasLote);
+        Assert.Equal(0, stock.LlamadasUnitarias);
+    }
+
     private static Dictionary<Guid, ArticuloLectura> Articulos(params Guid[] servicios) =>
         new Dictionary<Guid, ArticuloLectura>
         {
@@ -128,6 +162,31 @@ public sealed class RepartoDisponibilidadServiceTests
             Consultas.Add(articuloId);
             var disponible = existencias.FirstOrDefault(e => e.ArticuloId == articuloId).Disponible;
             return Task.FromResult(new DisponibilidadStock(OnHand: disponible, Disponible: disponible));
+        }
+    }
+
+    private sealed class StockLoteContador : IConsultarStockPort
+    {
+        public int LlamadasUnitarias { get; private set; }
+
+        public int LlamadasLote { get; private set; }
+
+        public List<Guid> IdsDelLote { get; } = new();
+
+        public Task<DisponibilidadStock> ConsultarPorSucursalAsync(
+            Guid sucursalId, Guid articuloId, CancellationToken cancellationToken)
+        {
+            LlamadasUnitarias++;
+            return Task.FromResult(new DisponibilidadStock(0m, 0m));
+        }
+
+        public Task<IReadOnlyDictionary<Guid, DisponibilidadStock>> ConsultarPorSucursalLoteAsync(
+            Guid sucursalId, IReadOnlyCollection<Guid> articuloIds, CancellationToken cancellationToken)
+        {
+            LlamadasLote++;
+            IdsDelLote.AddRange(articuloIds);
+            return Task.FromResult<IReadOnlyDictionary<Guid, DisponibilidadStock>>(
+                articuloIds.ToDictionary(id => id, _ => new DisponibilidadStock(0m, 0m)));
         }
     }
 

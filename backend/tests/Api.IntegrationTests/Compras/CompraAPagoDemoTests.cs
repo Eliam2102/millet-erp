@@ -73,7 +73,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         Assert.NotEqual(idA, idB);
 
         // Umbral del depto: monto <= umbral => basta N1 (con 2 usuarios no hay quien firme N2; sin umbral exige N1+N2 de personas distintas).
-        await Ok(await b.PutAsJsonAsync("/api/v1/compras/umbrales-aprobacion", new { DepartamentoId = TestComprasFixtures.DeptoCompras, UmbralMenorCuantia = 1000m, UmbralMonto = 100000m, Moneda = "MXN" }), "B configura umbral depto");
+        await Ok(await b.PutAsJsonAsync("/api/v1/compras/umbrales-aprobacion", new { DepartamentoId = TestComprasFixtures.DeptoCompras, UmbralMenorCuantia = 1000m, UmbralMonto = 100000m, Moneda = "MXN", ModoNivel2 = "SoloMonto" }), "B configura umbral depto");
 
         // ---------- 1. A crea RQ ----------
         var rqResp = await a.PostAsJsonAsync("/api/v1/compras/requisiciones", TestComprasFixtures.BuildCrearRqValidBody(descripcion: "DEMO compra a pago"));

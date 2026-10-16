@@ -45,7 +45,8 @@ public sealed class ListarUmbralesHandler : IRequestHandler<ListarUmbralesQuery,
                         && (u.VigenteHasta == null || u.VigenteHasta >= hoy))
             .OrderBy(u => u.DepartamentoId)
             .Select(u => new UmbralAprobacionResponse(
-                u.DepartamentoId, u.UmbralMenorCuantia, u.UmbralMonto, u.Moneda, u.VigenteDesde))
+                u.DepartamentoId, u.UmbralMenorCuantia, u.UmbralMonto, u.Moneda, u.VigenteDesde,
+                u.ModoNivel2, u.MontoMinimoDisponibilidad))
             .ToListAsync(cancellationToken);
     }
 }

@@ -43,4 +43,17 @@ public sealed class AlmacenStockReadAdapter : IConsultarStockPort
             OnHand: d.Cantidad,
             Disponible: d.CantidadDisponible);
     }
+
+    public async Task<IReadOnlyDictionary<Guid, DisponibilidadStock>> ConsultarPorSucursalLoteAsync(
+        Guid sucursalId,
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken)
+    {
+        var lote = await _saldos.ConsultarDisponibilidadPorSucursalLoteAsync(
+            sucursalId, articuloIds, cancellationToken);
+
+        return lote.ToDictionary(
+            e => e.Key,
+            e => new DisponibilidadStock(OnHand: e.Value.Cantidad, Disponible: e.Value.CantidadDisponible));
+    }
 }
