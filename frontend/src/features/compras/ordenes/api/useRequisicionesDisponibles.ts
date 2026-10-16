@@ -23,6 +23,26 @@ export interface RequisicionDisponible {
   fechaEntregaDeseada: string | null;
   totalLineas: number;
   proveedorSugeridoId: string | null;
+  /**
+   * Suma del saldo por comprar de todas las líneas de la RQ (backend
+   * <c>RequisicionDisponibleResponse.FaltantePorComprar</c>). Opcional por
+   * resiliencia ante respuestas viejas: si falta, el selector muestra "—".
+   */
+  faltantePorComprar?: number;
+  /** Solo las líneas de la RQ con saldo de compra &gt; 0 (backend <c>LineasConSaldo</c>). */
+  lineasConSaldo?: LineaDisponible[];
+}
+
+/** Mirror de <c>LineaDisponibleResponse</c> (backend). */
+export interface LineaDisponible {
+  lineaId: string;
+  articuloId: string;
+  articuloClave: string | null;
+  articuloNombre: string | null;
+  /** Saldo de compra pendiente de la línea (lo que falta comprar). */
+  cantidadSaldo: number;
+  /** Cantidad que surte el almacén contra esta línea. */
+  cantidadDeAlmacen: number;
 }
 
 /**

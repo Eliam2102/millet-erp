@@ -44,6 +44,7 @@ describe('glosario de Compras', () => {
         'Matriz',
         'Bifurcacion',
         'Reserva',
+        'EnAlmacen',
       ]),
     );
     // OC (UF0-PR1: 11 términos del 06-frontend-plan §Fase 0)
@@ -62,8 +63,8 @@ describe('glosario de Compras', () => {
         'Incoterm',
       ]),
     );
-    // Total: 4 (RQ) + 11 (OC) = 15.
-    expect(transversales).toHaveLength(15);
+    // Total: 5 (RQ, incluye EnAlmacen) + 11 (OC) = 16.
+    expect(transversales).toHaveLength(16);
   });
 
   it('todos los resúmenes son ≤ 300 caracteres (margen sobre 200)', () => {

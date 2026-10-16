@@ -197,6 +197,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
 
+                    b.Property<int>("ModoNivel2")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("modo_nivel2");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -743,6 +749,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_entrega_linea");
 
+                    b.Property<string>("FraccionArancelaria")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("fraccion_arancelaria");
+
                     b.Property<string>("IndicadorImpuestos")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -964,14 +975,34 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("gastos_adicionales");
 
+                    b.Property<string>("InfoImportAgenteAduanalNaviera")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("info_import_agente_aduanal_naviera");
+
+                    b.Property<bool>("InfoImportCertificadoOrigen")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("info_import_certificado_origen");
+
                     b.Property<string>("InfoImportCodigoRuta")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("info_import_codigo_ruta");
 
+                    b.Property<DateOnly?>("InfoImportFechaEstimadaArribo")
+                        .HasColumnType("date")
+                        .HasColumnName("info_import_fecha_estimada_arribo");
+
                     b.Property<Guid?>("InfoImportIncotermId")
                         .HasColumnType("uuid")
                         .HasColumnName("info_import_incoterm_id");
+
+                    b.Property<string>("InfoImportNumeroBl")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("info_import_numero_bl");
 
                     b.Property<string>("InfoImportNumeroContenedor")
                         .HasMaxLength(40)
@@ -987,10 +1018,23 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("char(2)")
                         .HasColumnName("info_import_pais_origen");
 
+                    b.Property<string>("InfoImportPuertoAduanaEntrada")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("info_import_puerto_aduana_entrada");
+
                     b.Property<string>("InfoImportSemanaEmbarque")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("info_import_semana_embarque");
+
+                    b.Property<short?>("InfoImportTipoOperacion")
+                        .HasColumnType("smallint")
+                        .HasColumnName("info_import_tipo_operacion");
+
+                    b.Property<short?>("InfoImportTipoTransporte")
+                        .HasColumnType("smallint")
+                        .HasColumnName("info_import_tipo_transporte");
 
                     b.Property<string>("InfoLogisticaDireccion")
                         .HasColumnType("text")
@@ -1074,6 +1118,12 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("referencia_proveedor");
+
+                    b.Property<bool>("RequiereNivel2")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("requiere_nivel2");
 
                     b.Property<bool>("SinRequisicionPrevia")
                         .ValueGeneratedOnAdd()
@@ -1172,7 +1222,7 @@ namespace Millet.Compras.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_oc_estado", "estado BETWEEN 0 AND 7");
 
-                            t.HasCheckConstraint("ck_oc_import_campos", "(es_importacion = false) OR (es_importacion = true AND info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL AND info_import_numero_contenedor IS NOT NULL)");
+                            t.HasCheckConstraint("ck_oc_import_campos", "(es_importacion = false) OR (estado IN (0, 6)) OR (info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_oc_sin_rq_motivo", "sin_requisicion_previa = false OR motivo_sin_requisicion IS NOT NULL");
 
@@ -1836,6 +1886,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("character varying(3)")
                         .HasDefaultValue("MXN")
                         .HasColumnName("moneda");
+
+                    b.Property<decimal?>("UmbralMenorCuantia")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("umbral_menor_cuantia");
 
                     b.Property<decimal>("UmbralMonto")
                         .HasPrecision(15, 2)

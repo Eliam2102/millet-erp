@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { EstadoBadge } from '@/components/erp/display/EstadoBadge';
+import {
+  EnAlmacenBadge,
+  EstadoBadge,
+} from '@/components/erp/display/EstadoBadge';
 import {
   EstadoRequisicion,
   SituacionSurtido,
@@ -242,5 +245,22 @@ describe('<EstadoBadge> — situación de surtido (ADR-0043)', () => {
     const span = container.querySelector('[data-tipo="requisicion"]');
     expect(span?.getAttribute('data-estado')).toBe('Autorizada');
     expect(span?.hasAttribute('data-situacion')).toBe(false);
+  });
+});
+
+describe('<EnAlmacenBadge>', () => {
+  it('renderiza «En almacén» cuando enAlmacen es true', () => {
+    const { container } = render(<EnAlmacenBadge enAlmacen />);
+    expect(screen.getByText('En almacén')).toBeInTheDocument();
+    expect(container.querySelector('[data-en-almacen="true"]')).not.toBeNull();
+  });
+
+  it('no renderiza nada sin campo, en null o en false (datos antiguos)', () => {
+    const { container: a } = render(<EnAlmacenBadge />);
+    const { container: b } = render(<EnAlmacenBadge enAlmacen={null} />);
+    const { container: c } = render(<EnAlmacenBadge enAlmacen={false} />);
+    expect(a.innerHTML).toBe('');
+    expect(b.innerHTML).toBe('');
+    expect(c.innerHTML).toBe('');
   });
 });

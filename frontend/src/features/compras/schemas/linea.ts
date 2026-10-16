@@ -34,14 +34,18 @@ export function crearLineaSchema(
       .string()
       .min(1, 'Unidad de medida requerida')
       .max(20, 'Máximo 20 caracteres'),
+    // Precio estimado opcional (minuta Millet 12-oct): la RQ no lleva monto;
+    // sin precio el backend guarda 0 MXN. Negativo sigue rechazado.
     precioEstimadoMonto: z
-      .number({ message: 'Precio estimado requerido' })
-      .positive('El precio debe ser mayor a 0')
-      .refine((v) => cabeEnDecimales(v, 2), 'Máximo 2 decimales en el precio'),
+      .number({ message: 'Precio estimado inválido' })
+      .nonnegative('El precio no puede ser negativo')
+      .refine((v) => cabeEnDecimales(v, 2), 'Máximo 2 decimales en el precio')
+      .nullish(),
     precioEstimadoMoneda: z
       .string()
       .length(3, 'Código de moneda ISO 4217 (3 letras)')
-      .regex(/^[A-Z]{3}$/, 'Código de moneda en mayúsculas'),
+      .regex(/^[A-Z]{3}$/, 'Código de moneda en mayúsculas')
+      .nullish(),
     cuentaContableId: idLikeOpcional,
     // ADM08: centro heredado o elegido requerido; máquina opcional.
     centroCostoId: idLike('Centro de costo requerido'),

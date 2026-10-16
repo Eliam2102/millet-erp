@@ -46,6 +46,12 @@ export const ActualizarLineaSchema = z
     // Fase E PR3: solo para líneas MANUALES. En heredadas el backend lo rechaza
     // (LINEA_OC_CC_HEREDADO_INMUTABLE); el FE ni lo manda (campo read-only).
     centroCostoId: z.string().nullish(),
+    // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo. Solo OC de comercio exterior.
+    fraccionArancelaria: z
+      .string()
+      .regex(/^\d{8}(\d{2})?$/, 'La fracción arancelaria debe tener 8 o 10 dígitos.')
+      .nullish(),
+    limpiarFraccionArancelaria: z.boolean().nullish(),
   })
   .superRefine((data, ctx) => {
     if (

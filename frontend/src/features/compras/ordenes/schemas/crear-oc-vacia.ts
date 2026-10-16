@@ -43,7 +43,7 @@ const idLikeOpcional = z.string().regex(UUID_SHAPE_RE).nullish();
 export const CrearOrdenCompraVaciaSchema = z
   .object({
     // ---- Cabecera obligatoria ----
-    sucursalDestinoId: idLike('Selecciona una sucursal de destino.'),
+    sucursalDestinoId: idLike('Elige la sucursal destino de esta compra'),
     proveedorId: idLike('Selecciona un proveedor.'),
     condicionesPagoId: idLike('Selecciona condiciones de pago.'),
     usoPrincipalId: idLike('Selecciona un uso principal.'),

@@ -135,6 +135,8 @@ function SeccionCicloDeVida() {
      └──[matriz cumplida sin entrega] ──> Cerrada ✕
 
 Pre-autorización: Borrador, EnAutorización
+  («En almacén» es una insignia informativa en RQ pre-autorización con
+   surtido de almacén estimado; no es un estado y el apartado ocurre al autorizar)
 Post-autorización: Autorizada, EnSurtido
 Terminales: Cerrada, Rechazada, Cancelada, Eliminada,
             CerradaSinSurtir, CerradaSurtidaParcial`}

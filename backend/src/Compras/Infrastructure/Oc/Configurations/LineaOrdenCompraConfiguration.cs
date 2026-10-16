@@ -145,6 +145,8 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
             .IsRequired();
 
         builder.Property(l => l.TextoAdicional).HasColumnType("text");
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
+        builder.Property(l => l.FraccionArancelaria).HasMaxLength(10);
 
         // SubtotalLinea es computed (getter) — no se persiste como columna.
         builder.Ignore(l => l.SubtotalLinea);

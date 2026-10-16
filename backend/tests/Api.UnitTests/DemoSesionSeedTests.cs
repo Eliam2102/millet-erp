@@ -41,7 +41,10 @@ public sealed class DemoSesionSeedTests
     public async Task Inactivo_NoResuelveNiAbreServicios(string ambiente, bool habilitado)
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-            { ["Seed:DemoSesion:Habilitado"] = habilitado.ToString() }).Build();
+        {
+            ["Seed:DemoSesion:Habilitado"] = habilitado.ToString(),
+            ["Seed:DemoSesion:ReemplazarAsignaciones"] = "true",
+        }).Build();
         var seed = new DemoSesionSeedHostedService(new ScopeProhibido(), new Ambiente(ambiente), config,
             NullLogger<DemoSesionSeedHostedService>.Instance);
         await seed.StartAsync(CancellationToken.None);
@@ -57,6 +60,23 @@ public sealed class DemoSesionSeedTests
     }
 
     [Theory]
+    [InlineData("Jefe Compras y CxP", "Jefe Compras", "CxP", true, false, "cuentas_por_pagar.")]
+    [InlineData("Dirección y Tesorería", "Dirección", "Tesorería", false, true, "tesoreria.")]
+    public void RolCombinado_UnePermisos_SinBypassNiFirmaAjena(string rol, string perfil1, string perfil2,
+        bool n1, bool n2, string modulo)
+    {
+        var permisos = PermisosCanonicos.Todos.Where(p => DemoSesionSeedHostedService.PermisoDelRol(rol, p.Codigo)).ToArray();
+        Assert.All(PermisosCanonicos.Todos, p => Assert.Equal(
+            DemoSesionSeedHostedService.PermisoDelRol(perfil1, p.Codigo) || DemoSesionSeedHostedService.PermisoDelRol(perfil2, p.Codigo),
+            DemoSesionSeedHostedService.PermisoDelRol(rol, p.Codigo)));
+        Assert.Contains(permisos, p => p.Codigo == "compras.ordenes.leer");
+        Assert.Contains(permisos, p => p.Codigo.StartsWith(modulo, StringComparison.Ordinal));
+        Assert.Equal(n1, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesAutorizarNivel1));
+        Assert.Equal(n2, DemoSesionSeedHostedService.PermisoDelRol(rol, PermisosCanonicos.ComprasOrdenesAutorizarNivel2));
+        Assert.DoesNotContain(permisos, p => p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal));
+    }
+
+    [Theory]
     [InlineData("Compras", "MID", true)]
     [InlineData("Compras", "MTY", false)]
     [InlineData("Contabilidad", "QRO", true)]
@@ -67,6 +87,58 @@ public sealed class DemoSesionSeedTests
         var resultado = new DemoSesionUsuarioValidator().Validate(new DemoSesionUsuario
             { Correo = "demo@example.invalid", Rol = rol, Sucursales = [sucursal] });
         Assert.Equal(valido, resultado.IsValid);
+    }
+
+    [Theory]
+    [InlineData("Compras", new[] { "MID" }, true)]
+    [InlineData("Jefe Compras", new[] { "MID" }, true)]
+    [InlineData("Dirección", new[] { "MID" }, true)]
+    [InlineData("Jefe Compras y CxP", new[] { "MID" }, true)]
+    [InlineData("Dirección y Tesorería", new[] { "MID" }, true)]
+    [InlineData("CxP", new[] { "MID" }, true)]
+    [InlineData("Tesorería", new[] { "MID" }, true)]
+    [InlineData("Facturación", new[] { "MID" }, true)]
+    [InlineData("Contabilidad", new[] { "MID" }, true)]
+    [InlineData("DAF", new[] { "MID" }, true)]
+    [InlineData("Administrador", new[] { "MID" }, true)]
+    [InlineData("Compras", new[] { "MID", "MTY" }, false)]
+    [InlineData("Compras", new[] { "MTY" }, false)]
+    [InlineData("Jefe Compras + CxP", new[] { "MID" }, false)]
+    [InlineData("Otro", new[] { "MID" }, false)]
+    [InlineData("", new[] { "MID" }, false)]
+    [InlineData("CxP", new string[0], false)]
+    [InlineData("CxP", new[] { "MID", "MID" }, false)]
+    public void Configuracion_ValidaUnRolPorCuentaYSucursales(string rol, string[] sucursales, bool valido)
+    {
+        var resultado = new DemoSesionUsuarioValidator().Validate(new DemoSesionUsuario
+            { Correo = "demo@example.invalid", Rol = rol, Sucursales = sucursales });
+        Assert.Equal(valido, resultado.IsValid);
+    }
+
+    [Fact]
+    public void Configuracion_EnlazaUnSoloRolPorCuenta()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Usuarios:0:Correo"] = "demo@example.invalid",
+            ["Usuarios:0:Rol"] = "Jefe Compras y CxP",
+            ["Usuarios:0:Sucursales:0"] = "MID",
+            ["Usuarios:1:Rol"] = "Compras",
+        }).Build();
+        var usuarios = config.GetSection("Usuarios").Get<DemoSesionUsuario[]>()!;
+        Assert.Equal("Jefe Compras y CxP", usuarios[0].Rol);
+        Assert.True(new DemoSesionUsuarioValidator().Validate(usuarios[0]).IsValid);
+        Assert.Equal("Compras", usuarios[1].Rol);
+    }
+
+    [Fact]
+    public void Version_IdentificaCompilacionYAmbiente()
+    {
+        var version = Millet.Api.VersionInfo.Actual("Development");
+        Assert.Equal("Development", version.Ambiente);
+        Assert.Matches("^[0-9a-f]{7,40}$", version.Commit!);
+        Assert.True(DateTimeOffset.TryParse(version.FechaCompilacion, out var fecha));
+        Assert.Equal(TimeSpan.Zero, fecha.Offset);
     }
 
     [Fact]

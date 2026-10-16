@@ -652,6 +652,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Compras.Domain.Matriz.IRequiereNivelEvaluator,
     Millet.Compras.Application.Matriz.EvaluadorMultidimensional>();
+builder.Services.AddScoped<Millet.Compras.Application.Oc.EvaluadorNivelOc>();
 builder.Services.AddScoped<
     Millet.Compras.Domain.Ports.Matriz.IResolverAutorizadorPort,
     Millet.Compras.Application.Matriz.ResolverAutorizadorService>();
@@ -1406,6 +1407,8 @@ app.UseMiddleware<RequestContextLoggingMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 
 app.MapGet("/", () => "Hello World!");
+app.MapGet("/api/version", (IHostEnvironment environment) => Millet.Api.VersionInfo.Actual(environment.EnvironmentName))
+    .AllowAnonymous();
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
@@ -1421,6 +1424,7 @@ app.MapRequisicionesEndpoints();
 app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
+app.MapUmbralesAprobacionEndpoints();
 
 // === Settings genéricos /api/v1/{modulo}/settings (F-Admin-PR1.1, ADR-0034) ===
 app.MapSettingsEndpoints();

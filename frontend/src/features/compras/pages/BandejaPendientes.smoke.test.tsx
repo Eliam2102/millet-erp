@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { mswServer } from '@/test/mocks/server';
 import { createQueryWrapper } from '@/test/test-query-client';
@@ -7,9 +7,12 @@ import { BandejaPendientes } from '@/features/compras/pages/BandejaPendientes';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import {
   Clasificacion,
+  DisponibilidadPendiente,
   EstadoRequisicion,
   NivelAutorizacion,
+  OrigenRequisicion,
   Prioridad,
+  type PendienteAutorizacionItemResponse,
 } from '@/features/compras/api/types';
 
 // Holder mutable para variar los search params por test (TanStack useSearch).
@@ -196,5 +199,188 @@ describe('<BandejaPendientes> — smoke', () => {
     );
     render(<BandejaPendientes />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(urlVista).toContain('nivelPendiente=2'));
+  });
+});
+
+describe('<BandejaPendientes> — aprobación masiva', () => {
+  const base: Omit<PendienteAutorizacionItemResponse, 'id' | 'folio' | 'nivelPendiente'> = {
+    folioAnio: 2026,
+    estado: EstadoRequisicion.EnAutorizacion,
+    clasificacion: Clasificacion.Servicio,
+    prioridad: Prioridad.Normal,
+    sucursalId: 's-1',
+    departamentoId: 'd-1',
+    requisitanteId: 'u-1',
+    descripcion: null,
+    fechaSolicitud: '2026-05-09T10:00:00Z',
+    fechaEntregaDeseada: null,
+    requisitanteNombre: 'Pepe Pérez',
+    departamentoNombre: 'Compras',
+    departamentoClave: 'COMPRAS',
+    situacionSurtido: null,
+    origen: OrigenRequisicion.Manual,
+    disponibilidad: DisponibilidadPendiente.Total,
+    esRecurrente: false,
+  };
+  const itemN1: PendienteAutorizacionItemResponse = {
+    ...base,
+    id: 'rq-n1',
+    folio: 'MID2026-000101',
+    nivelPendiente: NivelAutorizacion.Nivel1,
+  };
+  const itemN2: PendienteAutorizacionItemResponse = {
+    ...base,
+    id: 'rq-n2',
+    folio: 'MID2026-000102',
+    nivelPendiente: NivelAutorizacion.Nivel2,
+  };
+
+  it('seleccionar + "Aprobar seleccionadas" envía un POST por nivel y muestra resultado por fila', async () => {
+    useAuthStore.setState({
+      permisos: [
+        'compras.requisiciones.autorizar-nivel1',
+        'compras.requisiciones.autorizar-nivel2',
+      ],
+    });
+    const llamadas: { ids: string[]; nivel: number; key: string | null }[] = [];
+    mswServer.use(
+      http.get('*/api/v1/compras/pendientes-autorizacion', () =>
+        HttpResponse.json({
+          items: [itemN1, itemN2],
+          offset: 0,
+          limit: 50,
+          total: 2,
+        }),
+      ),
+      http.post(
+        '*/api/v1/compras/requisiciones/autorizaciones-masivas',
+        async ({ request }) => {
+          const body = (await request.json()) as { ids: string[]; nivel: number };
+          llamadas.push({
+            ids: body.ids,
+            nivel: body.nivel,
+            key: request.headers.get('Idempotency-Key'),
+          });
+          return HttpResponse.json({
+            resultados: body.ids.map((id) =>
+              id === 'rq-n2'
+                ? {
+                    id,
+                    ok: false,
+                    errorCodigo: 'SIN_FIRMA_PREVIA',
+                    mensaje: 'Requiere firma de N1 previa',
+                  }
+                : { id, ok: true, errorCodigo: null, mensaje: null },
+            ),
+          });
+        },
+      ),
+    );
+
+    render(<BandejaPendientes />, { wrapper: createQueryWrapper() });
+    const checkN1 = (
+      await screen.findAllByRole('checkbox', { name: 'Seleccionar MID2026-000101' })
+    )[0];
+    const checkN2 = screen.getAllByRole('checkbox', {
+      name: 'Seleccionar MID2026-000102',
+    })[0];
+    fireEvent.click(checkN1);
+    fireEvent.click(checkN2);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }),
+    );
+
+    await waitFor(() => expect(llamadas).toHaveLength(2));
+    expect(llamadas[0]).toEqual({
+      ids: ['rq-n1'],
+      nivel: NivelAutorizacion.Nivel1,
+      key: expect.any(String),
+    });
+    expect(llamadas[1]).toEqual({
+      ids: ['rq-n2'],
+      nivel: NivelAutorizacion.Nivel2,
+      key: expect.any(String),
+    });
+
+    // El folio también aparece en el resumen; la fila es el ancestro <tr>.
+    const filaDe = (folio: string) =>
+      screen
+        .getAllByText(folio)
+        .map((el) => el.closest('tr'))
+        .find((tr) => tr != null)!;
+    const filaN1 = filaDe('MID2026-000101');
+    const filaN2 = filaDe('MID2026-000102');
+    expect(await within(filaN1).findByRole('status')).toHaveTextContent('Aprobada');
+    expect(await within(filaN2).findByRole('status')).toHaveTextContent(
+      'Requiere firma de N1 previa',
+    );
+    // Las aprobadas salen de la selección; la fallida permanece seleccionada.
+    expect(
+      screen.getByRole('button', { name: 'Aprobar seleccionadas (1)' }),
+    ).toBeInTheDocument();
+  });
+
+  it('el resumen de aprobación persiste aunque la lista se refresque sin las filas aprobadas', async () => {
+    useAuthStore.setState({
+      permisos: [
+        'compras.requisiciones.autorizar-nivel1',
+        'compras.requisiciones.autorizar-nivel2',
+      ],
+    });
+    let refrescada = false;
+    mswServer.use(
+      http.get('*/api/v1/compras/pendientes-autorizacion', () =>
+        HttpResponse.json(
+          refrescada
+            ? { items: [], offset: 0, limit: 50, total: 0 }
+            : { items: [itemN1, itemN2], offset: 0, limit: 50, total: 2 },
+        ),
+      ),
+      http.post(
+        '*/api/v1/compras/requisiciones/autorizaciones-masivas',
+        async ({ request }) => {
+          const body = (await request.json()) as { ids: string[] };
+          refrescada = true;
+          return HttpResponse.json({
+            resultados: body.ids.map((id) =>
+              id === 'rq-n2'
+                ? {
+                    id,
+                    ok: false,
+                    errorCodigo: 'SIN_FIRMA_PREVIA',
+                    mensaje: 'Requiere firma de N1 previa',
+                  }
+                : { id, ok: true, errorCodigo: null, mensaje: null },
+            ),
+          });
+        },
+      ),
+    );
+
+    render(<BandejaPendientes />, { wrapper: createQueryWrapper() });
+    fireEvent.click(
+      (await screen.findAllByRole('checkbox', { name: 'Seleccionar MID2026-000101' }))[0],
+    );
+    fireEvent.click(
+      screen.getAllByRole('checkbox', { name: 'Seleccionar MID2026-000102' })[0],
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }),
+    );
+
+    // La lista ya no tiene filas; el resumen debe seguir visible.
+    await screen.findByText(/no hay requisiciones pendientes/i);
+    const resumen = screen.getByRole('status', { name: 'Resumen de aprobación' });
+    expect(resumen).toHaveTextContent('1 aprobada · 1 con error');
+    expect(within(resumen).getByText('MID2026-000101')).toBeInTheDocument();
+    expect(within(resumen).getByText('MID2026-000102')).toBeInTheDocument();
+    expect(
+      within(resumen).getByText('Requiere firma de N1 previa'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(resumen).getByRole('button', { name: 'Entendido' }));
+    expect(
+      screen.queryByRole('status', { name: 'Resumen de aprobación' }),
+    ).not.toBeInTheDocument();
   });
 });

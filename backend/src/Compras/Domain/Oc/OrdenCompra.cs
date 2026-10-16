@@ -112,6 +112,13 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public EstadoOrdenCompra Estado { get; private set; }
     /// <summary>Cada reenvío tras rechazo abre un ciclo nuevo; las firmas anteriores se conservan.</summary>
     public int CicloAutorizacion { get; private set; } = 1;
+
+    /// <summary>
+    /// Matriz de nivel de la OC, fijada en cada <see cref="EnviarAAutorizacion"/>.
+    /// <c>true</c> (default) = exige N1 y N2. <c>false</c> = menor cuantía: la
+    /// firma N1 autoriza directo y N2 no aplica.
+    /// </summary>
+    public bool RequiereNivel2 { get; private set; } = true;
     public SubEstadoRecepcion SubEstadoRecepcion { get; private set; }
     public SubEstadoFacturacion SubEstadoFacturacion { get; private set; }
     public SubEstadoPago SubEstadoPago { get; private set; }
@@ -224,14 +231,28 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     public string? InfoImportSemanaEmbarque { get; private set; }
     public string? InfoImportNumeroPedimento { get; private set; }
 
-    public InformacionImportacion? InformacionImportacion =>
-        InfoImportIncotermId is null && InfoImportPaisOrigen is null &&
-        InfoImportNumeroContenedor is null && InfoImportCodigoRuta is null &&
-        InfoImportSemanaEmbarque is null && InfoImportNumeroPedimento is null
-            ? null
-            : new InformacionImportacion(
+    // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
+    public TipoOperacionComercioExterior? InfoImportTipoOperacion { get; private set; }
+    public string? InfoImportNumeroBl { get; private set; }
+    public TipoTransporte? InfoImportTipoTransporte { get; private set; }
+    public string? InfoImportAgenteAduanalNaviera { get; private set; }
+    public string? InfoImportPuertoAduanaEntrada { get; private set; }
+    public DateOnly? InfoImportFechaEstimadaArribo { get; private set; }
+    public bool InfoImportCertificadoOrigen { get; private set; }
+
+    public InformacionImportacion? InformacionImportacion
+    {
+        get
+        {
+            var info = new InformacionImportacion(
                 InfoImportIncotermId, InfoImportPaisOrigen, InfoImportNumeroContenedor,
-                InfoImportCodigoRuta, InfoImportSemanaEmbarque, InfoImportNumeroPedimento);
+                InfoImportCodigoRuta, InfoImportSemanaEmbarque, InfoImportNumeroPedimento,
+                InfoImportTipoOperacion, InfoImportNumeroBl, InfoImportTipoTransporte,
+                InfoImportAgenteAduanalNaviera, InfoImportPuertoAduanaEntrada,
+                InfoImportFechaEstimadaArribo, InfoImportCertificadoOrigen);
+            return info.EsVacio ? null : info;
+        }
+    }
 
     // --- F2-PR1: líneas ---
 
@@ -652,7 +673,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         DateTimeOffset? fechaEntregaLinea = null,
         string? textoAdicional = null,
         bool esServicio = false,
-        Guid? centroCostoId = null)
+        Guid? centroCostoId = null,
+        string? fraccionArancelaria = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -672,6 +694,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             ? 1
             : _lineas.Max(l => l.Posicion) + 1;
 
+        ValidarFraccionPermitida(fraccionArancelaria);
         var linea = new LineaOrdenCompra(
             id: lineaId,
             ordenCompraId: Id,
@@ -689,7 +712,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             descripcionExtendida: descripcionExtendida,
             fechaEntregaLinea: fechaEntregaLinea,
             textoAdicional: textoAdicional,
-            esServicio: esServicio);
+            esServicio: esServicio,
+            fraccionArancelaria: fraccionArancelaria);
 
         _lineas.Add(linea);
         return linea;
@@ -729,7 +753,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         DateTimeOffset? fechaEntregaLinea = null,
         string? textoAdicional = null,
         bool esServicio = false,
-        Guid? centroCostoId = null)
+        Guid? centroCostoId = null,
+        string? fraccionArancelaria = null)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -756,6 +781,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             ? 1
             : _lineas.Max(l => l.Posicion) + 1;
 
+        ValidarFraccionPermitida(fraccionArancelaria);
         var linea = new LineaOrdenCompra(
             id: lineaId,
             ordenCompraId: Id,
@@ -773,7 +799,8 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             descripcionExtendida: descripcionExtendida,
             fechaEntregaLinea: fechaEntregaLinea,
             textoAdicional: textoAdicional,
-            esServicio: esServicio);
+            esServicio: esServicio,
+            fraccionArancelaria: fraccionArancelaria);
 
         _lineas.Add(linea);
         return linea;
@@ -799,7 +826,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         bool limpiarDescripcionExtendida = false,
         bool limpiarFechaEntregaLinea = false,
         bool? esServicio = null,
-        Guid? centroCostoId = null)
+        Guid? centroCostoId = null,
+        string? fraccionArancelaria = null,
+        bool limpiarFraccionArancelaria = false)
     {
         if (!EstadosEditables.Contains(Estado))
         {
@@ -808,13 +837,15 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 $"Solo se pueden modificar líneas en Borrador o Rechazada (actual: {Estado}).");
         }
 
+        ValidarFraccionPermitida(fraccionArancelaria);
         var linea = BuscarLineaOLanzar(lineaId);
         linea.ActualizarEstructural(
             articuloId, cantidad, unidadMedida, precioUnitario,
             descuento, indicadorImpuestos,
             departamentoSolicitanteId, descripcionExtendida,
             fechaEntregaLinea, limpiarDescripcionExtendida,
-            limpiarFechaEntregaLinea, esServicio, centroCostoId);
+            limpiarFechaEntregaLinea, esServicio, centroCostoId,
+            fraccionArancelaria, limpiarFraccionArancelaria);
     }
 
     /// <summary>
@@ -958,6 +989,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// <list type="bullet">
     ///   <item>Estado es Borrador o Rechazada.</item>
     ///   <item>Al menos 1 línea.</item>
+    ///   <item>Todas las líneas con <c>PrecioUnitario &gt; 0</c> (<c>OC_PRECIO_REQUERIDO</c>).</item>
     /// </list>
     ///
     /// <para>
@@ -974,7 +1006,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// que el handler publica vía MediatR INotification tras SaveChanges.
     /// </para>
     /// </summary>
-    public Events.OrdenCompraEnviadaAAutorizacionEvent EnviarAAutorizacion(DateTimeOffset ocurridoEn)
+    public Events.OrdenCompraEnviadaAAutorizacionEvent EnviarAAutorizacion(
+        DateTimeOffset ocurridoEn,
+        bool requiereNivel2 = true)
     {
         if (Estado != EstadoOrdenCompra.Borrador && Estado != EstadoOrdenCompra.Rechazada)
         {
@@ -990,6 +1024,18 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 "La OC debe tener al menos una línea para enviarse a autorización.");
         }
 
+        var sinPrecio = _lineas
+            .Where(l => l.PrecioUnitario <= 0m)
+            .OrderBy(l => l.Posicion)
+            .Select(l => l.Posicion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .ToList();
+        if (sinPrecio.Count > 0)
+        {
+            throw new BusinessRuleException(
+                "OC_PRECIO_REQUERIDO",
+                $"Captura el precio de las líneas {string.Join(", ", sinPrecio)} antes de enviar a autorización.");
+        }
+
         if (EsBorradorMinimo)
         {
             throw new BusinessRuleException(
@@ -1001,6 +1047,7 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             CicloAutorizacion++;
         MotivoRechazoId = null;
         MotivoRechazoTexto = null;
+        RequiereNivel2 = requiereNivel2;
         Estado = EstadoOrdenCompra.EnAutorizacionJefeCompras;
 
         return new Events.OrdenCompraEnviadaAAutorizacionEvent(
@@ -1030,6 +1077,13 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         DateTimeOffset fechaHora,
         string? notas = null)
     {
+        if (nivel == NivelAutorizacion.Nivel2 && !RequiereNivel2)
+        {
+            throw new BusinessRuleException(
+                "OC_AUTORIZAR_NIVEL2_NO_REQUERIDO",
+                "Esta orden de compra es de menor cuantía y solo requiere la autorización de Nivel1.");
+        }
+
         var estadoEsperado = nivel switch
         {
             NivelAutorizacion.Nivel1 => EstadoOrdenCompra.EnAutorizacionJefeCompras,
@@ -1086,12 +1140,13 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         _autorizaciones.Add(autorizacion);
 
         Events.OrdenCompraAutorizadaEvent? autorizadaEvento = null;
-        if (nivel == NivelAutorizacion.Nivel1)
+        if (nivel == NivelAutorizacion.Nivel1 && RequiereNivel2)
         {
             Estado = EstadoOrdenCompra.EnAutorizacionDireccion;
         }
         else
         {
+            // N2, o N1 de menor cuantía (RequiereNivel2 = false): autoriza directo.
             Estado = EstadoOrdenCompra.Autorizada;
             FechaContabilizacion = fechaHora;
             autorizadaEvento = new Events.OrdenCompraAutorizadaEvent(
@@ -1607,14 +1662,33 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
         // NumeroPedimento NO se setea aquí — se captura post-autorización.
         // Si el llamador envía un valor en `info?.NumeroPedimento`, se
         // ignora (mejor que sorprender al cliente).
+
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Default Importacion cuando
+        // la OC es de comercio exterior (EsImportacion) y no se indicó sentido.
+        var tipoOperacion = info?.TipoOperacion;
+        if (info is not null && tipoOperacion is null && EsImportacion)
+            tipoOperacion = TipoOperacionComercioExterior.Importacion;
+        InfoImportTipoOperacion = tipoOperacion;
+        InfoImportNumeroBl = info?.NumeroBl;
+        InfoImportTipoTransporte = info?.TipoTransporte;
+        InfoImportAgenteAduanalNaviera = info?.AgenteAduanalNaviera;
+        InfoImportPuertoAduanaEntrada = info?.PuertoAduanaEntrada;
+        InfoImportFechaEstimadaArribo = info?.FechaEstimadaArribo;
+        InfoImportCertificadoOrigen = info?.CertificadoOrigen ?? false;
     }
 
     /// <summary>
-    /// Actualiza solo el <c>NumeroPedimento</c>. Permitido post-autorización
-    /// (§4.7 — se captura al recibir el material). Bloquea estados
-    /// terminales (Cerrada/Cancelada).
+    /// Actualiza los campos de importación capturados post-autorización
+    /// (§4.7 — el pedimento, el BL/AWB y el ETA se conocen al llegar el
+    /// material). Bloquea estados terminales (Cerrada/Cancelada). Reemplaza
+    /// los cuatro campos: el llamador envía también los valores vigentes de
+    /// los que no cambian.
     /// </summary>
-    public void ActualizarNumeroPedimento(string? numeroPedimento)
+    public void ActualizarNumeroPedimento(
+        string? numeroPedimento,
+        string? numeroBl = null,
+        DateOnly? fechaEstimadaArribo = null,
+        string? agenteAduanalNaviera = null)
     {
         if (Estado == EstadoOrdenCompra.Cerrada || Estado == EstadoOrdenCompra.Cancelada)
         {
@@ -1622,13 +1696,29 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
                 "OC_PEDIMENTO_NO_EN_TERMINAL",
                 $"NumeroPedimento no puede editarse en estado terminal (actual: {Estado}).");
         }
-        if (numeroPedimento is { Length: > 60 })
+        // Reutiliza las reglas de longitud/normalización del value object.
+        var post = new InformacionImportacion(
+            numeroPedimento: numeroPedimento,
+            numeroBl: numeroBl,
+            agenteAduanalNaviera: agenteAduanalNaviera);
+        InfoImportNumeroPedimento = post.NumeroPedimento;
+        InfoImportNumeroBl = post.NumeroBl;
+        InfoImportAgenteAduanalNaviera = post.AgenteAduanalNaviera;
+        InfoImportFechaEstimadaArribo = fechaEstimadaArribo;
+    }
+
+    /// <summary>
+    /// La fracción arancelaria solo aplica a OC de comercio exterior
+    /// (<see cref="EsImportacion"/>). PLATFORM-TODO(F1-COM-06): supuesto Vilo.
+    /// </summary>
+    private void ValidarFraccionPermitida(string? fraccionArancelaria)
+    {
+        if (fraccionArancelaria is not null && !EsImportacion)
         {
             throw new BusinessRuleException(
-                "IMPORT_PEDIMENTO_DEMASIADO_LARGO",
-                "NumeroPedimento no puede exceder 60 caracteres.");
+                "LINEA_OC_FRACCION_SOLO_COMERCIO_EXTERIOR",
+                "La fracción arancelaria solo aplica a OC de comercio exterior (EsImportacion).");
         }
-        InfoImportNumeroPedimento = string.IsNullOrWhiteSpace(numeroPedimento) ? null : numeroPedimento;
     }
 
     /// <summary>

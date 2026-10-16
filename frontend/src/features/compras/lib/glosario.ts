@@ -71,6 +71,7 @@ export type TerminoTransversal =
   | 'Matriz'
   | 'Bifurcacion'
   | 'Reserva'
+  | 'EnAlmacen'
   // Transversales de OC (doc OC 05 §11.2 + 06 Fase 0). Ver detalle
   // por término en el diccionario `TRANSVERSALES` abajo.
   | 'SubEstado'
@@ -212,6 +213,10 @@ export const NATURALEZAS: Record<Naturaleza, DefinicionTerm> = {
 
 export const TRANSVERSALES: Record<TerminoTransversal, DefinicionTerm> = {
   // -- RQ --
+  EnAlmacen: {
+    resumen:
+      'Insignia informativa: la RQ aún no está autorizada y el reparto estimado de disponibilidad cubre al menos una línea desde almacén. No aparta stock; el apartado real ocurre al autorizar. No cambia el estado de la RQ.',
+  },
   Cubrimiento: {
     resumen:
       'Cómo se va satisfaciendo la cantidad pedida de cada línea: parte de almacén (existente), parte de OC nueva (en compra) y/o parte ya recibida.',

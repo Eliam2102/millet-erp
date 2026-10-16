@@ -19,6 +19,7 @@ import { FiltrosPartidasAbiertas } from '@/features/compras/ordenes/components/F
 import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubEstados';
 import type { PartidasAbiertasSearch } from '@/features/compras/ordenes/lib/partidas-abiertas-search-schema';
 import { cn } from '@/lib/utils';
+import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 
 const FROM = '/_app/compras/ordenes/partidas-abiertas' as const;
 
@@ -74,7 +75,7 @@ export function PartidasAbiertas() {
     return p.nombreComercial ?? p.razonSocial;
   }
   function resolverUsuario(id: string): string {
-    return usuariosMap.get(id)?.nombre ?? id.slice(0, 8) + '…';
+    return nombreUsuarioOGuion(usuariosMap.get(id)?.nombre);
   }
 
   return (

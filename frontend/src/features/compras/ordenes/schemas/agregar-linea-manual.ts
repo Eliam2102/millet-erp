@@ -6,6 +6,7 @@ import {
 } from '@/components/erp/forms/decimales-unidad';
 
 import { zId } from '@/lib/z-id';
+import { FraccionArancelariaSchema } from '@/features/compras/ordenes/schemas/comercio-exterior';
 const idLike = (mensaje: string) => zId(mensaje);
 
 /**
@@ -59,6 +60,9 @@ export function crearAgregarLineaManualSchema(
   descripcionExtendida: z.string().max(1000).nullish(),
   fechaEntregaLinea: z.string().nullish(),
   textoAdicional: z.string().max(2000).nullish(),
+  // Fracción arancelaria (comercio exterior, solo se captura al EDITAR; la
+  // alta manual la deja undefined y no viaja en el POST). PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
+  fraccionArancelaria: FraccionArancelariaSchema.nullish(),
   // Fase E PR3.1: CC-Máquina elegido por el comprador (proxy, selector
   // abierto). REQUERIDO en la línea manual. La exigencia es condicional
   // porque este mismo schema resuelve el form al EDITAR una línea heredada
