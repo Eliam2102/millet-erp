@@ -332,7 +332,7 @@ public sealed class DemoSesionSeedTests
         Assert.Equal(7, movimientosCaja.Count);
         Assert.All(movimientosCaja, m => Assert.Equal(sesionCaja.DiaOperacion,
             DateOnly.FromDateTime(Millet.Facturacion.Application.Cajas.Sesiones.DiaOperacion.ALocal(m.CreatedAt, null).DateTime)));
-        Assert.Equal(4, await facturacion.FacturasVenta.CountAsync(f => f.Folio.StartsWith("DEMO-CAJA-")));
+        Assert.Equal(4, await facturacion.FacturasVenta.CountAsync(f => f.Folio.StartsWith("DEMO-C") && f.Folio.Length <= 7));
         var rq = await compras.Requisiciones.Include(r => r.Lineas).SingleAsync(r => r.Descripcion == "DEMO-RQ-MID");
         Assert.Equal(10m, Assert.Single(rq.Lineas).CantidadDeCompra);
         Assert.Equal(oc.Id, rq.ComprometidaEnOcId);

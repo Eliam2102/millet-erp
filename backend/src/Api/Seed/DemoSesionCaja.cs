@@ -18,7 +18,7 @@ namespace Millet.Api.Seed;
 /// queda Cerrada; así no bloquea abrir la sesión de hoy (§5.2).
 ///
 /// <para>
-/// Las facturas son ficticias: folio <c>DEMO-CAJA-*</c>, sin XML ni PDF y con
+/// Las facturas son ficticias: folio <c>DEMO-C*</c> (corto: cabe en la columna del corte en PDF), sin XML ni PDF y con
 /// un UUID simulado (no pasan por el PAC). No publica eventos de integración,
 /// así que CxC no las ve en cartera y Tesorería no proyecta el depósito
 /// esperado de esta sesión; para mostrar ese recorrido se cobra en vivo.
@@ -95,7 +95,7 @@ public sealed partial class DemoSesionSeedHostedService
             var cliente = ClientesSat.Single(x => x.Clave == c.Cliente);
             var receptor = new DatosFiscalesReceptor(cliente.Rfc, cliente.Nombre, "601", cliente.Cp, "G03", "MEX", false);
             var fecha = A(c.Hora);
-            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"DEMO-CAJA-{i + 1:000}", i + 1, mid.Id, caja.Id, CajeraDemoId,
+            var factura = FacturaVenta.CrearBorrador(EmpresaId, $"DEMO-C{i + 1}", i + 1, mid.Id, caja.Id, CajeraDemoId,
                 receptor, emisor, "PUE", c.Pagos[0].Forma, "MXN", null, dia.Year, dia.Month, 1,
                 ComportamientoFiscal.MostradorInmediato, null, null, null, false);
             factura.AgregarLinea(null, "30171700", c.Articulo, "H87", c.Cantidad, c.Precio, 0, "02", .16m, null, null);
