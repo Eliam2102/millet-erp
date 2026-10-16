@@ -312,8 +312,9 @@ export function CapturarFacturaSheet({
         </SheetHeader>
 
         <form
+          id="capturar-factura-form"
           onSubmit={form.handleSubmit(onSubmit)}
-          className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-[260px_1fr]"
+          className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto px-4 lg:grid-cols-[260px_1fr]"
         >
           {/* Columna izquierda: metadata del CFDI seleccionado */}
           <aside className="space-y-2 rounded-md border bg-muted/30 p-3 text-xs">
@@ -682,21 +683,22 @@ export function CapturarFacturaSheet({
                 </p>
               )}
             </div>
-            <SheetFooter className="px-0">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => handleOpenChange(false)}
-                disabled={isPending}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Capturando…' : 'Capturar factura'}
-              </Button>
-            </SheetFooter>
           </div>
         </form>
+
+        <SheetFooter className="px-4">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => handleOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" form="capturar-factura-form" disabled={isPending}>
+            {isPending ? 'Capturando…' : 'Capturar factura'}
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

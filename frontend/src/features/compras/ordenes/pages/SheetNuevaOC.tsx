@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,6 +46,10 @@ import {
   useRequisicionesDisponibles,
   type RequisicionDisponible,
 } from '@/features/compras/ordenes/api/useRequisicionesDisponibles';
+import {
+  sucursalPorDefecto,
+  useSucursalesPermitidas,
+} from '@/features/compras/ordenes/api/useSucursalesPermitidas';
 import {
   applyServerErrors,
   esApiError,
@@ -182,6 +186,22 @@ export function SheetNuevaOC({
     () => mapById(sucursalesQuery.data?.items),
     [sucursalesQuery.data],
   );
+
+  // Default de sucursal destino: con una sola sucursal permitida se
+  // preselecciona una sola vez (si el campo sigue vacío). Con varias
+  // queda vacío y obligatorio (validado en el schema). El ref evita que
+  // al limpiarlo el usuario se vuelva a rellenar solo.
+  const sucursalesPermitidasQuery = useSucursalesPermitidas();
+  const sucursalDefaultAplicada = useRef(false);
+  useEffect(() => {
+    if (sucursalDefaultAplicada.current) return;
+    const defecto = sucursalPorDefecto(sucursalesPermitidasQuery.data ?? []);
+    if (defecto == null) return;
+    sucursalDefaultAplicada.current = true;
+    if (!form.getValues('sucursalDestinoId')) {
+      form.setValue('sucursalDestinoId', defecto, { shouldDirty: false });
+    }
+  }, [sucursalesPermitidasQuery.data, form]);
 
   // Watch fields via useWatch (estable, suscripción granular). El
   // form.watch() de RHF dispara re-renders extra y trigger el lint
@@ -559,6 +579,7 @@ export function SheetNuevaOC({
             render={({ field, fieldState }) => (
               <FieldGroup
                 label="Sucursal destino"
+                required
                 error={fieldState.error?.message}
               >
                 <SucursalSelector
@@ -677,7 +698,7 @@ export function SheetNuevaOC({
                 className="h-4 w-4 rounded border-input"
                 data-field="es-importacion"
               />
-              Es importación (campos de importación se llenan en UF3-PR1)
+              Es importación o exportación (incoterm, país, BL y demás datos se capturan en el detalle de la OC antes de enviarla a autorización)
             </label>
           </FieldGroup>
           <Controller
@@ -746,15 +767,25 @@ export function SheetNuevaOC({
 function FieldGroup({
   label,
   error,
+  required,
   children,
 }: {
   label: string;
   error?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-foreground">{label}</label>
+      <label className="text-xs font-medium text-foreground">
+        {label}
+        {required && (
+          <>
+            <span aria-hidden="true" className="text-destructive"> *</span>
+            <span className="sr-only"> (obligatorio)</span>
+          </>
+        )}
+      </label>
       {children}
       {error && (
         <p className="text-xs text-destructive" role="alert">

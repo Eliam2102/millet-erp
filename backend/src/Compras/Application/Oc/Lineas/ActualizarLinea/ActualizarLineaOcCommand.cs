@@ -29,4 +29,8 @@ public sealed record ActualizarLineaOcCommand(
     // PR3.1: sigue siendo "no tocar" (el PATCH parcial no se rompe), pero el
     // dominio valida el POST-ESTADO: si la línea es manual y queda sin CC,
     // rechaza con LINEA_OC_MANUAL_CENTRO_COSTO_REQUERIDO.
-    Guid? CentroCostoId = null) : IRequest;
+    Guid? CentroCostoId = null,
+    // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Solo OC de comercio exterior.
+    // null = no tocar; LimpiarFraccionArancelaria = true → null.
+    string? FraccionArancelaria = null,
+    bool LimpiarFraccionArancelaria = false) : IRequest;

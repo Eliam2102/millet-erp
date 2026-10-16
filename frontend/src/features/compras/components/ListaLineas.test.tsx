@@ -36,10 +36,9 @@ describe('<ListaLineas>', () => {
     expect(screen.getByText(/sin líneas registradas/i)).toBeInTheDocument();
   });
 
-  it('renderiza tabla con cantidad, UM, precio y cubrimiento', () => {
+  it('renderiza tabla con cantidad, UM y cubrimiento', () => {
     render(<ListaLineas lineas={[makeLinea()]} />);
     expect(screen.getByText('PZA')).toBeInTheDocument();
-    expect(screen.getByText('$100.00')).toBeInTheDocument();
     expect(screen.getAllByText(/10/)[0]).toBeInTheDocument();
   });
 
@@ -102,5 +101,33 @@ describe('<ListaLineas>', () => {
     expect(screen.getByText('MCLC101 — Gantry')).toBeInTheDocument();
     expect(screen.getByText('No catalogado')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('muestra el resumen parcial consolidado (almacén, entregado, OC, recibido, falta)', () => {
+    render(
+      <ListaLineas
+        lineas={[
+          makeLinea({
+            cantDeAlmacen: 3,
+            cantEntregadoDeAlmacen: 2,
+            cantComprometidaEnOc: 5,
+            cantRecibida: 1,
+            cantSaldoPorComprar: 2,
+          }),
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText(
+        'Almacén surte 3 · Entregado 2 · En OC 5 · Recibido 1 · Falta por comprar 2',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('oculta el resumen parcial si el backend no envió el saldo', () => {
+    const { container } = render(<ListaLineas lineas={[makeLinea()]} />);
+    expect(
+      container.querySelector('[data-resumen-parcial]'),
+    ).toBeNull();
   });
 });

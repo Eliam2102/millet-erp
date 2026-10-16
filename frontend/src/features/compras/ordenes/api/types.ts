@@ -96,6 +96,30 @@ export const DescuentoTipo = {
 export type DescuentoTipo =
   (typeof DescuentoTipo)[keyof typeof DescuentoTipo];
 
+/**
+ * Tipo de operación de comercio exterior de la OC. Mirror de
+ * <c>TipoOperacionComercioExterior</c> (enum numérico del backend).
+ */
+// PLATFORM-TODO(<F1-COM-06>): supuesto Vilo, pendiente lista oficial de Millet.
+export const TipoOperacionComercioExterior = {
+  Importacion: 0,
+  Exportacion: 1,
+} as const satisfies Record<string, number>;
+export type TipoOperacionComercioExterior =
+  (typeof TipoOperacionComercioExterior)[keyof typeof TipoOperacionComercioExterior];
+
+/**
+ * Tipo de transporte de la mercancía en comercio exterior. Mirror de
+ * <c>TipoTransporte</c> (enum numérico del backend).
+ */
+// PLATFORM-TODO(<F1-COM-06>): supuesto Vilo, pendiente lista oficial de Millet.
+export const TipoTransporte = {
+  Maritimo: 0,
+  Aereo: 1,
+  Terrestre: 2,
+} as const satisfies Record<string, number>;
+export type TipoTransporte = (typeof TipoTransporte)[keyof typeof TipoTransporte];
+
 // ============================================================================
 // Helpers — número ↔ string legible
 // ============================================================================
@@ -192,6 +216,18 @@ export interface OrdenCompraResumen {
   /** ISO 8601 UTC. */
   fechaDocumento: string;
   referenciaProveedor: string | null;
+  /**
+   * Campos de la bandeja de pendientes de autorización (<c>/pendientes-autorizacion</c>).
+   * Son <c>null</c>/ausentes en las demás proyecciones.
+   */
+  cantidadTotal?: number | null;
+  numeroLineas?: number | null;
+  totalAPagar?: number | null;
+  esMenorCuantia?: boolean | null;
+  esRecurrente?: boolean | null;
+  proveedorConocido?: boolean | null;
+  /** <c>true</c> = la OC aún requiere Dirección (N2) después de N1. */
+  requiereNivel2?: boolean | null;
 }
 
 /**
@@ -278,6 +314,15 @@ export interface OrdenCompraDetalleResponse {
   infoImportCodigoRuta: string | null;
   infoImportSemanaEmbarque: string | null;
   infoImportNumeroPedimento: string | null;
+  // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo, campos de comercio exterior.
+  infoImportTipoOperacion: TipoOperacionComercioExterior | null;
+  infoImportNumeroBl: string | null;
+  infoImportTipoTransporte: TipoTransporte | null;
+  infoImportAgenteAduanalNaviera: string | null;
+  infoImportPuertoAduanaEntrada: string | null;
+  /** Fecha estimada de arribo (ETA) en formato <c>yyyy-MM-dd</c>. */
+  infoImportFechaEstimadaArribo: string | null;
+  infoImportCertificadoOrigen: boolean;
   descuentoGlobalTipo: DescuentoTipo | null;
   descuentoGlobalValor: number | null;
   gastosAdicionales: number;
@@ -382,6 +427,12 @@ export interface LineaOrdenCompraResponse {
   textoAdicional: string | null;
   /** GAP-9 / CA2.10: servicio (artículo `Servicio`); no se recibe en Almacén. */
   esServicio?: boolean;
+  /**
+   * Fracción arancelaria (8 o 10 dígitos). Solo aplica a OC de comercio
+   * exterior; <c>null</c> si no se capturó.
+   */
+  // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo, campo de comercio exterior.
+  fraccionArancelaria: string | null;
 }
 
 /**

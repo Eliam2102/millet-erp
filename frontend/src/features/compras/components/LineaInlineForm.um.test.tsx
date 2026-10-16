@@ -134,14 +134,7 @@ describe('<LineaInlineForm> — herencia de unidad de medida (Bug 2)', () => {
 
     await seleccionarArticulo();
 
-    // cantidad ya viene en 1 (default); fijamos un precio > 0 (Zod lo exige).
-    // El input del monto es el number contiguo al select "Moneda" del MoneyField.
-    const moneda = screen.getByRole('combobox', { name: /moneda/i });
-    const precioInput = moneda.parentElement?.querySelector(
-      'input[type="number"]',
-    ) as HTMLInputElement;
-    fireEvent.change(precioInput, { target: { value: '100' } });
-
+    // cantidad ya viene en 1 (default); el precio estimado no se captura en la RQ.
     fireEvent.click(screen.getByRole('button', { name: /agregar línea/i }));
 
     await waitFor(() => expect(bodyEnviado).not.toBeNull());
@@ -149,7 +142,6 @@ describe('<LineaInlineForm> — herencia de unidad de medida (Bug 2)', () => {
       articuloId: ART_ID,
       unidadMedida: 'LT',
       cantidad: 1,
-      precioEstimadoMonto: 100,
     });
   });
 });

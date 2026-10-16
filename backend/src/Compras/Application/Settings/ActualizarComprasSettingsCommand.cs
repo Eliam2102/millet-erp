@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Domain;
 
 namespace Millet.Compras.Application.Settings;
 
@@ -16,4 +17,5 @@ namespace Millet.Compras.Application.Settings;
 /// Si se provee, sobrescribe el flag. <c>null</c> = no tocar.
 /// </param>
 public sealed record ActualizarComprasSettingsCommand(
-    bool? AutoGenerarOcAlAutorizar = null, bool? ApartarExistenciaAlAutorizar = null) : IRequest<ComprasSettingsResponse>;
+    bool? AutoGenerarOcAlAutorizar = null, bool? ApartarExistenciaAlAutorizar = null,
+    ModoNivel2? ModoNivel2 = null) : IRequest<ComprasSettingsResponse>;

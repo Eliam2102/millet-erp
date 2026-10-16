@@ -22,6 +22,7 @@ using Millet.Identidad.Application;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.SharedKernel.Domain.Exceptions;
 
 namespace Millet.Api.Endpoints.Compras;
 
@@ -171,6 +172,117 @@ public static class RequisicionesEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // S2: autorización masiva desde la bandeja de pendientes. Reutiliza
+        // AutorizarRequisicionCommand por id (mismas validaciones y bifurcación).
+        // El permiso del nivel se valida una vez para el lote; el alcance por
+        // sucursal y los errores de dominio se evalúan por id sin abortar el resto.
+        group.MapPost("/autorizaciones-masivas", async Task<IResult> (
+            [FromBody] AutorizarRequisicionesMasivasRequest request,
+            IMediator mediator,
+            ICurrentUserContext currentUser,
+            ICurrentEmpresaContext currentEmpresa,
+            IPermissionCache permissionCache,
+            IPermissionLoader permissionLoader,
+            ComprasDbContext scopeDb,
+            ICurrentUserPermissions scopePermisos,
+            IUsuarioSucursalReadPort scopeSucursales,
+            ILoggerFactory loggerFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (currentUser.UserId is not Guid userId)
+            {
+                return Results.Unauthorized();
+            }
+            if (currentEmpresa.Current is not Guid empresaId)
+            {
+                throw new ForbiddenException(
+                    "EMPRESA_NO_SELECCIONADA",
+                    "El usuario no tiene una empresa seleccionada en el JWT actual.");
+            }
+
+            var permisoRequerido = request.Nivel switch
+            {
+                NivelAutorizacion.Nivel1 => PermisosCanonicos.ComprasRequisicionesAutorizarNivel1,
+                NivelAutorizacion.Nivel2 => PermisosCanonicos.ComprasRequisicionesAutorizarNivel2,
+                _ => throw new BusinessRuleException(
+                    "NIVEL_INVALIDO",
+                    $"Nivel de autorización inválido: {request.Nivel}."),
+            };
+
+            var permisos = await permissionCache.GetAsync(userId, empresaId, cancellationToken);
+            if (permisos is null)
+            {
+                permisos = await permissionLoader.LoadForUserInEmpresaAsync(userId, empresaId, cancellationToken);
+                await permissionCache.SetAsync(userId, empresaId, permisos, cancellationToken);
+            }
+
+            if (!permisos.Contains(permisoRequerido))
+            {
+                throw new ForbiddenException(
+                    "AUTORIZAR_NIVEL_DENEGADO",
+                    $"El usuario no tiene permiso para autorizar en {request.Nivel}.");
+            }
+
+            if (request.Ids is null || request.Ids.Count is < 1 or > 50)
+            {
+                return Results.Problem(
+                    title: "ids inválidos",
+                    detail: "ids debe contener entre 1 y 50 requisiciones.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var resultados = new List<AutorizacionMasivaItemResultado>(request.Ids.Count);
+            foreach (var id in request.Ids.Distinct())
+            {
+                try
+                {
+                    await RqSucursalScope.VerificarAsync(id, scopeDb, currentUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+                    await mediator.Send(
+                        new AutorizarRequisicionCommand(id, request.Nivel, request.Notas),
+                        cancellationToken);
+                    resultados.Add(new AutorizacionMasivaItemResultado(id, true, null, null));
+                }
+                catch (DomainException ex)
+                {
+                    // Un fallo puede dejar cambios sin guardar en el DbContext
+                    // compartido del request: se descartan para no colarlos en el
+                    // siguiente id del lote.
+                    scopeDb.ChangeTracker.Clear();
+                    resultados.Add(new AutorizacionMasivaItemResultado(id, false, ex.Code, ex.Message));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Fallo no previsto: mismo descarte del DbContext compartido. El detalle
+                    // va solo al log; al cliente se devuelve un mensaje genérico.
+                    scopeDb.ChangeTracker.Clear();
+                    loggerFactory.CreateLogger("RequisicionesEndpoints")
+                        .LogError(ex, "Error inesperado en autorización masiva de la requisición {RequisicionId}", id);
+                    resultados.Add(new AutorizacionMasivaItemResultado(
+                        id,
+                        false,
+                        "ERROR_INESPERADO",
+                        "Ocurrió un error inesperado al autorizar la requisición. Intente de nuevo."));
+                }
+            }
+
+            return Results.Ok(new AutorizacionMasivaResponse(resultados));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization()
+        .WithName("AutorizarRequisicionesMasivas")
+        .WithSummary("Autorización masiva de requisiciones (S2)")
+        .WithDescription(
+            "Registra la firma del nivel indicado para hasta 50 requisiciones. " +
+            "Cada id se procesa con las mismas reglas que `POST /{id}/autorizaciones` " +
+            "y devuelve su resultado (`ok`, `errorCodigo`, `mensaje`) con HTTP 200; " +
+            "un id fallido no aborta el lote. Requiere el permiso del nivel " +
+            "(`compras.requisiciones.autorizar.nivel1` o `nivel2`). Header " +
+            "`Idempotency-Key` obligatorio.")
+        .Produces<AutorizacionMasivaResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // B.4: PATCH cabecera (solo Borrador). Patch parcial: campos null
         // no se modifican; flags limpiarX vacían un nullable.
@@ -576,8 +688,10 @@ public static class RequisicionesEndpoints
         .WithDescription(
             "Atajo a la bandeja general con `estado=EnAutorizacion` fijo. " +
             "Filtros opcionales por `departamentoId` para que un autorizador " +
-            "vea solo las RQs de su área. Paginación offset-based.")
-        .Produces<PagedResponse<RequisicionListItemResponse>>(StatusCodes.Status200OK)
+            "vea solo las RQs de su área. Paginación offset-based. Cada item " +
+            "trae monto estimado, disponibilidad de almacén, recurrencia del " +
+            "requisitante y menor cuantía (S2).")
+        .Produces<PagedResponse<PendienteAutorizacionItemResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -623,6 +737,9 @@ public static class RequisicionesEndpoints
 
     /// <summary>Body del POST /autorizaciones.</summary>
     public sealed record AutorizarRequisicionRequest(NivelAutorizacion Nivel, string? Notas);
+
+    /// <summary>Body del POST /autorizaciones-masivas (S2): 1 a 50 ids.</summary>
+    public sealed record AutorizarRequisicionesMasivasRequest(IReadOnlyList<Guid> Ids, NivelAutorizacion Nivel, string? Notas);
 
     /// <summary>Body común para POST /rechazar y POST /eliminar.</summary>
     public sealed record TerminarRequisicionRequest(Guid MotivoId, string? MotivoTexto);

@@ -18,11 +18,38 @@ namespace Millet.Contabilidad.Application.Catalogo;
 public sealed record CambioCuentaDto(CuentaResponse? Antes, CuentaResponse Despues);
 public sealed record SolicitudCatalogoDto(Guid Id, string Operacion, string Estado, Guid PreparadaPorId,
     string PreparadaPor, DateTimeOffset PreparadaEn, Guid? ResueltaPorId, string? ResueltaPor,
-    DateTimeOffset? ResueltaEn, string? MotivoRechazo, int Version, IReadOnlyList<CambioCuentaDto> Cambios, ImportacionLoteDto? Lote = null)
+    DateTimeOffset? ResueltaEn, string? MotivoRechazo, int Version, IReadOnlyList<CambioCuentaDto> Cambios, ImportacionLoteDto? Lote = null,
+    IReadOnlyDictionary<Guid, string>? Codigos = null)
 {
     internal static SolicitudCatalogoDto De(SolicitudCatalogo s) => new(s.Id, s.Operacion, s.Estado,
         s.PreparadaPorId, s.PreparadaPor, s.PreparadaEn, s.ResueltaPorId, s.ResueltaPor, s.ResueltaEn,
         s.MotivoRechazo, s.Version, JsonSerializer.Deserialize<List<CambioCuentaDto>>(s.CambiosJson, SolicitudesCatalogo.Json)!);
+
+    /// <summary>
+    /// Agrega el código de cada cuenta padre y rubro que aparece en los cambios, para que el antes/después
+    /// no muestre identificadores. Primero resuelve con la propia solicitud (en una importación el padre puede
+    /// ser nuevo) y después con una sola consulta; así sirve también para solicitudes ya guardadas.
+    /// </summary>
+    internal static async Task<List<SolicitudCatalogoDto>> ConCodigosAsync(
+        ContabilidadDbContext db, IEnumerable<SolicitudCatalogoDto> solicitudes, CancellationToken cancellationToken)
+    {
+        var lista = solicitudes.ToList();
+        static IEnumerable<Guid> Referidas(SolicitudCatalogoDto s) => s.Cambios
+            .SelectMany(c => new[] { c.Antes?.PadreId, c.Antes?.RubroId, c.Despues.PadreId, c.Despues.RubroId }).OfType<Guid>();
+        var referidas = lista.SelectMany(Referidas).ToHashSet();
+        if (referidas.Count == 0) return lista;
+        var codigos = lista.SelectMany(s => s.Cambios).Select(c => c.Despues).Where(c => referidas.Contains(c.Id))
+            .GroupBy(c => c.Id).ToDictionary(g => g.Key, g => g.First().Codigo);
+        var faltantes = referidas.Where(id => !codigos.ContainsKey(id)).ToList();
+        if (faltantes.Count > 0)
+            foreach (var c in await db.Cuentas.AsNoTracking().Where(c => faltantes.Contains(c.Id))
+                         .Select(c => new { c.Id, c.Codigo }).ToListAsync(cancellationToken))
+                codigos[c.Id] = c.Codigo;
+        return [.. lista.Select(s => s with
+        {
+            Codigos = Referidas(s).Distinct().Where(codigos.ContainsKey).ToDictionary(id => id, id => codigos[id]),
+        })];
+    }
 }
 
 /// <summary>Ejecuta las mismas reglas en memoria para preparar; solo persiste el catálogo al resolver.</summary>
@@ -114,7 +141,8 @@ public sealed class ListarSolicitudesCatalogoHandler(ContabilidadDbContext db)
         if (request.Estado is { } estado) q = q.Where(s => s.Estado == estado);
         var total = await q.CountAsync(cancellationToken);
         var filas = await q.OrderByDescending(s => s.PreparadaEn).ThenBy(s => s.Id).Skip(request.Offset).Take(request.Limit).ToListAsync(cancellationToken);
-        return new([.. filas.Select(SolicitudCatalogoDto.De)], total, request.Offset, request.Limit);
+        var items = await SolicitudCatalogoDto.ConCodigosAsync(db, filas.Select(SolicitudCatalogoDto.De), cancellationToken);
+        return new(items, total, request.Offset, request.Limit);
     }
 }
 
@@ -189,7 +217,7 @@ public sealed class ResolverSolicitudCatalogoHandler(ContabilidadDbContext db, F
         }
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
-        return SolicitudCatalogoDto.De(s) with { Lote = lote };
+        return (await SolicitudCatalogoDto.ConCodigosAsync(db, [SolicitudCatalogoDto.De(s) with { Lote = lote }], cancellationToken))[0];
     }
 }
 
@@ -200,6 +228,6 @@ public sealed class ObtenerSolicitudCatalogoHandler(ContabilidadDbContext db) : 
     {
         var solicitud = await db.SolicitudesCatalogo.AsNoTracking().FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
             ?? throw new EntityNotFoundException("CONTAB_SOLICITUD_NO_ENCONTRADA", "La solicitud no existe.");
-        return SolicitudCatalogoDto.De(solicitud);
+        return (await SolicitudCatalogoDto.ConCodigosAsync(db, [SolicitudCatalogoDto.De(solicitud)], cancellationToken))[0];
     }
 }

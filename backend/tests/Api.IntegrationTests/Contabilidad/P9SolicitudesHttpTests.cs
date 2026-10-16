@@ -58,6 +58,35 @@ public sealed class P9SolicitudesHttpTests(WebApplicationFactory<Program> factor
     }
 
     [Fact]
+    public async Task El_antes_y_despues_muestra_el_codigo_de_la_cuenta_padre_y_no_su_id()
+    {
+        var suf = Sufijo();
+        try
+        {
+            var contador = await Contador();
+            var daf = await Daf();
+            var raiz = await Pendiente(await contador.PostAsJsonAsync($"{Base}/cuentas", new {
+                codigo = Codigo(suf, "1"), nombre = "FIX raíz", naturaleza = "Deudora", cuentaControl = "Ninguna" }));
+            Assert.Equal(HttpStatusCode.OK, (await Resolver(daf, raiz.GetProperty("solicitudId").GetGuid())).StatusCode);
+            var padreId = raiz.GetProperty("id").GetGuid();
+            var codigoPadre = raiz.GetProperty("codigo").GetString();
+            var hija = await Pendiente(await contador.PostAsJsonAsync($"{Base}/cuentas", new {
+                codigo = Codigo(suf, "1.1"), nombre = "FIX hija", padreId, naturaleza = "Deudora", cuentaControl = "Ninguna" }));
+            var sid = hija.GetProperty("solicitudId").GetGuid();
+            string? CodigoPadre(JsonElement s) => s.GetProperty("codigos").GetProperty(padreId.ToString()).GetString();
+
+            Assert.Equal(codigoPadre, CodigoPadre(await Json(await daf.GetAsync($"{Base}/solicitudes/{sid}"))));
+            var pendientes = await Json(await daf.GetAsync($"{Base}/solicitudes?estado=Pendiente&limit=100"));
+            Assert.Equal(codigoPadre, CodigoPadre(pendientes.GetProperty("items").EnumerateArray()
+                .Single(s => s.GetProperty("id").GetGuid() == sid)));
+            var resuelta = await Resolver(daf, sid);
+            Assert.Equal(HttpStatusCode.OK, resuelta.StatusCode);
+            Assert.Equal(codigoPadre, CodigoPadre(await Json(resuelta)));
+        }
+        finally { await Limpiar(factory.Services, suf); }
+    }
+
+    [Fact]
     public async Task Alta_cambio_baja_y_reactivacion_solo_se_aplican_al_autorizar_y_dejan_bitacora()
     {
         var suf = Sufijo();

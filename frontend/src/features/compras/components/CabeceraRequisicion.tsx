@@ -1,5 +1,6 @@
 import {
   EstadoBadge,
+  EnAlmacenBadge,
   DateTimeDisplay,
 } from '@/components/erp';
 import {
@@ -48,6 +49,10 @@ export function CabeceraRequisicion({
           tipo="requisicion"
           estado={rq.estado}
           situacion={rq.situacionSurtido}
+          className="text-sm"
+        />
+        <EnAlmacenBadge
+          enAlmacen={rq.enAlmacen}
           className="text-sm"
         />
       </header>

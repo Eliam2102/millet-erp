@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -353,7 +354,7 @@ function PanelVigentesTabla({
       items.map((a) => ({
         ...a,
         depto: deptosMap.get(a.departamentoId)?.nombre ?? a.departamentoId,
-        usuario: usuariosMap.get(a.usuarioId)?.nombre ?? a.usuarioId,
+        usuario: nombreUsuarioOGuion(usuariosMap.get(a.usuarioId)?.nombre),
       })),
     [items, deptosMap, usuariosMap],
   );
@@ -547,7 +548,7 @@ function PanelHistoricoTabla({
       items.map((a) => ({
         ...a,
         depto: deptosMap.get(a.departamentoId)?.nombre ?? a.departamentoId,
-        usuario: usuariosMap.get(a.usuarioId)?.nombre ?? a.usuarioId,
+        usuario: nombreUsuarioOGuion(usuariosMap.get(a.usuarioId)?.nombre),
       })),
     [items, deptosMap, usuariosMap],
   );
@@ -684,7 +685,7 @@ function RevocarConfirm({
       : '';
   const user =
     aprobador != null
-      ? (usuariosMap.get(aprobador.usuarioId)?.nombre ?? aprobador.usuarioId)
+      ? nombreUsuarioOGuion(usuariosMap.get(aprobador.usuarioId)?.nombre)
       : '';
 
   return (
