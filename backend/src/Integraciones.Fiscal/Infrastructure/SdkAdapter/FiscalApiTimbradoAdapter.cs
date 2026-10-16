@@ -652,6 +652,13 @@ public sealed partial class FiscalApiTimbradoAdapter : ICfdiTimbradoPort
                 },
             };
         }
+        else if (emisor is not null && (e.Receptor.EsGenerico || EsRfcGenerico(e.Receptor.Rfc)))
+        {
+            // Receptor genérico (XAXX/XEXX): su CP debe ser el LugarExpedicion
+            // (CFDI40149). El emisor sandbox cambió ese lugar, así que el CP
+            // del receptor lo sigue (U1.7, exportación en sandbox, 15-oct).
+            e = e with { Receptor = e.Receptor with { CodigoPostal = e.Emisor.LugarExpedicion } };
+        }
 
         return e;
     }

@@ -646,6 +646,8 @@ public sealed class FiscalApiTimbradoAdapterTests
         var inv = invoices.UltimoCreado!;
         inv.Issuer.Tin.Should().Be("EKU9003173C9"); // el emisor sí
         inv.Recipient.Tin.Should().Be("XEXX010101000"); // el receptor genérico no
+        // …pero su CP sigue al LugarExpedicion del emisor sandbox (CFDI40149).
+        inv.Recipient.ZipCode.Should().Be("42501");
     }
 
     [Fact]
