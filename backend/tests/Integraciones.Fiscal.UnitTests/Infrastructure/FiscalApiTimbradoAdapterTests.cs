@@ -762,15 +762,64 @@ public sealed class FiscalApiTimbradoAdapterTests
         };
         var solicitud = new CancelacionSolicitud(EmpresaId, uuid, "AAA010101AAA", "02");
 
-        (await Adapter(enProceso).CancelarAsync(solicitud, CancellationToken.None))
+        (await Adapter(enProceso, ConfigSandbox()).CancelarAsync(solicitud, CancellationToken.None))
             .Estado.Should().Be(CancelacionEstado.EnProceso);
-        (await Adapter(yaCancelado).CancelarAsync(solicitud, CancellationToken.None))
+        (await Adapter(yaCancelado, ConfigSandbox()).CancelarAsync(solicitud, CancellationToken.None))
             .Estado.Should().Be(CancelacionEstado.Aceptada);
 
         var req = enProceso.UltimaCancelacion!;
         req.InvoiceUuid.Should().Be(uuid);
         req.Rfc.Should().Be("AAA010101AAA");
         req.CancellationReasonCode.Should().Be("02");
+    }
+
+    [Fact]
+    public async Task Cancelar_envia_csd_como_tax_credentials_y_uuid_sustituto()
+    {
+        // Cancelación por valores: sin TaxCredentials FiscalAPI rechaza con
+        // "Debes proporcionar exactamente 2 credenciales fiscales" (U1.7, 15-oct).
+        const string uuid = "AAAAAAAA-1111-2222-3333-444444444444";
+        const string sustituto = "BBBBBBBB-1111-2222-3333-444444444444";
+        var invoices = new FakeInvoiceService
+        {
+            CancelResponse = new ApiResponse<SdkModels.CancelInvoiceResponse>
+            {
+                Succeeded = true,
+                Data = new SdkModels.CancelInvoiceResponse { InvoiceUuids = new() { [uuid] = "201" } },
+            },
+        };
+
+        await Adapter(invoices, ConfigSandbox()).CancelarAsync(
+            new CancelacionSolicitud(EmpresaId, uuid, "AAA010101AAA", "01", sustituto), CancellationToken.None);
+
+        var req = invoices.UltimaCancelacion!;
+        req.CancellationReasonCode.Should().Be("01");
+        req.ReplacementUuid.Should().Be(sustituto);
+        req.TaxCredentials.Should().HaveCount(2);
+        req.TaxCredentials[0].FileType.Should().Be(SdkModels.FileType.CertificateCsd);
+        req.TaxCredentials[0].Base64File.Should().Be("CER_B64");
+        req.TaxCredentials[0].Password.Should().Be("12345678a");
+        req.TaxCredentials[1].FileType.Should().Be(SdkModels.FileType.PrivateKeyCsd);
+        req.TaxCredentials[1].Base64File.Should().Be("KEY_B64");
+        req.TaxCredentials[1].Password.Should().Be("12345678a");
+    }
+
+    [Fact]
+    public async Task Cancelar_sin_csd_configurado_es_error_sin_llamar_al_pac()
+    {
+        var invoices = new FakeInvoiceService();
+        var solicitud = new CancelacionSolicitud(EmpresaId, "uuid-x", "AAA010101AAA", "02");
+
+        var sinCsd = await Adapter(invoices, ConfigSandbox() with { Csd = null })
+            .CancelarAsync(solicitud, CancellationToken.None);
+        var sinConfig = await Adapter(invoices, config: null)
+            .CancelarAsync(solicitud, CancellationToken.None);
+
+        sinCsd.Estado.Should().Be(CancelacionEstado.Error);
+        sinCsd.ErrorMensaje.Should().StartWith("CSD_NO_CONFIGURADO");
+        sinConfig.Estado.Should().Be(CancelacionEstado.Error);
+        sinConfig.ErrorMensaje.Should().StartWith("CSD_NO_CONFIGURADO");
+        invoices.UltimaCancelacion.Should().BeNull(); // nunca llegó al PAC
     }
 
     [Fact]
@@ -785,7 +834,7 @@ public sealed class FiscalApiTimbradoAdapterTests
             },
         };
 
-        var r = await Adapter(invoices).CancelarAsync(
+        var r = await Adapter(invoices, ConfigSandbox()).CancelarAsync(
             new CancelacionSolicitud(EmpresaId, "uuid-x", "AAA010101AAA", "02"), CancellationToken.None);
 
         r.Estado.Should().Be(CancelacionEstado.Error);
