@@ -14,6 +14,12 @@ describe('mensajeErrorTransmision', () => {
     expect(mensajeErrorTransmision(problema('IMPORT_PAIS_REQUERIDO'))).toMatch(/país de origen/i);
   });
 
+  it('traduce OC_FICHA_TECNICA_REQUERIDA a un mensaje legible', () => {
+    expect(mensajeErrorTransmision(problema('OC_FICHA_TECNICA_REQUERIDA'))).toBe(
+      'Adjunta la ficha técnica de la orden antes de enviarla a autorización.',
+    );
+  });
+
   it('para otros códigos devuelve el detail del servidor', () => {
     expect(mensajeErrorTransmision(problema('TRANSMITIR_SIN_LINEAS'))).toBe('Detalle del servidor');
   });

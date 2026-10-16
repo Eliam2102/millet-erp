@@ -25,6 +25,7 @@ import { useRequisicionesDisponibles } from '@/features/compras/ordenes/api/useR
 import type { RequisicionDisponible } from '@/features/compras/ordenes/api/useRequisicionesDisponibles';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 
 /**
  * <c>P5 — Selector de RQs para consolidación N:1</c> (FOC4 cerrado,
@@ -348,7 +349,7 @@ function RenderLista({
                   {depto?.nombre ?? rq.departamentoId}
                 </td>
                 <td className="px-3 py-2 truncate">
-                  {requisitante?.nombre ?? rq.requisitanteId}
+                  {nombreUsuarioOGuion(requisitante?.nombre)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums font-medium">
                   {rq.faltantePorComprar ?? '—'}

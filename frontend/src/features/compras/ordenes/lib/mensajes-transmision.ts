@@ -7,6 +7,8 @@ import { esApiError, mensajeErrorAccion } from '@/lib/api/error';
  * borrador y se exige al transmitir).
  */
 const MENSAJES_TRANSMISION: Readonly<Record<string, string>> = {
+  OC_FICHA_TECNICA_REQUERIDA:
+    'Adjunta la ficha técnica de la orden antes de enviarla a autorización.',
   IMPORT_INCOTERM_REQUERIDO:
     'Falta el incoterm de la operación. Captúralo en la pestaña Información, sub-pestaña Importación, antes de enviar la OC a autorización.',
   IMPORT_PAIS_REQUERIDO:

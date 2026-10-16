@@ -34,6 +34,7 @@ import { useHasPermission, useHasAnyPermission } from '@/lib/auth/useHasPermissi
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import { cn } from '@/lib/utils';
+import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 
 /**
  * <c>P2 Bandeja de pendientes de autorización OC</c> (UF4-PR1).
@@ -116,7 +117,7 @@ export function BandejaPendientesOc() {
   }
 
   function resolverUsuario(id: string): string {
-    return usuariosMap.get(id)?.nombre ?? id.slice(0, 8) + '…';
+    return nombreUsuarioOGuion(usuariosMap.get(id)?.nombre);
   }
 
   const items = query.data?.items ?? [];

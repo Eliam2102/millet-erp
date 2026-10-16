@@ -1,5 +1,6 @@
 import { DateTimeDisplay, EstadoBadge } from '@/components/erp';
 import type { OrdenCompraDetalleResponse } from '@/features/compras/ordenes/api/types';
+import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 
 /**
  * <c>&lt;CabeceraOrdenCompra/&gt;</c> — bloque de información de la
@@ -52,10 +53,12 @@ export function CabeceraOrdenCompra({
             resolverNombre(oc.proveedorId)}
         </Item>
         <Item label="Comprador titular">
-          {resolverNombre(oc.compradorTitularId)}
+          {nombreUsuarioOGuion(
+            oc.compradorNombre ?? resolverNombre(oc.compradorTitularId),
+          )}
         </Item>
         <Item label="Encargado de compras">
-          {resolverNombre(oc.encargadoComprasId)}
+          {nombreUsuarioOGuion(resolverNombre(oc.encargadoComprasId))}
         </Item>
         <Item label="Sucursal destino">
           {resolverNombre(oc.sucursalDestinoId)}
