@@ -6,10 +6,9 @@ namespace Millet.CuentasPorPagar.Domain.Ports.Administracion;
 /// y movimientos de TC en USD.
 ///
 /// <para>
-/// F0-PR1 introduce el contrato + stub <c>NoOpTipoCambioReadPort</c>
-/// (devuelve 1.0 para MXN, valor configurable para otras monedas).
-/// Adapter real cuando Catálogos/Administración expongan
-/// <c>tipos_cambio</c> con histórico.
+/// Adapter real: <c>TipoCambioReadPortAdapter</c> sobre
+/// <c>compartido.tipos_cambio</c> (C1.2). Devuelve <c>null</c> si no hay
+/// TC registrado para la fecha; nunca un valor inventado.
 /// </para>
 /// </summary>
 public interface ITipoCambioReadPort

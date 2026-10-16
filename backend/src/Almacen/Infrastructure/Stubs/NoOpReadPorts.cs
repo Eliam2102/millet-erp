@@ -262,38 +262,9 @@ public sealed class NoOpSucursalReadPort : ISucursalReadPort
 // Compartido.Infrastructure.PublicAdapters.EmpleadoReadAdapter y se
 // registra en Program.cs (doc 10-catalogo-puestos-empleados).
 
-/// <summary>
-/// PLATFORM-TODO(&lt;TipoCambioReadAdapter&gt;): adapter real consultando
-/// <c>catalogos.tipos_cambio</c>. Reemplaza cuando entre F2-PR2
-/// (recepción con multimoneda real). Por ahora devuelve <c>1.0</c> para
-/// MXN y <c>null</c> para cualquier otra moneda — fuerza al handler a
-/// rechazar movimientos en moneda extranjera hasta que el adapter exista.
-/// </summary>
-public sealed class NoOpTipoCambioReadPort : ITipoCambioReadPort
-{
-    private readonly ILogger<NoOpTipoCambioReadPort> _logger;
-
-    public NoOpTipoCambioReadPort(ILogger<NoOpTipoCambioReadPort> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task<decimal?> ObtenerTipoCambioMxnAsync(
-        string monedaOrigen,
-        DateOnly fecha,
-        CancellationToken cancellationToken)
-    {
-        if (string.Equals(monedaOrigen, "MXN", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult<decimal?>(1.0m);
-        }
-
-        _logger.LogDebug(
-            "[NoOpTipoCambioReadPort] moneda={Moneda} fecha={Fecha} → null (stub F0-PR1)",
-            monedaOrigen, fecha);
-        return Task.FromResult<decimal?>(null);
-    }
-}
+// NoOpTipoCambioReadPort retirado en C1.2: el adapter real vive en
+// Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter y se
+// registra en Program.cs.
 
 /// <summary>
 /// PLATFORM-TODO(&lt;ConceptoContableReadAdapter&gt;): adapter real

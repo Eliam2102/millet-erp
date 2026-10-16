@@ -715,9 +715,10 @@ builder.Services.AddScoped<
     Millet.CuentasPorPagar.Infrastructure.PublicAdapters.FiscalCfdiReceiverAdapter>();
 
 // === Módulo Almacén (F0-PR1) ===
-// Foundation: registra los 9 puertos cross-module (Compras OC + Compras RQ +
-// Artículo + Proveedor + Sucursal + Empleado + TipoCambio + ConceptoContable
-// + PeriodoContable) con stubs NoOp* — cada uno con PLATFORM-TODO buscable.
+// Foundation: registra los puertos cross-module (Compras OC + Compras RQ +
+// Artículo + Proveedor + Sucursal + Empleado + ConceptoContable) con stubs
+// NoOp* — cada uno con PLATFORM-TODO buscable. PeriodoContable (C1.2/#54) y
+// TipoCambio (C1.2, abajo) ya usan adapters reales.
 // Las entidades del dominio (Almacen, MovimientoInventario, Saldo, Conteo,
 // Reserva) entran en F1/F2/F3/F7. DbContext + outbox interceptor abajo.
 builder.Services.AddAlmacenModule();
@@ -816,6 +817,11 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.ISucursalReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.SucursalReadAdapter>();
+// C1.2: TC de Almacén desde compartido.tipos_cambio; reemplaza el
+// NoOpTipoCambioReadPort (PLATFORM-TODO <TipoCambioReadAdapter> cerrado).
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.ITipoCambioReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.TipoCambioReadAdapter>();
 
 // IUsuarioReadPort de Almacén → adapter hospedado en Identidad (ADR-0042).
 // Reemplaza el NoOpUsuarioReadPort que registró AddAlmacenModule(). El adapter

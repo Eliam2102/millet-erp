@@ -11,6 +11,9 @@ namespace Millet.Api.Seed;
 
 public sealed partial class DemoSesionSeedHostedService
 {
+    /// <summary>TC USD ficticio de la demo (catálogo y OC en dólares).</summary>
+    public const decimal TipoCambioUsdDemo = 18.4200m;
+
     public static ImportacionRequest CatalogoDemo() => new("DEMO-SESION", "DEMO-catalogo.csv", null,
         ["codigo_origen", "codigo", "nombre", "codigo_padre", "naturaleza", "cuenta_control", "no_afectable_manual"],
         [
@@ -35,6 +38,17 @@ public sealed partial class DemoSesionSeedHostedService
                 tesoreria.CuentasBancarias.Add(new CuentaBancaria(EmpresaId, banco, numeroCuenta, null, moneda));
         }
         await tesoreria.SaveChangesAsync(ct);
+
+        // C1.2: TC USD del día de la preparación (origen Manual) para capturar en CxP con el
+        // TC del catálogo; cualquier otra fecha queda sin TC para mostrar el rechazo.
+        var maestros = sp.GetRequiredService<Millet.Compartido.Infrastructure.Persistence.CompartidoDbContext>();
+        var usd = await maestros.Monedas.SingleAsync(m => m.Codigo == "USD", ct);
+        var hoy = Millet.Facturacion.Application.Cajas.Sesiones.DiaOperacion.HoyLocal(sp.GetRequiredService<IClock>().UtcNow, null);
+        if (!await maestros.TiposCambio.AnyAsync(t => t.MonedaId == usd.Id && t.Fecha == hoy, ct))
+        {
+            maestros.TiposCambio.Add(new Millet.Catalogos.Domain.TipoCambio(Guid.CreateVersion7(), usd.Id, hoy, TipoCambioUsdDemo));
+            await maestros.SaveChangesAsync(ct);
+        }
 
         var db = sp.GetRequiredService<ContabilidadDbContext>();
         if (!await db.Ejercicios.AnyAsync(e => e.EmpresaId == EmpresaId && e.Anio == 2026, ct))
