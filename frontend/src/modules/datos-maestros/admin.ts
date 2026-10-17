@@ -1,4 +1,4 @@
-import { Factory, FileDiff, Layers, Package, Users } from 'lucide-react';
+import { Factory, FileDiff, Landmark, Layers, Package, Users } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -27,6 +27,19 @@ export const datosMaestrosAdminCards: readonly AdminSection[] = [
     href: '/admin/datos-maestros/proveedores',
     permisoRequerido: PermisosCanonicos.DatosMaestrosProveedoresGestionar,
     orden: 20,
+    grupo: 'datos_maestros',
+    displayMode: 'custom',
+  },
+  {
+    // 86e3pdmee: el owner pidió las cuentas de Millet en Datos maestros; viven en Tesorería.
+    id: 'datos-maestros-cuentas-millet',
+    modulo: 'datos_maestros',
+    titulo: 'Cuentas bancarias de Millet',
+    descripcion: 'Cuentas de egreso e ingreso; solo un administrador las inhabilita',
+    icon: Landmark,
+    href: '/tesoreria/cuentas',
+    permisoRequerido: PermisosCanonicos.TesoreriaCuentasVer,
+    orden: 20.5,
     grupo: 'datos_maestros',
     displayMode: 'custom',
   },
