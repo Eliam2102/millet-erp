@@ -36,6 +36,13 @@ export interface DepositosFiltros {
   limit?: number;
 }
 
+export interface DevolucionesFiltros {
+  estado?: number;
+  origen?: number;
+  offset?: number;
+  limit?: number;
+}
+
 export const tesoreriaKeys = {
   all: ['tesoreria'] as const,
 
@@ -70,6 +77,13 @@ export const tesoreriaKeys = {
   depositos: () => [...tesoreriaKeys.all, 'depositos'] as const,
   depositosList: (filtros: DepositosFiltros) =>
     [...tesoreriaKeys.depositos(), 'list', filtros] as const,
+
+  // Devoluciones a clientes (T9.6)
+  devoluciones: () => [...tesoreriaKeys.all, 'devoluciones'] as const,
+  devolucionesList: (filtros: DevolucionesFiltros) =>
+    [...tesoreriaKeys.devoluciones(), 'list', filtros] as const,
+  devolucion: (id: string) => [...tesoreriaKeys.devoluciones(), 'byId', id] as const,
+  clientesLookup: (texto: string) => [...tesoreriaKeys.all, 'clientes-lookup', texto] as const,
 
   // REPP recibido de proveedor (TES-FE-PR6b)
   repp: () => [...tesoreriaKeys.all, 'repp'] as const,

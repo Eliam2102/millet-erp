@@ -5,6 +5,7 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Tesoreria.Domain.Corridas;
 using Millet.Tesoreria.Domain.Cuentas;
 using Millet.Tesoreria.Domain.Depositos;
+using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Eventos;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Pasivos;
@@ -54,6 +55,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
 
     /// <summary>Confirmaciones de depósito de cliente — patrón propuesta/confirmación con CxC (PR-7).</summary>
     public DbSet<DepositoConfirmacion> DepositosConfirmacion => Set<DepositoConfirmacion>();
+    public DbSet<DevolucionCliente> DevolucionesCliente => Set<DevolucionCliente>();
 
     /// <summary>REPP recibidos de proveedor — registro inmutable (PR-8).</summary>
     public DbSet<ReppPagoProveedor> ReppPagosProveedor => Set<ReppPagoProveedor>();
@@ -85,6 +87,7 @@ public sealed class TesoreriaDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new CorridaPagoConfiguration());
         modelBuilder.ApplyConfiguration(new CorridaPagoLineaConfiguration());
         modelBuilder.ApplyConfiguration(new DepositoConfirmacionConfiguration());
+        modelBuilder.ApplyConfiguration(new DevolucionClienteConfiguration());
         modelBuilder.ApplyConfiguration(new ReppProveedorRecibidoConfiguration());
         modelBuilder.Entity<ReppPagoProveedor>(b =>
         {

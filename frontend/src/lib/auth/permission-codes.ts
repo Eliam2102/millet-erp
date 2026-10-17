@@ -360,6 +360,10 @@ export const PermisosCanonicos = {
     'tesoreria.pasivos.solicitar-cancelacion',
   TesoreriaPasivosVer: 'tesoreria.pasivos.ver',
   TesoreriaReportesVer: 'tesoreria.reportes.ver',
+  TesoreriaDevolucionesVer: 'tesoreria.devoluciones.ver',
+  TesoreriaDevolucionesSolicitar: 'tesoreria.devoluciones.solicitar',
+  TesoreriaDevolucionesAutorizar: 'tesoreria.devoluciones.autorizar',
+  TesoreriaDevolucionesPagar: 'tesoreria.devoluciones.pagar',
 
   // Facturación — CFDI 4.0 emitido. Mirror manual de backend
   // PermisosCanonicos.cs §"Facturación" (namespace GUID 00000009-*). 24
@@ -385,6 +389,7 @@ export const PermisosCanonicos = {
   FacturacionNotasCreditoBonificacion:
     'facturacion.notas-credito.bonificacion-emitir',
   FacturacionNotasCreditoLeer: 'facturacion.notas-credito.leer',
+  FacturacionNotasCreditoReembolsoSolicitar: 'facturacion.notas-credito.reembolso-solicitar',
   FacturacionCartaPorteEmitir: 'facturacion.carta-porte.emitir',
   FacturacionCartaPorteLeer: 'facturacion.carta-porte.leer',
   FacturacionReppEmitir: 'facturacion.repp.emitir',

@@ -236,6 +236,10 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'tesoreria.pasivos.solicitar-cancelacion',
   'tesoreria.pasivos.ver',
   'tesoreria.reportes.ver',
+  'tesoreria.devoluciones.ver',
+  'tesoreria.devoluciones.solicitar',
+  'tesoreria.devoluciones.autorizar',
+  'tesoreria.devoluciones.pagar',
   // Facturación — CFDI 4.0 emitido (FE-F0+). Mirror del backend
   // §"Facturación" (namespace GUID 00000009-*). 24 permisos.
   'facturacion.pedidos.importar',
@@ -250,6 +254,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'facturacion.anticipos.leer',
   'facturacion.notas-credito.bonificacion-emitir',
   'facturacion.notas-credito.leer',
+  'facturacion.notas-credito.reembolso-solicitar',
   'facturacion.carta-porte.emitir',
   'facturacion.carta-porte.leer',
   'facturacion.repp.emitir',

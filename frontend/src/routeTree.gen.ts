@@ -143,6 +143,8 @@ import { Route as AppTesoreriaConciliacionIndexRouteImport } from './routes/_app
 import { Route as AppTesoreriaCorridasIndexRouteImport } from './routes/_app/tesoreria/corridas/index';
 import { Route as AppTesoreriaCuentasIndexRouteImport } from './routes/_app/tesoreria/cuentas/index';
 import { Route as AppTesoreriaDepositosIndexRouteImport } from './routes/_app/tesoreria/depositos/index';
+import { Route as AppTesoreriaDevolucionesIndexRouteImport } from './routes/_app/tesoreria/devoluciones/index';
+import { Route as AppTesoreriaDevolucionesIdRouteImport } from './routes/_app/tesoreria/devoluciones/$id';
 import { Route as AppTesoreriaMovimientosIndexRouteImport } from './routes/_app/tesoreria/movimientos/index';
 import { Route as AppTesoreriaMovimientosIdRouteImport } from './routes/_app/tesoreria/movimientos/$id';
 import { Route as AppTesoreriaPagosCuentaIndexRouteImport } from './routes/_app/tesoreria/pagos-cuenta/index';
@@ -904,6 +906,18 @@ const AppTesoreriaDepositosIndexRoute =
     path: '/tesoreria/depositos/',
     getParentRoute: () => AppRoute,
   } as any);
+const AppTesoreriaDevolucionesIndexRoute =
+  AppTesoreriaDevolucionesIndexRouteImport.update({
+    id: '/tesoreria/devoluciones/',
+    path: '/tesoreria/devoluciones/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppTesoreriaDevolucionesIdRoute =
+  AppTesoreriaDevolucionesIdRouteImport.update({
+    id: '/tesoreria/devoluciones/$id',
+    path: '/tesoreria/devoluciones/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppTesoreriaMovimientosIndexRoute =
   AppTesoreriaMovimientosIndexRouteImport.update({
     id: '/tesoreria/movimientos/',
@@ -1229,6 +1243,7 @@ export interface FileRoutesByFullPath {
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
+  '/tesoreria/devoluciones/$id': typeof AppTesoreriaDevolucionesIdRoute;
   '/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
   '/tesoreria/reportes/flujo-efectivo': typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -1280,6 +1295,7 @@ export interface FileRoutesByFullPath {
   '/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
   '/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
   '/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
+  '/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
   '/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
   '/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
@@ -1404,6 +1420,7 @@ export interface FileRoutesByTo {
   '/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
+  '/tesoreria/devoluciones/$id': typeof AppTesoreriaDevolucionesIdRoute;
   '/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
   '/tesoreria/reportes/flujo-efectivo': typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -1455,6 +1472,7 @@ export interface FileRoutesByTo {
   '/tesoreria/corridas': typeof AppTesoreriaCorridasIndexRoute;
   '/tesoreria/cuentas': typeof AppTesoreriaCuentasIndexRoute;
   '/tesoreria/depositos': typeof AppTesoreriaDepositosIndexRoute;
+  '/tesoreria/devoluciones': typeof AppTesoreriaDevolucionesIndexRoute;
   '/tesoreria/movimientos': typeof AppTesoreriaMovimientosIndexRoute;
   '/tesoreria/pagos-cuenta': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/tesoreria/pagos': typeof AppTesoreriaPagosIndexRoute;
@@ -1581,6 +1599,7 @@ export interface FileRoutesById {
   '/_app/facturacion/reportes/liquidacion-caja': typeof AppFacturacionReportesLiquidacionCajaRoute;
   '/_app/facturacion/repp/$id': typeof AppFacturacionReppIdRoute;
   '/_app/facturacion/repp/pendientes': typeof AppFacturacionReppPendientesRoute;
+  '/_app/tesoreria/devoluciones/$id': typeof AppTesoreriaDevolucionesIdRoute;
   '/_app/tesoreria/movimientos/$id': typeof AppTesoreriaMovimientosIdRoute;
   '/_app/tesoreria/reportes/auxiliar-bancos': typeof AppTesoreriaReportesAuxiliarBancosRoute;
   '/_app/tesoreria/reportes/flujo-efectivo': typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -1632,6 +1651,7 @@ export interface FileRoutesById {
   '/_app/tesoreria/corridas/': typeof AppTesoreriaCorridasIndexRoute;
   '/_app/tesoreria/cuentas/': typeof AppTesoreriaCuentasIndexRoute;
   '/_app/tesoreria/depositos/': typeof AppTesoreriaDepositosIndexRoute;
+  '/_app/tesoreria/devoluciones/': typeof AppTesoreriaDevolucionesIndexRoute;
   '/_app/tesoreria/movimientos/': typeof AppTesoreriaMovimientosIndexRoute;
   '/_app/tesoreria/pagos-cuenta/': typeof AppTesoreriaPagosCuentaIndexRoute;
   '/_app/tesoreria/pagos/': typeof AppTesoreriaPagosIndexRoute;
@@ -1758,6 +1778,7 @@ export interface FileRouteTypes {
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
+    | '/tesoreria/devoluciones/$id'
     | '/tesoreria/movimientos/$id'
     | '/tesoreria/reportes/auxiliar-bancos'
     | '/tesoreria/reportes/flujo-efectivo'
@@ -1809,6 +1830,7 @@ export interface FileRouteTypes {
     | '/tesoreria/corridas/'
     | '/tesoreria/cuentas/'
     | '/tesoreria/depositos/'
+    | '/tesoreria/devoluciones/'
     | '/tesoreria/movimientos/'
     | '/tesoreria/pagos-cuenta/'
     | '/tesoreria/pagos/'
@@ -1933,6 +1955,7 @@ export interface FileRouteTypes {
     | '/facturacion/reportes/liquidacion-caja'
     | '/facturacion/repp/$id'
     | '/facturacion/repp/pendientes'
+    | '/tesoreria/devoluciones/$id'
     | '/tesoreria/movimientos/$id'
     | '/tesoreria/reportes/auxiliar-bancos'
     | '/tesoreria/reportes/flujo-efectivo'
@@ -1984,6 +2007,7 @@ export interface FileRouteTypes {
     | '/tesoreria/corridas'
     | '/tesoreria/cuentas'
     | '/tesoreria/depositos'
+    | '/tesoreria/devoluciones'
     | '/tesoreria/movimientos'
     | '/tesoreria/pagos-cuenta'
     | '/tesoreria/pagos'
@@ -2109,6 +2133,7 @@ export interface FileRouteTypes {
     | '/_app/facturacion/reportes/liquidacion-caja'
     | '/_app/facturacion/repp/$id'
     | '/_app/facturacion/repp/pendientes'
+    | '/_app/tesoreria/devoluciones/$id'
     | '/_app/tesoreria/movimientos/$id'
     | '/_app/tesoreria/reportes/auxiliar-bancos'
     | '/_app/tesoreria/reportes/flujo-efectivo'
@@ -2160,6 +2185,7 @@ export interface FileRouteTypes {
     | '/_app/tesoreria/corridas/'
     | '/_app/tesoreria/cuentas/'
     | '/_app/tesoreria/depositos/'
+    | '/_app/tesoreria/devoluciones/'
     | '/_app/tesoreria/movimientos/'
     | '/_app/tesoreria/pagos-cuenta/'
     | '/_app/tesoreria/pagos/'
@@ -3144,6 +3170,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTesoreriaDepositosIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/tesoreria/devoluciones/': {
+      id: '/_app/tesoreria/devoluciones/';
+      path: '/tesoreria/devoluciones';
+      fullPath: '/tesoreria/devoluciones/';
+      preLoaderRoute: typeof AppTesoreriaDevolucionesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/tesoreria/devoluciones/$id': {
+      id: '/_app/tesoreria/devoluciones/$id';
+      path: '/tesoreria/devoluciones/$id';
+      fullPath: '/tesoreria/devoluciones/$id';
+      preLoaderRoute: typeof AppTesoreriaDevolucionesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/tesoreria/movimientos/': {
       id: '/_app/tesoreria/movimientos/';
       path: '/tesoreria/movimientos';
@@ -3529,6 +3569,7 @@ interface AppRouteChildren {
   AppFacturacionReportesLiquidacionCajaRoute: typeof AppFacturacionReportesLiquidacionCajaRoute;
   AppFacturacionReppIdRoute: typeof AppFacturacionReppIdRoute;
   AppFacturacionReppPendientesRoute: typeof AppFacturacionReppPendientesRoute;
+  AppTesoreriaDevolucionesIdRoute: typeof AppTesoreriaDevolucionesIdRoute;
   AppTesoreriaMovimientosIdRoute: typeof AppTesoreriaMovimientosIdRoute;
   AppTesoreriaReportesAuxiliarBancosRoute: typeof AppTesoreriaReportesAuxiliarBancosRoute;
   AppTesoreriaReportesFlujoEfectivoRoute: typeof AppTesoreriaReportesFlujoEfectivoRoute;
@@ -3580,6 +3621,7 @@ interface AppRouteChildren {
   AppTesoreriaCorridasIndexRoute: typeof AppTesoreriaCorridasIndexRoute;
   AppTesoreriaCuentasIndexRoute: typeof AppTesoreriaCuentasIndexRoute;
   AppTesoreriaDepositosIndexRoute: typeof AppTesoreriaDepositosIndexRoute;
+  AppTesoreriaDevolucionesIndexRoute: typeof AppTesoreriaDevolucionesIndexRoute;
   AppTesoreriaMovimientosIndexRoute: typeof AppTesoreriaMovimientosIndexRoute;
   AppTesoreriaPagosCuentaIndexRoute: typeof AppTesoreriaPagosCuentaIndexRoute;
   AppTesoreriaPagosIndexRoute: typeof AppTesoreriaPagosIndexRoute;
@@ -3707,6 +3749,7 @@ const AppRouteChildren: AppRouteChildren = {
     AppFacturacionReportesLiquidacionCajaRoute,
   AppFacturacionReppIdRoute: AppFacturacionReppIdRoute,
   AppFacturacionReppPendientesRoute: AppFacturacionReppPendientesRoute,
+  AppTesoreriaDevolucionesIdRoute: AppTesoreriaDevolucionesIdRoute,
   AppTesoreriaMovimientosIdRoute: AppTesoreriaMovimientosIdRoute,
   AppTesoreriaReportesAuxiliarBancosRoute:
     AppTesoreriaReportesAuxiliarBancosRoute,
@@ -3761,6 +3804,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTesoreriaCorridasIndexRoute: AppTesoreriaCorridasIndexRoute,
   AppTesoreriaCuentasIndexRoute: AppTesoreriaCuentasIndexRoute,
   AppTesoreriaDepositosIndexRoute: AppTesoreriaDepositosIndexRoute,
+  AppTesoreriaDevolucionesIndexRoute: AppTesoreriaDevolucionesIndexRoute,
   AppTesoreriaMovimientosIndexRoute: AppTesoreriaMovimientosIndexRoute,
   AppTesoreriaPagosCuentaIndexRoute: AppTesoreriaPagosCuentaIndexRoute,
   AppTesoreriaPagosIndexRoute: AppTesoreriaPagosIndexRoute,

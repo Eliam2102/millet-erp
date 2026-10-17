@@ -40,6 +40,7 @@ import {
   ShoppingCart,
   Sliders,
   Truck,
+  Undo2,
   Unlock,
   Upload,
   Users,
@@ -545,6 +546,19 @@ const moduloTesoreria: NavModulo = {
           permissionsAny: [
             PermisosCanonicos.TesoreriaDepositosConfirmar,
             PermisosCanonicos.TesoreriaDepositosRechazar,
+          ],
+        },
+        {
+          label: 'Devoluciones a clientes',
+          description:
+            'Depósitos erróneos y reembolsos de notas de crédito: autorizar y pagar con contramovimiento ligado.',
+          to: '/tesoreria/devoluciones',
+          icon: Undo2,
+          permissionsAny: [
+            PermisosCanonicos.TesoreriaDevolucionesVer,
+            PermisosCanonicos.TesoreriaDevolucionesSolicitar,
+            PermisosCanonicos.TesoreriaDevolucionesAutorizar,
+            PermisosCanonicos.TesoreriaDevolucionesPagar,
           ],
         },
         {

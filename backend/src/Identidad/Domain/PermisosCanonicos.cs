@@ -435,6 +435,7 @@ public static class PermisosCanonicos
     public const string FacturacionAnticiposLeer               = "facturacion.anticipos.leer";
     public const string FacturacionNotasCreditoBonificacion    = "facturacion.notas-credito.bonificacion-emitir";
     public const string FacturacionNotasCreditoLeer            = "facturacion.notas-credito.leer";
+    public const string FacturacionNotasCreditoReembolsoSolicitar = "facturacion.notas-credito.reembolso-solicitar";
     public const string FacturacionCartaPorteEmitir            = "facturacion.carta-porte.emitir";
     public const string FacturacionCartaPorteLeer              = "facturacion.carta-porte.leer";
     public const string FacturacionReppEmitir                  = "facturacion.repp.emitir";
@@ -502,6 +503,11 @@ public static class PermisosCanonicos
     // debe exigir el permiso de ejecución `tesoreria.pagos.aplicar`.
     public const string TesoreriaPasivosVer                     = "tesoreria.pasivos.ver";
     public const string TesoreriaReportesVer                    = "tesoreria.reportes.ver";
+    // T9.6 (86e3jvvh7): devoluciones de dinero a clientes (depósito erróneo y reembolso de NC).
+    public const string TesoreriaDevolucionesVer                = "tesoreria.devoluciones.ver";
+    public const string TesoreriaDevolucionesSolicitar          = "tesoreria.devoluciones.solicitar";
+    public const string TesoreriaDevolucionesAutorizar          = "tesoreria.devoluciones.autorizar";
+    public const string TesoreriaDevolucionesPagar              = "tesoreria.devoluciones.pagar";
 
     // ----- Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4) -----
     // Namespace GUID 0000000c-* reservado para el módulo Centros de Costo.
@@ -810,6 +816,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000009-0003-0000-0000-000000000003"), FacturacionAnticiposLeer,               "Consultar el Control de Anticipos (saldos por cliente)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000001"), FacturacionNotasCreditoBonificacion,    "Emitir notas de crédito por bonificación (relación 01)"),
         (Guid.Parse("00000009-0004-0000-0000-000000000002"), FacturacionNotasCreditoLeer,            "Consultar notas de crédito emitidas"),
+        (Guid.Parse("00000009-0004-0000-0000-000000000003"), FacturacionNotasCreditoReembolsoSolicitar, "Solicitar a Tesorería el reembolso en dinero de una nota de crédito timbrada"),
         (Guid.Parse("00000009-0005-0000-0000-000000000001"), FacturacionCartaPorteEmitir,            "Emitir Carta Porte 3.1 (CFDI tipo T o I), incluyendo tramos siguientes"),
         (Guid.Parse("00000009-0005-0000-0000-000000000002"), FacturacionCartaPorteLeer,              "Consultar Carta Portes emitidas"),
         (Guid.Parse("00000009-0006-0000-0000-000000000001"), FacturacionReppEmitir,                  "Emitir complementos de pago (REPP / Pago 2.0)"),
@@ -856,6 +863,10 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000b-0009-0000-0000-000000000001"), TesoreriaPasivosSolicitarCancelacion,  "Solicitar a CxP la cancelación de un pasivo desde la bandeja"),
         (Guid.Parse("0000000b-0009-0000-0000-000000000002"), TesoreriaPasivosVer,                   "Consultar la bandeja de pasivos autorizados pendientes de pago"),
         (Guid.Parse("0000000b-000a-0000-0000-000000000001"), TesoreriaReportesVer,                  "Consultar los reportes del módulo Tesorería (flujo de efectivo, auxiliares)"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000001"), TesoreriaDevolucionesVer, "Consultar devoluciones de dinero a clientes"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000002"), TesoreriaDevolucionesSolicitar, "Solicitar, editar y cancelar devoluciones de dinero a clientes por depósito erróneo"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000003"), TesoreriaDevolucionesAutorizar, "Autorizar o rechazar devoluciones de dinero a clientes (Gerente o Jefe de Tesorería)"),
+        (Guid.Parse("0000000b-000b-0000-0000-000000000004"), TesoreriaDevolucionesPagar, "Registrar el pago de devoluciones autorizadas con su contramovimiento ligado"),
 
         // Centros de Costo (CECO-A1; modelo Dim desde CECO-PR4). Namespace 0000000c-*.
         (Guid.Parse("0000000c-0001-0000-0000-000000000001"), CentrosCostoCatalogoLeer,                "Consultar el catálogo de centros de costo (árboles, niveles y grupos)"),

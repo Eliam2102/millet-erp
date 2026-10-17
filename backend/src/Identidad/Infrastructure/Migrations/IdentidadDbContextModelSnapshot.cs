@@ -3545,6 +3545,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000009-0004-0000-0000-000000000003"),
+                            Accion = "reembolso-solicitar",
+                            Codigo = "facturacion.notas-credito.reembolso-solicitar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Solicitar a Tesorería el reembolso en dinero de una nota de crédito timbrada",
+                            Modulo = "facturacion",
+                            Recurso = "notas-credito",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000009-0005-0000-0000-000000000001"),
                             Accion = "emitir",
                             Codigo = "facturacion.carta-porte.emitir",
@@ -4127,6 +4141,62 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Descripcion = "Consultar los reportes del módulo Tesorería (flujo de efectivo, auxiliares)",
                             Modulo = "tesoreria",
                             Recurso = "reportes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000b-0000-0000-000000000001"),
+                            Accion = "ver",
+                            Codigo = "tesoreria.devoluciones.ver",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar devoluciones de dinero a clientes",
+                            Modulo = "tesoreria",
+                            Recurso = "devoluciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000b-0000-0000-000000000002"),
+                            Accion = "solicitar",
+                            Codigo = "tesoreria.devoluciones.solicitar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Solicitar, editar y cancelar devoluciones de dinero a clientes por depósito erróneo",
+                            Modulo = "tesoreria",
+                            Recurso = "devoluciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000b-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "tesoreria.devoluciones.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar o rechazar devoluciones de dinero a clientes (Gerente o Jefe de Tesorería)",
+                            Modulo = "tesoreria",
+                            Recurso = "devoluciones",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000b-000b-0000-0000-000000000004"),
+                            Accion = "pagar",
+                            Codigo = "tesoreria.devoluciones.pagar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Registrar el pago de devoluciones autorizadas con su contramovimiento ligado",
+                            Modulo = "tesoreria",
+                            Recurso = "devoluciones",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

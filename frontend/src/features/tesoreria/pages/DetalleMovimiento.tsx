@@ -3,7 +3,7 @@ import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { ReclasificarMovimiento } from '../components/ReclasificarMovimiento';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ArrowRightLeft, RotateCcw, X } from 'lucide-react';
+import { ArrowRightLeft, RotateCcw, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
@@ -15,7 +15,8 @@ import {
   SentidoBadge,
 } from '@/features/tesoreria/components/Badges';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
-import { BENEFICIARIO_TIPO_LABELS } from '@/features/tesoreria/api/types';
+import { BENEFICIARIO_TIPO_LABELS, SentidoMovimiento } from '@/features/tesoreria/api/types';
+import { SolicitarDevolucionDialog } from '@/features/tesoreria/components/SolicitarDevolucionDialog';
 import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -38,7 +39,9 @@ export function DetalleMovimiento({ id }: { id: string }) {
   const keyFor = useBodyScopedIdempotencyKey();
   const puedeRevertir = useHasPermission(PermisosCanonicos.TesoreriaPagosRevertir);
 
+  const puedeSolicitarDevolucion = useHasPermission(PermisosCanonicos.TesoreriaDevolucionesSolicitar);
   const [revirtiendo, setRevirtiendo] = useState<AplicacionMovimientoDto | null>(null);
+  const [solicitandoDevolucion, setSolicitandoDevolucion] = useState(false);
 
   function confirmarReversa(motivo: string) {
     if (revirtiendo == null) return;
@@ -114,14 +117,22 @@ export function DetalleMovimiento({ id }: { id: string }) {
           </span>
           <SentidoBadge sentido={m.sentido} />
         </h1>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Cerrar"
-          onClick={() => navigate({ to: '/tesoreria/movimientos' })}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {puedeSolicitarDevolucion && m.sentido === SentidoMovimiento.Ingreso && m.contramovimientoDe == null && (
+            <Button variant="outline" size="sm" onClick={() => setSolicitandoDevolucion(true)}>
+              <Undo2 className="mr-1 h-3 w-3" aria-hidden="true" />
+              Solicitar devolución
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Cerrar"
+            onClick={() => navigate({ to: '/tesoreria/movimientos' })}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-md border p-4 text-sm md:grid-cols-3">
@@ -290,6 +301,18 @@ export function DetalleMovimiento({ id }: { id: string }) {
           </ul>
         </section>
       )}
+
+      <SolicitarDevolucionDialog
+        movimiento={{
+          id: m.id,
+          monto: m.monto,
+          moneda: m.moneda,
+          beneficiarioTipo: m.beneficiarioTipo ?? null,
+          beneficiarioRef: m.beneficiarioRef ?? null,
+        }}
+        abierto={solicitandoDevolucion}
+        onCerrar={() => setSolicitandoDevolucion(false)}
+      />
 
       <MotivoDialog
         open={revirtiendo != null}
