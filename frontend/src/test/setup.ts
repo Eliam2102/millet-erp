@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { mswServer } from '@/test/mocks/server';
+import { configure } from '@testing-library/react';
+
+// findBy*/waitFor esperan 3 s (1 s por defecto) para no fallar por carga de la máquina.
+configure({ asyncUtilTimeout: 3000 });
 
 /**
  * Polyfills de jsdom para componentes basados en <c>cmdk</c>/Radix

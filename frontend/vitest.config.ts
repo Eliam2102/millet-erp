@@ -24,6 +24,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // La suite completa (2400+ pruebas) corre en paralelo: con la máquina cargada los 5 s por
+    // defecto daban timeouts intermitentes en smokes con MSW. Una prueba rota sigue fallando.
+    testTimeout: 15_000,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist', '.git'],
     coverage: {
