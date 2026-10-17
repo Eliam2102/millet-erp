@@ -32,7 +32,7 @@ export function CabeceraRequisicion({
   return (
     <section className="rounded-md border bg-card p-4">
 
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2 lg:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm @lg:grid-cols-2 @3xl:grid-cols-3">
         <Item label="Solicitada">
           <DateTimeDisplay value={rq.fechaSolicitud} variant="long" />
         </Item>

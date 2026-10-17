@@ -136,7 +136,9 @@ export function OrdenesCompraLayout({
       {/* ── Master (lista) ────────────────────────────── */}
       <aside
         className={cn(
-          'flex flex-col gap-3 md:w-80 md:shrink-0 md:overflow-hidden',
+          'flex flex-col gap-3 md:shrink-0 md:overflow-hidden',
+          // Con detalle abierto la lista se estrecha bajo 2xl (el panel decide).
+          idActivo != null ? 'md:w-64 2xl:w-80' : 'md:w-80',
           idActivo != null ? 'hidden md:flex' : 'flex',
         )}
         aria-label="Lista de órdenes de compra"
@@ -172,7 +174,7 @@ export function OrdenesCompraLayout({
       {/* ── Detail panel ──────────────────────────────── */}
       <section
         className={cn(
-          'min-w-0 flex-1 md:overflow-y-auto',
+          '@container min-w-0 flex-1 md:overflow-y-auto',
           idActivo == null ? 'hidden md:block' : 'block',
         )}
         aria-label="Detalle de orden de compra"

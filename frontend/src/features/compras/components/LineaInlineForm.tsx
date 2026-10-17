@@ -287,12 +287,12 @@ export function LineaInlineForm({
       aria-label={esEditar ? `Editar línea ${linea?.posicion}` : 'Agregar línea'}
     >
       {/* ── Fila 1: campos críticos ─────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
+      <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @3xl:grid-cols-12">
         <Field
           label="Artículo"
           required
           error={form.formState.errors.articuloId?.message}
-          className="md:col-span-4"
+          className="@lg:col-span-3 @3xl:col-span-5"
         >
           {(c) => (
           <Controller
@@ -330,7 +330,7 @@ export function LineaInlineForm({
           label="Cantidad"
           required
           error={form.formState.errors.cantidad?.message}
-          className="md:col-span-2"
+          className="@3xl:col-span-2"
         >
           {(c) => (
           <Controller
@@ -353,7 +353,7 @@ export function LineaInlineForm({
           label="Unidad"
           required
           error={form.formState.errors.unidadMedida?.message}
-          className="md:col-span-1"
+          className="@3xl:col-span-2"
         >
           {/* Read-only (NO disabled): la UM se hereda del artículo. Con
               readOnly el valor sigue registrado y viaja en el submit;
@@ -376,7 +376,7 @@ export function LineaInlineForm({
         <Field
           label="Fecha"
           error={form.formState.errors.fechaRequerida?.message}
-          className="md:col-span-2"
+          className="@3xl:col-span-3"
         >
           {(c) => (
           <Controller
@@ -486,7 +486,7 @@ export function LineaInlineForm({
 
       {/* ── Fila 2 (expandible): campos opcionales ───────────────── */}
       {detallesAbiertos && (
-        <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-3 @lg:grid-cols-3">
           {/* Cuenta contable: oculta (Q2, UX-F2-COM-02). La RQ no la captura; Contabilidad
               la hereda del centro de costo/artículo y el schema acepta vacío. */}
           <Field
@@ -503,7 +503,7 @@ export function LineaInlineForm({
             )}
           </Field>
 
-          <div className="md:col-span-3">
+          <div className="@lg:col-span-3">
             <Field
               label="Notas"
               error={form.formState.errors.notas?.message}

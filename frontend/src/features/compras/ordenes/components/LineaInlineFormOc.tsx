@@ -352,12 +352,12 @@ export function LineaInlineFormOc({
       )}
 
       {/* ── Fila 1: campos críticos ─────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
+      <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @3xl:grid-cols-12">
         <Field
           label="Artículo"
           required
           error={form.formState.errors.articuloId?.message}
-          className="md:col-span-4"
+          className="@lg:col-span-3 @3xl:col-span-4"
         >
           {(c) => (
           <Controller
@@ -396,7 +396,7 @@ export function LineaInlineFormOc({
           label="Cantidad"
           required
           error={form.formState.errors.cantidad?.message}
-          className="md:col-span-2"
+          className="@3xl:col-span-2"
         >
           {(c) => (
           <Controller
@@ -420,7 +420,7 @@ export function LineaInlineFormOc({
           label="UM"
           required
           error={form.formState.errors.unidadMedida?.message}
-          className="md:col-span-1"
+          className="@3xl:col-span-1"
         >
           {/* Read-only (NO disabled): la UM se hereda del artículo. Con
               readOnly el valor sigue registrado y viaja en el submit;
@@ -446,7 +446,7 @@ export function LineaInlineFormOc({
           label="Precio"
           required
           error={form.formState.errors.precioUnitario?.message}
-          className="md:col-span-3"
+          className="@3xl:col-span-3"
         >
           {(c) => (
           <Controller
@@ -467,7 +467,7 @@ export function LineaInlineFormOc({
 
         <Field
           label="Subtotal"
-          className="md:col-span-2"
+          className="@3xl:col-span-2"
         >
           {(c) => <SubtotalPreview id={c.id} control={form.control} moneda={oc.moneda} />}
         </Field>
@@ -477,7 +477,7 @@ export function LineaInlineFormOc({
           Heredada de RQ → display BLOQUEADO read-only (ADR-0050 "heredado,
           solo lectura", 1:1 de la RQ); manual → picker ABIERTO por proxy
           (el comprador elige, /compras/ordenes/dim3/buscar). */}
-      <div className="grid grid-cols-1 gap-2 border-t border-primary/10 pt-2 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 border-t border-primary/10 pt-2 @lg:grid-cols-2">
         <Field
           label="Centro de costo"
           required={!lineaDesdeRq}
@@ -616,7 +616,7 @@ export function LineaInlineFormOc({
 
       {/* ── Fila 2 (expandible): campos opcionales ───────────────── */}
       {detallesAbiertos && (
-        <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-3 @lg:grid-cols-2">
           <Field
             label="Descuento (opcional)"
             error={form.formState.errors.descuentoTipo?.message}
@@ -674,7 +674,7 @@ export function LineaInlineFormOc({
             )}
           </Field>
 
-          <div className="md:col-span-2">
+          <div className="@lg:col-span-2">
             <Field
               label="Descripción extendida"
               error={form.formState.errors.descripcionExtendida?.message}
@@ -697,7 +697,7 @@ export function LineaInlineFormOc({
             </Field>
           </div>
 
-          <div className="md:col-span-2">
+          <div className="@lg:col-span-2">
             <Field
               label="Texto adicional (impreso en PDF)"
               error={form.formState.errors.textoAdicional?.message}

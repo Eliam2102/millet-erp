@@ -211,16 +211,16 @@ export function EditorLineas({ rq }: EditorLineasProps) {
         )}
 
         <div className="overflow-x-auto rounded-md border bg-card">
-          <table className="w-full min-w-[960px] text-sm">
+          <table className="w-full @4xl:min-w-[960px] text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">#</th>
                 <th className="px-3 py-2 text-left font-medium">Artículo</th>
                 <th className="px-3 py-2 text-right font-medium">Cant.</th>
                 <th className="px-3 py-2 text-left font-medium">UM</th>
-                <th className="px-3 py-2 text-left font-medium">Fecha req.</th>
+                <th className="px-3 py-2 text-left font-medium hidden @4xl:table-cell">Fecha req.</th>
                 <th className="px-3 py-2 text-left font-medium">Cubrimiento</th>
-                <th className="px-3 py-2 text-left font-medium">Notas</th>
+                <th className="px-3 py-2 text-left font-medium hidden @4xl:table-cell">Notas</th>
                 {(canEditarEstructural.visible || canEliminar.visible) && (
                   <th className="px-3 py-2 text-right font-medium">Acciones</th>
                 )}
@@ -429,7 +429,7 @@ function FilaLinea({
       </td>
       <td className="px-3 py-2 text-right tabular-nums">{linea.cantidad}</td>
       <td className="px-3 py-2">{linea.unidadMedida}</td>
-      <td className="px-3 py-2">
+      <td className="hidden px-3 py-2 @4xl:table-cell">
         <DateTimeDisplay value={linea.fechaRequerida} />
       </td>
       <td className="px-3 py-2">
@@ -441,7 +441,7 @@ function FilaLinea({
           cantPendiente={linea.cantPendiente}
         />
       </td>
-      <td className="px-3 py-2">
+      <td className="hidden px-3 py-2 @4xl:table-cell">
         {notasEditando ? (
           <div className="flex flex-wrap items-center gap-1">
             <Input

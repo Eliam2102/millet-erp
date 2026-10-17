@@ -82,7 +82,7 @@ export function CabeceraOrdenCompra({
         <FormularioCabecera oc={oc} onClose={() => setEditando(false)} />
       )}
 
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2 lg:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm @lg:grid-cols-2 @3xl:grid-cols-3">
         <Item label="Emitida">
           <DateTimeDisplay value={oc.fechaDocumento} variant="long" />
         </Item>
@@ -296,7 +296,7 @@ function FormularioCabecera({
       aria-label="Editar cabecera"
       className="space-y-3 rounded-md border bg-muted/30 p-3"
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-3">
         <Controller
           control={form.control}
           name="proveedorId"
