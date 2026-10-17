@@ -38,9 +38,9 @@ vi.mock('@/features/cxp/components/EvidenciasList', () => ({ EvidenciasList: () 
 
 beforeEach(() => {
   mswServer.use(
-    http.get('/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
+    http.get('*/api/v1/cuentas-por-pagar/facturas/factura-ficticia-p3/adjuntos', () =>
       HttpResponse.json([])),
-    http.get('/api/v1/adjuntos/tipos', () => HttpResponse.json([])),
+    http.get('*/api/v1/adjuntos/tipos', () => HttpResponse.json([])),
   );
 });
 

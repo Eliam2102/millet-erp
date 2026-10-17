@@ -81,7 +81,7 @@ export function NotaCreditoDetallePage() {
 
           <DocumentoP4Acciones tipo="notas-credito" documento={query.data} />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
               label="Proveedor"
               valor={query.data.proveedorNombre ?? query.data.proveedorId}
@@ -106,7 +106,7 @@ export function NotaCreditoDetallePage() {
               valor={query.data.uuidRelacionCfdi}
               mono
             />
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

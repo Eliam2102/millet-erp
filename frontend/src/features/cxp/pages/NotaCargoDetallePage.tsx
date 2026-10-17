@@ -1,6 +1,9 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
+import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
@@ -31,6 +34,8 @@ export function NotaCargoDetallePage() {
   const autorizar = useAutorizarNotaCargo();
   const puedeAutorizar = useHasPermission(PermisosCanonicos.CuentasPorPagarNotasCargoAutorizar);
   const usuarioId = useAuthStore(s => s.user?.id);
+  const [confirmarAutorizar, setConfirmarAutorizar] = useState(false);
+  const esCreador = query.data?.creadoPor != null && query.data.creadoPor === usuarioId;
 
 
   return (
@@ -78,16 +83,59 @@ export function NotaCargoDetallePage() {
             mono
           />
 
-          {puedeAutorizar && query.data.estado === EstadoNotaCargo.Borrador && <div className="space-y-1">
-            <Button disabled={autorizar.isPending || query.data.creadoPor === usuarioId} onClick={() => autorizar.mutate({ id, versionEsperada: query.data!.version, idempotencyKey: crypto.randomUUID() }, {
-              onSuccess: () => { toast.success('Se autorizó la nota de cargo.'); void query.refetch(); },
-              onError: error => toast.error(esApiError(error) ? error.problem.detail ?? error.problem.title : 'No se pudo autorizar la nota de cargo.'),
-            })}>Autorizar</Button>
-            {query.data.creadoPor === usuarioId && <p className="text-xs text-ink-muted">Quien creó la nota de cargo no puede autorizarla.</p>}
-          </div>}
+          {puedeAutorizar && query.data.estado === EstadoNotaCargo.Borrador && (
+            <div className="space-y-1" data-print="hidden">
+              <Button
+                disabled={autorizar.isPending || esCreador}
+                aria-describedby={esCreador ? 'nc-creador' : undefined}
+                onClick={() => setConfirmarAutorizar(true)}
+              >
+                Autorizar
+              </Button>
+              {esCreador && (
+                <p id="nc-creador" className="text-xs text-ink-muted">
+                  Quien creó la nota de cargo no puede autorizarla.
+                </p>
+              )}
+              <ConfirmarAccionDialog
+                open={confirmarAutorizar}
+                onOpenChange={setConfirmarAutorizar}
+                titulo="Autorizar nota de cargo"
+                resumen={
+                  <>
+                    Autorizas la nota de cargo {query.data.folio}
+                    {query.data.proveedorNombre ? ` a ${query.data.proveedorNombre}` : ''} por{' '}
+                    <MoneyDisplay amount={query.data.monto} currency={query.data.moneda} strong />.
+                    Después se podrá aplicar.
+                  </>
+                }
+                verbo="Autorizar nota de cargo"
+                tono="primario"
+                pendiente={autorizar.isPending}
+                onConfirmar={() =>
+                  autorizar.mutate(
+                    { id, versionEsperada: query.data!.version, idempotencyKey: crypto.randomUUID() },
+                    {
+                      onSuccess: () => {
+                        toast.success('Se autorizó la nota de cargo.');
+                        void query.refetch();
+                      },
+                      onError: (error) =>
+                        toast.error(
+                          esApiError(error)
+                            ? (error.problem.detail ?? error.problem.title)
+                            : 'No se pudo autorizar la nota de cargo.',
+                        ),
+                      onSettled: () => setConfirmarAutorizar(false),
+                    },
+                  )
+                }
+              />
+            </div>
+          )}
           <DocumentoP4Acciones tipo="notas-cargo" documento={query.data} />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
               label="Proveedor"
               valor={query.data.proveedorNombre ?? query.data.proveedorId}
@@ -115,7 +163,7 @@ export function NotaCargoDetallePage() {
                   : '—'
               }
             />
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

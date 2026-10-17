@@ -1,5 +1,5 @@
 import { hoyLocalISO } from '@/lib/datetime';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, Upload } from 'lucide-react';
@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   applyServerErrors,
@@ -34,7 +33,8 @@ import type {
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { useProveedor } from '@/features/catalogos/api';
-import { ProveedorSelector } from '@/components/erp';
+import { Field, ProveedorSelector } from '@/components/erp';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
@@ -56,8 +56,14 @@ export function CapturarComprobacionViaticosSheet({
   onOpenChange,
   solicitud,
 }: CapturarComprobacionViaticosSheetProps) {
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
       <SheetContent side="right" size="wide">
         <SheetHeader>
           <SheetTitle>Comprobar viáticos</SheetTitle>
@@ -71,10 +77,13 @@ export function CapturarComprobacionViaticosSheet({
           <Form
             key={solicitud.id}
             solicitud={solicitud}
-            onClose={() => onOpenChange(false)}
+            onCancel={() => solicitarCierre()}
+            onCaptured={() => solicitarCierre(true)}
+            onDirtyChange={setDirty}
           />
         )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
@@ -99,10 +108,12 @@ function defaultLinea(moneda: string) {
 
 interface FormProps {
   solicitud: SolicitudViaticosListItem;
-  onClose: () => void;
+  onCancel: () => void;
+  onCaptured: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }
 
-function Form({ solicitud, onClose }: FormProps) {
+function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const capturar = useCapturarComprobacionViaticos();
 
@@ -117,6 +128,11 @@ function Form({ solicitud, onClose }: FormProps) {
     control: form.control,
     name: 'lineas',
   });
+
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const puedeLeerCfdis = useHasPermission(
     PermisosCanonicos.CuentasPorPagarCfdisLeer,
@@ -173,7 +189,7 @@ function Form({ solicitud, onClose }: FormProps) {
           toast.success(
             `Comprobación capturada: ${res.numeroLineas} líneas, ${res.montoComprobado.toFixed(2)}.`,
           );
-          onClose();
+          onCaptured();
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -227,7 +243,7 @@ function Form({ solicitud, onClose }: FormProps) {
         </div>
 
         {form.formState.errors.lineas?.message && (
-          <p className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-danger-fg">
             {form.formState.errors.lineas.message}
           </p>
         )}
@@ -237,7 +253,7 @@ function Form({ solicitud, onClose }: FormProps) {
         <Button
           type="button"
           variant="ghost"
-          onClick={onClose}
+          onClick={onCancel}
           disabled={capturar.isPending}
         >
           Cancelar
@@ -303,7 +319,7 @@ function LineaInline({
     <div
       className={cn(
         'space-y-2 rounded-md border border-dashed p-3',
-        lineaErrors && 'border-destructive/50',
+        lineaErrors && 'border-danger-fg/50',
       )}
     >
       {puedeLeerCfdis && !esTicketNoFiscal && (
@@ -323,147 +339,117 @@ function LineaInline({
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
-        <div className="sm:col-span-6">
-          <Label className="text-xs">Concepto *</Label>
-          <Input
-            placeholder="Casetas Mty-CDMX / Cena con cliente / etc."
-            {...form.register(`lineas.${index}.concepto` as const)}
-          />
-          {lineaErrors?.concepto && (
-            <p className="text-xs text-destructive">
-              {lineaErrors.concepto.message}
-            </p>
-          )}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-4">
+        <div className="col-span-full">
+          <Field label="Concepto" required
+            error={lineaErrors?.concepto?.message}>
+            <Input placeholder="Casetas Mty-CDMX / Cena con cliente / etc." {...form.register(`lineas.${index}.concepto` as const)} />
+          </Field>
         </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Fecha *</Label>
-          <Input
-            type="date"
-            {...form.register(`lineas.${index}.fechaGasto` as const)}
-          />
+        <div className="col-span-full">
+          <Field label="UUID CFDI" optional>
+            <Input
+              placeholder="00000000-…"
+              readOnly={!!cfdiRecibidoId}
+              className={cn('font-mono text-xs', cfdiRecibidoId && 'bg-muted')}
+              {...form.register(`lineas.${index}.uuidCfdi` as const)}
+            />
+          </Field>
         </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Subtotal</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`lineas.${index}.subtotal` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">IVA</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`lineas.${index}.impuestosTrasladados` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Retenciones</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`lineas.${index}.retenciones` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Total *</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`lineas.${index}.total` as const, {
-              valueAsNumber: true,
-            })}
-          />
-          {lineaErrors?.total && (
-            <p className="text-xs text-destructive">
-              {lineaErrors.total.message}
-            </p>
-          )}
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Moneda</Label>
-          <Input
-            placeholder="MXN"
-            maxLength={3}
-            className="uppercase"
-            {...form.register(`lineas.${index}.moneda` as const)}
-          />
-        </div>
-        <div className="sm:col-span-3">
-          <Label className="text-xs">UUID CFDI (opcional)</Label>
-          <Input
-            placeholder="00000000-…"
-            readOnly={!!cfdiRecibidoId}
-            className={cn('font-mono text-xs', cfdiRecibidoId && 'bg-muted')}
-            {...form.register(`lineas.${index}.uuidCfdi` as const)}
-          />
-        </div>
-        <div className="sm:col-span-3">
-          <Label className="text-xs">Proveedor (opcional)</Label>
-          <Controller
-            control={form.control}
-            name={`lineas.${index}.proveedorId` as const}
-            render={({ field }) => (
-              <ProveedorSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id)}
-                className="w-full"
+        <div className="col-span-full sm:col-span-2">
+          <Field label="Proveedor" optional>
+            {(control) => (
+              <Controller
+                control={form.control}
+                name={`lineas.${index}.proveedorId` as const}
+                render={({ field }) => (
+                  <ProveedorSelector
+                    value={field.value || null}
+                    onChange={(id) => field.onChange(id)}
+                    className="w-full"
+                    triggerProps={control}
+                  />
+                )}
               />
             )}
-          />
+          </Field>
         </div>
-        <div className="flex items-end gap-3 sm:col-span-2">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`ticketNoFiscal-${index}`}
-              checked={
-                form.watch(`lineas.${index}.esTicketNoFiscal`) === true
-              }
-              onCheckedChange={(v) => {
-                form.setValue(
-                  `lineas.${index}.esTicketNoFiscal` as const,
-                  v === true,
-                );
-                // Un ticket no fiscal no puede referenciar CFDI (regla
-                // del backend); al marcarlo se quita el vínculo.
-                if (v === true) {
-                  form.setValue(
-                    `lineas.${index}.cfdiRecibidoId` as const,
-                    null,
-                  );
-                  form.setValue(`lineas.${index}.uuidCfdi` as const, null);
-                }
-              }}
+        <div className="col-span-full sm:col-span-2">
+          <Field label="Fecha" required>
+            <Input type="date" {...form.register(`lineas.${index}.fechaGasto` as const)} />
+          </Field>
+        </div>
+        <div>
+          <Field label="Subtotal">
+            <Input type="number" step="0.01" min="0" {...form.register(`lineas.${index}.subtotal` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+        </div>
+        <div>
+          <Field label="IVA">
+            <Input type="number" step="0.01" min="0" {...form.register(`lineas.${index}.impuestosTrasladados` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+        </div>
+        <div>
+          <Field label="Retenciones">
+            <Input type="number" step="0.01" min="0" {...form.register(`lineas.${index}.retenciones` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+        </div>
+        <div>
+          <Field label="Total" required
+            error={lineaErrors?.total?.message}>
+            <Input type="number" step="0.01" min="0" {...form.register(`lineas.${index}.total` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+        </div>
+        <div>
+          <Field label="Moneda">
+            <Input
+              placeholder="MXN"
+              maxLength={3}
+              className="uppercase"
+              {...form.register(`lineas.${index}.moneda` as const)}
             />
-            <Label
-              htmlFor={`ticketNoFiscal-${index}`}
-              className="text-xs"
-            >
-              No fiscal
-            </Label>
-          </div>
+          </Field>
         </div>
-        <div className="flex items-end sm:col-span-2">
+        <div className="col-span-2 flex items-end gap-2 pb-2">
+          <Checkbox
+            id={`ticketNoFiscal-${index}`}
+            checked={esTicketNoFiscal}
+            onCheckedChange={(v) => {
+              form.setValue(
+                `lineas.${index}.esTicketNoFiscal` as const,
+                v === true,
+                { shouldDirty: true },
+              );
+              // Un ticket no fiscal no puede referenciar CFDI (regla
+              // del backend); al marcarlo se quita el vínculo.
+              if (v === true) {
+                form.setValue(`lineas.${index}.cfdiRecibidoId` as const, null);
+                form.setValue(`lineas.${index}.uuidCfdi` as const, null);
+              }
+            }}
+          />
+          <label htmlFor={`ticketNoFiscal-${index}`} className="text-xs">
+            Ticket no fiscal (sin CFDI)
+          </label>
+        </div>
+        <div className="flex items-end justify-end">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            className="text-destructive hover:bg-destructive/10"
+            aria-label={`Quitar línea ${index + 1}`}
+            className="text-danger-fg hover:bg-danger-bg"
           >
-            <Trash2 className="mr-1 h-3 w-3" />
+            <Trash2 className="mr-1 h-3 w-3" aria-hidden="true" />
             Quitar
           </Button>
         </div>

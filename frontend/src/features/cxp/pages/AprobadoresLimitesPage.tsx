@@ -1,4 +1,5 @@
 import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -189,13 +190,9 @@ function Tabla({
   const cerrar = useCerrarAprobadorLimite();
   const hoy = hoyLocalISO();
 
+  const [aCerrar, setACerrar] = useState<AprobadorLimite | null>(null);
+
   function handleCerrar(a: AprobadorLimite) {
-    if (
-      !window.confirm(
-        `¿Cerrar la vigencia del aprobador (empleado ${a.empleadoId.slice(0, 8)}…) hoy ${hoy}?`,
-      )
-    )
-      return;
     cerrar
       .mutateAsync({ id: a.id, versionEsperada: a.version, fecha: hoy })
       .then(
@@ -207,7 +204,8 @@ function Tabla({
           }
           toast.error('Error al cerrar.');
         },
-      );
+      )
+      .finally(() => setACerrar(null));
   }
 
   return (
@@ -243,7 +241,7 @@ function Tabla({
                     variant="ghost"
                     size="sm"
                     className="text-destructive"
-                    onClick={() => handleCerrar(a)}
+                    onClick={() => setACerrar(a)}
                     disabled={cerrar.isPending}
                   >
                     <Ban className="mr-1 h-3 w-3" />
@@ -255,6 +253,23 @@ function Tabla({
           ))}
         </tbody>
       </table>
+      <ConfirmarAccionDialog
+        open={aCerrar !== null}
+        onOpenChange={(o) => !o && setACerrar(null)}
+        titulo="Cerrar vigencia del aprobador"
+        resumen={
+          aCerrar && (
+            <>
+              Se cerrará hoy ({hoy}) la vigencia del aprobador de {TipoGastoAprobadorLabels[aCerrar.tipoGasto]} por{' '}
+              {fmt(aCerrar.montoMax, aCerrar.moneda)}. Después ya no podrá autorizar con ese límite.
+            </>
+          )
+        }
+        verbo="Cerrar vigencia"
+        tono="peligro"
+        pendiente={cerrar.isPending}
+        onConfirmar={() => aCerrar && handleCerrar(aCerrar)}
+      />
     </div>
   );
 }

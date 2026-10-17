@@ -4,7 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
+import { useState } from 'react';
 import { useSolicitudViaticos } from '@/features/cxp/api/useViaticos';
+import { AccionesViatico } from '@/features/cxp/components/AccionesViatico';
+import { CapturarComprobacionViaticosSheet } from '@/features/cxp/components/CapturarComprobacionViaticosSheet';
 import { TipoDestinoViaticoLabels } from '@/features/cxp/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoSolicitudViaticosChip } from '@/features/cxp/components/EstadoChips';
@@ -26,6 +29,7 @@ const FROM = '/_app/cxp/viaticos/$id' as const;
 export function ViaticoDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useSolicitudViaticos(id);
+  const [comprobarAbierto, setComprobarAbierto] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -81,7 +85,21 @@ export function ViaticoDetallePage() {
             }
           />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          {/* Sub-topbar: mismas acciones que la fila de la bandeja (CXP-29). */}
+          <AccionesViatico
+            s={query.data}
+            moneda={query.data.moneda}
+            empleadoNombre={query.data.empleadoNombre}
+            onComprobar={() => setComprobarAbierto(true)}
+            className="justify-start rounded-md border bg-surface-subtle px-3 py-2"
+          />
+          <CapturarComprobacionViaticosSheet
+            open={comprobarAbierto}
+            onOpenChange={setComprobarAbierto}
+            solicitud={query.data}
+          />
+
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
               label="Empleado"
               valor={query.data.empleadoNombre ?? query.data.empleadoId}
@@ -106,7 +124,7 @@ export function ViaticoDetallePage() {
                 <dd className="text-sm">{query.data.justificacionExceso}</dd>
               </div>
             )}
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -243,7 +261,7 @@ export function ViaticoDetallePage() {
                           {l.esTicketNoFiscal ? (
                             <Badge variant="neutral">No fiscal</Badge>
                           ) : (
-                            <span className="font-mono text-xs">
+                            <span className="break-all font-mono text-xs">
                               {l.uuidCfdi ?? '—'}
                               {l.folioProveedor != null &&
                                 ` · ${l.folioProveedor}`}

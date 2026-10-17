@@ -35,6 +35,8 @@ import { EstadoTarjetaChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaTarjetaSheet } from '@/features/cxp/components/NuevaTarjetaSheet';
 import type { TarjetasSearch } from '@/features/cxp/lib/tc-search-schema';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { MotivoDialog } from '@/components/erp/feedback/MotivoDialog';
 
 const FROM = '/_app/cxp/tc/tarjetas' as const;
 const SENTINEL_ALL = '__all__';
@@ -186,6 +188,11 @@ function Tabla({
   const bloquear = useBloquearTarjeta();
   const reactivar = useReactivarTarjeta();
   const cancelar = useCancelarTarjeta();
+  const [dialogo, setDialogo] = useState<{
+    tipo: 'bloquear' | 'cancelar';
+    t: Tarjeta;
+  } | null>(null);
+  const [errorMotivo, setErrorMotivo] = useState<string | null>(null);
 
   function dispatch(label: string, p: Promise<unknown>) {
     p.then(
@@ -201,21 +208,8 @@ function Tabla({
   }
 
   function handleBloquear(t: Tarjeta) {
-    const motivo = window.prompt('Motivo del bloqueo (5-200 chars):', '');
-    if (!motivo || motivo.trim().length < 5) {
-      toast.error('Motivo demasiado corto.');
-      return;
-    }
-    const hoy = hoyLocalISO();
-    dispatch(
-      'Tarjeta bloqueada',
-      bloquear.mutateAsync({
-        id: t.id,
-        versionEsperada: t.version,
-        command: { motivo: motivo.trim(), fecha: hoy },
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
+    setErrorMotivo(null);
+    setDialogo({ tipo: 'bloquear', t });
   }
 
   function handleReactivar(t: Tarjeta) {
@@ -230,17 +224,7 @@ function Tabla({
   }
 
   function handleCancelar(t: Tarjeta) {
-    if (!window.confirm(`¿Cancelar tarjeta ${t.numeroEnmascarado}? Es irreversible.`)) return;
-    const hoy = hoyLocalISO();
-    dispatch(
-      'Tarjeta cancelada',
-      cancelar.mutateAsync({
-        id: t.id,
-        versionEsperada: t.version,
-        fecha: hoy,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
+    setDialogo({ tipo: 'cancelar', t });
   }
 
   return (
@@ -332,6 +316,63 @@ function Tabla({
           ))}
         </tbody>
       </table>
+      {dialogo?.tipo === 'bloquear' && (
+        <MotivoDialog
+          titulo="Bloquear tarjeta"
+          descripcion={<>Tarjeta {dialogo.t.nombreAlias} ({dialogo.t.numeroEnmascarado}). Podrás reactivarla después.</>}
+          etiqueta="Motivo del bloqueo"
+          min={5}
+          max={200}
+          verbo="Bloquear tarjeta"
+          error={errorMotivo}
+          onCerrar={() => setDialogo(null)}
+          onConfirmar={async (motivo) => {
+            const t = dialogo.t;
+            try {
+              await bloquear.mutateAsync({
+                id: t.id,
+                versionEsperada: t.version,
+                command: { motivo, fecha: hoyLocalISO() },
+                idempotencyKey: crypto.randomUUID(),
+              });
+              toast.success('Tarjeta bloqueada');
+              setDialogo(null);
+            } catch (e) {
+              setErrorMotivo(
+                esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo bloquear la tarjeta.',
+              );
+            }
+          }}
+        />
+      )}
+      <ConfirmarAccionDialog
+        open={dialogo?.tipo === 'cancelar'}
+        onOpenChange={(o) => !o && setDialogo(null)}
+        titulo="Cancelar tarjeta"
+        resumen={
+          <>
+            Se cancelará la tarjeta {dialogo?.t.nombreAlias} ({dialogo?.t.numeroEnmascarado}). Es
+            irreversible.
+          </>
+        }
+        verbo="Cancelar tarjeta"
+        tono="peligro"
+        pendiente={cancelar.isPending}
+        onConfirmar={() => {
+          const t = dialogo?.t;
+          if (!t) return;
+          dispatch(
+            'Tarjeta cancelada',
+            cancelar.mutateAsync({
+              id: t.id,
+              versionEsperada: t.version,
+              fecha: hoyLocalISO(),
+              idempotencyKey: crypto.randomUUID(),
+            }),
+          );
+          setDialogo(null);
+        }}
+      />
     </div>
   );
 }

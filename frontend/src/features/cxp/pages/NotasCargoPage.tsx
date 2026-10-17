@@ -1,8 +1,7 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { CheckCircle2, Eye, Plus } from 'lucide-react';
-import { toast } from 'sonner';
+import { Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -17,11 +16,8 @@ import {
   ProveedorSelector,
   TableSkeleton,
 } from '@/components/erp';
-import {
-  useAplicarNotaCargo,
-  useAutorizarNotaCargo,
-  useNotasCargo,
-} from '@/features/cxp/api/useNotasYAnticipos';
+import { useNotasCargo } from '@/features/cxp/api/useNotasYAnticipos';
+import { AplicarNotaCargoAccion } from '@/features/cxp/components/AplicarNotaCargoAccion';
 import {
   EstadoNotaCargo,
   type NotaCargoListItem,
@@ -39,9 +35,10 @@ const SENTINEL_ALL = '__all__';
 
 /**
  * <c>P1 — Bandeja de Notas de Cargo</c> (doc 07 §FE-F4-PR1). Tabla con
- * filtros + acciones inline contextuales: Autorizar (Borrador →
- * Autorizada) y Aplicar (Autorizada → Aplicada). Las acciones
- * requieren permisos específicos.
+ * filtros + acción inline Aplicar (Autorizada → Aplicada) con confirmación.
+ * Autorizar (Borrador → Autorizada) vive solo en el detalle: la regla de
+ * segregación (el creador no autoriza) necesita <c>creadoPor</c>, que la lista
+ * no expone (CXP-30). Requiere permisos específicos.
  *
  * <para>PLATFORM-TODO(&lt;NotaCargoEvidenciaAutorizacion&gt;): cuando
  * se requiera evidencia formal del autorizador (Dirección de Finanzas),
@@ -53,9 +50,6 @@ export function NotasCargoPage() {
   const navigate = useNavigate();
   const puedeCrear = useHasPermission(
     PermisosCanonicos.CuentasPorPagarNotasCargoCrear,
-  );
-  const puedeAutorizar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarNotasCargoAutorizar,
   );
   const puedeAplicar = useHasPermission(
     PermisosCanonicos.CuentasPorPagarNotasCargoAplicar,
@@ -170,7 +164,6 @@ export function NotasCargoPage() {
       ) : (
         <Tabla
           items={items}
-          puedeAutorizar={puedeAutorizar}
           puedeAplicar={puedeAplicar}
         />
       )}
@@ -182,54 +175,10 @@ export function NotasCargoPage() {
 
 interface TablaProps {
   items: readonly NotaCargoListItem[];
-  puedeAutorizar: boolean;
   puedeAplicar: boolean;
 }
 
-function Tabla({ items, puedeAutorizar, puedeAplicar }: TablaProps) {
-  const autorizar = useAutorizarNotaCargo();
-  const aplicar = useAplicarNotaCargo();
-
-  function handleAutorizar(n: NotaCargoListItem) {
-    autorizar.mutate(
-      {
-        id: n.id,
-        versionEsperada: n.version,
-        idempotencyKey: crypto.randomUUID(),
-      },
-      {
-        onSuccess: () => toast.success(`Nota de cargo ${n.folio} autorizada`),
-        onError: (error) => {
-          if (esApiError(error)) {
-            toast.error(error.problem.detail ?? error.problem.title);
-            return;
-          }
-          toast.error('Error al autorizar.');
-        },
-      },
-    );
-  }
-
-  function handleAplicar(n: NotaCargoListItem) {
-    aplicar.mutate(
-      {
-        id: n.id,
-        versionEsperada: n.version,
-        idempotencyKey: crypto.randomUUID(),
-      },
-      {
-        onSuccess: () => toast.success(`Nota de cargo ${n.folio} aplicada`),
-        onError: (error) => {
-          if (esApiError(error)) {
-            toast.error(error.problem.detail ?? error.problem.title);
-            return;
-          }
-          toast.error('Error al aplicar.');
-        },
-      },
-    );
-  }
-
+function Tabla({ items, puedeAplicar }: TablaProps) {
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full text-sm">
@@ -272,26 +221,8 @@ function Tabla({ items, puedeAutorizar, puedeAplicar }: TablaProps) {
                     Ver detalle
                   </Link>
                 </Button>
-                {n.estado === EstadoNotaCargo.Borrador && puedeAutorizar && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAutorizar(n)}
-                    disabled={autorizar.isPending}
-                  >
-                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                    Autorizar
-                  </Button>
-                )}
                 {n.estado === EstadoNotaCargo.Autorizada && puedeAplicar && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAplicar(n)}
-                    disabled={aplicar.isPending}
-                  >
-                    Aplicar
-                  </Button>
+                  <AplicarNotaCargoAccion n={n} />
                 )}
               </td>
             </tr>

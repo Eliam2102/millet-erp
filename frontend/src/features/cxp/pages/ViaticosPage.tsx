@@ -1,18 +1,7 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ClipboardCheck,
-  Eye,
-  Plus,
-  Send,
-  Unlock,
-  Wallet,
-  XCircle,
-} from 'lucide-react';
-import { toast } from 'sonner';
+import { AlertTriangle, Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -27,20 +16,14 @@ import {
   TableSkeleton,
   UsuarioSelector,
 } from '@/components/erp';
-import {
-  useAutorizarPorDfViaticos,
-  useAutorizarPorJefeViaticos,
-  useLiberarComprobacionViaticos,
-  useMarcarAnticipoPagadoViaticos,
-  useRechazarSolicitudViaticos,
-  useViaticos,
-} from '@/features/cxp/api/useViaticos';
+import { useViaticos } from '@/features/cxp/api/useViaticos';
 import {
   EstadoSolicitudViaticos,
   type SolicitudViaticosListItem,
 } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { AccionesViatico } from '@/features/cxp/components/AccionesViatico';
 import { esApiError } from '@/lib/api';
 import { EstadoSolicitudViaticosChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaSolicitudViaticosSheet } from '@/features/cxp/components/NuevaSolicitudViaticosSheet';
@@ -260,104 +243,6 @@ interface TablaProps {
 }
 
 function Tabla({ items, onComprobar }: TablaProps) {
-  const autJefe = useAutorizarPorJefeViaticos();
-  const autDf = useAutorizarPorDfViaticos();
-  const marcarPagado = useMarcarAnticipoPagadoViaticos();
-  const liberar = useLiberarComprobacionViaticos();
-  const rechazar = useRechazarSolicitudViaticos();
-
-  const puedeAutJefe = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarViaticosAutorizarJefe,
-  );
-  const puedeAutDf = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarViaticosAutorizarDf,
-  );
-  const puedeMarcarPagado = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarViaticosMarcarPagado,
-  );
-  const puedeCapturarComp = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarViaticosCapturarComprobacion,
-  );
-  const puedeLiberar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarViaticosLiberar,
-  );
-
-  function dispatch(label: string, p: Promise<unknown>) {
-    p.then(
-      () => toast.success(label),
-      (error) => {
-        if (esApiError(error)) {
-          toast.error(error.problem.title);
-          return;
-        }
-        toast.error('Error al ejecutar acción.');
-      },
-    );
-  }
-
-  function handleAutJefe(s: SolicitudViaticosListItem) {
-    dispatch(
-      s.excedePolitica
-        ? 'Autorizada por jefe (escala a DF)'
-        : 'Autorizada por jefe',
-      autJefe.mutateAsync({
-        id: s.id,
-        versionEsperada: s.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleAutDf(s: SolicitudViaticosListItem) {
-    dispatch(
-      'Autorizada por Dirección de Finanzas',
-      autDf.mutateAsync({
-        id: s.id,
-        versionEsperada: s.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handlePagado(s: SolicitudViaticosListItem) {
-    dispatch(
-      'Anticipo marcado como pagado (Tesorería)',
-      marcarPagado.mutateAsync({
-        id: s.id,
-        versionEsperada: s.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleLiberar(s: SolicitudViaticosListItem) {
-    dispatch(
-      'Comprobación liberada (calculó diferencia)',
-      liberar.mutateAsync({
-        id: s.id,
-        versionEsperada: s.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleRechazar(s: SolicitudViaticosListItem) {
-    const motivo = window.prompt('Motivo del rechazo (5-500 chars):', '');
-    if (!motivo || motivo.trim().length < 5) {
-      toast.error('Motivo demasiado corto.');
-      return;
-    }
-    dispatch(
-      'Solicitud rechazada',
-      rechazar.mutateAsync({
-        id: s.id,
-        versionEsperada: s.version,
-        command: { motivo: motivo.trim() },
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full text-sm">
@@ -385,7 +270,7 @@ function Tabla({ items, onComprobar }: TablaProps) {
                 <MoneyDisplay amount={s.montoSolicitado} currency="MXN" strong />
                 {s.excedePolitica && (
                   <AlertTriangle
-                    className="ml-1 inline h-3 w-3 text-amber-600"
+                    className="ml-1 inline h-3 w-3 text-warning-note-fg"
                     aria-label="Excede política"
                   />
                 )}
@@ -403,155 +288,24 @@ function Tabla({ items, onComprobar }: TablaProps) {
                 <EstadoSolicitudViaticosChip estado={s.estado} />
               </td>
               <td className="px-3 py-2 text-right">
-                <Acciones
-                  s={s}
-                  puedeAutJefe={puedeAutJefe}
-                  puedeAutDf={puedeAutDf}
-                  puedeMarcarPagado={puedeMarcarPagado}
-                  puedeCapturarComp={puedeCapturarComp}
-                  puedeLiberar={puedeLiberar}
-                  isPending={
-                    autJefe.isPending ||
-                    autDf.isPending ||
-                    marcarPagado.isPending ||
-                    liberar.isPending ||
-                    rechazar.isPending
-                  }
-                  onAutJefe={() => handleAutJefe(s)}
-                  onAutDf={() => handleAutDf(s)}
-                  onPagado={() => handlePagado(s)}
-                  onComprobar={() => onComprobar(s)}
-                  onLiberar={() => handleLiberar(s)}
-                  onRechazar={() => handleRechazar(s)}
-                />
+                <div className="flex flex-wrap items-center justify-end gap-1">
+                  <Button asChild variant="ghost" size="sm">
+                    <Link
+                      to="/cxp/viaticos/$id"
+                      params={{ id: s.id }}
+                      aria-label={`Ver detalle de viáticos a ${s.destino}`}
+                    >
+                      <Eye className="mr-1 h-3 w-3" aria-hidden="true" />
+                      Ver detalle
+                    </Link>
+                  </Button>
+                  <AccionesViatico s={s} onComprobar={() => onComprobar(s)} />
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-interface AccionesProps {
-  s: SolicitudViaticosListItem;
-  puedeAutJefe: boolean;
-  puedeAutDf: boolean;
-  puedeMarcarPagado: boolean;
-  puedeCapturarComp: boolean;
-  puedeLiberar: boolean;
-  isPending: boolean;
-  onAutJefe: () => void;
-  onAutDf: () => void;
-  onPagado: () => void;
-  onComprobar: () => void;
-  onLiberar: () => void;
-  onRechazar: () => void;
-}
-
-function Acciones({
-  s,
-  puedeAutJefe,
-  puedeAutDf,
-  puedeMarcarPagado,
-  puedeCapturarComp,
-  puedeLiberar,
-  isPending,
-  onAutJefe,
-  onAutDf,
-  onPagado,
-  onComprobar,
-  onLiberar,
-  onRechazar,
-}: AccionesProps) {
-  return (
-    <div className="flex flex-wrap items-center justify-end gap-1">
-      <Button asChild variant="ghost" size="sm">
-        <Link
-          to="/cxp/viaticos/$id"
-          params={{ id: s.id }}
-          aria-label={`Ver detalle de viáticos a ${s.destino}`}
-        >
-          <Eye className="mr-1 h-3 w-3" />
-          Ver detalle
-        </Link>
-      </Button>
-      {s.estado === EstadoSolicitudViaticos.Solicitada && puedeAutJefe && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAutJefe}
-          disabled={isPending}
-        >
-          <CheckCircle2 className="mr-1 h-3 w-3" />
-          Aut. jefe
-        </Button>
-      )}
-      {s.estado === EstadoSolicitudViaticos.RequiereDireccionFinanzas &&
-        puedeAutDf && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAutDf}
-            disabled={isPending}
-          >
-            <CheckCircle2 className="mr-1 h-3 w-3" />
-            Aut. DF
-          </Button>
-        )}
-      {(s.estado === EstadoSolicitudViaticos.AutorizadaPorJefe ||
-        s.estado === EstadoSolicitudViaticos.AutorizadaCompleta) &&
-        puedeMarcarPagado && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onPagado}
-            disabled={isPending}
-          >
-            <Wallet className="mr-1 h-3 w-3" />
-            Marcar pagado
-          </Button>
-        )}
-      {s.estado === EstadoSolicitudViaticos.Anticipada &&
-        puedeCapturarComp && (
-          <Button variant="outline" size="sm" onClick={onComprobar}>
-            <ClipboardCheck className="mr-1 h-3 w-3" />
-            Comprobar
-          </Button>
-        )}
-      {s.estado === EstadoSolicitudViaticos.ComprobacionCapturada &&
-        puedeLiberar && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onLiberar}
-            disabled={isPending}
-          >
-            <Unlock className="mr-1 h-3 w-3" />
-            Liberar
-          </Button>
-        )}
-      {(s.estado === EstadoSolicitudViaticos.Solicitada ||
-        s.estado === EstadoSolicitudViaticos.RequiereDireccionFinanzas) &&
-        puedeAutJefe && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRechazar}
-            className="text-destructive"
-            disabled={isPending}
-          >
-            <XCircle className="mr-1 h-3 w-3" />
-            Rechazar
-          </Button>
-        )}
-      {s.estado === EstadoSolicitudViaticos.Solicitada &&
-        s.excedePolitica && (
-          <span className="ml-1 inline-flex items-center text-xs text-amber-700">
-            <Send className="mr-1 h-3 w-3" />
-            Pasará a DF
-          </span>
-        )}
     </div>
   );
 }

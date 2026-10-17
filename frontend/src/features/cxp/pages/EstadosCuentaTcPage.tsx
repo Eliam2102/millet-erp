@@ -1,4 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { useRef, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import {
@@ -265,13 +267,9 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
     );
   }
 
+  const [aCerrar, setACerrar] = useState<EstadoCuentaTc | null>(null);
+
   function handleCerrar(ec: EstadoCuentaTc) {
-    if (
-      !window.confirm(
-        'Cerrar el estado de cuenta generará una factura agregada contra el banco. ¿Continuar?',
-      )
-    )
-      return;
     cerrar
       .mutateAsync({
         id: ec.id,
@@ -291,7 +289,8 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
           }
           toast.error('Error al cerrar.');
         },
-      );
+      )
+      .finally(() => setACerrar(null));
   }
 
   function handleMarcarPagado(ec: EstadoCuentaTc) {
@@ -369,7 +368,7 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
                   }
                   onConciliar={() => handleConciliar(ec)}
                   onMarcarConciliado={() => handleMarcarConciliado(ec)}
-                  onCerrar={() => handleCerrar(ec)}
+                  onCerrar={() => setACerrar(ec)}
                   onMarcarPagado={() => handleMarcarPagado(ec)}
                 />
               </td>
@@ -377,6 +376,29 @@ function Tabla({ items }: { items: readonly EstadoCuentaTc[] }) {
           ))}
         </tbody>
       </table>
+      <ConfirmarAccionDialog
+        open={aCerrar !== null}
+        onOpenChange={(o) => !o && setACerrar(null)}
+        titulo="Cerrar estado de cuenta"
+        resumen={
+          aCerrar && (
+            <>
+              Cerrar el estado de cuenta {aCerrar.periodoDesde} → {aCerrar.periodoHasta} generará
+              una factura agregada contra el banco
+              {aCerrar.totalBancoMxn != null && (
+                <>
+                  {' '}por <MoneyDisplay amount={aCerrar.totalBancoMxn} currency="MXN" strong />
+                </>
+              )}
+              .
+            </>
+          )
+        }
+        verbo="Cerrar estado de cuenta"
+        tono="primario"
+        pendiente={cerrar.isPending}
+        onConfirmar={() => aCerrar && handleCerrar(aCerrar)}
+      />
     </div>
   );
 }

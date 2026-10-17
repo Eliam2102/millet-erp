@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Field } from '@/components/erp';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -82,8 +83,14 @@ export function AdjuntarEvidenciaSheet({
   onOpenChange,
   factura,
 }: AdjuntarEvidenciaSheetProps) {
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
       <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Adjuntar evidencia de autorización</SheetTitle>
@@ -97,22 +104,29 @@ export function AdjuntarEvidenciaSheet({
           <AdjuntarEvidenciaForm
             key={factura.id}
             factura={factura}
-            onClose={() => onOpenChange(false)}
+            onCancel={() => solicitarCierre()}
+            onAdjuntada={() => solicitarCierre(true)}
+            onDirtyChange={setDirty}
           />
         )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
 
 interface AdjuntarEvidenciaFormProps {
   factura: FacturaDetalle;
-  onClose: () => void;
+  onCancel: () => void;
+  onAdjuntada: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }
 
 function AdjuntarEvidenciaForm({
   factura,
-  onClose,
+  onCancel,
+  onAdjuntada,
+  onDirtyChange,
 }: AdjuntarEvidenciaFormProps) {
   const idempotencyKey = useFormIdempotencyKey();
   const adjuntar = useAdjuntarEvidencia();
@@ -134,6 +148,11 @@ function AdjuntarEvidenciaForm({
     name: 'estadoFirmaFisica',
   });
 
+  const isDirty = form.formState.isDirty || archivo !== null;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+
   function onSubmit(values: AdjuntarEvidenciaValues) {
     if (!archivo) {
       setArchivoError('Selecciona un archivo (PDF, imagen, audio…).');
@@ -152,7 +171,7 @@ function AdjuntarEvidenciaForm({
       {
         onSuccess: () => {
           toast.success('Evidencia adjuntada');
-          onClose();
+          onAdjuntada();
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -179,119 +198,109 @@ function AdjuntarEvidenciaForm({
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
-          <div className="space-y-1">
-            <Label htmlFor="tipo">Tipo de evidencia</Label>
+      <Field label="Tipo de evidencia" required>
+        {(control) => (
+          <Controller
+            control={form.control}
+            name="tipo"
+            render={({ field }) => (
+              <Select
+                value={String(field.value)}
+                onValueChange={(v) => field.onChange(Number(v))}
+              >
+                <SelectTrigger {...control}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIPOS.map((t) => (
+                    <SelectItem key={t} value={String(t)}>
+                      {TipoEvidenciaLabels[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        )}
+      </Field>
+
+      <Field
+        label="Archivo"
+        required
+        error={archivoError ?? undefined}
+        hint={
+          archivo
+            ? `${archivo.name} · ${(archivo.size / 1024).toFixed(1)} KB`
+            : undefined
+        }
+      >
+        <Input
+          type="file"
+          accept="image/*,application/pdf,audio/*,message/rfc822"
+          onChange={(e) => {
+            setArchivo(e.target.files?.[0] ?? null);
+            setArchivoError(null);
+          }}
+        />
+      </Field>
+
+      <Field
+        label="Comentario"
+        required
+        error={form.formState.errors.comentario?.message}
+      >
+        <Textarea
+          rows={4}
+          placeholder="Quién autorizó, cuándo, por qué medio (ej.: WhatsApp del Director Operaciones, 2026-05-24)."
+          {...form.register('comentario')}
+        />
+      </Field>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Estado firma física">
+          {(control) => (
             <Controller
               control={form.control}
-              name="tipo"
+              name="estadoFirmaFisica"
               render={({ field }) => (
                 <Select
                   value={String(field.value)}
                   onValueChange={(v) => field.onChange(Number(v))}
                 >
-                  <SelectTrigger id="tipo">
+                  <SelectTrigger {...control}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TIPOS.map((t) => (
-                      <SelectItem key={t} value={String(t)}>
-                        {TipoEvidenciaLabels[t]}
+                    {ESTADOS_FIRMA.map((s) => (
+                      <SelectItem key={s} value={String(s)}>
+                        {EstadoFirmaFisicaLabels[s]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
-          </div>
+          )}
+        </Field>
 
-          <div className="space-y-1">
-            <Label htmlFor="archivo">Archivo</Label>
-            <Input
-              id="archivo"
-              type="file"
-              accept="image/*,application/pdf,audio/*,message/rfc822"
-              onChange={(e) => {
-                setArchivo(e.target.files?.[0] ?? null);
-                setArchivoError(null);
-              }}
-            />
-            {archivoError && (
-              <p className="text-xs text-destructive">{archivoError}</p>
-            )}
-            {archivo && (
-              <p className="text-xs text-muted-foreground">
-                {archivo.name} · {(archivo.size / 1024).toFixed(1)} KB
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="comentario">Comentario *</Label>
-            <Textarea
-              id="comentario"
-              rows={4}
-              placeholder="Quién autorizó, cuándo, por qué medio (ej.: WhatsApp del Director Operaciones, 2026-05-24)."
-              {...form.register('comentario')}
-            />
-            {form.formState.errors.comentario && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.comentario.message}
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="estadoFirmaFisica">Estado firma física</Label>
-              <Controller
-                control={form.control}
-                name="estadoFirmaFisica"
-                render={({ field }) => (
-                  <Select
-                    value={String(field.value)}
-                    onValueChange={(v) => field.onChange(Number(v))}
-                  >
-                    <SelectTrigger id="estadoFirmaFisica">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ESTADOS_FIRMA.map((s) => (
-                        <SelectItem key={s} value={String(s)}>
-                          {EstadoFirmaFisicaLabels[s]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="fechaLimiteFirmaFisica">
-                Fecha límite
-                {estadoFirma === EstadoFirmaFisica.Pendiente && (
-                  <span className="ml-1 text-destructive">*</span>
-                )}
-              </Label>
-              <Input
-                id="fechaLimiteFirmaFisica"
-                type="date"
-                disabled={estadoFirma !== EstadoFirmaFisica.Pendiente}
-                {...form.register('fechaLimiteFirmaFisica')}
-              />
-              {form.formState.errors.fechaLimiteFirmaFisica && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.fechaLimiteFirmaFisica.message}
-                </p>
-              )}
-            </div>
-          </div>
+        <Field
+          label="Fecha límite"
+          required={estadoFirma === EstadoFirmaFisica.Pendiente}
+          error={form.formState.errors.fechaLimiteFirmaFisica?.message}
+        >
+          <Input
+            type="date"
+            disabled={estadoFirma !== EstadoFirmaFisica.Pendiente}
+            {...form.register('fechaLimiteFirmaFisica')}
+          />
+        </Field>
+      </div>
 
       <SheetFooter className="px-0">
         <Button
           type="button"
           variant="ghost"
-          onClick={onClose}
+          onClick={onCancel}
           disabled={adjuntar.isPending}
         >
           Cancelar

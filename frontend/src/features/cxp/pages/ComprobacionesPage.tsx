@@ -1,8 +1,7 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { CheckCircle2, Eye, Plus, Send, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,21 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  EmptyState,
-  ErrorState,
-  SucursalSelector,
-  TableSkeleton,
-} from '@/components/erp';
-import {
-  useAplicarComprobacion,
-  useAutorizarComprobacion,
-  useAutorizarNivel1Aduanales,
-  useAutorizarNivel2Aduanales,
-  useComprobaciones,
-  useEnviarComprobacionARevision,
-  useRechazarComprobacion,
-} from '@/features/cxp/api/useComprobaciones';
+import { EmptyState, ErrorState, SucursalSelector, TableSkeleton } from '@/components/erp';
+import { useComprobaciones } from '@/features/cxp/api/useComprobaciones';
+import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import {
   EstadoComprobacionGastos,
   TipoComprobacionGastos,
@@ -68,9 +55,7 @@ const SENTINEL_ALL = '__all__';
 export function ComprobacionesPage() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesCapturar,
-  );
+  const puedeCapturar = useHasPermission(PermisosCanonicos.CuentasPorPagarComprobacionesCapturar);
   const [sheetCajaChica, setSheetCajaChica] = useState(false);
   const [sheetAduanales, setSheetAduanales] = useState(false);
 
@@ -145,14 +130,8 @@ export function ComprobacionesPage() {
         <Tabla items={items} />
       )}
 
-      <NuevaComprobacionCajaChicaSheet
-        open={sheetCajaChica}
-        onOpenChange={setSheetCajaChica}
-      />
-      <NuevaComprobacionAduanalesSheet
-        open={sheetAduanales}
-        onOpenChange={setSheetAduanales}
-      />
+      <NuevaComprobacionCajaChicaSheet open={sheetCajaChica} onOpenChange={setSheetCajaChica} />
+      <NuevaComprobacionAduanalesSheet open={sheetAduanales} onOpenChange={setSheetAduanales} />
     </div>
   );
 }
@@ -163,8 +142,7 @@ interface FiltrosProps {
 }
 
 function Filtros({ search, onChange }: FiltrosProps) {
-  const algunFiltro =
-    search.tipo != null || search.estado != null || search.sucursalId;
+  const algunFiltro = search.tipo != null || search.estado != null || search.sucursalId;
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
@@ -173,10 +151,7 @@ function Filtros({ search, onChange }: FiltrosProps) {
           value={search.tipo != null ? String(search.tipo) : SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({
-              tipo:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as TipoComprobacionGastos),
+              tipo: v === SENTINEL_ALL ? undefined : (Number(v) as TipoComprobacionGastos),
             })
           }
         >
@@ -191,9 +166,7 @@ function Filtros({ search, onChange }: FiltrosProps) {
             <SelectItem value={String(TipoComprobacionGastos.GastosAduanales)}>
               Aduanales
             </SelectItem>
-            <SelectItem value={String(TipoComprobacionGastos.Viaticos)}>
-              Viáticos
-            </SelectItem>
+            <SelectItem value={String(TipoComprobacionGastos.Viaticos)}>Viáticos</SelectItem>
             <SelectItem value={String(TipoComprobacionGastos.TarjetaCredito)}>
               Tarjeta crédito
             </SelectItem>
@@ -206,10 +179,7 @@ function Filtros({ search, onChange }: FiltrosProps) {
           value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoComprobacionGastos),
+              estado: v === SENTINEL_ALL ? undefined : (Number(v) as EstadoComprobacionGastos),
             })
           }
         >
@@ -218,24 +188,14 @@ function Filtros({ search, onChange }: FiltrosProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Borrador)}>
-              Borrador
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.PorRevisar)}>
-              Por revisar
-            </SelectItem>
+            <SelectItem value={String(EstadoComprobacionGastos.Borrador)}>Borrador</SelectItem>
+            <SelectItem value={String(EstadoComprobacionGastos.PorRevisar)}>Por revisar</SelectItem>
             <SelectItem value={String(EstadoComprobacionGastos.AutorizadaNivel1)}>
               Autorizada N1
             </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Autorizada)}>
-              Autorizada
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Aplicada)}>
-              Aplicada
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Rechazada)}>
-              Rechazada
-            </SelectItem>
+            <SelectItem value={String(EstadoComprobacionGastos.Autorizada)}>Autorizada</SelectItem>
+            <SelectItem value={String(EstadoComprobacionGastos.Aplicada)}>Aplicada</SelectItem>
+            <SelectItem value={String(EstadoComprobacionGastos.Rechazada)}>Rechazada</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -267,114 +227,6 @@ function Filtros({ search, onChange }: FiltrosProps) {
 }
 
 function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
-  const enviar = useEnviarComprobacionARevision();
-  const autorizar = useAutorizarComprobacion();
-  const aplicar = useAplicarComprobacion();
-  const autN1 = useAutorizarNivel1Aduanales();
-  const autN2 = useAutorizarNivel2Aduanales();
-  const rechazar = useRechazarComprobacion();
-
-  const puedeAprobarN1 = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel1,
-  );
-  const puedeAprobarN2 = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesAprobarNivel2,
-  );
-  const puedeCapturar = useHasPermission(
-    PermisosCanonicos.CuentasPorPagarComprobacionesCapturar,
-  );
-
-  function dispatch(
-    label: string,
-    promise: Promise<unknown>,
-  ) {
-    promise.then(
-      () => toast.success(label),
-      (error) => {
-        if (esApiError(error)) {
-          toast.error(error.problem.title);
-          return;
-        }
-        toast.error('Error al ejecutar acción.');
-      },
-    );
-  }
-
-  function handleEnviar(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Enviada a revisión',
-      enviar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleAutorizar(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Comprobación autorizada',
-      autorizar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleAplicar(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Comprobación aplicada',
-      aplicar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleN1(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Firma Nivel 1 aplicada',
-      autN1.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleN2(c: ComprobacionGastosListItem) {
-    dispatch(
-      'Firma Nivel 2 aplicada (segregación validada por backend)',
-      autN2.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
-  function handleRechazar(c: ComprobacionGastosListItem) {
-    const motivo = window.prompt(
-      'Motivo del rechazo (5-500 caracteres):',
-      '',
-    );
-    if (!motivo || motivo.trim().length < 5) {
-      toast.error('Motivo demasiado corto.');
-      return;
-    }
-    dispatch(
-      'Comprobación rechazada',
-      rechazar.mutateAsync({
-        id: c.id,
-        versionEsperada: c.version,
-        command: { motivo: motivo.trim() },
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    );
-  }
-
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full text-sm">
@@ -391,107 +243,31 @@ function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
         <tbody>
           {items.map((c) => (
             <tr key={c.id} className="border-t hover:bg-muted/30">
-              <td className="px-3 py-2">
-                {TipoComprobacionGastosLabels[c.tipo]}
-              </td>
+              <td className="px-3 py-2">{TipoComprobacionGastosLabels[c.tipo]}</td>
               <td className="px-3 py-2 whitespace-nowrap text-xs">
                 {c.fechaInicio} → {c.fechaFin}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {c.numeroLineas}
-              </td>
+              <td className="px-3 py-2 text-right font-mono">{c.numeroLineas}</td>
               <td className="py-2 pl-3 pr-4 text-right tabular-nums">
                 <MoneyDisplay amount={c.montoTotal} currency={c.moneda} strong />
               </td>
               <td className="px-3 py-2">
                 <EstadoComprobacionChip estado={c.estado} />
               </td>
-              <td className="px-3 py-2 text-right">
-                <Button asChild variant="ghost" size="sm" className="mr-1">
-                  <Link
-                    to="/cxp/comprobaciones/$id"
-                    params={{ id: c.id }}
-                    aria-label={`Ver detalle de comprobación ${TipoComprobacionGastosLabels[c.tipo]}`}
-                  >
-                    <Eye className="mr-1 h-3 w-3" />
-                    Ver detalle
-                  </Link>
-                </Button>
-                {c.estado === EstadoComprobacionGastos.Borrador &&
-                  puedeCapturar && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEnviar(c)}
-                      disabled={enviar.isPending}
+              <td className="px-3 py-2">
+                <div className="flex flex-wrap items-center justify-end gap-1">
+                  <Button asChild variant="ghost" size="sm">
+                    <Link
+                      to="/cxp/comprobaciones/$id"
+                      params={{ id: c.id }}
+                      aria-label={`Ver detalle de comprobación ${TipoComprobacionGastosLabels[c.tipo]}`}
                     >
-                      <Send className="mr-1 h-3 w-3" />
-                      Enviar
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.PorRevisar &&
-                  c.tipo !== TipoComprobacionGastos.GastosAduanales &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAutorizar(c)}
-                      disabled={autorizar.isPending}
-                    >
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Autorizar
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.PorRevisar &&
-                  c.tipo === TipoComprobacionGastos.GastosAduanales &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleN1(c)}
-                      disabled={autN1.isPending}
-                    >
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Firma N1
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.AutorizadaNivel1 &&
-                  puedeAprobarN2 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleN2(c)}
-                      disabled={autN2.isPending}
-                    >
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Firma N2 (DF)
-                    </Button>
-                  )}
-                {c.estado === EstadoComprobacionGastos.Autorizada &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAplicar(c)}
-                      disabled={aplicar.isPending}
-                    >
-                      Aplicar
-                    </Button>
-                  )}
-                {(c.estado === EstadoComprobacionGastos.PorRevisar ||
-                  c.estado === EstadoComprobacionGastos.AutorizadaNivel1) &&
-                  puedeAprobarN1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRechazar(c)}
-                      className="ml-1 text-destructive"
-                      disabled={rechazar.isPending}
-                    >
-                      <XCircle className="mr-1 h-3 w-3" />
-                      Rechazar
-                    </Button>
-                  )}
+                      <Eye className="mr-1 h-3 w-3" aria-hidden="true" />
+                      Ver detalle
+                    </Link>
+                  </Button>
+                  <AccionesComprobacion c={c} />
+                </div>
               </td>
             </tr>
           ))}
@@ -500,4 +276,3 @@ function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
     </div>
   );
 }
-

@@ -29,6 +29,7 @@ import { formatCantidad } from '@/lib/format-cantidad';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { Importe } from '@/features/cxp/components/DetalleCampos';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
 /**
  * <c>P2 — Detalle de Factura de Proveedor</c> (doc 07 §FE-F2-PR1).
@@ -44,6 +45,8 @@ import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
  * F4-PR2; el sheet se agrega en FE-F3-PR1 (revisión + evidencias).</para>
  */
 const FROM = '/_app/cxp/facturas/$id' as const;
+const MOTIVO_AUTORIZAR_EN_REVISION =
+  'En revisión por área; se podrá autorizar al liberar la revisión.';
 
 export function FacturaDetallePage() {
   const { id } = useParams({ from: FROM });
@@ -68,6 +71,7 @@ export function FacturaDetallePage() {
   const [adjuntarEvidenciaAbierto, setAdjuntarEvidenciaAbierto] = useState(false);
   const revisarRetenciones = useMarcarRetencionesRevisadas();
   const puedeRevisarRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesAdministrar);
+  const [autorizarAbierto, setAutorizarAbierto] = useState(false);
   const [revisarAbierto, setRevisarAbierto] = useState(false);
   const [errorRevision, setErrorRevision] = useState<string | null>(null);
   const retencionesPendientes = !!query.data?.alertaRetenciones && !query.data?.retencionesRevisadasEn;
@@ -82,6 +86,7 @@ export function FacturaDetallePage() {
       },
       {
         onSuccess: () => toast.success('Factura autorizada'),
+        onSettled: () => setAutorizarAbierto(false),
         onError: (error) => {
           if (esApiError(error)) {
             toast.error(error.problem.title, {
@@ -165,19 +170,39 @@ export function FacturaDetallePage() {
               {puedeAplicarAnticipo && <Button variant="secondary" size="sm" onClick={() => setAplicacion('anticipo')}>Aplicar anticipo</Button>}
               {puedeAplicarNc && <Button variant="secondary" size="sm" onClick={() => setAplicacion('nc')}>Aplicar NC</Button>}
             </>}
-            {query.data.estado === EstadoPasivo.Capturada && puedeAutorizar && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleAutorizar}
-                disabled={autorizar.isPending || retencionesPendientes}
-                aria-describedby={retencionesPendientes ? 'alerta-retenciones' : undefined}
-                title={retencionesPendientes ? 'Fiscal debe revisar las retenciones antes de autorizar.' : undefined}
-              >
-                <CheckCircle2 className="mr-1 h-3 w-3" />
-                Autorizar
-              </Button>
-            )}
+            {(query.data.estado === EstadoPasivo.Capturada || query.data.estado === EstadoPasivo.EnRevision) &&
+              puedeAutorizar && (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setAutorizarAbierto(true)}
+                    disabled={autorizar.isPending || retencionesPendientes || query.data.estado === EstadoPasivo.EnRevision}
+                    aria-describedby={
+                      retencionesPendientes
+                        ? 'alerta-retenciones'
+                        : query.data.estado === EstadoPasivo.EnRevision
+                          ? 'motivo-autorizar-revision'
+                          : undefined
+                    }
+                    title={
+                      query.data.estado === EstadoPasivo.EnRevision
+                        ? MOTIVO_AUTORIZAR_EN_REVISION
+                        : retencionesPendientes
+                          ? 'Fiscal debe revisar las retenciones antes de autorizar.'
+                          : undefined
+                    }
+                  >
+                    <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+                    Autorizar
+                  </Button>
+                  {query.data.estado === EstadoPasivo.EnRevision && (
+                    <span id="motivo-autorizar-revision" className="sr-only">
+                      {MOTIVO_AUTORIZAR_EN_REVISION}
+                    </span>
+                  )}
+                </>
+              )}
             {(query.data.estado === EstadoPasivo.Capturada || query.data.estado === EstadoPasivo.Autorizada) &&
               !query.data.enRevision &&
               puedeEnviarRevision && (
@@ -211,7 +236,7 @@ export function FacturaDetallePage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setCancelarAbierto(true)}
-                  className="text-destructive"
+                  className="text-danger-fg"
                 >
                   <XCircle className="mr-1 h-3 w-3" />
                   Cancelar
@@ -227,7 +252,7 @@ export function FacturaDetallePage() {
               )}
           </div>
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
               label="Proveedor"
               valor={query.data.proveedorNombre?.trim() || '[PROVEEDOR POR CONFIRMAR]'}
@@ -254,7 +279,7 @@ export function FacturaDetallePage() {
               label="Tipo de cambio"
               valor={query.data.tipoCambio != null ? formatCantidad(query.data.tipoCambio, 4) : '—'}
             />
-          </section>
+          </dl>
 
           {query.data.estado === EstadoPasivo.Capturada && puedeEditar && (
             <EditarDatosP8 key={`${query.data.id}-${query.data.version}`} factura={query.data} />
@@ -319,56 +344,37 @@ export function FacturaDetallePage() {
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Totales
             </h2>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-              <Importe label="Subtotal" v={query.data.subtotal} m={query.data.moneda} />
-              <Importe label="Descuentos" v={query.data.descuentos} m={query.data.moneda} />
-              <Importe
-                label="IVA trasladado"
-                v={query.data.impuestosTrasladados}
-                m={query.data.moneda}
-              />
-              <Importe
-                label="Retenciones totales"
-                v={query.data.retenciones}
-                m={query.data.moneda}
-              />
-              <Importe
-                label="ISR retenido"
-                v={desgloseRetenciones(query.data.retencionesDetalle).isr}
-                m={query.data.moneda}
-              />
-              <Importe
-                label="IVA retenido"
-                v={desgloseRetenciones(query.data.retencionesDetalle).iva}
-                m={query.data.moneda}
-              />
-              <Importe
-                label="Elegible para pago"
-                v={query.data.elegible}
-                m={query.data.moneda}
-                strong
-              />
-              <Importe
-                label="Retenido por falta de recepción"
-                v={query.data.retenido}
-                m={query.data.moneda}
-              />
-              <Importe label="Total" v={query.data.total} m={query.data.moneda} strong />
-              <Importe
-                label="Anticipo aplicado"
-                v={query.data.anticipoAplicadoTotal}
-                m={query.data.moneda}
-              />
-              <Importe label="NC aplicadas" v={query.data.ncAplicadasTotal} m={query.data.moneda} />
-              <Importe label="Cargos aplicados" v={query.data.cargosAplicadosTotal ?? 0} m={query.data.moneda} />
-              <Importe label="Pagado" v={query.data.importePagado} m={query.data.moneda} />
-              <Importe
-                label="Saldo pendiente"
-                v={query.data.saldoPendiente}
-                m={query.data.moneda}
-                strong
-              />
-            </dl>
+            <div className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Fiscal</h3>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                <Importe label="Subtotal" v={query.data.subtotal} m={query.data.moneda} />
+                <Importe label="Descuentos" v={query.data.descuentos} m={query.data.moneda} />
+                <Importe label="IVA trasladado" v={query.data.impuestosTrasladados} m={query.data.moneda} />
+                <Importe label="Retenciones totales" v={query.data.retenciones} m={query.data.moneda} />
+                <Importe label="ISR retenido" v={desgloseRetenciones(query.data.retencionesDetalle).isr} m={query.data.moneda} />
+                <Importe label="IVA retenido" v={desgloseRetenciones(query.data.retencionesDetalle).iva} m={query.data.moneda} />
+                <Importe label="Total" v={query.data.total} m={query.data.moneda} strong />
+              </dl>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Aplicaciones</h3>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                <Importe label="Anticipo aplicado" v={query.data.anticipoAplicadoTotal} m={query.data.moneda} />
+                <Importe label="NC aplicadas" v={query.data.ncAplicadasTotal} m={query.data.moneda} />
+                <Importe label="Cargos aplicados" v={query.data.cargosAplicadosTotal ?? 0} m={query.data.moneda} />
+                <Importe label="Pagado" v={query.data.importePagado} m={query.data.moneda} />
+              </dl>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Resultado</h3>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                <Importe label="Elegible para pago" v={query.data.elegible} m={query.data.moneda} strong />
+                <Importe label="Retenido por falta de recepción" v={query.data.retenido} m={query.data.moneda} />
+                <Importe label="Saldo pendiente" v={query.data.saldoPendiente} m={query.data.moneda} strong grande />
+              </dl>
+            </div>
+            </div>
           </section>
 
           <DocumentoAdjuntosSection base={`/api/v1/cuentas-por-pagar/facturas/${query.data.id}`} tipo="factura_proveedor" permiso="cuentas_por_pagar.facturas" />
@@ -419,6 +425,24 @@ export function FacturaDetallePage() {
             <EvidenciasList facturaId={query.data.id} />
           </section>
 
+          <ConfirmarAccionDialog
+            open={autorizarAbierto}
+            onOpenChange={setAutorizarAbierto}
+            titulo="Autorizar factura para pago"
+            resumen={
+              <>
+                Autorizas la factura {query.data.serieProveedor ? `${query.data.serieProveedor}-` : ''}
+                {query.data.folioProveedor ?? 'sin folio'}
+                {query.data.proveedorNombre?.trim() ? ` de ${query.data.proveedorNombre.trim()}` : ''} por{' '}
+                <MoneyDisplay amount={query.data.total} currency={query.data.moneda} strong />. Pasa a
+                Tesorería como pasivo listo para pago.
+              </>
+            }
+            verbo="Autorizar para pago"
+            tono="primario"
+            pendiente={autorizar.isPending}
+            onConfirmar={handleAutorizar}
+          />
           <AplicarDocumentoFacturaSheet factura={query.data} tipo={aplicacion} onClose={() => setAplicacion(null)} />
           <CancelarFacturaSheet
             open={cancelarAbierto}
@@ -456,7 +480,7 @@ function Campo({ label, valor, mono }: CampoProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('text-sm', mono && 'font-mono text-xs')}>{valor}</dd>
+      <dd className={cn('text-sm', mono && 'break-all font-mono text-xs')}>{valor}</dd>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useComprobacionGastos } from '@/features/cxp/api/useComprobaciones';
+import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import { TipoComprobacionGastosLabels } from '@/features/cxp/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoComprobacionChip } from '@/features/cxp/components/EstadoChips';
@@ -71,7 +72,14 @@ export function ComprobacionDetallePage() {
             }
           />
 
-          <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          {/* Sub-topbar: mismas acciones que la fila de la bandeja (CXP-29). */}
+          <AccionesComprobacion
+            c={query.data}
+            responsableNombre={query.data.responsableNombre}
+            className="justify-start rounded-md border bg-surface-subtle px-3 py-2"
+          />
+
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo
               label="Sucursal"
               valor={query.data.sucursalNombre ?? query.data.sucursalId}
@@ -96,7 +104,7 @@ export function ComprobacionDetallePage() {
                 <dd className="text-sm">{query.data.observaciones}</dd>
               </div>
             )}
-          </section>
+          </dl>
 
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -212,14 +220,14 @@ export function ComprobacionDetallePage() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         {l.fechaCfdi.slice(0, 10)}
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs">
+                      <td className="px-3 py-2 break-all font-mono text-xs">
                         {l.uuidCfdi ?? '—'}
                         {l.folioProveedor != null && ` · ${l.folioProveedor}`}
                       </td>
                       <td className="max-w-64 truncate px-3 py-2">
                         {l.concepto ?? '—'}
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs">
+                      <td className="px-3 py-2 break-all font-mono text-xs">
                         <Link
                           to="/cxp/facturas/$id"
                           params={{ id: l.facturaProveedorId }}

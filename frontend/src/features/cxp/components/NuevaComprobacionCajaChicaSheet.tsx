@@ -1,5 +1,5 @@
 import { hoyLocalISO } from '@/lib/datetime';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, Upload } from 'lucide-react';
@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -39,9 +38,11 @@ import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { useProveedor } from '@/features/catalogos/api';
 import {
   EmpleadoSelector,
+  Field,
   ProveedorSelector,
   SucursalSelector,
 } from '@/components/erp';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
@@ -62,8 +63,14 @@ export function NuevaComprobacionCajaChicaSheet({
   open,
   onOpenChange,
 }: NuevaComprobacionCajaChicaSheetProps) {
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
       <SheetContent side="right" size="wide">
         <SheetHeader>
           <SheetTitle>Nueva comprobación — Caja chica</SheetTitle>
@@ -73,8 +80,15 @@ export function NuevaComprobacionCajaChicaSheet({
             individualmente.
           </SheetDescription>
         </SheetHeader>
-        {open && <Form onClose={() => onOpenChange(false)} />}
+        {open && (
+          <Form
+            onCancel={() => solicitarCierre()}
+            onCreated={() => solicitarCierre(true)}
+            onDirtyChange={setDirty}
+          />
+        )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
@@ -98,7 +112,15 @@ function defaultLinea() {
   };
 }
 
-function Form({ onClose }: { onClose: () => void }) {
+function Form({
+  onCancel,
+  onCreated,
+  onDirtyChange,
+}: {
+  onCancel: () => void;
+  onCreated: () => void;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearComprobacionCajaChica();
   const hoy = hoyLocalISO();
@@ -121,6 +143,11 @@ function Form({ onClose }: { onClose: () => void }) {
     control: form.control,
     name: 'cfdis',
   });
+
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const puedeLeerCfdis = useHasPermission(
     PermisosCanonicos.CuentasPorPagarCfdisLeer,
@@ -179,7 +206,7 @@ function Form({ onClose }: { onClose: () => void }) {
           toast.success(
             `Comprobación creada con ${res.numeroLineas} CFDIs (${res.montoTotal.toFixed(2)})`,
           );
-          onClose();
+          onCreated();
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -207,32 +234,38 @@ function Form({ onClose }: { onClose: () => void }) {
           required
           error={form.formState.errors.sucursalId?.message}
         >
+          {(control) => (
           <Controller
             control={form.control}
             name="sucursalId"
             render={({ field }) => (
               <SucursalSelector
+                triggerProps={control}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
               />
             )}
           />
+          )}
         </Campo>
         <Campo
           label="Responsable"
           required
           error={form.formState.errors.responsableId?.message}
         >
+          {(control) => (
           <Controller
             control={form.control}
             name="responsableId"
             render={({ field }) => (
               <EmpleadoSelector
+                triggerProps={control}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
               />
             )}
           />
+          )}
         </Campo>
         <Campo label="Fecha inicio" required>
           <Input type="date" {...form.register('fechaInicio')} />
@@ -253,6 +286,7 @@ function Form({ onClose }: { onClose: () => void }) {
           required
           error={form.formState.errors.destinoReposicion?.message}
         >
+          {(control) => (
           <Controller
             control={form.control}
             name="destinoReposicion"
@@ -261,7 +295,7 @@ function Form({ onClose }: { onClose: () => void }) {
                 value={String(field.value)}
                 onValueChange={(v) => field.onChange(Number(v))}
               >
-                <SelectTrigger>
+                <SelectTrigger {...control}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -271,9 +305,10 @@ function Form({ onClose }: { onClose: () => void }) {
               </Select>
             )}
           />
+          )}
         </Campo>
-        <Campo label="Observaciones">
-          <Input placeholder="Opcional" {...form.register('observaciones')} />
+        <Campo label="Observaciones" optional>
+          <Input {...form.register('observaciones')} />
         </Campo>
       </section>
 
@@ -292,7 +327,7 @@ function Form({ onClose }: { onClose: () => void }) {
         </header>
 
         {fields.length === 0 && (
-          <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+          <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-ink-muted">
             Sin CFDIs. Agrega al menos uno.
           </p>
         )}
@@ -313,7 +348,7 @@ function Form({ onClose }: { onClose: () => void }) {
         </div>
 
         {form.formState.errors.cfdis?.message && (
-          <p className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-danger-fg">
             {form.formState.errors.cfdis.message}
           </p>
         )}
@@ -323,7 +358,7 @@ function Form({ onClose }: { onClose: () => void }) {
         <Button
           type="button"
           variant="ghost"
-          onClick={onClose}
+          onClick={onCancel}
           disabled={crear.isPending}
         >
           Cancelar
@@ -388,7 +423,7 @@ function LineaInline({
     <div
       className={cn(
         'space-y-2 rounded-md border border-dashed p-3',
-        lineaErrors && 'border-destructive/50',
+        lineaErrors && 'border-danger-fg/50',
       )}
     >
       {puedeLeerCfdis && (
@@ -409,134 +444,89 @@ function LineaInline({
         </div>
       )}
       {uuidCfdi && (
-        <p className="font-mono text-xs text-muted-foreground">
+        <p className="break-all font-mono text-xs text-ink-muted">
           UUID: {uuidCfdi}
         </p>
       )}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
-        <div className="sm:col-span-4">
-          <Label className="text-xs">Proveedor *</Label>
-          <Controller
-            control={form.control}
-            name={`cfdis.${index}.proveedorId` as const}
-            render={({ field }) => (
-              <ProveedorSelector
-                value={field.value || null}
-                onChange={(id) => field.onChange(id ?? '')}
-                className="w-full"
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-4">
+        <div className="col-span-full">
+          <Field
+            label="Proveedor"
+            required
+            error={lineaErrors?.proveedorId?.message}
+          >
+            {(control) => (
+              <Controller
+                control={form.control}
+                name={`cfdis.${index}.proveedorId` as const}
+                render={({ field }) => (
+                  <ProveedorSelector
+                    value={field.value || null}
+                    onChange={(id) => field.onChange(id ?? '')}
+                    className="w-full"
+                    triggerProps={control}
+                  />
+                )}
               />
             )}
-          />
-          {lineaErrors?.proveedorId && (
-            <p className="text-xs text-destructive">
-              {lineaErrors.proveedorId.message}
-            </p>
-          )}
+          </Field>
         </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Serie</Label>
-          <Input
-            placeholder="A"
-            {...form.register(`cfdis.${index}.serieProveedor` as const)}
-          />
+          <Field label="Serie">
+            <Input placeholder="A" {...form.register(`cfdis.${index}.serieProveedor` as const)} />
+          </Field>
+          <Field label="Folio">
+            <Input placeholder="123" {...form.register(`cfdis.${index}.folioProveedor` as const)} />
+          </Field>
+          <Field label="Fecha" required>
+            <Input type="date" {...form.register(`cfdis.${index}.fechaCfdi` as const)} />
+          </Field>
+          <Field label="Vence">
+            <Input type="date" {...form.register(`cfdis.${index}.fechaVencimiento` as const)} />
+          </Field>
+          <Field label="Subtotal">
+            <Input type="number" step="0.01" min="0" {...form.register(`cfdis.${index}.subtotal` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+          <Field label="IVA">
+            <Input type="number" step="0.01" min="0" {...form.register(`cfdis.${index}.impuestosTrasladados` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+          <Field label="Retenciones">
+            <Input type="number" step="0.01" min="0" {...form.register(`cfdis.${index}.retenciones` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+          <Field label="Descuentos">
+            <Input type="number" step="0.01" min="0" {...form.register(`cfdis.${index}.descuentos` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+          <Field label="Total" required
+            error={lineaErrors?.total?.message}>
+            <Input type="number" step="0.01" min="0" {...form.register(`cfdis.${index}.total` as const, {
+                valueAsNumber: true,
+              })} />
+          </Field>
+        <div className="col-span-full sm:col-span-2">
+          <Field label="Concepto" optional>
+            <Input
+              placeholder="Detalle del gasto"
+              {...form.register(`cfdis.${index}.concepto` as const)}
+            />
+          </Field>
         </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Folio</Label>
-          <Input
-            placeholder="123"
-            {...form.register(`cfdis.${index}.folioProveedor` as const)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Fecha *</Label>
-          <Input
-            type="date"
-            {...form.register(`cfdis.${index}.fechaCfdi` as const)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Vence</Label>
-          <Input
-            type="date"
-            {...form.register(`cfdis.${index}.fechaVencimiento` as const)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Subtotal</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`cfdis.${index}.subtotal` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">IVA</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`cfdis.${index}.impuestosTrasladados` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Retenciones</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`cfdis.${index}.retenciones` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Descuentos</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`cfdis.${index}.descuentos` as const, {
-              valueAsNumber: true,
-            })}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">Total *</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...form.register(`cfdis.${index}.total` as const, {
-              valueAsNumber: true,
-            })}
-          />
-          {lineaErrors?.total && (
-            <p className="text-xs text-destructive">
-              {lineaErrors.total.message}
-            </p>
-          )}
-        </div>
-        <div className="sm:col-span-8">
-          <Label className="text-xs">Concepto</Label>
-          <Input
-            placeholder="Detalle del gasto"
-            {...form.register(`cfdis.${index}.concepto` as const)}
-          />
-        </div>
-        <div className="flex items-end sm:col-span-2">
+        <div className="flex items-end">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            className="text-destructive hover:bg-destructive/10"
+            aria-label={`Quitar CFDI ${index + 1}`}
+            className="text-danger-fg hover:bg-danger-bg"
           >
-            <Trash2 className="mr-1 h-3 w-3" />
+            <Trash2 className="mr-1 h-3 w-3" aria-hidden="true" />
             Quitar
           </Button>
         </div>
@@ -545,22 +535,5 @@ function LineaInline({
   );
 }
 
-interface CampoProps {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}
-
-function Campo({ label, required, error, children }: CampoProps) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">
-        {label}
-        {required && <span className="ml-1 text-destructive">*</span>}
-      </Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
+/** Alias local: `Field` accesible (label asociado, aria-*). */
+const Campo = Field;

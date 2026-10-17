@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe('<NotasCargoPage> — smoke', () => {
-  it('Borrador con permiso de autorizar muestra botón Autorizar', async () => {
+  it('Borrador no ofrece Autorizar en la fila: la regla del creador vive en el detalle', async () => {
     mswServer.use(
       http.get('*/api/v1/cuentas-por-pagar/notas-cargo', () =>
         HttpResponse.json({
@@ -79,8 +79,7 @@ describe('<NotasCargoPage> — smoke', () => {
         screen.getByText(/NCG-2026-000001/i),
       ).toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole('button', { name: /Autorizar/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Autorizar/i })).toBeNull();
+    expect(screen.getByRole('link', { name: /Ver detalle/i })).toBeInTheDocument();
   });
 });
