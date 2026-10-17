@@ -1,7 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { almacenKeys } from '@/features/almacen/api/keys';
-import type { MaterialEnRevisionItem } from '@/features/almacen/api/types';
+import type {
+  DictamenRevisionResponse,
+  DictaminarMaterialEnRevisionRequest,
+  MaterialEnRevisionItem,
+} from '@/features/almacen/api/types';
 
 export interface MaterialEnRevisionFiltros {
   soloPendientes: boolean;
@@ -19,6 +23,26 @@ export function useMaterialEnRevision(filtros: MaterialEnRevisionFiltros) {
         { signal },
       );
       return data;
+    },
+  });
+}
+
+export function useDictaminarMaterialEnRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      lineaRevisionId: string;
+      command: DictaminarMaterialEnRevisionRequest;
+      idempotencyKey: string;
+    }) => {
+      const { data } = await apiRequest<DictamenRevisionResponse>(
+        `/api/v1/almacen/revision/lineas/${args.lineaRevisionId}/dictamen`,
+        { method: 'POST', body: args.command, idempotencyKey: args.idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: almacenKeys.all });
     },
   });
 }

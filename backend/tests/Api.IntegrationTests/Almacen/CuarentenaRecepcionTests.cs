@@ -99,6 +99,13 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
         finally
         {
             db.ChangeTracker.Clear();
+            // Los dictámenes (ALM-04 R3) apuntan a lineas_movimiento con FK restrict: primero ellos.
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $@"DELETE FROM almacen.dictamenes_revision WHERE linea_revision_id IN (
+                     SELECT lm.id FROM almacen.lineas_movimiento lm
+                     JOIN almacen.ubicaciones u ON u.id = lm.ubicacion_id
+                     JOIN almacen.sub_almacenes s ON s.id = u.sub_almacen_id
+                     WHERE s.almacen_id = {ctx.AlmacenId})");
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $@"DELETE FROM almacen.movimientos_inventario WHERE id IN (
                      SELECT lm.movimiento_id FROM almacen.lineas_movimiento lm
@@ -197,18 +204,18 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
             Task.FromResult<IReadOnlyDictionary<Guid, ProveedorLectura>>(new Dictionary<Guid, ProveedorLectura>());
     }
 
-    private sealed class DecimalesNulo : IDecimalesUnidadGuard
+    internal sealed class DecimalesNulo : IDecimalesUnidadGuard
     {
         public Task ValidarAsync(IEnumerable<CantidadAValidar> cantidades, CancellationToken ct) => Task.CompletedTask;
     }
 
-    private sealed class UserFake(Guid userId) : ICurrentUserContext
+    internal sealed class UserFake(Guid userId) : ICurrentUserContext
     {
         public Guid? UserId { get; } = userId;
         public string? UserName => "Test ALM-04";
     }
 
-    private sealed class EmpresaFake(Guid current) : ICurrentEmpresaContext
+    internal sealed class EmpresaFake(Guid current) : ICurrentEmpresaContext
     {
         public Guid? Current { get; } = current;
         public bool IsBypassed => false;

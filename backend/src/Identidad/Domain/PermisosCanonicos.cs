@@ -274,6 +274,7 @@ public static class PermisosCanonicos
 
     public const string AlmacenDevolucionesProveedorIniciar            = "almacen.devoluciones-proveedor.iniciar";
     public const string AlmacenDevolucionesProveedorAutorizar          = "almacen.devoluciones-proveedor.autorizar";
+    public const string AlmacenCuarentenaDictaminar                    = "almacen.cuarentena.dictaminar";
     public const string AlmacenDevolucionesProveedorRegistrar          = "almacen.devoluciones-proveedor.registrar";
 
     public const string AlmacenInventariosLeer                         = "almacen.inventarios.leer";
@@ -784,6 +785,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000008-0005-0000-0000-000000000001"), AlmacenDevolucionesProveedorIniciar,         "Iniciar devoluciones a proveedor (sub-flujo 8.B)"),
         (Guid.Parse("00000008-0005-0000-0000-000000000002"), AlmacenDevolucionesProveedorAutorizar,       "Autorizar devoluciones a proveedor (Dirección, compartido con cxp.notas-cargo.autorizar)"),
         (Guid.Parse("00000008-0005-0000-0000-000000000003"), AlmacenDevolucionesProveedorRegistrar,       "Registrar la salida física de la devolución a proveedor"),
+        (Guid.Parse("00000008-000f-0000-0000-000000000001"), AlmacenCuarentenaDictaminar,                 "Dictaminar material en revisión: liberar, rechazar al proveedor o dar de baja (Gerente de almacén/calidad)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000001"), AlmacenInventariosLeer,                      "Consultar conteos de inventario físico"),
         (Guid.Parse("00000008-0006-0000-0000-000000000002"), AlmacenInventariosCrear,                     "Crear y planificar conteos de inventario (rotativo y anual)"),
         (Guid.Parse("00000008-0006-0000-0000-000000000003"), AlmacenInventariosCapturar,                  "Capturar conteo sin ver cantidad teórica (captura sin sesgo, A6)"),

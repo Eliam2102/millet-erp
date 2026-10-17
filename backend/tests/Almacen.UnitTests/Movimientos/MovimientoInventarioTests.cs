@@ -155,10 +155,17 @@ public class MovimientoInventarioTests
     [InlineData(TipoMovimiento.AjustePrecioFactura, "AJF")]
     [InlineData(TipoMovimiento.BajaPorDano, "BAJ")]
     [InlineData(TipoMovimiento.ReincorporacionTrasRevision, "REI")]
+    [InlineData(TipoMovimiento.SalidaPorLiberacionRevision, "LIB")]
     public void Folio_usa_prefijo_correcto_por_tipo(TipoMovimiento tipo, string prefijoEsperado)
     {
         var folio = FolioMovimiento.Construir(tipo, 2026, 7);
         folio.Valor.Should().StartWith($"M-{prefijoEsperado}2026-");
+    }
+
+    [Fact]
+    public void Liberacion_de_revision_es_salida()
+    {
+        TipoMovimientoExtensions.EsEntrada(TipoMovimiento.SalidaPorLiberacionRevision).Should().BeFalse();
     }
 
     [Fact]

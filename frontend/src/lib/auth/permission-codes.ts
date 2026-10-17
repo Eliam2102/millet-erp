@@ -208,6 +208,7 @@ export const PermisosCanonicos = {
   AlmacenDevolucionesInternasCapturar: 'almacen.devoluciones-internas.capturar',
   AlmacenDevolucionesProveedorIniciar: 'almacen.devoluciones-proveedor.iniciar',
   AlmacenDevolucionesProveedorAutorizar: 'almacen.devoluciones-proveedor.autorizar',
+  AlmacenCuarentenaDictaminar: 'almacen.cuarentena.dictaminar',
   AlmacenDevolucionesProveedorRegistrar: 'almacen.devoluciones-proveedor.registrar',
 
   AlmacenInventariosLeer: 'almacen.inventarios.leer',

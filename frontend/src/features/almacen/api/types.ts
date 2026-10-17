@@ -1132,4 +1132,39 @@ export interface MaterialEnRevisionItem {
   ubicacionDisponibleSugeridaId: string | null;
   fechaLimite: string | null;
   vencida: boolean;
+  dictamenes: DictamenRevisionItem[];
+}
+
+/** ALM-04 G1.3: resultado del dictamen (espejo de `ResultadoDictamen`). */
+export const ResultadoDictamen = { Liberar: 0, Rechazar: 1, Baja: 2 } as const;
+export type ResultadoDictamen = (typeof ResultadoDictamen)[keyof typeof ResultadoDictamen];
+export const ResultadoDictamenLabels: Record<ResultadoDictamen, string> = {
+  [ResultadoDictamen.Liberar]: 'Liberar',
+  [ResultadoDictamen.Rechazar]: 'Rechazar al proveedor',
+  [ResultadoDictamen.Baja]: 'Dar de baja',
+};
+
+export interface DictamenRevisionItem {
+  id: string;
+  resultado: ResultadoDictamen;
+  cantidad: number;
+  motivo: string;
+  dictaminadoPor: string;
+  dictaminadoAt: string;
+  devolucionAProveedorId: string | null;
+}
+
+export interface DictaminarMaterialEnRevisionRequest {
+  resultado: ResultadoDictamen;
+  cantidad: number;
+  motivo: string;
+  fechaMovimiento: string;
+  ubicacionDestinoId: string | null;
+}
+
+export interface DictamenRevisionResponse {
+  dictamenId: string;
+  resultado: ResultadoDictamen;
+  folio: string | null;
+  devolucionAProveedorId: string | null;
 }

@@ -1672,7 +1672,7 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_movimientos_estado", "estado BETWEEN 0 AND 3");
 
-                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 9");
+                            t.HasCheckConstraint("ck_movimientos_tipo", "tipo BETWEEN 0 AND 10");
                         });
                 });
 
@@ -1689,6 +1689,98 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                     b.ToTable((string)null);
 
                     b.ToView("v_movimiento_sub_almacen", "almacen");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Revision.DictamenRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(14, 4)
+                        .HasColumnType("numeric(14,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DevolucionAProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("devolucion_a_proveedor_id");
+
+                    b.Property<DateTimeOffset>("DictaminadoAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dictaminado_at");
+
+                    b.Property<Guid>("DictaminadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dictaminado_por");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("LineaRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_revision_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<Guid?>("MovimientoEntradaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_entrada_id");
+
+                    b.Property<Guid>("MovimientoRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_revision_id");
+
+                    b.Property<Guid?>("MovimientoSalidaRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movimiento_salida_revision_id");
+
+                    b.Property<short>("Resultado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("resultado");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dictamenes_revision");
+
+                    b.HasIndex("LineaRevisionId")
+                        .HasDatabaseName("ix_dictamenes_revision_linea");
+
+                    b.ToTable("dictamenes_revision", "almacen", t =>
+                        {
+                            t.HasCheckConstraint("ck_dictamenes_revision_cantidad", "cantidad > 0");
+
+                            t.HasCheckConstraint("ck_dictamenes_revision_resultado", "resultado BETWEEN 0 AND 2");
+                        });
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Saldos.SaldoInventario", b =>
@@ -2036,6 +2128,16 @@ namespace Millet.Almacen.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UbicacionHelperId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_movimientos_inventario_ubicaciones_ubicacion_helper_id");
+                });
+
+            modelBuilder.Entity("Millet.Almacen.Domain.Revision.DictamenRevision", b =>
+                {
+                    b.HasOne("Millet.Almacen.Domain.Movimientos.LineaMovimiento", null)
+                        .WithMany()
+                        .HasForeignKey("LineaRevisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_dictamenes_revision_lineas_movimiento_linea_revision_id");
                 });
 
             modelBuilder.Entity("Millet.Almacen.Domain.Saldos.SaldoInventario", b =>

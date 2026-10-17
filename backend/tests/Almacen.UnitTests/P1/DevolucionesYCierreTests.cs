@@ -135,7 +135,8 @@ public sealed class DevolucionesYCierreTests
             ? new ReincorporacionTrasRevisionHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true)).Handle(new(f.SubId, P1Fixture.Fecha, "Revisión", [new(f.ArticuloId, 1, f.BinId)]), default)
             : new BajaPorDanoHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true)).Handle(new(f.SubId, P1Fixture.Fecha, "Daño", [new(f.ArticuloId, 1, f.BinId)]), default);
         if (cerrado) await Error(Ejecutar, "PERIODO_CERRADO"); else await Ejecutar();
-        (await f.Db.Movimientos.CountAsync()).Should().Be(cerrado ? 0 : 1);
+        // Reincorporar crea el par LIB (sale de MAT-REV) + REI (entra al destino); baja es un solo movimiento.
+        (await f.Db.Movimientos.CountAsync()).Should().Be(cerrado ? 0 : reincorporar ? 2 : 1);
     }
     [Fact]
     public async Task Salida_proveedor_en_periodo_cerrado_no_genera_movimiento_ni_evento()

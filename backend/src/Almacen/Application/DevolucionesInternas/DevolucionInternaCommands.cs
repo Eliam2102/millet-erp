@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Application.Integration;
+using Millet.Almacen.Application.Revision;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
@@ -517,13 +518,66 @@ public sealed class ReincorporacionTrasRevisionHandler
     public async Task<BajaPorDanoResponse> Handle(
         ReincorporacionTrasRevisionCommand request, CancellationToken cancellationToken)
     {
-        // No requiere que el sub-almacén destino sea MAT-REV — al
-        // contrario, se reincorpora al inventario activo (sub-almacén
-        // tipo Insumos / MaterialesDirectos).
-        return await new BajaPorDanoHandler(_db, _currentUser, _currentEmpresa, _decimalesGuard, _periodoContable)
-            .CrearMovimientoMatRevAsync(
-                request.SubAlmacenDestinoId, request.FechaMovimiento,
-                request.Motivo, request.Lineas,
-                TipoMovimiento.ReincorporacionTrasRevision, cancellationToken);
+        // ALM-04: reincorporar NO crea existencia de la nada. Mismo par del dictamen: salida
+        // SalidaPorLiberacionRevision desde el bin de MAT-REV + entrada ReincorporacionTrasRevision
+        // al rack disponible, en una sola transacción. El destino no es MAT-REV (se reincorpora al
+        // inventario activo).
+        var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
+            "MOV_SIN_EMPRESA", "El contexto de empresa es requerido.");
+        var usuarioId = _currentUser.UserId ?? throw new BusinessRuleException(
+            "MOV_SIN_USUARIO", "Se requiere usuario autenticado.");
+
+        await Cierre.PeriodoCerradoValidator.LanzarSiCerradoAsync(
+            _db, empresaId, request.FechaMovimiento, _periodoContable, cancellationToken);
+        await _decimalesGuard.ValidarAsync(
+            request.Lineas.Select(l => new CantidadAValidar(l.ArticuloId, l.Cantidad)), cancellationToken);
+
+        var almacenId = await _db.SubAlmacenes.AsNoTracking()
+            .Where(s => s.Id == request.SubAlmacenDestinoId).Select(s => (Guid?)s.AlmacenId)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new EntityNotFoundException("SUBALMACEN_NO_ENCONTRADO",
+                $"No existe sub-almacén '{request.SubAlmacenDestinoId}'.");
+
+        await using var transaccion = await FolioMovimientoLock.AbrirAsync(
+            _db, TipoMovimiento.SalidaPorLiberacionRevision.PrefijoFolio(), request.FechaMovimiento.Year, cancellationToken);
+
+        var pares = new List<ParLiberacionLinea>(request.Lineas.Count);
+        foreach (var l in request.Lineas)
+        {
+            await UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
+                _db, l.UbicacionId!.Value, request.SubAlmacenDestinoId, l.ArticuloId, cancellationToken);
+
+            // El request no trae el bin de MAT-REV de origen: se toma el del mismo almacén con más saldo del
+            // artículo (ponytail: un solo bin por línea; si no alcanza, el trigger lanza SALDO_INSUFICIENTE).
+            // Sin saldo en ningún bin se usa el bin default de MAT-REV para que el trigger lance SALDO_INEXISTENTE.
+            var origen = await (
+                from s in _db.SaldosInventario.AsNoTracking()
+                join u in _db.Ubicaciones.AsNoTracking() on s.UbicacionId equals u.Id
+                join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                where sa.AlmacenId == almacenId && sa.Tipo == TipoSubAlmacen.MaterialEnRevision
+                    && s.ArticuloId == l.ArticuloId && s.Cantidad > 0
+                orderby s.Cantidad descending
+                select new { s.UbicacionId, s.CostoPromedioMxn }).FirstOrDefaultAsync(cancellationToken);
+            if (origen is null)
+            {
+                var binDefault = await (
+                    from u in _db.Ubicaciones.AsNoTracking()
+                    join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                    where sa.AlmacenId == almacenId && sa.Tipo == TipoSubAlmacen.MaterialEnRevision && u.EsDefault
+                    select (Guid?)u.Id).FirstOrDefaultAsync(cancellationToken)
+                    ?? throw new BusinessRuleException("REINCORPORACION_SIN_MAT_REV",
+                        "El almacén no tiene sub-almacén de material en revisión de donde reincorporar.");
+                origen = new { UbicacionId = binDefault, CostoPromedioMxn = 0m };
+            }
+            pares.Add(new ParLiberacionLinea(
+                new LineaRevisionMov(l.ArticuloId, "PZA", l.Cantidad, origen.CostoPromedioMxn, origen.UbicacionId),
+                l.UbicacionId!.Value));
+        }
+
+        var (_, entrada) = await MovimientosRevision.AgregarParLiberacionAsync(
+            _db, empresaId, usuarioId, request.FechaMovimiento, request.Motivo, pares, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
+        return new BajaPorDanoResponse(entrada.Id, entrada.Folio);
     }
 }

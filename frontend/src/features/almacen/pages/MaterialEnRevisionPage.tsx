@@ -25,7 +25,12 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMaterialEnRevision } from '@/features/almacen/api/useMaterialEnRevision';
-import type { MaterialEnRevisionItem } from '@/features/almacen/api/types';
+import {
+  ResultadoDictamenLabels,
+  type MaterialEnRevisionItem,
+} from '@/features/almacen/api/types';
+import { DictamenRevisionSheet } from '@/features/almacen/components/DictamenRevisionSheet';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 
@@ -44,6 +49,8 @@ export function MaterialEnRevisionPage() {
   const [soloPendientes, setSoloPendientes] = useState(true);
   const [q, setQ] = useState<string | undefined>(undefined);
   const [evidencia, setEvidencia] = useState<MaterialEnRevisionItem | null>(null);
+  const [dictaminando, setDictaminando] = useState<MaterialEnRevisionItem | null>(null);
+  const puedeDictaminar = useHasPermission(PermisosCanonicos.AlmacenCuarentenaDictaminar);
   const query = useMaterialEnRevision({ soloPendientes, q });
   const items = query.data ?? [];
 
@@ -141,6 +148,12 @@ export function MaterialEnRevisionPage() {
                         {i.articuloDescripcion ? ` · ${i.articuloDescripcion}` : ''}
                       </div>
                       {i.motivoDano && <div className="text-xs text-ink-muted">{i.motivoDano}</div>}
+                      {i.dictamenes.map((d) => (
+                        <div key={d.id} className="text-xs text-ink-muted">
+                          {ResultadoDictamenLabels[d.resultado]} · {d.cantidad} · {d.motivo} ·{' '}
+                          <DateTimeDisplay value={d.dictaminadoAt} variant="corta" />
+                        </div>
+                      ))}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {i.cantidadEnRevision} {i.unidadMedida}
@@ -158,9 +171,21 @@ export function MaterialEnRevisionPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => setEvidencia(i)}>
-                        Evidencia
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEvidencia(i)}>
+                          Evidencia
+                        </Button>
+                        {i.cantidadPendiente > 0 &&
+                          (puedeDictaminar ? (
+                            <Button size="sm" onClick={() => setDictaminando(i)}>
+                              Dictaminar
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-ink-muted">
+                              Requiere permiso del Gerente de almacén/calidad
+                            </span>
+                          ))}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -169,6 +194,11 @@ export function MaterialEnRevisionPage() {
           </TableContainer>
         </div>
       )}
+
+      <DictamenRevisionSheet
+        item={dictaminando}
+        onOpenChange={(abierto) => !abierto && setDictaminando(null)}
+      />
 
       <Sheet open={evidencia !== null} onOpenChange={(abierto) => !abierto && setEvidencia(null)}>
         <SheetContent side="right" size="form">

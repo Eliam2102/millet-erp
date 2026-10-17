@@ -4,6 +4,7 @@ using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
+using Millet.Almacen.Domain.Revision;
 using Millet.Almacen.UnitTests.TestSupport;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Calendario;
@@ -89,6 +90,21 @@ public class MaterialEnRevisionQueriesTests
 
         (await Handler(s.Db).Handle(new ListarMaterialEnRevisionQuery(), default))
             .Single().CantidadPendiente.Should().Be(2m);
+    }
+
+    [Fact]
+    public async Task Dictamen_liberar_descuenta_pendiente_y_aparece_en_historial()
+    {
+        var s = await SembrarAsync();
+        var rev = await s.Db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.RecepcionOrigenId != null);
+        s.Db.DictamenesRevision.Add(new DictamenRevision(Guid.NewGuid(), EmpresaId, s.RevisionLineaId, rev.Id,
+            ResultadoDictamen.Liberar, 1m, "Utilizable", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()));
+        await s.Db.SaveChangesAsync();
+
+        var i = (await Handler(s.Db).Handle(new ListarMaterialEnRevisionQuery(), default)).Single();
+        i.CantidadDictaminada.Should().Be(1m);
+        i.CantidadPendiente.Should().Be(1m);
+        i.Dictamenes.Should().ContainSingle().Which.Resultado.Should().Be(ResultadoDictamen.Liberar);
     }
 
     [Fact]

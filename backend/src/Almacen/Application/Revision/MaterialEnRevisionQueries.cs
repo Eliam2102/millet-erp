@@ -5,6 +5,7 @@ using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
+using Millet.Almacen.Domain.Revision;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Calendario;
@@ -23,7 +24,12 @@ public sealed record MaterialEnRevisionItem(
     Guid? OrdenCompraId, string? OrdenCompraFolio, Guid ArticuloId, string? ArticuloClave, string? ArticuloDescripcion,
     string UnidadMedida, decimal CantidadEnRevision, decimal CantidadDictaminada, decimal CantidadEnDevolucion,
     decimal CantidadPendiente, string? MotivoDano, Guid UbicacionRevisionId, Guid SubAlmacenRevisionId,
-    Guid? UbicacionDisponibleSugeridaId, DateTimeOffset? FechaLimite, bool Vencida);
+    Guid? UbicacionDisponibleSugeridaId, DateTimeOffset? FechaLimite, bool Vencida,
+    IReadOnlyList<DictamenRevisionItem> Dictamenes);
+
+public sealed record DictamenRevisionItem(
+    Guid Id, ResultadoDictamen Resultado, decimal Cantidad, string Motivo, Guid DictaminadoPor,
+    DateTimeOffset DictaminadoAt, Guid? DevolucionAProveedorId);
 
 public sealed record ListarMaterialEnRevisionQuery(bool SoloPendientes = true, string? Q = null)
     : IRequest<IReadOnlyList<MaterialEnRevisionItem>>, IDocumentoScopedQuery
@@ -88,6 +94,12 @@ public sealed class ListarMaterialEnRevisionHandler(
             .GroupBy(x => x.LineaRecepcionOrigenId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.Cantidad));
 
+        var dictamenes = (await db.DictamenesRevision.AsNoTracking()
+            .Where(d => lineaIds.Contains(d.LineaRevisionId))
+            .OrderBy(d => d.DictaminadoAt).ToListAsync(cancellationToken))
+            .GroupBy(d => d.LineaRevisionId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var arts = await articulos.ObtenerPorIdsAsync(origen.Select(o => o.Linea.ArticuloId).Distinct().ToArray(), cancellationToken);
         var ocIds = origen.Where(o => o.OcId.HasValue).Select(o => o.OcId!.Value).Distinct().ToArray();
         var folios = ocIds.Length > 0
@@ -114,7 +126,10 @@ public sealed class ListarMaterialEnRevisionHandler(
             if (o.OcId is Guid oc) folios.TryGetValue(oc, out ocFolio);
 
             var enRevision = o.Linea.Cantidad;
-            var dictaminada = 0m; // P-15 suma aquí los dictámenes Liberar/Baja
+            var historial = dictamenes.GetValueOrDefault(o.Linea.Id) ?? [];
+            var dictaminada = historial
+                .Where(d => d.Resultado is ResultadoDictamen.Liberar or ResultadoDictamen.Baja)
+                .Sum(d => d.Cantidad);
             var devolucion = enDevolucion.GetValueOrDefault(o.Linea.Id);
             var pendiente = enRevision - dictaminada - devolucion;
             if (request.SoloPendientes && pendiente <= 0) continue;
@@ -136,7 +151,10 @@ public sealed class ListarMaterialEnRevisionHandler(
                 o.Linea.ArticuloId, art?.Clave, art?.Descripcion, o.Linea.UnidadMedida,
                 enRevision, dictaminada, devolucion, pendiente, o.Linea.ComentarioLinea,
                 o.UbicacionId, o.SubAlmacenId, sugerida, limite,
-                limite is { } f && f < ahora && pendiente > 0));
+                limite is { } f && f < ahora && pendiente > 0,
+                historial.Select(d => new DictamenRevisionItem(
+                    d.Id, d.Resultado, d.Cantidad, d.Motivo, d.DictaminadoPor, d.DictaminadoAt,
+                    d.DevolucionAProveedorId)).ToList()));
         }
         return items.OrderBy(i => i.FechaRecepcion).ThenBy(i => i.RecepcionFolio).ToList();
     }
