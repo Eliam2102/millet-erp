@@ -47,6 +47,8 @@ export interface ListarOrdenesCompraFiltros {
   fechaHasta?: string;
   /** Texto libre para buscar por referencia del proveedor (no por folio). */
   referenciaProveedor?: string;
+  /** Búsqueda libre por folio o referencia del proveedor (contiene, sin mayúsculas). */
+  q?: string;
   /** Default backend = 1. */
   page?: number;
   /** Default backend = 50. Máx 200. */

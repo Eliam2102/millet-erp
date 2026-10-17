@@ -949,6 +949,7 @@ public static class OrdenesCompraEndpoints
             [FromQuery] DateOnly? fechaDesde,
             [FromQuery] DateOnly? fechaHasta,
             [FromQuery] string? referenciaProveedor,
+            [FromQuery] string? q,
             // Defaults explícitos (= 0) hacen page/pageSize OPCIONALES en
             // la binding de minimal API. Sin el default, ASP.NET Core trata
             // el parámetro como required y truena con BadHttpRequestException
@@ -971,6 +972,7 @@ public static class OrdenesCompraEndpoints
                     FechaDocumentoDesde: fechaDesde,
                     FechaDocumentoHasta: fechaHasta,
                     ReferenciaProveedor: referenciaProveedor,
+                    Q: q,
                     Page: page == 0 ? 1 : page,
                     PageSize: pageSize == 0 ? 50 : pageSize),
                 cancellationToken);
@@ -981,7 +983,8 @@ public static class OrdenesCompraEndpoints
         .WithSummary("Bandeja principal de OCs con filtros y paginación (F6-PR3)")
         .WithDescription(
             "Filtros opcionales: estado, sub-estados, proveedor, comprador, " +
-            "rango de fechas, referencia proveedor. `soloConPendienteRecepcion=true` " +
+            "rango de fechas, referencia proveedor, `q` (folio o referencia, contiene, " +
+            "sin distinguir mayúsculas). `soloConPendienteRecepcion=true` " +
             "lista solo OCs con recepción != Completa (las que aún aceptan recepción). " +
             "Paginación offset-based " +
             "(`page`, `pageSize`; default 50, max 200). Orden default: " +

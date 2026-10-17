@@ -74,6 +74,7 @@ function buildListarPath(filtros: ListarOrdenesCompraFiltros): string {
   if (filtros.fechaHasta) params.set('fechaHasta', filtros.fechaHasta);
   if (filtros.referenciaProveedor)
     params.set('referenciaProveedor', filtros.referenciaProveedor);
+  if (filtros.q) params.set('q', filtros.q);
   if (filtros.page != null) params.set('page', String(filtros.page));
   if (filtros.pageSize != null)
     params.set('pageSize', String(filtros.pageSize));

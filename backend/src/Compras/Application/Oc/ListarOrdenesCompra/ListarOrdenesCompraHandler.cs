@@ -82,6 +82,20 @@ public sealed class ListarOrdenesCompraHandler
                 && o.ReferenciaProveedor.Contains(ref_));
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            // Escapa los comodines de LIKE del texto del usuario (\ es el escape por defecto en Npgsql).
+            var patron = "%" + request.Q.Trim()
+                .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            // Folio es un VO con value converter: EF no traduce ILike sobre esa columna (le aplica el
+            // converter al patrón). Se resuelven los ids por SQL y se componen como subconsulta; el
+            // resultado se intersecta con `query`, que ya trae el filtro de sucursal y el de empresa.
+            var idsPorFolio = _db.Database.SqlQuery<Guid>(
+                $"SELECT id AS \"Value\" FROM compras.ordenes_compra WHERE folio ILIKE {patron}");
+            query = query.Where(o => idsPorFolio.Contains(o.Id)
+                || (o.ReferenciaProveedor != null && EF.Functions.ILike(o.ReferenciaProveedor, patron)));
+        }
+
         var total = await query.CountAsync(cancellationToken);
 
         var items = await query

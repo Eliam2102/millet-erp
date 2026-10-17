@@ -727,6 +727,68 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task Listar_Con_Q_Encuentra_Por_Folio_Parcial()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var createResp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
+        createResp.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        var folio = (await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{id}"))).GetProperty("folio").GetString()!;
+        // Fragmento en minúsculas y sin el prefijo: contiene, sin distinguir mayúsculas.
+        var fragmento = folio[3..].ToLowerInvariant();
+
+        var resp = await client.GetAsync($"{EndpointBase}?q={Uri.EscapeDataString(fragmento)}&page=1&pageSize=200");
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.Contains(id, await IdsDeAsync(resp));
+    }
+
+    [Fact]
+    public async Task Listar_Con_Q_Encuentra_Por_Referencia_Y_Escapa_Comodines()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var createResp = await client.PostAsJsonAsync(EndpointBase, ValidBody());
+        createResp.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        var token = Guid.NewGuid().ToString("N");
+        await SetReferenciaProveedorAsync($"REF-{token}", id);
+
+        var porReferencia = await client.GetAsync($"{EndpointBase}?q={token[..12]}&page=1&pageSize=200");
+        Assert.Equal(new[] { id }, (await IdsDeAsync(porReferencia)).ToArray());
+
+        // '%' del usuario es literal: no debe coincidir con todo.
+        var comodin = await client.GetAsync($"{EndpointBase}?q={Uri.EscapeDataString("%" + token[..12])}&page=1&pageSize=200");
+        Assert.Empty(await IdsDeAsync(comodin));
+    }
+
+    [Fact]
+    public async Task Listar_Con_Q_No_Devuelve_OC_De_Sucursal_No_Permitida()
+    {
+        var superAdmin = await CreateSuperAdminClientAsync();
+        var createResp = await superAdmin.PostAsJsonAsync(EndpointBase, ValidBody());
+        createResp.EnsureSuccessStatusCode();
+        var id = (await ReadJsonAsync(createResp)).GetProperty("id").GetGuid();
+        var referencia = $"SUC-{Guid.NewGuid():N}";
+        await SetReferenciaProveedorAsync(referencia, id);
+
+        // Usuario operativo (sin bypass) asociado solo a SucursalIdFija.
+        var operativo = await CreateClientConPermisosAsync(PermisosCanonicos.ComprasOrdenesLeer);
+        var visible = await operativo.GetAsync($"{EndpointBase}?q={referencia}&page=1&pageSize=200");
+        Assert.Contains(id, await IdsDeAsync(visible));
+
+        // Se mueve la OC a una sucursal que el usuario no tiene: el q no debe saltar el filtro.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            var otra = Guid.CreateVersion7();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE compras.ordenes_compra SET sucursal_destino_id = {otra} WHERE id = {id}");
+        }
+        var oculta = await operativo.GetAsync($"{EndpointBase}?q={referencia}&page=1&pageSize=200");
+        Assert.DoesNotContain(id, await IdsDeAsync(oculta));
+    }
+
+    [Fact]
     public async Task Listar_Con_Filtro_Estado_Borrador_Devuelve_OC_Recien_Creada()
     {
         // Filtra por estado=Borrador (0). La OC recién creada debe

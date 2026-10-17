@@ -26,6 +26,10 @@ public sealed record ListarOrdenesCompraQuery(
     DateOnly? FechaDocumentoDesde = null,
     DateOnly? FechaDocumentoHasta = null,
     string? ReferenciaProveedor = null,
+    // Búsqueda libre por folio o referencia de proveedor: contiene, sin
+    // distinguir mayúsculas. Se aplica sobre el conjunto ya acotado por
+    // sucursal. No busca por nombre de proveedor (usar ProveedorId).
+    string? Q = null,
     int Page = 1,
     int PageSize = 50) : IRequest<ListarOrdenesCompraResponse>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {

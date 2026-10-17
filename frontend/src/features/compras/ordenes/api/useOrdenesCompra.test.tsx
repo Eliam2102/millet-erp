@@ -103,6 +103,27 @@ describe('useOrdenesCompra', () => {
     expect(params.has('fechaDesde')).toBe(false);
   });
 
+  it('manda q cuando tiene texto y lo omite cuando está vacío', async () => {
+    const capturas: URLSearchParams[] = [];
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes', ({ request }) => {
+        capturas.push(new URL(request.url).searchParams);
+        return HttpResponse.json({ items: [], page: 1, pageSize: 20, totalCount: 0 });
+      }),
+    );
+
+    const { result } = renderHook(
+      () => [useOrdenesCompra({ q: '2026-04' }), useOrdenesCompra({ q: '' })] as const,
+      { wrapper: createQueryWrapper() },
+    );
+
+    await waitFor(() =>
+      expect(result.current[0].isSuccess && result.current[1].isSuccess).toBe(true),
+    );
+    expect(capturas.some((p) => p.get('q') === '2026-04')).toBe(true);
+    expect(capturas.some((p) => !p.has('q'))).toBe(true);
+  });
+
   it('403 PERMISO_DENEGADO: lanza ApiError 403', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/ordenes', () =>
