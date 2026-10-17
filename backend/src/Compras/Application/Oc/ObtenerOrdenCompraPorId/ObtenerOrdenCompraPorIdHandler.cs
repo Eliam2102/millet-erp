@@ -109,8 +109,13 @@ public sealed class ObtenerOrdenCompraPorIdHandler
                 AplicarFoliosRequisicion(response.Lineas, folios), articulos),
             centrosCosto);
 
+        var cotizacion = await _db.Cotizaciones.AsNoTracking().Where(c => c.OrdenCompraId == oc.Id)
+            .Select(c => new CotizacionElegidaOcResponse(c.Id, c.RequisicionId, c.ProveedorId, c.FolioProveedor, c.MotivoEleccion!, c.ElegidaEn!.Value))
+            .FirstOrDefaultAsync(cancellationToken);
+
         return response with
         {
+            CotizacionElegida = cotizacion,
             ProveedorRazonSocial = prov?.RazonSocial,
             ProveedorClave = prov?.Clave,
             Lineas = lineas,

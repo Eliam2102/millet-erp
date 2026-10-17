@@ -111,6 +111,9 @@ public sealed record OrdenCompraResponse(
     /// Valores posibles: <c>proveedor</c>, <c>condicionesPago</c>, <c>usoPrincipal</c>.
     /// </summary>
     public IReadOnlyList<string>? CamposPorCapturar { get; init; }
+
+    /// <summary>F1-COM-02: cotización elegida que originó la OC (null si se creó sin comparativo).</summary>
+    public CotizacionElegidaOcResponse? CotizacionElegida { get; init; }
 }
 
 public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacion Nivel,
@@ -123,3 +126,5 @@ public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacio
 public sealed record SolicitudCancelacionOcResponse(Guid Id, Guid SolicitanteId,
     DateTimeOffset FechaSolicitud, Guid MotivoCancelacionId, string MotivoSolicitud,
     Guid? ResolutorId, DateTimeOffset? FechaResolucion, bool? Confirmada, string? MotivoResolucion);
+
+public sealed record CotizacionElegidaOcResponse(Guid CotizacionId, Guid RequisicionId, Guid ProveedorId, string? FolioProveedor, string MotivoEleccion, DateTimeOffset ElegidaEn);

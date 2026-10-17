@@ -11,6 +11,10 @@ namespace Millet.Compras.Application.Oc.CrearOrdenCompraDesdeRequisicion;
 ///
 /// El handler marca la RQ como <c>ComprometidaEnOcId</c> en la misma TX
 /// y publica un <c>RqComprometidaEnOcEvent</c> tras SaveChanges.
+///
+/// Con <c>CotizacionId</c> (F1-COM-02, decisión D1) la OC toma precio y moneda de la
+/// cotización elegida, esta queda marcada con <c>MotivoEleccion</c> y su PDF se copia
+/// a la OC como adjunto <c>cotizacion</c>; las demás cotizaciones se conservan.
 /// </summary>
 public sealed record CrearOrdenCompraDesdeRequisicionCommand(
     Guid RequisicionId,
@@ -24,7 +28,9 @@ public sealed record CrearOrdenCompraDesdeRequisicionCommand(
     decimal? TipoCambio = null,
     bool EsImportacion = false,
     DateOnly? FechaEntregaEsperada = null,
-    string? Observaciones = null) : IRequest<CrearOrdenCompraDesdeRequisicionResponse>;
+    string? Observaciones = null,
+    Guid? CotizacionId = null,
+    string? MotivoEleccion = null) : IRequest<CrearOrdenCompraDesdeRequisicionResponse>;
 
 public sealed record CrearOrdenCompraDesdeRequisicionResponse(
     Guid OrdenCompraId,

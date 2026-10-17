@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
+using Millet.Identidad.Domain;
+using Millet.Identidad.Infrastructure;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Inicio;
@@ -83,6 +85,269 @@ public partial class OrdenesCompraEndpointsTests
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
         Assert.Equal(0, await db.Cotizaciones.CountAsync(c => c.RequisicionId == rqId));
+    }
+
+    [Fact]
+    public async Task Cotizaciones_ElegirUsd_GeneraOcConPrecioYPdf()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        var usdId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "USD", "M2", 0.4m, 10m);
+        await SubirPdfCotizacionAsync(client, usdId);
+        const string motivo = "Menor precio normalizado y entrega en 3 días";
+
+        var crear = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion",
+            DesdeRqCotizacion(rqId, hoy, "USD", usdId, motivo));
+        Assert.True(crear.StatusCode == HttpStatusCode.Created, await crear.Content.ReadAsStringAsync());
+        var ocId = (await ReadJsonAsync(crear)).GetProperty("ordenCompraId").GetGuid();
+
+        var oc = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}"));
+        Assert.Equal("USD", oc.GetProperty("moneda").GetString());
+        Assert.Equal(25.0000m, oc.GetProperty("lineas")[0].GetProperty("precioUnitario").GetDecimal());
+        var adjuntos = oc.GetProperty("adjuntos").EnumerateArray().ToList();
+        Assert.Single(adjuntos);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var tipoCotizacion = await scope.ServiceProvider.GetRequiredService<ComprasDbContext>().TiposDocumentoOc
+                .Where(t => t.Clave == "cotizacion").Select(t => t.Id).SingleAsync();
+            Assert.Equal(tipoCotizacion, adjuntos[0].GetProperty("tipoDocumentoId").GetGuid());
+        }
+        var elegidaOc = oc.GetProperty("cotizacionElegida");
+        Assert.Equal(motivo, elegidaOc.GetProperty("motivoEleccion").GetString());
+        Assert.Equal(usdId, elegidaOc.GetProperty("cotizacionId").GetGuid());
+
+        var comparativo = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{rqId}/cotizaciones"));
+        var cotizaciones = comparativo.GetProperty("cotizaciones").EnumerateArray().ToList();
+        Assert.Equal(2, cotizaciones.Count);
+        var cUsd = cotizaciones.Single(c => c.GetProperty("moneda").GetString() == "USD");
+        var cMxn = cotizaciones.Single(c => c.GetProperty("moneda").GetString() == "MXN");
+        Assert.True(cUsd.GetProperty("elegida").GetBoolean());
+        Assert.Equal(motivo, cUsd.GetProperty("motivoEleccion").GetString());
+        Assert.Equal(ocId, cUsd.GetProperty("ordenCompraId").GetGuid());
+        Assert.False(cMxn.GetProperty("elegida").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Cotizaciones_ElegirVencida_422_SinOc()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        var cotId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy.AddDays(-10), "MXN", "HOJA", 1m, 500m, vigenteHasta: hoy.AddDays(-1));
+        await SubirPdfCotizacionAsync(client, cotId);
+
+        var response = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion",
+            DesdeRqCotizacion(rqId, hoy, "MXN", cotId, "Motivo suficiente de prueba"));
+
+        await AssertCodigoP2(response, HttpStatusCode.UnprocessableEntity, "COT_VENCIDA");
+        await AssertSinEfectosAsync(rqId, cotId);
+    }
+
+    [Fact]
+    public async Task Cotizaciones_ElegirSinPermiso_403_SinEfectos()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var admin = await CreateSuperAdminClientAsync();
+        var cotId = await RegistrarCotizacionAsync(admin, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        await SubirPdfCotizacionAsync(admin, cotId);
+        var client = await CreateClientConPermisosAsync(
+            PermisosCanonicos.ComprasOrdenesCrear, PermisosCanonicos.ComprasRequisicionesGestionarTodasSucursales);
+        var sesion = await client.GetAsync("/api/auth/me");
+        sesion.EnsureSuccessStatusCode();
+        var usuarioId = (await ReadJsonAsync(sesion)).GetProperty("userId").GetGuid();
+        try
+        {
+            var response = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion",
+                DesdeRqCotizacion(rqId, hoy, "MXN", cotId, "Motivo suficiente de prueba"));
+            await AssertCodigoP2(response, HttpStatusCode.Forbidden, "COT_SIN_PERMISO");
+            await AssertSinEfectosAsync(rqId, cotId);
+        }
+        finally
+        {
+            using var scope = _factory.Services.CreateScope();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+            var rolId = await db.UsuarioEmpresaRoles.Where(a => a.UsuarioId == usuarioId).Select(a => a.RolId).SingleAsync();
+            await db.Usuarios.Where(u => u.Id == usuarioId).ExecuteDeleteAsync();
+            await db.Roles.Where(r => r.Id == rolId).ExecuteDeleteAsync();
+        }
+    }
+
+    private static async Task<Guid> RegistrarCotizacionAsync(
+        HttpClient client, Guid rqId, Guid lineaId, DateOnly fecha, string moneda, string unidad, decimal factor, decimal precio,
+        DateOnly? vigenteHasta = null)
+    {
+        var r = await client.PostAsJsonAsync($"/api/v1/compras/requisiciones/{rqId}/cotizaciones", new
+        {
+            ProveedorId = ProveedorActivoId, FolioProveedor = "COT-1", Moneda = moneda, FechaCotizacion = fecha,
+            VigenteHasta = vigenteHasta ?? fecha.AddDays(10), CondicionesCredito = "30 días",
+            Lineas = new[] { new { LineaRequisicionId = lineaId, UnidadCotizada = unidad, FactorAUnidadRq = factor, PrecioUnitario = precio, DiasEntrega = 3 } },
+        });
+        Assert.True(r.StatusCode == HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
+        return (await ReadJsonAsync(r)).GetProperty("id").GetGuid();
+    }
+
+    private static async Task SubirPdfCotizacionAsync(HttpClient client, Guid cotizacionId)
+    {
+        using var contenido = new MultipartFormDataContent();
+        var archivo = new ByteArrayContent("%PDF-1.4\n%cotizacion\n"u8.ToArray());
+        archivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        contenido.Add(archivo, "archivo", "cotizacion.pdf");
+        contenido.Add(new StringContent(TipoDocCotizacion.ToString()), "tipoDocumentoId");
+        var subida = await client.PostAsync($"/api/v1/compras/cotizaciones/{cotizacionId}/adjuntos", contenido);
+        Assert.True(subida.StatusCode == HttpStatusCode.Created, await subida.Content.ReadAsStringAsync());
+    }
+
+    private static object DesdeRqCotizacion(Guid rqId, DateOnly hoy, string moneda, Guid cotizacionId, string motivo) => new
+    {
+        RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)2026, ProveedorId = ProveedorActivoId,
+        CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy, Moneda = moneda,
+        TipoCambio = moneda == "MXN" ? (decimal?)null : 17.85m, CotizacionId = cotizacionId, MotivoEleccion = motivo,
+    };
+
+    /// <summary>La RQ sigue sin comprometer, sin OC con líneas de ella y la cotización sin elegir.</summary>
+    private async Task AssertSinEfectosAsync(Guid rqId, Guid cotizacionId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+        Assert.Null((await db.Requisiciones.AsNoTracking().SingleAsync(r => r.Id == rqId)).ComprometidaEnOcId);
+        Assert.False(await db.OrdenesCompra.AnyAsync(o => o.Lineas.Any(l => l.RequisicionId == rqId)));
+        Assert.Null((await db.Cotizaciones.AsNoTracking().SingleAsync(c => c.Id == cotizacionId)).OrdenCompraId);
+    }
+
+    [Fact]
+    public async Task Cotizaciones_OtraSucursal_403()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var admin = await CreateSuperAdminClientAsync();
+        var cotId = await RegistrarCotizacionAsync(admin, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        // Usuario operativo: sin bypass de sucursal y sin UsuarioSucursal para la sucursal de la RQ.
+        var client = await CreateClientConPermisosAsync(PermisosCanonicos.ComprasCotizacionesLeer);
+        var usuarioId = await UsuarioIdDeAsync(client);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            // El helper asocia al usuario con la sucursal de la RQ; aquí debe quedar sin esa asociación.
+            await scope.ServiceProvider.GetRequiredService<IdentidadDbContext>().UsuarioSucursales
+                .Where(x => x.UsuarioId == usuarioId).ExecuteDeleteAsync();
+        }
+        try
+        {
+            var comparativo = await client.GetAsync($"/api/v1/compras/requisiciones/{rqId}/cotizaciones");
+            Assert.Equal(HttpStatusCode.Forbidden, comparativo.StatusCode);
+            Assert.Equal("SUCURSAL_NO_ASOCIADA", (await ReadJsonAsync(comparativo)).GetProperty("code").GetString());
+            var adjuntos = await client.GetAsync($"/api/v1/compras/cotizaciones/{cotId}/adjuntos");
+            Assert.Equal(HttpStatusCode.Forbidden, adjuntos.StatusCode);
+        }
+        finally
+        {
+            await LimpiarUsuarioAsync(usuarioId);
+        }
+    }
+
+    [Fact]
+    public async Task Cotizaciones_TrasElegir_NoSeEditanNiBorran()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        var otraId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        var elegidaId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "USD", "M2", 0.4m, 10m);
+        await SubirPdfCotizacionAsync(client, elegidaId);
+        var crear = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion",
+            DesdeRqCotizacion(rqId, hoy, "USD", elegidaId, "Menor precio normalizado"));
+        Assert.Equal(HttpStatusCode.Created, crear.StatusCode);
+
+        var put = await client.PutAsJsonAsync($"/api/v1/compras/cotizaciones/{otraId}", new
+        {
+            ProveedorId = ProveedorActivoId, Moneda = "MXN", FechaCotizacion = hoy, VigenteHasta = hoy.AddDays(5),
+            Lineas = new[] { new { LineaRequisicionId = lineaId, UnidadCotizada = "HOJA", FactorAUnidadRq = 1m, PrecioUnitario = 400m, DiasEntrega = 2 } },
+        });
+        await AssertCodigoP2(put, HttpStatusCode.UnprocessableEntity, "COT_COMPARATIVO_CERRADO");
+        await AssertCodigoP2(await client.DeleteAsync($"/api/v1/compras/cotizaciones/{otraId}"),
+            HttpStatusCode.UnprocessableEntity, "COT_COMPARATIVO_CERRADO");
+
+        var lista = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/cotizaciones/{elegidaId}/adjuntos"));
+        var adjuntoId = lista.EnumerateArray().Single().GetProperty("id").GetGuid();
+        var baja = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/compras/cotizaciones/{elegidaId}/adjuntos/{adjuntoId}")
+        {
+            Content = JsonContent.Create(new { Motivo = "Se subió el archivo equivocado" }),
+        };
+        await AssertCodigoP2(await client.SendAsync(baja), HttpStatusCode.UnprocessableEntity, "COT_COMPARATIVO_CERRADO");
+    }
+
+    [Fact]
+    public async Task Cotizaciones_ElegirSinPdf_422()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        var cotId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+
+        var response = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion",
+            DesdeRqCotizacion(rqId, hoy, "MXN", cotId, "Motivo suficiente de prueba"));
+
+        await AssertCodigoP2(response, HttpStatusCode.UnprocessableEntity, "COT_SIN_ARCHIVO");
+        await AssertSinEfectosAsync(rqId, cotId);
+    }
+
+    [Fact]
+    public async Task Cotizaciones_PartidaAjena_422()
+    {
+        var (rqId, _) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+
+        var response = await client.PostAsJsonAsync($"/api/v1/compras/requisiciones/{rqId}/cotizaciones", new
+        {
+            ProveedorId = ProveedorActivoId, Moneda = "MXN", FechaCotizacion = hoy, VigenteHasta = hoy.AddDays(5),
+            Lineas = new[] { new { LineaRequisicionId = Guid.NewGuid(), UnidadCotizada = "HOJA", FactorAUnidadRq = 1m, PrecioUnitario = 500m, DiasEntrega = 2 } },
+        });
+
+        await AssertCodigoP2(response, HttpStatusCode.UnprocessableEntity, "COT_PARTIDA_AJENA");
+    }
+
+    [Fact]
+    public async Task Cotizaciones_OcElegida_TransmiteSinAdjuntoManual()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        var cotId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        await SubirPdfCotizacionAsync(client, cotId);
+        var crear = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion",
+            DesdeRqCotizacion(rqId, hoy, "MXN", cotId, "Único proveedor vigente"));
+        Assert.Equal(HttpStatusCode.Created, crear.StatusCode);
+        var ocId = (await ReadJsonAsync(crear)).GetProperty("ordenCompraId").GetGuid();
+
+        var transmitir = await client.PostAsync($"{EndpointBase}/{ocId}/transmitir", null);
+
+        var cuerpo = await transmitir.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("OC_COTIZACION_REQUERIDA", cuerpo);
+        Assert.True(transmitir.StatusCode == HttpStatusCode.NoContent, cuerpo);
+    }
+
+    private static async Task<Guid> UsuarioIdDeAsync(HttpClient client)
+    {
+        var sesion = await client.GetAsync("/api/auth/me");
+        sesion.EnsureSuccessStatusCode();
+        return (await ReadJsonAsync(sesion)).GetProperty("userId").GetGuid();
+    }
+
+    private async Task LimpiarUsuarioAsync(Guid usuarioId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
+        var rolId = await db.UsuarioEmpresaRoles.Where(a => a.UsuarioId == usuarioId).Select(a => a.RolId).SingleAsync();
+        await db.Usuarios.Where(u => u.Id == usuarioId).ExecuteDeleteAsync();
+        await db.Roles.Where(r => r.Id == rolId).ExecuteDeleteAsync();
     }
 
     /// <summary>RQ EnSurtido con una línea por comprar (4 HOJA) y sin OC comprometida.</summary>

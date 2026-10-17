@@ -18,9 +18,10 @@ import {
 import { comprasKeys } from '@/features/compras/api/keys';
 import {
   TIPO_ADJUNTO_COTIZACION_ID,
+  type CotizacionComparativo,
   type PartidaComparativo,
 } from '@/features/compras/api/types';
-import { useRegistrarCotizacion } from '@/features/compras/api/useCotizaciones';
+import { useEditarCotizacion, useRegistrarCotizacion } from '@/features/compras/api/useCotizaciones';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import {
   aRegistrarCotizacionRequest,
@@ -40,6 +41,8 @@ export interface CotizacionSheetProps {
   requisicionId: string;
   folio: string;
   partidas: PartidaComparativo[];
+  /** Si viene, el sheet edita esa cotización (solo antes de elegir). */
+  cotizacion?: CotizacionComparativo;
 }
 
 const etiquetaPartida = (p: PartidaComparativo) =>
@@ -54,13 +57,15 @@ function FormularioCotizacion({
   onDirtyChange,
   requisicionId,
   partidas,
-}: Pick<CotizacionSheetProps, 'onClose' | 'requisicionId' | 'partidas'> & {
+  cotizacion,
+}: Pick<CotizacionSheetProps, 'onClose' | 'requisicionId' | 'partidas' | 'cotizacion'> & {
   onCancelar: () => void;
   onDirtyChange: (sucio: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const idempotencyKey = useFormIdempotencyKey();
   const registrar = useRegistrarCotizacion(requisicionId);
+  const editar = useEditarCotizacion(requisicionId);
   const subida = useUploadFile();
   const [archivo, setArchivo] = useState<File | null>(null);
   const porComprar = partidas.filter((p) => p.saldoPorComprar > 0);
@@ -69,20 +74,23 @@ function FormularioCotizacion({
     resolver: zodResolver(cotizacionSchema),
     mode: 'onBlur',
     defaultValues: {
-      proveedorId: '',
-      folioProveedor: '',
-      moneda: 'MXN',
-      fechaCotizacion: hoyLocalISO(),
-      vigenteHasta: '',
-      condicionesCredito: '',
-      lineas: porComprar.map((p) => ({
-        lineaRequisicionId: p.lineaRequisicionId,
-        unidadRequisicion: p.unidad,
-        unidadCotizada: p.unidad,
-        factorAUnidadRq: 1,
-        precioUnitario: Number.NaN,
-        diasEntrega: null,
-      })),
+      proveedorId: cotizacion?.proveedorId ?? '',
+      folioProveedor: cotizacion?.folioProveedor ?? '',
+      moneda: cotizacion?.moneda ?? 'MXN',
+      fechaCotizacion: cotizacion?.fechaCotizacion ?? hoyLocalISO(),
+      vigenteHasta: cotizacion?.vigenteHasta ?? '',
+      condicionesCredito: cotizacion?.condicionesCredito ?? '',
+      lineas: porComprar.map((p) => {
+        const previa = cotizacion?.lineas.find((l) => l.lineaRequisicionId === p.lineaRequisicionId);
+        return {
+          lineaRequisicionId: p.lineaRequisicionId,
+          unidadRequisicion: p.unidad,
+          unidadCotizada: previa?.unidadCotizada ?? p.unidad,
+          factorAUnidadRq: previa?.factorAUnidadRq ?? 1,
+          precioUnitario: previa?.precioUnitario ?? Number.NaN,
+          diasEntrega: previa?.diasEntrega ?? null,
+        };
+      }),
     },
   });
   const { isDirty, errors } = form.formState;
@@ -102,10 +110,10 @@ function FormularioCotizacion({
 
   async function onSubmit(values: CotizacionValues) {
     try {
-      const creada = await registrar.mutateAsync({
-        values: aRegistrarCotizacionRequest(values),
-        idempotencyKey,
-      });
+      const request = aRegistrarCotizacionRequest(values);
+      const creada = cotizacion
+        ? await editar.mutateAsync({ cotizacionId: cotizacion.id, values: request, idempotencyKey })
+        : await registrar.mutateAsync({ values: request, idempotencyKey });
       if (archivo) {
         try {
           await subida.upload({
@@ -117,24 +125,31 @@ function FormularioCotizacion({
           });
           await queryClient.invalidateQueries({ queryKey: comprasKeys.cotizaciones(requisicionId) });
         } catch (err) {
-          toast.warning('Cotización registrada sin PDF', { description: mensajeErrorAdjunto(err) });
+          toast.warning(cotizacion ? 'Cotización guardada sin el PDF nuevo' : 'Cotización registrada sin PDF', { description: mensajeErrorAdjunto(err) });
           onClose({ force: true });
           return;
         }
       }
-      toast.success('Cotización registrada');
+      toast.success(cotizacion ? 'Cotización actualizada' : 'Cotización registrada');
       onClose({ force: true });
     } catch (err) {
       if (esApiError(err)) {
         applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err);
-        toast.error(err.problem.title);
+        toast.error(
+          err.problem.status === 409 ? 'La cotización cambió' : err.problem.title,
+          err.problem.status === 409
+            ? { description: 'Recarga el comparativo e inténtalo de nuevo.' }
+            : err.problem.detail
+              ? { description: err.problem.detail }
+              : undefined,
+        );
       } else {
-        toast.error('Error inesperado al registrar la cotización.');
+        toast.error('Error inesperado al guardar la cotización.');
       }
     }
   }
 
-  const guardando = registrar.isPending || subida.isUploading;
+  const guardando = registrar.isPending || editar.isPending || subida.isUploading;
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
@@ -258,7 +273,11 @@ function FormularioCotizacion({
           <Field
             label="Cotización del proveedor (PDF)"
             optional
-            hint="Se adjunta a la OC si esta cotización resulta elegida"
+            hint={
+              cotizacion?.archivoNombre
+                ? `Actual: ${cotizacion.archivoNombre}. Si subes uno nuevo, el anterior se conserva en el expediente.`
+                : 'Se adjunta a la OC si esta cotización resulta elegida'
+            }
           >
             <Input
               type="file"
@@ -266,7 +285,7 @@ function FormularioCotizacion({
               onChange={(ev) => setArchivo(ev.target.files?.[0] ?? null)}
             />
           </Field>
-          {!archivo && (
+          {!archivo && !cotizacion?.archivoAdjuntoId && (
             <p role="status" className="rounded-md bg-warning-bg px-3 py-2 text-xs text-warning-fg">
               Sin PDF la cotización queda registrada pero no se podrá elegir.
             </p>
@@ -280,7 +299,7 @@ function FormularioCotizacion({
         </Button>
         <ConMotivo motivo={faltante ? `Falta: ${faltante}` : null}>
           <Button type="submit" disabled={guardando || faltante !== null}>
-            {guardando ? 'Registrando…' : 'Registrar cotización'}
+            {guardando ? 'Guardando…' : cotizacion ? 'Guardar cambios' : 'Registrar cotización'}
           </Button>
         </ConMotivo>
       </SheetFooter>
@@ -289,7 +308,7 @@ function FormularioCotizacion({
 }
 
 /** F1-COM-02 — Sheet «Registrar cotización» (cabecera, partidas y PDF). El PDF se sube con el id ya creado. */
-export function CotizacionSheet({ abierto, onClose, folio, requisicionId, partidas }: CotizacionSheetProps) {
+export function CotizacionSheet({ abierto, onClose, folio, requisicionId, partidas, cotizacion }: CotizacionSheetProps) {
   const [sucio, setSucio] = useState(false);
   // Confirm al cerrar con cambios (patrón NuevaRequisicionProvider).
   const solicitarCierre = () => {
@@ -300,7 +319,7 @@ export function CotizacionSheet({ abierto, onClose, folio, requisicionId, partid
     <Sheet open={abierto} onOpenChange={(o) => !o && solicitarCierre()}>
       <SheetContent side="right" size="form">
         <SheetHeader>
-          <SheetTitle>Registrar cotización</SheetTitle>
+          <SheetTitle>{cotizacion ? 'Editar cotización' : 'Registrar cotización'}</SheetTitle>
           <SheetDescription>{folio} · solo Compras</SheetDescription>
         </SheetHeader>
         {abierto && (
@@ -310,6 +329,7 @@ export function CotizacionSheet({ abierto, onClose, folio, requisicionId, partid
             onDirtyChange={setSucio}
             requisicionId={requisicionId}
             partidas={partidas}
+            cotizacion={cotizacion}
           />
         )}
       </SheetContent>

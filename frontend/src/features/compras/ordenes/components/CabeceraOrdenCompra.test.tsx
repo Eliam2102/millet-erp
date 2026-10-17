@@ -9,6 +9,9 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 const mutate = vi.fn();
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children: React.ReactNode }) => <a href="#">{children}</a>,
+}));
 vi.mock('@/features/compras/ordenes/api/useActualizarCabeceraOc', () => ({
   useActualizarCabeceraOc: () => ({ mutate, isPending: false }),
 }));
@@ -131,5 +134,31 @@ describe('CabeceraOrdenCompra — campos por capturar', () => {
     expect(args.ordenCompraId).toBe('oc-1');
     expect(args.command).toEqual({ proveedorId: 'prov-nuevo', usoPrincipalId: 'uso-nuevo' });
     expect(typeof args.idempotencyKey).toBe('string');
+  });
+});
+
+describe('CabeceraOrdenCompra — cotización elegida (F1-COM-02)', () => {
+  it('con cotizacionElegida muestra el motivo y el link al comparativo', () => {
+    setPermisos([PermisosCanonicos.ComprasCotizacionesLeer]);
+    render(
+      <CabeceraOrdenCompra
+        oc={makeOc({
+          cotizacionElegida: {
+            cotizacionId: 'c-1', requisicionId: 'rq-1', proveedorId: 'p-1', folioProveedor: 'COT-77',
+            motivoEleccion: 'Menor precio y entrega en 3 días', elegidaEn: '2026-10-17T10:00:00Z',
+          },
+        })}
+        resolverNombre={resolver}
+      />,
+    );
+    expect(screen.getByText('Cotización elegida')).toBeInTheDocument();
+    expect(screen.getByText('COT-77')).toBeInTheDocument();
+    expect(screen.getByText(/Menor precio y entrega en 3 días/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver comparativo' })).toBeInTheDocument();
+  });
+
+  it('sin cotizacionElegida no aparece el bloque', () => {
+    render(<CabeceraOrdenCompra oc={makeOc()} resolverNombre={resolver} />);
+    expect(screen.queryByText('Cotización elegida')).toBeNull();
   });
 });

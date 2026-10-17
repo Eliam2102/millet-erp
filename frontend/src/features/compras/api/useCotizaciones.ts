@@ -50,3 +50,50 @@ export function useRegistrarCotizacion(requisicionId: string) {
       }),
   });
 }
+
+export interface EditarCotizacionArgs {
+  cotizacionId: string;
+  values: RegistrarCotizacionRequest;
+  idempotencyKey: string;
+}
+
+/** <c>PUT /api/v1/compras/cotizaciones/{id}</c>. Solo antes de elegir una cotización de la RQ. */
+export function useEditarCotizacion(requisicionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<CotizacionGuardada, Error, EditarCotizacionArgs>({
+    mutationFn: async ({ cotizacionId, values, idempotencyKey }) => {
+      const { data } = await apiRequest<CotizacionGuardada>(`/api/v1/compras/cotizaciones/${cotizacionId}`, {
+        method: 'PUT',
+        body: values,
+        idempotencyKey,
+      });
+      return data;
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: comprasKeys.cotizaciones(requisicionId),
+      }),
+  });
+}
+
+export interface EliminarCotizacionArgs {
+  cotizacionId: string;
+  idempotencyKey: string;
+}
+
+/** <c>DELETE /api/v1/compras/cotizaciones/{id}</c> (204). Solo antes de elegir. */
+export function useEliminarCotizacion(requisicionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, EliminarCotizacionArgs>({
+    mutationFn: async ({ cotizacionId, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/compras/cotizaciones/${cotizacionId}`, {
+        method: 'DELETE',
+        idempotencyKey,
+      });
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: comprasKeys.cotizaciones(requisicionId),
+      }),
+  });
+}

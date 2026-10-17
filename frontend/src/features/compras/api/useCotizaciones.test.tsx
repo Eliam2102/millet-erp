@@ -7,6 +7,8 @@ import { mswServer } from '@/test/mocks/server';
 import { comprasKeys } from '@/features/compras/api/keys';
 import {
   useComparativoCotizaciones,
+  useEditarCotizacion,
+  useEliminarCotizacion,
   useRegistrarCotizacion,
 } from '@/features/compras/api/useCotizaciones';
 import type { RegistrarCotizacionRequest } from '@/features/compras/api/types';
@@ -62,6 +64,40 @@ describe('useRegistrarCotizacion', () => {
     result.current.mutate({ values, idempotencyKey: KEY });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(keyVista).toBe(KEY);
+    expect(client.getQueryState(comprasKeys.cotizaciones(RQ_ID))?.isInvalidated).toBe(true);
+  });
+});
+
+describe('useEditarCotizacion / useEliminarCotizacion', () => {
+  it('PUT y DELETE llevan Idempotency-Key e invalidan el comparativo', async () => {
+    const vistas: Record<string, string | null> = {};
+    mswServer.use(
+      http.put('*/api/v1/compras/cotizaciones/:id', ({ request }) => {
+        vistas.put = request.headers.get('Idempotency-Key');
+        return HttpResponse.json({ id: 'c1', version: 2 });
+      }),
+      http.delete('*/api/v1/compras/cotizaciones/:id', ({ request }) => {
+        vistas.delete = request.headers.get('Idempotency-Key');
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { client, wrapper } = crearWrapper();
+    client.setQueryData(comprasKeys.cotizaciones(RQ_ID), { requisicionId: RQ_ID });
+    const editar = renderHook(() => useEditarCotizacion(RQ_ID), { wrapper });
+    const eliminar = renderHook(() => useEliminarCotizacion(RQ_ID), { wrapper });
+    editar.result.current.mutate({
+      cotizacionId: 'c1',
+      idempotencyKey: KEY,
+      values: {
+        proveedorId: RQ_ID, folioProveedor: null, moneda: 'MXN', fechaCotizacion: '2026-10-17',
+        vigenteHasta: '2026-10-27', condicionesCredito: null, lineas: [],
+      },
+    });
+    await waitFor(() => expect(editar.result.current.isSuccess).toBe(true));
+    eliminar.result.current.mutate({ cotizacionId: 'c1', idempotencyKey: KEY });
+    await waitFor(() => expect(eliminar.result.current.isSuccess).toBe(true));
+    expect(vistas.put).toBe(KEY);
+    expect(vistas.delete).toBe(KEY);
     expect(client.getQueryState(comprasKeys.cotizaciones(RQ_ID))?.isInvalidated).toBe(true);
   });
 });

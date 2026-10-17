@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { useForm, Controller } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -22,6 +23,8 @@ import { accionEditarCabecera } from '@/features/compras/ordenes/lib/acciones-di
 import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-conflict';
 import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 
 /**
@@ -51,6 +54,7 @@ export function CabeceraOrdenCompra({
   const permisos = useAuthStore((s) => s.permisos);
   const puedeEditar = accionEditarCabecera(oc, permisos).habilitada;
   const [editando, setEditando] = useState(false);
+  const puedeVerComparativo = useHasPermission(PermisosCanonicos.ComprasCotizacionesLeer);
   const pendientes = oc.camposPorCapturar ?? [];
   const porCapturar = (c: 'proveedor' | 'condicionesPago' | 'usoPrincipal') =>
     pendientes.includes(c);
@@ -111,6 +115,21 @@ export function CabeceraOrdenCompra({
         <Item label="Uso principal">
           {valor('usoPrincipal', resolverNombre(oc.usoPrincipalId))}
         </Item>
+        {oc.cotizacionElegida && (
+          <Item label="Cotización elegida">
+            <span className="font-mono">{oc.cotizacionElegida.folioProveedor ?? 'Sin folio'}</span>
+            <span className="block text-xs text-ink-muted">Motivo: {oc.cotizacionElegida.motivoEleccion}</span>
+            {puedeVerComparativo && (
+              <Link
+                to="/compras/requisiciones/$id/cotizaciones"
+                params={{ id: oc.cotizacionElegida.requisicionId }}
+                className="text-xs text-brand hover:underline"
+              >
+                Ver comparativo
+              </Link>
+            )}
+          </Item>
+        )}
         <Item label="Moneda" mono>
           {oc.moneda}
           {oc.tipoCambio != null ? ` @ ${oc.tipoCambio}` : ''}

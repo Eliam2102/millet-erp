@@ -250,6 +250,16 @@ export interface SolicitudCancelacionOc {
   motivoResolucion: string | null;
 }
 
+/** F1-COM-02: cotización elegida que originó la OC. */
+export interface CotizacionElegidaOc {
+  cotizacionId: string;
+  requisicionId: string;
+  proveedorId: string;
+  folioProveedor: string | null;
+  motivoEleccion: string;
+  elegidaEn: string;
+}
+
 export interface OrdenCompraDetalleResponse {
   obra?: string | null;
   cicloAutorizacion?: number;
@@ -257,6 +267,8 @@ export interface OrdenCompraDetalleResponse {
   solicitudesCancelacion?: SolicitudCancelacionOc[];
   /** Campos de cabecera aún en TBD; la OC no se puede transmitir mientras haya alguno. */
   camposPorCapturar?: ('proveedor' | 'condicionesPago' | 'usoPrincipal')[] | null;
+  // F1-COM-02
+  cotizacionElegida?: CotizacionElegidaOc | null;
   id: string;
   empresaId: string;
   folio: string;

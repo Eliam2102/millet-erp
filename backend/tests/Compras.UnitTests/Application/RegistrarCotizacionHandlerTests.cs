@@ -38,6 +38,34 @@ public sealed class RegistrarCotizacionHandlerTests
         Assert.Equal("COT_PARTIDAS_INCOMPLETAS", ex.Code);
     }
 
+
+    [Fact]
+    public async Task Eliminar_ConOtraElegida_ComparativoCerrado()
+    {
+        await using var f = Fixture.Crear();
+        var elegida = f.NuevaCotizacion();
+        var otra = f.NuevaCotizacion();
+        elegida.Elegir(Guid.NewGuid(), "Menor precio y entrega", Guid.NewGuid(), DateTimeOffset.UtcNow, Hoy);
+        await f.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => new EliminarCotizacionHandler(f.Db).Handle(new EliminarCotizacionCommand(otra.Id), default));
+        Assert.Equal("COT_COMPARATIVO_CERRADO", ex.Code);
+        Assert.True(await f.Db.Cotizaciones.AnyAsync(c => c.Id == otra.Id));
+    }
+
+    [Fact]
+    public async Task Eliminar_SinEleccion_Borra()
+    {
+        await using var f = Fixture.Crear();
+        var cot = f.NuevaCotizacion();
+        await f.Db.SaveChangesAsync();
+
+        await new EliminarCotizacionHandler(f.Db).Handle(new EliminarCotizacionCommand(cot.Id), default);
+
+        Assert.False(await f.Db.Cotizaciones.AnyAsync(c => c.Id == cot.Id));
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public required ComprasDbContext Db { get; init; }
@@ -71,6 +99,16 @@ public sealed class RegistrarCotizacionHandlerTests
                 Db = db, Compartido = compartido, Rq = rq,
                 Handler = new RegistrarCotizacionHandler(db, compartido, ctx, ctx, ctx),
             };
+        }
+
+        public Millet.Compras.Domain.Cotizaciones.Cotizacion NuevaCotizacion()
+        {
+            var c = Millet.Compras.Domain.Cotizaciones.Cotizacion.Registrar(Guid.NewGuid(), Rq.EmpresaId, Rq.Id, Rq.SucursalId,
+                Guid.NewGuid(), "F-1", "MXN", Hoy, Hoy.AddDays(5), null,
+                Rq.Lineas.Select(l => new Millet.Compras.Domain.Cotizaciones.LineaCotizacionDatos(l.Id, "PZA", "PZA", 1m, 10m, 3)).ToList(),
+                Guid.NewGuid(), DateTimeOffset.UtcNow, Hoy);
+            Db.Cotizaciones.Add(c);
+            return c;
         }
 
         public RegistrarCotizacionCommand Comando(Guid[] lineas) => new(Rq.Id, Guid.NewGuid(), "F-1", "MXN", Hoy, Hoy.AddDays(5), null,

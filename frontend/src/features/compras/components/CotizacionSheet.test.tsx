@@ -3,15 +3,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { hoyLocalISO } from '@/lib/datetime';
 import { CotizacionSheet } from '@/features/compras/components/CotizacionSheet';
-import type { PartidaComparativo } from '@/features/compras/api/types';
+import type { CotizacionComparativo, PartidaComparativo } from '@/features/compras/api/types';
 
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
+  editar: vi.fn(),
   upload: vi.fn(),
 }));
 
 vi.mock('@/features/compras/api/useCotizaciones', () => ({
   useRegistrarCotizacion: () => ({ mutateAsync: mocks.mutateAsync, isPending: false }),
+  useEditarCotizacion: () => ({ mutateAsync: mocks.editar, isPending: false }),
 }));
 vi.mock('@/lib/hooks/useUploadFile', () => ({
   useUploadFile: () => ({ upload: mocks.upload, isUploading: false }),
@@ -81,5 +83,28 @@ describe('CotizacionSheet', () => {
     });
     expect(screen.getByRole('button', { name: 'Registrar cotización' })).toBeDisabled();
     expect(screen.getByText(/Sin PDF la cotización queda registrada/)).toBeInTheDocument();
+  });
+
+  it('en modo edición precarga los valores y guarda con PUT', async () => {
+    mocks.editar.mockResolvedValue({ id: 'cot-1', version: 2 });
+    const onClose = vi.fn();
+    const cotizacion = {
+      id: 'cot-1', proveedorId: '00000005-0001-0000-0000-000000000001', folioProveedor: 'COT-9', moneda: 'USD',
+      fechaCotizacion: '2026-10-15', vigenteHasta: '2026-10-31', condicionesCredito: '30 días',
+      archivoAdjuntoId: 'a-1', archivoNombre: 'cot.pdf',
+      lineas: [{ lineaRequisicionId: partida.lineaRequisicionId, unidadCotizada: 'HOJA', factorAUnidadRq: 1, precioUnitario: 25, diasEntrega: 3 }],
+    } as unknown as CotizacionComparativo;
+    render(
+      <CotizacionSheet abierto onClose={onClose} requisicionId="rq-1" folio="MID2026-010009" partidas={[partida]} cotizacion={cotizacion} />,
+      { wrapper: createQueryWrapper() },
+    );
+    expect(screen.getByText('Editar cotización')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Folio del proveedor/)).toHaveValue('COT-9');
+    expect(screen.getByLabelText(/^Precio/)).toHaveValue(25);
+    fireEvent.click(await screen.findByRole('button', { name: 'Guardar cambios' }));
+    await waitFor(() => expect(mocks.editar).toHaveBeenCalledTimes(1));
+    expect(mocks.editar.mock.calls[0]![0].cotizacionId).toBe('cot-1');
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith({ force: true }));
   });
 });

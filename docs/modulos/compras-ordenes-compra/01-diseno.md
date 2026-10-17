@@ -95,7 +95,7 @@ defecto, nullable reference types).
   campo se reserva en el modelo de dominio como hueco no operado en
   v1; no aparece en pantallas ni en payloads.
 - **Cotizaciones formales** como entidad separada (cotización vive solo
-  como adjunto).
+  como adjunto). *Actualizado por F1-COM-02 (17-oct-2026): ver C13.*
 - **Portal para proveedores** (proveedores no acceden al sistema).
 - **Ejecución de pagos** (vive en Tesorería; este submódulo solo
   refleja el estado de pago como `SubEstadoPago`).
@@ -183,6 +183,7 @@ algunas secciones cambian. Cierran en sesión de validación del 01.
 | C10 | **Validez del proveedor al autorizar** | Se valida que el proveedor esté `Activo` **en cada transición de estado** (al enviar a autorización y al autorizar). Si el proveedor se bloquea entre captura y autorización, se rechaza con motivo. | Si se prefiere validar solo al crear, se reduce el checkpoint a una validación inicial. |
 | C11 | **Adjuntos: cotización obligatoria con excepción** | Antes de enviar a autorización, el sistema requiere al menos un adjunto con `TipoDocumento = cotizacion`. Excepción: bandera `cotizacion_excepcionada` en cabecera + adjunto tipo `correo_autorizacion`. La bandera no se puede activar sin adjuntar el correo. | Si el cliente prefiere validar fuera del agregado (con override manual), se mueve a regla de aplicación con auditoría. |
 | C12 | ~~Versión en bitácora post-autorización~~ | **N/A** — descartado al cerrar C4 como "cancelar + recrear". La trazabilidad entre OC origen y OC nueva se preserva vía campo `oc_origen_id` en la cabecera. | — |
+| C13 | **Cotizaciones comparables (F1-COM-02, 86e3jvu2a)** | Agregado `Cotizacion` (con `LineaCotizacion`) en `compras.cotizaciones` / `compras.cotizacion_lineas`, ligado a la requisición. El PDF se sube por el servicio genérico de adjuntos (`cotizacion_compra`, ADR-0058). El comparativo normaliza cada partida a la unidad de la RQ y a MXN con el tipo de cambio del día. `POST /ordenes/desde-requisicion` acepta `cotizacionId` + `motivoEleccion`: la OC toma precio y moneda de la cotización elegida y copia su PDF como adjunto `cotizacion` (decisión del owner D1, 17-oct-2026); las demás cotizaciones se conservan. Permisos `compras.cotizaciones.leer` y `compras.cotizaciones.gestionar`. | Si Millet decide que una cotización pueda cubrir solo algunas partidas o que exista comparativo para compra directa sin RQ, hay que extender el agregado y habilitar OC parcial desde RQ. |
 
 ---
 
@@ -1568,7 +1569,7 @@ Para evitar duplicar al construir CxP/Recepción/Activos después de OC:
 | **Sub-estado** | Dimensión independiente de progreso de una OC autorizada (recepción, facturación, pago). |
 | **Partidas abiertas** | Vista consolidada de OCs activas con sus sub-estados; reporte crítico del mapa funcional §8.2. |
 | **Duplicar OC** | Acción que pre-llena una OC nueva (Borrador) desde una OC cancelada o rechazada. Sustituye la "reapertura" tras la decisión C4 cerrada como "cancelar + recrear". Setea `OcOrigenId` para trazabilidad. |
-| **Cotización** | Documento del proveedor que sustenta el precio de una OC; adjunto, no entidad. |
+| **Cotización** | Documento del proveedor que sustenta el precio de una OC; adjunto, no entidad. *Actualizado por F1-COM-02 (17-oct-2026): ver C13.* |
 | **Información logística** | Conjunto de campos estructurados que reemplaza el texto libre embebido del SAP legacy (transportista, guía, contenedor, ruta, semana, pedimento). |
 | **Sub-estado materializado** | Columna en `ordenes_compra` que persiste el sub-estado calculado, actualizada por listeners (C7). |
 
@@ -1584,3 +1585,4 @@ Para evitar duplicar al construir CxP/Recepción/Activos después de OC:
 | 0.4 | 2026-05-11 | Cierre del backend tras 3 rondas de decisiones con owner. **C4 cerrado como "cancelar + recrear"** (descartada reapertura): eliminada entidad `VersionOC`, estado `EnReautorizacion`, comandos `ReabrirParaEdicion` / `RegistrarVersionPostReautorizacion`, tabla `compras.orden_compra_versiones`, evento `OrdenCompraReabiertaEvent`, permiso `compras.ordenes.reabrir`. **Agregado** comando `DuplicarOrdenCompraCommand` + campo `OcOrigenId` (con índice) + evento `OrdenCompraDuplicadaEvent` + query `ObtenerOrdenCompraOrigenQuery`. **Confirmadas** C1 (MXN+T/C manual), C2 (folio `OC-MID2026-000001`), C3 (motor impuestos local), C6 (7 tipos adjunto), C7 (sub-estados materializados), C9 (RQ comprometida bloqueada), C10 (validez proveedor en cada transición), C11 (cotización en agregado). **Decididos**: librería PDF = QuestPDF, idempotency-key desde el inicio de cada PR. |
 | 0.5 | 2026-05-11 | Cierre del frontend tras 3 rondas de decisiones con owner. **FOC11** agrega 10º permiso canónico `compras.ordenes.crear.sin_rq` para crear OC sin requisición previa (caso especial §4.3 del mapa funcional). **Agregada query** `ObtenerHistoricoOrdenCompraQuery` para alimentar el tab "Historial" del frontend P3 (brecha §14.1 del 05). FOC16 cierra P2 sin acciones inline; el resto de FOC1–FOC15 confirma defaults recomendados. §14 brechas confirmadas con endpoints dedicados (`/historico`, `/duplicadas`, `/partidas-abiertas/kpis`). |
 | 0.6 | 2026-05-13 | **Setting `AutoGenerarOcAlAutorizar` por empresa** (ADR-0033). §3.bis.1 actualizada: el filtro del selector pasa de `estado='Autorizada'` a `estado='EnSurtido' AND comprometida_en_oc_id IS NULL` (unificado para los dos modos del setting). Los handlers `CrearOrdenCompraDesdeRequisicion` (1:1) y `AgregarLineaDesdeRequisicion` (N:1) heredan `cantidad_de_compra` (no `cantidad` original), porque la parte cubierta por almacén ya tiene movimiento de salida al autorizar. Modelo y semánticas de §1.2 (1:1 / N:1) sin cambios. |
+| 0.7 | 2026-10-17 | **F1-COM-02 (86e3jvu2a): cotizaciones comparables.** Nueva decisión C13: agregado `Cotizacion` por requisición, comparativo normalizado y creación de OC con la cotización elegida (precio, moneda y PDF copiado como adjunto `cotizacion`). Se anotan las referencias de §1.2 y del glosario que decían "adjunto, no entidad". |

@@ -1,12 +1,30 @@
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import { Paperclip } from 'lucide-react';
+import { MoreHorizontal, Paperclip } from 'lucide-react';
+import { toast } from 'sonner';
 import { Breadcrumbs, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { useEnlaceAdjunto } from '@/components/erp/adjuntos/api';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -17,12 +35,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
+import { GenerarOcCotizacionDialog } from '@/features/compras/components/GenerarOcCotizacionDialog';
 import { CotizacionSheet } from '@/features/compras/components/CotizacionSheet';
-import { useComparativoCotizaciones } from '@/features/compras/api/useCotizaciones';
-import type {
-  CotizacionComparativo,
-  LineaComparativo,
-  PartidaComparativo,
+import { useComparativoCotizaciones, useEliminarCotizacion } from '@/features/compras/api/useCotizaciones';
+import {
+  EstadoRequisicion,
+  type CotizacionComparativo,
+  type LineaComparativo,
+  type PartidaComparativo,
 } from '@/features/compras/api/types';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -63,7 +83,13 @@ export function ComparativoCotizaciones() {
   const [partidaId, setPartidaId] = useState<string | null>(null);
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null);
   const [registrando, setRegistrando] = useState(false);
+  const [editando, setEditando] = useState<CotizacionComparativo | null>(null);
+  const [eliminando, setEliminando] = useState<CotizacionComparativo | null>(null);
+  const eliminar = useEliminarCotizacion(id);
+  const [motivo, setMotivo] = useState('');
+  const [generando, setGenerando] = useState(false);
   const puedeGestionar = useHasPermission(PermisosCanonicos.ComprasCotizacionesGestionar);
+  const puedeCrearOc = useHasPermission(PermisosCanonicos.ComprasOrdenesCrear);
 
   if (query.isError) {
     return (
@@ -92,6 +118,39 @@ export function ComparativoCotizaciones() {
       })
     : [];
   const elegida = data.cotizaciones.find((c) => c.elegida);
+  const puedeElegir =
+    !data.comparativoCerrado &&
+    data.estadoRequisicion === EstadoRequisicion.EnSurtido &&
+    data.comprometidaEnOcId == null;
+  const seleccionada = data.cotizaciones.find((c) => c.id === seleccionadaId && c.vigente);
+  const faltaParaGenerar = !seleccionada
+    ? 'Falta: elegir una cotización'
+    : seleccionada.archivoAdjuntoId == null
+      ? 'Falta: PDF de la cotización'
+      : motivo.trim().length < 5
+        ? 'Falta: motivo de la elección'
+        : !seleccionada.proveedorActivo
+          ? 'El proveedor no está activo'
+          : null;
+  const puedeEditar = puedeGestionar && !data.comparativoCerrado && data.puedeRegistrar;
+
+  async function confirmarEliminar() {
+    if (!eliminando) return;
+    try {
+      await eliminar.mutateAsync({ cotizacionId: eliminando.id, idempotencyKey: crypto.randomUUID() });
+      toast.success('Cotización eliminada');
+      setEliminando(null);
+    } catch (err) {
+      if (esApiError(err) && err.problem.status === 409) {
+        toast.error('La cotización cambió', { description: 'Recarga el comparativo e inténtalo de nuevo.' });
+      } else if (esApiError(err)) {
+        toast.error(err.problem.title, { description: err.problem.detail });
+      } else {
+        toast.error('Error inesperado al eliminar la cotización.');
+      }
+      setEliminando(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -194,12 +253,17 @@ export function ComparativoCotizaciones() {
                   <TableHead>Crédito</TableHead>
                   <TableHead>Entrega</TableHead>
                   <TableHead>Documento</TableHead>
+                  {puedeEditar && (
+                    <TableHead className="w-10">
+                      <span className="sr-only">Acciones</span>
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filas.map(({ cot, linea }: { cot: CotizacionComparativo; linea: LineaComparativo }) => {
                   const proveedor = cot.proveedorRazonSocial ?? cot.proveedorId;
-                  const bloqueada = !cot.vigente || data.comparativoCerrado;
+                  const bloqueada = !cot.vigente || !puedeElegir;
                   return (
                     <TableRow key={cot.id} className="hover:bg-surface-subtle">
                       <TableCell>
@@ -253,6 +317,26 @@ export function ComparativoCotizaciones() {
                       <TableCell>
                         <ArchivoCotizacion cot={cot} />
                       </TableCell>
+                      {puedeEditar && (
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Acciones de la cotización de ${proveedor}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => setEditando(cot)}>Editar</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setEliminando(cot)}>Eliminar</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
@@ -260,6 +344,40 @@ export function ComparativoCotizaciones() {
             </Table>
           </TableContainer>
         </div>
+      )}
+
+      {puedeElegir && puedeGestionar && puedeCrearOc && data.cotizaciones.length > 0 && (
+        <section className="space-y-3 rounded-lg border border-line-row bg-surface-card p-4">
+          <div className="space-y-1">
+            <label htmlFor="motivo-eleccion" className="text-sm font-medium text-ink">
+              Motivo de la elección *
+            </label>
+            <Textarea
+              id="motivo-eleccion"
+              rows={2}
+              maxLength={500}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+            />
+            <p className="text-xs text-ink-muted">Queda con todas las cotizaciones; aparece en la OC.</p>
+          </div>
+          <p role="note" className="rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
+            Qué pasa al generar la OC: el precio de cada partida se toma de la cotización elegida
+            {seleccionada && partida
+              ? ` (${seleccionada.moneda} ${
+                  seleccionada.lineas.find((l) => l.lineaRequisicionId === partida.lineaRequisicionId)
+                    ?.precioPorUnidadRq ?? ''
+                } por ${partida.unidad})`
+              : ''}{' '}
+            y su PDF se adjunta a la OC. Las otras cotizaciones quedan guardadas en la requisición.
+          </p>
+          <div className="flex items-center gap-3">
+            <Button type="button" disabled={faltaParaGenerar !== null} onClick={() => setGenerando(true)}>
+              Generar OC con la elegida
+            </Button>
+            {faltaParaGenerar && <span className="text-xs text-ink-muted">{faltaParaGenerar}</span>}
+          </div>
+        </section>
       )}
 
       {elegida && (
@@ -288,6 +406,47 @@ export function ComparativoCotizaciones() {
         folio={data.requisicionFolio}
         partidas={data.partidas}
       />
+      <CotizacionSheet
+        abierto={editando !== null}
+        onClose={() => setEditando(null)}
+        requisicionId={data.requisicionId}
+        folio={data.requisicionFolio}
+        partidas={data.partidas}
+        cotizacion={editando ?? undefined}
+      />
+      {seleccionada && (
+        <GenerarOcCotizacionDialog
+          abierto={generando}
+          onClose={() => setGenerando(false)}
+          data={data}
+          cotizacion={seleccionada}
+          motivoEleccion={motivo}
+        />
+      )}
+      <AlertDialog open={eliminando !== null} onOpenChange={(o) => !o && !eliminar.isPending && setEliminando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              ¿Eliminar la cotización de {eliminando?.proveedorRazonSocial ?? eliminando?.proveedorId}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Solo se puede eliminar antes de elegir una cotización.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={eliminar.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={eliminar.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmarEliminar();
+              }}
+            >
+              {eliminar.isPending ? 'Eliminando…' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { ComparativoCotizaciones } from '@/features/compras/pages/ComparativoCotizaciones';
 import {
@@ -8,11 +8,22 @@ import {
   type CotizacionComparativo,
 } from '@/features/compras/api/types';
 
-const hook = vi.hoisted(() => ({ useComparativoCotizaciones: vi.fn() }));
+const hook = vi.hoisted(() => ({
+  useComparativoCotizaciones: vi.fn(),
+  useEliminarCotizacion: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+const permisos = vi.hoisted(() => ({ tiene: true }));
+
+vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => permisos.tiene }));
+vi.mock('@/features/compras/components/CotizacionSheet', () => ({
+  CotizacionSheet: ({ abierto, cotizacion }: { abierto: boolean; cotizacion?: { proveedorRazonSocial: string } }) =>
+    abierto && cotizacion ? <div role="dialog">Editando {cotizacion.proveedorRazonSocial}</div> : null,
+}));
 
 vi.mock('@/features/compras/api/useCotizaciones', () => hook);
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'rq-1' }),
+  useNavigate: () => vi.fn(),
   Link: ({ children }: { children: React.ReactNode }) => <a href="#">{children}</a>,
 }));
 
@@ -94,7 +105,10 @@ function datos(over: Partial<Comparativo> = {}) {
   hook.useComparativoCotizaciones.mockReturnValue({ data, isLoading: false, isError: false, refetch: vi.fn() });
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  permisos.tiene = true;
+});
 
 describe('ComparativoCotizaciones', () => {
   it('marca el menor precio, señala la vencida y deshabilita su radio', () => {
@@ -126,5 +140,51 @@ describe('ComparativoCotizaciones', () => {
     datos();
     render(<ComparativoCotizaciones />, { wrapper: createQueryWrapper() });
     expect(screen.getByText('Aún no hay cotizaciones registradas')).toBeInTheDocument();
+  });
+
+  it('con comparativo cerrado no ofrece editar ni eliminar', () => {
+    datos({ comparativoCerrado: true, cotizaciones: [cot('1', 'Proveedor MXN')] });
+    render(<ComparativoCotizaciones />, { wrapper: createQueryWrapper() });
+    expect(screen.queryByRole('button', { name: /Acciones de la cotización/ })).not.toBeInTheDocument();
+  });
+
+  it('sin permiso de gestionar no ofrece editar ni eliminar', () => {
+    permisos.tiene = false;
+    datos({ cotizaciones: [cot('1', 'Proveedor MXN')] });
+    render(<ComparativoCotizaciones />, { wrapper: createQueryWrapper() });
+    expect(screen.queryByRole('button', { name: /Acciones de la cotización/ })).not.toBeInTheDocument();
+  });
+
+  it('con permiso y comparativo abierto, Editar abre el sheet con el proveedor precargado', async () => {
+    datos({ cotizaciones: [cot('1', 'Proveedor MXN')] });
+    render(<ComparativoCotizaciones />, { wrapper: createQueryWrapper() });
+    const boton = screen.getByRole('button', { name: 'Acciones de la cotización de Proveedor MXN' });
+    fireEvent.pointerDown(boton, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Editar' }));
+    expect(await screen.findByText('Editando Proveedor MXN')).toBeInTheDocument();
+  });
+
+  it('sin motivo explica que falta; con cotización sin PDF avisa; vencida no se selecciona', () => {
+    datos({
+      cotizaciones: [
+        cot('1', 'Proveedor MXN'),
+        cot('2', 'Proveedor sin PDF', { archivoAdjuntoId: null, archivoNombre: null }),
+        cot('3', 'Proveedor vencido', { vigente: false }),
+      ],
+    });
+    render(<ComparativoCotizaciones />, { wrapper: createQueryWrapper() });
+    const generar = screen.getByRole('button', { name: 'Generar OC con la elegida' });
+    expect(generar).toBeDisabled();
+    expect(screen.getByText('Falta: elegir una cotización')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Elegir cotización de Proveedor sin PDF' }));
+    expect(screen.getByText('Falta: PDF de la cotización')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Elegir cotización de Proveedor MXN' }));
+    expect(screen.getByText('Falta: motivo de la elección')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Motivo de la elección/), { target: { value: 'Menor precio y entrega' } });
+    expect(generar).toBeEnabled();
+    expect(screen.getByRole('radio', { name: 'Elegir cotización de Proveedor vencido' })).toBeDisabled();
   });
 });
