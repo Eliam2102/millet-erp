@@ -42,6 +42,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     {
         var problem = MapToProblemDetails(exception, httpContext);
 
+        if (exception is ForbiddenException forbidden)
+        {
+            await Millet.Api.Auth.AccesoDenegadoAudit.RegistrarAsync(httpContext, forbidden.Code, null, cancellationToken);
+        }
+
         if (problem.Status >= 500)
         {
             _logger.LogError(exception, "Unhandled exception: {ExceptionType}", exception.GetType().Name);

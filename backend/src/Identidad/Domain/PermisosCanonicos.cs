@@ -184,6 +184,8 @@ public static class PermisosCanonicos
     // menos una card. Ver ADR-0034 y 01-diseno §6.3 de Administración.
     public const string AdminEmpresasLeer                              = "admin.empresas.leer";
     public const string AdminAuditoriaLeer                             = "admin.auditoria.leer";
+    /// <summary>ADM-03 / ADR-0051: bypass de sucursal de la bitácora; sin él solo se ven las sucursales del usuario.</summary>
+    public const string AdminAuditoriaLeerTodasSucursales              = "admin.auditoria.leer-todas-sucursales";
 
     // ----- Administración — Empresas + Sucursales + Departamentos (F-Admin-PR2.3) -----
     // CRUD completo del catálogo organizacional. Convención kebab-case
@@ -619,6 +621,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000005-0001-0000-0000-000000000004"), AdminEmpresasDesactivar,                      "Desactivar empresas (sin sucursales activas)"),
         (Guid.Parse("00000005-0001-0000-0000-000000000005"), AdminEmpresasSucursalesGestionar,             "Crear, editar y desactivar sucursales del catálogo organizacional"),
         (Guid.Parse("00000005-0002-0000-0000-000000000001"), AdminAuditoriaLeer,                           "Consultar la bitácora consolidada de auditoría (mínimo del andamio /admin)"),
+        (Guid.Parse("00000005-0002-0000-0000-000000000002"), AdminAuditoriaLeerTodasSucursales,            "Consultar la bitácora de todas las sucursales de la empresa"),
         (Guid.Parse("00000005-0003-0000-0000-000000000001"), AdminDepartamentosGestionar,                  "Crear, editar y desactivar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0003-0000-0000-000000000002"), AdminDepartamentosLeer,                       "Consultar departamentos del catálogo organizacional"),
         (Guid.Parse("00000005-0004-0000-0000-000000000001"), AdminSeriesGestionar,                         "Crear, editar y desactivar series de folios cross-módulo (OC, CFDI, póliza)"),
