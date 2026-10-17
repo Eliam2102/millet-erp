@@ -94,6 +94,54 @@ public sealed record ListarDevolucionesProveedorQuery(
     public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
 }
 
+/// <summary>
+/// Filtros de la bandeja de devoluciones a proveedor salvo el estado, compartidos por el
+/// listado y por los conteos por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class DevolucionesProveedorFiltro
+{
+    public static IQueryable<DevolucionAProveedor> Aplicar(AlmacenDbContext db, ListarDevolucionesProveedorQuery request)
+    {
+        var query = db.Set<DevolucionAProveedor>().AsNoTracking();
+        if (request.ProveedorId is Guid pid) query = query.Where(d => d.ProveedorId == pid);
+        if (request.SoloPendientesNcFiscal is true)
+            query = query.Where(d => d.Estado == EstadoDevolucionProveedor.Registrada);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(d => permitidos.Contains(d.Id));
+        // Búsqueda por folio de la salida de la devolución (después del filtro de alcance).
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(d => d.FolioMovimientoSalida != null && d.FolioMovimientoSalida.Contains(q));
+        }
+
+        return query;
+    }
+}
+
+public sealed record ConteosDevolucionesProveedorPorEstadoQuery(
+    Guid? ProveedorId, bool? SoloPendientesNcFiscal, string? Q = null)
+    : IRequest<IReadOnlyList<ConteoPorEstadoItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "devolucion_proveedor";
+    public string PermisoTodasSucursales => "almacen.devoluciones-proveedor.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosDevolucionesProveedorPorEstadoHandler(AlmacenDbContext db)
+    : IRequestHandler<ConteosDevolucionesProveedorPorEstadoQuery, IReadOnlyList<ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<ConteoPorEstadoItem>> Handle(
+        ConteosDevolucionesProveedorPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarDevolucionesProveedorQuery(null, request.ProveedorId, request.SoloPendientesNcFiscal, 0, 0, request.Q)
+            { DocumentosPermitidos = request.DocumentosPermitidos };
+        return await DevolucionesProveedorFiltro.Aplicar(db, lista).GroupBy(d => d.Estado)
+            .Select(g => new ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
+
 public sealed class ListarDevolucionesProveedorHandler
     : IRequestHandler<ListarDevolucionesProveedorQuery, AlmacenPagedResponse<DevolucionProveedorListItem>>
 {
@@ -109,18 +157,8 @@ public sealed class ListarDevolucionesProveedorHandler
     public async Task<AlmacenPagedResponse<DevolucionProveedorListItem>> Handle(
         ListarDevolucionesProveedorQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<DevolucionAProveedor> query = _db.Set<DevolucionAProveedor>().AsNoTracking();
+        var query = DevolucionesProveedorFiltro.Aplicar(_db, request);
         if (request.Estado is EstadoDevolucionProveedor e) query = query.Where(d => d.Estado == e);
-        if (request.ProveedorId is Guid pid) query = query.Where(d => d.ProveedorId == pid);
-        if (request.SoloPendientesNcFiscal is true)
-            query = query.Where(d => d.Estado == EstadoDevolucionProveedor.Registrada);
-        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(d => permitidos.Contains(d.Id));
-        // Búsqueda por folio de la salida de la devolución (después del filtro de alcance).
-        if (!string.IsNullOrWhiteSpace(request.Q))
-        {
-            var q = request.Q.Trim().ToUpperInvariant();
-            query = query.Where(d => d.FolioMovimientoSalida != null && d.FolioMovimientoSalida.Contains(q));
-        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query

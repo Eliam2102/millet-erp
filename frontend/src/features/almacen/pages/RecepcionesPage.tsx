@@ -2,7 +2,6 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
-import { FiltroActivoChip } from '../components/FiltroActivoChip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,8 +23,12 @@ import {
 import {
   EmptyState,
   ErrorState,
+  BarraFiltros,
+  FiltroActivoChip,
   PaginacionTabla,
   SortableHeader,
+  TabsEstado,
+  useConteosPorEstado,
   TableSkeleton,
   clickableRowProps,
   compareItemsBy,
@@ -33,6 +36,7 @@ import {
 } from '@/components/erp';
 import { mapById } from '@/features/catalogos/api';
 import { useRecepciones } from '@/features/almacen/api/useRecepciones';
+import { almacenKeys } from '@/features/almacen/api/keys';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import {
   EstadoMovimiento,
@@ -95,6 +99,14 @@ export function RecepcionesPage() {
     ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(almacenKeys.recepciones(), '/api/v1/almacen/recepciones', {
+    subAlmacenId: search.subAlmacenId,
+    ordenCompraId: search.ordenCompraId,
+    desde: search.desde,
+    hasta: search.hasta,
+    q: search.q,
+  });
+
   function actualizarSearch(parcial: Partial<RecepcionesSearch>) {
     navigate({
       to: '/almacen/recepciones',
@@ -122,9 +134,17 @@ export function RecepcionesPage() {
         }
       />
 
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoMovimiento | undefined })}
+        conteos={conteos.data}
+      />
+
       <FiltrosToolbar
         search={search}
         subAlmacenes={subAlmacenesQuery.data?.items ?? []}
+        total={query.data?.total}
         onChange={actualizarSearch}
       />
 
@@ -180,83 +200,56 @@ export function RecepcionesPage() {
   );
 }
 
+const TABS_ESTADO = [
+  EstadoMovimiento.Borrador,
+  EstadoMovimiento.Validado,
+  EstadoMovimiento.Registrado,
+  EstadoMovimiento.Cancelado,
+].map((e) => ({ valor: e as number, label: EstadoMovimientoLabels[e] }));
+
 interface FiltrosToolbarProps {
   search: RecepcionesSearch;
   subAlmacenes: readonly { id: string; clave: string; nombre: string }[];
+  total: number | undefined;
   onChange: (parcial: Partial<RecepcionesSearch>) => void;
 }
 
 function FiltrosToolbar({
   search,
   subAlmacenes,
+  total,
   onChange,
 }: FiltrosToolbarProps) {
   const algunFiltro =
     search.q ||
-    search.estado != null ||
     search.subAlmacenId ||
     search.ordenCompraId ||
     search.desde ||
     search.hasta;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <Field label="Folio" className="gap-1">
+    <BarraFiltros
+      aria-label="Filtros de recepciones"
+      busqueda={
         <BusquedaFolio
           aria-label="Buscar por folio"
           valor={search.q}
           onCommit={(q) => onChange({ q })}
-          placeholder="Buscar por folio…"
-          className="w-56"
+          placeholder="Folio de la recepción"
         />
-      </Field>
-      <Field label="Estado" className="gap-1">
-{(c) => (
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoMovimiento),
-            })
-          }
-        >
-          <SelectTrigger {...c} aria-label="Filtrar por estado" className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {(
-              [
-                EstadoMovimiento.Borrador,
-                EstadoMovimiento.Validado,
-                EstadoMovimiento.Registrado,
-                EstadoMovimiento.Cancelado,
-              ] as const
-            ).map((e) => (
-              <SelectItem key={e} value={String(e)}>
-                {EstadoMovimientoLabels[e]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-)}
-      </Field>
-      <Field label="Sub-almacén" className="gap-1">
-{(c) => (
+      }
+      filtros={
         <Select
           value={search.subAlmacenId ?? SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
           }
         >
-          <SelectTrigger {...c} aria-label="Filtrar por sub-almacén" className="w-56">
-            <SelectValue placeholder="Todos" />
+          <SelectTrigger aria-label="Filtrar por sub-almacén" className="h-ctl-md w-48 text-xs">
+            <SelectValue placeholder="Todos los sub-almacenes" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+            <SelectItem value={SENTINEL_ALL}>Todos los sub-almacenes</SelectItem>
             {subAlmacenes.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.clave} · {s.nombre}
@@ -264,50 +257,48 @@ function FiltrosToolbar({
             ))}
           </SelectContent>
         </Select>
-)}
-      </Field>
-      <Field label="Desde" className="gap-1">
-        <Input
-          aria-label="Fecha desde"
-          type="date"
-          value={search.desde ?? ''}
-          onChange={(e) => onChange({ desde: e.target.value || undefined })}
-          className="w-40"
-        />
-      </Field>
-      <Field label="Hasta" className="gap-1">
-        <Input
-          aria-label="Fecha hasta"
-          type="date"
-          value={search.hasta ?? ''}
-          onChange={(e) => onChange({ hasta: e.target.value || undefined })}
-          className="w-40"
-        />
-      </Field>
-      {search.ordenCompraId && (
-        <FiltroActivoChip
-          label="Orden de compra"
-          onQuitar={() => onChange({ ordenCompraId: undefined })}
-        />
-      )}
-      {algunFiltro && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              q: undefined,
-              estado: undefined,
-              subAlmacenId: undefined,
-              ordenCompraId: undefined,
-              desde: undefined,
-              hasta: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+      }
+      masFiltros={
+        <>
+          <Field label="Desde">
+            <Input
+              type="date"
+              value={search.desde ?? ''}
+              onChange={(e) => onChange({ desde: e.target.value || undefined })}
+            />
+          </Field>
+          <Field label="Hasta">
+            <Input
+              type="date"
+              value={search.hasta ?? ''}
+              onChange={(e) => onChange({ hasta: e.target.value || undefined })}
+            />
+          </Field>
+        </>
+      }
+      masFiltrosActivos={(search.desde ? 1 : 0) + (search.hasta ? 1 : 0)}
+      chips={
+        search.ordenCompraId && (
+          <FiltroActivoChip
+            label="Orden de compra"
+            onQuitar={() => onChange({ ordenCompraId: undefined })}
+          />
+        )
+      }
+      onLimpiar={
+        algunFiltro
+          ? () =>
+              onChange({
+                q: undefined,
+                subAlmacenId: undefined,
+                ordenCompraId: undefined,
+                desde: undefined,
+                hasta: undefined,
+              })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'recepción' : 'recepciones'}` : undefined}
+    />
   );
 }
 

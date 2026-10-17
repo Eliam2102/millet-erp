@@ -38,6 +38,53 @@ public sealed record FacturaListItemResponse(
     // id no resuelve — el FE indica Por confirmar.
     string? ProveedorNombre = null, string? UuidCfdi = null, string? OrdenCompraFolio = null, string? ProveedorRfc = null);
 
+/// <summary>
+/// Filtros de la bandeja salvo el estado, compartidos por el listado y por los conteos
+/// por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class FacturasFiltro
+{
+    public static IQueryable<Millet.CuentasPorPagar.Domain.FacturaProveedor.FacturaProveedor> Aplicar(CuentasPorPagarDbContext db, ListarFacturasQuery request)
+    {
+        var q = db.FacturasProveedor
+            .Where(x => request.SucursalesPermitidas == null || request.SucursalesPermitidas.Contains(x.SucursalId)).AsNoTracking();
+        if (request.ProveedorId is Guid p) q = q.Where(f => f.ProveedorId == p);
+        if (request.SucursalId is Guid s) q = q.Where(f => f.SucursalId == s);
+
+        // q se aplica DESPUÉS del filtro de sucursal (SucursalesPermitidas): solo acota más, nunca amplía el alcance.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var patron = LikePatron.Contiene(request.Q);
+            q = q.Where(f =>
+                (f.FolioProveedor != null && EF.Functions.ILike(f.FolioProveedor, patron, LikePatron.Escape))
+                || (f.SerieProveedor != null && EF.Functions.ILike(f.SerieProveedor, patron, LikePatron.Escape))
+                || (f.UuidCfdi != null && EF.Functions.ILike(f.UuidCfdi, patron, LikePatron.Escape)));
+        }
+
+        return q;
+    }
+}
+
+public sealed record ConteosFacturasPorEstadoQuery(Guid? ProveedorId, Guid? SucursalId, string? Q = null)
+    : IRequest<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
+
+public sealed class ConteosFacturasPorEstadoHandler(CuentasPorPagarDbContext db)
+    : IRequestHandler<ConteosFacturasPorEstadoQuery, IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>> Handle(
+        ConteosFacturasPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarFacturasQuery(null, request.ProveedorId, request.SucursalId, 0, 1, request.Q) { SucursalesPermitidas = request.SucursalesPermitidas };
+        return await FacturasFiltro.Aplicar(db, lista).GroupBy(x => x.Estado)
+            .Select(g => new Millet.SharedKernel.Application.ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
+
 public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery, PagedResponse<FacturaListItemResponse>>
 {
     private readonly CuentasPorPagarDbContext _db;
@@ -58,21 +105,8 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.FacturasProveedor
-            .Where(x => query.SucursalesPermitidas == null || query.SucursalesPermitidas.Contains(x.SucursalId)).AsNoTracking();
+        var q = FacturasFiltro.Aplicar(_db, query);
         if (query.Estado is EstadoPasivo e) q = q.Where(f => f.Estado == e);
-        if (query.ProveedorId is Guid p) q = q.Where(f => f.ProveedorId == p);
-        if (query.SucursalId is Guid s) q = q.Where(f => f.SucursalId == s);
-
-        // q se aplica DESPUÉS del filtro de sucursal (SucursalesPermitidas): solo acota más, nunca amplía el alcance.
-        if (!string.IsNullOrWhiteSpace(query.Q))
-        {
-            var patron = LikePatron.Contiene(query.Q);
-            q = q.Where(f =>
-                (f.FolioProveedor != null && EF.Functions.ILike(f.FolioProveedor, patron, LikePatron.Escape))
-                || (f.SerieProveedor != null && EF.Functions.ILike(f.SerieProveedor, patron, LikePatron.Escape))
-                || (f.UuidCfdi != null && EF.Functions.ILike(f.UuidCfdi, patron, LikePatron.Escape)));
-        }
 
         var total = await q.CountAsync(cancellationToken);
 

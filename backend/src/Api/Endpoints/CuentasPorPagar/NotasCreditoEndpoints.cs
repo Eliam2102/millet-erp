@@ -52,6 +52,18 @@ public static class NotasCreditoEndpoints
         .WithName("ListarNotasCredito")
         .Produces<PagedResponse<NotaCreditoListItemResponse>>(StatusCodes.Status200OK);
 
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] Guid? facturaOrigenId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConteosNotasCreditoPorEstadoQuery(proveedorId, facturaOrigenId, q), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarNotasCreditoLeer)
+        .WithName("ConteosNotasCreditoPorEstado")
+        .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
         group.MapPost("/", async (
             [FromBody] CapturarNotaCreditoCommand command,
             CuentasPorPagarDbContext scopeDb,

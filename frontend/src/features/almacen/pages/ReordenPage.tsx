@@ -525,7 +525,7 @@ function TablaReorden({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>
+            <TableHead className="w-full">
               <SortableHeader
                 columnKey="articulo"
                 label="Artículo"
@@ -550,9 +550,9 @@ function TablaReorden({
               />
             </TableHead>
             <TableHead className="text-right">Mín</TableHead>
-            <TableHead className="text-right">Máx</TableHead>
+            <TableHead className="hidden text-right xl:table-cell">Máx</TableHead>
             <TableHead className="text-right">P. reorden</TableHead>
-            <TableHead className="text-center">Auto</TableHead>
+            <TableHead className="hidden text-center xl:table-cell">Auto</TableHead>
             <TableHead>
               <SortableHeader
                 columnKey="estatus"
@@ -569,7 +569,7 @@ function TablaReorden({
         <TableBody>
           {ordenados.map(({ item, articulo, entidad }) => (
             <TableRow key={item.id}>
-              <TableCell>{articulo}</TableCell>
+              <TableCell className="max-w-0 truncate" title={articulo}>{articulo}</TableCell>
               <TableCell>
                 <EstadoAlmacenBadge tipo="nivel-reorden" estado={item.nivel} />
               </TableCell>
@@ -581,12 +581,13 @@ function TablaReorden({
               <ValorCelda
                 valor={item.maximo}
                 activo={item.objetivo === ObjetivoReposicion.Maximo}
+                className="hidden xl:table-cell"
               />
               <ValorCelda
                 valor={item.puntoReorden}
                 activo={item.objetivo === ObjetivoReposicion.Reorden}
               />
-              <TableCell className="text-center">
+              <TableCell className="hidden text-center xl:table-cell">
                 {item.autoRequisicion ? 'Sí' : 'No'}
               </TableCell>
               <TableCell>
@@ -625,12 +626,21 @@ function TablaReorden({
 }
 
 /** Celda numérica; resalta el valor que dicta el Objetivo (meta activa). */
-function ValorCelda({ valor, activo }: { valor: number; activo: boolean }) {
+function ValorCelda({
+  valor,
+  activo,
+  className,
+}: {
+  valor: number;
+  activo: boolean;
+  className?: string;
+}) {
   return (
     <TableCell
       className={cn(
         'text-right tabular-nums',
         activo && 'font-semibold text-ink-strong',
+        className,
       )}
       title={activo ? 'Objetivo de reabasto' : undefined}
     >

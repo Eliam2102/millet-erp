@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Almacen.Application.Catalogo;
@@ -54,6 +55,28 @@ public static class SalidasEndpoints
         .WithName("ListarSalidas")
         .WithSummary("Listar salidas (bandeja con filtros)")
         .Produces<AlmacenPagedResponse<SalidaListItem>>(StatusCodes.Status200OK);
+
+        // --- Conteos por estado (tabs de la bandeja; mismos filtros salvo estado) ---
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] Guid? rqId,
+            [FromQuery] Guid? personaDestinatariaId,
+            [FromQuery] DateOnly? desde,
+            [FromQuery] DateOnly? hasta,
+            [FromQuery] bool? soloVales,
+            [FromQuery] bool? noRegularizados,
+            [FromQuery] bool? soloVencidos,
+            [FromQuery] bool? soloPorVencer,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken ct) =>
+            Results.Ok(await mediator.Send(
+                new ConteosSalidasPorEstadoQuery(subAlmacenId, rqId, personaDestinatariaId, desde, hasta,
+                    soloVales, noRegularizados, soloVencidos, soloPorVencer, q), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenSalidasLeerTodas)
+        .WithName("ConteosSalidasPorEstado")
+        .WithSummary("Conteo de salidas por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
         // --- Obtener Salida por Id ---
         group.MapGet("/{id:guid}", async (

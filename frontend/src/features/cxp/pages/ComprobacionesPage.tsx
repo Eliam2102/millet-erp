@@ -26,6 +26,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  BarraFiltros,
+  TabsEstado,
+  useConteosPorEstado,
   EmptyState,
   ErrorState,
   PaginacionTabla,
@@ -34,6 +37,7 @@ import {
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { cxpKeys } from '@/features/cxp/api/keys';
 import { useComprobaciones } from '@/features/cxp/api/useComprobaciones';
 import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import {
@@ -84,6 +88,12 @@ export function ComprobacionesPage() {
     ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(
+    cxpKeys.comprobaciones(),
+    '/api/v1/cuentas-por-pagar/comprobaciones',
+    { tipo: search.tipo, sucursalId: search.sucursalId, q: search.q },
+  );
+
   function actualizarSearch(parcial: Partial<ComprobacionesSearch>) {
     navigate({
       to: '/cxp/comprobaciones',
@@ -123,7 +133,14 @@ export function ComprobacionesPage() {
         }
       />
 
-      <Filtros search={search} onChange={actualizarSearch} />
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoComprobacionGastos | undefined })}
+        conteos={conteos.data}
+      />
+
+      <Filtros search={search} total={query.data?.total} onChange={actualizarSearch} />
 
       {query.isError ? (
         <ErrorState
@@ -170,24 +187,35 @@ export function ComprobacionesPage() {
   );
 }
 
+const TABS_ESTADO = [
+  { valor: EstadoComprobacionGastos.Borrador, label: 'Borrador' },
+  { valor: EstadoComprobacionGastos.PorRevisar, label: 'Por revisar' },
+  { valor: EstadoComprobacionGastos.AutorizadaNivel1, label: 'Autorizada N1' },
+  { valor: EstadoComprobacionGastos.Autorizada, label: 'Autorizada' },
+  { valor: EstadoComprobacionGastos.Aplicada, label: 'Aplicada' },
+  { valor: EstadoComprobacionGastos.Rechazada, label: 'Rechazada' },
+] as const;
+
 interface FiltrosProps {
   search: ComprobacionesSearch;
+  total: number | undefined;
   onChange: (parcial: Partial<ComprobacionesSearch>) => void;
 }
 
-function Filtros({ search, onChange }: FiltrosProps) {
-  const algunFiltro = search.tipo != null || search.estado != null || search.sucursalId || search.q;
+function Filtros({ search, total, onChange }: FiltrosProps) {
+  const algunFiltro = search.tipo != null || search.sucursalId || search.q;
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <BusquedaFolio
-        aria-label="Buscar por pedimento u observaciones"
-        valor={search.q}
-        onCommit={(q) => onChange({ q })}
-        placeholder="Pedimento u observaciones"
-        className="w-64"
-      />
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Tipo</label>
+    <BarraFiltros
+      aria-label="Filtros de comprobaciones"
+      busqueda={
+        <BusquedaFolio
+          aria-label="Buscar por pedimento u observaciones"
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Pedimento u observaciones"
+        />
+      }
+      filtros={
         <Select
           value={search.tipo != null ? String(search.tipo) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -196,11 +224,11 @@ function Filtros({ search, onChange }: FiltrosProps) {
             })
           }
         >
-          <SelectTrigger aria-label="Filtrar por tipo" className="w-44">
-            <SelectValue placeholder="Todos" />
+          <SelectTrigger aria-label="Filtrar por tipo" className="h-ctl-md w-40 text-xs">
+            <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+            <SelectItem value={SENTINEL_ALL}>Todos los tipos</SelectItem>
             <SelectItem value={String(TipoComprobacionGastos.ReembolsoCajaChica)}>
               Caja chica
             </SelectItem>
@@ -213,58 +241,26 @@ function Filtros({ search, onChange }: FiltrosProps) {
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado: v === SENTINEL_ALL ? undefined : (Number(v) as EstadoComprobacionGastos),
-            })
-          }
-        >
-          <SelectTrigger aria-label="Filtrar por estado" className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Borrador)}>Borrador</SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.PorRevisar)}>Por revisar</SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.AutorizadaNivel1)}>
-              Autorizada N1
-            </SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Autorizada)}>Autorizada</SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Aplicada)}>Aplicada</SelectItem>
-            <SelectItem value={String(EstadoComprobacionGastos.Rechazada)}>Rechazada</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sucursal</label>
-        <SucursalSelector
-          value={search.sucursalId ?? null}
-          onChange={(id) => onChange({ sucursalId: id ?? undefined })}
-          placeholder="Todas las sucursales"
-          className="w-56"
-        />
-      </div>
-      {algunFiltro && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              tipo: undefined,
-              estado: undefined,
-              sucursalId: undefined,
-              q: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+      }
+      masFiltros={
+        <div className="space-y-1">
+          <label className="text-xs text-ink-muted">Sucursal</label>
+          <SucursalSelector
+            value={search.sucursalId ?? null}
+            onChange={(id) => onChange({ sucursalId: id ?? undefined })}
+            placeholder="Todas las sucursales"
+            className="w-full"
+          />
+        </div>
+      }
+      masFiltrosActivos={search.sucursalId ? 1 : 0}
+      onLimpiar={
+        algunFiltro
+          ? () => onChange({ tipo: undefined, sucursalId: undefined, q: undefined })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'comprobación' : 'comprobaciones'}` : undefined}
+    />
   );
 }
 

@@ -101,29 +101,8 @@ public sealed class ListarRecepcionesHandler
     public async Task<AlmacenPagedResponse<RecepcionListItem>> Handle(
         ListarRecepcionesQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<MovimientoInventario> query = _db.Movimientos.AsNoTracking()
-            .Where(m => m.Tipo == TipoMovimiento.EntradaCompra);
-        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        var query = await RecepcionesFiltro.AplicarAsync(_db, _ordenesCompra, request, cancellationToken);
         if (request.Estado is EstadoMovimiento e) query = query.Where(m => m.Estado == e);
-        // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
-        if (request.SubAlmacenId is Guid sid)
-            query = query.Where(m => _db.MovimientosSubAlmacen
-                .Any(v => v.MovimientoId == m.Id && v.SubAlmacenId == sid));
-        if (request.OrdenCompraId is Guid ocid) query = query.Where(m => m.OcId == ocid);
-        if (request.Desde is DateOnly d) query = query.Where(m => m.FechaMovimiento >= d);
-        if (request.Hasta is DateOnly h) query = query.Where(m => m.FechaMovimiento <= h);
-        // Proveedor: la recepción no lo guarda; se resuelve vía las OC del proveedor (puerto de Compras).
-        if (request.ProveedorId is Guid pid)
-        {
-            var ocsProveedor = (await _ordenesCompra.ObtenerIdsPorProveedorAsync(pid, cancellationToken)).ToArray();
-            query = query.Where(m => m.OcId != null && ocsProveedor.Contains(m.OcId.Value));
-        }
-        // Búsqueda por folio de la recepción (server-side); los folios se generan en mayúsculas.
-        if (!string.IsNullOrWhiteSpace(request.Q))
-        {
-            var q = request.Q.Trim().ToUpperInvariant();
-            query = query.Where(m => m.Folio != null && m.Folio.Contains(q));
-        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
@@ -164,6 +143,67 @@ public sealed class ListarRecepcionesHandler
 
         return new AlmacenPagedResponse<RecepcionListItem>(
             enriquecidos, request.Offset, request.Limit, total);
+    }
+}
+
+/// <summary>
+/// Filtros de la bandeja de recepciones salvo el estado, compartidos por el listado
+/// y por los conteos por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class RecepcionesFiltro
+{
+    public static async Task<IQueryable<MovimientoInventario>> AplicarAsync(
+        AlmacenDbContext db, IComprasOcReadPort ordenesCompra, ListarRecepcionesQuery request, CancellationToken cancellationToken)
+    {
+        var query = db.Movimientos.AsNoTracking()
+            .Where(m => m.Tipo == TipoMovimiento.EntradaCompra);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
+        if (request.SubAlmacenId is Guid sid)
+            query = query.Where(m => db.MovimientosSubAlmacen
+                .Any(v => v.MovimientoId == m.Id && v.SubAlmacenId == sid));
+        if (request.OrdenCompraId is Guid ocid) query = query.Where(m => m.OcId == ocid);
+        if (request.Desde is DateOnly d) query = query.Where(m => m.FechaMovimiento >= d);
+        if (request.Hasta is DateOnly h) query = query.Where(m => m.FechaMovimiento <= h);
+        // Proveedor: la recepción no lo guarda; se resuelve vía las OC del proveedor (puerto de Compras).
+        if (request.ProveedorId is Guid pid)
+        {
+            var ocsProveedor = (await ordenesCompra.ObtenerIdsPorProveedorAsync(pid, cancellationToken)).ToArray();
+            query = query.Where(m => m.OcId != null && ocsProveedor.Contains(m.OcId.Value));
+        }
+        // Búsqueda por folio de la recepción (server-side); los folios se generan en mayúsculas.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(m => m.Folio != null && m.Folio.Contains(q));
+        }
+
+        return query;
+    }
+}
+
+public sealed record ConteosRecepcionesPorEstadoQuery(
+    Guid? SubAlmacenId, Guid? OrdenCompraId, DateOnly? Desde, DateOnly? Hasta, Guid? ProveedorId = null, string? Q = null)
+    : IRequest<IReadOnlyList<ConteoPorEstadoItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "recepcion";
+    public string PermisoTodasSucursales => "almacen.entradas.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosRecepcionesPorEstadoHandler(AlmacenDbContext db, IComprasOcReadPort ordenesCompra)
+    : IRequestHandler<ConteosRecepcionesPorEstadoQuery, IReadOnlyList<ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<ConteoPorEstadoItem>> Handle(
+        ConteosRecepcionesPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarRecepcionesQuery(null, request.SubAlmacenId, request.OrdenCompraId, request.Desde, request.Hasta,
+            0, 0, request.ProveedorId, request.Q) { DocumentosPermitidos = request.DocumentosPermitidos };
+        var query = await RecepcionesFiltro.AplicarAsync(db, ordenesCompra, lista, cancellationToken);
+        return await query.GroupBy(m => m.Estado)
+            .Select(g => new ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
     }
 }
 

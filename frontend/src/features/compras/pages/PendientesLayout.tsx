@@ -141,7 +141,7 @@ export function PendientesLayout({
             >
               <SelectTrigger
                 aria-label="Filtrar por departamento"
-                className="h-9 w-auto min-w-40 gap-1 font-medium"
+                className="h-9 w-full gap-1 font-medium"
               >
                 <SelectValue placeholder="Todos los departamentos" />
               </SelectTrigger>

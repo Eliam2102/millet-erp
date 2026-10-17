@@ -48,6 +48,18 @@ public static class ViaticosEndpoints
         .WithName("ListarSolicitudesViaticos")
         .Produces<PagedResponse<SolicitudViaticosListItemResponse>>(StatusCodes.Status200OK);
 
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? empleadoId,
+            [FromQuery] Guid? jefeDirectoId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConteosViaticosPorEstadoQuery(empleadoId, jefeDirectoId, q), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarViaticosLeer)
+        .WithName("ConteosViaticosPorEstado")
+        .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
         group.MapPost("/", async (
             [FromBody] SolicitarAnticipoViaticosCommand command,
             IMediator mediator,

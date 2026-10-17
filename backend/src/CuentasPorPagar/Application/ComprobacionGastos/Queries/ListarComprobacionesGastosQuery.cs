@@ -38,6 +38,55 @@ public sealed record ComprobacionGastosListItemResponse(
     string? ResponsableNombre = null,
     string? SucursalNombre = null);
 
+/// <summary>
+/// Filtros de la bandeja salvo el estado, compartidos por el listado y por los conteos
+/// por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class ComprobacionesFiltro
+{
+    public static IQueryable<Millet.CuentasPorPagar.Domain.ComprobacionGastos.ComprobacionGastos> Aplicar(CuentasPorPagarDbContext db, ListarComprobacionesGastosQuery request)
+    {
+        var q = db.ComprobacionesGastos
+            .Where(x => request.DocumentosPermitidos == null || (request.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
+        if (request.Tipo is TipoComprobacionGastos t) q = q.Where(c => c.Tipo == t);
+        if (request.SucursalId is Guid s) q = q.Where(c => c.SucursalId == s);
+        if (request.ResponsableId is Guid r) q = q.Where(c => c.ResponsableId == r);
+
+        // q se aplica DESPUÉS del filtro de documentos permitidos (alcance por sucursal): solo acota más.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var patron = LikePatron.Contiene(request.Q);
+            q = q.Where(c =>
+                (c.NumeroPedimento != null && EF.Functions.ILike(c.NumeroPedimento, patron, LikePatron.Escape))
+                || (c.Observaciones != null && EF.Functions.ILike(c.Observaciones, patron, LikePatron.Escape)));
+        }
+
+        return q;
+    }
+}
+
+public sealed record ConteosComprobacionesPorEstadoQuery(TipoComprobacionGastos? Tipo, Guid? SucursalId, Guid? ResponsableId, string? Q = null)
+    : IRequest<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => "comprobacion";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosComprobacionesPorEstadoHandler(CuentasPorPagarDbContext db)
+    : IRequestHandler<ConteosComprobacionesPorEstadoQuery, IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>> Handle(
+        ConteosComprobacionesPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarComprobacionesGastosQuery(request.Tipo, null, request.SucursalId, request.ResponsableId, 0, 1, request.Q) { DocumentosPermitidos = request.DocumentosPermitidos };
+        return await ComprobacionesFiltro.Aplicar(db, lista).GroupBy(x => x.Estado)
+            .Select(g => new Millet.SharedKernel.Application.ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
+
 public sealed class ListarComprobacionesGastosHandler
     : IRequestHandler<ListarComprobacionesGastosQuery, PagedResponse<ComprobacionGastosListItemResponse>>
 {
@@ -60,21 +109,8 @@ public sealed class ListarComprobacionesGastosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.ComprobacionesGastos
-            .Where(x => query.DocumentosPermitidos == null || (query.DocumentosPermitidos ?? Array.Empty<Guid>()).Contains(x.Id)).AsNoTracking();
-        if (query.Tipo is TipoComprobacionGastos t) q = q.Where(c => c.Tipo == t);
+        var q = ComprobacionesFiltro.Aplicar(_db, query);
         if (query.Estado is EstadoComprobacionGastos e) q = q.Where(c => c.Estado == e);
-        if (query.SucursalId is Guid s) q = q.Where(c => c.SucursalId == s);
-        if (query.ResponsableId is Guid r) q = q.Where(c => c.ResponsableId == r);
-
-        // q se aplica DESPUÉS del filtro de documentos permitidos (alcance por sucursal): solo acota más.
-        if (!string.IsNullOrWhiteSpace(query.Q))
-        {
-            var patron = LikePatron.Contiene(query.Q);
-            q = q.Where(c =>
-                (c.NumeroPedimento != null && EF.Functions.ILike(c.NumeroPedimento, patron, LikePatron.Escape))
-                || (c.Observaciones != null && EF.Functions.ILike(c.Observaciones, patron, LikePatron.Escape)));
-        }
 
         var total = await q.CountAsync(cancellationToken);
 

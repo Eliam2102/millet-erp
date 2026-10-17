@@ -50,6 +50,18 @@ public static class NotasCargoEndpoints
         .WithName("ListarNotasCargo")
         .Produces<PagedResponse<NotaCargoListItemResponse>>(StatusCodes.Status200OK);
 
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] Guid? facturaOrigenId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConteosNotasCargoPorEstadoQuery(proveedorId, facturaOrigenId, q), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarNotasCargoLeer)
+        .WithName("ConteosNotasCargoPorEstado")
+        .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
         group.MapPost("/", async (
             [FromBody] CrearNotaCargoCommand command,
             IMediator mediator,

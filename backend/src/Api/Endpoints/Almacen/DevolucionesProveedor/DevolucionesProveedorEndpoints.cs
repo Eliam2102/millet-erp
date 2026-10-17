@@ -52,6 +52,24 @@ public static class DevolucionesProveedorEndpoints
         .WithSummary("Listar devoluciones a proveedor (bandeja con filtros, incluye \"pendientes de NC fiscal\")")
         .Produces<AlmacenPagedResponse<DevolucionProveedorListItem>>(StatusCodes.Status200OK);
 
+        // GET /conteos-por-estado (tabs de la bandeja; mismos filtros salvo estado)
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] bool? soloPendientesNcFiscal,
+            [FromQuery] string? q,
+            IMediator mediator,
+            ICurrentUserPermissions permisos,
+            CancellationToken ct) =>
+        {
+            await VerificarLecturaDevolucionesAsync(permisos, ct);
+            return Results.Ok(await mediator.Send(
+                new ConteosDevolucionesProveedorPorEstadoQuery(proveedorId, soloPendientesNcFiscal, q), ct));
+        })
+        .RequireAuthorization()
+        .WithName("ConteosDevolucionesProveedorPorEstado")
+        .WithSummary("Conteo de devoluciones a proveedor por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
         // GET /{id}
         group.MapGet("/{id:guid}", async (
             Guid id,

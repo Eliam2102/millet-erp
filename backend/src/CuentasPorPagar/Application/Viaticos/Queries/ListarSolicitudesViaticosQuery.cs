@@ -34,6 +34,47 @@ public sealed record SolicitudViaticosListItemResponse(
     string? Puesto = null,
     string Moneda = "MXN");
 
+/// <summary>
+/// Filtros de la bandeja salvo el estado, compartidos por el listado y por los conteos
+/// por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class ViaticosFiltro
+{
+    public static IQueryable<Millet.CuentasPorPagar.Domain.Viaticos.SolicitudViaticos> Aplicar(CuentasPorPagarDbContext db, ListarSolicitudesViaticosQuery request)
+    {
+        var q = db.SolicitudesViaticos.AsNoTracking();
+        if (request.EmpleadoId is Guid emp) q = q.Where(s => s.EmpleadoId == emp);
+        if (request.JefeDirectoId is Guid jefe) q = q.Where(s => s.JefeDirectoId == jefe);
+
+        // Esta bandeja no tiene filtro de sucursal propio; q solo acota el conjunto ya visible.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var patron = LikePatron.Contiene(request.Q);
+            q = q.Where(s => EF.Functions.ILike(s.Destino, patron, LikePatron.Escape));
+        }
+
+        return q;
+    }
+}
+
+public sealed record ConteosViaticosPorEstadoQuery(Guid? EmpleadoId, Guid? JefeDirectoId, string? Q = null)
+    : IRequest<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>
+{
+}
+
+public sealed class ConteosViaticosPorEstadoHandler(CuentasPorPagarDbContext db)
+    : IRequestHandler<ConteosViaticosPorEstadoQuery, IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>> Handle(
+        ConteosViaticosPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarSolicitudesViaticosQuery(null, request.EmpleadoId, request.JefeDirectoId, 0, 1, request.Q);
+        return await ViaticosFiltro.Aplicar(db, lista).GroupBy(x => x.Estado)
+            .Select(g => new Millet.SharedKernel.Application.ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
+
 public sealed class ListarSolicitudesViaticosHandler
     : IRequestHandler<ListarSolicitudesViaticosQuery, PagedResponse<SolicitudViaticosListItemResponse>>
 {
@@ -55,17 +96,8 @@ public sealed class ListarSolicitudesViaticosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
-        var q = _db.SolicitudesViaticos.AsNoTracking();
+        var q = ViaticosFiltro.Aplicar(_db, query);
         if (query.Estado is EstadoSolicitudViaticos e) q = q.Where(s => s.Estado == e);
-        if (query.EmpleadoId is Guid emp) q = q.Where(s => s.EmpleadoId == emp);
-        if (query.JefeDirectoId is Guid jefe) q = q.Where(s => s.JefeDirectoId == jefe);
-
-        // Esta bandeja no tiene filtro de sucursal propio; q solo acota el conjunto ya visible.
-        if (!string.IsNullOrWhiteSpace(query.Q))
-        {
-            var patron = LikePatron.Contiene(query.Q);
-            q = q.Where(s => EF.Functions.ILike(s.Destino, patron, LikePatron.Escape));
-        }
 
         var total = await q.CountAsync(cancellationToken);
 

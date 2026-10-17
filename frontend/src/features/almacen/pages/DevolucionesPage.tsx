@@ -20,16 +20,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   EmptyState,
   ErrorState,
+  BarraFiltros,
   PaginacionTabla,
+  TabsEstado,
+  useConteosPorEstado,
   ProveedorSelector,
   SortableHeader,
   TableSkeleton,
@@ -38,6 +34,7 @@ import {
   type SortState,
 } from '@/components/erp';
 import { useDevolucionesProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
+import { almacenKeys } from '@/features/almacen/api/keys';
 import {
   EstadoDevolucionProveedor,
   EstadoDevolucionProveedorLabels,
@@ -54,14 +51,12 @@ import {
 } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
-import { Field } from '@/features/almacen/components/internal/Field';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/devoluciones/' as const;
-const SENTINEL_ALL = '__all__';
 
 type SortKey =
   | 'proveedorId'
@@ -100,6 +95,16 @@ export function DevolucionesPage() {
     q: search.q,
     ...paginaAOffsetLimit(search),
   });
+
+  const conteos = useConteosPorEstado(
+    almacenKeys.devolucionesProveedor(),
+    '/api/v1/almacen/devoluciones-proveedor',
+    {
+      proveedorId: search.proveedorId,
+      soloPendientesNcFiscal: search.soloPendientesNcFiscal,
+      q: search.q,
+    },
+  );
 
   function actualizarSearch(parcial: Partial<DevolucionesSearch>) {
     navigate({
@@ -155,7 +160,16 @@ export function DevolucionesPage() {
         }
       />
 
-      <FiltrosToolbar search={search} onChange={actualizarSearch} />
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) =>
+          actualizarSearch({ estado: estado as EstadoDevolucionProveedor | undefined })
+        }
+        conteos={conteos.data}
+      />
+
+      <FiltrosToolbar search={search} total={query.data?.total} onChange={actualizarSearch} />
 
       {query.isError ? (
         <ErrorState
@@ -217,103 +231,72 @@ export function DevolucionesPage() {
   );
 }
 
+const TABS_ESTADO = [
+  EstadoDevolucionProveedor.Borrador,
+  EstadoDevolucionProveedor.EnAutorizacion,
+  EstadoDevolucionProveedor.Autorizada,
+  EstadoDevolucionProveedor.Registrada,
+  EstadoDevolucionProveedor.ConciliadaConNcFiscal,
+  EstadoDevolucionProveedor.Rechazada,
+].map((e) => ({ valor: e as number, label: EstadoDevolucionProveedorLabels[e] }));
+
 interface FiltrosToolbarProps {
   search: DevolucionesSearch;
+  total: number | undefined;
   onChange: (parcial: Partial<DevolucionesSearch>) => void;
 }
 
-function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
-  const algun =
-    search.q ||
-    search.estado != null ||
-    search.proveedorId ||
-    search.soloPendientesNcFiscal;
+function FiltrosToolbar({ search, total, onChange }: FiltrosToolbarProps) {
+  const algun = search.q || search.proveedorId || search.soloPendientesNcFiscal;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <Field label="Folio de salida" className="gap-1">
+    <BarraFiltros
+      aria-label="Filtros de devoluciones"
+      busqueda={
         <BusquedaFolio
           aria-label="Buscar por folio de salida"
           valor={search.q}
           onCommit={(q) => onChange({ q })}
-          placeholder="Buscar por folio…"
-          className="w-56"
+          placeholder="Folio de la salida"
         />
-      </Field>
-      <Field label="Estado" className="gap-1">
-        {(c) => (
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoDevolucionProveedor),
-            })
-          }
-        >
-          <SelectTrigger {...c} className="w-52">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {(
-              [
-                EstadoDevolucionProveedor.Borrador,
-                EstadoDevolucionProveedor.EnAutorizacion,
-                EstadoDevolucionProveedor.Autorizada,
-                EstadoDevolucionProveedor.Registrada,
-                EstadoDevolucionProveedor.ConciliadaConNcFiscal,
-                EstadoDevolucionProveedor.Rechazada,
-              ] as const
-            ).map((e) => (
-              <SelectItem key={e} value={String(e)}>
-                {EstadoDevolucionProveedorLabels[e]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        )}
-      </Field>
-      <Field label="Proveedor" className="gap-1">
+      }
+      filtros={
         <ProveedorSelector
           value={search.proveedorId ?? null}
           onChange={(id) => onChange({ proveedorId: id ?? undefined })}
-          placeholder="Todos"
-          className="w-72"
+          placeholder="Todos los proveedores"
+          className="h-ctl-md w-56 text-xs"
         />
-      </Field>
-      <div className="flex items-center gap-2 pb-1.5">
-        <Checkbox
-          id="solo-pendientes-nc"
-          checked={search.soloPendientesNcFiscal ?? false}
-          onCheckedChange={(checked) =>
-            onChange({
-              soloPendientesNcFiscal: checked === true || undefined,
-            })
-          }
-        />
-        <label htmlFor="solo-pendientes-nc" className="text-sm">
-          Solo pendientes de NC fiscal
-        </label>
-      </div>
-      {algun && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              q: undefined,
-              estado: undefined,
-              proveedorId: undefined,
-              soloPendientesNcFiscal: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+      }
+      masFiltros={
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="solo-pendientes-nc"
+            checked={search.soloPendientesNcFiscal ?? false}
+            onCheckedChange={(checked) =>
+              onChange({
+                soloPendientesNcFiscal: checked === true || undefined,
+              })
+            }
+          />
+          <label htmlFor="solo-pendientes-nc" className="text-sm">
+            Solo pendientes de NC fiscal
+          </label>
+        </div>
+      }
+      masFiltrosActivos={search.soloPendientesNcFiscal ? 1 : 0}
+      onLimpiar={
+        algun
+          ? () =>
+              onChange({
+                q: undefined,
+                proveedorId: undefined,
+                soloPendientesNcFiscal: undefined,
+              })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'devolución' : 'devoluciones'}` : undefined}
+    />
   );
 }
 

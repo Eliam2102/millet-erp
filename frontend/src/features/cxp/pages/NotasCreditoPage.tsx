@@ -13,22 +13,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
+  BarraFiltros,
   EmptyState,
   ErrorState,
   PaginacionTabla,
+  TabsEstado,
+  useConteosPorEstado,
   ProveedorSelector,
   TableSkeleton,
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
+import { cxpKeys } from '@/features/cxp/api/keys';
 import { useNotasCredito } from '@/features/cxp/api/useNotasYAnticipos';
 import {
   EstadoNotaCredito,
@@ -43,7 +40,12 @@ import type { NotasCreditoSearch } from '@/features/cxp/lib/notas-y-anticipos-se
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/notas-credito/' as const;
-const SENTINEL_ALL = '__all__';
+const TABS_ESTADO = [
+  { valor: EstadoNotaCredito.EnEspera, label: 'En espera' },
+  { valor: EstadoNotaCredito.Abierta, label: 'Abierta' },
+  { valor: EstadoNotaCredito.Aplicada, label: 'Aplicada' },
+  { valor: EstadoNotaCredito.Cancelada, label: 'Cancelada' },
+] as const;
 
 /**
  * <c>P1 — Bandeja de Notas de Crédito</c> (doc 07 §FE-F4-PR1). Tabla con
@@ -64,6 +66,12 @@ export function NotasCreditoPage() {
     q: search.q,
     ...paginaAOffsetLimit(search),
   });
+
+  const conteos = useConteosPorEstado(
+    cxpKeys.notasCredito(),
+    '/api/v1/cuentas-por-pagar/notas-credito',
+    { proveedorId: search.proveedorId, q: search.q },
+  );
 
   function actualizarSearch(parcial: Partial<NotasCreditoSearch>) {
     navigate({
@@ -98,71 +106,42 @@ export function NotasCreditoPage() {
         }
       />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <BusquedaFolio
-          aria-label="Buscar por folio, serie o UUID"
-          valor={search.q}
-          onCommit={(q) => actualizarSearch({ q })}
-          placeholder="Folio, serie o UUID"
-          className="w-64"
-        />
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Estado</label>
-          <Select
-            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoNotaCredito),
-              })
-            }
-          >
-            <SelectTrigger aria-label="Filtrar por estado" className="w-48">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              <SelectItem value={String(EstadoNotaCredito.EnEspera)}>
-                En espera
-              </SelectItem>
-              <SelectItem value={String(EstadoNotaCredito.Abierta)}>
-                Abierta
-              </SelectItem>
-              <SelectItem value={String(EstadoNotaCredito.Aplicada)}>
-                Aplicada
-              </SelectItem>
-              <SelectItem value={String(EstadoNotaCredito.Cancelada)}>
-                Cancelada
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">
-            Proveedor
-          </label>
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoNotaCredito | undefined })}
+        conteos={conteos.data}
+      />
+
+      <BarraFiltros
+        aria-label="Filtros de notas de crédito"
+        busqueda={
+          <BusquedaFolio
+            aria-label="Buscar por folio, serie o UUID"
+            valor={search.q}
+            onCommit={(q) => actualizarSearch({ q })}
+            placeholder="Folio, serie o UUID"
+          />
+        }
+        filtros={
           <ProveedorSelector
             value={search.proveedorId ?? null}
-            onChange={(id) =>
-              actualizarSearch({ proveedorId: id ?? undefined })
-            }
+            onChange={(id) => actualizarSearch({ proveedorId: id ?? undefined })}
             placeholder="Todos los proveedores"
-            className="w-56"
+            className="h-ctl-md w-56 text-xs"
           />
-        </div>
-        {(search.estado != null || search.proveedorId || search.q) && (
-          <Button
-            variant="ghost"
-            onClick={() =>
-              actualizarSearch({ estado: undefined, proveedorId: undefined, q: undefined })
-            }
-          >
-            Limpiar
-          </Button>
-        )}
-      </div>
+        }
+        onLimpiar={
+          search.proveedorId || search.q
+            ? () => actualizarSearch({ proveedorId: undefined, q: undefined })
+            : undefined
+        }
+        total={
+          query.data
+            ? `${query.data.total} ${query.data.total === 1 ? 'nota de crédito' : 'notas de crédito'}`
+            : undefined
+        }
+      />
 
       {query.isError ? (
         <ErrorState

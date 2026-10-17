@@ -13,13 +13,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
+  BarraFiltros,
+  TabsEstado,
+  useConteosPorEstado,
   EmptyState,
   ErrorState,
   PaginacionTabla,
@@ -34,6 +30,7 @@ import {
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
+import { cxpKeys } from '@/features/cxp/api/keys';
 import { useFacturas } from '@/features/cxp/api/useFacturas';
 import {
   EstadoPasivo,
@@ -50,7 +47,6 @@ import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/cxp/facturas/' as const;
-const SENTINEL_ALL = '__all__';
 
 type SortKey =
   | 'folioProveedor'
@@ -87,6 +83,12 @@ export function FacturasPage() {
     ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(
+    cxpKeys.facturas(),
+    '/api/v1/cuentas-por-pagar/facturas',
+    { proveedorId: search.proveedorId, sucursalId: search.sucursalId, q: search.q },
+  );
+
   function actualizarSearch(parcial: Partial<FacturasSearch>) {
     navigate({
       to: '/cxp/facturas',
@@ -114,7 +116,14 @@ export function FacturasPage() {
         }
       />
 
-      <FiltrosToolbar search={search} onChange={actualizarSearch} />
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoPasivo | undefined })}
+        conteos={conteos.data}
+      />
+
+      <FiltrosToolbar search={search} total={query.data?.total} onChange={actualizarSearch} />
 
       {query.isError ? (
         <ErrorState
@@ -167,93 +176,61 @@ export function FacturasPage() {
   );
 }
 
+const TABS_ESTADO = [
+  { valor: EstadoPasivo.Capturada, label: 'Capturada' },
+  { valor: EstadoPasivo.EnRevision, label: 'En revisión' },
+  { valor: EstadoPasivo.Autorizada, label: 'Autorizada' },
+  { valor: EstadoPasivo.Pagada, label: 'Pagada' },
+  { valor: EstadoPasivo.Cancelada, label: 'Cancelada' },
+] as const;
+
 interface FiltrosToolbarProps {
   search: FacturasSearch;
+  total: number | undefined;
   onChange: (parcial: Partial<FacturasSearch>) => void;
 }
 
-function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
-  const algunFiltro =
-    search.q ||
-    search.estado != null ||
-    search.proveedorId ||
-    search.sucursalId;
+function FiltrosToolbar({ search, total, onChange }: FiltrosToolbarProps) {
+  const algunFiltro = search.q || search.proveedorId || search.sucursalId;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <BusquedaFolio
-        aria-label="Buscar por folio, serie o UUID"
-        valor={search.q}
-        onCommit={(q) => onChange({ q })}
-        placeholder="Folio, serie o UUID"
-        className="w-64"
-      />
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL ? undefined : (Number(v) as EstadoPasivo),
-            })
-          }
-        >
-          <SelectTrigger aria-label="Filtrar por estado" className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstadoPasivo.Capturada)}>
-              Capturada
-            </SelectItem>
-            <SelectItem value={String(EstadoPasivo.EnRevision)}>
-              En revisión
-            </SelectItem>
-            <SelectItem value={String(EstadoPasivo.Autorizada)}>
-              Autorizada
-            </SelectItem>
-            <SelectItem value={String(EstadoPasivo.Pagada)}>Pagada</SelectItem>
-            <SelectItem value={String(EstadoPasivo.Cancelada)}>
-              Cancelada
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Proveedor</label>
+    <BarraFiltros
+      aria-label="Filtros de facturas"
+      busqueda={
+        <BusquedaFolio
+          aria-label="Buscar por folio, serie o UUID"
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Folio, serie o UUID"
+        />
+      }
+      filtros={
         <ProveedorSelector
           value={search.proveedorId ?? null}
           onChange={(id) => onChange({ proveedorId: id ?? undefined })}
           placeholder="Todos los proveedores"
-          className="w-56"
+          className="h-ctl-md w-56 text-xs"
         />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sucursal</label>
-        <SucursalSelector
-          value={search.sucursalId ?? null}
-          onChange={(id) => onChange({ sucursalId: id ?? undefined })}
-          placeholder="Todas las sucursales"
-          className="w-56"
-        />
-      </div>
-      {algunFiltro && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              q: undefined,
-              estado: undefined,
-              proveedorId: undefined,
-              sucursalId: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+      }
+      masFiltros={
+        <div className="space-y-1">
+          <label className="text-xs text-ink-muted">Sucursal</label>
+          <SucursalSelector
+            value={search.sucursalId ?? null}
+            onChange={(id) => onChange({ sucursalId: id ?? undefined })}
+            placeholder="Todas las sucursales"
+            className="w-full"
+          />
+        </div>
+      }
+      masFiltrosActivos={search.sucursalId ? 1 : 0}
+      onLimpiar={
+        algunFiltro
+          ? () => onChange({ q: undefined, proveedorId: undefined, sucursalId: undefined })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'factura' : 'facturas'}` : undefined}
+    />
   );
 }
 

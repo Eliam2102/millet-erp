@@ -51,6 +51,19 @@ public static class ComprobacionesEndpoints
         .WithName("ListarComprobacionesGastos")
         .Produces<PagedResponse<ComprobacionGastosListItemResponse>>(StatusCodes.Status200OK);
 
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] TipoComprobacionGastos? tipo,
+            [FromQuery] Guid? sucursalId,
+            [FromQuery] Guid? responsableId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConteosComprobacionesPorEstadoQuery(tipo, sucursalId, responsableId, q), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarComprobacionesLeer)
+        .WithName("ConteosComprobacionesPorEstado")
+        .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
         group.MapPost("/caja-chica", async (
             [FromBody] CrearComprobacionCajaChicaCommand command,
             IMediator mediator,

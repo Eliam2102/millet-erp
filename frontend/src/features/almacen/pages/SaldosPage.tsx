@@ -1,7 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
@@ -22,6 +21,7 @@ import {
 import {
   ArticuloSelector,
   EmptyState,
+  BarraFiltros,
   ErrorState,
   PaginacionTabla,
   SortableHeader,
@@ -37,7 +37,6 @@ import { esApiError } from '@/lib/api';
 import type { SaldosSearch } from '@/features/almacen/lib/saldos-search-schema';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
-import { Field } from '@/features/almacen/components/internal/Field';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 
 const FROM = '/_app/almacen/saldos' as const;
@@ -198,20 +197,21 @@ function FiltrosToolbar({
     search.subAlmacenId || search.articuloId || search.soloConStock;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <Field label="Sub-almacén" className="gap-1">
-        {(c) => (
+    <BarraFiltros
+      aria-label="Filtros de saldos"
+      filtros={
+        <>
           <Select
             value={search.subAlmacenId ?? SENTINEL_ALL}
             onValueChange={(v) =>
               onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
             }
           >
-            <SelectTrigger {...c} aria-label="Filtrar por sub-almacén" className="w-56">
-              <SelectValue placeholder="Todos" />
+            <SelectTrigger aria-label="Filtrar por sub-almacén" className="h-ctl-md w-48 text-xs">
+              <SelectValue placeholder="Todos los sub-almacenes" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+              <SelectItem value={SENTINEL_ALL}>Todos los sub-almacenes</SelectItem>
               {subAlmacenes.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.clave} · {s.nombre}
@@ -219,44 +219,41 @@ function FiltrosToolbar({
               ))}
             </SelectContent>
           </Select>
-        )}
-      </Field>
-      <Field label="Artículo" className="gap-1">
-        <ArticuloSelector
-          value={search.articuloId ?? null}
-          onChange={(id) => onChange({ articuloId: id ?? undefined })}
-          initialLabel={articuloInitialLabel}
-          placeholder="Todos"
-          className="w-72"
-        />
-      </Field>
-      <div className="flex items-center gap-2 pb-1.5">
-        <Checkbox
-          id="solo-con-stock"
-          checked={search.soloConStock ?? false}
-          onCheckedChange={(checked) =>
-            onChange({ soloConStock: checked === true || undefined })
-          }
-        />
-        <label htmlFor="solo-con-stock" className="text-sm">
-          Solo con stock
-        </label>
-      </div>
-      {algun && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              subAlmacenId: undefined,
-              articuloId: undefined,
-              soloConStock: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+          <ArticuloSelector
+            value={search.articuloId ?? null}
+            onChange={(id) => onChange({ articuloId: id ?? undefined })}
+            initialLabel={articuloInitialLabel}
+            placeholder="Todos los artículos"
+            className="h-ctl-md w-64 text-xs"
+          />
+        </>
+      }
+      masFiltros={
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="solo-con-stock"
+            checked={search.soloConStock ?? false}
+            onCheckedChange={(checked) =>
+              onChange({ soloConStock: checked === true || undefined })
+            }
+          />
+          <label htmlFor="solo-con-stock" className="text-sm">
+            Solo con stock
+          </label>
+        </div>
+      }
+      masFiltrosActivos={search.soloConStock ? 1 : 0}
+      onLimpiar={
+        algun
+          ? () =>
+              onChange({
+                subAlmacenId: undefined,
+                articuloId: undefined,
+                soloConStock: undefined,
+              })
+          : undefined
+      }
+    />
   );
 }
 
@@ -299,7 +296,7 @@ function TablaSaldos({
                 onSortChange={setSort}
               />
             </TableHead>
-            <TableHead>
+            <TableHead className="w-full">
               <SortableHeader
                 columnKey="articuloId"
                 label="Artículo"
@@ -323,7 +320,7 @@ function TablaSaldos({
                 onSortChange={setSort}
               />
             </TableHead>
-            <TableHead className="text-right">
+            <TableHead className="hidden text-right xl:table-cell">
               <SortableHeader
                 columnKey="costoPromedioMxn"
                 label="CPP"
@@ -345,7 +342,7 @@ function TablaSaldos({
           {ordenados.map((s) => (
             <TableRow key={`${s.subAlmacenId}-${s.articuloId}`}>
               <TableCell className="font-mono text-xs">{s.subAlmacen}</TableCell>
-              <TableCell className="text-xs">
+              <TableCell className="max-w-0 truncate text-xs">
                 {s.articuloClave ? (
                   <>
                     <span className="font-mono text-ink-muted">
@@ -363,7 +360,7 @@ function TablaSaldos({
               <TableCell className="text-right tabular-nums">
                 {formatCantidad(s.cantidadDisponible)}
               </TableCell>
-              <TableCell className="text-right tabular-nums">
+              <TableCell className="hidden text-right tabular-nums xl:table-cell">
                 <MoneyDisplay amount={s.costoPromedioMxn} currency="MXN" strong />
               </TableCell>
               <TableCell className="text-right tabular-nums">

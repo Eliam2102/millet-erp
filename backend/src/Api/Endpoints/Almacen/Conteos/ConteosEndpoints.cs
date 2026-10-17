@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.SharedKernel.Application;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Millet.Almacen.Application.Catalogo;
@@ -44,6 +45,19 @@ public static class ConteosEndpoints
         .WithName("ListarConteos")
         .WithSummary("Listar conteos de inventario (bandeja)")
         .Produces<AlmacenPagedResponse<ConteoListItem>>(StatusCodes.Status200OK);
+
+        // GET /conteos-por-estado (tabs de la bandeja; mismos filtros salvo estado).
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] TipoConteo? tipo,
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ConteosInventarioPorEstadoQuery(tipo, subAlmacenId, q), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosLeer)
+        .WithName("ConteosInventarioPorEstado")
+        .WithSummary("Conteo de inventarios por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<ConteoPorEstadoItem>>(StatusCodes.Status200OK);
 
         // GET /vista-previa (cuántas líneas tendría un conteo con ese sub-almacén y familia).
         group.MapGet("/vista-previa", async (

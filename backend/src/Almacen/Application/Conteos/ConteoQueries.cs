@@ -118,6 +118,56 @@ public sealed record ListarConteosQuery(
     public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
 }
 
+/// <summary>
+/// Filtros de la bandeja de conteos salvo el estado, compartidos por el listado
+/// y por los conteos por estado (UX-F3-05) para que ambos coincidan siempre.
+/// </summary>
+internal static class ConteosFiltro
+{
+    public static IQueryable<ConteoInventario> Aplicar(AlmacenDbContext db, ListarConteosQuery request)
+    {
+        var query = db.Set<ConteoInventario>().AsNoTracking();
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        if (request.Tipo is TipoConteo t) query = query.Where(c => c.Tipo == t);
+        if (request.SubAlmacenId is Guid sid) query = query.Where(c => c.SubAlmacenId == sid);
+
+        // El conteo no tiene folio propio: la búsqueda es por familia (después del filtro de alcance).
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            // Npgsql no traduce ToLowerInvariant (la búsqueda devolvía 500); ToLower() sí, y el proveedor en memoria también.
+#pragma warning disable CA1304, CA1311, CA1862 // EF solo traduce ToLower() y Contains(string).
+            var q = request.Q.Trim().ToLower();
+            query = query.Where(c => c.FiltroFamilia != null && c.FiltroFamilia.ToLower().Contains(q));
+#pragma warning restore CA1304, CA1311, CA1862
+        }
+
+        return query;
+    }
+}
+
+public sealed record ConteosInventarioPorEstadoQuery(TipoConteo? Tipo, Guid? SubAlmacenId, string? Q = null)
+    : IRequest<IReadOnlyList<ConteoPorEstadoItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "conteo";
+    public string PermisoTodasSucursales => "almacen.inventarios.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
+
+public sealed class ConteosInventarioPorEstadoHandler(AlmacenDbContext db)
+    : IRequestHandler<ConteosInventarioPorEstadoQuery, IReadOnlyList<ConteoPorEstadoItem>>
+{
+    public async Task<IReadOnlyList<ConteoPorEstadoItem>> Handle(
+        ConteosInventarioPorEstadoQuery request, CancellationToken cancellationToken)
+    {
+        var lista = new ListarConteosQuery(null, request.Tipo, request.SubAlmacenId, 0, 0, request.Q)
+            { DocumentosPermitidos = request.DocumentosPermitidos };
+        return await ConteosFiltro.Aplicar(db, lista).GroupBy(c => c.Estado)
+            .Select(g => new ConteoPorEstadoItem((int)g.Key, g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+}
+
 public sealed class ListarConteosHandler
     : IRequestHandler<ListarConteosQuery, AlmacenPagedResponse<ConteoListItem>>
 {
@@ -127,18 +177,8 @@ public sealed class ListarConteosHandler
     public async Task<AlmacenPagedResponse<ConteoListItem>> Handle(
         ListarConteosQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<ConteoInventario> query = _db.Set<ConteoInventario>().AsNoTracking();
-        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
+        var query = ConteosFiltro.Aplicar(_db, request);
         if (request.Estado is EstadoConteo e) query = query.Where(c => c.Estado == e);
-        if (request.Tipo is TipoConteo t) query = query.Where(c => c.Tipo == t);
-        if (request.SubAlmacenId is Guid sid) query = query.Where(c => c.SubAlmacenId == sid);
-
-        // El conteo no tiene folio propio: la búsqueda es por familia (después del filtro de alcance).
-        if (!string.IsNullOrWhiteSpace(request.Q))
-        {
-            var q = request.Q.Trim().ToLowerInvariant();
-            query = query.Where(c => c.FiltroFamilia != null && EF.Functions.Like(c.FiltroFamilia.ToLowerInvariant(), "%" + q + "%"));
-        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query

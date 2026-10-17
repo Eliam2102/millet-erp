@@ -22,14 +22,18 @@ import {
 import {
   EmptyState,
   ErrorState,
+  BarraFiltros,
   PaginacionTabla,
   SortableHeader,
+  TabsEstado,
+  useConteosPorEstado,
   TableSkeleton,
   compareItemsBy,
   type SortState,
 } from '@/components/erp';
 import { mapById } from '@/features/catalogos/api';
 import { useConteos } from '@/features/almacen/api/useConteos';
+import { almacenKeys } from '@/features/almacen/api/keys';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import {
   EstadoConteo,
@@ -44,7 +48,6 @@ import { esApiError } from '@/lib/api';
 import { NuevoConteoSheet } from '@/features/almacen/components/NuevoConteoSheet';
 import type { ConteosSearch } from '@/features/almacen/lib/conteos-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
-import { Field } from '@/features/almacen/components/internal/Field';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -89,6 +92,12 @@ export function InventariosPage() {
     ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(almacenKeys.conteos(), '/api/v1/almacen/conteos', {
+    tipo: search.tipo,
+    subAlmacenId: search.subAlmacenId,
+    q: search.q,
+  });
+
   function actualizarSearch(parcial: Partial<ConteosSearch>) {
     // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
     navigate({
@@ -114,9 +123,17 @@ export function InventariosPage() {
         }
       />
 
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoConteo | undefined })}
+        conteos={conteos.data}
+      />
+
       <FiltrosToolbar
         search={search}
         subAlmacenes={subAlmacenesQuery.data?.items ?? []}
+        total={query.data?.total}
         onChange={actualizarSearch}
       />
 
@@ -166,130 +183,91 @@ export function InventariosPage() {
   );
 }
 
+const TABS_ESTADO = [
+  EstadoConteo.Planificado,
+  EstadoConteo.EnCurso,
+  EstadoConteo.EnConciliacion,
+  EstadoConteo.Aprobado,
+  EstadoConteo.Aplicado,
+  EstadoConteo.Rechazado,
+].map((e) => ({ valor: e as number, label: EstadoConteoLabels[e] }));
+
 interface FiltrosToolbarProps {
   search: ConteosSearch;
   subAlmacenes: readonly { id: string; clave: string; nombre: string }[];
+  total: number | undefined;
   onChange: (parcial: Partial<ConteosSearch>) => void;
 }
 
 function FiltrosToolbar({
   search,
   subAlmacenes,
+  total,
   onChange,
 }: FiltrosToolbarProps) {
-  const algun =
-    search.q ||
-    search.estado != null || search.tipo != null || search.subAlmacenId;
+  const algun = search.q || search.tipo != null || search.subAlmacenId;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <Field label="Familia" className="gap-1">
+    <BarraFiltros
+      aria-label="Filtros de inventario físico"
+      busqueda={
         <BusquedaFolio
           aria-label="Buscar por familia"
           valor={search.q}
           onCommit={(q) => onChange({ q })}
-          placeholder="Buscar por familia…"
-          className="w-56"
+          placeholder="Familia del conteo"
         />
-      </Field>
-      <Field label="Estado" className="gap-1">
-        {(c) => (
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL ? undefined : (Number(v) as EstadoConteo),
-            })
-          }
-        >
-          <SelectTrigger {...c} className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {(
-              [
-                EstadoConteo.Planificado,
-                EstadoConteo.EnCurso,
-                EstadoConteo.EnConciliacion,
-                EstadoConteo.Aprobado,
-                EstadoConteo.Aplicado,
-                EstadoConteo.Rechazado,
-              ] as const
-            ).map((e) => (
-              <SelectItem key={e} value={String(e)}>
-                {EstadoConteoLabels[e]}
+      }
+      filtros={
+        <>
+          <Select
+            value={search.tipo != null ? String(search.tipo) : SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({
+                tipo: v === SENTINEL_ALL ? undefined : (Number(v) as TipoConteo),
+              })
+            }
+          >
+            <SelectTrigger aria-label="Filtrar por tipo" className="h-ctl-md w-36 text-xs">
+              <SelectValue placeholder="Todos los tipos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos los tipos</SelectItem>
+              <SelectItem value={String(TipoConteo.Rotativo)}>
+                {TipoConteoLabels[TipoConteo.Rotativo]}
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        )}
-      </Field>
-      <Field label="Tipo" className="gap-1">
-        {(c) => (
-        <Select
-          value={search.tipo != null ? String(search.tipo) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              tipo:
-                v === SENTINEL_ALL ? undefined : (Number(v) as TipoConteo),
-            })
-          }
-        >
-          <SelectTrigger {...c} className="w-40">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(TipoConteo.Rotativo)}>
-              {TipoConteoLabels[TipoConteo.Rotativo]}
-            </SelectItem>
-            <SelectItem value={String(TipoConteo.Anual)}>
-              {TipoConteoLabels[TipoConteo.Anual]}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        )}
-      </Field>
-      <Field label="Sub-almacén" className="gap-1">
-        {(c) => (
-        <Select
-          value={search.subAlmacenId ?? SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-          }
-        >
-          <SelectTrigger {...c} className="w-56">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {subAlmacenes.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.clave} · {s.nombre}
+              <SelectItem value={String(TipoConteo.Anual)}>
+                {TipoConteoLabels[TipoConteo.Anual]}
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        )}
-      </Field>
-      {algun && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              q: undefined,
-              estado: undefined,
-              tipo: undefined,
-              subAlmacenId: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+            </SelectContent>
+          </Select>
+          <Select
+            value={search.subAlmacenId ?? SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
+            }
+          >
+            <SelectTrigger aria-label="Filtrar por sub-almacén" className="h-ctl-md w-48 text-xs">
+              <SelectValue placeholder="Todos los sub-almacenes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos los sub-almacenes</SelectItem>
+              {subAlmacenes.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.clave} · {s.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
+      }
+      onLimpiar={
+        algun
+          ? () => onChange({ q: undefined, tipo: undefined, subAlmacenId: undefined })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'conteo' : 'conteos'}` : undefined}
+    />
   );
 }
 

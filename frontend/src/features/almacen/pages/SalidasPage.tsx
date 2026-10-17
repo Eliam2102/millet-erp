@@ -2,7 +2,6 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
-import { FiltroActivoChip } from '../components/FiltroActivoChip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,8 +23,12 @@ import {
 import {
   EmptyState,
   ErrorState,
+  BarraFiltros,
+  FiltroActivoChip,
   PaginacionTabla,
   SortableHeader,
+  TabsEstado,
+  useConteosPorEstado,
   TableSkeleton,
   clickableRowProps,
   compareItemsBy,
@@ -33,6 +36,7 @@ import {
 } from '@/components/erp';
 import { mapById } from '@/features/catalogos/api';
 import { useSalidas } from '@/features/almacen/api/useSalidas';
+import { almacenKeys } from '@/features/almacen/api/keys';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import {
   EstadoMovimiento,
@@ -103,6 +107,18 @@ export function SalidasPage() {
     ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(almacenKeys.salidas(), '/api/v1/almacen/salidas', {
+    subAlmacenId: search.subAlmacenId,
+    rqId: search.rqId,
+    desde: search.desde,
+    hasta: search.hasta,
+    soloVales: search.soloVales,
+    noRegularizados: search.noRegularizados,
+    soloVencidos: search.soloVencidos,
+    soloPorVencer: search.soloPorVencer,
+    q: search.q,
+  });
+
   function actualizarSearch(parcial: Partial<SalidasSearch>) {
     navigate({
       to: '/almacen/salidas',
@@ -130,9 +146,17 @@ export function SalidasPage() {
         }
       />
 
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoMovimiento | undefined })}
+        conteos={conteos.data}
+      />
+
       <FiltrosToolbar
         search={search}
         subAlmacenes={subAlmacenesQuery.data?.items ?? []}
+        total={query.data?.total}
         onChange={actualizarSearch}
       />
 
@@ -195,186 +219,161 @@ export function SalidasPage() {
   );
 }
 
+const TABS_ESTADO = [
+  EstadoMovimiento.Borrador,
+  EstadoMovimiento.Validado,
+  EstadoMovimiento.Registrado,
+  EstadoMovimiento.Cancelado,
+].map((e) => ({ valor: e as number, label: EstadoMovimientoLabels[e] }));
+
 interface FiltrosToolbarProps {
   search: SalidasSearch;
   subAlmacenes: readonly { id: string; clave: string; nombre: string }[];
+  total: number | undefined;
   onChange: (parcial: Partial<SalidasSearch>) => void;
 }
 
 function FiltrosToolbar({
   search,
   subAlmacenes,
+  total,
   onChange,
 }: FiltrosToolbarProps) {
   const algunFiltro =
     search.q ||
-    search.estado != null ||
     search.subAlmacenId ||
     search.rqId ||
     search.desde ||
     search.hasta ||
     search.soloVales ||
     search.noRegularizados || search.soloVencidos || search.soloPorVencer;
+  const masActivos =
+    [search.desde, search.hasta, search.soloVales, search.noRegularizados, search.soloVencidos].filter(Boolean).length;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <Field label="Folio" className="gap-1">
+    <BarraFiltros
+      aria-label="Filtros de salidas"
+      busqueda={
         <BusquedaFolio
           aria-label="Buscar por folio"
           valor={search.q}
           onCommit={(q) => onChange({ q })}
-          placeholder="Buscar por folio…"
-          className="w-56"
+          placeholder="Folio de la salida"
         />
-      </Field>
-      <Field label="Estado" className="gap-1">
-        {(c) => (
-          <Select
-            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              onChange({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoMovimiento),
-              })
-            }
-          >
-            <SelectTrigger {...c} aria-label="Filtrar por estado" className="w-44">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {(
-                [
-                  EstadoMovimiento.Borrador,
-                  EstadoMovimiento.Validado,
-                  EstadoMovimiento.Registrado,
-                  EstadoMovimiento.Cancelado,
-                ] as const
-              ).map((e) => (
-                <SelectItem key={e} value={String(e)}>
-                  {EstadoMovimientoLabels[e]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </Field>
-      <Field label="Sub-almacén" className="gap-1">
-        {(c) => (
-          <Select
-            value={search.subAlmacenId ?? SENTINEL_ALL}
-            onValueChange={(v) =>
-              onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-            }
-          >
-            <SelectTrigger {...c} aria-label="Filtrar por sub-almacén" className="w-56">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              {subAlmacenes.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.clave} · {s.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </Field>
-      <Field label="Desde" className="gap-1">
-        <Input
-          aria-label="Fecha desde"
-          type="date"
-          value={search.desde ?? ''}
-          onChange={(e) => onChange({ desde: e.target.value || undefined })}
-          className="w-40"
-        />
-      </Field>
-      <Field label="Hasta" className="gap-1">
-        <Input
-          aria-label="Fecha hasta"
-          type="date"
-          value={search.hasta ?? ''}
-          onChange={(e) => onChange({ hasta: e.target.value || undefined })}
-          className="w-40"
-        />
-      </Field>
-      <div className="flex items-center gap-2 pb-1.5">
-        <Checkbox
-          id="solo-vales"
-          checked={search.soloVales ?? false}
-          onCheckedChange={(checked) =>
-            onChange({ soloVales: checked === true || undefined })
-          }
-        />
-        <label htmlFor="solo-vales" className="text-sm">
-          Solo vales urgentes
-        </label>
-      </div>
-      <div className="flex items-center gap-2 pb-1.5">
-        <Checkbox
-          id="no-regularizados"
-          checked={search.noRegularizados ?? false}
-          onCheckedChange={(checked) =>
-            onChange({
-              noRegularizados: checked === true || undefined,
-              // Implícito: si filtramos no-regularizados, hace falta tipo vale.
-              soloVales: checked === true ? true : search.soloVales,
-            })
-          }
-        />
-        <label htmlFor="no-regularizados" className="text-sm">
-          Solo pendientes de regularizar
-        </label>
-      </div>
-      <div className="flex items-center gap-2 pb-1.5">
-        <Checkbox
-          id="solo-vencidos"
-          checked={search.soloVencidos ?? false}
-          onCheckedChange={(checked) =>
-            onChange({ soloVencidos: checked === true || undefined })
-          }
-        />
-        <label htmlFor="solo-vencidos" className="text-sm">
-          Solo vales vencidos
-        </label>
-      </div>
-      {search.rqId && (
-        <FiltroActivoChip
-          label="Requisición"
-          onQuitar={() => onChange({ rqId: undefined })}
-        />
-      )}
-      {search.soloPorVencer && (
-        <FiltroActivoChip
-          label="Vales por vencer"
-          onQuitar={() => onChange({ soloPorVencer: undefined })}
-        />
-      )}
-      {algunFiltro && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              q: undefined,
-              estado: undefined,
-              subAlmacenId: undefined,
-              rqId: undefined,
-              desde: undefined,
-              hasta: undefined,
-              soloVales: undefined,
-              noRegularizados: undefined,
-              soloVencidos: undefined,
-              soloPorVencer: undefined,
-            })
+      }
+      filtros={
+        <Select
+          value={search.subAlmacenId ?? SENTINEL_ALL}
+          onValueChange={(v) =>
+            onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
           }
         >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+          <SelectTrigger aria-label="Filtrar por sub-almacén" className="h-ctl-md w-48 text-xs">
+            <SelectValue placeholder="Todos los sub-almacenes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SENTINEL_ALL}>Todos los sub-almacenes</SelectItem>
+            {subAlmacenes.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.clave} · {s.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+      masFiltros={
+        <>
+          <Field label="Desde">
+            <Input
+              type="date"
+              value={search.desde ?? ''}
+              onChange={(e) => onChange({ desde: e.target.value || undefined })}
+            />
+          </Field>
+          <Field label="Hasta">
+            <Input
+              type="date"
+              value={search.hasta ?? ''}
+              onChange={(e) => onChange({ hasta: e.target.value || undefined })}
+            />
+          </Field>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="solo-vales"
+              checked={search.soloVales ?? false}
+              onCheckedChange={(checked) =>
+                onChange({ soloVales: checked === true || undefined })
+              }
+            />
+            <label htmlFor="solo-vales" className="text-sm">
+              Solo vales urgentes
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="no-regularizados"
+              checked={search.noRegularizados ?? false}
+              onCheckedChange={(checked) =>
+                onChange({
+                  noRegularizados: checked === true || undefined,
+                  // Implícito: si filtramos no-regularizados, hace falta tipo vale.
+                  soloVales: checked === true ? true : search.soloVales,
+                })
+              }
+            />
+            <label htmlFor="no-regularizados" className="text-sm">
+              Solo pendientes de regularizar
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="solo-vencidos"
+              checked={search.soloVencidos ?? false}
+              onCheckedChange={(checked) =>
+                onChange({ soloVencidos: checked === true || undefined })
+              }
+            />
+            <label htmlFor="solo-vencidos" className="text-sm">
+              Solo vales vencidos
+            </label>
+          </div>
+        </>
+      }
+      masFiltrosActivos={masActivos}
+      chips={
+        <>
+          {search.rqId && (
+            <FiltroActivoChip
+              label="Requisición"
+              onQuitar={() => onChange({ rqId: undefined })}
+            />
+          )}
+          {search.soloPorVencer && (
+            <FiltroActivoChip
+              label="Vales por vencer"
+              onQuitar={() => onChange({ soloPorVencer: undefined })}
+            />
+          )}
+        </>
+      }
+      onLimpiar={
+        algunFiltro
+          ? () =>
+              onChange({
+                q: undefined,
+                subAlmacenId: undefined,
+                rqId: undefined,
+                desde: undefined,
+                hasta: undefined,
+                soloVales: undefined,
+                noRegularizados: undefined,
+                soloVencidos: undefined,
+                soloPorVencer: undefined,
+              })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'salida' : 'salidas'}` : undefined}
+    />
   );
 }
 

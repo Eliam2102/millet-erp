@@ -13,22 +13,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
+  BarraFiltros,
   EmptyState,
   ErrorState,
   PaginacionTabla,
   ProveedorSelector,
   TableSkeleton,
+  TabsEstado,
+  useConteosPorEstado,
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
+import { cxpKeys } from '@/features/cxp/api/keys';
 import { useNotasCargo } from '@/features/cxp/api/useNotasYAnticipos';
 import { AplicarNotaCargoAccion } from '@/features/cxp/components/AplicarNotaCargoAccion';
 import {
@@ -44,7 +41,13 @@ import type { NotasCargoSearch } from '@/features/cxp/lib/notas-y-anticipos-sear
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/notas-cargo/' as const;
-const SENTINEL_ALL = '__all__';
+const TABS_ESTADO = [
+  { valor: EstadoNotaCargo.Borrador, label: 'Borrador' },
+  { valor: EstadoNotaCargo.Autorizada, label: 'Autorizada' },
+  { valor: EstadoNotaCargo.Aplicada, label: 'Aplicada' },
+  { valor: EstadoNotaCargo.Formalizada, label: 'Formalizada' },
+  { valor: EstadoNotaCargo.Cancelada, label: 'Cancelada' },
+] as const;
 
 /**
  * <c>P1 — Bandeja de Notas de Cargo</c> (doc 07 §FE-F4-PR1). Tabla con
@@ -76,6 +79,12 @@ export function NotasCargoPage() {
     ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(
+    cxpKeys.notasCargo(),
+    '/api/v1/cuentas-por-pagar/notas-cargo',
+    { proveedorId: search.proveedorId, q: search.q },
+  );
+
   function actualizarSearch(parcial: Partial<NotasCargoSearch>) {
     navigate({
       to: '/cxp/notas-cargo',
@@ -103,72 +112,42 @@ export function NotasCargoPage() {
         }
       />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <BusquedaFolio
-          aria-label="Buscar por folio o concepto"
-          valor={search.q}
-          onCommit={(q) => actualizarSearch({ q })}
-          placeholder="Folio o concepto"
-          className="w-64"
-        />
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Estado</label>
-          <Select
-            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-            onValueChange={(v) =>
-              actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL ? undefined : (Number(v) as EstadoNotaCargo),
-              })
-            }
-          >
-            <SelectTrigger aria-label="Filtrar por estado" className="w-48">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-              <SelectItem value={String(EstadoNotaCargo.Borrador)}>
-                Borrador
-              </SelectItem>
-              <SelectItem value={String(EstadoNotaCargo.Autorizada)}>
-                Autorizada
-              </SelectItem>
-              <SelectItem value={String(EstadoNotaCargo.Aplicada)}>
-                Aplicada
-              </SelectItem>
-              <SelectItem value={String(EstadoNotaCargo.Formalizada)}>
-                Formalizada
-              </SelectItem>
-              <SelectItem value={String(EstadoNotaCargo.Cancelada)}>
-                Cancelada
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">
-            Proveedor
-          </label>
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoNotaCargo | undefined })}
+        conteos={conteos.data}
+      />
+
+      <BarraFiltros
+        aria-label="Filtros de notas de cargo"
+        busqueda={
+          <BusquedaFolio
+            aria-label="Buscar por folio o concepto"
+            valor={search.q}
+            onCommit={(q) => actualizarSearch({ q })}
+            placeholder="Folio o concepto"
+          />
+        }
+        filtros={
           <ProveedorSelector
             value={search.proveedorId ?? null}
-            onChange={(id) =>
-              actualizarSearch({ proveedorId: id ?? undefined })
-            }
+            onChange={(id) => actualizarSearch({ proveedorId: id ?? undefined })}
             placeholder="Todos los proveedores"
-            className="w-56"
+            className="h-ctl-md w-56 text-xs"
           />
-        </div>
-        {(search.estado != null || search.proveedorId || search.q) && (
-          <Button
-            variant="ghost"
-            onClick={() =>
-              actualizarSearch({ estado: undefined, proveedorId: undefined, q: undefined })
-            }
-          >
-            Limpiar filtros
-          </Button>
-        )}
-      </div>
+        }
+        onLimpiar={
+          search.proveedorId || search.q
+            ? () => actualizarSearch({ proveedorId: undefined, q: undefined })
+            : undefined
+        }
+        total={
+          query.data
+            ? `${query.data.total} ${query.data.total === 1 ? 'nota de cargo' : 'notas de cargo'}`
+            : undefined
+        }
+      />
 
       {query.isError ? (
         <ErrorState

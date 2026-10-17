@@ -265,3 +265,7 @@ export {
   type ConfirmarDescarteApi,
 } from '@/components/erp/forms/useConfirmarDescarte';
 export { PageHeader, type PageHeaderProps } from '@/components/erp/PageHeader';
+export { BarraFiltros } from '@/components/erp/data/BarraFiltros';
+export { FiltroActivoChip } from '@/components/erp/data/FiltroActivoChip';
+export { TabsEstado, type TabEstadoOpcion } from '@/components/erp/data/TabsEstado';
+export { useConteosPorEstado } from '@/components/erp/data/useConteosPorEstado';

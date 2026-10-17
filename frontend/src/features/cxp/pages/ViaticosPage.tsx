@@ -13,13 +13,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
+  BarraFiltros,
+  TabsEstado,
+  useConteosPorEstado,
   EmptyState,
   ErrorState,
   PaginacionTabla,
@@ -28,6 +24,7 @@ import {
 } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { cxpKeys } from '@/features/cxp/api/keys';
 import { useViaticos } from '@/features/cxp/api/useViaticos';
 import {
   EstadoSolicitudViaticos,
@@ -45,7 +42,6 @@ import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/cxp/viaticos/' as const;
-const SENTINEL_ALL = '__all__';
 
 /**
  * <c>P1 — Bandeja de Viáticos Electrónicos</c> (doc 07 §FE-F5-PR1).
@@ -84,6 +80,12 @@ export function ViaticosPage() {
     ...paginaAOffsetLimit(search),
   });
 
+  const conteos = useConteosPorEstado(
+    cxpKeys.viaticos(),
+    '/api/v1/cuentas-por-pagar/viaticos',
+    { empleadoId: search.empleadoId, jefeDirectoId: search.jefeDirectoId, q: search.q },
+  );
+
   function actualizarSearch(parcial: Partial<ViaticosSearch>) {
     navigate({
       to: '/cxp/viaticos',
@@ -111,7 +113,14 @@ export function ViaticosPage() {
         }
       />
 
-      <Filtros search={search} onChange={actualizarSearch} />
+      <TabsEstado
+        opciones={TABS_ESTADO}
+        valor={search.estado}
+        onChange={(estado) => actualizarSearch({ estado: estado as EstadoSolicitudViaticos | undefined })}
+        conteos={conteos.data}
+      />
+
+      <Filtros search={search} total={query.data?.total} onChange={actualizarSearch} />
 
       {query.isError ? (
         <ErrorState
@@ -165,112 +174,63 @@ export function ViaticosPage() {
   );
 }
 
+const TABS_ESTADO = [
+  { valor: EstadoSolicitudViaticos.Solicitada, label: 'Solicitada' },
+  { valor: EstadoSolicitudViaticos.AutorizadaPorJefe, label: 'Autorizada por jefe' },
+  { valor: EstadoSolicitudViaticos.RequiereDireccionFinanzas, label: 'Requiere DF' },
+  { valor: EstadoSolicitudViaticos.AutorizadaCompleta, label: 'Autorizada (DF)' },
+  { valor: EstadoSolicitudViaticos.Anticipada, label: 'Anticipada' },
+  { valor: EstadoSolicitudViaticos.ComprobacionCapturada, label: 'Comprobación capturada' },
+  { valor: EstadoSolicitudViaticos.Liquidada, label: 'Liquidada' },
+  { valor: EstadoSolicitudViaticos.Rechazada, label: 'Rechazada' },
+] as const;
+
 interface FiltrosProps {
   search: ViaticosSearch;
+  total: number | undefined;
   onChange: (parcial: Partial<ViaticosSearch>) => void;
 }
 
-function Filtros({ search, onChange }: FiltrosProps) {
-  const algunFiltro =
-    search.estado != null || search.empleadoId || search.jefeDirectoId || search.q;
+function Filtros({ search, total, onChange }: FiltrosProps) {
+  const algunFiltro = search.empleadoId || search.jefeDirectoId || search.q;
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <BusquedaFolio
-        aria-label="Buscar por destino"
-        valor={search.q}
-        onCommit={(q) => onChange({ q })}
-        placeholder="Destino"
-        className="w-64"
-      />
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoSolicitudViaticos),
-            })
-          }
-        >
-          <SelectTrigger aria-label="Filtrar por estado" className="w-52">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            <SelectItem value={String(EstadoSolicitudViaticos.Solicitada)}>
-              Solicitada
-            </SelectItem>
-            <SelectItem
-              value={String(EstadoSolicitudViaticos.AutorizadaPorJefe)}
-            >
-              Autorizada por jefe
-            </SelectItem>
-            <SelectItem
-              value={String(
-                EstadoSolicitudViaticos.RequiereDireccionFinanzas,
-              )}
-            >
-              Requiere DF
-            </SelectItem>
-            <SelectItem
-              value={String(EstadoSolicitudViaticos.AutorizadaCompleta)}
-            >
-              Autorizada (DF)
-            </SelectItem>
-            <SelectItem value={String(EstadoSolicitudViaticos.Anticipada)}>
-              Anticipada
-            </SelectItem>
-            <SelectItem
-              value={String(EstadoSolicitudViaticos.ComprobacionCapturada)}
-            >
-              Comprobación capturada
-            </SelectItem>
-            <SelectItem value={String(EstadoSolicitudViaticos.Liquidada)}>
-              Liquidada
-            </SelectItem>
-            <SelectItem value={String(EstadoSolicitudViaticos.Rechazada)}>
-              Rechazada
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Empleado</label>
+    <BarraFiltros
+      aria-label="Filtros de viáticos"
+      busqueda={
+        <BusquedaFolio
+          aria-label="Buscar por destino"
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Destino"
+        />
+      }
+      filtros={
         <UsuarioSelector
           value={search.empleadoId ?? null}
           onChange={(id) => onChange({ empleadoId: id ?? undefined })}
           placeholder="Todos los empleados"
-          className="w-56"
+          className="h-ctl-md w-56 text-xs"
         />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Jefe directo</label>
-        <UsuarioSelector
-          value={search.jefeDirectoId ?? null}
-          onChange={(id) => onChange({ jefeDirectoId: id ?? undefined })}
-          placeholder="Todos"
-          className="w-56"
-        />
-      </div>
-      {algunFiltro && (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            onChange({
-              estado: undefined,
-              empleadoId: undefined,
-              jefeDirectoId: undefined,
-              q: undefined,
-            })
-          }
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
+      }
+      masFiltros={
+        <div className="space-y-1">
+          <label className="text-xs text-ink-muted">Jefe directo</label>
+          <UsuarioSelector
+            value={search.jefeDirectoId ?? null}
+            onChange={(id) => onChange({ jefeDirectoId: id ?? undefined })}
+            placeholder="Todos"
+            className="w-full"
+          />
+        </div>
+      }
+      masFiltrosActivos={search.jefeDirectoId ? 1 : 0}
+      onLimpiar={
+        algunFiltro
+          ? () => onChange({ empleadoId: undefined, jefeDirectoId: undefined, q: undefined })
+          : undefined
+      }
+      total={total != null ? `${total} ${total === 1 ? 'solicitud' : 'solicitudes'}` : undefined}
+    />
   );
 }
 

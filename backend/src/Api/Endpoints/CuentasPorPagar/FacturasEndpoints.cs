@@ -66,6 +66,18 @@ public static class FacturasEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/conteos-por-estado", async (
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] Guid? sucursalId,
+            [FromQuery] string? q,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await mediator.Send(new ConteosFacturasPorEstadoQuery(proveedorId, sucursalId, q), cancellationToken)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarFacturasLeer)
+        .WithName("ConteosFacturasPorEstado")
+        .WithSummary("Conteo por estado, con los filtros de la bandeja salvo el estado")
+        .Produces<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>(StatusCodes.Status200OK);
+
         group.MapGet("/{id:guid}", async (
             Guid id,
             IMediator mediator,
