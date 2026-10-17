@@ -15,6 +15,13 @@ public sealed record PlantillaRecurrenteRequest(
     string Nombre, Guid TipoOperacionId, string Concepto, int AnioInicio, int MesInicio, int NumeroPeriodos, int DiaDelMes,
     bool ReversaAutomatica, bool NaceAutorizada, IReadOnlyList<PartidaRequest> Partidas);
 
+/// <summary>Partida fija de la plantilla con los datos para mostrarla (ids para editar + código y nombre resueltos).</summary>
+public sealed record PartidaPlantillaResponse(
+    Guid CuentaId, string? CuentaCodigo, string? CuentaNombre, string? Concepto, decimal Cargo, decimal Abono, Guid SucursalId, string? SucursalNombre,
+    Guid? Dim1Id, Guid? Dim2Id, Guid? Dim3Id, CentroRefDto? Dim1, CentroRefDto? Dim2, CentroRefDto? Dim3, string? Proyecto,
+    Guid? ClienteId, Guid? ProveedorId, Guid? CuentaBancariaId, Ports.AuxiliarContable? Cliente, Ports.AuxiliarContable? Proveedor,
+    Ports.AuxiliarContable? CuentaBancaria);
+
 public sealed record AplicacionRecurrenteResponse(
     int Anio, int Mes, DateOnly Fecha, Guid? PolizaId, string? Folio, EstadoPoliza? Estado,
     DateOnly? FechaReversa, Guid? ReversaId, string? ReversaFolio);
@@ -22,7 +29,7 @@ public sealed record AplicacionRecurrenteResponse(
 public sealed record PlantillaRecurrenteResponse(
     Guid Id, string Nombre, Guid TipoOperacionId, string TipoClave, string Concepto, int AnioInicio, int MesInicio, int NumeroPeriodos,
     int DiaDelMes, bool ReversaAutomatica, bool NaceAutorizada, EstadoPlantillaRecurrente Estado, decimal Importe,
-    IReadOnlyList<PartidaRequest> Partidas, Guid? CreadaPorId, string CreadaPor, DateTimeOffset CreadaEn, Guid? ActivadaPorId,
+    IReadOnlyList<PartidaPlantillaResponse> Partidas, Guid? CreadaPorId, string CreadaPor, DateTimeOffset CreadaEn, Guid? ActivadaPorId,
     string? ActivadaPor, DateTimeOffset? ActivadaEn, int Generadas, IReadOnlyList<AplicacionRecurrenteResponse> Aplicaciones, int Version);
 
 public sealed record PlantillaRecurrenteResumenResponse(
@@ -329,8 +336,29 @@ public sealed class ObtenerPlantillaRecurrenteHandler(LecturaRecurrentes lectura
 }
 
 /// <summary>Plantilla con su calendario: por cada periodo, la póliza generada y su reversa (si aplica).</summary>
-public sealed class LecturaRecurrentes(ContabilidadDbContext db)
+public sealed class LecturaRecurrentes(
+    ContabilidadDbContext db, Ports.ICentroCostoContabilidadPort centros, Ports.ISucursalContabilidadPort sucursales,
+    Ports.ITerceroContabilidadPort terceros, Ports.ICuentaBancariaContabilidadPort bancos)
 {
+    private async Task<IReadOnlyList<PartidaPlantillaResponse>> PartidasAsync(IReadOnlyList<PartidaPlantilla> ps, CancellationToken ct)
+    {
+        var cuentaIds = ps.Select(x => x.CuentaId).Distinct().ToList();
+        var cuentas = await db.Cuentas.AsNoTracking().Where(c => cuentaIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => new { c.Codigo, c.Nombre }, ct);
+        var dimIds = ps.SelectMany(x => new[] { x.Dim1Id, x.Dim2Id, x.Dim3Id }).Where(x => x is not null).Select(x => x!.Value).Distinct().ToList();
+        var nodos = dimIds.Count == 0 ? new Dictionary<Guid, Ports.CentroCostoNodo>() : await centros.ObtenerAsync(dimIds, ct);
+        var suc = (await sucursales.ListarAsync(ct)).ToDictionary(x => x.Id);
+        static List<Guid> Ids(IEnumerable<Guid?> xs) => [.. xs.Where(x => x is not null).Select(x => x!.Value).Distinct()];
+        var clientes = await terceros.ObtenerAsync(Ports.TipoAuxiliar.Cliente, Ids(ps.Select(x => x.ClienteId)), ct);
+        var proveedores = await terceros.ObtenerAsync(Ports.TipoAuxiliar.Proveedor, Ids(ps.Select(x => x.ProveedorId)), ct);
+        var cuentasBanco = await bancos.ObtenerAsync(Ids(ps.Select(x => x.CuentaBancariaId)), ct);
+        CentroRefDto? Ref(Guid? id) => id is { } x && nodos.TryGetValue(x, out var n) ? new(n.Id, n.Clave, n.Nombre, n.ActivoEnCadena) : null;
+        static Ports.AuxiliarContable? Aux(IReadOnlyDictionary<Guid, Ports.AuxiliarContable> d, Guid? id) => id is { } x ? d.GetValueOrDefault(x) : null;
+        return [.. ps.Select(x => new PartidaPlantillaResponse(x.CuentaId, cuentas.GetValueOrDefault(x.CuentaId)?.Codigo, cuentas.GetValueOrDefault(x.CuentaId)?.Nombre,
+            x.Concepto, x.Cargo, x.Abono, x.SucursalId, suc.GetValueOrDefault(x.SucursalId)?.Nombre, x.Dim1Id, x.Dim2Id, x.Dim3Id,
+            Ref(x.Dim1Id), Ref(x.Dim2Id), Ref(x.Dim3Id), x.Proyecto, x.ClienteId, x.ProveedorId, x.CuentaBancariaId,
+            Aux(clientes, x.ClienteId), Aux(proveedores, x.ProveedorId), Aux(cuentasBanco, x.CuentaBancariaId)))];
+    }
+
     public async Task<PlantillaRecurrenteResponse> ObtenerAsync(Guid id, CancellationToken ct)
     {
         var p = await db.PlantillasRecurrentes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -349,7 +377,7 @@ public sealed class LecturaRecurrentes(ContabilidadDbContext db)
                 reversa is null ? null : Folio(reversa.TipoClave, reversa.Numero));
         }).ToList();
         return new PlantillaRecurrenteResponse(p.Id, p.Nombre, p.TipoOperacionId, tipoClave, p.Concepto, p.AnioInicio, p.MesInicio, p.NumeroPeriodos,
-            p.DiaDelMes, p.ReversaAutomatica, p.NaceAutorizada, p.Estado, p.TotalCargos, [.. p.Partidas.Select(GeneradorRecurrentes.Request)],
+            p.DiaDelMes, p.ReversaAutomatica, p.NaceAutorizada, p.Estado, p.TotalCargos, await PartidasAsync(p.Partidas, ct),
             p.CreadaPorId, p.CreadaPor, p.CreatedAt, p.ActivadaPorId, p.ActivadaPor, p.ActivadaEn,
             aplicaciones.Count(a => a.PolizaId is not null), aplicaciones, p.Version);
     }
