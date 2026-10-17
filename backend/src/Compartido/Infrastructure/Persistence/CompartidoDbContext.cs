@@ -121,6 +121,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     // F1-ADM-11 G1.2: servicio genérico de adjuntos (metadatos; el blob vive en storage).
     public DbSet<Adjunto> Adjuntos => Set<Adjunto>();
     public DbSet<AdjuntoTipoDocumento> AdjuntoTiposDocumento => Set<AdjuntoTipoDocumento>();
+    public DbSet<AdjuntoExcepcion> AdjuntoExcepciones => Set<AdjuntoExcepcion>();
     public DbSet<IntegrationEventOutboxEntry> IntegrationEventsOutbox => Set<IntegrationEventOutboxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -147,6 +148,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureMoneda(modelBuilder);
         ConfigureProveedor(modelBuilder);
         ConfigureCuentaBancariaProveedor(modelBuilder);
+        ConfigureAdjuntoExcepcion(modelBuilder);
         ConfigureArticulo(modelBuilder);
         ConfigureCliente(modelBuilder);
         var clasificacion = modelBuilder.Entity<ClasificacionCliente>();
@@ -250,22 +252,41 @@ public sealed class CompartidoDbContext : BaseDbContext
         tipo.Property(x => x.Orden).IsRequired();
         tipo.Property(x => x.Obligatorio).IsRequired();
         tipo.Property(x => x.SoloPersonaMoral).IsRequired();
+        tipo.Property(x => x.SoloNacional).IsRequired();
         tipo.Property(x => x.Activo).IsRequired();
         tipo.HasIndex(x => new { x.TipoEntidad, x.Codigo }).IsUnique();
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         tipo.HasData(
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F1-CON-04 (C1.3, R7): documento soporte de la póliza contable.
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000004", "identificacion_representante_legal", "Identificación del representante legal", 4, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime),
             // 86e3pdmee: soporte para validar cuentas bancarias; no es parte del expediente obligatorio.
-            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // 86e3pdmee · demo 12-oct: opinión de cumplimiento y fotos del domicilio fiscal, opcionales (Millet define).
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000007"), TipoEntidad = "proveedor", Codigo = "opinion_cumplimiento", Nombre = "Opinión de cumplimiento (32-D)", Orden = 7, Obligatorio = false, VigenciaMeses = (int?)1, SoloPersonaMoral = false, SoloNacional = true, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000008"), TipoEntidad = "proveedor", Codigo = "fotografias_domicilio", Nombre = "Fotografías del domicilio fiscal", Orden = 8, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
+    }
+
+    /// <summary>86e3pdmee · ADM-01: excepciones a documentos obligatorios del expediente.</summary>
+    private static void ConfigureAdjuntoExcepcion(ModelBuilder modelBuilder)
+    {
+        var x = modelBuilder.Entity<AdjuntoExcepcion>();
+        x.ToTable("adjunto_excepciones", t =>
+            t.HasCheckConstraint("ck_adjunto_excepciones_motivo", "char_length(motivo) BETWEEN 10 AND 500"));
+        x.HasKey(e => e.Id);
+        x.Ignore(e => e.Vigente);
+        x.Property(e => e.TipoEntidad).HasMaxLength(60).IsRequired();
+        x.Property(e => e.Motivo).HasMaxLength(500).IsRequired();
+        x.Property(e => e.OtorgadaPorNombre).HasMaxLength(200);
+        x.HasOne<AdjuntoTipoDocumento>().WithMany().HasForeignKey(e => e.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
+        x.HasIndex(e => new { e.TipoEntidad, e.EntidadId });
     }
 
     private static object SeedTipoAdjuntoProveedor(
@@ -280,6 +301,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         Obligatorio = true,
         VigenciaMeses = vigenciaMeses,
         SoloPersonaMoral = soloPersonaMoral,
+        // 86e3pdmee: la constancia de situación fiscal es del SAT; no aplica a extranjeros.
+        SoloNacional = codigo == "constancia_situacion_fiscal",
         Activo = true,
         Version = 1,
         CreatedAt = seedTime,

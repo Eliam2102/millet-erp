@@ -5660,6 +5660,94 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         });
                 });
 
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.AdjuntoExcepcion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EntidadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entidad_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<DateTimeOffset>("OtorgadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("otorgada_en");
+
+                    b.Property<Guid?>("OtorgadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("otorgada_por_id");
+
+                    b.Property<string>("OtorgadaPorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("otorgada_por_nombre");
+
+                    b.Property<DateTimeOffset?>("RevocadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revocada_en");
+
+                    b.Property<Guid?>("RevocadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revocada_por_id");
+
+                    b.Property<Guid>("TipoDocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tipo_documento_id");
+
+                    b.Property<string>("TipoEntidad")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tipo_entidad");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_adjunto_excepciones");
+
+                    b.HasIndex("TipoDocumentoId")
+                        .HasDatabaseName("ix_adjunto_excepciones_tipo_documento_id");
+
+                    b.HasIndex("TipoEntidad", "EntidadId")
+                        .HasDatabaseName("ix_adjunto_excepciones_tipo_entidad_entidad_id");
+
+                    b.ToTable("adjunto_excepciones", "compartido", t =>
+                        {
+                            t.HasCheckConstraint("ck_adjunto_excepciones_motivo", "char_length(motivo) BETWEEN 10 AND 500");
+                        });
+                });
+
             modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5702,6 +5790,10 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.Property<int>("Orden")
                         .HasColumnType("integer")
                         .HasColumnName("orden");
+
+                    b.Property<bool>("SoloNacional")
+                        .HasColumnType("boolean")
+                        .HasColumnName("solo_nacional");
 
                     b.Property<bool>("SoloPersonaMoral")
                         .HasColumnType("boolean")
@@ -5753,6 +5845,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Documento de soporte",
                             Obligatorio = false,
                             Orden = 1,
+                            SoloNacional = false,
                             SoloPersonaMoral = false,
                             TipoEntidad = "requisicion",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5769,6 +5862,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Documento de soporte",
                             Obligatorio = false,
                             Orden = 1,
+                            SoloNacional = false,
                             SoloPersonaMoral = false,
                             TipoEntidad = "factura_proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5785,6 +5879,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Constancia de situación fiscal",
                             Obligatorio = true,
                             Orden = 1,
+                            SoloNacional = true,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5802,6 +5897,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Contrato",
                             Obligatorio = true,
                             Orden = 2,
+                            SoloNacional = false,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5818,6 +5914,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Acta constitutiva",
                             Obligatorio = true,
                             Orden = 3,
+                            SoloNacional = false,
                             SoloPersonaMoral = true,
                             TipoEntidad = "proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5834,6 +5931,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Identificación del representante legal",
                             Obligatorio = true,
                             Orden = 4,
+                            SoloNacional = false,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5850,6 +5948,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Comprobante de domicilio",
                             Obligatorio = true,
                             Orden = 5,
+                            SoloNacional = false,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -5867,12 +5966,48 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             Nombre = "Estado de cuenta o carta bancaria",
                             Obligatorio = false,
                             Orden = 6,
+                            SoloNacional = false,
                             SoloPersonaMoral = false,
                             TipoEntidad = "proveedor",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1,
                             VigenciaMeses = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000007"),
+                            Activo = true,
+                            Codigo = "opinion_cumplimiento",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Opinión de cumplimiento (32-D)",
+                            Obligatorio = false,
+                            Orden = 7,
+                            SoloNacional = true,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1,
+                            VigenciaMeses = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000011-0001-0000-0000-000000000008"),
+                            Activo = true,
+                            Codigo = "fotografias_domicilio",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Fotografías del domicilio fiscal",
+                            Obligatorio = false,
+                            Orden = 8,
+                            SoloNacional = false,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "proveedor",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 
@@ -6427,6 +6562,16 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_adjuntos_adjunto_tipos_documento_tipo_documento_id");
+                });
+
+            modelBuilder.Entity("Millet.SharedKernel.Domain.Adjuntos.AdjuntoExcepcion", b =>
+                {
+                    b.HasOne("Millet.SharedKernel.Domain.Adjuntos.AdjuntoTipoDocumento", null)
+                        .WithMany()
+                        .HasForeignKey("TipoDocumentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_adjunto_excepciones_adjunto_tipos_documento_tipo_documento_");
                 });
 
             modelBuilder.Entity("Millet.DatosMaestros.Domain.ProductoAw", b =>

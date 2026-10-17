@@ -29,9 +29,33 @@ public sealed class AdjuntoTipoDocumento : BaseEntity, IAuditable
     /// <summary>Aplica solo a entidades que son persona moral.</summary>
     public bool SoloPersonaMoral { get; private set; }
 
+    /// <summary>
+    /// Aplica solo a entidades nacionales (p. ej. constancia de situación
+    /// fiscal del SAT; un proveedor extranjero no la tiene). 86e3pdmee · ADM-01.
+    /// </summary>
+    public bool SoloNacional { get; private set; }
+
     public bool Activo { get; private set; } = true;
 
     private AdjuntoTipoDocumento() { }
+
+    /// <summary>
+    /// Matriz configurable por Millet (86e3pdmee · ADM-01): obligatoriedad,
+    /// vigencia y a quién aplica. Cada cambio queda en la bitácora (IAuditable).
+    /// </summary>
+    public void Configurar(string nombre, bool obligatorio, int? vigenciaMeses, bool soloPersonaMoral, bool soloNacional, bool activo)
+    {
+        if (string.IsNullOrWhiteSpace(nombre) || nombre.Trim().Length > 200)
+            throw new BusinessRuleException("ADJUNTO_TIPO_NOMBRE_INVALIDO", "El nombre del tipo de documento debe tener 1-200 caracteres.");
+        if (vigenciaMeses is <= 0)
+            throw new BusinessRuleException("ADJUNTO_TIPO_VIGENCIA_INVALIDA", "Los meses de vigencia deben ser mayores a cero.");
+        Nombre = nombre.Trim();
+        Obligatorio = obligatorio;
+        VigenciaMeses = vigenciaMeses;
+        SoloPersonaMoral = soloPersonaMoral;
+        SoloNacional = soloNacional;
+        Activo = activo;
+    }
 
     public AdjuntoTipoDocumento(
         Guid id,

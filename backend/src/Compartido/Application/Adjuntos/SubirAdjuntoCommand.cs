@@ -86,6 +86,10 @@ public sealed class SubirAdjuntoHandler : IRequestHandler<SubirAdjuntoCommand, A
                 "ADJUNTO_TIPO_NO_APLICA",
                 $"El documento '{tipo.Nombre}' aplica solo a personas morales.");
         }
+        if (tipo.SoloNacional && padre.EsNacional == false)
+            throw new BusinessRuleException(
+                "ADJUNTO_TIPO_NO_APLICA",
+                $"El documento '{tipo.Nombre}' aplica solo a proveedores nacionales.");
 
         var contenido = request.Contenido;
         var nombre = Path.GetFileName(request.NombreArchivo.Trim());

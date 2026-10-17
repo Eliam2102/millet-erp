@@ -132,6 +132,66 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // 86e3pdmee · ADM-01: matriz del expediente (configurable) y excepciones.
+        proveedores.MapGet("/expediente/tipos", async (IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarTiposDocumentoProveedorQuery(), ct)))
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
+        .WithName("ListarTiposDocumentoProveedor")
+        .Produces<IReadOnlyList<TipoDocumentoProveedorDto>>(StatusCodes.Status200OK);
+
+        proveedores.MapPost("/expediente/tipos", async ([FromBody] TipoDocumentoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            var dto = await mediator.Send(new GuardarTipoDocumentoProveedorCommand(null, null, body.Codigo, body.Nombre,
+                body.Obligatorio, body.VigenciaMeses, body.SoloPersonaMoral, body.SoloNacional, body.Activo), ct);
+            return Results.Created($"/api/v1/datos-maestros/proveedores/expediente/tipos/{dto.Id}", dto);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresExpedienteConfigurar)
+        .WithName("CrearTipoDocumentoProveedor")
+        .Produces<TipoDocumentoProveedorDto>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPut("/expediente/tipos/{tipoId:guid}", async (
+            Guid tipoId, [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] TipoDocumentoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            if (expectedVersion is not int v) return VersionRequerida();
+            return Results.Ok(await mediator.Send(new GuardarTipoDocumentoProveedorCommand(tipoId, v, null, body.Nombre,
+                body.Obligatorio, body.VigenciaMeses, body.SoloPersonaMoral, body.SoloNacional, body.Activo), ct));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresExpedienteConfigurar)
+        .WithName("ConfigurarTipoDocumentoProveedor")
+        .Produces<TipoDocumentoProveedorDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        proveedores.MapPost("/{id:guid}/expediente/excepciones", async (
+            Guid id, [FromBody] ExcepcionExpedienteRequest body, IMediator mediator, CancellationToken ct) =>
+        {
+            var excepcionId = await mediator.Send(new OtorgarExcepcionExpedienteCommand(id, body.TipoDocumentoId, body.Motivo), ct);
+            return Results.Created($"/api/v1/datos-maestros/proveedores/{id}/expediente/excepciones/{excepcionId}", new { id = excepcionId });
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("OtorgarExcepcionExpedienteProveedor")
+        .Produces(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/expediente/excepciones/{excepcionId:guid}/revocar", async (
+            Guid id, Guid excepcionId, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new RevocarExcepcionExpedienteCommand(id, excepcionId), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresValidar)
+        .WithName("RevocarExcepcionExpedienteProveedor")
+        .Produces(StatusCodes.Status204NoContent);
+
         // 86e3pdmee · ADM-01: origen, régimen fiscal y retención esperada.
         proveedores.MapPut("/{id:guid}/clasificacion-fiscal", async (
             Guid id, [FromBody] ActualizarClasificacionFiscalRequest body,
@@ -930,6 +990,11 @@ public static class DatosMaestrosEndpoints
     /// </summary>
     public sealed record AgregarCuentaBancariaRequest(
         string Banco, string? Clabe, string? NumeroCuenta, string? Swift, string Moneda, string Titular);
+
+    public sealed record TipoDocumentoProveedorRequest(
+        string? Codigo, string Nombre, bool Obligatorio, int? VigenciaMeses, bool SoloPersonaMoral, bool SoloNacional, bool Activo);
+
+    public sealed record ExcepcionExpedienteRequest(Guid TipoDocumentoId, string Motivo);
 
     public sealed record ValidarCuentaBancariaRequest(Guid DocumentoAdjuntoId, bool CotejoCompleto, string? Nota);
 

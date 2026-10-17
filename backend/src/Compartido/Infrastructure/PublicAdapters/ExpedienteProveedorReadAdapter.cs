@@ -1,3 +1,4 @@
+using Millet.DatosMaestros.Domain;
 using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Application.Adjuntos;
@@ -21,16 +22,17 @@ public sealed class ExpedienteProveedorReadAdapter : IExpedienteProveedorReadPor
 
     public async Task<ExpedienteProveedorResumen?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken)
     {
-        var tipoPersona = await _db.Proveedores.AsNoTracking()
+        var p = await _db.Proveedores.AsNoTracking()
             .Where(p => p.Id == proveedorId)
-            .Select(p => (TipoPersonaProveedor?)p.TipoPersona)
+            .Select(p => new { p.TipoPersona, p.Origen })
             .FirstOrDefaultAsync(cancellationToken);
-        if (tipoPersona is null) return null;
+        if (p is null) return null;
 
         var e = await ExpedienteAdjuntos.CalcularAsync(
             _db, ProveedorAdjuntoPropietario.Tipo, proveedorId,
-            esPersonaMoral: tipoPersona == TipoPersonaProveedor.Moral,
-            AdjuntoSoporte.Hoy(_clock), cancellationToken);
+            esPersonaMoral: p.TipoPersona == TipoPersonaProveedor.Moral,
+            AdjuntoSoporte.Hoy(_clock), cancellationToken,
+            esNacional: p.Origen != OrigenProveedor.Extranjero);
         return new ExpedienteProveedorResumen(proveedorId, e.Completo, e.Faltantes, e.Vencidos, e.PorVencer);
     }
 }

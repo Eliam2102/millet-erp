@@ -11,6 +11,8 @@ public enum EstadoExpedienteDocumento
     Vigente = 1,
     PorVencer = 2,
     Vencido = 3,
+    /// <summary>Obligatorio faltante o vencido con excepción vigente (permiso + motivo).</summary>
+    Exceptuado = 4,
 }
 
 /// <param name="Actual">El adjunto más reciente no dado de baja de ese tipo (null si falta).</param>
@@ -21,7 +23,10 @@ public sealed record ExpedienteDocumentoResponse(
     bool Obligatorio,
     int? VigenciaMeses,
     EstadoExpedienteDocumento Estado,
-    AdjuntoResponse? Actual);
+    AdjuntoResponse? Actual,
+    ExcepcionResponse? Excepcion = null);
+
+public sealed record ExcepcionResponse(Guid Id, string Motivo, string? OtorgadaPorNombre, DateTimeOffset OtorgadaEn);
 
 /// <summary>
 /// Expediente documental de una entidad. <c>Completo</c> = todos los tipos obligatorios aplicables
@@ -45,7 +50,8 @@ public static class ExpedienteAdjuntos
         Guid entidadId,
         bool? esPersonaMoral,
         DateOnly hoy,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool? esNacional = null)
     {
         var tipos = await db.AdjuntoTiposDocumento.AsNoTracking()
             .Where(t => t.TipoEntidad == tipoEntidad && t.Activo)
@@ -54,12 +60,17 @@ public static class ExpedienteAdjuntos
         var adjuntos = await db.Adjuntos.AsNoTracking()
             .Where(a => a.TipoEntidad == tipoEntidad && a.EntidadId == entidadId && a.BajaEn == null)
             .ToListAsync(cancellationToken);
+        var excepciones = await db.AdjuntoExcepciones.AsNoTracking()
+            .Where(x => x.TipoEntidad == tipoEntidad && x.EntidadId == entidadId && x.RevocadaEn == null)
+            .ToListAsync(cancellationToken);
 
         var documentos = new List<ExpedienteDocumentoResponse>();
         foreach (var tipo in tipos)
         {
             // Los tipos "solo persona moral" no aplican a una persona física.
             if (tipo.SoloPersonaMoral && esPersonaMoral == false) continue;
+            // 86e3pdmee: los tipos "solo nacional" (p. ej. constancia del SAT) no aplican a un extranjero.
+            if (tipo.SoloNacional && esNacional == false) continue;
 
             var actual = adjuntos.Where(a => a.TipoDocumentoId == tipo.Id)
                 .OrderByDescending(a => a.SubidoEn).FirstOrDefault();
@@ -71,9 +82,13 @@ public static class ExpedienteAdjuntos
                     EstadoAdjunto.PorVencer => EstadoExpedienteDocumento.PorVencer,
                     _ => EstadoExpedienteDocumento.Vigente, // Vigente o SinVigencia
                 };
+            var excepcion = excepciones.Where(x => x.TipoDocumentoId == tipo.Id).OrderByDescending(x => x.OtorgadaEn).FirstOrDefault();
+            if (excepcion is not null && tipo.Obligatorio && estado is EstadoExpedienteDocumento.Faltante or EstadoExpedienteDocumento.Vencido)
+                estado = EstadoExpedienteDocumento.Exceptuado;
             documentos.Add(new ExpedienteDocumentoResponse(
                 tipo.Id, tipo.Codigo, tipo.Nombre, tipo.Obligatorio, tipo.VigenciaMeses, estado,
-                actual is null ? null : AdjuntoResponse.De(actual, tipo, hoy)));
+                actual is null ? null : AdjuntoResponse.De(actual, tipo, hoy),
+                excepcion is null ? null : new ExcepcionResponse(excepcion.Id, excepcion.Motivo, excepcion.OtorgadaPorNombre, excepcion.OtorgadaEn)));
         }
 
         var obligatorios = documentos.Where(d => d.Obligatorio).ToList();
