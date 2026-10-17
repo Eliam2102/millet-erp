@@ -73,12 +73,12 @@ export function AprobadoresLimitesPage() {
     <div className="space-y-4">
       <PageHeader
         titulo="Aprobadores con límite"
-        descripcion="Catálogo de aprobadores con monto máximo por tipo de gasto. Backend valida los topes al autorizar comprobaciones/viáticos."
+        descripcion="Catálogo de aprobadores con monto máximo por tipo de gasto. Los topes se validan al autorizar comprobaciones/viáticos."
         acciones={
           <>
             {puedeAdmin && (
               <Button onClick={() => setSheetAbierto(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Nuevo aprobador
               </Button>
             )}
@@ -244,7 +244,7 @@ function Tabla({
                     onClick={() => setACerrar(a)}
                     disabled={cerrar.isPending}
                   >
-                    <Ban className="mr-1 h-3 w-3" />
+                    <Ban className="mr-1 size-3.5" />
                     Cerrar
                   </Button>
                 )}

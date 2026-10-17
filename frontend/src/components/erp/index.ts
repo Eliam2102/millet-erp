@@ -12,6 +12,7 @@ export {
   ErrorState,
   type ErrorStateProps,
 } from '@/components/erp/feedback/ErrorState';
+export { DetalleSkeleton, type DetalleSkeletonProps } from '@/components/erp/feedback/DetalleSkeleton';
 export {
   TableSkeleton,
   type TableSkeletonProps,

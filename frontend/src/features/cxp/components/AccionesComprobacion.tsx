@@ -82,7 +82,7 @@ export function AccionesComprobacion({
         return ejecutar('Firma Nivel 1 aplicada', autN1.mutateAsync({ ...base, idempotencyKey }));
       case 'n2':
         return ejecutar(
-          'Firma Nivel 2 aplicada (segregación validada por backend)',
+          'Firma Nivel 2 aplicada',
           autN2.mutateAsync({ ...base, idempotencyKey }),
         );
       case 'aplicar':
@@ -107,7 +107,7 @@ export function AccionesComprobacion({
     n2: {
       titulo: 'Firma Nivel 2 (Dirección de Finanzas)',
       verbo: 'Aplicar firma Nivel 2',
-      texto: <>Firmas en Nivel 2 la comprobación de {tipo}{quien} por {monto}. El backend valida que no sea la misma persona que firmó el Nivel 1.</>,
+      texto: <>Firmas en Nivel 2 la comprobación de {tipo}{quien} por {monto}. El sistema valida que no sea la misma persona que firmó el Nivel 1.</>,
     },
     aplicar: {
       titulo: 'Aplicar comprobación',
@@ -131,25 +131,25 @@ export function AccionesComprobacion({
             )
           }
         >
-          <Send className="mr-1 h-3 w-3" aria-hidden="true" />
+          <Send className="mr-1 size-3.5" aria-hidden="true" />
           Enviar
         </Button>
       )}
       {c.estado === EstadoComprobacionGastos.PorRevisar && !esAduanal && puedeAprobarN1 && (
         <Button variant="outline" size="sm" onClick={() => setDialogo('autorizar')} disabled={pendiente}>
-          <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+          <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
           Autorizar
         </Button>
       )}
       {c.estado === EstadoComprobacionGastos.PorRevisar && esAduanal && puedeAprobarN1 && (
         <Button variant="outline" size="sm" onClick={() => setDialogo('n1')} disabled={pendiente}>
-          <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+          <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
           Firma N1
         </Button>
       )}
       {c.estado === EstadoComprobacionGastos.AutorizadaNivel1 && puedeAprobarN2 && (
         <Button variant="outline" size="sm" onClick={() => setDialogo('n2')} disabled={pendiente}>
-          <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+          <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
           Firma N2 (DF)
         </Button>
       )}
@@ -171,7 +171,7 @@ export function AccionesComprobacion({
             }}
             disabled={pendiente}
           >
-            <XCircle className="mr-1 h-3 w-3" aria-hidden="true" />
+            <XCircle className="mr-1 size-3.5" aria-hidden="true" />
             Rechazar
           </Button>
         )}

@@ -184,7 +184,7 @@ function FilaNodo({
           </span>
         )}
         {nodo.esDefault && (
-          <Badge variant="outline" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="shrink-0 text-2xs">
             ÚNICA
           </Badge>
         )}

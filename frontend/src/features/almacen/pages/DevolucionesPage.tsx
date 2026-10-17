@@ -120,9 +120,9 @@ export function DevolucionesPage() {
         titulo="Devoluciones a proveedor"
         descripcion={
           <>
-            Sub-flujo 8.B con estado de Borrador → En autorización → Autorizada →
-            Registrada → Conciliada NC fiscal. Devoluciones internas y MAT-REV
-            en el menú "Otras acciones".
+            Devoluciones al proveedor con estado de Borrador → En autorización → Autorizada →
+            Registrada → Conciliada NC fiscal. Las devoluciones internas y las de material en revisión
+            están en el menú "Otras acciones".
           </>
         }
         acciones={
@@ -130,7 +130,7 @@ export function DevolucionesPage() {
             <div className="flex items-center gap-2">
               {puedeIniciarProveedor && (
                 <Button onClick={() => setSheetProveedorAbierto(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="mr-2 size-3.5" />
                   Nueva devolución a proveedor
                 </Button>
               )}
@@ -144,13 +144,13 @@ export function DevolucionesPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => setSheetInternaAbierto(true)}>
-                      Devolución interna (8.A)
+                      Devolución interna
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setMatRevSheet('baja')}>
-                      MAT-REV — Baja por daño
+                      Material en revisión: baja por daño
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setMatRevSheet('reincorporar')}>
-                      MAT-REV — Reincorporar
+                      Material en revisión: reincorporar
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

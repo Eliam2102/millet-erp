@@ -143,10 +143,10 @@ export function FacturaPicker({
                             <span className="truncate font-mono text-xs">
                               {folio}
                             </span>
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
                               {f.moneda} {f.total.toFixed(2)}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-2xs text-muted-foreground">
                               {EstadoPasivoLabels[f.estado]}
                             </span>
                           </div>

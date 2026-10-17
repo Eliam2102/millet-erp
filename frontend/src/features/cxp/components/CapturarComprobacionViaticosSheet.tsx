@@ -222,7 +222,7 @@ function Form({ solicitud, onCancel, onCaptured, onDirtyChange }: FormProps) {
             size="sm"
             onClick={() => append(defaultLinea('MXN'))}
           >
-            <Plus className="mr-1 h-3 w-3" />
+            <Plus className="mr-1 size-3.5" />
             Agregar línea
           </Button>
         </header>
@@ -333,7 +333,7 @@ function LineaInline({
           />
           {puedeCargarCfdi && (
             <Button type="button" variant="outline" onClick={onCargarXml}>
-              <Upload className="mr-1 h-4 w-4" aria-hidden="true" />
+              <Upload className="mr-1 size-3.5" aria-hidden="true" />
               Cargar XML
             </Button>
           )}
@@ -449,7 +449,7 @@ function LineaInline({
             aria-label={`Quitar línea ${index + 1}`}
             className="text-danger-fg hover:bg-danger-bg"
           >
-            <Trash2 className="mr-1 h-3 w-3" aria-hidden="true" />
+            <Trash2 className="mr-1 size-3.5" aria-hidden="true" />
             Quitar
           </Button>
         </div>

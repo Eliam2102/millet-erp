@@ -195,7 +195,7 @@ export function AprobacionConteoPage() {
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios/$id" params={{ id: id ?? '' }}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Volver al detalle
           </Link>
         </Button>
@@ -264,7 +264,7 @@ export function AprobacionConteoPage() {
                   {enConciliacion && (
                     <>
                       <Button variant="outline" onClick={ejecutarEvaluar}>
-                        <Calculator className="mr-2 h-4 w-4" />
+                        <Calculator className="mr-2 size-3.5" />
                         Evaluar variaciones (A7)
                       </Button>
                       <Button
@@ -272,14 +272,14 @@ export function AprobacionConteoPage() {
                         disabled={motivoNoAprobar != null}
                         aria-describedby={motivoNoAprobar ? 'motivo-no-aprobar' : undefined}
                       >
-                        <Check className="mr-2 h-4 w-4" />
+                        <Check className="mr-2 size-3.5" />
                         Aprobar conteo
                       </Button>
                       <Button
                         variant="secondary-danger"
                         onClick={() => setRechazarOpen(true)}
                       >
-                        <X className="mr-2 h-4 w-4" />
+                        <X className="mr-2 size-3.5" />
                         Rechazar
                       </Button>
                     </>
@@ -291,7 +291,7 @@ export function AprobacionConteoPage() {
                   )}
                   {aprobado && (
                     <Button onClick={() => setAplicarOpen(true)}>
-                      <Wallet className="mr-2 h-4 w-4" />
+                      <Wallet className="mr-2 size-3.5" />
                       Aplicar (generar movimientos)
                     </Button>
                   )}
@@ -411,7 +411,7 @@ function BloqueoInventarioAnualBanner() {
       <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger-fg" />
       <div>
         <p className="font-medium text-danger-fg">
-          Inventario anual — salidas bloqueadas (A18)
+          Inventario anual — salidas bloqueadas
         </p>
         <p className="text-danger-fg">
           Mientras este conteo esté activo, los almacenes no pueden surtir
@@ -595,7 +595,7 @@ function RecuentoDialog({
           <DialogTitle>Agregar recuento</DialogTitle>
           <DialogDescription>
             Captura la cantidad recontada por el contador en una segunda
-            pasada. El backend re-evalúa la variación (A7).
+            pasada. El sistema vuelve a calcular la variación.
             {linea && (
               <span className="mt-1 block font-medium text-foreground">
                 {linea.articuloClave ?? linea.articuloId.slice(0, 8)}

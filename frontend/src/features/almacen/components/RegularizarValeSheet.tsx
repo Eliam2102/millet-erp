@@ -48,7 +48,7 @@ export function RegularizarValeSheet({
           <SheetTitle>Regularizar vale {folio}</SheetTitle>
           <SheetDescription>
             Vincula una RQ aprobada posterior al vale para cerrar el
-            ciclo (A14). La RQ debe pertenecer al mismo
+            ciclo. La RQ debe pertenecer al mismo
             sub-almacén/persona destinataria/material del vale.
           </SheetDescription>
         </SheetHeader>
@@ -158,7 +158,7 @@ function FormBody({
         </Field>
         <p className="text-xs text-muted-foreground">
           La RQ debe haber sido aprobada con posterioridad al vale y
-          cubrir el mismo material/cantidad. El backend valida el
+          cubrir el mismo material/cantidad. El sistema valida el
           vínculo y, si pasa, marca el vale como regularizado.
         </p>
       </form>

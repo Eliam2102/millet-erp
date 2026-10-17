@@ -30,7 +30,7 @@ export function VariacionBadge({
 }: VariacionBadgeProps) {
   if (variacionAbsoluta == null) {
     return (
-      <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">
+      <span className="inline-flex items-center rounded-full bg-neutral-bg px-2 py-0.5 text-xs text-neutral-fg">
         Sin capturar
       </span>
     );
@@ -41,7 +41,7 @@ export function VariacionBadge({
 
   if (variacionAbsoluta === 0) {
     return (
-      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+      <span className="inline-flex items-center rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-fg">
         Sin variación
       </span>
     );
@@ -55,9 +55,9 @@ export function VariacionBadge({
       <span
         className={cn(
           'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-          esMuyGrande && 'bg-rose-200 text-rose-900',
-          esGrande && !esMuyGrande && 'bg-rose-100 text-rose-800',
-          !esGrande && 'bg-amber-100 text-amber-800',
+          esMuyGrande && "bg-danger-bg font-semibold text-danger-fg",
+          esGrande && !esMuyGrande && "bg-danger-bg text-danger-fg",
+          !esGrande && 'bg-warning-bg text-warning-fg',
         )}
       >
         {variacionAbsoluta > 0 ? '+' : ''}
@@ -71,7 +71,7 @@ export function VariacionBadge({
         <MoneyDisplay amount={variacionValorMxn ?? 0} currency="MXN" strong />
       </span>
       {requiereRecuento && (
-        <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-rose-800">
+        <span className="inline-flex items-center rounded-full bg-danger-bg px-1.5 py-0.5 text-2xs font-semibold uppercase text-danger-fg">
           Recuento
         </span>
       )}

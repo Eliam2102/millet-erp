@@ -133,12 +133,12 @@ export function SalidasPage() {
     <div className="space-y-4">
       <PageHeader
         titulo="Salidas"
-        descripcion="Surtido de requisiciones aprobadas y vales urgentes (A14). El comprobante PDF se descarga del detalle."
+        descripcion="Surtido de requisiciones aprobadas y vales urgentes. El comprobante PDF se descarga del detalle."
         acciones={
           <>
             {(puedeRegistrar || puedeRegistrarVale) && (
               <Button onClick={() => setSheetAbierto(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Nueva salida
               </Button>
             )}

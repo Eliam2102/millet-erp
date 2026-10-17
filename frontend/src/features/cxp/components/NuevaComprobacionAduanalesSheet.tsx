@@ -222,7 +222,7 @@ function Form({
             size="sm"
             onClick={() => append('' as never)}
           >
-            <Plus className="mr-1 h-3 w-3" />
+            <Plus className="mr-1 size-3.5" />
             Agregar factura
           </Button>
         </header>

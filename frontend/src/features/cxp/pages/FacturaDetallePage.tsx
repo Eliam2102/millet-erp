@@ -10,7 +10,7 @@ import { ArrowLeft, CheckCircle2, Paperclip, Send, Unlock, XCircle } from 'lucid
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useFactura, useAutorizarFactura, useMarcarRetencionesRevisadas } from '@/features/cxp/api/useFacturas';
 import { MotivoBajaDialog } from '@/components/erp/adjuntos/MotivoBajaDialog';
 import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types';
@@ -107,7 +107,7 @@ export function FacturaDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/facturas" search={search}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Facturas
           </Link>
         </Button>
@@ -120,16 +120,7 @@ export function FacturaDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
@@ -194,7 +185,7 @@ export function FacturaDetallePage() {
                           : undefined
                     }
                   >
-                    <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+                    <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
                     Autorizar
                   </Button>
                   {query.data.estado === EstadoPasivo.EnRevision && (
@@ -208,13 +199,13 @@ export function FacturaDetallePage() {
               !query.data.enRevision &&
               puedeEnviarRevision && (
                 <Button variant="outline" size="sm" onClick={() => setEnviarRevisionAbierto(true)}>
-                  <Send className="mr-1 h-3 w-3" />
+                  <Send className="mr-1 size-3.5" />
                   Enviar a revisión
                 </Button>
               )}
             {query.data.estado === EstadoPasivo.EnRevision && puedeLiberarRevision && (
               <Button variant="outline" size="sm" onClick={() => setLiberarRevisionAbierto(true)}>
-                <Unlock className="mr-1 h-3 w-3" />
+                <Unlock className="mr-1 size-3.5" />
                 Liberar revisión
               </Button>
             )}
@@ -226,7 +217,7 @@ export function FacturaDetallePage() {
                   size="sm"
                   onClick={() => setAdjuntarEvidenciaAbierto(true)}
                 >
-                  <Paperclip className="mr-1 h-3 w-3" />
+                  <Paperclip className="mr-1 size-3.5" />
                   Adjuntar evidencia
                 </Button>
               )}
@@ -239,7 +230,7 @@ export function FacturaDetallePage() {
                   onClick={() => setCancelarAbierto(true)}
                   className="text-danger-fg"
                 >
-                  <XCircle className="mr-1 h-3 w-3" />
+                  <XCircle className="mr-1 size-3.5" />
                   Cancelar
                 </Button>
               )}

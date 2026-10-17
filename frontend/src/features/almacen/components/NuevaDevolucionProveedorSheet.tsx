@@ -410,14 +410,14 @@ function FormBody({
                 })
               }
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-3.5" />
               Agregar línea
             </Button>
           </div>
 
           {form.formState.errors.lineas &&
             !Array.isArray(form.formState.errors.lineas) && (
-              <p role="alert" className="text-xs text-rose-600">
+              <p role="alert" className="text-xs text-danger">
                 {form.formState.errors.lineas.message}
               </p>
             )}

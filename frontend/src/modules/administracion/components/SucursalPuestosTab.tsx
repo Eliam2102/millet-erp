@@ -62,7 +62,7 @@ export function SucursalPuestosTab({
   const [filtro, setFiltro] = useState('');
   const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
 
-  const asignados = asignadosQuery.data?.items ?? [];
+  const asignados = useMemo(() => asignadosQuery.data?.items ?? [], [asignadosQuery.data?.items]);
   const roles = rolesQuery.data?.items ?? [];
 
   const deptosActivos = useMemo(() => {

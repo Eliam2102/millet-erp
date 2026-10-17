@@ -158,7 +158,7 @@ export function EmpleadosPage() {
   ]);
 
   const query = useEmpleadosAdmin();
-  const empleados = query.data ?? [];
+  const empleados = useMemo(() => query.data ?? [], [query.data]);
 
   const sucursalesQuery = useSucursales();
   const sucursales = sucursalesQuery.data?.items ?? [];

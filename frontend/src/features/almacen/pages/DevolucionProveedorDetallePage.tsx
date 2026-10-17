@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, Check, Send, Truck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useDevolucionProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
 import {
   EstadoDevolucionProveedor,
@@ -66,7 +66,7 @@ export function DevolucionProveedorDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/devoluciones" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Devoluciones
           </Link>
         </Button>
@@ -79,16 +79,7 @@ export function DevolucionProveedorDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
@@ -321,7 +312,7 @@ function Acciones({
               : 'Agrega al menos una evidencia antes de solicitar'
           }
         >
-          <Send className="mr-2 h-4 w-4" />
+          <Send className="mr-2 size-3.5" />
           Solicitar autorización
         </Button>
       </div>
@@ -331,11 +322,11 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onAutorizar}>
-          <Check className="mr-2 h-4 w-4" />
+          <Check className="mr-2 size-3.5" />
           Autorizar
         </Button>
         <Button variant="destructive" onClick={onRechazar}>
-          <X className="mr-2 h-4 w-4" />
+          <X className="mr-2 size-3.5" />
           Rechazar
         </Button>
       </div>
@@ -345,7 +336,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onRegistrarSalida}>
-          <Truck className="mr-2 h-4 w-4" />
+          <Truck className="mr-2 size-3.5" />
           Registrar salida física
         </Button>
       </div>

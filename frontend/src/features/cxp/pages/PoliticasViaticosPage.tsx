@@ -59,12 +59,12 @@ export function PoliticasViaticosPage() {
     <div className="space-y-4">
       <PageHeader
         titulo="Políticas de viáticos"
-        descripcion="Tabuladores por puesto y destino (Nacional/Internacional). El backend valida solicitudes de viáticos contra estos topes."
+        descripcion="Tabuladores por puesto y destino (Nacional/Internacional). Las solicitudes de viáticos se validan contra estos topes."
         acciones={
           <>
             {puedeAdmin && (
               <Button onClick={() => setSheetAbierto(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Nueva política
               </Button>
             )}

@@ -5,7 +5,7 @@ import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, FileDown, Printer, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
 import {
@@ -48,7 +48,7 @@ export function SalidaDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/salidas" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Salidas
           </Link>
         </Button>
@@ -61,16 +61,7 @@ export function SalidaDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
@@ -100,7 +91,7 @@ export function SalidaDetallePage() {
                     !query.data.rqRegularizadoraId &&
                     puedePorVale && (
                       <Button onClick={() => setRegularizarOpen(true)}>
-                        <RotateCw className="mr-2 h-4 w-4" />
+                        <RotateCw className="mr-2 size-3.5" />
                         Regularizar vale
                       </Button>
                     )}
@@ -313,7 +304,7 @@ function VerValeButton({ salidaId }: { salidaId: string }) {
       onClick={abrir}
       disabled={valeQuery.isLoading || valeQuery.isFetching}
     >
-      <FileDown className="mr-2 h-4 w-4" />
+      <FileDown className="mr-2 size-3.5" />
       {valeQuery.isLoading || valeQuery.isFetching
         ? 'Cargando vale…'
         : 'Ver vale escaneado'}
@@ -354,7 +345,7 @@ function ImprimirComprobanteButton({ salida }: { salida: SalidaDetalle }) {
       onClick={imprimir}
       disabled={generando}
     >
-      <Printer className="mr-2 h-4 w-4" />
+      <Printer className="mr-2 size-3.5" />
       {generando ? 'Generando PDF…' : 'Imprimir comprobante'}
     </Button>
   );

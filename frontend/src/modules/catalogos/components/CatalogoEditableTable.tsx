@@ -230,7 +230,7 @@ export function CatalogoEditableTable<
                   </tr>
                   {editando && (
                     <tr>
-                      <td colSpan={totalCols} className="bg-amber-50/40 p-3">
+                      <td colSpan={totalCols} className="bg-warning-bg/40 p-3">
                         {renderInlineEditForm(item, () => setEditandoId(null))}
                       </td>
                     </tr>

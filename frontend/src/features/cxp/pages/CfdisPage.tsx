@@ -152,7 +152,7 @@ export function CfdisPage() {
           <>
             {puedeCargarManual && (
               <Button onClick={() => setCargarOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" />
+                <Upload className="mr-2 size-3.5" />
                 Cargar CFDI
               </Button>
             )}

@@ -153,7 +153,7 @@ export function UbicacionesPage() {
           <>
             {puedeAdministrar && (
               <Button onClick={abrirCrear}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Nueva ubicación
               </Button>
             )}
@@ -384,7 +384,7 @@ function TablaUbicaciones({
               <td className="px-3 py-2">
                 <span className="font-mono text-xs">{u.clave}</span>
                 {u.esDefault && (
-                  <span className="ml-2 inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-800">
+                  <span className="ml-2 inline-flex items-center rounded-full bg-info-bg px-2 py-0.5 text-2xs font-medium text-info-fg">
                     default de enrutamiento
                   </span>
                 )}

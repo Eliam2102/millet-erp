@@ -146,7 +146,7 @@ export function AsignacionesPage() {
             })
           }
         >
-          <ArrowLeft className="mr-1 h-4 w-4" />
+          <ArrowLeft className="mr-1 size-3.5" />
           {volverAlArticulo.etiqueta
             ? `Volver a ${volverAlArticulo.etiqueta}`
             : 'Volver al artículo'}
@@ -160,7 +160,7 @@ export function AsignacionesPage() {
           <>
             {puedeAdministrar && (
               <Button onClick={() => setSheetAbierto(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Asignar artículo
               </Button>
             )}

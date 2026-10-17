@@ -702,7 +702,7 @@ function FilasDesdeRq({
     return (
       <section
         role="alert"
-        className="rounded-md border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700"
+        className="rounded-md border border-danger bg-danger-bg p-4 text-sm text-danger-fg"
       >
         No se pudo cargar la RQ. Verifica el id o vuelve a intentar.
       </section>
@@ -746,7 +746,7 @@ function FilasDesdeRq({
       )}
 
       {errorMessage && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger">
           {errorMessage}
         </p>
       )}
@@ -793,7 +793,7 @@ function FilasDesdeRq({
           existencia ahí. Nunca reemplaza un rack ya capturado.
         </p>
         {sinCobertura > 0 && (
-          <p role="alert" className="mt-2 text-xs text-amber-700">
+          <p role="alert" className="mt-2 text-xs text-warning-fg">
             {sinCobertura}{' '}
             {sinCobertura === 1 ? 'línea sin existencia' : 'líneas sin existencia'}{' '}
             en {claveHelper ?? 'la ubicación elegida'} — elígeles rack
@@ -951,7 +951,7 @@ function FilaLineaRq({
                 />
                 <p
                   id={`fila-${index}-max`}
-                  className="mt-1 text-[11px] text-muted-foreground"
+                  className="mt-1 text-2xs text-muted-foreground"
                 >
                   Máximo: {formatCantidad(fila.pendienteEntregar)}
                 </p>
@@ -987,7 +987,7 @@ function FilaLineaRq({
                     Ubicación (rack) de salida
                     {!!ubicacionHelperId &&
                       fila.ubicacionId === ubicacionHelperId && (
-                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                        <span className="rounded bg-success-bg px-1.5 py-0.5 text-2xs font-medium text-success-fg">
                           coincide
                         </span>
                       )}
@@ -1131,14 +1131,14 @@ function LineasCapturaLibre({
             })
           }
         >
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 size-3.5" />
           Agregar línea
         </Button>
       </div>
 
       {form.formState.errors.lineas &&
         !Array.isArray(form.formState.errors.lineas) && (
-          <p role="alert" className="text-xs text-rose-600">
+          <p role="alert" className="text-xs text-danger">
             {form.formState.errors.lineas.message}
           </p>
         )}
@@ -1182,7 +1182,7 @@ function LineasCapturaLibre({
           existencia ahí. Nunca reemplaza un rack ya capturado.
         </p>
         {sinCobertura > 0 && (
-          <p role="alert" className="mt-2 text-xs text-amber-700">
+          <p role="alert" className="mt-2 text-xs text-warning-fg">
             {sinCobertura}{' '}
             {sinCobertura === 1 ? 'línea sin existencia' : 'líneas sin existencia'}{' '}
             en {claveHelper ?? 'la ubicación elegida'} — elígeles rack
@@ -1407,10 +1407,10 @@ function BadgeEntrega({ fila }: { fila: FilaSalidaValues }) {
   return (
     <span
       className={cn(
-        'rounded px-1.5 py-0.5 text-[10px] font-medium',
+        'rounded px-1.5 py-0.5 text-2xs font-medium',
         esParcial
-          ? 'bg-amber-100 text-amber-800'
-          : 'bg-emerald-100 text-emerald-800',
+          ? 'bg-warning-bg text-warning-fg'
+          : 'bg-success-bg text-success-fg',
       )}
     >
       {esParcial

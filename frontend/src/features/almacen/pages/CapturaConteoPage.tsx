@@ -145,7 +145,7 @@ export function CapturaConteoPage() {
             to="/almacen/inventarios/$id"
             params={{ id: id ?? '' }}
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Volver al detalle
           </Link>
         </Button>
@@ -331,11 +331,16 @@ function FilaCaptura({
     <TableRow
       className={cn(
         activo && 'bg-primary/5',
-        capturada && !activo && 'opacity-60',
+        capturada && !activo && 'text-muted-foreground',
       )}
       onClick={onActivar}
     >
-      <TableCell className="font-mono text-xs">{index + 1}</TableCell>
+      <TableCell className="font-mono text-xs">
+        {capturada && (
+          <Check aria-label="Capturada" className="mr-1 inline size-3.5 text-success" />
+        )}
+        {index + 1}
+      </TableCell>
       <TableCell>
         <EtiquetaArticulo
           articuloId={linea.articuloId}

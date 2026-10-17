@@ -94,7 +94,7 @@ export function RetencionesPage() {
         }
       />
       <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg">
-        Supuesto SAT, valida Fiscal (D03). Las tasas dependen del concepto y del régimen del
+        Supuesto del SAT: debe validarlo Fiscal. Las tasas dependen del concepto y del régimen del
         proveedor.
       </p>
       {query.isLoading && <p>Cargando retenciones…</p>}

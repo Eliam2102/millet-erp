@@ -121,7 +121,7 @@ function Form({ movimiento, onClose }: FormProps) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4">
-      <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+      <div className="rounded-md border border-warning bg-warning-note-bg px-3 py-2 text-xs text-warning-note-fg">
         <AlertTriangle className="mr-1 inline h-3 w-3" />
         El movimiento quedará <strong>excluido del cierre</strong> del
         estado de cuenta hasta resolver la disputa. Si se confirma como

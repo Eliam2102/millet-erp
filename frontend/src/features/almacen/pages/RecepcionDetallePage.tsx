@@ -5,7 +5,7 @@ import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import {
   Table,
   TableBody,
@@ -50,7 +50,7 @@ export function RecepcionDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/recepciones" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Recepciones
           </Link>
         </Button>
@@ -63,16 +63,7 @@ export function RecepcionDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader

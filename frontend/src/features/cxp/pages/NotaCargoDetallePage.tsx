@@ -6,7 +6,7 @@ import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useNotaCargo, useAutorizarNotaCargo } from '@/features/cxp/api/useNotasYAnticipos';
 import { esApiError } from '@/lib/api';
 import { toast } from 'sonner';
@@ -44,7 +44,7 @@ export function NotaCargoDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/notas-cargo" search={search}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Notas de cargo
           </Link>
         </Button>
@@ -57,15 +57,7 @@ export function NotaCargoDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
@@ -204,7 +196,7 @@ export function NotaCargoDetallePage() {
                 </dd>
               </div>
               <Campo
-                label="Devolución a proveedor (8.B)"
+                label="Devolución a proveedor"
                 valor={query.data.devolucionAProveedorId ?? '—'}
                 mono={query.data.devolucionAProveedorId != null}
               />

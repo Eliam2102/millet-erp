@@ -207,7 +207,7 @@ export function CierreMesPage() {
           disabled={motivoBloqueo !== null || ejecutar.isPending}
           aria-describedby={motivoBloqueo ? 'motivo-cierre-bloqueado' : undefined}
         >
-          <CheckCircle2 className="mr-2 h-4 w-4" />
+          <CheckCircle2 className="mr-2 size-3.5" />
           Ejecutar cierre {periodo}
         </Button>
         {motivoBloqueo && (

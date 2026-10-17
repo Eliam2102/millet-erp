@@ -83,7 +83,7 @@ export function NuevaSolicitudViaticosSheet({
         <SheetHeader>
           <SheetTitle>Nueva solicitud de viáticos</SheetTitle>
           <SheetDescription>
-            El backend evalúa contra política del puesto y destino. Si excede,
+            El sistema evalúa contra política del puesto y destino. Si excede,
             requerirá firma adicional de Dirección de Finanzas.
           </SheetDescription>
         </SheetHeader>
@@ -406,7 +406,7 @@ function Form({
       >
         <Textarea
           rows={3}
-          placeholder="Solo necesaria si superas el tope. El backend valida al recibir."
+          placeholder="Solo necesaria si superas el tope. Se valida al enviar."
           {...form.register('justificacionExceso')}
         />
       </Campo>

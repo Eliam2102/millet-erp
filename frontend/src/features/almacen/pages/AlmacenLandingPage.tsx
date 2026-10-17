@@ -108,7 +108,7 @@ const moduloAlmacenLanding: NavModulo = {
         {
           label: 'Devoluciones',
           description:
-            'Devoluciones internas (8.A) y a proveedor (8.B) con conciliación NC fiscal.',
+            'Devoluciones internas y a proveedor con conciliación NC fiscal.',
           to: '/almacen/devoluciones',
           icon: RotateCcw,
           permissionsAny: [
@@ -180,7 +180,7 @@ const moduloAlmacenLanding: NavModulo = {
         {
           label: 'Sub-almacenes',
           description:
-            'Subdivisión física de cada almacén por tipo de material (Insumos / Materiales directos / MAT-REV / Transitorio).',
+            'Subdivisión física de cada almacén por tipo de material (Insumos / Materiales directos / Material en revisión / Transitorio).',
           to: '/almacen/sub-almacenes',
           icon: Layers,
           // Mismo gate que su ruta (almacen.almacenes.leer), patrón de la

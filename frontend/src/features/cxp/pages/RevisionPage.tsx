@@ -205,9 +205,9 @@ function SlaBadge({ dias }: { dias: number }) {
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium font-mono',
-        dias < 3 && 'bg-emerald-100 text-emerald-800',
-        dias >= 3 && dias < 5 && 'bg-amber-100 text-amber-800',
-        dias >= 5 && 'bg-rose-100 text-rose-800',
+        dias < 3 && 'bg-success-bg text-success-fg',
+        dias >= 3 && dias < 5 && 'bg-warning-bg text-warning-fg',
+        dias >= 5 && 'bg-danger-bg text-danger-fg',
       )}
     >
       {dias}d

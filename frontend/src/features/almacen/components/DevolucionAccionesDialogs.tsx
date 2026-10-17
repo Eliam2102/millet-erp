@@ -270,8 +270,8 @@ export function RegistrarSalidaDevolucionSheet({
           <SheetTitle>Registrar salida de devolución</SheetTitle>
           <SheetDescription>
             Confirma que el material físicamente salió del almacén hacia
-            el proveedor. Esto genera el movimiento de salida y publica
-            el evento al outbox.
+            el proveedor. Esto genera el movimiento de salida y avisa
+            a Compras y Cuentas por Pagar.
           </SheetDescription>
         </SheetHeader>
 

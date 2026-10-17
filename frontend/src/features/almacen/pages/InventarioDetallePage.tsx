@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import {
   useConteo,
   useEnviarConteoAConciliacion,
@@ -117,7 +117,7 @@ export function InventarioDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/inventarios" search={{}}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Inventarios
           </Link>
         </Button>
@@ -130,16 +130,7 @@ export function InventarioDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={4}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-48' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
@@ -254,9 +245,9 @@ export function InventarioDetallePage() {
               pasará a <b>En curso</b>. A partir de este momento el contador
               puede capturar.
               {query.data?.tipo === TipoConteo.Anual && (
-                <span className="mt-2 block text-amber-700">
+                <span className="mt-2 block text-warning-fg">
                   <b>Conteo anual</b>: las salidas se bloquean durante la
-                  captura (A18).
+                  captura.
                 </span>
               )}
             </AlertDialogDescription>
@@ -332,7 +323,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onIniciar}>
-          <Play className="mr-2 h-4 w-4" />
+          <Play className="mr-2 size-3.5" />
           Iniciar (tomar snapshot)
         </Button>
       </div>
@@ -344,7 +335,7 @@ function Acciones({
       <div className="flex gap-2">
         {puedeCapturar && (
           <Button onClick={onCapturar} variant="default">
-            <ClipboardCheck className="mr-2 h-4 w-4" />
+            <ClipboardCheck className="mr-2 size-3.5" />
             Capturar (sin sesgo)
           </Button>
         )}
@@ -359,7 +350,7 @@ function Acciones({
                 : `Captura faltante: ${capturadas} / ${total}`
             }
           >
-            <Send className="mr-2 h-4 w-4" />
+            <Send className="mr-2 size-3.5" />
             Enviar a conciliación
           </Button>
         )}
@@ -371,7 +362,7 @@ function Acciones({
       return (
         <div className="flex gap-2">
           <Button onClick={onAprobar}>
-            <GitCompareArrows className="mr-2 h-4 w-4" />
+            <GitCompareArrows className="mr-2 size-3.5" />
             Aprobar / comparar
           </Button>
         </div>
@@ -388,7 +379,7 @@ function Acciones({
     return (
       <div className="flex gap-2">
         <Button onClick={onAprobar}>
-          <GitCompareArrows className="mr-2 h-4 w-4" />
+          <GitCompareArrows className="mr-2 size-3.5" />
           Ver / aplicar conteo
         </Button>
       </div>

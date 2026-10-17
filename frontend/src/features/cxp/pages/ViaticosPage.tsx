@@ -105,7 +105,7 @@ export function ViaticosPage() {
           <>
             {puedeSolicitar && (
               <Button onClick={() => setNuevaAbierta(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Solicitar viáticos
               </Button>
             )}

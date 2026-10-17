@@ -2,7 +2,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useComprobacionGastos } from '@/features/cxp/api/useComprobaciones';
 import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import { TipoComprobacionGastosLabels } from '@/features/cxp/api/types';
@@ -34,7 +34,7 @@ export function ComprobacionDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/comprobaciones" search={search}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Comprobaciones
           </Link>
         </Button>
@@ -47,15 +47,7 @@ export function ComprobacionDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader

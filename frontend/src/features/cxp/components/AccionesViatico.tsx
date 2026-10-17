@@ -172,7 +172,7 @@ export function AccionesViatico({
             title={sinEmpleado ? MOTIVO_SIN_EMPLEADO : undefined}
             aria-describedby={sinEmpleado ? ayudaId : undefined}
           >
-            <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+            <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
             Autorizar como jefe
           </Button>
           {sinEmpleado && (
@@ -184,7 +184,7 @@ export function AccionesViatico({
       )}
       {s.estado === EstadoSolicitudViaticos.RequiereDireccionFinanzas && puedeAutDf && (
         <Button variant="outline" size="sm" onClick={() => setDialogo('autDf')} disabled={pendiente}>
-          <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" />
+          <CheckCircle2 className="mr-1 size-3.5" aria-hidden="true" />
           Autorizar (Dir. Finanzas)
         </Button>
       )}
@@ -192,19 +192,19 @@ export function AccionesViatico({
         s.estado === EstadoSolicitudViaticos.AutorizadaCompleta) &&
         puedeMarcarPagado && (
           <Button variant="outline" size="sm" onClick={() => setDialogo('pagado')} disabled={pendiente}>
-            <Wallet className="mr-1 h-3 w-3" aria-hidden="true" />
+            <Wallet className="mr-1 size-3.5" aria-hidden="true" />
             Marcar pagado
           </Button>
         )}
       {s.estado === EstadoSolicitudViaticos.Anticipada && puedeCapturarComp && onComprobar && (
         <Button variant="outline" size="sm" onClick={onComprobar}>
-          <ClipboardCheck className="mr-1 h-3 w-3" aria-hidden="true" />
+          <ClipboardCheck className="mr-1 size-3.5" aria-hidden="true" />
           Comprobar
         </Button>
       )}
       {s.estado === EstadoSolicitudViaticos.ComprobacionCapturada && puedeLiberar && (
         <Button variant="outline" size="sm" onClick={() => setDialogo('liberar')} disabled={pendiente}>
-          <Unlock className="mr-1 h-3 w-3" aria-hidden="true" />
+          <Unlock className="mr-1 size-3.5" aria-hidden="true" />
           Liberar
         </Button>
       )}
@@ -221,13 +221,13 @@ export function AccionesViatico({
             }}
             disabled={pendiente}
           >
-            <XCircle className="mr-1 h-3 w-3" aria-hidden="true" />
+            <XCircle className="mr-1 size-3.5" aria-hidden="true" />
             Rechazar
           </Button>
         )}
       {s.estado === EstadoSolicitudViaticos.Solicitada && s.excedePolitica && (
         <span className="ml-1 inline-flex items-center text-xs text-warning-note-fg">
-          <Send className="mr-1 h-3 w-3" aria-hidden="true" />
+          <Send className="mr-1 size-3.5" aria-hidden="true" />
           Pasará a DF
         </span>
       )}

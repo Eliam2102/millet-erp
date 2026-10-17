@@ -97,7 +97,7 @@ export function MovimientosTcPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button>
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="mr-2 size-3.5" />
                     Nuevo movimiento
                   </Button>
                 </DropdownMenuTrigger>
@@ -106,7 +106,7 @@ export function MovimientosTcPage() {
                     Compra (Flujo A/B)
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setEspecialAbierto(true)}>
-                    <Zap className="mr-2 h-3 w-3" />
+                    <Zap className="mr-2 size-3.5" />
                     Especial (intereses/anualidad/comisión)
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -208,7 +208,7 @@ export function MovimientosTcPage() {
                             <DropdownMenuItem
                               onSelect={() => setRefundTarget(m)}
                             >
-                              <Undo2 className="mr-2 h-3 w-3" />
+                              <Undo2 className="mr-2 size-3.5" />
                               Registrar refund
                             </DropdownMenuItem>
                           )}
@@ -217,7 +217,7 @@ export function MovimientosTcPage() {
                               onSelect={() => setDisputarTarget(m)}
                               className="text-destructive focus:text-destructive"
                             >
-                              <AlertTriangle className="mr-2 h-3 w-3" />
+                              <AlertTriangle className="mr-2 size-3.5" />
                               Marcar en disputa
                             </DropdownMenuItem>
                           )}

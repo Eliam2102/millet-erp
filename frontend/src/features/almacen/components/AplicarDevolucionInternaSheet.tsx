@@ -65,11 +65,11 @@ export function AplicarDevolucionInternaSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-2xl">
         <SheetHeader>
-          <SheetTitle>Devolución interna (8.A)</SheetTitle>
+          <SheetTitle>Devolución interna</SheetTitle>
           <SheetDescription>
             Devuelve material desde el solicitante al almacén
-            (MAT-REV, sub-almacén destino, o regreso al origen). El
-            backend restituye al costo de la salida origen.
+            (material en revisión, sub-almacén destino, o regreso al origen). El
+            sistema restituye al costo de la salida origen.
           </SheetDescription>
         </SheetHeader>
 
@@ -328,7 +328,7 @@ function FormBody({
                 })
               }
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-3.5" />
               Agregar línea
             </Button>
           </div>

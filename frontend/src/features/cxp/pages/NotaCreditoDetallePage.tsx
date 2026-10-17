@@ -3,7 +3,7 @@ import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Accion
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useNotaCredito } from '@/features/cxp/api/useNotasYAnticipos';
 import { TipoNotaCreditoLabels } from '@/features/cxp/api/types';
 import { esApiError } from '@/lib/api';
@@ -33,7 +33,7 @@ export function NotaCreditoDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/notas-credito" search={search}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Notas de crédito
           </Link>
         </Button>
@@ -46,15 +46,7 @@ export function NotaCreditoDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
@@ -66,7 +58,7 @@ export function NotaCreditoDetallePage() {
             estado={
               <>
                 <EstadoNotaCreditoChip estado={query.data.estado} />
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                <span className="inline-flex items-center rounded-full bg-neutral-bg px-2 py-0.5 text-xs font-medium text-neutral-fg">
                   {TipoNotaCreditoLabels[query.data.tipo]}
                 </span>
               </>

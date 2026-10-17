@@ -156,7 +156,7 @@ export function RecepcionPicker({
                             <span className="truncate font-mono text-xs">
                               {r.folio}
                             </span>
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
                               MXN {r.montoTotalMxn.toFixed(2)}
                             </span>
                           </div>

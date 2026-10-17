@@ -86,8 +86,8 @@ export function SucursalOrganizacionTab({
   const [modalDeptoOpen, setModalDeptoOpen] = useState(false);
   const [modalPuestoOpen, setModalPuestoOpen] = useState(false);
 
-  const deptosAsignados = deptosQuery.data?.items ?? [];
-  const puestosAsignados = puestosQuery.data?.items ?? [];
+  const deptosAsignados = useMemo(() => deptosQuery.data?.items ?? [], [deptosQuery.data?.items]);
+  const puestosAsignados = useMemo(() => puestosQuery.data?.items ?? [], [puestosQuery.data?.items]);
 
   // Mapear cantidad de puestos por departamento
   const puestosCountPorDepto = useMemo(() => {

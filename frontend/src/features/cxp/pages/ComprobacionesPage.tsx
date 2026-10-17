@@ -115,7 +115,7 @@ export function ComprobacionesPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button>
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="mr-2 size-3.5" />
                     Nueva comprobación
                   </Button>
                 </DropdownMenuTrigger>

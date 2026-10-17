@@ -126,7 +126,7 @@ export function RecepcionesPage() {
           <>
             {puedeRegistrar && (
               <Button onClick={() => setSheetAbierto(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Nueva recepción
               </Button>
             )}

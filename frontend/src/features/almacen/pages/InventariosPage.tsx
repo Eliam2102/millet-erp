@@ -115,7 +115,7 @@ export function InventariosPage() {
           <>
             {puedeCrear && (
               <Button onClick={() => setSheetAbierto(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Nuevo conteo
               </Button>
             )}

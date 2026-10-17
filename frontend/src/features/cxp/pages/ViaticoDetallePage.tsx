@@ -3,7 +3,7 @@ import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useState } from 'react';
 import { useSolicitudViaticos } from '@/features/cxp/api/useViaticos';
 import { AccionesViatico } from '@/features/cxp/components/AccionesViatico';
@@ -37,7 +37,7 @@ export function ViaticoDetallePage() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/viaticos" search={search}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-3.5" />
             Viáticos
           </Link>
         </Button>
@@ -50,15 +50,7 @@ export function ViaticoDetallePage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading ? (
-        <TableSkeleton
-          rows={6}
-          columns={[
-            { width: 'w-40' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-            { width: 'w-32' },
-          ]}
-        />
+        <DetalleSkeleton />
       ) : query.data == null ? null : (
         <div className="space-y-6">
           <PageHeader
@@ -71,7 +63,7 @@ export function ViaticoDetallePage() {
                 </Badge>
                 {query.data.excedePolitica && (
                   <Badge variant="warning">
-                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    <AlertTriangle className="mr-1 size-3.5" />
                     Excede política
                   </Badge>
                 )}

@@ -89,7 +89,7 @@ export function EstadosCuentaTcPage() {
           <>
             {puedeRegistrar && (
               <Button onClick={() => setSheetAbierto(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-3.5" />
                 Nuevo estado de cuenta
               </Button>
             )}
@@ -451,7 +451,7 @@ function Acciones({
             onClick={() => fileRef.current?.click()}
             disabled={isPending}
           >
-            <FileUp className="mr-1 h-3 w-3" />
+            <FileUp className="mr-1 size-3.5" />
             Subir archivo
           </Button>
           {ec.perfilParserUsado && (
@@ -461,7 +461,7 @@ function Acciones({
               onClick={onConciliar}
               disabled={isPending}
             >
-              <Calculator className="mr-1 h-3 w-3" />
+              <Calculator className="mr-1 size-3.5" />
               Conciliar auto
             </Button>
           )}
@@ -474,7 +474,7 @@ function Acciones({
           onClick={onMarcarConciliado}
           disabled={isPending}
         >
-          <CheckCircle2 className="mr-1 h-3 w-3" />
+          <CheckCircle2 className="mr-1 size-3.5" />
           Marcar conciliado
         </Button>
       )}
@@ -485,7 +485,7 @@ function Acciones({
           onClick={onCerrar}
           disabled={isPending}
         >
-          <Lock className="mr-1 h-3 w-3" />
+          <Lock className="mr-1 size-3.5" />
           Cerrar
         </Button>
       )}
@@ -496,7 +496,7 @@ function Acciones({
           onClick={onMarcarPagado}
           disabled={isPending}
         >
-          <Wallet className="mr-1 h-3 w-3" />
+          <Wallet className="mr-1 size-3.5" />
           Marcar pagado
         </Button>
       )}

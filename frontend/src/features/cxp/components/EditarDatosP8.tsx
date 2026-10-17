@@ -100,7 +100,7 @@ export function EditarDatosP8({ factura }: { factura: FacturaDetalle }) {
         </SelectContent>
       </Select>
       <p className="text-xs text-ink-muted">
-        Supuesto SAT, valida Fiscal (D03). Contabilidad administra la apertura y reapertura de
+        Supuesto del SAT: debe validarlo Fiscal. Contabilidad administra la apertura y reapertura de
         periodos.
       </p>
       {error && (

@@ -162,7 +162,7 @@ export function PackingListUpload({
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/30',
           (disabled || subir.isPending) && 'opacity-60 pointer-events-none',
-          error && 'border-rose-400',
+          error && 'border-danger',
         )}
       >
         {subir.isPending ? (
@@ -199,7 +199,7 @@ export function PackingListUpload({
         />
       </div>
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       )}

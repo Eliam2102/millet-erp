@@ -288,7 +288,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger">
             *
           </span>
         )}
@@ -298,7 +298,7 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
         <p className="text-xs text-muted-foreground">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       )}
