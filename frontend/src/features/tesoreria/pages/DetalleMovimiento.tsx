@@ -166,7 +166,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
             </dd>
           </div>
         )}
-        {m.fondosVerificados != null && (
+        {m.destinoBanco != null && m.fondosVerificados != null && (
           <div>
             <dt className="text-xs text-muted-foreground">Fondos verificados</dt>
             <dd>{m.fondosVerificados ? 'Sí' : 'No'}</dd>

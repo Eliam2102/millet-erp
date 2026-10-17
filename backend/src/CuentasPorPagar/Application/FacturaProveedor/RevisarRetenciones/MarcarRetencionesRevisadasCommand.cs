@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -33,10 +34,14 @@ public sealed class MarcarRetencionesRevisadasHandler
     private readonly CuentasPorPagarDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly IClock _clock;
+    private readonly IAuditLogWriter _audit;
+    private readonly ICurrentEmpresaContext _empresa;
 
-    public MarcarRetencionesRevisadasHandler(CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock)
+    public MarcarRetencionesRevisadasHandler(
+        CuentasPorPagarDbContext db, ICurrentUserContext currentUser, IClock clock,
+        IAuditLogWriter audit, ICurrentEmpresaContext empresa)
     {
-        _db = db; _currentUser = currentUser; _clock = clock;
+        _db = db; _currentUser = currentUser; _clock = clock; _audit = audit; _empresa = empresa;
     }
 
     public async Task<MarcarRetencionesRevisadasResponse> Handle(
@@ -49,6 +54,16 @@ public sealed class MarcarRetencionesRevisadasHandler
 
         factura.MarcarRetencionesRevisadas(command.Motivo, _currentUser.UserId, _clock.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
+        await _audit.RegistrarAsync(
+            operacion: "factura.retenciones-revisadas",
+            modulo: "CuentasPorPagar", entidad: "FacturaProveedor",
+            entidadId: factura.Id, aggregateRootId: factura.Id,
+            actorNombre: _currentUser.UserName ?? "Usuario", actorTipo: "usuario", actorEmail: _currentUser.Email,
+            entidadEtiqueta: $"Factura {factura.FolioProveedor ?? factura.Id.ToString()}",
+            resumen: "Fiscal revisó la alerta de retenciones.",
+            usuarioId: _currentUser.UserId, empresaId: _empresa.Current,
+            cambios: JsonSerializer.Serialize(new { motivo = command.Motivo.Trim() }),
+            cancellationToken: cancellationToken);
         return new MarcarRetencionesRevisadasResponse(factura.Id, factura.Version);
     }
 }

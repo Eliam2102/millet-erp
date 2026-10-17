@@ -121,10 +121,10 @@ export function RegistrarPagoSheet({
                   : null;
 
   function confirmar() {
-    if (cuentaId == null || !importesValidos || cuentaProvId == null || !fondosVerificados) return;
+    if (cuentaId == null || !importesValidos || (!esInterno && cuentaProvId == null) || !fondosVerificados) return;
     setErrorCuenta(null);
     const command = {
-      cuentaProveedorId: cuentaProvId,
+      cuentaProveedorId: esInterno ? undefined : (cuentaProvId ?? undefined),
       fondosVerificados,
       cuentaBancariaId: cuentaId,
       conceptoId: conceptoId ?? undefined,

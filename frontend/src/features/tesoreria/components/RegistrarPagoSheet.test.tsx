@@ -101,4 +101,33 @@ describe('<RegistrarPagoSheet> cuenta del proveedor y fondos', () => {
     expect(await screen.findByText(/Este proveedor no tiene una cuenta activa en MXN/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeDisabled();
   });
+
+  it('pasivo interno: no pide cuenta de proveedor, pide fondos y hace POST sin cuentaProveedorId', async () => {
+    let body: Record<string, unknown> | null = null;
+    mswServer.use(
+      http.post('*/api/v1/tesoreria/pagos', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ monto: 100, moneda: 'MXN', aplicaciones: [{}] });
+      }),
+    );
+    render(
+      <RegistrarPagoSheet
+        pasivos={[{ ...pasivo, tipoBeneficiario: 'Empleado' }]}
+        open
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+      { wrapper: createQueryWrapper() },
+    );
+    fireEvent.click(screen.getByText('elegir egreso'));
+    const boton = screen.getByRole('button', { name: 'Registrar pago' });
+    expect(boton).toBeDisabled();
+    expect(screen.getByText('Confirma que verificaste fondos en la banca')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Verifiqué en la banca/ }));
+    expect(boton).toBeEnabled();
+    fireEvent.click(boton);
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ fondosVerificados: true });
+    expect(body).not.toHaveProperty('cuentaProveedorId');
+  });
 });
