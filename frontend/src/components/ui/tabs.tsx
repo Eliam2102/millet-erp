@@ -14,37 +14,58 @@ import { cn } from '@/lib/utils';
  */
 const Tabs = TabsPrimitive.Root;
 
+type TabsVariant = 'linea' | 'pill';
+const TabsVariantContext = React.createContext<TabsVariant>('linea');
+
+/**
+ * `variant="linea"` (default): subrayado DS 4.4.1 (`shadow-tab-active`).
+ * `variant="pill"`: estilo anterior de píldora, para pantallas que lo necesiten.
+ */
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      'inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground',
-      className,
-    )}
-    {...props}
-  />
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> & { variant?: TabsVariant }
+>(({ className, variant = 'linea', ...props }, ref) => (
+  <TabsVariantContext.Provider value={variant}>
+    <TabsPrimitive.List
+      ref={ref}
+      className={cn(
+        variant === 'pill'
+          ? 'inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground'
+          : 'flex flex-wrap gap-1 border-b border-line',
+        className,
+      )}
+      {...props}
+    />
+  </TabsVariantContext.Provider>
 ));
 TabsList.displayName = TabsPrimitive.List.displayName;
 
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-      'disabled:pointer-events-none disabled:opacity-50',
-      'data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow',
-      className,
-    )}
-    {...props}
-  />
-));
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & { count?: number }
+>(({ className, count, children, ...props }, ref) => {
+  const variant = React.useContext(TabsVariantContext);
+  return (
+    <TabsPrimitive.Trigger
+      ref={ref}
+      className={cn(
+        'inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'disabled:pointer-events-none disabled:opacity-50',
+        variant === 'pill'
+          ? 'rounded-md px-3 py-1 ring-offset-background data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow'
+          : 'px-3 py-2 text-ink-muted hover:text-ink data-[state=active]:text-ink data-[state=active]:shadow-tab-active',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      {count !== undefined && (
+        <span className="text-2xs tabular-nums text-ink-muted">{count}</span>
+      )}
+    </TabsPrimitive.Trigger>
+  );
+});
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 const TabsContent = React.forwardRef<

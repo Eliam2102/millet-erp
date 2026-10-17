@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 import {
   AlertDialog,
@@ -108,43 +109,35 @@ export function AdminAprobadores() {
         }
       />
 
-      {/* Tabs */}
-      <div
-        role="tablist"
-        aria-label="Vigentes o histórico"
-        className="flex gap-1 border-b"
+      <Tabs
+        value={search.tab}
+        onValueChange={(v) => actualizarSearch({ tab: v as typeof search.tab })}
+        className="space-y-4"
       >
-        <TabButton
-          activo={search.tab === 'vigentes'}
-          onClick={() => actualizarSearch({ tab: 'vigentes' })}
-        >
-          Vigentes
-        </TabButton>
-        <TabButton
-          activo={search.tab === 'historico'}
-          onClick={() => actualizarSearch({ tab: 'historico' })}
-        >
-          Histórico
-        </TabButton>
-      </div>
+        <TabsList aria-label="Vigentes o histórico">
+          <TabsTrigger value="vigentes">Vigentes</TabsTrigger>
+          <TabsTrigger value="historico">Histórico</TabsTrigger>
+        </TabsList>
 
-      {/* Filtros (compartidos por ambas tabs) */}
-      <FiltrosToolbar search={search} onChange={actualizarSearch} />
+        {/* Filtros (compartidos por ambas tabs) */}
+        <FiltrosToolbar search={search} onChange={actualizarSearch} />
 
-      {search.tab === 'vigentes' ? (
-        <PanelVigentes
-          search={search}
-          deptosMap={deptosMap}
-          usuariosMap={usuariosMap}
-          onRevocar={(a) => setARevocar(a)}
-        />
-      ) : (
-        <PanelHistorico
-          search={search}
-          deptosMap={deptosMap}
-          usuariosMap={usuariosMap}
-        />
-      )}
+        <TabsContent value="vigentes" className="mt-0">
+          <PanelVigentes
+            search={search}
+            deptosMap={deptosMap}
+            usuariosMap={usuariosMap}
+            onRevocar={(a) => setARevocar(a)}
+          />
+        </TabsContent>
+        <TabsContent value="historico" className="mt-0">
+          <PanelHistorico
+            search={search}
+            deptosMap={deptosMap}
+            usuariosMap={usuariosMap}
+          />
+        </TabsContent>
+      </Tabs>
 
       <DesignarAprobadorDialog
         open={modalDesignarAbierto}
@@ -163,32 +156,6 @@ export function AdminAprobadores() {
 
 // ─── Tabs ────────────────────────────────────────────────────────
 
-function TabButton({
-  activo,
-  onClick,
-  children,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={activo}
-      onClick={onClick}
-      className={cn(
-        '-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-        activo
-          ? 'border-primary text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 // ─── Filtros ──────────────────────────────────────────────────────
 

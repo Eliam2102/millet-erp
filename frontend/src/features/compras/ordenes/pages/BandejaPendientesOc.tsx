@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   EmptyState,
   ErrorState,
@@ -204,28 +205,26 @@ export function BandejaPendientesOc() {
   }
 
   return (
-    <div className="space-y-4" data-component="bandeja-pendientes-oc">
+    <Tabs
+      value={nivelActivo}
+      onValueChange={(v) => cambiarNivel(v as NivelAutorizacionFiltro)}
+      className="space-y-4"
+      data-component="bandeja-pendientes-oc"
+    >
       <PageHeader
         titulo="OC por autorizar"
         descripcion={`Órdenes esperando firma ${nivelActivo === 'Nivel1' ? 'Nivel 1 (Jefe Compras)' : 'Nivel 2 (Dirección)'}, las más viejas primero.`}
         acciones={
           tieneAmbos && (
-            <nav role="tablist" aria-label="Nivel de autorización" className="flex gap-1 border-b">
-              <NivelTab
-                activo={nivelActivo === 'Nivel1'}
-                onClick={() => cambiarNivel('Nivel1')}
-                label="Nivel 1 (Jefe Compras)"
-              />
-              <NivelTab
-                activo={nivelActivo === 'Nivel2'}
-                onClick={() => cambiarNivel('Nivel2')}
-                label="Nivel 2 (Dirección)"
-              />
-            </nav>
+            <TabsList aria-label="Nivel de autorización" className="flex gap-1 border-b">
+              <TabsTrigger value="Nivel1">Nivel 1 (Jefe Compras)</TabsTrigger>
+              <TabsTrigger value="Nivel2">Nivel 2 (Dirección)</TabsTrigger>
+            </TabsList>
           )
         }
       />
 
+      <TabsContent value={nivelActivo} className="mt-0 space-y-4">
       <ResumenAprobacionMasiva resultados={resumen} onCerrar={() => setResumen([])} />
 
       {(seleccionadas.length > 0 || errorAprobacion) && (
@@ -311,38 +310,12 @@ export function BandejaPendientesOc() {
           onChange={(offset, limit) => setPagina(Math.floor(offset / limit) + 1, limit)}
         />
       )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
 
 // ─── Subcomponentes ───────────────────────────────────────────────
-
-function NivelTab({
-  activo,
-  onClick,
-  label,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={activo}
-      onClick={onClick}
-      className={cn(
-        '-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors',
-        activo
-          ? 'border-primary text-primary'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {label}
-    </button>
-  );
-}
 
 function FilaOc({
   oc,

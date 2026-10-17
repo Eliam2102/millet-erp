@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { Compass, GitBranch, Inbox, Lock, Printer, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CollaborationIndicator,
   EditandoBanner,
@@ -35,7 +36,6 @@ import {
   type BandejaOcSearch,
 } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
 import { esApiError, type ApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
 
 /**
  * <c>P3 — Detalle de orden de compra</c> (read-only en UF1-PR2).
@@ -276,7 +276,7 @@ export function DetalleOrdenCompra() {
 }
 
 // ============================================================================
-// Tabs locales — minimal hasta que UF2-PR3 / UF3-PR2 / UF4-PR1 / UF7-PR3
+// Tabs (components/ui/tabs, UX-F1-09). Historia: minimal hasta que UF2-PR3 / UF3-PR2 / UF4-PR1 / UF7-PR3
 // traigan el contenido real. No introducimos Radix Tabs (dependency
 // nueva) para una UI tan simple; si en el futuro otros módulos
 // necesitan tabs, promovemos a `components/erp/Tabs.tsx`.
@@ -328,111 +328,57 @@ function TabsOc({
 }) {
   const [activo, setActivo] = useState<TabId>('informacion');
 
+  const stub = (slot: ReactNode, nombre: string, titulo: string) =>
+    slot ?? (
+      <StubProximamente
+        titulo={`${titulo} — wireup pendiente`}
+        descripcion={`El caller no proporcionó el slot ${nombre}; verifica el wireup en DetalleOrdenCompra.`}
+      />
+    );
+  const contenido: Record<TabId, ReactNode> = {
+    informacion: informacion,
+    lineas: stub(lineas, 'lineas', 'Líneas'),
+    adjuntos: stub(adjuntos, 'adjuntos', 'Adjuntos'),
+    pdf: stub(pdf, 'pdf', 'PDF'),
+    autorizacion: stub(autorizacion, 'autorizacion', 'Autorización'),
+    historial: stub(historial, 'historial', 'Historial'),
+  };
+  // Pestañas con formularios en edición: forceMount para no perder lo capturado
+  // al cambiar de pestaña (el CSS de TabsContent oculta las inactivas).
+  const FORCE_MOUNT: TabId[] = ['informacion', 'lineas'];
+
   return (
-    <div data-component="tabs-oc">
-      <nav
-        role="tablist"
-        aria-label="Secciones del detalle de OC"
-        className="flex flex-wrap gap-1 border-b"
-      >
+    <Tabs
+      value={activo}
+      onValueChange={(v) => setActivo(v as TabId)}
+      data-component="tabs-oc"
+    >
+      <TabsList aria-label="Secciones del detalle de OC">
         {TAB_IDS.map((id) => (
-          <button
+          <TabsTrigger
             key={id}
-            type="button"
-            role="tab"
-            aria-selected={activo === id}
-            aria-controls={`tab-panel-${id}`}
+            value={id}
             id={`tab-${id}`}
-            onClick={() => setActivo(id)}
             data-tab={id}
             data-activo={activo === id || undefined}
-            className={cn(
-              '-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors',
-              activo === id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
-            )}
           >
             {TAB_LABEL[id]}
-          </button>
+          </TabsTrigger>
         ))}
-      </nav>
+      </TabsList>
 
-      <div className="pt-4">
-        {activo === 'informacion' && (
-          <Panel id="informacion">{informacion}</Panel>
-        )}
-        {activo === 'lineas' && (
-          <Panel id="lineas">
-            {lineas ?? (
-              <StubProximamente
-                titulo="Líneas — wireup pendiente"
-                descripcion="El caller no proporcionó el slot lineas; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'adjuntos' && (
-          <Panel id="adjuntos">
-            {adjuntos ?? (
-              <StubProximamente
-                titulo="Adjuntos — wireup pendiente"
-                descripcion="El caller no proporcionó el slot adjuntos; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'pdf' && (
-          <Panel id="pdf">
-            {pdf ?? (
-              <StubProximamente
-                titulo="PDF — wireup pendiente"
-                descripcion="El caller no proporcionó el slot pdf; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'autorizacion' && (
-          <Panel id="autorizacion">
-            {autorizacion ?? (
-              <StubProximamente
-                titulo="Autorización — wireup pendiente"
-                descripcion="El caller no proporcionó el slot autorizacion; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-        {activo === 'historial' && (
-          <Panel id="historial">
-            {historial ?? (
-              <StubProximamente
-                titulo="Historial — wireup pendiente"
-                descripcion="El caller no proporcionó el slot historial; verifica el wireup en DetalleOrdenCompra."
-              />
-            )}
-          </Panel>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Panel({
-  id,
-  children,
-}: {
-  id: TabId;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      role="tabpanel"
-      id={`tab-panel-${id}`}
-      aria-labelledby={`tab-${id}`}
-      data-tab-panel={id}
-    >
-      {children}
-    </div>
+      {TAB_IDS.map((id) => (
+        <TabsContent
+          key={id}
+          value={id}
+          forceMount={FORCE_MOUNT.includes(id) ? true : undefined}
+          className="pt-4 mt-0"
+          data-tab-panel={id}
+        >
+          {contenido[id]}
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 }
 
