@@ -45,7 +45,8 @@ import { CfdiDetalleSheet } from '@/features/cxp/components/CfdiDetalleSheet';
 import { DescartarCfdiSheet } from '@/features/cxp/components/DescartarCfdiSheet';
 import { MarcarDuplicadoSheet } from '@/features/cxp/components/MarcarDuplicadoSheet';
 import type { CfdisSearch } from '@/features/cxp/lib/cfdis-search-schema';
-import { formatearFecha } from '@/features/cxp/lib/formato';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/cxp/cfdis' as const;
 const SENTINEL_ALL = '__all__';
@@ -490,16 +491,16 @@ function TablaCfdis({
                   {c.serie ? `${c.serie}-${c.folio ?? ''}` : c.folio ?? '—'}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  {formatearFecha(c.fechaCfdi)}
+                  <DateTimeDisplay value={c.fechaCfdi} variant="corta" />
                 </td>
-                <td className="px-3 py-2 text-right font-mono">
-                  {formatearMonto(c.total, c.moneda)}
+                <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                  <MoneyDisplay amount={c.total} currency={c.moneda} strong />
                 </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">
                   {CanalOrigenCfdiLabels[c.canalOrigen]}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-xs">
-                  {formatearFecha(c.fechaRecepcion)}
+                  <DateTimeDisplay value={c.fechaRecepcion} variant="corta" />
                 </td>
                 <td className="px-3 py-2">
                   <EstadoCfdiBadge estado={c.estado} />
@@ -557,15 +558,4 @@ function abreviar(uuid: string): string {
   return uuid.length > 12 ? `${uuid.slice(0, 8)}…${uuid.slice(-4)}` : uuid;
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}
 

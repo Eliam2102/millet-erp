@@ -19,6 +19,7 @@ import type {
 
 const OC = {
   id: 'oc-1',
+  moneda: 'MXN',
 } as unknown as OrdenCompraDetalleResponse;
 
 function lineaHeredada(
@@ -81,7 +82,7 @@ describe('<LineaInlineFormOc> — Centro de costo condicional (Fase E PR3)', () 
     render(<LineaInlineFormOc oc={OC} linea={lineaHeredada({ cantidad: 10, precioUnitario: 10,
       descuentoTipo: DescuentoTipo.Monto, descuentoValor: 10 })} onCancel={() => {}} />,
     { wrapper: createQueryWrapper() });
-    expect(screen.getByText('90.00')).toBeInTheDocument();
+    expect(screen.getByText('$90.00')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
     await waitFor(() => expect(enviado).toMatchObject({ descuentoTipo: DescuentoTipo.Monto, descuentoValor: 10 }));
   });

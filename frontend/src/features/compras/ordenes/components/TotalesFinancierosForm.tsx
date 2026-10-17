@@ -30,6 +30,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-conflict';
 import { cn } from '@/lib/utils';
 import { useForm, Controller, useWatch } from 'react-hook-form';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 /**
  * <c>&lt;TotalesFinancierosForm/&gt;</c> — sub-tab "Financiera" del
@@ -148,8 +149,8 @@ function ReadView({
       </div>
 
       <dl className="grid gap-2 text-sm">
-        <Row label="Subtotal de líneas" value={subtotalLineas} />
-        <Row label="IVA (16%)" value={ivaTotal} muted />
+        <Row label="Subtotal de líneas" value={subtotalLineas} moneda={oc.moneda} />
+        <Row label="IVA (16%)" value={ivaTotal} moneda={oc.moneda} muted />
         <Row
           label={
             oc.descuentoGlobalTipo == null
@@ -159,23 +160,26 @@ function ReadView({
                 : 'Descuento global (monto)'
           }
           value={-descuentoGlobalAplicado}
+          moneda={oc.moneda}
           showSign
           muted={descuentoGlobalAplicado === 0}
         />
         <Row
           label="Gastos adicionales"
           value={oc.gastosAdicionales}
+          moneda={oc.moneda}
           showSign
           muted={oc.gastosAdicionales === 0}
         />
         <Row
           label="Redondeo"
           value={oc.redondeo}
+          moneda={oc.moneda}
           showSign
           muted={oc.redondeo === 0}
         />
         <div className="border-t pt-2">
-          <Row label="Total a pagar" value={totalAPagar} bold />
+          <Row label="Total a pagar" value={totalAPagar} moneda={oc.moneda} bold />
           <p className="mt-1 text-xs text-muted-foreground">
             Moneda: {oc.moneda}
             {oc.tipoCambio != null
@@ -372,10 +376,10 @@ function EditView({
           />
         </FieldGroup>
         <FieldGroup label="Subtotal de líneas (read-only)">
-          <ReadOnlyMoney value={subtotalLineas} />
+          <ReadOnlyMoney value={subtotalLineas} moneda={oc.moneda} />
         </FieldGroup>
         <FieldGroup label="IVA total (read-only)">
-          <ReadOnlyMoney value={ivaTotal} />
+          <ReadOnlyMoney value={ivaTotal} moneda={oc.moneda} />
         </FieldGroup>
       </div>
 
@@ -432,22 +436,19 @@ function DescuentoValorField({
 function Row({
   label,
   value,
+  moneda,
   showSign,
   muted,
   bold,
 }: {
   label: string;
   value: number;
+  moneda: string;
   showSign?: boolean;
   muted?: boolean;
   bold?: boolean;
 }) {
-  const formatted =
-    showSign && value > 0
-      ? `+${value.toFixed(2)}`
-      : showSign && value < 0
-        ? value.toFixed(2)
-        : value.toFixed(2);
+  const signo = showSign ? (value > 0 ? '+' : value < 0 ? '-' : '') : '';
   return (
     <div
       className={cn(
@@ -457,15 +458,18 @@ function Row({
       )}
     >
       <dt>{label}</dt>
-      <dd className="tabular-nums">{formatted}</dd>
+      <dd className="tabular-nums">
+        {signo}
+        <MoneyDisplay amount={Math.abs(value)} currency={moneda} />
+      </dd>
     </div>
   );
 }
 
-function ReadOnlyMoney({ value }: { value: number }) {
+function ReadOnlyMoney({ value, moneda }: { value: number; moneda: string }) {
   return (
     <div className="rounded-md border bg-muted/30 px-3 py-1.5 text-sm tabular-nums">
-      {value.toFixed(2)}
+      <MoneyDisplay amount={value} currency={moneda} />
     </div>
   );
 }

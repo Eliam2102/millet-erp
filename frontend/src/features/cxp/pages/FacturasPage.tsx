@@ -33,7 +33,9 @@ import { esApiError } from '@/lib/api';
 import { EstadoPasivoChip } from '@/features/cxp/components/EstadoPasivoChip';
 import { CapturarFacturaSheet } from '@/features/cxp/components/CapturarFacturaSheet';
 import type { FacturasSearch } from '@/features/cxp/lib/facturas-search-schema';
-import { formatearFecha } from '@/features/cxp/lib/formato';
+import { hoyLocalISO } from '@/lib/datetime';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/cxp/facturas/' as const;
 const SENTINEL_ALL = '__all__';
@@ -349,19 +351,27 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                 {f.proveedorNombre?.trim() || '[PROVEEDOR POR CONFIRMAR]'}
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
-                {formatearFecha(f.fechaDocumento)}
+                <DateTimeDisplay value={f.fechaDocumento} variant="corta" />
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
-                {f.fechaVencimiento}
+                <DateTimeDisplay
+                  value={f.fechaVencimiento}
+                  variant="corta"
+                  vencida={
+                    f.fechaVencimiento < hoyLocalISO() &&
+                    f.estado !== EstadoPasivo.Pagada &&
+                    f.estado !== EstadoPasivo.Cancelada
+                  }
+                />
               </td>
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                 {f.ordenCompraId ? (f.ordenCompraFolio?.trim() || '[FOLIO POR CONFIRMAR]') : '—'}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(f.total, f.moneda)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={f.total} currency={f.moneda} strong />
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(f.saldoPendiente, f.moneda)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={f.saldoPendiente} currency={f.moneda} strong />
               </td>
               <td className="px-3 py-2">
                 <EstadoPasivoChip estado={f.estado} />
@@ -375,15 +385,4 @@ function TablaFacturas({ items }: TablaFacturasProps) {
   );
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}
 

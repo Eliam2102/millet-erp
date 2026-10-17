@@ -23,6 +23,8 @@ import { useSucursales } from '@/features/catalogos/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
  * <c>Reposiciones de caja chica</c> (GI-PR4b, doc 12 §D2/Q4). Tres
@@ -132,14 +134,14 @@ export function ReposicionesCajaPage() {
                     <td className="px-3 py-2">
                       {DestinoReposicionCajaLabels[s.destino]}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {s.saldo.toFixed(2)} {s.moneda}
+                    <td className="px-3 py-2 pr-4 text-right tabular-nums">
+                      <MoneyDisplay amount={s.saldo} currency={s.moneda} strong />
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {s.numeroComprobaciones}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {s.montoMinimo.toFixed(2)}
+                    <td className="px-3 py-2 pr-4 text-right tabular-nums">
+                      <MoneyDisplay amount={s.montoMinimo} currency={s.moneda} strong />
                     </td>
                     {puedeAdmin ? (
                       <td className="px-3 py-2 text-right">
@@ -218,7 +220,7 @@ export function ReposicionesCajaPage() {
                 {reposiciones.data!.items.map((r) => (
                   <tr key={r.id} className="border-t">
                     <td className="px-3 py-2 tabular-nums">
-                      {new Date(r.fechaEmision).toLocaleString()}
+                      <DateTimeDisplay value={r.fechaEmision} variant="datetime" />
                     </td>
                     <td className="px-3 py-2">
                       {nombreSucursal(r.sucursalId)}
@@ -226,8 +228,8 @@ export function ReposicionesCajaPage() {
                     <td className="px-3 py-2">
                       {DestinoReposicionCajaLabels[r.destino]}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {r.montoTotal.toFixed(2)} {r.moneda}
+                    <td className="px-3 py-2 pr-4 text-right tabular-nums">
+                      <MoneyDisplay amount={r.montoTotal} currency={r.moneda} strong />
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {r.numeroComprobaciones}

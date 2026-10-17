@@ -18,6 +18,11 @@ import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarV
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { ubicacionLabel } from '@/features/almacen/components/impresion/salida-display';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { formatDateTime } from '@/lib/datetime';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 const FROM = '/_app/almacen/salidas/$id' as const;
 
@@ -32,6 +37,7 @@ const FROM = '/_app/almacen/salidas/$id' as const;
 export function SalidaDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useSalida(id);
+  const decimalesUnidad = useDecimalesUnidad();
   const puedePorVale = useHasPermission(
     PermisosCanonicos.AlmacenSalidasPorVale,
   );
@@ -82,7 +88,7 @@ export function SalidaDetallePage() {
                   <>
                     {' '}
                     · Registrado:{' '}
-                    {new Date(query.data.registradoAt).toLocaleString('es-MX')}
+                    <DateTimeDisplay value={query.data.registradoAt} variant="datetime" />
                   </>
                 )}
               </>
@@ -145,7 +151,7 @@ export function SalidaDetallePage() {
               />
             )}
             {query.data.esPorVale && query.data.fechaLimiteRegularizacion && (
-              <Campo label="Límite de regularización" valor={new Date(query.data.fechaLimiteRegularizacion).toLocaleString('es-MX')} />
+              <Campo label="Límite de regularización" valor={formatDateTime(query.data.fechaLimiteRegularizacion)} />
             )}
             {query.data.esPorVale && query.data.rqRegularizadoraId && (
               <Campo
@@ -218,18 +224,15 @@ export function SalidaDetallePage() {
                       </td>
                       {/* Ubicación (bin) de donde salió la línea; mismo texto que el comprobante PDF. */}
                       <td className="px-3 py-2 font-mono text-xs">{ubicacionLabel(l)}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.cantidad.toLocaleString('es-MX', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        })}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
                       </td>
                       <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.costoUnitarioMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.montoTotalMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
                       </td>
                     </tr>
                   ))}
@@ -272,13 +275,6 @@ function Campo({
 }
 
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}
 
 /**
  * Botón "Ver vale" — descarga el blob authenticated y lo abre en

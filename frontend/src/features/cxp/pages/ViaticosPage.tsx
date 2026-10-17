@@ -46,6 +46,8 @@ import { EstadoSolicitudViaticosChip } from '@/features/cxp/components/EstadoChi
 import { NuevaSolicitudViaticosSheet } from '@/features/cxp/components/NuevaSolicitudViaticosSheet';
 import { CapturarComprobacionViaticosSheet } from '@/features/cxp/components/CapturarComprobacionViaticosSheet';
 import type { ViaticosSearch } from '@/features/cxp/lib/viaticos-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/cxp/viaticos/' as const;
 const SENTINEL_ALL = '__all__';
@@ -376,11 +378,11 @@ function Tabla({ items, onComprobar }: TablaProps) {
               <td className="px-3 py-2">
                 <div className="font-medium">{s.destino}</div>
                 <div className="text-xs text-muted-foreground">
-                  {s.fechaSalida} → {s.fechaRegreso}
+                  <DateTimeDisplay value={s.fechaSalida} variant="corta" /> → <DateTimeDisplay value={s.fechaRegreso} variant="corta" />
                 </div>
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {s.montoSolicitado.toFixed(2)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={s.montoSolicitado} currency="MXN" strong />
                 {s.excedePolitica && (
                   <AlertTriangle
                     className="ml-1 inline h-3 w-3 text-amber-600"
@@ -388,18 +390,14 @@ function Tabla({ items, onComprobar }: TablaProps) {
                   />
                 )}
               </td>
-              <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
-                {s.topePolitica.toFixed(2)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums text-xs text-ink-muted">
+                <MoneyDisplay amount={s.topePolitica} currency="MXN" />
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {s.montoComprobado != null
-                  ? s.montoComprobado.toFixed(2)
-                  : '—'}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={s.montoComprobado} currency="MXN" strong />
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {s.diferenciaLiquidacion != null
-                  ? s.diferenciaLiquidacion.toFixed(2)
-                  : '—'}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={s.diferenciaLiquidacion} currency="MXN" strong />
               </td>
               <td className="px-3 py-2">
                 <EstadoSolicitudViaticosChip estado={s.estado} />

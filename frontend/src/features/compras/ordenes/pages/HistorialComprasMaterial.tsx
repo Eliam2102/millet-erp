@@ -16,6 +16,8 @@ import { useArticulo, useProveedores, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 /**
  * <c>P11 — Historial de últimas 100 compras del material</c>
@@ -38,6 +40,7 @@ export function HistorialComprasMaterial() {
   const { id: articuloId } = useParams({
     from: '/_app/compras/articulos/$id/historial-compras',
   });
+  const decimalesUnidad = useDecimalesUnidad();
 
   const [proveedorId, setProveedorId] = useState<string | null>(null);
   const [fechaDesde, setFechaDesde] = useState<string | null>(null);
@@ -192,11 +195,11 @@ export function HistorialComprasMaterial() {
                       {resolverProveedor(c.proveedorId)}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {c.cantidad.toFixed(2)}
+                      {formatCantidad(c.cantidad, decimalesUnidad.porCodigo(c.unidadMedida))}
                     </td>
                     <td className="px-3 py-2">{c.unidadMedida}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">
-                      {c.precioUnitario.toFixed(4)}
+                      {formatCantidad(c.precioUnitario, 4)}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {c.moneda}

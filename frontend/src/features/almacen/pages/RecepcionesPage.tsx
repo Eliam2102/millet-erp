@@ -35,6 +35,8 @@ import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcio
 import type { RecepcionesSearch } from '@/features/almacen/lib/recepciones-search-schema';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/recepciones/' as const;
 const SENTINEL_ALL = '__all__';
@@ -383,7 +385,7 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
                 {r.folio}
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
-                {r.fechaMovimiento}
+                <DateTimeDisplay value={r.fechaMovimiento} variant="corta" />
               </td>
               <td className="px-3 py-2 font-mono text-xs">{r.subAlmacen}</td>
               <td className="px-3 py-2 text-xs">
@@ -397,8 +399,8 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
                   <span className="italic text-muted-foreground">—</span>
                 )}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(r.montoTotalMxn)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={r.montoTotalMxn} currency="MXN" strong />
               </td>
               <td className="px-3 py-2">
                 <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
@@ -413,13 +415,6 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
 }
 
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}
 
 function truncarId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;

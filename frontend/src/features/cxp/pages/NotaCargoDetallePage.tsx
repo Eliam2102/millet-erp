@@ -14,6 +14,7 @@ import { EstadoNotaCargo } from '@/features/cxp/api/types';
 import { EstadoNotaCargoChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import { formatearFechaHora } from '@/features/cxp/lib/formato';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 /**
  * <c>P3 — Detalle de Nota de Cargo</c> (serie detalles CxP, backend
@@ -110,7 +111,7 @@ export function NotaCargoDetallePage() {
               label="Tipo de cambio"
               valor={
                 query.data.tipoCambio != null
-                  ? query.data.tipoCambio.toFixed(4)
+                  ? formatCantidad(query.data.tipoCambio, 4)
                   : '—'
               }
             />

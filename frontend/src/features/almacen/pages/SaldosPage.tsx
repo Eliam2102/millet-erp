@@ -24,6 +24,8 @@ import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { SaldoListItem } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import type { SaldosSearch } from '@/features/almacen/lib/saldos-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 const FROM = '/_app/almacen/saldos' as const;
 const SENTINEL_ALL = '__all__';
@@ -133,11 +135,8 @@ export function SaldosPage() {
               <span className="text-muted-foreground">
                 Cantidad total:{' '}
               </span>
-              <span className="font-mono font-semibold">
-                {totales.totalCantidad.toLocaleString('es-MX', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4,
-                })}
+              <span className="font-semibold tabular-nums">
+                {formatCantidad(totales.totalCantidad)}
               </span>
             </div>
             <div>
@@ -341,23 +340,17 @@ function TablaSaldos({
                   <span className="font-mono">{s.articuloId}</span>
                 )}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {s.cantidad.toLocaleString('es-MX', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4,
-                })}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                {formatCantidad(s.cantidad)}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {s.cantidadDisponible.toLocaleString('es-MX', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4,
-                })}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                {formatCantidad(s.cantidadDisponible)}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(s.costoPromedioMxn)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={s.costoPromedioMxn} currency="MXN" strong />
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(s.valorInventarioMxn)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={s.valorInventarioMxn} currency="MXN" strong />
               </td>
             </tr>
           ))}
@@ -367,10 +360,3 @@ function TablaSaldos({
   );
 }
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}

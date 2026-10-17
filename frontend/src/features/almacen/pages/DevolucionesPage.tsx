@@ -43,6 +43,8 @@ import {
 } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/devoluciones/' as const;
 const SENTINEL_ALL = '__all__';
@@ -361,11 +363,11 @@ function TablaDevoluciones({
               <td className="px-3 py-2">
                 <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={d.estado} />
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(d.montoTotalMxn)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={d.montoTotalMxn} currency="MXN" strong />
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
-                {new Date(d.solicitadaAt).toLocaleString('es-MX')}
+                <DateTimeDisplay value={d.solicitadaAt} variant="corta" />
               </td>
               <td className="px-3 py-2 font-mono text-xs">
                 {d.folioMovimientoSalida ?? (
@@ -382,13 +384,6 @@ function TablaDevoluciones({
 }
 
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}
 
 function truncarId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;

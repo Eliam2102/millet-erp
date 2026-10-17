@@ -10,9 +10,10 @@ import { esApiError } from '@/lib/api';
 import { EstadoNotaCreditoChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
-  formatearFecha,
   formatearFechaHora,
 } from '@/features/cxp/lib/formato';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 /**
  * <c>P3 — Detalle de Nota de Crédito de proveedor</c> (serie detalles
@@ -71,7 +72,7 @@ export function NotaCreditoDetallePage() {
             }
             descripcion={
               <>
-                Fecha CFDI: {formatearFecha(query.data.fechaCfdi)} · Capturada:{' '}
+                Fecha CFDI: <DateTimeDisplay value={query.data.fechaCfdi} variant="media" /> · Capturada:{' '}
                 {formatearFechaHora(query.data.fechaCaptura)}
               </>
             }
@@ -92,7 +93,7 @@ export function NotaCreditoDetallePage() {
               label="Tipo de cambio"
               valor={
                 query.data.tipoCambio != null
-                  ? query.data.tipoCambio.toFixed(4)
+                  ? formatCantidad(query.data.tipoCambio, 4)
                   : '—'
               }
             />

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { formatearMonto } from '@/features/cxp/lib/formato';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 /**
  * Piezas compartidas de las páginas de detalle read-only de CxP
@@ -34,13 +34,8 @@ export function Importe({ label, v, m, strong }: ImporteProps) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd
-        className={cn(
-          'font-mono',
-          strong ? 'text-base font-semibold' : 'text-sm',
-        )}
-      >
-        {formatearMonto(v, m)}
+      <dd className={strong ? 'text-base font-semibold' : 'text-sm'}>
+        <MoneyDisplay amount={v} currency={m} />
       </dd>
     </div>
   );

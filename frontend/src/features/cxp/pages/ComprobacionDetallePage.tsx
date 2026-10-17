@@ -10,8 +10,9 @@ import { EstadoComprobacionChip } from '@/features/cxp/components/EstadoChips';
 import { Campo, Importe } from '@/features/cxp/components/DetalleCampos';
 import {
   formatearFechaHora,
-  formatearMonto,
 } from '@/features/cxp/lib/formato';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
  * <c>P3 — Detalle de Comprobación de Gastos</c> (serie detalles CxP,
@@ -64,7 +65,7 @@ export function ComprobacionDetallePage() {
             }
             descripcion={
               <>
-                Periodo: {query.data.fechaInicio} → {query.data.fechaFin} ·
+                Periodo: <DateTimeDisplay value={query.data.fechaInicio} variant="media" /> → <DateTimeDisplay value={query.data.fechaFin} variant="media" /> ·
                 Creada: {formatearFechaHora(query.data.fechaCreacion)}
               </>
             }
@@ -227,17 +228,17 @@ export function ComprobacionDetallePage() {
                           {`${l.facturaProveedorId.slice(0, 8)}…`}
                         </Link>
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.subtotal, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.subtotal} currency={l.moneda} strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.impuestosTrasladados, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.impuestosTrasladados} currency={l.moneda} strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.retenciones, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.retenciones} currency={l.moneda} strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.total, l.moneda)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.total} currency={l.moneda} strong />
                       </td>
                     </tr>
                   ))}

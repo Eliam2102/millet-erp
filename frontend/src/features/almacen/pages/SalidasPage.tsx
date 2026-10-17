@@ -36,6 +36,8 @@ import type { SalidasSearch } from '@/features/almacen/lib/salidas-search-schema
 import { Checkbox } from '@/components/ui/checkbox';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/salidas/' as const;
 const SENTINEL_ALL = '__all__';
@@ -444,7 +446,7 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
                 )}
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
-                {r.fechaMovimiento}
+                <DateTimeDisplay value={r.fechaMovimiento} variant="corta" />
               </td>
               <td className="px-3 py-2 font-mono text-xs">{r.subAlmacen}</td>
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
@@ -456,8 +458,8 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
                   <span className="italic">—</span>
                 )}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(r.montoTotalMxn)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={r.montoTotalMxn} currency="MXN" strong />
               </td>
               <td className="px-3 py-2">
                 <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
@@ -472,10 +474,3 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
 }
 
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}

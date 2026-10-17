@@ -54,6 +54,7 @@ import { esApiError } from '@/lib/api';
 import { ReordenSheet } from '@/features/almacen/components/ReordenSheet';
 import { cn } from '@/lib/utils';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 const FROM = '/_app/almacen/reorden' as const;
 const SENTINEL_ALL = '__all__';
@@ -612,7 +613,7 @@ function ValorCelda({ valor, activo }: { valor: number; activo: boolean }) {
       )}
       title={activo ? 'Objetivo de reabasto' : undefined}
     >
-      {valor}
+      {formatCantidad(valor)}
     </td>
   );
 }

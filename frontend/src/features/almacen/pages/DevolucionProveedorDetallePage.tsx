@@ -19,6 +19,10 @@ import {
   SolicitarAutorizacionConfirm,
 } from '@/features/almacen/components/DevolucionAccionesDialogs';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 const FROM = '/_app/almacen/devoluciones/proveedor/$id' as const;
 
@@ -40,6 +44,7 @@ const FROM = '/_app/almacen/devoluciones/proveedor/$id' as const;
 export function DevolucionProveedorDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useDevolucionProveedor(id);
+  const decimalesUnidad = useDecimalesUnidad();
 
   const puedeIniciar = useHasPermission(
     PermisosCanonicos.AlmacenDevolucionesProveedorIniciar,
@@ -96,19 +101,19 @@ export function DevolucionProveedorDetallePage() {
             descripcion={
               <>
                 Solicitada el{' '}
-                {new Date(query.data.solicitadaAt).toLocaleString('es-MX')}
+                <DateTimeDisplay value={query.data.solicitadaAt} variant="datetime" />
                 {query.data.autorizadaAt && (
                   <>
                     {' '}
                     · Autorizada el{' '}
-                    {new Date(query.data.autorizadaAt).toLocaleString('es-MX')}
+                    <DateTimeDisplay value={query.data.autorizadaAt} variant="datetime" />
                   </>
                 )}
                 {query.data.registradaAt && (
                   <>
                     {' '}
                     · Registrada el{' '}
-                    {new Date(query.data.registradaAt).toLocaleString('es-MX')}
+                    <DateTimeDisplay value={query.data.registradaAt} variant="datetime" />
                   </>
                 )}
               </>
@@ -238,18 +243,15 @@ export function DevolucionProveedorDetallePage() {
                           </code>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.cantidad.toLocaleString('es-MX', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        })}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
                       </td>
                       <td className="px-3 py-2">{l.unidadMedida}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.costoUnitarioMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.montoTotalMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
                       </td>
                     </tr>
                   ))}
@@ -381,10 +383,3 @@ function Campo({
 }
 
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}

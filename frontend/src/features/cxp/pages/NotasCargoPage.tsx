@@ -32,6 +32,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoNotaCargoChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaNotaCargoSheet } from '@/features/cxp/components/NuevaNotaCargoSheet';
 import type { NotasCargoSearch } from '@/features/cxp/lib/notas-y-anticipos-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/notas-cargo/' as const;
 const SENTINEL_ALL = '__all__';
@@ -254,8 +255,8 @@ function Tabla({ items, puedeAutorizar, puedeAplicar }: TablaProps) {
                 )}
               </td>
               <td className="px-3 py-2">{truncar(n.concepto, 80)}</td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(n.monto, n.moneda)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={n.monto} currency={n.moneda} strong />
               </td>
               <td className="px-3 py-2">
                 <EstadoNotaCargoChip estado={n.estado} />
@@ -305,14 +306,3 @@ function truncar(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

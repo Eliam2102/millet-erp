@@ -40,6 +40,7 @@ import { RegistrarRefundTcSheet } from '@/features/cxp/components/RegistrarRefun
 import { RegistrarMovimientoEspecialSheet } from '@/features/cxp/components/RegistrarMovimientoEspecialSheet';
 import { DisputarMovimientoTcSheet } from '@/features/cxp/components/DisputarMovimientoTcSheet';
 import type { MovimientosTcSearch } from '@/features/cxp/lib/tc-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/tc/movimientos' as const;
 const SENTINEL_ALL = '__all__';
@@ -176,8 +177,8 @@ export function MovimientosTcPage() {
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {m.conceptoContable}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {formatearMonto(m.montoMxn, 'MXN')}
+                    <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      <MoneyDisplay amount={m.montoMxn} currency={'MXN'} strong />
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {TipoMovimientoTcLabels[m.tipo]}
@@ -416,14 +417,3 @@ function abreviar(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

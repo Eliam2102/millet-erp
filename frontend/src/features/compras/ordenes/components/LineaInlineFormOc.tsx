@@ -47,6 +47,7 @@ import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCos
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
 import { subtotalLinea } from '../lib/subtotal-linea';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 /**
  * <c>&lt;LineaInlineFormOc/&gt;</c> — form expandible inline (sin modal)
@@ -456,7 +457,7 @@ export function LineaInlineFormOc({
           label="Subtotal"
           className="md:col-span-2"
         >
-          <SubtotalPreview control={form.control} />
+          <SubtotalPreview control={form.control} moneda={oc.moneda} />
         </FieldInline>
       </div>
 
@@ -745,8 +746,10 @@ function FieldInline({
  */
 function SubtotalPreview({
   control,
+  moneda,
 }: {
   control: Control<AgregarLineaManualValues>;
+  moneda: string;
 }) {
   const cantidad = useWatch({ control, name: 'cantidad' }) ?? 0;
   const precio = useWatch({ control, name: 'precioUnitario' }) ?? 0;
@@ -755,7 +758,7 @@ function SubtotalPreview({
   const subtotal = subtotalLinea(cantidad, precio, tipo, valor);
   return (
     <div className="rounded-md border bg-muted/30 px-3 py-1.5 text-sm tabular-nums">
-      {subtotal.toFixed(2)}
+      <MoneyDisplay amount={subtotal} currency={moneda} />
     </div>
   );
 }

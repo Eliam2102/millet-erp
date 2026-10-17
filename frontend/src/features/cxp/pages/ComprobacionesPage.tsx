@@ -45,6 +45,7 @@ import { EstadoComprobacionChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaComprobacionCajaChicaSheet } from '@/features/cxp/components/NuevaComprobacionCajaChicaSheet';
 import { NuevaComprobacionAduanalesSheet } from '@/features/cxp/components/NuevaComprobacionAduanalesSheet';
 import type { ComprobacionesSearch } from '@/features/cxp/lib/comprobaciones-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/comprobaciones/' as const;
 const SENTINEL_ALL = '__all__';
@@ -399,8 +400,8 @@ function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
               <td className="px-3 py-2 text-right font-mono">
                 {c.numeroLineas}
               </td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(c.montoTotal, c.moneda)}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={c.montoTotal} currency={c.moneda} strong />
               </td>
               <td className="px-3 py-2">
                 <EstadoComprobacionChip estado={c.estado} />
@@ -500,14 +501,3 @@ function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
   );
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

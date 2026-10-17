@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 export interface VariacionBadgeProps {
   variacionAbsoluta: number | null;
@@ -66,8 +67,8 @@ export function VariacionBadge({
         })}{' '}
         ({(variacionPorcentaje ?? 0).toFixed(2)}%)
       </span>
-      <span className="text-xs font-mono text-muted-foreground">
-        {formatearMonto(variacionValorMxn ?? 0)}
+      <span className="text-xs text-muted-foreground">
+        <MoneyDisplay amount={variacionValorMxn ?? 0} currency="MXN" strong />
       </span>
       {requiereRecuento && (
         <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-rose-800">
@@ -78,10 +79,3 @@ export function VariacionBadge({
   );
 }
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}

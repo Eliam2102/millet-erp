@@ -25,7 +25,10 @@ import { AdjuntarEvidenciaSheet } from '@/features/cxp/components/AdjuntarEviden
 import { EvidenciasList } from '@/features/cxp/components/EvidenciasList';
 import { cn } from '@/lib/utils';
 import { EditarDatosP8 } from '@/features/cxp/components/EditarDatosP8';
-import { formatearFecha } from '@/features/cxp/lib/formato';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { Importe } from '@/features/cxp/components/DetalleCampos';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
  * <c>P2 — Detalle de Factura de Proveedor</c> (doc 07 §FE-F2-PR1).
@@ -145,9 +148,9 @@ export function FacturaDetallePage() {
             }
             descripcion={
               <>
-                Fecha documento: {formatearFecha(query.data.fechaDocumento)} ·
-                Contabilización: {formatearFecha(query.data.fechaContabilizacion)}{' '}
-                · Vence: {formatearFecha(query.data.fechaVencimiento)}
+                Fecha documento: <DateTimeDisplay value={query.data.fechaDocumento} variant="media" /> ·
+                Contabilización: <DateTimeDisplay value={query.data.fechaContabilizacion} variant="media" />{' '}
+                · Vence: <DateTimeDisplay value={query.data.fechaVencimiento} variant="media" />
               </>
             }
             mono
@@ -249,7 +252,7 @@ export function FacturaDetallePage() {
             <Campo label="Moneda" valor={query.data.moneda} />
             <Campo
               label="Tipo de cambio"
-              valor={query.data.tipoCambio != null ? query.data.tipoCambio.toFixed(4) : '—'}
+              valor={query.data.tipoCambio != null ? formatCantidad(query.data.tipoCambio, 4) : '—'}
             />
           </section>
 
@@ -266,7 +269,7 @@ export function FacturaDetallePage() {
                 {query.data.alertaRetenciones}
                 {query.data.retencionesRevisadasEn ? (
                   <span className="mt-1 block text-xs">
-                    Revisadas por Fiscal el {formatearFecha(query.data.retencionesRevisadasEn)}:{' '}
+                    Revisadas por Fiscal el <DateTimeDisplay value={query.data.retencionesRevisadasEn} variant="media" />:{' '}
                     {query.data.retencionesRevisionMotivo}
                   </span>
                 ) : (
@@ -391,14 +394,16 @@ export function FacturaDetallePage() {
                     <tr key={l.id} className="border-t">
                       <td className="px-3 py-2">{l.posicion}</td>
                       <td className="px-3 py-2">{l.descripcion}</td>
-                      <td className="px-3 py-2 text-right font-mono">{l.cantidad.toFixed(4)}</td>
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">{formatCantidad(l.cantidad, 4)}</td>
                       <td className="px-3 py-2">{l.claveUnidad}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.precioUnitario.toFixed(4)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        {formatCantidad(l.precioUnitario, 4)}
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">{l.importe.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.descuento != null ? l.descuento.toFixed(2) : '—'}
+                      <td className="py-2 pl-3 pr-4 text-right">
+                        <MoneyDisplay amount={l.importe} currency={query.data.moneda} strong />
+                      </td>
+                      <td className="py-2 pl-3 pr-4 text-right">
+                        <MoneyDisplay amount={l.descuento} currency={query.data.moneda} />
                       </td>
                     </tr>
                   ))}
@@ -456,24 +461,6 @@ function Campo({ label, valor, mono }: CampoProps) {
   );
 }
 
-interface ImporteProps {
-  label: string;
-  v: number;
-  m: string;
-  strong?: boolean;
-}
-
-function Importe({ label, v, m, strong }: ImporteProps) {
-  return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('font-mono', strong ? 'text-base font-semibold' : 'text-sm')}>
-        {v.toFixed(2)} {m}
-      </dd>
-    </div>
-  );
-}
-
 interface ToleranciaIndicatorProps {
   diferencia: number;
   cancelada: boolean;
@@ -487,7 +474,7 @@ function ToleranciaIndicator({ diferencia, cancelada }: ToleranciaIndicatorProps
   }
   return (
     <Badge variant="warning" className="tabular-nums">
-      Diferencia aceptada: {diferencia.toFixed(2)}
+      Diferencia aceptada: {formatCantidad(diferencia, 2)}
     </Badge>
   );
 }

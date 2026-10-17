@@ -27,6 +27,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoNotaCreditoChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaNotaCreditoSheet } from '@/features/cxp/components/NuevaNotaCreditoSheet';
 import type { NotasCreditoSearch } from '@/features/cxp/lib/notas-y-anticipos-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/notas-credito/' as const;
 const SENTINEL_ALL = '__all__';
@@ -204,11 +205,11 @@ export function NotasCreditoPage() {
                   <td className="px-3 py-2 text-xs">
                     {(TipoNotaCreditoLabels as Record<number, string>)[n.tipo] ?? `Tipo ${n.tipo}`}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(n.total, n.moneda)}
+                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                    <MoneyDisplay amount={n.total} currency={n.moneda} strong />
                   </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(n.saldoPorAplicar, n.moneda)}
+                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                    <MoneyDisplay amount={n.saldoPorAplicar} currency={n.moneda} strong />
                   </td>
                   <td className="px-3 py-2">
                     <EstadoNotaCreditoChip estado={n.estado} />
@@ -244,14 +245,3 @@ function abreviar(uuid: string): string {
   return uuid.length > 12 ? `${uuid.slice(0, 8)}…${uuid.slice(-4)}` : uuid;
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

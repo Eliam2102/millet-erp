@@ -34,4 +34,11 @@ describe('<MoneyDisplay>', () => {
     );
     expect(container.querySelector('.tabular-nums')).not.toBeNull();
   });
+
+  it('strong agrega font-medium y el vacío usa text-ink-muted', () => {
+    render(<MoneyDisplay amount={1} currency="MXN" strong />);
+    expect(screen.getByText('$1.00')).toHaveClass('font-medium');
+    render(<MoneyDisplay money={null} />);
+    expect(screen.getByText('—')).toHaveClass('text-ink-muted');
+  });
 });

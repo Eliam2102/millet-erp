@@ -11,6 +11,10 @@ import {
 } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 /**
  * <c>P2 — Detalle de recepción</c> (doc 07 §FE-F2-PR1). Vista de solo
@@ -29,6 +33,7 @@ const FROM = '/_app/almacen/recepciones/$id' as const;
 export function RecepcionDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useRecepcion(id);
+  const decimalesUnidad = useDecimalesUnidad();
 
   return (
     <div className="space-y-4">
@@ -75,7 +80,7 @@ export function RecepcionDetallePage() {
                   <>
                     {' '}
                     · Registrado:{' '}
-                    {new Date(query.data.registradoAt).toLocaleString('es-MX')}
+                    <DateTimeDisplay value={query.data.registradoAt} variant="datetime" />
                   </>
                 )}
               </>
@@ -170,19 +175,16 @@ export function RecepcionDetallePage() {
                           {l.articuloId}
                         </td>
                       )}
-                      <td className="px-3 py-2 text-right font-mono">
-                        {l.cantidad.toLocaleString('es-MX', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        })}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
                       </td>
                       <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
                       <td className="px-3 py-2 text-sm text-ink">{l.centroCostoId ? formatCcMaquinaLabel({ clave: l.centroCostoClave, nombre: l.centroCostoNombre }) : '—'}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.costoUnitarioMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        {formatearMonto(l.montoTotalMxn)}
+                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                        <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
                       </td>
                     </tr>
                   ))}
@@ -218,10 +220,3 @@ function Campo({
 }
 
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}

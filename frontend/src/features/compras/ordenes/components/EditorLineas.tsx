@@ -33,6 +33,9 @@ import { useArticulos, mapById } from '@/features/catalogos/api';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { cn } from '@/lib/utils';
 import { etiquetaDescuento } from '../lib/subtotal-linea';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
+import { useDecimalesUnidad } from '@/components/erp/forms/useDecimalesUnidad';
 
 /**
  * <c>&lt;EditorLineas/&gt;</c> — tabla de líneas con add/edit/delete
@@ -258,6 +261,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
                 <FilaLinea
                   key={linea.id}
                   linea={linea}
+                  moneda={oc.moneda}
                   articuloClave={linea.articuloClave ?? articulo?.clave ?? null}
                   articuloNombre={linea.articuloNombre ?? articulo?.nombre ?? null}
                   bgClass={i % 2 === 1 ? 'bg-muted/20' : undefined}
@@ -279,14 +283,17 @@ export function EditorLineas({ oc }: EditorLineasProps) {
                 Totales
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {lineasOrdenadas
-                  .reduce((acc, l) => acc + l.subtotalLinea, 0)
-                  .toFixed(2)}
+                <MoneyDisplay
+                  amount={lineasOrdenadas.reduce((acc, l) => acc + l.subtotalLinea, 0)}
+                  currency={oc.moneda}
+                  strong
+                />
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {lineasOrdenadas
-                  .reduce((acc, l) => acc + l.ivaImporte, 0)
-                  .toFixed(2)}
+                <MoneyDisplay
+                  amount={lineasOrdenadas.reduce((acc, l) => acc + l.ivaImporte, 0)}
+                  currency={oc.moneda}
+                />
               </td>
               {(accEditar.visible || accEliminar.visible) && <td />}
             </tr>
@@ -345,6 +352,8 @@ export function EditorLineas({ oc }: EditorLineasProps) {
 
 interface FilaLineaProps {
   linea: LineaOrdenCompraResponse;
+  /** Moneda de la OC, para formatear importes. */
+  moneda: string;
   /** Clave del artículo resuelta contra el catálogo. <c>null</c> si
    * el artículo no está en el catálogo cargado (huérfano o limit). */
   articuloClave: string | null;
@@ -362,6 +371,7 @@ interface FilaLineaProps {
 
 function FilaLinea({
   linea,
+  moneda,
   articuloClave,
   articuloNombre,
   bgClass,
@@ -372,6 +382,7 @@ function FilaLinea({
   onEditar,
   onEliminar,
 }: FilaLineaProps) {
+  const decimales = useDecimalesUnidad().porCodigo(linea.unidadMedida);
   return (
     <tr className={cn(bgClass)} data-linea={linea.id}>
       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
@@ -427,27 +438,27 @@ function FilaLinea({
         )}
       </td>
       <td className="px-3 py-2 text-right tabular-nums">
-        {linea.cantidad.toFixed(2)}
+        {formatCantidad(linea.cantidad, decimales)}
       </td>
       <td className="px-3 py-2">{linea.unidadMedida}</td>
       <td className="px-3 py-2 text-right tabular-nums" data-testid="oc-linea-recibido">
-        {linea.cantidadRecibida.toFixed(2)}
+        {formatCantidad(linea.cantidadRecibida, decimales)}
       </td>
       {/* Por surtir = lo que el proveedor aún no ha entregado (nunca negativo). */}
       <td className="px-3 py-2 text-right tabular-nums" data-testid="oc-linea-por-surtir">
-        {Math.max(linea.cantidad - linea.cantidadRecibida, 0).toFixed(2)}
+        {formatCantidad(Math.max(linea.cantidad - linea.cantidadRecibida, 0), decimales)}
       </td>
       <td className="px-3 py-2 text-right tabular-nums">
-        {linea.precioUnitario.toFixed(2)}
+        <MoneyDisplay amount={linea.precioUnitario} currency={moneda} />
       </td>
       <td className="px-3 py-2 text-right tabular-nums font-medium">
-        {linea.subtotalLinea.toFixed(2)}
+        <MoneyDisplay amount={linea.subtotalLinea} currency={moneda} />
         <p className="text-xs font-normal text-ink-muted">
           {etiquetaDescuento(linea.descuentoTipo, linea.descuentoValor)}
         </p>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-        {linea.ivaImporte.toFixed(2)}
+        <MoneyDisplay amount={linea.ivaImporte} currency={moneda} />
       </td>
       {showAcciones && (
         <td className="px-3 py-2 text-right">

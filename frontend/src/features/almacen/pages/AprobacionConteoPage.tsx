@@ -68,6 +68,9 @@ import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
 import { montoNetoConteo } from '@/features/almacen/lib/monto-neto-conteo';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { formatMoney, mxn } from '@/lib/money';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { formatCantidad } from '@/lib/format-cantidad';
 
 const FROM = '/_app/almacen/inventarios/$id/aprobacion' as const;
 
@@ -150,7 +153,7 @@ export function AprobacionConteoPage() {
       {
         onSuccess: (resp) => {
           toast.success(
-            `${resp.movimientosGenerados} movimientos aplicados (monto neto ${formatearMonto(resp.montoNetoMxn)})`,
+            `${resp.movimientosGenerados} movimientos aplicados (monto neto ${formatMoney(mxn(resp.montoNetoMxn))})`,
           );
           setAplicarOpen(false);
         },
@@ -227,8 +230,8 @@ export function AprobacionConteoPage() {
             descripcion={
               <>
                 Monto neto del ajuste:{' '}
-                <span className="font-mono font-semibold">
-                  {formatearMonto(montoNeto)}
+                <span className="font-semibold">
+                  <MoneyDisplay amount={montoNeto} currency="MXN" />
                 </span>
               </>
             }
@@ -389,13 +392,6 @@ function BloqueoInventarioAnualBanner() {
 
 // ─── Tabla de comparación ───────────────────────────────────────────────────
 
-function formatearCantidad(valor: number): string {
-  return valor.toLocaleString('es-MX', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  });
-}
-
 function TablaComparacion({
   items,
   puedeAccionar,
@@ -450,16 +446,13 @@ function TablaComparacion({
               </td>
               <td className="px-3 py-2 font-mono text-xs">{l.ubicacionClave}</td>
               <td className="px-3 py-2 text-right font-mono">
-                {l.cantidadTeorica.toLocaleString('es-MX', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 4,
-                })}
+                {formatCantidad(l.cantidadTeorica)}
               </td>
               <td className="px-3 py-2 text-right font-mono">
-                {l.cantidadVigente != null ? formatearCantidad(l.cantidadVigente) : '—'}
+                {l.cantidadVigente != null ? formatCantidad(l.cantidadVigente) : '—'}
                 {l.recuentoRealizado && l.cantidadRealCapturada != null && (
                   <div className="text-xs font-normal text-muted-foreground">
-                    Captura original: {formatearCantidad(l.cantidadRealCapturada)}
+                    Captura original: {formatCantidad(l.cantidadRealCapturada)}
                   </div>
                 )}
               </td>
@@ -823,11 +816,4 @@ function manejarError(error: unknown) {
   toast.error('Error inesperado.');
 }
 
-function formatearMonto(v: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-  }).format(v);
-}
 

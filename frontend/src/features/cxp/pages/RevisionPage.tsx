@@ -22,6 +22,8 @@ import {
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { RevisionSearch } from '@/features/cxp/lib/revision-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/cxp/revision' as const;
 const SENTINEL_ALL = '__all__';
@@ -175,13 +177,13 @@ export function RevisionPage() {
                     {motivosMap.get(f.motivoRevisionId) ?? '—'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs">
-                    {new Date(f.fechaEntradaRevision).toLocaleDateString('es-MX')}
+                    <DateTimeDisplay value={f.fechaEntradaRevision} variant="corta" />
                   </td>
                   <td className="px-3 py-2 text-right">
                     <SlaBadge dias={f.diasEnRevision} />
                   </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {formatearMonto(f.total, f.moneda)}
+                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                    <MoneyDisplay amount={f.total} currency={f.moneda} strong />
                   </td>
                 </tr>
               ))}
@@ -213,14 +215,3 @@ function SlaBadge({ dias }: { dias: number }) {
   );
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}

@@ -34,6 +34,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoTarjetaChip } from '@/features/cxp/components/EstadoChips';
 import { NuevaTarjetaSheet } from '@/features/cxp/components/NuevaTarjetaSheet';
 import type { TarjetasSearch } from '@/features/cxp/lib/tc-search-schema';
+import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 
 const FROM = '/_app/cxp/tc/tarjetas' as const;
 const SENTINEL_ALL = '__all__';
@@ -264,8 +265,8 @@ function Tabla({
                 {t.numeroEnmascarado}
               </td>
               <td className="px-3 py-2">{t.emisora}</td>
-              <td className="px-3 py-2 text-right font-mono">
-                {formatearMonto(t.limiteCreditoMxn, 'MXN')}
+              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                <MoneyDisplay amount={t.limiteCreditoMxn} currency={'MXN'} strong />
               </td>
               <td className="px-3 py-2 text-xs text-muted-foreground">
                 {t.diaCorte} / {t.diaLimitePago}
@@ -335,14 +336,3 @@ function Tabla({
   );
 }
 
-function formatearMonto(v: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(v);
-  } catch {
-    return `${v.toFixed(2)} ${moneda}`;
-  }
-}
