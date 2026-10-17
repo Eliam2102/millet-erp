@@ -98,6 +98,20 @@ export interface ProveedorDetalle {
   toleranciaFacturaContraOcMxn: number | null;
   validadoEn: string | null;
   motivoRechazo: string | null;
+  /** 0 = Nacional, 1 = Extranjero, null = por revisar. */
+  origen: OrigenProveedor | null;
+  regimenFiscalCodigo: string | null;
+  /** Concepto de retención esperado; `SIN_RETENCION` = sin retención; null = por revisar. */
+  conceptoRetencion: string | null;
+}
+
+export const OrigenProveedor = { Nacional: 0, Extranjero: 1 } as const;
+export type OrigenProveedor = (typeof OrigenProveedor)[keyof typeof OrigenProveedor];
+
+export interface ClasificacionFiscalProveedorPayload {
+  origen: OrigenProveedor | null;
+  regimenFiscalCodigo: string | null;
+  conceptoRetencion: string | null;
 }
 
 export interface CrearProveedorPayload {

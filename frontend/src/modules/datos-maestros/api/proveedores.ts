@@ -5,6 +5,7 @@ import {
   type ListarProveedoresFiltros,
 } from '@/modules/datos-maestros/api/keys';
 import type {
+  ClasificacionFiscalProveedorPayload,
   AccionCuentaBancariaProveedor,
   AgregarCuentaBancariaProveedorPayload,
   ActualizarProveedorPayload,
@@ -366,6 +367,26 @@ export function useActualizarToleranciaProveedor() {
       await apiRequest<void>(`/api/v1/datos-maestros/proveedores/${id}/tolerancia`, {
         method: 'PUT',
         body: { montoMxn },
+        idempotencyKey,
+      });
+    },
+    onSuccess: (_data, vars) => queryClient.invalidateQueries({
+      queryKey: datosMaestrosKeys.proveedor(vars.id),
+    }),
+  });
+}
+
+export function useActualizarClasificacionFiscalProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    void,
+    Error,
+    { id: string; payload: ClasificacionFiscalProveedorPayload; idempotencyKey: string }
+  >({
+    mutationFn: async ({ id, payload, idempotencyKey }) => {
+      await apiRequest<void>(`/api/v1/datos-maestros/proveedores/${id}/clasificacion-fiscal`, {
+        method: 'PUT',
+        body: payload,
         idempotencyKey,
       });
     },

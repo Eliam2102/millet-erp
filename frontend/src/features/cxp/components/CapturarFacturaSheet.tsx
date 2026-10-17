@@ -569,7 +569,7 @@ export function CapturarFacturaSheet({
                   <SelectValue placeholder="Selecciona concepto" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sin-concepto">Sin concepto: por confirmar</SelectItem>
+                  <SelectItem value="sin-concepto">Usar la retención del proveedor</SelectItem>
                   {[
                     ...new Set([
                       CONCEPTO_SIN_RETENCION,
@@ -584,7 +584,7 @@ export function CapturarFacturaSheet({
                   )}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-ink-muted">Supuesto SAT, valida Fiscal (D03).</p>
+              <p className="text-xs text-ink-muted">Si no eliges, se usa la retención configurada en el proveedor; Fiscal revisa si el XML no coincide.</p>
               {catalogo.isError && (
                 <p role="alert" className="text-warning-note-fg">
                   No se pudo consultar el catálogo fiscal. La captura puede continuar; revisa con

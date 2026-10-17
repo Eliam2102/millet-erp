@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { ProveedorClasificacionFiscalSection } from './ProveedorClasificacionFiscalSection';
 import { ProveedorToleranciaSection } from './ProveedorToleranciaSection';
 import { Link, useParams } from '@tanstack/react-router';
 import {
@@ -340,6 +341,13 @@ export function ProveedorDetalle() {
           </DialogContent>
         </Dialog>
         <ProveedorDatosForm proveedor={proveedor} />
+        <ProveedorClasificacionFiscalSection
+          key={`fiscal-${proveedor.id}`}
+          proveedorId={proveedor.id}
+          origen={proveedor.origen ?? null}
+          regimenFiscalCodigo={proveedor.regimenFiscalCodigo ?? null}
+          conceptoRetencion={proveedor.conceptoRetencion ?? null}
+        />
         <ProveedorToleranciaSection key={proveedor.id} proveedorId={proveedor.id} montoMxn={proveedor.toleranciaFacturaContraOcMxn} />
         <ProveedorCuentasBancariasSection
           proveedorId={proveedor.id}

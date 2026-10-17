@@ -41,6 +41,13 @@ import {
   type CrearProveedorValues,
 } from '@/modules/datos-maestros/schemas/proveedor';
 import { useCrearProveedor } from '@/modules/datos-maestros/api';
+import { useActualizarClasificacionFiscalProveedor } from '@/modules/datos-maestros/api/proveedores';
+import {
+  ClasificacionFiscalCampos,
+  erroresDeClasificacion,
+  type ClasificacionFiscalValores,
+  type ErroresClasificacionFiscal,
+} from '@/modules/datos-maestros/components/ClasificacionFiscalCampos';
 import {
   EstatusCatalogo,
   TipoPersonaProveedor,
@@ -146,6 +153,15 @@ function NuevoProveedorForm({
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const crear = useCrearProveedor();
+  const clasificar = useActualizarClasificacionFiscalProveedor();
+  const [fiscal, setFiscal] = useState<ClasificacionFiscalValores>({
+    origen: null,
+    regimenFiscalCodigo: null,
+    conceptoRetencion: null,
+  });
+  const [erroresFiscal, setErroresFiscal] = useState<ErroresClasificacionFiscal>({});
+  const capturoFiscal =
+    fiscal.origen != null || fiscal.regimenFiscalCodigo != null || fiscal.conceptoRetencion != null;
 
   const form = useForm<CrearProveedorValues>({
     resolver: zodResolver(CrearProveedorSchema),
@@ -194,12 +210,35 @@ function NuevoProveedorForm({
               },
             );
           }
-          form.reset(values);
-          onClose({ force: true });
-          navigate({
-            to: '/admin/datos-maestros/proveedores/$id',
-            params: { id: resp.id },
-          });
+          const terminar = () => {
+            form.reset(values);
+            onClose({ force: true });
+            navigate({
+              to: '/admin/datos-maestros/proveedores/$id',
+              params: { id: resp.id },
+            });
+          };
+          if (!capturoFiscal) {
+            terminar();
+            return;
+          }
+          // El alta ya existe; si la clasificación falla se informa y se completa en la ficha.
+          clasificar.mutate(
+            { id: resp.id, payload: fiscal, idempotencyKey: crypto.randomUUID() },
+            {
+              onSuccess: terminar,
+              onError: (err) => {
+                const mensaje = esApiError(err)
+                  ? (err.problem.detail ?? err.problem.title)
+                  : 'Intenta de nuevo desde la ficha.';
+                toast.error(`${resp.clave} se creó, pero no se guardó la clasificación fiscal`, {
+                  description: `${mensaje} Complétala en la ficha del proveedor.`,
+                });
+                if (esApiError(err)) setErroresFiscal(erroresDeClasificacion(err.code, mensaje));
+                terminar();
+              },
+            },
+          );
         },
         onError: (error) => {
           if (esApiError(error)) {
@@ -363,6 +402,21 @@ function NuevoProveedorForm({
         />
       </FormRow>
 
+      <fieldset className="space-y-3 border-t pt-3">
+        <legend className="text-sm font-semibold">Clasificación fiscal (opcional)</legend>
+        <ClasificacionFiscalCampos
+          idBase="nuevo-proveedor"
+          valores={fiscal}
+          onChange={(v) => {
+            setFiscal(v);
+            setErroresFiscal({});
+            onDirtyChange(true);
+          }}
+          errores={erroresFiscal}
+          disabled={crear.isPending || clasificar.isPending}
+        />
+      </fieldset>
+
       <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
         <Button
           type="button"
@@ -372,8 +426,8 @@ function NuevoProveedorForm({
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={crear.isPending}>
-          {crear.isPending ? 'Creando…' : 'Crear proveedor'}
+        <Button type="submit" disabled={crear.isPending || clasificar.isPending}>
+          {crear.isPending || clasificar.isPending ? 'Creando…' : 'Crear proveedor'}
         </Button>
       </div>
     </form>
