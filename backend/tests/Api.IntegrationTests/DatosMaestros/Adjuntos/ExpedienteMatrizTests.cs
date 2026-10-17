@@ -52,7 +52,7 @@ public class ExpedienteMatrizTests : IClassFixture<WebApplicationFactory<Program
         Assert.Contains("opinion_cumplimiento", tipos.EnumerateArray().Select(t => t.GetProperty("codigo").GetString()));
 
         var alta = await cxp.PostAsJsonAsync($"{Base}/expediente/tipos",
-            new { codigo = "fix_doc", nombre = "FIX documento", obligatorio = false, vigenciaMeses = (int?)null, soloPersonaMoral = false, soloNacional = false, activo = true });
+            new { codigo = "fix_doc", nombre = "FIX documento", obligatorioPersonaMoral = false, obligatorioPersonaFisica = false, vigenciaMeses = (int?)null, soloPersonaMoral = false, aplicaOrigen = 0, activo = true });
         Assert.Equal(HttpStatusCode.Forbidden, alta.StatusCode);
     }
 }

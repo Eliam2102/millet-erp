@@ -5,15 +5,20 @@ import { apiRequest } from '@/lib/api';
 const RUTA = '/api/v1/datos-maestros/proveedores/expediente/tipos';
 const KEY = ['datos-maestros', 'proveedores', 'expediente-tipos'] as const;
 
+/** A qué origen aplica un documento (el backend lo serializa como número). */
+export const AplicaOrigenDocumento = { Todos: 0, SoloNacional: 1, SoloExtranjero: 2 } as const;
+export type AplicaOrigenDocumento = (typeof AplicaOrigenDocumento)[keyof typeof AplicaOrigenDocumento];
+
 export interface TipoExpedienteProveedor {
   id: string;
   codigo: string;
   nombre: string;
   orden: number;
-  obligatorio: boolean;
+  obligatorioPersonaMoral: boolean;
+  obligatorioPersonaFisica: boolean;
   vigenciaMeses: number | null;
   soloPersonaMoral: boolean;
-  soloNacional: boolean;
+  aplicaOrigen: AplicaOrigenDocumento;
   activo: boolean;
   version: number;
 }
@@ -21,10 +26,11 @@ export interface TipoExpedienteProveedor {
 export interface TipoExpedienteProveedorPayload {
   codigo: string;
   nombre: string;
-  obligatorio: boolean;
+  obligatorioPersonaMoral: boolean;
+  obligatorioPersonaFisica: boolean;
   vigenciaMeses: number | null;
   soloPersonaMoral: boolean;
-  soloNacional: boolean;
+  aplicaOrigen: AplicaOrigenDocumento;
   activo: boolean;
 }
 

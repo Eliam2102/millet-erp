@@ -100,6 +100,27 @@ function fmtFecha(iso: string | null): string {
   });
 }
 
+/** «Rechazada/Inhabilitada/Reactivada por X · fecha», o quién la capturó/validó; el motivo va en otra línea. */
+function textoHistorial(c: CuentaBancariaProveedor): string | null {
+  const etiqueta =
+    c.estado === EstadoCuentaBancariaProveedor.Rechazada
+      ? 'Rechazada'
+      : c.estado === EstadoCuentaBancariaProveedor.Inhabilitada
+        ? 'Inhabilitada'
+        : c.estado === EstadoCuentaBancariaProveedor.Activa && c.ultimoCambioEn
+          ? 'Reactivada'
+          : null;
+  if (etiqueta && (c.ultimoCambioPorNombre || c.ultimoCambioEn)) {
+    return `${etiqueta}${c.ultimoCambioPorNombre ? ` por ${c.ultimoCambioPorNombre}` : ''}${c.ultimoCambioEn ? ` · ${fmtFecha(c.ultimoCambioEn)}` : ''}`;
+  }
+  if (c.estado === EstadoCuentaBancariaProveedor.PorValidar) {
+    return c.capturadaPorNombre ? `Capturó ${c.capturadaPorNombre}` : null;
+  }
+  return c.validadaPorNombre
+    ? `Validó ${c.validadaPorNombre}${c.validadaEn ? ` · ${fmtFecha(c.validadaEn)}` : ''}`
+    : null;
+}
+
 export interface ProveedorCuentasBancariasSectionProps {
   proveedorId: string;
   /** Prellena el titular de la cuenta nueva. */
@@ -108,8 +129,8 @@ export interface ProveedorCuentasBancariasSectionProps {
 
 /**
  * Cuentas bancarias del proveedor (varias por proveedor). Visible con
- * <c>bancarios-ver</c>; agregar y marcar predeterminada con
- * <c>bancarios-editar</c>; validar/rechazar/inhabilitar/reactivar con
+ * <c>bancarios-ver</c>; agregar con <c>bancarios-editar</c>;
+ * validar/rechazar/inhabilitar/reactivar y marcar predeterminada con
  * <c>cuentas-administrar</c>. Quien captura una cuenta no puede validarla
  * (el backend lo exige; la UI lo anticipa con <c>capturadaPorMi</c>).
  */
@@ -237,7 +258,6 @@ export function ProveedorCuentasBancariasSection({
                 <FilaCuenta
                   key={c.id}
                   cuenta={c}
-                  canEditar={canEditar}
                   canAdministrar={canAdministrar}
                   onValidar={() => setValidando(c)}
                   onMotivo={(accion) => {
@@ -286,7 +306,6 @@ export function ProveedorCuentasBancariasSection({
 
 interface FilaCuentaProps {
   cuenta: CuentaBancariaProveedor;
-  canEditar: boolean;
   canAdministrar: boolean;
   pendiente: boolean;
   onValidar: () => void;
@@ -296,7 +315,6 @@ interface FilaCuentaProps {
 
 function FilaCuenta({
   cuenta: c,
-  canEditar,
   canAdministrar,
   pendiente,
   onValidar,
@@ -304,14 +322,7 @@ function FilaCuenta({
   onPredeterminada,
 }: FilaCuentaProps) {
   const motivoId = useId();
-  const quien =
-    c.estado === EstadoCuentaBancariaProveedor.PorValidar
-      ? c.capturadaPorNombre
-        ? `Capturó ${c.capturadaPorNombre}`
-        : null
-      : c.validadaPorNombre
-        ? `${c.estado === EstadoCuentaBancariaProveedor.Rechazada ? 'Rechazó' : 'Validó'} ${c.validadaPorNombre}${c.validadaEn ? ` · ${fmtFecha(c.validadaEn)}` : ''}`
-        : null;
+  const quien = textoHistorial(c);
   const bloqueadaPorMi = c.capturadaPorMi;
 
   return (
@@ -331,7 +342,7 @@ function FilaCuenta({
           {EstadoCuentaBancariaProveedorLabels[c.estado]}
         </Badge>
         {quien && <span className="mt-1 block text-2xs text-ink-muted">{quien}</span>}
-        {c.motivoEstado && c.estado !== EstadoCuentaBancariaProveedor.Activa && (
+        {c.motivoEstado && (
           <span className="mt-0.5 block text-2xs text-ink-muted">{c.motivoEstado}</span>
         )}
       </td>
@@ -375,7 +386,7 @@ function FilaCuenta({
               Reactivar
             </Button>
           )}
-          {canEditar && c.estado === EstadoCuentaBancariaProveedor.Activa && !c.predeterminada && (
+          {canAdministrar && c.estado === EstadoCuentaBancariaProveedor.Activa && !c.predeterminada && (
             <Button
               type="button"
               size="sm"
@@ -432,12 +443,15 @@ function AgregarCuentaSheet({
   >({});
 
   const clabeInvalida = !extranjera && clabe !== '' && !/^\d{18}$/.test(clabe);
+  // El SWIFT es opcional (el backend lo acepta vacío); si se captura debe tener 8 u 11 caracteres.
+  const swiftInvalido = extranjera && swift.trim() !== '' && !/^[A-Za-z0-9]{8}([A-Za-z0-9]{3})?$/.test(swift.trim());
   const faltante =
     banco.trim() === '' ||
     titular.trim() === '' ||
-    (extranjera ? numeroCuenta.trim() === '' || swift.trim() === '' : !/^\d{18}$/.test(clabe));
+    swiftInvalido ||
+    (extranjera ? numeroCuenta.trim() === '' : !/^\d{18}$/.test(clabe));
   const motivoDeshabilitado = faltante
-    ? 'Completa banco, titular y el número de cuenta (CLABE de 18 dígitos o número y SWIFT).'
+    ? 'Completa banco, titular y el número de cuenta (CLABE de 18 dígitos o número de cuenta; el SWIFT es opcional).'
     : null;
 
   function onSubmit(e: FormEvent) {
@@ -452,14 +466,16 @@ function AgregarCuentaSheet({
           banco: banco.trim(),
           clabe: extranjera ? null : clabe,
           numeroCuenta: extranjera ? numeroCuenta.trim() : null,
-          swift: extranjera ? swift.trim() : null,
+          swift: extranjera && swift.trim() !== '' ? swift.trim().toUpperCase() : null,
           moneda,
           titular: titular.trim(),
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: (cuenta) => {
           toast.success('Cuenta agregada; queda Por validar');
+          // La misma cuenta en otro proveedor no bloquea el alta, pero quien valida debe saberlo.
+          if (cuenta.advertencia) toast.warning(cuenta.advertencia, { duration: 15_000 });
           onCerrar();
         },
         onError: (error) => {
@@ -528,8 +544,21 @@ function AgregarCuentaSheet({
                   )}
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor={`${uid}-swift`} className="text-xs font-medium text-ink-strong">SWIFT</Label>
-                  <Input id={`${uid}-swift`} className="font-mono" maxLength={11} value={swift} onChange={(e) => setSwift(e.target.value)} />
+                  <Label htmlFor={`${uid}-swift`} className="text-xs font-medium text-ink-strong">
+                    SWIFT <span className="font-normal text-ink-muted">(opcional)</span>
+                  </Label>
+                  <Input
+                    id={`${uid}-swift`}
+                    className="font-mono"
+                    maxLength={11}
+                    value={swift}
+                    onChange={(e) => setSwift(e.target.value)}
+                    aria-invalid={swiftInvalido}
+                    aria-describedby={`${uid}-swift-ayuda`}
+                  />
+                  <p id={`${uid}-swift-ayuda`} className={swiftInvalido ? 'text-xs text-danger-fg' : 'text-xs text-ink-muted'}>
+                    {swiftInvalido ? 'El SWIFT/BIC debe tener 8 u 11 caracteres alfanuméricos.' : '8 u 11 caracteres.'}
+                  </p>
                 </div>
               </>
             ) : (

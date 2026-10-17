@@ -252,26 +252,28 @@ public sealed class CompartidoDbContext : BaseDbContext
         tipo.Property(x => x.Orden).IsRequired();
         tipo.Property(x => x.Obligatorio).IsRequired();
         tipo.Property(x => x.SoloPersonaMoral).IsRequired();
-        tipo.Property(x => x.SoloNacional).IsRequired();
+        tipo.Property(x => x.ObligatorioPersonaMoral).IsRequired();
+        tipo.Property(x => x.ObligatorioPersonaFisica).IsRequired();
+        tipo.Property(x => x.AplicaOrigen).HasConversion<short>().IsRequired();
         tipo.Property(x => x.Activo).IsRequired();
         tipo.HasIndex(x => new { x.TipoEntidad, x.Codigo }).IsUnique();
 
         var seedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         tipo.HasData(
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // F1-CON-04 (C1.3, R7): documento soporte de la póliza contable.
-            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000004", "identificacion_representante_legal", "Identificación del representante legal", 4, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime),
             // 86e3pdmee: soporte para validar cuentas bancarias; no es parte del expediente obligatorio.
-            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             // 86e3pdmee · demo 12-oct: opinión de cumplimiento y fotos del domicilio fiscal, opcionales (Millet define).
-            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000007"), TipoEntidad = "proveedor", Codigo = "opinion_cumplimiento", Nombre = "Opinión de cumplimiento (32-D)", Orden = 7, Obligatorio = false, VigenciaMeses = (int?)1, SoloPersonaMoral = false, SoloNacional = true, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
-            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000008"), TipoEntidad = "proveedor", Codigo = "fotografias_domicilio", Nombre = "Fotografías del domicilio fiscal", Orden = 8, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, SoloNacional = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000007"), TipoEntidad = "proveedor", Codigo = "opinion_cumplimiento", Nombre = "Opinión de cumplimiento (32-D)", Orden = 7, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)1, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.SoloNacional, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000008"), TipoEntidad = "proveedor", Codigo = "fotografias_domicilio", Nombre = "Fotografías del domicilio fiscal", Orden = 8, Obligatorio = false, ObligatorioPersonaMoral = false, ObligatorioPersonaFisica = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, AplicaOrigen = AdjuntoAplicaOrigen.Todos, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
     }
 
     /// <summary>86e3pdmee · ADM-01: excepciones a documentos obligatorios del expediente.</summary>
@@ -299,10 +301,12 @@ public sealed class CompartidoDbContext : BaseDbContext
         Nombre = nombre,
         Orden = orden,
         Obligatorio = true,
+        ObligatorioPersonaMoral = true,
+        ObligatorioPersonaFisica = !soloPersonaMoral,
         VigenciaMeses = vigenciaMeses,
         SoloPersonaMoral = soloPersonaMoral,
         // 86e3pdmee: la constancia de situación fiscal es del SAT; no aplica a extranjeros.
-        SoloNacional = codigo == "constancia_situacion_fiscal",
+        AplicaOrigen = codigo == "constancia_situacion_fiscal" ? AdjuntoAplicaOrigen.SoloNacional : AdjuntoAplicaOrigen.Todos,
         Activo = true,
         Version = 1,
         CreatedAt = seedTime,
@@ -896,6 +900,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         regimen.Property(x => x.Codigo).HasMaxLength(3).IsRequired();
         regimen.Property(x => x.Nombre).HasMaxLength(254).IsRequired();
         regimen.Property(x => x.AplicaPersonaFisica).IsRequired();
+        regimen.Property(x => x.AplicaPersonaMoral).IsRequired();
         regimen.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
         regimen.HasIndex(x => x.Codigo).IsUnique();
@@ -931,6 +936,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         Codigo = codigo,
         Nombre = nombre,
         AplicaPersonaFisica = aplicaPersonaFisica,
+        // 86e3pdmee: el SAT marca ambas naturalezas en el 626 (RESICO) y el 610 (extranjeros).
+        AplicaPersonaMoral = !aplicaPersonaFisica || codigo is "626" or "610",
         Estatus = EstatusCatalogo.Activo,
         Version = 1,
         CreatedAt = seedTime,
@@ -1176,6 +1183,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Origen).HasConversion<short?>();
         proveedor.Property(x => x.RegimenFiscalCodigo).HasMaxLength(3);
         proveedor.Property(x => x.ConceptoRetencion).HasMaxLength(80);
+        proveedor.Property(x => x.ValidadoConMatrizVersion);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
         // F1-ADM-05: RFC único salvo genéricos SAT (público en general),
@@ -1223,6 +1231,7 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasDatabaseName("ux_proveedor_cuentas_numero").HasFilter("numero_cuenta IS NOT NULL AND estado <> 3");
         cuenta.Property(x => x.CapturadaPorNombre).HasMaxLength(200);
         cuenta.Property(x => x.ValidadaPorNombre).HasMaxLength(200);
+        cuenta.Property(x => x.UltimoCambioPorNombre).HasMaxLength(200);
         cuenta.HasIndex(x => x.ProveedorId);
     }
 

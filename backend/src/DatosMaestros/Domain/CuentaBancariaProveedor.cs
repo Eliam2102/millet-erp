@@ -47,6 +47,10 @@ public sealed class CuentaBancariaProveedor : BaseEntity, IAuditable
     public string? NotaValidacion { get; private set; }
     /// <summary>Motivo del último rechazo, inhabilitación o reactivación.</summary>
     public string? MotivoEstado { get; private set; }
+    /// <summary>Quién y cuándo hizo el último rechazo, inhabilitación o reactivación (historial en la UI).</summary>
+    public Guid? UltimoCambioPorId { get; private set; }
+    public string? UltimoCambioPorNombre { get; private set; }
+    public DateTimeOffset? UltimoCambioEn { get; private set; }
 
     /// <summary>Número que identifica la cuenta para detectar duplicados y para el pago.</summary>
     public string Identificador => Clabe ?? NumeroCuenta ?? string.Empty;
@@ -118,30 +122,33 @@ public sealed class CuentaBancariaProveedor : BaseEntity, IAuditable
         MotivoEstado = null;
     }
 
-    public void Rechazar(string motivo)
+    public void Rechazar(string motivo, Guid? usuarioId, string? usuarioNombre, DateTimeOffset ahora)
     {
         if (Estado != EstadoCuentaBancariaProveedor.PorValidar)
             throw new BusinessRuleException("PROVEEDOR_CUENTA_NO_POR_VALIDAR", "Solo se rechazan cuentas «Por validar».");
         MotivoEstado = Motivo(motivo);
+        RegistrarCambio(usuarioId, usuarioNombre, ahora);
         Estado = EstadoCuentaBancariaProveedor.Rechazada;
         Predeterminada = false;
     }
 
-    public void Inhabilitar(string motivo)
+    public void Inhabilitar(string motivo, Guid? usuarioId, string? usuarioNombre, DateTimeOffset ahora)
     {
         if (Estado is not (EstadoCuentaBancariaProveedor.Activa or EstadoCuentaBancariaProveedor.PorValidar))
             throw new BusinessRuleException("PROVEEDOR_CUENTA_NO_INHABILITABLE", "Solo se inhabilitan cuentas activas o por validar.");
         MotivoEstado = Motivo(motivo);
+        RegistrarCambio(usuarioId, usuarioNombre, ahora);
         Estado = EstadoCuentaBancariaProveedor.Inhabilitada;
         Predeterminada = false;
     }
 
     /// <summary>Vuelve a Activa si ya había sido validada (o heredada); si nunca se validó, regresa a Por validar.</summary>
-    public void Reactivar(string motivo)
+    public void Reactivar(string motivo, Guid? usuarioId, string? usuarioNombre, DateTimeOffset ahora)
     {
         if (Estado != EstadoCuentaBancariaProveedor.Inhabilitada)
             throw new BusinessRuleException("PROVEEDOR_CUENTA_NO_INHABILITADA", "Solo se reactivan cuentas inhabilitadas.");
         MotivoEstado = Motivo(motivo);
+        RegistrarCambio(usuarioId, usuarioNombre, ahora);
         Estado = ValidadaEn is not null || CapturadaPorId is null
             ? EstadoCuentaBancariaProveedor.Activa
             : EstadoCuentaBancariaProveedor.PorValidar;
@@ -152,6 +159,13 @@ public sealed class CuentaBancariaProveedor : BaseEntity, IAuditable
         if (valor && Estado is EstadoCuentaBancariaProveedor.Inhabilitada or EstadoCuentaBancariaProveedor.Rechazada)
             throw new BusinessRuleException("PROVEEDOR_CUENTA_NO_PREDETERMINABLE", "Una cuenta inhabilitada o rechazada no puede ser la predeterminada.");
         Predeterminada = valor;
+    }
+
+    private void RegistrarCambio(Guid? usuarioId, string? usuarioNombre, DateTimeOffset ahora)
+    {
+        UltimoCambioPorId = usuarioId;
+        UltimoCambioPorNombre = usuarioNombre;
+        UltimoCambioEn = ahora;
     }
 
     private static string Motivo(string motivo) =>

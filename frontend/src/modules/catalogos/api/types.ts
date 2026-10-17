@@ -296,5 +296,7 @@ export interface RegimenFiscalItem {
   codigo: string;
   nombre: string;
   aplicaPersonaFisica: boolean;
+  /** El SAT marca ambas naturalezas en algunos regímenes (626, 610). */
+  aplicaPersonaMoral?: boolean;
   estatus: EstatusCatalogo;
 }

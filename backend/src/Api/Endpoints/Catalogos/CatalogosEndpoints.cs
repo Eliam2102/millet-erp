@@ -303,7 +303,10 @@ public static class CatalogosEndpoints
                     CondicionesPagoDias: request.CondicionesPagoDias,
                     MonedaPreferidaId: request.MonedaPreferidaId,
                     Email: request.Email,
-                    Telefono: request.Telefono),
+                    Telefono: request.Telefono,
+                    Origen: request.Origen,
+                    RegimenFiscalCodigo: request.RegimenFiscalCodigo,
+                    ConceptoRetencion: request.ConceptoRetencion),
                 cancellationToken);
             return Results.Created($"/api/v1/catalogos/proveedores/{response.Id}", response);
         })
@@ -508,13 +511,16 @@ public static class CatalogosEndpoints
     public sealed record CrearProveedorRequest(
         string Clave,
         string RazonSocial,
-        string Rfc,
+        string? Rfc,
         TipoPersonaProveedor TipoPersona,
         string? NombreComercial,
         short? CondicionesPagoDias,
         Guid? MonedaPreferidaId,
         string? Email,
-        string? Telefono);
+        string? Telefono,
+        OrigenProveedor? Origen = null,
+        string? RegimenFiscalCodigo = null,
+        string? ConceptoRetencion = null);
 
     /// <summary>Body del PATCH /proveedores/{id} (B.5). Todos opcionales; las cuentas bancarias van por /datos-maestros/proveedores/{id}/cuentas-bancarias.</summary>
     public sealed record ActualizarProveedorRequest(

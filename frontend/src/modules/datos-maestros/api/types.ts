@@ -103,6 +103,8 @@ export interface ProveedorDetalle {
   regimenFiscalCodigo: string | null;
   /** Concepto de retención esperado; `SIN_RETENCION` = sin retención; null = por revisar. */
   conceptoRetencion: string | null;
+  /** Versión de la matriz del expediente con la que se validó el proveedor. */
+  validadoConMatrizVersion?: number | null;
 }
 
 export const OrigenProveedor = { Nacional: 0, Extranjero: 1 } as const;
@@ -117,13 +119,18 @@ export interface ClasificacionFiscalProveedorPayload {
 export interface CrearProveedorPayload {
   clave: string;
   razonSocial: string;
-  rfc: string;
+  /** Opcional solo si el origen es Extranjero: el backend guarda el RFC genérico XEXX010101000. */
+  rfc: string | null;
   tipoPersona: TipoPersonaProveedor;
   nombreComercial: string | null;
   condicionesPagoDias: number | null;
   monedaPreferidaId: string | null;
   email: string | null;
   telefono: string | null;
+  /** Clasificación fiscal en la misma transacción del alta (86e3pdmee). */
+  origen?: OrigenProveedor | null;
+  regimenFiscalCodigo?: string | null;
+  conceptoRetencion?: string | null;
 }
 
 export interface ActualizarProveedorPayload {
@@ -199,6 +206,11 @@ export interface CuentaBancariaProveedor {
   motivoEstado: string | null;
   numeroCompleto: boolean;
   version: number;
+  /** Quién y cuándo rechazó, inhabilitó o reactivó la cuenta por última vez. */
+  ultimoCambioPorNombre?: string | null;
+  ultimoCambioEn?: string | null;
+  /** Solo en la respuesta del alta: la misma cuenta existe en otro proveedor. */
+  advertencia?: string | null;
 }
 
 export interface AgregarCuentaBancariaProveedorPayload {

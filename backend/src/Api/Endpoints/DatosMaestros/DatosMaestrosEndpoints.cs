@@ -104,7 +104,7 @@ public static class DatosMaestrosEndpoints
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
                 p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
-                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion));
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion, p.ValidadoConMatrizVersion));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -142,7 +142,7 @@ public static class DatosMaestrosEndpoints
         proveedores.MapPost("/expediente/tipos", async ([FromBody] TipoDocumentoProveedorRequest body, IMediator mediator, CancellationToken ct) =>
         {
             var dto = await mediator.Send(new GuardarTipoDocumentoProveedorCommand(null, null, body.Codigo, body.Nombre,
-                body.Obligatorio, body.VigenciaMeses, body.SoloPersonaMoral, body.SoloNacional, body.Activo), ct);
+                body.ObligatorioPersonaMoral, body.ObligatorioPersonaFisica, body.VigenciaMeses, body.SoloPersonaMoral, body.AplicaOrigen, body.Activo), ct);
             return Results.Created($"/api/v1/datos-maestros/proveedores/expediente/tipos/{dto.Id}", dto);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
@@ -158,7 +158,7 @@ public static class DatosMaestrosEndpoints
         {
             if (expectedVersion is not int v) return VersionRequerida();
             return Results.Ok(await mediator.Send(new GuardarTipoDocumentoProveedorCommand(tipoId, v, null, body.Nombre,
-                body.Obligatorio, body.VigenciaMeses, body.SoloPersonaMoral, body.SoloNacional, body.Activo), ct));
+                body.ObligatorioPersonaMoral, body.ObligatorioPersonaFisica, body.VigenciaMeses, body.SoloPersonaMoral, body.AplicaOrigen, body.Activo), ct));
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresExpedienteConfigurar)
@@ -315,7 +315,7 @@ public static class DatosMaestrosEndpoints
             ("rechazar", AccionCuentaBancariaProveedor.Rechazar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
             ("inhabilitar", AccionCuentaBancariaProveedor.Inhabilitar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
             ("reactivar", AccionCuentaBancariaProveedor.Reactivar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
-            ("predeterminada", AccionCuentaBancariaProveedor.MarcarPredeterminada, PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar),
+            ("predeterminada", AccionCuentaBancariaProveedor.MarcarPredeterminada, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
         })
         {
             proveedores.MapPost($"/{{id:guid}}/cuentas-bancarias/{{cuentaId:guid}}/{ruta}", async (
@@ -969,7 +969,8 @@ public static class DatosMaestrosEndpoints
         decimal? ToleranciaFacturaContraOcMxn = null,
         OrigenProveedor? Origen = null,
         string? RegimenFiscalCodigo = null,
-        string? ConceptoRetencion = null);
+        string? ConceptoRetencion = null,
+        int? ValidadoConMatrizVersion = null);
 
     public sealed record ActualizarClasificacionFiscalRequest(
         OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);
@@ -992,7 +993,8 @@ public static class DatosMaestrosEndpoints
         string Banco, string? Clabe, string? NumeroCuenta, string? Swift, string Moneda, string Titular);
 
     public sealed record TipoDocumentoProveedorRequest(
-        string? Codigo, string Nombre, bool Obligatorio, int? VigenciaMeses, bool SoloPersonaMoral, bool SoloNacional, bool Activo);
+        string? Codigo, string Nombre, bool ObligatorioPersonaMoral, bool ObligatorioPersonaFisica, int? VigenciaMeses,
+        bool SoloPersonaMoral, Millet.SharedKernel.Domain.Adjuntos.AdjuntoAplicaOrigen AplicaOrigen, bool Activo);
 
     public sealed record ExcepcionExpedienteRequest(Guid TipoDocumentoId, string Motivo);
 

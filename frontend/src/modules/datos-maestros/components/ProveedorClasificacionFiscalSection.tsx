@@ -8,7 +8,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { etiquetaConcepto } from '@/features/cxp/lib/retenciones-p8';
 import { useActualizarClasificacionFiscalProveedor } from '../api/proveedores';
-import { OrigenProveedor } from '../api/types';
+import { OrigenProveedor, type TipoPersonaProveedor } from '../api/types';
 import {
   ClasificacionFiscalCampos,
   type ClasificacionFiscalValores,
@@ -20,9 +20,10 @@ interface Props {
   origen: OrigenProveedor | null;
   regimenFiscalCodigo: string | null;
   conceptoRetencion: string | null;
+  tipoPersona?: TipoPersonaProveedor;
 }
 
-export function ProveedorClasificacionFiscalSection({ proveedorId, origen, regimenFiscalCodigo, conceptoRetencion }: Props) {
+export function ProveedorClasificacionFiscalSection({ proveedorId, origen, regimenFiscalCodigo, conceptoRetencion, tipoPersona }: Props) {
   const puedeEditar = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresGestionar);
   const [editando, setEditando] = useState(false);
   const [valores, setValores] = useState<ClasificacionFiscalValores>({ origen, regimenFiscalCodigo, conceptoRetencion });
@@ -71,7 +72,7 @@ export function ProveedorClasificacionFiscalSection({ proveedorId, origen, regim
       {editando && puedeEditar ? (
         <form onSubmit={guardar} className="space-y-3">
           <ClasificacionFiscalCampos idBase={`clasif-${proveedorId}`} valores={valores} onChange={setValores}
-            errores={errores} disabled={actualizar.isPending} />
+            errores={errores} disabled={actualizar.isPending} tipoPersona={tipoPersona} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="lg" disabled={actualizar.isPending} onClick={() => setEditando(false)}>Cancelar</Button>
             <Button type="submit" size="lg" disabled={actualizar.isPending}

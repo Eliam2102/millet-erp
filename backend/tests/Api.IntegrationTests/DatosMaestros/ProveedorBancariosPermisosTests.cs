@@ -107,4 +107,23 @@ public class ProveedorBancariosPermisosTests : IClassFixture<WebApplicationFacto
         var alta = await compras.PostAsJsonAsync(Cuentas(provId), new { banco = "BBVA", clabe = Clabe, moneda = "MXN", titular = "Proveedor SA" });
         Assert.Equal(HttpStatusCode.Forbidden, alta.StatusCode);
     }
+
+    [Fact]
+    public async Task Tesoreria_con_bancarios_editar_no_puede_marcar_predeterminada_responde_403()
+    {
+        var amb = new AdjuntosProveedorAmbiente(_factory);
+        var provId = await amb.SeedProveedorAsync(TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+        var (tesoreria, _) = await amb.ClienteConPermisosAsync(
+            PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
+            PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar);
+
+        var r = await tesoreria.SendAsync(Accion(provId, Guid.NewGuid(), "predeterminada", 1, new { }));
+
+        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+
+        // Con cuentas-administrar el permiso alcanza (la cuenta no existe: 404, no 403).
+        var (admin, _) = await amb.ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar);
+        var r2 = await admin.SendAsync(Accion(provId, Guid.NewGuid(), "predeterminada", 1, new { }));
+        Assert.Equal(HttpStatusCode.NotFound, r2.StatusCode);
+    }
 }

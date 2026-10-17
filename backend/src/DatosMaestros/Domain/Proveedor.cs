@@ -53,6 +53,8 @@ public sealed class Proveedor : BaseEntity, IAuditable
     public DateTimeOffset? ValidadoEn { get; private set; }
     /// <summary>Motivo obligatorio en caso de rechazo del proveedor.</summary>
     public string? MotivoRechazo { get; private set; }
+    /// <summary>Versión de la matriz del expediente con la que se validó (86e3pdmee · ADM-01).</summary>
+    public int? ValidadoConMatrizVersion { get; private set; }
 
     // Datos bancarios: varias cuentas por proveedor en CuentaBancariaProveedor (86e3pdmee · ADM-02).
 
@@ -90,6 +92,9 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// legítimos comparten estos valores.
     /// </summary>
     public static readonly string[] RfcGenericos = ["XAXX010101000", "XEXX010101000"];
+
+    /// <summary>RFC genérico para proveedores extranjeros, que no tienen RFC (86e3pdmee).</summary>
+    public const string RfcGenericoExtranjero = "XEXX010101000";
 
     public static bool EsRfcGenerico(string rfc) =>
         RfcGenericos.Contains(rfc.Trim().ToUpperInvariant());
@@ -221,7 +226,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// Valida el proveedor en revisión tras comprobar la completitud de su expediente (F1-ADM-05 G1.1).
     /// Pasa de EnRevision a Activo.
     /// </summary>
-    public void Validar(Guid validadorId, DateTimeOffset fecha)
+    public void Validar(Guid validadorId, DateTimeOffset fecha, int? matrizVersion = null)
     {
         if (Estatus != EstatusCatalogo.EnRevision)
         {
@@ -233,6 +238,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
         Estatus = EstatusCatalogo.Activo;
         ValidadoPorId = validadorId;
         ValidadoEn = fecha;
+        ValidadoConMatrizVersion = matrizVersion;
         MotivoRechazo = null;
     }
 

@@ -55,7 +55,14 @@ const TIPO_ENTIDAD = 'proveedor';
 const MIME_PROVEEDOR = ['application/pdf', 'application/xml', 'text/xml', 'image/jpeg', 'image/png'];
 const MAX_BYTES = 10 * 1024 * 1024;
 
-export function ProveedorExpedienteSection({ proveedorId }: { proveedorId: string }) {
+export function ProveedorExpedienteSection({
+  proveedorId,
+  origen,
+}: {
+  proveedorId: string;
+  /** `null` = proveedor sin clasificar; `undefined` = el llamador no informa el origen. */
+  origen?: number | null;
+}) {
   const canVer = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosVer);
   const canSubir = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosSubir);
   const canBaja = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosBaja);
@@ -112,6 +119,20 @@ export function ProveedorExpedienteSection({ proveedorId }: { proveedorId: strin
           {exp.completo && <Badge variant="success">Expediente completo</Badge>}
         </div>
       </div>
+
+      <p className="mb-3 text-xs text-ink-muted">
+        Adjuntar acredita que se recibió el archivo, no valida su contenido.
+      </p>
+
+      {origen === null && (
+        <div
+          role="note"
+          className="mb-3 flex items-start gap-2 rounded-md bg-warning-note-bg px-3 py-2.5 text-sm text-warning-note-fg"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p>Sin clasificar: se aplica la matriz de nacionales hasta que lo clasifiques.</p>
+        </div>
+      )}
 
       {!exp.completo && (
         <div

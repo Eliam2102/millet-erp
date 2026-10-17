@@ -131,8 +131,17 @@ export function ProveedorDetalle() {
   const enRevision = proveedor.estatus === EstatusCatalogo.EnRevision;
 
   const expedienteCompleto = expediente.data?.completo === true;
-  const faltantes = expediente.data?.faltantes ?? [];
-  const faltantesCount = faltantes.length;
+  const faltantesCount = expediente.data?.faltantes.length ?? 0;
+  const vencidosCount = expediente.data?.vencidos.length ?? 0;
+  // Faltantes y vencidos bloquean igual la validación: el aviso y el tooltip suman ambos.
+  const pendientesCount = faltantesCount + vencidosCount;
+  const textoPendientes = [
+    faltantesCount > 0 ? `${faltantesCount} faltante${faltantesCount === 1 ? '' : 's'}` : null,
+    vencidosCount > 0 ? `${vencidosCount} vencido${vencidosCount === 1 ? '' : 's'}` : null,
+  ]
+    .filter(Boolean)
+    .join(' y ');
+  const clasificado = proveedor.origen != null;
 
   const motivoTrim = motivoRechazo.trim();
   const motivoValido = motivoTrim.length >= 5 && motivoTrim.length <= 500;
@@ -248,12 +257,14 @@ export function ProveedorDetalle() {
               <Button
                 type="button"
                 size="sm"
-                className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                disabled={!expedienteCompleto || validar.isPending}
+                className="bg-success text-white hover:bg-success-fg disabled:opacity-50"
+                disabled={!expedienteCompleto || !clasificado || validar.isPending}
                 title={
-                  !expedienteCompleto
-                    ? `Expediente incompleto (${faltantesCount} faltante${faltantesCount === 1 ? '' : 's'})`
-                    : 'Validar expediente y activar proveedor'
+                  !clasificado
+                    ? 'Clasifica al proveedor (origen y régimen fiscal) antes de validarlo'
+                    : !expedienteCompleto
+                      ? `Expediente incompleto (${textoPendientes || 'documentos pendientes'})`
+                      : 'Validar expediente y activar proveedor'
                 }
                 onClick={() => setConfirmValidar(true)}
               >
@@ -286,17 +297,17 @@ export function ProveedorDetalle() {
       <div className="px-4 pt-4 pb-6">
         {/* Banner informativo de En Revisión */}
         {enRevision && (
-          <div className="mb-4 rounded-md border border-amber-300/60 bg-amber-500/10 p-3 text-amber-900 dark:text-amber-200">
+          <div className="mb-4 rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Clock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <Clock className="h-4 w-4 shrink-0 text-warning" />
                 <span>Proveedor en revisión por Cuentas por Pagar</span>
               </div>
               {expediente.data && (
                 <span className="text-xs font-semibold">
                   {expedienteCompleto
                     ? '✓ Expediente documental completo'
-                    : `Expediente incompleto: ${faltantesCount} documento${faltantesCount === 1 ? '' : 's'} faltante${faltantesCount === 1 ? '' : 's'}`}
+                    : `Expediente incompleto: ${textoPendientes || `${pendientesCount} documentos pendientes`}`}
                 </span>
               )}
             </div>
@@ -347,13 +358,14 @@ export function ProveedorDetalle() {
           origen={proveedor.origen ?? null}
           regimenFiscalCodigo={proveedor.regimenFiscalCodigo ?? null}
           conceptoRetencion={proveedor.conceptoRetencion ?? null}
+          tipoPersona={proveedor.tipoPersona}
         />
         <ProveedorToleranciaSection key={proveedor.id} proveedorId={proveedor.id} montoMxn={proveedor.toleranciaFacturaContraOcMxn} />
         <ProveedorCuentasBancariasSection
           proveedorId={proveedor.id}
           razonSocial={proveedor.razonSocial}
         />
-        <ProveedorExpedienteSection proveedorId={proveedor.id} />
+        <ProveedorExpedienteSection proveedorId={proveedor.id} origen={proveedor.origen ?? null} />
       </div>
 
       {/* Diálogo de Confirmación para Validar Proveedor */}
@@ -368,7 +380,7 @@ export function ProveedorDetalle() {
               </span>{' '}
               (<span className="font-mono">{proveedor.clave}</span>) ha sido
               revisado y cumple todos los requisitos de CxP? El proveedor pasará
-              a estatus <span className="font-semibold text-emerald-600">Activo</span> y
+              a estatus <span className="font-semibold text-success-fg">Activo</span> y
               podrá operar con órdenes de compra y facturas.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -379,7 +391,7 @@ export function ProveedorDetalle() {
             <AlertDialogAction
               onClick={handleConfirmarValidar}
               disabled={validar.isPending}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-success text-white hover:bg-success-fg"
             >
               {validar.isPending ? 'Validando…' : 'Validar y activar'}
             </AlertDialogAction>
@@ -485,29 +497,7 @@ export function ProveedorDetalle() {
 }
 
 function EstatusBadge({ estatus }: { estatus: number }) {
-  if (estatus === EstatusCatalogo.Activo) {
-    return (
-      <Badge
-        variant="secondary"
-        className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-      >
-        Activo
-      </Badge>
-    );
-  }
-  if (estatus === EstatusCatalogo.EnRevision) {
-    return (
-      <Badge
-        variant="outline"
-        className="border-amber-400 bg-amber-500/15 font-medium text-amber-700 dark:border-amber-600 dark:text-amber-300"
-      >
-        En revisión
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Inactivo
-    </Badge>
-  );
+  if (estatus === EstatusCatalogo.Activo) return <Badge variant="success">Activo</Badge>;
+  if (estatus === EstatusCatalogo.EnRevision) return <Badge variant="warning">En revisión</Badge>;
+  return <Badge variant="neutral">Inactivo</Badge>;
 }

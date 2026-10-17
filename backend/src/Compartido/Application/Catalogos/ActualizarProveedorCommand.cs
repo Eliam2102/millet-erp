@@ -9,6 +9,7 @@ using Millet.Almacen.Domain;
 using Millet.Catalogos.Domain;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Domain;
+using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.Infrastructure.Persistence;
 
 namespace Millet.DatosMaestros.Application.Catalogos;
@@ -48,7 +49,8 @@ public sealed class ActualizarProveedorValidator : AbstractValidator<ActualizarP
             .When(c => c.RazonSocial is not null);
         RuleFor(c => c.NombreComercial!).MaximumLength(254)
             .When(c => c.NombreComercial is not null);
-        RuleFor(c => c.Rfc!).Length(12, 13).When(c => c.Rfc is not null);
+        // Vacío es válido aquí: en un proveedor extranjero equivale al RFC genérico (lo resuelve el handler).
+        RuleFor(c => c.Rfc!).Length(12, 13).When(c => !string.IsNullOrWhiteSpace(c.Rfc));
         RuleFor(c => c.TipoPersona).IsInEnum().When(c => c.TipoPersona.HasValue);
         RuleFor(c => c.CondicionesPagoDias).InclusiveBetween((short)0, (short)365)
             .When(c => c.CondicionesPagoDias.HasValue);
@@ -92,9 +94,17 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
         // el RFC viene en el body y cambia respecto al actual. Genérico en
         // edición se permite sin más (no hay razón social "nueva" que
         // comparar contra un alta ya existente).
-        if (request.Rfc is not null)
+        var rfc = request.Rfc;
+        if (rfc is not null && string.IsNullOrWhiteSpace(rfc))
         {
-            var rfcNormalizado = request.Rfc.Trim().ToUpperInvariant();
+            // 86e3pdmee: el extranjero no tiene RFC; limpiar el campo deja el genérico.
+            rfc = proveedor.Origen == OrigenProveedor.Extranjero
+                ? Proveedor.RfcGenericoExtranjero
+                : throw new BusinessRuleException("PROVEEDOR_RFC_INVALIDO", "El RFC debe tener 12 (moral) o 13 (física) caracteres.");
+        }
+        if (rfc is not null)
+        {
+            var rfcNormalizado = rfc.Trim().ToUpperInvariant();
             if (rfcNormalizado != proveedor.Rfc && !Proveedor.EsRfcGenerico(rfcNormalizado))
             {
                 var duplicadoRfc = await _db.Proveedores.AsNoTracking()
@@ -110,10 +120,15 @@ public sealed class ActualizarProveedorHandler : IRequestHandler<ActualizarProve
             }
         }
 
+        // 86e3pdmee: cambiar el tipo de persona no puede dejar un régimen que ya no le corresponde.
+        if (request.TipoPersona is { } nuevoTipo && nuevoTipo != proveedor.TipoPersona)
+            await ClasificacionFiscalProveedor.ValidarRegimenAsync(
+                _db, nuevoTipo, proveedor.Origen, proveedor.RegimenFiscalCodigo, cancellationToken);
+
         proveedor.ActualizarDatos(
             razonSocial: request.RazonSocial,
             nombreComercial: request.NombreComercial,
-            rfc: request.Rfc,
+            rfc: rfc,
             tipoPersona: request.TipoPersona,
             condicionesPagoDias: request.CondicionesPagoDias,
             monedaPreferidaId: request.MonedaPreferidaId,

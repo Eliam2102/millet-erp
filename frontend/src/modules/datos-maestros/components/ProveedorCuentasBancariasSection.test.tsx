@@ -140,4 +140,69 @@ describe('<ProveedorCuentasBancariasSection>', () => {
     fireEvent.click(checks[3]);
     await waitFor(() => expect(validar).toBeEnabled());
   });
+
+  it('Hacer predeterminada exige cuentas-administrar: bancarios-editar solo no lo ve', async () => {
+    const activas = [
+      { ...base, id: 'c-1', banco: 'BBVA México', numero: '**************1234', estado: 1, predeterminada: true, capturadaPorMi: false },
+      { ...base, id: 'c-5', banco: 'HSBC', numero: '**************7777', estado: 1, capturadaPorMi: false },
+    ];
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/proveedores/p-1/cuentas-bancarias', () => HttpResponse.json(activas)),
+    );
+    setPermisos([
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
+    ]);
+    const { unmount } = renderSection();
+    await screen.findByText('HSBC');
+    expect(screen.queryByRole('button', { name: 'Hacer predeterminada' })).not.toBeInTheDocument();
+    unmount();
+
+    setPermisos(ADMIN);
+    renderSection();
+    await screen.findByText('HSBC');
+    expect(screen.getByRole('button', { name: 'Hacer predeterminada' })).toBeInTheDocument();
+  });
+
+  it('muestra quién, cuándo y por qué se rechazó o inhabilitó, y el motivo de la migrada', async () => {
+    const cuentas = [
+      { ...base, id: 'c-6', banco: 'Scotiabank', numero: '**************1111', estado: 3, capturadaPorMi: false,
+        motivoEstado: 'CLABE de otro titular', ultimoCambioPorNombre: 'Laura Admin', ultimoCambioEn: '2026-10-05T10:00:00Z' },
+      { ...base, id: 'c-7', banco: 'Inbursa', numero: '**************2222', estado: 2, capturadaPorMi: false,
+        motivoEstado: 'Cambio de banco', ultimoCambioPorNombre: 'Pedro Admin', ultimoCambioEn: '2026-10-06T10:00:00Z' },
+      { ...base, id: 'c-8', banco: 'Banamex', numero: '**************3333', estado: 1, capturadaPorMi: false,
+        motivoEstado: 'Migrada del dato bancario único del proveedor.' },
+    ];
+    mswServer.use(
+      http.get('*/api/v1/datos-maestros/proveedores/p-1/cuentas-bancarias', () => HttpResponse.json(cuentas)),
+    );
+    setPermisos([PermisosCanonicos.DatosMaestrosProveedoresBancariosVer]);
+    renderSection();
+    await screen.findByText('Scotiabank');
+    expect(screen.getByText(/Rechazada por Laura Admin · /)).toBeInTheDocument();
+    expect(screen.getByText('CLABE de otro titular')).toBeInTheDocument();
+    expect(screen.getByText(/Inhabilitada por Pedro Admin · /)).toBeInTheDocument();
+    expect(screen.getByText('Cambio de banco')).toBeInTheDocument();
+    expect(screen.getByText('Migrada del dato bancario único del proveedor.')).toBeInTheDocument();
+  });
+
+  it('el SWIFT es opcional en una cuenta extranjera y si se captura debe tener 8 u 11 caracteres', async () => {
+    setPermisos([
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosVer,
+      PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar,
+    ]);
+    renderSection();
+    fireEvent.click(await screen.findByRole('button', { name: /agregar cuenta/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Banco'), { target: { value: 'Deutsche Bank' } });
+    fireEvent.change(within(dialog).getByLabelText('Tipo de cuenta'), { target: { value: 'extranjera' } });
+    fireEvent.change(within(dialog).getByLabelText('Número de cuenta'), { target: { value: 'DE89370400440532013000' } });
+    const agregar = within(dialog).getByRole('button', { name: 'Agregar cuenta' });
+    await waitFor(() => expect(agregar).toBeEnabled());
+
+    fireEvent.change(within(dialog).getByLabelText(/SWIFT/), { target: { value: 'ABC' } });
+    await waitFor(() => expect(agregar).toBeDisabled());
+    fireEvent.change(within(dialog).getByLabelText(/SWIFT/), { target: { value: 'DEUTDEFF' } });
+    await waitFor(() => expect(agregar).toBeEnabled());
+  });
 });

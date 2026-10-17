@@ -119,6 +119,24 @@ describe('<ProveedorExpedienteSection>', () => {
     expect(screen.queryByLabelText(/dados de baja/i)).not.toBeInTheDocument();
   });
 
+  it('aclara que adjuntar no valida el contenido y avisa si el proveedor está sin clasificar', async () => {
+    setPermisos([P.DatosMaestrosProveedoresAdjuntosVer]);
+    const { rerender } = render(<ProveedorExpedienteSection proveedorId="p-1" origen={null} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(
+      await screen.findByText('Adjuntar acredita que se recibió el archivo, no valida su contenido.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Sin clasificar: se aplica la matriz de nacionales hasta que lo clasifiques.'),
+    ).toBeInTheDocument();
+
+    rerender(<ProveedorExpedienteSection proveedorId="p-1" origen={0} />);
+    await waitFor(() =>
+      expect(screen.queryByText(/sin clasificar/i)).not.toBeInTheDocument(),
+    );
+  });
+
   it('expediente completo muestra el badge y oculta el aviso', async () => {
     mswServer.use(
       http.get(`${BASE}/expediente`, () =>

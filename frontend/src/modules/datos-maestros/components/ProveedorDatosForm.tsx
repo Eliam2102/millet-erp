@@ -19,6 +19,7 @@ import {
 } from '@/modules/datos-maestros/schemas/proveedor';
 import { useActualizarProveedor } from '@/modules/datos-maestros/api';
 import {
+  OrigenProveedor,
   TipoPersonaProveedor,
   type ProveedorDetalle,
 } from '@/modules/datos-maestros/api/types';
@@ -124,6 +125,7 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
   }
 
   const dirty = form.formState.isDirty;
+  const extranjero = proveedor.origen === OrigenProveedor.Extranjero;
 
   return (
     <form
@@ -142,7 +144,12 @@ export function ProveedorDatosForm({ proveedor }: ProveedorDatosFormProps) {
 
       <FormRow
         label="RFC"
-        required
+        required={!extranjero}
+        hint={
+          extranjero
+            ? 'Opcional en proveedores extranjeros: vacío = RFC genérico XEXX010101000.'
+            : undefined
+        }
         error={form.formState.errors.rfc?.message}
       >
         <UppercaseInput
@@ -327,17 +334,17 @@ function FormRow({ label, required, hint, error, children }: FormRowProps) {
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {hint != null && error == null && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p className="text-xs text-ink-muted">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
@@ -349,6 +356,7 @@ function buildDefaults(p: ProveedorDetalle): ActualizarProveedorValues {
   return {
     razonSocial: p.razonSocial,
     rfc: p.rfc,
+    origen: p.origen ?? null,
     tipoPersona: p.tipoPersona,
     nombreComercial: p.nombreComercial ?? null,
     email: p.email ?? null,

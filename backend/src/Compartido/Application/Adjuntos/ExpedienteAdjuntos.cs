@@ -44,6 +44,15 @@ public sealed record ExpedienteResponse(
 /// <summary>Cálculo del expediente (compartido por el handler HTTP y el puerto de lectura para CxP).</summary>
 public static class ExpedienteAdjuntos
 {
+    /// <summary>
+    /// Versión de la matriz de tipos de una entidad: suma de <c>Version</c> de sus tipos. Sube con cada
+    /// cambio de un tipo (incluida su desactivación) y con cada tipo nuevo, sin tabla aparte (86e3pdmee).
+    /// </summary>
+    public static async Task<int> VersionMatrizAsync(CompartidoDbContext db, string tipoEntidad, CancellationToken cancellationToken) =>
+        await db.AdjuntoTiposDocumento.AsNoTracking()
+            .Where(t => t.TipoEntidad == tipoEntidad)
+            .SumAsync(t => t.Version, cancellationToken);
+
     public static async Task<ExpedienteResponse> CalcularAsync(
         CompartidoDbContext db,
         string tipoEntidad,
@@ -67,10 +76,9 @@ public static class ExpedienteAdjuntos
         var documentos = new List<ExpedienteDocumentoResponse>();
         foreach (var tipo in tipos)
         {
-            // Los tipos "solo persona moral" no aplican a una persona física.
-            if (tipo.SoloPersonaMoral && esPersonaMoral == false) continue;
-            // 86e3pdmee: los tipos "solo nacional" (p. ej. constancia del SAT) no aplican a un extranjero.
-            if (tipo.SoloNacional && esNacional == false) continue;
+            // Persona (solo moral) y origen (solo nacional / solo extranjero, 86e3pdmee) definen si aplica.
+            if (!tipo.AplicaA(esPersonaMoral, esNacional)) continue;
+            var obligatorioTipo = tipo.EsObligatorioPara(esPersonaMoral);
 
             var actual = adjuntos.Where(a => a.TipoDocumentoId == tipo.Id)
                 .OrderByDescending(a => a.SubidoEn).FirstOrDefault();
@@ -83,10 +91,10 @@ public static class ExpedienteAdjuntos
                     _ => EstadoExpedienteDocumento.Vigente, // Vigente o SinVigencia
                 };
             var excepcion = excepciones.Where(x => x.TipoDocumentoId == tipo.Id).OrderByDescending(x => x.OtorgadaEn).FirstOrDefault();
-            if (excepcion is not null && tipo.Obligatorio && estado is EstadoExpedienteDocumento.Faltante or EstadoExpedienteDocumento.Vencido)
+            if (excepcion is not null && obligatorioTipo && estado is EstadoExpedienteDocumento.Faltante or EstadoExpedienteDocumento.Vencido)
                 estado = EstadoExpedienteDocumento.Exceptuado;
             documentos.Add(new ExpedienteDocumentoResponse(
-                tipo.Id, tipo.Codigo, tipo.Nombre, tipo.Obligatorio, tipo.VigenciaMeses, estado,
+                tipo.Id, tipo.Codigo, tipo.Nombre, obligatorioTipo, tipo.VigenciaMeses, estado,
                 actual is null ? null : AdjuntoResponse.De(actual, tipo, hoy),
                 excepcion is null ? null : new ExcepcionResponse(excepcion.Id, excepcion.Motivo, excepcion.OtorgadaPorNombre, excepcion.OtorgadaEn)));
         }

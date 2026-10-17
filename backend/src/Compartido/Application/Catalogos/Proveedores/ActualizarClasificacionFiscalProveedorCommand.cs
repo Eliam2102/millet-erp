@@ -28,9 +28,7 @@ public sealed class ActualizarClasificacionFiscalProveedorHandler(
         var proveedor = await db.Proveedores.FirstOrDefaultAsync(p => p.Id == request.ProveedorId, cancellationToken)
             ?? throw new EntityNotFoundException("PROVEEDOR_NO_ENCONTRADO", "No existe el proveedor solicitado.");
         var regimen = string.IsNullOrWhiteSpace(request.RegimenFiscalCodigo) ? null : request.RegimenFiscalCodigo.Trim();
-        if (regimen is not null && request.Origen != OrigenProveedor.Extranjero
-            && !await db.RegimenesFiscales.AsNoTracking().AnyAsync(r => r.Codigo == regimen && r.Estatus == EstatusCatalogo.Activo, cancellationToken))
-            throw new BusinessRuleException("PROVEEDOR_REGIMEN_NO_EXISTE", $"El régimen fiscal {regimen} no existe en el catálogo del SAT.");
+        await ClasificacionFiscalProveedor.ValidarRegimenAsync(db, proveedor.TipoPersona, request.Origen, regimen, cancellationToken);
 
         var antes = new { proveedor.Origen, proveedor.RegimenFiscalCodigo, proveedor.ConceptoRetencion };
         proveedor.ActualizarClasificacionFiscal(request.Origen, regimen, request.ConceptoRetencion);
@@ -45,5 +43,25 @@ public sealed class ActualizarClasificacionFiscalProveedorHandler(
             usuarioId: usuario.UserId, empresaId: empresa.Current,
             cambios: JsonSerializer.Serialize(new { antes, despues = new { proveedor.Origen, proveedor.RegimenFiscalCodigo, proveedor.ConceptoRetencion } }),
             cancellationToken: cancellationToken);
+    }
+}
+
+internal static class ClasificacionFiscalProveedor
+{
+    /// <summary>
+    /// El régimen (salvo extranjeros, que no lo llevan) debe existir y corresponder al tipo de persona:
+    /// 601 no es de una persona física ni 612 de una moral (86e3pdmee · ADM-01).
+    /// </summary>
+    public static async Task ValidarRegimenAsync(
+        CompartidoDbContext db, TipoPersonaProveedor tipoPersona, OrigenProveedor? origen, string? regimen, CancellationToken ct)
+    {
+        if (regimen is null || origen == OrigenProveedor.Extranjero) return;
+        var r = await db.RegimenesFiscales.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Codigo == regimen && x.Estatus == EstatusCatalogo.Activo, ct)
+            ?? throw new BusinessRuleException("PROVEEDOR_REGIMEN_NO_EXISTE", $"El régimen fiscal {regimen} no existe en el catálogo del SAT.");
+        var moral = tipoPersona == TipoPersonaProveedor.Moral;
+        if (moral ? !r.AplicaPersonaMoral : !r.AplicaPersonaFisica)
+            throw new BusinessRuleException("PROVEEDOR_REGIMEN_NO_APLICA",
+                $"El régimen {regimen} ({r.Nombre}) no aplica a una persona {(moral ? "moral" : "física")}.");
     }
 }

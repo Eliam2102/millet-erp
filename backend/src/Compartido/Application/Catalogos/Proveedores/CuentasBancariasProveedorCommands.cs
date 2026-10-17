@@ -35,7 +35,10 @@ public sealed record CuentaBancariaProveedorDto(
     string? NotaValidacion,
     string? MotivoEstado,
     bool NumeroCompleto,
-    int Version);
+    int Version,
+    string? UltimoCambioPorNombre = null,
+    DateTimeOffset? UltimoCambioEn = null,
+    string? Advertencia = null);
 
 public sealed record ListarCuentasBancariasProveedorQuery(Guid ProveedorId, bool VerCompleta)
     : IRequest<IReadOnlyList<CuentaBancariaProveedorDto>>;
@@ -110,11 +113,22 @@ public sealed class AgregarCuentaBancariaProveedorHandler
             throw new ConflictException("PROVEEDOR_CUENTA_DUPLICADA",
                 $"La cuenta {Clabe.Enmascarar(cuenta.Identificador)} ya está registrada para este proveedor.");
 
+        // 86e3pdmee: la misma cuenta en OTRO proveedor no bloquea (puede ser legítimo: mismo grupo, factoraje),
+        // pero se avisa para que quien valida la cotejee con cuidado.
+        var otroProveedor = await _db.CuentasBancariasProveedor.AsNoTracking()
+            .Where(c => c.ProveedorId != proveedor.Id && c.Estado != EstadoCuentaBancariaProveedor.Rechazada &&
+                (cuenta.Clabe != null ? c.Clabe == cuenta.Clabe : c.NumeroCuenta == cuenta.NumeroCuenta))
+            .Join(_db.Proveedores.AsNoTracking(), c => c.ProveedorId, p => p.Id, (c, p) => p.Clave)
+            .FirstOrDefaultAsync(cancellationToken);
+
         _db.CuentasBancariasProveedor.Add(cuenta);
         await _db.SaveChangesAsync(cancellationToken);
         await CuentasBancariasProveedor.AuditarAsync(_audit, _currentUser, _empresa, proveedor, cuenta,
             "proveedor.cuenta-agregada", "agregada, queda por validar", null, cancellationToken);
-        return CuentasBancariasProveedor.ADto(cuenta, true, _currentUser.UserId);
+        var dto = CuentasBancariasProveedor.ADto(cuenta, true, _currentUser.UserId);
+        return otroProveedor is null
+            ? dto
+            : dto with { Advertencia = $"Esta cuenta ya está registrada en otro proveedor ({otroProveedor}). Confirma que es correcto antes de validarla." };
     }
 }
 
@@ -183,11 +197,12 @@ public sealed class CambiarCuentaBancariaProveedorHandler
     private readonly ICurrentUserContext _currentUser;
     private readonly ICurrentEmpresaContext _empresa;
     private readonly IAuditLogWriter _audit;
+    private readonly IClock _clock;
 
     public CambiarCuentaBancariaProveedorHandler(
-        CompartidoDbContext db, ICurrentUserContext currentUser, ICurrentEmpresaContext empresa, IAuditLogWriter audit)
+        CompartidoDbContext db, ICurrentUserContext currentUser, ICurrentEmpresaContext empresa, IAuditLogWriter audit, IClock clock)
     {
-        _db = db; _currentUser = currentUser; _empresa = empresa; _audit = audit;
+        _db = db; _currentUser = currentUser; _empresa = empresa; _audit = audit; _clock = clock;
     }
 
     public async Task<CuentaBancariaProveedorDto> Handle(
@@ -200,13 +215,13 @@ public sealed class CambiarCuentaBancariaProveedorHandler
         switch (request.Accion)
         {
             case AccionCuentaBancariaProveedor.Rechazar:
-                cuenta.Rechazar(motivo); operacion = "rechazada"; resumen = "rechazada";
+                cuenta.Rechazar(motivo, _currentUser.UserId, _currentUser.UserName, _clock.UtcNow); operacion = "rechazada"; resumen = "rechazada";
                 break;
             case AccionCuentaBancariaProveedor.Inhabilitar:
-                cuenta.Inhabilitar(motivo); operacion = "inhabilitada"; resumen = "inhabilitada";
+                cuenta.Inhabilitar(motivo, _currentUser.UserId, _currentUser.UserName, _clock.UtcNow); operacion = "inhabilitada"; resumen = "inhabilitada";
                 break;
             case AccionCuentaBancariaProveedor.Reactivar:
-                cuenta.Reactivar(motivo); operacion = "reactivada"; resumen = $"reactivada ({cuenta.Estado})";
+                cuenta.Reactivar(motivo, _currentUser.UserId, _currentUser.UserName, _clock.UtcNow); operacion = "reactivada"; resumen = $"reactivada ({cuenta.Estado})";
                 break;
             case AccionCuentaBancariaProveedor.MarcarPredeterminada:
                 if (cuenta.Estado != EstadoCuentaBancariaProveedor.Activa)
@@ -233,7 +248,7 @@ internal static class CuentasBancariasProveedor
         c.Id, c.Banco, verCompleta ? c.Identificador : Clabe.Enmascarar(c.Identificador), c.Clabe is not null, c.Swift,
         c.Moneda, c.Titular, c.Predeterminada, c.Estado, c.CapturadaPorNombre, c.CapturadaEn,
         usuarioId is not null && usuarioId == c.CapturadaPorId, c.ValidadaPorNombre, c.ValidadaEn,
-        c.DocumentoAdjuntoId, c.NotaValidacion, c.MotivoEstado, verCompleta, c.Version);
+        c.DocumentoAdjuntoId, c.NotaValidacion, c.MotivoEstado, verCompleta, c.Version, c.UltimoCambioPorNombre, c.UltimoCambioEn);
 
     public static async Task<Proveedor> ProveedorAsync(CompartidoDbContext db, Guid proveedorId, CancellationToken ct) =>
         await db.Proveedores.AsNoTracking().FirstOrDefaultAsync(p => p.Id == proveedorId, ct)

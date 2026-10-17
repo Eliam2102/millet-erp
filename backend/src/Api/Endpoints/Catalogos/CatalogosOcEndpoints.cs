@@ -89,7 +89,7 @@ public static class CatalogosOcEndpoints
             if (aplicaPersonaFisica is bool apf) q = q.Where(x => x.AplicaPersonaFisica == apf);
             var items = await q
                 .OrderBy(x => x.Codigo)
-                .Select(x => new RegimenFiscalItem(x.Id, x.Codigo, x.Nombre, x.AplicaPersonaFisica, x.Estatus))
+                .Select(x => new RegimenFiscalItem(x.Id, x.Codigo, x.Nombre, x.AplicaPersonaFisica, x.Estatus, x.AplicaPersonaMoral))
                 .ToListAsync(ct);
             return Results.Ok(items);
         })
@@ -200,7 +200,7 @@ public static class CatalogosOcEndpoints
         Guid Id, string Codigo, string Nombre, DimensionUnidad Dimension,
         decimal FactorABase, int Decimales, bool EsBase, EstatusCatalogo Estatus);
     public sealed record TransportistaItem(Guid Id, string Clave, string Nombre, string? Email, string? Telefono, EstatusCatalogo Estatus);
-    public sealed record RegimenFiscalItem(Guid Id, string Codigo, string Nombre, bool AplicaPersonaFisica, EstatusCatalogo Estatus);
+    public sealed record RegimenFiscalItem(Guid Id, string Codigo, string Nombre, bool AplicaPersonaFisica, EstatusCatalogo Estatus, bool AplicaPersonaMoral = false);
     public sealed record CondicionesPagoItem(Guid Id, string Clave, string Nombre, int DiasCredito, EstatusCatalogo Estatus);
     public sealed record UsoPrincipalItem(Guid Id, string Clave, string Nombre, EstatusCatalogo Estatus);
     public sealed record CategoriaArticuloItem(Guid Id, string Nombre, EstatusCatalogo Estatus);

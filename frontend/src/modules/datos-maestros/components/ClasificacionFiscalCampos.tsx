@@ -4,7 +4,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useRetenciones } from '@/features/cxp/api/useRetenciones';
 import { CONCEPTO_SIN_RETENCION, etiquetaConcepto } from '@/features/cxp/lib/retenciones-p8';
-import { OrigenProveedor } from '@/modules/datos-maestros/api/types';
+import { OrigenProveedor, TipoPersonaProveedor } from '@/modules/datos-maestros/api/types';
 
 export interface ClasificacionFiscalValores {
   origen: OrigenProveedor | null;
@@ -24,13 +24,15 @@ interface Props {
   onChange: (valores: ClasificacionFiscalValores) => void;
   errores?: ErroresClasificacionFiscal;
   disabled?: boolean;
+  /** Si se informa, el selector solo ofrece regímenes que aplican a ese tipo de persona. */
+  tipoPersona?: TipoPersonaProveedor;
 }
 
 const claseSelect =
   'flex h-ctl-xl max-sm:min-h-touch w-full rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-invalid:border-danger disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Campos compartidos de clasificación fiscal del proveedor (ficha y alta). */
-export function ClasificacionFiscalCampos({ idBase, valores, onChange, errores = {}, disabled }: Props) {
+export function ClasificacionFiscalCampos({ idBase, valores, onChange, errores = {}, disabled, tipoPersona }: Props) {
   const puedeVerCatalogo = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesLeer);
   const catalogo = useRetenciones(puedeVerCatalogo);
   const extranjero = valores.origen === OrigenProveedor.Extranjero;
@@ -67,6 +69,7 @@ export function ClasificacionFiscalCampos({ idBase, valores, onChange, errores =
         <p className="text-sm font-medium text-ink">Régimen fiscal</p>
         <div id={regimenId}>
           <RegimenFiscalSelector value={valores.regimenFiscalCodigo} disabled={disabled || extranjero}
+            aplicaPersonaFisica={tipoPersona == null ? undefined : tipoPersona === TipoPersonaProveedor.Fisica}
             onChange={(codigo) => onChange({ ...valores, regimenFiscalCodigo: codigo })} />
         </div>
         {extranjero

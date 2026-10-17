@@ -2,6 +2,14 @@ using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.SharedKernel.Domain.Adjuntos;
 
+/// <summary>A qué origen aplica un tipo de documento (86e3pdmee · ADM-01).</summary>
+public enum AdjuntoAplicaOrigen : short
+{
+    Todos = 0,
+    SoloNacional = 1,
+    SoloExtranjero = 2,
+}
+
 /// <summary>
 /// Catálogo de tipos de documento por tipo de entidad dueña (p. ej. los
 /// documentos del expediente de un proveedor). Otros módulos siembran sus
@@ -20,8 +28,17 @@ public sealed class AdjuntoTipoDocumento : BaseEntity, IAuditable
 
     public int Orden { get; private set; }
 
-    /// <summary>Forma parte del expediente mínimo para considerarlo completo.</summary>
+    /// <summary>
+    /// Obligatoriedad global. Para tipos de proveedor es derivada (moral o física); la
+    /// usan tal cual los demás tipos de entidad (requisición, factura de proveedor).
+    /// </summary>
     public bool Obligatorio { get; private set; }
+
+    /// <summary>Obligatorio cuando la entidad es persona moral (matriz de proveedor, 86e3pdmee).</summary>
+    public bool ObligatorioPersonaMoral { get; private set; }
+
+    /// <summary>Obligatorio cuando la entidad es persona física (matriz de proveedor, 86e3pdmee).</summary>
+    public bool ObligatorioPersonaFisica { get; private set; }
 
     /// <summary>Meses de vigencia por defecto; <c>null</c> = el documento no vence.</summary>
     public int? VigenciaMeses { get; private set; }
@@ -30,10 +47,20 @@ public sealed class AdjuntoTipoDocumento : BaseEntity, IAuditable
     public bool SoloPersonaMoral { get; private set; }
 
     /// <summary>
-    /// Aplica solo a entidades nacionales (p. ej. constancia de situación
-    /// fiscal del SAT; un proveedor extranjero no la tiene). 86e3pdmee · ADM-01.
+    /// A qué origen aplica (p. ej. la constancia de situación fiscal del SAT es solo
+    /// nacional; un proveedor extranjero no la tiene). 86e3pdmee · ADM-01.
     /// </summary>
-    public bool SoloNacional { get; private set; }
+    public AdjuntoAplicaOrigen AplicaOrigen { get; private set; }
+
+    /// <summary>Obligatoriedad efectiva; sin tipo de persona (otras entidades) rige <see cref="Obligatorio"/>.</summary>
+    public bool EsObligatorioPara(bool? esPersonaMoral) =>
+        esPersonaMoral is null ? Obligatorio : esPersonaMoral.Value ? ObligatorioPersonaMoral : ObligatorioPersonaFisica;
+
+    /// <summary>El tipo aplica a la entidad según tipo de persona y origen; null = desconocido (aplica).</summary>
+    public bool AplicaA(bool? esPersonaMoral, bool? esNacional) =>
+        !(SoloPersonaMoral && esPersonaMoral == false)
+        && !(AplicaOrigen == AdjuntoAplicaOrigen.SoloNacional && esNacional == false)
+        && !(AplicaOrigen == AdjuntoAplicaOrigen.SoloExtranjero && esNacional == true);
 
     public bool Activo { get; private set; } = true;
 
@@ -43,17 +70,21 @@ public sealed class AdjuntoTipoDocumento : BaseEntity, IAuditable
     /// Matriz configurable por Millet (86e3pdmee · ADM-01): obligatoriedad,
     /// vigencia y a quién aplica. Cada cambio queda en la bitácora (IAuditable).
     /// </summary>
-    public void Configurar(string nombre, bool obligatorio, int? vigenciaMeses, bool soloPersonaMoral, bool soloNacional, bool activo)
+    public void Configurar(
+        string nombre, bool obligatorioPersonaMoral, bool obligatorioPersonaFisica, int? vigenciaMeses,
+        bool soloPersonaMoral, AdjuntoAplicaOrigen aplicaOrigen, bool activo)
     {
         if (string.IsNullOrWhiteSpace(nombre) || nombre.Trim().Length > 200)
             throw new BusinessRuleException("ADJUNTO_TIPO_NOMBRE_INVALIDO", "El nombre del tipo de documento debe tener 1-200 caracteres.");
         if (vigenciaMeses is <= 0)
             throw new BusinessRuleException("ADJUNTO_TIPO_VIGENCIA_INVALIDA", "Los meses de vigencia deben ser mayores a cero.");
         Nombre = nombre.Trim();
-        Obligatorio = obligatorio;
+        ObligatorioPersonaMoral = obligatorioPersonaMoral;
+        ObligatorioPersonaFisica = obligatorioPersonaFisica;
+        Obligatorio = obligatorioPersonaMoral || obligatorioPersonaFisica;
         VigenciaMeses = vigenciaMeses;
         SoloPersonaMoral = soloPersonaMoral;
-        SoloNacional = soloNacional;
+        AplicaOrigen = aplicaOrigen;
         Activo = activo;
     }
 
@@ -93,6 +124,8 @@ public sealed class AdjuntoTipoDocumento : BaseEntity, IAuditable
         Nombre = nombre;
         Orden = orden;
         Obligatorio = obligatorio;
+        ObligatorioPersonaMoral = obligatorio;
+        ObligatorioPersonaFisica = obligatorio && !soloPersonaMoral;
         VigenciaMeses = vigenciaMeses;
         SoloPersonaMoral = soloPersonaMoral;
     }

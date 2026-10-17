@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Millet.Catalogos.Domain;
 using Millet.Compartido.Application.Catalogos.Proveedores;
 using Millet.Compartido.UnitTests.Adjuntos;
@@ -55,6 +56,31 @@ public sealed class CuentasBancariasProveedorTests
     }
 
     [Fact]
+    public async Task Clabe_repetida_en_otro_proveedor_no_bloquea_pero_advierte()
+    {
+        var (e, prov, _) = await EntornoAsync();
+        using var _e = e;
+        var otro = new Proveedor(Guid.NewGuid(), "FIX-OTRO", "FIX Otro SA", "FOT010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+        e.Db.Proveedores.Add(otro);
+        await e.Db.SaveChangesAsync();
+
+        var primera = await AgregarAsync(e, otro.Id);
+        primera.Advertencia.Should().BeNull();
+
+        var segunda = await AgregarAsync(e, prov);
+        segunda.Estado.Should().Be(EstadoCuentaBancariaProveedor.PorValidar);
+        segunda.Advertencia.Should().Contain("FIX-OTRO");
+
+        // Una cuenta rechazada del otro proveedor ya no cuenta como repetida.
+        e.Usuario.UserName = "Admin";
+        await new CambiarCuentaBancariaProveedorHandler(e.Db, e.Usuario, e.Empresa, e.Audit, e.Clock)
+            .Handle(new(otro.Id, primera.Id, primera.Version, AccionCuentaBancariaProveedor.Rechazar, "FIX captura equivocada"), default);
+        var rechazada = await e.Db.CuentasBancariasProveedor.SingleAsync(c => c.Id == primera.Id);
+        rechazada.UltimoCambioPorNombre.Should().Be("Admin");
+        rechazada.UltimoCambioEn.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Clabe_con_digito_verificador_invalido_se_rechaza()
     {
         var (e, prov, _) = await EntornoAsync();
@@ -99,13 +125,18 @@ public sealed class CuentasBancariasProveedorTests
         var doc = await AdjuntarAsync(e, prov, tipo, DateOnly.FromDateTime(e.Clock.UtcNow.UtcDateTime).AddMonths(3));
         c = await ValidarAsync(e, prov, c, doc);
 
-        var cambiar = new CambiarCuentaBancariaProveedorHandler(e.Db, e.Usuario, e.Empresa, e.Audit);
+        var cambiar = new CambiarCuentaBancariaProveedorHandler(e.Db, e.Usuario, e.Empresa, e.Audit, e.Clock);
         var sinMotivo = () => cambiar.Handle(new(prov, c.Id, c.Version, AccionCuentaBancariaProveedor.Inhabilitar, "x"), default);
         (await sinMotivo.Should().ThrowAsync<BusinessRuleException>()).Which.Code.Should().Be("PROVEEDOR_CUENTA_MOTIVO_INVALIDO");
 
+        e.Usuario.UserName = "Admin Inhabilita";
         c = await cambiar.Handle(new(prov, c.Id, c.Version, AccionCuentaBancariaProveedor.Inhabilitar, "FIX cambio de banco"), default);
         c.Estado.Should().Be(EstadoCuentaBancariaProveedor.Inhabilitada);
         c.Predeterminada.Should().BeFalse();
+        // Historial: quién y cuándo (la UI lo muestra con el motivo).
+        c.UltimoCambioPorNombre.Should().Be("Admin Inhabilita");
+        c.UltimoCambioEn.Should().Be(e.Clock.UtcNow);
+        c.MotivoEstado.Should().Be("FIX cambio de banco");
 
         c = await cambiar.Handle(new(prov, c.Id, c.Version, AccionCuentaBancariaProveedor.Reactivar, "FIX error al inhabilitar"), default);
         c.Estado.Should().Be(EstadoCuentaBancariaProveedor.Activa);

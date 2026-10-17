@@ -17,6 +17,7 @@ import { InlineFormShell } from '@/modules/catalogos/components/InlineFormShell'
 import {
   useGuardarTipoExpedienteProveedor,
   useTiposExpedienteProveedor,
+  AplicaOrigenDocumento,
   type TipoExpedienteProveedor,
 } from '@/modules/datos-maestros/api/expediente-tipos';
 import { mensajeErrorAdjunto } from '@/components/erp/adjuntos/api';
@@ -24,11 +25,15 @@ import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
+const ORIGEN_ETIQUETA: Record<AplicaOrigenDocumento, string> = {
+  [AplicaOrigenDocumento.Todos]: 'Todos los orígenes',
+  [AplicaOrigenDocumento.SoloNacional]: 'Solo nacional',
+  [AplicaOrigenDocumento.SoloExtranjero]: 'Solo extranjero',
+};
+
 function aplicaA(t: TipoExpedienteProveedor) {
-  if (t.soloPersonaMoral && t.soloNacional) return 'Solo persona moral nacional';
-  if (t.soloPersonaMoral) return 'Solo persona moral';
-  if (t.soloNacional) return 'Solo nacional';
-  return 'Todos';
+  const origen = ORIGEN_ETIQUETA[t.aplicaOrigen];
+  return t.soloPersonaMoral ? `${origen} · solo persona moral` : origen;
 }
 
 /** Matriz de documentos del expediente de proveedor; edición solo con `expediente-configurar`. */
@@ -67,13 +72,14 @@ export function ExpedienteTiposPage() {
           onRetry={() => query.refetch()}
         />
       ) : query.isLoading || !query.data ? (
-        <TableSkeleton rows={5} columns={[{ width: 'w-48' }, { width: 'w-24' }, { width: 'w-32' }]} />
+        <TableSkeleton rows={5} columns={[{ width: 'w-48' }, { width: 'w-24' }, { width: 'w-24' }, { width: 'w-32' }]} />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
-              <TableHead>Obligatorio</TableHead>
+              <TableHead>Obligatorio moral</TableHead>
+              <TableHead>Obligatorio física</TableHead>
               <TableHead>Vigencia</TableHead>
               <TableHead>Aplica a</TableHead>
               <TableHead>Activo</TableHead>
@@ -119,7 +125,8 @@ function FilaTipo({
     <>
       <TableRow data-tipo={tipo.codigo}>
         <TableCell className="font-medium text-ink">{tipo.nombre}</TableCell>
-        <TableCell>{tipo.obligatorio ? 'Sí' : 'No'}</TableCell>
+        <TableCell>{tipo.obligatorioPersonaMoral ? 'Sí' : 'No'}</TableCell>
+        <TableCell>{tipo.obligatorioPersonaFisica ? 'Sí' : 'No'}</TableCell>
         <TableCell className="tabular-nums">
           {tipo.vigenciaMeses == null
             ? 'Sin vigencia'
@@ -139,7 +146,7 @@ function FilaTipo({
       </TableRow>
       {editando && canConfigurar && (
         <TableRow>
-          <TableCell colSpan={6}>
+          <TableCell colSpan={7}>
             <TipoForm tipo={tipo} onClose={onClose} />
           </TableCell>
         </TableRow>
@@ -154,10 +161,13 @@ function TipoForm({ tipo, onClose }: { tipo?: TipoExpedienteProveedor; onClose: 
   const guardar = useGuardarTipoExpedienteProveedor();
   const [codigo, setCodigo] = useState(tipo?.codigo ?? '');
   const [nombre, setNombre] = useState(tipo?.nombre ?? '');
-  const [obligatorio, setObligatorio] = useState(tipo?.obligatorio ?? false);
+  const [obligatorioMoral, setObligatorioMoral] = useState(tipo?.obligatorioPersonaMoral ?? false);
+  const [obligatorioFisica, setObligatorioFisica] = useState(tipo?.obligatorioPersonaFisica ?? false);
   const [vigencia, setVigencia] = useState(tipo?.vigenciaMeses?.toString() ?? '');
   const [soloMoral, setSoloMoral] = useState(tipo?.soloPersonaMoral ?? false);
-  const [soloNacional, setSoloNacional] = useState(tipo?.soloNacional ?? false);
+  const [aplicaOrigen, setAplicaOrigen] = useState<AplicaOrigenDocumento>(
+    tipo?.aplicaOrigen ?? AplicaOrigenDocumento.Todos,
+  );
   const [activo, setActivo] = useState(tipo?.activo ?? true);
   const [error, setError] = useState<string | null>(null);
 
@@ -181,10 +191,11 @@ function TipoForm({ tipo, onClose }: { tipo?: TipoExpedienteProveedor; onClose: 
         payload: {
           codigo: tipo?.codigo ?? codigo.trim(),
           nombre: nombre.trim(),
-          obligatorio,
+          obligatorioPersonaMoral: obligatorioMoral,
+          obligatorioPersonaFisica: obligatorioFisica,
           vigenciaMeses: meses,
           soloPersonaMoral: soloMoral,
-          soloNacional,
+          aplicaOrigen,
           activo,
         },
       });
@@ -252,10 +263,27 @@ function TipoForm({ tipo, onClose }: { tipo?: TipoExpedienteProveedor; onClose: 
           </p>
         </div>
       </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid gap-1.5">
+          <label htmlFor={`${ids}-origen`} className="text-xs font-medium text-ink-strong">
+            Aplica a
+          </label>
+          <select
+            id={`${ids}-origen`}
+            value={aplicaOrigen}
+            onChange={(e) => setAplicaOrigen(Number(e.target.value) as AplicaOrigenDocumento)}
+            className="flex h-ctl-xl max-sm:min-h-touch w-full rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <option value={AplicaOrigenDocumento.Todos}>{ORIGEN_ETIQUETA[AplicaOrigenDocumento.Todos]}</option>
+            <option value={AplicaOrigenDocumento.SoloNacional}>{ORIGEN_ETIQUETA[AplicaOrigenDocumento.SoloNacional]}</option>
+            <option value={AplicaOrigenDocumento.SoloExtranjero}>{ORIGEN_ETIQUETA[AplicaOrigenDocumento.SoloExtranjero]}</option>
+          </select>
+        </div>
+      </div>
       <div className="flex flex-wrap gap-x-6 gap-y-2">
-        {check('obligatorio', 'Obligatorio', obligatorio, setObligatorio)}
+        {check('obligatorio-moral', 'Obligatorio para persona moral', obligatorioMoral, setObligatorioMoral)}
+        {check('obligatorio-fisica', 'Obligatorio para persona física', obligatorioFisica, setObligatorioFisica)}
         {check('moral', 'Solo persona moral', soloMoral, setSoloMoral)}
-        {check('nacional', 'Solo nacional', soloNacional, setSoloNacional)}
         {check('activo', 'Activo', activo, setActivo)}
       </div>
       {error && (

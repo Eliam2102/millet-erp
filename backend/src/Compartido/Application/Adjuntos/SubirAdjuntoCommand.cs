@@ -86,10 +86,10 @@ public sealed class SubirAdjuntoHandler : IRequestHandler<SubirAdjuntoCommand, A
                 "ADJUNTO_TIPO_NO_APLICA",
                 $"El documento '{tipo.Nombre}' aplica solo a personas morales.");
         }
-        if (tipo.SoloNacional && padre.EsNacional == false)
+        if (!tipo.AplicaA(padre.EsPersonaMoral, padre.EsNacional))
             throw new BusinessRuleException(
                 "ADJUNTO_TIPO_NO_APLICA",
-                $"El documento '{tipo.Nombre}' aplica solo a proveedores nacionales.");
+                $"El documento '{tipo.Nombre}' aplica solo a proveedores {(tipo.AplicaOrigen == AdjuntoAplicaOrigen.SoloNacional ? "nacionales" : "extranjeros")}.");
 
         var contenido = request.Contenido;
         var nombre = Path.GetFileName(request.NombreArchivo.Trim());
@@ -113,6 +113,13 @@ public sealed class SubirAdjuntoHandler : IRequestHandler<SubirAdjuntoCommand, A
         {
             throw new BusinessRuleException(
                 "ADJUNTO_VIGENCIA_PASADA", "La fecha de vigencia no puede ser anterior a hoy.");
+        }
+        // 86e3pdmee: un tipo con vigencia (p. ej. estado de cuenta, 3 meses) no admite una fecha más lejana.
+        if (vigenteHasta is { } pedida && tipo.VigenciaMeses is { } maxMeses && pedida > hoy.AddMonths(maxMeses))
+        {
+            throw new BusinessRuleException(
+                "ADJUNTO_VIGENCIA_EXCEDE",
+                $"La vigencia de '{tipo.Nombre}' no puede pasar de {maxMeses} {(maxMeses == 1 ? "mes" : "meses")} desde hoy.");
         }
         vigenteHasta ??= tipo.VigenciaMeses is { } meses ? hoy.AddMonths(meses) : null;
 
