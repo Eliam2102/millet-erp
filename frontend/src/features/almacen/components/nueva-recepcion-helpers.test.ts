@@ -3,6 +3,7 @@ import {
   construirFilas,
   contarLineasEnOtraUbicacion,
   indicesParaAutoAsignar,
+  detectarConflictoSubAlmacen,
 } from './nueva-recepcion-helpers';
 import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/types';
 import type { FilaRecepcionValues } from '@/features/almacen/schemas/recepcion';
@@ -214,5 +215,33 @@ describe('contarLineasEnOtraUbicacion (aviso de divergencia)', () => {
       fila({ incluida: true, ubicacionId: BIN_A }),
     ];
     expect(contarLineasEnOtraUbicacion(filas, BIN_A)).toBe(0);
+  });
+});
+
+describe('detectarConflictoSubAlmacen', () => {
+  const fila = (ubicacionId: string | null, incluida = true) =>
+    ({ incluida, ubicacionId }) as FilaRecepcionValues;
+  const subs = new Map([
+    ['u1', { id: 's1', clave: 'INS' }],
+    ['u2', { id: 's1', clave: 'INS' }],
+    ['u3', { id: 's2', clave: 'MAT' }],
+  ]);
+
+  it('marca las filas cuyo rack es de otro sub-almacén que la primera con rack', () => {
+    const r = detectarConflictoSubAlmacen([fila(null), fila('u1'), fila('u2'), fila('u3')], subs);
+    expect(r.subBaseClave).toBe('INS');
+    expect([...r.conflictos]).toEqual([3]);
+  });
+
+  it('ignora filas no incluidas y sin conflicto devuelve vacío', () => {
+    const r = detectarConflictoSubAlmacen([fila('u1'), fila('u3', false)], subs);
+    expect(r.conflictos.size).toBe(0);
+  });
+});
+
+describe('indicesParaAutoAsignar con predicado', () => {
+  it('solo rellena las filas que el predicado acepta', () => {
+    const filas = [{ ubicacionId: null, articuloId: 'a' }, { ubicacionId: null, articuloId: 'b' }] as FilaRecepcionValues[];
+    expect(indicesParaAutoAsignar(filas, (f) => f.articuloId === 'b')).toEqual([1]);
   });
 });

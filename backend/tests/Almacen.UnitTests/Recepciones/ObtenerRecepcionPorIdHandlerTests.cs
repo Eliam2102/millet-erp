@@ -146,6 +146,17 @@ public class ObtenerRecepcionPorIdHandlerTests
     }
 
     private static readonly Guid UbicId = Guid.NewGuid();
+    private static readonly Guid AlmacenId = Guid.NewGuid();
+
+    [Fact]
+    public async Task Resuelve_rack_de_cada_linea_con_ruta_completa()
+    {
+        await using var db = await NuevaDbConRecepcionAsync(conSubAlmacen: true);
+        var handler = new ObtenerRecepcionPorIdHandler(
+            db, new FakeArticuloReadPort(), new FakeOcReadPort(), new FakeCxpDocumentosReadPort(), new CentrosReadPort());
+        var dto = await handler.Handle(new ObtenerRecepcionPorIdQuery(RecepcionId(db)), CancellationToken.None);
+        dto!.Lineas.Should().OnlyContain(l => l.UbicacionId == UbicId && l.UbicacionClave == "ALM › ALM-CEN · U1");
+    }
 
     private static async Task<AlmacenDbContext> NuevaDbConRecepcionAsync(bool conSubAlmacen)
     {
@@ -160,8 +171,9 @@ public class ObtenerRecepcionPorIdHandlerTests
         db.Ubicaciones.Add(new Ubicacion(UbicId, SubId, "U1", "Ubicación 1"));
         if (conSubAlmacen)
         {
+            db.Almacenes.Add(new Millet.Almacen.Domain.Catalogo.Almacen(AlmacenId, "ALM", "Almacén", Guid.NewGuid()));
             db.SubAlmacenes.Add(new SubAlmacen(
-                SubId, almacenId: Guid.NewGuid(), clave: "ALM-CEN",
+                SubId, almacenId: AlmacenId, clave: "ALM-CEN",
                 nombre: "Almacén Central", tipo: TipoSubAlmacen.Insumos));
         }
 

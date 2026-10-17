@@ -305,6 +305,9 @@ export interface RecepcionLineaItem {
   unidadCapturada?: string | null;
   costoUnitarioMxn: number;
   montoTotalMxn: number;
+  /** Rack destino de la línea y su ruta «ALM › SUB · BIN». null = línea histórica. */
+  ubicacionId?: string | null;
+  ubicacionClave?: string | null;
 }
 
 export interface RecepcionDetalle {

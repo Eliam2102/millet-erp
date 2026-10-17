@@ -1,5 +1,5 @@
 import { hoyLocalISO } from '@/lib/datetime';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Controller,
   useForm,
@@ -20,6 +20,19 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
+import { formatCantidad } from '@/lib/format-cantidad';
 import {
   AvisoUnidadNoResoluble,
   decimalesDeFila,
@@ -55,9 +68,12 @@ import { PackingListUpload } from '@/features/almacen/components/PackingListUplo
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector';
+import { useUbicacionesAsignadasPorArticulo } from '@/features/almacen/api/useAsignaciones';
+import { useUbicaciones } from '@/features/almacen/api/useUbicaciones';
 import {
   construirFilas,
   contarLineasEnOtraUbicacion,
+  detectarConflictoSubAlmacen,
   indicesParaAutoAsignar,
 } from '@/features/almacen/components/nueva-recepcion-helpers';
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
@@ -100,34 +116,19 @@ export function NuevaRecepcionSheet({
   open,
   onOpenChange,
 }: NuevaRecepcionSheetProps) {
-  // Patrón P4 (igual que NuevaRequisicionProvider / SheetNuevoCliente): el
-  // form reporta isDirty; los gestos de cerrar (Esc, clic fuera, X y
-  // Cancelar) piden confirmación si hay cambios. El registro exitoso cierra
-  // sin confirmar. Ref + setter estable: el form lo llama en cada cambio.
-  const dirtyRef = useRef(false);
-  const setDirty = useCallback((dirty: boolean) => {
-    dirtyRef.current = dirty;
-  }, []);
-
-  function solicitarCierre() {
-    if (dirtyRef.current && !window.confirm(MENSAJE_DESCARTAR_RECEPCION)) {
-      return;
-    }
-    dirtyRef.current = false;
-    onOpenChange(false);
-  }
-
-  function cerrarTrasRegistro() {
-    dirtyRef.current = false;
-    onOpenChange(false);
-  }
+  // Los gestos de cerrar (Esc, clic fuera, X y Cancelar) piden confirmación si
+  // hay cambios (useConfirmarDescarte). El registro exitoso cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
+  const cerrarTrasRegistro = () => solicitarCierre(true);
 
   return (
     <Sheet
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
     >
-      <SheetContent side="right" className="sm:max-w-3xl">
+      <SheetContent side="right" size="wide">
         <SheetHeader>
           <SheetTitle>Nueva recepción</SheetTitle>
           <SheetDescription>
@@ -140,17 +141,42 @@ export function NuevaRecepcionSheet({
         {open && (
           <NuevaRecepcionFormBody
             onSuccess={cerrarTrasRegistro}
-            onCancel={solicitarCierre}
+            onCancel={() => solicitarCierre()}
             onDirtyChange={setDirty}
           />
         )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
 
-const MENSAJE_DESCARTAR_RECEPCION =
-  'Tienes cambios sin guardar en la nueva recepción. ¿Descartarlos y cerrar?';
+// Códigos de negocio del registro → campo del form o aviso persistente sobre las líneas.
+const MENSAJE_SIN_CFDI =
+  'Vincula el CFDI del proveedor o captura su folio fiscal (UUID).';
+const CODIGOS_RECEPCION: Record<
+  string,
+  { campo: string; mensaje?: string } | 'callout'
+> = {
+  RECEPCION_CFDI_NO_ENCONTRADO: { campo: 'cfdiRecibidoId' },
+  RECEPCION_CFDI_NO_VINCULABLE: { campo: 'cfdiRecibidoId' },
+  RECEPCION_CFDI_PROVEEDOR_DISTINTO: { campo: 'cfdiRecibidoId' },
+  RECEPCION_SIN_CFDI: { campo: 'cfdiRecibidoId', mensaje: MENSAJE_SIN_CFDI },
+  RECEPCION_OC_NO_AUTORIZADA: {
+    campo: 'ordenCompraId',
+    mensaje: 'La OC no está en estado que acepte recepción.',
+  },
+  RECEPCION_EXCEDE_TOLERANCIA: 'callout',
+  ENTRADA_SIN_ASIGNACION: 'callout',
+  RECEPCION_MULTI_SUBALMACEN: 'callout',
+  RECEPCION_SUCURSAL_DISTINTA: 'callout',
+};
+const TITULOS_CALLOUT: Record<string, string> = {
+  RECEPCION_EXCEDE_TOLERANCIA: 'Una cantidad excede la tolerancia',
+  ENTRADA_SIN_ASIGNACION: 'Un artículo no está asignado al rack elegido',
+  RECEPCION_MULTI_SUBALMACEN: 'Las líneas van a sub-almacenes distintos',
+  RECEPCION_SUCURSAL_DISTINTA: 'La orden de compra es de otra sucursal',
+};
 
 function NuevaRecepcionFormBody({
   onSuccess,
@@ -197,8 +223,22 @@ function NuevaRecepcionFormBody({
   // Al desmontar (cierre o cambio de visibilidad) ya no hay cambios pendientes.
   useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
 
-  function cambiarVariante(siguiente: Variante) {
+  // Cambiar de variante reinicia el form: con datos capturados pide confirmación.
+  const [varianteSolicitada, setVarianteSolicitada] = useState<Variante | null>(null);
+  const [avisoServidor, setAvisoServidor] = useState<{
+    titulo: string;
+    detalle: string;
+  } | null>(null);
+
+  function solicitarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
+    if (isDirty) setVarianteSolicitada(siguiente);
+    else cambiarVariante(siguiente);
+  }
+
+  function cambiarVariante(siguiente: Variante) {
+    setVarianteSolicitada(null);
+    setAvisoServidor(null);
     setVariante(siguiente);
     setPackingListAdjunto(null);
     setCapturaUuidManual(false);
@@ -206,17 +246,23 @@ function NuevaRecepcionFormBody({
   }
 
   // ── Helper de cabecera nivel 4 (bin por defecto) ─────────────────────────
-  // Sin sub-almacén de cabecera (se deriva del bin), el helper lista TODAS las
-  // ubicaciones con su ruta vía <UbicacionSelector>.
+  // Sin sub-almacén de cabecera (se deriva del bin), el helper lista los racks
+  // asignados a los artículos de la OC vía <UbicacionSelector soloIds>.
   /**
    * Aplica el helper: guarda la elección en la cabecera y auto-asigna el bin a
-   * las líneas que aún NO tienen ubicación. Las que ya tienen otra se respetan
-   * (el aviso de divergencia se muestra sobre la lista de líneas).
+   * las líneas sin ubicación cuyo artículo está asignado a ese rack. Las que ya
+   * tienen otra se respetan (el aviso de divergencia sale sobre las líneas).
    */
   function aplicarUbicacionHelper(ubicacionId: string | null) {
     form.setValue('ubicacionHelperId', ubicacionId, { shouldDirty: true });
     if (!ubicacionId) return;
-    for (const index of indicesParaAutoAsignar(form.getValues('filas') ?? [])) {
+    // Solo se rellenan las líneas cuyo artículo tiene asignado ese rack; el
+    // resto se avisa sobre la lista de líneas y se elige a mano.
+    const indices = indicesParaAutoAsignar(
+      form.getValues('filas') ?? [],
+      (f) => asignadas.porArticulo.get(f.articuloId)?.has(ubicacionId) ?? false,
+    );
+    for (const index of indices) {
       form.setValue(`filas.${index}.ubicacionId`, ubicacionId, {
         shouldDirty: true,
         shouldValidate: true,
@@ -225,6 +271,7 @@ function NuevaRecepcionFormBody({
   }
 
   const lookup = useDecimalesUnidad();
+  const ubicacionesQuery = useUbicaciones({ limit: 500 });
 
   // Vínculo fiscal (variante A): el picker de CFDIs se acota al RFC del
   // proveedor de la OC. La query de OC se dedupe con la de LineasDesdeOc
@@ -233,6 +280,19 @@ function NuevaRecepcionFormBody({
     control: form.control,
     name: 'ordenCompraId',
   });
+  const filasWatch = useWatch({ control: form.control, name: 'filas' });
+  const articuloIds = useMemo(
+    () => [...new Set((filasWatch ?? []).map((f) => f.articuloId))],
+    [filasWatch],
+  );
+  const asignadas = useUbicacionesAsignadasPorArticulo(articuloIds);
+  // Racks que el helper puede ofrecer: asignados a algún artículo de la OC.
+  const racksDeLaOc = useMemo(() => {
+    if (!asignadas.listo) return undefined;
+    const union = new Set<string>();
+    asignadas.porArticulo.forEach((set) => set.forEach((id) => union.add(id)));
+    return union;
+  }, [asignadas.listo, asignadas.porArticulo]);
   const queryClient = useQueryClient();
   const puedeLeerCfdis = useHasPermission(
     PermisosCanonicos.CuentasPorPagarCfdisLeer,
@@ -258,6 +318,15 @@ function NuevaRecepcionFormBody({
   }, [ordenCompraId, variante, form]);
 
   function onSubmit(values: RecepcionFormValues) {
+    setAvisoServidor(null);
+    // Un solo sub-almacén por recepción: el conflicto ya se ve por línea.
+    const subs = new Map(
+      (ubicacionesQuery.data?.items ?? []).map((u) => [
+        u.id,
+        { id: u.subAlmacenId, clave: u.subAlmacenClave },
+      ]),
+    );
+    if (detectarConflictoSubAlmacen(values.filas, subs).conflictos.size > 0) return;
     // Advisory: decimales por unidad (solo filas incluidas; backend autoritativo).
     let decimalesMal = false;
     values.filas.forEach((f, i) => {
@@ -357,66 +426,27 @@ function NuevaRecepcionFormBody({
   }
 
   function manejarError(error: unknown) {
-    if (esApiError(error)) {
-      if (error.code === 'RECEPCION_EXCEDE_TOLERANCIA') {
-        toast.error('Cantidad excede tolerancia de la línea de OC.', {
-          description: error.problem.detail ?? error.problem.title,
-        });
-        return;
-      }
-      if (error.code === 'RECEPCION_SUCURSAL_DISTINTA') {
-        toast.error('La orden de compra es de otra sucursal.', {
-          description: error.problem.detail ?? error.problem.title,
-        });
-        return;
-      }
-      if (
-        error.code === 'RECEPCION_CFDI_NO_ENCONTRADO' ||
-        error.code === 'RECEPCION_CFDI_NO_VINCULABLE' ||
-        error.code === 'RECEPCION_CFDI_PROVEEDOR_DISTINTO'
-      ) {
-        form.setError('cfdiRecibidoId', {
-          type: error.code,
-          message: error.problem.detail ?? error.problem.title ?? 'CFDI no válido.',
-        });
-        return;
-      }
-      if (error.code === 'RECEPCION_SIN_CFDI') {
-        form.setError('cfdiRecibidoId', {
-          type: error.code,
-          message:
-            'Vincula el CFDI del proveedor o captura su folio fiscal (UUID).',
-        });
-        return;
-      }
-      if (error.code === 'RECEPCION_OC_NO_AUTORIZADA') {
-        form.setError('ordenCompraId', {
-          type: error.code,
-          message: 'La OC no está en estado que acepte recepción.',
-        });
-        return;
-      }
-      if (error.code === 'RECEPCION_MULTI_SUBALMACEN') {
-        toast.error('Las líneas van a sub-almacenes distintos.', {
-          description:
-            'Todas las ubicaciones (racks) de la recepción deben pertenecer al mismo sub-almacén.',
-        });
-        return;
-      }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
-        return;
-      }
-      toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+    if (!esApiError(error)) {
+      toast.error('Error inesperado al registrar la recepción.');
+      return;
+    }
+    const resultado = applyServerErrors(
+      form as unknown as Parameters<typeof applyServerErrors>[0],
+      error,
+      { codigos: CODIGOS_RECEPCION },
+    );
+    if (resultado === 'callout') {
+      // El servidor no indica la línea: se deja el aviso persistente sobre las líneas.
+      setAvisoServidor({
+        titulo: TITULOS_CALLOUT[error.code ?? ''] ?? 'No se pudo registrar',
+        detalle: error.problem.detail ?? error.problem.title,
       });
       return;
     }
-    toast.error('Error inesperado al registrar la recepción.');
+    if (resultado) return;
+    toast.error(error.problem.title, {
+      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+    });
   }
 
   const isPending = registrarA.isPending || registrarB.isPending;
@@ -435,14 +465,14 @@ function NuevaRecepcionFormBody({
             <VarianteOption
               value="A"
               active={variante === 'A'}
-              onSelect={cambiarVariante}
+              onSelect={solicitarVariante}
               titulo="Con factura/CFDI"
               descripcion="Insumos y refacciones — el proveedor llega con factura."
             />
             <VarianteOption
               value="B"
               active={variante === 'B'}
-              onSelect={cambiarVariante}
+              onSelect={solicitarVariante}
               titulo="Con packing list"
               descripcion="Materiales directos no-vidrio — factura llega después por CxP."
             />
@@ -481,6 +511,7 @@ function NuevaRecepcionFormBody({
               control={form.control}
               render={({ field }) => (
                 <UbicacionSelector
+                  soloIds={racksDeLaOc}
                   value={field.value || null}
                   onChange={(id) => aplicarUbicacionHelper(id)}
                   placeholder="Sin ubicación por defecto"
@@ -511,13 +542,13 @@ function NuevaRecepcionFormBody({
             <div className="space-y-1.5 md:col-span-2">
               <label className="flex items-center gap-1 text-sm font-medium">
                 CFDI del proveedor
-                <span aria-hidden="true" className="text-rose-600">
+                <span aria-hidden="true" className="text-danger-fg">
                   *
                 </span>
               </label>
 
               {!ordenCompraId ? (
-                <p className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+                <p className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-3 text-xs text-ink-muted">
                   Selecciona la orden de compra para vincular el CFDI del
                   proveedor.
                 </p>
@@ -567,7 +598,7 @@ function NuevaRecepcionFormBody({
                   )}
 
                   {capturaUuidManual || !puedeLeerCfdis ? (
-                    <div className="space-y-1.5 rounded-md border border-dashed border-primary/60 p-3">
+                    <div className="space-y-1.5 rounded-md border border-dashed border-line-dashed p-3">
                       <label
                         htmlFor="cfdi-uuid-fiscal"
                         className="text-sm font-medium"
@@ -594,11 +625,11 @@ function NuevaRecepcionFormBody({
                         )}
                       />
                       {form.formState.errors.cfdiUuidFiscal?.message && (
-                        <p role="alert" className="text-xs text-rose-600">
+                        <p role="alert" className="text-xs text-danger-fg">
                           {form.formState.errors.cfdiUuidFiscal.message}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-ink-muted">
                         Viene impreso en la representación del CFDI (y en su
                         QR). CxP enlazará el CFDI cuando el XML llegue por su
                         canal.
@@ -606,7 +637,7 @@ function NuevaRecepcionFormBody({
                       {puedeLeerCfdis && (
                         <button
                           type="button"
-                          className="text-xs text-primary underline-offset-2 hover:underline"
+                          className="text-xs text-brand underline-offset-2 hover:underline"
                           onClick={() => {
                             setCapturaUuidManual(false);
                             form.setValue('cfdiUuidFiscal', null);
@@ -619,7 +650,7 @@ function NuevaRecepcionFormBody({
                   ) : (
                     <button
                       type="button"
-                      className="text-xs text-primary underline-offset-2 hover:underline"
+                      className="text-xs text-brand underline-offset-2 hover:underline"
                       onClick={() => {
                         setCapturaUuidManual(true);
                         form.setValue('cfdiRecibidoId', null);
@@ -631,7 +662,7 @@ function NuevaRecepcionFormBody({
                   )}
 
                   {form.formState.errors.cfdiRecibidoId?.message && (
-                    <p role="alert" className="text-xs text-rose-600">
+                    <p role="alert" className="text-xs text-danger-fg">
                       {form.formState.errors.cfdiRecibidoId.message}
                     </p>
                   )}
@@ -682,7 +713,14 @@ function NuevaRecepcionFormBody({
           />
         </Field>
 
-        <LineasDesdeOc form={form} />
+        {avisoServidor && (
+          <AvisoEnLinea tono="error" titulo={avisoServidor.titulo}>
+            {avisoServidor.detalle} Revisa las cantidades y los racks de las
+            líneas marcadas.
+          </AvisoEnLinea>
+        )}
+
+        <LineasDesdeOc form={form} asignadas={asignadas.porArticulo} />
       </form>
 
       <SheetFooter>
@@ -702,6 +740,16 @@ function NuevaRecepcionFormBody({
           {isPending ? 'Registrando…' : 'Registrar recepción'}
         </Button>
       </SheetFooter>
+
+      <ConfirmarAccionDialog
+        open={varianteSolicitada != null}
+        onOpenChange={(o) => !o && setVarianteSolicitada(null)}
+        titulo="¿Cambiar el tipo de recepción?"
+        resumen="Se perderán la OC, las líneas y el CFDI o packing list capturados."
+        verbo="Cambiar tipo"
+        tono="peligro"
+        onConfirmar={() => varianteSolicitada && cambiarVariante(varianteSolicitada)}
+      />
 
       {/* Sheet apilado: carga del XML del proveedor (canal CargaManual de
           CxP). Al cargar, el CFDI recién ingresado queda vinculado. */}
@@ -723,8 +771,11 @@ function NuevaRecepcionFormBody({
 
 function LineasDesdeOc({
   form,
+  asignadas,
 }: {
   form: ReturnType<typeof useForm<RecepcionFormValues>>;
+  /** articuloId → racks asignados (para avisar al helper de cabecera). */
+  asignadas: ReadonlyMap<string, ReadonlySet<string>>;
 }) {
   const ordenCompraId = useWatch({
     control: form.control,
@@ -732,6 +783,7 @@ function LineasDesdeOc({
   });
   const ocQuery = useOrdenCompra(ordenCompraId || null);
   const recibiblesQuery = useLineasRecibibles(ordenCompraId || null);
+  const ubicacionesQuery = useUbicaciones({ limit: 500 });
   const ocId = ordenCompraId || null;
   const ultimaOcCargada = useRef<string | null>(null);
 
@@ -760,7 +812,7 @@ function LineasDesdeOc({
 
   if (!ocId) {
     return (
-      <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
+      <section className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-4 text-sm text-ink-muted">
         Selecciona una orden de compra para cargar las líneas pendientes
         de recepción.
       </section>
@@ -769,7 +821,7 @@ function LineasDesdeOc({
 
   if (ocQuery.isLoading || recibiblesQuery.isLoading) {
     return (
-      <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
+      <section className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-4 text-sm text-ink-muted">
         Cargando líneas de la OC…
       </section>
     );
@@ -777,12 +829,9 @@ function LineasDesdeOc({
 
   if (ocQuery.isError || recibiblesQuery.isError) {
     return (
-      <section
-        role="alert"
-        className="rounded-md border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700"
-      >
+      <AvisoEnLinea tono="error">
         No se pudo cargar la OC. Verifica el id o vuelve a intentar.
-      </section>
+      </AvisoEnLinea>
     );
   }
 
@@ -792,7 +841,7 @@ function LineasDesdeOc({
       (ocQuery.data?.lineas.length ?? 0) > 0 &&
       ocQuery.data?.lineas.every((l) => l.esServicio);
     return (
-      <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
+      <section className="rounded-md border border-dashed border-line-dashed bg-surface-subtle p-4 text-sm text-ink-muted">
         {soloServicios
           ? 'Esta OC solo tiene servicios — los servicios no se reciben en Almacén ni generan existencia.'
           : 'Esta OC no tiene líneas pendientes de recepción — todas ya fueron recibidas en su totalidad.'}
@@ -806,6 +855,26 @@ function LineasDesdeOc({
     filas,
     ubicacionHelperId,
   );
+  // Líneas sin rack a las que el helper no pudo asignar (artículo sin ese rack).
+  const sinRackDelHelper = ubicacionHelperId
+    ? filas.filter(
+        (f) =>
+          f.incluida &&
+          !f.ubicacionId &&
+          !asignadas.get(f.articuloId)?.has(ubicacionHelperId),
+      ).length
+    : 0;
+  // Un movimiento = un sub-almacén (RECEPCION_MULTI_SUBALMACEN), avisado por línea.
+  const subPorUbicacion = new Map(
+    (ubicacionesQuery.data?.items ?? []).map((u) => [
+      u.id,
+      { id: u.subAlmacenId, clave: u.subAlmacenClave },
+    ]),
+  );
+  const { subBaseClave, conflictos } = detectarConflictoSubAlmacen(
+    filas,
+    subPorUbicacion,
+  );
 
   const errorArrayLevel = form.formState.errors.filas;
   const errorMessage =
@@ -815,49 +884,82 @@ function LineasDesdeOc({
 
   return (
     <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">
-          Líneas de la OC ({filas.length} pendientes)
-        </h3>
-      </div>
+      <h3 className="text-sm font-semibold">
+        Líneas de la OC ({filas.length} pendientes)
+      </h3>
 
       {errorMessage && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {errorMessage}
         </p>
+      )}
+
+      {conflictos.size > 0 && (
+        <AvisoEnLinea tono="error" titulo="Racks de sub-almacenes distintos">
+          Una recepción va a un solo sub-almacén ({subBaseClave}). Corrige el
+          rack de las líneas marcadas.
+        </AvisoEnLinea>
+      )}
+
+      {sinRackDelHelper > 0 && (
+        <AvisoEnLinea tono="advertencia">
+          {sinRackDelHelper === 1
+            ? '1 línea no tiene asignado el rack por defecto: elige su rack.'
+            : `${sinRackDelHelper} líneas no tienen asignado el rack por defecto: elige su rack.`}
+        </AvisoEnLinea>
       )}
 
       {/* PR4: aviso informativo (no bloquea) cuando el helper de cabecera
           diverge de líneas que ya tenían otra ubicación capturada. */}
       {lineasEnOtraUbicacion > 0 && (
-        <p
-          role="status"
-          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-        >
+        <AvisoEnLinea tono="advertencia">
           {lineasEnOtraUbicacion === 1
             ? '1 línea va a otra ubicación distinta de la predeterminada.'
             : `${lineasEnOtraUbicacion} líneas van a otra ubicación distinta de la predeterminada.`}
-        </p>
+        </AvisoEnLinea>
       )}
 
-      <div className="space-y-2">
-        {filas.map((fila, index) => (
-          <FilaLineaOc
-            key={fila.lineaOcId}
-            index={index}
-            fila={fila}
-            control={form.control}
-            coincideConHelper={
-              !!ubicacionHelperId && fila.ubicacionId === ubicacionHelperId
-            }
-            errors={
-              Array.isArray(form.formState.errors.filas)
-                ? (form.formState.errors.filas[index] as FilaErrors | undefined)
-                : undefined
-            }
-          />
-        ))}
-      </div>
+      <TableContainer className="rounded-md border border-line-row">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-8">
+                <span className="sr-only">Incluir</span>
+              </TableHead>
+              <TableHead>Artículo</TableHead>
+              <TableHead className="text-right">Pendiente</TableHead>
+              <TableHead className="w-40">Cantidad a recibir</TableHead>
+              <TableHead className="min-w-56">Ubicación (rack)</TableHead>
+              <TableHead>
+                <span className="sr-only">Detalles</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filas.map((fila, index) => (
+              <FilaLineaOc
+                key={fila.lineaOcId}
+                index={index}
+                fila={fila}
+                control={form.control}
+                coincideConHelper={
+                  !!ubicacionHelperId && fila.ubicacionId === ubicacionHelperId
+                }
+                conflictoSub={
+                  conflictos.has(index) && subBaseClave
+                    ? `Este rack es de otro sub-almacén; la recepción va a ${subBaseClave}.`
+                    : undefined
+                }
+                errors={
+                  Array.isArray(form.formState.errors.filas)
+                    ? (form.formState.errors.filas[index] as FilaErrors | undefined)
+                    : undefined
+                }
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </section>
   );
 }
@@ -874,6 +976,7 @@ function FilaLineaOc({
   fila,
   control,
   coincideConHelper,
+  conflictoSub,
   errors,
 }: {
   index: number;
@@ -881,207 +984,212 @@ function FilaLineaOc({
   control: ReturnType<typeof useForm<RecepcionFormValues>>['control'];
   /** PR4: la ubicación de la fila es la misma que el helper de cabecera. */
   coincideConHelper: boolean;
+  /** Mensaje de conflicto de sub-almacén (RECEPCION_MULTI_SUBALMACEN) para la fila. */
+  conflictoSub: string | undefined;
   errors: FilaErrors | undefined;
 }) {
   const incluida = useWatch({
     control,
     name: `filas.${index}.incluida` as const,
   });
+  const [detalles, setDetalles] = useState(false);
   const lookupFila = useDecimalesUnidad();
   const decResuelto = decimalesDeFila(lookupFila, {
     unidadMedida: fila.unidadMedida,
   });
   const decimalesFila = decResuelto ?? DECIMALES_FALLBACK;
   const unidadNoResoluble = decResuelto == null;
+  const errorCantidad = errors?.cantidad?.message;
+  const errorRack = errors?.ubicacionId?.message ?? conflictoSub;
+  const idCantidad = `fila-${index}-cantidad`;
+  const idRack = `fila-${index}-rack`;
 
   return (
-    <div
-      className={cn(
-        'rounded-md border p-3',
-        incluida
-          ? 'border-primary/60 bg-primary/5'
-          : 'border-muted bg-muted/20',
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <Controller
-          name={`filas.${index}.incluida` as const}
-          control={control}
-          render={({ field }) => (
-            <input
-              type="checkbox"
-              className="mt-1 h-4 w-4 cursor-pointer rounded border-muted-foreground"
-              checked={field.value}
-              onChange={(e) => field.onChange(e.target.checked)}
-              aria-label={`Incluir línea ${fila.posicion} en la recepción`}
-            />
-          )}
-        />
+    <>
+      <TableRow className={cn(incluida && 'bg-surface-selected')}>
+        <TableCell className="align-top">
+          <Controller
+            name={`filas.${index}.incluida` as const}
+            control={control}
+            render={({ field }) => (
+              <input
+                type="checkbox"
+                className="mt-1 size-4 cursor-pointer accent-brand"
+                checked={field.value}
+                onChange={(e) => field.onChange(e.target.checked)}
+                aria-label={`Incluir línea ${fila.posicion} en la recepción`}
+              />
+            )}
+          />
+        </TableCell>
 
-        <div className="flex-1 space-y-2">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-            <span className="font-semibold">Línea #{fila.posicion}</span>
-            <span className="text-xs text-muted-foreground">
-              Artículo:{' '}
-              {fila.articuloClave ? (
-                <>
-                  <code className="font-mono">{fila.articuloClave}</code>
-                  {fila.articuloNombre && <> · {fila.articuloNombre}</>}
-                </>
-              ) : (
-                <code className="font-mono" title={fila.articuloId}>
-                  {fila.articuloId.slice(0, 8)}…
-                </code>
+        <TableCell className="align-top">
+          <span className="text-ink-muted">#{fila.posicion} </span>
+          {fila.articuloClave ? (
+            <>
+              <code className="font-mono text-xs">{fila.articuloClave}</code>
+              {fila.articuloNombre && (
+                <div className="max-w-72 truncate" title={fila.articuloNombre}>
+                  {fila.articuloNombre}
+                </div>
               )}
+            </>
+          ) : (
+            <code className="font-mono text-xs" title={fila.articuloId}>
+              {fila.articuloId.slice(0, 8)}…
+            </code>
+          )}
+        </TableCell>
+
+        <TableCell className="whitespace-nowrap text-right align-top tabular-nums">
+          {formatCantidad(fila.pendiente, decResuelto)}{' '}
+          <span className="text-xs text-ink-muted">{fila.unidadMedida}</span>
+        </TableCell>
+
+        <TableCell className="align-top">
+          <Controller
+            name={`filas.${index}.cantidad` as const}
+            control={control}
+            render={({ field }) => (
+              <Input
+                id={idCantidad}
+                type="number"
+                inputMode="decimal"
+                step={stepParaDecimales(decimalesFila)}
+                min="0"
+                max={fila.maximo}
+                disabled={!incluida}
+                className="min-w-24 text-right tabular-nums"
+                value={field.value ?? ''}
+                onChange={(e) =>
+                  field.onChange(
+                    e.target.value === '' ? 0 : Number(e.target.value),
+                  )
+                }
+                aria-label={`Cantidad a recibir, línea ${fila.posicion}`}
+                aria-required={incluida || undefined}
+                aria-invalid={errorCantidad ? true : undefined}
+                aria-describedby={`${idCantidad}-ayuda`}
+              />
+            )}
+          />
+          <p
+            id={`${idCantidad}-ayuda`}
+            className={cn(
+              'mt-1 text-2xs',
+              errorCantidad ? 'text-danger-fg' : 'text-ink-muted',
+            )}
+            role={errorCantidad ? 'alert' : undefined}
+          >
+            {errorCantidad ??
+              `Máx. ${formatCantidad(fila.maximo, decResuelto)} (tolerancia ${fila.toleranciaPorcentaje}%)`}
+          </p>
+          <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
+        </TableCell>
+
+        <TableCell className="align-top">
+          <Controller
+            name={`filas.${index}.ubicacionId` as const}
+            control={control}
+            render={({ field }) => (
+              <UbicacionBinSelector
+                modo="asignacion"
+                articuloId={fila.articuloId}
+                subAlmacenId={null}
+                requiereSubAlmacen={false}
+                value={field.value ?? null}
+                onChange={(id) => field.onChange(id)}
+                disabled={!incluida}
+                accionSinUbicaciones={
+                  <AsignarUbicacionEnLinea
+                    articuloId={fila.articuloId}
+                    onAsignada={(ubicacionId) => field.onChange(ubicacionId)}
+                  />
+                }
+              />
+            )}
+          />
+          {coincideConHelper && (
+            <span className="mt-1 inline-block rounded-sm bg-success-bg px-1.5 py-0.5 text-2xs font-medium text-success-fg">
+              coincide con el rack por defecto
             </span>
-            <span className="text-xs text-muted-foreground">UM: {fila.unidadMedida}</span>
-          </div>
+          )}
+          {errorRack && (
+            <p id={idRack} role="alert" className="mt-1 text-2xs text-danger-fg">
+              {errorRack}
+            </p>
+          )}
+        </TableCell>
 
-          <dl className="grid grid-cols-3 gap-2 text-xs">
-            <Stat label="Solicitada">{formatCantidad(fila.cantidadSolicitada)}</Stat>
-            <Stat label="Ya recibida">{formatCantidad(fila.cantidadYaRecibida)}</Stat>
-            <Stat label="Pendiente" highlight>
-              {formatCantidad(fila.pendiente)}
-            </Stat>
-          </dl>
+        <TableCell className="whitespace-nowrap align-top">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-expanded={detalles}
+            onClick={() => setDetalles((v) => !v)}
+          >
+            {detalles ? '− Detalles' : '+ Detalles'}
+          </Button>
+        </TableCell>
+      </TableRow>
 
-          {incluida && (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <Field label="Unidad capturada (opcional)">
-                <Controller name={`filas.${index}.unidadCapturada` as const} control={control}
-                  render={({ field }) => <Input {...field} value={field.value ?? ''} maxLength={20} placeholder={fila.unidadMedida} />} />
-                <p className="text-xs text-ink-muted">Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar.</p>
-              </Field>
+      {detalles && (
+        <TableRow className="bg-surface-subtle">
+          <TableCell />
+          <TableCell colSpan={5}>
+            <dl className="mb-2 flex gap-6 text-xs text-ink-muted">
+              <div>
+                <dt>Solicitada</dt>
+                <dd className="tabular-nums text-ink">
+                  {formatCantidad(fila.cantidadSolicitada, decResuelto)}
+                </dd>
+              </div>
+              <div>
+                <dt>Ya recibida</dt>
+                <dd className="tabular-nums text-ink">
+                  {formatCantidad(fila.cantidadYaRecibida, decResuelto)}
+                </dd>
+              </div>
+            </dl>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <Field
-                label="Cantidad a recibir"
-                required
-                error={errors?.cantidad?.message}
+                label="Unidad capturada"
+                optional
+                hint="Usa el código del catálogo (por ejemplo CAJA). El sistema convierte y valida el saldo al registrar."
               >
                 <Controller
-                  name={`filas.${index}.cantidad` as const}
+                  name={`filas.${index}.unidadCapturada` as const}
                   control={control}
                   render={({ field }) => (
                     <Input
-                      type="number"
-                      inputMode="decimal"
-                      step={stepParaDecimales(decimalesFila)}
-                      min="0"
-                      max={fila.maximo}
+                      {...field}
                       value={field.value ?? ''}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === ''
-                            ? 0
-                            : Number(e.target.value),
-                        )
-                      }
-                      aria-describedby={`fila-${index}-max`}
+                      maxLength={20}
+                      placeholder={fila.unidadMedida}
                     />
                   )}
                 />
-                <p
-                  id={`fila-${index}-max`}
-                  className="mt-1 text-[11px] text-muted-foreground"
-                >
-                  Máximo con {fila.toleranciaPorcentaje}% tolerancia:{' '}
-                  {formatCantidad(fila.maximo)}
-                </p>
-                <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
               </Field>
-
               <Field
-                label={
-                  coincideConHelper ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      Ubicación (rack)
-                      <span className="rounded-sm bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                        coincide
-                      </span>
-                    </span>
-                  ) : (
-                    'Ubicación (rack)'
-                  )
-                }
-                error={errors?.ubicacionId?.message}
+                label="Comentario"
+                optional
+                error={errors?.comentario?.message}
               >
                 <Controller
-                  name={`filas.${index}.ubicacionId` as const}
+                  name={`filas.${index}.comentario` as const}
                   control={control}
                   render={({ field }) => (
-                    <UbicacionBinSelector
-                      modo="asignacion"
-                      articuloId={fila.articuloId}
-                      subAlmacenId={null}
-                      requiereSubAlmacen={false}
-                      value={field.value ?? null}
-                      onChange={(id) => field.onChange(id)}
-                      disabled={!incluida}
-                      accionSinUbicaciones={
-                        <AsignarUbicacionEnLinea
-                          articuloId={fila.articuloId}
-                          onAsignada={(ubicacionId) => field.onChange(ubicacionId)}
-                        />
-                      }
-                    />
+                    <Input {...field} value={field.value ?? ''} maxLength={500} />
                   )}
                 />
               </Field>
-
-              <div className="md:col-span-2">
-                <Field
-                  label="Comentario (opcional)"
-                  error={errors?.comentario?.message}
-                >
-                  <Controller
-                    name={`filas.${index}.comentario` as const}
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        {...field}
-                        value={field.value ?? ''}
-                        maxLength={500}
-                      />
-                    )}
-                  />
-                </Field>
-              </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
-}
-
-function Stat({
-  label,
-  children,
-  highlight,
-}: {
-  label: string;
-  children: React.ReactNode;
-  highlight?: boolean;
-}) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd
-        className={cn(
-          'font-mono',
-          highlight && 'font-semibold text-primary',
-        )}
-      >
-        {children}
-      </dd>
-    </div>
-  );
-}
-
-function formatCantidad(n: number): string {
-  return n.toLocaleString('es-MX', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
-  });
 }
 
 function VarianteOption({
@@ -1105,14 +1213,14 @@ function VarianteOption({
       className={cn(
         'flex-1 rounded-md border p-3 text-left transition-colors',
         active
-          ? 'border-primary bg-primary/5'
-          : 'border-muted hover:border-muted-foreground/50',
+          ? 'border-brand bg-brand-soft'
+          : 'border-line-control hover:border-brand',
       )}
     >
       <div className="text-sm font-medium">
         Variante {value} — {titulo}
       </div>
-      <div className="mt-0.5 text-xs text-muted-foreground">{descripcion}</div>
+      <div className="mt-0.5 text-xs text-ink-muted">{descripcion}</div>
     </button>
   );
 }

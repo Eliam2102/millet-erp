@@ -71,7 +71,7 @@ export const FilaRecepcionSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['cantidad'],
-        message: `Excede el pendiente (${v.pendiente}) + ${v.toleranciaPorcentaje}% de tolerancia (${v.maximo.toFixed(4)}).`,
+        message: `Excede el máximo recibible (${Number(v.maximo.toFixed(4))}): pendiente ${v.pendiente} más ${v.toleranciaPorcentaje}% de tolerancia del artículo sobre lo solicitado.`,
       });
     }
   });

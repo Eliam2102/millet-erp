@@ -73,9 +73,23 @@ describe('RegistrarRecepcionFacturaSchema — vínculo fiscal obligatorio', () =
     expect(r.success).toBe(false);
     if (!r.success) {
       expect(r.error.issues[0].message).toBe(
-        'Excede el pendiente (100) + 0% de tolerancia (100.0000).',
+        'Excede el máximo recibible (100): pendiente 100 más 0% de tolerancia del artículo sobre lo solicitado.',
       );
     }
+  });
+
+  it.each([
+    [110, true],
+    [110.5, false],
+  ])('con tolerancia 10 %% el máximo es 110: cantidad %s → ok=%s', (cantidad, ok) => {
+    const r = RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      filas: [
+        { ...filaIncluida, pendiente: 100, maximo: 110, cantidad, toleranciaPorcentaje: 10 },
+      ],
+    });
+    expect(r.success).toBe(ok);
   });
 
   it('acepta cantidad igual al máximo del servidor con tolerancia 5 %', () => {

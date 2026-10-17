@@ -64,7 +64,10 @@ public sealed record RecepcionLineaItem(
     string UnidadMedida,
     decimal CostoUnitarioMxn,
     decimal MontoTotalMxn, decimal? CantidadCapturada = null, string? UnidadCapturada = null,
-    Guid? CentroCostoId = null, string? CentroCostoClave = null, string? CentroCostoNombre = null);
+    Guid? CentroCostoId = null, string? CentroCostoClave = null, string? CentroCostoNombre = null,
+    // Rack destino de la línea (bin N4) y su ruta "ALM › SUB · BIN" (mismo formato que
+    // los selectores). Null = línea histórica sin bin o bin no resuelto.
+    Guid? UbicacionId = null, string? UbicacionClave = null);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -205,6 +208,23 @@ public sealed class ObtenerRecepcionPorIdHandler
         var centroIds = mov.Lineas.Where(x => x.CentroCostoId.HasValue).Select(x => x.CentroCostoId!.Value).Distinct().ToArray();
         var centros = await _centros.ObtenerAsync(centroIds, cancellationToken);
 
+        // Ruta del rack de cada línea: una consulta con los bins distintos (anti-N+1).
+        var ubicacionIds = mov.Lineas
+            .Where(l => l.UbicacionId is not null)
+            .Select(l => l.UbicacionId!.Value)
+            .Distinct()
+            .ToArray();
+        Dictionary<Guid, string> rutasUbicacion = ubicacionIds.Length > 0
+            ? (await (
+                from u in _db.Ubicaciones.AsNoTracking()
+                join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                join al in _db.Almacenes.AsNoTracking() on sa.AlmacenId equals al.Id
+                where ubicacionIds.Contains(u.Id)
+                select new { u.Id, u.Clave, SubClave = sa.Clave, AlmacenClave = al.Clave })
+                .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.Id, x => $"{x.AlmacenClave} › {x.SubClave} · {x.Clave}")
+            : new Dictionary<Guid, string>();
+
         // Folio de OC: lectura de presentación state-agnostic (resuelve aunque
         // la OC ya esté Cerrada/Cancelada). Batch aunque la recepción tenga 1 OC.
         string? ordenCompraFolio = null;
@@ -265,7 +285,9 @@ public sealed class ObtenerRecepcionPorIdHandler
                         art?.Clave, art?.Descripcion,
                         l.Cantidad, l.UnidadMedida,
                         l.CostoUnitarioMxn, l.MontoTotalMxn, l.CantidadCapturada, l.UnidadCapturada,
-                        l.CentroCostoId, centro?.Clave, centro?.Nombre);
+                        l.CentroCostoId, centro?.Clave, centro?.Nombre,
+                        l.UbicacionId,
+                        l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta) ? ruta : null);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,

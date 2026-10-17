@@ -6,6 +6,15 @@ import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
 import {
 } from '@/features/almacen/api/types';
@@ -100,16 +109,22 @@ export function RecepcionDetallePage() {
               }
               mono={!query.data.subAlmacenNombre}
             />
-            <Campo
-              label="Orden de compra"
-              valor={
-                query.data.ordenCompraFolio ?? query.data.ordenCompraId ?? '—'
-              }
-              mono={
-                query.data.ordenCompraFolio == null &&
-                query.data.ordenCompraId != null
-              }
-            />
+            {query.data.ordenCompraId ? (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Orden de compra
+                </div>
+                <Link
+                  to="/compras/ordenes/$id"
+                  params={{ id: query.data.ordenCompraId }}
+                  className="font-mono text-sm text-brand hover:underline"
+                >
+                  {query.data.ordenCompraFolio ?? query.data.ordenCompraId}
+                </Link>
+              </div>
+            ) : (
+              <Campo label="Orden de compra" valor="—" />
+            )}
             {/* Referencias CxP resueltas en backend (ADR-0042): UUID fiscal
                 del SAT / folio del proveedor; si el puerto no resolvió, cae
                 al id truncado (nunca el GUID interno completo). */}
@@ -144,53 +159,82 @@ export function RecepcionDetallePage() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Líneas ({query.data.lineas.length})
             </h2>
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">#</th>
-                    <th className="px-3 py-2 text-left">Artículo</th>
-                    <th className="px-3 py-2 text-right">Cantidad</th>
-                    <th className="px-3 py-2 text-left">UM</th>
-                    <th className="px-3 py-2 text-left">Centro de costo</th>
-                    <th className="px-3 py-2 text-right">Costo unitario</th>
-                    <th className="px-3 py-2 text-right">Monto</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Artículo</TableHead>
+                    <TableHead className="text-right">Cantidad</TableHead>
+                    <TableHead>UM</TableHead>
+                    <TableHead>Ubicación (rack)</TableHead>
+                    <TableHead>Centro de costo</TableHead>
+                    <TableHead className="text-right">Costo unitario</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {query.data.lineas.map((l) => (
-                    <tr key={l.id} className="border-t">
-                      <td className="px-3 py-2">{l.posicion}</td>
+                    <TableRow key={l.id}>
+                      <TableCell>{l.posicion}</TableCell>
                       {l.articuloDescripcion ? (
-                        <td className="px-3 py-2">
+                        <TableCell>
                           {l.articuloClave && (
-                            <span className="font-mono text-xs text-muted-foreground">
+                            <span className="font-mono text-xs text-ink-muted">
                               {l.articuloClave}
                             </span>
                           )}
                           <div>{l.articuloDescripcion}</div>
-                        </td>
+                        </TableCell>
                       ) : (
-                        <td className="px-3 py-2 font-mono text-xs">
+                        <TableCell className="font-mono text-xs">
                           {l.articuloId}
-                        </td>
+                        </TableCell>
                       )}
-                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      <TableCell className="text-right tabular-nums">
                         {formatCantidad(l.cantidad, decimalesUnidad.porCodigo(l.unidadMedida))}
-                      </td>
-                      <td className="px-3 py-2">{l.unidadMedida}{l.unidadCapturada && <span className="block text-xs text-muted-foreground">Captura: {l.cantidadCapturada} {l.unidadCapturada}</span>}</td>
-                      <td className="px-3 py-2 text-sm text-ink">{l.centroCostoId ? formatCcMaquinaLabel({ clave: l.centroCostoClave, nombre: l.centroCostoNombre }) : '—'}</td>
-                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell>
+                        {l.unidadMedida}
+                        {l.unidadCapturada && (
+                          <span className="block text-xs text-ink-muted">
+                            Captura: {l.cantidadCapturada} {l.unidadCapturada}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {l.ubicacionClave ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-ink">
+                        {l.centroCostoId
+                          ? formatCcMaquinaLabel({ clave: l.centroCostoClave, nombre: l.centroCostoNombre })
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         <MoneyDisplay amount={l.costoUnitarioMxn} currency="MXN" strong />
-                      </td>
-                      <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         <MoneyDisplay amount={l.montoTotalMxn} currency="MXN" strong />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+                <tfoot>
+                  <TableRow className="border-t border-line-divider bg-surface-subtle">
+                    <TableCell colSpan={7} className="text-right font-semibold">
+                      Total
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <MoneyDisplay
+                        amount={query.data.lineas.reduce((t, l) => t + l.montoTotalMxn, 0)}
+                        currency="MXN"
+                        strong
+                      />
+                    </TableCell>
+                  </TableRow>
+                </tfoot>
+              </Table>
+            </TableContainer>
           </section>
         </div>
       )}

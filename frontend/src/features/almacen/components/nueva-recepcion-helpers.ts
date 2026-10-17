@@ -63,11 +63,35 @@ export function construirFilas(
  */
 export function indicesParaAutoAsignar(
   filas: readonly FilaRecepcionValues[],
+  /** Si se pasa, solo se rellenan las filas que lo cumplen (artículo asignado al rack). */
+  puedeAsignar?: (fila: FilaRecepcionValues) => boolean,
 ): number[] {
   return filas.reduce<number[]>((acc, fila, index) => {
-    if (!fila.ubicacionId) acc.push(index);
+    if (!fila.ubicacionId && (puedeAsignar?.(fila) ?? true)) acc.push(index);
     return acc;
   }, []);
+}
+
+/**
+ * Invariante «una recepción = un sub-almacén» (RECEPCION_MULTI_SUBALMACEN):
+ * el sub de referencia es el de la primera fila incluida con rack; las demás
+ * filas incluidas cuyo rack es de otro sub-almacén quedan en <c>conflictos</c>
+ * (índice de fila → clave del sub de referencia).
+ */
+export function detectarConflictoSubAlmacen(
+  filas: readonly FilaRecepcionValues[],
+  subPorUbicacion: ReadonlyMap<string, { id: string; clave: string }>,
+): { subBaseClave: string | null; conflictos: Set<number> } {
+  let base: { id: string; clave: string } | null = null;
+  const conflictos = new Set<number>();
+  filas.forEach((f, i) => {
+    if (!f.incluida || !f.ubicacionId) return;
+    const sub = subPorUbicacion.get(f.ubicacionId);
+    if (!sub) return;
+    if (!base) base = sub;
+    else if (sub.id !== base.id) conflictos.add(i);
+  });
+  return { subBaseClave: (base as { clave: string } | null)?.clave ?? null, conflictos };
 }
 
 /**
