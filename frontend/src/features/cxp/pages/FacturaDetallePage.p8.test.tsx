@@ -7,7 +7,7 @@ import { FacturaDetallePage } from './FacturaDetallePage';
 import { EstadoPasivo, MotivoCancelacion } from '@/features/cxp/api/types';
 import { createQueryWrapper } from '@/test/test-query-client';
 
-const escenario = vi.hoisted(() => ({ cancelada: false }));
+const escenario = vi.hoisted(() => ({ cancelada: false, capturada: false, revisadas: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
   Link: ({ children }: { children: ReactNode }) => <a href="/cxp/facturas">{children}</a>,
@@ -15,6 +15,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 vi.mock('@/features/cxp/api/useFacturas', () => ({
   useAutorizarFactura: () => ({ isPending: false, mutate: vi.fn() }),
+  useMarcarRetencionesRevisadas: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useFactura: () => ({
     isLoading: false,
     isError: false,
@@ -24,7 +25,13 @@ vi.mock('@/features/cxp/api/useFacturas', () => ({
       sucursalId: 'sucursal',
       folioProveedor: 'P3-FICTICIA',
       serieProveedor: null,
-      estado: escenario.cancelada ? EstadoPasivo.Cancelada : EstadoPasivo.Autorizada,
+      estado: escenario.cancelada
+        ? EstadoPasivo.Cancelada
+        : escenario.capturada
+          ? EstadoPasivo.Capturada
+          : EstadoPasivo.Autorizada,
+      retencionesRevisadasEn: escenario.revisadas ? '2026-10-17T06:00:00Z' : null,
+      retencionesRevisionMotivo: escenario.revisadas ? 'FIX Fiscal confirma' : null,
       fechaDocumento: '2026-10-09',
       fechaContabilizacion: '2026-10-09',
       fechaVencimiento: '2026-11-09',
@@ -75,6 +82,7 @@ vi.mock('@/features/cxp/components/AdjuntarEvidenciaSheet', () => ({
   AdjuntarEvidenciaSheet: () => null,
 }));
 vi.mock('@/features/cxp/components/EvidenciasList', () => ({ EvidenciasList: () => null }));
+vi.mock('@/features/cxp/components/EditarDatosP8', () => ({ EditarDatosP8: () => null }));
 
 beforeEach(() => {
   mswServer.use(
@@ -96,5 +104,19 @@ describe('P8: alerta fiscal y obra en detalle', () => {
     expect(screen.getByText(/Las retenciones del CFDI difieren del catálogo/)).toBeInTheDocument();
     expect(importe('Saldo pendiente')).toContain('198.67');
     expect(await screen.findByRole('region', { name: 'Adjuntos' })).toBeInTheDocument();
+  });
+
+  it('alerta sin revisar deshabilita Autorizar y ofrece marcarla como revisada', () => {
+    Object.assign(escenario, { cancelada: false, capturada: true, revisadas: false });
+    const { unmount } = render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.getByRole('button', { name: /^Autorizar$/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Marcar como revisadas' })).toBeInTheDocument();
+    unmount();
+
+    escenario.revisadas = true;
+    render(<FacturaDetallePage />, { wrapper: createQueryWrapper() });
+    expect(screen.getByRole('button', { name: /^Autorizar$/ })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Marcar como revisadas' })).not.toBeInTheDocument();
+    expect(screen.getByText(/FIX Fiscal confirma/)).toBeInTheDocument();
   });
 });

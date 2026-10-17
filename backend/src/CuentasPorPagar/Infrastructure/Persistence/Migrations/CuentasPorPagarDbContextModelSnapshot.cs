@@ -1630,6 +1630,19 @@ namespace Millet.CuentasPorPagar.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("retenciones_detalle");
 
+                    b.Property<DateTimeOffset?>("RetencionesRevisadasEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retenciones_revisadas_en");
+
+                    b.Property<Guid?>("RetencionesRevisadasPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("retenciones_revisadas_por");
+
+                    b.Property<string>("RetencionesRevisionMotivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("retenciones_revision_motivo");
+
                     b.Property<string>("SerieProveedor")
                         .HasMaxLength(25)
                         .HasColumnType("character varying(25)")

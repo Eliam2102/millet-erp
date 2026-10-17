@@ -260,6 +260,8 @@ export interface FacturaDetalle {
   obra?: string | null;
   conceptoRetencion?: string | null;
   alertaRetenciones?: string | null;
+  retencionesRevisadasEn?: string | null;
+  retencionesRevisionMotivo?: string | null;
   elegible: number;
   retenido: number;
   retencionesDetalle?: RetencionCfdi[] | null;

@@ -34,6 +34,8 @@ import {
   proponerRetenciones,
   totalRetenciones,
   alertaRetenciones,
+  CONCEPTO_SIN_RETENCION,
+  etiquetaConcepto,
 } from '@/features/cxp/lib/retenciones-p8';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -238,7 +240,7 @@ export function CapturarFacturaSheet({
           ...values,
           retencionesDetalle:
             cfdiParseadoQuery.data?.retencionesDetalle ??
-            (!cfdiBase && !alertaRetenciones(totalRetenido, propuesta) ? propuesta : null),
+            (!cfdiBase && !alertaRetenciones(totalRetenido, propuesta, conceptoRetencion) ? propuesta : null),
           fechaDocumento: toIso(values.fechaDocumento),
           fechaContabilizacion: toIso(values.fechaContabilizacion),
           tipoCambio: values.tipoCambio ?? null,
@@ -568,10 +570,15 @@ export function CapturarFacturaSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sin-concepto">Sin concepto: por confirmar</SelectItem>
-                  {[...new Set(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto))].map(
+                  {[
+                    ...new Set([
+                      CONCEPTO_SIN_RETENCION,
+                      ...(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto) ?? []),
+                    ]),
+                  ].map(
                     (c) => (
                       <SelectItem key={c} value={c}>
-                        {c}
+                        {etiquetaConcepto(c)}
                       </SelectItem>
                     ),
                   )}
@@ -608,13 +615,13 @@ export function CapturarFacturaSheet({
                   Usar retención propuesta
                 </Button>
               )}
-              {alertaRetenciones(totalRetenido, propuesta) && (
+              {alertaRetenciones(totalRetenido, propuesta, conceptoRetencion) && (
                 <p
                   role="note"
                   className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg"
                 >
-                  Las retenciones difieren del catálogo. Revisa con Fiscal; puedes continuar la
-                  captura.
+                  Las retenciones difieren del catálogo del concepto. Puedes capturar, pero Fiscal debe
+                  revisarlas antes de autorizar el pago.
                 </p>
               )}
             </section>

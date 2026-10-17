@@ -52,7 +52,35 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
         ConceptoRetencion = string.IsNullOrWhiteSpace(conceptoRetencion) ? null : conceptoRetencion.Trim().ToUpperInvariant();
     }
 
-    public void AsignarAlertaRetenciones(string? alerta) => AlertaRetenciones = alerta;
+    /// <summary>Quién revisó la alerta de retenciones (Fiscal). Se limpia si la alerta cambia.</summary>
+    public Guid? RetencionesRevisadasPor { get; private set; }
+    public DateTimeOffset? RetencionesRevisadasEn { get; private set; }
+    public string? RetencionesRevisionMotivo { get; private set; }
+
+    public void AsignarAlertaRetenciones(string? alerta)
+    {
+        if (alerta == AlertaRetenciones) return;
+        AlertaRetenciones = alerta;
+        RetencionesRevisadasPor = null;
+        RetencionesRevisadasEn = null;
+        RetencionesRevisionMotivo = null;
+    }
+
+    /// <summary>
+    /// Fiscal confirma que revisó una alerta de retenciones; sin esto la
+    /// factura no se puede autorizar para pago (decisión del owner, 17-oct).
+    /// </summary>
+    public void MarcarRetencionesRevisadas(string motivo, Guid? usuarioId, DateTimeOffset ahora)
+    {
+        AsegurarMutable("revisar retenciones");
+        if (AlertaRetenciones is null)
+            throw new BusinessRuleException("CXP_RETENCIONES_SIN_ALERTA", "La factura no tiene alerta de retenciones por revisar.");
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length is < 5 or > 500)
+            throw new BusinessRuleException("CXP_RETENCIONES_MOTIVO_INVALIDO", "El motivo de la revisión debe tener entre 5 y 500 caracteres.");
+        RetencionesRevisadasPor = usuarioId;
+        RetencionesRevisadasEn = ahora;
+        RetencionesRevisionMotivo = motivo.Trim();
+    }
 
 
     /// <summary>Folio + serie del proveedor (snapshot del CFDI o capturado).</summary>
@@ -658,6 +686,8 @@ public sealed class FacturaProveedor : BaseEntity, IPerteneceAEmpresa, IFiscalme
 
         if (EnRevision && MotivoRevisionId == MotivoFaltaReppId && !ReppRecibido)
             throw new BusinessRuleException("FACTURA_FALTA_REPP", "Registra los complementos pendientes en Tesorería antes de volver a autorizar.");
+        if (AlertaRetenciones is not null && RetencionesRevisadasEn is null)
+            throw new BusinessRuleException("CXP_RETENCIONES_SIN_REVISAR", "Las retenciones no coinciden con el proveedor: Fiscal debe revisarlas antes de autorizar el pago.");
         var anterior = Estado;
         Estado = EstadoPasivo.Autorizada;
         EnRevision = false;

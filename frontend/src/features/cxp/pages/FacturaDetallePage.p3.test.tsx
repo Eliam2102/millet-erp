@@ -16,6 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));
 vi.mock('@/features/cxp/api/useFacturas', () => ({
   useAutorizarFactura: () => ({ isPending: false, mutate: vi.fn() }),
+  useMarcarRetencionesRevisadas: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useFactura: () => ({ isLoading: false, isError: false, data: {
     id: 'factura-ficticia-p3', proveedorId: 'proveedor', sucursalId: 'sucursal',
     folioProveedor: 'P3-FICTICIA', serieProveedor: null, estado: escenario.cancelada ? EstadoPasivo.Cancelada : EstadoPasivo.Autorizada,

@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ErrorState, TableSkeleton } from '@/components/erp';
-import { useFactura, useAutorizarFactura } from '@/features/cxp/api/useFacturas';
+import { useFactura, useAutorizarFactura, useMarcarRetencionesRevisadas } from '@/features/cxp/api/useFacturas';
+import { MotivoBajaDialog } from '@/components/erp/adjuntos/MotivoBajaDialog';
 import { EstadoPasivo, MotivoCancelacionLabels } from '@/features/cxp/api/types';
 import { esApiError, useFormIdempotencyKey } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -61,6 +62,11 @@ export function FacturaDetallePage() {
   const [enviarRevisionAbierto, setEnviarRevisionAbierto] = useState(false);
   const [liberarRevisionAbierto, setLiberarRevisionAbierto] = useState(false);
   const [adjuntarEvidenciaAbierto, setAdjuntarEvidenciaAbierto] = useState(false);
+  const revisarRetenciones = useMarcarRetencionesRevisadas();
+  const puedeRevisarRetenciones = useHasPermission(PermisosCanonicos.CuentasPorPagarRetencionesAdministrar);
+  const [revisarAbierto, setRevisarAbierto] = useState(false);
+  const [errorRevision, setErrorRevision] = useState<string | null>(null);
+  const retencionesPendientes = !!query.data?.alertaRetenciones && !query.data?.retencionesRevisadasEn;
 
   function handleAutorizar() {
     if (!query.data) return;
@@ -158,7 +164,9 @@ export function FacturaDetallePage() {
                 variant="default"
                 size="sm"
                 onClick={handleAutorizar}
-                disabled={autorizar.isPending}
+                disabled={autorizar.isPending || retencionesPendientes}
+                aria-describedby={retencionesPendientes ? 'alerta-retenciones' : undefined}
+                title={retencionesPendientes ? 'Fiscal debe revisar las retenciones antes de autorizar.' : undefined}
               >
                 <CheckCircle2 className="mr-1 h-3 w-3" />
                 Autorizar
@@ -246,9 +254,56 @@ export function FacturaDetallePage() {
             <EditarDatosP8 key={`${query.data.id}-${query.data.version}`} factura={query.data} />
           )}
           {query.data.alertaRetenciones && (
-            <p role="note" className="rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg">
-              {query.data.alertaRetenciones}
-            </p>
+            <div
+              id="alerta-retenciones"
+              role="note"
+              className="flex flex-wrap items-center gap-3 rounded-md bg-warning-note-bg px-3 py-2 text-warning-note-fg"
+            >
+              <span className="flex-1">
+                {query.data.alertaRetenciones}
+                {query.data.retencionesRevisadasEn ? (
+                  <span className="mt-1 block text-xs">
+                    Revisadas por Fiscal el {formatearFecha(query.data.retencionesRevisadasEn)}:{' '}
+                    {query.data.retencionesRevisionMotivo}
+                  </span>
+                ) : (
+                  <span className="mt-1 block text-xs font-medium">
+                    No se puede autorizar para pago hasta que Fiscal las revise.
+                  </span>
+                )}
+              </span>
+              {retencionesPendientes && puedeRevisarRetenciones && query.data.estado === EstadoPasivo.Capturada && (
+                <Button variant="secondary" size="sm" onClick={() => { setErrorRevision(null); setRevisarAbierto(true); }}>
+                  Marcar como revisadas
+                </Button>
+              )}
+            </div>
+          )}
+          {revisarAbierto && (
+            <MotivoBajaDialog
+              nombreArchivo={query.data.folioProveedor ?? ''}
+              titulo="Marcar retenciones como revisadas"
+              descripcion="Confirma que Fiscal revisó las retenciones de esta factura. Queda registrado quién y cuándo."
+              etiqueta="Qué revisaste"
+              accion="Marcar como revisadas"
+              variante="default"
+              error={errorRevision}
+              onCerrar={() => setRevisarAbierto(false)}
+              onConfirmar={async (motivo) => {
+                try {
+                  await revisarRetenciones.mutateAsync({
+                    id: query.data!.id,
+                    versionEsperada: query.data!.version,
+                    motivo,
+                    idempotencyKey,
+                  });
+                  setRevisarAbierto(false);
+                  toast.success('Retenciones marcadas como revisadas');
+                } catch (e) {
+                  setErrorRevision(esApiError(e) ? (e.problem.detail ?? e.message) : 'No se pudo guardar la revisión.');
+                }
+              }}
+            />
           )}
           <p className="text-sm">
             <span className="text-ink-muted">Obra: </span>

@@ -50,7 +50,9 @@ public sealed record FacturaDetalleResponse(
     decimal Retenido = 0,
     IReadOnlyList<Domain.Cfdi.RetencionCfdi>? RetencionesDetalle = null,
     string? Obra = null, string? ConceptoRetencion = null, string? AlertaRetenciones = null, decimal CargosAplicadosTotal = 0,
-    string? OrdenCompraFolio = null);
+    string? OrdenCompraFolio = null,
+    DateTimeOffset? RetencionesRevisadasEn = null,
+    string? RetencionesRevisionMotivo = null);
 
 public sealed record FacturaLineaResponse(
     Guid Id,
@@ -139,6 +141,7 @@ public sealed class GetFacturaPorIdHandler : IRequestHandler<GetFacturaPorIdQuer
             ProveedorNombre: proveedor?.RazonSocial,
             SucursalNombre: sucursal is null ? null : $"{sucursal.Codigo} · {sucursal.Nombre}",
             Elegible: elegibilidad.ElegiblePendiente, Retenido: elegibilidad.Retenido,
-            RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal);
+            RetencionesDetalle: f.RetencionesDetalle, Obra: f.Obra, ConceptoRetencion: f.ConceptoRetencion, AlertaRetenciones: f.AlertaRetenciones, CargosAplicadosTotal: f.CargosAplicadosTotal,
+            RetencionesRevisadasEn: f.RetencionesRevisadasEn, RetencionesRevisionMotivo: f.RetencionesRevisionMotivo);
     }
 }

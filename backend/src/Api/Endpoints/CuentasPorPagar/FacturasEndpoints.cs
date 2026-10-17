@@ -14,6 +14,7 @@ using Millet.CuentasPorPagar.Application.FacturaProveedor.EditarCabecera;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.EnviarARevision;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.LiberarRevision;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.Queries;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.RevisarRetenciones;
 using Millet.CuentasPorPagar.Domain.FacturaProveedor;
 using Millet.Identidad.Domain;
 
@@ -248,6 +249,37 @@ public static class FacturasEndpoints
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
+        group.MapPost("/{id:guid}/retenciones/revisar", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] MarcarRetencionesRevisadasRequest request,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            if (expectedVersion is not int v)
+            {
+                return Results.Problem(
+                    title: "X-Expected-Version requerido",
+                    detail: "Revisar retenciones requiere el header X-Expected-Version (ADR-0012).",
+                    statusCode: StatusCodes.Status428PreconditionRequired);
+            }
+
+            var response = await mediator.Send(
+                new MarcarRetencionesRevisadasCommand(id, v, request.Motivo),
+                cancellationToken);
+            return Results.Ok(response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.CuentasPorPagarRetencionesAdministrar)
+        .WithName("MarcarRetencionesRevisadas")
+        .WithSummary("Fiscal marca como revisada la alerta de retenciones; sin esto no se autoriza para pago")
+        .Produces<MarcarRetencionesRevisadasResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
         group.MapPost("/{id:guid}/cancelar", async (
             Guid id,
             [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
@@ -381,6 +413,7 @@ public static class FacturasEndpoints
         DateTimeOffset FechaContabilizacion, string? Obra = null, string? ConceptoRetencion = null);
 
     public sealed record CancelarFacturaRequest(MotivoCancelacion Motivo, string? Texto);
+    public sealed record MarcarRetencionesRevisadasRequest(string Motivo);
 
     public sealed record EnviarRevisionRequest(Guid MotivoRevisionId, Guid DependenciaRevisoraId);
 

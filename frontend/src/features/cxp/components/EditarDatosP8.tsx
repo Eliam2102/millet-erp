@@ -15,6 +15,7 @@ import type { FacturaDetalle } from '@/features/cxp/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
+import { CONCEPTO_SIN_RETENCION, etiquetaConcepto } from '@/features/cxp/lib/retenciones-p8';
 
 /** Edición previa a autorización. Conserva el control de versión del pasivo. */
 export function EditarDatosP8({ factura }: { factura: FacturaDetalle }) {
@@ -87,12 +88,13 @@ export function EditarDatosP8({ factura }: { factura: FacturaDetalle }) {
           <SelectItem value="sin-concepto">Sin concepto: por confirmar</SelectItem>
           {[
             ...new Set([
+              CONCEPTO_SIN_RETENCION,
               ...(catalogo.data?.filter((r) => r.activa).map((r) => r.concepto) ?? []),
               ...(concepto ? [concepto] : []),
             ]),
           ].map((c) => (
             <SelectItem key={c} value={c}>
-              {c}
+              {etiquetaConcepto(c)}
             </SelectItem>
           ))}
         </SelectContent>

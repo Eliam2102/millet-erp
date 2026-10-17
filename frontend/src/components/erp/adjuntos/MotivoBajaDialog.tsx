@@ -22,6 +22,12 @@ interface MotivoBajaDialogProps {
   onCerrar: () => void;
   /** Mensaje de error ya traducido por el caller. */
   error: string | null;
+  /** Textos para reusar el diálogo en otras acciones con motivo (default: baja de documento). */
+  titulo?: string;
+  descripcion?: string;
+  etiqueta?: string;
+  accion?: string;
+  variante?: 'secondary-danger' | 'default';
 }
 
 /**
@@ -34,6 +40,11 @@ export function MotivoBajaDialog({
   onConfirmar,
   onCerrar,
   error,
+  titulo = 'Dar de baja el documento',
+  descripcion,
+  etiqueta = 'Motivo de la baja',
+  accion = 'Dar de baja',
+  variante = 'secondary-danger',
 }: MotivoBajaDialogProps) {
   const id = useId();
   const [motivo, setMotivo] = useState('');
@@ -55,15 +66,15 @@ export function MotivoBajaDialog({
     <Dialog open onOpenChange={(abierto) => !abierto && !enviando && onCerrar()}>
       <DialogContent closeLabel="Cerrar" data-component="motivo-baja-dialog">
         <DialogHeader>
-          <DialogTitle>Dar de baja el documento</DialogTitle>
+          <DialogTitle>{titulo}</DialogTitle>
           <DialogDescription>
-            {nombreArchivo}. La baja es irreversible; el archivo se conserva
-            para auditoría pero deja de estar disponible para descarga.
+            {descripcion ??
+              `${nombreArchivo}. La baja es irreversible; el archivo se conserva para auditoría pero deja de estar disponible para descarga.`}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
           <Label htmlFor={id} className="text-xs font-medium text-ink-strong">
-            Motivo de la baja
+            {etiqueta}
           </Label>
           <Textarea
             id={id}
@@ -89,7 +100,7 @@ export function MotivoBajaDialog({
             Cancelar
           </Button>
           <Button
-            variant="secondary-danger"
+            variant={variante}
             onClick={confirmar}
             disabled={!valido || enviando}
             title={
@@ -100,7 +111,7 @@ export function MotivoBajaDialog({
             data-action="confirmar-baja"
           >
             {enviando && <Loader2 className="animate-spin" />}
-            Dar de baja
+            {accion}
           </Button>
         </DialogFooter>
       </DialogContent>
