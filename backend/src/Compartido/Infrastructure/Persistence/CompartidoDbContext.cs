@@ -43,6 +43,7 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Moneda> Monedas => Set<Moneda>();
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
+    public DbSet<CuentaBancariaProveedor> CuentasBancariasProveedor => Set<CuentaBancariaProveedor>();
     public DbSet<Articulo> Articulos => Set<Articulo>();
     // ADR-0048 D6: master de clientes (primer consumidor: Facturación vía
     // IClientesReadPort; nacen desde A+W por auto-provisión).
@@ -145,6 +146,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureEmpresa(modelBuilder);
         ConfigureMoneda(modelBuilder);
         ConfigureProveedor(modelBuilder);
+        ConfigureCuentaBancariaProveedor(modelBuilder);
         ConfigureArticulo(modelBuilder);
         ConfigureCliente(modelBuilder);
         var clasificacion = modelBuilder.Entity<ClasificacionCliente>();
@@ -261,7 +263,9 @@ public sealed class CompartidoDbContext : BaseDbContext
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000004", "identificacion_representante_legal", "Identificación del representante legal", 4, null, false, seedTime),
-            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime));
+            SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000005", "comprobante_domicilio", "Comprobante de domicilio", 5, 3, false, seedTime),
+            // 86e3pdmee: soporte para validar cuentas bancarias; no es parte del expediente obligatorio.
+            new { Id = Guid.Parse("00000011-0001-0000-0000-000000000006"), TipoEntidad = "proveedor", Codigo = "estado_cuenta_bancaria", Nombre = "Estado de cuenta o carta bancaria", Orden = 6, Obligatorio = false, VigenciaMeses = (int?)3, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null });
     }
 
     private static object SeedTipoAdjuntoProveedor(
@@ -1127,8 +1131,6 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_proveedores_tipo_persona", "tipo_persona BETWEEN 0 AND 1");
             t.HasCheckConstraint("ck_proveedores_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_proveedores_tolerancia_no_negativa", "tolerancia_factura_contra_oc_mxn IS NULL OR tolerancia_factura_contra_oc_mxn >= 0");
-            // TES-PR3 [T-G1]: datos bancarios para pago.
-            t.HasCheckConstraint("ck_proveedores_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
         });
         proveedor.HasKey(x => x.Id);
         proveedor.Property(x => x.Clave).HasMaxLength(20).IsRequired();
@@ -1142,11 +1144,6 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.Email).HasMaxLength(254);
         proveedor.Property(x => x.Telefono).HasMaxLength(50);
         proveedor.Property(x => x.Estatus).HasConversion<short>().IsRequired();
-        // TES-PR3 [T-G1]: datos bancarios para pago (Tesorería los lee vía
-        // IProveedorBancoReadPort; CLABE enmascarada en logs y DTOs).
-        proveedor.Property(x => x.Banco).HasMaxLength(120);
-        proveedor.Property(x => x.Clabe).HasMaxLength(18);
-        proveedor.Property(x => x.Beneficiario).HasMaxLength(254);
         // F1-ADM-05 G1.1: validación CxP y motivo de rechazo.
         proveedor.Property(x => x.ToleranciaFacturaContraOcMxn).HasPrecision(18, 4);
         proveedor.Property(x => x.ValidadoPorId);
@@ -1163,6 +1160,43 @@ public sealed class CompartidoDbContext : BaseDbContext
             .HasDatabaseName("ux_proveedores_rfc_no_generico")
             .HasFilter("rfc NOT IN ('XAXX010101000','XEXX010101000')");
         proveedor.HasIndex(x => x.Estatus);
+    }
+
+    /// <summary>
+    /// 86e3pdmee · ADM-02: varias cuentas por proveedor. Tesorería las lee vía
+    /// IProveedorBancoReadPort; solo paga a cuentas Activas. Una cuenta (CLABE o
+    /// número) no se repite dentro del proveedor salvo que esté rechazada.
+    /// Una sola predeterminada por moneda: la garantiza el comando.
+    /// </summary>
+    private static void ConfigureCuentaBancariaProveedor(ModelBuilder modelBuilder)
+    {
+        var cuenta = modelBuilder.Entity<CuentaBancariaProveedor>();
+        cuenta.ToTable("proveedor_cuentas_bancarias", t =>
+        {
+            t.HasCheckConstraint("ck_proveedor_cuentas_clabe_formato", "clabe IS NULL OR clabe ~ '^[0-9]{18}$'");
+            t.HasCheckConstraint("ck_proveedor_cuentas_numero", "clabe IS NOT NULL OR numero_cuenta IS NOT NULL");
+            t.HasCheckConstraint("ck_proveedor_cuentas_moneda", "moneda IN ('MXN','USD')");
+            t.HasCheckConstraint("ck_proveedor_cuentas_estado", "estado BETWEEN 0 AND 3");
+        });
+        cuenta.HasKey(x => x.Id);
+        cuenta.Ignore(x => x.Identificador);
+        cuenta.Property(x => x.Banco).HasMaxLength(120).IsRequired();
+        cuenta.Property(x => x.Clabe).HasMaxLength(18);
+        cuenta.Property(x => x.NumeroCuenta).HasMaxLength(40);
+        cuenta.Property(x => x.Swift).HasMaxLength(11);
+        cuenta.Property(x => x.Moneda).HasMaxLength(3).IsRequired();
+        cuenta.Property(x => x.Titular).HasMaxLength(254).IsRequired();
+        cuenta.Property(x => x.Estado).HasConversion<short>().IsRequired();
+        cuenta.Property(x => x.NotaValidacion).HasMaxLength(500);
+        cuenta.Property(x => x.MotivoEstado).HasMaxLength(500);
+        cuenta.HasOne<Proveedor>().WithMany().HasForeignKey(x => x.ProveedorId).OnDelete(DeleteBehavior.Restrict);
+        cuenta.HasIndex(x => new { x.ProveedorId, x.Clabe }).IsUnique()
+            .HasDatabaseName("ux_proveedor_cuentas_clabe").HasFilter("clabe IS NOT NULL AND estado <> 3");
+        cuenta.HasIndex(x => new { x.ProveedorId, x.NumeroCuenta }).IsUnique()
+            .HasDatabaseName("ux_proveedor_cuentas_numero").HasFilter("numero_cuenta IS NOT NULL AND estado <> 3");
+        cuenta.Property(x => x.CapturadaPorNombre).HasMaxLength(200);
+        cuenta.Property(x => x.ValidadaPorNombre).HasMaxLength(200);
+        cuenta.HasIndex(x => x.ProveedorId);
     }
 
     /// <summary>

@@ -225,7 +225,7 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
         var exp = await LeerAsync(await admin.GetAsync($"{Base}/{prov}/expediente"));
         Assert.True(exp.GetProperty("completo").GetBoolean());
         Assert.Equal(0, exp.GetProperty("faltantes").GetArrayLength());
-        Assert.Equal(5, exp.GetProperty("documentos").GetArrayLength());
+        Assert.Equal(6, exp.GetProperty("documentos").GetArrayLength()); // 5 obligatorios + estado de cuenta opcional
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public class ProveedorAdjuntosCriteriosTests : IClassFixture<WebApplicationFacto
 
         var exp = await LeerAsync(await admin.GetAsync($"{Base}/{prov}/expediente"));
         Assert.True(exp.GetProperty("completo").GetBoolean());
-        Assert.Equal(4, exp.GetProperty("documentos").GetArrayLength());
+        Assert.Equal(5, exp.GetProperty("documentos").GetArrayLength()); // 4 obligatorios + estado de cuenta opcional
     }
 
     [Fact]

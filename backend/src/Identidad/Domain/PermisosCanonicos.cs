@@ -155,6 +155,9 @@ public static class PermisosCanonicos
     // (banco/CLABE/beneficiario).
     public const string DatosMaestrosProveedoresBancariosVer           = "datos_maestros.proveedores.bancarios-ver";
     public const string DatosMaestrosProveedoresBancariosEditar        = "datos_maestros.proveedores.bancarios-editar";
+    // 86e3pdmee: validar (contra estado de cuenta), rechazar, inhabilitar y
+    // reactivar cuentas bancarias de proveedor; ve el número completo.
+    public const string DatosMaestrosProveedoresCuentasAdministrar     = "datos_maestros.proveedores.cuentas-administrar";
     // F1-ADM-11 G1.2: expediente documental (adjuntos) del proveedor, por operación.
     public const string DatosMaestrosProveedoresAdjuntosVer            = "datos_maestros.proveedores.adjuntos-ver";
     public const string DatosMaestrosProveedoresAdjuntosSubir          = "datos_maestros.proveedores.adjuntos-subir";
@@ -671,7 +674,8 @@ public static class PermisosCanonicos
         // Datos Maestros granulares (F-Admin-PR4.5).
         (Guid.Parse("00000004-0009-0000-0000-000000000001"), DatosMaestrosProveedoresGestionar,            "Crear, editar y desactivar proveedores del catálogo cross-empresa"),
         (Guid.Parse("00000004-0009-0000-0000-000000000002"), DatosMaestrosProveedoresBancariosVer,         "Consultar datos bancarios de proveedores (CLABE enmascarada)"),
-        (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Cambiar banco, CLABE y beneficiario de proveedores"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000003"), DatosMaestrosProveedoresBancariosEditar,      "Agregar cuentas bancarias de proveedores (quedan por validar)"),
+        (Guid.Parse("00000004-0009-0000-0000-000000000009"), DatosMaestrosProveedoresCuentasAdministrar,   "Validar, rechazar, inhabilitar y reactivar cuentas bancarias de proveedores y ver el número completo"),
         (Guid.Parse("00000004-0009-0000-0000-000000000004"), DatosMaestrosProveedoresAdjuntosVer,          "Consultar y descargar los documentos del expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000005"), DatosMaestrosProveedoresAdjuntosSubir,        "Adjuntar documentos al expediente de un proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000006"), DatosMaestrosProveedoresAdjuntosBaja,         "Dar de baja documentos del expediente de un proveedor y consultar su historial"),

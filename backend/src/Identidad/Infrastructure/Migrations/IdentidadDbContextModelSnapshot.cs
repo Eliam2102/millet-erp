@@ -1828,7 +1828,21 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             Codigo = "datos_maestros.proveedores.bancarios-editar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Cambiar banco, CLABE y beneficiario de proveedores",
+                            Descripcion = "Agregar cuentas bancarias de proveedores (quedan por validar)",
+                            Modulo = "datos_maestros",
+                            Recurso = "proveedores",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0009-0000-0000-000000000009"),
+                            Accion = "cuentas-administrar",
+                            Codigo = "datos_maestros.proveedores.cuentas-administrar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Validar, rechazar, inhabilitar y reactivar cuentas bancarias de proveedores y ver el número completo",
                             Modulo = "datos_maestros",
                             Recurso = "proveedores",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),

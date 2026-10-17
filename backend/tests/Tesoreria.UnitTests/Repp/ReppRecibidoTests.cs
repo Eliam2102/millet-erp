@@ -217,14 +217,14 @@ public sealed class ReppRecibidoTests
     private sealed class FakeProveedores : IProveedorBancoReadPort
     {
         public Task<ProveedorBancoDto?> ObtenerAsync(Guid proveedorId, CancellationToken cancellationToken) =>
-            Task.FromResult<ProveedorBancoDto?>(new(proveedorId, "FIX-P4", "Proveedor ficticio", null, null, null, Rfc: "AAA010101AAA"));
+            Task.FromResult<ProveedorBancoDto?>(new(proveedorId, "FIX-P4", "Proveedor ficticio", [], Rfc: "AAA010101AAA"));
 
         public Task<IReadOnlyDictionary<Guid, ProveedorBancoDto>> ObtenerVariosAsync(
             IReadOnlyCollection<Guid> proveedorIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ProveedorBancoDto>>(
                 proveedorIds.ToDictionary(
                     id => id,
-                    id => new ProveedorBancoDto(id, "P000001", "Proveedor Uno SA", null, null, null)));
+                    id => new ProveedorBancoDto(id, "P000001", "Proveedor Uno SA", [])));
     }
 
     private sealed class FakeEmpresaContext : ICurrentEmpresaContext

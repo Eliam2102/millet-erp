@@ -54,19 +54,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
     /// <summary>Motivo obligatorio en caso de rechazo del proveedor.</summary>
     public string? MotivoRechazo { get; private set; }
 
-    // ----- Datos bancarios para pago (TES-PR3, T-G1) -----
-    // Tesorería los resuelve vía IProveedorBancoReadPort para ejecutar la
-    // transferencia; el evento de pasivo de CxP no los trae
-    // (PLATFORM-TODO(PayloadEnriquecido)). PII: la CLABE se enmascara en
-    // logs (enricher Serilog) y en DTOs salvo permiso explícito.
-    /// <summary>Banco del proveedor (texto libre, catálogo pendiente).</summary>
-    public string? Banco { get; private set; }
-
-    /// <summary>CLABE interbancaria (18 dígitos) para transferencias.</summary>
-    public string? Clabe { get; private set; }
-
-    /// <summary>Nombre del beneficiario de la transferencia si difiere de la razón social.</summary>
-    public string? Beneficiario { get; private set; }
+    // Datos bancarios: varias cuentas por proveedor en CuentaBancariaProveedor (86e3pdmee · ADM-02).
 
     /// <summary>
     /// RFC genéricos SAT ("público en general" nacional/extranjero). Se
@@ -125,8 +113,7 @@ public sealed class Proveedor : BaseEntity, IAuditable
     }
 
     /// <summary>
-    /// PATCH parcial sobre los campos editables del proveedor (B.5;
-    /// datos bancarios desde TES-PR3). Convención: parámetro <c>null</c>
+    /// PATCH parcial sobre los campos editables del proveedor (B.5). Convención: parámetro <c>null</c>
     /// = no tocar; flag <c>limpiarX = true</c> = setear nullable a null.
     /// Inmutables: <see cref="BaseEntity.Id"/>, <see cref="Clave"/>
     /// (business key) y <see cref="ClaveLegacy"/> (solo cutover SAP).
@@ -140,17 +127,11 @@ public sealed class Proveedor : BaseEntity, IAuditable
         Guid? monedaPreferidaId = null,
         string? email = null,
         string? telefono = null,
-        string? banco = null,
-        string? clabe = null,
-        string? beneficiario = null,
         bool limpiarNombreComercial = false,
         bool limpiarCondicionesPago = false,
         bool limpiarMonedaPreferida = false,
         bool limpiarEmail = false,
-        bool limpiarTelefono = false,
-        bool limpiarBanco = false,
-        bool limpiarClabe = false,
-        bool limpiarBeneficiario = false)
+        bool limpiarTelefono = false)
     {
         if (razonSocial is not null)
         {
@@ -187,34 +168,6 @@ public sealed class Proveedor : BaseEntity, IAuditable
 
         if (telefono is not null) Telefono = telefono;
         else if (limpiarTelefono) Telefono = null;
-
-        if (banco is not null)
-        {
-            if (banco.Length is 0 or > 120)
-                throw new BusinessRuleException("PROVEEDOR_BANCO_INVALIDO",
-                    "El banco no puede estar vacío ni exceder 120 caracteres.");
-            Banco = banco;
-        }
-        else if (limpiarBanco) Banco = null;
-
-        if (clabe is not null)
-        {
-            var c = clabe.Trim();
-            if (c.Length != 18 || !c.All(char.IsAsciiDigit))
-                throw new BusinessRuleException("PROVEEDOR_CLABE_INVALIDA",
-                    "La CLABE debe tener 18 dígitos.");
-            Clabe = c;
-        }
-        else if (limpiarClabe) Clabe = null;
-
-        if (beneficiario is not null)
-        {
-            if (beneficiario.Length is 0 or > 254)
-                throw new BusinessRuleException("PROVEEDOR_BENEFICIARIO_INVALIDO",
-                    "El beneficiario no puede estar vacío ni exceder 254 caracteres.");
-            Beneficiario = beneficiario;
-        }
-        else if (limpiarBeneficiario) Beneficiario = null;
 
         if (tipoPersona is TipoPersonaProveedor tp) TipoPersona = tp;
     }

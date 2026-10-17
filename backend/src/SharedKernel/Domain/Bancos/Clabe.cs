@@ -1,6 +1,6 @@
 using Millet.SharedKernel.Application.Exceptions;
 
-namespace Millet.Tesoreria.Domain.Cuentas;
+namespace Millet.SharedKernel.Domain.Bancos;
 
 /// <summary>
 /// Value object CLABE interbancaria (§4.3 del 01-diseño; ADR-0018 §CLABE):

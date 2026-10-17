@@ -80,7 +80,7 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
             throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
-                $"La cuenta bancaria '{cuenta.Banco} {Cuentas.NumeroCuenta.Crear(cuenta.NumeroCuenta).Enmascarado}' está inactiva.");
+                $"La cuenta bancaria '{cuenta.Banco} {Millet.SharedKernel.Domain.Bancos.NumeroCuenta.Crear(cuenta.NumeroCuenta).Enmascarado}' está inactiva.");
         if (monto <= 0)
             throw new BusinessRuleException("MOV_MONTO_INVALIDO", "El monto debe ser mayor a cero.");
         if (beneficiarioRef is not null && beneficiarioTipo is null)

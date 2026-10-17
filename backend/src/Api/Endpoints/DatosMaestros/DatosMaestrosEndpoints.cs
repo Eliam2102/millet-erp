@@ -19,7 +19,7 @@ using Millet.DatosMaestros.Domain;
 using Millet.Identidad.Domain;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
-using Millet.Tesoreria.Domain.Cuentas;
+using Millet.SharedKernel.Domain.Bancos;
 
 namespace Millet.Api.Endpoints.DatosMaestros;
 
@@ -172,70 +172,92 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        proveedores.MapGet("/{id:guid}/datos-bancarios", async (
+        // 86e3pdmee · ADM-02: varias cuentas bancarias por proveedor con validación.
+        proveedores.MapGet("/{id:guid}/cuentas-bancarias", async (
             Guid id,
-            CompartidoDbContext db,
             ICurrentUserPermissions permisos,
-            CancellationToken ct) =>
-        {
-            var p = await db.Proveedores.AsNoTracking()
-                .Select(x => new { x.Id, x.Banco, x.Clabe, x.Beneficiario })
-                .FirstOrDefaultAsync(x => x.Id == id, ct)
-                ?? throw new EntityNotFoundException(
-                    "PROVEEDOR_NO_ENCONTRADO",
-                    $"No existe proveedor con id '{id}'.");
-
-            var verCompleta = await permisos.TieneAsync(
-                PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, ct);
-            var clabe = p.Clabe is null ? null : verCompleta ? p.Clabe : Clabe.Enmascarar(p.Clabe);
-
-            return Results.Ok(new ProveedorDatosBancarios(
-                p.Id, p.Banco, clabe, p.Beneficiario, verCompleta));
-        })
-        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosVer)
-        .WithName("ObtenerProveedorDatosBancarios")
-        .WithSummary("Datos bancarios de proveedor (F1-ADM-05)")
-        .WithDescription(
-            "CLABE enmascarada (últimos 4 dígitos) salvo que el usuario tenga " +
-            "`tesoreria.movimientos.ver-cuenta-completa` (PII, ADR-0018), en " +
-            "cuyo caso `clabeCompleta = true` y viene sin enmascarar.")
-        .Produces<ProveedorDatosBancarios>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status403Forbidden)
-        .ProducesProblem(StatusCodes.Status404NotFound);
-
-        proveedores.MapPatch("/{id:guid}/datos-bancarios", async (
-            Guid id,
-            [FromBody] ActualizarDatosBancariosRequest body,
             IMediator mediator,
             CancellationToken ct) =>
         {
-            await mediator.Send(
-                new ActualizarProveedorCommand(
-                    ProveedorId: id,
-                    Banco: body.Banco,
-                    Clabe: body.Clabe,
-                    Beneficiario: body.Beneficiario,
-                    LimpiarBanco: body.LimpiarBanco ?? false,
-                    LimpiarClabe: body.LimpiarClabe ?? false,
-                    LimpiarBeneficiario: body.LimpiarBeneficiario ?? false),
-                ct);
-            return Results.NoContent();
+            var verCompleta = await permisos.TieneAsync(PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar, ct)
+                || await permisos.TieneAsync(PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, ct);
+            return Results.Ok(await mediator.Send(new ListarCuentasBancariasProveedorQuery(id, verCompleta), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosVer)
+        .WithName("ListarCuentasBancariasProveedor")
+        .WithSummary("Cuentas bancarias del proveedor (86e3pdmee)")
+        .WithDescription("Número enmascarado salvo `cuentas-administrar` o `tesoreria.movimientos.ver-cuenta-completa`.")
+        .Produces<IReadOnlyList<CuentaBancariaProveedorDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        proveedores.MapPost("/{id:guid}/cuentas-bancarias", async (
+            Guid id,
+            [FromBody] AgregarCuentaBancariaRequest body,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            var dto = await mediator.Send(new AgregarCuentaBancariaProveedorCommand(
+                id, body.Banco, body.Clabe, body.NumeroCuenta, body.Swift, body.Moneda, body.Titular), ct);
+            return Results.Created($"/api/v1/datos-maestros/proveedores/{id}/cuentas-bancarias/{dto.Id}", dto);
         })
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar)
-        .WithName("ActualizarProveedorDatosBancarios")
-        .WithSummary("Actualizar datos bancarios de proveedor (F1-ADM-05 / G1.9)")
-        .WithDescription(
-            "Edición de banco, CLABE y beneficiario por rol Tesorería (o con permiso `bancarios-editar`). " +
-            "No requiere `compartido.catalogos.administrar`. CLABE nunca se devuelve ni se registra completa; " +
-            "header `Idempotency-Key` obligatorio.")
-        .Produces(StatusCodes.Status204NoContent)
+        .WithName("AgregarCuentaBancariaProveedor")
+        .WithSummary("Agregar cuenta bancaria; queda «Por validar» (86e3pdmee)")
+        .Produces<CuentaBancariaProveedorDto>(StatusCodes.Status201Created)
         .ProducesValidationProblem()
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status403Forbidden)
-        .ProducesProblem(StatusCodes.Status404NotFound);
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        proveedores.MapPost("/{id:guid}/cuentas-bancarias/{cuentaId:guid}/validar", async (
+            Guid id,
+            Guid cuentaId,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] ValidarCuentaBancariaRequest body,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (expectedVersion is not int v) return VersionRequerida();
+            return Results.Ok(await mediator.Send(new ValidarCuentaBancariaProveedorCommand(
+                id, cuentaId, v, body.DocumentoAdjuntoId, body.CotejoCompleto, body.Nota), ct));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar)
+        .WithName("ValidarCuentaBancariaProveedor")
+        .WithSummary("Validar cuenta contra estado de cuenta vigente; quien capturó no valida (86e3pdmee)")
+        .Produces<CuentaBancariaProveedorDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        foreach (var (ruta, accion, permiso) in new[]
+        {
+            ("rechazar", AccionCuentaBancariaProveedor.Rechazar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
+            ("inhabilitar", AccionCuentaBancariaProveedor.Inhabilitar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
+            ("reactivar", AccionCuentaBancariaProveedor.Reactivar, PermisosCanonicos.DatosMaestrosProveedoresCuentasAdministrar),
+            ("predeterminada", AccionCuentaBancariaProveedor.MarcarPredeterminada, PermisosCanonicos.DatosMaestrosProveedoresBancariosEditar),
+        })
+        {
+            proveedores.MapPost($"/{{id:guid}}/cuentas-bancarias/{{cuentaId:guid}}/{ruta}", async (
+                Guid id,
+                Guid cuentaId,
+                [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+                [FromBody] MotivoCuentaBancariaRequest? body,
+                IMediator mediator,
+                CancellationToken ct) =>
+            {
+                if (expectedVersion is not int v) return VersionRequerida();
+                return Results.Ok(await mediator.Send(new CambiarCuentaBancariaProveedorCommand(
+                    id, cuentaId, v, accion, body?.Motivo), ct));
+            })
+            .WithMetadata(new RequireIdempotencyKeyAttribute())
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + permiso)
+            .WithName($"CuentaBancariaProveedor-{ruta}")
+            .Produces<CuentaBancariaProveedorDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+        }
 
         // ===== ARTÍCULOS =====
         articulos.MapGet("/", async (
@@ -880,21 +902,15 @@ public static class DatosMaestrosEndpoints
     /// Respuesta de <c>GET /datos-maestros/proveedores/{id}/datos-bancarios</c>
     /// (F1-ADM-05). CLABE enmascarada salvo bypass PII (<c>ClabeCompleta</c>).
     /// </summary>
-    public sealed record ProveedorDatosBancarios(
-        Guid Id,
-        string? Banco,
-        string? Clabe,
-        string? Beneficiario,
-        bool ClabeCompleta);
+    public sealed record AgregarCuentaBancariaRequest(
+        string Banco, string? Clabe, string? NumeroCuenta, string? Swift, string Moneda, string Titular);
 
-    /// <summary>
-    /// Payload de <c>PATCH /datos-maestros/proveedores/{id}/datos-bancarios</c> (G1.9 / F1-ADM-05).
-    /// </summary>
-    public sealed record ActualizarDatosBancariosRequest(
-        string? Banco,
-        string? Clabe,
-        string? Beneficiario,
-        bool? LimpiarBanco,
-        bool? LimpiarClabe,
-        bool? LimpiarBeneficiario);
+    public sealed record ValidarCuentaBancariaRequest(Guid DocumentoAdjuntoId, bool CotejoCompleto, string? Nota);
+
+    public sealed record MotivoCuentaBancariaRequest(string? Motivo);
+
+    private static IResult VersionRequerida() => Results.Problem(
+        title: "X-Expected-Version requerido",
+        detail: "Esta acción requiere el header X-Expected-Version (ADR-0012).",
+        statusCode: StatusCodes.Status428PreconditionRequired);
 }

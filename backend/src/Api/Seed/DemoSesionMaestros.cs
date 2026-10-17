@@ -105,8 +105,8 @@ public sealed partial class DemoSesionSeedHostedService
             if (await db.Proveedores.AnyAsync(p => p.Clave == clave, ct)) continue;
             var p = new Proveedor(Id(clave), clave, $"{clave} Suministros ficticios", "XAXX010101000", TipoPersonaProveedor.Moral,
                 estatus: EstatusCatalogo.EnRevision);
-            p.ActualizarDatos(banco: "DEMO Banco ficticio", clabe: "000000000000000000", beneficiario: p.RazonSocial);
             db.Proveedores.Add(p);
+            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(p.Id, "DEMO Banco ficticio", "000000000000000000", p.RazonSocial, Fecha));
             var subidos = new List<string>();
             try
             {

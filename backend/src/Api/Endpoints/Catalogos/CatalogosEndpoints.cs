@@ -351,13 +351,7 @@ public static class CatalogosEndpoints
                     LimpiarCondicionesPago: body.LimpiarCondicionesPago ?? false,
                     LimpiarMonedaPreferida: body.LimpiarMonedaPreferida ?? false,
                     LimpiarEmail: body.LimpiarEmail ?? false,
-                    LimpiarTelefono: body.LimpiarTelefono ?? false,
-                    Banco: body.Banco,
-                    Clabe: body.Clabe,
-                    Beneficiario: body.Beneficiario,
-                    LimpiarBanco: body.LimpiarBanco ?? false,
-                    LimpiarClabe: body.LimpiarClabe ?? false,
-                    LimpiarBeneficiario: body.LimpiarBeneficiario ?? false),
+                    LimpiarTelefono: body.LimpiarTelefono ?? false),
                 cancellationToken);
             return Results.NoContent();
         })
@@ -522,7 +516,7 @@ public static class CatalogosEndpoints
         string? Email,
         string? Telefono);
 
-    /// <summary>Body del PATCH /proveedores/{id} (B.5; datos bancarios TES-PR3). Todos opcionales.</summary>
+    /// <summary>Body del PATCH /proveedores/{id} (B.5). Todos opcionales; las cuentas bancarias van por /datos-maestros/proveedores/{id}/cuentas-bancarias.</summary>
     public sealed record ActualizarProveedorRequest(
         string? RazonSocial,
         string? NombreComercial,
@@ -536,13 +530,7 @@ public static class CatalogosEndpoints
         bool? LimpiarCondicionesPago,
         bool? LimpiarMonedaPreferida,
         bool? LimpiarEmail,
-        bool? LimpiarTelefono,
-        string? Banco = null,
-        string? Clabe = null,
-        string? Beneficiario = null,
-        bool? LimpiarBanco = null,
-        bool? LimpiarClabe = null,
-        bool? LimpiarBeneficiario = null);
+        bool? LimpiarTelefono);
 
     /// <summary>Body del POST /articulos (B.5).</summary>
     public sealed record CrearArticuloRequest(
