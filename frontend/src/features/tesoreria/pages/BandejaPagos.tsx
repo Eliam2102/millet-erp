@@ -271,7 +271,11 @@ export function BandejaPagos() {
                       {formatoMonto(p.saldoPendiente, p.moneda)}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {p.clabe ?? '—'}
+                      {p.clabe ?? (p.tipoBeneficiario != null && p.tipoBeneficiario !== 'Proveedor' ? '—' : (
+                        <span className="rounded-sm bg-warning-bg px-1.5 py-0.5 font-sans text-warning-fg">
+                          Sin cuenta activa
+                        </span>
+                      ))}
                     </td>
                     <td className="px-3 py-2 text-right">
                       {puedeCancelar && (

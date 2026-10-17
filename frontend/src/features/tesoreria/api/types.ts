@@ -175,6 +175,11 @@ export interface MovimientoBancarioResponse {
   motivoNoAplicado: string | null;
   motivoReversa?: string | null;
   motivoReclasificacion?: string | null;
+  /** Cuenta destino del pago a proveedor (número enmascarado salvo permiso PII). */
+  destinoBanco?: string | null;
+  destinoNumeroCuenta?: string | null;
+  destinoTitular?: string | null;
+  fondosVerificados?: boolean | null;
   creadoPor: string;
   creadoEn: string;
   version: number;
@@ -208,6 +213,8 @@ export interface PasivoPendienteResponse {
   banco: string | null;
   clabe: string | null;
   beneficiario: string | null;
+  /** «Proveedor» en facturas; otro valor en pasivos internos (reposición de caja, viáticos), que no usan cuenta de proveedor. */
+  tipoBeneficiario?: string;
   ordenCompraId: string | null;
   montoTotal: number;
   saldoPendiente: number;
@@ -219,6 +226,19 @@ export interface PasivoPendienteResponse {
   metodoPago: string | null;
   recibidoEn: string;
   pagoACuentaAbiertoMovimientoId: string | null;
+}
+
+/** Cuenta bancaria del proveedor (GET /tesoreria/proveedores/{id}/cuentas). */
+export interface CuentaProveedorPago {
+  id: string;
+  banco: string;
+  numero: string;
+  esClabe: boolean;
+  swift: string | null;
+  moneda: string;
+  titular: string | null;
+  predeterminada: boolean;
+  estado: 'Activa' | 'PorValidar' | 'Inhabilitada';
 }
 
 /** Item del command RegistrarPagoProveedor. */

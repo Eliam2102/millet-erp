@@ -7,6 +7,7 @@ import {
   type PasivosFiltros,
 } from './keys';
 import type {
+  CuentaProveedorPago,
   ConceptoResponse,
   ClasificacionFlujo,
   AplicacionPagoItem,
@@ -567,6 +568,21 @@ export function useReporteAuxiliarBancos(filtros: {
 
 // ─── Mutations (Idempotency-Key ADR-0020) ────────────────────────────
 
+/** <c>useCuentasProveedorPago(proveedorId)</c> — cuentas del proveedor para elegir destino del pago. */
+export function useCuentasProveedorPago(proveedorId: string | null) {
+  return useQuery<CuentaProveedorPago[]>({
+    queryKey: tesoreriaKeys.cuentasProveedor(proveedorId ?? ''),
+    enabled: proveedorId != null,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CuentaProveedorPago[]>(
+        `${BASE}/proveedores/${proveedorId}/cuentas`,
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
 /** <c>useRegistrarPago()</c> — POST /pagos multi-pasivo (RN-4: aplicado.v1 por factura). */
 export function useRegistrarPago() {
   const queryClient = useQueryClient();
@@ -578,6 +594,8 @@ export function useRegistrarPago() {
         aplicaciones: AplicacionPagoItem[];
         referenciaBancaria?: string;
         conceptoId?: string;
+        cuentaProveedorId?: string;
+        fondosVerificados: boolean;
       };
       idempotencyKey: string;
     }) => {

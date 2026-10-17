@@ -57,6 +57,10 @@ export const tesoreriaKeys = {
   pasivosList: (filtros: PasivosFiltros) =>
     [...tesoreriaKeys.pasivos(), 'list', filtros] as const,
 
+  // Cuentas bancarias del proveedor para pagar
+  cuentasProveedor: (proveedorId: string) =>
+    [...tesoreriaKeys.all, 'proveedor-cuentas', proveedorId] as const,
+
   // Pagos a cuenta abiertos (TES-FE-PR4)
   pagosCuenta: () => [...tesoreriaKeys.all, 'pagos-cuenta'] as const,
   pagosCuentaList: (filtros: Record<string, unknown>) =>

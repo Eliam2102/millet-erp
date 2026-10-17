@@ -9,11 +9,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CuentaBancariaSelector } from './CuentaBancariaSelector';
-import { useRegistrarPago } from '@/features/tesoreria/api/useTesoreria';
-import type { PasivoPendienteResponse } from '@/features/tesoreria/api/types';
+import { Link } from '@tanstack/react-router';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  useCuentasProveedorPago,
+  useRegistrarPago,
+} from '@/features/tesoreria/api/useTesoreria';
+import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
 import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
@@ -47,6 +53,10 @@ export function RegistrarPagoSheet({
     hoyLocalISO(),
   );
   const [referencia, setReferencia] = useState('');
+  const [cuentaProvOverride, setCuentaProvOverride] = useState<string | null>(null);
+  const [fondosVerificados, setFondosVerificados] = useState(false);
+  // Rechazo 422 de cuenta del proveedor: visible y persistente (no solo toast).
+  const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
   // Importes: default = saldo del pasivo; el usuario puede sobrescribir.
   // Sin useEffect (lint set-state-in-effect): estado solo de overrides y
   // el efectivo se deriva en render. Se limpian al cerrar el Sheet.
@@ -65,6 +75,20 @@ export function RegistrarPagoSheet({
   const moneda = pasivos[0]?.moneda ?? null;
   const proveedor = pasivos[0]?.proveedorRazonSocial ?? pasivos[0]?.proveedorId;
 
+  // Los pasivos internos (reposición de caja, viáticos) no se pagan a una cuenta de proveedor.
+  const esInterno = pasivos[0]?.tipoBeneficiario != null && pasivos[0].tipoBeneficiario !== 'Proveedor';
+  const cuentasQuery = useCuentasProveedorPago(open && !esInterno ? (pasivos[0]?.proveedorId ?? null) : null);
+  const cuentas = cuentasQuery.data;
+  const elegible = (c: CuentaProveedorPago) => c.estado === 'Activa' && c.moneda === moneda;
+  const activas = (cuentas ?? []).filter(elegible);
+  // Selección derivada en render (sin useEffect): override del usuario o la
+  // predeterminada activa de la moneda del pasivo.
+  const cuentaProvId =
+    cuentaProvOverride != null && activas.some((c) => c.id === cuentaProvOverride)
+      ? cuentaProvOverride
+      : (activas.find((c) => c.predeterminada) ?? activas[0])?.id ?? null;
+  const sinCuentaActiva = !esInterno && cuentas != null && activas.length === 0;
+
   const total = useMemo(
     () =>
       pasivos.reduce(
@@ -79,9 +103,29 @@ export function RegistrarPagoSheet({
     return Number.isFinite(v) && v > 0 && v <= p.saldoPendiente;
   });
 
+  const motivoDeshabilitado =
+    !esInterno && cuentasQuery.isLoading
+      ? 'Cargando cuentas del proveedor…'
+      : !esInterno && cuentasQuery.isError
+        ? 'No se pudieron cargar las cuentas del proveedor'
+        : sinCuentaActiva
+          ? `El proveedor no tiene una cuenta activa en ${moneda}`
+          : !esInterno && cuentaProvId == null
+            ? 'Selecciona la cuenta del proveedor'
+            : cuentaId == null
+              ? 'Selecciona la cuenta de egreso'
+              : !importesValidos
+                ? 'Revisa los importes a pagar'
+                : !fondosVerificados
+                  ? 'Confirma que verificaste fondos en la banca'
+                  : null;
+
   function confirmar() {
-    if (cuentaId == null || !importesValidos) return;
+    if (cuentaId == null || !importesValidos || cuentaProvId == null || !fondosVerificados) return;
+    setErrorCuenta(null);
     const command = {
+      cuentaProveedorId: cuentaProvId,
+      fondosVerificados,
       cuentaBancariaId: cuentaId,
       conceptoId: conceptoId ?? undefined,
       fechaValor,
@@ -109,6 +153,15 @@ export function RegistrarPagoSheet({
           onSuccess();
         },
         onError: (error) => {
+          if (
+            esApiError(error) &&
+            ['PROVEEDOR_SIN_CUENTA_ACTIVA', 'PROVEEDOR_CUENTA_NO_ACTIVA', 'PROVEEDOR_CUENTA_OTRA_MONEDA'].includes(
+              error.code ?? '',
+            )
+          ) {
+            setErrorCuenta(error.problem.detail ?? error.problem.title);
+            return;
+          }
           toast.error(
             esApiError(error) ? error.problem.title : 'No se pudo registrar el pago',
             {
@@ -131,6 +184,9 @@ export function RegistrarPagoSheet({
       setOverrides({});
       setCuentaId(null);
       setReferencia('');
+      setCuentaProvOverride(null);
+      setFondosVerificados(false);
+      setErrorCuenta(null);
       setFechaValor(hoyLocalISO());
     }
     onOpenChange(next);
@@ -200,18 +256,76 @@ export function RegistrarPagoSheet({
             </table>
           </div>
 
-          {pasivos[0]?.banco != null || pasivos[0]?.clabe != null ? (
-            <p className="text-xs text-muted-foreground">
-              Datos bancarios del proveedor: {pasivos[0]?.banco ?? '—'} ·{' '}
-              <span className="font-mono">{pasivos[0]?.clabe ?? 'sin CLABE'}</span>
-              {pasivos[0]?.beneficiario ? ` · ${pasivos[0].beneficiario}` : ''}
-            </p>
-          ) : (
-            <p className="text-xs text-amber-700">
-              El proveedor no tiene datos bancarios capturados en Datos
-              Maestros — captúralos para transferir con confianza.
-            </p>
-          )}
+          <fieldset className="space-y-2">
+            <legend className="text-xs text-muted-foreground">Cuenta del proveedor</legend>
+            {cuentasQuery.isLoading && (
+              <p className="text-xs text-muted-foreground">Cargando cuentas…</p>
+            )}
+            {cuentasQuery.isError && (
+              <p role="alert" className="text-xs text-destructive">
+                No se pudieron cargar las cuentas del proveedor.
+              </p>
+            )}
+            {sinCuentaActiva && (
+              <div role="alert" className="rounded-md bg-warning-bg px-3 py-2 text-xs text-warning-fg">
+                Este proveedor no tiene una cuenta activa en {moneda}. Regístrala y valídala en{' '}
+                <Link
+                  to="/admin/datos-maestros/proveedores/$id"
+                  params={{ id: pasivos[0]?.proveedorId ?? '' }}
+                  className="font-medium underline"
+                >
+                  Datos maestros
+                </Link>
+                .
+              </div>
+            )}
+            {(cuentas ?? []).map((c) => {
+              const ok = elegible(c);
+              const motivo =
+                c.estado === 'PorValidar'
+                  ? 'Por validar'
+                  : c.estado === 'Inhabilitada'
+                    ? 'Inhabilitada'
+                    : c.moneda !== moneda
+                      ? `Otra moneda (${c.moneda})`
+                      : null;
+              return (
+                <label
+                  key={c.id}
+                  className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${ok ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                >
+                  <input
+                    type="radio"
+                    name="cuenta-proveedor"
+                    className="mt-1"
+                    checked={cuentaProvId === c.id}
+                    disabled={!ok}
+                    onChange={() => {
+                      setCuentaProvOverride(c.id);
+                      setErrorCuenta(null);
+                    }}
+                  />
+                  <span className="flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span>{c.banco}</span>
+                      <span className="font-mono text-xs">{c.numero}</span>
+                      <span className="text-xs text-muted-foreground">{c.esClabe ? 'CLABE' : 'Cuenta'} · {c.moneda}</span>
+                      {c.predeterminada && <Badge variant="info">Predeterminada</Badge>}
+                      {motivo && <Badge variant="warning">{motivo}</Badge>}
+                    </span>
+                    {c.titular && (
+                      <span className="block text-xs text-muted-foreground">{c.titular}</span>
+                    )}
+                  </span>
+                </label>
+              );
+            })}
+            {errorCuenta && (
+              <p role="alert" className="rounded-md bg-danger-bg px-3 py-2 text-xs text-danger-fg">
+                {errorCuenta}
+              </p>
+            )}
+          </fieldset>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
@@ -223,6 +337,9 @@ export function RegistrarPagoSheet({
                 onChange={setCuentaId}
                 moneda={moneda}
               />
+              <p className="text-xs text-muted-foreground">
+                Saldo en libros: movimientos registrados en el ERP, no el saldo del banco.
+              </p>
               <ConceptoSelector value={conceptoId} onChange={setConceptoId} />
             </div>
             <div className="space-y-1">
@@ -257,6 +374,24 @@ export function RegistrarPagoSheet({
             </span>
           </div>
 
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="fondos-verificados"
+              checked={fondosVerificados}
+              onCheckedChange={(v) => setFondosVerificados(v === true)}
+            />
+            <label htmlFor="fondos-verificados" className="text-sm">
+              Verifiqué en la banca que la cuenta tiene fondos para este pago
+              <span className="block text-xs text-muted-foreground">
+                El ERP no está conectado al banco: el saldo en libros puede no estar al día.
+              </span>
+            </label>
+          </div>
+
+          {motivoDeshabilitado && !registrar.isPending && (
+            <p className="text-right text-xs text-muted-foreground">{motivoDeshabilitado}</p>
+          )}
+
           <div className="flex justify-end gap-2">
             <Button
               variant="ghost"
@@ -268,10 +403,7 @@ export function RegistrarPagoSheet({
             <Button
               onClick={confirmar}
               disabled={
-                registrar.isPending ||
-                cuentaId == null ||
-                pasivos.length === 0 ||
-                !importesValidos
+                registrar.isPending || pasivos.length === 0 || motivoDeshabilitado != null
               }
             >
               {registrar.isPending ? 'Registrando…' : 'Registrar pago'}

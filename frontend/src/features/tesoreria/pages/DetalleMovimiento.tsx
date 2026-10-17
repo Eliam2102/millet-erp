@@ -156,6 +156,22 @@ export function DetalleMovimiento({ id }: { id: string }) {
             )}
           </dd>
         </div>
+        {m.destinoBanco != null && (
+          <div>
+            <dt className="text-xs text-muted-foreground">Cuenta destino</dt>
+            <dd>
+              {m.destinoBanco}{' '}
+              <span className="font-mono text-xs">{m.destinoNumeroCuenta}</span>
+              {m.destinoTitular ? ` · ${m.destinoTitular}` : ''}
+            </dd>
+          </div>
+        )}
+        {m.fondosVerificados != null && (
+          <div>
+            <dt className="text-xs text-muted-foreground">Fondos verificados</dt>
+            <dd>{m.fondosVerificados ? 'Sí' : 'No'}</dd>
+          </div>
+        )}
         <div>
           <dt className="text-xs text-muted-foreground">Estados</dt>
           <dd className="flex flex-wrap gap-1">
