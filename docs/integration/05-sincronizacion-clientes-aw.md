@@ -106,6 +106,40 @@ validación ni modifica las consultas o el contrato del camino real. El control 
 [07-sandbox-aw.md](07-sandbox-aw.md).
 
 
+### 4.1 Matriz congelada y bitácora (86e3qcgyn)
+
+La matriz campo → dueño vive en código, en `MatrizCampoDuenoAw` (`backend/src/Compartido/Application/Catalogos/Clientes/MatrizCampoDuenoAw.cs`), con versión `0-propuesta`: refleja el comportamiento actual y está **pendiente de acordar con TI** en el contrato I13.4. Congelarla solo cambia esa constante y, si el dueño de un campo cambia, el código del servicio de aplicación. La pantalla «Sincronización con A+W» la muestra (`GET /api/v1/datos-maestros/sincronizacion-aw/matriz`). Filas de Cliente:
+
+| Campo | Dueño | Si difiere |
+|---|---|---|
+| Nombre de origen | A+W | Se aplica A+W y queda el antes/después en la bitácora. |
+| Domicilio de origen | A+W | Se aplica A+W y queda el antes/después en la bitácora. |
+| Condición de pago | A+W | Se aplica A+W y queda el antes/después en la bitácora. |
+| Moneda de origen | A+W | Se registra; la moneda del cliente solo cambia al crear y con mapeo aprobado. |
+| Límite de crédito de referencia | A+W | Solo informa; nunca cambia la línea de crédito de CxC. |
+| Bloqueo A+W | A+W | Con mapeo aprobado bloquea o reactiva sin borrar historia; queda en la bitácora. |
+| Estado A+W | A+W | Se registra; solo cambia el estatus con mapeo aprobado. |
+| Razón social | ERP | Se conserva el ERP; A+W solo informa la diferencia. |
+| RFC y CP fiscal | ERP | A+W solo completa si el ERP está vacío; nunca sobrescribe. |
+| Teléfono y correo | ERP | A+W solo completa si el ERP está vacío. |
+| Régimen, uso de CFDI, clasificación y moneda del cliente | ERP | Se conserva el ERP; A+W solo informa. |
+| RFC repetido entre clientes de A+W | A+W | No se fusionan; queda un conflicto visible con su causa. |
+
+Cada cambio queda en la bitácora `compartido.cambios_maestros_aw` (una fila por campo): valor antes y después, dueño, tipo (`Aplicado`, `EditadoEnErp`, `RfcCompartido`, `Baja`, `Reactivacion`), estado (`Informativo`, `Pendiente`, `Resuelto`), la versión del evento (el `HashOrigen` de lo leído), la versión de la matriz y la ejecución que lo produjo. Hay un índice único por referencia, campo, tipo y versión de evento: un reenvío o una segunda corrida con los mismos datos no duplica filas. El detalle del cliente muestra su historial.
+
+**RFC repetido entre clientes de A+W.** Si dos clientes de A+W traen la misma clave fiscal, ambos se crean y **no se fusionan**; el segundo deja un conflicto pendiente con su causa. Se resuelve con «Mantener separados», que solo marca el conflicto como revisado y no liga identidades. «Ligar a uno» queda pendiente de la respuesta a la pregunta P6 (tratamiento de referencias y saldos) con Millet.
+
+**Corrida y reporte de diferencias.** `POST /api/v1/datos-maestros/sincronizacion-aw/corridas` (requiere `datos_maestros.clientes.sincronizar` y `datos_maestros.productos-aw.gestionar`) encola el barrido de clientes y ejecuta el de productos con el mismo id de ejecución; `GET .../corridas/{id}/diferencias` devuelve el reporte en el JSON de ADR-0036 que la pantalla exporta a Excel. La corrida contra la copia local `AW_FULL` es opt-in y solo de lectura:
+
+```bash
+# La lanza el owner o la sesión principal; nunca CI ni contra la BD on-prem ni Azure.
+AW_FULL_CONN='Server=localhost,14330;Database=AW_FULL;User Id=aw_ro;Password=<del .env del sandbox>;Encrypt=True;TrustServerCertificate=True' \
+AW_FULL_SALIDA=.verification/86e3qcgyn/corrida-aw-full \
+./tools/validate-integration-isolated.sh --filter "FullyQualifiedName~AwFullCorridaMaestros"
+```
+
+La prueba `AwFullCorridaMaestrosTests` toma la huella (`CHECKSUM_AGG`) de `KU_KUNDEN`, `KA_ZAHLBED`, `BA_PRODUKTE`, `BA_STUKL` y `BA_LAGMA` antes y después, corre clientes y productos dos veces seguidas y escribe en `AW_FULL_SALIDA` `resumen-corrida-maestros.md` y `.json` con **solo conteos** (nunca RFC, nombres, domicilios ni descripciones). Sin las variables de entorno la prueba se omite («OMITIDO») sin abrir conexión alguna. No acredita A+W productivo.
+
 ## 5. Nulo != 0 != desconocido
 
 - `NULL` en `BRUTTOTAGE`, `KREDIT_LIMIT*` o `KZ_STATUS` significa "el origen no informa"; `0` es un valor informado; un código sin mapeo es "desconocido". Los tres se conservan distintos y se aplican por política de campo.

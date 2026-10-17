@@ -65,7 +65,7 @@ bash tools/aw-origen-demo/aw-origen-demo.sh up
 bash tools/aw-origen-demo/aw-origen-demo.sh env
 ```
 
-`up` crea `millet_aw_origen` y aplica `schema.sql`, `seed.sql` y `pedidos.sql` (60 clientes, 47 productos,
+`up` crea `millet_aw_origen` y aplica `schema.sql`, `seed.sql` y `pedidos.sql` (62 clientes, 47 productos,
 3 solicitudes). `env` exporta únicamente `ConnectionStrings__AwOrigenPgDb` y
 `IntegracionesAw__OrigenDemo__Permitido=true`; **no elige el origen** ni reconfigura los modos reales.
 Conservar la conexión fuera del repositorio. `reseed` restaura clientes/productos sintéticos; `pedidos`

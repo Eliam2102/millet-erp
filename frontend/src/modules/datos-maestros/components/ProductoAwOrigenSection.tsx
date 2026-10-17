@@ -16,6 +16,8 @@ import type {
 } from '@/modules/datos-maestros/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { CambiosAwHistorial } from '@/modules/datos-maestros/components/CambiosAwHistorial';
+import { useCambiosAwProducto } from '@/modules/datos-maestros/api/sincronizacion-aw';
 import { ResultadoSincronizacionBadge } from '@/modules/datos-maestros/components/master-badges';
 
 const SIN_DATO = 'sin dato';
@@ -147,6 +149,7 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
   const canGestionar = useHasPermission(PermisosCanonicos.DatosMaestrosProductosAwGestionar);
   const estado = useProductoAwSincronizacion(producto.id);
   const reintentar = useReintentarProductoAw();
+  const cambios = useCambiosAwProducto(producto.id, canGestionar);
   const s = estado.data?.sincronizacion;
   if (!canGestionar || s == null) return null;
 
@@ -228,6 +231,8 @@ export function ProductoAwOrigenSection({ producto }: { producto: ProductoAwDeta
           </tbody>
         </table>
       )}
+
+      <CambiosAwHistorial cambios={cambios.data} isLoading={cambios.isLoading} isError={cambios.isError} />
     </section>
   );
 }

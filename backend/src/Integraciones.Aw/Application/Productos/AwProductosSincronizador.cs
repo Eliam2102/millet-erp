@@ -45,7 +45,7 @@ public sealed class AwProductosSincronizador
         _logger = logger;
     }
 
-    public async Task<AwProductosResumen> SincronizarBarridoAsync(CancellationToken ct)
+    public async Task<AwProductosResumen> SincronizarBarridoAsync(CancellationToken ct, Guid? ejecucionId = null)
     {
         var origen = ObtenerOrigen();
         var tamano = Math.Clamp(_options.TamanoLote, 1, AwProductosOptions.TamanoLoteMaximo);
@@ -54,7 +54,7 @@ public sealed class AwProductosSincronizador
         while (true)
         {
             var pagina = await origen.LeerPaginaAsync(cursor, tamano, ct);
-            foreach (var fila in pagina.Filas) await ProcesarFilaAsync(fila, acc, ct);
+            foreach (var fila in pagina.Filas) await ProcesarFilaAsync(fila, acc, ct, ejecucionId: ejecucionId);
             if (pagina.SiguienteCursor is null || pagina.Filas.Count == 0) break;
             cursor = pagina.SiguienteCursor;
         }
@@ -83,7 +83,7 @@ public sealed class AwProductosSincronizador
         return acc.Resumen();
     }
 
-    private async Task ProcesarFilaAsync(AwProductoOrigenFila fila, Acumulador acc, CancellationToken ct, int? versionEsperada = null)
+    private async Task ProcesarFilaAsync(AwProductoOrigenFila fila, Acumulador acc, CancellationToken ct, int? versionEsperada = null, Guid? ejecucionId = null)
     {
         acc.Leidos++;
         var referencia = fila.ProductoRef?.Trim() ?? "(sin referencia)";
@@ -95,7 +95,7 @@ public sealed class AwProductosSincronizador
         }
         try
         {
-            var r = await _aplicar.AplicarAsync(mapeo.Snapshot! with { VersionEsperada = versionEsperada }, ct);
+            var r = await _aplicar.AplicarAsync(mapeo.Snapshot! with { VersionEsperada = versionEsperada, EjecucionId = ejecucionId }, ct);
             switch (r.Accion)
             {
                 case AplicarProductoAwAccion.Creado: acc.Creados++; break;

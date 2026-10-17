@@ -396,6 +396,8 @@ export interface EjecucionSyncResumen {
   actor: string | null;
   reintentoDeId: string | null;
   errorGeneral: string | null;
+  /** JSON del barrido de productos de la corrida (ADM-06 R4); null si la ejecución no es una corrida. */
+  resumenProductos?: string | null;
 }
 
 export interface EjecucionSyncDetalle

@@ -11,7 +11,7 @@ import {
   type ActualizarProductoAwValues,
 } from '@/modules/datos-maestros/schemas/producto-aw';
 import { useActualizarProductoAw } from '@/modules/datos-maestros/api';
-import type { ProductoAwDetalle } from '@/modules/datos-maestros/api/types';
+import { OrigenMaster, type ProductoAwDetalle } from '@/modules/datos-maestros/api/types';
 import { UnidadMedidaSelect } from '@/modules/catalogos/components/UnidadMedidaSelect';
 import { CategoriaSelector } from '@/components/erp/selectors/CategoriaSelector';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -192,6 +192,9 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
           label="Descripción"
           required
           error={form.formState.errors.descripcion?.message}
+          hint={producto.origen === OrigenMaster.Aw
+            ? 'Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
+            : undefined}
         >
           <Input
             maxLength={254}

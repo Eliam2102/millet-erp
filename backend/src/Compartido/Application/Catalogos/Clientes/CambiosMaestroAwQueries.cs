@@ -68,9 +68,21 @@ public sealed class ResolverConflictoMaestroAwHandler(CompartidoDbContext db, IC
             ?? throw new EntityNotFoundException("CONFLICTO_AW_NO_ENCONTRADO", "No existe ese conflicto.");
         if (c.Version != request.Version)
             throw new ConflictException("CONFLICTO_AW_CAMBIO", "El conflicto cambió. Recarga la bandeja.");
-        // Combinaciones permitidas en esta rebanada: RFC repetido + «Mantener separados».
-        if (c.Tipo != TipoCambioMaestroAw.RfcCompartido || request.Resolucion != "MantenerSeparados")
+        // Combinaciones permitidas: RFC repetido + «Mantener separados»; descripción de producto editada en el ERP + «Aplicar A+W».
+        var rfc = c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido && request.Resolucion == "MantenerSeparados";
+        var producto = c.TipoEntidad == "ProductoAw" && c.Tipo == TipoCambioMaestroAw.EditadoEnErp && request.Resolucion == "AplicarAw";
+        if (!rfc && !producto)
             throw new BusinessRuleException("CONFLICTO_AW_RESOLUCION_INVALIDA", "Esa resolución no aplica a este conflicto.");
+        if (producto)
+        {
+            var origen = await db.ProductosSincronizacionAw.AsNoTracking()
+                .Where(r => r.ReferenciaExterna == c.ReferenciaExterna).Select(r => r.DescripcionOrigen).SingleOrDefaultAsync(cancellationToken);
+            if (origen is null)
+                throw new BusinessRuleException("CONFLICTO_AW_SIN_VALOR_ORIGEN", "No hay valor de A+W para aplicar; vuelve a leer el producto.");
+            var p = await db.ProductosAw.SingleOrDefaultAsync(x => x.ReferenciaExterna == c.ReferenciaExterna, cancellationToken)
+                ?? throw new EntityNotFoundException("PRODUCTO_AW_NO_ENCONTRADO", "El producto del conflicto ya no existe.");
+            p.ActualizarDatos(descripcion: origen);
+        }
         var ahora = DateTimeOffset.UtcNow;
         c.Resolver(request.Resolucion, usuario, ahora);
         var hermanos = await db.CambiosMaestrosAw.Where(x => x.Id != c.Id && x.TipoEntidad == c.TipoEntidad

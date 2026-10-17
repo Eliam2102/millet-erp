@@ -176,6 +176,7 @@ import { Route as AppAdminDatosMaestrosProveedoresIndexRouteImport } from './rou
 import { Route as AppAdminDatosMaestrosProveedoresIdRouteImport } from './routes/_app/admin/datos-maestros/proveedores/$id';
 import { Route as AppAdminDatosMaestrosProveedoresExpedienteRouteImport } from './routes/_app/admin/datos-maestros/proveedores/expediente';
 import { Route as AppAdminDatosMaestrosSincronizacionAwIndexRouteImport } from './routes/_app/admin/datos-maestros/sincronizacion-aw/index';
+import { Route as AppAdminDatosMaestrosSincronizacionAwIdRouteImport } from './routes/_app/admin/datos-maestros/sincronizacion-aw/$id';
 import { Route as AppAdminIntegracionesFiscalIndexRouteImport } from './routes/_app/admin/integraciones/fiscal/index';
 import { Route as AppAlmacenDevolucionesProveedorIdRouteImport } from './routes/_app/almacen/devoluciones/proveedor.$id';
 import { Route as AppAlmacenInventariosIdAprobacionRouteImport } from './routes/_app/almacen/inventarios/$id.aprobacion';
@@ -1104,6 +1105,12 @@ const AppAdminDatosMaestrosSincronizacionAwIndexRoute =
     path: '/admin/datos-maestros/sincronizacion-aw/',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAdminDatosMaestrosSincronizacionAwIdRoute =
+  AppAdminDatosMaestrosSincronizacionAwIdRouteImport.update({
+    id: '/admin/datos-maestros/sincronizacion-aw/$id',
+    path: '/admin/datos-maestros/sincronizacion-aw/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminIntegracionesFiscalIndexRoute =
   AppAdminIntegracionesFiscalIndexRouteImport.update({
     id: '/admin/integraciones/fiscal/',
@@ -1327,6 +1334,7 @@ export interface FileRoutesByFullPath {
   '/admin/datos-maestros/productos-aw/$id': typeof AppAdminDatosMaestrosProductosAwIdRoute;
   '/admin/datos-maestros/proveedores/$id': typeof AppAdminDatosMaestrosProveedoresIdRoute;
   '/admin/datos-maestros/proveedores/expediente': typeof AppAdminDatosMaestrosProveedoresExpedienteRoute;
+  '/admin/datos-maestros/sincronizacion-aw/$id': typeof AppAdminDatosMaestrosSincronizacionAwIdRoute;
   '/almacen/devoluciones/proveedor/$id': typeof AppAlmacenDevolucionesProveedorIdRoute;
   '/almacen/inventarios/$id/aprobacion': typeof AppAlmacenInventariosIdAprobacionRoute;
   '/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
@@ -1507,6 +1515,7 @@ export interface FileRoutesByTo {
   '/admin/datos-maestros/productos-aw/$id': typeof AppAdminDatosMaestrosProductosAwIdRoute;
   '/admin/datos-maestros/proveedores/$id': typeof AppAdminDatosMaestrosProveedoresIdRoute;
   '/admin/datos-maestros/proveedores/expediente': typeof AppAdminDatosMaestrosProveedoresExpedienteRoute;
+  '/admin/datos-maestros/sincronizacion-aw/$id': typeof AppAdminDatosMaestrosSincronizacionAwIdRoute;
   '/almacen/devoluciones/proveedor/$id': typeof AppAlmacenDevolucionesProveedorIdRoute;
   '/almacen/inventarios/$id/aprobacion': typeof AppAlmacenInventariosIdAprobacionRoute;
   '/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
@@ -1689,6 +1698,7 @@ export interface FileRoutesById {
   '/_app/admin/datos-maestros/productos-aw/$id': typeof AppAdminDatosMaestrosProductosAwIdRoute;
   '/_app/admin/datos-maestros/proveedores/$id': typeof AppAdminDatosMaestrosProveedoresIdRoute;
   '/_app/admin/datos-maestros/proveedores/expediente': typeof AppAdminDatosMaestrosProveedoresExpedienteRoute;
+  '/_app/admin/datos-maestros/sincronizacion-aw/$id': typeof AppAdminDatosMaestrosSincronizacionAwIdRoute;
   '/_app/almacen/devoluciones/proveedor/$id': typeof AppAlmacenDevolucionesProveedorIdRoute;
   '/_app/almacen/inventarios/$id/aprobacion': typeof AppAlmacenInventariosIdAprobacionRoute;
   '/_app/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
@@ -1871,6 +1881,7 @@ export interface FileRouteTypes {
     | '/admin/datos-maestros/productos-aw/$id'
     | '/admin/datos-maestros/proveedores/$id'
     | '/admin/datos-maestros/proveedores/expediente'
+    | '/admin/datos-maestros/sincronizacion-aw/$id'
     | '/almacen/devoluciones/proveedor/$id'
     | '/almacen/inventarios/$id/aprobacion'
     | '/almacen/inventarios/$id/captura'
@@ -2051,6 +2062,7 @@ export interface FileRouteTypes {
     | '/admin/datos-maestros/productos-aw/$id'
     | '/admin/datos-maestros/proveedores/$id'
     | '/admin/datos-maestros/proveedores/expediente'
+    | '/admin/datos-maestros/sincronizacion-aw/$id'
     | '/almacen/devoluciones/proveedor/$id'
     | '/almacen/inventarios/$id/aprobacion'
     | '/almacen/inventarios/$id/captura'
@@ -2232,6 +2244,7 @@ export interface FileRouteTypes {
     | '/_app/admin/datos-maestros/productos-aw/$id'
     | '/_app/admin/datos-maestros/proveedores/$id'
     | '/_app/admin/datos-maestros/proveedores/expediente'
+    | '/_app/admin/datos-maestros/sincronizacion-aw/$id'
     | '/_app/almacen/devoluciones/proveedor/$id'
     | '/_app/almacen/inventarios/$id/aprobacion'
     | '/_app/almacen/inventarios/$id/captura'
@@ -3439,6 +3452,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminDatosMaestrosSincronizacionAwIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/datos-maestros/sincronizacion-aw/$id': {
+      id: '/_app/admin/datos-maestros/sincronizacion-aw/$id';
+      path: '/admin/datos-maestros/sincronizacion-aw/$id';
+      fullPath: '/admin/datos-maestros/sincronizacion-aw/$id';
+      preLoaderRoute: typeof AppAdminDatosMaestrosSincronizacionAwIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/integraciones/fiscal/': {
       id: '/_app/admin/integraciones/fiscal/';
       path: '/admin/integraciones/fiscal';
@@ -3692,6 +3712,7 @@ interface AppRouteChildren {
   AppAdminDatosMaestrosProductosAwIdRoute: typeof AppAdminDatosMaestrosProductosAwIdRoute;
   AppAdminDatosMaestrosProveedoresIdRoute: typeof AppAdminDatosMaestrosProveedoresIdRoute;
   AppAdminDatosMaestrosProveedoresExpedienteRoute: typeof AppAdminDatosMaestrosProveedoresExpedienteRoute;
+  AppAdminDatosMaestrosSincronizacionAwIdRoute: typeof AppAdminDatosMaestrosSincronizacionAwIdRoute;
   AppAlmacenDevolucionesProveedorIdRoute: typeof AppAlmacenDevolucionesProveedorIdRoute;
   AppComprasArticulosIdHistorialComprasRoute: typeof AppComprasArticulosIdHistorialComprasRoute;
   AppComprasRequisicionesIdCotizacionesRoute: typeof AppComprasRequisicionesIdCotizacionesRoute;
@@ -3881,6 +3902,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppAdminDatosMaestrosProveedoresIdRoute,
   AppAdminDatosMaestrosProveedoresExpedienteRoute:
     AppAdminDatosMaestrosProveedoresExpedienteRoute,
+  AppAdminDatosMaestrosSincronizacionAwIdRoute:
+    AppAdminDatosMaestrosSincronizacionAwIdRoute,
   AppAlmacenDevolucionesProveedorIdRoute:
     AppAlmacenDevolucionesProveedorIdRoute,
   AppComprasArticulosIdHistorialComprasRoute:

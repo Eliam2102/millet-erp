@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import type { EjecucionSyncAceptada } from '@/modules/datos-maestros/api/types';
 
 export interface CampoDuenoAw { entidad: string; campo: string; dueno: 'AW' | 'ERP'; siDifiere: string }
 export interface MatrizAw { version: string; campos: CampoDuenoAw[] }
@@ -45,14 +46,24 @@ export function useCambiosAwCliente(id: string | null, enabled: boolean) {
   });
 }
 
+export function useCambiosAwProducto(id: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: [...SINCRONIZACION_AW_KEY, 'cambios', 'ProductoAw', id],
+    queryFn: async ({ signal }) =>
+      (await apiRequest<CambioMaestroAw[]>(`${base}/productos-aw/${id}/cambios-aw`, { signal })).data,
+    enabled: enabled && id != null,
+  });
+}
+
 export type EntidadConflictoAw = 'clientes' | 'productos-aw';
 export type FiltroEstadoAw = 'Pendiente' | 'Resuelto' | 'Todos';
 
-export function useConflictosAw(entidad: EntidadConflictoAw, estado: FiltroEstadoAw, enabled: boolean) {
+export function useConflictosAw(entidad: EntidadConflictoAw, estado: FiltroEstadoAw, enabled: boolean, ejecucionId?: string) {
   return useQuery({
-    queryKey: [...SINCRONIZACION_AW_KEY, 'conflictos', entidad, estado],
+    queryKey: [...SINCRONIZACION_AW_KEY, 'conflictos', entidad, estado, ejecucionId ?? null],
     queryFn: async ({ signal }) =>
-      (await apiRequest<CambioMaestroAw[]>(`${base}/${entidad}/conflictos-aw?estado=${estado}`, { signal })).data,
+      (await apiRequest<CambioMaestroAw[]>(
+        `${base}/${entidad}/conflictos-aw?estado=${estado}${ejecucionId ? `&ejecucionId=${ejecucionId}` : ''}`, { signal })).data,
     enabled,
   });
 }
@@ -77,3 +88,47 @@ export const TIPO_CAMBIO_AW: Record<TipoCambioAw, { texto: string; variante: Var
   EditadoEnErp: { texto: 'Editado en ERP', variante: 'warning' },
   RfcCompartido: { texto: 'RFC repetido', variante: 'danger' },
 };
+
+// ─── Corrida de clientes + productos y reporte de diferencias (ADM-06 R4) ──
+
+/** Reporte de diferencias en el JSON de ADR-0036; compatible con `ReporteParaExportar`. */
+export interface ReporteDiferenciasAw {
+  titulo: string;
+  generadoEn: string;
+  filtrosAplicados: Record<string, string | null>;
+  columnas: { clave: string; etiqueta: string; tipo: 'texto' | 'numero' | 'moneda' | 'fecha' }[];
+  filas: Record<string, string | null>[];
+  totales: Record<string, number>;
+  truncado: boolean;
+}
+
+/** Resumen del barrido de productos guardado en la ejecución (o `{ error, mensaje }` si el origen no respondió). */
+export interface ResumenProductosAw {
+  leidos?: number; creados?: number; actualizados?: number; sinCambios?: number; errores?: number;
+  error?: string; mensaje?: string;
+}
+
+export function fechaCorridaAw(v: string | null | undefined) {
+  return v ? new Date(v).toLocaleString('es-MX') : '—';
+}
+
+export function leerResumenProductos(json: string | null | undefined): ResumenProductosAw | null {
+  if (!json) return null;
+  try { return JSON.parse(json) as ResumenProductosAw; } catch { return null; }
+}
+
+export function useIniciarCorridaAw() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await apiRequest<EjecucionSyncAceptada>(`${base}/sincronizacion-aw/corridas`, {
+      method: 'POST', idempotencyKey: crypto.randomUUID(),
+    })).data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['datos-maestros'] });
+    },
+  });
+}
+
+export async function obtenerReporteDiferenciasAw(id: string) {
+  return (await apiRequest<ReporteDiferenciasAw>(`${base}/sincronizacion-aw/corridas/${id}/diferencias`)).data;
+}
