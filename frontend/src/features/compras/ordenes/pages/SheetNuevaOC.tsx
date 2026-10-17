@@ -493,17 +493,17 @@ export function SheetNuevaOC({
         {/* Chips de RQs seleccionadas (modo Consolidación) */}
         {rqsSeleccionadas.length > 0 && (
           <div
-            className="flex flex-wrap gap-1.5 rounded-md border border-blue-200 bg-blue-50/40 p-2 text-xs"
+            className="flex flex-wrap gap-1.5 rounded-md border border-info bg-info-bg/40 p-2 text-xs"
             data-component="rqs-seleccionadas-chips"
           >
-            <span className="font-medium text-blue-900">
+            <span className="font-medium text-info-fg">
               Consolidando {rqsSeleccionadas.length}{' '}
               {rqsSeleccionadas.length === 1 ? 'RQ' : 'RQs'}:
             </span>
             {rqsSeleccionadas.map((rq) => (
               <span
                 key={rq.id}
-                className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-white px-2 py-0.5 font-mono text-blue-900"
+                className="inline-flex items-center gap-1 rounded-full border border-info bg-surface-card px-2 py-0.5 font-mono text-info-fg"
                 data-rq-chip={rq.id}
               >
                 {rq.folio} · {rq.totalLineas}L
@@ -514,7 +514,7 @@ export function SheetNuevaOC({
                       prev.filter((r) => r.id !== rq.id),
                     )
                   }
-                  className="text-blue-700 hover:text-blue-900"
+                  className="text-info-fg hover:text-info-fg"
                   aria-label={`Quitar ${rq.folio} de la consolidación`}
                 >
                   ×
@@ -535,7 +535,7 @@ export function SheetNuevaOC({
 
         {/* Panel motivo + uploader stub (solo modo SinRq) */}
         {sinRequisicionPrevia && (
-          <div className="space-y-3 rounded-md border border-amber-200 bg-amber-50/40 p-3">
+          <div className="space-y-3 rounded-md border border-warning bg-warning-bg/40 p-3">
             <Controller
               control={form.control}
               name="motivoSinRequisicion"

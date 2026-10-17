@@ -57,7 +57,7 @@ export function TrazabilidadOc() {
       {!query.isLoading && !query.isError && !query.data && (
         <EmptyState
           title="Sin información de trazabilidad"
-          description="El backend no devolvió un árbol para esta OC."
+          description="Esta orden aún no tiene documentos relacionados."
         />
       )}
     </div>

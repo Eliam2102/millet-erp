@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import {
   AvisoEnLinea,
   DateTimeDisplay,
-  EstadoBadge,
   Field,
 } from '@/components/erp';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
@@ -63,29 +62,13 @@ export function CabeceraOrdenCompra({
       className="space-y-4 rounded-md border bg-card p-4"
       data-component="cabecera-orden-compra"
     >
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-mono text-2xl font-semibold tracking-tight">
-            {oc.folio}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Emitida{' '}
-            <DateTimeDisplay value={oc.fechaDocumento} variant="long" />
-          </p>
+      {puedeEditar && !editando && (
+        <div className="flex justify-end">
+          <Button variant="secondary" onClick={() => setEditando(true)}>
+            Editar cabecera
+          </Button>
         </div>
-        <div className="flex items-center gap-2">
-          {puedeEditar && !editando && (
-            <Button variant="secondary" onClick={() => setEditando(true)}>
-              Editar cabecera
-            </Button>
-          )}
-          <EstadoBadge
-            tipo="orden-compra"
-            estado={oc.estado}
-            className="text-sm"
-          />
-        </div>
-      </header>
+      )}
 
       {pendientes.length > 0 && (
         <AvisoEnLinea tono="advertencia">
@@ -100,6 +83,9 @@ export function CabeceraOrdenCompra({
       )}
 
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2 lg:grid-cols-3">
+        <Item label="Emitida">
+          <DateTimeDisplay value={oc.fechaDocumento} variant="long" />
+        </Item>
         <Item label="Proveedor">
           {valor(
             'proveedor',
@@ -171,33 +157,33 @@ export function CabeceraOrdenCompra({
       )}
 
       {oc.motivoSinRequisicion && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-800">
+        <div className="rounded-md border border-warning bg-warning-bg p-3 text-sm">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-warning-fg">
             Motivo sin requisición previa
           </p>
-          <p className="whitespace-pre-wrap text-amber-900">
+          <p className="whitespace-pre-wrap text-warning-fg">
             {oc.motivoSinRequisicion}
           </p>
         </div>
       )}
 
       {(oc.motivoRechazoTexto != null || oc.motivoRechazoId != null) && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-rose-700">
+        <div className="rounded-md border border-danger bg-danger-bg p-3 text-sm">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-danger-fg">
             Motivo de rechazo
           </p>
-          <p className="whitespace-pre-wrap text-rose-900">
+          <p className="whitespace-pre-wrap text-danger-fg">
             {oc.motivoRechazoTexto ?? `(motivo id: ${oc.motivoRechazoId})`}
           </p>
         </div>
       )}
 
       {oc.motivoCancelacion && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-rose-700">
+        <div className="rounded-md border border-danger bg-danger-bg p-3 text-sm">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-danger-fg">
             Motivo de cancelación
           </p>
-          <p className="whitespace-pre-wrap text-rose-900">
+          <p className="whitespace-pre-wrap text-danger-fg">
             {oc.motivoCancelacion}
           </p>
         </div>
@@ -407,10 +393,10 @@ function Badge({
 } & React.HTMLAttributes<HTMLSpanElement>) {
   const cls =
     tono === 'azul'
-      ? 'bg-blue-100 text-blue-900 ring-blue-200'
+      ? 'bg-info-bg text-info-fg ring-info'
       : tono === 'ambar'
-        ? 'bg-amber-100 text-amber-900 ring-amber-200'
-        : 'bg-violet-100 text-violet-900 ring-violet-200';
+        ? 'bg-warning-bg text-warning-fg ring-warning'
+        : 'bg-neutral-bg text-neutral-fg ring-line';
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset ${cls}`}

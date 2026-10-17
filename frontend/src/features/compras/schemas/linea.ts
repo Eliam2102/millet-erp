@@ -44,7 +44,7 @@ export function crearLineaSchema(
       .nullish(),
     precioEstimadoMoneda: z
       .string()
-      .length(3, 'Código de moneda ISO 4217 (3 letras)')
+      .length(3, 'La moneda debe tener 3 letras, por ejemplo MXN')
       .regex(/^[A-Z]{3}$/, 'Código de moneda en mayúsculas')
       .nullish(),
     cuentaContableId: idLikeOpcional,

@@ -34,9 +34,9 @@ export interface HoverSubEstadosProps {
 type Progreso = 'vacio' | 'parcial' | 'completo';
 
 const DOT_BG: Record<Progreso, string> = {
-  vacio: 'bg-slate-200 text-slate-600 ring-slate-300',
-  parcial: 'bg-amber-200 text-amber-900 ring-amber-300',
-  completo: 'bg-emerald-200 text-emerald-900 ring-emerald-300',
+  vacio: 'bg-surface-muted text-ink-muted ring-line',
+  parcial: 'bg-warning-bg text-warning-fg ring-warning',
+  completo: 'bg-success-bg text-success-fg ring-success',
 };
 
 export function HoverSubEstados({

@@ -281,7 +281,7 @@ export function LineaInlineForm({
         // primary para diferenciarlo claramente de la edición y de las
         // filas existentes.
         esEditar
-          ? 'border-amber-400 bg-amber-50/40'
+          ? 'border-warning bg-warning-bg/40'
           : 'border-dashed border-primary/40 bg-primary/5',
       )}
       aria-label={esEditar ? `Editar línea ${linea?.posicion}` : 'Agregar línea'}

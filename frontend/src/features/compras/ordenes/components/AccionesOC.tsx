@@ -210,11 +210,10 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
         <ConMotivo motivo={accRechazar.motivoDeshabilitada}>
           <Button
           size="sm"
-          variant="outline"
+          variant="secondary-danger"
           onClick={abrirRechazar}
           disabled={!accRechazar.habilitada || isPending}
           data-action="rechazar"
-          className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
         >
           <XCircle className="mr-1 h-3.5 w-3.5" />
           Rechazar
@@ -225,11 +224,10 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
         <ConMotivo motivo={accCancelar1.motivoDeshabilitada}>
           <Button
           size="sm"
-          variant="outline"
+          variant="secondary-danger"
           onClick={abrirCancelar1}
           disabled={!accCancelar1.habilitada || isPending}
           data-action="cancelar-1-firma"
-          className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
         >
           <Ban className="mr-1 h-3.5 w-3.5" />
           Cancelar OC
@@ -254,7 +252,7 @@ export function AccionesOC({ oc, revision }: AccionesOCProps) {
         <ConMotivo motivo={accDuplicar.motivoDeshabilitada}>
           <Button
           size="sm"
-          variant="outline"
+          variant="secondary"
           onClick={abrirDuplicar}
           disabled={!accDuplicar.habilitada || isPending}
           data-action="duplicar-oc"

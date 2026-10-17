@@ -283,14 +283,14 @@ function Field({
       <label className="flex items-center gap-1 text-sm font-medium">
         {label}
         {required && (
-          <span aria-hidden="true" className="text-rose-600">
+          <span aria-hidden="true" className="text-danger-fg">
             *
           </span>
         )}
       </label>
       {children}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}

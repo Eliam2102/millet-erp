@@ -289,6 +289,9 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }),
     );
+    // Sin confirmar no se firma nada.
+    expect(llamadas).toHaveLength(0);
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprobar 2' }));
 
     await waitFor(() => expect(llamadas).toHaveLength(2));
     expect(llamadas[0]).toEqual({
@@ -367,6 +370,7 @@ describe('<BandejaPendientes> — aprobación masiva', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Aprobar seleccionadas (2)' }),
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprobar 2' }));
 
     // La lista ya no tiene filas; el resumen debe seguir visible.
     await screen.findByText(/no hay requisiciones pendientes/i);

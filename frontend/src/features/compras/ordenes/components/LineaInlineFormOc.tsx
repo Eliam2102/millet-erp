@@ -327,7 +327,7 @@ export function LineaInlineFormOc({
         'space-y-3 rounded-md border p-3',
         // Editar: borde sólido ámbar; agregar: borde dashed primary.
         esEditar
-          ? 'border-amber-400 bg-amber-50/40'
+          ? 'border-warning bg-warning-bg/40'
           : 'border-dashed border-primary/40 bg-primary/5',
       )}
       aria-label={

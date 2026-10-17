@@ -39,7 +39,7 @@ export function LineaDesdeRqBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[0.65rem] font-medium text-blue-900',
+        'inline-flex items-center gap-1 rounded-full border border-info bg-info-bg px-1.5 py-0.5 text-[0.65rem] font-medium text-info-fg',
         className,
       )}
       title={tooltip}

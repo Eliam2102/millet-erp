@@ -229,7 +229,7 @@ function EditView({
       }}
       className={cn(
         'space-y-3 rounded-md border p-3',
-        'border-amber-400 bg-amber-50/40',
+        'border-warning bg-warning-bg/40',
       )}
       aria-label="Editar información logística"
       data-component="info-logistica-edit"

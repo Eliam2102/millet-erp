@@ -38,6 +38,7 @@ import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import { cn } from '@/lib/utils';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
 /**
  * <c>P2 Bandeja de pendientes de autorización OC</c> (UF4-PR1).
@@ -45,7 +46,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
  * <para>Filtrado server-side por nivel — el endpoint
  * <c>/pendientes-autorizacion</c> acepta <c>?nivel=Nivel1|Nivel2</c>
  * (mapea a estados <c>EnAutorizacionJefeCompras</c> /
- * <c>EnAutorizacionDireccion</c>). Orden FIFO (más viejas arriba).</para>
+ * <c>EnAutorizacionDireccion</c>). Las más antiguas aparecen primero.</para>
  *
  * <para>Cada fila muestra a quién se compra, cantidad, monto e indicadores
  * (proveedor conocido, recurrente, menor cuantía, falta N2) para decidir sin
@@ -109,6 +110,11 @@ export function BandejaPendientesOc() {
   );
   const [errorAprobacion, setErrorAprobacion] = useState<string | null>(null);
   const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>([]);
+  const [porConfirmar, setPorConfirmar] = useState<readonly OrdenPendienteAutorizacion[]>([]);
+  const totalesPorMoneda = new Map<string, number>();
+  for (const oc of porConfirmar) {
+    totalesPorMoneda.set(oc.moneda, (totalesPorMoneda.get(oc.moneda) ?? 0) + oc.totalAPagar);
+  }
 
   // Captura "ahora" una vez al montar — Date.now() es impuro y no puede
   // llamarse durante el render. El valor es solo informativo para
@@ -181,29 +187,6 @@ export function BandejaPendientesOc() {
     }
   }
 
-  if (query.isLoading) {
-    return (
-      <div className="space-y-4">
-        <PageHeader titulo="OC por autorizar" />
-        <TableSkeleton rows={8} />
-      </div>
-    );
-  }
-
-  if (query.error != null) {
-    return (
-      <div>
-        <ErrorState
-          title="No se pudieron cargar las OCs pendientes"
-          problem={esApiError(query.error) ? query.error.problem : undefined}
-          onRetry={() => {
-            void query.refetch();
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <Tabs
       value={nivelActivo}
@@ -225,7 +208,49 @@ export function BandejaPendientesOc() {
       />
 
       <TabsContent value={nivelActivo} className="mt-0 space-y-4">
+      {query.isLoading ? (
+        <TableSkeleton rows={8} />
+      ) : query.error != null ? (
+        <ErrorState
+          title="No se pudieron cargar las OCs pendientes"
+          problem={esApiError(query.error) ? query.error.problem : undefined}
+          onRetry={() => {
+            void query.refetch();
+          }}
+        />
+      ) : (
+      <>
       <ResumenAprobacionMasiva resultados={resumen} onCerrar={() => setResumen([])} />
+
+      <ConfirmarAccionDialog
+        open={porConfirmar.length > 0}
+        onOpenChange={(v) => {
+          if (!v) setPorConfirmar([]);
+        }}
+        titulo={`Aprobar ${porConfirmar.length} OC`}
+        resumen={
+          <p>
+            Vas a firmar {nivelActivo === 'Nivel1' ? 'el Nivel 1' : 'el Nivel 2'} de{' '}
+            {porConfirmar.length} {porConfirmar.length === 1 ? 'orden' : 'órdenes'} por un total
+            de{' '}
+            {[...totalesPorMoneda].map(([moneda, total], i) => (
+              <span key={moneda}>
+                {i > 0 && ' + '}
+                <MoneyDisplay amount={total} currency={moneda} />
+              </span>
+            ))}
+            . Tu firma queda registrada con tu usuario y no se puede deshacer.
+          </p>
+        }
+        verbo={`Aprobar ${porConfirmar.length} OC`}
+        tono="primario"
+        pendiente={autorizarMasivo.isPending}
+        onConfirmar={() => {
+          const lote = porConfirmar;
+          setPorConfirmar([]);
+          void aprobar(lote);
+        }}
+      />
 
       {(seleccionadas.length > 0 || errorAprobacion) && (
         <div className="flex flex-wrap items-center gap-2">
@@ -234,7 +259,7 @@ export function BandejaPendientesOc() {
               type="button"
               size="sm"
               disabled={autorizarMasivo.isPending}
-              onClick={() => aprobar(seleccionadas)}
+              onClick={() => setPorConfirmar(seleccionadas)}
             >
               Aprobar seleccionadas ({seleccionadas.length})
             </Button>
@@ -294,7 +319,7 @@ export function BandejaPendientesOc() {
                   bloqueado={autorizarMasivo.isPending}
                   resultado={resultados[oc.id]}
                   onSeleccion={(on) => alternarSeleccion(oc.id, on)}
-                  onAprobarRapido={() => aprobar([oc])}
+                  onAprobarRapido={() => setPorConfirmar([oc])}
                 />
               ))}
             </tbody>
@@ -309,6 +334,8 @@ export function BandejaPendientesOc() {
           limit={pageSize}
           onChange={(offset, limit) => setPagina(Math.floor(offset / limit) + 1, limit)}
         />
+      )}
+      </>
       )}
       </TabsContent>
     </Tabs>
@@ -400,7 +427,7 @@ function FilaOc({
           {aprobableRapido && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               disabled={bloqueado}
               aria-label={`Aprobar ${oc.folio}`}

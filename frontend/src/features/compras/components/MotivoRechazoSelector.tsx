@@ -116,7 +116,7 @@ export function MotivoRechazoSelector({
                     <span
                       aria-label="Requiere detalle adicional"
                       title="Requiere detalle adicional"
-                      className="text-xs text-amber-600"
+                      className="text-xs text-warning-fg"
                     >
                       *
                     </span>

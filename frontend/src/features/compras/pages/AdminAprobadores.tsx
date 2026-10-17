@@ -399,7 +399,7 @@ function PanelVigentesTabla({
                       motivo: a.motivo,
                     })
                   }
-                  className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                  className="text-danger-fg hover:bg-danger-bg hover:text-danger-fg"
                   aria-label={`Revocar aprobador ${a.id}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -581,7 +581,7 @@ function PanelHistoricoTabla({
             return (
               <tr
                 key={a.id}
-                className={cn('border-t', vigente && 'bg-emerald-50/50')}
+                className={cn('border-t', vigente && 'bg-success-bg/50')}
               >
                 <td className="px-3 py-2">{a.depto}</td>
                 <td className="px-3 py-2">{ROL_APROBADOR_LABEL[a.rol]}</td>
@@ -591,7 +591,7 @@ function PanelHistoricoTabla({
                 </td>
                 <td className="px-3 py-2">
                   {vigente ? (
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">
+                    <span className="rounded bg-success-bg px-1.5 py-0.5 text-xs text-success-fg">
                       Vigente
                     </span>
                   ) : (

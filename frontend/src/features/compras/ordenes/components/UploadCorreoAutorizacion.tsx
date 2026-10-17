@@ -18,7 +18,7 @@ import { Mail } from 'lucide-react';
 export function UploadCorreoAutorizacion() {
   return (
     <div
-      className="rounded-md border border-dashed border-amber-300 bg-amber-50 p-3 text-xs text-amber-900"
+      className="rounded-md border border-dashed border-warning bg-warning-bg p-3 text-xs text-warning-fg"
       data-component="upload-correo-autorizacion-stub"
     >
       <div className="mb-1 flex items-center gap-1.5 font-medium">

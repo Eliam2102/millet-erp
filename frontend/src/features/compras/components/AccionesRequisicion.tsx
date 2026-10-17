@@ -285,10 +285,10 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             error.status === 422
           ) {
             setModalCancelarAbierto(false);
-            toast.error('La cancelación falló downstream', {
+            toast.error('La cancelación no terminó', {
               description: error.traceId
-                ? `Algunos efectos no se aplicaron (reservas / OCs / A+W). Revisa con soporte. Código: ${error.traceId}`
-                : 'Algunos efectos no se aplicaron (reservas / OCs / A+W). Revisa con soporte antes de reintentar.',
+                ? `Algunas reservas u órdenes de compra no se liberaron. Avisa a soporte con el código ${error.traceId}.`
+                : 'Algunas reservas u órdenes de compra no se liberaron. Avisa a soporte antes de reintentar.',
               duration: 15000,
               action: {
                 label: 'Reintentar',
@@ -331,10 +331,10 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             error.status === 422
           ) {
             setModalCerrarManualAbierto(false);
-            toast.error('El cierre manual falló downstream', {
+            toast.error('El cierre no terminó', {
               description: error.traceId
-                ? `Algunos efectos no se aplicaron (liberación de reservas). Revisa con soporte. Código: ${error.traceId}`
-                : 'Algunos efectos no se aplicaron (liberación de reservas). Revisa con soporte antes de reintentar.',
+                ? `No se liberaron algunas reservas de stock. Avisa a soporte con el código ${error.traceId}.`
+                : 'No se liberaron algunas reservas de stock. Avisa a soporte antes de reintentar.',
               duration: 15000,
               action: {
                 label: 'Reintentar',
@@ -385,7 +385,6 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             onClick={() =>
               setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel1 })
             }
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
           >
             <ShieldCheck className="mr-2 h-4 w-4" />
             Aprobar Nivel 1
@@ -395,12 +394,12 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {n1Autorizada && (
           <Badge
             variant="outline"
-            className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-700"
+            className="gap-1 border-success bg-success-bg text-success-fg"
             data-n1-autorizada=""
           >
             <ShieldCheck className="h-3.5 w-3.5" />
             Nivel 1 autorizado
-            <span className="font-normal text-emerald-600">
+            <span className="font-normal text-success-fg">
               <DateTimeDisplay value={n1Autorizada.fechaHora} />
             </span>
           </Badge>
@@ -414,11 +413,6 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             onClick={() =>
               setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel2 })
             }
-            className={
-              accN2.habilitada
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                : undefined
-            }
           >
             <ShieldCheck className="mr-2 h-4 w-4" />
             Aprobar Nivel 2
@@ -428,10 +422,9 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accRechazar.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary-danger"
             disabled={!accRechazar.habilitada || isPending}
             onClick={() => setModalRechazoAbierto(true)}
-            className="border-rose-300 text-rose-700 hover:bg-rose-50"
           >
             <X className="mr-2 h-4 w-4" />
             Rechazar
@@ -440,10 +433,9 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accEliminar.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary-danger"
             disabled={!accEliminar.habilitada || isPending}
             onClick={() => setModalEliminarAbierto(true)}
-            className="border-rose-300 text-rose-700 hover:bg-rose-50"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Eliminar
@@ -452,10 +444,9 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accCancelar.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary-danger"
             disabled={!accCancelar.habilitada || isPending}
             onClick={() => setModalCancelarAbierto(true)}
-            className="border-amber-300 text-amber-700 hover:bg-amber-50"
           >
             <Ban className="mr-2 h-4 w-4" />
             Cancelar
@@ -464,10 +455,9 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         {accCerrarManual.visible && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             disabled={!accCerrarManual.habilitada || isPending}
             onClick={() => setModalCerrarManualAbierto(true)}
-            className="border-zinc-300 text-zinc-700 hover:bg-zinc-100"
           >
             <Lock className="mr-2 h-4 w-4" />
             Cerrar
@@ -487,7 +477,6 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
                 },
               })
             }
-            className="bg-indigo-600 text-white hover:bg-indigo-700"
             data-action="convertir-a-oc"
           >
             <ShoppingCart className="mr-2 h-4 w-4" />

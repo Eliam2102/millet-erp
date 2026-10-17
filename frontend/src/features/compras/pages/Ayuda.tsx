@@ -4,6 +4,7 @@ import { EstadoBadge, NaturalezaBadge } from '@/components/erp';
 import { Button } from '@/components/ui/button';
 import {
   ESTADOS,
+  ESTADOS_OC,
   NATURALEZAS,
   TRANSVERSALES,
   type EstadoRequisicion as EstadoKey,
@@ -14,6 +15,7 @@ import {
   EstadoRequisicion,
   Naturaleza,
 } from '@/features/compras/api/types';
+import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import { DEFAULT_BANDEJA_SEARCH } from '@/features/compras/lib/bandeja-search-schema';
 import { PageHeader } from '@/components/erp/PageHeader';
 
@@ -35,8 +37,8 @@ export function Ayuda() {
   return (
     <div className="space-y-6">
       <PageHeader
-        titulo="Ayuda — Compras Requisiciones"
-        descripcion="Referencia rápida del módulo: estados, naturalezas, conceptos del dominio y preguntas frecuentes."
+        titulo="Ayuda — Compras"
+        descripcion="Referencia rápida de requisiciones y órdenes de compra: estados, conceptos y preguntas frecuentes."
       />
 
       <SeccionGlosarioEstados />
@@ -44,6 +46,7 @@ export function Ayuda() {
       <SeccionGlosarioNaturalezas />
       <SeccionMatrizSimplificada />
       <SeccionConceptosTransversales />
+      <SeccionOrdenesCompra />
       <SeccionFaq />
 
       <div className="border-t pt-4">
@@ -270,6 +273,71 @@ function SeccionConceptosTransversales() {
           </article>
         ))}
       </div>
+    </section>
+  );
+}
+
+const ESTADOS_OC_ORDENADOS: { key: keyof typeof ESTADOS_OC; value: EstadoOrdenCompra }[] = [
+  { key: 'Borrador', value: EstadoOrdenCompra.Borrador },
+  { key: 'EnAutorizacionJefeCompras', value: EstadoOrdenCompra.EnAutorizacionJefeCompras },
+  { key: 'EnAutorizacionDireccion', value: EstadoOrdenCompra.EnAutorizacionDireccion },
+  { key: 'Autorizada', value: EstadoOrdenCompra.Autorizada },
+  { key: 'Cerrada', value: EstadoOrdenCompra.Cerrada },
+  { key: 'Rechazada', value: EstadoOrdenCompra.Rechazada },
+  { key: 'CancelacionSolicitada', value: EstadoOrdenCompra.CancelacionSolicitada },
+  { key: 'Cancelada', value: EstadoOrdenCompra.Cancelada },
+];
+
+function SeccionOrdenesCompra() {
+  return (
+    <section className="space-y-3" aria-labelledby="ordenes-compra">
+      <h2 id="ordenes-compra" className="text-lg font-semibold">
+        Órdenes de compra
+      </h2>
+      <h3 className="text-sm font-semibold">Estados de una orden de compra</h3>
+      <div className="space-y-2">
+        {ESTADOS_OC_ORDENADOS.map(({ key, value }) => (
+          <article
+            key={key}
+            className="flex flex-col gap-1 rounded-md border p-3 sm:flex-row sm:items-start sm:gap-3"
+          >
+            <div className="shrink-0">
+              <EstadoBadge tipo="orden-compra" estado={value} />
+            </div>
+            <p className="text-sm">{ESTADOS_OC[key].resumen}</p>
+          </article>
+        ))}
+      </div>
+
+      <article className="rounded-md border p-3">
+        <h3 className="text-sm font-semibold">Avance (recepción · facturación · pago)</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {TRANSVERSALES.SubEstado.resumen} Una orden se cierra sola cuando las tres llegan a
+          completas.
+        </p>
+      </article>
+
+      <article className="rounded-md border p-3">
+        <h3 className="text-sm font-semibold">Qué se necesita para transmitir una orden</h3>
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          <li>Proveedor, condiciones de pago y uso principal capturados.</li>
+          <li>Al menos una línea, y todas con precio.</li>
+          <li>Los adjuntos que pide el tipo de orden (por ejemplo, la cotización).</li>
+          <li>Si no tiene requisición previa: el motivo y el correo de autorización.</li>
+        </ul>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Antes de transmitir, el sistema te muestra qué falta y te lleva al lugar para corregirlo.
+        </p>
+      </article>
+
+      <article className="rounded-md border p-3">
+        <h3 className="text-sm font-semibold">Doble firma</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Toda orden necesita la firma del Jefe de Compras (Nivel 1) y la de Dirección (Nivel 2).
+          Para cancelar una orden que ya tiene
+          recepciones, una persona solicita la cancelación y otra distinta la confirma.
+        </p>
+      </article>
     </section>
   );
 }

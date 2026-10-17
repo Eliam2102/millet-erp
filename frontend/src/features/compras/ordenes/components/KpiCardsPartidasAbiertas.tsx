@@ -76,8 +76,8 @@ export function KpiCardsPartidasAbiertas({
 
 const TONOS = {
   primary: 'border-primary/30 bg-primary/5 text-primary',
-  ambar: 'border-amber-300 bg-amber-50 text-amber-800',
-  rojo: 'border-rose-300 bg-rose-50 text-rose-800',
+  ambar: 'border-warning bg-warning-bg text-warning-fg',
+  rojo: 'border-danger bg-danger-bg text-danger-fg',
 } as const;
 
 function Card({

@@ -495,7 +495,7 @@ function FilaLinea({
                 variant="ghost"
                 onClick={onEliminar}
                 aria-label={`Eliminar línea ${linea.posicion}`}
-                className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                className="h-7 px-2 text-danger-fg hover:bg-danger-bg hover:text-danger-fg"
                 data-action="eliminar-linea"
               >
                 <Trash2 className="h-3.5 w-3.5" />

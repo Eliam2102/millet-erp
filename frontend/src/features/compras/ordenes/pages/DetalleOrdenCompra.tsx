@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { Compass, GitBranch, Inbox, Lock, Printer, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CollaborationIndicator,
@@ -162,8 +163,12 @@ export function DetalleOrdenCompra() {
 
   if (ocQuery.isLoading || ocQuery.data == null) {
     return (
-      <div className="space-y-4 p-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Cargando…</h1>
+      <div className="flex flex-col gap-4" aria-busy="true">
+        <header className="flex items-center gap-3 border-b px-4 py-2">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+          <Skeleton className="ml-4 h-8 w-28" />
+        </header>
         <TableSkeleton
           rows={5}
           columns={[
@@ -187,13 +192,13 @@ export function DetalleOrdenCompra() {
     <div className="flex flex-col gap-4">
       {/* ── Sub-topbar sticky ───────────────────────────── */}
       <header
-        className="sticky top-14 z-10 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
+        className="sticky top-14 z-10 md:top-0 flex flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur"
         data-print="hidden"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-mono text-sm font-semibold">
+          <h1 className="truncate font-mono text-3xl font-semibold text-ink">
             {oc.folio}
-          </span>
+          </h1>
           <EstadoBadge tipo="orden-compra" estado={oc.estado} />
           <CollaborationIndicator entidad="orden-compra" id={oc.id} />
         </div>

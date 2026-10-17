@@ -86,7 +86,7 @@ describe('<LineaInlineForm> — smoke', () => {
     // Border dashed (modo agregar).
     const form = container.querySelector('form');
     expect(form?.className).toMatch(/border-dashed/);
-    expect(form?.className).not.toMatch(/border-amber/);
+    expect(form?.className).not.toMatch(/border-warning/);
   });
 
   it('modo editar: muestra "Guardar cambios" + border amber', () => {
@@ -107,7 +107,7 @@ describe('<LineaInlineForm> — smoke', () => {
     // Border amber (modo editar) — UX warning de "modificando registro
     // existente".
     const form = container.querySelector('form');
-    expect(form?.className).toMatch(/border-amber/);
+    expect(form?.className).toMatch(/border-warning/);
     expect(form?.className).not.toMatch(/border-dashed/);
   });
 

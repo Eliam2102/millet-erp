@@ -175,85 +175,85 @@ const TIPO_CONFIG: Partial<Record<HistoricoTipo, TipoConfig>> = {
     // estado. Lápiz simple, distinto de Sparkles (Creada) y FileEdit
     // (LineaActualizada). Azul-neutral por la convención del archivo.
     icon: Pencil,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.Creada]: {
     icon: Sparkles,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.LineaAgregada]: {
     icon: FilePlus,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.LineaActualizada]: {
     icon: FileEdit,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.LineaEliminada]: {
     icon: FileX,
-    bgClass: 'bg-rose-100',
-    textClass: 'text-rose-700',
+    bgClass: 'bg-danger-bg',
+    textClass: 'text-danger-fg',
   },
   [HistoricoTipo.Transmitida]: {
     icon: Send,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.AutorizadaN1]: {
     icon: ShieldCheck,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
   },
   [HistoricoTipo.AutorizadaN2]: {
     icon: ShieldCheck,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
   },
   [HistoricoTipo.Rechazada]: {
     icon: PackageX,
-    bgClass: 'bg-rose-100',
-    textClass: 'text-rose-700',
+    bgClass: 'bg-danger-bg',
+    textClass: 'text-danger-fg',
   },
   [HistoricoTipo.Eliminada]: {
     icon: Trash2,
-    bgClass: 'bg-rose-100',
-    textClass: 'text-rose-700',
+    bgClass: 'bg-danger-bg',
+    textClass: 'text-danger-fg',
   },
   [HistoricoTipo.Cancelada]: {
     icon: Ban,
-    bgClass: 'bg-amber-100',
-    textClass: 'text-amber-800',
+    bgClass: 'bg-warning-bg',
+    textClass: 'text-warning-fg',
   },
   [HistoricoTipo.CubrimientoRegistrado]: {
     icon: Inbox,
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
+    bgClass: 'bg-info-bg',
+    textClass: 'text-info-fg',
   },
   [HistoricoTipo.RecepcionRegistrada]: {
     icon: PackageCheck,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
   },
   [HistoricoTipo.SaldoNoSurtido]: {
     icon: CircleDashed,
-    bgClass: 'bg-amber-100',
-    textClass: 'text-amber-800',
+    bgClass: 'bg-warning-bg',
+    textClass: 'text-warning-fg',
   },
   [HistoricoTipo.Cerrada]: {
     icon: CheckCircle2,
-    bgClass: 'bg-emerald-100',
-    textClass: 'text-emerald-700',
+    bgClass: 'bg-success-bg',
+    textClass: 'text-success-fg',
   },
 };
 
 const FALLBACK_CONFIG: TipoConfig = {
   icon: CircleDashed,
-  bgClass: 'bg-slate-100',
-  textClass: 'text-slate-600',
+  bgClass: 'bg-surface-muted',
+  textClass: 'text-ink-muted',
 };
 
 /**

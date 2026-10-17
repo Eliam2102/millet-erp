@@ -95,7 +95,7 @@ export function PartidasAbiertas() {
       <div className="space-y-4 min-w-0">
         <PageHeader
           titulo="Partidas abiertas"
-          descripcion="OCs no terminales con al menos un sub-estado abierto, por fecha de entrega esperada (atrasadas primero)."
+          descripcion="Órdenes con recepción, facturación o pago pendientes, las más atrasadas primero."
         />
 
         <KpiCardsPartidasAbiertas
@@ -169,7 +169,7 @@ function RenderTabla({
               <th className="px-3 py-2 text-left font-medium">F. entrega</th>
               <th className="px-3 py-2 text-left font-medium">Atraso</th>
               <th className="px-3 py-2 text-left font-medium">Estado</th>
-              <th className="px-3 py-2 text-left font-medium">R/F/P</th>
+              <th className="px-3 py-2 text-left font-medium">Avance (recepción · facturación · pago)</th>
               <th className="px-3 py-2 text-right font-medium">Acción</th>
             </tr>
           </thead>

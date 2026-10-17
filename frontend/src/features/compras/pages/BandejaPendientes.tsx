@@ -53,6 +53,7 @@ import {
   type PendientesSearch,
 } from '@/features/compras/lib/pendientes-search-schema';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 
 const FROM = '/_app/compras/pendientes/' as const;
 const SENTINEL_ALL = '__all__';
@@ -125,6 +126,7 @@ export function BandejaPendientes() {
   const [resumen, setResumen] = useState<readonly ResultadoAprobacionItem[]>(
     [],
   );
+  const [confirmando, setConfirmando] = useState(false);
 
   function puedeAutorizar(r: PendienteAutorizacionItemResponse): boolean {
     if (r.nivelPendiente === NivelAutorizacion.Nivel1) return puedeN1;
@@ -299,7 +301,7 @@ export function BandejaPendientes() {
               type="button"
               size="sm"
               disabled={autorizarMasivo.isPending}
-              onClick={() => aprobar(seleccionadas)}
+              onClick={() => setConfirmando(true)}
             >
               Aprobar seleccionadas ({seleccionadas.length})
             </Button>
@@ -311,6 +313,29 @@ export function BandejaPendientes() {
           )}
         </div>
       )}
+
+      <ConfirmarAccionDialog
+        open={confirmando}
+        onOpenChange={setConfirmando}
+        titulo={`Aprobar ${seleccionadas.length} ${seleccionadas.length === 1 ? 'requisición' : 'requisiciones'}`}
+        resumen={
+          <p>
+            Vas a firmar {seleccionadas.length}{' '}
+            {seleccionadas.length === 1 ? 'requisición' : 'requisiciones'} (
+            {seleccionadas.filter((r) => r.nivelPendiente === NivelAutorizacion.Nivel1).length} de
+            Nivel 1 y{' '}
+            {seleccionadas.filter((r) => r.nivelPendiente === NivelAutorizacion.Nivel2).length} de
+            Nivel 2). Tu firma queda registrada con tu usuario y no se puede deshacer.
+          </p>
+        }
+        verbo={`Aprobar ${seleccionadas.length}`}
+        tono="primario"
+        pendiente={autorizarMasivo.isPending}
+        onConfirmar={() => {
+          setConfirmando(false);
+          void aprobar(seleccionadas);
+        }}
+      />
 
       {query.isLoading ? (
         <TableSkeleton

@@ -364,7 +364,7 @@ export function NuevaRequisicion({
 
         {/* Clasificación */}
         <Field
-          label={conAyuda("Clasificación", "Tipo funcional de la requisición. Determina parte de la matriz de aprobación A1 (§3.bis).")}
+          label={conAyuda("Clasificación", "Determina quién autoriza la requisición.")}
           error={form.formState.errors.clasificacion?.message}
           required
         >

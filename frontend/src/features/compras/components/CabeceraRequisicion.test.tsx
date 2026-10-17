@@ -56,8 +56,8 @@ describe('<CabeceraRequisicion>', () => {
     render(
       <CabeceraRequisicion rq={makeRq()} resolverNombre={resolverIdentidad} />,
     );
-    expect(screen.getByText('MID2026-000042')).toBeInTheDocument();
-    expect(screen.getByText('En autorización')).toBeInTheDocument();
+    // El folio y el estado viven en el sub-topbar: la cabecera no tiene heading.
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.getByText('Alta')).toBeInTheDocument();
     expect(screen.getByText('Servicio')).toBeInTheDocument();
     // Requisitante y departamento vienen resueltos del backend (ADR-0042),
