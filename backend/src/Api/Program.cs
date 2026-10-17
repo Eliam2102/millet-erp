@@ -587,6 +587,7 @@ else
 // PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RespuestaProveedorOcAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.CotizacionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();

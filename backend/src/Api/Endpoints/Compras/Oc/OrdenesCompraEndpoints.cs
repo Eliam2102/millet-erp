@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Millet.Administracion.Application.Abstractions;
 using Millet.Api.Auth;
+using Millet.Api.Endpoints.Adjuntos;
 using Millet.Api.Web;
 using Millet.SharedKernel.Application.Adjuntos;
 using Millet.Compras.Application.Oc.ActualizarCabecera;
@@ -1335,6 +1336,11 @@ public static class OrdenesCompraEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // F1-COM-11: evidencia por respuesta del proveedor (servicio genérico G1.2, ADR-0058).
+        group.MapGroup("/respuestas-proveedor/{id:guid}").MapAdjuntos("oc_respuesta_proveedor",
+            PermisosCanonicos.ComprasOrdenesLeer, PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
+            PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor);
 
         // --- F3-PR2: rechazar (EnAutorizacion N1/N2 → Rechazada) ---
         group.MapPost("/{id:guid}/rechazar", async (

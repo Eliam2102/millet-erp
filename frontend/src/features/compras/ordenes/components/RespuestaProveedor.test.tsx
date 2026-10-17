@@ -12,6 +12,12 @@ vi.mock('@/features/catalogos/api', () => ({
   mapById: (items: { id: string }[] | undefined) => new Map((items ?? []).map((i) => [i.id, i])),
 }));
 
+vi.mock('@/components/erp/adjuntos/DocumentoAdjuntosSection', () => ({
+  DocumentoAdjuntosSection: ({ base, tipo }: { base: string; tipo: string }) => (
+    <div data-testid="adjuntos" data-base={base} data-tipo={tipo} />
+  ),
+}));
+
 const LINEA = '0198a7c2-1111-7000-8000-000000000001';
 
 function ocDePrueba(respuestas: RespuestaProveedorOc[] = []): OrdenCompraDetalleResponse {
@@ -104,6 +110,13 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
     expect(screen.getByText('Vigente')).toBeInTheDocument();
     expect(screen.getByText('Reemplazada')).toBeInTheDocument();
     expect(screen.getByText('Evidencia: Correo folio P-882')).toBeInTheDocument();
+  });
+
+  it('el panel monta la evidencia en archivo de cada respuesta con su base', () => {
+    render(<RespuestaProveedorPanel oc={ocDePrueba([respuesta(1, true)])} />, { wrapper: createQueryWrapper() });
+    const adjuntos = screen.getByTestId('adjuntos');
+    expect(adjuntos).toHaveAttribute('data-base', '/api/v1/compras/ordenes/respuestas-proveedor/r-1');
+    expect(adjuntos).toHaveAttribute('data-tipo', 'oc_respuesta_proveedor');
   });
 
   it('sin permiso no aparece el botón de registrar', () => {

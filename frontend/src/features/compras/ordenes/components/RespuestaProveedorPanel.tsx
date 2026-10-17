@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DateTimeDisplay } from '@/components/erp';
+import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -88,7 +89,19 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
               </tbody>
             </table>
           )}
-          {/* P-11: evidencia en archivo (G1.2) */}
+          <details open={r.vigente}>
+            <summary className="cursor-pointer text-sm text-ink-secondary">Archivos de evidencia</summary>
+            <DocumentoAdjuntosSection
+              base={`/api/v1/compras/ordenes/respuestas-proveedor/${r.id}`}
+              tipo="oc_respuesta_proveedor"
+              permiso="compras.ordenes"
+              permisos={{
+                ver: PermisosCanonicos.ComprasOrdenesLeer,
+                subir: PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
+                baja: PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
+              }}
+            />
+          </details>
         </div>
       ))}
       <RegistrarRespuestaProveedorSheet
