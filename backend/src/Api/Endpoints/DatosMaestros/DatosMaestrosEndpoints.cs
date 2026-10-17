@@ -103,7 +103,8 @@ public static class DatosMaestrosEndpoints
                 p.Id, p.Clave, p.ClaveLegacy, p.RazonSocial, p.NombreComercial,
                 p.Rfc, p.TipoPersona, p.CondicionesPagoDias, p.MonedaPreferidaId,
                 p.Email, p.Telefono, p.Estatus,
-                p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn));
+                p.ValidadoPorId, p.ValidadoEn, p.MotivoRechazo, p.ToleranciaFacturaContraOcMxn,
+                p.Origen, p.RegimenFiscalCodigo, p.ConceptoRetencion));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
         .WithName("ObtenerProveedorDatosMaestros")
@@ -127,6 +128,25 @@ public static class DatosMaestrosEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // 86e3pdmee · ADM-01: origen, régimen fiscal y retención esperada.
+        proveedores.MapPut("/{id:guid}/clasificacion-fiscal", async (
+            Guid id, [FromBody] ActualizarClasificacionFiscalRequest body,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ActualizarClasificacionFiscalProveedorCommand(
+                id, body.Origen, body.RegimenFiscalCodigo, body.ConceptoRetencion), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosProveedoresGestionar)
+        .WithName("ActualizarClasificacionFiscalProveedor")
+        .WithSummary("Origen, régimen fiscal y retención esperada del proveedor (86e3pdmee)")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
@@ -886,7 +906,13 @@ public static class DatosMaestrosEndpoints
         Guid? ValidadoPorId = null,
         DateTimeOffset? ValidadoEn = null,
         string? MotivoRechazo = null,
-        decimal? ToleranciaFacturaContraOcMxn = null);
+        decimal? ToleranciaFacturaContraOcMxn = null,
+        OrigenProveedor? Origen = null,
+        string? RegimenFiscalCodigo = null,
+        string? ConceptoRetencion = null);
+
+    public sealed record ActualizarClasificacionFiscalRequest(
+        OrigenProveedor? Origen, string? RegimenFiscalCodigo, string? ConceptoRetencion);
 
     [System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed record ActualizarToleranciaProveedorRequest(

@@ -56,7 +56,8 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                     ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
-                p.Estatus == EstatusCatalogo.Activo))
+                p.Estatus == EstatusCatalogo.Activo,
+                p.ConceptoRetencion))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -81,7 +82,8 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
                     ? new ToleranciaProveedorDto(ToleranciaTipo.MontoAbsoluto, p.ToleranciaFacturaContraOcMxn.Value)
                     : null,
                 p.Estatus == EstatusCatalogo.EnRevision,
-                p.Estatus == EstatusCatalogo.Activo))
+                p.Estatus == EstatusCatalogo.Activo,
+                p.ConceptoRetencion))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

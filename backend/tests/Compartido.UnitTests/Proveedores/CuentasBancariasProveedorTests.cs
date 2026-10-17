@@ -122,3 +122,29 @@ public sealed class CuentasBancariasProveedorTests
         lista.Single().CapturadaPorMi.Should().BeTrue();
     }
 }
+
+/// <summary>86e3pdmee · ADM-01: origen, régimen y retención esperada del proveedor.</summary>
+public sealed class ClasificacionFiscalProveedorTests
+{
+    private static Proveedor Nuevo() => new(Guid.NewGuid(), "FIX-CF", "FIX Proveedor SA", "FIX010101AAA", TipoPersonaProveedor.Moral, EstatusCatalogo.Activo);
+
+    [Fact]
+    public void Heredado_queda_por_revisar_y_nacional_exige_regimen()
+    {
+        var p = Nuevo();
+        p.Origen.Should().BeNull();
+        var sinRegimen = () => p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, null, null);
+        sinRegimen.Should().Throw<BusinessRuleException>().Which.Code.Should().Be("PROVEEDOR_REGIMEN_REQUERIDO");
+        p.ActualizarClasificacionFiscal(OrigenProveedor.Nacional, "601", " sin_retencion ");
+        p.RegimenFiscalCodigo.Should().Be("601");
+        p.ConceptoRetencion.Should().Be("SIN_RETENCION");
+    }
+
+    [Fact]
+    public void Extranjero_no_guarda_regimen()
+    {
+        var p = Nuevo();
+        p.ActualizarClasificacionFiscal(OrigenProveedor.Extranjero, "601", null);
+        p.RegimenFiscalCodigo.Should().BeNull();
+    }
+}

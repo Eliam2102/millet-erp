@@ -5287,6 +5287,11 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(20)")
                         .HasColumnName("clave_legacy");
 
+                    b.Property<string>("ConceptoRetencion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("concepto_retencion");
+
                     b.Property<short?>("CondicionesPagoDias")
                         .HasColumnType("smallint")
                         .HasColumnName("condiciones_pago_dias");
@@ -5326,11 +5331,20 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("character varying(254)")
                         .HasColumnName("nombre_comercial");
 
+                    b.Property<short?>("Origen")
+                        .HasColumnType("smallint")
+                        .HasColumnName("origen");
+
                     b.Property<string>("RazonSocial")
                         .IsRequired()
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("razon_social");
+
+                    b.Property<string>("RegimenFiscalCodigo")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("regimen_fiscal_codigo");
 
                     b.Property<string>("Rfc")
                         .IsRequired()

@@ -35,7 +35,9 @@ public sealed record ProveedorDto(
     string RazonSocial,
     ToleranciaProveedorDto? Tolerancia,
     bool EnRevision,
-    bool Activo);
+    bool Activo,
+    // 86e3pdmee: retención esperada del proveedor (concepto P8 o SIN_RETENCION); null = por revisar.
+    string? ConceptoRetencion = null);
 
 public sealed record ToleranciaProveedorDto(
     ToleranciaTipo Tipo,

@@ -220,7 +220,8 @@ public sealed class CapturarFacturaConOcHandler : IRequestHandler<CapturarFactur
             redondeoAplicado: redondeo,
             ahora: ahora);
 
-        factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion);
+        // 86e3pdmee: si no se captura el concepto, se usa la retención esperada del proveedor.
+        factura.AsignarDatosP8(oc.Obra ?? command.Obra, command.ConceptoRetencion ?? proveedor?.ConceptoRetencion);
 
         // 5) Líneas.
         foreach (var l in command.Lineas)

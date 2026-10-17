@@ -1149,6 +1149,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         proveedor.Property(x => x.ValidadoPorId);
         proveedor.Property(x => x.ValidadoEn);
         proveedor.Property(x => x.MotivoRechazo).HasMaxLength(500);
+        // 86e3pdmee · ADM-01: clasificación fiscal (null = por revisar).
+        proveedor.Property(x => x.Origen).HasConversion<short?>();
+        proveedor.Property(x => x.RegimenFiscalCodigo).HasMaxLength(3);
+        proveedor.Property(x => x.ConceptoRetencion).HasMaxLength(80);
 
         proveedor.HasIndex(x => x.Clave).IsUnique();
         // F1-ADM-05: RFC único salvo genéricos SAT (público en general),

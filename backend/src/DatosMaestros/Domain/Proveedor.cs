@@ -56,6 +56,34 @@ public sealed class Proveedor : BaseEntity, IAuditable
 
     // Datos bancarios: varias cuentas por proveedor en CuentaBancariaProveedor (86e3pdmee · ADM-02).
 
+    // ----- Clasificación fiscal (86e3pdmee · ADM-01) -----
+    // Null = «por revisar» (proveedores heredados sin clasificar; no se inventan datos).
+    public OrigenProveedor? Origen { get; private set; }
+    /// <summary>Código SAT de régimen fiscal (3 dígitos, catálogo compartido); null en extranjeros o por revisar.</summary>
+    public string? RegimenFiscalCodigo { get; private set; }
+    /// <summary>
+    /// Concepto de retención esperado (catálogo de retenciones de CxP, o
+    /// <c>SIN_RETENCION</c>). CxP lo toma como predeterminado al capturar y
+    /// compara el XML contra él (decisión del owner, 17-oct).
+    /// </summary>
+    public string? ConceptoRetencion { get; private set; }
+
+    public void ActualizarClasificacionFiscal(OrigenProveedor? origen, string? regimenFiscalCodigo, string? conceptoRetencion)
+    {
+        var regimen = string.IsNullOrWhiteSpace(regimenFiscalCodigo) ? null : regimenFiscalCodigo.Trim();
+        if (regimen is not null && (regimen.Length != 3 || !regimen.All(char.IsAsciiDigit)))
+            throw new BusinessRuleException("PROVEEDOR_REGIMEN_INVALIDO", "El régimen fiscal es el código SAT de 3 dígitos.");
+        if (origen == OrigenProveedor.Nacional && regimen is null)
+            throw new BusinessRuleException("PROVEEDOR_REGIMEN_REQUERIDO", "Un proveedor nacional requiere régimen fiscal.");
+        var concepto = string.IsNullOrWhiteSpace(conceptoRetencion) ? null : conceptoRetencion.Trim().ToUpperInvariant();
+        if (concepto?.Length > 80)
+            throw new BusinessRuleException("PROVEEDOR_CONCEPTO_RETENCION_INVALIDO", "El concepto de retención admite hasta 80 caracteres.");
+        Origen = origen;
+        RegimenFiscalCodigo = origen == OrigenProveedor.Extranjero ? null : regimen;
+        ConceptoRetencion = concepto;
+    }
+
+
     /// <summary>
     /// RFC genéricos SAT ("público en general" nacional/extranjero). Se
     /// excluyen de la unicidad de <see cref="Rfc"/>: múltiples proveedores
@@ -233,4 +261,10 @@ public sealed class Proveedor : BaseEntity, IAuditable
         ValidadoEn = fecha;
         MotivoRechazo = motivo.Trim();
     }
+}
+
+public enum OrigenProveedor : short
+{
+    Nacional = 0,
+    Extranjero = 1,
 }
