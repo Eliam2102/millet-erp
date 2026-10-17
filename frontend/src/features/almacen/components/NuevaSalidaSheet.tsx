@@ -79,6 +79,7 @@ import { saldosPorUbicacionQueryOptions } from '@/features/almacen/api/useSaldos
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { useRequisicion } from '@/features/compras/api/useRequisicion';
 import { cn } from '@/lib/utils';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;NuevaSalidaSheet/&gt;</c> — slide-from-right para registrar
@@ -1415,38 +1416,6 @@ function VarianteOption({
   );
 }
 
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  // PR5: ReactNode y no string — el label de la ubicación lleva el badge
-  // "coincide" cuando la fila ya apunta al bin del helper.
-  label: React.ReactNode;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 // ─── Form values type + helpers ────────────────────────────────────────────
 

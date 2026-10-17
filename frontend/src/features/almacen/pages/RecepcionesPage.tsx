@@ -33,6 +33,7 @@ import { esApiError } from '@/lib/api';
 import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcionSheet';
 import type { RecepcionesSearch } from '@/features/almacen/lib/recepciones-search-schema';
 import { cn } from '@/lib/utils';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 const FROM = '/_app/almacen/recepciones/' as const;
 const SENTINEL_ALL = '__all__';
@@ -187,8 +188,7 @@ function FiltrosToolbar({
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Folio</label>
+      <Field label="Folio" className="gap-1">
         <Input
           aria-label="Buscar por folio"
           value={search.q ?? ''}
@@ -196,9 +196,9 @@ function FiltrosToolbar({
           placeholder="Buscar por folio…"
           className="w-56"
         />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
+      </Field>
+      <Field label="Estado" className="gap-1">
+{(c) => (
         <Select
           value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -210,7 +210,7 @@ function FiltrosToolbar({
             })
           }
         >
-          <SelectTrigger aria-label="Filtrar por estado" className="w-44">
+          <SelectTrigger {...c} aria-label="Filtrar por estado" className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -229,16 +229,17 @@ function FiltrosToolbar({
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sub-almacén</label>
+)}
+      </Field>
+      <Field label="Sub-almacén" className="gap-1">
+{(c) => (
         <Select
           value={search.subAlmacenId ?? SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
           }
         >
-          <SelectTrigger aria-label="Filtrar por sub-almacén" className="w-56">
+          <SelectTrigger {...c} aria-label="Filtrar por sub-almacén" className="w-56">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -250,9 +251,9 @@ function FiltrosToolbar({
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Desde</label>
+)}
+      </Field>
+      <Field label="Desde" className="gap-1">
         <Input
           aria-label="Fecha desde"
           type="date"
@@ -260,9 +261,8 @@ function FiltrosToolbar({
           onChange={(e) => onChange({ desde: e.target.value || undefined })}
           className="w-40"
         />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Hasta</label>
+      </Field>
+      <Field label="Hasta" className="gap-1">
         <Input
           aria-label="Fecha hasta"
           type="date"
@@ -270,7 +270,7 @@ function FiltrosToolbar({
           onChange={(e) => onChange({ hasta: e.target.value || undefined })}
           className="w-40"
         />
-      </div>
+      </Field>
       {algunFiltro && (
         <Button
           variant="ghost"

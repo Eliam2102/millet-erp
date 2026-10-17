@@ -38,6 +38,7 @@ import {
   EstatusCatalogoLabels,
   type AlmacenListItem,
 } from '@/features/almacen/api/types';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;AlmacenSheet/&gt;</c> — slide-from-right para crear o editar
@@ -292,33 +293,3 @@ export function AlmacenSheet({
   );
 }
 
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}

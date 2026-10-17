@@ -65,6 +65,7 @@ import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { cn } from '@/lib/utils';
+import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
  * <c>&lt;NuevaRecepcionSheet/&gt;</c> — slide-from-right para registrar
@@ -1109,37 +1110,6 @@ function VarianteOption({
   );
 }
 
-function Field({
-  label,
-  required,
-  error,
-  children,
-}: {
-  // PR4: acepta ReactNode para poder anexar el badge "coincide" al label.
-  label: React.ReactNode;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 type RecepcionFormValues = {
   ordenCompraId: string;

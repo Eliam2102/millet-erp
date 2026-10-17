@@ -243,3 +243,12 @@ export {
   ReporteShell,
   type ReporteShellProps,
 } from '@/components/erp/reportes/ReporteShell';
+export {
+  Field,
+  type FieldProps,
+  type FieldControlProps,
+} from '@/components/erp/forms/Field';
+export {
+  AvisoEnLinea,
+  type AvisoEnLineaProps,
+} from '@/components/erp/feedback/AvisoEnLinea';

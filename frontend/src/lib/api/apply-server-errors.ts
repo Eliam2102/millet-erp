@@ -31,9 +31,16 @@ export interface FormConSetError {
  * con <c>error.problem.title</c> + <c>error.traceId</c> (no es
  * responsabilidad de este helper).</para>
  *
- * @returns <c>true</c> si se mapearon errores al form (caller puede
- * skipear el toast genérico); <c>false</c> si no había errores
- * estructurados.
+ * <para><c>options.codigos</c> mapea el <c>error.code</c> de un error de
+ * negocio (422 con solo <c>code</c>, p. ej. <c>BusinessRuleException</c>) a
+ * un campo (<c>{ campo, mensaje? }</c>, mensaje amigable opcional; si falta se
+ * usa <c>problem.detail</c> o <c>problem.title</c>) o al callout persistente
+ * (<c>'callout'</c>). Se evalúa antes de <c>errores[]</c>.</para>
+ *
+ * @returns <c>'campo'</c> si el código se asignó a un campo; <c>'callout'</c>
+ * si apunta al callout (el caller muestra <c>AvisoEnLinea</c>); <c>true</c> si
+ * se mapearon <c>errores[]</c>/<c>errors{}</c>; <c>false</c> si no había nada
+ * que mapear. Todos los valores truthy significan «manejado, sin toast genérico».
  *
  * @example
  * ```ts
@@ -48,8 +55,25 @@ export interface FormConSetError {
 export function applyServerErrors(
   form: FormConSetError,
   error: ApiError,
-  options: { shouldFocus?: boolean } = { shouldFocus: true },
-): boolean {
+  options: {
+    shouldFocus?: boolean;
+    codigos?: Record<string, { campo: string; mensaje?: string } | 'callout'>;
+  } = { shouldFocus: true },
+): 'campo' | 'callout' | boolean {
+  const destino = error.code != null ? options.codigos?.[error.code] : undefined;
+  if (destino === 'callout') return 'callout';
+  if (destino) {
+    form.setError(
+      destino.campo,
+      {
+        type: error.code as string,
+        message: destino.mensaje ?? error.problem.detail ?? error.problem.title,
+      },
+      { shouldFocus: options.shouldFocus === true },
+    );
+    return 'campo';
+  }
+
   const errores = error.problem.errores;
   if (errores && errores.length > 0) {
     let didFocus = false;
