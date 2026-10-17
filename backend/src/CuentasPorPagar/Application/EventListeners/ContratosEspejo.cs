@@ -67,7 +67,9 @@ public sealed record LineaRecepcionPayload(
     string UnidadMedida,
     decimal Cantidad,
     decimal CostoUnitarioMxn,
-    decimal MontoTotalMxn);
+    decimal MontoTotalMxn,
+    // P8.4a: sub-almacén de la línea (Almacén lo publica desde G1.6). CxP lo usa para detectar líneas en MAT-REV (daño en la recepción). Opcional: proyecciones previas no lo traen.
+    Guid? SubAlmacenId = null);
 
 /// <summary>
 /// Espejo de <c>almacen.oc_devolucion.registrada.v1</c>. CxP genera

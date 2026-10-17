@@ -157,4 +157,15 @@ public sealed class AlmacenSaldoQueryAdapter : IAlmacenSaldoQueryPort
                 .Where(a => a.SucursalId == sucursalId && a.ArticuloId == articuloId)
                 .SumAsync(a => a.Pendiente, cancellationToken)));
     }
+
+    public async Task<IReadOnlySet<Guid>> FiltrarSubAlmacenesEnRevisionAsync(
+        IReadOnlyCollection<Guid> subAlmacenIds,
+        CancellationToken cancellationToken)
+    {
+        if (subAlmacenIds.Count == 0) return new HashSet<Guid>();
+        return (await _db.SubAlmacenes.AsNoTracking()
+            .Where(s => subAlmacenIds.Contains(s.Id) && s.Tipo == TipoSubAlmacen.MaterialEnRevision)
+            .Select(s => s.Id)
+            .ToListAsync(cancellationToken)).ToHashSet();
+    }
 }

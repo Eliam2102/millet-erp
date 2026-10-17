@@ -3,6 +3,8 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Millet.CuentasPorPagar.Application.FacturaProveedor.Revision;
+using Millet.CuentasPorPagar.UnitTests.FacturaProveedor;
 using Millet.CuentasPorPagar.Application.EventListeners;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.CapturarFacturaConOc;
 using Millet.CuentasPorPagar.Application.FacturaProveedor.Elegibilidad;
@@ -226,7 +228,7 @@ public sealed class P3FacturaConOcTests
         (await a.Elegibilidad.CalcularAsync(f2, default)).ElegiblePendiente.Should().Be(40);
     }
 
-    private sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage, Millet.CuentasPorPagar.Domain.Ports.Administracion.IToleranciaGeneralReadPort
+    internal sealed class Ambiente : IAsyncDisposable, ICurrentEmpresaContext, IClock, IComprasOcReadPort, IProveedorReadPort, ICfdiBlobStorage, Millet.CuentasPorPagar.Domain.Ports.Administracion.IToleranciaGeneralReadPort
     {
         public Guid? Current { get; } = Guid.NewGuid();
         public bool IsBypassed => false;
@@ -239,6 +241,7 @@ public sealed class P3FacturaConOcTests
         public ElegibilidadFacturaService Elegibilidad { get; }
         public OcRecepcionRegistradaHandler Recepciones { get; }
         public CapturaEventos Eventos { get; } = new();
+        public AlmacenRevisionFake Almacen { get; } = new();
         public bool OcDisponible { get; set; } = true;
         private OrdenCompraDto _oc;
         private readonly Dictionary<string, string> _xmls = [];
@@ -268,9 +271,10 @@ public sealed class P3FacturaConOcTests
                 .AddSingleton<INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>>(new FacturaProveedorRechazadaPorToleranciaMapper(Eventos))
                 .AddSingleton<INotificationHandler<NotaCreditoProveedorRegistradaDomainEvent>>(new NotaCreditoProveedorRegistradaMapper(Eventos))
                 .BuildServiceProvider();
-            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this, this);
+            var danos = new DetencionPorDanoService(Db, Almacen, new DependenciasFake(), NullLogger<DetencionPorDanoService>.Instance);
+            Handler = new(Db, this, this, this, new XmlCfdiParser(), this, new Mediator(_services), this, this, danos);
             Elegibilidad = new(Db, this);
-            Recepciones = new(Db, this, NullLogger<OcRecepcionRegistradaHandler>.Instance, new(Eventos, Db, Elegibilidad));
+            Recepciones = new(Db, this, NullLogger<OcRecepcionRegistradaHandler>.Instance, new(Eventos, Db, Elegibilidad), danos);
         }
         public CapturarFacturaConOcCommand Command(decimal cantidad, decimal precio, decimal? total = null, decimal iva = 0, decimal retenciones = 0) =>
             new(_oc.Id, _oc.ProveedorId, _oc.SucursalId, null, null, "P3-FICTICIA", null, Ahora, Ahora, new(2026, 11, 9), "MXN", null,
@@ -333,7 +337,7 @@ public sealed class P3FacturaConOcTests
             Task.FromResult<IReadOnlyList<SucursalDto>>([]);
     }
 
-    private sealed class CapturaEventos : IIntegrationEventPublisher,
+    internal sealed class CapturaEventos : IIntegrationEventPublisher,
         INotificationHandler<FacturaProveedorRegistradaDomainEvent>, INotificationHandler<FacturaProveedorRechazadaPorToleranciaDomainEvent>,
         INotificationHandler<DiferenciaPrecioFacturaDetectadaDomainEvent>
     {
