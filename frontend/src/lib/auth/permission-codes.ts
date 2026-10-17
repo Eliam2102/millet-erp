@@ -421,6 +421,11 @@ export const PermisosCanonicos = {
   ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',
   ContabilidadPolizasAutorizar: 'contabilidad.polizas.autorizar',
   ContabilidadPolizasAnular: 'contabilidad.polizas.anular',
+  // K10.4: pólizas recurrentes (0000000d-0006). `administrar` prepara, suspende, reanuda y genera; `autorizar` activa
+  // (no quien la preparó).
+  ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
+  ContabilidadRecurrentesAdministrar: 'contabilidad.recurrentes.administrar',
+  ContabilidadRecurrentesAutorizar: 'contabilidad.recurrentes.autorizar',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

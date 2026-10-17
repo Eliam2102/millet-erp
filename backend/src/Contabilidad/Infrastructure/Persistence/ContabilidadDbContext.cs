@@ -40,6 +40,8 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<Poliza> Polizas => Set<Poliza>();
     public DbSet<PolizaPartida> PolizasPartidas => Set<PolizaPartida>();
     public DbSet<ConsecutivoPoliza> ConsecutivosPoliza => Set<ConsecutivoPoliza>();
+    // K10.4: pólizas recurrentes.
+    public DbSet<PlantillaRecurrente> PlantillasRecurrentes => Set<PlantillaRecurrente>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

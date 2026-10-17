@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Poliza } from '../../api/polizas-types';
-import { PolizaForm } from './PolizaForm';
+import { PolizaForm, type ReclasificaA } from './PolizaForm';
 
 interface Props {
   open: boolean;
@@ -9,10 +9,12 @@ interface Props {
   /** Borrador a editar; sin él es «Nueva póliza». */
   poliza?: Poliza;
   onGuardada: (p: Poliza) => void;
+  /** K10.4: «Nueva póliza» que reclasifica a una autorizada (queda ligada). */
+  reclasifica?: ReclasificaA;
 }
 
 /** Sheet «Nueva póliza» / «Editar póliza» (patrón P4): confirma al cerrar con cambios; al guardar cierra sin confirmar. */
-export function PolizaSheet({ open, onOpenChange, poliza, onGuardada }: Props) {
+export function PolizaSheet({ open, onOpenChange, poliza, onGuardada, reclasifica }: Props) {
   const dirty = useRef(false);
   const onDirtyChange = useCallback((d: boolean) => { dirty.current = d; }, []);
 
@@ -35,6 +37,7 @@ export function PolizaSheet({ open, onOpenChange, poliza, onGuardada }: Props) {
           {open && (
             <PolizaForm
               poliza={poliza}
+              reclasifica={reclasifica}
               onGuardada={(p) => { cerrar(true); onGuardada(p); }}
               onCancelar={() => cerrar()}
               onDirtyChange={onDirtyChange}

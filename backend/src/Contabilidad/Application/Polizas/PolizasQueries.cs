@@ -12,6 +12,9 @@ namespace Millet.Contabilidad.Application.Polizas;
 
 public sealed record DocumentoOrigenResponse(string Modulo, string Tipo, Guid Id, string? Folio, string? Uuid);
 
+/// <summary>K10.4: póliza ligada a esta (su reversa o una reclasificación), para verla desde la original.</summary>
+public sealed record PolizaLigadaResponse(Guid Id, string? Folio, RelacionPoliza Relacion, EstadoPoliza Estado, DateOnly Fecha, string Concepto);
+
 public sealed record PartidaResponse(
     Guid Id, int Linea, Guid CuentaId, string CuentaCodigo, string? CuentaNombre, string? Concepto, decimal Cargo, decimal Abono,
     string Moneda, decimal TipoCambio, decimal? ImporteOriginal, Guid SucursalId, string? SucursalNombre,
@@ -29,12 +32,14 @@ public sealed record PolizaResponse(
     string? AnuladaPorFolio, string? MotivoAnulacion, string? AnuladaPor, DateTimeOffset? AnuladaEn,
     Guid? CapturadaPorId, string CapturadaPor, DateTimeOffset CapturadaEn, Guid? AutorizadaPorId, string? AutorizadaPor,
     DateTimeOffset? AutorizadaEn, decimal TotalCargos, decimal TotalAbonos, decimal Diferencia, bool Cuadra,
-    IReadOnlyList<PartidaResponse> Partidas, int Version);
+    IReadOnlyList<PartidaResponse> Partidas, int Version,
+    Guid? PolizaRelacionadaId = null, string? PolizaRelacionadaFolio = null, RelacionPoliza? Relacion = null,
+    Guid? PlantillaRecurrenteId = null, string? PlantillaRecurrenteNombre = null, IReadOnlyList<PolizaLigadaResponse>? Ligadas = null);
 
 public sealed record PolizaResumenResponse(
     Guid Id, string? Folio, Guid TipoOperacionId, string TipoClave, int? Numero, DateOnly Fecha, int PeriodoAnio, int PeriodoNumero,
     string Concepto, OrigenPoliza Origen, EstadoPoliza Estado, bool EsAnulacion, decimal TotalCargos, decimal TotalAbonos,
-    string CapturadaPor, string? AutorizadaPor, int Version);
+    string CapturadaPor, string? AutorizadaPor, int Version, RelacionPoliza? Relacion = null, bool EsRecurrente = false);
 
 /// <summary>Proyección de pólizas: resuelve tipo, cuentas, sucursales, centros y auxiliares para mostrar (incluye dados de baja).</summary>
 public sealed class LecturaPolizas(
@@ -52,7 +57,13 @@ public sealed class LecturaPolizas(
     {
         var partidas = p.Partidas.OrderBy(x => x.Linea).ToList();
         var tipoNombre = await db.TiposDocumento.AsNoTracking().Where(t => t.Id == p.TipoOperacionId).Select(t => t.Nombre).FirstOrDefaultAsync(ct);
-        var ligadas = new[] { p.PolizaAnuladaId, p.AnuladaPorPolizaId }.Where(x => x is not null).Select(x => x!.Value).ToList();
+        var ligadas = new[] { p.PolizaAnuladaId, p.AnuladaPorPolizaId, p.PolizaRelacionadaId }.Where(x => x is not null).Select(x => x!.Value).ToList();
+        var derivadas = await db.Polizas.AsNoTracking().Where(x => x.PolizaRelacionadaId == p.Id && x.Relacion != null)
+            .OrderBy(x => x.Fecha).ThenBy(x => x.Id)
+            .Select(x => new { x.Id, x.TipoClave, x.Numero, x.Relacion, x.Estado, x.Fecha, x.Concepto }).ToListAsync(ct);
+        var plantillaNombre = p.PlantillaRecurrenteId is { } pid
+            ? await db.PlantillasRecurrentes.AsNoTracking().Where(x => x.Id == pid).Select(x => x.Nombre).FirstOrDefaultAsync(ct)
+            : null;
         var folios = ligadas.Count == 0 ? new Dictionary<Guid, string?>()
             : (await db.Polizas.AsNoTracking().Where(x => ligadas.Contains(x.Id)).Select(x => new { x.Id, x.TipoClave, x.Numero }).ToListAsync(ct))
                 .ToDictionary(x => x.Id, x => x.Numero is { } n ? Poliza.FormatearFolio(x.TipoClave, n) : null);
@@ -79,7 +90,9 @@ public sealed class LecturaPolizas(
                 x.Concepto, x.Cargo, x.Abono, x.Moneda, x.TipoCambio, x.ImporteOriginal, x.SucursalId, suc.GetValueOrDefault(x.SucursalId)?.Nombre,
                 Ref(x.Dim1Id), Ref(x.Dim2Id), Ref(x.Dim3Id), x.Proyecto, Aux(clientes, x.ClienteId), Aux(proveedores, x.ProveedorId),
                 Aux(cuentasBanco, x.CuentaBancariaId)))],
-            p.Version);
+            p.Version, p.PolizaRelacionadaId, Folio(p.PolizaRelacionadaId), p.Relacion, p.PlantillaRecurrenteId, plantillaNombre,
+            [.. derivadas.Select(x => new PolizaLigadaResponse(x.Id, x.Numero is { } n ? Poliza.FormatearFolio(x.TipoClave, n) : null,
+                x.Relacion!.Value, x.Estado, x.Fecha, x.Concepto))]);
     }
 }
 
@@ -141,12 +154,12 @@ public sealed partial class ListarPolizasHandler(ContabilidadDbContext db) : IRe
         var items = await q.OrderByDescending(p => p.Fecha).ThenByDescending(p => p.Id)
             .Skip(request.Offset).Take(request.Limit)
             .Select(p => new { p.Id, p.TipoOperacionId, p.TipoClave, p.Numero, p.Fecha, p.PeriodoAnio, p.PeriodoNumero, p.Concepto, p.Origen,
-                p.Estado, p.PolizaAnuladaId, p.TotalCargos, p.TotalAbonos, p.CapturadaPor, p.AutorizadaPor, p.Version })
+                p.Estado, p.PolizaAnuladaId, p.TotalCargos, p.TotalAbonos, p.CapturadaPor, p.AutorizadaPor, p.Version, p.Relacion, p.PlantillaRecurrenteId })
             .ToListAsync(cancellationToken);
         return new PagedResponse<PolizaResumenResponse>([.. items.Select(p => new PolizaResumenResponse(p.Id,
             p.Numero is { } num ? Poliza.FormatearFolio(p.TipoClave, num) : null, p.TipoOperacionId, p.TipoClave, p.Numero, p.Fecha,
             p.PeriodoAnio, p.PeriodoNumero, p.Concepto, p.Origen, p.Estado, p.PolizaAnuladaId is not null, p.TotalCargos, p.TotalAbonos,
-            p.CapturadaPor, p.AutorizadaPor, p.Version))], total, request.Offset, request.Limit);
+            p.CapturadaPor, p.AutorizadaPor, p.Version, p.Relacion, p.PlantillaRecurrenteId is not null))], total, request.Offset, request.Limit);
     }
 }
 

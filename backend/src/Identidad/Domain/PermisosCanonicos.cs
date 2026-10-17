@@ -534,6 +534,10 @@ public static class PermisosCanonicos
     public const string ContabilidadPolizasCapturar                     = "contabilidad.polizas.capturar";
     public const string ContabilidadPolizasAutorizar                    = "contabilidad.polizas.autorizar";
     public const string ContabilidadPolizasAnular                       = "contabilidad.polizas.anular";
+    // K10.4: -0006 pólizas recurrentes. `administrar` prepara, suspende y genera; `autorizar` activa (no quien la preparó, R23).
+    public const string ContabilidadRecurrentesLeer                     = "contabilidad.recurrentes.leer";
+    public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
+    public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
 
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
@@ -849,5 +853,8 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0005-0000-0000-000000000002"), ContabilidadPolizasCapturar,            "Capturar, editar y descartar pólizas manuales en borrador y adjuntar su documento soporte"),
         (Guid.Parse("0000000d-0005-0000-0000-000000000003"), ContabilidadPolizasAutorizar,           "Autorizar pólizas manuales capturadas por otro usuario (asigna su número)"),
         (Guid.Parse("0000000d-0005-0000-0000-000000000004"), ContabilidadPolizasAnular,              "Anular pólizas autorizadas con motivo (genera la póliza con las mismas partidas en negativo)"),
+        (Guid.Parse("0000000d-0006-0000-0000-000000000001"), ContabilidadRecurrentesLeer,            "Consultar plantillas de pólizas recurrentes y su calendario de aplicaciones"),
+        (Guid.Parse("0000000d-0006-0000-0000-000000000002"), ContabilidadRecurrentesAdministrar,     "Preparar, editar, suspender y reanudar plantillas recurrentes y generar sus pólizas pendientes"),
+        (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
     };
 }

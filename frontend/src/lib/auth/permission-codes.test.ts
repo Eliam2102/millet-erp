@@ -283,6 +283,10 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.polizas.capturar',
   'contabilidad.polizas.autorizar',
   'contabilidad.polizas.anular',
+  // Pólizas recurrentes (K10.4)
+  'contabilidad.recurrentes.leer',
+  'contabilidad.recurrentes.administrar',
+  'contabilidad.recurrentes.autorizar',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

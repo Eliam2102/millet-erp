@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { BookOpenCheck, Plus, Scale, Search } from 'lucide-react';
+import { BookOpenCheck, Plus, Repeat, Scale, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,6 +37,7 @@ interface Props {
 /** Bandeja de pólizas (P1, F1-CON-04): filtros por periodo, tipo, estado y búsqueda por folio o concepto. */
 export function PolizasPage({ search, onSearch, onAbrir }: Props) {
   const puedeCapturar = useHasPermission(PermisosCanonicos.ContabilidadPolizasCapturar);
+  const puedeVerRecurrentes = useHasPermission(PermisosCanonicos.ContabilidadRecurrentesLeer);
   const [nueva, setNueva] = useState(false);
   const [busqueda, setBusqueda] = useState(search.q ?? '');
   const q = useDebouncedValue(busqueda.trim(), 200);
@@ -74,6 +75,11 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
           <Button asChild variant="secondary">
             <Link to="/contabilidad/polizas/saldos"><Scale className="mr-1 size-3.5" aria-hidden="true" />Movimientos por cuenta</Link>
           </Button>
+          {puedeVerRecurrentes && (
+            <Button asChild variant="secondary">
+              <Link to="/contabilidad/polizas/recurrentes"><Repeat className="mr-1 size-3.5" aria-hidden="true" />Pólizas recurrentes</Link>
+            </Button>
+          )}
           {puedeCapturar && (
             <Button onClick={() => setNueva(true)}><Plus className="mr-1 size-3.5" aria-hidden="true" />Nueva póliza</Button>
           )}
@@ -183,7 +189,7 @@ export function PolizasPage({ search, onSearch, onAbrir }: Props) {
                     <td className="max-w-[320px] truncate px-3" title={p.concepto}>{p.concepto}</td>
                     <td className="whitespace-nowrap px-3 text-right font-medium tabular-nums">{monto(p.totalCargos)}</td>
                     <td className="whitespace-nowrap px-3 text-right font-medium tabular-nums">{monto(p.totalAbonos)}</td>
-                    <td className="px-3"><EstadoPolizaBadge estado={p.estado} esAnulacion={p.esAnulacion} /></td>
+                    <td className="px-3"><EstadoPolizaBadge estado={p.estado} esAnulacion={p.esAnulacion} relacion={p.relacion} esRecurrente={p.esRecurrente} /></td>
                     <td className="px-3 text-xs text-ink-secondary">{p.capturadaPor}</td>
                     <td className="px-3 text-xs text-ink-secondary">{p.autorizadaPor ?? '—'}</td>
                   </tr>

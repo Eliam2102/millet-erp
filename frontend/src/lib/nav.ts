@@ -34,6 +34,7 @@ import {
   Plane,
   Receipt,
   ReceiptText,
+  Repeat,
   RotateCcw,
   Scale,
   ShoppingCart,
@@ -952,6 +953,14 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/polizas/saldos',
           icon: Scale,
           permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Pólizas recurrentes',
+          description:
+            'Plantillas que generan la póliza de cada mes en su día, con reversa automática opcional; las activa otro usuario.',
+          to: '/contabilidad/polizas/recurrentes',
+          icon: Repeat,
+          permission: PermisosCanonicos.ContabilidadRecurrentesLeer,
         },
       ],
     },

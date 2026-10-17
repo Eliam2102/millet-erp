@@ -48,6 +48,12 @@ public static class DependencyInjection
         services.AddScoped<RegistroPolizas>();
         services.AddScoped<LecturaPolizas>();
         services.AddScoped<IPolizaContablePort, PolizaContableAdapter>();
+
+        // K10.4: pólizas recurrentes con reversa automática; el generador corre también como proceso de fondo.
+        services.AddScoped<GeneradorRecurrentes>();
+        services.AddScoped<LecturaRecurrentes>();
+        services.AddOptions<Workers.RecurrentesOpciones>().Bind(configuration.GetSection(Workers.RecurrentesOpciones.Seccion));
+        services.AddHostedService<Workers.PolizasRecurrentesWorker>();
         return services;
     }
 
