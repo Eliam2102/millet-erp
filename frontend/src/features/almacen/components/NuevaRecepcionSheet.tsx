@@ -356,6 +356,8 @@ function NuevaRecepcionFormBody({
         ubicacionReferencia: f.ubicacionReferencia ?? null,
         ubicacionId: f.ubicacionId ?? null,
         comentario: f.comentario ?? null,
+        cantidadDanada: f.cantidadDanada ?? 0,
+        motivoDano: (f.cantidadDanada ?? 0) > 0 ? f.motivoDano?.trim() || null : null,
       }));
 
     if (variante === 'A') {
@@ -969,6 +971,8 @@ interface FilaErrors {
   ubicacionReferencia?: { message?: string };
   ubicacionId?: { message?: string };
   comentario?: { message?: string };
+  cantidadDanada?: { message?: string };
+  motivoDano?: { message?: string };
 }
 
 function FilaLineaOc({
@@ -1178,6 +1182,45 @@ function FilaLineaOc({
               >
                 <Controller
                   name={`filas.${index}.comentario` as const}
+                  control={control}
+                  render={({ field }) => (
+                    <Input {...field} value={field.value ?? ''} maxLength={500} />
+                  )}
+                />
+              </Field>
+              <Field
+                label="Cantidad dañada"
+                optional
+                hint="Se envía a material en revisión; no queda disponible."
+                error={errors?.cantidadDanada?.message}
+              >
+                <Controller
+                  name={`filas.${index}.cantidadDanada` as const}
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step={stepParaDecimales(decimalesFila)}
+                      className="tabular-nums"
+                      value={field.value ?? ''}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value === '' ? 0 : Number(e.target.value),
+                        )
+                      }
+                    />
+                  )}
+                />
+              </Field>
+              <Field
+                label="Motivo del daño"
+                optional
+                error={errors?.motivoDano?.message}
+              >
+                <Controller
+                  name={`filas.${index}.motivoDano` as const}
                   control={control}
                   render={({ field }) => (
                     <Input {...field} value={field.value ?? ''} maxLength={500} />

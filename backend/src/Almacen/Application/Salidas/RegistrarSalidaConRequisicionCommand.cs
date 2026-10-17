@@ -2,6 +2,7 @@ using Millet.Almacen.Infrastructure.PublicAdapters;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
@@ -165,6 +166,11 @@ public sealed class RegistrarSalidaConRequisicionHandler
                 "mismo sub-almacén. Revisa los bins elegidos.");
         }
         var subAlmacenId = subsDerivados[0];
+        // ALM-04: el material en revisión no se surte hasta el dictamen.
+        if (await _db.SubAlmacenes.AsNoTracking().AnyAsync(s => s.Id == subAlmacenId && s.Tipo == TipoSubAlmacen.MaterialEnRevision, cancellationToken))
+            throw new BusinessRuleException(
+                "SALIDA_DESDE_REVISION",
+                "El material en revisión no está disponible para surtir: espera el dictamen del Gerente de almacén/calidad.");
         // G1.6: dimensiones contables del evento (una consulta).
         var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
             .ResolverAsync(_db, subAlmacenId, cancellationToken);

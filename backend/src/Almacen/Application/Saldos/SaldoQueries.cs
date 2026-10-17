@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -251,6 +252,8 @@ public sealed class SaldosPorUbicacionHandler
             where s.ArticuloId == request.ArticuloId
                && (request.SubAlmacenId == null || s.SubAlmacenId == request.SubAlmacenId)
                && s.Cantidad > 0
+               // ALM-04: sin sub explícito (salida con RQ) no se ofrece material en revisión.
+               && (request.SubAlmacenId != null || sa.Tipo != TipoSubAlmacen.MaterialEnRevision)
                && (subsPermitidos == null || subsPermitidos.Contains(s.SubAlmacenId))
             orderby u.EsDefault, u.Clave
             select new SaldoUbicacionItem(

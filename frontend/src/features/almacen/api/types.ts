@@ -308,6 +308,9 @@ export interface RecepcionLineaItem {
   /** Rack destino de la línea y su ruta «ALM › SUB · BIN». null = línea histórica. */
   ubicacionId?: string | null;
   ubicacionClave?: string | null;
+  /** ALM-04: la línea está en material en revisión (no disponible hasta el dictamen). */
+  enRevision?: boolean;
+  motivoDano?: string | null;
 }
 
 export interface RecepcionDetalle {
@@ -409,6 +412,9 @@ export interface RegistrarRecepcionLineaInput {
   // C7.2b: bin real destino (rack N4). Obligatorio en entradas.
   ubicacionId: string | null;
   comentario: string | null;
+  /** ALM-04: parte de la cantidad dañada; entra a material en revisión. */
+  cantidadDanada?: number;
+  motivoDano?: string | null;
 }
 
 export interface RegistrarRecepcionResponse {

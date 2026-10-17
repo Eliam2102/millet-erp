@@ -207,6 +207,19 @@ public sealed class MovimientoInventario : BaseEntity, IPerteneceAEmpresa, IAudi
         PackingListBlobRef = packingListBlobRef;
     }
 
+    /// <summary>
+    /// ALM-04: el movimiento de material en revisión (sub-almacén MAT-REV) apunta a la recepción principal;
+    /// ambos forman una sola recepción para la OC.
+    /// </summary>
+    internal void VincularRecepcionPrincipal(Guid recepcionPrincipalId)
+    {
+        if (Tipo != TipoMovimiento.EntradaCompra)
+            throw new BusinessRuleException("MOV_NO_ENTRADA_COMPRA", "Solo una entrada por compra puede vincularse a su recepción principal.");
+        if (recepcionPrincipalId == Guid.Empty)
+            throw new BusinessRuleException("MOV_RECEPCION_PRINCIPAL_INVALIDA", "La recepción principal es requerida.");
+        RecepcionOrigenId = recepcionPrincipalId;
+    }
+
     /// <summary>F3-PR1: al recibir FacturaProveedorRegistrada (CxP), vincula factura final.</summary>
     internal void ConciliarConFacturaProveedor(Guid facturaId)
     {

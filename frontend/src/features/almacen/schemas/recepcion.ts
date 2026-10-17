@@ -49,6 +49,9 @@ export const FilaRecepcionSchema = z
     // C7.2b: bin real destino (rack). Obligatorio en las filas incluidas.
     ubicacionId: z.string().regex(UUID_SHAPE_RE).nullish(),
     comentario: z.string().max(500, 'Máximo 500 caracteres').nullish(),
+    // ALM-04: parte de la cantidad que llegó dañada; va a material en revisión.
+    cantidadDanada: z.number().nonnegative('La cantidad dañada no puede ser negativa'),
+    motivoDano: z.string().max(500, 'Máximo 500 caracteres').nullish(),
   })
   .superRefine((v, ctx) => {
     if (!v.incluida) return;
@@ -59,6 +62,20 @@ export const FilaRecepcionSchema = z
         message: 'La cantidad debe ser mayor a cero.',
       });
       return;
+    }
+    if (v.cantidadDanada > v.cantidad) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cantidadDanada'],
+        message: 'La cantidad dañada no puede ser mayor que la cantidad recibida.',
+      });
+    }
+    if (v.cantidadDanada > 0 && !v.motivoDano?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['motivoDano'],
+        message: 'Indica el motivo del daño.',
+      });
     }
     if (!v.ubicacionId) {
       ctx.addIssue({

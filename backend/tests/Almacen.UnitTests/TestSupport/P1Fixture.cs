@@ -25,13 +25,14 @@ internal sealed class P1Fixture : IAsyncDisposable
     public Decimales Guard { get; } = new();
     public OcPort Oc { get; }
     public RqPort Rq { get; }
-    public P1Fixture()
+    // ALM-04: por defecto Insumos (surtible); MAT-REV no se surte, así que los tests de 8.A piden MaterialEnRevision.
+    public P1Fixture(TipoSubAlmacen tipoSub = TipoSubAlmacen.Insumos)
     {
         Db = new(new DbContextOptionsBuilder<InMemoryAlmacenDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Context);
         Db.Database.EnsureCreated();
         var alm = new Domain.Catalogo.Almacen(Guid.NewGuid(), "P1", "Almacén P1", Guid.NewGuid());
         Db.Almacenes.Add(alm);
-        Db.SubAlmacenes.Add(new SubAlmacen(SubId, alm.Id, "P1", "Revisión P1", TipoSubAlmacen.MaterialEnRevision));
+        Db.SubAlmacenes.Add(new SubAlmacen(SubId, alm.Id, "P1", "Revisión P1", tipoSub));
         Db.Ubicaciones.Add(new Ubicacion(BinId, SubId, "R1", "Rack P1"));
         Db.AsignacionesArticuloUbicacion.Add(new AsignacionArticuloUbicacion(Guid.NewGuid(), BinId, ArticuloId));
         Db.SaldosInventario.Add(new Millet.Almacen.Domain.Saldos.SaldoInventario(BinId, SubId, ArticuloId, 100, 25));

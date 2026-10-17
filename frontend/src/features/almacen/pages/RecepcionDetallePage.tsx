@@ -5,6 +5,8 @@ import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import {
   Table,
@@ -43,6 +45,7 @@ export function RecepcionDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useRecepcion(id);
   const decimalesUnidad = useDecimalesUnidad();
+  const lineasEnRevision = query.data?.lineas.filter((l) => l.enRevision).length ?? 0;
 
   return (
     <div className="space-y-4">
@@ -150,6 +153,11 @@ export function RecepcionDetallePage() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Líneas ({query.data.lineas.length})
             </h2>
+            {lineasEnRevision > 0 && (
+              <AvisoEnLinea tono="advertencia">
+                {lineasEnRevision} {lineasEnRevision === 1 ? 'línea' : 'líneas'} en material en revisión: no están disponibles hasta el dictamen del Gerente de almacén/calidad.
+              </AvisoEnLinea>
+            )}
             <TableContainer className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -176,6 +184,14 @@ export function RecepcionDetallePage() {
                             </span>
                           )}
                           <div>{l.articuloDescripcion}</div>
+                          {l.enRevision && (
+                            <div className="mt-1 space-y-0.5">
+                              <Badge variant="warning">En revisión</Badge>
+                              {l.motivoDano && (
+                                <p className="text-xs text-ink-muted">{l.motivoDano}</p>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                       ) : (
                         <TableCell className="font-mono text-xs">

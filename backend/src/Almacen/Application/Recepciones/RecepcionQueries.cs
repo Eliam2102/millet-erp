@@ -2,6 +2,7 @@ using MediatR;
 using Millet.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
@@ -67,7 +68,9 @@ public sealed record RecepcionLineaItem(
     Guid? CentroCostoId = null, string? CentroCostoClave = null, string? CentroCostoNombre = null,
     // Rack destino de la línea (bin N4) y su ruta "ALM › SUB · BIN" (mismo formato que
     // los selectores). Null = línea histórica sin bin o bin no resuelto.
-    Guid? UbicacionId = null, string? UbicacionClave = null);
+    Guid? UbicacionId = null, string? UbicacionClave = null,
+    // ALM-04: línea que entró al sub-almacén de material en revisión (no disponible hasta el dictamen) y su motivo de daño.
+    bool EnRevision = false, string? MotivoDano = null);
 
 public sealed record ListarRecepcionesQuery(
     EstadoMovimiento? Estado,
@@ -156,7 +159,9 @@ internal static class RecepcionesFiltro
         AlmacenDbContext db, IComprasOcReadPort ordenesCompra, ListarRecepcionesQuery request, CancellationToken cancellationToken)
     {
         var query = db.Movimientos.AsNoTracking()
-            .Where(m => m.Tipo == TipoMovimiento.EntradaCompra);
+            .Where(m => m.Tipo == TipoMovimiento.EntradaCompra)
+            // ALM-04: el movimiento de material en revisión es parte de la recepción principal; no se lista aparte.
+            .Where(m => m.RecepcionOrigenId == null);
         if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
         // PR6a: el sub-almacén ya no vive en la cabecera; se filtra vía la vista.
         if (request.SubAlmacenId is Guid sid)
@@ -240,6 +245,15 @@ public sealed class ObtenerRecepcionPorIdHandler
                 && m.Tipo == TipoMovimiento.EntradaCompra, cancellationToken);
         if (mov is null) return null;
 
+        // ALM-04: las líneas del movimiento de revisión (hermano) se muestran dentro de la recepción principal.
+        var hermanos = await _db.Movimientos.AsNoTracking()
+            .Include(m => m.Lineas)
+            .Where(m => m.RecepcionOrigenId == mov.Id && m.Tipo == TipoMovimiento.EntradaCompra && m.Estado == EstadoMovimiento.Registrado)
+            .ToListAsync(cancellationToken);
+        var lineas = mov.Lineas.OrderBy(l => l.Posicion)
+            .Concat(hermanos.SelectMany(h => h.Lineas.OrderBy(l => l.Posicion)))
+            .ToList();
+
         // Enriquecimiento de nombres (ADR-0042). Cada resolución cae al id/clave
         // cruda si el read-port no la encuentra (campo null en el DTO).
 
@@ -256,14 +270,14 @@ public sealed class ObtenerRecepcionPorIdHandler
             .FirstOrDefaultAsync(cancellationToken);
 
         // Artículo: batch sobre los ids distintos de las líneas (anti-N+1).
-        var articuloIds = mov.Lineas.Select(l => l.ArticuloId).Distinct().ToArray();
+        var articuloIds = lineas.Select(l => l.ArticuloId).Distinct().ToArray();
         var articulos = await _articulos.ObtenerPorIdsAsync(articuloIds, cancellationToken);
 
-        var centroIds = mov.Lineas.Where(x => x.CentroCostoId.HasValue).Select(x => x.CentroCostoId!.Value).Distinct().ToArray();
+        var centroIds = lineas.Where(x => x.CentroCostoId.HasValue).Select(x => x.CentroCostoId!.Value).Distinct().ToArray();
         var centros = await _centros.ObtenerAsync(centroIds, cancellationToken);
 
         // Ruta del rack de cada línea: una consulta con los bins distintos (anti-N+1).
-        var ubicacionIds = mov.Lineas
+        var ubicacionIds = lineas
             .Where(l => l.UbicacionId is not null)
             .Select(l => l.UbicacionId!.Value)
             .Distinct()
@@ -278,6 +292,13 @@ public sealed class ObtenerRecepcionPorIdHandler
                 .ToListAsync(cancellationToken))
                 .ToDictionary(x => x.Id, x => $"{x.AlmacenClave} › {x.SubClave} · {x.Clave}")
             : new Dictionary<Guid, string>();
+
+        var binsRevision = ubicacionIds.Length > 0
+            ? await (from u in _db.Ubicaciones.AsNoTracking()
+                     join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+                     where ubicacionIds.Contains(u.Id) && sa.Tipo == TipoSubAlmacen.MaterialEnRevision
+                     select u.Id).ToListAsync(cancellationToken)
+            : [];
 
         // Folio de OC: lectura de presentación state-agnostic (resuelve aunque
         // la OC ya esté Cerrada/Cancelada). Batch aunque la recepción tenga 1 OC.
@@ -328,20 +349,21 @@ public sealed class ObtenerRecepcionPorIdHandler
             Observaciones: mov.ComentarioLibre,
             RegistradoAt: mov.RegistradoAt,
             RegistradoPor: mov.RegistradoPor,
-            Lineas: mov.Lineas
-                .OrderBy(l => l.Posicion)
-                .Select(l =>
+            Lineas: lineas
+                .Select((l, i) =>
                 {
+                    var enRevision = l.UbicacionId is Guid bin && binsRevision.Contains(bin);
                     articulos.TryGetValue(l.ArticuloId, out var art);
                     var centro = l.CentroCostoId is Guid cc ? centros.GetValueOrDefault(cc) : null;
                     return new RecepcionLineaItem(
-                        l.Id, l.Posicion, l.ArticuloId,
+                        l.Id, i + 1, l.ArticuloId,
                         art?.Clave, art?.Descripcion,
                         l.Cantidad, l.UnidadMedida,
                         l.CostoUnitarioMxn, l.MontoTotalMxn, l.CantidadCapturada, l.UnidadCapturada,
                         l.CentroCostoId, centro?.Clave, centro?.Nombre,
                         l.UbicacionId,
-                        l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta) ? ruta : null);
+                        l.UbicacionId is Guid ub && rutasUbicacion.TryGetValue(ub, out var ruta) ? ruta : null,
+                        enRevision, enRevision ? l.ComentarioLinea : null);
                 })
                 .ToList(),
             CfdiUuidFiscal: cfdiUuidFiscal,

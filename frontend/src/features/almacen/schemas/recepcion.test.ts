@@ -18,6 +18,7 @@ const filaIncluida = {
   maximo: 10,
   incluida: true,
   cantidad: 10,
+  cantidadDanada: 0,
   ubicacionId: '019e0000-0000-7000-8000-000000000003',
 };
 
@@ -115,5 +116,37 @@ describe('RegistrarRecepcionFacturaSchema — vínculo fiscal obligatorio', () =
         r.error.issues.some((i) => i.path.join('.') === 'cfdiUuidFiscal'),
       ).toBe(true);
     }
+  });
+});
+
+describe('RegistrarRecepcionFacturaSchema — cantidad dañada (ALM-04)', () => {
+  const conFila = (extra: object) =>
+    RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      filas: [{ ...filaIncluida, ...extra }],
+    });
+
+  it('rechaza dañada mayor que la cantidad recibida', () => {
+    const r = conFila({ cantidadDanada: 11, motivoDano: 'Rota' });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.map((i) => i.message)).toContain(
+        'La cantidad dañada no puede ser mayor que la cantidad recibida.',
+      );
+    }
+  });
+
+  it('rechaza dañada sin motivo', () => {
+    const r = conFila({ cantidadDanada: 2, motivoDano: '  ' });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.map((i) => i.message)).toContain('Indica el motivo del daño.');
+    }
+  });
+
+  it('acepta dañada cero sin motivo y dañada con motivo', () => {
+    expect(conFila({ cantidadDanada: 0 }).success).toBe(true);
+    expect(conFila({ cantidadDanada: 2, motivoDano: 'Hojas rotas' }).success).toBe(true);
   });
 });

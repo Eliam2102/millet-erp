@@ -129,7 +129,7 @@ public sealed class DevolucionesYCierreTests
     [InlineData(false, false)] [InlineData(false, true)] [InlineData(true, false)] [InlineData(true, true)]
     public async Task MatRev_respeta_periodo_y_permite_camino_valido(bool cerrado, bool reincorporar)
     {
-        await using var f = new P1Fixture();
+        await using var f = new P1Fixture(TipoSubAlmacen.MaterialEnRevision);
         if (cerrado) await Cerrar(f);
         Task Ejecutar() => reincorporar
             ? new ReincorporacionTrasRevisionHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true)).Handle(new(f.SubId, P1Fixture.Fecha, "Revisión", [new(f.ArticuloId, 1, f.BinId)]), default)

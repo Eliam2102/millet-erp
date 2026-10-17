@@ -75,6 +75,14 @@ public sealed class RegistrarRecepcionConPackingListValidator
                 .When(l => l.UbicacionReferencia is not null);
             linea.RuleFor(l => l.Comentario!).MaximumLength(500)
                 .When(l => l.Comentario is not null);
+            linea.RuleFor(l => l.CantidadDanada).GreaterThanOrEqualTo(0)
+                .WithMessage("La cantidad dañada no puede ser negativa.");
+            linea.RuleFor(l => l.CantidadDanada).LessThanOrEqualTo(l => l.Cantidad)
+                .WithMessage("La cantidad dañada no puede ser mayor que la cantidad recibida.");
+            linea.RuleFor(l => l.MotivoDano).NotEmpty().When(l => l.CantidadDanada > 0)
+                .WithMessage("Indica el motivo del daño.");
+            linea.RuleFor(l => l.MotivoDano!).MaximumLength(500)
+                .When(l => l.MotivoDano is not null);
         });
     }
 }
@@ -166,10 +174,15 @@ public sealed class RegistrarRecepcionConPackingListHandler
 
         // 4. Líneas con costo de OC.
         var posicion = 1;
+        var posicionRevision = 1;
         var payloadLineas = new List<LineaRecepcionPayload>(request.Lineas.Count);
         var subsDerivados = new HashSet<Guid>();
-        foreach (var input in request.Lineas)
+        // ALM-04: lo dañado va a un segundo movimiento EntradaCompra en MAT-REV (el trigger prohíbe dos sub-almacenes en uno).
+        MovimientoInventario? movimientoRevision = null;
+        (Guid SubAlmacenRevisionId, Guid UbicacionRevisionId)? rackRevision = null;
+        for (var idx = 0; idx < request.Lineas.Count; idx++)
         {
+            var input = request.Lineas[idx];
             // C7.2b: bin real obligatorio + asignación activa + no ÚNICA. Sin
             // sub de cabecera: el guard DERIVA el sub del bin y lo retorna.
             var subLinea = await UbicacionEntradaGuard.ValidarEntradaYDerivarSubAsync(
@@ -179,38 +192,90 @@ public sealed class RegistrarRecepcionConPackingListHandler
             var origen = lineasOc[input.LineaOcId!.Value];
             var (costo, um, lineaOcId) = (origen.PrecioUnitarioMxn, origen.UnidadMedida, origen.LineaId);
 
-            var conversion = conversiones[posicion - 1];
-            var lineaId = Guid.CreateVersion7();
-            var linea = new LineaMovimiento(
-                id: lineaId,
-                movimientoId: movimientoId,
-                posicion: posicion++,
-                articuloId: input.ArticuloId,
-                cantidad: conversion.CantidadBase,
-                unidadMedida: conversion.UnidadBase,
-                costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
-                centroCostoId: origen.CentroCostoId,
-                ubicacionReferencia: input.UbicacionReferencia,
-                comentarioLinea: input.Comentario,
-                ubicacionId: input.UbicacionId,
-                lineaOcId: lineaOcId);
-            linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
-            movimiento.AgregarLinea(linea);
+            var conversion = conversiones[idx];
+            var acumulado = validada.RecibidoPorLinea[lineaOcId] + equivalentes.Where(e => e.LineaOcId == lineaOcId).Sum(e => e.Cantidad);
+            var convDanada = input.CantidadDanada > 0
+                ? await _conversion.ConvertirAsync(input.ArticuloId, input.CantidadDanada, input.UnidadCapturada,
+                    oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken)
+                : null;
+            var baseBuena = conversion.CantidadBase - (convDanada?.CantidadBase ?? 0m);
 
-            payloadLineas.Add(new LineaRecepcionPayload(
-                LineaRecepcionId: lineaId,
-                LineaOcId: lineaOcId,
-                ArticuloId: input.ArticuloId,
-                UnidadMedida: um,
-                Cantidad: conversion.CantidadDocumento,
-                CostoUnitarioMxn: costo,
-                MontoTotalMxn: Math.Round(conversion.CantidadDocumento * costo, 2),
-                // PR4: bin N4 real de la línea (el guard ya garantizó que viene
-                // poblado y es válido para el sub-almacén).
-                UbicacionId: input.UbicacionId!.Value,
-                SubAlmacenId: subLinea,
-                ToleranciaPorcentaje: validada.ToleranciaPorLinea[lineaOcId],
-                CantidadRecibidaAcumulada: validada.RecibidoPorLinea[lineaOcId] + equivalentes.Where(e => e.LineaOcId == lineaOcId).Sum(e => e.Cantidad)));
+            if (baseBuena > 0)
+            {
+                var lineaId = Guid.CreateVersion7();
+                var linea = new LineaMovimiento(
+                    id: lineaId,
+                    movimientoId: movimientoId,
+                    posicion: posicion++,
+                    articuloId: input.ArticuloId,
+                    cantidad: baseBuena,
+                    unidadMedida: conversion.UnidadBase,
+                    costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
+                    centroCostoId: origen.CentroCostoId,
+                    ubicacionReferencia: input.UbicacionReferencia,
+                    comentarioLinea: input.Comentario,
+                    ubicacionId: input.UbicacionId,
+                    lineaOcId: lineaOcId);
+                if (convDanada is null) linea.AsentarCaptura(conversion.CantidadCapturada, conversion.UnidadCapturada);
+                else linea.AsentarCaptura(input.Cantidad - input.CantidadDanada, conversion.UnidadCapturada);
+                movimiento.AgregarLinea(linea);
+
+                var cantidadBuenaDoc = conversion.CantidadDocumento - (convDanada?.CantidadDocumento ?? 0m);
+                payloadLineas.Add(new LineaRecepcionPayload(
+                    LineaRecepcionId: lineaId,
+                    LineaOcId: lineaOcId,
+                    ArticuloId: input.ArticuloId,
+                    UnidadMedida: um,
+                    Cantidad: cantidadBuenaDoc,
+                    CostoUnitarioMxn: costo,
+                    MontoTotalMxn: Math.Round(cantidadBuenaDoc * costo, 2),
+                    UbicacionId: input.UbicacionId!.Value,
+                    SubAlmacenId: subLinea,
+                    ToleranciaPorcentaje: validada.ToleranciaPorLinea[lineaOcId],
+                    CantidadRecibidaAcumulada: acumulado));
+            }
+
+            if (convDanada is not null)
+            {
+                rackRevision ??= await UbicacionRevisionResolver.ResolverAsync(_db, subLinea, cancellationToken);
+                if (movimientoRevision is null)
+                {
+                    movimientoRevision = new MovimientoInventario(
+                        id: Guid.CreateVersion7(),
+                        tipo: TipoMovimiento.EntradaCompra,
+                        empresaId: empresaId,
+                        fechaMovimiento: request.FechaMovimiento);
+                    movimientoRevision.VincularRecepcionVarianteB(request.OrdenCompraId, null, request.PackingListBlobRef);
+                }
+                var lineaRevId = Guid.CreateVersion7();
+                var lineaRev = new LineaMovimiento(
+                    id: lineaRevId,
+                    movimientoId: movimientoRevision.Id,
+                    posicion: posicionRevision++,
+                    articuloId: input.ArticuloId,
+                    cantidad: convDanada.CantidadBase,
+                    unidadMedida: conversion.UnidadBase,
+                    costoUnitarioMxn: costo / conversion.FactorDocumentoABase,
+                    centroCostoId: origen.CentroCostoId,
+                    comentarioLinea: input.MotivoDano,
+                    ubicacionId: rackRevision.Value.UbicacionRevisionId,
+                    lineaOcId: lineaOcId);
+                lineaRev.AsentarCaptura(input.CantidadDanada, conversion.UnidadCapturada);
+                movimientoRevision.AgregarLinea(lineaRev);
+
+                payloadLineas.Add(new LineaRecepcionPayload(
+                    LineaRecepcionId: lineaRevId,
+                    LineaOcId: lineaOcId,
+                    ArticuloId: input.ArticuloId,
+                    UnidadMedida: um,
+                    Cantidad: convDanada.CantidadDocumento,
+                    CostoUnitarioMxn: costo,
+                    MontoTotalMxn: Math.Round(convDanada.CantidadDocumento * costo, 2),
+                    UbicacionId: rackRevision.Value.UbicacionRevisionId,
+                    SubAlmacenId: rackRevision.Value.SubAlmacenRevisionId,
+                    ToleranciaPorcentaje: validada.ToleranciaPorLinea[lineaOcId],
+                    CantidadRecibidaAcumulada: acumulado));
+            }
         }
 
         // Invariante 'un movimiento = un sub-almacén': el sub se deriva del bin
@@ -226,10 +291,19 @@ public sealed class RegistrarRecepcionConPackingListHandler
             .ResolverAsync(_db, subsDerivados.Single(), cancellationToken);
         Catalogo.SucursalDestinoGuard.Validar(oc!.SucursalDestinoId, sucursalId, "RECEPCION_SUCURSAL_DISTINTA", "La orden de compra está dirigida a otra sucursal: recibe la mercancía en un almacén de la sucursal destino de la orden.");
 
-        // 5. Reservar folio.
+        // ALM-04: principal efectivo = el de lo disponible; si todo llegó dañado, el de revisión.
+        var principal = movimiento.Lineas.Count > 0 ? movimiento : movimientoRevision!;
+        if (movimientoRevision is not null && ReferenceEquals(principal, movimiento))
+            movimientoRevision.VincularRecepcionPrincipal(movimiento.Id);
+        else if (!string.IsNullOrWhiteSpace(request.Observaciones))
+            typeof(MovimientoInventario).GetProperty("ComentarioLibre")!.SetValue(principal, request.Observaciones);
+
+        // 5. Reservar folio por movimiento con líneas (lock por prefijo/año antes de leer la secuencia, M-094; la transacción ya está abierta).
+        var registradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
+            "RECEPCION_SIN_USUARIO", "Se requiere usuario autenticado.");
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.EntradaCompra.PrefijoFolio();
-        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken); // M-094: tx ya abierta arriba
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken);
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)
@@ -237,21 +311,20 @@ public sealed class RegistrarRecepcionConPackingListHandler
             secuencia = new FolioSecuenciaMovimiento(Guid.CreateVersion7(), prefijo, anio, 0);
             _db.FolioSecuenciasMovimiento.Add(secuencia);
         }
-        var siguiente = secuencia.Incrementar();
-        var folio = FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, siguiente);
-
-        // 6. Registrar.
-        var registradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
-            "RECEPCION_SIN_USUARIO", "Se requiere usuario autenticado.");
-        movimiento.Registrar(folio, registradoPor);
-        _db.Movimientos.Add(movimiento);
+        // Una sola lectura de la secuencia para ambos movimientos (la fila nueva aún no está en BD).
+        foreach (var m in new[] { movimiento, movimientoRevision }.Where(m => m is not null && m.Lineas.Count > 0))
+        {
+            // 6. Pasar a Registrado (firma + sello + folio).
+            m!.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, anio, secuencia.Incrementar()), registradoPor);
+            _db.Movimientos.Add(m);
+        }
 
         // 7. Evento con FacturaPendiente=true (variante B).
         await _events.PublishAsync(new OcRecepcionRegistradaIntegrationEvent(
             EmpresaId: empresaId,
             OcurridoEn: DateTimeOffset.UtcNow,
-            RecepcionId: movimientoId,
-            FolioRecepcion: folio.Valor,
+            RecepcionId: principal.Id,
+            FolioRecepcion: principal.Folio!,
             OrdenCompraId: request.OrdenCompraId,
             FechaMovimiento: request.FechaMovimiento,
             FacturaPendiente: true, // Variante B — falta la factura.
@@ -265,6 +338,6 @@ public sealed class RegistrarRecepcionConPackingListHandler
         await _db.SaveChangesAsync(cancellationToken);
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
-        return new RegistrarRecepcionResponse(movimientoId, folio.Valor);
+        return new RegistrarRecepcionResponse(principal.Id, principal.Folio!);
     }
 }
