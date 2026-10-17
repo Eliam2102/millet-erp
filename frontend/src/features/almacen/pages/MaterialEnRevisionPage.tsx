@@ -152,6 +152,18 @@ export function MaterialEnRevisionPage() {
                         <div key={d.id} className="text-xs text-ink-muted">
                           {ResultadoDictamenLabels[d.resultado]} · {d.cantidad} · {d.motivo} ·{' '}
                           <DateTimeDisplay value={d.dictaminadoAt} variant="corta" />
+                          {d.devolucionAProveedorId && (
+                            <>
+                              {' · '}
+                              <Link
+                                to="/almacen/devoluciones/proveedor/$id"
+                                params={{ id: d.devolucionAProveedorId }}
+                                className="text-primary underline"
+                              >
+                                Ver devolución
+                              </Link>
+                            </>
+                          )}
                         </div>
                       ))}
                     </TableCell>
@@ -198,6 +210,10 @@ export function MaterialEnRevisionPage() {
       <DictamenRevisionSheet
         item={dictaminando}
         onOpenChange={(abierto) => !abierto && setDictaminando(null)}
+        onAgregarEvidencia={(fila) => {
+          setDictaminando(null);
+          setEvidencia(fila);
+        }}
       />
 
       <Sheet open={evidencia !== null} onOpenChange={(abierto) => !abierto && setEvidencia(null)}>

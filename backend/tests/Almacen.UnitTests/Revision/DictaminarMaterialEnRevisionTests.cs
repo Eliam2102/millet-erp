@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.DevolucionesInternas;
 using Millet.Almacen.Application.Revision;
 using Millet.Almacen.Domain.Catalogo;
+using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
+using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Domain.Revision;
 using Millet.Almacen.Domain.Saldos;
 using Millet.Almacen.UnitTests.TestSupport;
@@ -15,6 +17,8 @@ public class DictaminarMaterialEnRevisionTests
     private static readonly Guid EmpresaId = P1Fixture.EmpresaId;
     private static readonly Guid SucursalId = Guid.NewGuid();
     private static readonly Guid ArticuloId = Guid.NewGuid();
+    private static readonly Guid OcId = Guid.NewGuid();
+    private static readonly Guid ProveedorId = Guid.NewGuid();
     private static readonly DateOnly Fecha = new(2026, 10, 9);
 
     private sealed record Ctx(
@@ -49,16 +53,26 @@ public class DictaminarMaterialEnRevisionTests
     {
         var mov = new MovimientoInventario(Guid.NewGuid(), TipoMovimiento.EntradaCompra, EmpresaId, Fecha);
         lineaId = Guid.NewGuid();
-        mov.AgregarLinea(new LineaMovimiento(lineaId, mov.Id, 1, ArticuloId, cantidad, "PZA", 10m, ubicacionId: binId));
+        mov.AgregarLinea(new LineaMovimiento(lineaId, mov.Id, 1, ArticuloId, cantidad, "PZA", 10m, comentarioLinea: principalId is null ? null : "Golpeado", ubicacionId: binId));
+        mov.VincularRecepcionVarianteB(OcId, null, "DEMO.pdf");
         mov.Registrar(FolioMovimiento.Construir(TipoMovimiento.EntradaCompra, 2026, n), Guid.NewGuid());
         if (principalId is { } p) mov.VincularRecepcionPrincipal(p);
         return mov;
     }
 
-    private static DictaminarMaterialEnRevisionHandler Handler(InMemoryAlmacenDbContext db)
+    private sealed class FakeAdjuntos(params AdjuntoEvidenciaLectura[] items) : IAdjuntosEntidadReadPort
+    {
+        public Task<IReadOnlyList<AdjuntoEvidenciaLectura>> ListarVigentesAsync(string tipoEntidad, Guid entidadId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<AdjuntoEvidenciaLectura>>(tipoEntidad == "linea_revision" ? items : []);
+    }
+
+    private static DictaminarMaterialEnRevisionHandler Handler(
+        InMemoryAlmacenDbContext db, params AdjuntoEvidenciaLectura[] evidencias)
     {
         var ctx = new P1Fixture.Contexto();
-        return new(db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true));
+        var oc = new OcLectura(OcId, "OC-1", ProveedorId, EmpresaId, "Autorizada", []);
+        return new(db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true),
+            new FakeAdjuntos(evidencias), new P1Fixture.OcPort(oc));
     }
 
     private static async Task Error(Func<Task> act, string code) =>
@@ -140,5 +154,33 @@ public class DictaminarMaterialEnRevisionTests
         salida.Lineas.Single().Cantidad.Should().Be(1m);
         entrada.Lineas.Single().UbicacionId.Should().Be(s.RackId);
         entrada.Lineas.Single().Cantidad.Should().Be(1m);
+    }
+
+    [Fact]
+    public async Task Rechazar_sin_evidencia_se_rechaza()
+    {
+        var s = await SembrarAsync();
+        await Error(() => Handler(s.Db).Handle(
+            new(s.LineaRevisionId, ResultadoDictamen.Rechazar, 1m, "No sirve", Fecha, null), default), "DICTAMEN_RECHAZO_SIN_EVIDENCIA");
+        (await s.Db.DevolucionesProveedor.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Rechazar_con_evidencia_abre_devolucion_en_autorizacion_con_referencia_adjunto()
+    {
+        var s = await SembrarAsync();
+        var adjuntoId = Guid.NewGuid();
+        var r = await Handler(s.Db, new AdjuntoEvidenciaLectura(adjuntoId, "foto.png")).Handle(
+            new(s.LineaRevisionId, ResultadoDictamen.Rechazar, 1m, "No sirve", Fecha, null), default);
+
+        var dev = await s.Db.DevolucionesProveedor.Include(d => d.Lineas).Include(d => d.Evidencias).SingleAsync();
+        r.DevolucionAProveedorId.Should().Be(dev.Id);
+        dev.Estado.Should().Be(EstadoDevolucionProveedor.EnAutorizacion);
+        dev.ProveedorId.Should().Be(ProveedorId);
+        dev.Lineas.Should().ContainSingle().Which.LineaRecepcionOrigenId.Should().Be(s.LineaRevisionId);
+        var ev = dev.Evidencias.Should().ContainSingle().Subject;
+        ev.BlobRef.Should().Be($"adjunto:{adjuntoId}");
+        ev.Comentario.Should().Be("Golpeado");
+        (await s.Db.DictamenesRevision.SingleAsync()).DevolucionAProveedorId.Should().Be(dev.Id);
     }
 }

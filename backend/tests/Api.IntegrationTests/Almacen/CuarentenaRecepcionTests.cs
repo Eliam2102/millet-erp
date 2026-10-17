@@ -106,6 +106,13 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
                      JOIN almacen.ubicaciones u ON u.id = lm.ubicacion_id
                      JOIN almacen.sub_almacenes s ON s.id = u.sub_almacen_id
                      WHERE s.almacen_id = {ctx.AlmacenId})");
+            // Rechazo por dictamen (ALM-04 R4): la devolución a proveedor referencia el movimiento de revisión.
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $@"DELETE FROM almacen.devoluciones_proveedor WHERE recepcion_origen_id IN (
+                     SELECT lm.movimiento_id FROM almacen.lineas_movimiento lm
+                     JOIN almacen.ubicaciones u ON u.id = lm.ubicacion_id
+                     JOIN almacen.sub_almacenes s ON s.id = u.sub_almacen_id
+                     WHERE s.almacen_id = {ctx.AlmacenId})");
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $@"DELETE FROM almacen.movimientos_inventario WHERE id IN (
                      SELECT lm.movimiento_id FROM almacen.lineas_movimiento lm

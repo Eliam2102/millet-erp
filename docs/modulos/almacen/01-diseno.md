@@ -992,6 +992,42 @@ Las recepciones, las salidas y las devoluciones internas 8.A no tienen endpoints
 10. **Lock por OC, no por línea:** la consistencia del recibido entre Almacén y Compras es eventual (Compras lee el acumulado que calcula Almacén).
 11. **Permiso `almacen.documentos.leer-todas-sucursales`:** lo usa `ResumenInicioQuery` de Almacén, pero no está definido en `PermisosCanonicos`. Revisar en otra tarea.
 
+### 16.8 Cuarentena en recepción (ALM-04 G1.3)
+
+Tarea 86e3jvu9j. Una recepción puede separar lo dañado: cada línea (variante A con factura y variante B con packing list) acepta `CantidadDanada` y `MotivoDano`. Lo bueno entra al rack disponible elegido y lo dañado entra a un rack real del sub-almacén `MaterialEnRevision` (MAT-REV) **del mismo almacén**, resuelto solo (primera ubicación activa, no default, ordenada por clave; sin ella la recepción responde 422 `RECEPCION_SIN_UBICACION_REVISION`).
+
+**Modelo.** Un movimiento no puede tener líneas en dos sub-almacenes (lo impide el trigger), así que la recepción genera dos movimientos `EntradaCompra`: el principal y un hermano hacia MAT-REV con `RecepcionOrigenId` = recepción principal. Si todo está dañado solo existe el hermano. Se publica **un solo** `OcRecepcionRegistradaEvent`, con el contrato sin cambios, cuyas líneas incluyen las de ambos movimientos: la OC y la requisición ven el total recibido (supuesto V45: lo que está en revisión cuenta como recibido). Lo dañado se distingue en el payload por el `SubAlmacenId` de MAT-REV. Que el material en revisión **no sea pagable** queda para G1.4 (riesgo abierto: hasta entonces CxP puede tratarlo como pagable).
+
+**Disponibilidad.** Las salidas (con requisición y vale) rechazan ubicaciones de MAT-REV y la disponibilidad que consumen Compras, apartados y reorden excluye MAT-REV: una recepción de 10 con 2 dañadas deja físico 10 y disponible 8.
+
+**Dictamen.** Con el permiso `almacen.cuarentena.dictaminar` (lo arma el administrador en un rol de Gerente de almacén/calidad), cada línea en revisión se dictamina desde `/almacen/revision`:
+
+- **Liberar** (total o parcial): un par de movimientos, la salida de MAT-REV de tipo 10 `SalidaPorLiberacionRevision` (folio `LIB`) y la entrada `ReincorporacionTrasRevision` al rack disponible asignado del mismo almacén.
+- **Dar de baja:** movimiento `BajaPorDano` existente desde MAT-REV, con la regla vigente de esa baja (sin autorización adicional).
+- **Rechazar al proveedor:** abre la `DevolucionAProveedor` existente (sub-flujo 8.B) y la pasa a `EnAutorizacion` en la misma transacción. Exige al menos una evidencia vigente de la línea (si no, 422 `DICTAMEN_RECHAZO_SIN_EVIDENCIA`). La evidencia se copia como `EvidenciaDevolucionProveedor` con `BlobRef = "adjunto:{adjuntoId}"`: es una referencia, nunca el blob real del servicio genérico (ADR-0058). Dirección autoriza y registra la salida desde MAT-REV; la devolución cruza con CxP solo por el `OcDevolucionRegistradaEvent` existente. Si Dirección la rechaza, el pendiente de la línea regresa.
+
+Cada dictamen queda en la tabla `almacen.dictamenes_revision` (quién, cuándo, cantidad, motivo, resultado y movimientos o devolución vinculados), que sirve de bitácora y no se edita: un dictamen no se deshace, se corrige por contramovimiento. Dos dictámenes simultáneos sobre una línea se serializan con el mismo advisory lock de la devolución a proveedor. La evidencia por línea usa el servicio genérico de adjuntos G1.2 (`linea_revision`) y se sube desde la bandeja después de registrar la recepción. El alcance por sucursal reutiliza los permisos de bypass `almacen.entradas.{leer,gestionar}-todas-sucursales`.
+
+**Plazo.** El dictamen tiene un plazo de 5 días hábiles (120 horas hábiles con el calendario compartido), definido como constante en código con nota `ponytail:`. Es el supuesto V45, que Millet aún no ratifica; el plano 03 pide que sea parámetro, así que se moverá a `AlmacenSettings` cuando se valide. La bandeja solo avisa «Vencido»; no hay notificación ni escalamiento automático.
+
+**Reincorporación 8.A (arreglada en la rebanada 3).** `ReincorporacionTrasRevisionHandler` (sub-flujo 8.A, menú «Material en revisión: reincorporar» de Devoluciones) antes solo sumaba al destino y no descontaba MAT-REV, de modo que creaba existencia de la nada. Ahora usa el mismo par LIB/REI del dictamen (salida de MAT-REV más entrada al destino, misma cantidad); sin saldo suficiente en MAT-REV falla con `SALDO_INSUFICIENTE` y no crea existencia.
+
+**Pendiente: liberación P8.4a / G1.4.** La liberación de material en revisión que reincorpora a disponible y la condición de «no pagable» en CxP (P8.4a del plano y G1.4) siguen pendientes; este diseño solo deja el par LIB/REI listo para ese flujo. Tampoco se da dictamen al material que llega a MAT-REV por devoluciones internas 8.A, que no tiene línea de recepción.
+
+**Dependencias de plataforma pendientes (ADR-0031).**
+
+| Pieza | Ticket | NoOp en uso | Cómo se wirea |
+|---|---|---|---|
+| `IAdjuntosEntidadReadPort` | `<AdjuntosEntidadReadAdapter>` | `NoOpAdjuntosEntidadReadPort` | `Api/Program.cs` registra `AdjuntosEntidadReadAdapter` de Compartido (lee solo id y nombre de los adjuntos vigentes; nunca `BlobRef`) |
+
+**Contradicciones registradas (no resueltas aquí).**
+
+- **C1 · Plazo.** Plano 03 «Dictamen de material observado»: «El calendario y escalamiento siguientes son parametrizables; no se inventa un plazo aprobado». Ficha (V45): «5 días hábiles». Se construye constante de 5 días hábiles con nota `ponytail:`; escalamiento y notificación quedan fuera de alcance.
+- **C2 · Baja.** Plano 03, tabla de dictamen: «Dar de baja: evidencia de pérdida y autorización conforme al modelo de ajustes». Ficha §2: «baja por daño: con la regla existente de `BajaPorDano`» (sin autorización adicional). Se sigue la ficha.
+- **C3 · Plano G1 vs código.** El plano G1 propone una ubicación `CUARENTENA`; la ficha lo corrige y se reutiliza `TipoSubAlmacen.MaterialEnRevision`. Se sigue la ficha.
+- **C4 · Evidencias de Almacén.** `Api/Program.cs` mantiene `PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>)` (evidencias de Almacén con patrón propio) y ADR-0058 manda los consumidores nuevos (recepciones) al servicio genérico. Esta tarea usa G1.2 para la recepción y deja la devolución legada con referencia `adjunto:{id}`.
+- **C5 · Identificador.** La ficha local `Fichas/ALM-04.md` corresponde a otro paquete (reabasto y remanente) que reutiliza el código ALM-04.
+
 ## Rev.
 
 - **2026-05-22 — v1.1** — Reservas de stock movidas a MVP (opción B del teardown de Compras). Agregada A19, agregado `ReservaStock` como agregado raíz, columna `cantidad_reservada` + tabla `reservas_stock` en §5, puerto público `IAlmacenReservaPort` en §6.2, eventos `StockReservadoEvent`/`StockLiberadoEvent` en §7.1, comandos en §8.1.

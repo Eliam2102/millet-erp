@@ -798,6 +798,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Almacen.Domain.Ports.IProveedorReadPort,
     Millet.Compartido.Infrastructure.PublicAdapters.ProveedorReadAdapter>();
+builder.Services.AddScoped<
+    Millet.Almacen.Domain.Ports.IAdjuntosEntidadReadPort,
+    Millet.Compartido.Infrastructure.PublicAdapters.AdjuntosEntidadReadAdapter>();
 
 // Adapter CxP → hosteado en CuentasPorPagar.Infrastructure.PublicAdapters
 // (CxP referencia Almacén vía Compras; Almacén no referencia CxP — bounded

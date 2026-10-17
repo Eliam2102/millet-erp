@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
+using Millet.Almacen.Application.DevolucionesProveedor;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
@@ -47,7 +48,9 @@ public sealed class DictaminarMaterialEnRevisionHandler(
     ICurrentUserContext currentUser,
     ICurrentEmpresaContext currentEmpresa,
     IDecimalesUnidadGuard decimalesGuard,
-    IPeriodoContableReadPort periodoContable)
+    IPeriodoContableReadPort periodoContable,
+    IAdjuntosEntidadReadPort adjuntos,
+    IComprasOcReadPort ocPort)
     : IRequestHandler<DictaminarMaterialEnRevisionCommand, DictamenRevisionResponse>
 {
     public async Task<DictamenRevisionResponse> Handle(
@@ -94,6 +97,7 @@ public sealed class DictaminarMaterialEnRevisionHandler(
 
         DictamenRevision dictamen;
         string? folio;
+        Guid? devolucionId = null;
         switch (request.Resultado)
         {
             case ResultadoDictamen.Liberar:
@@ -129,14 +133,42 @@ public sealed class DictaminarMaterialEnRevisionHandler(
                 folio = baja.Folio;
                 break;
 
-            default:
-                throw new BusinessRuleException("DICTAMEN_RESULTADO_NO_DISPONIBLE",
-                    "El rechazo al proveedor se habilita en la siguiente entrega.");
+            default: // Rechazar: abre la devolución a proveedor existente (8.B) en EnAutorizacion, con la evidencia.
+                var evidencias = await adjuntos.ListarVigentesAsync("linea_revision", info.LineaRevisionId, cancellationToken);
+                if (evidencias.Count == 0)
+                    throw new BusinessRuleException("DICTAMEN_RECHAZO_SIN_EVIDENCIA",
+                        "Adjunta al menos una foto o evidencia del daño antes de rechazar el material.");
+                var ordenCompraId = info.OrdenCompraId ?? throw new BusinessRuleException(
+                    "DICTAMEN_RECHAZO_SIN_OC", "La línea en revisión no proviene de una orden de compra; no se puede devolver al proveedor.");
+                var oc = await ocPort.ObtenerAsync(ordenCompraId, cancellationToken)
+                    ?? throw new EntityNotFoundException("DICTAMEN_RECHAZO_OC_NO_ENCONTRADA",
+                        $"No existe la orden de compra '{ordenCompraId}' de la recepción.");
+                await DevolucionProveedorOrigenGuard.ValidarAsync(db, ocPort, info.MovimientoRevisionId, oc.ProveedorId,
+                    [new LineaOrigenDevolucion(info.LineaRevisionId, info.ArticuloId, request.Cantidad)], null, cancellationToken);
+
+                var devolucion = new DevolucionAProveedor(Guid.CreateVersion7(), empresaId, oc.ProveedorId,
+                    $"Rechazo por dictamen de calidad: {request.Motivo}", usuarioId,
+                    recepcionOrigenId: info.MovimientoRevisionId, ordenCompraOrigenId: ordenCompraId,
+                    subAlmacenOrigenId: info.SubAlmacenRevisionId);
+                devolucion.AgregarLinea(new LineaDevolucionProveedor(Guid.CreateVersion7(), devolucion.Id, 1,
+                    info.ArticuloId, request.Cantidad, info.UnidadMedida, info.CostoUnitarioMxn,
+                    lineaRecepcionOrigenId: info.LineaRevisionId));
+                foreach (var e in evidencias)
+                    devolucion.AgregarEvidencia(new EvidenciaDevolucionProveedor(Guid.CreateVersion7(), devolucion.Id,
+                        "evidencia_recepcion", e.NombreArchivo, $"adjunto:{e.Id}", info.MotivoDano));
+                devolucion.SolicitarAutorizacion();
+                db.Set<DevolucionAProveedor>().Add(devolucion);
+                devolucionId = devolucion.Id;
+                dictamen = new DictamenRevision(Guid.CreateVersion7(), empresaId, info.LineaRevisionId,
+                    info.MovimientoRevisionId, request.Resultado, request.Cantidad, request.Motivo, usuarioId,
+                    devolucionAProveedorId: devolucion.Id);
+                folio = null;
+                break;
         }
 
         db.DictamenesRevision.Add(dictamen);
         await db.SaveChangesAsync(cancellationToken);
         if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
-        return new DictamenRevisionResponse(dictamen.Id, dictamen.Resultado, folio, null);
+        return new DictamenRevisionResponse(dictamen.Id, dictamen.Resultado, folio, devolucionId);
     }
 }

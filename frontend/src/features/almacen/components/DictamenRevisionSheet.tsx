@@ -3,6 +3,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router';
 import {
   Sheet,
   SheetContent,
@@ -27,12 +28,21 @@ import {
 } from '@/features/almacen/api/types';
 import { Field } from '@/features/almacen/components/internal/Field';
 
+const DESCRIPCION_RESULTADO: Partial<Record<ResultadoDictamen, string>> = {
+  [ResultadoDictamen.Rechazar]:
+    'Abre una devolución al proveedor con la evidencia de la recepción; la autoriza Dirección.',
+};
+
 const MENSAJE_RACK = 'Elige la ubicación (rack) disponible a la que se libera el material.';
 
 function crearSchema(pendiente: number) {
   return z
     .object({
-      resultado: z.union([z.literal(ResultadoDictamen.Liberar), z.literal(ResultadoDictamen.Baja)]),
+      resultado: z.union([
+        z.literal(ResultadoDictamen.Liberar),
+        z.literal(ResultadoDictamen.Rechazar),
+        z.literal(ResultadoDictamen.Baja),
+      ]),
       cantidad: z
         .number({ message: 'Cantidad requerida' })
         .positive('La cantidad debe ser mayor a cero')
@@ -52,13 +62,15 @@ type FormValues = z.infer<ReturnType<typeof crearSchema>>;
 export interface DictamenRevisionSheetProps {
   item: MaterialEnRevisionItem | null;
   onOpenChange: (open: boolean) => void;
+  /** Abre el panel de evidencia de la fila (se ofrece cuando el rechazo se bloquea por falta de evidencia). */
+  onAgregarEvidencia?: (item: MaterialEnRevisionItem) => void;
 }
 
 /**
- * ALM-04 G1.3 — Dictamen del material en revisión (liberar o dar de baja). Mueve inventario y no se
- * deshace, por eso pide confirmación antes de enviar. «Rechazar al proveedor» llega en la rebanada 4.
+ * ALM-04 G1.3 — Dictamen del material en revisión (liberar, dar de baja o rechazar al proveedor). Libera y baja mueven
+ * inventario y no se deshacen; el rechazo abre una devolución que autoriza Dirección. Todo pide confirmación.
  */
-export function DictamenRevisionSheet({ item, onOpenChange }: DictamenRevisionSheetProps) {
+export function DictamenRevisionSheet({ item, onOpenChange, onAgregarEvidencia }: DictamenRevisionSheetProps) {
   return (
     <Sheet open={item !== null} onOpenChange={onOpenChange}>
       <SheetContent side="right" size="form">
@@ -68,17 +80,32 @@ export function DictamenRevisionSheet({ item, onOpenChange }: DictamenRevisionSh
             {item ? `Recepción ${item.recepcionFolio} · ${item.articuloClave ?? ''} · pendiente ${item.cantidadPendiente} ${item.unidadMedida}` : ''}
           </SheetDescription>
         </SheetHeader>
-        {item && <Cuerpo key={item.lineaRevisionId} item={item} onClose={() => onOpenChange(false)} />}
+        {item && <Cuerpo
+            key={item.lineaRevisionId}
+            item={item}
+            onClose={() => onOpenChange(false)}
+            onAgregarEvidencia={onAgregarEvidencia}
+          />}
       </SheetContent>
     </Sheet>
   );
 }
 
-function Cuerpo({ item, onClose }: { item: MaterialEnRevisionItem; onClose: () => void }) {
+function Cuerpo({
+  item,
+  onClose,
+  onAgregarEvidencia,
+}: {
+  item: MaterialEnRevisionItem;
+  onClose: () => void;
+  onAgregarEvidencia?: (item: MaterialEnRevisionItem) => void;
+}) {
+  const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
   const dictaminar = useDictaminarMaterialEnRevision();
   const [confirmar, setConfirmar] = useState(false);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  const [sinEvidencia, setSinEvidencia] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(crearSchema(item.cantidadPendiente)),
@@ -92,11 +119,17 @@ function Cuerpo({ item, onClose }: { item: MaterialEnRevisionItem; onClose: () =
   });
   const resultado = useWatch({ control: form.control, name: 'resultado' });
   const errors = form.formState.errors;
-  const verbo = resultado === ResultadoDictamen.Liberar ? 'Liberar' : 'Dar de baja';
+  const verbo =
+    resultado === ResultadoDictamen.Liberar
+      ? 'Liberar'
+      : resultado === ResultadoDictamen.Rechazar
+        ? 'Rechazar al proveedor'
+        : 'Dar de baja';
 
   function enviar() {
     const v = form.getValues();
     setErrorServidor(null);
+    setSinEvidencia(null);
     dictaminar.mutate(
       {
         lineaRevisionId: item.lineaRevisionId,
@@ -111,13 +144,28 @@ function Cuerpo({ item, onClose }: { item: MaterialEnRevisionItem; onClose: () =
       },
       {
         onSuccess: (resp) => {
-          toast.success(`Dictamen registrado${resp.folio ? ` · ${resp.folio}` : ''}`);
+          const devolucionId = resp.devolucionAProveedorId;
+          if (devolucionId) {
+            toast.success('Devolución abierta para autorización de Dirección', {
+              action: {
+                label: 'Ver devolución',
+                onClick: () =>
+                  void navigate({ to: '/almacen/devoluciones/proveedor/$id', params: { id: devolucionId } }),
+              },
+            });
+          } else {
+            toast.success(`Dictamen registrado${resp.folio ? ` · ${resp.folio}` : ''}`);
+          }
           setConfirmar(false);
           onClose();
         },
         onError: (error) => {
           setConfirmar(false);
           if (esApiError(error)) {
+            if (error.problem.code === 'DICTAMEN_RECHAZO_SIN_EVIDENCIA') {
+              setSinEvidencia(error.problem.detail ?? error.problem.title);
+              return;
+            }
             if (applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], error)) return;
             setErrorServidor(error.problem.detail ?? error.problem.title);
             return;
@@ -137,6 +185,20 @@ function Cuerpo({ item, onClose }: { item: MaterialEnRevisionItem; onClose: () =
         className="flex-1 space-y-4 overflow-y-auto px-6"
       >
         {errorServidor && <AvisoEnLinea tono="error">{errorServidor}</AvisoEnLinea>}
+        {sinEvidencia && (
+          <AvisoEnLinea
+            tono="advertencia"
+            accion={
+              onAgregarEvidencia && (
+                <Button type="button" variant="outline" size="sm" onClick={() => onAgregarEvidencia(item)}>
+                  Agregar evidencia
+                </Button>
+              )
+            }
+          >
+            {sinEvidencia}
+          </AvisoEnLinea>
+        )}
 
         <fieldset className="space-y-1">
           <legend className="text-sm font-medium text-ink">Resultado del dictamen</legend>
@@ -144,16 +206,22 @@ function Cuerpo({ item, onClose }: { item: MaterialEnRevisionItem; onClose: () =
             name="resultado"
             control={form.control}
             render={({ field }) => (
-              <div className="flex gap-4">
-                {([ResultadoDictamen.Liberar, ResultadoDictamen.Baja] as const).map((r) => (
-                  <label key={r} className="flex items-center gap-2 text-sm">
+              <div className="flex flex-col gap-2">
+                {([ResultadoDictamen.Liberar, ResultadoDictamen.Rechazar, ResultadoDictamen.Baja] as const).map((r) => (
+                  <label key={r} className="flex items-start gap-2 text-sm">
                     <input
                       type="radio"
                       name="resultado-dictamen"
+                      className="mt-1"
                       checked={field.value === r}
                       onChange={() => field.onChange(r)}
                     />
-                    {ResultadoDictamenLabels[r]}
+                    <span>
+                      {ResultadoDictamenLabels[r]}
+                      {DESCRIPCION_RESULTADO[r] && (
+                        <span className="block text-xs text-ink-muted">{DESCRIPCION_RESULTADO[r]}</span>
+                      )}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -237,8 +305,10 @@ function Cuerpo({ item, onClose }: { item: MaterialEnRevisionItem; onClose: () =
         titulo={`${verbo} material en revisión`}
         resumen={
           <p>
-            {verbo} {form.getValues('cantidad')} {item.unidadMedida} de {item.articuloClave ?? 'este artículo'}. Esta
-            acción mueve inventario y no se puede deshacer.
+            {verbo} {form.getValues('cantidad')} {item.unidadMedida} de {item.articuloClave ?? 'este artículo'}.{' '}
+            {resultado === ResultadoDictamen.Rechazar
+              ? 'Se abre una devolución al proveedor para autorización de Dirección; esta acción no se puede deshacer.'
+              : 'Esta acción mueve inventario y no se puede deshacer.'}
           </p>
         }
         verbo={verbo}

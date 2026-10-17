@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createQueryWrapper } from '@/test/test-query-client';
 import { DictamenRevisionSheet } from '@/features/almacen/components/DictamenRevisionSheet';
+import { toast } from 'sonner';
+import { ApiError } from '@/lib/api';
 import type { MaterialEnRevisionItem } from '@/features/almacen/api/types';
 
 const mutate = vi.fn();
+const navigate = vi.fn();
+
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock('@/features/almacen/api/useMaterialEnRevision', () => ({
   useDictaminarMaterialEnRevision: () => ({ mutate, isPending: false }),
@@ -43,15 +49,18 @@ const item: MaterialEnRevisionItem = {
   dictamenes: [],
 };
 
-function abrir() {
-  render(<DictamenRevisionSheet item={item} onOpenChange={() => {}} />, { wrapper: createQueryWrapper() });
+function abrir(onAgregarEvidencia?: () => void) {
+  render(<DictamenRevisionSheet item={item} onOpenChange={() => {}} onAgregarEvidencia={onAgregarEvidencia} />, { wrapper: createQueryWrapper() });
 }
 
 function llenarMotivo() {
   fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: 'Hoja utilizable' } });
 }
 
-beforeEach(() => mutate.mockClear());
+beforeEach(() => {
+  mutate.mockReset();
+  navigate.mockClear();
+});
 
 describe('<DictamenRevisionSheet>', () => {
   it('liberar sin rack muestra el error y no envía', async () => {
@@ -90,5 +99,47 @@ describe('<DictamenRevisionSheet>', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Liberar' }));
     expect(await screen.findByText('No puedes dictaminar más de lo pendiente (2).')).toBeInTheDocument();
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  async function rechazar() {
+    abrir(() => {});
+    llenarMotivo();
+    fireEvent.click(screen.getByRole('radio', { name: /Rechazar al proveedor/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rechazar al proveedor' }));
+    expect(await screen.findByText(/no se puede deshacer/)).toBeInTheDocument();
+    const botones = screen.getAllByRole('button', { name: 'Rechazar al proveedor' });
+    fireEvent.click(botones[botones.length - 1]);
+    await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+    return mutate.mock.calls[0];
+  }
+
+  it('Rechazar oculta el rack y envía resultado 1 sin ubicación', async () => {
+    const [arg] = await rechazar();
+    expect(screen.queryByRole('button', { name: 'Elegir rack' })).not.toBeInTheDocument();
+    expect(arg.command).toMatchObject({ resultado: 1, cantidad: 2, ubicacionDestinoId: null });
+  });
+
+  it('respuesta con devolucionAProveedorId avisa y la acción navega a la devolución', async () => {
+    const [, opts] = await rechazar();
+    opts.onSuccess({ dictamenId: 'd-1', resultado: 1, folio: null, devolucionAProveedorId: 'dev-9' });
+    expect(toast.success).toHaveBeenCalledWith(
+      'Devolución abierta para autorización de Dirección',
+      expect.objectContaining({ action: expect.objectContaining({ label: 'Ver devolución' }) }),
+    );
+    const accion = vi.mocked(toast.success).mock.calls.at(-1)![1] as { action: { onClick: () => void } };
+    accion.action.onClick();
+    expect(navigate).toHaveBeenCalledWith({ to: '/almacen/devoluciones/proveedor/$id', params: { id: 'dev-9' } });
+  });
+
+  it('error DICTAMEN_RECHAZO_SIN_EVIDENCIA muestra el aviso y «Agregar evidencia»', async () => {
+    const [, opts] = await rechazar();
+    const detail = 'Adjunta al menos una foto o evidencia del daño antes de rechazar el material.';
+    act(() => {
+      opts.onError(
+        new ApiError({ type: 'x', title: 'Regla de negocio', status: 422, detail, code: 'DICTAMEN_RECHAZO_SIN_EVIDENCIA' }, 422),
+      );
+    });
+    expect(await screen.findByText(detail)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agregar evidencia' })).toBeInTheDocument();
   });
 });
