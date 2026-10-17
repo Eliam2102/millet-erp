@@ -46,7 +46,7 @@ import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ProveedorDatosForm } from '@/modules/datos-maestros/components/ProveedorDatosForm';
-import { ProveedorBancariosSection } from '@/modules/datos-maestros/components/ProveedorBancariosSection';
+import { ProveedorCuentasBancariasSection } from '@/modules/datos-maestros/components/ProveedorCuentasBancariasSection';
 import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/ProveedorExpedienteSection';
 
 /**
@@ -55,7 +55,7 @@ import { ProveedorExpedienteSection } from '@/modules/datos-maestros/components/
  * acciones contextuales (Validar, Rechazar, Desactivar) + botón cerrar.
  * Sin tabs porque son pocas secciones — se renderizan directamente
  * <see cref="ProveedorDatosForm"/> y, si el usuario tiene el permiso
- * <c>bancarios-ver</c> (F1-ADM-05), <see cref="ProveedorBancariosSection"/> y, con <c>adjuntos-ver</c>
+ * <c>bancarios-ver</c> (F1-ADM-05), <see cref="ProveedorCuentasBancariasSection"/> y, con <c>adjuntos-ver</c>
  * (F1-ADM-11 G1.2), <see cref="ProveedorExpedienteSection"/>.
  *
  * <para>G1.1 (F1-ADM-05): los proveedores nacen en <c>EnRevision</c>.
@@ -341,7 +341,10 @@ export function ProveedorDetalle() {
         </Dialog>
         <ProveedorDatosForm proveedor={proveedor} />
         <ProveedorToleranciaSection key={proveedor.id} proveedorId={proveedor.id} montoMxn={proveedor.toleranciaFacturaContraOcMxn} />
-        <ProveedorBancariosSection proveedorId={proveedor.id} />
+        <ProveedorCuentasBancariasSection
+          proveedorId={proveedor.id}
+          razonSocial={proveedor.razonSocial}
+        />
         <ProveedorExpedienteSection proveedorId={proveedor.id} />
       </div>
 

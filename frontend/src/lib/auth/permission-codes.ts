@@ -116,6 +116,9 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.bancarios-ver',
   DatosMaestrosProveedoresBancariosEditar:
     'datos_maestros.proveedores.bancarios-editar',
+  // Validar/rechazar/inhabilitar/reactivar cuentas bancarias de proveedor.
+  DatosMaestrosProveedoresCuentasAdministrar:
+    'datos_maestros.proveedores.cuentas-administrar',
   // Expediente documental del proveedor (F1-ADM-11 G1.2).
   DatosMaestrosProveedoresAdjuntosVer:
     'datos_maestros.proveedores.adjuntos-ver',

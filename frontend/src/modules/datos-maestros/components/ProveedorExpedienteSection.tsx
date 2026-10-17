@@ -78,6 +78,7 @@ export function ProveedorExpedienteSection({ proveedorId }: { proveedorId: strin
 
   return (
     <section
+      id="expediente-proveedor"
       aria-labelledby="expediente-titulo"
       className="mt-4 max-w-3xl rounded-lg bg-surface-card p-4 shadow-card-flat"
       data-component="proveedor-expediente"

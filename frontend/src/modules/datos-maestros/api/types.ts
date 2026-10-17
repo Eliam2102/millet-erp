@@ -126,17 +126,6 @@ export interface ActualizarProveedorPayload {
   limpiarMonedaPreferida?: boolean | null;
   limpiarEmail?: boolean | null;
   limpiarTelefono?: boolean | null;
-  /**
-   * Datos bancarios (F1-ADM-05): requieren el permiso dedicado
-   * <c>datos_maestros.proveedores.bancarios-editar</c>; sin él el
-   * backend responde 403 <c>PROVEEDOR_BANCARIOS_SIN_PERMISO</c>.
-   */
-  banco?: string | null;
-  clabe?: string | null;
-  beneficiario?: string | null;
-  limpiarBanco?: boolean | null;
-  limpiarClabe?: boolean | null;
-  limpiarBeneficiario?: boolean | null;
 }
 
 export interface CrearProveedorResponse {
@@ -152,33 +141,72 @@ export interface CrearProveedorResponse {
   posibleDuplicadoDeId: string | null;
 }
 
-/**
- * Respuesta de <c>GET /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
- * (F1-ADM-05). Requiere el permiso <c>datos_maestros.proveedores.bancarios-ver</c>.
- * La CLABE llega enmascarada por el backend salvo que el usuario tenga
- * <c>tesoreria.movimientos.ver-cuenta-completa</c> (ADR-0018), en cuyo
- * caso <c>clabeCompleta = true</c>.
- */
-export interface ProveedorDatosBancarios {
-  id: string;
-  banco: string | null;
-  clabe: string | null;
-  beneficiario: string | null;
-  clabeCompleta: boolean;
-}
+/** Estado de una cuenta bancaria de proveedor (enum del backend, viaja como número). */
+export const EstadoCuentaBancariaProveedor = {
+  PorValidar: 0,
+  Activa: 1,
+  Inhabilitada: 2,
+  Rechazada: 3,
+} as const;
+export type EstadoCuentaBancariaProveedor =
+  (typeof EstadoCuentaBancariaProveedor)[keyof typeof EstadoCuentaBancariaProveedor];
+
+export const EstadoCuentaBancariaProveedorLabels: Record<
+  EstadoCuentaBancariaProveedor,
+  string
+> = {
+  0: 'Por validar',
+  1: 'Activa',
+  2: 'Inhabilitada',
+  3: 'Rechazada',
+};
 
 /**
- * Payload de <c>PATCH /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c> (G1.9 / F1-ADM-05).
- * Requiere únicamente el permiso <c>datos_maestros.proveedores.bancarios-editar</c>.
+ * Respuesta de <c>GET /api/v1/datos-maestros/proveedores/{id}/cuentas-bancarias</c>.
+ * <c>numero</c> llega enmascarado salvo que <c>numeroCompleto = true</c>.
  */
-export interface ActualizarDatosBancariosProveedorPayload {
-  banco?: string | null;
-  clabe?: string | null;
-  beneficiario?: string | null;
-  limpiarBanco?: boolean | null;
-  limpiarClabe?: boolean | null;
-  limpiarBeneficiario?: boolean | null;
+export interface CuentaBancariaProveedor {
+  id: string;
+  banco: string;
+  numero: string;
+  esClabe: boolean;
+  swift: string | null;
+  moneda: 'MXN' | 'USD';
+  titular: string;
+  predeterminada: boolean;
+  estado: EstadoCuentaBancariaProveedor;
+  capturadaPorNombre: string | null;
+  capturadaEn: string;
+  capturadaPorMi: boolean;
+  validadaPorNombre: string | null;
+  validadaEn: string | null;
+  documentoAdjuntoId: string | null;
+  notaValidacion: string | null;
+  motivoEstado: string | null;
+  numeroCompleto: boolean;
+  version: number;
 }
+
+export interface AgregarCuentaBancariaProveedorPayload {
+  banco: string;
+  clabe?: string | null;
+  numeroCuenta?: string | null;
+  swift?: string | null;
+  moneda: 'MXN' | 'USD';
+  titular: string;
+}
+
+export interface ValidarCuentaBancariaProveedorPayload {
+  documentoAdjuntoId: string;
+  cotejoCompleto: boolean;
+  nota?: string | null;
+}
+
+export type AccionCuentaBancariaProveedor =
+  | 'rechazar'
+  | 'inhabilitar'
+  | 'reactivar'
+  | 'predeterminada';
 
 // ─── Artículos ─────────────────────────────────────────────────────
 

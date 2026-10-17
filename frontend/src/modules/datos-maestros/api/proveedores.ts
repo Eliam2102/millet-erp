@@ -5,13 +5,15 @@ import {
   type ListarProveedoresFiltros,
 } from '@/modules/datos-maestros/api/keys';
 import type {
-  ActualizarDatosBancariosProveedorPayload,
+  AccionCuentaBancariaProveedor,
+  AgregarCuentaBancariaProveedorPayload,
   ActualizarProveedorPayload,
   CrearProveedorPayload,
   CrearProveedorResponse,
   ListarProveedoresResponse,
-  ProveedorDatosBancarios,
+  CuentaBancariaProveedor,
   ProveedorDetalle,
+  ValidarCuentaBancariaProveedorPayload,
 } from '@/modules/datos-maestros/api/types';
 
 /**
@@ -23,12 +25,10 @@ import type {
  *         enriquecida con filtros (rfc, razonSocial, tipoPersona,
  *         estatus). Permiso <c>datos_maestros.proveedores.gestionar</c>.</item>
  *   <item><c>GET    /api/v1/datos-maestros/proveedores/{id}</c> — detalle.</item>
- *   <item><c>GET    /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
- *         — banco/CLABE (enmascarada)/beneficiario (F1-ADM-05). Permiso
- *         <c>datos_maestros.proveedores.bancarios-ver</c>.</item>
- *   <item><c>PATCH  /api/v1/datos-maestros/proveedores/{id}/datos-bancarios</c>
- *         — edición de datos bancarios (F1-ADM-05 / G1.9). Permiso
- *         <c>datos_maestros.proveedores.bancarios-editar</c>.</item>
+ *   <item><c>GET/POST /api/v1/datos-maestros/proveedores/{id}/cuentas-bancarias</c>
+ *         y acciones por cuenta (validar, rechazar, inhabilitar, reactivar,
+ *         predeterminada). Permisos <c>bancarios-ver</c>/<c>bancarios-editar</c>
+ *         y <c>cuentas-administrar</c>.</item>
  *   <item><c>POST   /api/v1/catalogos/proveedores</c> — alta legacy B.5.
  *         Permiso <c>compartido.catalogos.administrar</c>.</item>
  *   <item><c>PATCH  /api/v1/catalogos/proveedores/{id}</c> — patch parcial.</item>
@@ -77,22 +77,20 @@ export function useProveedor(id: string | null | undefined) {
 }
 
 /**
- * Datos bancarios del proveedor (F1-ADM-05). Permiso dedicado
- * <c>datos_maestros.proveedores.bancarios-ver</c> — 403 si falta; el
- * caller debe gatear el render con <c>useHasPermission</c> antes de
- * montar este hook (evita el fetch fallido de entrada).
+ * Cuentas bancarias del proveedor. Permiso <c>bancarios-ver</c> (403 si
+ * falta): el caller gatea el render antes de montar el hook.
  */
-export function useProveedorDatosBancarios(id: string | null | undefined) {
+export function useCuentasBancariasProveedor(id: string | null | undefined) {
   return useQuery({
     queryKey:
       id != null
-        ? datosMaestrosKeys.proveedorDatosBancarios(id)
+        ? datosMaestrosKeys.proveedorCuentasBancarias(id)
         : (['datos-maestros', 'noop'] as const),
     queryFn: async ({ signal }) => {
       if (id == null)
-        throw new Error('useProveedorDatosBancarios invocado sin id');
-      const { data } = await apiRequest<ProveedorDatosBancarios>(
-        `/api/v1/datos-maestros/proveedores/${id}/datos-bancarios`,
+        throw new Error('useCuentasBancariasProveedor invocado sin id');
+      const { data } = await apiRequest<CuentaBancariaProveedor[]>(
+        `/api/v1/datos-maestros/proveedores/${id}/cuentas-bancarias`,
         { signal },
       );
       return data;
@@ -148,45 +146,109 @@ export function useActualizarProveedor() {
         queryKey: datosMaestrosKeys.proveedor(vars.id),
       });
       queryClient.invalidateQueries({
-        queryKey: datosMaestrosKeys.proveedorDatosBancarios(vars.id),
-      });
-      queryClient.invalidateQueries({
         queryKey: datosMaestrosKeys.proveedores(),
       });
     },
   });
 }
 
-export interface ActualizarDatosBancariosProveedorArgs {
-  id: string;
-  payload: ActualizarDatosBancariosProveedorPayload;
+export interface AgregarCuentaBancariaProveedorArgs {
+  proveedorId: string;
+  payload: AgregarCuentaBancariaProveedorPayload;
   idempotencyKey: string;
 }
 
-export function useActualizarDatosBancariosProveedor() {
+export function useAgregarCuentaBancariaProveedor() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, ActualizarDatosBancariosProveedorArgs>({
-    mutationFn: async ({ id, payload, idempotencyKey }) => {
+  return useMutation<
+    CuentaBancariaProveedor,
+    Error,
+    AgregarCuentaBancariaProveedorArgs
+  >({
+    mutationFn: async ({ proveedorId, payload, idempotencyKey }) => {
+      const { data } = await apiRequest<CuentaBancariaProveedor>(
+        `/api/v1/datos-maestros/proveedores/${proveedorId}/cuentas-bancarias`,
+        { method: 'POST', body: payload, idempotencyKey },
+      );
+      return data;
+    },
+    onSuccess: (_d, vars) =>
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedorCuentasBancarias(vars.proveedorId),
+      }),
+  });
+}
+
+export interface ValidarCuentaBancariaProveedorArgs {
+  proveedorId: string;
+  cuentaId: string;
+  version: number;
+  payload: ValidarCuentaBancariaProveedorPayload;
+  idempotencyKey: string;
+}
+
+export function useValidarCuentaBancariaProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, ValidarCuentaBancariaProveedorArgs>({
+    mutationFn: async ({
+      proveedorId,
+      cuentaId,
+      version,
+      payload,
+      idempotencyKey,
+    }) => {
       await apiRequest<void>(
-        `/api/v1/datos-maestros/proveedores/${id}/datos-bancarios`,
+        `/api/v1/datos-maestros/proveedores/${proveedorId}/cuentas-bancarias/${cuentaId}/validar`,
         {
-          method: 'PATCH',
+          method: 'POST',
           body: payload,
           idempotencyKey,
+          headers: { 'X-Expected-Version': String(version) },
         },
       );
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: (_d, vars) =>
       queryClient.invalidateQueries({
-        queryKey: datosMaestrosKeys.proveedor(vars.id),
-      });
-      queryClient.invalidateQueries({
-        queryKey: datosMaestrosKeys.proveedorDatosBancarios(vars.id),
-      });
-      queryClient.invalidateQueries({
-        queryKey: datosMaestrosKeys.proveedores(),
-      });
+        queryKey: datosMaestrosKeys.proveedorCuentasBancarias(vars.proveedorId),
+      }),
+  });
+}
+
+export interface CambiarCuentaBancariaProveedorArgs {
+  proveedorId: string;
+  cuentaId: string;
+  version: number;
+  accion: AccionCuentaBancariaProveedor;
+  /** Obligatorio (5–500) salvo en <c>predeterminada</c>. */
+  motivo?: string;
+  idempotencyKey: string;
+}
+
+export function useCambiarCuentaBancariaProveedor() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, CambiarCuentaBancariaProveedorArgs>({
+    mutationFn: async ({
+      proveedorId,
+      cuentaId,
+      version,
+      accion,
+      motivo,
+      idempotencyKey,
+    }) => {
+      await apiRequest<void>(
+        `/api/v1/datos-maestros/proveedores/${proveedorId}/cuentas-bancarias/${cuentaId}/${accion}`,
+        {
+          method: 'POST',
+          body: accion === 'predeterminada' ? undefined : { motivo },
+          idempotencyKey,
+          headers: { 'X-Expected-Version': String(version) },
+        },
+      );
     },
+    onSuccess: (_d, vars) =>
+      queryClient.invalidateQueries({
+        queryKey: datosMaestrosKeys.proveedorCuentasBancarias(vars.proveedorId),
+      }),
   });
 }
 
