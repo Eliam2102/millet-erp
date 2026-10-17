@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Inbox, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,6 +10,7 @@ import {
   EstadoBadge,
   DateTimeDisplay,
   MoneyDisplay,
+  PaginacionTabla,
 } from '@/components/erp';
 import {
   usePendientesAutorizacionOc,
@@ -73,7 +74,24 @@ export function BandejaPendientesOc() {
   const nivelNumerico =
     nivelActivo === 'Nivel1' ? NivelAutorizacion.Nivel1 : NivelAutorizacion.Nivel2;
 
-  const query = usePendientesAutorizacionOc({ nivel: nivelActivo });
+  // strict:false: la ruta valida page/pageSize; defensa si se monta sin search.
+  const rawSearch = useSearch({ strict: false }) as { page?: number; pageSize?: number };
+  const page = rawSearch.page ?? 1;
+  const pageSize = rawSearch.pageSize ?? 25;
+  const navigate = useNavigate();
+  function setPagina(nextPage: number, nextPageSize: number) {
+    void navigate({
+      to: '/compras/ordenes/pendientes-autorizacion',
+      search: { page: nextPage, pageSize: nextPageSize },
+    });
+  }
+
+  function cambiarNivel(nivel: NivelAutorizacionFiltro) {
+    setNivelActivo(nivel);
+    if (page > 1) setPagina(1, pageSize);
+  }
+
+  const query = usePendientesAutorizacionOc({ nivel: nivelActivo, page, pageSize });
   // limit alto + includeInactivas para no perder proveedores
   // históricos en la columna proveedor de la bandeja (respaldo si el
   // backend no resolvió el nombre).
@@ -221,12 +239,12 @@ export function BandejaPendientesOc() {
           >
             <NivelTab
               activo={nivelActivo === 'Nivel1'}
-              onClick={() => setNivelActivo('Nivel1')}
+              onClick={() => cambiarNivel('Nivel1')}
               label="Nivel 1 (Jefe Compras)"
             />
             <NivelTab
               activo={nivelActivo === 'Nivel2'}
-              onClick={() => setNivelActivo('Nivel2')}
+              onClick={() => cambiarNivel('Nivel2')}
               label="Nivel 2 (Dirección)"
             />
           </nav>
@@ -311,6 +329,15 @@ export function BandejaPendientesOc() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {((query.data?.totalCount ?? 0) > 0 || page > 1) && (
+        <PaginacionTabla
+          total={query.data?.totalCount ?? 0}
+          offset={(page - 1) * pageSize}
+          limit={pageSize}
+          onChange={(offset, limit) => setPagina(Math.floor(offset / limit) + 1, limit)}
+        />
       )}
     </div>
   );

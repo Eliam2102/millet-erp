@@ -20,6 +20,7 @@ import {
   SortableHeader,
   compareItemsBy,
   type SortState,
+  PaginacionTabla,
 } from '@/components/erp';
 import { usePendientesAutorizacion } from '@/features/compras/api/usePendientesAutorizacion';
 import {
@@ -286,7 +287,7 @@ export function BandejaPendientes() {
             variant="ghost"
             size="sm"
             onClick={() =>
-              setSearch({ offset: 0, limit: search.limit ?? 50 })
+              setSearch({ offset: 0, limit: search.limit ?? 25 })
             }
           >
             Limpiar filtros
@@ -501,10 +502,10 @@ export function BandejaPendientes() {
             })}
           </ul>
 
-          <Paginacion
+          <PaginacionTabla
             total={query.data?.total ?? 0}
             offset={search.offset ?? 0}
-            limit={search.limit ?? 50}
+            limit={search.limit ?? 25}
             onChange={(offset, limit) =>
               setSearch({ ...search, offset, limit })
             }
@@ -530,61 +531,6 @@ function ResultadoFila({ resultado }: ResultadoFilaProps) {
     >
       {resultado.ok ? 'Aprobada' : (resultado.mensaje ?? 'Error al aprobar')}
     </span>
-  );
-}
-
-interface PaginacionProps {
-  total: number;
-  offset: number;
-  limit: number;
-  onChange: (offset: number, limit: number) => void;
-}
-
-function Paginacion({ total, offset, limit, onChange }: PaginacionProps) {
-  const desde = total === 0 ? 0 : offset + 1;
-  const hasta = Math.min(offset + limit, total);
-  const tieneAnterior = offset > 0;
-  const tieneSiguiente = offset + limit < total;
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      <span>
-        Mostrando {desde}–{hasta} de {total}
-      </span>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5">
-          Tamaño página:
-          <select
-            value={limit}
-            onChange={(e) => onChange(0, Number(e.target.value))}
-            className="rounded border bg-background px-1.5 py-0.5 text-xs"
-            aria-label="Tamaño de página"
-          >
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneAnterior}
-          onClick={() => onChange(Math.max(0, offset - limit), limit)}
-        >
-          Anterior
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneSiguiente}
-          onClick={() => onChange(offset + limit, limit)}
-        >
-          Siguiente
-        </Button>
-      </div>
-    </div>
   );
 }
 

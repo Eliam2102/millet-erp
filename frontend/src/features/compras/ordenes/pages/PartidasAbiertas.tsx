@@ -8,6 +8,7 @@ import {
   TableSkeleton,
   EstadoBadge,
   DateTimeDisplay,
+  PaginacionTabla,
 } from '@/components/erp';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
@@ -161,8 +162,6 @@ function RenderTabla({
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(data.totalCount / data.pageSize));
-
   return (
     <>
       <div className="overflow-x-auto rounded-md border bg-card">
@@ -232,37 +231,14 @@ function RenderTabla({
         </table>
       </div>
 
-      {/* Paginación simple */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Página {data.page} de {totalPages} · {data.totalCount.toLocaleString()} OCs
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={data.page <= 1}
-            onClick={() =>
-              onChangeSearch({ ...search, page: Math.max(1, data.page - 1) })
-            }
-          >
-            Anterior
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={data.page >= totalPages}
-            onClick={() =>
-              onChangeSearch({
-                ...search,
-                page: Math.min(totalPages, data.page + 1),
-              })
-            }
-          >
-            Siguiente
-          </Button>
-        </div>
-      </div>
+      <PaginacionTabla
+        total={data.totalCount}
+        offset={(data.page - 1) * data.pageSize}
+        limit={data.pageSize}
+        onChange={(offset, limit) =>
+          onChangeSearch({ ...search, page: Math.floor(offset / limit) + 1, pageSize: limit })
+        }
+      />
     </>
   );
 }

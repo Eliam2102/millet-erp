@@ -62,6 +62,6 @@ export const ordenesKeys = {
   detail: (id: string) => [...ordenesKeys.all, 'detail', id] as const,
 
   /** UF4-PR1: bandeja P2 de pendientes-autorización filtrada por nivel. */
-  pendientes: (nivel: 'Nivel1' | 'Nivel2' | 'todos') =>
-    [...ordenesKeys.all, 'pendientes', nivel] as const,
+  pendientes: (nivel: 'Nivel1' | 'Nivel2' | 'todos', page?: number, pageSize?: number) =>
+    [...ordenesKeys.all, 'pendientes', nivel, ...(page != null ? [page, pageSize] : [])] as const,
 } as const;

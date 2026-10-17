@@ -11,6 +11,7 @@ import {
   SortableHeader,
   compareItemsBy,
   type SortState,
+  PaginacionTabla,
 } from '@/components/erp';
 import { useOrdenesCompra } from '@/features/compras/ordenes/api/useOrdenesCompra';
 import { useProveedores, useUsuarios, mapById } from '@/features/catalogos/api';
@@ -312,12 +313,12 @@ function RenderTabla({
         </tbody>
       </table>
 
-      <Paginacion
+      <PaginacionTabla
         total={total}
-        page={search.page ?? 1}
-        pageSize={search.pageSize ?? 50}
-        onChange={(page, pageSize) =>
-          onChangeSearch({ ...search, page, pageSize })
+        offset={((search.page ?? 1) - 1) * (search.pageSize ?? 25)}
+        limit={search.pageSize ?? 25}
+        onChange={(offset, limit) =>
+          onChangeSearch({ ...search, page: Math.floor(offset / limit) + 1, pageSize: limit })
         }
       />
     </div>
@@ -329,65 +330,3 @@ function RenderTabla({
 // `components/HoverSubEstados.tsx` (UF6-PR1). UF7-PR1 lo consumirá
 // también en la pantalla de Partidas Abiertas.
 // ============================================================================
-
-// ============================================================================
-// Paginación page/pageSize (mirror del backend ListarOrdenesCompraResponse).
-// Diferente al de RQ que usa offset/limit; cada submódulo respeta el shape
-// real de su endpoint.
-// ============================================================================
-
-interface PaginacionProps {
-  total: number;
-  page: number;
-  pageSize: number;
-  onChange: (page: number, pageSize: number) => void;
-}
-
-function Paginacion({ total, page, pageSize, onChange }: PaginacionProps) {
-  const desde = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const hasta = Math.min(page * pageSize, total);
-  const tieneAnterior = page > 1;
-  const tieneSiguiente = page * pageSize < total;
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      <span>
-        Mostrando {desde}–{hasta} de {total}
-      </span>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5">
-          Tamaño página:
-          <select
-            value={pageSize}
-            onChange={(e) => onChange(1, Number(e.target.value))}
-            className="rounded border bg-background px-1.5 py-0.5 text-xs"
-            aria-label="Tamaño de página"
-          >
-            <option value={10}>10</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneAnterior}
-          onClick={() => onChange(Math.max(1, page - 1), pageSize)}
-        >
-          Anterior
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!tieneSiguiente}
-          onClick={() => onChange(page + 1, pageSize)}
-        >
-          Siguiente
-        </Button>
-      </div>
-    </div>
-  );
-}

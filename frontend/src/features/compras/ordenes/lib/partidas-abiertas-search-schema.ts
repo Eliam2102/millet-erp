@@ -54,7 +54,7 @@ export const PartidasAbiertasSearchSchema = z.object({
   semanaEmbarque: z.string().min(1).optional(),
   diasAtrasadosMinimos: z.coerce.number().int().min(0).optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
-  pageSize: z.coerce.number().int().min(10).max(200).optional().default(50),
+  pageSize: z.coerce.number().int().min(10).max(200).optional().default(25),
 });
 
 export type PartidasAbiertasSearch = z.infer<
@@ -63,5 +63,5 @@ export type PartidasAbiertasSearch = z.infer<
 
 export const DEFAULT_PARTIDAS_ABIERTAS_SEARCH: PartidasAbiertasSearch = {
   page: 1,
-  pageSize: 50,
+  pageSize: 25,
 };

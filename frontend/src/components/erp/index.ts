@@ -57,6 +57,7 @@ export {
   type SortState,
 } from '@/components/erp/display/sort';
 export { clickableRowProps } from '@/components/erp/data/clickable-row';
+export { PaginacionTabla, type PaginacionTablaProps } from '@/components/erp/data/PaginacionTabla';
 export {
   EstadoBadge,
   EnAlmacenBadge,

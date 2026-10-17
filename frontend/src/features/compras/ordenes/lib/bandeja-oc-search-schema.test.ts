@@ -11,7 +11,7 @@ import {
 } from '@/features/compras/ordenes/api/types';
 
 describe('BandejaOcSearchSchema', () => {
-  it('input vacío: aplica defaults page=1, pageSize=50', () => {
+  it('input vacío: aplica defaults page=1, pageSize=25', () => {
     expect(BandejaOcSearchSchema.parse({})).toEqual(DEFAULT_BANDEJA_OC_SEARCH);
   });
 

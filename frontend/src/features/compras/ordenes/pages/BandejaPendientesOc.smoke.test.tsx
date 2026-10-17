@@ -8,6 +8,8 @@ import { EstadoOrdenCompra } from '@/features/compras/ordenes/api/types';
 import { useAuthStore } from '@/lib/auth/auth-store';
 
 vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({ page: 1, pageSize: 25 }),
+  useNavigate: () => vi.fn(),
   Link: ({
     children,
     to,

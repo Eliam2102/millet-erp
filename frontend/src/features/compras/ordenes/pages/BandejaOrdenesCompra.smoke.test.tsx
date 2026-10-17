@@ -235,7 +235,7 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
     );
     renderConProvider(<BandejaOrdenesCompra />);
     await waitFor(() =>
-      expect(screen.getByText(/Mostrando 1–1 de 1/i)).toBeInTheDocument(),
+      expect(screen.getByText(/1–1 de 1/i)).toBeInTheDocument(),
     );
   });
 
