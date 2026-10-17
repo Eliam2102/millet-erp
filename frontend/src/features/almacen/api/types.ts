@@ -856,6 +856,8 @@ export interface LineaConteoParaCapturarDto {
   articuloClave: string | null;
   articuloDescripcion: string | null;
   subAlmacenClave: string | null;
+  /** Unidad de medida del maestro de artículos (decimales y etiqueta de captura). */
+  unidadMedida: string | null;
 }
 
 /**
@@ -887,6 +889,12 @@ export interface LineaConteoComparacionDto {
   articuloClave: string | null;
   articuloDescripcion: string | null;
   subAlmacenClave: string | null;
+  unidadMedida: string | null;
+}
+
+/** Líneas que tendría un conteo con el sub-almacén y la familia elegidos. */
+export interface VistaPreviaConteo {
+  cantidadLineas: number;
 }
 
 export interface CrearConteoCommand {

@@ -4,7 +4,13 @@ import { ArrowLeft, ArrowRight, Check, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ErrorState, TableSkeleton } from '@/components/erp';
+import {
+  cabeEnDecimales,
+  ErrorState,
+  stepParaDecimales,
+  TableSkeleton,
+  useDecimalesUnidad,
+} from '@/components/erp';
 import {
   EtiquetaArticulo,
   EtiquetaSubAlmacen,
@@ -236,6 +242,7 @@ function TablaCaptura({
             <th className="px-3 py-2 text-left">Sub-almacén</th>
             <th className="px-3 py-2 text-left">Rack</th>
             <th className="px-3 py-2 text-right">Cantidad real</th>
+            <th className="px-3 py-2 text-left">UM</th>
             <th className="px-3 py-2 text-left">Estado</th>
           </tr>
         </thead>
@@ -283,10 +290,20 @@ function FilaCaptura({
       : '',
   );
 
+  const decimales = useDecimalesUnidad().porCodigo(linea.unidadMedida);
+
   function intentarGuardar() {
     const numero = Number(valor);
     if (Number.isNaN(numero) || numero < 0) {
       toast.error('Cantidad inválida');
+      return;
+    }
+    if (decimales != null && !cabeEnDecimales(numero, decimales)) {
+      toast.error(
+        decimales === 0
+          ? `${linea.unidadMedida} se cuenta en enteros`
+          : `${linea.unidadMedida} admite hasta ${decimales} decimales`,
+      );
       return;
     }
     onGuardar(numero);
@@ -331,7 +348,7 @@ function FilaCaptura({
             ref={inputRef}
             type="number"
             inputMode="decimal"
-            step="0.0001"
+            step={decimales != null ? stepParaDecimales(decimales) : 'any'}
             min="0"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
@@ -356,6 +373,9 @@ function FilaCaptura({
             )}
           </Button>
         </div>
+      </td>
+      <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+        {linea.unidadMedida ?? '—'}
       </td>
       <td className="px-3 py-2">
         {capturada ? (

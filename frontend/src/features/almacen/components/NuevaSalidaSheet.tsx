@@ -9,7 +9,7 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueries } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -79,6 +79,13 @@ import { saldosPorUbicacionQueryOptions } from '@/features/almacen/api/useSaldos
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { useRequisicion } from '@/features/compras/api/useRequisicion';
 import { cn } from '@/lib/utils';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
+import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
+import {
+  AVISOS_SALIDA,
+  CODIGOS_SALIDA,
+} from '@/features/almacen/components/nueva-salida-helpers';
 import { Field } from '@/features/almacen/components/internal/Field';
 
 /**
@@ -119,8 +126,16 @@ export function NuevaSalidaSheet({
   puedeRegistrarConRq,
   puedeRegistrarVale,
 }: NuevaSalidaSheetProps) {
+  // Cerrar (Esc, clic fuera, X y Cancelar) pide confirmación si hay cambios.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
       <SheetContent side="right" className="sm:max-w-3xl">
         <SheetHeader>
           <SheetTitle>Nueva salida</SheetTitle>
@@ -135,11 +150,13 @@ export function NuevaSalidaSheet({
           <NuevaSalidaFormBody
             puedeRegistrarConRq={puedeRegistrarConRq}
             puedeRegistrarVale={puedeRegistrarVale}
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => onOpenChange(false)}
+            onSuccess={() => solicitarCierre(true)}
+            onCancel={() => solicitarCierre()}
+            onDirtyChange={setDirty}
           />
         )}
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }
@@ -149,11 +166,13 @@ function NuevaSalidaFormBody({
   puedeRegistrarVale,
   onSuccess,
   onCancel,
+  onDirtyChange,
 }: {
   puedeRegistrarConRq: boolean;
   puedeRegistrarVale: boolean;
   onSuccess: () => void;
   onCancel: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
@@ -188,8 +207,29 @@ function NuevaSalidaFormBody({
 
   const lookup = useDecimalesUnidad();
 
-  function cambiarVariante(siguiente: Variante) {
+  const isDirty = form.formState.isDirty || valeAdjunto != null;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
+
+  // Cambiar de variante reinicia el form: con datos capturados pide confirmación.
+  const [varianteSolicitada, setVarianteSolicitada] = useState<Variante | null>(null);
+  const [avisoServidor, setAvisoServidor] = useState<{
+    titulo: string;
+    detalle: string;
+    sucursal: boolean;
+  } | null>(null);
+
+  function solicitarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
+    if (isDirty) setVarianteSolicitada(siguiente);
+    else cambiarVariante(siguiente);
+  }
+
+  function cambiarVariante(siguiente: Variante) {
+    setVarianteSolicitada(null);
+    setAvisoServidor(null);
     setVariante(siguiente);
     setValeAdjunto(null);
     form.reset(defaultValuesParaVariante(siguiente, hoyIso));
@@ -323,43 +363,44 @@ function NuevaSalidaFormBody({
   }
 
   function manejarError(error: unknown) {
-    if (esApiError(error)) {
-      if (error.code === 'SALIDA_STOCK_INSUFICIENTE') {
-        toast.error('Stock insuficiente para alguna línea.', {
-          description:
-            error.problem.detail ?? error.problem.title,
-        });
-        return;
-      }
-      if (error.code === 'SALIDA_RQ_NO_AUTORIZADA') {
-        form.setError('requisicionId', {
-          type: error.code,
-          message: 'La RQ no está autorizada o ya fue surtida.',
-        });
-        return;
-      }
-      if (error.code === 'SALIDA_SUCURSAL_DISTINTA') {
-        form.setError('requisicionId', {
-          type: error.code,
-          message:
-            error.problem.detail ?? 'La requisición es de otra sucursal.',
-        });
-        return;
-      }
-      if (
-        applyServerErrors(
-          form as unknown as Parameters<typeof applyServerErrors>[0],
-          error,
-        )
-      ) {
-        return;
-      }
-      toast.error(error.problem.title, {
-        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+    if (!esApiError(error)) {
+      toast.error('Error inesperado al registrar la salida.');
+      return;
+    }
+    setAvisoServidor(null);
+    if (error.code === 'SALIDA_RQ_NO_AUTORIZADA') {
+      form.setError('requisicionId', {
+        type: error.code,
+        message: 'La RQ no está autorizada o ya fue surtida.',
       });
       return;
     }
-    toast.error('Error inesperado al registrar la salida.');
+    if (error.code === 'SALIDA_SUCURSAL_DISTINTA') {
+      form.setError('requisicionId', {
+        type: error.code,
+        message: error.problem.detail ?? 'La requisición es de otra sucursal.',
+      });
+      return;
+    }
+    const resultado = applyServerErrors(
+      form as unknown as Parameters<typeof applyServerErrors>[0],
+      error,
+      { codigos: CODIGOS_SALIDA },
+    );
+    if (resultado === 'callout') {
+      // El servidor no indica la línea: aviso persistente con qué falta y cómo se destraba.
+      const aviso = AVISOS_SALIDA[error.code ?? ''];
+      setAvisoServidor({
+        titulo: aviso?.titulo ?? 'No se pudo registrar',
+        detalle: `${error.problem.detail ?? error.problem.title} ${aviso?.ayuda ?? ''}`.trim(),
+        sucursal: error.code === 'SALIDA_SUCURSAL_REQUERIDA',
+      });
+      return;
+    }
+    if (resultado) return;
+    toast.error(error.problem.title, {
+      description: error.traceId ? `Código: ${error.traceId}` : undefined,
+    });
   }
 
   const isPending = registrarA.isPending || registrarB.isPending;
@@ -379,7 +420,7 @@ function NuevaSalidaFormBody({
               <VarianteOption
                 value="A"
                 active={variante === 'A'}
-                onSelect={cambiarVariante}
+                onSelect={solicitarVariante}
                 titulo="Con RQ"
                 descripcion="Salida normal contra requisición aprobada."
               />
@@ -388,7 +429,7 @@ function NuevaSalidaFormBody({
               <VarianteOption
                 value="B"
                 active={variante === 'B'}
-                onSelect={cambiarVariante}
+                onSelect={solicitarVariante}
                 titulo="Vale urgente"
                 descripcion="Sin RQ; adjunta vale firmado. Regulariza en 48 h."
               />
@@ -494,6 +535,22 @@ function NuevaSalidaFormBody({
           />
         </Field>
 
+        {avisoServidor && (
+          <AvisoEnLinea
+            tono="error"
+            titulo={avisoServidor.titulo}
+            accion={
+              avisoServidor.sucursal ? (
+                <Link to="/almacen/almacenes" className="font-medium underline">
+                  Ir a Almacenes
+                </Link>
+              ) : undefined
+            }
+          >
+            {avisoServidor.detalle}
+          </AvisoEnLinea>
+        )}
+
         {variante === 'A' ? (
           <FilasDesdeRq form={form} />
         ) : (
@@ -518,6 +575,16 @@ function NuevaSalidaFormBody({
           {isPending ? 'Registrando…' : 'Registrar salida'}
         </Button>
       </SheetFooter>
+
+      <ConfirmarAccionDialog
+        open={varianteSolicitada != null}
+        onOpenChange={(o) => !o && setVarianteSolicitada(null)}
+        titulo="¿Cambiar el tipo de salida?"
+        resumen="Se perderán la requisición, las líneas y el vale capturados."
+        verbo="Cambiar tipo"
+        tono="peligro"
+        onConfirmar={() => varianteSolicitada && cambiarVariante(varianteSolicitada)}
+      />
     </>
   );
 }

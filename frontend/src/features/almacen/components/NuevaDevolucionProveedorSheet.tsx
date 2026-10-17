@@ -343,6 +343,7 @@ function FormBody({
                   value={field.value ?? null}
                   onChange={handleRecepcionChange}
                   ordenCompraId={ordenCompraIdWatched ?? null}
+                  proveedorId={proveedorIdWatched || null}
                 />
               )}
             />

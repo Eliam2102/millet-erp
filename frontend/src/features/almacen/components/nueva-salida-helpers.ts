@@ -82,3 +82,44 @@ export function construirFilasDeRq(
     };
   });
 }
+
+/**
+ * Códigos de negocio del registro de salida que el servidor no ata a una
+ * línea concreta: van al aviso persistente (`AvisoEnLinea`) sobre las líneas.
+ */
+export const CODIGOS_SALIDA: Record<string, 'callout'> = {
+  SALIDA_EXCEDE_AUTORIZADO: 'callout',
+  SALIDA_MULTI_SUBALMACEN: 'callout',
+  SALIDA_BLOQUEADA_POR_INVENTARIO_ANUAL: 'callout',
+  SALIDA_EXISTENCIA_APARTADA: 'callout',
+  SALIDA_UBICACION_REQUERIDA: 'callout',
+  SALIDA_SUCURSAL_REQUERIDA: 'callout',
+};
+
+/** Título del aviso y cómo se destraba cada código de `CODIGOS_SALIDA`. */
+export const AVISOS_SALIDA: Record<string, { titulo: string; ayuda: string }> = {
+  SALIDA_EXCEDE_AUTORIZADO: {
+    titulo: 'Una cantidad excede lo autorizado',
+    ayuda: 'Baja la cantidad de la línea al pendiente de entregar.',
+  },
+  SALIDA_MULTI_SUBALMACEN: {
+    titulo: 'Las líneas salen de sub-almacenes distintos',
+    ayuda: 'Elige racks del mismo sub-almacén o registra salidas separadas.',
+  },
+  SALIDA_BLOQUEADA_POR_INVENTARIO_ANUAL: {
+    titulo: 'El sub-almacén está en inventario anual',
+    ayuda: 'No hay salidas hasta que se cierre o apruebe el conteo en curso.',
+  },
+  SALIDA_EXISTENCIA_APARTADA: {
+    titulo: 'La existencia está apartada',
+    ayuda: 'Otra requisición tiene apartada esa existencia; reduce la cantidad o libera el apartado.',
+  },
+  SALIDA_UBICACION_REQUERIDA: {
+    titulo: 'Falta el rack de una línea',
+    ayuda: 'Elige el rack de origen en cada línea marcada.',
+  },
+  SALIDA_SUCURSAL_REQUERIDA: {
+    titulo: 'El almacén no tiene sucursal configurada',
+    ayuda: 'Asigna la sucursal al almacén y vuelve a registrar.',
+  },
+};

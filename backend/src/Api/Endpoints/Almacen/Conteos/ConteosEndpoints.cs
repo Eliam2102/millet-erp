@@ -44,6 +44,25 @@ public static class ConteosEndpoints
         .WithSummary("Listar conteos de inventario (bandeja)")
         .Produces<AlmacenPagedResponse<ConteoListItem>>(StatusCodes.Status200OK);
 
+        // GET /vista-previa (cuántas líneas tendría un conteo con ese sub-almacén y familia).
+        group.MapGet("/vista-previa", async (
+            [FromQuery] Guid? subAlmacenId,
+            [FromQuery] string? familia,
+            DocumentoSucursalScope documentos,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (subAlmacenId is Guid sub)
+                await documentos.VerificarAsync("sub_almacen", sub, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            else
+                await documentos.VerificarSucursalAsync(null, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            return Results.Ok(await mediator.Send(new VistaPreviaConteoQuery(subAlmacenId, familia), ct));
+        })
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosCrear)
+        .WithName("VistaPreviaConteo")
+        .WithSummary("Número de líneas que tendría un conteo con el sub-almacén y la familia dados")
+        .Produces<VistaPreviaConteoDto>(StatusCodes.Status200OK);
+
         // GET /{id} (detalle).
         group.MapGet("/{id:guid}", async (Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {

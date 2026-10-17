@@ -38,12 +38,14 @@ public static class RecepcionesEndpoints
             [FromQuery] DateOnly? hasta,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] Guid? proveedorId,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken ct) =>
         {
             var (off, lim) = NormalizePaging(offset, limit);
             var response = await mediator.Send(
-                new ListarRecepcionesQuery(estado, subAlmacenId, ordenCompraId, desde, hasta, off, lim), ct);
+                new ListarRecepcionesQuery(estado, subAlmacenId, ordenCompraId, desde, hasta, off, lim, proveedorId, q), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenEntradasLeer)

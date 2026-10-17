@@ -112,6 +112,20 @@ export function AprobacionConteoPage() {
 
   const aplicarIdempotencyKey = useFormIdempotencyKey();
 
+  // Mismo criterio que el backend al aprobar: requiere recuento, sin recuento
+  // ni aprobación individual.
+  const pendientesRecuento = useMemo(
+    () =>
+      (comparacionQuery.data ?? []).filter(
+        (l) => l.requiereRecuento && !l.aprobadoIndividualmente && !l.recuentoRealizado,
+      ).length,
+    [comparacionQuery.data],
+  );
+  const motivoNoAprobar =
+    pendientesRecuento > 0
+      ? `${pendientesRecuento} ${pendientesRecuento === 1 ? 'línea pendiente' : 'líneas pendientes'} de recuento o aprobación individual`
+      : null;
+
   const montoNeto = useMemo(
     () => montoNetoConteo(comparacionQuery.data ?? []),
     [comparacionQuery.data],
@@ -244,7 +258,11 @@ export function AprobacionConteoPage() {
                         <Calculator className="mr-2 h-4 w-4" />
                         Evaluar variaciones (A7)
                       </Button>
-                      <Button onClick={() => setAprobarConteoOpen(true)}>
+                      <Button
+                        onClick={() => setAprobarConteoOpen(true)}
+                        disabled={motivoNoAprobar != null}
+                        aria-describedby={motivoNoAprobar ? 'motivo-no-aprobar' : undefined}
+                      >
                         <Check className="mr-2 h-4 w-4" />
                         Aprobar conteo
                       </Button>
@@ -256,6 +274,11 @@ export function AprobacionConteoPage() {
                         Rechazar
                       </Button>
                     </>
+                  )}
+                  {enConciliacion && motivoNoAprobar && (
+                    <p id="motivo-no-aprobar" className="basis-full text-sm text-muted-foreground">
+                      No puedes aprobar aún: {motivoNoAprobar}.
+                    </p>
                   )}
                   {aprobado && (
                     <Button onClick={() => setAplicarOpen(true)}>
@@ -288,6 +311,7 @@ export function AprobacionConteoPage() {
         <RecuentoDialog
           conteoId={id}
           lineaId={recuentoLineaId}
+          linea={comparacionQuery.data?.find((l) => l.id === recuentoLineaId)}
           open={recuentoLineaId != null}
           onOpenChange={(v) => !v && setRecuentoLineaId(null)}
         />
@@ -521,11 +545,13 @@ function TablaComparacion({
 function RecuentoDialog({
   conteoId,
   lineaId,
+  linea,
   open,
   onOpenChange,
 }: {
   conteoId: string;
   lineaId: string;
+  linea?: LineaConteoComparacionDto;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -561,6 +587,14 @@ function RecuentoDialog({
           <DialogDescription>
             Captura la cantidad recontada por el contador en una segunda
             pasada. El backend re-evalúa la variación (A7).
+            {linea && (
+              <span className="mt-1 block font-medium text-foreground">
+                {linea.articuloClave ?? linea.articuloId.slice(0, 8)}
+                {linea.articuloDescripcion ? ` · ${linea.articuloDescripcion}` : ''}
+                {' · '}rack {linea.ubicacionClave}
+                {linea.unidadMedida ? ` · en ${linea.unidadMedida}` : ''}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -806,8 +840,22 @@ function RechazarConteoDialog({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+const MENSAJES_APROBACION: Record<string, string> = {
+  CONTEO_APROBAR_LINEAS_PENDIENTES_RECUENTO:
+    'Hay líneas pendientes: haz el recuento o apruébalas una por una antes de aprobar el conteo.',
+  CONTEO_NIVEL_APROBACION_INSUFICIENTE:
+    'Tu permiso no alcanza el nivel que pide el monto neto del ajuste. Pide a un aprobador de nivel superior que apruebe el conteo.',
+};
+
 function manejarError(error: unknown) {
   if (esApiError(error)) {
+    const mensaje = error.code ? MENSAJES_APROBACION[error.code] : undefined;
+    if (mensaje) {
+      toast.error(mensaje, {
+        description: error.traceId ? `Código: ${error.traceId}` : undefined,
+      });
+      return;
+    }
     toast.error(error.problem.title, {
       description: error.problem.detail ?? (error.traceId ? `Código: ${error.traceId}` : undefined),
     });

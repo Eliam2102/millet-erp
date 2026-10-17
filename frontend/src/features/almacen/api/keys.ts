@@ -29,6 +29,9 @@ export interface ListarRecepcionesFiltros {
   hasta?: string;
   offset?: number;
   limit?: number;
+  proveedorId?: string;
+  /** Búsqueda por folio, server-side. */
+  q?: string;
 }
 
 export interface ListarSalidasFiltros {
@@ -170,6 +173,8 @@ export const almacenKeys = {
   conteos: () => [...almacenKeys.all, 'conteos'] as const,
   conteosList: (filtros: ListarConteosFiltros) =>
     [...almacenKeys.conteos(), 'list', filtros] as const,
+  conteoVistaPrevia: (subAlmacenId: string | null, familia: string | null) =>
+    [...almacenKeys.conteos(), 'vista-previa', subAlmacenId, familia] as const,
   conteoById: (id: string) => [...almacenKeys.conteos(), 'byId', id] as const,
   lineasParaCapturar: (conteoId: string) =>
     [...almacenKeys.conteoById(conteoId), 'lineas-para-capturar'] as const,

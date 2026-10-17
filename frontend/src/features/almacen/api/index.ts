@@ -62,6 +62,7 @@ export {
   useLineasParaCapturar,
   useCapturarLinea,
   useEnviarConteoAConciliacion,
+  useVistaPreviaConteo,
 } from '@/features/almacen/api/useConteos';
 export {
   useLineasComparacion,

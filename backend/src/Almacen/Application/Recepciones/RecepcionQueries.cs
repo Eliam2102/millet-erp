@@ -76,7 +76,9 @@ public sealed record ListarRecepcionesQuery(
     DateOnly? Desde,
     DateOnly? Hasta,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<RecepcionListItem>>, IDocumentoScopedQuery
+    int Limit,
+    Guid? ProveedorId = null,
+    string? Q = null) : IRequest<AlmacenPagedResponse<RecepcionListItem>>, IDocumentoScopedQuery
 {
     public string TipoDocumento => "recepcion";
     public string PermisoTodasSucursales => "almacen.entradas.leer-todas-sucursales";
@@ -110,6 +112,18 @@ public sealed class ListarRecepcionesHandler
         if (request.OrdenCompraId is Guid ocid) query = query.Where(m => m.OcId == ocid);
         if (request.Desde is DateOnly d) query = query.Where(m => m.FechaMovimiento >= d);
         if (request.Hasta is DateOnly h) query = query.Where(m => m.FechaMovimiento <= h);
+        // Proveedor: la recepción no lo guarda; se resuelve vía las OC del proveedor (puerto de Compras).
+        if (request.ProveedorId is Guid pid)
+        {
+            var ocsProveedor = (await _ordenesCompra.ObtenerIdsPorProveedorAsync(pid, cancellationToken)).ToArray();
+            query = query.Where(m => m.OcId != null && ocsProveedor.Contains(m.OcId.Value));
+        }
+        // Búsqueda por folio de la recepción (server-side); los folios se generan en mayúsculas.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(m => m.Folio != null && m.Folio.Contains(q));
+        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query
