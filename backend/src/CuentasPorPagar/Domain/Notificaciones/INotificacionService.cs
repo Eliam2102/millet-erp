@@ -33,12 +33,12 @@ public sealed record SlaRevisionNotificacion(
 
 public enum NivelEscalamientoSla
 {
-    /// <summary>Día 3 (o 8 para SLA 15): aviso al gerente del área revisora.</summary>
+    /// <summary>Día hábil 3 (o 8 para SLA 15): aviso al gerente del área revisora.</summary>
     AvisoGerente   = 1,
 
-    /// <summary>Día 5 (o 12 para SLA 15): SLA vencido + alerta visible en bandeja.</summary>
+    /// <summary>Día hábil 5 (o 12 para SLA 15): SLA vencido + alerta visible en bandeja.</summary>
     SlaVencido     = 2,
 
-    /// <summary>Día 10 (o 20 para SLA 15): escalamiento al director del área.</summary>
+    /// <summary>Día 10 hábil (20 para SLA 15): escalamiento a Dirección de Finanzas.</summary>
     EscalamientoDirector = 3,
 }

@@ -409,8 +409,11 @@ export interface FacturaEnRevisionItem {
   moneda: string;
   motivoRevisionId: string;
   fechaEntradaRevision: string;
+  /** Días hábiles en revisión. */
   diasEnRevision: number;
   version: number;
+  slaDias: number | null;
+  nivelAviso: 1 | 2 | 3 | null;
 }
 
 export interface EnviarFacturaARevisionCommand {

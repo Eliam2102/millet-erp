@@ -20,7 +20,8 @@ import {
   useDependenciasRevisoras,
 } from '@/features/cxp/api/useRevision';
 import { esApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { etiquetaAviso, tonoPlazo } from '@/features/cxp/lib/sla-revision';
 import type { RevisionSearch } from '@/features/cxp/lib/revision-search-schema';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -31,8 +32,9 @@ const SENTINEL_ALL = '__all__';
 /**
  * <c>P2 — Bandeja "Revisión por área"</c> (doc 07 §FE-F3-PR1). El
  * responsable del área filtra por su dependencia revisora (UUID en URL)
- * y motivo opcional. Cada fila muestra el SLA visualmente: verde si
- * dentro de plazo, ámbar si quedan ≤ 1 día, rojo si excedido.
+ * y motivo opcional. Cada fila muestra los días hábiles contra el plazo
+ * del motivo (verde dentro de plazo, ámbar desde el aviso, rojo desde el
+ * vencimiento; neutral si el motivo no tiene plazo) y el último aviso emitido.
  *
  * <para>PLATFORM-TODO(&lt;DependenciasRevisorasUsuarioContext&gt;):
  * cuando Admin resuelva usuario → dependencia, ocultar el filtro
@@ -137,6 +139,7 @@ export function RevisionPage() {
             { width: 'w-32' },
             { width: 'w-32' },
             { width: 'w-24' },
+            { width: 'w-32' },
           ]}
         />
       ) : (query.data?.items.length ?? 0) === 0 ? (
@@ -152,7 +155,8 @@ export function RevisionPage() {
                 <th className="px-3 py-2 text-left">Folio</th>
                 <th className="px-3 py-2 text-left">Motivo</th>
                 <th className="px-3 py-2 text-left">En revisión desde</th>
-                <th className="px-3 py-2 text-right">Días</th>
+                <th className="px-3 py-2 text-right">Días hábiles</th>
+                <th className="px-3 py-2 text-left">Aviso</th>
                 <th className="px-3 py-2 text-right">Total</th>
               </tr>
             </thead>
@@ -180,7 +184,10 @@ export function RevisionPage() {
                     <DateTimeDisplay value={f.fechaEntradaRevision} variant="corta" />
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <SlaBadge dias={f.diasEnRevision} />
+                    <SlaBadge dias={f.diasEnRevision} slaDias={f.slaDias} />
+                  </td>
+                  <td className="px-3 py-2">
+                    {aviso(f.nivelAviso)}
                   </td>
                   <td className="py-2 pl-3 pr-4 text-right tabular-nums">
                     <MoneyDisplay amount={f.total} currency={f.moneda} strong />
@@ -196,22 +203,20 @@ export function RevisionPage() {
 }
 
 /**
- * Badge de SLA: ámbar a partir de 3 días, rojo a partir de 5. Los
- * umbrales son una aproximación; el SLA real depende del motivo (5 o
- * 15 días por catálogo).
+ * Badge de plazo: días hábiles contra el plazo del motivo. Ámbar desde el
+ * umbral de aviso, rojo desde el vencimiento (umbrales por motivo, ver
+ * <c>sla-revision.ts</c>); neutral si el motivo no tiene plazo.
  */
-function SlaBadge({ dias }: { dias: number }) {
+function SlaBadge({ dias, slaDias }: { dias: number; slaDias: number | null }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium font-mono',
-        dias < 3 && 'bg-success-bg text-success-fg',
-        dias >= 3 && dias < 5 && 'bg-warning-bg text-warning-fg',
-        dias >= 5 && 'bg-danger-bg text-danger-fg',
-      )}
-    >
-      {dias}d
-    </span>
+    <Badge variant={tonoPlazo(dias, slaDias)} className="tabular-nums">
+      {slaDias == null ? `${dias} · sin plazo` : `${dias} de ${slaDias}`}
+    </Badge>
   );
 }
 
+/** Último aviso emitido en el episodio vigente, o guion si no hay. */
+function aviso(nivel: 1 | 2 | 3 | null) {
+  const x = etiquetaAviso(nivel);
+  return x ? <Badge variant={x.tono}>{x.texto}</Badge> : <span className="text-muted-foreground">—</span>;
+}
