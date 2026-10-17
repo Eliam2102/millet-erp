@@ -421,10 +421,12 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
         var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
         Assert.True(await identidad.UsuarioEmpresaAlcances.AnyAsync(a => a.UsuarioId == usuarioId && a.EmpresaId == empresaId && a.EsCorporativo));
         Assert.False(await identidad.UsuarioSucursales.AnyAsync(a => a.UsuarioId == usuarioId && a.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo));
-        // Otras pruebas en paralelo crean o desactivan sucursales de la misma empresa: se compara solo
-        // cuando el catálogo no cambió entre las dos lecturas (antes daba falsos negativos intermitentes).
+        // El corporativo alcanza TODAS las sucursales de la empresa, también las inactivas (consulta
+        // histórica), igual que UsuarioSucursalReadAdapter.ListarIdsAsync/EstaAsociadoAsync. Antes se
+        // comparaba solo contra las activas y fallaba cuando otra prueba dejaba una sucursal inactiva.
+        // Otras pruebas en paralelo crean sucursales: se compara cuando el catálogo no cambió entre lecturas.
         Task<List<Guid>> ActivasAsync() => compartido.Sucursales.AsNoTracking()
-            .Where(s => s.EmpresaId == empresaId && s.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo)
+            .Where(s => s.EmpresaId == empresaId)
             .Select(s => s.Id).OrderBy(id => id).ToListAsync();
         List<Guid> esperadas = [], permitidas = [];
         for (var intento = 0; intento < 5; intento++)
