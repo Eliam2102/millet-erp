@@ -13,13 +13,15 @@ namespace Millet.Tesoreria.Infrastructure.Workers;
 
 /// <summary>
 /// <c>BackgroundService</c> que se conecta al topic
-/// <c>facturacion-events</c> (TES-PR7, 01-diseño §8.2/§9) y cierra dos
-/// ciclos del lado ingresos:
+/// <c>facturacion-events</c> (TES-PR7, 01-diseño §8.2/§9) y cierra
+/// tres ciclos del lado ingresos:
 /// <list type="bullet">
 /// <item><c>caja-sesion.cerrada.v1</c> → expectativa de depósito Caja→Banco
 /// (cierra PLATFORM-TODO(&lt;TesoreriaCajaSesion&gt;)).</item>
 /// <item><c>recibo-pago.timbrado.v1</c> → marca <c>repp_timbrado=true</c>
 /// en la confirmación correspondiente (ciclo fiscal cerrado).</item>
+/// <item><c>nota-credito.reembolso-solicitado.v1</c> → crea la devolución a
+/// cliente de origen nota de crédito (T9.6 · CA6.17).</item>
 /// </list>
 ///
 /// <para>
@@ -157,6 +159,14 @@ public sealed class FacturacionEventListenerWorker : BackgroundService
                     var payload = JsonSerializer.Deserialize<ReciboPagoTimbradoPayload>(body, JsonOpts)
                         ?? throw new JsonException("Payload null.");
                     await mediator.Send(new MarcarReppTimbradoCommand(eventId, payload), cancellationToken);
+                    break;
+                }
+
+                case NotaCreditoReembolsoSolicitadoPayload.EventType:
+                {
+                    var payload = JsonSerializer.Deserialize<NotaCreditoReembolsoSolicitadoPayload>(body, JsonOpts)
+                        ?? throw new JsonException("Payload null.");
+                    await mediator.Send(new ProyectarReembolsoNotaCreditoCommand(eventId, payload), cancellationToken);
                     break;
                 }
 

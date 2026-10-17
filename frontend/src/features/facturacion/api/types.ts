@@ -1130,6 +1130,8 @@ export interface NotaCreditoAplicadaDetalle {
   total: number;
   uuid: string | null;
   fechaTimbrado: string | null;
+  /** T9.6 · CA6.17: ya se pidió a Tesorería el reembolso de esta NC. */
+  reembolsoSolicitado?: boolean;
 }
 
 /** Respuesta de POST /comprobantes/{id}/reintentar-timbrado (todos los tipos). */

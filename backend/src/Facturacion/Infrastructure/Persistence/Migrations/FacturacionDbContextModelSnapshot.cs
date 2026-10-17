@@ -3365,9 +3365,18 @@ namespace Millet.Facturacion.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("importe_afecta_inventario");
 
+                    b.Property<decimal?>("ImporteReembolsoSolicitado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("importe_reembolso_solicitado");
+
                     b.Property<short>("Motivo")
                         .HasColumnType("smallint")
                         .HasColumnName("motivo");
+
+                    b.Property<DateTimeOffset?>("ReembolsoSolicitadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reembolso_solicitado_en");
 
                     b.HasIndex("AnticipoOrigenId")
                         .HasDatabaseName("ix_nota_credito_anticipo")

@@ -192,4 +192,23 @@ public sealed class TesoreriaContratosConsumidosTests
 
         evento.EventType.Should().Be(ReciboPagoTimbradoPayload.EventType);
     }
+
+    [Fact]
+    public void ReembolsoNcSolicitado_v1_es_compatible_con_el_espejo()
+    {
+        var evento = new NotaCreditoReembolsoSolicitadoIntegrationEvent(
+            EmpresaId: EmpresaId, OcurridoEn: OcurridoEn, NotaCreditoId: Guid.NewGuid(), Folio: "NC-100",
+            Uuid: "3FA85F64-5717-4562-B3FC-2C963F66AFA6", ClienteId: Guid.NewGuid(), ReceptorRfc: "AAA010101AAA",
+            Importe: 800m, TotalNotaCredito: 1_000m, Moneda: "MXN", SucursalId: Guid.NewGuid(),
+            Motivo: "Bonificación", SolicitadoPor: Guid.NewGuid());
+
+        var espejo = RoundTrip<NotaCreditoReembolsoSolicitadoPayload>(evento);
+
+        espejo.Should().BeEquivalentTo(new NotaCreditoReembolsoSolicitadoPayload(
+            evento.EmpresaId, evento.OcurridoEn, evento.NotaCreditoId, evento.Folio, evento.Uuid,
+            evento.ClienteId, evento.Importe, evento.TotalNotaCredito, evento.Moneda, evento.SucursalId,
+            evento.Motivo, evento.SolicitadoPor));
+
+        evento.EventType.Should().Be(NotaCreditoReembolsoSolicitadoPayload.EventType);
+    }
 }

@@ -102,6 +102,23 @@ public sealed record NotaCreditoTimbradaIntegrationEvent(
     DateOnly? FechaContable = null)
     : IntegrationEvent("facturacion.nota-credito.timbrada.v1", EmpresaId, OcurridoEn);
 
+// ---- Reembolso de NC solicitado a Tesorería (T9.6 · CA6.17; supuesto E11: viaja por facturacion-events) ----
+public sealed record NotaCreditoReembolsoSolicitadoIntegrationEvent(
+    Guid EmpresaId,
+    DateTimeOffset OcurridoEn,
+    Guid NotaCreditoId,
+    string Folio,
+    string? Uuid,
+    Guid ClienteId,
+    string ReceptorRfc,
+    decimal Importe,
+    decimal TotalNotaCredito,
+    string Moneda,
+    Guid SucursalId,
+    string Motivo,
+    Guid SolicitadoPor)
+    : IntegrationEvent("facturacion.nota-credito.reembolso-solicitado.v1", EmpresaId, OcurridoEn);
+
 /// <summary>
 /// Desglose por factura pagada dentro de un REPP (CXC-PR3). El sufijo
 /// "Detalle" evita colisión con el DTO homónimo de EmitirReppCommand.

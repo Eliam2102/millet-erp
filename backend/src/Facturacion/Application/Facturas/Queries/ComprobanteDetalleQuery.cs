@@ -64,7 +64,8 @@ public sealed record NotaCreditoAplicadaDetalle(
     string Motivo,
     decimal Total,
     string? Uuid,
-    DateTimeOffset? FechaTimbrado);
+    DateTimeOffset? FechaTimbrado,
+    bool ReembolsoSolicitado = false);
 
 public sealed record ComprobanteLineaDetalle(
     int Posicion,
@@ -138,10 +139,11 @@ public sealed class ComprobanteDetalleHandler
         var ncAplicadas = (await _db.NotasCredito.AsNoTracking()
                 .Where(n => n.FacturaRelacionadaId == f.Id && n.Estado == EstadoTimbrado.Timbrado)
                 .OrderBy(n => n.FolioNumero)
-                .Select(n => new { n.Id, n.Folio, n.Motivo, n.Total, n.Uuid, n.FechaTimbrado })
+                .Select(n => new { n.Id, n.Folio, n.Motivo, n.Total, n.Uuid, n.FechaTimbrado, n.ReembolsoSolicitadoEn })
                 .ToListAsync(cancellationToken))
             .Select(n => new NotaCreditoAplicadaDetalle(
-                n.Id, n.Folio, n.Motivo.ToString(), n.Total, n.Uuid, n.FechaTimbrado))
+                n.Id, n.Folio, n.Motivo.ToString(), n.Total, n.Uuid, n.FechaTimbrado,
+                ReembolsoSolicitado: n.ReembolsoSolicitadoEn != null))
             .ToList();
         var totalAcreditado = ncAplicadas.Sum(n => n.Total);
 
