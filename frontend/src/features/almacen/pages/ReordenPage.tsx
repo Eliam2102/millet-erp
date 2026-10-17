@@ -52,6 +52,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { ReordenSheet } from '@/features/almacen/components/ReordenSheet';
 import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/reorden' as const;
 const SENTINEL_ALL = '__all__';
@@ -549,7 +550,7 @@ function TablaReorden({
             <tr key={item.id} className="border-t">
               <td className="px-3 py-2">{articulo}</td>
               <td className="px-3 py-2">
-                <NivelBadge nivel={item.nivel} />
+                <EstadoAlmacenBadge tipo="nivel-reorden" estado={item.nivel} />
               </td>
               <td className="px-3 py-2">{entidad}</td>
               <ValorCelda
@@ -568,7 +569,7 @@ function TablaReorden({
                 {item.autoRequisicion ? 'Sí' : 'No'}
               </td>
               <td className="px-3 py-2">
-                <EstatusBadge estatus={item.estatus} />
+                <EstadoAlmacenBadge tipo="catalogo" estado={item.estatus} />
               </td>
               {puedeAdministrar && (
                 <td className="px-3 py-2 text-right">
@@ -617,32 +618,4 @@ function ValorCelda({ valor, activo }: { valor: number; activo: boolean }) {
   );
 }
 
-function NivelBadge({ nivel }: { nivel: NivelReorden }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        nivel === NivelReorden.Sucursal
-          ? 'bg-sky-100 text-sky-800'
-          : 'bg-violet-100 text-violet-800',
-      )}
-    >
-      {NivelReordenLabels[nivel]}
-    </span>
-  );
-}
 
-function EstatusBadge({ estatus }: { estatus: EstatusCatalogo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estatus === EstatusCatalogo.Activo && 'bg-emerald-100 text-emerald-800',
-        estatus === EstatusCatalogo.Inactivo && 'bg-slate-200 text-slate-700',
-        estatus === EstatusCatalogo.Borrador && 'bg-amber-100 text-amber-800',
-      )}
-    >
-      {EstatusCatalogoLabels[estatus]}
-    </span>
-  );
-}

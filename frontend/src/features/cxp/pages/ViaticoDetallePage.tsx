@@ -1,4 +1,5 @@
 import { Link, useParams } from '@tanstack/react-router';
+import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
@@ -59,14 +60,14 @@ export function ViaticoDetallePage() {
                 {query.data.destino}
               </h1>
               <EstadoSolicitudViaticosChip estado={query.data.estado} />
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+              <Badge variant="neutral">
                 {TipoDestinoViaticoLabels[query.data.tipoDestino]}
-              </span>
+              </Badge>
               {query.data.excedePolitica && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                <Badge variant="warning">
                   <AlertTriangle className="mr-1 h-3 w-3" />
                   Excede política
-                </span>
+                </Badge>
               )}
             </div>
             <p className="text-sm text-muted-foreground">
@@ -236,9 +237,7 @@ export function ViaticoDetallePage() {
                         </td>
                         <td className="px-3 py-2">
                           {l.esTicketNoFiscal ? (
-                            <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-                              No fiscal
-                            </span>
+                            <Badge variant="neutral">No fiscal</Badge>
                           ) : (
                             <span className="font-mono text-xs">
                               {l.uuidCfdi ?? '—'}

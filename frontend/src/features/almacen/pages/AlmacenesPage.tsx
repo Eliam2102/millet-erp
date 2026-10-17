@@ -30,7 +30,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { AlmacenSheet } from '@/features/almacen/components/AlmacenSheet';
 import type { AlmacenesSearch } from '@/features/almacen/lib/catalogo-search-schemas';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/almacenes' as const;
 const SENTINEL_ALL = '__all__';
@@ -317,7 +317,7 @@ function TablaAlmacenes({
               <td className="px-3 py-2">{a.nombre}</td>
               <td className="px-3 py-2">{a.sucursal}</td>
               <td className="px-3 py-2">
-                <EstatusBadge estatus={a.estatus} />
+                <EstadoAlmacenBadge tipo="catalogo" estado={a.estatus} />
               </td>
               {puedeAdministrar && (
                 <td className="px-3 py-2 text-right">
@@ -340,20 +340,3 @@ function TablaAlmacenes({
   );
 }
 
-function EstatusBadge({ estatus }: { estatus: EstatusCatalogo }) {
-  const label = EstatusCatalogoLabels[estatus];
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estatus === EstatusCatalogo.Activo &&
-          'bg-emerald-100 text-emerald-800',
-        estatus === EstatusCatalogo.Inactivo && 'bg-slate-200 text-slate-700',
-        estatus === EstatusCatalogo.Borrador &&
-          'bg-amber-100 text-amber-800',
-      )}
-    >
-      {label}
-    </span>
-  );
-}

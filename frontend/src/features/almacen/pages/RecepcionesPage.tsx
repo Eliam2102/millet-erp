@@ -32,8 +32,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcionSheet';
 import type { RecepcionesSearch } from '@/features/almacen/lib/recepciones-search-schema';
-import { cn } from '@/lib/utils';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/recepciones/' as const;
 const SENTINEL_ALL = '__all__';
@@ -403,7 +403,7 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
                 {formatearMonto(r.montoTotalMxn)}
               </td>
               <td className="px-3 py-2">
-                <EstadoMovimientoBadge estado={r.estado} />
+                <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
               </td>
             </tr>
             );
@@ -414,22 +414,6 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
   );
 }
 
-function EstadoMovimientoBadge({ estado }: { estado: EstadoMovimiento }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoMovimiento.Borrador && 'bg-slate-200 text-slate-700',
-        estado === EstadoMovimiento.Validado && 'bg-blue-100 text-blue-800',
-        estado === EstadoMovimiento.Registrado &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoMovimiento.Cancelado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoMovimientoLabels[estado]}
-    </span>
-  );
-}
 
 function formatearMonto(v: number): string {
   return new Intl.NumberFormat('es-MX', {

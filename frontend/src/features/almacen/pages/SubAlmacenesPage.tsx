@@ -35,7 +35,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { SubAlmacenSheet } from '@/features/almacen/components/SubAlmacenSheet';
 import type { SubAlmacenesSearch } from '@/features/almacen/lib/catalogo-search-schemas';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/sub-almacenes' as const;
 const SENTINEL_ALL = '__all__';
@@ -377,7 +377,7 @@ function TablaSubAlmacenes({
               <td className="px-3 py-2">{s.nombre}</td>
               <td className="px-3 py-2">{TipoSubAlmacenLabels[s.tipo]}</td>
               <td className="px-3 py-2">
-                <EstatusBadge estatus={s.estatus} />
+                <EstadoAlmacenBadge tipo="catalogo" estado={s.estatus} />
               </td>
               {puedeAdministrar && (
                 <td className="px-3 py-2 text-right">
@@ -400,20 +400,3 @@ function TablaSubAlmacenes({
   );
 }
 
-function EstatusBadge({ estatus }: { estatus: EstatusCatalogo }) {
-  const label = EstatusCatalogoLabels[estatus];
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estatus === EstatusCatalogo.Activo &&
-          'bg-emerald-100 text-emerald-800',
-        estatus === EstatusCatalogo.Inactivo && 'bg-slate-200 text-slate-700',
-        estatus === EstatusCatalogo.Borrador &&
-          'bg-amber-100 text-amber-800',
-      )}
-    >
-      {label}
-    </span>
-  );
-}

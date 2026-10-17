@@ -8,8 +8,6 @@ import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 import { useValeBlob } from '@/features/almacen/api/useValeBlob';
 import {
-  EstadoMovimiento,
-  EstadoMovimientoLabels,
   type SalidaDetalle,
 } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
@@ -18,7 +16,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { ubicacionLabel } from '@/features/almacen/components/impresion/salida-display';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/salidas/$id' as const;
 
@@ -73,7 +71,7 @@ export function SalidaDetallePage() {
               <h1 className="text-2xl font-semibold tracking-tight font-mono">
                 {query.data.folio}
               </h1>
-              <EstadoMovimientoBadge estado={query.data.estado} />
+              <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
               {query.data.esPorVale && <RegularizacionValeBadge salida={query.data} />}
             </div>
             <p className="text-sm text-muted-foreground">
@@ -265,22 +263,6 @@ function Campo({
   );
 }
 
-function EstadoMovimientoBadge({ estado }: { estado: EstadoMovimiento }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoMovimiento.Borrador && 'bg-slate-200 text-slate-700',
-        estado === EstadoMovimiento.Validado && 'bg-blue-100 text-blue-800',
-        estado === EstadoMovimiento.Registrado &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoMovimiento.Cancelado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoMovimientoLabels[estado]}
-    </span>
-  );
-}
 
 function formatearMonto(v: number): string {
   return new Intl.NumberFormat('es-MX', {

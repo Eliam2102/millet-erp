@@ -6,7 +6,6 @@ import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useDevolucionProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
 import {
   EstadoDevolucionProveedor,
-  EstadoDevolucionProveedorLabels,
 } from '@/features/almacen/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
@@ -18,7 +17,7 @@ import {
   RegistrarSalidaDevolucionSheet,
   SolicitarAutorizacionConfirm,
 } from '@/features/almacen/components/DevolucionAccionesDialogs';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/devoluciones/proveedor/$id' as const;
 
@@ -91,7 +90,7 @@ export function DevolucionProveedorDetallePage() {
               <h1 className="text-2xl font-semibold tracking-tight">
                 Devolución a proveedor
               </h1>
-              <EstadoBadge estado={query.data.estado} />
+              <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={query.data.estado} />
             </div>
             <p className="text-sm text-muted-foreground">
               Solicitada el{' '}
@@ -375,29 +374,6 @@ function Campo({
   );
 }
 
-function EstadoBadge({ estado }: { estado: EstadoDevolucionProveedor }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoDevolucionProveedor.Borrador &&
-          'bg-slate-200 text-slate-700',
-        estado === EstadoDevolucionProveedor.EnAutorizacion &&
-          'bg-amber-100 text-amber-800',
-        estado === EstadoDevolucionProveedor.Autorizada &&
-          'bg-blue-100 text-blue-800',
-        estado === EstadoDevolucionProveedor.Registrada &&
-          'bg-violet-100 text-violet-800',
-        estado === EstadoDevolucionProveedor.ConciliadaConNcFiscal &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoDevolucionProveedor.Rechazada &&
-          'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoDevolucionProveedorLabels[estado]}
-    </span>
-  );
-}
 
 function formatearMonto(v: number): string {
   return new Intl.NumberFormat('es-MX', {

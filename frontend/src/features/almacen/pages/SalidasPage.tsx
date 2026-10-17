@@ -32,9 +32,9 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { NuevaSalidaSheet } from '@/features/almacen/components/NuevaSalidaSheet';
 import type { SalidasSearch } from '@/features/almacen/lib/salidas-search-schema';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/salidas/' as const;
 const SENTINEL_ALL = '__all__';
@@ -460,7 +460,7 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
                 {formatearMonto(r.montoTotalMxn)}
               </td>
               <td className="px-3 py-2">
-                <EstadoMovimientoBadge estado={r.estado} />
+                <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
               </td>
             </tr>
             );
@@ -471,11 +471,6 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
   );
 }
 
-function EstadoMovimientoBadge({ estado }: { estado: EstadoMovimiento }) {
-  const variant = estado === EstadoMovimiento.Registrado ? 'success'
-    : estado === EstadoMovimiento.Validado ? 'info' : 'neutral';
-  return <Badge variant={variant}>{EstadoMovimientoLabels[estado]}</Badge>;
-}
 
 function formatearMonto(v: number): string {
   return new Intl.NumberFormat('es-MX', {

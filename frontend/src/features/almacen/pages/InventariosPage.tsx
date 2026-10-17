@@ -32,7 +32,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { NuevoConteoSheet } from '@/features/almacen/components/NuevoConteoSheet';
 import type { ConteosSearch } from '@/features/almacen/lib/conteos-search-schema';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/inventarios/' as const;
 const SENTINEL_ALL = '__all__';
@@ -347,7 +347,7 @@ function TablaConteos({
                 </Link>
               </td>
               <td className="px-3 py-2">
-                <EstadoConteoBadge estado={c.estado} />
+                <EstadoAlmacenBadge tipo="conteo" estado={c.estado} />
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
                 {c.fechaPlanificada}
@@ -367,21 +367,3 @@ function TablaConteos({
   );
 }
 
-function EstadoConteoBadge({ estado }: { estado: EstadoConteo }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoConteo.Planificado && 'bg-slate-200 text-slate-700',
-        estado === EstadoConteo.EnCurso && 'bg-blue-100 text-blue-800',
-        estado === EstadoConteo.EnConciliacion &&
-          'bg-amber-100 text-amber-800',
-        estado === EstadoConteo.Aprobado && 'bg-violet-100 text-violet-800',
-        estado === EstadoConteo.Aplicado && 'bg-emerald-100 text-emerald-800',
-        estado === EstadoConteo.Rechazado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoConteoLabels[estado]}
-    </span>
-  );
-}

@@ -131,12 +131,9 @@ export function FacturaDetallePage() {
               </h1>
               <EstadoPasivoChip estado={query.data.estado} />
               {query.data.enRevision && (
-                <span
-                  className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
-                  data-testid="en-revision-flag"
-                >
+                <Badge variant="warning" data-testid="en-revision-flag">
                   En revisión por área
-                </span>
+                </Badge>
               )}
               <ToleranciaIndicator
                 diferencia={query.data.diferenciaContraOc}

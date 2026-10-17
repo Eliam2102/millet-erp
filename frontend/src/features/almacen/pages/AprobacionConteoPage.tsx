@@ -50,7 +50,6 @@ import {
 } from '@/features/almacen/api/useAprobacionConteo';
 import {
   EstadoConteo,
-  EstadoConteoLabels,
   TipoConteo,
   type LineaConteoComparacionDto,
 } from '@/features/almacen/api/types';
@@ -67,6 +66,7 @@ import { VariacionBadge } from '@/features/almacen/components/VariacionBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
 import { cn } from '@/lib/utils';
 import { montoNetoConteo } from '@/features/almacen/lib/monto-neto-conteo';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/inventarios/$id/aprobacion' as const;
 
@@ -220,9 +220,7 @@ export function AprobacionConteoPage() {
                 Aprobación de conteo
               </h1>
               {conteo && (
-                <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  {EstadoConteoLabels[conteo.estado]}
-                </span>
+                <EstadoAlmacenBadge tipo="conteo" estado={conteo.estado} />
               )}
             </div>
             <p className="text-sm text-muted-foreground">

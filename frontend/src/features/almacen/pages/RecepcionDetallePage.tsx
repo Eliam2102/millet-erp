@@ -7,11 +7,9 @@ import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
 import { useRecepcion } from '@/features/almacen/api/useRecepciones';
 import {
-  EstadoMovimiento,
-  EstadoMovimientoLabels,
 } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 /**
  * <c>P2 — Detalle de recepción</c> (doc 07 §FE-F2-PR1). Vista de solo
@@ -67,7 +65,7 @@ export function RecepcionDetallePage() {
               <h1 className="text-2xl font-semibold tracking-tight font-mono">
                 {query.data.folio}
               </h1>
-              <EstadoMovimientoBadge estado={query.data.estado} />
+              <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
             </div>
             <p className="text-sm text-muted-foreground">
               Fecha de movimiento: {query.data.fechaMovimiento}
@@ -215,22 +213,6 @@ function Campo({
   );
 }
 
-function EstadoMovimientoBadge({ estado }: { estado: EstadoMovimiento }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoMovimiento.Borrador && 'bg-slate-200 text-slate-700',
-        estado === EstadoMovimiento.Validado && 'bg-blue-100 text-blue-800',
-        estado === EstadoMovimiento.Registrado &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoMovimiento.Cancelado && 'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoMovimientoLabels[estado]}
-    </span>
-  );
-}
 
 function formatearMonto(v: number): string {
   return new Intl.NumberFormat('es-MX', {

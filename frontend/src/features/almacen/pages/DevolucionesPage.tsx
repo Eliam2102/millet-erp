@@ -41,7 +41,7 @@ import {
   type MatRevModo,
 } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
-import { cn } from '@/lib/utils';
+import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/devoluciones/' as const;
 const SENTINEL_ALL = '__all__';
@@ -356,7 +356,7 @@ function TablaDevoluciones({
                 )}
               </td>
               <td className="px-3 py-2">
-                <EstadoBadge estado={d.estado} />
+                <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={d.estado} />
               </td>
               <td className="px-3 py-2 text-right font-mono">
                 {formatearMonto(d.montoTotalMxn)}
@@ -378,29 +378,6 @@ function TablaDevoluciones({
   );
 }
 
-function EstadoBadge({ estado }: { estado: EstadoDevolucionProveedor }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        estado === EstadoDevolucionProveedor.Borrador &&
-          'bg-slate-200 text-slate-700',
-        estado === EstadoDevolucionProveedor.EnAutorizacion &&
-          'bg-amber-100 text-amber-800',
-        estado === EstadoDevolucionProveedor.Autorizada &&
-          'bg-blue-100 text-blue-800',
-        estado === EstadoDevolucionProveedor.Registrada &&
-          'bg-violet-100 text-violet-800',
-        estado === EstadoDevolucionProveedor.ConciliadaConNcFiscal &&
-          'bg-emerald-100 text-emerald-800',
-        estado === EstadoDevolucionProveedor.Rechazada &&
-          'bg-rose-100 text-rose-800',
-      )}
-    >
-      {EstadoDevolucionProveedorLabels[estado]}
-    </span>
-  );
-}
 
 function formatearMonto(v: number): string {
   return new Intl.NumberFormat('es-MX', {
