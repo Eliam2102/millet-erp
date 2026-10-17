@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -449,7 +450,16 @@ function FilaLinea({
         {formatCantidad(Math.max(linea.cantidad - linea.cantidadRecibida, 0), decimales)}
       </td>
       <td className="px-3 py-2 text-right tabular-nums">
-        <MoneyDisplay amount={linea.precioUnitario} currency={moneda} />
+        {linea.precioUnitario <= 0 ? (
+          <span className="inline-flex flex-col items-end gap-1" data-testid="oc-linea-sin-precio">
+            <span className="font-medium text-danger-fg">
+              <MoneyDisplay amount={linea.precioUnitario} currency={moneda} />
+            </span>
+            <Badge variant="warning">Sin precio</Badge>
+          </span>
+        ) : (
+          <MoneyDisplay amount={linea.precioUnitario} currency={moneda} />
+        )}
       </td>
       <td className="px-3 py-2 text-right tabular-nums font-medium">
         <MoneyDisplay amount={linea.subtotalLinea} currency={moneda} />

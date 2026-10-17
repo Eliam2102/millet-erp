@@ -23,6 +23,7 @@ import {
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
 import { AccionesOC } from '@/features/compras/ordenes/components/AccionesOC';
 import { AdjuntosManagerOc } from '@/features/compras/ordenes/components/AdjuntosManagerOc';
+import { RevisionPreviaOc } from '@/features/compras/ordenes/components/RevisionPreviaOc';
 import { AsideListOcsHermanas } from '@/features/compras/ordenes/components/AsideListOcsHermanas';
 import { EditorLineas } from '@/features/compras/ordenes/components/EditorLineas';
 import { StepperAutorizacionOc } from '@/features/compras/ordenes/components/StepperAutorizacionOc';
@@ -35,6 +36,10 @@ import {
   DEFAULT_BANDEJA_OC_SEARCH,
   type BandejaOcSearch,
 } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
+import { calcularRevisionPrevia } from '@/features/compras/ordenes/lib/revision-previa-oc';
+import { accionTransmitirAAutorizacion } from '@/features/compras/ordenes/lib/acciones-disponibles';
+import { useTiposDocumentoOc } from '@/features/catalogos/api';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { esApiError, type ApiError } from '@/lib/api';
 
 /**
@@ -77,6 +82,9 @@ export function DetalleOrdenCompra() {
     extractBandejaOcSearch(location.state) ?? DEFAULT_BANDEJA_OC_SEARCH;
 
   const ocQuery = useOrdenCompra(id);
+  const [tabActivo, setTabActivo] = useState<TabId>('informacion');
+  const permisos = useAuthStore((s) => s.permisos);
+  const tiposDocQuery = useTiposDocumentoOc();
 
   // Catálogos cargados con limit alto + includeInactivas para resolver
   // ids históricos en detalles (un proveedor/condición/uso pudo haberse
@@ -170,6 +178,10 @@ export function DetalleOrdenCompra() {
   }
 
   const oc = ocQuery.data;
+  // Revisión previa de «Transmitir»: solo cuando la acción aplica (Borrador/Rechazada + permiso).
+  const revision = accionTransmitirAAutorizacion(oc, permisos).visible
+    ? calcularRevisionPrevia(oc, tiposDocQuery.data)
+    : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -191,7 +203,7 @@ export function DetalleOrdenCompra() {
             matriz §6.1; el componente se auto-oculta si ninguna acción
             aplica al estado + permisos. */}
         <div className="flex flex-wrap items-center gap-2">
-          <AccionesOC oc={oc} />
+          <AccionesOC oc={oc} revision={revision} />
         </div>
 
         <div className="ml-auto flex items-center gap-1">
@@ -250,7 +262,13 @@ export function DetalleOrdenCompra() {
           <AsideListOcsHermanas oc={oc} />
         </div>
 
+        {revision && (
+          <RevisionPreviaOc revision={revision} onIr={setTabActivo} />
+        )}
+
         <TabsOc
+          activo={tabActivo}
+          onActivoChange={setTabActivo}
           informacion={
             <TabInformacion oc={oc} resolverNombre={resolverNombre} />
           }
@@ -301,6 +319,8 @@ const TAB_LABEL: Record<TabId, string> = {
 };
 
 function TabsOc({
+  activo,
+  onActivoChange,
   informacion,
   lineas,
   adjuntos,
@@ -308,6 +328,8 @@ function TabsOc({
   autorizacion,
   historial,
 }: {
+  activo: TabId;
+  onActivoChange: (tab: TabId) => void;
   informacion: ReactNode;
   /** Tab "Líneas" — wireado con <c>&lt;EditorLineas/&gt;</c> desde
    * UF2-PR3-b. Si <c>null</c>, cae al stub "próximamente". */
@@ -326,8 +348,6 @@ function TabsOc({
    * desde UF7-PR3. Si <c>null</c>, cae al stub. */
   historial?: ReactNode;
 }) {
-  const [activo, setActivo] = useState<TabId>('informacion');
-
   const stub = (slot: ReactNode, nombre: string, titulo: string) =>
     slot ?? (
       <StubProximamente
@@ -350,7 +370,7 @@ function TabsOc({
   return (
     <Tabs
       value={activo}
-      onValueChange={(v) => setActivo(v as TabId)}
+      onValueChange={(v) => onActivoChange(v as TabId)}
       data-component="tabs-oc"
     >
       <TabsList aria-label="Secciones del detalle de OC">

@@ -1,3 +1,4 @@
+import type { RevisionPreviaOc } from '@/features/compras/ordenes/lib/revision-previa-oc';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -73,11 +74,13 @@ import type { CancelarOcConRecepcionesValues } from '@/features/compras/ordenes/
  */
 export interface AccionesOCProps {
   oc: OrdenCompraDetalleResponse;
+  /** Revisión previa (UX-F2-COM-01): si falta algo, «Transmitir» se deshabilita con su motivo visible. */
+  revision?: RevisionPreviaOc;
 }
 
 type ConfirmAction = 'transmitir' | 'aprobar-n1' | 'aprobar-n2' | null;
 
-export function AccionesOC({ oc }: AccionesOCProps) {
+export function AccionesOC({ oc, revision }: AccionesOCProps) {
   const permisos = useAuthStore((s) => s.permisos);
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
@@ -89,7 +92,7 @@ export function AccionesOC({ oc }: AccionesOCProps) {
   const cancelarDobleMut = useCancelarOrdenCompraConRecepciones();
   const duplicarMut = useDuplicarOrdenCompra();
 
-  const accTransmitir = accionTransmitirAAutorizacion(oc, permisos);
+  const accTransmitir = accionTransmitirAAutorizacion(oc, permisos, revision);
   const accN1 = accionAprobarNivel1(oc, permisos);
   const accN2 = accionAprobarNivel2(oc, permisos);
   const accRechazar = accionRechazar(oc, permisos);
@@ -160,12 +163,19 @@ export function AccionesOC({ oc }: AccionesOCProps) {
           variant="default"
           onClick={() => abrirConfirm('transmitir')}
           disabled={!accTransmitir.habilitada || isPending}
-          title={accTransmitir.motivoDeshabilitada}
+          aria-describedby={
+            accTransmitir.motivoDeshabilitada ? 'motivo-transmitir' : undefined
+          }
           data-action="transmitir"
         >
           <Send className="mr-1 h-3.5 w-3.5" />
           Transmitir a autorización
         </Button>
+      )}
+      {accTransmitir.visible && accTransmitir.motivoDeshabilitada && (
+        <span id="motivo-transmitir" className="text-xs text-warning-fg">
+          {accTransmitir.motivoDeshabilitada}
+        </span>
       )}
       {accN1.visible && (
         <Button
