@@ -103,4 +103,18 @@ public sealed class ProveedorReadPortAdapter : IProveedorReadPort
             .Where(p => proveedorIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, p => p.RazonSocial, cancellationToken);
     }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> ObtenerRfcsPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        if (proveedorIds.Count == 0) return new Dictionary<Guid, string>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Proveedores
+            .AsNoTracking()
+            .Where(p => proveedorIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Rfc, cancellationToken);
+    }
 }

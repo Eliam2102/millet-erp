@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
 import { EstadoPasivo } from '@/features/cxp/api/types';
 
 /**
@@ -18,6 +19,7 @@ export const FacturasSearchSchema = z.object({
   proveedorId: z.string().min(1).optional(),
   sucursalId: z.string().min(1).optional(),
   q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type FacturasSearch = z.infer<typeof FacturasSearchSchema>;

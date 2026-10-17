@@ -27,6 +27,23 @@ public interface IProveedorReadPort
     Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(
         IReadOnlyCollection<Guid> proveedorIds,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resuelve id → RFC en batch para las bandejas. La implementación por defecto
+    /// recorre <see cref="ObtenerAsync"/>; el adapter productivo la sobreescribe con una sola consulta.
+    /// </summary>
+    async Task<IReadOnlyDictionary<Guid, string>> ObtenerRfcsPorIdsAsync(
+        IReadOnlyCollection<Guid> proveedorIds,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new Dictionary<Guid, string>();
+        foreach (var id in proveedorIds)
+        {
+            var p = await ObtenerAsync(id, cancellationToken);
+            if (p is not null) resultado[id] = p.Rfc;
+        }
+        return resultado;
+    }
 }
 
 public sealed record ProveedorDto(

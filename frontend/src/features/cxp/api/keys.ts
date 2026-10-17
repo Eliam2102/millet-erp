@@ -19,6 +19,7 @@ export interface ListarFacturasFiltros {
   sucursalId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export const cxpKeys = {
@@ -121,6 +122,7 @@ export interface ListarNotasCreditoFiltros {
   facturaOrigenId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarAnticiposFiltros {
@@ -137,6 +139,7 @@ export interface ListarNotasCargoFiltros {
   facturaOrigenId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarComprobacionesFiltros {
@@ -146,6 +149,7 @@ export interface ListarComprobacionesFiltros {
   responsableId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarViaticosFiltros {
@@ -154,6 +158,7 @@ export interface ListarViaticosFiltros {
   jefeDirectoId?: string;
   offset?: number;
   limit?: number;
+  q?: string;
 }
 
 export interface ListarTarjetasFiltros {

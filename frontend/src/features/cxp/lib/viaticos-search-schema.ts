@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
 import { EstadoSolicitudViaticos } from '@/features/cxp/api/types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,6 +19,8 @@ export const ViaticosSearchSchema = z.object({
     .optional(),
   empleadoId: z.string().regex(UUID_RE).optional(),
   jefeDirectoId: z.string().regex(UUID_RE).optional(),
+  q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type ViaticosSearch = z.infer<typeof ViaticosSearchSchema>;

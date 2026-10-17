@@ -38,11 +38,12 @@ public static class ComprobacionesEndpoints
             [FromQuery] Guid? responsableId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new ListarComprobacionesGastosQuery(tipo, estado, sucursalId, responsableId, offset ?? 0, limit ?? 50),
+                new ListarComprobacionesGastosQuery(tipo, estado, sucursalId, responsableId, offset ?? 0, limit ?? 50, q),
                 cancellationToken);
             return Results.Ok(response);
         })

@@ -50,11 +50,12 @@ public static class FacturasEndpoints
             [FromQuery] Guid? sucursalId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new ListarFacturasQuery(estado, proveedorId, sucursalId, offset ?? 0, limit ?? 50),
+                new ListarFacturasQuery(estado, proveedorId, sucursalId, offset ?? 0, limit ?? 50, q),
                 cancellationToken);
             return Results.Ok(response);
         })

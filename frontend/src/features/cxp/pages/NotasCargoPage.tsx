@@ -1,8 +1,17 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Eye, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -13,9 +22,13 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   ProveedorSelector,
   TableSkeleton,
 } from '@/components/erp';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { useNotasCargo } from '@/features/cxp/api/useNotasYAnticipos';
 import { AplicarNotaCargoAccion } from '@/features/cxp/components/AplicarNotaCargoAccion';
 import {
@@ -59,11 +72,16 @@ export function NotasCargoPage() {
   const query = useNotasCargo({
     estado: search.estado,
     proveedorId: search.proveedorId,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<NotasCargoSearch>) {
-    navigate({ to: '/cxp/notas-cargo', search: { ...search, ...parcial } });
+    navigate({
+      to: '/cxp/notas-cargo',
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
+    });
   }
 
   const items = query.data?.items ?? [];
@@ -86,6 +104,13 @@ export function NotasCargoPage() {
       />
 
       <div className="flex flex-wrap items-end gap-3">
+        <BusquedaFolio
+          aria-label="Buscar por folio o concepto"
+          valor={search.q}
+          onCommit={(q) => actualizarSearch({ q })}
+          placeholder="Folio o concepto"
+          className="w-64"
+        />
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Estado</label>
           <Select
@@ -133,6 +158,16 @@ export function NotasCargoPage() {
             className="w-56"
           />
         </div>
+        {(search.estado != null || search.proveedorId || search.q) && (
+          <Button
+            variant="ghost"
+            onClick={() =>
+              actualizarSearch({ estado: undefined, proveedorId: undefined, q: undefined })
+            }
+          >
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       {query.isError ? (
@@ -156,16 +191,21 @@ export function NotasCargoPage() {
         <EmptyState
           title="Sin notas de cargo"
           description={
-            search.estado != null || search.proveedorId
+            search.estado != null || search.proveedorId || search.q
               ? 'No hay notas que coincidan con los filtros.'
               : 'Aún no hay notas de cargo. Crea la primera desde el botón superior.'
           }
         />
       ) : (
-        <Tabla
-          items={items}
-          puedeAplicar={puedeAplicar}
-        />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <Tabla items={items} puedeAplicar={puedeAplicar} />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <NuevaNotaCargoSheet open={sheetAbierto} onOpenChange={setSheetAbierto} />
@@ -180,56 +220,53 @@ interface TablaProps {
 
 function Tabla({ items, puedeAplicar }: TablaProps) {
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">Folio</th>
-            <th className="px-3 py-2 text-left">Proveedor</th>
-            <th className="px-3 py-2 text-left">Concepto</th>
-            <th className="px-3 py-2 text-right">Monto</th>
-            <th className="px-3 py-2 text-left">Estado</th>
-            <th className="px-3 py-2 text-right" aria-label="Acciones" />
-          </tr>
-        </thead>
-        <tbody>
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Folio</TableHead>
+            <TableHead>Proveedor</TableHead>
+            <TableHead>Concepto</TableHead>
+            <TableHead className="text-right">Monto</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead className="text-right">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((n) => (
-            <tr key={n.id} className="border-t hover:bg-muted/30">
-              <td className="px-3 py-2 font-mono text-xs">{n.folio}</td>
-              <td className="max-w-56 truncate px-3 py-2">
-                {n.proveedorNombre ?? (
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {`${n.proveedorId.slice(0, 8)}…`}
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-2">{truncar(n.concepto, 80)}</td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+            <TableRow key={n.id} className="hover:bg-surface-subtle">
+              <TableCell className="font-mono text-xs">
+                <Link
+                  to="/cxp/notas-cargo/$id"
+                  params={{ id: n.id }}
+                  className="text-brand hover:underline"
+                  aria-label={`Abrir nota de cargo ${n.folio}`}
+                >
+                  {n.folio}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <ProveedorCelda nombre={n.proveedorNombre} rfc={n.proveedorRfc} />
+              </TableCell>
+              <TableCell title={n.concepto}>{truncar(n.concepto, 80)}</TableCell>
+              <TableCell className="text-right tabular-nums">
                 <MoneyDisplay amount={n.monto} currency={n.moneda} strong />
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 <EstadoNotaCargoChip estado={n.estado} />
-              </td>
-              <td className="px-3 py-2 text-right">
-                <Button asChild variant="ghost" size="sm" className="mr-1">
-                  <Link
-                    to="/cxp/notas-cargo/$id"
-                    params={{ id: n.id }}
-                    aria-label={`Ver detalle de nota de cargo ${n.folio}`}
-                  >
-                    <Eye className="mr-1 h-3 w-3" />
-                    Ver detalle
-                  </Link>
-                </Button>
+              </TableCell>
+              <TableCell className="text-right">
                 {n.estado === EstadoNotaCargo.Autorizada && puedeAplicar && (
                   <AplicarNotaCargoAccion n={n} />
                 )}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 

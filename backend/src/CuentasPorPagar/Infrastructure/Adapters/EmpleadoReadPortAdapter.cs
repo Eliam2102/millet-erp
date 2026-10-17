@@ -73,4 +73,25 @@ public sealed class EmpleadoReadPortAdapter : IEmpleadoReadPort
                 true))
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyDictionary<Guid, EmpleadoDto>> ObtenerPorIdsAsync(
+        IReadOnlyCollection<Guid> empleadoIds, CancellationToken cancellationToken)
+    {
+        if (empleadoIds.Count == 0) return new Dictionary<Guid, EmpleadoDto>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Empleados
+            .AsNoTracking()
+            .Where(e => empleadoIds.Contains(e.Id))
+            .Select(e => new EmpleadoDto(
+                e.Id,
+                e.EmpresaId,
+                e.Nombre,
+                e.Email ?? string.Empty,
+                e.PuestoId,
+                e.SucursalId,
+                e.Estatus == EstatusCatalogo.Activo))
+            .ToDictionaryAsync(e => e.Id, cancellationToken);
+    }
 }

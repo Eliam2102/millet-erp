@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Eye, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,13 +10,30 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { EmptyState, ErrorState, SucursalSelector, TableSkeleton } from '@/components/erp';
+import {
+  EmptyState,
+  ErrorState,
+  PaginacionTabla,
+  SucursalSelector,
+  TableSkeleton,
+} from '@/components/erp';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
 import { useComprobaciones } from '@/features/cxp/api/useComprobaciones';
 import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import {
@@ -63,11 +80,16 @@ export function ComprobacionesPage() {
     tipo: search.tipo,
     estado: search.estado,
     sucursalId: search.sucursalId,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<ComprobacionesSearch>) {
-    navigate({ to: '/cxp/comprobaciones', search: { ...search, ...parcial } });
+    navigate({
+      to: '/cxp/comprobaciones',
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
+    });
   }
 
   const items = query.data?.items ?? [];
@@ -124,10 +146,22 @@ export function ComprobacionesPage() {
       ) : items.length === 0 ? (
         <EmptyState
           title="Sin comprobaciones"
-          description="No hay comprobaciones que coincidan con los filtros."
+          description={
+            search.tipo != null || search.estado != null || search.sucursalId || search.q
+              ? 'No hay comprobaciones que coincidan con los filtros.'
+              : 'Aún no hay comprobaciones. Crea la primera desde «Nueva comprobación».'
+          }
         />
       ) : (
-        <Tabla items={items} />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <Tabla items={items} />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <NuevaComprobacionCajaChicaSheet open={sheetCajaChica} onOpenChange={setSheetCajaChica} />
@@ -142,9 +176,16 @@ interface FiltrosProps {
 }
 
 function Filtros({ search, onChange }: FiltrosProps) {
-  const algunFiltro = search.tipo != null || search.estado != null || search.sucursalId;
+  const algunFiltro = search.tipo != null || search.estado != null || search.sucursalId || search.q;
   return (
     <div className="flex flex-wrap items-end gap-3">
+      <BusquedaFolio
+        aria-label="Buscar por pedimento u observaciones"
+        valor={search.q}
+        onCommit={(q) => onChange({ q })}
+        placeholder="Pedimento u observaciones"
+        className="w-64"
+      />
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Tipo</label>
         <Select
@@ -216,10 +257,11 @@ function Filtros({ search, onChange }: FiltrosProps) {
               tipo: undefined,
               estado: undefined,
               sucursalId: undefined,
+              q: undefined,
             })
           }
         >
-          Limpiar
+          Limpiar filtros
         </Button>
       )}
     </div>
@@ -228,51 +270,63 @@ function Filtros({ search, onChange }: FiltrosProps) {
 
 function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">Tipo</th>
-            <th className="px-3 py-2 text-left">Periodo</th>
-            <th className="px-3 py-2 text-right">Líneas</th>
-            <th className="px-3 py-2 text-right">Monto</th>
-            <th className="px-3 py-2 text-left">Estado</th>
-            <th className="px-3 py-2 text-right" aria-label="Acciones" />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((c) => (
-            <tr key={c.id} className="border-t hover:bg-muted/30">
-              <td className="px-3 py-2">{TipoComprobacionGastosLabels[c.tipo]}</td>
-              <td className="px-3 py-2 whitespace-nowrap text-xs">
-                {c.fechaInicio} → {c.fechaFin}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">{c.numeroLineas}</td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                <MoneyDisplay amount={c.montoTotal} currency={c.moneda} strong />
-              </td>
-              <td className="px-3 py-2">
-                <EstadoComprobacionChip estado={c.estado} />
-              </td>
-              <td className="px-3 py-2">
-                <div className="flex flex-wrap items-center justify-end gap-1">
-                  <Button asChild variant="ghost" size="sm">
-                    <Link
-                      to="/cxp/comprobaciones/$id"
-                      params={{ id: c.id }}
-                      aria-label={`Ver detalle de comprobación ${TipoComprobacionGastosLabels[c.tipo]}`}
-                    >
-                      <Eye className="mr-1 h-3 w-3" aria-hidden="true" />
-                      Ver detalle
-                    </Link>
-                  </Button>
-                  <AccionesComprobacion c={c} />
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Comprobación</TableHead>
+            <TableHead>Responsable</TableHead>
+            <TableHead>Sucursal</TableHead>
+            <TableHead>Periodo</TableHead>
+            <TableHead className="text-right">Líneas</TableHead>
+            <TableHead className="text-right">Monto</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead className="text-right">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((c) => {
+            const tipo = TipoComprobacionGastosLabels[c.tipo];
+            return (
+              <TableRow key={c.id} className="hover:bg-surface-subtle">
+                <TableCell>
+                  <Link
+                    to="/cxp/comprobaciones/$id"
+                    params={{ id: c.id }}
+                    className="font-medium text-brand hover:underline"
+                    aria-label={`Abrir comprobación ${tipo} de ${c.responsableNombre ?? 'responsable por confirmar'}`}
+                  >
+                    {tipo}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <div className="max-w-56 truncate" title={c.responsableNombre ?? undefined}>
+                    {c.responsableNombre?.trim() || '[RESPONSABLE POR CONFIRMAR]'}
+                  </div>
+                </TableCell>
+                <TableCell>{c.sucursalNombre?.trim() || '[SUCURSAL POR CONFIRMAR]'}</TableCell>
+                <TableCell className="whitespace-nowrap text-xs">
+                  {c.fechaInicio} → {c.fechaFin}
+                </TableCell>
+                <TableCell className="text-right font-mono">{c.numeroLineas}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={c.montoTotal} currency={c.moneda} strong />
+                </TableCell>
+                <TableCell>
+                  <EstadoComprobacionChip estado={c.estado} />
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <AccionesComprobacion c={c} responsableNombre={c.responsableNombre} />
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

@@ -35,11 +35,12 @@ public static class ViaticosEndpoints
             [FromQuery] Guid? jefeDirectoId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new ListarSolicitudesViaticosQuery(estado, empleadoId, jefeDirectoId, offset ?? 0, limit ?? 50),
+                new ListarSolicitudesViaticosQuery(estado, empleadoId, jefeDirectoId, offset ?? 0, limit ?? 50, q),
                 cancellationToken);
             return Results.Ok(response);
         })

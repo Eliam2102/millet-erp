@@ -37,11 +37,12 @@ public static class NotasCargoEndpoints
             [FromQuery] Guid? facturaOrigenId,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
+            [FromQuery] string? q,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var response = await mediator.Send(
-                new ListarNotasCargoQuery(estado, proveedorId, facturaOrigenId, offset ?? 0, limit ?? 50),
+                new ListarNotasCargoQuery(estado, proveedorId, facturaOrigenId, offset ?? 0, limit ?? 50, q),
                 cancellationToken);
             return Results.Ok(response);
         })

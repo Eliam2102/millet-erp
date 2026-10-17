@@ -63,6 +63,19 @@ public sealed class SucursalReadPortAdapter : ISucursalReadPort
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresPorIdsAsync(
+        IReadOnlyCollection<Guid> sucursalIds, CancellationToken cancellationToken)
+    {
+        if (sucursalIds.Count == 0) return new Dictionary<Guid, string>();
+
+        using var bypass = _empresaContext.Bypass();
+
+        return await _db.Sucursales
+            .AsNoTracking()
+            .Where(s => sucursalIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, s => s.Nombre, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<SucursalDto>> ListarPorEmpresaAsync(Guid empresaId, CancellationToken cancellationToken)
     {
         using var bypass = _empresaContext.Bypass();

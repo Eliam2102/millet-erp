@@ -1,8 +1,17 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Eye, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -13,9 +22,13 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   ProveedorSelector,
   TableSkeleton,
 } from '@/components/erp';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { useNotasCredito } from '@/features/cxp/api/useNotasYAnticipos';
 import {
   EstadoNotaCredito,
@@ -48,11 +61,16 @@ export function NotasCreditoPage() {
   const query = useNotasCredito({
     estado: search.estado,
     proveedorId: search.proveedorId,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<NotasCreditoSearch>) {
-    navigate({ to: '/cxp/notas-credito', search: { ...search, ...parcial } });
+    navigate({
+      to: '/cxp/notas-credito',
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
+    });
   }
 
   const items = query.data?.items ?? [];
@@ -81,6 +99,13 @@ export function NotasCreditoPage() {
       />
 
       <div className="flex flex-wrap items-end gap-3">
+        <BusquedaFolio
+          aria-label="Buscar por folio, serie o UUID"
+          valor={search.q}
+          onCommit={(q) => actualizarSearch({ q })}
+          placeholder="Folio, serie o UUID"
+          className="w-64"
+        />
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Estado</label>
           <Select
@@ -127,11 +152,11 @@ export function NotasCreditoPage() {
             className="w-56"
           />
         </div>
-        {(search.estado != null || search.proveedorId) && (
+        {(search.estado != null || search.proveedorId || search.q) && (
           <Button
             variant="ghost"
             onClick={() =>
-              actualizarSearch({ estado: undefined, proveedorId: undefined })
+              actualizarSearch({ estado: undefined, proveedorId: undefined, q: undefined })
             }
           >
             Limpiar
@@ -151,9 +176,10 @@ export function NotasCreditoPage() {
           columns={[
             { width: 'w-40' },
             { width: 'w-32' },
-            { width: 'w-32' },
+            { width: 'w-40' },
             { width: 'w-28' },
             { width: 'w-32' },
+            { width: 'w-28' },
             { width: 'w-28' },
           ]}
         />
@@ -161,75 +187,73 @@ export function NotasCreditoPage() {
         <EmptyState
           title="Sin notas de crédito"
           description={
-            search.estado != null || search.proveedorId
+            search.estado != null || search.proveedorId || search.q
               ? 'No hay NCs que coincidan con los filtros.'
               : 'Aún no se han recibido NCs. Captura desde el botón superior.'
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">UUID</th>
-                <th className="px-3 py-2 text-left">Proveedor</th>
-                <th className="px-3 py-2 text-left">Folio</th>
-                <th className="px-3 py-2 text-left">Tipo</th>
-                <th className="px-3 py-2 text-right">Total</th>
-                <th className="px-3 py-2 text-right">Saldo</th>
-                <th className="px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-right" aria-label="Acciones" />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((n) => (
-                <tr
-                  key={n.id}
-                  className="border-t hover:bg-muted/30"
-                >
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {abreviar(n.uuidCfdi)}
-                  </td>
-                  <td className="max-w-56 truncate px-3 py-2">
-                    {n.proveedorNombre ?? (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {abreviar(n.proveedorId)}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {n.serieProveedor
-                      ? `${n.serieProveedor}-${n.folioProveedor ?? ''}`
-                      : (n.folioProveedor ?? '—')}
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {(TipoNotaCreditoLabels as Record<number, string>)[n.tipo] ?? `Tipo ${n.tipo}`}
-                  </td>
-                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                    <MoneyDisplay amount={n.total} currency={n.moneda} strong />
-                  </td>
-                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                    <MoneyDisplay amount={n.saldoPorAplicar} currency={n.moneda} strong />
-                  </td>
-                  <td className="px-3 py-2">
-                    <EstadoNotaCreditoChip estado={n.estado} />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button asChild variant="ghost" size="sm">
-                      <Link
-                        to="/cxp/notas-credito/$id"
-                        params={{ id: n.id }}
-                        aria-label={`Ver detalle de NC ${abreviar(n.uuidCfdi)}`}
-                      >
-                        <Eye className="mr-1 h-3 w-3" />
-                        Ver detalle
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TableContainer>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Folio</TableHead>
+                  <TableHead>UUID</TableHead>
+                  <TableHead>Proveedor</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((n) => {
+                  const folio = n.serieProveedor
+                    ? `${n.serieProveedor}-${n.folioProveedor ?? ''}`
+                    : (n.folioProveedor ?? abreviar(n.uuidCfdi));
+                  return (
+                    <TableRow key={n.id} className="hover:bg-surface-subtle">
+                      <TableCell className="font-mono text-xs">
+                        <Link
+                          to="/cxp/notas-credito/$id"
+                          params={{ id: n.id }}
+                          className="text-brand hover:underline"
+                          aria-label={`Abrir nota de crédito ${folio}`}
+                        >
+                          {folio}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-ink-muted" title={n.uuidCfdi}>
+                        {abreviar(n.uuidCfdi)}
+                      </TableCell>
+                      <TableCell>
+                        <ProveedorCelda nombre={n.proveedorNombre} rfc={n.proveedorRfc} />
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {(TipoNotaCreditoLabels as Record<number, string>)[n.tipo] ?? `Tipo ${n.tipo}`}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <MoneyDisplay amount={n.total} currency={n.moneda} strong />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <MoneyDisplay amount={n.saldoPorAplicar} currency={n.moneda} strong />
+                      </TableCell>
+                      <TableCell>
+                        <EstadoNotaCreditoChip estado={n.estado} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
         </div>
       )}
 

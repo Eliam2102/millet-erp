@@ -239,6 +239,8 @@ export interface FacturaListItem {
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
   proveedorNombre: string | null;
+  /** RFC del proveedor resuelto server-side; null si no resuelve. */
+  proveedorRfc?: string | null;
 }
 
 export interface FacturaLinea {
@@ -539,6 +541,8 @@ export interface NotaCreditoListItem {
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
   proveedorNombre: string | null;
+  /** RFC del proveedor resuelto server-side; null si no resuelve. */
+  proveedorRfc?: string | null;
 }
 
 /**
@@ -704,6 +708,8 @@ export interface NotaCargoListItem {
   version: number;
   /** Razón social resuelta server-side (ADR-0042); null si no resuelve. */
   proveedorNombre: string | null;
+  /** RFC del proveedor resuelto server-side; null si no resuelve. */
+  proveedorRfc?: string | null;
 }
 
 /**
@@ -825,6 +831,9 @@ export interface ComprobacionGastosListItem {
   numeroLineas: number;
   fechaCreacion: string;
   version: number;
+  /** Resueltos server-side; null si no resuelven. */
+  responsableNombre?: string | null;
+  sucursalNombre?: string | null;
 }
 
 /**
@@ -1048,6 +1057,10 @@ export interface SolicitudViaticosListItem {
   diferenciaLiquidacion: number | null;
   fechaSolicitud: string;
   version: number;
+  /** Resueltos server-side; null si no resuelven. */
+  empleadoNombre?: string | null;
+  puesto?: string | null;
+  moneda?: string;
 }
 
 /**

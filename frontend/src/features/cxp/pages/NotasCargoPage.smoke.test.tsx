@@ -65,6 +65,8 @@ describe('<NotasCargoPage> — smoke', () => {
               estado: EstadoNotaCargo.Borrador,
               fechaCreacion: '2026-05-20T00:00:00Z',
               version: 1,
+              proveedorNombre: 'Fletes del Bajío SA',
+              proveedorRfc: 'FBA010101AB1',
             },
           ],
           offset: 0,
@@ -80,6 +82,8 @@ describe('<NotasCargoPage> — smoke', () => {
       ).toBeInTheDocument(),
     );
     expect(screen.queryByRole('button', { name: /Autorizar/i })).toBeNull();
-    expect(screen.getByRole('link', { name: /Ver detalle/i })).toBeInTheDocument();
+    // El folio es el enlace al detalle y la fila muestra proveedor con su RFC.
+    expect(screen.getByRole('link', { name: /NCG-2026-000001/i })).toBeInTheDocument();
+    expect(screen.getByText('FBA010101AB1')).toBeInTheDocument();
   });
 });

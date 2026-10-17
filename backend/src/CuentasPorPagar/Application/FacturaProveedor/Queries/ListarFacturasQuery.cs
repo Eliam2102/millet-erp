@@ -13,7 +13,8 @@ public sealed record ListarFacturasQuery(
     Guid? ProveedorId = null,
     Guid? SucursalId = null,
     int Offset = 0,
-    int Limit = 50) : IRequest<PagedResponse<FacturaListItemResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
+    int Limit = 50,
+    string? Q = null) : IRequest<PagedResponse<FacturaListItemResponse>>, Millet.SharedKernel.Application.ISucursalScopedQuery
 {
     public string PermisoTodasSucursales => "cuentas_por_pagar.facturas.leer-todas-sucursales";
     public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
@@ -35,7 +36,7 @@ public sealed record FacturaListItemResponse(
     int Version,
     // Etiqueta resuelta server-side vía read port (ADR-0042); null si el
     // id no resuelve — el FE indica Por confirmar.
-    string? ProveedorNombre = null, string? UuidCfdi = null, string? OrdenCompraFolio = null);
+    string? ProveedorNombre = null, string? UuidCfdi = null, string? OrdenCompraFolio = null, string? ProveedorRfc = null);
 
 public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery, PagedResponse<FacturaListItemResponse>>
 {
@@ -63,6 +64,16 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
         if (query.ProveedorId is Guid p) q = q.Where(f => f.ProveedorId == p);
         if (query.SucursalId is Guid s) q = q.Where(f => f.SucursalId == s);
 
+        // q se aplica DESPUÉS del filtro de sucursal (SucursalesPermitidas): solo acota más, nunca amplía el alcance.
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            var patron = LikePatron.Contiene(query.Q);
+            q = q.Where(f =>
+                (f.FolioProveedor != null && EF.Functions.ILike(f.FolioProveedor, patron, LikePatron.Escape))
+                || (f.SerieProveedor != null && EF.Functions.ILike(f.SerieProveedor, patron, LikePatron.Escape))
+                || (f.UuidCfdi != null && EF.Functions.ILike(f.UuidCfdi, patron, LikePatron.Escape)));
+        }
+
         var total = await q.CountAsync(cancellationToken);
 
         var items = await q
@@ -85,7 +96,7 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
                 f.Version,
                 // Null explícito: expression trees no aceptan args opcionales
                 // omitidos (CS0854). Se puebla abajo vía read port.
-                null, f.UuidCfdi, null))
+                null, f.UuidCfdi, null, null))
             .ToListAsync(cancellationToken);
 
         // Enriquecer etiqueta del proveedor en batch sobre los ids DISTINTOS
@@ -94,10 +105,13 @@ public sealed class ListarFacturasHandler : IRequestHandler<ListarFacturasQuery,
         if (proveedorIds.Length > 0)
         {
             var nombres = await _proveedores.ObtenerNombresPorIdsAsync(proveedorIds, cancellationToken);
+            var rfcs = await _proveedores.ObtenerRfcsPorIdsAsync(proveedorIds, cancellationToken);
             items = items
-                .Select(i => nombres.TryGetValue(i.ProveedorId, out var n)
-                    ? i with { ProveedorNombre = n }
-                    : i)
+                .Select(i => i with
+                {
+                    ProveedorNombre = nombres.GetValueOrDefault(i.ProveedorId),
+                    ProveedorRfc = rfcs.GetValueOrDefault(i.ProveedorId),
+                })
                 .ToList();
         }
 

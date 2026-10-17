@@ -1,9 +1,17 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -14,6 +22,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   ProveedorSelector,
   SortableHeader,
   SucursalSelector,
@@ -22,6 +31,9 @@ import {
   compareItemsBy,
   type SortState,
 } from '@/components/erp';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { useFacturas } from '@/features/cxp/api/useFacturas';
 import {
   EstadoPasivo,
@@ -51,8 +63,8 @@ type SortKey =
 
 /**
  * <c>P1 — Bandeja de Facturas de Proveedor</c> (doc 07 §FE-F2-PR1).
- * Tabla con filtros server-side (estado, proveedor, sucursal) +
- * búsqueda client-side por folio. Click en folio abre el detalle.
+ * Tabla paginada con filtros y búsqueda `q` server-side (folio, serie o
+ * UUID del CFDI). Click en el folio abre el detalle.
  *
  * <para>Botón "Capturar factura" visible para usuarios con
  * <c>cuentas_por_pagar.facturas.capturar</c>. Sin permiso queda oculto;
@@ -71,26 +83,19 @@ export function FacturasPage() {
     estado: search.estado,
     proveedorId: search.proveedorId,
     sucursalId: search.sucursalId,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<FacturasSearch>) {
     navigate({
       to: '/cxp/facturas',
-      search: { ...search, ...parcial },
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
-  const itemsFiltrados = useMemo(() => {
-    const items = query.data?.items ?? [];
-    if (!search.q) return items;
-    const needle = search.q.toLowerCase();
-    return items.filter(
-      (f) =>
-        (f.folioProveedor ?? '').toLowerCase().includes(needle) ||
-        (f.serieProveedor ?? '').toLowerCase().includes(needle),
-    );
-  }, [query.data, search.q]);
+  const items = query.data?.items ?? [];
 
   return (
     <div className="space-y-4">
@@ -130,7 +135,7 @@ export function FacturasPage() {
             { width: 'w-32' },
           ]}
         />
-      ) : itemsFiltrados.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           title="Sin facturas"
           description={
@@ -143,7 +148,15 @@ export function FacturasPage() {
           }
         />
       ) : (
-        <TablaFacturas items={itemsFiltrados} />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaFacturas items={items} />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <CapturarFacturaSheet
@@ -168,16 +181,13 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Folio / serie</label>
-        <Input
-          aria-label="Buscar por folio o serie"
-          value={search.q ?? ''}
-          onChange={(e) => onChange({ q: e.target.value || undefined })}
-          placeholder="Buscar…"
-          className="w-56"
-        />
-      </div>
+      <BusquedaFolio
+        aria-label="Buscar por folio, serie o UUID"
+        valor={search.q}
+        onCommit={(q) => onChange({ q })}
+        placeholder="Folio, serie o UUID"
+        className="w-64"
+      />
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Estado</label>
         <Select
@@ -263,70 +273,70 @@ function TablaFacturas({ items }: TablaFacturasProps) {
   }, [items, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="folioProveedor"
                 label="Folio"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="proveedorNombre"
                 label="Proveedor"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="fechaDocumento"
                 label="Fecha doc."
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="fechaVencimiento"
                 label="Vencimiento"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">OC</th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead>OC</TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="total"
                 label="Total"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="saldoPendiente"
                 label="Saldo"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((f) => {
             const folioLabel = f.serieProveedor
               ? `${f.serieProveedor}-${f.folioProveedor ?? ''}`
@@ -338,51 +348,56 @@ function TablaFacturas({ items }: TablaFacturasProps) {
               }),
             );
             return (
-            <tr
-              key={f.id}
-              {...rowProps}
-              className={`border-t hover:bg-muted/30 ${rowProps.className}`}
-              aria-label={`Abrir factura ${folioLabel}`}
-            >
-              <td className="px-3 py-2 font-mono text-xs text-primary">
-                {folioLabel}
-              </td>
-              <td className="max-w-56 truncate px-3 py-2">
-                {f.proveedorNombre?.trim() || '[PROVEEDOR POR CONFIRMAR]'}
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <DateTimeDisplay value={f.fechaDocumento} variant="corta" />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <DateTimeDisplay
-                  value={f.fechaVencimiento}
-                  variant="corta"
-                  vencida={
-                    f.fechaVencimiento < hoyLocalISO() &&
-                    f.estado !== EstadoPasivo.Pagada &&
-                    f.estado !== EstadoPasivo.Cancelada
-                  }
-                />
-              </td>
-              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                {f.ordenCompraId ? (f.ordenCompraFolio?.trim() || '[FOLIO POR CONFIRMAR]') : '—'}
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                <MoneyDisplay amount={f.total} currency={f.moneda} strong />
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                <MoneyDisplay amount={f.saldoPendiente} currency={f.moneda} strong />
-              </td>
-              <td className="px-3 py-2">
-                <EstadoPasivoChip estado={f.estado} />
-              </td>
-            </tr>
+              <TableRow
+                key={f.id}
+                {...rowProps}
+                className={`hover:bg-surface-subtle ${rowProps.className}`}
+              >
+                <TableCell className="font-mono text-xs">
+                  <Link
+                    to="/cxp/facturas/$id"
+                    params={{ id: f.id }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-brand hover:underline"
+                    aria-label={`Abrir factura ${folioLabel}`}
+                  >
+                    {folioLabel}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <ProveedorCelda nombre={f.proveedorNombre} rfc={f.proveedorRfc} />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <DateTimeDisplay value={f.fechaDocumento} variant="corta" />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <DateTimeDisplay
+                    value={f.fechaVencimiento}
+                    variant="corta"
+                    vencida={
+                      f.fechaVencimiento < hoyLocalISO() &&
+                      f.estado !== EstadoPasivo.Pagada &&
+                      f.estado !== EstadoPasivo.Cancelada
+                    }
+                  />
+                </TableCell>
+                <TableCell className="font-mono text-xs text-ink-muted">
+                  {f.ordenCompraId ? (f.ordenCompraFolio?.trim() || '[FOLIO POR CONFIRMAR]') : '—'}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={f.total} currency={f.moneda} strong />
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={f.saldoPendiente} currency={f.moneda} strong />
+                </TableCell>
+                <TableCell>
+                  <EstadoPasivoChip estado={f.estado} />
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
-
-
