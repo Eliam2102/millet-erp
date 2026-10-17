@@ -64,6 +64,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   // Compras — Configuración (PR-A 2026-05-13, setting AutoGenerarOcAlAutorizar).
   'compras.configuracion.leer',
   'compras.configuracion.editar',
+  'compras.cotizaciones.leer',
+  'compras.cotizaciones.gestionar',
   // Compartido — Catálogos. Tras F-Admin-PR4.5 el frontend mantiene el
   // par leer/administrar canónico aunque la UI vaya migrando a los
   // granulares de Datos Maestros.
@@ -336,11 +338,11 @@ describe('PermisosCanonicos — coincidencia con backend', () => {
     }
   });
 
-  it('el módulo Compras aporta exactamente 27 permisos (13 de RQ + 1 de aprobadores + 10 de OC + 2 de configuración + 1 de catálogos.leer)', () => {
+  it('el módulo Compras aporta exactamente 29 permisos (13 de RQ + 1 de aprobadores + 10 de OC + 2 de cotizaciones + 2 de configuración + 1 de catálogos.leer)', () => {
     const delModulo = codigos.filter(
       (c) => c.startsWith('compras.') || c === 'compartido.catalogos.leer',
     );
-    expect(delModulo).toHaveLength(27);
+    expect(delModulo).toHaveLength(29);
   });
 
   it('formato modulo.recurso.accion (entre 3 y 4 segmentos)', () => {

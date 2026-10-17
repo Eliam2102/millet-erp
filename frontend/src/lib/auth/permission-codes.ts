@@ -75,6 +75,10 @@ export const PermisosCanonicos = {
   ComprasOrdenesReportesPartidasAbiertas:
     'compras.ordenes.reportes-partidas-abiertas',
 
+  // Compras — Cotizaciones (F1-COM-02)
+  ComprasCotizacionesLeer: 'compras.cotizaciones.leer',
+  ComprasCotizacionesGestionar: 'compras.cotizaciones.gestionar',
+
   // Compras — Configuración por empresa (PR-A 2026-05-13). El owner edita
   // settings como AutoGenerarOcAlAutorizar via PATCH /api/v1/compras/configuracion.
   ComprasConfiguracionLeer: 'compras.configuracion.leer',

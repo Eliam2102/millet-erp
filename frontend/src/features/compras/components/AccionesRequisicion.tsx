@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ConMotivo } from '@/features/compras/components/ConMotivo';
-import { Ban, Lock, ShoppingCart, Send, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Ban, FileSpreadsheet, Lock, ShoppingCart, Send, ShieldCheck, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,7 @@ import {
   accionCancelar,
   accionCerrarManual,
   accionConvertirAOc,
+  accionVerCotizaciones,
   accionEliminarRequisicion,
   accionRechazar,
   accionTransmitir,
@@ -132,6 +134,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
     permisos,
     autoGenerarOcAlAutorizar,
   );
+  const accVerCotizaciones = accionVerCotizaciones(rq, permisos);
 
   // ADR-0043: "piezas en vuelo" para el aviso del cierre manual — saldo a
   // compra aún no recibido, derivado de la propia RQ (sin consultar la OC).
@@ -461,6 +464,18 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
           >
             <Lock className="mr-2 h-4 w-4" />
             Cerrar
+          </Button>
+        )}
+        {accVerCotizaciones.visible && (
+          <Button variant="secondary" asChild>
+            <Link
+              to="/compras/requisiciones/$id/cotizaciones"
+              params={{ id: rq.id }}
+              data-action="ver-cotizaciones"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden="true" />
+              Cotizaciones
+            </Link>
           </Button>
         )}
         {accConvertirAOc.visible && (

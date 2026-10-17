@@ -180,6 +180,7 @@ import { Route as AppAlmacenDevolucionesProveedorIdRouteImport } from './routes/
 import { Route as AppAlmacenInventariosIdAprobacionRouteImport } from './routes/_app/almacen/inventarios/$id.aprobacion';
 import { Route as AppAlmacenInventariosIdCapturaRouteImport } from './routes/_app/almacen/inventarios/$id.captura';
 import { Route as AppComprasArticulosIdHistorialComprasRouteImport } from './routes/_app/compras/articulos/$id/historial-compras';
+import { Route as AppComprasRequisicionesIdCotizacionesRouteImport } from './routes/_app/compras/requisiciones/$id_.cotizaciones';
 import { Route as AppComprasTrazabilidadOcIdRouteImport } from './routes/_app/compras/trazabilidad/oc/$id';
 import { Route as AppContabilidadPolizasRecurrentesIndexRouteImport } from './routes/_app/contabilidad/polizas.recurrentes.index';
 import { Route as AppContabilidadPolizasRecurrentesIdRouteImport } from './routes/_app/contabilidad/polizas.recurrentes.$id';
@@ -1126,6 +1127,12 @@ const AppComprasArticulosIdHistorialComprasRoute =
     path: '/compras/articulos/$id/historial-compras',
     getParentRoute: () => AppRoute,
   } as any);
+const AppComprasRequisicionesIdCotizacionesRoute =
+  AppComprasRequisicionesIdCotizacionesRouteImport.update({
+    id: '/compras/requisiciones/$id_/cotizaciones',
+    path: '/compras/requisiciones/$id/cotizaciones',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasTrazabilidadOcIdRoute =
   AppComprasTrazabilidadOcIdRouteImport.update({
     id: '/compras/trazabilidad/oc/$id',
@@ -1317,6 +1324,7 @@ export interface FileRoutesByFullPath {
   '/almacen/inventarios/$id/aprobacion': typeof AppAlmacenInventariosIdAprobacionRoute;
   '/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
   '/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
+  '/compras/requisiciones/$id/cotizaciones': typeof AppComprasRequisicionesIdCotizacionesRoute;
   '/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
   '/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
@@ -1495,6 +1503,7 @@ export interface FileRoutesByTo {
   '/almacen/inventarios/$id/aprobacion': typeof AppAlmacenInventariosIdAprobacionRoute;
   '/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
   '/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
+  '/compras/requisiciones/$id/cotizaciones': typeof AppComprasRequisicionesIdCotizacionesRoute;
   '/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
   '/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
@@ -1675,6 +1684,7 @@ export interface FileRoutesById {
   '/_app/almacen/inventarios/$id/aprobacion': typeof AppAlmacenInventariosIdAprobacionRoute;
   '/_app/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
   '/_app/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
+  '/_app/compras/requisiciones/$id_/cotizaciones': typeof AppComprasRequisicionesIdCotizacionesRoute;
   '/_app/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
   '/_app/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/_app/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
@@ -1855,6 +1865,7 @@ export interface FileRouteTypes {
     | '/almacen/inventarios/$id/aprobacion'
     | '/almacen/inventarios/$id/captura'
     | '/compras/articulos/$id/historial-compras'
+    | '/compras/requisiciones/$id/cotizaciones'
     | '/compras/trazabilidad/oc/$id'
     | '/contabilidad/polizas/recurrentes/$id'
     | '/facturacion/anticipos/facturas/$id'
@@ -2033,6 +2044,7 @@ export interface FileRouteTypes {
     | '/almacen/inventarios/$id/aprobacion'
     | '/almacen/inventarios/$id/captura'
     | '/compras/articulos/$id/historial-compras'
+    | '/compras/requisiciones/$id/cotizaciones'
     | '/compras/trazabilidad/oc/$id'
     | '/contabilidad/polizas/recurrentes/$id'
     | '/facturacion/anticipos/facturas/$id'
@@ -2212,6 +2224,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/inventarios/$id/aprobacion'
     | '/_app/almacen/inventarios/$id/captura'
     | '/_app/compras/articulos/$id/historial-compras'
+    | '/_app/compras/requisiciones/$id_/cotizaciones'
     | '/_app/compras/trazabilidad/oc/$id'
     | '/_app/contabilidad/polizas/recurrentes/$id'
     | '/_app/facturacion/anticipos/facturas/$id'
@@ -3441,6 +3454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppComprasArticulosIdHistorialComprasRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/compras/requisiciones/$id_/cotizaciones': {
+      id: '/_app/compras/requisiciones/$id_/cotizaciones';
+      path: '/compras/requisiciones/$id/cotizaciones';
+      fullPath: '/compras/requisiciones/$id/cotizaciones';
+      preLoaderRoute: typeof AppComprasRequisicionesIdCotizacionesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/compras/trazabilidad/oc/$id': {
       id: '/_app/compras/trazabilidad/oc/$id';
       path: '/compras/trazabilidad/oc/$id';
@@ -3654,6 +3674,7 @@ interface AppRouteChildren {
   AppAdminDatosMaestrosProveedoresExpedienteRoute: typeof AppAdminDatosMaestrosProveedoresExpedienteRoute;
   AppAlmacenDevolucionesProveedorIdRoute: typeof AppAlmacenDevolucionesProveedorIdRoute;
   AppComprasArticulosIdHistorialComprasRoute: typeof AppComprasArticulosIdHistorialComprasRoute;
+  AppComprasRequisicionesIdCotizacionesRoute: typeof AppComprasRequisicionesIdCotizacionesRoute;
   AppComprasTrazabilidadOcIdRoute: typeof AppComprasTrazabilidadOcIdRoute;
   AppContabilidadPolizasRecurrentesIdRoute: typeof AppContabilidadPolizasRecurrentesIdRoute;
   AppFacturacionAnticiposFacturasIdRoute: typeof AppFacturacionAnticiposFacturasIdRoute;
@@ -3843,6 +3864,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppAlmacenDevolucionesProveedorIdRoute,
   AppComprasArticulosIdHistorialComprasRoute:
     AppComprasArticulosIdHistorialComprasRoute,
+  AppComprasRequisicionesIdCotizacionesRoute:
+    AppComprasRequisicionesIdCotizacionesRoute,
   AppComprasTrazabilidadOcIdRoute: AppComprasTrazabilidadOcIdRoute,
   AppContabilidadPolizasRecurrentesIdRoute:
     AppContabilidadPolizasRecurrentesIdRoute,

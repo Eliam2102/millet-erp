@@ -371,6 +371,28 @@ export function accionConvertirAOc(
 }
 
 /**
+ * <b>Cotizaciones</b> (F1-COM-02) — abre el comparativo de la RQ. Visible con
+ * <c>compras.cotizaciones.leer</c> cuando la RQ ya pasó a surtido o está
+ * cerrada (consulta); en esos estados es consulta si ya no se puede registrar,
+ * decisión que toma el servidor (<c>puedeRegistrar</c>).
+ */
+export function accionVerCotizaciones(
+  rq: RequisicionResponse,
+  permisos: readonly string[],
+): AccionDisponible {
+  if (!permisos.includes(PermisosCanonicos.ComprasCotizacionesLeer)) return OCULTO;
+  switch (rq.estado) {
+    case EstadoRequisicion.EnSurtido:
+    case EstadoRequisicion.Cerrada:
+    case EstadoRequisicion.CerradaSurtidaParcial:
+    case EstadoRequisicion.CerradaSinSurtir:
+      return HABILITADA;
+    default:
+      return OCULTO;
+  }
+}
+
+/**
  * <b>Ver detalle (read-only)</b> — siempre visible si el usuario
  * tiene <c>compras.requisiciones.leer</c>, sin importar el estado.
  * Esto cubre la pantalla P3 entera; los demás botones se derivan de

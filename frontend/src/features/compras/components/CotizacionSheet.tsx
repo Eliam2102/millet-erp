@@ -1,0 +1,318 @@
+import { useEffect, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { DatePickerField, Field, ProveedorSelector } from '@/components/erp';
+import { mensajeErrorAdjunto } from '@/components/erp/adjuntos/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { comprasKeys } from '@/features/compras/api/keys';
+import {
+  TIPO_ADJUNTO_COTIZACION_ID,
+  type PartidaComparativo,
+} from '@/features/compras/api/types';
+import { useRegistrarCotizacion } from '@/features/compras/api/useCotizaciones';
+import { ConMotivo } from '@/features/compras/components/ConMotivo';
+import {
+  aRegistrarCotizacionRequest,
+  cotizacionSchema,
+  type CotizacionValues,
+} from '@/features/compras/schemas/cotizacion';
+import { applyServerErrors, esApiError, useFormIdempotencyKey } from '@/lib/api';
+import { hoyLocalISO } from '@/lib/datetime';
+import { useUploadFile } from '@/lib/hooks/useUploadFile';
+import { useUnsavedChangesGuard } from '@/lib/hooks/useUnsavedChangesGuard';
+
+const MONEDAS = ['MXN', 'USD', 'EUR'] as const;
+
+export interface CotizacionSheetProps {
+  abierto: boolean;
+  onClose: (opts?: { force?: boolean }) => void;
+  requisicionId: string;
+  folio: string;
+  partidas: PartidaComparativo[];
+}
+
+const etiquetaPartida = (p: PartidaComparativo) =>
+  `${p.posicion} · ${p.articuloClave ?? ''} ${p.articuloNombre ?? ''} · ${p.cantidadDeCompra} ${p.unidad}`.replace(
+    /\s+/g,
+    ' ',
+  );
+
+function FormularioCotizacion({
+  onClose,
+  onCancelar,
+  onDirtyChange,
+  requisicionId,
+  partidas,
+}: Pick<CotizacionSheetProps, 'onClose' | 'requisicionId' | 'partidas'> & {
+  onCancelar: () => void;
+  onDirtyChange: (sucio: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const idempotencyKey = useFormIdempotencyKey();
+  const registrar = useRegistrarCotizacion(requisicionId);
+  const subida = useUploadFile();
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const porComprar = partidas.filter((p) => p.saldoPorComprar > 0);
+
+  const form = useForm<CotizacionValues>({
+    resolver: zodResolver(cotizacionSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      proveedorId: '',
+      folioProveedor: '',
+      moneda: 'MXN',
+      fechaCotizacion: hoyLocalISO(),
+      vigenteHasta: '',
+      condicionesCredito: '',
+      lineas: porComprar.map((p) => ({
+        lineaRequisicionId: p.lineaRequisicionId,
+        unidadRequisicion: p.unidad,
+        unidadCotizada: p.unidad,
+        factorAUnidadRq: 1,
+        precioUnitario: Number.NaN,
+        diasEntrega: null,
+      })),
+    },
+  });
+  const { isDirty, errors } = form.formState;
+  useUnsavedChangesGuard(isDirty);
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+  const valores = useWatch({ control: form.control });
+
+  const faltante = !valores.proveedorId
+    ? 'proveedor'
+    : !valores.vigenteHasta
+      ? 'vigencia'
+      : (valores.lineas ?? []).findIndex((l) => !l?.precioUnitario || Number.isNaN(l.precioUnitario)) >= 0
+        ? 'precio de cada partida'
+        : null;
+
+  async function onSubmit(values: CotizacionValues) {
+    try {
+      const creada = await registrar.mutateAsync({
+        values: aRegistrarCotizacionRequest(values),
+        idempotencyKey,
+      });
+      if (archivo) {
+        try {
+          await subida.upload({
+            url: `/api/v1/compras/cotizaciones/${creada.id}/adjuntos`,
+            file: archivo,
+            fieldName: 'archivo',
+            extraFields: { tipoDocumentoId: TIPO_ADJUNTO_COTIZACION_ID },
+            idempotencyKey: crypto.randomUUID(),
+          });
+          await queryClient.invalidateQueries({ queryKey: comprasKeys.cotizaciones(requisicionId) });
+        } catch (err) {
+          toast.warning('Cotización registrada sin PDF', { description: mensajeErrorAdjunto(err) });
+          onClose({ force: true });
+          return;
+        }
+      }
+      toast.success('Cotización registrada');
+      onClose({ force: true });
+    } catch (err) {
+      if (esApiError(err)) {
+        applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err);
+        toast.error(err.problem.title);
+      } else {
+        toast.error('Error inesperado al registrar la cotización.');
+      }
+    }
+  }
+
+  const guardando = registrar.isPending || subida.isUploading;
+
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
+      <div className="flex-1 space-y-4 overflow-y-auto p-6">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Controller
+            control={form.control}
+            name="proveedorId"
+            render={({ field, fieldState }) => (
+              <Field label="Proveedor" required error={fieldState.error?.message} className="sm:col-span-2">
+                {(c) => (
+                  <ProveedorSelector triggerProps={c} value={field.value || null} onChange={(v) => field.onChange(v ?? '')} />
+                )}
+              </Field>
+            )}
+          />
+          <Field label="Folio del proveedor" optional error={errors.folioProveedor?.message}>
+            <Input {...form.register('folioProveedor')} className="font-mono" />
+          </Field>
+          <Field label="Moneda" required error={errors.moneda?.message}>
+            <select
+              {...form.register('moneda')}
+              className="h-ctl-xl rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink"
+            >
+              {MONEDAS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Controller
+            control={form.control}
+            name="fechaCotizacion"
+            render={({ field, fieldState }) => (
+              <Field label="Fecha de la cotización" required error={fieldState.error?.message}>
+                <DatePickerField value={field.value || null} onChange={(v) => field.onChange(v ?? '')} maxDate={new Date()} />
+              </Field>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="vigenteHasta"
+            render={({ field, fieldState }) => (
+              <Field label="Vigente hasta" required error={fieldState.error?.message}>
+                <DatePickerField value={field.value || null} onChange={(v) => field.onChange(v ?? '')} />
+              </Field>
+            )}
+          />
+          <Field label="Crédito" optional error={errors.condicionesCredito?.message} className="sm:col-span-2">
+            <Input {...form.register('condicionesCredito')} placeholder="Ej. 30 días" />
+          </Field>
+        </div>
+
+        <section aria-labelledby="partidas-cotizadas" className="space-y-2">
+          <h3 id="partidas-cotizadas" className="text-sm font-semibold text-ink">
+            Partidas de la requisición
+          </h3>
+          {errors.lineas?.message && <p className="text-xs text-danger-fg">{errors.lineas.message}</p>}
+          {porComprar.map((p, i) => {
+            const linea = valores.lineas?.[i];
+            const distinta =
+              (linea?.unidadCotizada ?? '').trim().toUpperCase() !== p.unidad.trim().toUpperCase();
+            const e = errors.lineas?.[i];
+            return (
+              <div key={p.lineaRequisicionId} className="space-y-2 rounded-md border border-line-row p-3">
+                <p className="text-sm font-medium text-ink">{etiquetaPartida(p)}</p>
+                <div className="grid gap-2 sm:grid-cols-4">
+                  <Field label="Unidad cotizada" required error={e?.unidadCotizada?.message}>
+                    <Input
+                      {...form.register(`lineas.${i}.unidadCotizada`, {
+                        onChange: (ev) => {
+                          if (ev.target.value.trim().toUpperCase() === p.unidad.trim().toUpperCase()) {
+                            form.setValue(`lineas.${i}.factorAUnidadRq`, 1);
+                          }
+                        },
+                      })}
+                      className="uppercase"
+                    />
+                  </Field>
+                  {distinta ? (
+                    <Field label={`Equivale a … ${p.unidad}`} required error={e?.factorAUnidadRq?.message}>
+                      <Input
+                        type="number"
+                        step="any"
+                        inputMode="decimal"
+                        className="tabular-nums"
+                        {...form.register(`lineas.${i}.factorAUnidadRq`, { valueAsNumber: true })}
+                      />
+                    </Field>
+                  ) : (
+                    <p className="self-end pb-2 text-xs text-ink-muted">Factor 1</p>
+                  )}
+                  <Field label="Precio" required error={e?.precioUnitario?.message}>
+                    <Input
+                      type="number"
+                      step="any"
+                      inputMode="decimal"
+                      className="tabular-nums"
+                      {...form.register(`lineas.${i}.precioUnitario`, { valueAsNumber: true })}
+                    />
+                  </Field>
+                  <Field label="Entrega (días)" optional error={e?.diasEntrega?.message}>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={365}
+                      className="tabular-nums"
+                      {...form.register(`lineas.${i}.diasEntrega`, {
+                        setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
+                      })}
+                    />
+                  </Field>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
+        <div className="space-y-2">
+          <Field
+            label="Cotización del proveedor (PDF)"
+            optional
+            hint="Se adjunta a la OC si esta cotización resulta elegida"
+          >
+            <Input
+              type="file"
+              accept="application/pdf"
+              onChange={(ev) => setArchivo(ev.target.files?.[0] ?? null)}
+            />
+          </Field>
+          {!archivo && (
+            <p role="status" className="rounded-md bg-warning-bg px-3 py-2 text-xs text-warning-fg">
+              Sin PDF la cotización queda registrada pero no se podrá elegir.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <SheetFooter className="border-t border-line-row p-4 sm:justify-between">
+        <Button type="button" variant="ghost" onClick={onCancelar} disabled={guardando}>
+          Cancelar
+        </Button>
+        <ConMotivo motivo={faltante ? `Falta: ${faltante}` : null}>
+          <Button type="submit" disabled={guardando || faltante !== null}>
+            {guardando ? 'Registrando…' : 'Registrar cotización'}
+          </Button>
+        </ConMotivo>
+      </SheetFooter>
+    </form>
+  );
+}
+
+/** F1-COM-02 — Sheet «Registrar cotización» (cabecera, partidas y PDF). El PDF se sube con el id ya creado. */
+export function CotizacionSheet({ abierto, onClose, folio, requisicionId, partidas }: CotizacionSheetProps) {
+  const [sucio, setSucio] = useState(false);
+  // Confirm al cerrar con cambios (patrón NuevaRequisicionProvider).
+  const solicitarCierre = () => {
+    if (sucio && !window.confirm('Tienes cambios sin guardar. ¿Cerrar y descartarlos?')) return;
+    onClose();
+  };
+  return (
+    <Sheet open={abierto} onOpenChange={(o) => !o && solicitarCierre()}>
+      <SheetContent side="right" size="form">
+        <SheetHeader>
+          <SheetTitle>Registrar cotización</SheetTitle>
+          <SheetDescription>{folio} · solo Compras</SheetDescription>
+        </SheetHeader>
+        {abierto && (
+          <FormularioCotizacion
+            onClose={onClose}
+            onCancelar={solicitarCierre}
+            onDirtyChange={setSucio}
+            requisicionId={requisicionId}
+            partidas={partidas}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}

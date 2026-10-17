@@ -587,6 +587,7 @@ else
 // PLATFORM-TODO(<MigrarAdjuntosOcAlmacen>): OC, vale, packing list y evidencias de Almacén siguen con su patrón propio. Ver ADR-0058.
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.CotizacionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
@@ -1448,6 +1449,7 @@ app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
 app.MapUmbralesAprobacionEndpoints();
+app.MapCotizacionesEndpoints();
 
 // === Settings genéricos /api/v1/{modulo}/settings (F-Admin-PR1.1, ADR-0034) ===
 app.MapSettingsEndpoints();

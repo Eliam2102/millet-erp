@@ -226,6 +226,194 @@ namespace Millet.Compras.Infrastructure.Migrations
                     b.ToTable("settings", "compras");
                 });
 
+            modelBuilder.Entity("Millet.Compras.Domain.Cotizaciones.Cotizacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CondicionesCredito")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("condiciones_credito");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset?>("ElegidaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("elegida_en");
+
+                    b.Property<Guid?>("ElegidaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("elegida_por");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<DateOnly>("FechaCotizacion")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_cotizacion");
+
+                    b.Property<string>("FolioProveedor")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("folio_proveedor");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("moneda");
+
+                    b.Property<string>("MotivoEleccion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_eleccion");
+
+                    b.Property<Guid?>("OrdenCompraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("orden_compra_id");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proveedor_id");
+
+                    b.Property<DateTimeOffset>("RegistradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrada_en");
+
+                    b.Property<Guid>("RegistradaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("registrada_por");
+
+                    b.Property<Guid>("RequisicionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requisicion_id");
+
+                    b.Property<Guid>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<DateOnly>("VigenteHasta")
+                        .HasColumnType("date")
+                        .HasColumnName("vigente_hasta");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cotizaciones");
+
+                    b.HasIndex("OrdenCompraId")
+                        .HasDatabaseName("ix_cotizaciones_orden_compra")
+                        .HasFilter("orden_compra_id IS NOT NULL");
+
+                    b.HasIndex("RequisicionId")
+                        .HasDatabaseName("ix_cotizaciones_requisicion");
+
+                    b.ToTable("cotizaciones", "compras", t =>
+                        {
+                            t.HasCheckConstraint("ck_cotizaciones_eleccion", "(orden_compra_id IS NULL AND motivo_eleccion IS NULL) OR (orden_compra_id IS NOT NULL AND motivo_eleccion IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_cotizaciones_moneda_iso", "moneda ~ '^[A-Z]{3}$'");
+
+                            t.HasCheckConstraint("ck_cotizaciones_vigencia", "vigente_hasta >= fecha_cotizacion");
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Compras.Domain.Cotizaciones.LineaCotizacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CotizacionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cotizacion_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int?>("DiasEntrega")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias_entrega");
+
+                    b.Property<decimal>("FactorAUnidadRq")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("factor_a_unidad_rq");
+
+                    b.Property<Guid>("LineaRequisicionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_requisicion_id");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasColumnType("numeric(15,4)")
+                        .HasColumnName("precio_unitario");
+
+                    b.Property<string>("UnidadCotizada")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("unidad_cotizada");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cotizacion_lineas");
+
+                    b.HasIndex("CotizacionId", "LineaRequisicionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cotizacion_lineas_partida");
+
+                    b.ToTable("cotizacion_lineas", "compras", t =>
+                        {
+                            t.HasCheckConstraint("ck_cotizacion_lineas_factor", "factor_a_unidad_rq > 0");
+
+                            t.HasCheckConstraint("ck_cotizacion_lineas_precio", "precio_unitario > 0");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Compras.Domain.FolioSecuencia", b =>
                 {
                     b.Property<Guid>("EmpresaId")
@@ -2168,6 +2356,26 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasConstraintName("fk_requisicion_autorizaciones_requisiciones_requisicion_id");
                 });
 
+            modelBuilder.Entity("Millet.Compras.Domain.Cotizaciones.Cotizacion", b =>
+                {
+                    b.HasOne("Millet.Compras.Domain.Requisicion", null)
+                        .WithMany()
+                        .HasForeignKey("RequisicionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cotizaciones_requisiciones_requisicion_id");
+                });
+
+            modelBuilder.Entity("Millet.Compras.Domain.Cotizaciones.LineaCotizacion", b =>
+                {
+                    b.HasOne("Millet.Compras.Domain.Cotizaciones.Cotizacion", null)
+                        .WithMany("Lineas")
+                        .HasForeignKey("CotizacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_cotizacion_lineas_cotizaciones_cotizacion_id");
+                });
+
             modelBuilder.Entity("Millet.Compras.Domain.LineaRequisicion", b =>
                 {
                     b.HasOne("Millet.Compras.Domain.Requisicion", null)
@@ -2242,6 +2450,11 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_oc_solicitudes_cancelacion_ordenes_compra_orden_compra_id");
+                });
+
+            modelBuilder.Entity("Millet.Compras.Domain.Cotizaciones.Cotizacion", b =>
+                {
+                    b.Navigation("Lineas");
                 });
 
             modelBuilder.Entity("Millet.Compras.Domain.Oc.OrdenCompra", b =>

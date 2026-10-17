@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain;
+using Millet.Compras.Domain.Cotizaciones;
 using Millet.Compras.Domain.Idempotencia;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Infrastructure.Configurations;
@@ -32,6 +33,8 @@ public sealed class ComprasDbContext : BaseDbContext
     public DbSet<AprobadorDepartamento> AprobadoresDepartamento => Set<AprobadorDepartamento>();
     public DbSet<FolioSecuencia> FolioSecuencias => Set<FolioSecuencia>();
     public DbSet<ComprasSettings> ComprasSettings => Set<ComprasSettings>();
+    public DbSet<Cotizacion> Cotizaciones => Set<Cotizacion>();
+    public DbSet<LineaCotizacion> LineasCotizacion => Set<LineaCotizacion>();
 
     // --- Submódulo Órdenes de Compra (F1-PR1, F2-PR1, F2-PR4, F3-PR1, F3-PR2) ---
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
@@ -78,6 +81,8 @@ public sealed class ComprasDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AprobadorDepartamentoConfiguration());
         modelBuilder.ApplyConfiguration(new FolioSecuenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ComprasSettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new CotizacionConfiguration());
+        modelBuilder.ApplyConfiguration(new LineaCotizacionConfiguration());
         modelBuilder.ApplyConfiguration(new OcBorradorStubConfiguration());
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new EventoProcesadoConfiguration());

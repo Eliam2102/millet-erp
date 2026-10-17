@@ -124,6 +124,10 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesCerrarManual                     = "compras.ordenes.cerrar-manual";
     public const string ComprasOrdenesLeerTodasSucursales              = "compras.ordenes.leer-todas-sucursales";
 
+    // ----- Compras — Cotizaciones (F1-COM-02, 86e3jvu2a). Namespace GUID 00000003-0005-* -----
+    public const string ComprasCotizacionesLeer                        = "compras.cotizaciones.leer";
+    public const string ComprasCotizacionesGestionar                   = "compras.cotizaciones.gestionar";
+
     // ----- Configuración del módulo Compras (Settings, decisión 2026-05-13) -----
     public const string ComprasConfiguracionLeer                       = "compras.configuracion.leer";
     public const string ComprasConfiguracionEditar                     = "compras.configuracion.editar";
@@ -652,6 +656,8 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-00000000000c"), ComprasOrdenesLeerTodasSucursales,            "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
+        (Guid.Parse("00000003-0005-0000-0000-000000000001"), ComprasCotizacionesLeer,                      "Consultar cotizaciones y el comparativo de una requisición"),
+        (Guid.Parse("00000003-0005-0000-0000-000000000002"), ComprasCotizacionesGestionar,                 "Registrar, editar, eliminar y elegir cotizaciones de proveedores (solo Compras)"),
         (Guid.Parse("00000004-0001-0000-0000-000000000001"), CompartidoCatalogosLeer,                      "Consultar catálogos cross-empresa (proveedores, artículos)"),
         (Guid.Parse("00000004-0002-0000-0000-000000000001"), CompartidoCatalogosAdministrar,               "Administrar catálogos cross-empresa (reclasificar naturaleza, etc)"),
         (Guid.Parse("00000005-0001-0000-0000-000000000001"), AdminEmpresasLeer,                            "Listar empresas y sus datos generales (mínimo del andamio /admin)"),

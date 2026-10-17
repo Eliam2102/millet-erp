@@ -76,6 +76,8 @@ export const comprasKeys = {
 
   /** Umbrales N1/N2 vigentes por departamento (configuración). */
   umbralesAprobacion: () => [...comprasKeys.all, 'umbrales-aprobacion'] as const,
+  cotizaciones: (requisicionId: string) =>
+    [...comprasKeys.all, 'cotizaciones', requisicionId] as const,
   /** Configuración del módulo Compras de la empresa actual. */
   configuracion: () => [...comprasKeys.all, 'configuracion'] as const,
 
