@@ -956,6 +956,15 @@ export interface SaldoListItem {
   articuloDescripcion: string | null;
 }
 
+/** Mirror de <c>SaldosTotalesResponse</c>: totales de todo el conjunto filtrado.
+ * La cantidad solo viene si todos los artículos comparten una única UM. */
+export interface SaldosTotalesResponse {
+  valorInventarioMxn: number;
+  cantidadTotal: number | null;
+  unidadMedida: string | null;
+  articulos: number;
+}
+
 /** Mirror de <c>SaldoUbicacionItem</c> (C7.2b) — una ubicación con existencia
  * (>0) de un artículo en un sub-almacén, incluida la ÚNICA (esDefault). Puebla
  * el selector de bin en salidas. Salida-por-línea C1: enriquecida con clave del

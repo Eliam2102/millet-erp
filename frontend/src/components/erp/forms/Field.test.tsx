@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Controller, useForm } from 'react-hook-form';
 import { Field } from '@/components/erp/forms/Field';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DecimalField } from '@/components/erp/forms/DecimalField';
 
 function ConRegister({ error }: { error?: string }) {
@@ -28,7 +30,48 @@ function ConController({ error }: { error?: string }) {
   );
 }
 
+function ConControllerDirecto({ error }: { error?: string }) {
+  const { control } = useForm<{ nombre: string; tipo: string; monto: number | null }>({
+    defaultValues: { nombre: '', tipo: 'a', monto: null },
+  });
+  return (
+    <>
+      <Field label="Nombre" required error={error}>
+        <Controller control={control} name="nombre" render={({ field }) => <Input {...field} />} />
+      </Field>
+      <Field label="Tipo">
+        <Controller
+          control={control}
+          name="tipo"
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="a">A</SelectItem></SelectContent>
+            </Select>
+          )}
+        />
+      </Field>
+      <Field label="Monto">
+        <Controller
+          control={control}
+          name="monto"
+          render={({ field }) => <DecimalField value={field.value} onChange={field.onChange} />}
+        />
+      </Field>
+    </>
+  );
+}
+
 describe('<Field>', () => {
+  it('asocia label con Controller directo (Input, Select, DecimalField)', () => {
+    render(<ConControllerDirecto error="Obligatorio" />);
+    const nombre = screen.getByLabelText(/Nombre/);
+    expect(nombre).toHaveAttribute('aria-required', 'true');
+    expect(nombre).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Tipo')).toHaveAttribute('role', 'combobox');
+    expect(screen.getByLabelText('Monto')).toBeInTheDocument();
+  });
+
   it('asocia label con register, aria-required y describedby solo del hint', () => {
     render(<ConRegister />);
     const input = screen.getByLabelText(/Nombre/);

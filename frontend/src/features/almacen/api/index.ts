@@ -75,6 +75,7 @@ export {
 } from '@/features/almacen/api/useAprobacionConteo';
 export {
   useSaldos,
+  useSaldosTotales,
   useEjecutarCierreMes,
   usePeriodosCierre,
   useRevisionPreviaCierre,

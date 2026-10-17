@@ -14,6 +14,15 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -287,7 +296,7 @@ export function AprobacionConteoPage() {
                     </Button>
                   )}
                   {aplicado && (
-                    <p className="text-sm text-emerald-700 flex items-center gap-2">
+                    <p className="text-sm text-success-fg flex items-center gap-2">
                       <Lock className="h-4 w-4" />
                       Conteo aplicado. Ajustes generados en el inventario.
                     </p>
@@ -398,13 +407,13 @@ export function AprobacionConteoPage() {
 
 function BloqueoInventarioAnualBanner() {
   return (
-    <div className="flex items-start gap-3 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm">
-      <Lock className="mt-0.5 h-5 w-5 shrink-0 text-rose-700" />
+    <div className="flex items-start gap-3 rounded-md border border-danger bg-danger-bg px-4 py-3 text-sm">
+      <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger-fg" />
       <div>
-        <p className="font-medium text-rose-900">
+        <p className="font-medium text-danger-fg">
           Inventario anual — salidas bloqueadas (A18)
         </p>
-        <p className="text-rose-800">
+        <p className="text-danger-fg">
           Mientras este conteo esté activo, los almacenes no pueden surtir
           salidas. Coordina con producción y termina el ciclo lo antes
           posible.
@@ -436,78 +445,78 @@ function TablaComparacion({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">Artículo</th>
-            <th className="px-3 py-2 text-left">Sub-almacén</th>
-            <th className="px-3 py-2 text-left">Rack</th>
-            <th className="px-3 py-2 text-right">Teórica</th>
-            <th className="px-3 py-2 text-right">Real</th>
-            <th className="px-3 py-2 text-left">Variación</th>
-            <th className="px-3 py-2 text-left">Estado</th>
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Artículo</TableHead>
+            <TableHead>Sub-almacén</TableHead>
+            <TableHead>Rack</TableHead>
+            <TableHead className="text-right">Teórica</TableHead>
+            <TableHead className="text-right">Real</TableHead>
+            <TableHead>Variación</TableHead>
+            <TableHead>Estado</TableHead>
             {puedeAccionar && (
-              <th className="px-3 py-2 text-right">Acciones</th>
+              <TableHead className="text-right">Acciones</TableHead>
             )}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((l) => (
-            <tr key={l.id} className="border-t">
-              <td className="px-3 py-2">
+            <TableRow key={l.id}>
+              <TableCell>
                 <EtiquetaArticulo
                   articuloId={l.articuloId}
                   clave={l.articuloClave}
                   descripcion={l.articuloDescripcion}
                 />
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 <EtiquetaSubAlmacen
                   subAlmacenId={l.subAlmacenId}
                   clave={l.subAlmacenClave}
                 />
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">{l.ubicacionClave}</td>
-              <td className="px-3 py-2 text-right font-mono">
+              </TableCell>
+              <TableCell className="font-mono text-xs">{l.ubicacionClave}</TableCell>
+              <TableCell className="text-right font-mono">
                 {formatCantidad(l.cantidadTeorica)}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
+              </TableCell>
+              <TableCell className="text-right font-mono">
                 {l.cantidadVigente != null ? formatCantidad(l.cantidadVigente) : '—'}
                 {l.recuentoRealizado && l.cantidadRealCapturada != null && (
                   <div className="text-xs font-normal text-muted-foreground">
                     Captura original: {formatCantidad(l.cantidadRealCapturada)}
                   </div>
                 )}
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 <VariacionBadge
                   variacionAbsoluta={l.variacionAbsoluta}
                   variacionPorcentaje={l.variacionPorcentaje}
                   variacionValorMxn={l.variacionValorMxn}
                   requiereRecuento={l.requiereRecuento}
                 />
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 {l.aprobadoIndividualmente ? (
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800',
+                      'inline-flex items-center gap-1 rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-fg',
                     )}
                   >
                     <Check className="h-3 w-3" />
                     Aprobada
                   </span>
                 ) : l.requiereRecuento ? (
-                  <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
+                  <span className="inline-flex items-center rounded-full bg-danger-bg px-2 py-0.5 text-xs font-medium text-danger-fg">
                     Pendiente
                   </span>
                 ) : (
                   <span className="text-xs text-muted-foreground">OK</span>
                 )}
-              </td>
+              </TableCell>
               {puedeAccionar && (
-                <td className="px-3 py-2 text-right">
+                <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button
                       type="button"
@@ -530,13 +539,13 @@ function TablaComparacion({
                       </Button>
                     )}
                   </div>
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 

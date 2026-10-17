@@ -3,6 +3,15 @@ import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ArrowRight, Check, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import {
   cabeEnDecimales,
@@ -149,13 +158,13 @@ export function CapturaConteoPage() {
       </div>
 
       {/* Banner sin-sesgo */}
-      <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-        <EyeOff className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+      <div className="flex items-start gap-3 rounded-md border border-warning bg-warning-bg px-4 py-3 text-sm">
+        <EyeOff className="mt-0.5 h-5 w-5 shrink-0 text-warning-fg" />
         <div>
-          <p className="font-medium text-amber-900">
+          <p className="font-medium text-warning-fg">
             Captura sin sesgo (política A6)
           </p>
-          <p className="text-amber-800">
+          <p className="text-warning-fg">
             Estás capturando la cantidad real <b>sin ver la cantidad
             teórica</b>. El aprobador comparará teórico vs real en una
             pantalla separada. Reporta lo que ves físicamente — no lo que
@@ -233,20 +242,20 @@ function TablaCaptura({
   guardandoLineaId: string | null;
 }) {
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">#</th>
-            <th className="px-3 py-2 text-left">Artículo</th>
-            <th className="px-3 py-2 text-left">Sub-almacén</th>
-            <th className="px-3 py-2 text-left">Rack</th>
-            <th className="px-3 py-2 text-right">Cantidad real</th>
-            <th className="px-3 py-2 text-left">UM</th>
-            <th className="px-3 py-2 text-left">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>#</TableHead>
+            <TableHead>Artículo</TableHead>
+            <TableHead>Sub-almacén</TableHead>
+            <TableHead>Rack</TableHead>
+            <TableHead className="text-right">Cantidad real</TableHead>
+            <TableHead>UM</TableHead>
+            <TableHead>Estado</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {lineas.map((linea, index) => (
             <FilaCaptura
               key={linea.id}
@@ -261,9 +270,9 @@ function TablaCaptura({
               guardando={guardandoLineaId === linea.id}
             />
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
@@ -319,30 +328,29 @@ function FilaCaptura({
   const capturada = linea.cantidadRealCapturada != null;
 
   return (
-    <tr
+    <TableRow
       className={cn(
-        'border-t',
         activo && 'bg-primary/5',
         capturada && !activo && 'opacity-60',
       )}
       onClick={onActivar}
     >
-      <td className="px-3 py-2 font-mono text-xs">{index + 1}</td>
-      <td className="px-3 py-2">
+      <TableCell className="font-mono text-xs">{index + 1}</TableCell>
+      <TableCell>
         <EtiquetaArticulo
           articuloId={linea.articuloId}
           clave={linea.articuloClave}
           descripcion={linea.articuloDescripcion}
         />
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell>
         <EtiquetaSubAlmacen
           subAlmacenId={linea.subAlmacenId}
           clave={linea.subAlmacenClave}
         />
-      </td>
-      <td className="px-3 py-2 font-mono text-xs">{linea.ubicacionClave}</td>
-      <td className="px-3 py-2 text-right">
+      </TableCell>
+      <TableCell className="font-mono text-xs">{linea.ubicacionClave}</TableCell>
+      <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
           <Input
             ref={inputRef}
@@ -373,24 +381,24 @@ function FilaCaptura({
             )}
           </Button>
         </div>
-      </td>
-      <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+      </TableCell>
+      <TableCell className="font-mono text-xs text-ink-muted">
         {linea.unidadMedida ?? '—'}
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell>
         {capturada ? (
-          <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+          <span className="inline-flex items-center gap-1 text-xs text-success-fg">
             <Check className="h-3 w-3" />
             Capturada
           </span>
         ) : linea.requiereRecuento ? (
-          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+          <span className="inline-flex items-center rounded-full bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning-fg">
             Recuento
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">Pendiente</span>
         )}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }

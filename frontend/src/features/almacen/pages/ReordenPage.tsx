@@ -5,6 +5,15 @@ import { Ban, Pencil, Plus, Power } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -25,6 +34,7 @@ import {
   ArticuloSelector,
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SortableHeader,
   TableSkeleton,
   compareItemsBy,
@@ -53,6 +63,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
 import { ReordenSheet } from '@/features/almacen/components/ReordenSheet';
 import { cn } from '@/lib/utils';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { formatCantidad } from '@/lib/format-cantidad';
 
@@ -105,13 +117,14 @@ export function ReordenPage() {
     articuloId: search.articuloId,
     nivel: search.nivel,
     estatus: search.estatus,
-    limit: 500,
+    ...paginaAOffsetLimit(search),
   });
 
   const desactivar = useDesactivarReorden();
 
   function actualizarSearch(parcial: Partial<ReordenSearch>) {
-    navigate({ to: '/almacen/reorden', search: { ...search, ...parcial } });
+    // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+    navigate({ to: '/almacen/reorden', search: { ...search, page: undefined, ...parcial } });
   }
 
   function resolverEntidad(item: ConfiguracionReordenListItem): string {
@@ -192,8 +205,8 @@ export function ReordenPage() {
           className={cn(
             'flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3',
             settingsQuery.data.reabastoAutomaticoActivo
-              ? 'border-emerald-300 bg-emerald-50'
-              : 'border-amber-300 bg-amber-50',
+              ? 'border-success bg-success-bg'
+              : 'border-warning bg-warning-bg',
           )}
         >
           <div className="flex items-center gap-3">
@@ -201,8 +214,8 @@ export function ReordenPage() {
               className={cn(
                 'h-5 w-5 shrink-0',
                 settingsQuery.data.reabastoAutomaticoActivo
-                  ? 'text-emerald-700'
-                  : 'text-amber-700',
+                  ? 'text-success-fg'
+                  : 'text-warning-fg',
               )}
             />
             <div>
@@ -271,16 +284,24 @@ export function ReordenPage() {
           }
         />
       ) : (
-        <TablaReorden
-          items={query.data!.items}
-          resolverEntidad={resolverEntidad}
-          puedeAdministrar={puedeAdministrar}
-          onEditar={(item) => {
-            setEditando(item);
-            setSheetAbierto(true);
-          }}
-          onDesactivar={setConfirmDesactivar}
-        />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaReorden
+            items={query.data!.items}
+            resolverEntidad={resolverEntidad}
+            puedeAdministrar={puedeAdministrar}
+            onEditar={(item) => {
+              setEditando(item);
+              setSheetAbierto(true);
+            }}
+            onDesactivar={setConfirmDesactivar}
+          />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <ReordenSheet
@@ -381,17 +402,15 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
     search.articuloId != null || search.nivel != null || search.estatus != null;
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Artículo</label>
-        <div className="w-64">
-          <ArticuloSelector
-            value={search.articuloId ?? null}
-            onChange={(id) => onChange({ articuloId: id ?? undefined })}
-          />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Nivel</label>
+      <Field label="Artículo" className="gap-1">
+        <ArticuloSelector
+          value={search.articuloId ?? null}
+          onChange={(id) => onChange({ articuloId: id ?? undefined })}
+          className="w-64"
+        />
+      </Field>
+      <Field label="Nivel" className="gap-1">
+        {(c) => (
         <Select
           value={search.nivel != null ? String(search.nivel) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -401,7 +420,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             })
           }
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger {...c} className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -414,9 +433,10 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estatus</label>
+        )}
+      </Field>
+      <Field label="Estatus" className="gap-1">
+        {(c) => (
         <Select
           value={search.estatus != null ? String(search.estatus) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -428,7 +448,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             })
           }
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger {...c} className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -441,7 +461,8 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
+        )}
+      </Field>
       {hayFiltros && (
         <Button
           variant="ghost"
@@ -500,59 +521,59 @@ function TablaReorden({
   }, [enriquecidos, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="articulo"
                 label="Artículo"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="nivel"
                 label="Nivel"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="entidad"
                 label="Entidad"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right font-medium">Mín</th>
-            <th className="px-3 py-2 text-right font-medium">Máx</th>
-            <th className="px-3 py-2 text-right font-medium">P. reorden</th>
-            <th className="px-3 py-2 text-center font-medium">Auto</th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead className="text-right">Mín</TableHead>
+            <TableHead className="text-right">Máx</TableHead>
+            <TableHead className="text-right">P. reorden</TableHead>
+            <TableHead className="text-center">Auto</TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estatus"
                 label="Estatus"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
+            </TableHead>
             {puedeAdministrar && (
-              <th className="px-3 py-2 text-right font-medium">Acciones</th>
+              <TableHead className="text-right">Acciones</TableHead>
             )}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map(({ item, articulo, entidad }) => (
-            <tr key={item.id} className="border-t">
-              <td className="px-3 py-2">{articulo}</td>
-              <td className="px-3 py-2">
+            <TableRow key={item.id}>
+              <TableCell>{articulo}</TableCell>
+              <TableCell>
                 <EstadoAlmacenBadge tipo="nivel-reorden" estado={item.nivel} />
-              </td>
-              <td className="px-3 py-2">{entidad}</td>
+              </TableCell>
+              <TableCell>{entidad}</TableCell>
               <ValorCelda
                 valor={item.minimo}
                 activo={item.objetivo === ObjetivoReposicion.Minimo}
@@ -565,14 +586,14 @@ function TablaReorden({
                 valor={item.puntoReorden}
                 activo={item.objetivo === ObjetivoReposicion.Reorden}
               />
-              <td className="px-3 py-2 text-center">
+              <TableCell className="text-center">
                 {item.autoRequisicion ? 'Sí' : 'No'}
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 <EstadoAlmacenBadge tipo="catalogo" estado={item.estatus} />
-              </td>
+              </TableCell>
               {puedeAdministrar && (
-                <td className="px-3 py-2 text-right">
+                <TableCell className="text-right">
                   <Button
                     type="button"
                     size="sm"
@@ -593,28 +614,28 @@ function TablaReorden({
                       <Ban className="h-4 w-4" />
                     </Button>
                   )}
-                </td>
+                </TableCell>
               )}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
 /** Celda numérica; resalta el valor que dicta el Objetivo (meta activa). */
 function ValorCelda({ valor, activo }: { valor: number; activo: boolean }) {
   return (
-    <td
+    <TableCell
       className={cn(
-        'px-3 py-2 text-right tabular-nums',
-        activo && 'font-semibold text-foreground',
+        'text-right tabular-nums',
+        activo && 'font-semibold text-ink-strong',
       )}
       title={activo ? 'Objetivo de reabasto' : undefined}
     >
       {formatCantidad(valor)}
-    </td>
+    </TableCell>
   );
 }
 

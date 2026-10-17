@@ -2,6 +2,16 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -13,19 +23,22 @@ import {
   ArticuloSelector,
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SortableHeader,
   TableSkeleton,
   compareItemsBy,
   type SortState,
 } from '@/components/erp';
 import { mapById } from '@/features/catalogos/api';
-import { useSaldos } from '@/features/almacen/api/useSaldosCierreReportes';
+import { useSaldos, useSaldosTotales } from '@/features/almacen/api/useSaldosCierreReportes';
 import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import type { SaldoListItem } from '@/features/almacen/api/types';
 import { esApiError } from '@/lib/api';
 import type { SaldosSearch } from '@/features/almacen/lib/saldos-search-schema';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
 
 const FROM = '/_app/almacen/saldos' as const;
 const SENTINEL_ALL = '__all__';
@@ -58,19 +71,22 @@ export function SaldosPage() {
     subAlmacenId: search.subAlmacenId,
     articuloId: search.articuloId,
     soloConStock: search.soloConStock,
-    limit: 500,
+    ...paginaAOffsetLimit(search),
   });
+  // Totales del servidor sobre TODO el conjunto filtrado (no solo la página).
+  const totalesQuery = useSaldosTotales({
+    subAlmacenId: search.subAlmacenId,
+    articuloId: search.articuloId,
+    soloConStock: search.soloConStock,
+  });
+  const totales = totalesQuery.data;
 
   function actualizarSearch(parcial: Partial<SaldosSearch>) {
-    navigate({ to: '/almacen/saldos', search: { ...search, ...parcial } });
+    // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+    navigate({ to: '/almacen/saldos', search: { ...search, page: undefined, ...parcial } });
   }
 
   const items = useMemo(() => query.data?.items ?? [], [query.data]);
-  const totales = useMemo(() => {
-    const totalCantidad = items.reduce((a, s) => a + s.cantidad, 0);
-    const totalValor = items.reduce((a, s) => a + s.valorInventarioMxn, 0);
-    return { totalCantidad, totalValor };
-  }, [items]);
 
   // Etiqueta del artículo filtrado para el trigger del selector tras un reload
   // con `articuloId` en la URL: se deriva de los saldos ya cargados (que vienen
@@ -129,29 +145,35 @@ export function SaldosPage() {
         />
       ) : (
         <>
-          <TablaSaldos items={items} subAlmacenesMap={subAlmacenesMap} />
-          <div className="flex justify-end gap-6 rounded-md border bg-muted/30 px-4 py-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">
-                Cantidad total:{' '}
-              </span>
-              <span className="font-semibold tabular-nums">
-                {formatCantidad(totales.totalCantidad)}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">
-                Valor inventario:{' '}
-              </span>
-              <span className="font-mono font-semibold">
-                {new Intl.NumberFormat('es-MX', {
-                  style: 'currency',
-                  currency: 'MXN',
-                  minimumFractionDigits: 2,
-                }).format(totales.totalValor)}
-              </span>
-            </div>
+          <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+            <TablaSaldos items={items} subAlmacenesMap={subAlmacenesMap} />
+            <PaginacionTabla
+              total={query.data?.total ?? 0}
+              offset={query.data?.offset ?? 0}
+              limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+              onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+            />
           </div>
+          {totales && (
+            <div
+              className="flex justify-end gap-6 rounded-md border border-line-row bg-surface-subtle px-4 py-2 text-sm"
+              aria-label="Totales del conjunto filtrado"
+            >
+              {totales.cantidadTotal != null && (
+                <div>
+                  <span className="text-ink-muted">Cantidad total: </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatCantidad(totales.cantidadTotal)}
+                    {totales.unidadMedida ? ` ${totales.unidadMedida}` : ''}
+                  </span>
+                </div>
+              )}
+              <div>
+                <span className="text-ink-muted">Valor inventario: </span>
+                <MoneyDisplay amount={totales.valorInventarioMxn} currency="MXN" strong />
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -177,29 +199,29 @@ function FiltrosToolbar({
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sub-almacén</label>
-        <Select
-          value={search.subAlmacenId ?? SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-          }
-        >
-          <SelectTrigger aria-label="Filtrar por sub-almacén" className="w-56">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {subAlmacenes.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.clave} · {s.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Artículo</label>
+      <Field label="Sub-almacén" className="gap-1">
+        {(c) => (
+          <Select
+            value={search.subAlmacenId ?? SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
+            }
+          >
+            <SelectTrigger {...c} aria-label="Filtrar por sub-almacén" className="w-56">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+              {subAlmacenes.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.clave} · {s.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
+      <Field label="Artículo" className="gap-1">
         <ArticuloSelector
           value={search.articuloId ?? null}
           onChange={(id) => onChange({ articuloId: id ?? undefined })}
@@ -207,16 +229,14 @@ function FiltrosToolbar({
           placeholder="Todos"
           className="w-72"
         />
-      </div>
-      <div className="flex items-center gap-2 pb-1">
-        <input
+      </Field>
+      <div className="flex items-center gap-2 pb-1.5">
+        <Checkbox
           id="solo-con-stock"
-          type="checkbox"
           checked={search.soloConStock ?? false}
-          onChange={(e) =>
-            onChange({ soloConStock: e.target.checked || undefined })
+          onCheckedChange={(checked) =>
+            onChange({ soloConStock: checked === true || undefined })
           }
-          className="h-4 w-4"
         />
         <label htmlFor="solo-con-stock" className="text-sm">
           Solo con stock
@@ -267,71 +287,68 @@ function TablaSaldos({
   }, [enriquecidos, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="subAlmacen"
                 label="Sub-almacén"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="articuloId"
                 label="Artículo"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="cantidad"
                 label="Cantidad"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="cantidadDisponible"
                 label="Disponible"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="costoPromedioMxn"
                 label="CPP"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="valorInventarioMxn"
                 label="Valor inventario"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((s) => (
-            <tr
-              key={`${s.subAlmacenId}-${s.articuloId}`}
-              className="border-t"
-            >
-              <td className="px-3 py-2 font-mono text-xs">{s.subAlmacen}</td>
-              <td className="px-3 py-2 text-xs">
+            <TableRow key={`${s.subAlmacenId}-${s.articuloId}`}>
+              <TableCell className="font-mono text-xs">{s.subAlmacen}</TableCell>
+              <TableCell className="text-xs">
                 {s.articuloClave ? (
                   <>
-                    <span className="font-mono text-muted-foreground">
+                    <span className="font-mono text-ink-muted">
                       {s.articuloClave}
                     </span>
                     {s.articuloDescripcion ? ` · ${s.articuloDescripcion}` : ''}
@@ -339,24 +356,24 @@ function TablaSaldos({
                 ) : (
                   <span className="font-mono">{s.articuloId}</span>
                 )}
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
                 {formatCantidad(s.cantidad)}
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
                 {formatCantidad(s.cantidadDisponible)}
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
                 <MoneyDisplay amount={s.costoPromedioMxn} currency="MXN" strong />
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
                 <MoneyDisplay amount={s.valorInventarioMxn} currency="MXN" strong />
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 

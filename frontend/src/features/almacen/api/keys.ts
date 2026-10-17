@@ -191,6 +191,8 @@ export const almacenKeys = {
   saldos: () => [...almacenKeys.all, 'saldos'] as const,
   saldosList: (filtros: ListarSaldosFiltros) =>
     [...almacenKeys.saldos(), 'list', filtros] as const,
+  saldosTotales: (filtros: ListarSaldosFiltros) =>
+    [...almacenKeys.saldos(), 'totales', filtros] as const,
   // C7.2b: saldo por ubicación de un artículo (selector de bin en salidas)
   saldosPorUbicacion: (articuloId: string, subAlmacenId: string) =>
     [...almacenKeys.saldos(), 'por-ubicacion', articuloId, subAlmacenId] as const,

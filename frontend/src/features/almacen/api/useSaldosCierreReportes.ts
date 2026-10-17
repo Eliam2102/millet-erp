@@ -19,6 +19,7 @@ import type {
   ReporteResponse,
   SaldoListItem,
   SaldoUbicacionItem,
+  SaldosTotalesResponse,
 } from '@/features/almacen/api/types';
 
 /**
@@ -57,6 +58,21 @@ export function useSaldos(filtros: ListarSaldosFiltros = {}) {
       const { data } = await apiRequest<PagedResponse<SaldoListItem>>(path, {
         signal,
       });
+      return data;
+    },
+  });
+}
+
+/** Totales (valor MXN, cantidad si hay una sola UM) con los mismos filtros que el listado. */
+export function useSaldosTotales(filtros: Omit<ListarSaldosFiltros, 'offset' | 'limit'> = {}) {
+  return useQuery({
+    queryKey: almacenKeys.saldosTotales(filtros),
+    queryFn: async ({ signal }) => {
+      const query = buildQuery(filtros);
+      const { data } = await apiRequest<SaldosTotalesResponse>(
+        query ? `/api/v1/almacen/saldos/totales?${query}` : '/api/v1/almacen/saldos/totales',
+        { signal },
+      );
       return data;
     },
   });
