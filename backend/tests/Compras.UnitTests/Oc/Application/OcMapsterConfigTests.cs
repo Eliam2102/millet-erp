@@ -33,11 +33,13 @@ public sealed class OcMapsterConfigTests
         Assert.Equal(1000m, linea.SubtotalLinea);
         Assert.Empty(response.Autorizaciones); // Los enriquece el handler.
         Assert.Empty(response.SolicitudesCancelacion);
+        Assert.Empty(response.RespuestasProveedor);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(response,
             JsonSerializerOptions.Web));
         foreach (var propiedad in new[] { "id", "folio", "estado", "version", "lineas", "adjuntos",
             "referenciaProveedor", "descuentoGlobalTipo", "gastosAdicionales", "redondeo",
-            "cicloAutorizacion", "autorizaciones", "solicitudesCancelacion" })
+            "cicloAutorizacion", "autorizaciones", "solicitudesCancelacion",
+            "estadoComercialProveedor", "fechaCompromisoProveedor", "respuestasProveedor" })
             Assert.True(json.RootElement.TryGetProperty(propiedad, out _), propiedad);
     }
 }

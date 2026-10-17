@@ -1389,6 +1389,20 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000003-0003-0000-0000-00000000000d"),
+                            Accion = "registrar-respuesta-proveedor",
+                            Codigo = "compras.ordenes.registrar-respuesta-proveedor",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Registrar la confirmación o el rechazo del proveedor sobre una orden de compra autorizada, con fechas prometidas y evidencia",
+                            Modulo = "compras",
+                            Recurso = "ordenes",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000003-0004-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "compras.configuracion.leer",

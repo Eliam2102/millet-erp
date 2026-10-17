@@ -106,6 +106,11 @@ public sealed record OrdenCompraResponse(
     public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];
     public IReadOnlyList<SolicitudCancelacionOcResponse> SolicitudesCancelacion { get; init; } = [];
 
+    // F1-COM-11: estado comercial, compromiso vigente e historial de respuestas del proveedor (más reciente primero).
+    public EstadoComercialProveedorOc EstadoComercialProveedor { get; init; }
+    public DateOnly? FechaCompromisoProveedor { get; init; }
+    public IReadOnlyList<RespuestaProveedorOcResponse> RespuestasProveedor { get; init; } = [];
+
     /// <summary>
     /// Campos de cabecera que siguen en TBD; la OC no se puede transmitir mientras la lista no esté vacía.
     /// Valores posibles: <c>proveedor</c>, <c>condicionesPago</c>, <c>usoPrincipal</c>.
@@ -128,3 +133,7 @@ public sealed record SolicitudCancelacionOcResponse(Guid Id, Guid SolicitanteId,
     Guid? ResolutorId, DateTimeOffset? FechaResolucion, bool? Confirmada, string? MotivoResolucion);
 
 public sealed record CotizacionElegidaOcResponse(Guid CotizacionId, Guid RequisicionId, Guid ProveedorId, string? FolioProveedor, string MotivoEleccion, DateTimeOffset ElegidaEn);
+
+public sealed record CompromisoEntregaOcResponse(Guid Id, Guid LineaOrdenCompraId, decimal Cantidad, DateOnly FechaPrometida);
+
+public sealed record RespuestaProveedorOcResponse(Guid Id, int Numero, TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, bool TieneDiferencias, Guid RegistradaPorId, DateTimeOffset RegistradaEn, bool Vigente, IReadOnlyList<CompromisoEntregaOcResponse> Compromisos);

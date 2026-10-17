@@ -190,6 +190,10 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
     /// </summary>
     public DateTimeOffset? FechaCierre { get; private set; }
 
+    // F1-COM-11: estado comercial y compromiso vigente según la última respuesta del proveedor.
+    public EstadoComercialProveedorOc EstadoComercialProveedor { get; private set; }
+    public DateOnly? FechaCompromisoProveedor { get; private set; }
+
     // --- F2-PR3: referencia proveedor + contacto + logística + importación ---
 
     /// <summary>Folio externo del proveedor (§4.4). Indexado para búsqueda. Normalizado a uppercase + trim.</summary>
@@ -271,6 +275,9 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
 
     private readonly List<SolicitudCancelacionOc> _solicitudesCancelacion = [];
     public IReadOnlyCollection<SolicitudCancelacionOc> SolicitudesCancelacion => _solicitudesCancelacion.AsReadOnly();
+
+    private readonly List<RespuestaProveedorOc> _respuestasProveedor = [];
+    public IReadOnlyCollection<RespuestaProveedorOc> RespuestasProveedor => _respuestasProveedor.AsReadOnly();
 
     /// <summary>Constructor para EF Core.</summary>
     private OrdenCompra() { }
@@ -1348,6 +1355,86 @@ public sealed class OrdenCompra : BaseEntity, IPerteneceAEmpresa, IAuditable, IF
             throw new BusinessRuleException("OC_CANCELACION_NO_SOLICITADA",
                 "La orden de compra no tiene una solicitud de cancelación pendiente.");
         return _solicitudesCancelacion.Single(s => s.FechaResolucion == null);
+    }
+
+    /// <summary>
+    /// Registra la respuesta del proveedor (F1-COM-11). Inmutable: una nueva fecha prometida es otra
+    /// respuesta y la anterior se conserva. No modifica cantidades, recepción, facturación, pago ni el estado de la OC.
+    /// </summary>
+    public RespuestaProveedorOc RegistrarRespuestaProveedor(TipoRespuestaProveedorOc tipo, DateOnly fechaRespuesta,
+        DateOnly hoy, string evidencia, string? contactoProveedor, string? motivo,
+        IReadOnlyList<CompromisoEntregaPropuesto> compromisos, Guid usuarioId, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoOrdenCompra.Autorizada)
+            throw new BusinessRuleException("OC_RESPUESTA_ESTADO_INVALIDO",
+                "Solo se registra la respuesta del proveedor en una orden de compra autorizada.");
+        if (usuarioId == Guid.Empty)
+            throw new BusinessRuleException("OC_RESPUESTA_USUARIO_REQUERIDO",
+                "La respuesta requiere el usuario que la registra.");
+        if (!Enum.IsDefined(tipo))
+            throw new BusinessRuleException("OC_RESPUESTA_TIPO_INVALIDO",
+                "Indica si el proveedor confirmó o rechazó la orden.");
+        if (string.IsNullOrWhiteSpace(evidencia) || evidencia.Length > 300)
+            throw new BusinessRuleException("OC_RESPUESTA_EVIDENCIA_REQUERIDA",
+                "Indica la evidencia de la respuesta (por ejemplo, el correo o el folio del proveedor), máximo 300 caracteres.");
+        if (contactoProveedor is { Length: > 120 })
+            throw new BusinessRuleException("OC_RESPUESTA_CONTACTO_LARGO",
+                "El contacto del proveedor no puede exceder 120 caracteres.");
+        if (motivo is { Length: > 500 })
+            throw new BusinessRuleException("OC_RESPUESTA_MOTIVO_LARGO",
+                "El motivo no puede exceder 500 caracteres.");
+        if (fechaRespuesta > hoy)
+            throw new BusinessRuleException("OC_RESPUESTA_FECHA_FUTURA",
+                "La fecha de respuesta no puede ser posterior a hoy.");
+        if (fechaRespuesta < FechaDocumento)
+            throw new BusinessRuleException("OC_RESPUESTA_FECHA_ANTERIOR_OC",
+                "La fecha de respuesta no puede ser anterior a la fecha de la orden de compra.");
+
+        var tieneDiferencias = false;
+        if (tipo == TipoRespuestaProveedorOc.Rechazo)
+        {
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new BusinessRuleException("OC_RESPUESTA_MOTIVO_REQUERIDO",
+                    "Indica el motivo del rechazo del proveedor.");
+            if (compromisos.Count > 0)
+                throw new BusinessRuleException("OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS",
+                    "Un rechazo no lleva fechas prometidas.");
+        }
+        else
+        {
+            var pendientes = _lineas.Where(l => l.Cantidad - l.CantidadRecibida > 0).ToDictionary(l => l.Id);
+            if (pendientes.Count == 0)
+                throw new BusinessRuleException("OC_RESPUESTA_SIN_PENDIENTE",
+                    "Todas las líneas ya están recibidas; no hay entregas por confirmar.");
+            if (compromisos.Count == 0)
+                throw new BusinessRuleException("OC_RESPUESTA_SIN_COMPROMISOS",
+                    "Captura al menos una fecha prometida.");
+            foreach (var c in compromisos)
+            {
+                if (!pendientes.ContainsKey(c.LineaOrdenCompraId))
+                    throw new BusinessRuleException("OC_RESPUESTA_LINEA_INVALIDA",
+                        "Una fecha prometida apunta a una línea que no es de esta orden o que ya está recibida completa.");
+                if (c.Cantidad <= 0)
+                    throw new BusinessRuleException("OC_RESPUESTA_CANTIDAD_INVALIDA",
+                        "La cantidad prometida debe ser mayor a cero.");
+                if (c.FechaPrometida < fechaRespuesta)
+                    throw new BusinessRuleException("OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA",
+                        "La fecha prometida no puede ser anterior a la fecha de respuesta.");
+            }
+            // Regla 2: no se cambia la orden en silencio; la diferencia se marca para Compras.
+            tieneDiferencias = pendientes.Values.Any(l =>
+                    compromisos.Where(c => c.LineaOrdenCompraId == l.Id).Sum(c => c.Cantidad) != l.Cantidad - l.CantidadRecibida)
+                || (FechaEntregaEsperada is DateOnly esperada && compromisos.Any(c => c.FechaPrometida > esperada));
+        }
+
+        var respuesta = new RespuestaProveedorOc(Guid.CreateVersion7(), Id, _respuestasProveedor.Count + 1, tipo,
+            fechaRespuesta, evidencia, contactoProveedor, motivo, tieneDiferencias, usuarioId, ahora, compromisos);
+        _respuestasProveedor.Add(respuesta);
+        EstadoComercialProveedor = tipo == TipoRespuestaProveedorOc.Rechazo
+            ? EstadoComercialProveedorOc.Rechazada
+            : tieneDiferencias ? EstadoComercialProveedorOc.ConfirmadaConDiferencias : EstadoComercialProveedorOc.Confirmada;
+        FechaCompromisoProveedor = tipo == TipoRespuestaProveedorOc.Rechazo ? null : compromisos.Max(c => c.FechaPrometida);
+        return respuesta;
     }
 
     /// <summary>

@@ -74,4 +74,9 @@ public sealed record OrdenCompraResumen(
     bool? EsMenorCuantia = null,
     bool? EsRecurrente = null,
     bool? ProveedorConocido = null,
-    bool? RequiereNivel2 = null);
+    bool? RequiereNivel2 = null)
+{
+    // F1-COM-11: solo lo puebla ListarOrdenesCompra; null en las demás proyecciones.
+    public EstadoComercialProveedorOc? EstadoComercialProveedor { get; init; }
+    public DateOnly? FechaCompromisoProveedor { get; init; }
+}

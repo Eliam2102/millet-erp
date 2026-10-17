@@ -21,7 +21,8 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { FiltrosBandejaOc } from '@/features/compras/ordenes/components/FiltrosBandejaOc';
 import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubEstados';
 import { useNuevaOrdenCompra } from '@/features/compras/ordenes/components/nueva-orden-compra-context';
-import { type OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
+import { EstadoOrdenCompra, type OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
+import { EstadoComercialProveedorBadge } from '@/features/compras/ordenes/components/EstadoComercialProveedorBadge';
 import { type BandejaOcSearch } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
 import { PageHeader } from '@/components/erp/PageHeader';
 
@@ -288,7 +289,12 @@ function RenderTabla({
                   {comprador}
                 </td>
                 <td className="px-3 py-2">
-                  <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+                  <div className="flex flex-col items-start gap-1">
+                    <EstadoBadge tipo="orden-compra" estado={oc.estado} />
+                    {oc.estado === EstadoOrdenCompra.Autorizada && oc.estadoComercialProveedor != null && (
+                      <EstadoComercialProveedorBadge estado={oc.estadoComercialProveedor} />
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2">
                   <HoverSubEstados

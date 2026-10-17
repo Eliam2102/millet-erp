@@ -129,7 +129,11 @@ public sealed class ListarOrdenesCompraHandler
                 o.CompradorTitularId,
                 o.Moneda,
                 o.FechaDocumento,
-                o.ReferenciaProveedor))
+                o.ReferenciaProveedor)
+            {
+                EstadoComercialProveedor = o.EstadoComercialProveedor,
+                FechaCompromisoProveedor = o.FechaCompromisoProveedor,
+            })
             .ToListAsync(cancellationToken);
 
         // Enriquecer la etiqueta del proveedor (id → razón social) vía read-port

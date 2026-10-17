@@ -30,6 +30,7 @@ using Millet.Compras.Application.Oc.ListarPartidasAbiertas;
 using Millet.Compras.Application.Oc.ListarPendientesAutorizacion;
 using Millet.Compras.Application.Oc.ListarRequisicionesDisponibles;
 using Millet.Compras.Application.Oc.Rechazar;
+using Millet.Compras.Application.Oc.RespuestaProveedor;
 using Millet.Compras.Application.Oc.Lineas.ActualizarLinea;
 using Millet.Compras.Application.Oc.Lineas.ActualizarTextoAdicional;
 using Millet.Compras.Application.Oc.Lineas.AgregarLineaDesdeRequisicion;
@@ -1310,6 +1311,31 @@ public static class OrdenesCompraEndpoints
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        // --- F1-COM-11: respuesta del proveedor (confirmación o rechazo) ---
+        group.MapPost("/{id:guid}/respuestas-proveedor", async (
+            Guid id, [FromBody] RegistrarRespuestaProveedorRequest body, IMediator mediator,
+            ComprasDbContext scopeDb, ICurrentUserContext scopeUser,
+            ICurrentUserPermissions scopePermisos, IUsuarioSucursalReadPort scopeSucursales,
+            CancellationToken cancellationToken) =>
+        {
+            await OcSucursalScope.VerificarAsync(id, scopeDb, scopeUser, scopePermisos, scopeSucursales, cancellationToken, escritura: true);
+            var response = await mediator.Send(new RegistrarRespuestaProveedorCommand(id, body.Tipo, body.FechaRespuesta,
+                body.Evidencia, body.ContactoProveedor, body.Motivo, body.Compromisos ?? []), cancellationToken);
+            return Results.Created($"/api/v1/compras/ordenes/{id}", response);
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor)
+        .WithName("RegistrarRespuestaProveedorOrdenCompra")
+        .WithSummary("Registrar la confirmación o el rechazo del proveedor (F1-COM-11)")
+        .WithDescription("Solo en OC autorizada. No modifica cantidades, recepción, facturación, pago ni el estado de la OC; una nueva fecha prometida es otra respuesta y conserva la anterior. Header `Idempotency-Key` obligatorio.")
+        .Produces<RespuestaProveedorOcResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // --- F3-PR2: rechazar (EnAutorizacion N1/N2 → Rechazada) ---
         group.MapPost("/{id:guid}/rechazar", async (
             Guid id,
@@ -1751,4 +1777,5 @@ public static class OrdenesCompraEndpoints
     /// <summary>Body del PATCH texto-adicional (F2-PR2).</summary>
     public sealed record ActualizarTextoAdicionalRequest(string? TextoAdicional);
     public sealed record ResolverCancelacionOcRequest(bool Confirmar, string Motivo);
+    public sealed record RegistrarRespuestaProveedorRequest(TipoRespuestaProveedorOc Tipo, DateOnly FechaRespuesta, string Evidencia, string? ContactoProveedor, string? Motivo, IReadOnlyList<CompromisoEntregaInput>? Compromisos);
 }

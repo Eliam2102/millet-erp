@@ -2,6 +2,7 @@ using MapsterMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CentrosCosto.Application.PublicPorts;
+using Millet.Compras.Application.Oc.RespuestaProveedor;
 using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
@@ -67,6 +68,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             .Include(o => o.Lineas)
             .Include(o => o.Adjuntos)
             .Include(o => o.SolicitudesCancelacion)
+            .Include(o => o.RespuestasProveedor).ThenInclude(r => r.Compromisos)
             .Include(o => o.Autorizaciones)
             .FirstOrDefaultAsync(o => o.Id == query.Id, cancellationToken)
             ?? throw new EntityNotFoundException(
@@ -129,6 +131,10 @@ public sealed class ObtenerOrdenCompraPorIdHandler
                 .Select(s => new SolicitudCancelacionOcResponse(s.Id, s.SolicitanteId,
                     s.FechaSolicitud, s.MotivoCancelacionId, s.MotivoSolicitud,
                     s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)).ToList(),
+            EstadoComercialProveedor = oc.EstadoComercialProveedor,
+            FechaCompromisoProveedor = oc.FechaCompromisoProveedor,
+            RespuestasProveedor = oc.RespuestasProveedor.OrderByDescending(r => r.Numero)
+                .Select(r => RespuestaProveedorMapper.ToResponse(r, r.Numero == oc.RespuestasProveedor.Max(x => x.Numero))).ToList(),
         };
     }
 

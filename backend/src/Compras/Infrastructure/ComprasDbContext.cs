@@ -43,6 +43,7 @@ public sealed class ComprasDbContext : BaseDbContext
     public DbSet<TipoDocumentoOc> TiposDocumentoOc => Set<TipoDocumentoOc>();
     public DbSet<AdjuntoOC> AdjuntosOc => Set<AdjuntoOC>();
     public DbSet<AutorizacionOC> AutorizacionesOc => Set<AutorizacionOC>();
+    public DbSet<RespuestaProveedorOc> RespuestasProveedorOc => Set<RespuestaProveedorOc>();
     public DbSet<RegimenFiscalArticulo> RegimenesFiscalesArticulo => Set<RegimenFiscalArticulo>();
     public DbSet<OrdenCompraPdf> OrdenCompraPdfs => Set<OrdenCompraPdf>();
 
@@ -95,6 +96,8 @@ public sealed class ComprasDbContext : BaseDbContext
         modelBuilder.ApplyConfiguration(new AdjuntoOcConfiguration());
         modelBuilder.ApplyConfiguration(new AutorizacionOcConfiguration());
         modelBuilder.ApplyConfiguration(new SolicitudCancelacionOcConfiguration());
+        modelBuilder.ApplyConfiguration(new RespuestaProveedorOcConfiguration());
+        modelBuilder.ApplyConfiguration(new CompromisoEntregaOcConfiguration());
         modelBuilder.ApplyConfiguration(new RegimenFiscalArticuloConfiguration());
         modelBuilder.ApplyConfiguration(new OrdenCompraPdfConfiguration());
     }

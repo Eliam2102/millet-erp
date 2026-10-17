@@ -851,6 +851,72 @@ namespace Millet.Compras.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Millet.Compras.Domain.Oc.CompromisoEntregaOc", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasColumnType("numeric(15,4)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateOnly>("FechaPrometida")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_prometida");
+
+                    b.Property<Guid>("LineaOrdenCompraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linea_orden_compra_id");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("orden_compra_id");
+
+                    b.Property<Guid>("RespuestaProveedorOcId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("respuesta_proveedor_oc_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_oc_compromisos_entrega");
+
+                    b.HasIndex("LineaOrdenCompraId")
+                        .HasDatabaseName("ix_oc_compromisos_entrega_linea_orden_compra_id");
+
+                    b.HasIndex("RespuestaProveedorOcId")
+                        .HasDatabaseName("ix_oc_compromisos_entrega_respuesta_proveedor_oc_id");
+
+                    b.ToTable("oc_compromisos_entrega", "compras", t =>
+                        {
+                            t.HasCheckConstraint("ck_oc_compromisos_entrega_cantidad", "cantidad > 0");
+                        });
+                });
+
             modelBuilder.Entity("Millet.Compras.Domain.Oc.FolioSecuenciaOc", b =>
                 {
                     b.Property<Guid>("EmpresaId")
@@ -1131,9 +1197,19 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<short>("EstadoComercialProveedor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)0)
+                        .HasColumnName("estado_comercial_proveedor");
+
                     b.Property<DateTimeOffset?>("FechaCierre")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha_cierre");
+
+                    b.Property<DateOnly?>("FechaCompromisoProveedor")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_compromiso_proveedor");
 
                     b.Property<DateTimeOffset?>("FechaContabilizacion")
                         .HasColumnType("timestamp with time zone")
@@ -1410,6 +1486,8 @@ namespace Millet.Compras.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_oc_estado", "estado BETWEEN 0 AND 7");
 
+                            t.HasCheckConstraint("ck_oc_estado_comercial_proveedor", "estado_comercial_proveedor BETWEEN 0 AND 3");
+
                             t.HasCheckConstraint("ck_oc_import_campos", "(es_importacion = false) OR (estado IN (0, 6)) OR (info_import_incoterm_id IS NOT NULL AND info_import_pais_origen IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_oc_sin_rq_motivo", "sin_requisicion_previa = false OR motivo_sin_requisicion IS NOT NULL");
@@ -1634,6 +1712,94 @@ namespace Millet.Compras.Infrastructure.Migrations
                             UpdatedBy = "seed",
                             Version = 1,
                             VigenteDesde = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
+                });
+
+            modelBuilder.Entity("Millet.Compras.Domain.Oc.RespuestaProveedorOc", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContactoProveedor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("contacto_proveedor");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Evidencia")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("evidencia");
+
+                    b.Property<DateOnly>("FechaRespuesta")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_respuesta");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("orden_compra_id");
+
+                    b.Property<DateTimeOffset>("RegistradaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registrada_en");
+
+                    b.Property<Guid>("RegistradaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("registrada_por_id");
+
+                    b.Property<bool>("TieneDiferencias")
+                        .HasColumnType("boolean")
+                        .HasColumnName("tiene_diferencias");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_oc_respuestas_proveedor");
+
+                    b.HasIndex("OrdenCompraId", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("ux_oc_respuestas_proveedor_numero");
+
+                    b.ToTable("oc_respuestas_proveedor", "compras", t =>
+                        {
+                            t.HasCheckConstraint("ck_oc_respuestas_proveedor_tipo", "tipo IN (1, 2)");
                         });
                 });
 
@@ -2413,6 +2579,23 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasConstraintName("fk_orden_compra_autorizaciones_ordenes_compra_orden_compra_id");
                 });
 
+            modelBuilder.Entity("Millet.Compras.Domain.Oc.CompromisoEntregaOc", b =>
+                {
+                    b.HasOne("Millet.Compras.Domain.Oc.LineaOrdenCompra", null)
+                        .WithMany()
+                        .HasForeignKey("LineaOrdenCompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_oc_compromisos_entrega_orden_compra_lineas_linea_orden_comp");
+
+                    b.HasOne("Millet.Compras.Domain.Oc.RespuestaProveedorOc", null)
+                        .WithMany("Compromisos")
+                        .HasForeignKey("RespuestaProveedorOcId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_oc_compromisos_entrega_oc_respuestas_proveedor_respuesta_pr");
+                });
+
             modelBuilder.Entity("Millet.Compras.Domain.Oc.LineaOrdenCompra", b =>
                 {
                     b.HasOne("Millet.Compras.Domain.Oc.OrdenCompra", null)
@@ -2442,6 +2625,16 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .HasConstraintName("fk_oc_pdf_orden_compra");
                 });
 
+            modelBuilder.Entity("Millet.Compras.Domain.Oc.RespuestaProveedorOc", b =>
+                {
+                    b.HasOne("Millet.Compras.Domain.Oc.OrdenCompra", null)
+                        .WithMany("RespuestasProveedor")
+                        .HasForeignKey("OrdenCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_oc_respuestas_proveedor_ordenes_compra_orden_compra_id");
+                });
+
             modelBuilder.Entity("Millet.Compras.Domain.Oc.SolicitudCancelacionOc", b =>
                 {
                     b.HasOne("Millet.Compras.Domain.Oc.OrdenCompra", null)
@@ -2465,7 +2658,14 @@ namespace Millet.Compras.Infrastructure.Migrations
 
                     b.Navigation("Lineas");
 
+                    b.Navigation("RespuestasProveedor");
+
                     b.Navigation("SolicitudesCancelacion");
+                });
+
+            modelBuilder.Entity("Millet.Compras.Domain.Oc.RespuestaProveedorOc", b =>
+                {
+                    b.Navigation("Compromisos");
                 });
 
             modelBuilder.Entity("Millet.Compras.Domain.Requisicion", b =>

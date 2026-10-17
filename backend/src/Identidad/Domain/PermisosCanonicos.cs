@@ -123,6 +123,8 @@ public static class PermisosCanonicos
     public const string ComprasOrdenesReportesPartidasAbiertas         = "compras.ordenes.reportes-partidas-abiertas";
     public const string ComprasOrdenesCerrarManual                     = "compras.ordenes.cerrar-manual";
     public const string ComprasOrdenesLeerTodasSucursales              = "compras.ordenes.leer-todas-sucursales";
+    // F1-COM-11 (86e3jvu93): respuesta del proveedor sobre la OC autorizada.
+    public const string ComprasOrdenesRegistrarRespuestaProveedor      = "compras.ordenes.registrar-respuesta-proveedor";
 
     // ----- Compras — Cotizaciones (F1-COM-02, 86e3jvu2a). Namespace GUID 00000003-0005-* -----
     public const string ComprasCotizacionesLeer                        = "compras.cotizaciones.leer";
@@ -654,6 +656,7 @@ public static class PermisosCanonicos
         (Guid.Parse("00000003-0003-0000-0000-00000000000a"), ComprasOrdenesReportesPartidasAbiertas,       "Consultar reporte de partidas abiertas de órdenes de compra"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000b"), ComprasOrdenesCerrarManual,                   "Cerrar órdenes de compra manualmente (servicios/residuales)"),
         (Guid.Parse("00000003-0003-0000-0000-00000000000c"), ComprasOrdenesLeerTodasSucursales,            "Consultar órdenes de compra y sus adjuntos de todas las sucursales de la empresa"),
+        (Guid.Parse("00000003-0003-0000-0000-00000000000d"), ComprasOrdenesRegistrarRespuestaProveedor,   "Registrar la confirmación o el rechazo del proveedor sobre una orden de compra autorizada, con fechas prometidas y evidencia"),
         (Guid.Parse("00000003-0004-0000-0000-000000000001"), ComprasConfiguracionLeer,                     "Leer la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0004-0000-0000-000000000002"), ComprasConfiguracionEditar,                   "Editar la configuración del módulo Compras de la empresa actual"),
         (Guid.Parse("00000003-0005-0000-0000-000000000001"), ComprasCotizacionesLeer,                      "Consultar cotizaciones y el comparativo de una requisición"),

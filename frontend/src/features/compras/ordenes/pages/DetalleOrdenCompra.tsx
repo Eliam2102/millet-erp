@@ -1,4 +1,5 @@
 import { CancelacionOcPanel } from '../components/CancelacionOcPanel';
+import { RespuestaProveedorPanel } from '../components/RespuestaProveedorPanel';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { Compass, GitBranch, Inbox, Lock, Printer, X } from 'lucide-react';
@@ -259,6 +260,7 @@ export function DetalleOrdenCompra() {
 
         <StepperAutorizacionOc estado={oc.estado} />
         <CancelacionOcPanel oc={oc} />
+        <RespuestaProveedorPanel oc={oc} />
 
         {/* UF5-PR2: aside de la cadena de duplicación. Solo aparece
             si la OC actual es duplicada (tiene oc_origen_id) o es
