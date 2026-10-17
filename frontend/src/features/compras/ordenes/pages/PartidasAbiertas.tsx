@@ -81,14 +81,14 @@ export function PartidasAbiertas() {
 
   return (
     <div
-      className="grid gap-4 lg:grid-cols-[260px_1fr]"
+      className="grid gap-4 2xl:grid-cols-[260px_1fr]"
       data-component="partidas-abiertas"
     >
       {/* Sidebar de filtros sticky */}
       <FiltrosPartidasAbiertas
         search={search}
         onChange={setSearch}
-        className="lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto"
+        className="2xl:sticky 2xl:top-16 2xl:self-start 2xl:max-h-[calc(100vh-5rem)] 2xl:overflow-y-auto"
       />
 
       {/* Contenido principal */}

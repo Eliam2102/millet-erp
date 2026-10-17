@@ -191,6 +191,7 @@ export function EditorLineas({ rq }: EditorLineasProps) {
   const lineas = rq.lineas
     .slice()
     .sort((a, b) => a.posicion - b.posicion);
+  const lineaEnEdicion = lineas.find((l) => l.id === lineaEnEdicionId);
 
   return (
     <>
@@ -228,28 +229,9 @@ export function EditorLineas({ rq }: EditorLineasProps) {
             </thead>
             <tbody>
               {lineas.map((linea, i) => {
-                if (linea.id === lineaEnEdicionId) {
-                  // La fila se reemplaza por el form inline en modo
-                  // editar. <td colSpan> ocupa todas las columnas de
-                  // la tabla — la cabecera sigue arriba.
-                  const totalColumnas =
-                    7 +
-                    (canEditarEstructural.visible || canEliminar.visible
-                      ? 1
-                      : 0);
-                  return (
-                    <tr key={linea.id}>
-                      <td colSpan={totalColumnas} className="p-2">
-                        <LineaInlineForm
-                          requisicionId={rq.id}
-                          linea={linea}
-                          onCancel={cerrarEdicion}
-                          onSaved={cerrarEdicion}
-                        />
-                      </td>
-                    </tr>
-                  );
-                }
+                // La fila en edición se oculta: su form se monta fuera de la
+                // tabla para no heredar su ancho (UX-F3-01).
+                if (linea.id === lineaEnEdicionId) return null;
                 // Preferir la etiqueta enriquecida del DTO (ADR-0042 addendum);
                 // fallback al catálogo capado client-side y por último al id.
                 const articulo = articulosMap.get(linea.articuloId);
@@ -272,6 +254,15 @@ export function EditorLineas({ rq }: EditorLineasProps) {
             </tbody>
           </table>
         </div>
+
+        {lineaEnEdicion && (
+          <LineaInlineForm
+            requisicionId={rq.id}
+            linea={lineaEnEdicion}
+            onCancel={cerrarEdicion}
+            onSaved={cerrarEdicion}
+          />
+        )}
 
         {/* Inline form expandible al final — agregar líneas sin modal
             (design/frontend-polish). El form se mantiene abierto entre

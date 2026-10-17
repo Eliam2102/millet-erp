@@ -103,7 +103,6 @@ export function EditorLineas({ oc }: EditorLineasProps) {
   const accEliminar = accionEliminarLinea(oc, permisos);
   // Fracción arancelaria: columna solo en OC de comercio exterior (PLATFORM-TODO(<F1-COM-06>): supuesto Vilo).
   const mostrarFraccion = oc.esImportacion;
-  const mostrarAcciones = accEditar.visible || accEliminar.visible;
 
   function abrirAgregar() {
     setLineaEnEdicionId(null);
@@ -151,6 +150,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
   const lineasOrdenadas = [...oc.lineas].sort(
     (a, b) => a.posicion - b.posicion,
   );
+  const lineaEnEdicion = lineasOrdenadas.find((l) => l.id === lineaEnEdicionId);
 
   // Empty state: ninguna línea + inline form para agregar la primera, si
   // la matriz lo permite.
@@ -215,7 +215,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
 
       {/* Tabla de líneas */}
       <div className="overflow-x-auto rounded-md border bg-card">
-        <table className="w-full min-w-[940px] text-sm">
+        <table className="w-full @4xl:min-w-[940px] text-sm">
           <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-right font-medium w-12">#</th>
@@ -223,14 +223,14 @@ export function EditorLineas({ oc }: EditorLineasProps) {
               {mostrarFraccion && (
                 <th className="px-3 py-2 text-left font-medium">Fracción arancelaria</th>
               )}
-              <th className="px-3 py-2 text-left font-medium">CC-Máquina</th>
+              <th className="hidden px-3 py-2 text-left font-medium @4xl:table-cell">CC-Máquina</th>
               <th className="px-3 py-2 text-right font-medium">Cantidad</th>
               <th className="px-3 py-2 text-left font-medium">UM</th>
-              <th className="px-3 py-2 text-right font-medium">Recibido</th>
-              <th className="px-3 py-2 text-right font-medium">Por surtir</th>
+              <th className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">Recibido</th>
+              <th className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">Por surtir</th>
               <th className="px-3 py-2 text-right font-medium">Precio</th>
               <th className="px-3 py-2 text-right font-medium">Subtotal</th>
-              <th className="px-3 py-2 text-right font-medium">IVA</th>
+              <th className="hidden px-3 py-2 text-right font-medium @4xl:table-cell">IVA</th>
               {(accEditar.visible || accEliminar.visible) && (
                 <th className="px-3 py-2 text-right font-medium">Acciones</th>
               )}
@@ -238,25 +238,9 @@ export function EditorLineas({ oc }: EditorLineasProps) {
           </thead>
           <tbody>
             {lineasOrdenadas.map((linea, i) => {
-              if (linea.id === lineaEnEdicionId) {
-                // La fila se reemplaza por el form inline en modo editar.
-                const totalColumnas =
-                  10 +
-                  (mostrarFraccion ? 1 : 0) +
-                  (mostrarAcciones ? 1 : 0);
-                return (
-                  <tr key={linea.id}>
-                    <td colSpan={totalColumnas} className="p-2">
-                      <LineaInlineFormOc
-                        oc={oc}
-                        linea={linea}
-                        onCancel={cerrarEdicion}
-                        onSaved={cerrarEdicion}
-                      />
-                    </td>
-                  </tr>
-                );
-              }
+              // La fila en edición se oculta: su form se monta fuera de la
+              // tabla para no heredar su ancho (UX-F3-01).
+              if (linea.id === lineaEnEdicionId) return null;
               // Preferir la etiqueta enriquecida del DTO (ADR-0042 addendum);
               // fallback al catálogo capado client-side y por último al id.
               const articulo = articulosMap.get(linea.articuloId);
@@ -282,7 +266,8 @@ export function EditorLineas({ oc }: EditorLineasProps) {
           </tbody>
           <tfoot>
             <tr className="border-t bg-muted/30 font-medium">
-              <td colSpan={mostrarFraccion ? 9 : 8} className="px-3 py-2 text-right">
+              <td colSpan={3} className="hidden @4xl:table-cell" />
+              <td colSpan={mostrarFraccion ? 6 : 5} className="px-3 py-2 text-right">
                 Totales
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
@@ -292,7 +277,7 @@ export function EditorLineas({ oc }: EditorLineasProps) {
                   strong
                 />
               </td>
-              <td className="px-3 py-2 text-right tabular-nums">
+              <td className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell">
                 <MoneyDisplay
                   amount={lineasOrdenadas.reduce((acc, l) => acc + l.ivaImporte, 0)}
                   currency={oc.moneda}
@@ -303,6 +288,15 @@ export function EditorLineas({ oc }: EditorLineasProps) {
           </tfoot>
         </table>
       </div>
+
+      {lineaEnEdicion && (
+        <LineaInlineFormOc
+          oc={oc}
+          linea={lineaEnEdicion}
+          onCancel={cerrarEdicion}
+          onSaved={cerrarEdicion}
+        />
+      )}
 
       {/* Inline form expandible al final — agregar líneas sin modal. El
           form se mantiene abierto entre submits para agregar varias en
@@ -428,7 +422,7 @@ function FilaLinea({
           {linea.fraccionArancelaria ?? <span className="text-muted-foreground">—</span>}
         </td>
       )}
-      <td className="px-3 py-2">
+      <td className="hidden px-3 py-2 @4xl:table-cell">
         {/* CC-Máquina resuelto por el read-port (ADR-0050): "clave — nombre",
             "No catalogado" si el id no resuelve, "—" si la línea no lleva CC. */}
         {linea.centroCostoId ? (
@@ -444,11 +438,11 @@ function FilaLinea({
         {formatCantidad(linea.cantidad, decimales)}
       </td>
       <td className="px-3 py-2">{linea.unidadMedida}</td>
-      <td className="px-3 py-2 text-right tabular-nums" data-testid="oc-linea-recibido">
+      <td className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell" data-testid="oc-linea-recibido">
         {formatCantidad(linea.cantidadRecibida, decimales)}
       </td>
       {/* Por surtir = lo que el proveedor aún no ha entregado (nunca negativo). */}
-      <td className="px-3 py-2 text-right tabular-nums" data-testid="oc-linea-por-surtir">
+      <td className="hidden px-3 py-2 text-right tabular-nums @4xl:table-cell" data-testid="oc-linea-por-surtir">
         {formatCantidad(Math.max(linea.cantidad - linea.cantidadRecibida, 0), decimales)}
       </td>
       <td className="px-3 py-2 text-right tabular-nums">
@@ -469,7 +463,7 @@ function FilaLinea({
           {etiquetaDescuento(linea.descuentoTipo, linea.descuentoValor)}
         </p>
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+      <td className="hidden px-3 py-2 text-right tabular-nums text-muted-foreground @4xl:table-cell">
         <MoneyDisplay amount={linea.ivaImporte} currency={moneda} />
       </td>
       {showAcciones && (
