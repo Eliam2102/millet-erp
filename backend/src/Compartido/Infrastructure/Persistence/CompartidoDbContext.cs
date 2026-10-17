@@ -50,6 +50,8 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<Cliente> Clientes => Set<Cliente>();
     // ADM-06: registro de origen A+W 1:1 con Cliente (valores crudos + control).
     public DbSet<ClienteSincronizacionAw> ClientesSincronizacionAw => Set<ClienteSincronizacionAw>();
+    // ADM-06: bitácora y conflictos de la sincronización de maestros A+W.
+    public DbSet<CambioMaestroAw> CambiosMaestrosAw => Set<CambioMaestroAw>();
     // ADR-0048 D5: master de productos de venta manufacturados (A+W),
     // SEPARADO de Articulos (compras/almacén) a propósito.
     public DbSet<ProductoAw> ProductosAw => Set<ProductoAw>();
@@ -169,6 +171,21 @@ public sealed class CompartidoDbContext : BaseDbContext
         ligado.Property(c => c.Rfc).HasMaxLength(13).IsRequired(); ligado.Property(c => c.SnapshotJson).HasColumnType("jsonb");
         ligado.HasIndex(c => c.ReferenciaExterna).IsUnique(); ligado.Property(c => c.Version).IsConcurrencyToken();
         ligado.HasOne<Cliente>().WithMany().HasForeignKey(c => c.ClienteId).OnDelete(DeleteBehavior.Restrict);
+        var cambioAw = modelBuilder.Entity<CambioMaestroAw>();
+        cambioAw.ToTable("cambios_maestros_aw"); cambioAw.HasKey(c => c.Id);
+        cambioAw.Property(c => c.TipoEntidad).HasMaxLength(20).IsRequired();
+        cambioAw.Property(c => c.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        cambioAw.Property(c => c.Campo).HasMaxLength(60).IsRequired();
+        cambioAw.Property(c => c.ValorAntes).HasMaxLength(400); cambioAw.Property(c => c.ValorDespues).HasMaxLength(400);
+        cambioAw.Property(c => c.Dueno).HasMaxLength(3).IsRequired();
+        cambioAw.Property(c => c.Tipo).HasConversion<short>(); cambioAw.Property(c => c.Estado).HasConversion<short>();
+        cambioAw.Property(c => c.Causa).HasMaxLength(500).IsRequired();
+        cambioAw.Property(c => c.VersionEvento).HasMaxLength(64).IsRequired();
+        cambioAw.Property(c => c.VersionMatriz).HasMaxLength(20).IsRequired();
+        cambioAw.Property(c => c.Resolucion).HasMaxLength(40);
+        cambioAw.Property(c => c.Version).IsConcurrencyToken();
+        cambioAw.HasIndex(c => new { c.TipoEntidad, c.ReferenciaExterna, c.Campo, c.Tipo, c.VersionEvento }).IsUnique();
+        cambioAw.HasIndex(c => c.EjecucionId); cambioAw.HasIndex(c => new { c.TipoEntidad, c.Estado });
         ConfigureClienteSincronizacionAw(modelBuilder);
         ConfigureProductoAw(modelBuilder);
         modelBuilder.Entity<ProductoAw>().HasOne<ReglaFiscalAw>().WithMany().HasForeignKey(p => p.ReglaFiscalId).OnDelete(DeleteBehavior.Restrict);

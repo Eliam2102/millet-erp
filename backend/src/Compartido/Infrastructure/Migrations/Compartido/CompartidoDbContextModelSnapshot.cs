@@ -4092,6 +4092,139 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.ToTable("cambios_fiscales_aw", "compartido");
                 });
 
+            modelBuilder.Entity("Millet.DatosMaestros.Domain.CambioMaestroAw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Campo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("campo");
+
+                    b.Property<string>("Causa")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("causa");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Dueno")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("dueno");
+
+                    b.Property<Guid?>("EjecucionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ejecucion_id");
+
+                    b.Property<Guid?>("EntidadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entidad_id");
+
+                    b.Property<short>("Estado")
+                        .HasColumnType("smallint")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime>("OcurridoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ocurrido_en_utc");
+
+                    b.Property<string>("ReferenciaExterna")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("referencia_externa");
+
+                    b.Property<string>("Resolucion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("resolucion");
+
+                    b.Property<DateTimeOffset?>("ResueltoEnUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resuelto_en_utc");
+
+                    b.Property<Guid?>("ResueltoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resuelto_por");
+
+                    b.Property<short>("Tipo")
+                        .HasColumnType("smallint")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("TipoEntidad")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo_entidad");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("ValorAntes")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("valor_antes");
+
+                    b.Property<string>("ValorDespues")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("valor_despues");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<string>("VersionEvento")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("version_evento");
+
+                    b.Property<string>("VersionMatriz")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("version_matriz");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cambios_maestros_aw");
+
+                    b.HasIndex("EjecucionId")
+                        .HasDatabaseName("ix_cambios_maestros_aw_ejecucion_id");
+
+                    b.HasIndex("TipoEntidad", "Estado")
+                        .HasDatabaseName("ix_cambios_maestros_aw_tipo_entidad_estado");
+
+                    b.HasIndex("TipoEntidad", "ReferenciaExterna", "Campo", "Tipo", "VersionEvento")
+                        .IsUnique()
+                        .HasDatabaseName("ix_cambios_maestros_aw_tipo_entidad_referencia_externa_campo_t");
+
+                    b.ToTable("cambios_maestros_aw", "compartido");
+                });
+
             modelBuilder.Entity("Millet.DatosMaestros.Domain.ClasificacionCliente", b =>
                 {
                     b.Property<Guid>("Id")

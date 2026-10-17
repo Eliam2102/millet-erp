@@ -1,4 +1,4 @@
-import { Factory, FileDiff, Landmark, Layers, Package, Users } from 'lucide-react';
+import { Factory, FileDiff, Landmark, Layers, Package, RefreshCw, Users } from 'lucide-react';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import type { AdminSection } from '@/lib/admin/registry';
 
@@ -80,6 +80,18 @@ export const datosMaestrosAdminCards: readonly AdminSection[] = [
     displayMode: 'custom',
   },
   {
+    id: 'datos-maestros-sincronizacion-aw',
+    modulo: 'datos_maestros',
+    titulo: 'Sincronización con A+W',
+    descripcion: 'Corridas, conflictos y dueño de cada campo',
+    icon: RefreshCw,
+    href: '/admin/datos-maestros/sincronizacion-aw',
+    permisoRequerido: PermisosCanonicos.DatosMaestrosClientesSincronizar,
+    orden: 24,
+    grupo: 'datos_maestros',
+    displayMode: 'custom',
+  },
+  {
     // U1.8b: solo lectura de A+W; la corrección se hace en Clientes / Productos A+W.
     id: 'datos-maestros-diferencias-fiscales-aw',
     modulo: 'datos_maestros',
@@ -88,7 +100,7 @@ export const datosMaestrosAdminCards: readonly AdminSection[] = [
     icon: FileDiff,
     href: '/admin/datos-maestros/diferencias-fiscales-aw',
     permisoRequerido: PermisosCanonicos.DatosMaestrosDiferenciasFiscalesAwLeer,
-    orden: 24,
+    orden: 25,
     grupo: 'datos_maestros',
     displayMode: 'custom',
   },

@@ -21,7 +21,7 @@ case "${1:-}" in
     pg -d "$DB" < schema.sql
     pg -d "$DB" < seed.sql
     pg -d "$DB" < pedidos.sql
-    echo "origen demo listo: BD $DB en el contenedor $C (60 clientes, 47 productos, 3 pedidos)" ;;
+    echo "origen demo listo: BD $DB en el contenedor $C (62 clientes, 47 productos, 3 pedidos)" ;;
   reseed) pg -d "$DB" < seed.sql ;;
   importar)
     AWDB="${AW_DB:-AW_DEMO}"

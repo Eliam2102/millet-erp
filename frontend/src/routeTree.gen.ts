@@ -175,6 +175,7 @@ import { Route as AppAdminDatosMaestrosProductosAwIdRouteImport } from './routes
 import { Route as AppAdminDatosMaestrosProveedoresIndexRouteImport } from './routes/_app/admin/datos-maestros/proveedores/index';
 import { Route as AppAdminDatosMaestrosProveedoresIdRouteImport } from './routes/_app/admin/datos-maestros/proveedores/$id';
 import { Route as AppAdminDatosMaestrosProveedoresExpedienteRouteImport } from './routes/_app/admin/datos-maestros/proveedores/expediente';
+import { Route as AppAdminDatosMaestrosSincronizacionAwIndexRouteImport } from './routes/_app/admin/datos-maestros/sincronizacion-aw/index';
 import { Route as AppAdminIntegracionesFiscalIndexRouteImport } from './routes/_app/admin/integraciones/fiscal/index';
 import { Route as AppAlmacenDevolucionesProveedorIdRouteImport } from './routes/_app/almacen/devoluciones/proveedor.$id';
 import { Route as AppAlmacenInventariosIdAprobacionRouteImport } from './routes/_app/almacen/inventarios/$id.aprobacion';
@@ -1097,6 +1098,12 @@ const AppAdminDatosMaestrosProveedoresExpedienteRoute =
     path: '/admin/datos-maestros/proveedores/expediente',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAdminDatosMaestrosSincronizacionAwIndexRoute =
+  AppAdminDatosMaestrosSincronizacionAwIndexRouteImport.update({
+    id: '/admin/datos-maestros/sincronizacion-aw/',
+    path: '/admin/datos-maestros/sincronizacion-aw/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminIntegracionesFiscalIndexRoute =
   AppAdminIntegracionesFiscalIndexRouteImport.update({
     id: '/admin/integraciones/fiscal/',
@@ -1345,6 +1352,7 @@ export interface FileRoutesByFullPath {
   '/admin/datos-maestros/diferencias-fiscales-aw/': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/admin/datos-maestros/productos-aw/': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/admin/datos-maestros/proveedores/': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
+  '/admin/datos-maestros/sincronizacion-aw/': typeof AppAdminDatosMaestrosSincronizacionAwIndexRoute;
   '/admin/integraciones/fiscal/': typeof AppAdminIntegracionesFiscalIndexRoute;
   '/contabilidad/polizas/recurrentes/': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/facturacion/anticipos/facturas/': typeof AppFacturacionAnticiposFacturasIndexRoute;
@@ -1524,6 +1532,7 @@ export interface FileRoutesByTo {
   '/admin/datos-maestros/diferencias-fiscales-aw': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/admin/datos-maestros/productos-aw': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/admin/datos-maestros/proveedores': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
+  '/admin/datos-maestros/sincronizacion-aw': typeof AppAdminDatosMaestrosSincronizacionAwIndexRoute;
   '/admin/integraciones/fiscal': typeof AppAdminIntegracionesFiscalIndexRoute;
   '/contabilidad/polizas/recurrentes': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/facturacion/anticipos/facturas': typeof AppFacturacionAnticiposFacturasIndexRoute;
@@ -1705,6 +1714,7 @@ export interface FileRoutesById {
   '/_app/admin/datos-maestros/diferencias-fiscales-aw/': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/_app/admin/datos-maestros/productos-aw/': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/_app/admin/datos-maestros/proveedores/': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
+  '/_app/admin/datos-maestros/sincronizacion-aw/': typeof AppAdminDatosMaestrosSincronizacionAwIndexRoute;
   '/_app/admin/integraciones/fiscal/': typeof AppAdminIntegracionesFiscalIndexRoute;
   '/_app/contabilidad/polizas/recurrentes/': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/_app/facturacion/anticipos/facturas/': typeof AppFacturacionAnticiposFacturasIndexRoute;
@@ -1886,6 +1896,7 @@ export interface FileRouteTypes {
     | '/admin/datos-maestros/diferencias-fiscales-aw/'
     | '/admin/datos-maestros/productos-aw/'
     | '/admin/datos-maestros/proveedores/'
+    | '/admin/datos-maestros/sincronizacion-aw/'
     | '/admin/integraciones/fiscal/'
     | '/contabilidad/polizas/recurrentes/'
     | '/facturacion/anticipos/facturas/';
@@ -2065,6 +2076,7 @@ export interface FileRouteTypes {
     | '/admin/datos-maestros/diferencias-fiscales-aw'
     | '/admin/datos-maestros/productos-aw'
     | '/admin/datos-maestros/proveedores'
+    | '/admin/datos-maestros/sincronizacion-aw'
     | '/admin/integraciones/fiscal'
     | '/contabilidad/polizas/recurrentes'
     | '/facturacion/anticipos/facturas';
@@ -2245,6 +2257,7 @@ export interface FileRouteTypes {
     | '/_app/admin/datos-maestros/diferencias-fiscales-aw/'
     | '/_app/admin/datos-maestros/productos-aw/'
     | '/_app/admin/datos-maestros/proveedores/'
+    | '/_app/admin/datos-maestros/sincronizacion-aw/'
     | '/_app/admin/integraciones/fiscal/'
     | '/_app/contabilidad/polizas/recurrentes/'
     | '/_app/facturacion/anticipos/facturas/';
@@ -3419,6 +3432,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminDatosMaestrosProveedoresExpedienteRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/datos-maestros/sincronizacion-aw/': {
+      id: '/_app/admin/datos-maestros/sincronizacion-aw/';
+      path: '/admin/datos-maestros/sincronizacion-aw';
+      fullPath: '/admin/datos-maestros/sincronizacion-aw/';
+      preLoaderRoute: typeof AppAdminDatosMaestrosSincronizacionAwIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/integraciones/fiscal/': {
       id: '/_app/admin/integraciones/fiscal/';
       path: '/admin/integraciones/fiscal';
@@ -3695,6 +3715,7 @@ interface AppRouteChildren {
   AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute: typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   AppAdminDatosMaestrosProductosAwIndexRoute: typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   AppAdminDatosMaestrosProveedoresIndexRoute: typeof AppAdminDatosMaestrosProveedoresIndexRoute;
+  AppAdminDatosMaestrosSincronizacionAwIndexRoute: typeof AppAdminDatosMaestrosSincronizacionAwIndexRoute;
   AppAdminIntegracionesFiscalIndexRoute: typeof AppAdminIntegracionesFiscalIndexRoute;
   AppContabilidadPolizasRecurrentesIndexRoute: typeof AppContabilidadPolizasRecurrentesIndexRoute;
   AppFacturacionAnticiposFacturasIndexRoute: typeof AppFacturacionAnticiposFacturasIndexRoute;
@@ -3899,6 +3920,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppAdminDatosMaestrosProductosAwIndexRoute,
   AppAdminDatosMaestrosProveedoresIndexRoute:
     AppAdminDatosMaestrosProveedoresIndexRoute,
+  AppAdminDatosMaestrosSincronizacionAwIndexRoute:
+    AppAdminDatosMaestrosSincronizacionAwIndexRoute,
   AppAdminIntegracionesFiscalIndexRoute: AppAdminIntegracionesFiscalIndexRoute,
   AppContabilidadPolizasRecurrentesIndexRoute:
     AppContabilidadPolizasRecurrentesIndexRoute,

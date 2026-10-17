@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Domain;
 using Millet.SharedKernel.Application.Exceptions;
@@ -133,6 +134,7 @@ public sealed class AplicarClienteAwService
                     // Otro escritor actualizó el mismo registro: soltar lo rastreado, releer y reevaluar (un solo reintento).
                     reintentoConcurrencia = true;
                     foreach (var e in ex.Entries) e.State = EntityState.Detached;
+                    DesacoplarCambios();
                     _db.Entry(cliente).State = EntityState.Detached;
                     intento--; // no consume el límite de la carrera de alta
                     continue;
@@ -160,10 +162,21 @@ public sealed class AplicarClienteAwService
             // Nunca dos clientes con el mismo campo RFC (también en modo demo, donde A+W sí copia el RFC). Si otro cliente ya tiene ese RFC se crea sin él (el ligado entre clientes de A+W está diferido); no cambia el hash ni el registro de origen.
             var rfcCampo = RfcCliente.Normalizar(snap.Rfc);
             var rfcOcupado = RfcCliente.EsLigable(rfcCampo) && await _db.Clientes.AnyAsync(c => c.Rfc != null && c.Rfc.Trim().ToUpper() == rfcCampo, ct);
+            // Misma clave fiscal en otro cliente de A+W: se crea igual (no se fusionan) y queda un conflicto visible (ADM-06).
+            var ocupantes = rfc is null ? [] : await ClientesPorRfc.BuscarAsync(_db, [rfc], null, ct);
             var nuevo = CrearCliente(rfcOcupado ? snap with { Rfc = null } : snap);
             AplicarEstatus(nuevo, snap);
             var registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), nuevo.Id, snap.ReferenciaExterna);
             var hash = CalcularHash(snap);
+            if (ocupantes.Count > 0)
+            {
+                var otros = string.Join(", ", ocupantes.Select(o => o.Cliente.Clave));
+                var causa = $"Dos clientes de A+W con la misma clave fiscal {rfc}: {snap.ReferenciaExterna} y {otros}. No se fusionan.";
+                _db.Add(new CambioMaestroAw(Guid.CreateVersion7(), "Cliente", nuevo.Id, snap.ReferenciaExterna,
+                    "RFC repetido entre clientes de A+W", otros, rfc, MatrizCampoDuenoAw.DuenoAw, TipoCambioMaestroAw.RfcCompartido,
+                    EstadoCambioMaestroAw.Pendiente, causa.Length <= 500 ? causa : causa[..500], hash, MatrizCampoDuenoAw.Version,
+                    snap.EjecucionId, DateTime.UtcNow));
+            }
             var resultado = ResultadoDe(snap);
             AplicarRegistro(registro, snap, hash, resultado);
             _db.Clientes.Add(nuevo);
@@ -177,6 +190,7 @@ public sealed class AplicarClienteAwService
             {
                 _db.Entry(nuevo).State = EntityState.Detached;
                 _db.Entry(registro).State = EntityState.Detached;
+                DesacoplarCambios();
                 // La clave AW-{ref} es determinista: en la carrera Postgres puede reportar IxClave;
                 // si ya existe un cliente con esa referencia es la misma carrera, no un duplicado real.
                 if (pg.ConstraintName == IxClave
@@ -219,13 +233,24 @@ public sealed class AplicarClienteAwService
         if (registro is not null && snap.LeidoEnUtc < registro.LeidoEnUtc)
             return new(cliente, AplicarClienteAwAccion.SinCambios, registro.Resultado);
 
+        var estatusAntes = cliente.Estatus;
         AplicarEstatus(cliente, snap);
+        var cambios = new List<CambioMaestroAw>();
+        if (cliente.Estatus != estatusAntes)
+        {
+            var baja = cliente.Estatus == EstatusCatalogo.Inactivo;
+            cambios.Add(NuevoCambio(cliente.Id, snap, hash, "Estatus", estatusAntes.ToString(), cliente.Estatus.ToString(),
+                baja ? TipoCambioMaestroAw.Baja : TipoCambioMaestroAw.Reactivacion,
+                baja ? $"A+W bloqueó al cliente (mapeo {VersionMapeoEfectiva(snap)})."
+                     : "A+W desbloqueó un bloqueo que vino de A+W; se reactiva sin crear otra identidad."));
+        }
         if (registro is not null && registro.HashOrigen == hash
             && registro.VersionMapeo == VersionMapeoEfectiva(snap)
             && registro.Resultado != ResultadoSincronizacionAw.Error
             && registro.Resultado == ResultadoDe(snap))
         {
             registro.RegistrarComprobacion(snap.LeidoEnUtc, snap.EjecucionId);
+            await AgregarCambiosAsync(cambios, snap.ReferenciaExterna, hash, ct);
             try
             {
                 await _db.SaveChangesAsync(ct);
@@ -234,6 +259,7 @@ public sealed class AplicarClienteAwService
             {
                 // El latido es best-effort: otro escritor ya actualizó el registro y esta lectura no aplicó nada.
                 foreach (var e in ex.Entries) e.State = EntityState.Detached;
+                DesacoplarCambios();
             }
             return new(cliente, AplicarClienteAwAccion.SinCambios, registro.Resultado);
         }
@@ -254,9 +280,59 @@ public sealed class AplicarClienteAwService
             registro = new ClienteSincronizacionAw(Guid.CreateVersion7(), cliente.Id, snap.ReferenciaExterna);
             _db.Set<ClienteSincronizacionAw>().Add(registro);
         }
+        if (registro.HashOrigen.Length > 0) cambios.AddRange(CambiosDeOrigen(cliente.Id, registro, snap, hash));
         AplicarRegistro(registro, snap, hash, resultado, diferencias);
+        await AgregarCambiosAsync(cambios, snap.ReferenciaExterna, hash, ct);
         await _db.SaveChangesAsync(ct);
         return new(cliente, AplicarClienteAwAccion.Actualizado, resultado);
+    }
+
+    private static CambioMaestroAw NuevoCambio(Guid clienteId, AplicarClienteAwSnapshot snap, string hash, string campo,
+        string? antes, string? despues, TipoCambioMaestroAw tipo, string causa) =>
+        new(Guid.CreateVersion7(), "Cliente", clienteId, snap.ReferenciaExterna, campo, antes, despues,
+            MatrizCampoDuenoAw.DuenoAw, tipo, EstadoCambioMaestroAw.Informativo, causa, hash,
+            MatrizCampoDuenoAw.Version, snap.EjecucionId, DateTime.UtcNow);
+
+    /// <summary>Un cambio por campo de A+W que difiere del registro de origen previo (comparación ordinal, vacío = nulo).</summary>
+    private static List<CambioMaestroAw> CambiosDeOrigen(Guid clienteId, ClienteSincronizacionAw antes, AplicarClienteAwSnapshot s, string hash)
+    {
+        var lista = new List<CambioMaestroAw>();
+        void Cmp(string campo, string? a, string? d)
+        {
+            a = Vacio(a); d = Vacio(d);
+            if (!string.Equals(a, d, StringComparison.Ordinal))
+                lista.Add(NuevoCambio(clienteId, s, hash, campo, a, d, TipoCambioMaestroAw.Aplicado, "Cambio recibido de A+W."));
+        }
+        static string? Domicilio(params string?[] partes) => string.Join(", ", partes.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p!.Trim()));
+        Cmp("Nombre de origen", antes.NombreComercialOrigen, s.NombreComercialOrigen);
+        Cmp("Domicilio de origen",
+            Domicilio(antes.DomicilioOrigenCalle, antes.DomicilioOrigenCiudad, antes.DomicilioOrigenCp, antes.DomicilioOrigenProvincia, antes.DomicilioOrigenPais),
+            Domicilio(s.DomicilioCalle, s.DomicilioCiudad, s.DomicilioCp, s.DomicilioProvincia, s.DomicilioPais));
+        Cmp("Condición de pago", antes.CondicionCodigoOrigen, s.CondicionCodigoOrigen);
+        Cmp("Moneda de origen", antes.MonedaCodigoOrigen, s.MonedaCodigoOrigen);
+        Cmp("Límite de crédito de referencia", antes.CreditoReferenciaLimite?.ToString("0.00", CultureInfo.InvariantCulture),
+            s.CreditoReferenciaLimite?.ToString("0.00", CultureInfo.InvariantCulture));
+        Cmp("Bloqueo A+W", antes.BloqueoOrigenCrudo?.ToString(CultureInfo.InvariantCulture), s.BloqueoOrigenCrudo?.ToString(CultureInfo.InvariantCulture));
+        Cmp("Estado A+W", antes.EstadoOrigenCrudo?.ToString(CultureInfo.InvariantCulture), s.EstadoOrigenCrudo?.ToString(CultureInfo.InvariantCulture));
+        return lista;
+    }
+
+    /// <summary>Idempotencia: una sola consulta trae lo ya registrado para esta referencia y versión de evento.</summary>
+    private async Task AgregarCambiosAsync(List<CambioMaestroAw> cambios, string referencia, string hash, CancellationToken ct)
+    {
+        if (cambios.Count == 0) return;
+        var existentes = await _db.CambiosMaestrosAw.AsNoTracking()
+            .Where(c => c.TipoEntidad == "Cliente" && c.ReferenciaExterna == referencia && c.VersionEvento == hash)
+            .Select(c => new { c.Campo, c.Tipo }).ToListAsync(ct);
+        foreach (var c in cambios.Where(c => !existentes.Any(e => e.Campo == c.Campo && e.Tipo == c.Tipo)))
+            _db.Add(c);
+    }
+
+    /// <summary>Tras un choque de concurrencia las filas de bitácora pendientes se sueltan para no insertarlas dos veces.</summary>
+    private void DesacoplarCambios()
+    {
+        foreach (var e in _db.ChangeTracker.Entries<CambioMaestroAw>().Where(e => e.State == EntityState.Added).ToList())
+            e.State = EntityState.Detached;
     }
 
     private static Cliente CrearCliente(AplicarClienteAwSnapshot s)

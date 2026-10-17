@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,8 @@ import {
 import type { ClienteDetalle } from '@/modules/datos-maestros/api/types';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
+import { useCambiosAwCliente, SINCRONIZACION_AW_KEY } from '@/modules/datos-maestros/api/sincronizacion-aw';
+import { CambiosAwHistorial } from '@/modules/datos-maestros/components/CambiosAwHistorial';
 import { ResultadoSincronizacionBadge } from '@/modules/datos-maestros/components/master-badges';
 
 /**
@@ -26,6 +29,9 @@ export function ClienteOrigenAwSection({
   const canSincronizar = useHasPermission(
     PermisosCanonicos.DatosMaestrosClientesSincronizar,
   );
+  const canVerOrigen = useHasPermission(PermisosCanonicos.DatosMaestrosClientesOrigenVer);
+  const queryClient = useQueryClient();
+  const cambios = useCambiosAwCliente(cliente.id, canVerOrigen);
   const reintentar = useReintentarCliente();
   const o = cliente.origenAw;
   if (o == null) return null;
@@ -51,6 +57,7 @@ export function ClienteOrigenAwSection({
       { referencia: cliente.referenciaExterna },
       {
         onSuccess: (r) => {
+          void queryClient.invalidateQueries({ queryKey: SINCRONIZACION_AW_KEY });
           if (r.estado === 'Completa') toast.success('Lectura completada.');
           else
             toast.warning(r.errores[0]?.mensaje ?? `La lectura terminó con estado ${r.estado}.`);
@@ -155,6 +162,9 @@ export function ClienteOrigenAwSection({
             ))}
           </tbody>
         </table>
+      )}
+      {canVerOrigen && (
+        <CambiosAwHistorial cambios={cambios.data} isLoading={cambios.isLoading} isError={cambios.isError} />
       )}
     </section>
   );
