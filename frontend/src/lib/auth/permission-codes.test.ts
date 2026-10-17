@@ -80,6 +80,8 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.gestionar',
   'datos_maestros.proveedores.bancarios-ver',
   'datos_maestros.proveedores.bancarios-editar',
+  'datos_maestros.proveedores.cuentas-administrar',
+  'datos_maestros.proveedores.expediente-configurar',
   'datos_maestros.proveedores.adjuntos-ver',
   'datos_maestros.proveedores.adjuntos-subir',
   'datos_maestros.proveedores.adjuntos-baja',
