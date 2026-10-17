@@ -291,7 +291,12 @@ function FormBody({
               render={({ field }) => (
                 <ProveedorSelector
                   value={field.value || null}
-                  onChange={(id) => field.onChange(id ?? '')}
+                  onChange={(id) => {
+                    const nuevo = id ?? '';
+                    // La recepción elegida pertenecía al proveedor anterior.
+                    if (nuevo !== field.value) handleRecepcionChange(null);
+                    field.onChange(nuevo);
+                  }}
                 />
               )}
             />

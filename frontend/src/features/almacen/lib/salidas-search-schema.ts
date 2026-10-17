@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EstadoMovimiento } from '@/features/almacen/api/types';
+import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -25,6 +26,7 @@ export const SalidasSearchSchema = z.object({
   soloVencidos: z.boolean().optional(),
   soloPorVencer: z.boolean().optional(),
   q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type SalidasSearch = z.infer<typeof SalidasSearchSchema>;

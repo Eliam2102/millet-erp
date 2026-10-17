@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { Input } from '@/components/ui/input';
 import { SubAlmacenSelector } from '@/components/erp/selectors/SubAlmacenSelector';
 import { applyServerErrors, esApiError } from '@/lib/api';
@@ -62,6 +63,15 @@ export function UbicacionSheet({
     },
   });
 
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
+
   useEffect(() => {
     if (open) {
       form.reset(
@@ -97,7 +107,7 @@ export function UbicacionSheet({
         {
           onSuccess: () => {
             toast.success('Ubicación actualizada');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -116,7 +126,7 @@ export function UbicacionSheet({
         {
           onSuccess: () => {
             toast.success('Ubicación creada');
-            onOpenChange(false);
+            solicitarCierre(true);
           },
           onError: (error) => manejarError(error),
         },
@@ -160,8 +170,11 @@ export function UbicacionSheet({
   const isEdit = editando != null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>
             {isEdit ? 'Editar ubicación' : 'Nueva ubicación'}
@@ -177,9 +190,10 @@ export function UbicacionSheet({
           id="ubicacion-form"
           onSubmit={form.handleSubmit(onSubmit)}
           noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
+          className="grid flex-1 grid-cols-2 content-start gap-x-4 gap-y-3.5 overflow-y-auto px-6"
         >
           <Field
+            className="col-span-2"
             label="Sub-almacén"
             required
             error={form.formState.errors.subAlmacenId?.message}
@@ -198,6 +212,7 @@ export function UbicacionSheet({
           </Field>
 
           <Field
+            className="col-span-2"
             label="Clave"
             required
             error={form.formState.errors.clave?.message}
@@ -218,6 +233,7 @@ export function UbicacionSheet({
           </Field>
 
           <Field
+            className="col-span-2"
             label="Nombre"
             required
             error={form.formState.errors.nombre?.message}
@@ -241,7 +257,7 @@ export function UbicacionSheet({
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
@@ -255,6 +271,7 @@ export function UbicacionSheet({
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

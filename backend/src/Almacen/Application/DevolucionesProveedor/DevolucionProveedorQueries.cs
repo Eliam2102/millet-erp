@@ -85,7 +85,8 @@ public sealed record ListarDevolucionesProveedorQuery(
     Guid? ProveedorId,
     bool? SoloPendientesNcFiscal,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<DevolucionProveedorListItem>>, IDocumentoScopedQuery
+    int Limit,
+    string? Q = null) : IRequest<AlmacenPagedResponse<DevolucionProveedorListItem>>, IDocumentoScopedQuery
 {
     public string TipoDocumento => "devolucion_proveedor";
     public string PermisoTodasSucursales => "almacen.devoluciones-proveedor.leer-todas-sucursales";
@@ -114,6 +115,12 @@ public sealed class ListarDevolucionesProveedorHandler
         if (request.SoloPendientesNcFiscal is true)
             query = query.Where(d => d.Estado == EstadoDevolucionProveedor.Registrada);
         if (request.DocumentosPermitidos is { } permitidos) query = query.Where(d => permitidos.Contains(d.Id));
+        // Búsqueda por folio de la salida de la devolución (después del filtro de alcance).
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(d => d.FolioMovimientoSalida != null && d.FolioMovimientoSalida.Contains(q));
+        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query

@@ -1,9 +1,18 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -14,6 +23,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SortableHeader,
   TableSkeleton,
   clickableRowProps,
@@ -34,6 +44,9 @@ import { esApiError } from '@/lib/api';
 import { NuevaSalidaSheet } from '@/features/almacen/components/NuevaSalidaSheet';
 import type { SalidasSearch } from '@/features/almacen/lib/salidas-search-schema';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
@@ -85,22 +98,19 @@ export function SalidasPage() {
     noRegularizados: search.noRegularizados,
     soloVencidos: search.soloVencidos,
     soloPorVencer: search.soloPorVencer,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<SalidasSearch>) {
     navigate({
       to: '/almacen/salidas',
-      search: { ...search, ...parcial },
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
-  const itemsFiltrados = useMemo(() => {
-    const items = query.data?.items ?? [];
-    if (!search.q) return items;
-    const needle = search.q.toLowerCase();
-    return items.filter((s) => s.folio.toLowerCase().includes(needle));
-  }, [query.data, search.q]);
+  const items = query.data?.items ?? [];
 
   return (
     <div className="space-y-4">
@@ -144,7 +154,7 @@ export function SalidasPage() {
             { width: 'w-24' },
           ]}
         />
-      ) : itemsFiltrados.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           title="Sin salidas"
           description={
@@ -154,16 +164,24 @@ export function SalidasPage() {
             search.rqId ||
             search.desde ||
             search.hasta ||
-            search.soloVales
+            search.soloVales ||
+            search.noRegularizados ||
+            search.soloVencidos ||
+            search.soloPorVencer
               ? 'No hay salidas que coincidan con los filtros aplicados.'
               : 'Aún no se han registrado salidas. Usa "Nueva salida" para capturar la primera.'
           }
         />
       ) : (
-        <TablaSalidas
-          items={itemsFiltrados}
-          subAlmacenesMap={subAlmacenesMap}
-        />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaSalidas items={items} subAlmacenesMap={subAlmacenesMap} />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <NuevaSalidaSheet
@@ -199,72 +217,72 @@ function FiltrosToolbar({
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Folio</label>
-        <Input
+      <Field label="Folio" className="gap-1">
+        <BusquedaFolio
           aria-label="Buscar por folio"
-          value={search.q ?? ''}
-          onChange={(e) => onChange({ q: e.target.value || undefined })}
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
           placeholder="Buscar por folio…"
           className="w-56"
         />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
-        <Select
-          value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({
-              estado:
-                v === SENTINEL_ALL
-                  ? undefined
-                  : (Number(v) as EstadoMovimiento),
-            })
-          }
-        >
-          <SelectTrigger aria-label="Filtrar por estado" className="w-44">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {(
-              [
-                EstadoMovimiento.Borrador,
-                EstadoMovimiento.Validado,
-                EstadoMovimiento.Registrado,
-                EstadoMovimiento.Cancelado,
-              ] as const
-            ).map((e) => (
-              <SelectItem key={e} value={String(e)}>
-                {EstadoMovimientoLabels[e]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sub-almacén</label>
-        <Select
-          value={search.subAlmacenId ?? SENTINEL_ALL}
-          onValueChange={(v) =>
-            onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
-          }
-        >
-          <SelectTrigger aria-label="Filtrar por sub-almacén" className="w-56">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
-            {subAlmacenes.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.clave} · {s.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Desde</label>
+      </Field>
+      <Field label="Estado" className="gap-1">
+        {(c) => (
+          <Select
+            value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({
+                estado:
+                  v === SENTINEL_ALL
+                    ? undefined
+                    : (Number(v) as EstadoMovimiento),
+              })
+            }
+          >
+            <SelectTrigger {...c} aria-label="Filtrar por estado" className="w-44">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+              {(
+                [
+                  EstadoMovimiento.Borrador,
+                  EstadoMovimiento.Validado,
+                  EstadoMovimiento.Registrado,
+                  EstadoMovimiento.Cancelado,
+                ] as const
+              ).map((e) => (
+                <SelectItem key={e} value={String(e)}>
+                  {EstadoMovimientoLabels[e]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
+      <Field label="Sub-almacén" className="gap-1">
+        {(c) => (
+          <Select
+            value={search.subAlmacenId ?? SENTINEL_ALL}
+            onValueChange={(v) =>
+              onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
+            }
+          >
+            <SelectTrigger {...c} aria-label="Filtrar por sub-almacén" className="w-56">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SENTINEL_ALL}>Todos</SelectItem>
+              {subAlmacenes.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.clave} · {s.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
+      <Field label="Desde" className="gap-1">
         <Input
           aria-label="Fecha desde"
           type="date"
@@ -272,9 +290,8 @@ function FiltrosToolbar({
           onChange={(e) => onChange({ desde: e.target.value || undefined })}
           className="w-40"
         />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Hasta</label>
+      </Field>
+      <Field label="Hasta" className="gap-1">
         <Input
           aria-label="Fecha hasta"
           type="date"
@@ -282,43 +299,46 @@ function FiltrosToolbar({
           onChange={(e) => onChange({ hasta: e.target.value || undefined })}
           className="w-40"
         />
-      </div>
-      <div className="flex items-center gap-2 pb-1">
-        <input
+      </Field>
+      <div className="flex items-center gap-2 pb-1.5">
+        <Checkbox
           id="solo-vales"
-          type="checkbox"
           checked={search.soloVales ?? false}
-          onChange={(e) =>
-            onChange({ soloVales: e.target.checked || undefined })
+          onCheckedChange={(checked) =>
+            onChange({ soloVales: checked === true || undefined })
           }
-          className="h-4 w-4"
         />
         <label htmlFor="solo-vales" className="text-sm">
           Solo vales urgentes
         </label>
       </div>
-      <div className="flex items-center gap-2 pb-1">
-        <input
+      <div className="flex items-center gap-2 pb-1.5">
+        <Checkbox
           id="no-regularizados"
-          type="checkbox"
           checked={search.noRegularizados ?? false}
-          onChange={(e) =>
+          onCheckedChange={(checked) =>
             onChange({
-              noRegularizados: e.target.checked || undefined,
+              noRegularizados: checked === true || undefined,
               // Implícito: si filtramos no-regularizados, hace falta tipo vale.
-              soloVales: e.target.checked ? true : search.soloVales,
+              soloVales: checked === true ? true : search.soloVales,
             })
           }
-          className="h-4 w-4"
         />
         <label htmlFor="no-regularizados" className="text-sm">
           Solo pendientes de regularizar
         </label>
       </div>
-      <div className="flex items-center gap-2 pb-1">
-        <Checkbox id="solo-vencidos" checked={search.soloVencidos ?? false}
-          onCheckedChange={(checked) => onChange({ soloVencidos: checked === true || undefined })} />
-        <label htmlFor="solo-vencidos" className="text-sm">Solo vales vencidos</label>
+      <div className="flex items-center gap-2 pb-1.5">
+        <Checkbox
+          id="solo-vencidos"
+          checked={search.soloVencidos ?? false}
+          onCheckedChange={(checked) =>
+            onChange({ soloVencidos: checked === true || undefined })
+          }
+        />
+        <label htmlFor="solo-vencidos" className="text-sm">
+          Solo vales vencidos
+        </label>
       </div>
       {algunFiltro && (
         <Button
@@ -372,55 +392,55 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
   }, [enriquecidos, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="folio"
                 label="Folio"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">Tipo</th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="fechaMovimiento"
                 label="Fecha"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="subAlmacen"
                 label="Sub-almacén"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">RQ</th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead>RQ</TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="montoTotalMxn"
                 label="Monto"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((r) => {
             const rowProps = clickableRowProps(() =>
               navigate({
@@ -429,48 +449,53 @@ function TablaSalidas({ items, subAlmacenesMap }: TablaSalidasProps) {
               }),
             );
             return (
-            <tr
-              key={r.id}
-              {...rowProps}
-              className={`border-t hover:bg-muted/30 ${rowProps.className}`}
-              aria-label={`Abrir salida ${r.folio}`}
-            >
-              <td className="px-3 py-2 font-mono text-xs text-primary">
-                {r.folio}
-              </td>
-              <td className="px-3 py-2">
-                {r.esPorVale ? (
-                  <RegularizacionValeBadge salida={r} />
-                ) : (
-                  <span className="text-xs text-muted-foreground">RQ</span>
-                )}
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <DateTimeDisplay value={r.fechaMovimiento} variant="corta" />
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">{r.subAlmacen}</td>
-              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                {r.rqFolio ? (
-                  r.rqFolio
-                ) : r.rqRegularizadoraFolio ? (
-                  <>Vale · {r.rqRegularizadoraFolio}</>
-                ) : (
-                  <span className="italic">—</span>
-                )}
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                <MoneyDisplay amount={r.montoTotalMxn} currency="MXN" strong />
-              </td>
-              <td className="px-3 py-2">
-                <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
-              </td>
-            </tr>
+              <TableRow
+                key={r.id}
+                {...rowProps}
+                className={`hover:bg-surface-subtle ${rowProps.className}`}
+              >
+                <TableCell className="font-mono text-xs">
+                  <Link
+                    to="/almacen/salidas/$id"
+                    params={{ id: r.id }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-brand hover:underline"
+                    aria-label={`Abrir salida ${r.folio}`}
+                  >
+                    {r.folio}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  {r.esPorVale ? (
+                    <RegularizacionValeBadge salida={r} />
+                  ) : (
+                    <span className="text-xs text-ink-muted">RQ</span>
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <DateTimeDisplay value={r.fechaMovimiento} variant="corta" />
+                </TableCell>
+                <TableCell className="font-mono text-xs">{r.subAlmacen}</TableCell>
+                <TableCell className="font-mono text-xs text-ink-muted">
+                  {r.rqFolio ? (
+                    r.rqFolio
+                  ) : r.rqRegularizadoraFolio ? (
+                    <>Vale · {r.rqRegularizadoraFolio}</>
+                  ) : (
+                    <span className="italic">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={r.montoTotalMxn} currency="MXN" strong />
+                </TableCell>
+                <TableCell>
+                  <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
-
-

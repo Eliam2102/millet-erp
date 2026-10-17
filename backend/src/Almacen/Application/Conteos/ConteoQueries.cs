@@ -109,7 +109,8 @@ public sealed record ListarConteosQuery(
     TipoConteo? Tipo,
     Guid? SubAlmacenId,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<ConteoListItem>>, IDocumentoScopedQuery
+    int Limit,
+    string? Q = null) : IRequest<AlmacenPagedResponse<ConteoListItem>>, IDocumentoScopedQuery
 {
     public string TipoDocumento => "conteo";
     public string PermisoTodasSucursales => "almacen.inventarios.leer-todas-sucursales";
@@ -131,6 +132,13 @@ public sealed class ListarConteosHandler
         if (request.Estado is EstadoConteo e) query = query.Where(c => c.Estado == e);
         if (request.Tipo is TipoConteo t) query = query.Where(c => c.Tipo == t);
         if (request.SubAlmacenId is Guid sid) query = query.Where(c => c.SubAlmacenId == sid);
+
+        // El conteo no tiene folio propio: la búsqueda es por familia (después del filtro de alcance).
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToLowerInvariant();
+            query = query.Where(c => c.FiltroFamilia != null && EF.Functions.Like(c.FiltroFamilia.ToLowerInvariant(), "%" + q + "%"));
+        }
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query

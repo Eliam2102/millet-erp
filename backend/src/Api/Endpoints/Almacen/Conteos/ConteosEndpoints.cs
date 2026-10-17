@@ -29,6 +29,7 @@ public static class ConteosEndpoints
             [FromQuery] EstadoConteo? estado,
             [FromQuery] TipoConteo? tipo,
             [FromQuery] Guid? subAlmacenId,
+            [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -37,7 +38,7 @@ public static class ConteosEndpoints
             var off = offset is < 0 ? 0 : offset ?? 0;
             var lim = limit is null or <= 0 ? 50 : Math.Min(limit.Value, 500);
             return Results.Ok(await mediator.Send(
-                new ListarConteosQuery(estado, tipo, subAlmacenId, off, lim), ct));
+                new ListarConteosQuery(estado, tipo, subAlmacenId, off, lim, q), ct));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosLeer)
         .WithName("ListarConteos")

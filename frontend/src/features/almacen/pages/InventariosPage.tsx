@@ -4,6 +4,15 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -13,6 +22,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SortableHeader,
   TableSkeleton,
   compareItemsBy,
@@ -34,6 +44,10 @@ import { esApiError } from '@/lib/api';
 import { NuevoConteoSheet } from '@/features/almacen/components/NuevoConteoSheet';
 import type { ConteosSearch } from '@/features/almacen/lib/conteos-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/inventarios/' as const;
 const SENTINEL_ALL = '__all__';
@@ -71,11 +85,16 @@ export function InventariosPage() {
     estado: search.estado,
     tipo: search.tipo,
     subAlmacenId: search.subAlmacenId,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<ConteosSearch>) {
-    navigate({ to: '/almacen/inventarios', search: { ...search, ...parcial } });
+    // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+    navigate({
+      to: '/almacen/inventarios',
+      search: { ...search, page: undefined, ...parcial },
+    });
   }
 
   return (
@@ -123,16 +142,23 @@ export function InventariosPage() {
         <EmptyState
           title="Sin conteos"
           description={
-            puedeCrear
+            search.q || search.estado != null || search.tipo != null || search.subAlmacenId
+              ? 'No hay conteos que coincidan con los filtros aplicados.'
+              : puedeCrear
               ? 'No hay conteos. Usa "Nuevo conteo" para planificar uno.'
               : 'No hay conteos registrados.'
           }
         />
       ) : (
-        <TablaConteos
-          items={query.data!.items}
-          subAlmacenesMap={subAlmacenesMap}
-        />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaConteos items={query.data!.items} subAlmacenesMap={subAlmacenesMap} />
+          <PaginacionTabla
+            total={query.data!.total}
+            offset={query.data!.offset}
+            limit={query.data!.limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <NuevoConteoSheet open={sheetAbierto} onOpenChange={setSheetAbierto} />
@@ -152,12 +178,22 @@ function FiltrosToolbar({
   onChange,
 }: FiltrosToolbarProps) {
   const algun =
+    search.q ||
     search.estado != null || search.tipo != null || search.subAlmacenId;
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
+      <Field label="Familia" className="gap-1">
+        <BusquedaFolio
+          aria-label="Buscar por familia"
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Buscar por familia…"
+          className="w-56"
+        />
+      </Field>
+      <Field label="Estado" className="gap-1">
+        {(c) => (
         <Select
           value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -167,7 +203,7 @@ function FiltrosToolbar({
             })
           }
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger {...c} className="w-44">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -188,9 +224,10 @@ function FiltrosToolbar({
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Tipo</label>
+        )}
+      </Field>
+      <Field label="Tipo" className="gap-1">
+        {(c) => (
         <Select
           value={search.tipo != null ? String(search.tipo) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -200,7 +237,7 @@ function FiltrosToolbar({
             })
           }
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger {...c} className="w-40">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -213,16 +250,17 @@ function FiltrosToolbar({
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Sub-almacén</label>
+        )}
+      </Field>
+      <Field label="Sub-almacén" className="gap-1">
+        {(c) => (
         <Select
           value={search.subAlmacenId ?? SENTINEL_ALL}
           onValueChange={(v) =>
             onChange({ subAlmacenId: v === SENTINEL_ALL ? undefined : v })
           }
         >
-          <SelectTrigger className="w-56">
+          <SelectTrigger {...c} className="w-56">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -234,12 +272,14 @@ function FiltrosToolbar({
             ))}
           </SelectContent>
         </Select>
-      </div>
+        )}
+      </Field>
       {algun && (
         <Button
           variant="ghost"
           onClick={() =>
             onChange({
+              q: undefined,
               estado: undefined,
               tipo: undefined,
               subAlmacenId: undefined,
@@ -282,86 +322,82 @@ function TablaConteos({
   }, [enriquecidos, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="tipo"
                 label="Tipo"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="fechaPlanificada"
                 label="Planificado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="subAlmacen"
                 label="Sub-almacén"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">Familia</th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead>Familia</TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="capturadas"
                 label="Capturadas / Total"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((c) => (
-            <tr
-              key={c.id}
-              className="border-t hover:bg-muted/30 focus-within:bg-muted/30"
-            >
-              <td className="px-3 py-2">
+            <TableRow key={c.id} className="hover:bg-surface-subtle focus-within:bg-surface-subtle">
+              <TableCell>
                 <Link
                   to="/almacen/inventarios/$id"
                   params={{ id: c.id }}
-                  className="font-medium text-primary hover:underline"
+                  className="font-medium text-brand hover:underline"
                 >
                   {TipoConteoLabels[c.tipo]}
                 </Link>
-              </td>
-              <td className="px-3 py-2">
+              </TableCell>
+              <TableCell>
                 <EstadoAlmacenBadge tipo="conteo" estado={c.estado} />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                {c.fechaPlanificada}
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">{c.subAlmacen}</td>
-              <td className="px-3 py-2 text-xs text-muted-foreground">
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <DateTimeDisplay value={c.fechaPlanificada} variant="corta" />
+              </TableCell>
+              <TableCell className="font-mono text-xs">{c.subAlmacen}</TableCell>
+              <TableCell className="text-xs text-ink-muted">
                 {c.filtroFamilia ?? '—'}
-              </td>
-              <td className="px-3 py-2 text-right font-mono">
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">
                 {c.cantidadCapturadas} / {c.cantidadLineas}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
-

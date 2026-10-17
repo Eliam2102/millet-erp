@@ -76,6 +76,8 @@ export {
 export {
   useSaldos,
   useEjecutarCierreMes,
+  usePeriodosCierre,
+  useRevisionPreviaCierre,
   useReporteAlfakHistorial,
   useReporteExistenciaMpCnk,
 } from '@/features/almacen/api/useSaldosCierreReportes';

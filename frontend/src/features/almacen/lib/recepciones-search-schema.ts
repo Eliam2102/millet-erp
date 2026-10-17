@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EstadoMovimiento } from '@/features/almacen/api/types';
+import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -26,6 +27,7 @@ export const RecepcionesSearchSchema = z.object({
   desde: z.string().regex(DATE_ONLY_RE).optional(),
   hasta: z.string().regex(DATE_ONLY_RE).optional(),
   q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type RecepcionesSearch = z.infer<typeof RecepcionesSearchSchema>;

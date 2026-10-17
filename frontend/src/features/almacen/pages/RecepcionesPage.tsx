@@ -1,9 +1,18 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -14,6 +23,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   SortableHeader,
   TableSkeleton,
   clickableRowProps,
@@ -34,6 +44,8 @@ import { esApiError } from '@/lib/api';
 import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcionSheet';
 import type { RecepcionesSearch } from '@/features/almacen/lib/recepciones-search-schema';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -78,24 +90,19 @@ export function RecepcionesPage() {
     ordenCompraId: search.ordenCompraId,
     desde: search.desde,
     hasta: search.hasta,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<RecepcionesSearch>) {
     navigate({
       to: '/almacen/recepciones',
-      search: { ...search, ...parcial },
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
-  // Búsqueda por folio: client-side sobre la página actual
-  // (alineado al patrón de BandejaRequisiciones de Compras).
-  const itemsFiltrados = useMemo(() => {
-    const items = query.data?.items ?? [];
-    if (!search.q) return items;
-    const needle = search.q.toLowerCase();
-    return items.filter((r) => r.folio.toLowerCase().includes(needle));
-  }, [query.data, search.q]);
+  const items = query.data?.items ?? [];
 
   return (
     <div className="space-y-4">
@@ -138,7 +145,7 @@ export function RecepcionesPage() {
             { width: 'w-24' },
           ]}
         />
-      ) : itemsFiltrados.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           title="Sin recepciones"
           description={
@@ -153,10 +160,15 @@ export function RecepcionesPage() {
           }
         />
       ) : (
-        <TablaRecepciones
-          items={itemsFiltrados}
-          subAlmacenesMap={subAlmacenesMap}
-        />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaRecepciones items={items} subAlmacenesMap={subAlmacenesMap} />
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <NuevaRecepcionSheet
@@ -189,10 +201,10 @@ function FiltrosToolbar({
   return (
     <div className="flex flex-wrap items-end gap-3">
       <Field label="Folio" className="gap-1">
-        <Input
+        <BusquedaFolio
           aria-label="Buscar por folio"
-          value={search.q ?? ''}
-          onChange={(e) => onChange({ q: e.target.value || undefined })}
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
           placeholder="Buscar por folio…"
           className="w-56"
         />
@@ -319,54 +331,54 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
   }, [enriquecidos, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="folio"
                 label="Folio"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="fechaMovimiento"
                 label="Fecha"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="subAlmacen"
                 label="Sub-almacén"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">OC</th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead>OC</TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="montoTotalMxn"
                 label="Monto"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((r) => {
             const rowProps = clickableRowProps(() =>
               navigate({
@@ -375,46 +387,51 @@ function TablaRecepciones({ items, subAlmacenesMap }: TablaRecepcionesProps) {
               }),
             );
             return (
-            <tr
-              key={r.id}
-              {...rowProps}
-              className={`border-t hover:bg-muted/30 ${rowProps.className}`}
-              aria-label={`Abrir recepción ${r.folio}`}
-            >
-              <td className="px-3 py-2 font-mono text-xs text-primary">
-                {r.folio}
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <DateTimeDisplay value={r.fechaMovimiento} variant="corta" />
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">{r.subAlmacen}</td>
-              <td className="px-3 py-2 text-xs">
-                {r.ordenCompraFolio ? (
-                  <span className="font-mono">{r.ordenCompraFolio}</span>
-                ) : r.ordenCompraId ? (
-                  <span className="font-mono text-muted-foreground">
-                    {truncarId(r.ordenCompraId)}
-                  </span>
-                ) : (
-                  <span className="italic text-muted-foreground">—</span>
-                )}
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                <MoneyDisplay amount={r.montoTotalMxn} currency="MXN" strong />
-              </td>
-              <td className="px-3 py-2">
-                <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
-              </td>
-            </tr>
+              <TableRow
+                key={r.id}
+                {...rowProps}
+                className={`hover:bg-surface-subtle ${rowProps.className}`}
+              >
+                <TableCell className="font-mono text-xs">
+                  <Link
+                    to="/almacen/recepciones/$id"
+                    params={{ id: r.id }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-brand hover:underline"
+                    aria-label={`Abrir recepción ${r.folio}`}
+                  >
+                    {r.folio}
+                  </Link>
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <DateTimeDisplay value={r.fechaMovimiento} variant="corta" />
+                </TableCell>
+                <TableCell className="font-mono text-xs">{r.subAlmacen}</TableCell>
+                <TableCell className="text-xs">
+                  {r.ordenCompraFolio ? (
+                    <span className="font-mono">{r.ordenCompraFolio}</span>
+                  ) : r.ordenCompraId ? (
+                    <span className="font-mono text-ink-muted">
+                      {truncarId(r.ordenCompraId)}
+                    </span>
+                  ) : (
+                    <span className="italic text-ink-muted">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={r.montoTotalMxn} currency="MXN" strong />
+                </TableCell>
+                <TableCell>
+                  <EstadoAlmacenBadge tipo="movimiento" estado={r.estado} />
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
-
-
 
 function truncarId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;

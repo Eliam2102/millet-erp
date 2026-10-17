@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirmarDescarte } from '@/components/erp/forms/useConfirmarDescarte';
 import { ArticuloSelector, UbicacionSelector } from '@/components/erp';
 import { applyServerErrors, esApiError } from '@/lib/api';
 import {
@@ -43,6 +44,15 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
     defaultValues: DEFAULTS,
   });
 
+  // Cerrar (Esc, clic fuera, X, Cancelar) con cambios pide confirmación; guardar cierra con force.
+  const { setDirty, solicitarCierre, dialogo } = useConfirmarDescarte(() =>
+    onOpenChange(false),
+  );
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    setDirty(isDirty);
+  }, [isDirty, setDirty]);
+
   useEffect(() => {
     if (open) form.reset(DEFAULTS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,7 +65,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
       {
         onSuccess: () => {
           toast.success('Artículo asignado a la ubicación');
-          onOpenChange(false);
+          solicitarCierre(true);
         },
         onError: manejarError,
       },
@@ -97,8 +107,11 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
   const isPending = crear.isPending;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Asignar artículo a una ubicación</SheetTitle>
           <SheetDescription>
@@ -111,9 +124,10 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
           id="asignacion-form"
           onSubmit={form.handleSubmit(onSubmit)}
           noValidate
-          className="flex-1 space-y-3 overflow-y-auto px-6"
+          className="grid flex-1 grid-cols-2 content-start gap-x-4 gap-y-3.5 overflow-y-auto px-6"
         >
           <Field
+            className="col-span-2"
             label="Artículo"
             required
             error={form.formState.errors.articuloId?.message}
@@ -131,6 +145,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
           </Field>
 
           <Field
+            className="col-span-2"
             label="Ubicación"
             required
             error={form.formState.errors.ubicacionId?.message}
@@ -152,7 +167,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => solicitarCierre()}
             disabled={isPending}
           >
             Cancelar
@@ -162,6 +177,7 @@ export function AsignacionSheet({ open, onOpenChange }: AsignacionSheetProps) {
           </Button>
         </SheetFooter>
       </SheetContent>
+      {dialogo}
     </Sheet>
   );
 }

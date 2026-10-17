@@ -1022,6 +1022,32 @@ export interface EjecutarCierreMensualResponse {
   cerradoAt: string;
 }
 
+/** Periodo mensual concluido con su estado (GET cierre-mes/periodos). */
+export interface PeriodoCierreItem {
+  anio: number;
+  mes: number;
+  cerrado: boolean;
+  cerradoAt: string | null;
+}
+
+/** Una validación del cierre; <c>codigo</c> = el que lanza el cierre al fallar. */
+export interface RevisionPreviaCheck {
+  codigo: string;
+  titulo: string;
+  ok: boolean;
+  cantidad: number;
+  detalle: string;
+}
+
+export interface RevisionPreviaCierreResponse {
+  anio: number;
+  mes: number;
+  yaCerrado: boolean;
+  periodoNoConcluido: boolean;
+  puedeCerrar: boolean;
+  checks: RevisionPreviaCheck[];
+}
+
 // ─── Reportes operativos (FE-F6-PR1, ADR-0036) ──────────────────────────────
 
 /**

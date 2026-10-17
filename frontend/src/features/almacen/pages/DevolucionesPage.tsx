@@ -1,8 +1,18 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +29,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   ProveedorSelector,
   SortableHeader,
   TableSkeleton,
@@ -43,6 +54,9 @@ import {
 } from '@/features/almacen/components/MatRevSheet';
 import type { DevolucionesSearch } from '@/features/almacen/lib/devoluciones-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
+import { Field } from '@/features/almacen/components/internal/Field';
+import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
@@ -83,13 +97,15 @@ export function DevolucionesPage() {
     estado: search.estado,
     proveedorId: search.proveedorId,
     soloPendientesNcFiscal: search.soloPendientesNcFiscal,
-    limit: 200,
+    q: search.q,
+    ...paginaAOffsetLimit(search),
   });
 
   function actualizarSearch(parcial: Partial<DevolucionesSearch>) {
     navigate({
       to: '/almacen/devoluciones',
-      search: { ...search, ...parcial },
+      // Cambiar un filtro regresa a la página 1; la paginación pasa su propia página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
@@ -162,6 +178,7 @@ export function DevolucionesPage() {
         <EmptyState
           title="Sin devoluciones a proveedor"
           description={
+            search.q ||
             search.estado != null ||
             search.proveedorId ||
             search.soloPendientesNcFiscal
@@ -170,7 +187,15 @@ export function DevolucionesPage() {
           }
         />
       ) : (
-        <TablaDevoluciones items={query.data!.items} />
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TablaDevoluciones items={query.data!.items} />
+          <PaginacionTabla
+            total={query.data!.total}
+            offset={query.data!.offset}
+            limit={query.data!.limit}
+            onChange={(offset, limit) => actualizarSearch(offsetLimitAPagina(offset, limit))}
+          />
+        </div>
       )}
 
       <NuevaDevolucionProveedorSheet
@@ -199,14 +224,24 @@ interface FiltrosToolbarProps {
 
 function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
   const algun =
+    search.q ||
     search.estado != null ||
     search.proveedorId ||
     search.soloPendientesNcFiscal;
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Estado</label>
+      <Field label="Folio de salida" className="gap-1">
+        <BusquedaFolio
+          aria-label="Buscar por folio de salida"
+          valor={search.q}
+          onCommit={(q) => onChange({ q })}
+          placeholder="Buscar por folio…"
+          className="w-56"
+        />
+      </Field>
+      <Field label="Estado" className="gap-1">
+        {(c) => (
         <Select
           value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
           onValueChange={(v) =>
@@ -218,7 +253,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             })
           }
         >
-          <SelectTrigger className="w-52">
+          <SelectTrigger {...c} className="w-52">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
@@ -239,27 +274,25 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Proveedor</label>
+        )}
+      </Field>
+      <Field label="Proveedor" className="gap-1">
         <ProveedorSelector
           value={search.proveedorId ?? null}
           onChange={(id) => onChange({ proveedorId: id ?? undefined })}
           placeholder="Todos"
           className="w-72"
         />
-      </div>
-      <div className="flex items-center gap-2 pb-1">
-        <input
+      </Field>
+      <div className="flex items-center gap-2 pb-1.5">
+        <Checkbox
           id="solo-pendientes-nc"
-          type="checkbox"
           checked={search.soloPendientesNcFiscal ?? false}
-          onChange={(e) =>
+          onCheckedChange={(checked) =>
             onChange({
-              soloPendientesNcFiscal: e.target.checked || undefined,
+              soloPendientesNcFiscal: checked === true || undefined,
             })
           }
-          className="h-4 w-4"
         />
         <label htmlFor="solo-pendientes-nc" className="text-sm">
           Solo pendientes de NC fiscal
@@ -270,6 +303,7 @@ function FiltrosToolbar({ search, onChange }: FiltrosToolbarProps) {
           variant="ghost"
           onClick={() =>
             onChange({
+              q: undefined,
               estado: undefined,
               proveedorId: undefined,
               soloPendientesNcFiscal: undefined,
@@ -299,46 +333,46 @@ function TablaDevoluciones({
   }, [items, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 text-left">
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
               <SortableHeader
                 columnKey="proveedorId"
                 label="Proveedor"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="estado"
                 label="Estado"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-right">
+            </TableHead>
+            <TableHead className="text-right">
               <SortableHeader
                 columnKey="montoTotalMxn"
                 label="Monto"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">
+            </TableHead>
+            <TableHead>
               <SortableHeader
                 columnKey="solicitadaAt"
                 label="Solicitada"
                 current={sort}
                 onSortChange={setSort}
               />
-            </th>
-            <th className="px-3 py-2 text-left">Folio salida</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead>Folio salida</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {ordenados.map((d) => {
             const rowProps = clickableRowProps(() =>
               navigate({
@@ -347,43 +381,48 @@ function TablaDevoluciones({
               }),
             );
             return (
-            <tr
-              key={d.id}
-              {...rowProps}
-              className={`border-t hover:bg-muted/30 ${rowProps.className}`}
-              aria-label={`Abrir devolución a proveedor ${d.proveedorNombre ?? truncarId(d.proveedorId)}`}
-            >
-              <td className="px-3 py-2 text-primary">
-                {d.proveedorNombre ?? (
-                  <span className="font-mono text-xs" title={d.proveedorId}>
-                    {truncarId(d.proveedorId)}
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-2">
-                <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={d.estado} />
-              </td>
-              <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                <MoneyDisplay amount={d.montoTotalMxn} currency="MXN" strong />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <DateTimeDisplay value={d.solicitadaAt} variant="corta" />
-              </td>
-              <td className="px-3 py-2 font-mono text-xs">
-                {d.folioMovimientoSalida ?? (
-                  <span className="italic text-muted-foreground">—</span>
-                )}
-              </td>
-            </tr>
+              <TableRow
+                key={d.id}
+                {...rowProps}
+                className={`hover:bg-surface-subtle ${rowProps.className}`}
+              >
+                <TableCell>
+                  <Link
+                    to="/almacen/devoluciones/proveedor/$id"
+                    params={{ id: d.id }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-brand hover:underline"
+                    aria-label={`Abrir devolución a proveedor ${d.proveedorNombre ?? truncarId(d.proveedorId)}`}
+                  >
+                    {d.proveedorNombre ?? (
+                      <span className="font-mono text-xs" title={d.proveedorId}>
+                        {truncarId(d.proveedorId)}
+                      </span>
+                    )}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={d.estado} />
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <MoneyDisplay amount={d.montoTotalMxn} currency="MXN" strong />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <DateTimeDisplay value={d.solicitadaAt} variant="corta" />
+                </TableCell>
+                <TableCell className="font-mono text-xs">
+                  {d.folioMovimientoSalida ?? (
+                    <span className="italic text-ink-muted">—</span>
+                  )}
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
-
-
 
 function truncarId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;

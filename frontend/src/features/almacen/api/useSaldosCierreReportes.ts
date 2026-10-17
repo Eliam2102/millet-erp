@@ -14,6 +14,8 @@ import type {
   ExistenciaMpCnkFila,
   NodoJerarquiaSaldo,
   PagedResponse,
+  PeriodoCierreItem,
+  RevisionPreviaCierreResponse,
   ReporteResponse,
   SaldoListItem,
   SaldoUbicacionItem,
@@ -111,6 +113,33 @@ export function useHijosJerarquia(params: HijosJerarquiaParams) {
         ? `/api/v1/almacen/saldos/jerarquia?${query}`
         : '/api/v1/almacen/saldos/jerarquia';
       const { data } = await apiRequest<NodoJerarquiaSaldo[]>(path, { signal });
+      return data;
+    },
+  });
+}
+
+export function usePeriodosCierre() {
+  return useQuery({
+    queryKey: almacenKeys.cierrePeriodos(),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<PeriodoCierreItem[]>(
+        '/api/v1/almacen/cierre-mes/periodos',
+        { signal },
+      );
+      return data;
+    },
+  });
+}
+
+/** Revisión previa del cierre (solo lectura): mismas validaciones que el cierre. */
+export function useRevisionPreviaCierre(anio: number, mes: number) {
+  return useQuery({
+    queryKey: almacenKeys.cierreRevision(anio, mes),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<RevisionPreviaCierreResponse>(
+        `/api/v1/almacen/cierre-mes/revision-previa?anio=${anio}&mes=${mes}`,
+        { signal },
+      );
       return data;
     },
   });

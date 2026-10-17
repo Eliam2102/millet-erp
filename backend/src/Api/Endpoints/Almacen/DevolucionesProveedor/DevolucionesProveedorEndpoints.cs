@@ -34,6 +34,7 @@ public static class DevolucionesProveedorEndpoints
             [FromQuery] EstadoDevolucionProveedor? estado,
             [FromQuery] Guid? proveedorId,
             [FromQuery] bool? soloPendientesNcFiscal,
+            [FromQuery] string? q,
             [FromQuery] int? offset,
             [FromQuery] int? limit,
             IMediator mediator,
@@ -43,7 +44,7 @@ public static class DevolucionesProveedorEndpoints
             await VerificarLecturaDevolucionesAsync(permisos, ct);
             var (off, lim) = NormalizePaging(offset, limit);
             var response = await mediator.Send(
-                new ListarDevolucionesProveedorQuery(estado, proveedorId, soloPendientesNcFiscal, off, lim), ct);
+                new ListarDevolucionesProveedorQuery(estado, proveedorId, soloPendientesNcFiscal, off, lim, q), ct);
             return Results.Ok(response);
         })
         .RequireAuthorization()

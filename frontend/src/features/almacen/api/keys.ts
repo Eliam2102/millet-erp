@@ -52,6 +52,8 @@ export interface ListarSalidasFiltros {
   soloPorVencer?: boolean;
   offset?: number;
   limit?: number;
+  /** Búsqueda por folio, server-side. */
+  q?: string;
 }
 
 export interface ListarDevolucionesProveedorFiltros {
@@ -60,6 +62,8 @@ export interface ListarDevolucionesProveedorFiltros {
   soloPendientesNcFiscal?: boolean;
   offset?: number;
   limit?: number;
+  /** Búsqueda por folio de la salida, server-side. */
+  q?: string;
 }
 
 export interface ListarConteosFiltros {
@@ -68,6 +72,8 @@ export interface ListarConteosFiltros {
   subAlmacenId?: string;
   offset?: number;
   limit?: number;
+  /** Búsqueda por familia (el conteo no tiene folio), server-side. */
+  q?: string;
 }
 
 export interface ListarSaldosFiltros {
@@ -192,6 +198,11 @@ export const almacenKeys = {
   // expansión del árbol se cachea de forma independiente)
   saldosJerarquia: (params: HijosJerarquiaParams) =>
     [...almacenKeys.saldos(), 'jerarquia', params] as const,
+
+  // Cierre de mes
+  cierrePeriodos: () => [...almacenKeys.all, 'cierre-mes', 'periodos'] as const,
+  cierreRevision: (anio: number, mes: number) =>
+    [...almacenKeys.all, 'cierre-mes', 'revision-previa', anio, mes] as const,
 
   // Reabasto / reorden (config N1-N2)
   reorden: () => [...almacenKeys.all, 'reorden'] as const,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EstadoDevolucionProveedor } from '@/features/almacen/api/types';
+import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
 
 /**
  * Schema de los <c>search params</c> de la bandeja de Devoluciones
@@ -20,6 +21,8 @@ export const DevolucionesSearchSchema = z.object({
     .optional(),
   proveedorId: z.string().min(1).optional(),
   soloPendientesNcFiscal: z.boolean().optional(),
+  q: z.string().min(1).max(200).optional(),
+  ...PaginaSearchShape,
 });
 
 export type DevolucionesSearch = z.infer<typeof DevolucionesSearchSchema>;

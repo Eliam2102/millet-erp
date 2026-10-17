@@ -118,7 +118,7 @@ public sealed record ListarSalidasQuery(
     bool? NoRegularizados,
     int Offset,
     int Limit,
-    bool? SoloVencidos = null, bool? SoloPorVencer = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>, IDocumentoScopedQuery
+    bool? SoloVencidos = null, bool? SoloPorVencer = null, string? Q = null) : IRequest<AlmacenPagedResponse<SalidaListItem>>, IDocumentoScopedQuery
 {
     public string TipoDocumento => "salida_almacen";
     public string PermisoTodasSucursales => "almacen.salidas.leer-todas-sucursales";
@@ -165,6 +165,13 @@ public sealed class ListarSalidasHandler
             query = query.Where(m =>
                 m.Tipo == TipoMovimiento.SalidaPorVale
                 && m.PendienteRegularizacion);
+        }
+
+        // Búsqueda por folio (server-side, después del filtro de sucursal); los folios se generan en mayúsculas.
+        if (!string.IsNullOrWhiteSpace(request.Q))
+        {
+            var q = request.Q.Trim().ToUpperInvariant();
+            query = query.Where(m => m.Folio != null && m.Folio.Contains(q));
         }
 
         var ahora = DateTimeOffset.UtcNow;
