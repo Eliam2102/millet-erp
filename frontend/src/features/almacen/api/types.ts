@@ -1108,3 +1108,28 @@ export interface ExistenciaMpCnkFila {
   costoPromedioMxn: number;
   valorInventarioMxn: number;
 }
+
+/** ALM-04: línea de material en revisión (espejo de `MaterialEnRevisionItem`). */
+export interface MaterialEnRevisionItem {
+  lineaRevisionId: string;
+  movimientoRevisionId: string;
+  recepcionId: string;
+  recepcionFolio: string;
+  fechaRecepcion: string;
+  ordenCompraId: string | null;
+  ordenCompraFolio: string | null;
+  articuloId: string;
+  articuloClave: string | null;
+  articuloDescripcion: string | null;
+  unidadMedida: string;
+  cantidadEnRevision: number;
+  cantidadDictaminada: number;
+  cantidadEnDevolucion: number;
+  cantidadPendiente: number;
+  motivoDano: string | null;
+  ubicacionRevisionId: string;
+  subAlmacenRevisionId: string;
+  ubicacionDisponibleSugeridaId: string | null;
+  fechaLimite: string | null;
+  vencida: boolean;
+}

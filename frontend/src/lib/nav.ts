@@ -37,6 +37,7 @@ import {
   Repeat,
   RotateCcw,
   Scale,
+  ShieldAlert,
   ShoppingCart,
   Sliders,
   Truck,
@@ -217,6 +218,14 @@ const moduloAlmacen: NavModulo = {
             'Bandeja de entradas. Captura recepciones Variante A (con factura) y Variante B (con packing list, factura pendiente).',
           to: '/almacen/recepciones',
           icon: PackagePlus,
+          permission: PermisosCanonicos.AlmacenEntradasLeer,
+        },
+        {
+          label: 'Material en revisión',
+          description:
+            'Material dañado en recepción pendiente de dictamen del Gerente de almacén/calidad.',
+          to: '/almacen/revision',
+          icon: ShieldAlert,
           permission: PermisosCanonicos.AlmacenEntradasLeer,
         },
         {

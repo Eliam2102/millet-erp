@@ -19,6 +19,7 @@ import { Route as AppAlmacenAlmacenesRouteImport } from './routes/_app/almacen/a
 import { Route as AppAlmacenAsignacionesRouteImport } from './routes/_app/almacen/asignaciones';
 import { Route as AppAlmacenCierreMesRouteImport } from './routes/_app/almacen/cierre-mes';
 import { Route as AppAlmacenReordenRouteImport } from './routes/_app/almacen/reorden';
+import { Route as AppAlmacenRevisionRouteImport } from './routes/_app/almacen/revision';
 import { Route as AppAlmacenSaldosRouteImport } from './routes/_app/almacen/saldos';
 import { Route as AppAlmacenSaldosJerarquiaRouteImport } from './routes/_app/almacen/saldos-jerarquia';
 import { Route as AppAlmacenSubAlmacenesRouteImport } from './routes/_app/almacen/sub-almacenes';
@@ -233,6 +234,11 @@ const AppAlmacenCierreMesRoute = AppAlmacenCierreMesRouteImport.update({
 const AppAlmacenReordenRoute = AppAlmacenReordenRouteImport.update({
   id: '/almacen/reorden',
   path: '/almacen/reorden',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAlmacenRevisionRoute = AppAlmacenRevisionRouteImport.update({
+  id: '/almacen/revision',
+  path: '/almacen/revision',
   getParentRoute: () => AppRoute,
 } as any);
 const AppAlmacenSaldosRoute = AppAlmacenSaldosRouteImport.update({
@@ -1165,6 +1171,7 @@ export interface FileRoutesByFullPath {
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
+  '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
@@ -1342,6 +1349,7 @@ export interface FileRoutesByTo {
   '/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/almacen/reorden': typeof AppAlmacenReordenRoute;
+  '/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
@@ -1521,6 +1529,7 @@ export interface FileRoutesById {
   '/_app/almacen/asignaciones': typeof AppAlmacenAsignacionesRoute;
   '/_app/almacen/cierre-mes': typeof AppAlmacenCierreMesRoute;
   '/_app/almacen/reorden': typeof AppAlmacenReordenRoute;
+  '/_app/almacen/revision': typeof AppAlmacenRevisionRoute;
   '/_app/almacen/saldos': typeof AppAlmacenSaldosRoute;
   '/_app/almacen/saldos-jerarquia': typeof AppAlmacenSaldosJerarquiaRoute;
   '/_app/almacen/sub-almacenes': typeof AppAlmacenSubAlmacenesRoute;
@@ -1700,6 +1709,7 @@ export interface FileRouteTypes {
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
     | '/almacen/reorden'
+    | '/almacen/revision'
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
     | '/almacen/sub-almacenes'
@@ -1877,6 +1887,7 @@ export interface FileRouteTypes {
     | '/almacen/asignaciones'
     | '/almacen/cierre-mes'
     | '/almacen/reorden'
+    | '/almacen/revision'
     | '/almacen/saldos'
     | '/almacen/saldos-jerarquia'
     | '/almacen/sub-almacenes'
@@ -2055,6 +2066,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/asignaciones'
     | '/_app/almacen/cierre-mes'
     | '/_app/almacen/reorden'
+    | '/_app/almacen/revision'
     | '/_app/almacen/saldos'
     | '/_app/almacen/saldos-jerarquia'
     | '/_app/almacen/sub-almacenes'
@@ -2300,6 +2312,13 @@ declare module '@tanstack/react-router' {
       path: '/almacen/reorden';
       fullPath: '/almacen/reorden';
       preLoaderRoute: typeof AppAlmacenReordenRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/almacen/revision': {
+      id: '/_app/almacen/revision';
+      path: '/almacen/revision';
+      fullPath: '/almacen/revision';
+      preLoaderRoute: typeof AppAlmacenRevisionRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/almacen/saldos': {
@@ -3491,6 +3510,7 @@ interface AppRouteChildren {
   AppAlmacenAsignacionesRoute: typeof AppAlmacenAsignacionesRoute;
   AppAlmacenCierreMesRoute: typeof AppAlmacenCierreMesRoute;
   AppAlmacenReordenRoute: typeof AppAlmacenReordenRoute;
+  AppAlmacenRevisionRoute: typeof AppAlmacenRevisionRoute;
   AppAlmacenSaldosRoute: typeof AppAlmacenSaldosRoute;
   AppAlmacenSaldosJerarquiaRoute: typeof AppAlmacenSaldosJerarquiaRoute;
   AppAlmacenSubAlmacenesRoute: typeof AppAlmacenSubAlmacenesRoute;
@@ -3666,6 +3686,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenAsignacionesRoute: AppAlmacenAsignacionesRoute,
   AppAlmacenCierreMesRoute: AppAlmacenCierreMesRoute,
   AppAlmacenReordenRoute: AppAlmacenReordenRoute,
+  AppAlmacenRevisionRoute: AppAlmacenRevisionRoute,
   AppAlmacenSaldosRoute: AppAlmacenSaldosRoute,
   AppAlmacenSaldosJerarquiaRoute: AppAlmacenSaldosJerarquiaRoute,
   AppAlmacenSubAlmacenesRoute: AppAlmacenSubAlmacenesRoute,

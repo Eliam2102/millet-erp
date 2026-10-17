@@ -73,12 +73,13 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
 
     // ─────────────────────────── Fixture (internal para reutilizar en rebanadas siguientes) ───────────────────────────
 
-    internal async Task EjecutarConFixtureAsync(Func<AlmacenDbContext, Ctx, Task> cuerpo)
+    internal async Task EjecutarConFixtureAsync(Func<AlmacenDbContext, Ctx, Task> cuerpo, Guid? empresaFija = null)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var empresaCtx = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
-        var empresaId = Guid.NewGuid();
+        // empresaFija: las pruebas HTTP necesitan la empresa del usuario autenticado para ver el documento.
+        var empresaId = empresaFija ?? Guid.NewGuid();
         await using var calendario = new PeriodoContableFixture(db.Database.GetConnectionString()!, empresaId, Fecha.Year);
         await calendario.SembrarAsync(Fecha.Month);
 

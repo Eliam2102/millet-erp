@@ -148,6 +148,10 @@ export const almacenKeys = {
   subAlmacenesList: (filtros: ListarSubAlmacenesFiltros) =>
     [...almacenKeys.subAlmacenes(), 'list', filtros] as const,
 
+  // Material en revisión (ALM-04)
+  revision: (f: { soloPendientes: boolean; q?: string }) =>
+    [...almacenKeys.all, 'revision', f] as const,
+
   // Recepciones
   recepciones: () => [...almacenKeys.all, 'recepciones'] as const,
   recepcionesList: (filtros: ListarRecepcionesFiltros) =>

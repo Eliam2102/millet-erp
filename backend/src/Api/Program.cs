@@ -588,6 +588,7 @@ else
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Api.Endpoints.Almacen.Revision.LineaRevisionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
@@ -1505,6 +1506,9 @@ Millet.Api.Endpoints.Almacen.Vales.ValeBlobEndpoints.MapValeBlobEndpoints(app);
 // === Almacén — Devoluciones internas 8.A + MAT-REV (F5-PR1) ===
 Millet.Api.Endpoints.Almacen.DevolucionesInternas.DevolucionesInternasEndpoints
     .MapDevolucionesInternasEndpoints(app);
+
+// === Almacén — Material en revisión (ALM-04) ===
+Millet.Api.Endpoints.Almacen.Revision.MaterialEnRevisionEndpoints.MapMaterialEnRevisionEndpoints(app);
 
 // === Almacén — Devoluciones a proveedor 8.B (F6-PR1) ===
 Millet.Api.Endpoints.Almacen.DevolucionesProveedor.DevolucionesProveedorEndpoints

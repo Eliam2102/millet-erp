@@ -100,3 +100,4 @@ export {
   useCrearAsignacion,
   useDesasignar,
 } from '@/features/almacen/api/useAsignaciones';
+export { useMaterialEnRevision } from '@/features/almacen/api/useMaterialEnRevision';
