@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Pencil, Plus, Trash2, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -196,17 +197,18 @@ export function EditorLineas({ oc }: EditorLineasProps) {
         </h3>
         {!agregarAbierto && accAgregarManual.visible && (
           <div className="flex items-center gap-2">
-            <Button
+            <ConMotivo motivo={accAgregarManual.motivoDeshabilitada}>
+              <Button
               size="sm"
               variant="outline"
               onClick={abrirAgregar}
               disabled={!accAgregarManual.habilitada}
-              title={accAgregarManual.motivoDeshabilitada}
               data-action="agregar-linea-manual"
             >
               <Plus className="mr-1 h-3.5 w-3.5" />
               Agregar línea manual
             </Button>
+            </ConMotivo>
           </div>
         )}
       </div>

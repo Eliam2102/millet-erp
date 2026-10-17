@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -71,6 +72,8 @@ export interface ArticuloSelectorProps {
   disabled?: boolean;
   /** Clase del trigger. */
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
   /**
    * Etiqueta inicial ("clave · nombre") del artículo pre-seleccionado al
    * EDITAR, cuando <c>value</c> viene del DTO enriquecido. Permite mostrar
@@ -95,6 +98,7 @@ export function ArticuloSelector({
   placeholder = 'Buscar artículo…',
   disabled,
   className,
+  triggerProps,
   initialLabel,
   permitirBusquedaPorNombre = true,
 }: ArticuloSelectorProps) {
@@ -179,6 +183,7 @@ export function ArticuloSelector({
           role="combobox"
           aria-expanded={open}
           aria-label="Seleccionar artículo"
+          {...triggerProps}
           disabled={disabled}
           className={cn(
             'w-full justify-between font-normal',

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/incompatible-library -- react-hook-form watch alimenta validación dinámica; React Compiler omite su memoización de forma segura. */
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
@@ -16,6 +16,7 @@ import {
 import {
   ArticuloSelector,
   DecimalField,
+  Field,
   DECIMALES_FALLBACK,
   DepartamentoSelector,
   stepParaDecimales,
@@ -204,7 +205,6 @@ export function LineaInlineFormOc({
   // Fracción arancelaria: solo al EDITAR una línea de OC de comercio exterior.
   // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
   const mostrarFraccion = esEditar && oc.esImportacion;
-  const fraccionId = useId();
 
   const descuentoTipoActual = useWatch({
     control: form.control,
@@ -313,7 +313,7 @@ export function LineaInlineFormOc({
     <form
       onSubmit={form.handleSubmit(onSubmit, (errs) => {
         // Si el error cae en un campo del bloque colapsado, ábrelo para que sea visible.
-        if (errs.departamentoSolicitanteId || errs.descuentoTipo || errs.descuentoValor
+        if (errs.descuentoTipo || errs.descuentoValor
           || errs.descripcionExtendida || errs.textoAdicional) setDetallesAbiertos(true);
       })}
       noValidate
@@ -353,17 +353,19 @@ export function LineaInlineFormOc({
 
       {/* ── Fila 1: campos críticos ─────────────────────────────── */}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <FieldInline
+        <Field
           label="Artículo"
           required
           error={form.formState.errors.articuloId?.message}
           className="md:col-span-4"
         >
+          {(c) => (
           <Controller
             name="articuloId"
             control={form.control}
             render={({ field }) => (
               <ArticuloSelector
+                triggerProps={c}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
                 onSelect={(articulo) => {
@@ -387,19 +389,22 @@ export function LineaInlineFormOc({
               />
             )}
           />
-        </FieldInline>
+          )}
+        </Field>
 
-        <FieldInline
+        <Field
           label="Cantidad"
           required
           error={form.formState.errors.cantidad?.message}
           className="md:col-span-2"
         >
+          {(c) => (
           <Controller
             name="cantidad"
             control={form.control}
             render={({ field }) => (
               <DecimalField
+                inputProps={c}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v ?? 0)}
                 min={0.001}
@@ -408,9 +413,10 @@ export function LineaInlineFormOc({
               />
             )}
           />
-        </FieldInline>
+          )}
+        </Field>
 
-        <FieldInline
+        <Field
           label="UM"
           required
           error={form.formState.errors.unidadMedida?.message}
@@ -421,7 +427,9 @@ export function LineaInlineFormOc({
               disabled lo excluiría del payload de react-hook-form. En
               líneas heredadas de RQ el selector está disabled, así que la
               UM queda fija con la unidad guardada en la RQ. */}
+          {(c) => (
           <Input
+            {...c}
             type="text"
             readOnly
             tabIndex={-1}
@@ -431,19 +439,22 @@ export function LineaInlineFormOc({
             className="bg-muted/50"
             {...form.register('unidadMedida')}
           />
-        </FieldInline>
+          )}
+        </Field>
 
-        <FieldInline
+        <Field
           label="Precio"
           required
           error={form.formState.errors.precioUnitario?.message}
           className="md:col-span-3"
         >
+          {(c) => (
           <Controller
             name="precioUnitario"
             control={form.control}
             render={({ field }) => (
               <DecimalField
+                inputProps={c}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v ?? 0)}
                 min={0}
@@ -451,14 +462,15 @@ export function LineaInlineFormOc({
               />
             )}
           />
-        </FieldInline>
+          )}
+        </Field>
 
-        <FieldInline
+        <Field
           label="Subtotal"
           className="md:col-span-2"
         >
-          <SubtotalPreview control={form.control} moneda={oc.moneda} />
-        </FieldInline>
+          {(c) => <SubtotalPreview id={c.id} control={form.control} moneda={oc.moneda} />}
+        </Field>
       </div>
 
       {/* ── Sub-fila (siempre visible): Centro de costo (Fase E PR3) ──────
@@ -466,13 +478,15 @@ export function LineaInlineFormOc({
           solo lectura", 1:1 de la RQ); manual → picker ABIERTO por proxy
           (el comprador elige, /compras/ordenes/dim3/buscar). */}
       <div className="grid grid-cols-1 gap-2 border-t border-primary/10 pt-2 md:grid-cols-2">
-        <FieldInline
+        <Field
           label="Centro de costo"
+          required={!lineaDesdeRq}
           error={form.formState.errors.centroCostoId?.message}
         >
-          {lineaDesdeRq ? (
+          {(c) => lineaDesdeRq ? (
             // Bloqueado: mismo patrón que la UM heredada (<Input readOnly>).
             <Input
+              id={c.id}
               type="text"
               readOnly
               tabIndex={-1}
@@ -493,6 +507,7 @@ export function LineaInlineFormOc({
               control={form.control}
               render={({ field }) => (
                 <CentroCostoPicker
+                  triggerProps={c}
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? null)}
                   endpoint="/api/v1/compras/ordenes/centros-costo/buscar"
@@ -508,16 +523,37 @@ export function LineaInlineFormOc({
               )}
             />
           )}
-        </FieldInline>
+        </Field>
+
+        <Field
+          label="Departamento solicitante"
+          required
+          error={form.formState.errors.departamentoSolicitanteId?.message}
+        >
+          {(c) => (
+          <Controller
+            name="departamentoSolicitanteId"
+            control={form.control}
+            render={({ field }) => (
+              <DepartamentoSelector
+                triggerProps={c}
+                value={field.value || null}
+                onChange={(v) => field.onChange(v ?? '')}
+              />
+            )}
+          />
+          )}
+        </Field>
 
         {mostrarFraccion && (
-          <FieldInline
+          <Field
             label="Fracción arancelaria"
-            htmlFor={fraccionId}
+            hint="Clave de la tarifa arancelaria de la mercancía (8 u 10 dígitos)."
             error={form.formState.errors.fraccionArancelaria?.message}
           >
+            {(c) => (
             <Input
-              id={fraccionId}
+              {...c}
               type="text"
               inputMode="numeric"
               maxLength={10}
@@ -525,10 +561,8 @@ export function LineaInlineFormOc({
               data-field="fraccion-arancelaria"
               {...form.register('fraccionArancelaria')}
             />
-            <p className="text-xs text-muted-foreground">
-              Clave de la tarifa arancelaria de la mercancía (8 u 10 dígitos).
-            </p>
-          </FieldInline>
+            )}
+          </Field>
         )}
       </div>
 
@@ -545,7 +579,7 @@ export function LineaInlineFormOc({
           ) : (
             <ChevronRight className="h-3 w-3" />
           )}
-          Detalles (almacén, departamento, descuento, texto adicional)
+          Detalles (descuento, descripción, texto adicional)
         </button>
 
         <div className="flex items-center gap-2">
@@ -583,27 +617,11 @@ export function LineaInlineFormOc({
       {/* ── Fila 2 (expandible): campos opcionales ───────────────── */}
       {detallesAbiertos && (
         <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-3 md:grid-cols-2">
-          <FieldInline
-            label="Departamento solicitante"
-            required
-            error={form.formState.errors.departamentoSolicitanteId?.message}
-          >
-            <Controller
-              name="departamentoSolicitanteId"
-              control={form.control}
-              render={({ field }) => (
-                <DepartamentoSelector
-                  value={field.value || null}
-                  onChange={(v) => field.onChange(v ?? '')}
-                />
-              )}
-            />
-          </FieldInline>
-
-          <FieldInline
+          <Field
             label="Descuento (opcional)"
             error={form.formState.errors.descuentoTipo?.message}
           >
+            {(c) => (
             <Controller
               name="descuentoTipo"
               control={form.control}
@@ -616,7 +634,7 @@ export function LineaInlineFormOc({
                     field.onChange(v === '__none__' ? null : Number(v))
                   }
                 >
-                  <SelectTrigger data-field="descuento-tipo">
+                  <SelectTrigger data-field="descuento-tipo" {...c}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -631,17 +649,20 @@ export function LineaInlineFormOc({
                 </Select>
               )}
             />
-          </FieldInline>
+            )}
+          </Field>
 
-          <FieldInline
+          <Field
             label="Valor del descuento"
             error={form.formState.errors.descuentoValor?.message}
           >
+            {(c) => (
             <Controller
               name="descuentoValor"
               control={form.control}
               render={({ field }) => (
                 <DecimalField
+                  inputProps={c}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v)}
                   min={0}
@@ -650,18 +671,21 @@ export function LineaInlineFormOc({
                 />
               )}
             />
-          </FieldInline>
+            )}
+          </Field>
 
           <div className="md:col-span-2">
-            <FieldInline
+            <Field
               label="Descripción extendida"
               error={form.formState.errors.descripcionExtendida?.message}
             >
+              {(c) => (
               <Controller
                 name="descripcionExtendida"
                 control={form.control}
                 render={({ field }) => (
                   <TextAreaField
+                    textareaProps={c}
                     value={field.value ?? null}
                     onChange={(v) => field.onChange(v || null)}
                     maxLength={1000}
@@ -669,19 +693,22 @@ export function LineaInlineFormOc({
                   />
                 )}
               />
-            </FieldInline>
+              )}
+            </Field>
           </div>
 
           <div className="md:col-span-2">
-            <FieldInline
+            <Field
               label="Texto adicional (impreso en PDF)"
               error={form.formState.errors.textoAdicional?.message}
             >
+              {(c) => (
               <Controller
                 name="textoAdicional"
                 control={form.control}
                 render={({ field }) => (
                   <TextAreaField
+                    textareaProps={c}
                     value={field.value ?? null}
                     onChange={(v) => field.onChange(v || null)}
                     maxLength={2000}
@@ -689,7 +716,8 @@ export function LineaInlineFormOc({
                   />
                 )}
               />
-            </FieldInline>
+              )}
+            </Field>
           </div>
         </div>
       )}
@@ -701,53 +729,15 @@ export function LineaInlineFormOc({
 // Helpers locales
 // ============================================================================
 
-interface FieldInlineProps {
-  label: string;
-  htmlFor?: string;
-  required?: boolean;
-  error?: string;
-  className?: string;
-  children: React.ReactNode;
-}
-
-function FieldInline({
-  label,
-  htmlFor,
-  required,
-  error,
-  className,
-  children,
-}: FieldInlineProps) {
-  return (
-    <div className={cn('space-y-1', className)}>
-      <label
-        htmlFor={htmlFor}
-        className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
-      >
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
 /**
  * Vista previa con descuento y redondeo al par, igual que el dominio.
  */
 function SubtotalPreview({
   control,
   moneda,
+  id,
 }: {
+  id: string;
   control: Control<AgregarLineaManualValues>;
   moneda: string;
 }) {
@@ -757,8 +747,8 @@ function SubtotalPreview({
   const valor = useWatch({ control, name: 'descuentoValor' });
   const subtotal = subtotalLinea(cantidad, precio, tipo, valor);
   return (
-    <div className="rounded-md border bg-muted/30 px-3 py-1.5 text-sm tabular-nums">
+    <output id={id} className="block rounded-md border bg-muted/30 px-3 py-1.5 text-sm tabular-nums">
       <MoneyDisplay amount={subtotal} currency={moneda} />
-    </div>
+    </output>
   );
 }

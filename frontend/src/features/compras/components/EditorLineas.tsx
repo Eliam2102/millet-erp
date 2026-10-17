@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ConMotivo } from '@/features/compras/components/ConMotivo';
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -196,15 +197,16 @@ export function EditorLineas({ rq }: EditorLineasProps) {
       <div className="space-y-3">
         {canAgregar.visible && !agregarAbierto && (
           <div className="flex justify-end">
-            <Button
+            <ConMotivo motivo={canAgregar.motivoDeshabilitada}>
+              <Button
               size="sm"
               onClick={abrirAgregar}
               disabled={!canAgregar.habilitada}
-              title={canAgregar.motivoDeshabilitada}
             >
               <Plus className="mr-2 h-4 w-4" />
               Agregar línea
             </Button>
+            </ConMotivo>
           </div>
         )}
 
@@ -349,6 +351,7 @@ function FilaLinea({
 }: FilaLineaProps) {
   const [notasEditando, setNotasEditando] = useState(false);
   const [notasInput, setNotasInput] = useState(linea.notas ?? '');
+  const [notasError, setNotasError] = useState<string | null>(null);
   const actualizarNotas = useActualizarNotasLinea();
   const conflictDialog = useConflictDialog();
   const queryClient = useQueryClient();
@@ -363,6 +366,7 @@ function FilaLinea({
       { requisicionId: rqId, lineaId: linea.id, values: { notas: next } },
       {
         onSuccess: () => {
+          setNotasError(null);
           setNotasEditando(false);
         },
         onError: (error) => {
@@ -382,18 +386,17 @@ function FilaLinea({
             });
             return;
           }
-          if (esApiError(error)) {
-            toast.error(error.problem.title);
-          } else {
-            toast.error('Error al guardar notas.');
-          }
-          setNotasInput(linea.notas ?? '');
+          // Conserva lo tecleado y deja el campo abierto: el usuario corrige o reintenta.
+          setNotasError(
+            esApiError(error) ? error.problem.title : 'No se pudieron guardar las notas.',
+          );
         },
       },
     );
   }
 
   function cancelarNotas() {
+    setNotasError(null);
     setNotasInput(linea.notas ?? '');
     setNotasEditando(false);
   }
@@ -440,9 +443,12 @@ function FilaLinea({
       </td>
       <td className="px-3 py-2">
         {notasEditando ? (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <Input
               type="text"
+              aria-label={`Notas de la línea ${linea.posicion}`}
+              aria-invalid={notasError ? true : undefined}
+              aria-describedby={notasError ? `notas-error-${linea.id}` : undefined}
               value={notasInput}
               onChange={(e) => setNotasInput(e.target.value)}
               maxLength={500}
@@ -459,9 +465,10 @@ function FilaLinea({
               variant="ghost"
               onClick={guardarNotas}
               disabled={actualizarNotas.isPending}
+              aria-label={`Guardar notas de la línea ${linea.posicion}`}
               className="h-7 px-2"
             >
-              ✓
+              <Check className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
             </Button>
             <Button
               type="button"
@@ -469,10 +476,20 @@ function FilaLinea({
               variant="ghost"
               onClick={cancelarNotas}
               disabled={actualizarNotas.isPending}
+              aria-label={`Cancelar edición de notas de la línea ${linea.posicion}`}
               className="h-7 px-2"
             >
-              ✕
+              <X className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
             </Button>
+            {notasError && (
+              <p
+                id={`notas-error-${linea.id}`}
+                role="alert"
+                className="w-full text-xs text-danger-fg"
+              >
+                {notasError}
+              </p>
+            )}
           </div>
         ) : (
           <button

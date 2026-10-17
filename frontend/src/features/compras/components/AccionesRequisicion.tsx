@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ConMotivo } from '@/features/compras/components/ConMotivo';
 import { Ban, Lock, ShoppingCart, Send, ShieldCheck, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -364,30 +365,32 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
         aria-label="Acciones de la requisición"
       >
         {accTransmitir.visible && (
-          <Button
+          <ConMotivo motivo={accTransmitir.motivoDeshabilitada}>
+            <Button
             type="button"
             disabled={!accTransmitir.habilitada || isPending}
             onClick={() => setConfirmacion({ tipo: 'transmitir' })}
-            title={accTransmitir.motivoDeshabilitada}
           >
             <Send className="mr-2 h-4 w-4" />
             Transmitir
           </Button>
+          </ConMotivo>
         )}
         {accN1.visible && (
-          <Button
+          <ConMotivo motivo={accN1.motivoDeshabilitada}>
+            <Button
             type="button"
             variant="default"
             disabled={!accN1.habilitada || isPending}
             onClick={() =>
               setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel1 })
             }
-            title={accN1.motivoDeshabilitada}
             className="bg-emerald-600 text-white hover:bg-emerald-700"
           >
             <ShieldCheck className="mr-2 h-4 w-4" />
             Aprobar Nivel 1
           </Button>
+          </ConMotivo>
         )}
         {n1Autorizada && (
           <Badge
@@ -403,14 +406,14 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
           </Badge>
         )}
         {accN2.visible && (
-          <Button
+          <ConMotivo motivo={accN2.motivoDeshabilitada}>
+            <Button
             type="button"
             variant="default"
             disabled={!accN2.habilitada || isPending}
             onClick={() =>
               setConfirmacion({ tipo: 'aprobar', nivel: NivelAutorizacion.Nivel2 })
             }
-            title={accN2.motivoDeshabilitada}
             className={
               accN2.habilitada
                 ? 'bg-emerald-600 text-white hover:bg-emerald-700'
@@ -420,6 +423,7 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             <ShieldCheck className="mr-2 h-4 w-4" />
             Aprobar Nivel 2
           </Button>
+          </ConMotivo>
         )}
         {accRechazar.visible && (
           <Button
@@ -470,7 +474,8 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
           </Button>
         )}
         {accConvertirAOc.visible && (
-          <Button
+          <ConMotivo motivo={accConvertirAOc.motivoDeshabilitada}>
+            <Button
             type="button"
             disabled={!accConvertirAOc.habilitada || isPending}
             onClick={() =>
@@ -482,13 +487,13 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
                 },
               })
             }
-            title={accConvertirAOc.motivoDeshabilitada}
             className="bg-indigo-600 text-white hover:bg-indigo-700"
             data-action="convertir-a-oc"
           >
             <ShoppingCart className="mr-2 h-4 w-4" />
             Convertir a OC
           </Button>
+          </ConMotivo>
         )}
       </div>
 

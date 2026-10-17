@@ -171,10 +171,10 @@ describe('<AccionesRequisicion>', () => {
     );
     const btn = screen.getByRole('button', { name: /transmitir/i });
     expect(btn).toBeDisabled();
-    expect(btn).toHaveAttribute(
-      'title',
-      expect.stringMatching(/al menos una línea/i),
-    );
+    // El motivo ya no va en `title`: el botón deshabilitado se envuelve en un
+    // span enfocable que dispara el tooltip (teclado y táctil).
+    expect(btn).not.toHaveAttribute('title');
+    expect(btn.parentElement).toHaveAttribute('tabindex', '0');
   });
 
   it('EnAutorizacion + permiso N1: muestra Aprobar Nivel 1', () => {

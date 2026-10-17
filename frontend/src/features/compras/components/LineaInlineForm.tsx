@@ -10,6 +10,7 @@ import {
   ArticuloSelector,
   DatePickerField,
   DecimalField,
+  Field,
   DECIMALES_FALLBACK,
   stepParaDecimales,
   TextAreaField,
@@ -262,7 +263,7 @@ export function LineaInlineForm({
     <form
       onSubmit={form.handleSubmit(onSubmit, (errs) => {
         // Si el error cae en un campo del bloque colapsado, ábrelo para que sea visible.
-        if (errs.proyecto || errs.cuentaContableId || errs.notas) setDetallesAbiertos(true);
+        if (errs.proyecto || errs.notas) setDetallesAbiertos(true);
       })}
       noValidate
       onKeyDown={(e) => {
@@ -287,17 +288,19 @@ export function LineaInlineForm({
     >
       {/* ── Fila 1: campos críticos ─────────────────────────────── */}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-        <FieldInline
+        <Field
           label="Artículo"
           required
           error={form.formState.errors.articuloId?.message}
           className="md:col-span-4"
         >
+          {(c) => (
           <Controller
             name="articuloId"
             control={form.control}
             render={({ field }) => (
               <ArticuloSelector
+                triggerProps={c}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
                 onSelect={(articulo) => {
@@ -320,19 +323,22 @@ export function LineaInlineForm({
               />
             )}
           />
-        </FieldInline>
+          )}
+        </Field>
 
-        <FieldInline
+        <Field
           label="Cantidad"
           required
           error={form.formState.errors.cantidad?.message}
           className="md:col-span-2"
         >
+          {(c) => (
           <Controller
             name="cantidad"
             control={form.control}
             render={({ field }) => (
               <DecimalField
+                inputProps={c}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v ?? 0)}
                 min={0}
@@ -340,9 +346,10 @@ export function LineaInlineForm({
               />
             )}
           />
-        </FieldInline>
+          )}
+        </Field>
 
-        <FieldInline
+        <Field
           label="Unidad"
           required
           error={form.formState.errors.unidadMedida?.message}
@@ -351,7 +358,9 @@ export function LineaInlineForm({
           {/* Read-only (NO disabled): la UM se hereda del artículo. Con
               readOnly el valor sigue registrado y viaja en el submit;
               disabled lo excluiría del payload de react-hook-form. */}
+          {(c) => (
           <Input
+            {...c}
             type="text"
             readOnly
             tabIndex={-1}
@@ -361,25 +370,29 @@ export function LineaInlineForm({
             className="bg-muted/50"
             {...form.register('unidadMedida')}
           />
-        </FieldInline>
+          )}
+        </Field>
 
-        <FieldInline
+        <Field
           label="Fecha"
           error={form.formState.errors.fechaRequerida?.message}
           className="md:col-span-2"
         >
+          {(c) => (
           <Controller
             name="fechaRequerida"
             control={form.control}
             render={({ field }) => (
               <DatePickerField
+                id={c.id}
                 value={field.value ?? null}
                 onChange={(d) => field.onChange(d)}
                 minDate={new Date()}
               />
             )}
           />
-        </FieldInline>
+          )}
+        </Field>
       </div>
 
       {/* ── Sub-fila (siempre visible): CC-Máquina (Fase E PR2) ──────
@@ -388,15 +401,18 @@ export function LineaInlineForm({
           por la ruta FILTRADA por alcance (/dim3/buscar); el display heredado
           se resuelve aparte por el read-port (detalle de RQ). ADR-0050. */}
       <div className="border-t border-primary/10 pt-2">
-        <FieldInline
+        <Field
           label="Centro de costo"
+          required
           error={form.formState.errors.centroCostoId?.message}
         >
+          {(c) => (
           <Controller
             name="centroCostoId"
             control={form.control}
             render={({ field }) => (
               <CentroCostoPicker
+                triggerProps={c}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? null)}
                 endpoint="/api/v1/compras/requisiciones/centros-costo/buscar"
@@ -419,7 +435,8 @@ export function LineaInlineForm({
               />
             )}
           />
-        </FieldInline>
+          )}
+        </Field>
         {captura.data?.mensaje && <p role="alert" className="text-xs text-warning-fg">{captura.data.mensaje}</p>}
         {captura.isError && <p role="alert" className="text-xs text-danger-fg">No se pudo consultar el centro de costo del departamento. Reintenta antes de guardar.</p>}
       </div>
@@ -437,7 +454,7 @@ export function LineaInlineForm({
           ) : (
             <ChevronRight className="h-3 w-3" />
           )}
-          Detalles (cuenta contable, proyecto, notas)
+          Detalles (proyecto, notas)
         </button>
 
         <div className="flex items-center gap-2">
@@ -451,7 +468,7 @@ export function LineaInlineForm({
             <X className="mr-1 h-4 w-4" />
             Cancelar
           </Button>
-          <Button type="submit" size="sm" disabled={isPending || captura.isPending || captura.isError} title={captura.isError ? "Consulta el centro de costo antes de guardar." : undefined}>
+          <Button type="submit" size="sm" disabled={isPending || captura.isPending || captura.isError}>
             {esEditar ? (
               <>
                 <Check className="mr-1 h-4 w-4" />
@@ -470,38 +487,34 @@ export function LineaInlineForm({
       {/* ── Fila 2 (expandible): campos opcionales ───────────────── */}
       {detallesAbiertos && (
         <div className="grid grid-cols-1 gap-2 border-t border-primary/20 pt-3 md:grid-cols-3">
-          <FieldInline
+          {/* Cuenta contable: oculta (Q2, UX-F2-COM-02). La RQ no la captura; Contabilidad
+              la hereda del centro de costo/artículo y el schema acepta vacío. */}
+          <Field
             label="Proyecto"
             error={form.formState.errors.proyecto?.message}
           >
-            <Input
-              type="text"
-              placeholder="opcional"
-              {...form.register('proyecto')}
-            />
-          </FieldInline>
-
-          <FieldInline
-            label="Cuenta contable"
-            error={form.formState.errors.cuentaContableId?.message}
-          >
-            <Input
-              type="text"
-              placeholder="opcional"
-              {...form.register('cuentaContableId')}
-            />
-          </FieldInline>
+            {(c) => (
+              <Input
+                {...c}
+                type="text"
+                placeholder="opcional"
+                {...form.register('proyecto')}
+              />
+            )}
+          </Field>
 
           <div className="md:col-span-3">
-            <FieldInline
+            <Field
               label="Notas"
               error={form.formState.errors.notas?.message}
             >
+              {(c) => (
               <Controller
                 name="notas"
                 control={form.control}
                 render={({ field }) => (
                   <TextAreaField
+                    textareaProps={c}
                     value={field.value ?? null}
                     onChange={(v) => field.onChange(v)}
                     maxLength={500}
@@ -509,45 +522,11 @@ export function LineaInlineForm({
                   />
                 )}
               />
-            </FieldInline>
+              )}
+            </Field>
           </div>
         </div>
       )}
     </form>
-  );
-}
-
-interface FieldInlineProps {
-  label: string;
-  required?: boolean;
-  error?: string;
-  className?: string;
-  children: React.ReactNode;
-}
-
-function FieldInline({
-  label,
-  required,
-  error,
-  className,
-  children,
-}: FieldInlineProps) {
-  return (
-    <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

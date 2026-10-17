@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCondicionesPago } from '@/features/catalogos/api';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 
@@ -12,6 +13,8 @@ export interface CondicionesPagoSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 export function CondicionesPagoSelector({
@@ -20,6 +23,7 @@ export function CondicionesPagoSelector({
   placeholder = 'Selecciona condiciones',
   disabled,
   className,
+  triggerProps,
 }: CondicionesPagoSelectorProps) {
   const query = useCondicionesPago();
   const items = query.data ?? [];
@@ -52,6 +56,7 @@ export function CondicionesPagoSelector({
       ariaLabel="Seleccionar condiciones de pago"
       disabled={disabled}
       className={className}
+      triggerProps={triggerProps}
     />
   );
 }

@@ -27,6 +27,7 @@ import {
   UsuarioSelector,
   ProveedorSelector,
   DatePickerField,
+  Field,
   TextAreaField,
 } from '@/components/erp';
 import { useSucursales, mapById } from '@/features/catalogos/api';
@@ -295,70 +296,79 @@ export function NuevaRequisicion({
         className="grid grid-cols-1 gap-4 rounded-md border bg-card p-4 md:grid-cols-2 max-w-4xl"
       >
         {/* Sucursal */}
-        <FormRow
+        <Field
           label="Sucursal"
           error={form.formState.errors.sucursalId?.message}
           required
         >
+          {(c) => (
           <Controller
             name="sucursalId"
             control={form.control}
             render={({ field }) => (
               <SucursalSelector
+                triggerProps={c}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
               />
             )}
           />
-        </FormRow>
+          )}
+        </Field>
 
         {/* Departamento */}
-        <FormRow
+        <Field
           label="Departamento"
           error={form.formState.errors.departamentoId?.message}
           required
         >
+          {(c) => (
           <Controller
             name="departamentoId"
             control={form.control}
             render={({ field }) => (
               <DepartamentoSelectorPorSucursal
+                triggerProps={c}
                 sucursalId={sucursalId && sucursalId.length > 0 ? sucursalId : null}
                 value={field.value || null}
                 onChange={(id) => field.onChange(id ?? '')}
               />
             )}
           />
-        </FormRow>
+          )}
+        </Field>
 
 
         {/* Requisitante (gateado por permiso) */}
         {canSelectRequisitante && canReadUsuarios && (
-          <FormRow
+          <Field
             label="Requisitante (delegación)"
             error={form.formState.errors.requisitanteId?.message}
           >
-            <Controller
+            {(c) => (
+          <Controller
               name="requisitanteId"
               control={form.control}
               render={({ field }) => (
                 <UsuarioSelector
+                  triggerProps={c}
                   value={field.value || null}
                   onChange={(id) => field.onChange(id ?? null)}
                   placeholder="Yo (default)"
                 />
               )}
             />
-          </FormRow>
+          )}
+          </Field>
         )}
 
         {/* Clasificación */}
-        <FormRow
-          label="Clasificación"
-          tooltip="Tipo funcional de la requisición. Determina parte de la matriz de aprobación A1 (§3.bis)."
+        <Field
+          label={conAyuda("Clasificación", "Tipo funcional de la requisición. Determina parte de la matriz de aprobación A1 (§3.bis).")}
           error={form.formState.errors.clasificacion?.message}
           required
         >
+          {(c) => (
           <Controller
             name="clasificacion"
             control={form.control}
@@ -367,7 +377,7 @@ export function NuevaRequisicion({
                 value={String(field.value)}
                 onValueChange={(v) => field.onChange(Number(v) as Clasificacion)}
               >
-                <SelectTrigger aria-label="Clasificación">
+                <SelectTrigger {...c}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -387,15 +397,16 @@ export function NuevaRequisicion({
               </Select>
             )}
           />
-        </FormRow>
+          )}
+        </Field>
 
         {/* Prioridad */}
-        <FormRow
-          label="Prioridad"
-          tooltip="Orden de atención sugerido. NO afecta la matriz de aprobación; sirve para que el comprador priorice surtido."
+        <Field
+          label={conAyuda("Prioridad", "Orden de atención sugerido. NO afecta la matriz de aprobación; sirve para que el comprador priorice surtido.")}
           error={form.formState.errors.prioridad?.message}
           required
         >
+          {(c) => (
           <Controller
             name="prioridad"
             control={form.control}
@@ -404,7 +415,7 @@ export function NuevaRequisicion({
                 value={String(field.value)}
                 onValueChange={(v) => field.onChange(Number(v) as Prioridad)}
               >
-                <SelectTrigger aria-label="Prioridad">
+                <SelectTrigger {...c}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -419,59 +430,70 @@ export function NuevaRequisicion({
               </Select>
             )}
           />
-        </FormRow>
+          )}
+        </Field>
 
         {/* Fecha entrega deseada */}
-        <FormRow
+        <Field
           label="Fecha entrega deseada"
           error={form.formState.errors.fechaEntregaDeseada?.message}
         >
+          {(c) => (
           <Controller
             name="fechaEntregaDeseada"
             control={form.control}
             render={({ field }) => (
               <DatePickerField
+                id={c.id}
                 value={field.value ?? null}
                 onChange={(d) => field.onChange(d)}
                 minDate={new Date()}
               />
             )}
           />
-        </FormRow>
+          )}
+        </Field>
 
         {/* Proveedor sugerido */}
-        <FormRow
+        <Field
           label="Proveedor sugerido"
           error={form.formState.errors.proveedorSugeridoId?.message}
         >
+          {(c) => (
           <Controller
             name="proveedorSugeridoId"
             control={form.control}
             render={({ field }) => (
               <ProveedorSelector
+                triggerProps={c}
                 value={field.value ?? null}
                 onChange={(id) => field.onChange(id ?? null)}
               />
             )}
           />
-        </FormRow>
+          )}
+        </Field>
 
-        <FormRow label="Obra (opcional)" error={form.formState.errors.obra?.message}>
+        <Field label="Obra (opcional)" error={form.formState.errors.obra?.message}>
+          {(c) => (
           <Controller name="obra" control={form.control} render={({ field }) => (
-            <Input {...field} value={field.value ?? ''} maxLength={120} placeholder="Nombre o referencia de la obra" />
+            <Input {...c} {...field} value={field.value ?? ''} maxLength={120} placeholder="Nombre o referencia de la obra" />
           )} />
-        </FormRow>
+        )}
+        </Field>
         {/* Descripción (full-width) */}
         <div className="md:col-span-2">
-          <FormRow
+          <Field
             label="Descripción"
             error={form.formState.errors.descripcion?.message}
           >
-            <Controller
+            {(c) => (
+          <Controller
               name="descripcion"
               control={form.control}
               render={({ field }) => (
                 <TextAreaField
+                  textareaProps={c}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v)}
                   maxLength={500}
@@ -479,7 +501,8 @@ export function NuevaRequisicion({
                 />
               )}
             />
-          </FormRow>
+          )}
+          </Field>
         </div>
 
         {/* Submit + cancel */}
@@ -523,6 +546,7 @@ export function NuevaRequisicion({
         savedAt={recovery.draft?.meta.savedAt}
         onRecuperar={handleRecuperar}
         onDescartar={handleDescartarDraft}
+        onCerrar={() => setShowRecoverModal(false)}
       />
     </div>
   );
@@ -530,40 +554,18 @@ export function NuevaRequisicion({
 
 // ─── Helpers de form layout ───────────────────────────────────────
 
-interface FormRowProps {
-  label: string;
-  tooltip?: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}
-
-function FormRow({ label, tooltip, required, error, children }: FormRowProps) {
+/** Label con ayuda contextual (tooltip) para `Field`. */
+function conAyuda(label: string, tooltip: string) {
   return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
-        {tooltip && (
-          <DomainTermTooltip term={label} definicion={tooltip}>
-            <HelpCircle
-              className="h-3.5 w-3.5 cursor-help text-muted-foreground"
-              aria-label="Ayuda"
-            />
-          </DomainTermTooltip>
-        )}
-      </label>
-      {children}
-      {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
+    <>
+      {label}
+      <DomainTermTooltip term={label} definicion={tooltip}>
+        <HelpCircle
+          className="ml-1 inline h-3.5 w-3.5 cursor-help text-muted-foreground"
+          aria-label="Ayuda"
+        />
+      </DomainTermTooltip>
+    </>
   );
 }
 
@@ -572,6 +574,8 @@ interface RecuperarBorradorModalProps {
   savedAt: string | undefined;
   onRecuperar: () => void;
   onDescartar: () => void;
+  /** Esc / clic fuera: solo cierra; el borrador se conserva (igual que en OC). */
+  onCerrar: () => void;
 }
 
 function RecuperarBorradorModal({
@@ -579,15 +583,15 @@ function RecuperarBorradorModal({
   savedAt,
   onRecuperar,
   onDescartar,
+  onCerrar,
 }: RecuperarBorradorModalProps) {
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        // Si el usuario cierra con ESC / click fuera, lo tratamos como
-        // "Descartar" para no quedar con un modal zombie cada vez que
-        // entre a la pantalla.
-        if (!next) onDescartar();
+        // Esc / clic fuera no decide nada: el borrador queda guardado.
+        // Descartar solo ocurre con su botón.
+        if (!next) onCerrar();
       }}
     >
       <DialogContent className="sm:max-w-md">
@@ -601,7 +605,7 @@ function RecuperarBorradorModal({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button variant="ghost" onClick={onDescartar}>
+          <Button variant="secondary-danger" onClick={onDescartar}>
             Descartar
           </Button>
           <Button onClick={onRecuperar} autoFocus>

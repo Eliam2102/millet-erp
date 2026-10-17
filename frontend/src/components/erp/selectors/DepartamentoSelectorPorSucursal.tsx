@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { CatalogoEagerCombobox } from '@/components/erp/selectors/CatalogoEagerCombobox';
 import { useDepartamentosDeSucursal } from '@/modules/administracion/api';
@@ -29,6 +30,8 @@ export interface DepartamentoSelectorPorSucursalProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Props extra del trigger (id y aria-* que entrega `Field`). */
+  triggerProps?: ComponentProps<'button'>;
 }
 
 interface DepartamentoOption {
@@ -44,6 +47,7 @@ export function DepartamentoSelectorPorSucursal({
   placeholder = 'Selecciona departamento',
   disabled,
   className,
+  triggerProps,
 }: DepartamentoSelectorPorSucursalProps) {
   const query = useDepartamentosDeSucursal(sucursalId);
 
@@ -89,6 +93,7 @@ export function DepartamentoSelectorPorSucursal({
       ariaLabel="Seleccionar departamento de la sucursal"
       disabled={disabled || noSucursalSeleccionada}
       className={className}
+      triggerProps={triggerProps}
     />
   );
 }

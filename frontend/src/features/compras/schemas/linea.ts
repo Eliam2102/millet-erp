@@ -6,7 +6,8 @@ import {
 
 import { zId } from '@/lib/z-id';
 const idLike = (mensaje: string) => zId(mensaje);
-const idLikeOpcional = zId().nullish();
+// Vacío ('') se normaliza a null: el campo es opcional y no debe fallar con GUID inválido.
+const idLikeOpcional = z.union([zId(), z.literal('').transform(() => null)]).nullish();
 
 /**
  * Factory del schema Zod de "agregar/actualizar línea" (doc 05 §11.2).
