@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -55,21 +56,20 @@ export function AnticiposPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Anticipos</h1>
-          <p className="text-sm text-muted-foreground">
-            Anticipos a proveedores (CFDI serie FANT). Se amortizan contra
-            facturas finales desde el detalle de la factura.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Capturar anticipo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Anticipos"
+        descripcion="Anticipos a proveedores (CFDI serie FANT). Se amortizan contra facturas finales desde el detalle de la factura."
+        acciones={
+          <>
+            {puedeCapturar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Capturar anticipo
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">

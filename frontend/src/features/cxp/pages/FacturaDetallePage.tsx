@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
@@ -122,30 +123,35 @@ export function FacturaDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight font-mono">
-                {query.data.serieProveedor
-                  ? `${query.data.serieProveedor}-${query.data.folioProveedor ?? ''}`
-                  : (query.data.folioProveedor ?? 'Sin folio')}
-              </h1>
-              <EstadoPasivoChip estado={query.data.estado} />
-              {query.data.enRevision && (
-                <Badge variant="warning" data-testid="en-revision-flag">
-                  En revisión por área
-                </Badge>
-              )}
-              <ToleranciaIndicator
-                diferencia={query.data.diferenciaContraOc}
-                cancelada={query.data.estado === EstadoPasivo.Cancelada}
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Fecha documento: {formatearFecha(query.data.fechaDocumento)} ·
-              Contabilización: {formatearFecha(query.data.fechaContabilizacion)}{' '}
-              · Vence: {formatearFecha(query.data.fechaVencimiento)}
-            </p>
-          </header>
+          <PageHeader
+            titulo={
+              <>
+                {query.data.serieProveedor ? `${query.data.serieProveedor}-${query.data.folioProveedor ?? ''}` : (query.data.folioProveedor ?? 'Sin folio')}
+              </>
+            }
+            estado={
+              <>
+                <EstadoPasivoChip estado={query.data.estado} />
+                {query.data.enRevision && (
+                  <Badge variant="warning" data-testid="en-revision-flag">
+                    En revisión por área
+                  </Badge>
+                )}
+                <ToleranciaIndicator
+                  diferencia={query.data.diferenciaContraOc}
+                  cancelada={query.data.estado === EstadoPasivo.Cancelada}
+                />
+              </>
+            }
+            descripcion={
+              <>
+                Fecha documento: {formatearFecha(query.data.fechaDocumento)} ·
+                Contabilización: {formatearFecha(query.data.fechaContabilizacion)}{' '}
+                · Vence: {formatearFecha(query.data.fechaVencimiento)}
+              </>
+            }
+            mono
+          />
 
           {/* Sub-topbar con acciones contextuales */}
           <div

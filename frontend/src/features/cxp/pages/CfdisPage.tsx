@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { MoreVertical, Upload } from 'lucide-react';
@@ -143,23 +144,20 @@ export function CfdisPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            CFDIs recibidos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Bandeja paginada del CfdiRecibido. Marca duplicados, descarta
-            CFDIs no aplicables o abre el flujo de captura desde aquí.
-          </p>
-        </div>
-        {puedeCargarManual && (
-          <Button onClick={() => setCargarOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Cargar CFDI
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="CFDIs recibidos"
+        descripcion="Bandeja paginada del CfdiRecibido. Marca duplicados, descarta CFDIs no aplicables o abre el flujo de captura desde aquí."
+        acciones={
+          <>
+            {puedeCargarManual && (
+              <Button onClick={() => setCargarOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Cargar CFDI
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 

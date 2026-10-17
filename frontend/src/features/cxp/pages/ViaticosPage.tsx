@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import {
@@ -93,21 +94,20 @@ export function ViaticosPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Viáticos</h1>
-          <p className="text-sm text-muted-foreground">
-            Solicitud, doble autorización (jefe + DF si excede política),
-            anticipo, comprobación al regreso y liquidación.
-          </p>
-        </div>
-        {puedeSolicitar && (
-          <Button onClick={() => setNuevaAbierta(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Solicitar viáticos
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Viáticos"
+        descripcion="Solicitud, doble autorización (jefe + DF si excede política), anticipo, comprobación al regreso y liquidación."
+        acciones={
+          <>
+            {puedeSolicitar && (
+              <Button onClick={() => setNuevaAbierta(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Solicitar viáticos
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 

@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
@@ -63,15 +64,10 @@ export function SaldosJerarquiaPage() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Consulta jerárquica
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Saldos por sucursal → almacén → sub-almacén → rack, con rollup por
-          nivel. El árbol carga cada nivel al expandirlo.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Consulta jerárquica"
+        descripcion="Saldos por sucursal → almacén → sub-almacén → rack, con rollup por nivel. El árbol carga cada nivel al expandirlo."
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <Tabs

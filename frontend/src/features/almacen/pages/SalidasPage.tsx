@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -101,21 +102,20 @@ export function SalidasPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Salidas</h1>
-          <p className="text-sm text-muted-foreground">
-            Surtido de requisiciones aprobadas y vales urgentes (A14).
-            El comprobante PDF se descarga del detalle.
-          </p>
-        </div>
-        {(puedeRegistrar || puedeRegistrarVale) && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva salida
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Salidas"
+        descripcion="Surtido de requisiciones aprobadas y vales urgentes (A14). El comprobante PDF se descarga del detalle."
+        acciones={
+          <>
+            {(puedeRegistrar || puedeRegistrarVale) && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva salida
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar
         search={search}

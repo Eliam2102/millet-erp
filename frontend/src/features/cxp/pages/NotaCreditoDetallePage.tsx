@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
@@ -54,23 +55,28 @@ export function NotaCreditoDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight font-mono">
-                {query.data.serieProveedor
-                  ? `${query.data.serieProveedor}-${query.data.folioProveedor ?? ''}`
-                  : (query.data.folioProveedor ?? 'Sin folio')}
-              </h1>
-              <EstadoNotaCreditoChip estado={query.data.estado} />
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                {TipoNotaCreditoLabels[query.data.tipo]}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Fecha CFDI: {formatearFecha(query.data.fechaCfdi)} · Capturada:{' '}
-              {formatearFechaHora(query.data.fechaCaptura)}
-            </p>
-          </header>
+          <PageHeader
+            titulo={
+              <>
+                {query.data.serieProveedor ? `${query.data.serieProveedor}-${query.data.folioProveedor ?? ''}` : (query.data.folioProveedor ?? 'Sin folio')}
+              </>
+            }
+            estado={
+              <>
+                <EstadoNotaCreditoChip estado={query.data.estado} />
+                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                  {TipoNotaCreditoLabels[query.data.tipo]}
+                </span>
+              </>
+            }
+            descripcion={
+              <>
+                Fecha CFDI: {formatearFecha(query.data.fechaCfdi)} · Capturada:{' '}
+                {formatearFechaHora(query.data.fechaCaptura)}
+              </>
+            }
+            mono
+          />
 
           <DocumentoP4Acciones tipo="notas-credito" documento={query.data} />
 

@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -67,23 +68,20 @@ export function TarjetasPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Tarjetas de crédito
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Master de TC empresariales. Solo se almacenan los últimos 4
-            dígitos. Cancelar es irreversible (no se puede reactivar).
-          </p>
-        </div>
-        {puedeAdmin && (
-          <Button onClick={() => setNuevaAbierta(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva tarjeta
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Tarjetas de crédito"
+        descripcion="Master de TC empresariales. Solo se almacenan los últimos 4 dígitos. Cancelar es irreversible (no se puede reactivar)."
+        acciones={
+          <>
+            {puedeAdmin && (
+              <Button onClick={() => setNuevaAbierta(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva tarjeta
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 

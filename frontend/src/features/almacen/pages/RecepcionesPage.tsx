@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -96,23 +97,20 @@ export function RecepcionesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Recepciones
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Bandeja de entradas. Variante A (con factura) para insumos;
-            Variante B (con packing list) para materiales directos.
-          </p>
-        </div>
-        {puedeRegistrar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva recepción
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Recepciones"
+        descripcion="Bandeja de entradas. Variante A (con factura) para insumos; Variante B (con packing list) para materiales directos."
+        acciones={
+          <>
+            {puedeRegistrar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva recepción
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar
         search={search}

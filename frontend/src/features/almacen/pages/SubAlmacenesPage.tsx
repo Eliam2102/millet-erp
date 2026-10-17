@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Pencil, Plus } from 'lucide-react';
@@ -90,22 +91,20 @@ export function SubAlmacenesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Sub-almacenes
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Subdivisión física de cada almacén por tipo de material.
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button onClick={abrirCrear}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo sub-almacén
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Sub-almacenes"
+        descripcion="Subdivisión física de cada almacén por tipo de material."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button onClick={abrirCrear}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo sub-almacén
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar
         search={search}

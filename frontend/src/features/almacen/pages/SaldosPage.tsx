@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
@@ -84,13 +85,10 @@ export function SaldosPage() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Saldos</h1>
-        <p className="text-sm text-muted-foreground">
-          Existencias materializadas por sub-almacén y artículo, con costo
-          promedio ponderado y valor de inventario.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Saldos"
+        descripcion="Existencias materializadas por sub-almacén y artículo, con costo promedio ponderado y valor de inventario."
+      />
 
       <FiltrosToolbar
         search={search}

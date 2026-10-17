@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useRef, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import {
@@ -79,23 +80,20 @@ export function EstadosCuentaTcPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Estados de cuenta TC
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Conciliación periódica con el archivo del banco. Al cerrar se
-            genera una factura agregada contra el proveedor banco.
-          </p>
-        </div>
-        {puedeRegistrar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo estado de cuenta
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Estados de cuenta TC"
+        descripcion="Conciliación periódica con el archivo del banco. Al cerrar se genera una factura agregada contra el proveedor banco."
+        acciones={
+          <>
+            {puedeRegistrar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo estado de cuenta
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 

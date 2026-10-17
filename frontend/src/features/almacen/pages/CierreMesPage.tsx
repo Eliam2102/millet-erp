@@ -1,5 +1,6 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -96,18 +97,11 @@ export function CierreMesPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Lock className="h-6 w-6 text-primary" />
-          Cierre de mes
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Cierra el periodo mensual del módulo Almacén. Una vez cerrado, no
-          podrán registrarse ni editarse movimientos con fecha dentro del
-          periodo.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        titulo="Cierre de mes"
+        descripcion="Cierra el periodo mensual del módulo Almacén. Una vez cerrado, no podrán registrarse ni editarse movimientos con fecha dentro del periodo."
+      />
 
       <section className="rounded-md border bg-amber-50 px-4 py-3 text-sm">
         <h2 className="flex items-center gap-2 font-medium text-amber-900">

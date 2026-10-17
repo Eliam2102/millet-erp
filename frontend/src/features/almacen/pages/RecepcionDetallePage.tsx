@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
@@ -60,24 +61,27 @@ export function RecepcionDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight font-mono">
-                {query.data.folio}
-              </h1>
-              <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Fecha de movimiento: {query.data.fechaMovimiento}
-              {query.data.registradoAt && (
-                <>
-                  {' '}
-                  · Registrado:{' '}
-                  {new Date(query.data.registradoAt).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-          </header>
+          <PageHeader
+            titulo={query.data.folio}
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Fecha de movimiento: {query.data.fechaMovimiento}
+                {query.data.registradoAt && (
+                  <>
+                    {' '}
+                    · Registrado:{' '}
+                    {new Date(query.data.registradoAt).toLocaleString('es-MX')}
+                  </>
+                )}
+              </>
+            }
+            mono
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo

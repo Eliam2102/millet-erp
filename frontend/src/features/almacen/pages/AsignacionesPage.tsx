@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, Ban, Plus } from 'lucide-react';
@@ -152,22 +153,20 @@ export function AsignacionesPage() {
         </Button>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Ubicación de artículos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Define en qué ubicación vive cada artículo.
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Asignar artículo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Ubicación de artículos"
+        descripcion="Define en qué ubicación vive cada artículo."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Asignar artículo
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 

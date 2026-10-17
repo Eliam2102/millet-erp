@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -90,14 +91,10 @@ export function ReposicionesCajaPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">Reposiciones de caja chica</h1>
-        <p className="text-sm text-muted-foreground">
-          Los montos de las comprobaciones aplicadas se acumulan por sucursal
-          y destino; al alcanzar el mínimo se emite la reposición hacia
-          Tesorería (o antes, con el corte manual).
-        </p>
-      </div>
+      <PageHeader
+        titulo="Reposiciones de caja chica"
+        descripcion="Los montos de las comprobaciones aplicadas se acumulan por sucursal y destino; al alcanzar el mínimo se emite la reposición hacia Tesorería (o antes, con el corte manual)."
+      />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Saldos por reponer</h2>

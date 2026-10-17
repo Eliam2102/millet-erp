@@ -16,4 +16,10 @@ describe('PageHeader', () => {
     const { container } = render(<PageHeader titulo="X" />);
     expect(container.querySelector('p')).toBeNull();
   });
+
+  it('muestra el estado junto al H1 y aplica mono', () => {
+    render(<PageHeader titulo="F-1" mono estado={<span>Borrador</span>} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'F-1' })).toHaveClass('font-mono');
+    expect(screen.getByText('Borrador')).toBeInTheDocument();
+  });
 });

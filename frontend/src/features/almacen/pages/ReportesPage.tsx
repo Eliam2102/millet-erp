@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Link } from '@tanstack/react-router';
 import { BarChart3, History, Package } from 'lucide-react';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -15,19 +16,13 @@ export function ReportesPage() {
   const puedeMpCnk = useHasPermission(PermisosCanonicos.AlmacenReportesMpCnk);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <BarChart3 className="h-6 w-6 text-primary" />
-          Reportes de Almacén
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Reportes operativos basados en saldos y movimientos del módulo.
-          Cada reporte se exporta a PDF e imprime desde su pantalla.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        titulo="Reportes de Almacén"
+        descripcion="Reportes operativos basados en saldos y movimientos del módulo. Cada reporte se exporta a PDF e imprime desde su pantalla."
+      />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {puedeAlfak && (
           <ReporteCard
             to="/almacen/reportes/alfak-historial"

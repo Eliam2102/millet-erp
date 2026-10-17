@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -79,23 +80,20 @@ export function InventariosPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Inventario físico
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Conteos rotativos y anuales. Captura sin sesgo (A6) — el
-            contador NO ve la cantidad teórica.
-          </p>
-        </div>
-        {puedeCrear && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo conteo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Inventario físico"
+        descripcion="Conteos rotativos y anuales. Captura sin sesgo (A6) — el contador NO ve la cantidad teórica."
+        acciones={
+          <>
+            {puedeCrear && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo conteo
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar
         search={search}

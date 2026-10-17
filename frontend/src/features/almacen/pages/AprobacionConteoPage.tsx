@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -214,57 +215,61 @@ export function AprobacionConteoPage() {
         />
       ) : (
         <>
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Aprobación de conteo
-              </h1>
-              {conteo && (
-                <EstadoAlmacenBadge tipo="conteo" estado={conteo.estado} />
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Monto neto del ajuste:{' '}
-              <span className="font-mono font-semibold">
-                {formatearMonto(montoNeto)}
-              </span>
-
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              {enConciliacion && (
-                <>
-                  <Button variant="outline" onClick={ejecutarEvaluar}>
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Evaluar variaciones (A7)
-                  </Button>
-                  <Button onClick={() => setAprobarConteoOpen(true)}>
-                    <Check className="mr-2 h-4 w-4" />
-                    Aprobar conteo
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setRechazarOpen(true)}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Rechazar
-                  </Button>
-                </>
-              )}
-              {aprobado && (
-                <Button onClick={() => setAplicarOpen(true)}>
-                  <Wallet className="mr-2 h-4 w-4" />
-                  Aplicar (generar movimientos)
-                </Button>
-              )}
-              {aplicado && (
-                <p className="text-sm text-emerald-700 flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Conteo aplicado. Ajustes generados en el inventario.
-                </p>
-              )}
-            </div>
-          </header>
+          <PageHeader
+            titulo="Aprobación de conteo"
+            estado={
+              <>
+                {conteo && (
+                  <EstadoAlmacenBadge tipo="conteo" estado={conteo.estado} />
+                )}
+              </>
+            }
+            descripcion={
+              <>
+                Monto neto del ajuste:{' '}
+                <span className="font-mono font-semibold">
+                  {formatearMonto(montoNeto)}
+                </span>
+              </>
+            }
+            acciones={
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {enConciliacion && (
+                    <>
+                      <Button variant="outline" onClick={ejecutarEvaluar}>
+                        <Calculator className="mr-2 h-4 w-4" />
+                        Evaluar variaciones (A7)
+                      </Button>
+                      <Button onClick={() => setAprobarConteoOpen(true)}>
+                        <Check className="mr-2 h-4 w-4" />
+                        Aprobar conteo
+                      </Button>
+                      <Button
+                        variant="secondary-danger"
+                        onClick={() => setRechazarOpen(true)}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Rechazar
+                      </Button>
+                    </>
+                  )}
+                  {aprobado && (
+                    <Button onClick={() => setAplicarOpen(true)}>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Aplicar (generar movimientos)
+                    </Button>
+                  )}
+                  {aplicado && (
+                    <p className="text-sm text-emerald-700 flex items-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      Conteo aplicado. Ajustes generados en el inventario.
+                    </p>
+                  )}
+                </div>
+              </>
+            }
+          />
 
           <TablaComparacion
             items={comparacionQuery.data ?? []}

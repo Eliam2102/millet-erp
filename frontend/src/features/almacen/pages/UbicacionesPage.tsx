@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Ban, Pencil, Plus, RotateCcw } from 'lucide-react';
@@ -145,20 +146,20 @@ export function UbicacionesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Ubicaciones</h1>
-          <p className="text-sm text-muted-foreground">
-            Ubicaciones físicas (racks, pasillos) dentro de cada sub-almacén.
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button onClick={abrirCrear}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva ubicación
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Ubicaciones"
+        descripcion="Ubicaciones físicas (racks, pasillos) dentro de cada sub-almacén."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button onClick={abrirCrear}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva ubicación
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 

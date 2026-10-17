@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
@@ -66,39 +67,46 @@ export function SalidaDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight font-mono">
-                {query.data.folio}
-              </h1>
-              <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
-              {query.data.esPorVale && <RegularizacionValeBadge salida={query.data} />}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Fecha de movimiento: {query.data.fechaMovimiento}
-              {query.data.registradoAt && (
-                <>
-                  {' '}
-                  · Registrado:{' '}
-                  {new Date(query.data.registradoAt).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {query.data.esPorVale &&
-                !query.data.rqRegularizadoraId &&
-                puedePorVale && (
-                  <Button onClick={() => setRegularizarOpen(true)}>
-                    <RotateCw className="mr-2 h-4 w-4" />
-                    Regularizar vale
-                  </Button>
+          <PageHeader
+            titulo={query.data.folio}
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="movimiento" estado={query.data.estado} />
+                {query.data.esPorVale && <RegularizacionValeBadge salida={query.data} />}
+              </>
+            }
+            descripcion={
+              <>
+                Fecha de movimiento: {query.data.fechaMovimiento}
+                {query.data.registradoAt && (
+                  <>
+                    {' '}
+                    · Registrado:{' '}
+                    {new Date(query.data.registradoAt).toLocaleString('es-MX')}
+                  </>
                 )}
-              {query.data.esPorVale && query.data.valeBlobRef && (
-                <VerValeButton salidaId={query.data.id} />
-              )}
-              <ImprimirComprobanteButton salida={query.data} />
-            </div>
-          </header>
+              </>
+            }
+            acciones={
+              <>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {query.data.esPorVale &&
+                    !query.data.rqRegularizadoraId &&
+                    puedePorVale && (
+                      <Button onClick={() => setRegularizarOpen(true)}>
+                        <RotateCw className="mr-2 h-4 w-4" />
+                        Regularizar vale
+                      </Button>
+                    )}
+                  {query.data.esPorVale && query.data.valeBlobRef && (
+                    <VerValeButton salidaId={query.data.id} />
+                  )}
+                  <ImprimirComprobanteButton salida={query.data} />
+                </div>
+              </>
+            }
+            mono
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo

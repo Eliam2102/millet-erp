@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { CheckCircle2, Eye, Plus, Send, XCircle } from 'lucide-react';
@@ -87,35 +88,32 @@ export function ComprobacionesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Comprobaciones de gastos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Caja chica + gastos aduanales (con doble firma). Viáticos y
-            Tarjeta de crédito tienen sus propias pantallas.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nueva comprobación
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setSheetCajaChica(true)}>
-                Caja chica (N CFDIs)
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setSheetAduanales(true)}>
-                Aduanales (con pedimento)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      <PageHeader
+        titulo="Comprobaciones de gastos"
+        descripcion="Caja chica + gastos aduanales (con doble firma). Viáticos y Tarjeta de crédito tienen sus propias pantallas."
+        acciones={
+          <>
+            {puedeCapturar && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nueva comprobación
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setSheetCajaChica(true)}>
+                    Caja chica (N CFDIs)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setSheetAduanales(true)}>
+                    Aduanales (con pedimento)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 

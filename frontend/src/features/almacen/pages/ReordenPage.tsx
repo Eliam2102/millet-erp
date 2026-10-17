@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Ban, Pencil, Plus, Power } from 'lucide-react';
@@ -162,27 +163,25 @@ export function ReordenPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reabasto</h1>
-          <p className="text-sm text-muted-foreground">
-            Puntos de reabasto por artículo en una sucursal o almacén. El motor
-            propone requisiciones cuando la existencia cae por debajo del
-            objetivo.
-          </p>
-        </div>
-        {puedeAdministrar && (
-          <Button
-            onClick={() => {
-              setEditando(null);
-              setSheetAbierto(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo reabasto
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Reabasto"
+        descripcion="Puntos de reabasto por artículo en una sucursal o almacén. El motor propone requisiciones cuando la existencia cae por debajo del objetivo."
+        acciones={
+          <>
+            {puedeAdministrar && (
+              <Button
+                onClick={() => {
+                  setEditando(null);
+                  setSheetAbierto(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo reabasto
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Interruptor operativo del motor de reorden (AlmacenSettings).
           El estado lo ve quien puede leer la bandeja; cambiarlo exige

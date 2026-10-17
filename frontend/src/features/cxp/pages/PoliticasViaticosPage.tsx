@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -56,23 +57,20 @@ export function PoliticasViaticosPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Políticas de viáticos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Tabuladores por puesto y destino (Nacional/Internacional).
-            El backend valida solicitudes de viáticos contra estos topes.
-          </p>
-        </div>
-        {puedeAdmin && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva política
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Políticas de viáticos"
+        descripcion="Tabuladores por puesto y destino (Nacional/Internacional). El backend valida solicitudes de viáticos contra estos topes."
+        acciones={
+          <>
+            {puedeAdmin && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva política
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">

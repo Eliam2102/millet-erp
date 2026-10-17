@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronDown, Plus } from 'lucide-react';
@@ -92,47 +93,49 @@ export function DevolucionesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Devoluciones a proveedor
-          </h1>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        titulo="Devoluciones a proveedor"
+        descripcion={
+          <>
             Sub-flujo 8.B con estado de Borrador → En autorización → Autorizada →
             Registrada → Conciliada NC fiscal. Devoluciones internas y MAT-REV
             en el menú "Otras acciones".
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {puedeIniciarProveedor && (
-            <Button onClick={() => setSheetProveedorAbierto(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva devolución a proveedor
-            </Button>
-          )}
-          {puedeCapturarInterna && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  Otras acciones
-                  <ChevronDown className="ml-2 h-4 w-4" />
+          </>
+        }
+        acciones={
+          <>
+            <div className="flex items-center gap-2">
+              {puedeIniciarProveedor && (
+                <Button onClick={() => setSheetProveedorAbierto(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva devolución a proveedor
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSheetInternaAbierto(true)}>
-                  Devolución interna (8.A)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setMatRevSheet('baja')}>
-                  MAT-REV — Baja por daño
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setMatRevSheet('reincorporar')}>
-                  MAT-REV — Reincorporar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
+              )}
+              {puedeCapturarInterna && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      Otras acciones
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSheetInternaAbierto(true)}>
+                      Devolución interna (8.A)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setMatRevSheet('baja')}>
+                      MAT-REV — Baja por daño
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setMatRevSheet('reincorporar')}>
+                      MAT-REV — Reincorporar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </>
+        }
+      />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 

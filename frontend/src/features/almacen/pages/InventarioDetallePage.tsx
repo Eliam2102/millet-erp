@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import {
   Link,
@@ -141,57 +142,66 @@ export function InventarioDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
+          <PageHeader
+            titulo={
+              <>
                 Conteo {TipoConteoLabels[query.data.tipo]}
-              </h1>
-              <EstadoAlmacenBadge tipo="conteo" estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Planificado: {query.data.fechaPlanificada}
-              {query.data.fechaInicio && (
-                <>
-                  {' '}
-                  · Iniciado:{' '}
-                  {new Date(query.data.fechaInicio).toLocaleString('es-MX')}
-                </>
-              )}
-              {query.data.snapshotCapturadoAt && (
-                <>
-                  {' '}
-                  · Snapshot:{' '}
-                  {new Date(
-                    query.data.snapshotCapturadoAt,
-                  ).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-
-            <Acciones
-              estado={query.data.estado}
-              tipo={query.data.tipo}
-              capturadas={query.data.cantidadCapturadas}
-              total={query.data.cantidadLineas}
-              puedeCrear={puedeCrear}
-              puedeCapturar={puedeCapturar}
-              puedeAprobar={puedeAprobar}
-              onIniciar={() => setIniciarOpen(true)}
-              onCapturar={() =>
-                navigate({
-                  to: '/almacen/inventarios/$id/captura',
-                  params: { id: query.data!.id },
-                })
-              }
-              onAprobar={() =>
-                navigate({
-                  to: '/almacen/inventarios/$id/aprobacion',
-                  params: { id: query.data!.id },
-                })
-              }
-              onEnviar={() => setEnviarOpen(true)}
-            />
-          </header>
+              </>
+            }
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="conteo" estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Planificado: {query.data.fechaPlanificada}
+                {query.data.fechaInicio && (
+                  <>
+                    {' '}
+                    · Iniciado:{' '}
+                    {new Date(query.data.fechaInicio).toLocaleString('es-MX')}
+                  </>
+                )}
+                {query.data.snapshotCapturadoAt && (
+                  <>
+                    {' '}
+                    · Snapshot:{' '}
+                    {new Date(
+                      query.data.snapshotCapturadoAt,
+                    ).toLocaleString('es-MX')}
+                  </>
+                )}
+              </>
+            }
+            acciones={
+              <>
+                <Acciones
+                  estado={query.data.estado}
+                  tipo={query.data.tipo}
+                  capturadas={query.data.cantidadCapturadas}
+                  total={query.data.cantidadLineas}
+                  puedeCrear={puedeCrear}
+                  puedeCapturar={puedeCapturar}
+                  puedeAprobar={puedeAprobar}
+                  onIniciar={() => setIniciarOpen(true)}
+                  onCapturar={() =>
+                    navigate({
+                      to: '/almacen/inventarios/$id/captura',
+                      params: { id: query.data!.id },
+                    })
+                  }
+                  onAprobar={() =>
+                    navigate({
+                      to: '/almacen/inventarios/$id/aprobacion',
+                      params: { id: query.data!.id },
+                    })
+                  }
+                  onEnviar={() => setEnviarOpen(true)}
+                />
+              </>
+            }
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo

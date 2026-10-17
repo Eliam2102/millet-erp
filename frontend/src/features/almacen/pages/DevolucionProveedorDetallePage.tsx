@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, Check, Send, Truck, X } from 'lucide-react';
@@ -85,44 +86,49 @@ export function DevolucionProveedorDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Devolución a proveedor
-              </h1>
-              <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Solicitada el{' '}
-              {new Date(query.data.solicitadaAt).toLocaleString('es-MX')}
-              {query.data.autorizadaAt && (
-                <>
-                  {' '}
-                  · Autorizada el{' '}
-                  {new Date(query.data.autorizadaAt).toLocaleString('es-MX')}
-                </>
-              )}
-              {query.data.registradaAt && (
-                <>
-                  {' '}
-                  · Registrada el{' '}
-                  {new Date(query.data.registradaAt).toLocaleString('es-MX')}
-                </>
-              )}
-            </p>
-
-            <Acciones
-              estado={query.data.estado}
-              tieneEvidencias={query.data.evidencias.length > 0}
-              puedeIniciar={puedeIniciar}
-              puedeAutorizar={puedeAutorizar}
-              puedeRegistrar={puedeRegistrar}
-              onSolicitar={() => setSolicitarOpen(true)}
-              onAutorizar={() => setAutorizarOpen(true)}
-              onRechazar={() => setRechazarOpen(true)}
-              onRegistrarSalida={() => setRegistrarSalidaOpen(true)}
-            />
-          </header>
+          <PageHeader
+            titulo="Devolución a proveedor"
+            estado={
+              <>
+                <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Solicitada el{' '}
+                {new Date(query.data.solicitadaAt).toLocaleString('es-MX')}
+                {query.data.autorizadaAt && (
+                  <>
+                    {' '}
+                    · Autorizada el{' '}
+                    {new Date(query.data.autorizadaAt).toLocaleString('es-MX')}
+                  </>
+                )}
+                {query.data.registradaAt && (
+                  <>
+                    {' '}
+                    · Registrada el{' '}
+                    {new Date(query.data.registradaAt).toLocaleString('es-MX')}
+                  </>
+                )}
+              </>
+            }
+            acciones={
+              <>
+                <Acciones
+                  estado={query.data.estado}
+                  tieneEvidencias={query.data.evidencias.length > 0}
+                  puedeIniciar={puedeIniciar}
+                  puedeAutorizar={puedeAutorizar}
+                  puedeRegistrar={puedeRegistrar}
+                  onSolicitar={() => setSolicitarOpen(true)}
+                  onAutorizar={() => setAutorizarOpen(true)}
+                  onRechazar={() => setRechazarOpen(true)}
+                  onRegistrarSalida={() => setRegistrarSalidaOpen(true)}
+                />
+              </>
+            }
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             {/* Razón social resuelta en backend (ADR-0042); si el puerto no

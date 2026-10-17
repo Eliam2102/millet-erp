@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useParams } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
@@ -54,28 +55,30 @@ export function ViaticoDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {query.data.destino}
-              </h1>
-              <EstadoSolicitudViaticosChip estado={query.data.estado} />
-              <Badge variant="neutral">
-                {TipoDestinoViaticoLabels[query.data.tipoDestino]}
-              </Badge>
-              {query.data.excedePolitica && (
-                <Badge variant="warning">
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  Excede política
+          <PageHeader
+            titulo={query.data.destino}
+            estado={
+              <>
+                <EstadoSolicitudViaticosChip estado={query.data.estado} />
+                <Badge variant="neutral">
+                  {TipoDestinoViaticoLabels[query.data.tipoDestino]}
                 </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {query.data.fechaSalida} → {query.data.fechaRegreso} (
-              {query.data.diasEstimados} días) · Solicitada:{' '}
-              {formatearFechaHora(query.data.fechaSolicitud)}
-            </p>
-          </header>
+                {query.data.excedePolitica && (
+                  <Badge variant="warning">
+                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    Excede política
+                  </Badge>
+                )}
+              </>
+            }
+            descripcion={
+              <>
+                {query.data.fechaSalida} → {query.data.fechaRegreso} (
+                {query.data.diasEstimados} días) · Solicitada:{' '}
+                {formatearFechaHora(query.data.fechaSolicitud)}
+              </>
+            }
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo

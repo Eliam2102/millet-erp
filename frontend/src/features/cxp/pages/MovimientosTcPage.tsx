@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { AlertTriangle, MoreVertical, Plus, Undo2, Zap } from 'lucide-react';
@@ -86,36 +87,33 @@ export function MovimientosTcPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Movimientos TC
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Cargos a tarjetas. Flujo A genera factura automática; Flujo B
-            solo registra el movimiento.
-          </p>
-        </div>
-        {puedeRegistrar && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo movimiento
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setSheetAbierto(true)}>
-                Compra (Flujo A/B)
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setEspecialAbierto(true)}>
-                <Zap className="mr-2 h-3 w-3" />
-                Especial (intereses/anualidad/comisión)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      <PageHeader
+        titulo="Movimientos TC"
+        descripcion="Cargos a tarjetas. Flujo A genera factura automática; Flujo B solo registra el movimiento."
+        acciones={
+          <>
+            {puedeRegistrar && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nuevo movimiento
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setSheetAbierto(true)}>
+                    Compra (Flujo A/B)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setEspecialAbierto(true)}>
+                    <Zap className="mr-2 h-3 w-3" />
+                    Especial (intereses/anualidad/comisión)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </>
+        }
+      />
 
       <Filtros search={search} onChange={actualizarSearch} />
 

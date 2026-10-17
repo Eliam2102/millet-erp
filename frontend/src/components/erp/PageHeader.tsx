@@ -6,6 +6,8 @@ export interface PageHeaderProps {
   descripcion?: ReactNode;
   /** Botones/acciones alineados a la derecha. */
   acciones?: ReactNode;
+  /** Badge(s) de estado junto al título. */
+  estado?: ReactNode;
   /** Para folios: tipografía mono en el H1. */
   mono?: boolean;
 }
@@ -15,15 +17,18 @@ export interface PageHeaderProps {
  * los pone el `main` del AppShell: las páginas no declaran `p-*`,
  * `max-w-*` ni `mx-auto` propios.
  */
-export function PageHeader({ titulo, descripcion, acciones, mono }: PageHeaderProps) {
+export function PageHeader({ titulo, descripcion, acciones, estado, mono }: PageHeaderProps) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 space-y-1">
-        <h1
-          className={`text-3xl font-semibold tracking-tight text-ink${mono ? ' font-mono' : ''}`}
-        >
-          {titulo}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1
+            className={`text-3xl font-semibold tracking-tight text-ink${mono ? ' font-mono' : ''}`}
+          >
+            {titulo}
+          </h1>
+          {estado}
+        </div>
         {descripcion != null && <p className="text-sm text-ink-muted">{descripcion}</p>}
       </div>
       {acciones != null && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}

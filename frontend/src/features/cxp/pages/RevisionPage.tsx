@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
@@ -62,15 +63,10 @@ export function RevisionPage() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Revisión por área
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Bandeja de facturas asignadas a tu dependencia. Libera al
-          terminar la revisión documentando la acción tomada.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Revisión por área"
+        descripcion="Bandeja de facturas asignadas a tu dependencia. Libera al terminar la revisión documentando la acción tomada."
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">

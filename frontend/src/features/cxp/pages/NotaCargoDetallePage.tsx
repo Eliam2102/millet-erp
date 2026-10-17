@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
@@ -60,18 +61,21 @@ export function NotaCargoDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight font-mono">
-                {query.data.folio}
-              </h1>
-              <EstadoNotaCargoChip estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Creada: {formatearFechaHora(query.data.fechaCreacion)} ·
-              Ejercicio: {query.data.folioAnio}
-            </p>
-          </header>
+          <PageHeader
+            titulo={query.data.folio}
+            estado={
+              <>
+                <EstadoNotaCargoChip estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Creada: {formatearFechaHora(query.data.fechaCreacion)} ·
+                Ejercicio: {query.data.folioAnio}
+              </>
+            }
+            mono
+          />
 
           {puedeAutorizar && query.data.estado === EstadoNotaCargo.Borrador && <div className="space-y-1">
             <Button disabled={autorizar.isPending || query.data.creadoPor === usuarioId} onClick={() => autorizar.mutate({ id, versionEsperada: query.data!.version, idempotencyKey: crypto.randomUUID() }, {

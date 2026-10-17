@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -69,23 +70,20 @@ export function AprobadoresLimitesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Aprobadores con límite
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Catálogo de aprobadores con monto máximo por tipo de gasto.
-            Backend valida los topes al autorizar comprobaciones/viáticos.
-          </p>
-        </div>
-        {puedeAdmin && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo aprobador
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Aprobadores con límite"
+        descripcion="Catálogo de aprobadores con monto máximo por tipo de gasto. Backend valida los topes al autorizar comprobaciones/viáticos."
+        acciones={
+          <>
+            {puedeAdmin && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo aprobador
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">

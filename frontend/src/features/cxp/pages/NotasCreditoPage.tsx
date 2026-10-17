@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Eye, Plus } from 'lucide-react';
@@ -57,24 +58,26 @@ export function NotasCreditoPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Notas de crédito
-          </h1>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        titulo="Notas de crédito"
+        descripcion={
+          <>
             NC recibidas del proveedor (relación CFDI 01/03/07). Las NC en
             "En espera" se vincularán automáticamente cuando entre la factura
             origen.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Capturar NC
-          </Button>
-        )}
-      </div>
+          </>
+        }
+        acciones={
+          <>
+            {puedeCapturar && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Capturar NC
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">

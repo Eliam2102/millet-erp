@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { CheckCircle2, Eye, Plus } from 'lucide-react';
@@ -74,23 +75,20 @@ export function NotasCargoPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Notas de cargo
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Cargos internos al proveedor (devoluciones, garantías, fletes).
-            Ciclo: Borrador → Autorizada (Dirección) → Aplicada.
-          </p>
-        </div>
-        {puedeCrear && (
-          <Button onClick={() => setSheetAbierto(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Crear nota de cargo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Notas de cargo"
+        descripcion="Cargos internos al proveedor (devoluciones, garantías, fletes). Ciclo: Borrador → Autorizada (Dirección) → Aplicada."
+        acciones={
+          <>
+            {puedeCrear && (
+              <Button onClick={() => setSheetAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Crear nota de cargo
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">

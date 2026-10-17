@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -54,18 +55,20 @@ export function ComprobacionDetallePage() {
         />
       ) : query.data == null ? null : (
         <div className="space-y-6">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {TipoComprobacionGastosLabels[query.data.tipo]}
-              </h1>
-              <EstadoComprobacionChip estado={query.data.estado} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Periodo: {query.data.fechaInicio} → {query.data.fechaFin} ·
-              Creada: {formatearFechaHora(query.data.fechaCreacion)}
-            </p>
-          </header>
+          <PageHeader
+            titulo={TipoComprobacionGastosLabels[query.data.tipo]}
+            estado={
+              <>
+                <EstadoComprobacionChip estado={query.data.estado} />
+              </>
+            }
+            descripcion={
+              <>
+                Periodo: {query.data.fechaInicio} → {query.data.fechaFin} ·
+                Creada: {formatearFechaHora(query.data.fechaCreacion)}
+              </>
+            }
+          />
 
           <section className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
             <Campo

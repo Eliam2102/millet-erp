@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
@@ -91,21 +92,20 @@ export function FacturasPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Facturas</h1>
-          <p className="text-sm text-muted-foreground">
-            Bandeja del agregado FacturaProveedor. Captura conciliada con OC,
-            revisión y autorización del ciclo del pasivo.
-          </p>
-        </div>
-        {puedeCapturar && (
-          <Button onClick={() => setCapturaAbierta(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Capturar factura
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Facturas"
+        descripcion="Bandeja del agregado FacturaProveedor. Captura conciliada con OC, revisión y autorización del ciclo del pasivo."
+        acciones={
+          <>
+            {puedeCapturar && (
+              <Button onClick={() => setCapturaAbierta(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Capturar factura
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <FiltrosToolbar search={search} onChange={actualizarSearch} />
 
