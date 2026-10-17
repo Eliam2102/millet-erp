@@ -25,9 +25,12 @@ export function BusquedaFolio({ valor, onCommit, ...rest }: BusquedaFolioProps) 
   }, [debounced]);
 
   // «Limpiar filtros» (o navegación) vacía el valor de la URL: vacía también el input.
-  useEffect(() => {
+  // Ajuste de estado en render (no en effect) para no provocar renders en cascada.
+  const [valorPrevio, setValorPrevio] = useState(valor);
+  if (valor !== valorPrevio) {
+    setValorPrevio(valor);
     if (!valor) setTexto('');
-  }, [valor]);
+  }
 
   return <Input {...rest} value={texto} onChange={(e) => setTexto(e.target.value)} />;
 }

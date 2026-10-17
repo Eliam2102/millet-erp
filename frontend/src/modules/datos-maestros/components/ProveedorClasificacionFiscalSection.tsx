@@ -1,3 +1,4 @@
+import { erroresDeClasificacion } from '@/modules/datos-maestros/lib/clasificacion-fiscal';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +11,6 @@ import { useActualizarClasificacionFiscalProveedor } from '../api/proveedores';
 import { OrigenProveedor } from '../api/types';
 import {
   ClasificacionFiscalCampos,
-  erroresDeClasificacion,
   type ClasificacionFiscalValores,
   type ErroresClasificacionFiscal,
 } from './ClasificacionFiscalCampos';

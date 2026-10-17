@@ -1,3 +1,4 @@
+import { erroresDeClasificacion } from '@/modules/datos-maestros/lib/clasificacion-fiscal';
 import {
   useCallback,
   useEffect,
@@ -44,7 +45,6 @@ import { useCrearProveedor } from '@/modules/datos-maestros/api';
 import { useActualizarClasificacionFiscalProveedor } from '@/modules/datos-maestros/api/proveedores';
 import {
   ClasificacionFiscalCampos,
-  erroresDeClasificacion,
   type ClasificacionFiscalValores,
   type ErroresClasificacionFiscal,
 } from '@/modules/datos-maestros/components/ClasificacionFiscalCampos';
