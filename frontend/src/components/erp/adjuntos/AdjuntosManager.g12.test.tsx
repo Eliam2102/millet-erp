@@ -191,3 +191,26 @@ describe('<AdjuntosManager> — servicio genérico G1.2', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('No se pudo cargar.');
   });
 });
+
+describe('<AdjuntosManager> — eliminar adjunto pide confirmación', () => {
+  it('abre el diálogo con el nombre y no llama onRemove hasta confirmar', async () => {
+    const onRemove = vi.fn(async () => {});
+    pintar({ canRemove: true, onRemove });
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar csf.pdf' }));
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(within(dialogo).getByText('csf.pdf')).toBeInTheDocument();
+    expect(onRemove).not.toHaveBeenCalled();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar adjunto' }));
+    await waitFor(() => expect(onRemove).toHaveBeenCalledWith('a-1'));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+  });
+
+  it('cancelar no elimina', async () => {
+    const onRemove = vi.fn(async () => {});
+    pintar({ canRemove: true, onRemove });
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar csf.pdf' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+});

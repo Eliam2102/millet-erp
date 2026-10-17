@@ -152,7 +152,7 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
     confirmSpy.mockRestore();
   });
 
-  it('cerrar() con dirty=true: muestra confirm; cancelar no cierra', async () => {
+  it('cerrar() con dirty=true: muestra el diálogo; «Seguir editando» no cierra', async () => {
     function CerrarTrigger() {
       const { abrir, cerrar, setDirty } = useNuevaRequisicion();
       return (
@@ -169,9 +169,6 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
         </div>
       );
     }
-    const confirmSpy = vi
-      .spyOn(window, 'confirm')
-      .mockReturnValueOnce(false);
     render(
       <Wrapper>
         <CerrarTrigger />
@@ -183,10 +180,10 @@ describe('<NuevaRequisicionProvider> — smoke', () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByText('ensuciar'));
     fireEvent.click(screen.getByText('cerrar'));
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('¿Descartar los cambios?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Seguir editando' }));
     // El sheet sigue abierto (usuario canceló).
     expect(screen.getByText(/llena la cabecera/i)).toBeInTheDocument();
-    confirmSpy.mockRestore();
   });
 
   it('cerrar({ force: true }) bypasea el confirm aún con dirty', async () => {

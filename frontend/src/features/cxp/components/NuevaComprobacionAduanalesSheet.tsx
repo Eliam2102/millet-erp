@@ -49,7 +49,7 @@ export function NuevaComprobacionAduanalesSheet({
 }: NuevaComprobacionAduanalesSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-xl">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nueva comprobación — Aduanales</SheetTitle>
           <SheetDescription>

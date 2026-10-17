@@ -64,7 +64,7 @@ export function NuevaSolicitudViaticosSheet({
 }: NuevaSolicitudViaticosSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-xl">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Nueva solicitud de viáticos</SheetTitle>
           <SheetDescription>

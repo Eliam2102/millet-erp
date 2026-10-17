@@ -252,3 +252,15 @@ export {
   AvisoEnLinea,
   type AvisoEnLineaProps,
 } from '@/components/erp/feedback/AvisoEnLinea';
+export {
+  ConfirmarAccionDialog,
+  type ConfirmarAccionDialogProps,
+} from '@/components/erp/feedback/ConfirmarAccionDialog';
+export {
+  MotivoDialog,
+  type MotivoDialogProps,
+} from '@/components/erp/feedback/MotivoDialog';
+export {
+  useConfirmarDescarte,
+  type ConfirmarDescarteApi,
+} from '@/components/erp/forms/useConfirmarDescarte';

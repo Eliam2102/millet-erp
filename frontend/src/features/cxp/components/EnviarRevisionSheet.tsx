@@ -109,7 +109,7 @@ export function EnviarRevisionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Enviar a revisión</SheetTitle>
           <SheetDescription>

@@ -84,7 +84,7 @@ export function AdjuntarEvidenciaSheet({
 }: AdjuntarEvidenciaSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-lg">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Adjuntar evidencia de autorización</SheetTitle>
           <SheetDescription>

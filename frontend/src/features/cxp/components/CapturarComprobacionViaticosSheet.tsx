@@ -58,7 +58,7 @@ export function CapturarComprobacionViaticosSheet({
 }: CapturarComprobacionViaticosSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-3xl">
+      <SheetContent side="right" size="wide">
         <SheetHeader>
           <SheetTitle>Comprobar viáticos</SheetTitle>
           <SheetDescription>

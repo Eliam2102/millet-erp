@@ -84,7 +84,7 @@ export function NuevaNotaCreditoSheet({
 }: NuevaNotaCreditoSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-xl">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Capturar nota de crédito</SheetTitle>
           <SheetDescription>

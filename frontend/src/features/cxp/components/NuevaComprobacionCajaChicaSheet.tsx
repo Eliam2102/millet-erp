@@ -64,7 +64,7 @@ export function NuevaComprobacionCajaChicaSheet({
 }: NuevaComprobacionCajaChicaSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-3xl">
+      <SheetContent side="right" size="wide">
         <SheetHeader>
           <SheetTitle>Nueva comprobación — Caja chica</SheetTitle>
           <SheetDescription>

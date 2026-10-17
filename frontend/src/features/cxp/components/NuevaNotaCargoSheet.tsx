@@ -42,7 +42,7 @@ export function NuevaNotaCargoSheet({
 }: NuevaNotaCargoSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-md">
+      <SheetContent side="right" size="form">
         <SheetHeader>
           <SheetTitle>Crear nota de cargo</SheetTitle>
           <SheetDescription>
