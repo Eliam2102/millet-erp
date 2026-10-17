@@ -419,13 +419,21 @@ public class ColaboradoresEndpointsTests : IClassFixture<WebApplicationFactory<P
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var compartido = scope.ServiceProvider.GetRequiredService<CompartidoDbContext>();
         var identidad = scope.ServiceProvider.GetRequiredService<IdentidadDbContext>();
-        var permitidas = (await new Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter(identidad)
-            .ListarIdsAsync(usuarioId, default)).OrderBy(id => id).ToList();
         Assert.True(await identidad.UsuarioEmpresaAlcances.AnyAsync(a => a.UsuarioId == usuarioId && a.EmpresaId == empresaId && a.EsCorporativo));
         Assert.False(await identidad.UsuarioSucursales.AnyAsync(a => a.UsuarioId == usuarioId && a.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo));
-        var esperadas = await compartido.Sucursales
+        // Otras pruebas en paralelo crean o desactivan sucursales de la misma empresa: se compara solo
+        // cuando el catálogo no cambió entre las dos lecturas (antes daba falsos negativos intermitentes).
+        Task<List<Guid>> ActivasAsync() => compartido.Sucursales.AsNoTracking()
             .Where(s => s.EmpresaId == empresaId && s.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo)
             .Select(s => s.Id).OrderBy(id => id).ToListAsync();
+        List<Guid> esperadas = [], permitidas = [];
+        for (var intento = 0; intento < 5; intento++)
+        {
+            esperadas = await ActivasAsync();
+            permitidas = (await new Millet.Identidad.Infrastructure.PublicAdapters.UsuarioSucursalReadAdapter(identidad)
+                .ListarIdsAsync(usuarioId, default)).OrderBy(id => id).ToList();
+            if (esperadas.SequenceEqual(await ActivasAsync())) break;
+        }
         Assert.Equal(esperadas, permitidas);
         var empleadoId = body.GetProperty("empleado").GetProperty("id").GetGuid();
         var audit = await compartido.Set<AuditLogEntry>().SingleAsync(a => a.EntidadId == empleadoId && a.Operacion == "autorizacion");
