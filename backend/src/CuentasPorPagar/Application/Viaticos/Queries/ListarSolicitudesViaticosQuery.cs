@@ -13,7 +13,16 @@ public sealed record ListarSolicitudesViaticosQuery(
     Guid? JefeDirectoId = null,
     int Offset = 0,
     int Limit = 50,
-    string? Q = null) : IRequest<PagedResponse<SolicitudViaticosListItemResponse>>;
+    string? Q = null) : IRequest<PagedResponse<SolicitudViaticosListItemResponse>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
+{
+    // ADR-0051: la sucursal de una solicitud es la del empleado (CxpSucursalReadAdapter).
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => ViaticosAlcance.TipoDocumento;
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+    /// <summary>Empleado del usuario: ve sus solicitudes y las de sus subordinados aunque sean de otra sucursal.</summary>
+    public Guid? MiEmpleadoId { get; set; }
+}
 
 public sealed record SolicitudViaticosListItemResponse(
     Guid Id,
@@ -46,7 +55,12 @@ internal static class ViaticosFiltro
         if (request.EmpleadoId is Guid emp) q = q.Where(s => s.EmpleadoId == emp);
         if (request.JefeDirectoId is Guid jefe) q = q.Where(s => s.JefeDirectoId == jefe);
 
-        // Esta bandeja no tiene filtro de sucursal propio; q solo acota el conjunto ya visible.
+        if (request.DocumentosPermitidos is { } permitidos)
+        {
+            var mio = request.MiEmpleadoId;
+            q = q.Where(s => permitidos.Contains(s.Id) || (mio != null && (s.EmpleadoId == mio || s.JefeDirectoId == mio)));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Q))
         {
             var patron = LikePatron.Contiene(request.Q);
@@ -58,17 +72,26 @@ internal static class ViaticosFiltro
 }
 
 public sealed record ConteosViaticosPorEstadoQuery(Guid? EmpleadoId, Guid? JefeDirectoId, string? Q = null)
-    : IRequest<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>
+    : IRequest<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>, Millet.SharedKernel.Application.IDocumentoScopedQuery
 {
+    public string PermisoTodasSucursales => "cuentas_por_pagar.documentos.leer-todas-sucursales";
+    public string TipoDocumento => ViaticosAlcance.TipoDocumento;
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
 }
 
-public sealed class ConteosViaticosPorEstadoHandler(CuentasPorPagarDbContext db)
+public sealed class ConteosViaticosPorEstadoHandler(
+    CuentasPorPagarDbContext db, IEmpleadoReadPort empleados, Millet.SharedKernel.Application.ICurrentUserContext usuario)
     : IRequestHandler<ConteosViaticosPorEstadoQuery, IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>>
 {
     public async Task<IReadOnlyList<Millet.SharedKernel.Application.ConteoPorEstadoItem>> Handle(
         ConteosViaticosPorEstadoQuery request, CancellationToken cancellationToken)
     {
-        var lista = new ListarSolicitudesViaticosQuery(null, request.EmpleadoId, request.JefeDirectoId, 0, 1, request.Q);
+        var lista = new ListarSolicitudesViaticosQuery(null, request.EmpleadoId, request.JefeDirectoId, 0, 1, request.Q)
+        {
+            DocumentosPermitidos = request.DocumentosPermitidos,
+            MiEmpleadoId = await ViaticosAlcance.MiEmpleadoAsync(empleados, usuario, cancellationToken),
+        };
         return await ViaticosFiltro.Aplicar(db, lista).GroupBy(x => x.Estado)
             .Select(g => new Millet.SharedKernel.Application.ConteoPorEstadoItem((int)g.Key, g.Count()))
             .ToListAsync(cancellationToken);
@@ -83,11 +106,15 @@ public sealed class ListarSolicitudesViaticosHandler
     private readonly IEmpleadoReadPort _empleados;
     private readonly IPuestoReadPort _puestos;
 
-    public ListarSolicitudesViaticosHandler(CuentasPorPagarDbContext db, IEmpleadoReadPort empleados, IPuestoReadPort puestos)
+    private readonly Millet.SharedKernel.Application.ICurrentUserContext _usuario;
+
+    public ListarSolicitudesViaticosHandler(CuentasPorPagarDbContext db, IEmpleadoReadPort empleados, IPuestoReadPort puestos,
+        Millet.SharedKernel.Application.ICurrentUserContext usuario)
     {
         _db = db;
         _empleados = empleados;
         _puestos = puestos;
+        _usuario = usuario;
     }
 
     public async Task<PagedResponse<SolicitudViaticosListItemResponse>> Handle(
@@ -96,6 +123,8 @@ public sealed class ListarSolicitudesViaticosHandler
         var limit = Math.Clamp(query.Limit, 1, 500);
         var offset = Math.Max(0, query.Offset);
 
+        if (query.DocumentosPermitidos is not null)
+            query.MiEmpleadoId = await ViaticosAlcance.MiEmpleadoAsync(_empleados, _usuario, cancellationToken);
         var q = ViaticosFiltro.Aplicar(_db, query);
         if (query.Estado is EstadoSolicitudViaticos e) q = q.Where(s => s.Estado == e);
 
@@ -128,4 +157,14 @@ public sealed class ListarSolicitudesViaticosHandler
 
         return new PagedResponse<SolicitudViaticosListItemResponse>(items, offset, limit, total);
     }
+}
+
+/// <summary>Alcance por sucursal de viáticos (ADR-0051) compartido por listado, conteos y detalle.</summary>
+public static class ViaticosAlcance
+{
+    public const string TipoDocumento = "solicitud_viaticos";
+
+    public static async Task<Guid?> MiEmpleadoAsync(
+        IEmpleadoReadPort empleados, Millet.SharedKernel.Application.ICurrentUserContext usuario, CancellationToken ct)
+        => usuario.UserId is Guid id ? (await empleados.ObtenerPorUsuarioAsync(id, ct))?.Id : null;
 }
