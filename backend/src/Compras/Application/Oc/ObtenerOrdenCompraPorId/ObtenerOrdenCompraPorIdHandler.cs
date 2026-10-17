@@ -2,6 +2,7 @@ using MapsterMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.CentrosCosto.Application.PublicPorts;
+using Millet.Compras.Domain.Oc;
 using Millet.Compras.Domain.Ports.DatosMaestros;
 using Millet.Compras.Infrastructure;
 using Millet.SharedKernel.Application.Exceptions;
@@ -114,6 +115,7 @@ public sealed class ObtenerOrdenCompraPorIdHandler
             ProveedorClave = prov?.Clave,
             Lineas = lineas,
             CicloAutorizacion = oc.CicloAutorizacion,
+            CamposPorCapturar = CalcularCamposPorCapturar(oc),
             Autorizaciones = oc.Autorizaciones.OrderBy(a => a.Ciclo).ThenBy(a => a.FechaHora)
                 .Select(a => new AutorizacionOcResponse(a.Id, a.Ciclo, a.Nivel, a.Resultado,
                     a.UsuarioId, a.FechaHora, a.MotivoRechazoId, a.MotivoRechazoTexto, a.Notas)
@@ -123,6 +125,15 @@ public sealed class ObtenerOrdenCompraPorIdHandler
                     s.FechaSolicitud, s.MotivoCancelacionId, s.MotivoSolicitud,
                     s.ResolutorId, s.FechaResolucion, s.Confirmada, s.MotivoResolucion)).ToList(),
         };
+    }
+
+    private static List<string> CalcularCamposPorCapturar(OrdenCompra oc)
+    {
+        var campos = new List<string>();
+        if (oc.ProveedorId == OrdenCompraTbdSentinels.Proveedor) campos.Add("proveedor");
+        if (oc.CondicionesPagoId == OrdenCompraTbdSentinels.CondicionesPago) campos.Add("condicionesPago");
+        if (oc.UsoPrincipalId == OrdenCompraTbdSentinels.UsoPrincipal) campos.Add("usoPrincipal");
+        return campos;
     }
 
     /// <summary>

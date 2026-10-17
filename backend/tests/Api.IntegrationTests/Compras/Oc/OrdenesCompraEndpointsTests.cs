@@ -13,6 +13,7 @@ using Millet.Api.IntegrationTests.Fixtures;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Matriz;
+using OrdenCompraTbdSentinels = Millet.Compras.Domain.Oc.OrdenCompraTbdSentinels;
 using Millet.Compras.Infrastructure;
 using Millet.DatosMaestros.Domain;
 using Millet.Identidad.Domain;
@@ -156,6 +157,44 @@ public partial class OrdenesCompraEndpointsTests : IClassFixture<WebApplicationF
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await ReadJsonAsync(response);
         Assert.Equal(JsonValueKind.Array, body.ValueKind);
+    }
+
+    [Fact]
+    public async Task Detalle_expone_CamposPorCapturar_con_sentinels_y_se_vacia_tras_PATCH()
+    {
+        var client = await CreateSuperAdminClientAsync();
+        var creada = await client.PostAsJsonAsync(EndpointBase, ValidBody() with
+        {
+            SinRequisicionPrevia = true, MotivoSinRequisicion = "UX-F0-01 campos por capturar",
+        });
+        creada.EnsureSuccessStatusCode();
+        var ocId = (await ReadJsonAsync(creada)).GetProperty("id").GetGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == ocId);
+            db.Entry(oc).Property(o => o.ProveedorId).CurrentValue = OrdenCompraTbdSentinels.Proveedor;
+            db.Entry(oc).Property(o => o.CondicionesPagoId).CurrentValue = OrdenCompraTbdSentinels.CondicionesPago;
+            db.Entry(oc).Property(o => o.UsoPrincipalId).CurrentValue = OrdenCompraTbdSentinels.UsoPrincipal;
+            await db.SaveChangesAsync();
+        }
+
+        var antes = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}"));
+        Assert.Equal(
+            ["proveedor", "condicionesPago", "usoPrincipal"],
+            antes.GetProperty("camposPorCapturar").EnumerateArray().Select(e => e.GetString()!).ToArray());
+
+        var patch = await client.PatchAsJsonAsync($"{EndpointBase}/{ocId}", new
+        {
+            ProveedorId = ProveedorActivoId,
+            CondicionesPagoId = Guid.CreateVersion7(),
+            UsoPrincipalId = Guid.CreateVersion7(),
+        });
+        Assert.True(patch.IsSuccessStatusCode, $"PATCH: {(int)patch.StatusCode} {await patch.Content.ReadAsStringAsync()}");
+
+        var despues = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}"));
+        Assert.Equal(0, despues.GetProperty("camposPorCapturar").GetArrayLength());
     }
 
     [Fact]

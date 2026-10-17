@@ -255,6 +255,8 @@ export interface OrdenCompraDetalleResponse {
   cicloAutorizacion?: number;
   autorizaciones?: AutorizacionOc[];
   solicitudesCancelacion?: SolicitudCancelacionOc[];
+  /** Campos de cabecera aún en TBD; la OC no se puede transmitir mientras haya alguno. */
+  camposPorCapturar?: ('proveedor' | 'condicionesPago' | 'usoPrincipal')[] | null;
   id: string;
   empresaId: string;
   folio: string;

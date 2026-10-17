@@ -105,6 +105,12 @@ public sealed record OrdenCompraResponse(
     public int CicloAutorizacion { get; init; }
     public IReadOnlyList<AutorizacionOcResponse> Autorizaciones { get; init; } = [];
     public IReadOnlyList<SolicitudCancelacionOcResponse> SolicitudesCancelacion { get; init; } = [];
+
+    /// <summary>
+    /// Campos de cabecera que siguen en TBD; la OC no se puede transmitir mientras la lista no esté vacía.
+    /// Valores posibles: <c>proveedor</c>, <c>condicionesPago</c>, <c>usoPrincipal</c>.
+    /// </summary>
+    public IReadOnlyList<string>? CamposPorCapturar { get; init; }
 }
 
 public sealed record AutorizacionOcResponse(Guid Id, int Ciclo, NivelAutorizacion Nivel,
