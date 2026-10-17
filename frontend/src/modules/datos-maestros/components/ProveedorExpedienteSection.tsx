@@ -2,9 +2,21 @@ import { useId, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Download, Loader2, TriangleAlert, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ErrorState, TableSkeleton } from '@/components/erp';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { MotivoBajaDialog } from '@/components/erp/adjuntos/MotivoBajaDialog';
 import { AdjuntosManager } from '@/components/erp/adjuntos/AdjuntosManager';
 import { EstadoExpedienteBadge } from '@/components/erp/adjuntos/EstadoAdjuntoBadge';
 import {
@@ -16,6 +28,8 @@ import {
   useAdjuntos,
   useDarDeBajaAdjunto,
   useEnlaceAdjunto,
+  useOtorgarExcepcion,
+  useRevocarExcepcion,
   useExpediente,
   useSubirAdjunto,
   useTiposDocumento,
@@ -45,6 +59,7 @@ export function ProveedorExpedienteSection({ proveedorId }: { proveedorId: strin
   const canVer = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosVer);
   const canSubir = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosSubir);
   const canBaja = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresAdjuntosBaja);
+  const canValidar = useHasPermission(PermisosCanonicos.DatosMaestrosProveedoresValidar);
   const base = `/api/v1/datos-maestros/proveedores/${proveedorId}`;
   const [verBajas, setVerBajas] = useState(false);
 
@@ -87,7 +102,15 @@ export function ProveedorExpedienteSection({ proveedorId }: { proveedorId: strin
         <h3 id="expediente-titulo" className="text-md font-semibold text-ink">
           Expediente documental
         </h3>
-        {exp.completo && <Badge variant="success">Expediente completo</Badge>}
+        <div className="flex items-center gap-3">
+          <Link
+            to="/admin/datos-maestros/proveedores/expediente"
+            className="text-xs font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            Configurar documentos
+          </Link>
+          {exp.completo && <Badge variant="success">Expediente completo</Badge>}
+        </div>
       </div>
 
       {!exp.completo && (
@@ -110,6 +133,7 @@ export function ProveedorExpedienteSection({ proveedorId }: { proveedorId: strin
             doc={d}
             base={base}
             canSubir={canSubir}
+            canExceptuar={canValidar}
             onDescargar={(adjuntoId) => enlace.mutateAsync({ adjuntoId })}
           />
         ))}
@@ -145,14 +169,26 @@ function FilaExpediente({
   doc,
   base,
   canSubir,
+  canExceptuar,
   onDescargar,
 }: {
   doc: ExpedienteDocumento;
   base: string;
   canSubir: boolean;
+  canExceptuar: boolean;
   onDescargar: (adjuntoId: string) => Promise<unknown>;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const [exceptuando, setExceptuando] = useState(false);
+  const [revocando, setRevocando] = useState(false);
+  const [errorExcepcion, setErrorExcepcion] = useState<string | null>(null);
+  const otorgar = useOtorgarExcepcion(base);
+  const revocar = useRevocarExcepcion(base);
+  const puedeExceptuar =
+    canExceptuar &&
+    doc.obligatorio &&
+    (doc.estado === EstadoExpediente.Faltante || doc.estado === EstadoExpediente.Vencido);
+  const puedeRevocar = canExceptuar && doc.estado === EstadoExpediente.Exceptuado && !!doc.excepcion;
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
   const actual = doc.actual;
   const vencido = doc.estado === EstadoExpediente.Vencido;
@@ -197,6 +233,32 @@ function FilaExpediente({
               <Download />
             </Button>
           )}
+          {puedeExceptuar && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setErrorExcepcion(null);
+                setExceptuando(true);
+              }}
+              aria-label={`Exceptuar ${doc.nombre}`}
+            >
+              Exceptuar
+            </Button>
+          )}
+          {puedeRevocar && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setErrorExcepcion(null);
+                setRevocando(true);
+              }}
+              aria-label={`Revocar excepción de ${doc.nombre}`}
+            >
+              Revocar excepción
+            </Button>
+          )}
           {canSubir && (
             <Button
               size="sm"
@@ -211,6 +273,64 @@ function FilaExpediente({
           )}
         </div>
       </div>
+      {doc.estado === EstadoExpediente.Exceptuado && doc.excepcion && (
+        <p className="mt-1 text-xs text-ink-muted" data-component="expediente-excepcion">
+          Exceptuado por {doc.excepcion.otorgadaPorNombre} el{' '}
+          {format(new Date(doc.excepcion.otorgadaEn), 'dd/MM/yyyy')}. Motivo: {doc.excepcion.motivo}
+        </p>
+      )}
+      {errorExcepcion && !exceptuando && (
+        <p role="alert" className="mt-1 text-xs text-danger-fg">
+          {errorExcepcion}
+        </p>
+      )}
+      {exceptuando && (
+        <MotivoBajaDialog
+          nombreArchivo={doc.nombre}
+          titulo={`Exceptuar ${doc.nombre}`}
+          descripcion="El documento deja de contar como faltante o vencido. Queda registrado quién lo exceptuó y por qué; puedes revocar la excepción después."
+          etiqueta="Motivo de la excepción"
+          accion="Exceptuar"
+          variante="default"
+          minimo={10}
+          error={errorExcepcion}
+          onCerrar={() => setExceptuando(false)}
+          onConfirmar={async (motivo) => {
+            try {
+              await otorgar.mutateAsync({ tipoDocumentoId: doc.tipoDocumentoId, motivo });
+              toast.success('Excepción registrada.');
+              setExceptuando(false);
+            } catch (err) {
+              setErrorExcepcion(mensajeErrorAdjunto(err));
+            }
+          }}
+        />
+      )}
+      <AlertDialog open={revocando} onOpenChange={setRevocando}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revocar la excepción</AlertDialogTitle>
+            <AlertDialogDescription>
+              {doc.nombre} volverá a exigirse en el expediente del proveedor.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await revocar.mutateAsync({ excepcionId: doc.excepcion!.id });
+                  toast.success('Excepción revocada.');
+                } catch (err) {
+                  setErrorExcepcion(mensajeErrorAdjunto(err));
+                }
+              }}
+            >
+              Revocar excepción
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {errorDescarga && (
         <p role="alert" className="mt-1 text-xs text-danger-fg">
           {errorDescarga}

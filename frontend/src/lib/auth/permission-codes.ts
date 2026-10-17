@@ -131,6 +131,8 @@ export const PermisosCanonicos = {
     'datos_maestros.proveedores.tolerancia-editar',
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
+  DatosMaestrosProveedoresExpedienteConfigurar:
+    'datos_maestros.proveedores.expediente-configurar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
   DatosMaestrosArticulosToleranciaEditar:
     'datos_maestros.articulos.tolerancia-editar',

@@ -8,6 +8,14 @@ import { useAuthStore } from '@/lib/auth/auth-store';
 import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { EstadoAdjunto, EstadoExpediente } from '@/components/erp/adjuntos/api/types';
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to, className }: { children: React.ReactNode; to: string; className?: string }) => (
+    <a href={to} className={className}>
+      {children}
+    </a>
+  ),
+}));
+
 const BASE = '*/api/v1/datos-maestros/proveedores/p-1';
 
 const adj = (id: string, tipo: string, nombre: string, estado: number, vigenteHasta: string | null) => ({
@@ -184,5 +192,67 @@ describe('<ProveedorExpedienteSection>', () => {
     pintar();
     await waitFor(() => expect(screen.queryByText('Expediente documental')).not.toBeInTheDocument());
     expect(await screen.findByText(/prohibido|permiso|error/i)).toBeInTheDocument();
+  });
+
+  describe('excepciones', () => {
+    const conExcepcion = {
+      ...EXPEDIENTE,
+      completo: true,
+      faltantes: [],
+      vencidos: [],
+      documentos: [
+        {
+          ...EXPEDIENTE.documentos[1],
+          estado: EstadoExpediente.Exceptuado,
+          excepcion: { id: 'ex-1', motivo: 'Proveedor extranjero sin contrato', otorgadaPorNombre: 'Ana Pérez', otorgadaEn: '2026-10-10T10:00:00Z' },
+        },
+      ],
+    };
+
+    it('Exceptuado se muestra con motivo y quién; Revocar pide confirmación y llama al endpoint', async () => {
+      mswServer.use(http.get(`${BASE}/expediente`, () => HttpResponse.json(conExcepcion)));
+      let revocada = false;
+      mswServer.use(
+        http.post(`${BASE}/expediente/excepciones/ex-1/revocar`, () => {
+          revocada = true;
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      setPermisos([P.DatosMaestrosProveedoresAdjuntosVer, P.DatosMaestrosProveedoresValidar]);
+      pintar();
+      expect(await screen.findByText('Exceptuado')).toBeInTheDocument();
+      expect(screen.getByText(/Ana Pérez/)).toHaveTextContent('Proveedor extranjero sin contrato');
+      fireEvent.click(screen.getByRole('button', { name: /revocar excepción de contrato/i }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Revocar excepción' }));
+      await waitFor(() => expect(revocada).toBe(true));
+    });
+
+    it('Exceptuar solo con validar y en obligatorios faltantes/vencidos; envía motivo', async () => {
+      let body: unknown = null;
+      mswServer.use(
+        http.post(`${BASE}/expediente/excepciones`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ id: 'ex-2' }, { status: 201 });
+        }),
+      );
+      setPermisos([P.DatosMaestrosProveedoresAdjuntosVer]);
+      const { unmount } = pintar();
+      await screen.findByText('Faltante');
+      expect(screen.queryByRole('button', { name: /exceptuar/i })).not.toBeInTheDocument();
+      unmount();
+
+      setPermisos([P.DatosMaestrosProveedoresAdjuntosVer, P.DatosMaestrosProveedoresValidar]);
+      pintar();
+      expect(await screen.findAllByRole('button', { name: /^exceptuar /i })).toHaveLength(2);
+      fireEvent.click(screen.getByRole('button', { name: /exceptuar contrato/i }));
+      const caja = await screen.findByLabelText(/motivo de la excepción/i);
+      fireEvent.change(caja, { target: { value: 'corto' } });
+      expect(screen.getByRole('button', { name: 'Exceptuar' })).toBeDisabled();
+      fireEvent.change(caja, { target: { value: 'Proveedor extranjero sin contrato' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Exceptuar' }));
+      await waitFor(() =>
+        expect(body).toEqual({ tipoDocumentoId: 'contrato', motivo: 'Proveedor extranjero sin contrato' }),
+      );
+    });
   });
 });

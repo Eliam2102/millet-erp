@@ -28,6 +28,8 @@ interface MotivoBajaDialogProps {
   etiqueta?: string;
   accion?: string;
   variante?: 'secondary-danger' | 'default';
+  /** Mínimo de caracteres del motivo (default MOTIVO_BAJA_MIN). */
+  minimo?: number;
 }
 
 /**
@@ -45,12 +47,13 @@ export function MotivoBajaDialog({
   etiqueta = 'Motivo de la baja',
   accion = 'Dar de baja',
   variante = 'secondary-danger',
+  minimo = MOTIVO_BAJA_MIN,
 }: MotivoBajaDialogProps) {
   const id = useId();
   const [motivo, setMotivo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const largo = motivo.trim().length;
-  const valido = largo >= MOTIVO_BAJA_MIN && largo <= MOTIVO_BAJA_MAX;
+  const valido = largo >= minimo && largo <= MOTIVO_BAJA_MAX;
 
   async function confirmar() {
     if (!valido || enviando) return;
@@ -87,7 +90,7 @@ export function MotivoBajaDialog({
             disabled={enviando}
           />
           <p id={`${id}-ayuda`} className="text-xs text-ink-muted">
-            Entre {MOTIVO_BAJA_MIN} y {MOTIVO_BAJA_MAX} caracteres ({largo}).
+            Entre {minimo} y {MOTIVO_BAJA_MAX} caracteres ({largo}).
           </p>
         </div>
         {error && (
@@ -106,7 +109,7 @@ export function MotivoBajaDialog({
             title={
               valido
                 ? undefined
-                : `Escribe un motivo de al menos ${MOTIVO_BAJA_MIN} caracteres.`
+                : `Escribe un motivo de al menos ${minimo} caracteres.`
             }
             data-action="confirmar-baja"
           >
