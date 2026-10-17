@@ -52,6 +52,7 @@ import {
   DEFAULT_PENDIENTES_SEARCH,
   type PendientesSearch,
 } from '@/features/compras/lib/pendientes-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 const FROM = '/_app/compras/pendientes/' as const;
 const SENTINEL_ALL = '__all__';
@@ -206,11 +207,7 @@ export function BandejaPendientes() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Pendientes de autorización
-        </h1>
-      </div>
+      <PageHeader titulo="Requisiciones por autorizar" />
 
       <ResumenAprobacionMasiva
         resultados={resumen}

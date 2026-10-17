@@ -55,6 +55,7 @@ import {
   type AdminAprobadoresSearch,
 } from '@/features/compras/lib/admin-aprobadores-search-schema';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 const FROM = '/_app/compras/admin/aprobadores' as const;
 const SENTINEL_ALL = '__all__';
@@ -97,15 +98,15 @@ export function AdminAprobadores() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Aprobadores
-        </h1>
-        <Button onClick={() => setModalDesignarAbierto(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Designar aprobador
-        </Button>
-      </div>
+      <PageHeader
+        titulo="Aprobadores"
+        acciones={
+          <Button onClick={() => setModalDesignarAbierto(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Designar aprobador
+          </Button>
+        }
+      />
 
       {/* Tabs */}
       <div

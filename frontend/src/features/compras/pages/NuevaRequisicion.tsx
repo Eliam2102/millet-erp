@@ -59,6 +59,7 @@ import {
 } from '@/features/compras/lib/draft-storage';
 import { DEFAULT_BANDEJA_SEARCH } from '@/features/compras/lib/bandeja-search-schema';
 import { formatDateLong } from '@/lib/datetime';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 export interface NuevaRequisicionProps {
   /** Callback al cerrar (botón Cancelar / X / Esc). Cuando está
@@ -272,20 +273,20 @@ export function NuevaRequisicion({
   return (
     <div className="space-y-4">
       {!embedded && (
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Nueva requisición
-          </h1>
-          <Button asChild variant="ghost">
-            <Link
-              to="/compras/requisiciones"
-              search={DEFAULT_BANDEJA_SEARCH}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver a bandeja
-            </Link>
-          </Button>
-        </div>
+        <PageHeader
+          titulo="Nueva requisición"
+          acciones={
+            <Button asChild variant="ghost">
+              <Link
+                to="/compras/requisiciones"
+                search={DEFAULT_BANDEJA_SEARCH}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Volver a bandeja
+              </Link>
+            </Button>
+          }
+        />
       )}
 
       <form

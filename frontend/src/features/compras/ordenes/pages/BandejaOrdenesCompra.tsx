@@ -23,6 +23,7 @@ import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubE
 import { useNuevaOrdenCompra } from '@/features/compras/ordenes/components/nueva-orden-compra-context';
 import { type OrdenCompraResumen } from '@/features/compras/ordenes/api/types';
 import { type BandejaOcSearch } from '@/features/compras/ordenes/lib/bandeja-oc-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 // Path interno del routeTree (incluye el layout `_app`). Mismo patrón
 // que <c>BandejaRequisiciones</c>; el path público que usa <c>Link</c>
@@ -114,18 +115,18 @@ export function BandejaOrdenesCompra() {
   }
 
   return (
-    <div className="space-y-4 p-4" data-component="bandeja-ordenes-compra">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Bandeja de OCs
-        </h1>
-        {canCrear && (
-          <Button onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva OC
-          </Button>
-        )}
-      </div>
+    <div className="space-y-4" data-component="bandeja-ordenes-compra">
+      <PageHeader
+        titulo="Órdenes de compra"
+        acciones={
+          canCrear && (
+            <Button onClick={() => nuevaOC.abrir()} data-action="nueva-oc">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva OC
+            </Button>
+          )
+        }
+      />
 
       <FiltrosBandejaOc search={search} onChange={setSearch} />
 

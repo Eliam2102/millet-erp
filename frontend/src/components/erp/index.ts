@@ -264,3 +264,4 @@ export {
   useConfirmarDescarte,
   type ConfirmarDescarteApi,
 } from '@/components/erp/forms/useConfirmarDescarte';
+export { PageHeader, type PageHeaderProps } from '@/components/erp/PageHeader';

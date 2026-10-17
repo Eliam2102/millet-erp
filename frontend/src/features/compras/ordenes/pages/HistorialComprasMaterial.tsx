@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
-import { History, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,6 +15,7 @@ import { useUltimas100ComprasMaterial } from '@/features/compras/ordenes/api/use
 import { useArticulo, useProveedores, mapById } from '@/features/catalogos/api';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 /**
  * <c>P11 — Historial de últimas 100 compras del material</c>
@@ -81,31 +82,30 @@ export function HistorialComprasMaterial() {
 
   return (
     <div
-      className="space-y-4 p-4"
+      className="space-y-4"
       data-component="historial-compras-material"
     >
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <History className="h-6 w-6" />
-          Historial de compras del material
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Últimas 100 líneas de OC para el artículo{' '}
-          {articuloQuery.data ? (
-            <>
-              <code className="font-mono text-xs">
-                {articuloQuery.data.clave}
-              </code>{' '}
-              · {articuloQuery.data.nombre}
-            </>
-          ) : (
-            <code className="font-mono text-xs" title={articuloId}>
-              {articuloId.slice(0, 8)}…
-            </code>
-          )}
-          . Útil para análisis de tendencia de precios y proveedores.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Historial de compras del material"
+        descripcion={
+          <>
+            Últimas 100 líneas de OC para el artículo{' '}
+            {articuloQuery.data ? (
+              <>
+                <code className="font-mono text-xs">
+                  {articuloQuery.data.clave}
+                </code>{' '}
+                · {articuloQuery.data.nombre}
+              </>
+            ) : (
+              <code className="font-mono text-xs" title={articuloId}>
+                {articuloId.slice(0, 8)}…
+              </code>
+            )}
+            .
+          </>
+        }
+      />
 
       {/* Filtros */}
       <div className="grid grid-cols-1 gap-3 rounded-md border bg-card p-3 sm:grid-cols-4">

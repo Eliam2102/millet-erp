@@ -15,6 +15,7 @@ import {
   Naturaleza,
 } from '@/features/compras/api/types';
 import { DEFAULT_BANDEJA_SEARCH } from '@/features/compras/lib/bandeja-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 /**
  * <c>P11 — Página de ayuda del módulo Compras Requisiciones</c>
@@ -33,16 +34,10 @@ import { DEFAULT_BANDEJA_SEARCH } from '@/features/compras/lib/bandeja-search-sc
 export function Ayuda() {
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Ayuda — Compras Requisiciones
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Referencia rápida del módulo: estados, naturalezas, conceptos del
-          dominio y preguntas frecuentes. Si tienes una duda específica que
-          no aparece aquí, contacta a tu soporte interno.
-        </p>
-      </header>
+      <PageHeader
+        titulo="Ayuda — Compras Requisiciones"
+        descripcion="Referencia rápida del módulo: estados, naturalezas, conceptos del dominio y preguntas frecuentes."
+      />
 
       <SeccionGlosarioEstados />
       <SeccionCicloDeVida />

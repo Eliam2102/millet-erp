@@ -129,7 +129,7 @@ describe('<BandejaOrdenesCompra> — smoke (UF1-PR3)', () => {
       ),
     );
     renderConProvider(<BandejaOrdenesCompra />);
-    expect(screen.getByText('Bandeja de OCs')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Órdenes de compra' })).toBeInTheDocument();
   });
 
   it('estado empty: muestra EmptyState con mensaje OC-específico', async () => {

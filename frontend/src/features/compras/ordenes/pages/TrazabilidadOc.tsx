@@ -1,5 +1,4 @@
 import { useParams } from '@tanstack/react-router';
-import { GitBranch } from 'lucide-react';
 import {
   ArbolDocumentos,
   TipoDocumentoTrazabilidad,
@@ -11,6 +10,7 @@ import {
 } from '@/components/erp';
 import { useArbolDocumentos } from '@/features/compras/ordenes/api/useArbolDocumentos';
 import { esApiError } from '@/lib/api';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 /**
  * <c>P10 — Trazabilidad de OC</c> (UF7-PR2). Wrapper de OC del
@@ -28,18 +28,11 @@ export function TrazabilidadOc() {
   const query = useArbolDocumentos(TipoDocumentoTrazabilidad.OrdenCompra, id);
 
   return (
-    <div className="space-y-4 p-4" data-component="trazabilidad-oc">
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <GitBranch className="h-6 w-6" />
-          Trazabilidad documental
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Cadena RQ → OC → Recepciones → Facturas → Pagos. Click en cualquier
-          nodo navega a su detalle (cuando el módulo correspondiente esté
-          disponible).
-        </p>
-      </header>
+    <div className="space-y-4" data-component="trazabilidad-oc">
+      <PageHeader
+        titulo="Trazabilidad documental"
+        descripcion="Cadena RQ → OC → Recepciones → Facturas → Pagos; haz clic en un nodo para ir a su detalle."
+      />
 
       {query.isLoading && <TableSkeleton rows={3} />}
 

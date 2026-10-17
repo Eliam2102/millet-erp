@@ -25,6 +25,7 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { FiltrosBandeja } from '@/features/compras/components/FiltrosBandeja';
 import { useNuevaRequisicion } from '@/features/compras/components/nueva-requisicion-context';
 import type { BandejaSearch } from '@/features/compras/lib/bandeja-search-schema';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 // El path "from" para useSearch/useNavigate es el `id` interno de la
 // ruta en el routeTree (incluye el layout `_app`), NO el path público
@@ -88,17 +89,17 @@ export function BandejaRequisiciones() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Bandeja de requisiciones
-        </h1>
-        {canCrear && (
-          <Button onClick={() => nuevaRequisicion.abrir()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva requisición
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titulo="Requisiciones"
+        acciones={
+          canCrear && (
+            <Button onClick={() => nuevaRequisicion.abrir()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva requisición
+            </Button>
+          )
+        }
+      />
 
       <FiltrosBandeja search={search} onChange={setSearch} />
 

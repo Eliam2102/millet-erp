@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   EmptyState,
@@ -21,6 +20,7 @@ import { HoverSubEstados } from '@/features/compras/ordenes/components/HoverSubE
 import type { PartidasAbiertasSearch } from '@/features/compras/ordenes/lib/partidas-abiertas-search-schema';
 import { cn } from '@/lib/utils';
 import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
+import { PageHeader } from '@/components/erp/PageHeader';
 
 const FROM = '/_app/compras/ordenes/partidas-abiertas' as const;
 
@@ -81,7 +81,7 @@ export function PartidasAbiertas() {
 
   return (
     <div
-      className="grid gap-4 p-4 lg:grid-cols-[260px_1fr]"
+      className="grid gap-4 lg:grid-cols-[260px_1fr]"
       data-component="partidas-abiertas"
     >
       {/* Sidebar de filtros sticky */}
@@ -93,16 +93,10 @@ export function PartidasAbiertas() {
 
       {/* Contenido principal */}
       <div className="space-y-4 min-w-0">
-        <header>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <TrendingDown className="h-6 w-6" />
-            Partidas abiertas
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            OCs no terminales con al menos una dimensión sub-estado abierta.
-            Orden FIFO por fecha de entrega esperada (atrasadas primero).
-          </p>
-        </header>
+        <PageHeader
+          titulo="Partidas abiertas"
+          descripcion="OCs no terminales con al menos un sub-estado abierto, por fecha de entrega esperada (atrasadas primero)."
+        />
 
         <KpiCardsPartidasAbiertas
           kpis={kpisQuery.data}

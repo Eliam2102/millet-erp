@@ -128,7 +128,7 @@ describe('<BandejaPendientes> — smoke', () => {
     );
   });
 
-  it('header "Pendientes de autorización" presente', async () => {
+  it('header "Requisiciones por autorizar" presente', async () => {
     mswServer.use(
       http.get('*/api/v1/compras/pendientes-autorizacion', () =>
         HttpResponse.json({ items: [], offset: 0, limit: 50, total: 0 }),
@@ -137,7 +137,7 @@ describe('<BandejaPendientes> — smoke', () => {
     render(<BandejaPendientes />, { wrapper: createQueryWrapper() });
     await waitFor(() =>
       expect(
-        screen.getAllByText(/Pendientes de autorización/i).length,
+        screen.getAllByText(/Requisiciones por autorizar/i).length,
       ).toBeGreaterThan(0),
     );
   });
