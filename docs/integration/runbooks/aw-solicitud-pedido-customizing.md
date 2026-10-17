@@ -52,13 +52,13 @@ VALUES (@numero_pedido, @operacion, @version);
 
 | Operación | Cuándo | Notas |
 |---|---|---|
-| **1 — Alta** | El pedido queda **en firme / liberado para facturar** por primera vez | Definir con precisión el evento disparador en A+W (gap G1) |
+| **1 — Alta** | El pedido queda **en firme** por primera vez: estatus **15** (almacenable) o **42** (pedido de máquina) — Módulo 13 R1, confirmado por TI de Millet | Falta confirmar dónde se engancha el INSERT en A+W (gap G1) |
 | **2 — Modificación** | Un pedido ya avisado cambia (cabecera o posiciones) | N veces. El ERP la aplica solo si el pedido aún no tiene factura ("la factura manda"); si ya facturó, responde `Rechazada` y un humano interviene |
-| **3 — Cancelación** | El pedido se cancela en A+W | El ERP cancela su pedido interno solo si no tiene CFDI; con CFDI responde `Rechazada` (la cancelación fiscal es un flujo humano SAT 4.0) |
+| **3 — Cancelación** | El pedido se cancela en A+W (estatus **900** o **999**) | El ERP cancela su pedido interno solo si no tiene CFDI; con CFDI responde `Rechazada` (la cancelación fiscal es un flujo humano SAT 4.0) |
 
 ## 3.bis Nudge de baja latencia (opcional pero recomendado)
 
-Sin nudge, el ERP drena la cola cada ~30 segundos (polling). Para latencia de
+Sin nudge, el ERP drena la cola cada ~15 segundos (polling). Para latencia de
 segundos, **después del INSERT** llamar al exe que el equipo ERP entrega
 (instalado en SER-DATA, p.ej. `C:\Millet\aw-pedido-notify\`):
 
@@ -72,6 +72,40 @@ MilletAwPedidoNotify.exe <numero_pedido> <alta|modificacion|cancelacion>
   reiniciando), NO reintentar ni tratar como error — el polling normal
   recoge la solicitud igual. Exit code 0 = avisado, 1 = no avisado (ignorable).
 - Nunca llamar al exe ANTES del INSERT (avisaría de nada).
+
+## 3.ter Job de respaldo mientras no exista el customizing (U1.4)
+
+Meta: de que el pedido pasa a 15/42 a que el ERP lo procesa, **menos de 1
+minuto** (hoy con SAP: ciclos de 6–7 s + 3 s; Módulo 13 R14). Mientras A+W no
+tenga el customizing, el equipo ERP entrega un **job de SQL Server Agent**
+que hace el mismo INSERT:
+[`07_job_aviso_pedidos.sql`](../../operacion/aw-integracion-scripts/07_job_aviso_pedidos.sql).
+
+| Qué | Cómo |
+|---|---|
+| Frecuencia | Cada 15 s (el Agent permite desde 10 s) |
+| Alta (1) | Pedido en `STATUS` 15/42 con evento en `BW_AUFTR_HIST` posterior a la activación del job y nunca avisado |
+| Modificación (2) | Pedido ya avisado con un **nuevo** evento 15/42 en `BW_AUFTR_HIST` (se reconfirmó tras editarse) |
+| Cancelación (3) | Pedido ya avisado que pasa a 900/999. Si nunca se avisó, se ignora |
+| `version` | `MAX(version)+1` con `UPDLOCK, HOLDLOCK` (convive con un customizing futuro) |
+| Duplicados | Cada evento (pedido + estatus + fecha) se avisa una sola vez; control en `dbo.aw_aviso_job_pedido` |
+| A+W | Solo lectura de `BW_AUFTR_KOPF` y `BW_AUFTR_HIST` (sinónimos `dbo.aw_src_*`) |
+
+Con el ERP barriendo cada 15 s, el peor caso de punta a punta es ~30 s.
+Medición: [`08_latencia_avisos.sql`](../../operacion/aw-integracion-scripts/08_latencia_avisos.sql)
+y la línea `latencia cola→ERP` del log de `AwSolicitudesWorker`.
+
+**Si A+W implementa el customizing:** desactivar el job
+(`sp_update_job @enabled = 0`) **antes** de activar el customizing, para no
+avisar dos veces el mismo cambio.
+
+**Prueba local:** `tools/aw-sandbox/pruebas/u14-job-aviso.sh` instala el job en
+el sandbox A+W y recorre alta (15), alta de máquina (42), modificación,
+cancelación, arranque y no-duplicado con el Agent real.
+
+**Pendiente con TI de Millet (I13.4 / V01):** elegir customizing o job y
+autorizar el job en SER-DATA; confirmar que basta el `STATUS` actual (un pedido
+que pase por 15 y salte a otro estatus en menos de 15 s no se avisa).
 
 ## 4. La columna `version` — regla de oro
 
