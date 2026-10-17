@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
@@ -25,13 +25,14 @@ const FROM = '/_app/cxp/notas-credito/$id' as const;
 
 export function NotaCreditoDetallePage() {
   const { id } = useParams({ from: FROM });
+  const search = useSearch({ from: FROM });
   const query = useNotaCredito(id);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/cxp/notas-credito" search={{}}>
+          <Link to="/cxp/notas-credito" search={search}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Notas de crédito
           </Link>
@@ -81,7 +82,7 @@ export function NotaCreditoDetallePage() {
 
           <DocumentoP4Acciones tipo="notas-credito" documento={query.data} />
 
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
               valor={query.data.proveedorNombre ?? query.data.proveedorId}

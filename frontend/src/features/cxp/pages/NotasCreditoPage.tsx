@@ -26,8 +26,8 @@ import {
   ProveedorSelector,
   TableSkeleton,
 } from '@/components/erp';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { useNotasCredito } from '@/features/cxp/api/useNotasYAnticipos';
 import {
@@ -218,6 +218,7 @@ export function NotasCreditoPage() {
                         <Link
                           to="/cxp/notas-credito/$id"
                           params={{ id: n.id }}
+                          search={search}
                           className="text-brand hover:underline"
                           aria-label={`Abrir nota de crédito ${folio}`}
                         >

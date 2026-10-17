@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EstadoDevolucionProveedor } from '@/features/almacen/api/types';
-import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 
 /**
  * Schema de los <c>search params</c> de la bandeja de Devoluciones

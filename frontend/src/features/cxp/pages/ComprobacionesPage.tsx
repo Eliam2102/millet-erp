@@ -32,8 +32,8 @@ import {
   SucursalSelector,
   TableSkeleton,
 } from '@/components/erp';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { useComprobaciones } from '@/features/cxp/api/useComprobaciones';
 import { AccionesComprobacion } from '@/features/cxp/components/AccionesComprobacion';
 import {
@@ -269,6 +269,7 @@ function Filtros({ search, onChange }: FiltrosProps) {
 }
 
 function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
+  const search = useSearch({ from: FROM });
   return (
     <TableContainer>
       <Table>
@@ -295,6 +296,7 @@ function Tabla({ items }: { items: readonly ComprobacionGastosListItem[] }) {
                   <Link
                     to="/cxp/comprobaciones/$id"
                     params={{ id: c.id }}
+                    search={search}
                     className="font-medium text-brand hover:underline"
                     aria-label={`Abrir comprobación ${tipo} de ${c.responsableNombre ?? 'responsable por confirmar'}`}
                   >

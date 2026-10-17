@@ -10,6 +10,7 @@ import { createQueryWrapper } from '@/test/test-query-client';
 const escenario = vi.hoisted(() => ({ cancelada: false, capturada: false, revisadas: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
+  useSearch: () => ({}),
   Link: ({ children }: { children: ReactNode }) => <a href="/cxp/facturas">{children}</a>,
 }));
 vi.mock('@/lib/auth/useHasPermission', () => ({ useHasPermission: () => true }));

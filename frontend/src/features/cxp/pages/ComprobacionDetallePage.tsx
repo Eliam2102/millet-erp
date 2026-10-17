@@ -1,5 +1,5 @@
 import { PageHeader } from '@/components/erp/PageHeader';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, TableSkeleton } from '@/components/erp';
@@ -26,13 +26,14 @@ const FROM = '/_app/cxp/comprobaciones/$id' as const;
 
 export function ComprobacionDetallePage() {
   const { id } = useParams({ from: FROM });
+  const search = useSearch({ from: FROM });
   const query = useComprobacionGastos(id);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/cxp/comprobaciones" search={{}}>
+          <Link to="/cxp/comprobaciones" search={search}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Comprobaciones
           </Link>
@@ -79,7 +80,7 @@ export function ComprobacionDetallePage() {
             className="justify-start rounded-md border bg-surface-subtle px-3 py-2"
           />
 
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Sucursal"
               valor={query.data.sucursalNombre ?? query.data.sucursalId}

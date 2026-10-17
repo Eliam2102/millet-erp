@@ -26,8 +26,8 @@ import {
   TableSkeleton,
   UsuarioSelector,
 } from '@/components/erp';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { useViaticos } from '@/features/cxp/api/useViaticos';
 import {
   EstadoSolicitudViaticos,
@@ -280,6 +280,7 @@ interface TablaProps {
 }
 
 function Tabla({ items, onComprobar }: TablaProps) {
+  const search = useSearch({ from: FROM });
   return (
     <TableContainer>
       <Table>
@@ -315,6 +316,7 @@ function Tabla({ items, onComprobar }: TablaProps) {
                   <Link
                     to="/cxp/viaticos/$id"
                     params={{ id: s.id }}
+                    search={search}
                     className="font-medium text-brand hover:underline"
                     aria-label={`Abrir viáticos a ${s.destino}`}
                   >

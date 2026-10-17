@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EstadoMovimiento } from '@/features/almacen/api/types';
-import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -38,7 +38,7 @@ import type { SaldosSearch } from '@/features/almacen/lib/saldos-search-schema';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 
 const FROM = '/_app/almacen/saldos' as const;
 const SENTINEL_ALL = '__all__';

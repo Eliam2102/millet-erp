@@ -45,8 +45,8 @@ import { NuevoConteoSheet } from '@/features/almacen/components/NuevoConteoSheet
 import type { ConteosSearch } from '@/features/almacen/lib/conteos-search-schema';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 const FROM = '/_app/almacen/inventarios/' as const;

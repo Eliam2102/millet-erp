@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EstadoConteo, TipoConteo } from '@/features/almacen/api/types';
-import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 
 export const ConteosSearchSchema = z.object({
   estado: z

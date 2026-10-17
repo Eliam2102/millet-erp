@@ -10,6 +10,7 @@ import { createQueryWrapper } from '@/test/test-query-client';
 const escenario = vi.hoisted(() => ({ cancelada: false }));
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: 'factura-ficticia-p3' }),
+  useSearch: () => ({}),
   Link: ({ children, to, params }: { children: ReactNode; to: string; params?: { id: string } }) =>
     <a href={params ? to.replace('$id', params.id) : to}>{children}</a>,
 }));

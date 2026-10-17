@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 import { EstadoSolicitudViaticos } from '@/features/cxp/api/types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 
 export const SaldosSearchSchema = z.object({
   subAlmacenId: z.string().min(1).optional(),

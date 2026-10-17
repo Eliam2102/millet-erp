@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PaginaSearchShape } from '@/features/almacen/lib/paginacion';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 import { EstadoPasivo } from '@/features/cxp/api/types';
 
 /**

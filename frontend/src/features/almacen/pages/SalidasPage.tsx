@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
+import { FiltroActivoChip } from '../components/FiltroActivoChip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -45,8 +46,8 @@ import { NuevaSalidaSheet } from '@/features/almacen/components/NuevaSalidaSheet
 import type { SalidasSearch } from '@/features/almacen/lib/salidas-search-schema';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { RegularizacionValeBadge } from '../components/RegularizacionValeBadge';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
@@ -340,6 +341,18 @@ function FiltrosToolbar({
           Solo vales vencidos
         </label>
       </div>
+      {search.rqId && (
+        <FiltroActivoChip
+          label="Requisición"
+          onQuitar={() => onChange({ rqId: undefined })}
+        />
+      )}
+      {search.soloPorVencer && (
+        <FiltroActivoChip
+          label="Vales por vencer"
+          onQuitar={() => onChange({ soloPorVencer: undefined })}
+        />
+      )}
       {algunFiltro && (
         <Button
           variant="ghost"

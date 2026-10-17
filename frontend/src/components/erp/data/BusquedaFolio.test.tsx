@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 
 afterEach(() => vi.useRealTimers());
 

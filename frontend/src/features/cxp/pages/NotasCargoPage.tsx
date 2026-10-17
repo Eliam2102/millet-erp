@@ -26,8 +26,8 @@ import {
   ProveedorSelector,
   TableSkeleton,
 } from '@/components/erp';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { useNotasCargo } from '@/features/cxp/api/useNotasYAnticipos';
 import { AplicarNotaCargoAccion } from '@/features/cxp/components/AplicarNotaCargoAccion';
@@ -219,6 +219,7 @@ interface TablaProps {
 }
 
 function Tabla({ items, puedeAplicar }: TablaProps) {
+  const search = useSearch({ from: FROM });
   return (
     <TableContainer>
       <Table>
@@ -241,6 +242,7 @@ function Tabla({ items, puedeAplicar }: TablaProps) {
                 <Link
                   to="/cxp/notas-cargo/$id"
                   params={{ id: n.id }}
+                  search={search}
                   className="text-brand hover:underline"
                   aria-label={`Abrir nota de cargo ${n.folio}`}
                 >

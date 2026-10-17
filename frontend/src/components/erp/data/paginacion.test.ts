@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 
 describe('paginacion', () => {
   it('page/pageSize → offset/limit con defaults', () => {

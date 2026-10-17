@@ -5,7 +5,7 @@ import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdj
 import { AplicarDocumentoFacturaSheet } from '@/features/cxp/components/AplicarDocumentoFacturaSheet';
 import { desgloseRetenciones } from '@/features/cxp/lib/conciliacion-p3';
 import { useState } from 'react';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, CheckCircle2, Paperclip, Send, Unlock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,7 @@ const MOTIVO_AUTORIZAR_EN_REVISION =
 
 export function FacturaDetallePage() {
   const { id } = useParams({ from: FROM });
+  const search = useSearch({ from: FROM });
   const idempotencyKey = useFormIdempotencyKey();
   const query = useFactura(id);
   const autorizar = useAutorizarFactura();
@@ -105,7 +106,7 @@ export function FacturaDetallePage() {
       {query.data && <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.FacturaProveedor} id={id} />}
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/cxp/facturas" search={{}}>
+          <Link to="/cxp/facturas" search={search}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Facturas
           </Link>
@@ -252,7 +253,7 @@ export function FacturaDetallePage() {
               )}
           </div>
 
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
               valor={query.data.proveedorNombre?.trim() || '[PROVEEDOR POR CONFIRMAR]'}

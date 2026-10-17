@@ -31,8 +31,8 @@ import {
   compareItemsBy,
   type SortState,
 } from '@/components/erp';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { ProveedorCelda } from '@/features/cxp/components/ProveedorCelda';
 import { useFacturas } from '@/features/cxp/api/useFacturas';
 import {
@@ -262,6 +262,7 @@ interface TablaFacturasProps {
 }
 
 function TablaFacturas({ items }: TablaFacturasProps) {
+  const search = useSearch({ from: FROM });
   const navigate = useNavigate();
   const [sort, setSort] = useState<SortState<SortKey> | null>(null);
 
@@ -357,6 +358,7 @@ function TablaFacturas({ items }: TablaFacturasProps) {
                   <Link
                     to="/cxp/facturas/$id"
                     params={{ id: f.id }}
+                    search={search}
                     onClick={(e) => e.stopPropagation()}
                     className="text-brand hover:underline"
                     aria-label={`Abrir factura ${folioLabel}`}

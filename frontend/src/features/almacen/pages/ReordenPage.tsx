@@ -64,7 +64,7 @@ import { esApiError } from '@/lib/api';
 import { ReordenSheet } from '@/features/almacen/components/ReordenSheet';
 import { cn } from '@/lib/utils';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { formatCantidad } from '@/lib/format-cantidad';
 

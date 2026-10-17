@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/erp/PageHeader';
 import { DocumentoP4Acciones } from '@/features/cxp/components/DocumentoP4Acciones';
 import { useState } from 'react';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
 import { ArrowLeft } from 'lucide-react';
@@ -30,6 +30,7 @@ const FROM = '/_app/cxp/notas-cargo/$id' as const;
 
 export function NotaCargoDetallePage() {
   const { id } = useParams({ from: FROM });
+  const search = useSearch({ from: FROM });
   const query = useNotaCargo(id);
   const autorizar = useAutorizarNotaCargo();
   const puedeAutorizar = useHasPermission(PermisosCanonicos.CuentasPorPagarNotasCargoAutorizar);
@@ -42,7 +43,7 @@ export function NotaCargoDetallePage() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/cxp/notas-cargo" search={{}}>
+          <Link to="/cxp/notas-cargo" search={search}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Notas de cargo
           </Link>
@@ -135,7 +136,7 @@ export function NotaCargoDetallePage() {
           )}
           <DocumentoP4Acciones tipo="notas-cargo" documento={query.data} />
 
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Proveedor"
               valor={query.data.proveedorNombre ?? query.data.proveedorId}

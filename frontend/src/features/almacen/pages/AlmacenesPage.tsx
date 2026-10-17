@@ -41,8 +41,8 @@ import { esApiError } from '@/lib/api';
 import { AlmacenSheet } from '@/features/almacen/components/AlmacenSheet';
 import type { AlmacenesSearch } from '@/features/almacen/lib/catalogo-search-schemas';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 
 const FROM = '/_app/almacen/almacenes' as const;

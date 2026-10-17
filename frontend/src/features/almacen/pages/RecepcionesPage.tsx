@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
+import { FiltroActivoChip } from '../components/FiltroActivoChip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -44,8 +45,8 @@ import { esApiError } from '@/lib/api';
 import { NuevaRecepcionSheet } from '@/features/almacen/components/NuevaRecepcionSheet';
 import type { RecepcionesSearch } from '@/features/almacen/lib/recepciones-search-schema';
 import { Field } from '@/features/almacen/components/internal/Field';
-import { BusquedaFolio } from '@/features/almacen/components/internal/BusquedaFolio';
-import { offsetLimitAPagina, paginaAOffsetLimit } from '@/features/almacen/lib/paginacion';
+import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
 import { EstadoAlmacenBadge } from '@/features/almacen/components/EstadoAlmacenBadge';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
@@ -283,6 +284,12 @@ function FiltrosToolbar({
           className="w-40"
         />
       </Field>
+      {search.ordenCompraId && (
+        <FiltroActivoChip
+          label="Orden de compra"
+          onQuitar={() => onChange({ ordenCompraId: undefined })}
+        />
+      )}
       {algunFiltro && (
         <Button
           variant="ghost"

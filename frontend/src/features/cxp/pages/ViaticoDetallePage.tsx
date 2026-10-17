@@ -1,5 +1,5 @@
 import { PageHeader } from '@/components/erp/PageHeader';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ const FROM = '/_app/cxp/viaticos/$id' as const;
 
 export function ViaticoDetallePage() {
   const { id } = useParams({ from: FROM });
+  const search = useSearch({ from: FROM });
   const query = useSolicitudViaticos(id);
   const [comprobarAbierto, setComprobarAbierto] = useState(false);
 
@@ -35,7 +36,7 @@ export function ViaticoDetallePage() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/cxp/viaticos" search={{}}>
+          <Link to="/cxp/viaticos" search={search}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Viáticos
           </Link>
@@ -99,7 +100,7 @@ export function ViaticoDetallePage() {
             solicitud={query.data}
           />
 
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 md:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-md border p-4 @xl:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6">
             <Campo
               label="Empleado"
               valor={query.data.empleadoNombre ?? query.data.empleadoId}
