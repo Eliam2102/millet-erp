@@ -231,6 +231,102 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     }
 
     /// <summary>
+    /// T9.6 · CA9.11: la devolución de un depósito erróneo es su contramovimiento
+    /// ligado; el depósito original no se toca ni se borra. Egreso en la misma
+    /// cuenta, con motivo, beneficiario cliente y destino en snapshot.
+    /// </summary>
+    public MovimientoBancario CrearDevolucionDeposito(
+        decimal importe, DateOnly fechaValor, Guid clienteId, CuentaDestinoPago destino,
+        string? referenciaBancaria, bool fondosVerificados, Guid creadoPor, DateTimeOffset ahora, string motivo)
+    {
+        if (Sentido != SentidoMovimiento.Ingreso)
+            throw new BusinessRuleException("DEV_DEPOSITO_NO_INGRESO", "Solo un depósito (movimiento de ingreso) puede devolverse.");
+        if (ContramovimientoDe is not null)
+            throw new BusinessRuleException("MOV_REVERSA_DE_REVERSA", "No se puede revertir un contramovimiento.");
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BusinessRuleException("MOV_MOTIVO_REVERSA_VACIO", "Indica el motivo de la reversa.");
+        if (importe <= 0 || importe > Monto)
+            throw new BusinessRuleException("MOV_REVERSA_IMPORTE_INVALIDO",
+                "El importe a revertir debe ser mayor a cero y no exceder el monto del movimiento original.");
+        if (clienteId == Guid.Empty)
+            throw new BusinessRuleException("DEV_CLIENTE_VACIO", "Selecciona el cliente al que se devuelve el dinero.");
+        if (creadoPor == Guid.Empty)
+            throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que registra es obligatorio.");
+
+        return new MovimientoBancario
+        {
+            Id = Guid.CreateVersion7(),
+            EmpresaId = EmpresaId,
+            SucursalId = SucursalId,
+            CuentaBancariaId = CuentaBancariaId,
+            Sentido = SentidoMovimiento.Egreso,
+            Monto = importe,
+            Moneda = Moneda,
+            FechaValor = fechaValor,
+            ReferenciaBancaria = NormalizarReferencia(referenciaBancaria) ?? "DEVOLUCION",
+            ConceptoId = ConceptoId,
+            EstadoAplicacion = EstadoAplicacionMovimiento.Aplicado,
+            EstadoConciliacion = EstadoConciliacionMovimiento.NoConciliado,
+            BeneficiarioTipo = Movimientos.BeneficiarioTipo.Cliente,
+            BeneficiarioRef = clienteId,
+            ContramovimientoDe = Id,
+            MotivoReversa = motivo.Trim(),
+            CreadoPor = creadoPor,
+            CreadoEn = ahora,
+            DestinoCuentaId = destino.Id,
+            DestinoBanco = destino.Banco,
+            DestinoNumeroCuenta = destino.Numero,
+            DestinoTitular = destino.Titular,
+            FondosVerificados = fondosVerificados,
+        };
+    }
+
+    /// <summary>
+    /// T9.6: reembolso de una nota de crédito (egreso a cliente sin movimiento
+    /// original). Nace <c>Aplicado</c>; la moneda se copia de la cuenta (RN-3).
+    /// </summary>
+    public static MovimientoBancario RegistrarDevolucionCliente(
+        Guid empresaId, CuentaBancaria cuenta, Guid clienteId, decimal monto, DateOnly fechaValor,
+        string? referenciaBancaria, CuentaDestinoPago destino, bool fondosVerificados,
+        Guid creadoPor, DateTimeOffset ahora, Guid? sucursalId)
+    {
+        cuenta.ValidarFechaMovimiento(fechaValor);
+        if (!cuenta.Activa)
+            throw new BusinessRuleException("MOV_CUENTA_INACTIVA",
+                $"La cuenta bancaria '{cuenta.Banco}' está inactiva.");
+        if (monto <= 0)
+            throw new BusinessRuleException("MOV_MONTO_INVALIDO", "El monto debe ser mayor a cero.");
+        if (clienteId == Guid.Empty)
+            throw new BusinessRuleException("DEV_CLIENTE_VACIO", "Selecciona el cliente al que se devuelve el dinero.");
+        if (creadoPor == Guid.Empty)
+            throw new BusinessRuleException("MOV_USUARIO_VACIO", "El usuario que registra es obligatorio.");
+
+        return new MovimientoBancario
+        {
+            Id = Guid.CreateVersion7(),
+            EmpresaId = empresaId,
+            SucursalId = sucursalId,
+            CuentaBancariaId = cuenta.Id,
+            Sentido = SentidoMovimiento.Egreso,
+            Monto = monto,
+            Moneda = cuenta.Moneda,
+            FechaValor = fechaValor,
+            ReferenciaBancaria = NormalizarReferencia(referenciaBancaria),
+            EstadoAplicacion = EstadoAplicacionMovimiento.Aplicado,
+            EstadoConciliacion = EstadoConciliacionMovimiento.NoConciliado,
+            BeneficiarioTipo = Movimientos.BeneficiarioTipo.Cliente,
+            BeneficiarioRef = clienteId,
+            CreadoPor = creadoPor,
+            CreadoEn = ahora,
+            DestinoCuentaId = destino.Id,
+            DestinoBanco = destino.Banco,
+            DestinoNumeroCuenta = destino.Numero,
+            DestinoTitular = destino.Titular,
+            FondosVerificados = fondosVerificados,
+        };
+    }
+
+    /// <summary>
     /// Pago a cuenta (TES-PR6, §3.4 / TES-2): egreso ejecutado en banca SIN
     /// documento ligado — el limbo se registra, no se oculta. Nace
     /// <c>NoAplicado</c> con motivo obligatorio; si el proveedor se conoce,

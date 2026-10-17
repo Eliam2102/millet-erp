@@ -19,6 +19,7 @@ public static class DevolucionesEndpoints
 {
     public sealed record EditarDevolucionBody(Guid ClienteId, decimal Importe, string Motivo, string? Banco, string? Clabe, string? Titular);
     public sealed record MotivoDevolucionBody(string Motivo);
+    public sealed record PagarDevolucionBody(DateOnly FechaValor, Guid? CuentaBancariaId, string? ReferenciaBancaria, bool FondosVerificados);
 
     public static IEndpointRouteBuilder MapTesoreriaDevolucionesEndpoints(this IEndpointRouteBuilder app)
     {
@@ -133,6 +134,27 @@ public static class DevolucionesEndpoints
         .WithMetadata(new RequireIdempotencyKeyAttribute())
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaDevolucionesAutorizar)
         .WithName("RechazarDevolucionCliente")
+        .Produces<DevolucionClienteResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        devoluciones.MapPost("/{id:guid}/pagar", async (
+            Guid id,
+            [FromHeader(Name = "X-Expected-Version")] int? expectedVersion,
+            [FromBody] PagarDevolucionBody body,
+            IMediator mediator,
+            CancellationToken ct) =>
+        {
+            if (expectedVersion is not int v)
+                return Results.Problem(title: "X-Expected-Version requerido", statusCode: StatusCodes.Status428PreconditionRequired);
+            return Results.Ok(await mediator.Send(new PagarDevolucionClienteCommand(
+                id, body.FechaValor, body.CuentaBancariaId, body.ReferenciaBancaria, body.FondosVerificados, v), ct));
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaDevolucionesPagar)
+        .WithName("PagarDevolucionCliente")
         .Produces<DevolucionClienteResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)

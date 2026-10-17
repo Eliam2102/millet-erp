@@ -864,3 +864,18 @@ export function useRechazarDevolucion() {
     path: '/rechazar', method: 'POST', body: { motivo: a.motivo },
   }));
 }
+
+/** Registra el pago de una devolución autorizada (contramovimiento ligado en depósito; egreso en NC). */
+export function usePagarDevolucion() {
+  return useTransicionDevolucion(
+    (a: TransicionBase & {
+      fechaValor: string; cuentaBancariaId?: string; referenciaBancaria?: string; fondosVerificados: boolean;
+    }) => ({
+      path: '/pagar', method: 'POST',
+      body: {
+        fechaValor: a.fechaValor, cuentaBancariaId: a.cuentaBancariaId,
+        referenciaBancaria: a.referenciaBancaria, fondosVerificados: a.fondosVerificados,
+      },
+    }),
+  );
+}

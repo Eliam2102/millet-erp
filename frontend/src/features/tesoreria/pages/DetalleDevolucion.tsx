@@ -22,6 +22,7 @@ import {
 import { EstadoDevolucionBadge } from '@/features/tesoreria/components/Badges';
 import { EditarDevolucionForm } from '@/features/tesoreria/components/EditarDevolucionForm';
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
+import { PagarDevolucionDialog } from '@/features/tesoreria/components/PagarDevolucionDialog';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
@@ -37,6 +38,7 @@ export function DetalleDevolucion({ id }: { id: string }) {
   const keyFor = useBodyScopedIdempotencyKey();
   const puedeSolicitar = useHasPermission(PermisosCanonicos.TesoreriaDevolucionesSolicitar);
   const puedeAutorizar = useHasPermission(PermisosCanonicos.TesoreriaDevolucionesAutorizar);
+  const puedePagar = useHasPermission(PermisosCanonicos.TesoreriaDevolucionesPagar);
   const autorizar = useAutorizarDevolucion();
   const rechazar = useRechazarDevolucion();
   const cancelar = useCancelarDevolucion();
@@ -45,6 +47,7 @@ export function DetalleDevolucion({ id }: { id: string }) {
   const [confirmandoAutorizar, setConfirmandoAutorizar] = useState(false);
   const [rechazando, setRechazando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  const [pagando, setPagando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
   if (query.isError) {
@@ -165,6 +168,11 @@ export function DetalleDevolucion({ id }: { id: string }) {
             )}
           </>
         )}
+        {d.estado === EstadoDevolucionCliente.Autorizada && puedePagar && (
+          <Button size="sm" onClick={() => setPagando(true)}>
+            Registrar pago
+          </Button>
+        )}
       </div>
 
       {editando && <EditarDevolucionForm devolucion={d} onCerrar={() => setEditando(false)} />}
@@ -245,9 +253,11 @@ export function DetalleDevolucion({ id }: { id: string }) {
         )}
       </Seccion>
 
-      {/* Acciones: R3 (pagar) */}
-      <div data-print="hidden" />
-
+      <PagarDevolucionDialog
+        devolucion={d}
+        abierto={pagando}
+        onCerrar={() => setPagando(false)}
+      />
       <ConfirmarAccionDialog
         open={confirmandoAutorizar}
         onOpenChange={setConfirmandoAutorizar}
