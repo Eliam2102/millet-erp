@@ -1034,10 +1034,6 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid?>("SucursalId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("sucursal_id");
-
                     b.Property<Guid>("CuentaBancariaId")
                         .HasColumnType("uuid")
                         .HasColumnName("cuenta_bancaria_id");
@@ -1045,6 +1041,25 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
+
+                    b.Property<string>("DestinoBanco")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("destino_banco");
+
+                    b.Property<Guid?>("DestinoCuentaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("destino_cuenta_id");
+
+                    b.Property<string>("DestinoNumeroCuenta")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("destino_numero_cuenta");
+
+                    b.Property<string>("DestinoTitular")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("destino_titular");
 
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
@@ -1061,6 +1076,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("FechaValor")
                         .HasColumnType("date")
                         .HasColumnName("fecha_valor");
+
+                    b.Property<bool>("FondosVerificados")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fondos_verificados");
 
                     b.Property<string>("Moneda")
                         .IsRequired()
@@ -1096,6 +1115,10 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                     b.Property<short>("Sentido")
                         .HasColumnType("smallint")
                         .HasColumnName("sentido");
+
+                    b.Property<Guid?>("SucursalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sucursal_id");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

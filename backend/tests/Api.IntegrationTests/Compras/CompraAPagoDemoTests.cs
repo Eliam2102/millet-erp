@@ -157,7 +157,7 @@ public sealed class CompraAPagoDemoTests(WebApplicationFactory<Program> factory)
         var cuentaId = (await J(cuentaResp)).GetProperty("id").GetGuid();
         await Ok(await b.PostAsJsonAsync("/api/v1/tesoreria/pagos", new
         {
-            CuentaBancariaId = cuentaId, FechaValor = hoy, ReferenciaBancaria = "DEMO-PAGO",
+            CuentaBancariaId = cuentaId, FechaValor = hoy, ReferenciaBancaria = "DEMO-PAGO", FondosVerificados = true,
             Aplicaciones = new[] { new { FacturaProveedorId = facturaId, Importe = subtotal + iva } },
         }), "B registra pago al proveedor");
         await BombearAsync(app); // PagoFacturaProveedorEvent -> CxP; pago-aplicado -> Compras

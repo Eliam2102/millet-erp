@@ -32,7 +32,9 @@ public sealed record MovimientoBancarioResponse(
     string? MotivoNoAplicado,
     Guid CreadoPor,
     DateTimeOffset CreadoEn,
-    int Version, string? MotivoReversa = null, string? MotivoReclasificacion = null);
+    int Version, string? MotivoReversa = null, string? MotivoReclasificacion = null,
+    // 86e3pdmee: cuenta del proveedor a la que se pagó (snapshot, número enmascarado).
+    string? DestinoBanco = null, string? DestinoNumeroCuenta = null, string? DestinoTitular = null, bool FondosVerificados = false);
 
 internal static class MovimientoBancarioMapper
 {
@@ -40,7 +42,8 @@ internal static class MovimientoBancarioMapper
         new(m.Id, m.CuentaBancariaId, m.Sentido, m.Monto, m.Moneda, m.FechaValor,
             m.ReferenciaBancaria, m.ConceptoId, conceptoNombre, m.EstadoAplicacion,
             m.EstadoConciliacion, m.BeneficiarioTipo, m.BeneficiarioRef,
-            m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version, m.MotivoReversa, m.MotivoReclasificacion);
+            m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version, m.MotivoReversa, m.MotivoReclasificacion,
+            m.DestinoBanco, m.DestinoNumeroCuenta is null ? null : Clabe.Enmascarar(m.DestinoNumeroCuenta), m.DestinoTitular, m.FondosVerificados);
 }
 
 // --------------------------------------------------- Libro (bandeja paginada)

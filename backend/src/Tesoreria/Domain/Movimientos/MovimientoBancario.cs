@@ -57,6 +57,15 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
     public Guid CreadoPor { get; private set; }
     public DateTimeOffset CreadoEn { get; private set; }
 
+    // 86e3pdmee: copia de la cuenta del proveedor a la que se pagó. Si la
+    // cuenta cambia o se inhabilita después, el pago conserva la original.
+    public Guid? DestinoCuentaId { get; private set; }
+    public string? DestinoBanco { get; private set; }
+    public string? DestinoNumeroCuenta { get; private set; }
+    public string? DestinoTitular { get; private set; }
+    /// <summary>Quien registró confirmó haber verificado fondos en la banca (no hay integración bancaria).</summary>
+    public bool FondosVerificados { get; private set; }
+
     private MovimientoBancario() { }
 
     /// <summary>
@@ -128,7 +137,9 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         string? referenciaBancaria,
         Guid? conceptoId,
         Guid creadoPor,
-        DateTimeOffset ahora)
+        DateTimeOffset ahora,
+        CuentaDestinoPago? destino = null,
+        bool fondosVerificados = false)
     {
         cuenta.ValidarFechaMovimiento(fechaValor);
         if (!cuenta.Activa)
@@ -162,6 +173,11 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
             BeneficiarioRef = proveedorId,
             CreadoPor = creadoPor,
             CreadoEn = ahora,
+            DestinoCuentaId = destino?.Id,
+            DestinoBanco = destino?.Banco,
+            DestinoNumeroCuenta = destino?.Numero,
+            DestinoTitular = destino?.Titular,
+            FondosVerificados = fondosVerificados,
         };
     }
 
@@ -307,3 +323,6 @@ public sealed class MovimientoBancario : BaseEntity, IPerteneceAEmpresa, IAudita
         return string.IsNullOrEmpty(r) ? null : r;
     }
 }
+
+/// <summary>Cuenta del proveedor elegida para el pago (snapshot, 86e3pdmee).</summary>
+public sealed record CuentaDestinoPago(Guid Id, string Banco, string Numero, string Titular);

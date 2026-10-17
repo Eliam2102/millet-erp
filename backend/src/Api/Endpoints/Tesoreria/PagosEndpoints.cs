@@ -5,6 +5,9 @@ using Millet.Api.Auth;
 using Millet.Api.Web;
 using Millet.Identidad.Domain;
 using Millet.Tesoreria.Application.Pagos;
+using Millet.Tesoreria.Domain.Ports.DatosMaestros;
+using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Domain.Bancos;
 
 namespace Millet.Api.Endpoints.Tesoreria;
 
@@ -44,6 +47,24 @@ public static class PagosEndpoints
         .ProducesValidationProblem()
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        // 86e3pdmee: cuentas del proveedor para elegir a cuál pagar (número enmascarado salvo permiso PII).
+        app.MapGet("/api/v1/tesoreria/proveedores/{proveedorId:guid}/cuentas", async (
+            Guid proveedorId,
+            IProveedorBancoReadPort proveedores,
+            ICurrentUserPermissions permisos,
+            CancellationToken cancellationToken) =>
+        {
+            var proveedor = await proveedores.ObtenerAsync(proveedorId, cancellationToken);
+            if (proveedor is null) return Results.NotFound();
+            var completa = await permisos.TieneAsync(PermisosCanonicos.TesoreriaMovimientosVerCuentaCompleta, cancellationToken);
+            return Results.Ok(proveedor.Cuentas.Select(c => c with { Numero = completa ? c.Numero : Clabe.Enmascarar(c.Numero) }).ToList());
+        })
+        .WithTags("Tesoreria")
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaPagosAplicar)
+        .WithName("ListarCuentasProveedorParaPago")
+        .Produces<IReadOnlyList<CuentaProveedorDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         pagos.MapPost("/{pagoId:guid}/revertir", async (
             Guid pagoId,

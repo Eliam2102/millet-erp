@@ -140,6 +140,10 @@ public sealed class CatalogosTestSeedHostedService : IHostedService
         }
 
         db.Proveedores.AddRange(faltantes);
+        // 86e3pdmee: sin cuenta activa no se paga; los proveedores activos del seed llevan una cuenta ficticia.
+        foreach (var p in faltantes.Where(p => p.Estatus == EstatusCatalogo.Activo))
+            db.CuentasBancariasProveedor.Add(CuentaBancariaProveedor.Heredada(
+                p.Id, "Banco de prueba", "002010077777777771", p.RazonSocial, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync(ct);
         _logger.LogInformation("CatalogosTestSeed proveedores: insertados {N} nuevos.", faltantes.Count);
     }
