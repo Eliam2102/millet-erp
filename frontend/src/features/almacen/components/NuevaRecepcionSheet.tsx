@@ -53,6 +53,7 @@ import {
 } from '@/features/almacen/api/useRecepciones';
 import { PackingListUpload } from '@/features/almacen/components/PackingListUpload';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
+import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector';
 import {
   construirFilas,
@@ -1015,6 +1016,12 @@ function FilaLineaOc({
                       value={field.value ?? null}
                       onChange={(id) => field.onChange(id)}
                       disabled={!incluida}
+                      accionSinUbicaciones={
+                        <AsignarUbicacionEnLinea
+                          articuloId={fila.articuloId}
+                          onAsignada={(ubicacionId) => field.onChange(ubicacionId)}
+                        />
+                      }
                     />
                   )}
                 />

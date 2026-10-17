@@ -35,6 +35,7 @@ import {
   useSubAlmacenes,
 } from '@/features/almacen/api';
 import { Field } from '@/features/almacen/components/internal/Field';
+import { AsignarUbicacionEnLinea } from '@/features/almacen/components/AsignarUbicacionEnLinea';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { useSalida } from '@/features/almacen/api/useSalidas';
 
@@ -418,6 +419,19 @@ function FormBody({
                             subAlmacenId={subAlmacenDestinoId}
                             value={field.value ?? null}
                             onChange={(id) => field.onChange(id ?? '')}
+                            accionSinUbicaciones={
+                              articuloId ? (
+                                <AsignarUbicacionEnLinea
+                                  articuloId={articuloId}
+                                  onAsignada={(ubicacionId) =>
+                                    form.setValue(`lineas.${index}.ubicacionId`, ubicacionId, {
+                                      shouldDirty: true,
+                                      shouldValidate: true,
+                                    })
+                                  }
+                                />
+                              ) : undefined
+                            }
                           />
                         )}
                       />
