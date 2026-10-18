@@ -9,6 +9,8 @@ using Millet.Facturacion.Infrastructure.Persistence;
 namespace Millet.Facturacion.Infrastructure.PublicAdapters;
 public sealed class PedidosEmbarcablesReadAdapter(FacturacionDbContext db) : IPedidosEmbarcablesReadPort
 {
+    public Task<IReadOnlyList<PedidoEmbarcable>> BuscarPorNumeroAsync(Guid empresaId, IReadOnlyCollection<string> numeros, CancellationToken ct) =>
+        LeerAsync(db.PedidosFacturables.Where(p => p.EmpresaId == empresaId && p.Origen == OrigenPedido.Aw && p.NumeroPedido != null && numeros.Contains(p.NumeroPedido)), ct);
     public async Task<IReadOnlyList<PedidoEmbarcable>> ListarAsync(Guid clienteId, Guid sucursalId, CancellationToken ct) =>
         await LeerAsync(db.PedidosFacturables.Where(p => p.ClienteId == clienteId && p.SucursalId == sucursalId &&
             p.ComportamientoFiscal == ComportamientoFiscal.ExportacionConCce && p.Estado == EstadoPedidoFacturable.Importado), ct);

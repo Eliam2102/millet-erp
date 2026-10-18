@@ -11,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<ExpedienteServicio>();
         services.AddScoped<ContenedoresServicio>();
+        services.AddScoped<OtrServicio>();
         services.AddScoped<Millet.ComercioExterior.Application.PublicPorts.IEmbarqueExportacionReadPort, EmbarqueExportacionReadAdapter>();
         services.AddScoped<ICatalogosCeReadPort, CatalogosCeReadAdapter>();
         services.AddScoped<IAdjuntoPropietario, ExpedienteAdjuntoPropietario>();

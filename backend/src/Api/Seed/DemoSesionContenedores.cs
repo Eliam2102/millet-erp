@@ -19,7 +19,7 @@ public sealed partial class DemoSesionSeedHostedService
         {
             var clave = $"DEMO-CLI-EXP-{i}";
             if (!await maestros.Clientes.AnyAsync(c => c.Clave == clave, ct))
-                maestros.Clientes.Add(new Cliente(Id(clave), clave, $"DEMO · Cliente extranjero {i}", rfc: "XEXX010101000", regimenFiscal: "616",
+                maestros.Clientes.Add(new Cliente(Id(clave), clave, $"DEMO · Cliente extranjero {i}", referenciaExterna: clave, rfc: "XEXX010101000", regimenFiscal: "616",
                     codigoPostalFiscal: "42501", usoCfdiDefault: "S01", formaPagoDefault: "99", metodoPagoDefault: "PPD", monedaDefault: "USD",
                     esGenerico: true, numRegIdTrib: $"DEMO-TAX-{i}", paisResidencia: "USA", domicilioExtranjeroEstado: "DEMO", domicilioExtranjeroCodigoPostal: "00000"));
         }

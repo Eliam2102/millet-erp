@@ -31,6 +31,12 @@ public sealed partial class Expediente
         else actual.Editar(datos);
         RevisionContenido++;
     }
+    public void RevisarPartidasOtr(IEnumerable<Guid> ids)
+    {
+        var afectadas = _partidas.Where(p => ids.Contains(p.Id) && p.Estado != EstadoPartida.Liberada).ToArray();
+        foreach (var p in afectadas) p.RequerirRevision();
+        if (afectadas.Length > 0) RevisionContenido++;
+    }
     public void RegistrarPedimentoExportacion(string numero, string clave, DateOnly fecha, DateOnly hoy, Guid? documentoId = null)
     {
         ExigirExportacion();
@@ -72,7 +78,7 @@ public sealed partial class Expediente
             !_participantes.Any(p => p.ClienteId == pedido.ClienteId))
             throw new BusinessRuleException("CE_PEDIDO_NO_ASIGNABLE", "Seleccione un pedido de exportación Importado de esta sucursal y de un cliente vinculado en participantes.");
     }
-    public void AsignarPartida(Guid contenedor, PedidoEmbarcable pedido, int posicion, decimal cantidad, Guid actor)
+    public void AsignarPartida(Guid contenedor, PedidoEmbarcable pedido, int posicion, decimal cantidad, Guid actor, bool propuesta = false)
     {
         ExigirPedidoAsignable(pedido);
         Contenedor(contenedor).ExigirActivo();
@@ -82,7 +88,7 @@ public sealed partial class Expediente
         var vinculo = _vinculosPedidos.SingleOrDefault(v => v.PedidoFacturableId == pedido.Id);
         if (vinculo is null) _vinculosPedidos.Add(new(EmpresaId, Id, pedido.Id));
         else vinculo.Activar();
-        _partidas.Add(new(EmpresaId, Id, contenedor, pedido.Id, posicion, pedido.ClienteId, cantidad, linea.Unidad, pedido.VersionOrigen, actor));
+        _partidas.Add(new(EmpresaId, Id, contenedor, pedido.Id, posicion, pedido.ClienteId, cantidad, linea.Unidad, pedido.VersionOrigen, actor, propuesta));
         RevisionContenido++;
     }
     private bool Activo(PartidaEmbarcada p) => p.Estado != EstadoPartida.Liberada && Contenedor(p.ContenedorId).Estado == EstadoContenedor.Activo;

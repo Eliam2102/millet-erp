@@ -15,6 +15,7 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { apiRequest, esApiError } from '@/lib/api';
 import { CE_BASE, useAccionExpediente, useExpediente, useExpedientes } from '../api/hooks';
 import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
+import { OtrPanel } from '../components/OtrPanel';
 import { ContenedoresPanel } from '../components/ContenedoresPanel';
 import { HitosPanel } from '../components/HitosPanel';
 import { DocumentosPanel } from '../components/DocumentosPanel';
@@ -190,7 +191,10 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
             <TabsTrigger value="hitos">Hitos</TabsTrigger>
             {data.expediente.tipo === 2 && (
-              <TabsTrigger value="contenedores">Contenedores</TabsTrigger>
+              <>
+                <TabsTrigger value="contenedores">Contenedores</TabsTrigger>
+                <TabsTrigger value="otr">A+W OTR</TabsTrigger>
+              </>
             )}
             <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           </TabsList>
@@ -233,6 +237,11 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           {data.expediente.tipo === 2 && (
             <TabsContent value="contenedores">
               <ContenedoresPanel data={data} />
+            </TabsContent>
+          )}
+          {data.expediente.tipo === 2 && (
+            <TabsContent value="otr">
+              <OtrPanel expedienteId={id} abierto={abierto} />
             </TabsContent>
           )}
           <TabsContent value="bitacora">
