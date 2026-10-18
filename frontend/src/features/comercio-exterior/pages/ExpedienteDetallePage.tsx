@@ -15,6 +15,7 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 import { apiRequest, esApiError } from '@/lib/api';
 import { CE_BASE, useAccionExpediente, useExpediente, useExpedientes } from '../api/hooks';
 import { EstadoExpedienteBadge } from '../components/EstadoExpedienteBadge';
+import { ContenedoresPanel } from '../components/ContenedoresPanel';
 import { HitosPanel } from '../components/HitosPanel';
 import { DocumentosPanel } from '../components/DocumentosPanel';
 import {
@@ -188,6 +189,9 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
             <TabsTrigger value="participantes">Participantes</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
             <TabsTrigger value="hitos">Hitos</TabsTrigger>
+            {data.expediente.tipo === 2 && (
+              <TabsTrigger value="contenedores">Contenedores</TabsTrigger>
+            )}
             <TabsTrigger value="bitacora">Bitácora</TabsTrigger>
           </TabsList>
           <TabsContent value="resumen" className="space-y-4">
@@ -226,6 +230,11 @@ export function ExpedienteDetallePage({ id }: { id: string }) {
           <TabsContent value="hitos">
             <HitosPanel data={data} />
           </TabsContent>
+          {data.expediente.tipo === 2 && (
+            <TabsContent value="contenedores">
+              <ContenedoresPanel data={data} />
+            </TabsContent>
+          )}
           <TabsContent value="bitacora">
             <Bitacora id={id} />
           </TabsContent>

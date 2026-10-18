@@ -5,6 +5,16 @@ using Millet.Compras.Domain.Oc;
 namespace Millet.Compras.Infrastructure.PublicAdapters;
 public sealed class OcImportacionReadAdapter(ComprasDbContext db) : IOcImportacionReadPort
 {
+    public async Task<IReadOnlyList<OcImportacionLectura>> ObtenerVariasAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+        (await db.OrdenesCompra.AsNoTracking().Where(o => ids.Contains(o.Id)).ToListAsync(ct)).Select(De).ToArray();
+
+    public async Task<IReadOnlyList<Guid>> ObtenerIdsPeriodoAsync(DateOnly desde, DateOnly hasta, IReadOnlyList<Guid>? sucursales, CancellationToken ct)
+    {
+        var q = db.OrdenesCompra.AsNoTracking().Where(o => o.EsImportacion && o.FechaDocumento >= desde && o.FechaDocumento < hasta);
+        if (sucursales is not null) q = q.Where(o => sucursales.Contains(o.SucursalDestinoId));
+        return await q.Select(o => o.Id).ToArrayAsync(ct);
+    }
+
     public async Task<OcImportacionLectura?> ObtenerAsync(Guid id, CancellationToken ct)
     {
         var oc = await db.OrdenesCompra.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);

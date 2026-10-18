@@ -47,7 +47,7 @@ public sealed record ComprobanteDetalleResponse(
     IReadOnlyList<NotaCreditoAplicadaDetalle>? NotasCreditoAplicadas = null,
     string? MetodoPago = null,
     CobroFacturaDetalle? CobroMostrador = null,
-    decimal PagadoPorRep = 0m);
+    decimal PagadoPorRep = 0m, Millet.Facturacion.Domain.Facturas.DatosEmbarqueCe? DatosEmbarqueCe = null);
 
 /// <summary>Cobro vigente de la factura, con la sesión donde se registró.</summary>
 public sealed record CobroFacturaDetalle(
@@ -189,6 +189,6 @@ public sealed class ComprobanteDetalleHandler
             NotasCreditoAplicadas: ncAplicadas,
             MetodoPago: f.MetodoPago,
             CobroMostrador: cobroDetalle,
-            PagadoPorRep: pagadoPorRep);
+            PagadoPorRep: pagadoPorRep, DatosEmbarqueCe: f.DatosEmbarqueCe);
     }
 }

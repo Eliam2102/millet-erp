@@ -969,7 +969,10 @@ const moduloContabilidad: NavModulo = {
 
 const comercioExterior: NavModulo = {
   moduloId: 'comercio-exterior', label: 'Comercio Exterior', icon: Plane,
-  secciones: [{ label: 'Operación', cards: [{ label: 'Expedientes', description: 'Importaciones, exportaciones y documentos con versión.', to: '/comercio-exterior/expedientes', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer }] }],
+  secciones: [{ label: 'Operación', cards: [
+    { label: 'Expedientes', description: 'Importaciones, exportaciones y documentos con versión.', to: '/comercio-exterior/expedientes', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer },
+    { label: 'Relación para IVA', description: 'Embarques e importaciones por periodo para revisión fiscal.', to: '/comercio-exterior/relacion-iva', icon: FileText, permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer },
+  ] }],
 };
 
 const modulos: readonly NavModulo[] = [

@@ -348,7 +348,7 @@ public sealed class ExpedientesHttpTests
         return client.SendAsync(request);
     }
 
-    private sealed class Escenario : IAsyncDisposable
+    internal sealed class Escenario : IAsyncDisposable
     {
         private readonly string? _authAnterior;
         private readonly string? _conexionAnterior;
@@ -363,7 +363,7 @@ public sealed class ExpedientesHttpTests
         public Guid SucursalId => Sucursal;
         private Guid Oc { get; set; }
 
-        private Escenario(string conexion, string conexionAdmin, string baseDatos)
+        private Escenario(string conexion, string conexionAdmin, string baseDatos, Action<IServiceCollection>? servicios)
         {
             // Program lee Auth:Mode al construir el host. No sustituye esquemas ni handlers de autenticación.
             _conexionAnterior = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
@@ -379,13 +379,14 @@ public sealed class ExpedientesHttpTests
                 b.ConfigureTestServices(s =>
                 {
                     s.RemoveAll<IHostedService>();
+                    servicios?.Invoke(s);
                     s.AddSingleton<Millet.SharedKernel.Application.Blob.IBlobStoragePort>(new BlobsCe(_blobs));
                     s.AddSingleton<Millet.Compras.Domain.Ports.Blob.IAlmacenarBlobPort>(new BlobsCe(_blobs));
                 });
             });
         }
 
-        public static async Task<Escenario> CrearAsync()
+        public static async Task<Escenario> CrearAsync(Action<IServiceCollection>? servicios = null)
         {
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")))
                 throw new InvalidOperationException("Se requiere PostgreSQL aislado.");
@@ -408,7 +409,7 @@ public sealed class ExpedientesHttpTests
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            var e = new Escenario(dbConexion.ConnectionString, admin.ConnectionString, nombre);
+            var e = new Escenario(dbConexion.ConnectionString, admin.ConnectionString, nombre, servicios);
             try
             {
                 using var migraciones = e._factory.Services.CreateScope();
@@ -444,6 +445,8 @@ public sealed class ExpedientesHttpTests
             return e;
         }
 
+        public IServiceScope Scope() => _factory.Services.CreateScope();
+
         public object Importacion() => new
         {
             tipo = 1,
@@ -452,7 +455,7 @@ public sealed class ExpedientesHttpTests
             responsableUsuarioId = Responsable,
             clientes = Array.Empty<string>()
         };
-        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false)
+        public async Task<HttpClient> ClienteAsync(bool permisos, bool asociar = true, bool soloLeer = false, bool leerTodas = false, bool gestionarTodas = false, bool facturacion = false, bool permisosCe = true)
         {
             using var scope = _factory.Services.CreateScope();
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -463,7 +466,9 @@ public sealed class ExpedientesHttpTests
             db.Usuarios.Add(usuario);
             db.Roles.Add(rol);
             if (permisos)
-                foreach (var p in PermisosCanonicos.Todos.Where(p => p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer)))
+                foreach (var p in PermisosCanonicos.Todos.Where(p =>
+                    (permisosCe && p.Codigo.StartsWith("comercio_exterior.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal) && (!soloLeer || p.Codigo == PermisosCanonicos.ComercioExteriorExpedientesLeer))
+                    || (facturacion && p.Codigo.StartsWith("facturacion.", StringComparison.Ordinal) && !p.Codigo.Contains("todas-sucursales", StringComparison.Ordinal))))
                     db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, p.Id));
             foreach (var codigo in new[] { leerTodas ? PermisosCanonicos.ComercioExteriorDocumentosLeerTodasSucursales : null, gestionarTodas ? PermisosCanonicos.ComercioExteriorDocumentosGestionarTodasSucursales : null }.OfType<string>())
                 db.RolPermisos.Add(new RolPermiso(Guid.NewGuid(), rol.Id, PermisosCanonicos.Todos.Single(p => p.Codigo == codigo).Id));

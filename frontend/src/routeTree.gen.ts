@@ -31,6 +31,7 @@ import { Route as AppContabilidadImportacionRouteImport } from './routes/_app/co
 import { Route as AppContabilidadDimensionesRouteImport } from './routes/_app/contabilidad/dimensiones';
 import { Route as AppComprasConfiguracionRouteImport } from './routes/_app/compras/configuracion';
 import { Route as AppComprasAyudaRouteImport } from './routes/_app/compras/ayuda';
+import { Route as AppComercioExteriorRelacionIvaRouteImport } from './routes/_app/comercio-exterior/relacion-iva';
 import { Route as AppCentrosCostoConfiguracionRouteImport } from './routes/_app/centros-costo/configuracion';
 import { Route as AppCentrosCostoAsignacionesRouteImport } from './routes/_app/centros-costo/asignaciones';
 import { Route as AppAlmacenUbicacionesRouteImport } from './routes/_app/almacen/ubicaciones';
@@ -154,8 +155,8 @@ import { Route as AppFacturacionAnticiposFacturasIndexRouteImport } from './rout
 import { Route as AppContabilidadPolizasRecurrentesIndexRouteImport } from './routes/_app/contabilidad/polizas.recurrentes.index';
 import { Route as AppAdminIntegracionesFiscalIndexRouteImport } from './routes/_app/admin/integraciones/fiscal/index';
 import { Route as AppAdminDatosMaestrosProveedoresIndexRouteImport } from './routes/_app/admin/datos-maestros/proveedores/index';
-import { Route as AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport } from './routes/_app/admin/datos-maestros/diferencias-fiscales-aw/index';
 import { Route as AppAdminDatosMaestrosProductosAwIndexRouteImport } from './routes/_app/admin/datos-maestros/productos-aw/index';
+import { Route as AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport } from './routes/_app/admin/datos-maestros/diferencias-fiscales-aw/index';
 import { Route as AppAdminDatosMaestrosClientesIndexRouteImport } from './routes/_app/admin/datos-maestros/clientes/index';
 import { Route as AppAdminDatosMaestrosArticulosIndexRouteImport } from './routes/_app/admin/datos-maestros/articulos/index';
 import { Route as AppAdminCatalogosUsosPrincipalesIndexRouteImport } from './routes/_app/admin/catalogos/usos-principales/index';
@@ -295,6 +296,12 @@ const AppComprasAyudaRoute = AppComprasAyudaRouteImport.update({
   path: '/compras/ayuda',
   getParentRoute: () => AppRoute,
 } as any);
+const AppComercioExteriorRelacionIvaRoute =
+  AppComercioExteriorRelacionIvaRouteImport.update({
+    id: '/comercio-exterior/relacion-iva',
+    path: '/comercio-exterior/relacion-iva',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppCentrosCostoConfiguracionRoute =
   AppCentrosCostoConfiguracionRouteImport.update({
     id: '/centros-costo/configuracion',
@@ -967,16 +974,16 @@ const AppAdminDatosMaestrosProveedoresIndexRoute =
     path: '/admin/datos-maestros/proveedores/',
     getParentRoute: () => AppRoute,
   } as any);
-const AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute =
-  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport.update({
-    id: '/admin/datos-maestros/diferencias-fiscales-aw/',
-    path: '/admin/datos-maestros/diferencias-fiscales-aw/',
-    getParentRoute: () => AppRoute,
-  } as any);
 const AppAdminDatosMaestrosProductosAwIndexRoute =
   AppAdminDatosMaestrosProductosAwIndexRouteImport.update({
     id: '/admin/datos-maestros/productos-aw/',
     path: '/admin/datos-maestros/productos-aw/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute =
+  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport.update({
+    id: '/admin/datos-maestros/diferencias-fiscales-aw/',
+    path: '/admin/datos-maestros/diferencias-fiscales-aw/',
     getParentRoute: () => AppRoute,
   } as any);
 const AppAdminDatosMaestrosClientesIndexRoute =
@@ -1150,6 +1157,7 @@ export interface FileRoutesByFullPath {
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
@@ -1324,6 +1332,7 @@ export interface FileRoutesByTo {
   '/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/compras/ayuda': typeof AppComprasAyudaRoute;
   '/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
@@ -1500,6 +1509,7 @@ export interface FileRoutesById {
   '/_app/almacen/ubicaciones': typeof AppAlmacenUbicacionesRoute;
   '/_app/centros-costo/asignaciones': typeof AppCentrosCostoAsignacionesRoute;
   '/_app/centros-costo/configuracion': typeof AppCentrosCostoConfiguracionRoute;
+  '/_app/comercio-exterior/relacion-iva': typeof AppComercioExteriorRelacionIvaRoute;
   '/_app/compras/ayuda': typeof AppComprasAyudaRoute;
   '/_app/compras/configuracion': typeof AppComprasConfiguracionRoute;
   '/_app/contabilidad/dimensiones': typeof AppContabilidadDimensionesRoute;
@@ -1676,6 +1686,7 @@ export interface FileRouteTypes {
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
+    | '/comercio-exterior/relacion-iva'
     | '/compras/ayuda'
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
@@ -1850,6 +1861,7 @@ export interface FileRouteTypes {
     | '/almacen/ubicaciones'
     | '/centros-costo/asignaciones'
     | '/centros-costo/configuracion'
+    | '/comercio-exterior/relacion-iva'
     | '/compras/ayuda'
     | '/compras/configuracion'
     | '/contabilidad/dimensiones'
@@ -2025,6 +2037,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/ubicaciones'
     | '/_app/centros-costo/asignaciones'
     | '/_app/centros-costo/configuracion'
+    | '/_app/comercio-exterior/relacion-iva'
     | '/_app/compras/ayuda'
     | '/_app/compras/configuracion'
     | '/_app/contabilidad/dimensiones'
@@ -2345,6 +2358,13 @@ declare module '@tanstack/react-router' {
       path: '/compras/ayuda';
       fullPath: '/compras/ayuda';
       preLoaderRoute: typeof AppComprasAyudaRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/comercio-exterior/relacion-iva': {
+      id: '/_app/comercio-exterior/relacion-iva';
+      path: '/comercio-exterior/relacion-iva';
+      fullPath: '/comercio-exterior/relacion-iva';
+      preLoaderRoute: typeof AppComercioExteriorRelacionIvaRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/centros-costo/configuracion': {
@@ -3208,18 +3228,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminDatosMaestrosProveedoresIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
-    '/_app/admin/datos-maestros/diferencias-fiscales-aw/': {
-      id: '/_app/admin/datos-maestros/diferencias-fiscales-aw/';
-      path: '/admin/datos-maestros/diferencias-fiscales-aw';
-      fullPath: '/admin/datos-maestros/diferencias-fiscales-aw/';
-      preLoaderRoute: typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport;
-      parentRoute: typeof AppRoute;
-    };
     '/_app/admin/datos-maestros/productos-aw/': {
       id: '/_app/admin/datos-maestros/productos-aw/';
       path: '/admin/datos-maestros/productos-aw';
       fullPath: '/admin/datos-maestros/productos-aw/';
       preLoaderRoute: typeof AppAdminDatosMaestrosProductosAwIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/admin/datos-maestros/diferencias-fiscales-aw/': {
+      id: '/_app/admin/datos-maestros/diferencias-fiscales-aw/';
+      path: '/admin/datos-maestros/diferencias-fiscales-aw';
+      fullPath: '/admin/datos-maestros/diferencias-fiscales-aw/';
+      preLoaderRoute: typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/admin/datos-maestros/clientes/': {
@@ -3437,6 +3457,7 @@ interface AppRouteChildren {
   AppAlmacenUbicacionesRoute: typeof AppAlmacenUbicacionesRoute;
   AppCentrosCostoAsignacionesRoute: typeof AppCentrosCostoAsignacionesRoute;
   AppCentrosCostoConfiguracionRoute: typeof AppCentrosCostoConfiguracionRoute;
+  AppComercioExteriorRelacionIvaRoute: typeof AppComercioExteriorRelacionIvaRoute;
   AppComprasAyudaRoute: typeof AppComprasAyudaRoute;
   AppComprasConfiguracionRoute: typeof AppComprasConfiguracionRoute;
   AppContabilidadDimensionesRoute: typeof AppContabilidadDimensionesRoute;
@@ -3609,6 +3630,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenUbicacionesRoute: AppAlmacenUbicacionesRoute,
   AppCentrosCostoAsignacionesRoute: AppCentrosCostoAsignacionesRoute,
   AppCentrosCostoConfiguracionRoute: AppCentrosCostoConfiguracionRoute,
+  AppComercioExteriorRelacionIvaRoute: AppComercioExteriorRelacionIvaRoute,
   AppComprasAyudaRoute: AppComprasAyudaRoute,
   AppComprasConfiguracionRoute: AppComprasConfiguracionRoute,
   AppContabilidadDimensionesRoute: AppContabilidadDimensionesRoute,
