@@ -896,6 +896,14 @@ namespace Millet.Tesoreria.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("destino_titular");
 
+                    b.Property<DateTimeOffset?>("EditadaEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("editada_en");
+
+                    b.Property<Guid?>("EditadaPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("editada_por");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");

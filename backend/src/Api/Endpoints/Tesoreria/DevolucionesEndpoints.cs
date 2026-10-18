@@ -163,7 +163,6 @@ public static class DevolucionesEndpoints
 
         app.MapGet("/api/v1/tesoreria/clientes-lookup", async ([FromQuery] string? q, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new BuscarClientesTesoreriaQuery(q ?? ""), ct)))
-        .RequireAuthorization()
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.TesoreriaDevolucionesSolicitar)
         .WithTags("Tesoreria");
 

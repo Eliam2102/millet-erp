@@ -40,6 +40,9 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
     public EstadoDevolucionCliente Estado { get; private set; } = EstadoDevolucionCliente.Solicitada;
     public Guid? SolicitadaPor { get; private set; }
     public DateTimeOffset SolicitadaEn { get; private set; }
+    /// <summary>Último editor (segregación: quien editó la solicitud tampoco la autoriza).</summary>
+    public Guid? EditadaPor { get; private set; }
+    public DateTimeOffset? EditadaEn { get; private set; }
     public Guid? AutorizadaPor { get; private set; }
     public DateTimeOffset? AutorizadaEn { get; private set; }
     public Guid? ResueltaPor { get; private set; }
@@ -132,7 +135,7 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
         };
     }
 
-    public void Editar(Guid clienteId, decimal importe, decimal disponible, string motivo, CuentaDestinoDevolucion? destino)
+    public void Editar(Guid clienteId, decimal importe, decimal disponible, string motivo, CuentaDestinoDevolucion? destino, Guid editadaPor, DateTimeOffset ahora)
     {
         if (Estado != EstadoDevolucionCliente.Solicitada)
             throw new BusinessRuleException("DEV_NO_EDITABLE", "Solo una devolución solicitada puede editarse.");
@@ -164,6 +167,8 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
         ClienteId = clienteId;
         Importe = importe;
         Motivo = motivo.Trim();
+        EditadaPor = editadaPor;
+        EditadaEn = ahora;
     }
 
     public void Cancelar(string motivo, Guid usuarioId, DateTimeOffset ahora)
@@ -182,9 +187,9 @@ public sealed class DevolucionCliente : BaseEntity, IPerteneceAEmpresa, IAuditab
         AsegurarSolicitada();
         if (usuarioId == Guid.Empty)
             throw new BusinessRuleException("DEV_USUARIO_VACIO", "El usuario que autoriza es obligatorio.");
-        if (SolicitadaPor == usuarioId)
+        if (SolicitadaPor == usuarioId || EditadaPor == usuarioId)
             throw new BusinessRuleException("DEV_MISMO_USUARIO",
-                "Quien solicita la devolución no puede autorizarla. Pide la autorización al Gerente o al Jefe de Tesorería.");
+                "Quien solicita o edita la devolución no puede autorizarla. Pide la autorización al Gerente o al Jefe de Tesorería.");
         if (DestinoBanco is null || DestinoClabe is null || DestinoTitular is null)
             throw new BusinessRuleException("DEV_DESTINO_INCOMPLETO", "Captura banco, CLABE y titular de la cuenta destino antes de autorizar.");
         Estado = EstadoDevolucionCliente.Autorizada;

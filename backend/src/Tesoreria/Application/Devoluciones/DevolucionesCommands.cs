@@ -131,12 +131,12 @@ internal static class DevolucionTransiciones
                 "Solo quien solicitó la devolución o un autorizador puede editarla o cancelarla.");
     }
 
-    public static async Task<DevolucionClienteResponse> RespuestaAsync(TesoreriaDbContext db, IClienteReadPort clientes, DevolucionCliente d, CancellationToken ct)
+    public static async Task<DevolucionClienteResponse> RespuestaAsync(TesoreriaDbContext db, IClienteReadPort clientes, ICurrentUserPermissions permisos, DevolucionCliente d, CancellationToken ct)
     {
         var c = await clientes.ObtenerVariosAsync([d.ClienteId], ct);
         c.TryGetValue(d.ClienteId, out var cliente);
         var disponible = d.ImporteMaximoOrigen - await DevolucionLectura.ComprometidoAsync(db, d, ct);
-        return DevolucionLectura.ToResponse(d, cliente, disponible, verCuentaCompleta: true);
+        return DevolucionLectura.ToResponse(d, cliente, disponible, await permisos.TieneAsync("tesoreria.movimientos.ver-cuenta-completa", ct));
     }
 }
 
@@ -201,9 +201,9 @@ public sealed class EditarDevolucionHandler : IRequestHandler<EditarDevolucionCo
         var destino = capturados == 3 ? new CuentaDestinoDevolucion(command.Banco!, command.Clabe!, command.Titular!) : null;
 
         var disponible = d.ImporteMaximoOrigen - await DevolucionLectura.ComprometidoAsync(_db, d, ct);
-        d.Editar(command.ClienteId, command.Importe, disponible, command.Motivo, destino);
+        d.Editar(command.ClienteId, command.Importe, disponible, command.Motivo, destino, usuarioId, _clock.UtcNow);
         await _db.SaveChangesAsync(ct);
-        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, d, ct);
+        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, _permisos, d, ct);
     }
 }
 
@@ -241,7 +241,7 @@ public sealed class CancelarDevolucionHandler : IRequestHandler<CancelarDevoluci
         await DevolucionTransiciones.ExigirSolicitanteOAutorizadorAsync(d, usuarioId, _permisos, ct);
         d.Cancelar(command.Motivo, usuarioId, _clock.UtcNow);
         await _db.SaveChangesAsync(ct);
-        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, d, ct);
+        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, _permisos, d, ct);
     }
 }
 
@@ -257,13 +257,14 @@ public sealed class AutorizarDevolucionHandler : IRequestHandler<AutorizarDevolu
     private readonly TesoreriaDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ICurrentUserPermissions _permisos;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
 
     public AutorizarDevolucionHandler(TesoreriaDbContext db, ICurrentEmpresaContext currentEmpresa, ICurrentUserContext currentUser,
-        IClienteReadPort clientes, IClock clock)
+        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clientes = clientes; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _permisos = permisos; _clientes = clientes; _clock = clock;
     }
 
     public async Task<DevolucionClienteResponse> Handle(AutorizarDevolucionCommand command, CancellationToken cancellationToken)
@@ -273,7 +274,7 @@ public sealed class AutorizarDevolucionHandler : IRequestHandler<AutorizarDevolu
         var d = await DevolucionTransiciones.CargarAsync(_db, command.Id, command.VersionEsperada, ct);
         d.Autorizar(usuarioId, _clock.UtcNow);
         await _db.SaveChangesAsync(ct);
-        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, d, ct);
+        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, _permisos, d, ct);
     }
 }
 
@@ -293,13 +294,14 @@ public sealed class RechazarDevolucionHandler : IRequestHandler<RechazarDevoluci
     private readonly TesoreriaDbContext _db;
     private readonly ICurrentEmpresaContext _currentEmpresa;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ICurrentUserPermissions _permisos;
     private readonly IClienteReadPort _clientes;
     private readonly IClock _clock;
 
     public RechazarDevolucionHandler(TesoreriaDbContext db, ICurrentEmpresaContext currentEmpresa, ICurrentUserContext currentUser,
-        IClienteReadPort clientes, IClock clock)
+        ICurrentUserPermissions permisos, IClienteReadPort clientes, IClock clock)
     {
-        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _clientes = clientes; _clock = clock;
+        _db = db; _currentEmpresa = currentEmpresa; _currentUser = currentUser; _permisos = permisos; _clientes = clientes; _clock = clock;
     }
 
     public async Task<DevolucionClienteResponse> Handle(RechazarDevolucionCommand command, CancellationToken cancellationToken)
@@ -309,6 +311,6 @@ public sealed class RechazarDevolucionHandler : IRequestHandler<RechazarDevoluci
         var d = await DevolucionTransiciones.CargarAsync(_db, command.Id, command.VersionEsperada, ct);
         d.Rechazar(command.Motivo, usuarioId, _clock.UtcNow);
         await _db.SaveChangesAsync(ct);
-        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, d, ct);
+        return await DevolucionTransiciones.RespuestaAsync(_db, _clientes, _permisos, d, ct);
     }
 }

@@ -45,7 +45,19 @@ public sealed class TransicionesDevolucionHandlerTests
     public async Task Autorizar_con_el_mismo_usuario_lanza()
     {
         await using var db = Db(); var (_, d) = await Escenario(db);
-        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Solicitante), new Clientes(), new Clock());
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Solicitante), new Permisos(false), new Clientes(), new Clock());
+        var act = () => h.Handle(new(d.Id, d.Version), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_MISMO_USUARIO");
+    }
+
+    [Fact]
+    public async Task Autorizar_por_el_ultimo_editor_lanza()
+    {
+        await using var db = Db(); var (_, d) = await Escenario(db);
+        var editor = Guid.NewGuid();
+        d.Editar(Cliente, 100m, 600m, "x", Destino, editor, DateTimeOffset.UtcNow);
+        await db.SaveChangesAsync();
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(editor), new Permisos(false), new Clientes(), new Clock());
         var act = () => h.Handle(new(d.Id, d.Version), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_MISMO_USUARIO");
     }
@@ -55,7 +67,7 @@ public sealed class TransicionesDevolucionHandlerTests
     {
         await using var db = Db(); var (_, d) = await Escenario(db);
         var otro = Guid.NewGuid();
-        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(otro), new Clientes(), new Clock());
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(otro), new Permisos(false), new Clientes(), new Clock());
         var r = await h.Handle(new(d.Id, d.Version), default);
         r.Estado.Should().Be(EstadoDevolucionCliente.Autorizada);
         r.AutorizadaPor.Should().Be(otro);
@@ -65,7 +77,7 @@ public sealed class TransicionesDevolucionHandlerTests
     public async Task Version_vieja_lanza_concurrencia()
     {
         await using var db = Db(); var (_, d) = await Escenario(db);
-        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Guid.NewGuid()), new Clientes(), new Clock());
+        var h = new AutorizarDevolucionHandler(db, new EmpresaContext(), new User(Guid.NewGuid()), new Permisos(false), new Clientes(), new Clock());
         var act = () => h.Handle(new(d.Id, d.Version + 1), default);
         await act.Should().ThrowAsync<ConcurrencyException>();
     }

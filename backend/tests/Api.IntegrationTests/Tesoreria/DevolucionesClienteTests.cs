@@ -20,7 +20,9 @@ using Millet.Api.IntegrationTests.Fixtures;
 using Millet.Tesoreria.Application.EventListeners;
 using MediatR;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.Tesoreria.Domain.Cuentas;
+using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
@@ -36,6 +38,7 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
     private readonly List<Guid> _clientes = [];
     private readonly List<Guid> _notasCredito = [];
     private readonly List<Guid> _eventos = [];
+    private readonly List<Guid> _depositos = [];
     private static readonly JsonSerializerOptions Insensible = new() { PropertyNameCaseInsensitive = true };
     private const string Clabe = "032180000118359719";
     private const string Tes = "/api/v1/tesoreria";
@@ -77,8 +80,17 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
         var version = await Version(client, devolucionId);
         var pagada = await Post(client, $"{Tes}/devoluciones/{devolucionId}/pagar", cuerpo, version, llave);
         pagada.StatusCode.Should().Be(HttpStatusCode.OK, await pagada.Content.ReadAsStringAsync());
-        (await pagada.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("estado").GetInt32().Should().Be((int)EstadoDevolucionCliente.Pagada);
-        await Post(client, $"{Tes}/devoluciones/{devolucionId}/pagar", cuerpo, version, llave);
+        var cuerpoPagada = await pagada.Content.ReadFromJsonAsync<JsonElement>();
+        cuerpoPagada.GetProperty("estado").GetInt32().Should().Be((int)EstadoDevolucionCliente.Pagada);
+        var movimientoPagoId = cuerpoPagada.GetProperty("movimientoPagoId").GetGuid();
+        // Mismo Idempotency-Key: misma respuesta, sin segundo egreso.
+        var repetida = await Post(client, $"{Tes}/devoluciones/{devolucionId}/pagar", cuerpo, version, llave);
+        repetida.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await repetida.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("movimientoPagoId").GetGuid()
+            .Should().Be(movimientoPagoId);
+        // Otro Idempotency-Key sobre la devolución ya pagada: no se paga dos veces.
+        await Esperar(await Post(client, $"{Tes}/devoluciones/{devolucionId}/pagar", cuerpo, await Version(client, devolucionId)),
+            HttpStatusCode.UnprocessableEntity, "DEV_NO_AUTORIZADA");
 
         using var verificar = factory.Services.CreateScope();
         using var empresa = verificar.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -179,6 +191,10 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
             new { clienteId, importe = 400m, motivo = "Bonificación a reembolsar", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" },
             await Version(client, id));
         destino.StatusCode.Should().Be(HttpStatusCode.OK, await destino.Content.ReadAsStringAsync());
+        // Quien editó la solicitud tampoco la autoriza: otro editor en BD para poder autorizar con el mismo login.
+        await Esperar(await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(client, id)),
+            HttpStatusCode.UnprocessableEntity, "DEV_MISMO_USUARIO");
+        await OtroEditor(id);
         (await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(client, id))).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var cuenta = await Deposito();
@@ -291,6 +307,286 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
         }
     }
 
+    [Fact]
+    public async Task Carrera_deposito_cxc_confirmar_con_devolucion_en_curso_se_rechaza()
+    {
+        var (client, _) = await Login(factory);
+        var clienteId = await NuevoCliente();
+        var deposito = await Deposito();
+        var solicitud = await Post(client, $"{Tes}/movimientos/{deposito.Id}/solicitar-devolucion",
+            new { clienteId, importe = 500m, motivo = "Carrera CxC", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" });
+        solicitud.StatusCode.Should().Be(HttpStatusCode.Created);
+        var devolucionId = (await solicitud.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var confirmacionId = await SembrarPropuesta(clienteId);
+        string Ruta() => $"{Tes}/depositos/{confirmacionId}/confirmar";
+
+        // Solicitada y luego Autorizada: ambas bloquean la confirmación contra CxC.
+        await Esperar(await Post(client, Ruta(), new { movimientoBancarioId = deposito.Id }, await VersionDeposito(confirmacionId)),
+            HttpStatusCode.UnprocessableEntity, "DEP_DEVOLUCION_EN_CURSO");
+        await OtroSolicitante(devolucionId);
+        (await Post(client, $"{Tes}/devoluciones/{devolucionId}/autorizar", new { }, await Version(client, devolucionId))).StatusCode.Should().Be(HttpStatusCode.OK);
+        await Esperar(await Post(client, Ruta(), new { movimientoBancarioId = deposito.Id }, await VersionDeposito(confirmacionId)),
+            HttpStatusCode.UnprocessableEntity, "DEP_DEVOLUCION_EN_CURSO");
+
+        // Cancelada ya no bloquea: se puede confirmar (la otra puerta queda cerrada por el candado de depósito confirmado).
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            await scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>().DevolucionesCliente
+                .Where(d => d.Id == devolucionId).ExecuteUpdateAsync(s => s.SetProperty(d => d.Estado, EstadoDevolucionCliente.Cancelada));
+        }
+        var ok = await Post(client, Ruta(), new { movimientoBancarioId = deposito.Id }, await VersionDeposito(confirmacionId));
+        ok.StatusCode.Should().Be(HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Carrera_deposito_cxc_pagar_devolucion_de_deposito_ya_confirmado_se_rechaza()
+    {
+        await using var app = AppConPeriodoAbierto();
+        var (client, _) = await Login(app);
+        var clienteId = await NuevoCliente();
+        var deposito = await Deposito();
+        var solicitud = await Post(client, $"{Tes}/movimientos/{deposito.Id}/solicitar-devolucion",
+            new { clienteId, importe = 500m, motivo = "Carrera CxC", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" });
+        var devolucionId = (await solicitud.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        await OtroSolicitante(devolucionId);
+        (await Post(client, $"{Tes}/devoluciones/{devolucionId}/autorizar", new { }, await Version(client, devolucionId))).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Se simula la confirmación que, antes del candado, podía colarse entre autorizar y pagar.
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+            var mov = await db.MovimientosBancarios.SingleAsync(m => m.Id == deposito.Id);
+            var dep = DepositoConfirmacion.CrearDesdePropuesta(Empresa, Guid.NewGuid(), clienteId, "REF CARRERA", mov.Monto, "MXN", "[]", Guid.NewGuid());
+            dep.Confirmar(mov, Guid.NewGuid(), DateTimeOffset.UtcNow);
+            db.DepositosConfirmacion.Add(dep); await db.SaveChangesAsync();
+            _depositos.Add(dep.Id);
+        }
+        var pagar = await Post(client, $"{Tes}/devoluciones/{devolucionId}/pagar",
+            new { fechaValor = DateOnly.FromDateTime(DateTime.UtcNow), fondosVerificados = true }, await Version(client, devolucionId));
+        await Esperar(pagar, HttpStatusCode.UnprocessableEntity, "DEV_DEPOSITO_CONFIRMADO");
+        using var verificar = factory.Services.CreateScope();
+        using var empresa = verificar.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        (await verificar.ServiceProvider.GetRequiredService<TesoreriaDbContext>().MovimientosBancarios
+            .AnyAsync(m => m.ContramovimientoDe == deposito.Id)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Tope_del_deposito_cuenta_todo_egreso_ligado_no_solo_devoluciones_pagadas()
+    {
+        await using var app = AppConPeriodoAbierto();
+        var (client, _) = await Login(app);
+        var clienteId = await NuevoCliente();
+        var deposito = await Deposito();
+        var solicitud = await Post(client, $"{Tes}/movimientos/{deposito.Id}/solicitar-devolucion",
+            new { clienteId, importe = 600m, motivo = "Tope egresos", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" });
+        var id = (await solicitud.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        await OtroSolicitante(id);
+        (await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(client, id))).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Una reversa manual (no es DevolucionCliente) ya consumió 500 del depósito.
+        using (var scope = factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var db = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+            var original = await db.MovimientosBancarios.SingleAsync(m => m.Id == deposito.Id);
+            db.MovimientosBancarios.Add(original.CrearContramovimiento(500m, DateOnly.FromDateTime(DateTime.UtcNow), Guid.NewGuid(), DateTimeOffset.UtcNow, "Reversa previa"));
+            await db.SaveChangesAsync();
+        }
+
+        var pagar = await Post(client, $"{Tes}/devoluciones/{id}/pagar",
+            new { fechaValor = DateOnly.FromDateTime(DateTime.UtcNow), fondosVerificados = true }, await Version(client, id));
+        await Esperar(pagar, HttpStatusCode.UnprocessableEntity, "DEV_IMPORTE_EXCEDE_DEPOSITO");
+    }
+
+    [Fact]
+    public async Task Quien_edita_la_solicitud_no_la_autoriza()
+    {
+        var (client, _) = await Login(factory);
+        var clienteId = await NuevoCliente();
+        var deposito = await Deposito();
+        var solicitud = await Post(client, $"{Tes}/movimientos/{deposito.Id}/solicitar-devolucion",
+            new { clienteId, importe = 300m, motivo = "Editor", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" });
+        var id = (await solicitud.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        await OtroSolicitante(id);
+        var editar = await Put(client, $"{Tes}/devoluciones/{id}",
+            new { clienteId, importe = 250m, motivo = "Editor", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" }, await Version(client, id));
+        editar.StatusCode.Should().Be(HttpStatusCode.OK, await editar.Content.ReadAsStringAsync());
+        await Esperar(await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(client, id)),
+            HttpStatusCode.UnprocessableEntity, "DEV_MISMO_USUARIO");
+    }
+
+    [Fact]
+    public async Task Autorizador_sin_ver_cuenta_completa_recibe_la_clabe_enmascarada()
+    {
+        var oid = $"test-dev-aut-{Guid.NewGuid():N}"[..40];
+        await CrearOperativo(oid, TestComprasFixtures.SucursalMid, PermisosCanonicos.TesoreriaDevolucionesVer, PermisosCanonicos.TesoreriaDevolucionesAutorizar);
+        var id = await SembrarDevolucionNc(TestComprasFixtures.SucursalMid);
+        var (admin, _) = await Login(factory);
+        var editar = await Put(admin, $"{Tes}/devoluciones/{id}",
+            new { clienteId = await ClienteDe(id), importe = 100m, motivo = "PII", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" }, await Version(admin, id));
+        editar.StatusCode.Should().Be(HttpStatusCode.OK, await editar.Content.ReadAsStringAsync());
+        (await editar.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("destinoClabe").GetString().Should().Be(Clabe);
+
+        var (autorizador, _) = await Login(factory, oid);
+        var autorizada = await Post(autorizador, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(autorizador, id));
+        autorizada.StatusCode.Should().Be(HttpStatusCode.OK, await autorizada.Content.ReadAsStringAsync());
+        var clabe = (await autorizada.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("destinoClabe").GetString();
+        clabe.Should().NotBe(Clabe).And.EndWith(Clabe[^4..]).And.StartWith("**");
+    }
+
+    [Fact]
+    public async Task Solicitar_sin_autorizar_recibe_403_en_autorizar_y_rechazar()
+    {
+        var oid = $"test-dev-sol-{Guid.NewGuid():N}"[..40];
+        await CrearOperativo(oid, TestComprasFixtures.SucursalMid, PermisosCanonicos.TesoreriaDevolucionesVer, PermisosCanonicos.TesoreriaDevolucionesSolicitar);
+        var id = await SembrarDevolucionNc(TestComprasFixtures.SucursalMid);
+        var (client, _) = await Login(factory, oid);
+        (await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, 1)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await Post(client, $"{Tes}/devoluciones/{id}/rechazar", new { motivo = "x" }, 1)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Cancelar_y_rechazar_liberan_el_tope_del_deposito()
+    {
+        var (client, _) = await Login(factory);
+        var clienteId = await NuevoCliente();
+        var deposito = await Deposito();
+        async Task<Guid> Solicitar()
+        {
+            var r = await Post(client, $"{Tes}/movimientos/{deposito.Id}/solicitar-devolucion",
+                new { clienteId, importe = 1000m, motivo = "Libera tope", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" });
+            r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
+            return (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        }
+
+        var primera = await Solicitar();
+        (await Post(client, $"{Tes}/devoluciones/{primera}/cancelar", new { motivo = "Ya no aplica" }, await Version(client, primera)))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var segunda = await Solicitar();
+        (await Post(client, $"{Tes}/devoluciones/{segunda}/rechazar", new { motivo = "No procede" }, await Version(client, segunda)))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        await Solicitar();
+    }
+
+    [Fact]
+    public async Task Pago_de_nc_con_cuenta_en_otra_moneda_se_rechaza()
+    {
+        await using var app = AppConPeriodoAbierto();
+        var (client, _) = await Login(app);
+        var id = await NcAutorizada(client);
+        var usd = await NuevaCuenta("USD");
+        var pagar = await Post(client, $"{Tes}/devoluciones/{id}/pagar",
+            new { fechaValor = DateOnly.FromDateTime(DateTime.UtcNow), cuentaBancariaId = usd, fondosVerificados = true }, await Version(client, id));
+        await Esperar(pagar, HttpStatusCode.UnprocessableEntity, "DEV_CUENTA_OTRA_MONEDA");
+    }
+
+    [Fact]
+    public async Task Pago_de_nc_con_periodo_cerrado_se_rechaza()
+    {
+        await using var abierto = AppConPeriodoAbierto();
+        var (admin, _) = await Login(abierto);
+        var id = await NcAutorizada(admin);
+        var cuenta = await NuevaCuenta("MXN");
+        await using var cerrado = factory.WithWebHostBuilder(b => b.ConfigureServices(services =>
+        {
+            services.RemoveAll<IPeriodoContablePort>();
+            services.AddSingleton<IPeriodoContablePort, PeriodoCerrado>();
+        }));
+        var (client, _) = await Login(cerrado);
+        var pagar = await Post(client, $"{Tes}/devoluciones/{id}/pagar",
+            new { fechaValor = DateOnly.FromDateTime(DateTime.UtcNow), cuentaBancariaId = cuenta, fondosVerificados = true }, await Version(client, id));
+        await Esperar(pagar, HttpStatusCode.UnprocessableEntity, "MOV_PERIODO_CERRADO");
+    }
+
+    [Fact]
+    public async Task La_bitacora_no_contiene_la_clabe_completa()
+    {
+        var (client, _) = await Login(factory);
+        var clienteId = await NuevoCliente();
+        var deposito = await Deposito();
+        var solicitud = await Post(client, $"{Tes}/movimientos/{deposito.Id}/solicitar-devolucion",
+            new { clienteId, importe = 100m, motivo = "Bitácora", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" });
+        var id = (await solicitud.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        (await Put(client, $"{Tes}/devoluciones/{id}",
+            new { clienteId, importe = 90m, motivo = "Bitácora", banco = "BBVA", clabe = "012180015678912342", titular = "Cliente SA" }, await Version(client, id)))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var scope = factory.Services.CreateScope();
+        var entradas = await scope.ServiceProvider.GetRequiredService<CoreDbContext>().AuditLog.AsNoTracking()
+            .Where(a => a.EntidadId == id).ToListAsync();
+        entradas.Should().NotBeEmpty();
+        entradas.Should().OnlyContain(a => !a.Cambios.Contains(Clabe) && !a.Cambios.Contains("012180015678912342"));
+    }
+
+    private async Task<Guid> NcAutorizada(HttpClient client)
+    {
+        var id = await SembrarDevolucionNc(TestComprasFixtures.SucursalMid);
+        var edit = await Put(client, $"{Tes}/devoluciones/{id}",
+            new { clienteId = await ClienteDe(id), importe = 100m, motivo = "NC pago", banco = "BBVA", clabe = Clabe, titular = "Cliente SA" }, await Version(client, id));
+        edit.StatusCode.Should().Be(HttpStatusCode.OK, await edit.Content.ReadAsStringAsync());
+        await OtroEditor(id);
+        (await Post(client, $"{Tes}/devoluciones/{id}/autorizar", new { }, await Version(client, id))).StatusCode.Should().Be(HttpStatusCode.OK);
+        return id;
+    }
+
+    private async Task<int> VersionDeposito(Guid id)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        return await scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>().DepositosConfirmacion
+            .Where(d => d.Id == id).Select(d => d.Version).SingleAsync();
+    }
+
+    private async Task<Guid> ClienteDe(Guid devolucionId)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        return await scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>().DevolucionesCliente
+            .Where(d => d.Id == devolucionId).Select(d => d.ClienteId).SingleAsync();
+    }
+
+    private async Task OtroSolicitante(Guid id)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var otro = Guid.NewGuid();
+        await scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>().DevolucionesCliente
+            .Where(d => d.Id == id).ExecuteUpdateAsync(s => s.SetProperty(d => d.SolicitadaPor, otro));
+    }
+
+    private async Task OtroEditor(Guid id)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var otro = Guid.NewGuid();
+        await scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>().DevolucionesCliente
+            .Where(d => d.Id == id).ExecuteUpdateAsync(s => s.SetProperty(d => d.EditadaPor, otro));
+    }
+
+    private async Task<Guid> NuevaCuenta(string moneda)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+        var cuenta = new CuentaBancaria(Empresa, "Banco ficticio DEV", Guid.NewGuid().ToString("N")[..16], null, moneda);
+        db.CuentasBancarias.Add(cuenta); await db.SaveChangesAsync();
+        _cuentas.Add(cuenta.Id);
+        return cuenta.Id;
+    }
+
+    private async Task<Guid> SembrarPropuesta(Guid clienteId)
+    {
+        using var scope = factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        var db = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+        var dep = DepositoConfirmacion.CrearDesdePropuesta(Empresa, Guid.NewGuid(), clienteId, "REF CARRERA", 1000m, "MXN", "[]", Guid.NewGuid());
+        db.DepositosConfirmacion.Add(dep); await db.SaveChangesAsync();
+        _depositos.Add(dep.Id);
+        return dep.Id;
+    }
+
     private WebApplicationFactory<Program> AppConPeriodoAbierto() => factory.WithWebHostBuilder(b => b.ConfigureServices(services =>
     {
         services.RemoveAll<IPeriodoContablePort>();
@@ -374,12 +670,18 @@ public sealed class DevolucionesClienteTests(WebApplicationFactory<Program> fact
         public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(true);
     }
 
+    private sealed class PeriodoCerrado : IPeriodoContablePort
+    {
+        public Task<bool> EstaAbiertoAsync(int año, int mes, CancellationToken ct) => Task.FromResult(false);
+    }
+
     public Task InitializeAsync() => Task.CompletedTask;
     public async Task DisposeAsync()
     {
         using var scope = factory.Services.CreateScope();
         using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
         var tes = scope.ServiceProvider.GetRequiredService<TesoreriaDbContext>();
+        await tes.DepositosConfirmacion.Where(d => _depositos.Contains(d.Id)).ExecuteDeleteAsync();
         var movimientos = tes.MovimientosBancarios.Where(m => _cuentas.Contains(m.CuentaBancariaId)).Select(m => m.Id);
         await tes.DevolucionesCliente.Where(d => movimientos.Contains(d.MovimientoOrigenId!.Value)
             || (d.NotaCreditoId != null && _notasCredito.Contains(d.NotaCreditoId.Value))).ExecuteDeleteAsync();

@@ -557,6 +557,11 @@ El grupo de endpoints verifica la sucursal del documento con `DocumentoSucursalS
 - **Sin reversa.** Una devolución pagada no se revierte (por ejemplo, transferencia rechazada por el banco); requiere un flujo propio.
 - **Sin evento hacia Contabilidad.** No se publica `tesoreria.devolucion-cliente.pagada.v1`; falta el contrato contable con Uziel.
 - **Reapertura.** Reabrir el reembolso de una NC rechazada por Tesorería está fuera de alcance. La NC conserva la marca de reembolso solicitado.
+- **Pagar ≠ autorizar (decisión del owner pendiente).** Hoy un mismo usuario puede autorizar y luego pagar una devolución si tiene ambos permisos. La segregación vigente es: quien solicita o edita por última vez no autoriza (`DEV_MISMO_USUARIO`). Imponer además que quien paga sea distinto de quien autoriza queda a decisión del owner; no está implementado.
+- **Carrera depósito↔CxC (cerrada).** Confirmar un depósito contra CxC con una devolución Solicitada o Autorizada sobre ese ingreso se rechaza con `DEP_DEVOLUCION_EN_CURSO`; pagar la devolución de un depósito ya confirmado se rechaza con `DEV_DEPOSITO_CONFIRMADO`. Ambos flujos corren bajo el mismo advisory lock (`DevolucionLectura.LockKey`). El tope del depósito al pagar suma todo egreso con `ContramovimientoDe` igual al depósito, no solo devoluciones pagadas.
+- **Rechazo o cancelación de la devolución de NC no libera la NC en Facturación (S3).** La NC conserva la marca de reembolso solicitado y no puede volver a pedirse. Pendiente de flujo de reapertura; no implementado.
+- **CA6.17 «NC por anticipo no aplicado» no alcanzable (Q1).** Hoy ningún flujo emite esa NC hacia el reembolso. Por confirmar con Eliam; no implementado.
+- **Cuenta de pago de la NC sin validar sucursal.** Al pagar el reembolso de una NC, Tesorería elige la cuenta bancaria sin comprobar que pertenezca a la sucursal de la devolución (solo se valida moneda). Pendiente; no implementado.
 
 ---
 

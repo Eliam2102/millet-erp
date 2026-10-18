@@ -39,7 +39,7 @@ public sealed class PagarDevolucionHandlerTests
     {
         var cuenta = new CuentaBancaria(Empresa, "BBVA", "1234567890", null, monedaCuenta);
         var d = DevolucionCliente.SolicitarPorNotaCredito(Empresa, Guid.NewGuid(), "NC-1", null, Cliente, 300m, 500m, "MXN", null, "reembolso", null, Ahora);
-        d.Editar(Cliente, 300m, 500m, "reembolso", Destino);
+        d.Editar(Cliente, 300m, 500m, "reembolso", Destino, Guid.NewGuid(), DateTimeOffset.UtcNow);
         if (autorizada) d.Autorizar(Guid.NewGuid(), Ahora);
         db.CuentasBancarias.Add(cuenta); db.DevolucionesCliente.Add(d);
         await db.SaveChangesAsync();
@@ -67,6 +67,27 @@ public sealed class PagarDevolucionHandlerTests
         var act = () => Handler(db).Handle(new(d.Id, Fecha, null, null, true, d.Version), default);
         await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_NO_AUTORIZADA");
         (await db.MovimientosBancarios.CountAsync(x => x.Sentido == SentidoMovimiento.Egreso)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Pagar_deposito_ya_confirmado_contra_cxc_lanza()
+    {
+        await using var db = Db(); var (m, d) = await Deposito(db);
+        var dep = Millet.Tesoreria.Domain.Depositos.DepositoConfirmacion.CrearDesdePropuesta(Empresa, Guid.NewGuid(), Cliente, "REF", 1_000m, "MXN", "[]", Guid.NewGuid());
+        dep.Confirmar(m, Guid.NewGuid(), Ahora);
+        db.DepositosConfirmacion.Add(dep); await db.SaveChangesAsync();
+        var act = () => Handler(db).Handle(new(d.Id, Fecha, null, null, true, d.Version), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_DEPOSITO_CONFIRMADO");
+    }
+
+    [Fact]
+    public async Task Tope_del_deposito_suma_cualquier_egreso_ligado()
+    {
+        await using var db = Db(); var (m, d) = await Deposito(db, 600m);
+        db.MovimientosBancarios.Add(m.CrearContramovimiento(500m, Fecha, Solicitante, Ahora, "reversa previa"));
+        await db.SaveChangesAsync();
+        var act = () => Handler(db).Handle(new(d.Id, Fecha, null, null, true, d.Version), default);
+        await act.Should().ThrowAsync<BusinessRuleException>().Where(e => e.Code == "DEV_IMPORTE_EXCEDE_DEPOSITO");
     }
 
     [Fact]

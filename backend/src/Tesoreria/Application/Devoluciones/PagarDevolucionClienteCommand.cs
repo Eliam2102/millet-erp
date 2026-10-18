@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
+using Millet.Tesoreria.Domain.Depositos;
 using Millet.Tesoreria.Domain.Devoluciones;
 using Millet.Tesoreria.Domain.Movimientos;
 using Millet.Tesoreria.Domain.Ports;
@@ -89,9 +90,16 @@ public sealed class PagarDevolucionClienteHandler
                 throw new BusinessRuleException("MOV_CUENTA_INACTIVA", $"La cuenta bancaria '{cuenta.Banco}' está inactiva.");
             cuenta.ValidarFechaMovimiento(command.FechaValor);
 
-            var pagado = await _db.DevolucionesCliente
-                .Where(x => x.MovimientoOrigenId == d.MovimientoOrigenId && x.Estado == EstadoDevolucionCliente.Pagada)
-                .SumAsync(x => (decimal?)x.Importe, ct) ?? 0m;
+            // Carrera depósito↔CxC: si entre la solicitud y el pago el depósito se confirmó contra
+            // una propuesta, ese dinero ya se aplicó a cobranza y no puede devolverse.
+            if (await _db.DepositosConfirmacion.AnyAsync(x => x.MovimientoId == deposito.Id && x.Estado == EstadoDepositoConfirmacion.Confirmada, ct))
+                throw new BusinessRuleException("DEV_DEPOSITO_CONFIRMADO",
+                    "El depósito ya se confirmó contra una propuesta de Crédito y Cobranza; no es un depósito erróneo. Corrige la aplicación en CxC antes de devolverlo.");
+
+            // Tope: todo egreso ligado al depósito (devoluciones y reversas), no solo devoluciones pagadas.
+            var pagado = await _db.MovimientosBancarios
+                .Where(x => x.ContramovimientoDe == deposito.Id && x.Sentido == SentidoMovimiento.Egreso)
+                .SumAsync(x => (decimal?)x.Monto, ct) ?? 0m;
             if (pagado + d.Importe > deposito.Monto)
                 throw new BusinessRuleException("DEV_IMPORTE_EXCEDE_DEPOSITO",
                     $"La devolución ({d.Importe:N2}) excede lo disponible del depósito ({deposito.Monto - pagado:N2}).");
