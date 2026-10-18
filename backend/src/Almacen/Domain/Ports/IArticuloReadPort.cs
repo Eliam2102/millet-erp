@@ -39,4 +39,6 @@ public sealed record ArticuloLectura(
     // línea de la RQ automática del motor de reorden. Opcionales (default null) → las
     // construcciones previas de 7 args siguen compilando; el adapter real los proyecta.
     decimal? PrecioReferenciaMonto = null,
-    string? PrecioReferenciaMoneda = null);
+    string? PrecioReferenciaMoneda = null,
+    // Categoría del artículo (familia del conteo).
+    string? Categoria = null);

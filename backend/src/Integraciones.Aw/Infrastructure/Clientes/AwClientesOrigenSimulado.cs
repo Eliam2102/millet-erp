@@ -6,7 +6,8 @@ namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
 
 /// <summary>
 /// Fuente en memoria para operar/probar sin A+W. Carga el formato de los fixtures
-/// <c>{origen:{KU_KUNDEN:[...],KA_ZAHLBED:[...]}}</c>. Cursor = último ID, orden numérico.
+/// <c>{origen:{KU_KUNDEN:[...],KA_ZAHLBED:[...],KA_BONITAET:[...]}}</c> (KA_BONITAET opcional: régimen fiscal en
+/// <c>FREMD_KEY</c>, unido por <c>BONITAET = BEZ</c>). Cursor = último ID, orden numérico.
 /// </summary>
 public sealed class AwClientesOrigenSimulado : IAwClientesOrigen
 {
@@ -24,6 +25,11 @@ public sealed class AwClientesOrigenSimulado : IAwClientesOrigen
         var catalogo = origen.TryGetProperty("KA_ZAHLBED", out var cat)
             ? cat.EnumerateArray().Select(e => (Bez: Str(e, "BEZ"), Cond: new AwCondicionCoincidencia(Int(e, "NUMMER"), Int(e, "BRUTTOTAGE")))).ToList()
             : [];
+        // BEZ es PK en A+W: la última aparición gana si el fixture la repite.
+        var regimenes = new Dictionary<string, string?>(StringComparer.Ordinal);
+        if (origen.TryGetProperty("KA_BONITAET", out var bon))
+            foreach (var e in bon.EnumerateArray())
+                if (Str(e, "BEZ") is { } bez) regimenes[bez] = Str(e, "FREMD_KEY");
 
         var filas = origen.GetProperty("KU_KUNDEN").EnumerateArray().Select(e =>
         {
@@ -42,7 +48,9 @@ public sealed class AwClientesOrigenSimulado : IAwClientesOrigen
                 Int(e, "KZ_STATUS"), Int(e, "KZ_GESPERRT"),
                 Str(e, "DATUM") is { } d ? DateOnly.Parse(d, CultureInfo.InvariantCulture) : null,
                 Str(e, "TRANSACTION_TIME") is { } t ? DateTime.Parse(t, CultureInfo.InvariantCulture) : null,
-                coincidencias);
+                coincidencias,
+                Bonitaet: Str(e, "BONITAET"),
+                RegimenFiscalOrigen: Str(e, "BONITAET") is { } b && regimenes.TryGetValue(b, out var r) ? r : null);
         });
         return new(filas);
     }

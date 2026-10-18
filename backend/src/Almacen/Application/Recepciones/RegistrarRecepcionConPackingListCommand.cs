@@ -33,6 +33,9 @@ namespace Millet.Almacen.Application.Recepciones;
 ///   la factura a la recepción pendiente.</item>
 /// </list>
 /// </para>
+/// <para>
+/// Tolerancia por material (A5): límite = solicitada × (1 + tolerancia del artículo) − máx(recibido en Compras, recibido propio de Almacén), con lock por OC.
+/// </para>
 /// </summary>
 public sealed record RegistrarRecepcionConPackingListCommand(
     Guid OrdenCompraId,
@@ -56,6 +59,9 @@ public sealed class RegistrarRecepcionConPackingListValidator
             .Must(f => f.Year is >= 2020 and <= 2099)
             .WithMessage("Fecha de movimiento fuera de rango razonable.");
         RuleFor(c => c.PackingListBlobRef).NotEmpty().MaximumLength(500);
+        RuleFor(c => c.Observaciones!).MaximumLength(500)
+            .When(c => c.Observaciones is not null)
+            .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(linea =>
         {
@@ -110,10 +116,13 @@ public sealed class RegistrarRecepcionConPackingListHandler
     public async Task<RegistrarRecepcionResponse> Handle(
         RegistrarRecepcionConPackingListCommand request, CancellationToken cancellationToken)
     {
+        // D5: serializa recepciones de la misma OC (advisory lock); ponytail: lock por OC, por línea si el volumen lo pide.
+        await using var transaccion = await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, request.OrdenCompraId, cancellationToken);
         // 1. Validar OC.
         var oc = await _ocPort.ObtenerAsync(request.OrdenCompraId, cancellationToken);
+        var recibidoPropio = await RecibidoPorLineaOc.CalcularAsync(_db, _conversion, oc, cancellationToken);
         // Primero valida identidad/estado; después aplica el techo a cantidades equivalentes.
-        await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), _articuloPort, cancellationToken);
+        await RecepcionOcGuard.ValidarAsync(oc, request.Lineas.Select(l => string.IsNullOrWhiteSpace(l.UnidadCapturada) ? l : l with { Cantidad = 0m }).ToList(), _articuloPort, recibidoPropio, cancellationToken);
         // El cierre se rechaza antes de consultar equivalencias o ubicaciones (P1/P7).
         var empresaId = _currentEmpresa.Current ?? throw new BusinessRuleException(
             "RECEPCION_SIN_EMPRESA", "El contexto de empresa es requerido.");
@@ -127,7 +136,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
             conversiones.Add(await _conversion.ConvertirAsync(input.ArticuloId, input.Cantidad,
                 input.UnidadCapturada, oc!.Lineas.Single(l => l.LineaId == input.LineaOcId).UnidadMedida!, cancellationToken));
         var equivalentes = request.Lineas.Select((l, i) => l with { Cantidad = conversiones[i].CantidadDocumento }).ToList();
-        var lineasOc = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, _articuloPort, cancellationToken);
+        var validada = await RecepcionOcGuard.ValidarAsync(oc, equivalentes, _articuloPort, recibidoPropio, cancellationToken);
+        var lineasOc = validada.Lineas;
 
         // ADR-0046 Etapa 2: valida los decimales de cada línea contra la unidad
         // del artículo (FK NULL → no valida). Batch, un solo round-trip.
@@ -198,7 +208,9 @@ public sealed class RegistrarRecepcionConPackingListHandler
                 // PR4: bin N4 real de la línea (el guard ya garantizó que viene
                 // poblado y es válido para el sub-almacén).
                 UbicacionId: input.UbicacionId!.Value,
-                SubAlmacenId: subLinea));
+                SubAlmacenId: subLinea,
+                ToleranciaPorcentaje: validada.ToleranciaPorLinea[lineaOcId],
+                CantidadRecibidaAcumulada: validada.RecibidoPorLinea[lineaOcId] + equivalentes.Where(e => e.LineaOcId == lineaOcId).Sum(e => e.Cantidad)));
         }
 
         // Invariante 'un movimiento = un sub-almacén': el sub se deriva del bin
@@ -212,10 +224,12 @@ public sealed class RegistrarRecepcionConPackingListHandler
         // G1.6: almacén/sucursal del único sub-almacén derivado (una consulta).
         var (almacenId, sucursalId) = await Catalogo.AlmacenSucursalResolver
             .ResolverAsync(_db, subsDerivados.Single(), cancellationToken);
+        Catalogo.SucursalDestinoGuard.Validar(oc!.SucursalDestinoId, sucursalId, "RECEPCION_SUCURSAL_DISTINTA", "La orden de compra está dirigida a otra sucursal: recibe la mercancía en un almacén de la sucursal destino de la orden.");
 
         // 5. Reservar folio.
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.EntradaCompra.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken); // M-094: tx ya abierta arriba
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)
@@ -249,56 +263,8 @@ public sealed class RegistrarRecepcionConPackingListHandler
             SucursalId: sucursalId), cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
         return new RegistrarRecepcionResponse(movimientoId, folio.Valor);
-    }
-
-    private async Task<(decimal costoMxn, string unidadMedida, Guid? lineaOcId)>
-        ResolverCostoYUmAsync(
-            OcLectura? oc,
-            RegistrarRecepcionLineaInput input,
-            CancellationToken cancellationToken)
-    {
-        if (oc is not null && input.LineaOcId is Guid lineaOcId)
-        {
-            var lineaOc = oc.Lineas.FirstOrDefault(l => l.LineaId == lineaOcId)
-                ?? throw new EntityNotFoundException(
-                    "LINEA_OC_NO_ENCONTRADA",
-                    $"No existe línea '{lineaOcId}' en la OC '{oc.Folio}'.");
-            if (lineaOc.ArticuloId != input.ArticuloId)
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_LINEA_OC_ARTICULO_INCONGRUENTE",
-                    "El artículo de la línea recibida no coincide con la línea de OC.");
-            }
-            var maxTolerable = lineaOc.CantidadSolicitada - lineaOc.CantidadRecibida;
-            var articulo = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
-            var tolerancia = articulo?.ToleranciaCantidadPorcentaje ?? 0m;
-            maxTolerable += lineaOc.CantidadSolicitada * (tolerancia / 100m);
-            if (input.Cantidad > maxTolerable)
-            {
-                throw new BusinessRuleException(
-                    "RECEPCION_EXCEDE_TOLERANCIA",
-                    $"Cantidad recibida {input.Cantidad} excede el saldo+tolerancia ({maxTolerable}) de la línea OC '{lineaOcId}'.");
-            }
-            return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOcId);
-        }
-
-        if (oc is not null)
-        {
-            var lineaOc = oc.Lineas.FirstOrDefault(l => l.ArticuloId == input.ArticuloId);
-            if (lineaOc is not null)
-            {
-                return (lineaOc.PrecioUnitarioMxn, lineaOc.UnidadMedida, lineaOc.LineaId);
-            }
-
-            // CA2.10: si la OC es conocida, no se permite recibir un artículo que no esté en sus líneas recibibles (p. ej. servicios).
-            throw new BusinessRuleException(
-                "RECEPCION_ARTICULO_NO_EN_OC",
-                $"El artículo '{input.ArticuloId}' no pertenece a las líneas recibibles de la OC '{oc.Folio}'.");
-        }
-
-        var articulo2 = await _articuloPort.ObtenerAsync(input.ArticuloId, cancellationToken);
-        return (0m, articulo2?.UnidadMedida ?? "PZA", null);
     }
 }

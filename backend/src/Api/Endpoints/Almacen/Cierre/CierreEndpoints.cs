@@ -16,9 +16,12 @@ public static class CierreEndpoints
     {
         app.MapPost("/api/v1/almacen/cierre-mes", async (
             EjecutarCierreMensualCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            // El cierre afecta a todas las sucursales: solo alcance corporativo.
+            await documentos.VerificarSucursalAsync(null, PermisosCanonicos.AlmacenCierreMesGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Ok(response);
         })
@@ -28,6 +31,7 @@ public static class CierreEndpoints
         .WithName("EjecutarCierreMes")
         .WithSummary("Cierra el periodo mensual (Jefe Almacén). Valida que no haya conteos pendientes ni movimientos Borrador/Validado del mes.")
         .Produces<EjecutarCierreMensualResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         return app;

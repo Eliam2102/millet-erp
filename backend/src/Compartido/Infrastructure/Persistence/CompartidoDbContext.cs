@@ -56,6 +56,9 @@ public sealed class CompartidoDbContext : BaseDbContext
     public DbSet<ProductoAwVariante> ProductosAwVariantes => Set<ProductoAwVariante>();
     public DbSet<ProductoAwComponente> ProductosAwComponentes => Set<ProductoAwComponente>();
     public DbSet<ProductoSincronizacionAw> ProductosSincronizacionAw => Set<ProductoSincronizacionAw>();
+    // U1.8b: revisiones y corridas del reporte de diferencias fiscales A+W vs ERP.
+    public DbSet<DiferenciaFiscalAwRevision> DiferenciasFiscalesAwRevisiones => Set<DiferenciaFiscalAwRevision>();
+    public DbSet<DiferenciaFiscalAwCorrida> DiferenciasFiscalesAwCorridas => Set<DiferenciaFiscalAwCorrida>();
     public DbSet<Sucursal> Sucursales => Set<Sucursal>();
     // FAC-ING-PR2: catálogo administrable de canales de venta (reemplaza el
     // enum de Facturación). PK short asignada por la app; seed 1..10 espejo
@@ -193,6 +196,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         cambio.Property(c => c.AntesJson).HasColumnType("jsonb"); cambio.Property(c => c.DespuesJson).HasColumnType("jsonb");
         cambio.HasIndex(c => new { c.TipoEntidad, c.EntidadId });
         ConfigureProductoAwSincronizacion(modelBuilder);
+        ConfigureDiferenciasFiscalesAw(modelBuilder);
         ConfigureSucursal(modelBuilder);
         ConfigureCanalVenta(modelBuilder);
         ConfigureDepartamento(modelBuilder);
@@ -251,6 +255,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         tipo.HasData(
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // F1-CON-04 (C1.3, R7): documento soporte de la póliza contable.
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
@@ -1173,6 +1179,7 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_articulos_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_articulos_precio_no_negativo", "precio_referencia_monto IS NULL OR precio_referencia_monto >= 0");
             t.HasCheckConstraint("ck_articulos_precio_moneda_iso", "precio_referencia_moneda IS NULL OR precio_referencia_moneda ~ '^[A-Z]{3}$'");
+            t.HasCheckConstraint("ck_articulos_tolerancia_rango", "tolerancia_cantidad_porcentaje IS NULL OR (tolerancia_cantidad_porcentaje >= 0 AND tolerancia_cantidad_porcentaje <= 100)");
         });
         articulo.HasKey(x => x.Id);
         articulo.Property(x => x.Clave).HasMaxLength(20).IsRequired();
@@ -1184,6 +1191,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         articulo.Property(x => x.Categoria).HasMaxLength(100);
         articulo.Property(x => x.PrecioReferenciaMonto).HasPrecision(15, 4);
         articulo.Property(x => x.PrecioReferenciaMoneda).HasMaxLength(3);
+        articulo.Property(x => x.ToleranciaCantidadPorcentaje).HasPrecision(5, 2);
         articulo.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
         articulo.HasIndex(x => x.Clave).IsUnique();
@@ -1265,6 +1273,54 @@ public sealed class CompartidoDbContext : BaseDbContext
         cliente.HasIndex(x => x.Rfc);
         cliente.HasOne<ClasificacionCliente>().WithMany().HasForeignKey(c => c.ClasificacionId).OnDelete(DeleteBehavior.Restrict);
         cliente.HasIndex(x => x.Estatus);
+    }
+
+    /// <summary>
+    /// U1.8b: revisión por (tipo, entidad, campo) con huella de los valores comparados, y corridas
+    /// persistidas del reporte (INotAudited) con sus filas en cascada.
+    /// </summary>
+    private static void ConfigureDiferenciasFiscalesAw(ModelBuilder modelBuilder)
+    {
+        var rev = modelBuilder.Entity<DiferenciaFiscalAwRevision>();
+        rev.ToTable("diferencias_fiscales_aw_revisiones");
+        rev.HasKey(x => x.Id);
+        rev.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(10).IsRequired();
+        rev.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        rev.Property(x => x.Campo).HasMaxLength(DiferenciaFiscalAwRevision.MaxCampo).IsRequired();
+        rev.Property(x => x.ValorOrigen).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        rev.Property(x => x.ValorErp).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        rev.Property(x => x.Huella).HasMaxLength(64).IsRequired();
+        rev.Property(x => x.RevisadoPorNombre).HasMaxLength(200);
+        rev.Property(x => x.Nota).HasMaxLength(DiferenciaFiscalAwRevision.MaxNota);
+        rev.Property(x => x.Version).IsConcurrencyToken();
+        rev.HasIndex(x => new { x.Tipo, x.EntidadId, x.Campo }).IsUnique();
+
+        var corrida = modelBuilder.Entity<DiferenciaFiscalAwCorrida>();
+        corrida.ToTable("diferencias_fiscales_aw_corridas");
+        corrida.HasKey(x => x.Id);
+        corrida.Property(x => x.Origen).HasConversion<string>().HasMaxLength(12).IsRequired();
+        corrida.Property(x => x.Actor).HasMaxLength(200).IsRequired();
+        corrida.Property(x => x.Error).HasMaxLength(1000);
+        corrida.Property(x => x.Avisos).HasMaxLength(2000);
+        corrida.Property(x => x.Version).IsConcurrencyToken();
+        corrida.HasIndex(x => x.IniciadaEn);
+        corrida.HasMany(x => x.Filas).WithOne().HasForeignKey(f => f.CorridaId).OnDelete(DeleteBehavior.Cascade);
+        corrida.Navigation(x => x.Filas).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        var fila = modelBuilder.Entity<DiferenciaFiscalAwCorridaFila>();
+        fila.ToTable("diferencias_fiscales_aw_corrida_filas");
+        fila.HasKey(x => x.Id);
+        fila.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(10).IsRequired();
+        fila.Property(x => x.ReferenciaExterna).HasMaxLength(50).IsRequired();
+        fila.Property(x => x.Nombre).HasMaxLength(300).IsRequired();
+        fila.Property(x => x.Campo).HasMaxLength(DiferenciaFiscalAwRevision.MaxCampo).IsRequired();
+        fila.Property(x => x.Fuente).HasMaxLength(120).IsRequired();
+        fila.Property(x => x.ValorOrigen).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        fila.Property(x => x.ValorErp).HasMaxLength(DiferenciaFiscalAwRevision.MaxValor);
+        fila.Property(x => x.Estado).HasMaxLength(30).IsRequired();
+        fila.Property(x => x.Huella).HasMaxLength(64).IsRequired();
+        fila.Property(x => x.Version).IsConcurrencyToken();
+        fila.HasIndex(x => x.CorridaId);
     }
 
     /// <summary>

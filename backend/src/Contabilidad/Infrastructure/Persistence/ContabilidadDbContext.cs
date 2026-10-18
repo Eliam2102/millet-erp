@@ -36,6 +36,13 @@ public sealed class ContabilidadDbContext : BaseDbContext
     public DbSet<EjercicioContable> Ejercicios => Set<EjercicioContable>();
     public DbSet<PeriodoContable> Periodos => Set<PeriodoContable>();
 
+    // F1-CON-04: pólizas (C1.3), numeración por tipo (K10.9) y anulación (K10.3).
+    public DbSet<Poliza> Polizas => Set<Poliza>();
+    public DbSet<PolizaPartida> PolizasPartidas => Set<PolizaPartida>();
+    public DbSet<ConsecutivoPoliza> ConsecutivosPoliza => Set<ConsecutivoPoliza>();
+    // K10.4: pólizas recurrentes.
+    public DbSet<PlantillaRecurrente> PlantillasRecurrentes => Set<PlantillaRecurrente>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);

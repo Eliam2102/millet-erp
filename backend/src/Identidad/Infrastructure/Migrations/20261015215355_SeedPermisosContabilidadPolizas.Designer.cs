@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Millet.Identidad.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentidadDbContext))]
-    [Migration("20261016160406_ComercioExteriorPermisosContenedoresIva")]
-    partial class ComercioExteriorPermisosContenedoresIva
+    [Migration("20261015215355_SeedPermisosContabilidadPolizas")]
+    partial class SeedPermisosContabilidadPolizas
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -4178,196 +4178,56 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
-                            Id = new Guid("0000000e-0001-0000-0000-00000000000b"),
-                            Accion = "contenedores-gestionar",
-                            Codigo = "comercio_exterior.expedientes.contenedores-gestionar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Gestionar contenedores y partidas",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0003-0000-0000-000000000001"),
+                            Id = new Guid("0000000d-0005-0000-0000-000000000001"),
                             Accion = "leer",
-                            Codigo = "comercio_exterior.relacion-iva.leer",
+                            Codigo = "contabilidad.polizas.leer",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Consultar relación mensual para IVA",
-                            Modulo = "comercio_exterior",
-                            Recurso = "relacion-iva",
+                            Descripcion = "Consultar pólizas contables, sus partidas, documentos soporte y los movimientos del periodo por cuenta",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
                         },
                         new
                         {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000001"),
-                            Accion = "leer",
-                            Codigo = "comercio_exterior.expedientes.leer",
+                            Id = new Guid("0000000d-0005-0000-0000-000000000002"),
+                            Accion = "capturar",
+                            Codigo = "contabilidad.polizas.capturar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Consultar expedientes",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
+                            Descripcion = "Capturar, editar y descartar pólizas manuales en borrador y adjuntar su documento soporte",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
                         },
                         new
                         {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000002"),
-                            Accion = "crear",
-                            Codigo = "comercio_exterior.expedientes.crear",
+                            Id = new Guid("0000000d-0005-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "contabilidad.polizas.autorizar",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Abrir expedientes",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
+                            Descripcion = "Autorizar pólizas manuales capturadas por otro usuario (asigna su número)",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
                         },
                         new
                         {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000003"),
-                            Accion = "editar",
-                            Codigo = "comercio_exterior.expedientes.editar",
+                            Id = new Guid("0000000d-0005-0000-0000-000000000004"),
+                            Accion = "anular",
+                            Codigo = "contabilidad.polizas.anular",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CreatedBy = "seed",
-                            Descripcion = "Editar expedientes y participantes",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000004"),
-                            Accion = "cancelar",
-                            Codigo = "comercio_exterior.expedientes.cancelar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Cancelar con motivo",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000005"),
-                            Accion = "cerrar",
-                            Codigo = "comercio_exterior.expedientes.cerrar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Reservado para CE-01b",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000006"),
-                            Accion = "hitos-registrar",
-                            Codigo = "comercio_exterior.expedientes.hitos-registrar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Reservado para CE-01b",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000007"),
-                            Accion = "documentos-revisar",
-                            Codigo = "comercio_exterior.expedientes.documentos-revisar",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Revisar requisitos documentales",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000008"),
-                            Accion = "adjuntos-ver",
-                            Codigo = "comercio_exterior.expedientes.adjuntos-ver",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Consultar archivos",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0001-0000-0000-000000000009"),
-                            Accion = "adjuntos-subir",
-                            Codigo = "comercio_exterior.expedientes.adjuntos-subir",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Subir archivos y registrar versiones",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0001-0000-0000-00000000000a"),
-                            Accion = "adjuntos-baja",
-                            Codigo = "comercio_exterior.expedientes.adjuntos-baja",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Baja lógica con motivo",
-                            Modulo = "comercio_exterior",
-                            Recurso = "expedientes",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0002-0000-0000-000000000001"),
-                            Accion = "leer-todas-sucursales",
-                            Codigo = "comercio_exterior.documentos.leer-todas-sucursales",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Consultar todas las sucursales",
-                            Modulo = "comercio_exterior",
-                            Recurso = "documentos",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            UpdatedBy = "seed",
-                            Version = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("0000000e-0002-0000-0000-000000000002"),
-                            Accion = "gestionar-todas-sucursales",
-                            Codigo = "comercio_exterior.documentos.gestionar-todas-sucursales",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = "seed",
-                            Descripcion = "Operar todas las sucursales",
-                            Modulo = "comercio_exterior",
-                            Recurso = "documentos",
+                            Descripcion = "Anular pólizas autorizadas con motivo (genera la póliza con las mismas partidas en negativo)",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1

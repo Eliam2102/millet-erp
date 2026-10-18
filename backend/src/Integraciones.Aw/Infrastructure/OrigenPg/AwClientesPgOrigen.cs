@@ -11,8 +11,8 @@ using NpgsqlTypes;
 namespace Millet.Integraciones.Aw.Infrastructure.OrigenPg;
 
 /// <summary>
-/// Gemelo de <see cref="AwClientesSqlOrigen"/> sobre <c>aw_origen.ku_kunden</c> + <c>aw_origen.ka_zahlbed</c> (mismas
-/// columnas y nombres que A+W). Misma lista de columnas, mismo mapeo de fila, mismo cursor por ID y mismas
+/// Gemelo de <see cref="AwClientesSqlOrigen"/> sobre <c>aw_origen.ku_kunden</c> + <c>aw_origen.ka_zahlbed</c> +
+/// <c>aw_origen.ka_bonitaet</c> (mismas columnas y nombres que A+W). Misma lista de columnas, mismo mapeo de fila, mismo cursor por ID y mismas
 /// coincidencias con el catálogo de condiciones; solo cambia <c>TOP</c> por <c>LIMIT</c> y el esquema.
 /// </summary>
 public sealed class AwClientesPgOrigen : IAwClientesOrigen
@@ -20,6 +20,7 @@ public sealed class AwClientesPgOrigen : IAwClientesOrigen
     private const string Resto = """
 
           LEFT JOIN aw_origen.ka_zahlbed AS z ON z.bez = k.zahlbed
+          LEFT JOIN aw_origen.ka_bonitaet AS b ON b.bez = k.bonitaet
          ORDER BY k.id, z.nummer
         """;
 
@@ -78,7 +79,7 @@ public sealed class AwClientesPgOrigen : IAwClientesOrigen
                 if (resultado.Count == 0 || resultado[^1].Id != id)
                 {
                     actual = [];
-                    resultado.Add(AwClientesSqlOrigen.Fila(r, actual) with { AplicarFiscalesDeOrigen = true });
+                    resultado.Add(AwClientesSqlOrigen.ConRegimen(r, AwClientesSqlOrigen.Fila(r, actual)) with { AplicarFiscalesDeOrigen = true });
                 }
                 if (!r.IsDBNull(24)) // BEZ presente = hay coincidencia (NUMMER/BRUTTOTAGE pueden ser nulos)
                     actual!.Add(new(Int(r, 25), Int(r, 26)));

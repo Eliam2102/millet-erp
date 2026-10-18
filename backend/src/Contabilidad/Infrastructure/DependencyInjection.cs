@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Millet.Contabilidad.Application;
 using Millet.Contabilidad.Application.Dimensiones;
 using Millet.Contabilidad.Application.Periodos;
+using Millet.Contabilidad.Application.Polizas;
 using Millet.Contabilidad.Application.PublicPorts;
 using Millet.Contabilidad.Infrastructure.PublicAdapters;
 
@@ -42,6 +43,17 @@ public static class DependencyInjection
         // F1-CON-03: contrato público de consulta de periodo y candado de movimientos (falla cerrada, D9).
         services.AddScoped<IPeriodoContableConsultaPort, PeriodoContableConsultaAdapter>();
         services.AddScoped<VerificadorPeriodoContable>();
+
+        // F1-CON-04: pólizas (C1.3), numeración (K10.9), anulación (K10.3) y el puerto del motor contable.
+        services.AddScoped<RegistroPolizas>();
+        services.AddScoped<LecturaPolizas>();
+        services.AddScoped<IPolizaContablePort, PolizaContableAdapter>();
+
+        // K10.4: pólizas recurrentes con reversa automática; el generador corre también como proceso de fondo.
+        services.AddScoped<GeneradorRecurrentes>();
+        services.AddScoped<LecturaRecurrentes>();
+        services.AddOptions<Workers.RecurrentesOpciones>().Bind(configuration.GetSection(Workers.RecurrentesOpciones.Seccion));
+        services.AddHostedService<Workers.PolizasRecurrentesWorker>();
         return services;
     }
 

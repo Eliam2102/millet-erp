@@ -18,9 +18,12 @@ public static class DevolucionesInternasEndpoints
         // POST /api/v1/almacen/devoluciones-internas
         app.MapPost("/api/v1/almacen/devoluciones-internas", async (
             AplicarDevolucionInternaCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("salida_almacen", command.SalidaOrigenId, PermisosCanonicos.AlmacenDevolucionesInternasGestionarTodasSucursales, ct);
+            await documentos.VerificarAsync("sub_almacen", command.SubAlmacenDestinoId, PermisosCanonicos.AlmacenDevolucionesInternasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/movimientos/{response.DevolucionId}",
@@ -36,9 +39,11 @@ public static class DevolucionesInternasEndpoints
         // POST /api/v1/almacen/mat-rev/baja-por-dano
         app.MapPost("/api/v1/almacen/mat-rev/baja-por-dano", async (
             BajaPorDanoCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("sub_almacen", command.SubAlmacenMatRevId, PermisosCanonicos.AlmacenDevolucionesInternasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/movimientos/{response.MovimientoId}",
@@ -54,9 +59,11 @@ public static class DevolucionesInternasEndpoints
         // POST /api/v1/almacen/mat-rev/reincorporar
         app.MapPost("/api/v1/almacen/mat-rev/reincorporar", async (
             ReincorporacionTrasRevisionCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("sub_almacen", command.SubAlmacenDestinoId, PermisosCanonicos.AlmacenDevolucionesInternasGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created(
                 $"/api/v1/almacen/movimientos/{response.MovimientoId}",

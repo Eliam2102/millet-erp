@@ -27,19 +27,23 @@ import { Field } from '@/features/almacen/components/internal/Field';
  * <c>P12 — Cierre de mes</c> (doc 07 §FE-F6-PR1). Pantalla del Jefe
  * Almacén para cerrar el periodo mensual. El backend valida que no
  * existan conteos pendientes ni movimientos en estado Borrador/Validado
- * del mes que se quiere cerrar — si falla, devuelve
- * <c>422 CIERRE_PERIODO_NO_LIMPIO</c> con detalle.
+ * del mes que se quiere cerrar — si falla, devuelve un 422 con
+ * <c>CIERRE_CONTEOS_PENDIENTES</c>, <c>CIERRE_MOVIMIENTOS_PENDIENTES</c>
+ * o <c>CIERRE_VALES_PENDIENTES</c> con detalle.
  *
  * <para>Permiso: <c>almacen.cierre-mes.ejecutar</c>. Idempotency-Key
- * obligatorio en el endpoint backend.</para>
+ * obligatorio en el endpoint backend. El cierre aplica a todas las
+ * sucursales (ADR-0051, bypass <c>almacen.cierre-mes.gestionar-todas-sucursales</c>).</para>
  */
 export function CierreMesPage() {
   const idempotencyKey = useFormIdempotencyKey();
   const ejecutar = useEjecutarCierreMes();
 
   const hoy = new Date();
-  const [anio, setAnio] = useState<number>(hoy.getFullYear());
-  const [mes, setMes] = useState<number>(hoy.getMonth() + 1); // 1-12
+  // Por defecto, el mes anterior (el mes en curso no se puede cerrar).
+  const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+  const [anio, setAnio] = useState<number>(anterior.getFullYear());
+  const [mes, setMes] = useState<number>(anterior.getMonth() + 1); // 1-12
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function ejecutarCierre() {
@@ -54,11 +58,13 @@ export function CierreMesPage() {
         },
         onError: (error) => {
           if (esApiError(error)) {
-            if (error.code === 'CIERRE_PERIODO_NO_LIMPIO') {
+            if (
+              error.code === 'CIERRE_CONTEOS_PENDIENTES' ||
+              error.code === 'CIERRE_MOVIMIENTOS_PENDIENTES' ||
+              error.code === 'CIERRE_VALES_PENDIENTES'
+            ) {
               toast.error('Periodo con pendientes', {
-                description:
-                  error.problem.detail ??
-                  'Hay conteos o movimientos pendientes en el periodo. Resuélvelos antes de cerrar.',
+                description: error.problem.detail ?? error.problem.title,
               });
               return;
             }
@@ -120,7 +126,9 @@ export function CierreMesPage() {
         </ul>
         <p className="mt-2 text-amber-800">
           El backend valida estas condiciones y rechaza el cierre si no se
-          cumplen (código <code>CIERRE_PERIODO_NO_LIMPIO</code>).
+          cumplen (códigos <code>CIERRE_CONTEOS_PENDIENTES</code>,{' '}
+          <code>CIERRE_MOVIMIENTOS_PENDIENTES</code> o{' '}
+          <code>CIERRE_VALES_PENDIENTES</code>).
         </p>
       </section>
 
@@ -182,7 +190,8 @@ export function CierreMesPage() {
             <AlertDialogDescription>
               Esta acción es irreversible. Después del cierre, no podrán
               registrarse ni editarse movimientos con fecha dentro del
-              periodo. Asegúrate de haber revisado el checklist.
+              periodo. El cierre aplica a todas las sucursales. Asegúrate de
+              haber revisado el checklist.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

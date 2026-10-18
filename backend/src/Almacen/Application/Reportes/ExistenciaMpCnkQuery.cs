@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.Reportes;
 
@@ -12,7 +14,11 @@ namespace Millet.Almacen.Application.Reportes;
 /// vigentes con stock > 0 en sub-almacenes tipo MaterialesDirectos.
 /// </summary>
 public sealed record ExistenciaMpCnkQuery(
-    Guid? SubAlmacenId) : IRequest<ReporteResponse<ExistenciaMpCnkFila>>;
+    Guid? SubAlmacenId) : IRequest<ReporteResponse<ExistenciaMpCnkFila>>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.reportes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed record ExistenciaMpCnkFila(
     Guid SubAlmacenId,
@@ -83,6 +89,9 @@ public sealed class ExistenciaMpCnkHandler
     public async Task<ReporteResponse<ExistenciaMpCnkFila>> Handle(
         ExistenciaMpCnkQuery request, CancellationToken cancellationToken)
     {
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
+
         // C7.2a: agregado por (sub-almacén, artículo) — con N bins habría
         // filas duplicadas por artículo (el grano del reporte es (sub, art)).
         // Puente determinista: SUM + costo ponderado. El grano por-ubicación
@@ -94,6 +103,8 @@ public sealed class ExistenciaMpCnkHandler
                      where sa.Tipo == TipoSubAlmacen.MaterialesDirectos
                         && s.Cantidad > 0
                         && (request.SubAlmacenId == null || s.SubAlmacenId == request.SubAlmacenId)
+                        && (request.SucursalesPermitidas == null
+                            || AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, request.SucursalesPermitidas).Contains(s.SubAlmacenId))
                      select new { s.SubAlmacenId, s.ArticuloId, s.Cantidad, s.CantidadDisponible, s.ValorInventarioMxn, SubAlmacenNombre = sa.Nombre })
             .GroupBy(x => new { x.SubAlmacenId, x.ArticuloId, x.SubAlmacenNombre })
             .Select(g => new

@@ -2,7 +2,12 @@ import { useParams } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { ErrorState, ReporteShell, TableSkeleton } from '@/components/erp';
 import { useCorteCaja } from '@/features/facturacion/api/useCajaSesiones';
-import type { CorteCajaFila, CorteCajaResponse } from '@/features/facturacion/api/types';
+import type {
+  CorteCajaFacturaFila,
+  CorteCajaFila,
+  CorteCajaNotaCreditoFila,
+  CorteCajaResponse,
+} from '@/features/facturacion/api/types';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -35,10 +40,12 @@ const ESTADO_BADGE: Record<string, { texto: string; variant: 'success' | 'warnin
 
 /**
  * <c>Corte de caja</c> de una sesión (FIX-12; Manual de Sucursales §2.4,
- * R18, CA6.10): lo que la cajera entrega al cerrar. Encabezado con caja,
- * sucursal y cajero; resumen por forma de pago (lo mismo que congela el
- * arqueo); detalle de movimientos con comprobante, voucher y NC acreditadas
- * vía <c>&lt;ReporteShell&gt;</c> (PDF, Excel e impresión, ADR-0036).
+ * R18, CA6.10; demo del 12-oct, M19): lo que la cajera entrega al cerrar.
+ * Encabezado con caja, sucursal y cajero; resumen de lo facturado, las NC,
+ * las cobranzas, los apartados y la TPV; resumen por forma de pago (lo mismo
+ * que congela el arqueo); y tres secciones exportables con
+ * <c>&lt;ReporteShell&gt;</c> (PDF, Excel e impresión, ADR-0036): facturado,
+ * notas de crédito y movimientos de caja.
  */
 export function ReporteCorteCaja() {
   const { sesionId } = useParams({ from: FROM });
@@ -58,13 +65,32 @@ export function ReporteCorteCaja() {
       ) : corte ? (
         <>
           <Encabezado corte={corte} />
+          <ResumenEntrega corte={corte} />
           <ResumenPorForma corte={corte} />
-          <ReporteShell<CorteCajaFila>
-            reporte={corte.reporte}
-            isLoading={false}
-            error={undefined}
-            nombreArchivo={nombreArchivo(corte)}
-          />
+          <section aria-label="Facturado en la sesión">
+            <ReporteShell<CorteCajaFacturaFila>
+              reporte={corte.facturado}
+              isLoading={false}
+              error={undefined}
+              nombreArchivo={`${nombreArchivo(corte)}-facturado`}
+            />
+          </section>
+          <section aria-label="Notas de crédito de la sesión">
+            <ReporteShell<CorteCajaNotaCreditoFila>
+              reporte={corte.notasCredito}
+              isLoading={false}
+              error={undefined}
+              nombreArchivo={`${nombreArchivo(corte)}-notas-credito`}
+            />
+          </section>
+          <section aria-label="Movimientos de caja">
+            <ReporteShell<CorteCajaFila>
+              reporte={corte.reporte}
+              isLoading={false}
+              error={undefined}
+              nombreArchivo={nombreArchivo(corte)}
+            />
+          </section>
         </>
       ) : null}
     </div>
@@ -93,8 +119,8 @@ function Encabezado({ corte }: { corte: CorteCajaResponse }) {
         {e.cierreExtemporaneo && <Badge variant="warning">Cierre extemporáneo</Badge>}
       </div>
       <p className="text-sm text-muted-foreground">
-        Lo que entrega el cajero al cerrar: cobros por forma de pago con sus vouchers, comprobantes
-        cobrados y ajustes. Cuadra con el arqueo de la sesión.
+        Lo que entrega el cajero al cerrar: lo facturado, las notas de crédito, las cobranzas, los
+        apartados y la TPV de esta caja durante la sesión. Los movimientos cuadran con el arqueo.
       </p>
       <dl className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4 shadow-card-flat md:grid-cols-4">
         {datos.map(([dt, dd]) => (
@@ -115,6 +141,40 @@ function Encabezado({ corte }: { corte: CorteCajaResponse }) {
       {e.notasCierre && (
         <p className="text-sm text-muted-foreground">Notas del cierre: {e.notasCierre}</p>
       )}
+    </section>
+  );
+}
+
+function ResumenEntrega({ corte }: { corte: CorteCajaResponse }) {
+  const r = corte.resumen;
+  const tarjetas: { titulo: string; valor: number; detalle: string }[] = [
+    { titulo: 'Facturado', valor: r.facturado, detalle: `${r.facturas} comprobante(s) vigentes` },
+    { titulo: 'Notas de crédito', valor: r.notasCredito, detalle: `${r.notas} nota(s) vigentes` },
+    { titulo: 'Facturado neto', valor: r.facturadoNeto, detalle: 'Facturado menos notas de crédito' },
+    { titulo: 'Cobranzas', valor: r.cobranzas, detalle: 'Facturas y complementos cobrados' },
+    { titulo: 'Apartados', valor: r.apartados, detalle: 'Anticipos cobrados' },
+    { titulo: 'TPV', valor: r.tpv, detalle: 'Cobrado con tarjeta' },
+    { titulo: 'Total ingresado', valor: r.totalIngresado, detalle: 'Cobranzas más apartados' },
+  ];
+  return (
+    <section className="space-y-2" data-print="hidden" aria-labelledby="corte-resumen-titulo">
+      <h2 id="corte-resumen-titulo" className="text-base font-semibold">
+        Resumen de la entrega
+      </h2>
+      <dl className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+        {tarjetas.map((t) => (
+          <div key={t.titulo} className="rounded-lg border bg-card p-3 shadow-card-flat">
+            <dt className="text-xs text-muted-foreground">{t.titulo}</dt>
+            <dd className="font-mono text-base font-semibold tabular-nums">{formatearMxn(t.valor)}</dd>
+            <dd className="text-[11px] text-muted-foreground">{t.detalle}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-xs text-muted-foreground">
+        Facturado y notas de crédito suman solo comprobantes vigentes en pesos; los cancelados, sin
+        timbrar o en otra moneda se listan abajo con su estado. Lo facturado a crédito no entra a la
+        caja, por eso el facturado neto puede no coincidir con lo ingresado.
+      </p>
     </section>
   );
 }

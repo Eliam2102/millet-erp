@@ -9,15 +9,16 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 
 /**
  * Ruta P3 — Bandeja de salidas (doc 07 §FE-F3-PR1).
- * Gate: <c>almacen.salidas.leer-todas</c> O <c>almacen.salidas.leer-propias</c>.
- * Sin ninguno, redirige a la landing.
+ * Gate: <c>almacen.salidas.leer-todas</c>. El backend no filtra "propias"
+ * para salidas, por lo que el permiso <c>leer-propias</c> no basta.
+ * Sin el permiso, redirige a la landing.
  */
 export const Route = createFileRoute('/_app/almacen/salidas/')({
   beforeLoad: () => {
     const permisos = useAuthStore.getState().permisos;
-    const puedeVer =
-      permisos.includes(PermisosCanonicos.AlmacenSalidasLeerTodas) ||
-      permisos.includes(PermisosCanonicos.AlmacenSalidasLeerPropias);
+    const puedeVer = permisos.includes(
+      PermisosCanonicos.AlmacenSalidasLeerTodas,
+    );
     if (!puedeVer) {
       throw redirect({ to: '/almacen' });
     }

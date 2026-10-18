@@ -85,7 +85,7 @@ public static class AlmacenCatalogoEndpoints
             IMediator mediator,
             CancellationToken ct) =>
         {
-            if (id != body.Id) return Results.BadRequest(new { error = "ID en URL no coincide con el body" });
+            if (id != body.Id) throw new BadHttpRequestException("El id de la URL no coincide con el del cuerpo.");
             await mediator.Send(body, ct);
             return Results.NoContent();
         })
@@ -144,7 +144,7 @@ public static class AlmacenCatalogoEndpoints
             IMediator mediator,
             CancellationToken ct) =>
         {
-            if (id != body.Id) return Results.BadRequest(new { error = "ID en URL no coincide con el body" });
+            if (id != body.Id) throw new BadHttpRequestException("El id de la URL no coincide con el del cuerpo.");
             await mediator.Send(body, ct);
             return Results.NoContent();
         })
@@ -206,7 +206,7 @@ public static class AlmacenCatalogoEndpoints
             IMediator mediator,
             CancellationToken ct) =>
         {
-            if (id != body.Id) return Results.BadRequest(new { error = "ID en URL no coincide con el body" });
+            if (id != body.Id) throw new BadHttpRequestException("El id de la URL no coincide con el del cuerpo.");
             await mediator.Send(body, ct);
             return Results.NoContent();
         })

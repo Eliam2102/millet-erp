@@ -21,6 +21,14 @@ public static class PermisosCanonicos
     public const string AlmacenSalidasGestionarTodasSucursales = "almacen.salidas.gestionar-todas-sucursales";
     public const string AlmacenReordenLeerTodasSucursales = "almacen.reorden.leer-todas-sucursales";
     public const string AlmacenReordenGestionarTodasSucursales = "almacen.reorden.gestionar-todas-sucursales";
+    public const string AlmacenInventariosLeerTodasSucursales = "almacen.inventarios.leer-todas-sucursales";
+    public const string AlmacenInventariosGestionarTodasSucursales = "almacen.inventarios.gestionar-todas-sucursales";
+    public const string AlmacenDevolucionesProveedorLeerTodasSucursales = "almacen.devoluciones-proveedor.leer-todas-sucursales";
+    public const string AlmacenDevolucionesProveedorGestionarTodasSucursales = "almacen.devoluciones-proveedor.gestionar-todas-sucursales";
+    public const string AlmacenDevolucionesInternasGestionarTodasSucursales = "almacen.devoluciones-internas.gestionar-todas-sucursales";
+    public const string AlmacenAlmacenesLeerTodasSucursales = "almacen.almacenes.leer-todas-sucursales";
+    public const string AlmacenReportesLeerTodasSucursales = "almacen.reportes.leer-todas-sucursales";
+    public const string AlmacenCierreMesGestionarTodasSucursales = "almacen.cierre-mes.gestionar-todas-sucursales";
 
     public const string CuentasPorPagarDocumentosLeerTodasSucursales = "cuentas_por_pagar.documentos.leer-todas-sucursales";
     public const string CuentasPorPagarDocumentosGestionarTodasSucursales = "cuentas_por_pagar.documentos.gestionar-todas-sucursales";
@@ -156,6 +164,8 @@ public static class PermisosCanonicos
     // F1-ADM-05 G1.1: validación y activación del proveedor por CxP.
     public const string DatosMaestrosProveedoresValidar                = "datos_maestros.proveedores.validar";
     public const string DatosMaestrosArticulosGestionar                = "datos_maestros.articulos.gestionar";
+    // 86e3pc50v: tolerancia de recepción por material; solo la configura quien tenga este permiso.
+    public const string DatosMaestrosArticulosToleranciaEditar         = "datos_maestros.articulos.tolerancia-editar";
     // ADR-0048: masters nuevos para la ingesta de pedidos A+W → Facturación.
     // Clientes (D6) y ProductoAw (D5, master de venta separado de articulos).
     public const string DatosMaestrosClientesGestionar                 = "datos_maestros.clientes.gestionar";
@@ -164,6 +174,10 @@ public static class PermisosCanonicos
     public const string DatosMaestrosClientesOrigenVer                 = "datos_maestros.clientes.origen-ver";
     public const string DatosMaestrosClientesFiscalEditar              = "datos_maestros.clientes.fiscal-editar";
     public const string DatosMaestrosProductosAwGestionar              = "datos_maestros.productos-aw.gestionar";
+    // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP (clientes y productos A+W).
+    // leer = consultar el reporte y sus corridas; revisar = marcar revisado y ejecutar/guardar una corrida.
+    public const string DatosMaestrosDiferenciasFiscalesAwLeer         = "datos_maestros.diferencias-fiscales-aw.leer";
+    public const string DatosMaestrosDiferenciasFiscalesAwRevisar      = "datos_maestros.diferencias-fiscales-aw.revisar";
 
     // ----- Administración — andamio mínimo del área /admin (F-Admin-PR1.2) -----
     // Namespace GUID 00000005-* reservado para el módulo Administración.
@@ -517,6 +531,17 @@ public static class PermisosCanonicos
     public const string ContabilidadPeriodoAdministrar                  = "contabilidad.periodo.administrar";
     public const string ContabilidadPeriodoCerrar                       = "contabilidad.periodo.cerrar";
     public const string ContabilidadPeriodoReabrir                      = "contabilidad.periodo.reabrir";
+    // F1-CON-04: -0005 pólizas (C1.3, K10.3, K10.9). `capturar` (Analista) y `autorizar` (Supervisor) separados: R23, prepara el
+    // Analista y aprueba el Supervisor (además nadie autoriza su propia póliza). `anular` va aparte: crea la póliza en negativo.
+    // Literales duplicados en Contabilidad.Application.Polizas.PolizaAdjuntoPropietario (Contabilidad no referencia Identidad).
+    public const string ContabilidadPolizasLeer                         = "contabilidad.polizas.leer";
+    public const string ContabilidadPolizasCapturar                     = "contabilidad.polizas.capturar";
+    public const string ContabilidadPolizasAutorizar                    = "contabilidad.polizas.autorizar";
+    public const string ContabilidadPolizasAnular                       = "contabilidad.polizas.anular";
+    // K10.4: -0006 pólizas recurrentes. `administrar` prepara, suspende y genera; `autorizar` activa (no quien la preparó, R23).
+    public const string ContabilidadRecurrentesLeer                     = "contabilidad.recurrentes.leer";
+    public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
+    public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
 
     // Comercio Exterior (CE-01a), namespace 0000000e.
     public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
@@ -548,6 +573,14 @@ public static class PermisosCanonicos
         (Guid.Parse("00000006-0006-0006-0006-000000000033"), AlmacenSalidasGestionarTodasSucursales, "Operar salidas de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000034"), AlmacenReordenLeerTodasSucursales, "Consultar reorden de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000035"), AlmacenReordenGestionarTodasSucursales, "Operar reorden de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000036"), AlmacenInventariosLeerTodasSucursales, "Consultar conteos de inventario de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000037"), AlmacenInventariosGestionarTodasSucursales, "Operar conteos de inventario de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000038"), AlmacenDevolucionesProveedorLeerTodasSucursales, "Consultar devoluciones a proveedor de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-000000000039"), AlmacenDevolucionesProveedorGestionarTodasSucursales, "Operar devoluciones a proveedor de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003a"), AlmacenDevolucionesInternasGestionarTodasSucursales, "Operar devoluciones internas y MAT-REV de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003b"), AlmacenAlmacenesLeerTodasSucursales, "Consultar saldos de inventario de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003c"), AlmacenReportesLeerTodasSucursales, "Consultar reportes de Almacén de todas las sucursales"),
+        (Guid.Parse("00000006-0006-0006-0006-00000000003d"), AlmacenCierreMesGestionarTodasSucursales, "Ejecutar el cierre mensual de Almacén (afecta a todas las sucursales)"),
         (Guid.Parse("00000006-0006-0006-0006-000000000020"), CuentasPorPagarDocumentosLeerTodasSucursales, "Consultar documentos de CxP de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000021"), CuentasPorPagarDocumentosGestionarTodasSucursales, "Operar documentos de CxP de todas las sucursales"),
         (Guid.Parse("00000006-0006-0006-0006-000000000001"), CatalogosFormasPagoGestionar, "Habilitar y deshabilitar formas de pago SAT"),
@@ -648,11 +681,14 @@ public static class PermisosCanonicos
         (Guid.Parse("00000004-0009-0000-0000-000000000008"), DatosMaestrosProveedoresToleranciaEditar, "Editar tolerancia factura contra OC en pesos del proveedor"),
         (Guid.Parse("00000004-0009-0000-0000-000000000007"), DatosMaestrosProveedoresValidar,              "Validar o rechazar el expediente documental del proveedor para activación en el ERP"),
         (Guid.Parse("00000004-0010-0000-0000-000000000001"), DatosMaestrosArticulosGestionar,              "Crear, editar y desactivar artículos del catálogo cross-empresa"),
+        (Guid.Parse("00000004-0010-0000-0000-000000000002"), DatosMaestrosArticulosToleranciaEditar,       "Editar la tolerancia de recepción por material del artículo"),
         (Guid.Parse("00000004-0011-0000-0000-000000000001"), DatosMaestrosClientesGestionar,               "Crear, editar y desactivar clientes del master cross-empresa (ADR-0048)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000002"), DatosMaestrosClientesSincronizar,             "Iniciar y consultar la sincronización de clientes desde A+W"),
         (Guid.Parse("00000004-0011-0000-0000-000000000003"), DatosMaestrosClientesOrigenVer,               "Consultar datos de origen A+W del cliente (candidatos fiscales, crédito de referencia, domicilio)"),
         (Guid.Parse("00000004-0011-0000-0000-000000000004"), DatosMaestrosClientesFiscalEditar,            "Modificar datos fiscales de clientes con origen A+W"),
         (Guid.Parse("00000004-0012-0000-0000-000000000001"), DatosMaestrosProductosAwGestionar,            "Crear, editar y desactivar productos de venta A+W del master cross-empresa (ADR-0048)"),
+        (Guid.Parse("00000004-0013-0000-0000-000000000001"), DatosMaestrosDiferenciasFiscalesAwLeer,       "Consultar el reporte de diferencias fiscales entre A+W y el ERP (clientes y productos)"),
+        (Guid.Parse("00000004-0013-0000-0000-000000000002"), DatosMaestrosDiferenciasFiscalesAwRevisar,    "Marcar como revisadas las diferencias fiscales A+W vs ERP y guardar corridas del reporte"),
         // Cuentas por Pagar (F0-PR1). Namespace 00000007-*.
         (Guid.Parse("00000007-0001-0000-0000-000000000001"), CuentasPorPagarFacturasLeer,                 "Consultar facturas de proveedor (detalle y listados)"),
         (Guid.Parse("00000007-0001-0000-0000-000000000002"), CuentasPorPagarFacturasCapturar,             "Capturar facturas de proveedor (con y sin OC)"),
@@ -836,6 +872,13 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0004-0000-0000-000000000002"), ContabilidadPeriodoAdministrar,         "Crear ejercicios contables y abrir sus periodos"),
         (Guid.Parse("0000000d-0004-0000-0000-000000000003"), ContabilidadPeriodoCerrar,              "Cerrar periodos contables con motivo"),
         (Guid.Parse("0000000d-0004-0000-0000-000000000004"), ContabilidadPeriodoReabrir,             "Reabrir periodos contables cerrados con motivo (autorización de mayor nivel)"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000001"), ContabilidadPolizasLeer,                "Consultar pólizas contables, sus partidas, documentos soporte y los movimientos del periodo por cuenta"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000002"), ContabilidadPolizasCapturar,            "Capturar, editar y descartar pólizas manuales en borrador y adjuntar su documento soporte"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000003"), ContabilidadPolizasAutorizar,           "Autorizar pólizas manuales capturadas por otro usuario (asigna su número)"),
+        (Guid.Parse("0000000d-0005-0000-0000-000000000004"), ContabilidadPolizasAnular,              "Anular pólizas autorizadas con motivo (genera la póliza con las mismas partidas en negativo)"),
+        (Guid.Parse("0000000d-0006-0000-0000-000000000001"), ContabilidadRecurrentesLeer,            "Consultar plantillas de pólizas recurrentes y su calendario de aplicaciones"),
+        (Guid.Parse("0000000d-0006-0000-0000-000000000002"), ContabilidadRecurrentesAdministrar,     "Preparar, editar, suspender y reanudar plantillas recurrentes y generar sus pólizas pendientes"),
+        (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
         (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),

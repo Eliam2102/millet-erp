@@ -4,6 +4,7 @@ using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.Conteos;
 
@@ -94,14 +95,24 @@ public sealed record LineaConteoComparacionDto(
     // Artículo y sub-almacén legibles, mismo enriquecimiento que la captura.
     string? ArticuloClave = null,
     string? ArticuloDescripcion = null,
-    string? SubAlmacenClave = null);
+    string? SubAlmacenClave = null,
+    // A7: cantidad vigente = último recuento si existe, si no la captura original.
+    // Varianza y valor se calculan contra ella; CantidadRealCapturada se conserva.
+    decimal? CantidadVigente = null,
+    bool RecuentoRealizado = false);
 
 public sealed record ListarConteosQuery(
     EstadoConteo? Estado,
     TipoConteo? Tipo,
     Guid? SubAlmacenId,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<ConteoListItem>>;
+    int Limit) : IRequest<AlmacenPagedResponse<ConteoListItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "conteo";
+    public string PermisoTodasSucursales => "almacen.inventarios.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarConteosHandler
     : IRequestHandler<ListarConteosQuery, AlmacenPagedResponse<ConteoListItem>>
@@ -113,6 +124,7 @@ public sealed class ListarConteosHandler
         ListarConteosQuery request, CancellationToken cancellationToken)
     {
         IQueryable<ConteoInventario> query = _db.Set<ConteoInventario>().AsNoTracking();
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(x => permitidos.Contains(x.Id));
         if (request.Estado is EstadoConteo e) query = query.Where(c => c.Estado == e);
         if (request.Tipo is TipoConteo t) query = query.Where(c => c.Tipo == t);
         if (request.SubAlmacenId is Guid sid) query = query.Where(c => c.SubAlmacenId == sid);
@@ -254,11 +266,13 @@ public sealed class ListarLineasComparacionHandler
             select new { Linea = l, UbicacionClave = u.Clave, SubAlmacenClave = s.Clave })
             .ToListAsync(cancellationToken);
 
+        var recuentos = await CantidadVigenteConteo.UltimosRecuentosAsync(_db, request.ConteoId, cancellationToken);
         var lineas = filas.Select(x =>
         {
             var l = x.Linea;
+            var vigente = l.CantidadVigente(recuentos);
             decimal? variacionAbs = null, variacionPct = null, variacionVal = null;
-            if (l.CantidadRealCapturada is decimal real)
+            if (vigente is decimal real)
             {
                 var diff = real - l.CantidadTeorica;
                 variacionAbs = diff;
@@ -274,7 +288,8 @@ public sealed class ListarLineasComparacionHandler
                 l.CantidadRealCapturada,
                 variacionAbs, variacionPct, variacionVal,
                 l.RequiereRecuento, l.AprobadoIndividualmente, l.Justificacion,
-                null, null, x.SubAlmacenClave);
+                null, null, x.SubAlmacenClave,
+                vigente, recuentos.ContainsKey(l.Id));
         }).ToList();
 
         return await EnriquecerYOrdenarConteoLineas.PorArticuloAsync(
