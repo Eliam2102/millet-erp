@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/incompatible-library -- react-hook-form watch alimenta validación dinámica; React Compiler omite su memoización de forma segura. */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
@@ -41,6 +41,7 @@ import {
 } from '@/features/compras/ordenes/api/types';
 import { useAgregarLineaManual } from '@/features/compras/ordenes/api/useAgregarLineaManual';
 import { useActualizarLinea } from '@/features/compras/ordenes/api/useActualizarLinea';
+import type { ActualizarLineaValues } from '@/features/compras/ordenes/schemas/actualizar-linea';
 import { LineaDesdeRqBadge } from '@/features/compras/ordenes/components/LineaDesdeRqBadge';
 import { CentroCostoPicker } from '@/features/centros-costo/components/CentroCostoPicker';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
@@ -104,7 +105,32 @@ function buildValuesFromLinea(
       : null,
     textoAdicional: linea.textoAdicional ?? null,
     centroCostoId: linea.centroCostoId,
+    fraccionArancelaria: linea.fraccionArancelaria ?? null,
   };
+}
+
+/**
+ * Códigos de error del API ligados a la fracción arancelaria. Se muestran
+ * junto al campo (además del toast) para que el usuario sepa qué corregir.
+ */
+const CODIGOS_ERROR_FRACCION = [
+  'FRACCION_ARANCELARIA_INVALIDA',
+  'LINEA_OC_FRACCION_INVALIDA',
+  'LINEA_OC_FRACCION_SOLO_COMERCIO_EXTERIOR',
+];
+
+/**
+ * Fracción arancelaria en el PATCH de línea: con valor → se fija; vacía con
+ * valor previo → se limpia; sin valor previo ni captura → no se toca.
+ */
+function comandoFraccion(
+  captura: string | null | undefined,
+  previa: string | null,
+): Pick<ActualizarLineaValues, 'fraccionArancelaria' | 'limpiarFraccionArancelaria'> {
+  const valor = captura?.trim() ?? '';
+  if (valor !== '') return { fraccionArancelaria: valor };
+  if (previa != null) return { limpiarFraccionArancelaria: true };
+  return {};
 }
 
 export function LineaInlineFormOc({
@@ -174,6 +200,10 @@ export function LineaInlineFormOc({
   }, []);
 
   const isPending = agregar.isPending || actualizar.isPending;
+  // Fracción arancelaria: solo al EDITAR una línea de OC de comercio exterior.
+  // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
+  const mostrarFraccion = esEditar && oc.esImportacion;
+  const fraccionId = useId();
 
   const descuentoTipoActual = useWatch({
     control: form.control,
@@ -202,8 +232,18 @@ export function LineaInlineFormOc({
       ) {
         return;
       }
+      if (CODIGOS_ERROR_FRACCION.includes(err.code ?? '')) {
+        form.setError('fraccionArancelaria', {
+          type: err.code ?? 'FRACCION_ARANCELARIA',
+          message: err.problem.detail ?? err.problem.title,
+        });
+      }
+      const partes = [
+        err.problem.detail,
+        err.traceId ? `Código: ${err.traceId}` : null,
+      ].filter((p): p is string => Boolean(p));
       toast.error(err.problem.title, {
-        description: err.traceId ? `Código: ${err.traceId}` : undefined,
+        description: partes.length > 0 ? partes.join(' · ') : undefined,
       });
       return;
     }
@@ -234,6 +274,10 @@ export function LineaInlineFormOc({
             // Heredada → null (no se toca; el backend lo rechazaría). Manual →
             // el CC elegido. Fase E PR3.
             centroCostoId: lineaDesdeRq ? null : (values.centroCostoId ?? null),
+            // Solo en OC de comercio exterior: fuera de ella el API rechaza el campo.
+            ...(oc.esImportacion
+              ? comandoFraccion(values.fraccionArancelaria, linea.fraccionArancelaria)
+              : {}),
           },
           idempotencyKey,
         },
@@ -420,7 +464,7 @@ export function LineaInlineFormOc({
           Heredada de RQ → display BLOQUEADO read-only (ADR-0050 "heredado,
           solo lectura", 1:1 de la RQ); manual → picker ABIERTO por proxy
           (el comprador elige, /compras/ordenes/dim3/buscar). */}
-      <div className="border-t border-primary/10 pt-2">
+      <div className="grid grid-cols-1 gap-2 border-t border-primary/10 pt-2 md:grid-cols-2">
         <FieldInline
           label="Centro de costo"
           error={form.formState.errors.centroCostoId?.message}
@@ -464,6 +508,27 @@ export function LineaInlineFormOc({
             />
           )}
         </FieldInline>
+
+        {mostrarFraccion && (
+          <FieldInline
+            label="Fracción arancelaria"
+            htmlFor={fraccionId}
+            error={form.formState.errors.fraccionArancelaria?.message}
+          >
+            <Input
+              id={fraccionId}
+              type="text"
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="8 u 10 dígitos"
+              data-field="fraccion-arancelaria"
+              {...form.register('fraccionArancelaria')}
+            />
+            <p className="text-xs text-muted-foreground">
+              Clave de la tarifa arancelaria de la mercancía (8 u 10 dígitos).
+            </p>
+          </FieldInline>
+        )}
       </div>
 
       {/* ── Toggle "+ Detalles" + actions ────────────────────────── */}
@@ -637,6 +702,7 @@ export function LineaInlineFormOc({
 
 interface FieldInlineProps {
   label: string;
+  htmlFor?: string;
   required?: boolean;
   error?: string;
   className?: string;
@@ -645,6 +711,7 @@ interface FieldInlineProps {
 
 function FieldInline({
   label,
+  htmlFor,
   required,
   error,
   className,
@@ -652,7 +719,10 @@ function FieldInline({
 }: FieldInlineProps) {
   return (
     <div className={cn('space-y-1', className)}>
-      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
+      >
         {label}
         {required && (
           <span aria-hidden="true" className="text-rose-600">

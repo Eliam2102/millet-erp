@@ -58,6 +58,13 @@ export interface ReporteShellProps<TFila> {
    * Default: deriva del título limpiando caracteres no-ASCII.
    */
   nombreArchivo?: string;
+  /**
+   * Acción opcional al final de cada fila (p. ej. «Ver corte»). Solo en
+   * pantalla: no se imprime ni entra a PDF/Excel.
+   */
+  accionFila?: (row: TFila) => ReactNode;
+  /** Encabezado accesible de la columna de acción. Default: «Acciones». */
+  etiquetaAccion?: string;
 }
 
 export function ReporteShell<TFila>({
@@ -68,6 +75,8 @@ export function ReporteShell<TFila>({
   filtrosUi,
   obtenerCelda,
   nombreArchivo,
+  accionFila,
+  etiquetaAccion = 'Acciones',
 }: ReporteShellProps<TFila>) {
   const getCelda =
     obtenerCelda ??
@@ -219,13 +228,18 @@ export function ReporteShell<TFila>({
                       {c.etiqueta}
                     </th>
                   ))}
+                  {accionFila && (
+                    <th data-print="hidden" className="px-3 py-2 text-right font-medium">
+                      <span className="sr-only">{etiquetaAccion}</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {reporte.filas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={reporte.columnas.length}
+                      colSpan={reporte.columnas.length + (accionFila ? 1 : 0)}
                       className="px-3 py-6 text-center text-sm text-muted-foreground"
                     >
                       Sin datos para los filtros aplicados.
@@ -247,6 +261,11 @@ export function ReporteShell<TFila>({
                           {renderCelda(getCelda(fila, c.clave), c.tipo)}
                         </td>
                       ))}
+                      {accionFila && (
+                        <td data-print="hidden" className="px-3 py-2 text-right">
+                          {accionFila(fila)}
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -272,6 +291,7 @@ export function ReporteShell<TFila>({
                         </td>
                       );
                     })}
+                    {accionFila && <td data-print="hidden" />}
                   </tr>
                 </tfoot>
               )}

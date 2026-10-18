@@ -16,12 +16,12 @@ namespace Millet.Compras.IntegrationTests.Matriz;
 /// Tests integration de <see cref="EvaluadorMultidimensional"/> (F9-PR2,
 /// §3.bis.2). Construye <see cref="Requisicion"/>s en memoria con líneas
 /// que apuntan a artículos seedeados (ART-EST/SVC/CRT/RGO) y verifica
-/// que el evaluator devuelve el nivel correcto según las 3 capas.
+/// que el evaluator devuelve el nivel correcto según las capas vigentes.
 ///
 /// <para>
-/// Para la capa 2 (monto vs umbral) los tests siembran un
-/// <see cref="UmbralAprobacionDepartamento"/> directamente vía DbContext
-/// con bypass del filtro de empresa. Cleanup explícito en finally.
+/// Desde la minuta Millet del 12-oct la requisición no lleva monto: el monto
+/// contra el umbral N1-N2 se valida en la OC. Por eso el monto ya no sube la
+/// RQ a N2 (modo por defecto <c>SoloMonto</c>, sin criterio de disponibilidad).
 /// </para>
 /// </summary>
 public class EvaluadorMultidimensionalTests : IClassFixture<StubsWebApplicationFactory>
@@ -86,14 +86,13 @@ public class EvaluadorMultidimensionalTests : IClassFixture<StubsWebApplicationF
     }
 
     [Fact]
-    public async Task Estandar_Sin_Umbral_Configurado_Es_SoloN1()
+    public async Task Estandar_Monto_Alto_Es_SoloN1_La_RQ_No_Sube_A_N2_Por_Monto()
     {
-        // Sin fila vigente en umbrales_aprobacion_departamento → fail-open
-        // capa 2; solo aplica capa 1.
+        // Monto alto sin umbral: la RQ no lleva monto, solo naturaleza → N1.
         var rq = BuildRequisicion(deptoId: Guid.CreateVersion7());
         rq.AgregarLinea(
             Guid.CreateVersion7(), ArtEstandar, cantidad: 1000m, "PZA",
-            new Money(99999m, "MXN"));   // Monto alto pero sin umbral.
+            new Money(99999m, "MXN"));
 
         var nivel = await EvaluarAsync(rq);
 
@@ -101,70 +100,46 @@ public class EvaluadorMultidimensionalTests : IClassFixture<StubsWebApplicationF
     }
 
     [Fact]
-    public async Task Estandar_Con_Monto_Bajo_Umbral_Es_SoloN1()
+    public async Task Estandar_Con_Faltante_Y_Total_Excedido_No_Sube_A_N2()
     {
-        var deptoId = Guid.CreateVersion7();
-        var rq = BuildRequisicion(deptoId);
+        // Stub de stock: ART-EST-01 tiene 100 en almacén. Cantidad 250 → faltante 150,
+        // total 2500. Con el modo por defecto (SoloMonto) la RQ queda en N1.
+        var rq = BuildRequisicion(deptoId: Guid.CreateVersion7());
         rq.AgregarLinea(
-            Guid.CreateVersion7(), ArtEstandar, cantidad: 10m, "PZA",
-            new Money(50m, "MXN"));   // Total 500, umbral 1000.
+            Guid.CreateVersion7(), ArtEstandar, cantidad: 250m, "PZA",
+            new Money(10m, "MXN"));
 
-        await SeedUmbralAsync(deptoId, umbralMonto: 1000m);
+        var nivel = await EvaluarAsync(rq);
 
-        try
-        {
-            var nivel = await EvaluarAsync(rq);
-            Assert.Equal(RequiereNivel.SoloN1, nivel);
-        }
-        finally
-        {
-            await CleanupUmbralAsync(deptoId);
-        }
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
     }
 
     [Fact]
-    public async Task Estandar_Con_Monto_Excede_Umbral_Dispara_N1YN2()
+    public async Task Servicio_Con_Monto_Excedido_No_Sube_A_N2_En_La_Requisicion()
     {
-        var deptoId = Guid.CreateVersion7();
-        var rq = BuildRequisicion(deptoId);
-        rq.AgregarLinea(
-            Guid.CreateVersion7(), ArtEstandar, cantidad: 10m, "PZA",
-            new Money(200m, "MXN"));   // Total 2000, umbral 1000.
-
-        await SeedUmbralAsync(deptoId, umbralMonto: 1000m);
-
-        try
-        {
-            var nivel = await EvaluarAsync(rq);
-            Assert.Equal(RequiereNivel.N1YN2, nivel);
-        }
-        finally
-        {
-            await CleanupUmbralAsync(deptoId);
-        }
-    }
-
-    [Fact]
-    public async Task Servicio_Con_Monto_Excede_Umbral_Dispara_N1YN2()
-    {
-        // Servicio NO dispara capa 3 (no es Critico/Riesgo); aplica capa 2.
-        var deptoId = Guid.CreateVersion7();
-        var rq = BuildRequisicion(deptoId);
+        // Servicio no es Critico/Riesgo y la RQ ya no evalúa monto → N1.
+        var rq = BuildRequisicion(deptoId: Guid.CreateVersion7());
         rq.AgregarLinea(
             Guid.CreateVersion7(), ArtServicio, cantidad: 1m, "SVC",
             new Money(5000m, "MXN"));
 
-        await SeedUmbralAsync(deptoId, umbralMonto: 1000m);
+        var nivel = await EvaluarAsync(rq);
 
-        try
-        {
-            var nivel = await EvaluarAsync(rq);
-            Assert.Equal(RequiereNivel.N1YN2, nivel);
-        }
-        finally
-        {
-            await CleanupUmbralAsync(deptoId);
-        }
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
+    }
+
+    [Fact]
+    public async Task Linea_Sin_Precio_Estandar_Es_SoloN1()
+    {
+        // Precio 0 (RQ sin precio estimado): no bloquea ni eleva la evaluación.
+        var rq = BuildRequisicion(deptoId: Guid.CreateVersion7());
+        rq.AgregarLinea(
+            Guid.CreateVersion7(), ArtEstandar, cantidad: 10m, "PZA",
+            new Money(0m, "MXN"));
+
+        var nivel = await EvaluarAsync(rq);
+
+        Assert.Equal(RequiereNivel.SoloN1, nivel);
     }
 
     // --- Helpers ---
@@ -192,35 +167,5 @@ public class EvaluadorMultidimensionalTests : IClassFixture<StubsWebApplicationF
         await using var scope = _factory.Services.CreateAsyncScope();
         var evaluator = scope.ServiceProvider.GetRequiredService<IRequiereNivelEvaluator>();
         return await evaluator.EvaluarAsync(rq);
-    }
-
-    private async Task SeedUmbralAsync(Guid deptoId, decimal umbralMonto)
-    {
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
-        var empresaCtx = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
-        using var bypass = empresaCtx.Bypass();
-
-        db.UmbralesAprobacionDepartamento.Add(new UmbralAprobacionDepartamento(
-            empresaId: EmpresaInicial,
-            departamentoId: deptoId,
-            vigenteDesde: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1),
-            umbralMonto: umbralMonto,
-            moneda: "MXN"));
-        await db.SaveChangesAsync();
-    }
-
-    private async Task CleanupUmbralAsync(Guid deptoId)
-    {
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<ComprasDbContext>();
-        var empresaCtx = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>();
-        using var bypass = empresaCtx.Bypass();
-
-        var rows = await db.UmbralesAprobacionDepartamento
-            .Where(u => u.EmpresaId == EmpresaInicial && u.DepartamentoId == deptoId)
-            .ToListAsync();
-        db.UmbralesAprobacionDepartamento.RemoveRange(rows);
-        await db.SaveChangesAsync();
     }
 }

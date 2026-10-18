@@ -39,8 +39,9 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
             t.HasCheckConstraint("ck_oc_lineas_precio_nn", "precio_unitario >= 0");
             t.HasCheckConstraint("ck_oc_lineas_recibida_nn", "cantidad_recibida >= 0");
             t.HasCheckConstraint("ck_oc_lineas_facturada_nn", "cantidad_facturada >= 0");
-            t.HasCheckConstraint("ck_oc_lineas_recibida_max", "cantidad_recibida <= cantidad");
-            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= cantidad");
+            // La tolerancia por material llega a 100 %; el techo exacto lo valida el dominio. La base conserva una cota de seguridad.
+            t.HasCheckConstraint("ck_oc_lineas_recibida_max", "cantidad_recibida <= cantidad * 2");
+            t.HasCheckConstraint("ck_oc_lineas_facturada_max", "cantidad_facturada <= GREATEST(cantidad, cantidad_recibida)");
             t.HasCheckConstraint("ck_oc_lineas_rq_coherente",
                 "(requisicion_id IS NULL AND linea_requisicion_id IS NULL) OR " +
                 "(requisicion_id IS NOT NULL AND linea_requisicion_id IS NOT NULL)");
@@ -145,6 +146,8 @@ public sealed class LineaOrdenCompraConfiguration : IEntityTypeConfiguration<Lin
             .IsRequired();
 
         builder.Property(l => l.TextoAdicional).HasColumnType("text");
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo, confirmar con lista de Millet.
+        builder.Property(l => l.FraccionArancelaria).HasMaxLength(10);
 
         // SubtotalLinea es computed (getter) — no se persiste como columna.
         builder.Ignore(l => l.SubtotalLinea);

@@ -221,6 +221,8 @@ export interface ArticuloDetalle {
   precioReferenciaMonto: number | null;
   precioReferenciaMoneda: string | null;
   estatus: EstatusCatalogo;
+  /** Tolerancia de recepción por material (%); null = 0 %. */
+  toleranciaCantidadPorcentaje?: number | null;
 }
 
 export interface CrearArticuloPayload {

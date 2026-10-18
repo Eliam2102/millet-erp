@@ -38,6 +38,13 @@ public sealed class ActualizarLineaOcValidator : AbstractValidator<ActualizarLin
             .MaximumLength(1000).WithErrorCode("DESCRIPCION_DEMASIADO_LARGA")
             .When(c => c.DescripcionExtendida is not null);
 
+        // PLATFORM-TODO(F1-COM-06): supuesto Vilo. 8 u 10 dígitos.
+        RuleFor(c => c.FraccionArancelaria)
+            .Must(f => f is { Length: 8 or 10 } && f.All(char.IsAsciiDigit))
+            .WithErrorCode("FRACCION_ARANCELARIA_INVALIDA")
+            .WithMessage("La fracción arancelaria debe tener 8 o 10 dígitos.")
+            .When(c => c.FraccionArancelaria is not null);
+
         // Descuento: ambos o ninguno.
         RuleFor(c => c.DescuentoValor)
             .NotNull().WithErrorCode("DESCUENTO_VALOR_REQUERIDO")

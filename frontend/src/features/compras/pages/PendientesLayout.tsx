@@ -20,6 +20,7 @@ import { esApiError } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { ListaPendientesCompacta } from '@/features/compras/components/ListaPendientesCompacta';
+import type { PendienteAutorizacionItemResponse } from '@/features/compras/api/types';
 import type { PendientesSearch } from '@/features/compras/lib/pendientes-search-schema';
 import { cn } from '@/lib/utils';
 
@@ -192,7 +193,7 @@ export function PendientesLayout({
 
 interface RenderListaContentProps {
   query: ReturnType<typeof usePendientesAutorizacion>;
-  items: readonly import('@/features/compras/api/types').RequisicionListItemResponse[];
+  items: readonly PendienteAutorizacionItemResponse[];
   idActivo: string | null;
   search: PendientesSearch;
 }

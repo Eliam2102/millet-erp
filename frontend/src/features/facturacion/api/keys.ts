@@ -141,6 +141,7 @@ export const facturacionKeys = {
   sesiones: () => [...facturacionKeys.cajas(), 'sesiones'] as const,
   sesionActual: () => [...facturacionKeys.sesiones(), 'actual'] as const,
   sesionById: (id: string) => [...facturacionKeys.sesiones(), 'byId', id] as const,
+  sesionCorte: (id: string) => [...facturacionKeys.sesiones(), 'corte', id] as const,
   sesionesList: (cajaId: string) =>
     [...facturacionKeys.sesiones(), 'list', { cajaId }] as const,
   cobros: (sesionId: string) =>

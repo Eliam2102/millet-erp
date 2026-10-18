@@ -18,6 +18,8 @@ public sealed class AlmacenSucursalReadAdapter(AlmacenDbContext db, IComprasSucu
         var subs = await db.SubAlmacenes.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.AlmacenId, ct);
         IReadOnlyList<Guid> DelSub(Guid sub) => subs.TryGetValue(sub, out var almacen) && almacenes.TryGetValue(almacen, out var sucursal)
             ? [sucursal] : [];
+        if (tipo == "sub_almacen")
+            return subs.Select(x => new DocumentoSucursales(x.Key, DelSub(x.Key))).ToArray();
         if (tipo == "conteo")
         {
             var conteos = await db.Conteos.AsNoTracking().Select(c => new { c.Id, c.SubAlmacenId,
@@ -33,6 +35,21 @@ public sealed class AlmacenSucursalReadAdapter(AlmacenDbContext db, IComprasSucu
             var configs = await db.ConfiguracionesReorden.AsNoTracking().Select(x => new { x.Id, x.Nivel, x.EntidadId }).ToListAsync(ct);
             return configs.Select(x => new DocumentoSucursales(x.Id, x.Nivel == NivelReorden.Sucursal ? [x.EntidadId]
                 : almacenes.TryGetValue(x.EntidadId, out var sucursal) ? [sucursal] : [])).ToArray();
+        }
+        if (tipo == "devolucion_proveedor")
+        {
+            // Una devolución hereda el alcance de su recepción de origen y/o de su sub-almacén de origen.
+            var recepciones = (await ListarAsync("recepcion", ct)).ToDictionary(x => x.Id, x => x.Sucursales);
+            var devoluciones = await db.DevolucionesProveedor.AsNoTracking()
+                .Select(d => new { d.Id, d.RecepcionOrigenId, d.SubAlmacenOrigenId }).ToListAsync(ct);
+            return devoluciones.Select(d =>
+            {
+                var origenes = new List<IReadOnlyList<Guid>>();
+                if (d.RecepcionOrigenId is Guid recepcion) origenes.Add(recepciones.GetValueOrDefault(recepcion) ?? []);
+                if (d.SubAlmacenOrigenId is Guid sub) origenes.Add(DelSub(sub));
+                return new DocumentoSucursales(d.Id, origenes.Count == 0 || origenes.Any(o => o.Count == 0)
+                    ? [] : origenes.SelectMany(o => o).Distinct().ToArray());
+            }).ToArray();
         }
         var bins = await db.Ubicaciones.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.SubAlmacenId, ct);
         if (tipo == "ubicacion_almacen")
@@ -54,7 +71,8 @@ public sealed class AlmacenSucursalReadAdapter(AlmacenDbContext db, IComprasSucu
             if (x.RqId is Guid rq) origenes.Add(rqs.GetValueOrDefault(rq) ?? []);
             if (x.RqRegularizadoraId is Guid regularizadora) origenes.Add(rqs.GetValueOrDefault(regularizadora) ?? []);
             if (x.FacturaId is Guid factura) origenes.Add(facturas.GetValueOrDefault(factura) ?? []);
-            if (x.CfdiRecibidoId is Guid cfdi) origenes.Add(cfdis.GetValueOrDefault(cfdi) ?? []);
+            // D10: un CFDI por procesar no tiene sucursal; la OC y los bins determinan el alcance.
+            if (x.CfdiRecibidoId is Guid cfdi && cfdis.GetValueOrDefault(cfdi) is { Count: > 0 } sucursalesCfdi) origenes.Add(sucursalesCfdi);
             // Un origen roto o un movimiento sin líneas no demuestra alcance territorial.
             return new DocumentoSucursales(x.Id, x.Bins.Length == 0 || origenes.Any(o => o.Count == 0)
                 ? [] : origenes.SelectMany(o => o).Distinct().ToArray());

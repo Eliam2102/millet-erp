@@ -27,6 +27,18 @@ describe('CrearOrdenCompraVaciaSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('sucursal vacía falla con el mensaje de elección obligatoria', () => {
+    const result = CrearOrdenCompraVaciaSchema.safeParse({
+      ...VALIDO,
+      sucursalDestinoId: '',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.find((i) => i.path[0] === 'sucursalDestinoId')?.message)
+        .toBe('Elige la sucursal destino de esta compra');
+    }
+  });
+
   it('rechaza UUID malformado en proveedorId', () => {
     const result = CrearOrdenCompraVaciaSchema.safeParse({
       ...VALIDO,

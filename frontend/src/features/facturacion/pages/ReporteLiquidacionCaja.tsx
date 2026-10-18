@@ -1,6 +1,6 @@
 import { hoyLocalISO } from '@/lib/datetime';
 import { Controller, useForm } from 'react-hook-form';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SucursalSelector, ReporteShell } from '@/components/erp';
@@ -98,7 +98,7 @@ export function ReporteLiquidacionCaja() {
           Liquidación de caja
         </h1>
         <p className="text-sm text-muted-foreground">
-          Facturado por forma de pago en el rango seleccionado.
+          Sesiones cerradas por caja y cajero en el rango seleccionado; abre el corte de cada una.
         </p>
       </header>
 
@@ -109,6 +109,18 @@ export function ReporteLiquidacionCaja() {
         onRetry={() => query.refetch()}
         filtrosUi={filtrosUi}
         nombreArchivo="liquidacion-caja"
+        etiquetaAccion="Corte de caja"
+        accionFila={(fila) =>
+          typeof fila.sesionId === 'string' ? (
+            <Link
+              to="/facturacion/caja/corte/$sesionId"
+              params={{ sesionId: fila.sesionId }}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Ver corte
+            </Link>
+          ) : null
+        }
       />
     </div>
   );

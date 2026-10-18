@@ -6,14 +6,15 @@ namespace Millet.Compras.Application.Lineas.AgregarLinea;
 /// Comando para agregar una línea a una requisición existente. Solo
 /// permitido cuando la requisición está en estado <c>Borrador</c>.
 /// La <c>Posicion</c> se asigna automáticamente por el agregado raíz.
+/// El precio estimado es opcional: <c>null</c> = 0 (la RQ no lleva monto; Compras cotiza en la OC).
 /// </summary>
 public sealed record AgregarLineaCommand(
     Guid RequisicionId,
     Guid ArticuloId,
     decimal Cantidad,
     string UnidadMedida,
-    decimal PrecioEstimadoMonto,
-    string PrecioEstimadoMoneda,
+    decimal? PrecioEstimadoMonto,
+    string? PrecioEstimadoMoneda,
     Guid? CuentaContableId = null,
     Guid? CentroCostoId = null,
     string? Proyecto = null,

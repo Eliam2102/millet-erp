@@ -62,4 +62,12 @@ public sealed record OrdenCompraResumen(
     string Moneda,
     DateOnly FechaDocumento,
     string? ReferenciaProveedor,
-    string? CompradorNombre = null);
+    string? CompradorNombre = null,
+    // Campos de la bandeja de pendientes de autorización (null en otras proyecciones). Aditivos.
+    decimal? TotalAPagar = null,
+    decimal? CantidadTotal = null,
+    int? NumeroLineas = null,
+    bool? EsMenorCuantia = null,
+    bool? EsRecurrente = null,
+    bool? ProveedorConocido = null,
+    bool? RequiereNivel2 = null);

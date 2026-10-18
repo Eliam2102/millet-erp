@@ -70,7 +70,7 @@ public sealed class ActualizarLineaHandler : IRequestHandler<ActualizarLineaComm
             articuloId: command.ArticuloId,
             cantidad: command.Cantidad,
             unidadMedida: command.UnidadMedida,
-            precioEstimado: Money.Of(command.PrecioEstimadoMonto, command.PrecioEstimadoMoneda),
+            precioEstimado: Money.Of(command.PrecioEstimadoMonto ?? 0m, command.PrecioEstimadoMoneda ?? "MXN"),
             cuentaContableId: command.CuentaContableId,
             centroCostoId: centroCostoId,
             proyecto: command.Proyecto,

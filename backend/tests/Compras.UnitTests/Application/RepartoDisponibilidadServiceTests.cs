@@ -1,0 +1,140 @@
+using Millet.Compras.Application.Disponibilidad;
+using Millet.Compras.Domain;
+using Millet.Compras.Domain.Ports.DatosMaestros;
+using Millet.Compras.Domain.Ports.Almacen;
+using Millet.SharedKernel.Application.UnidadesMedida;
+using Millet.SharedKernel.Domain;
+
+namespace Millet.Compras.UnitTests.Application;
+
+/// <summary>
+/// Pruebas del reparto por línea compartido (<see cref="RepartoDisponibilidadService"/>):
+/// cobertura total de almacén, descuento acumulado entre líneas del mismo
+/// artículo y regla de servicio (sin consultar stock).
+/// </summary>
+public sealed class RepartoDisponibilidadServiceTests
+{
+    private static readonly Guid Empresa = Guid.Parse("00000003-0000-0000-0000-000000000002");
+    private static readonly Guid Sucursal = Guid.CreateVersion7();
+    private static readonly Guid Articulo = Guid.CreateVersion7();
+    private static readonly Guid Servicio = Guid.CreateVersion7();
+
+    [Fact]
+    public async Task Almacen_Cubre_Todo_Deja_DeCompra_En_Cero()
+    {
+        var requisicion = CrearRequisicion(
+            Clasificacion.MateriaPrima,
+            (Articulo, 2m, 100m));
+
+        var repartos = await RepartoDisponibilidadService.RepartirAsync(
+            new StockFalso((Articulo, 10m)), new ConversionIdentidad(), Articulos(), Clasificacion.MateriaPrima,
+            Sucursal, requisicion.Lineas, default);
+
+        Assert.Equal(2m, repartos[0].DeAlmacen);
+        Assert.Equal(0m, repartos[0].DeCompra);
+        Assert.False(repartos[0].EsServicio);
+    }
+
+    [Fact]
+    public async Task Descuenta_Stock_Acumulado_Entre_Lineas_Del_Mismo_Articulo()
+    {
+        var requisicion = CrearRequisicion(
+            Clasificacion.MateriaPrima,
+            (Articulo, 2m, 100m),
+            (Articulo, 2m, 100m));
+
+        var repartos = await RepartoDisponibilidadService.RepartirAsync(
+            new StockFalso((Articulo, 3m)), new ConversionIdentidad(), Articulos(), Clasificacion.MateriaPrima,
+            Sucursal, requisicion.Lineas, default);
+
+        Assert.Equal((2m, 0m), (repartos[0].DeAlmacen, repartos[0].DeCompra));
+        Assert.Equal((1m, 1m), (repartos[1].DeAlmacen, repartos[1].DeCompra));
+    }
+
+    [Fact]
+    public async Task Linea_De_Articulo_Servicio_Va_Completa_A_Compra_Sin_Consultar_Stock()
+    {
+        var requisicion = CrearRequisicion(
+            Clasificacion.MateriaPrima,
+            (Servicio, 10m, 100m));
+        var stock = new StockFalso((Servicio, 100m));
+
+        var repartos = await RepartoDisponibilidadService.RepartirAsync(
+            stock, new ConversionIdentidad(), Articulos(Servicio), Clasificacion.MateriaPrima,
+            Sucursal, requisicion.Lineas, default);
+
+        Assert.Empty(stock.Consultas);
+        Assert.Equal((0m, 10m, 0m), (repartos[0].DeAlmacen, repartos[0].DeCompra, repartos[0].Disponible));
+        Assert.True(repartos[0].EsServicio);
+    }
+
+    [Fact]
+    public async Task Rq_De_Clasificacion_Servicio_Va_Completa_A_Compra_Sin_Consultar_Stock()
+    {
+        var requisicion = CrearRequisicion(
+            Clasificacion.Servicio,
+            (Articulo, 10m, 100m));
+        var stock = new StockFalso((Articulo, 100m));
+
+        var repartos = await RepartoDisponibilidadService.RepartirAsync(
+            stock, new ConversionIdentidad(), Articulos(), Clasificacion.Servicio,
+            Sucursal, requisicion.Lineas, default);
+
+        Assert.Empty(stock.Consultas);
+        Assert.Equal((0m, 10m), (repartos[0].DeAlmacen, repartos[0].DeCompra));
+        Assert.True(repartos[0].EsServicio);
+    }
+
+    private static Dictionary<Guid, ArticuloLectura> Articulos(params Guid[] servicios) =>
+        new Dictionary<Guid, ArticuloLectura>
+        {
+            [Articulo] = new(Articulo, "ART-01", "Articulo", EsServicio: false),
+            [Servicio] = new(Servicio, "SVC-01", "Servicio", EsServicio: servicios.Contains(Servicio)),
+        };
+
+    private static Requisicion CrearRequisicion(
+        Clasificacion clasificacion,
+        params (Guid ArticuloId, decimal Cantidad, decimal Precio)[] lineas)
+    {
+        var requisicion = new Requisicion(
+            id: Guid.CreateVersion7(),
+            empresaId: Empresa,
+            folio: Folio.Parse("MID2026-000002"),
+            folioAnio: 2026,
+            clasificacion: clasificacion,
+            sucursalId: Sucursal,
+            departamentoId: Guid.CreateVersion7(),
+            almacenDestinoId: Guid.CreateVersion7(),
+            requisitanteId: Guid.CreateVersion7(),
+            creadorId: Guid.CreateVersion7(),
+            prioridad: Prioridad.Normal,
+            fechaSolicitud: DateTimeOffset.UtcNow,
+            descripcion: "Test reparto");
+        foreach (var (articuloId, cantidad, precio) in lineas)
+        {
+            requisicion.AgregarLinea(Guid.CreateVersion7(), articuloId, cantidad, "PZA", new Money(precio, "MXN"));
+        }
+
+        return requisicion;
+    }
+
+    private sealed class StockFalso(params (Guid ArticuloId, decimal Disponible)[] existencias) : IConsultarStockPort
+    {
+        public List<Guid> Consultas { get; } = new();
+
+        public Task<DisponibilidadStock> ConsultarPorSucursalAsync(
+            Guid sucursalId, Guid articuloId, CancellationToken cancellationToken)
+        {
+            Consultas.Add(articuloId);
+            var disponible = existencias.FirstOrDefault(e => e.ArticuloId == articuloId).Disponible;
+            return Task.FromResult(new DisponibilidadStock(OnHand: disponible, Disponible: disponible));
+        }
+    }
+
+    private sealed class ConversionIdentidad : IConversionUnidadPort
+    {
+        public Task<ConversionUnidad> ConvertirAsync(
+            Guid articuloId, decimal cantidad, string? unidadCapturada, string unidadDocumento, CancellationToken ct) =>
+            Task.FromResult(new ConversionUnidad(cantidad, unidadDocumento, cantidad, 1m, unidadDocumento, cantidad));
+    }
+}

@@ -72,4 +72,7 @@ public sealed record LineaRecepcionPayload(
     decimal MontoTotalMxn,
     Guid UbicacionId,
     // G1.6: sub-almacén derivado del bin (aditivo).
-    Guid? SubAlmacenId = null);
+    Guid? SubAlmacenId = null,
+    // Aditivos (86e3pc50v): tolerancia del artículo aplicada y recibido neto acumulado de la línea de OC tras este evento, en unidad de la OC, calculado por Almacén.
+    decimal? ToleranciaPorcentaje = null,
+    decimal? CantidadRecibidaAcumulada = null);

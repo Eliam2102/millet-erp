@@ -247,7 +247,7 @@ function FormBody({
         </Field>
 
         <Field
-          label="Filtro de familia (opcional)"
+          label="Familia (categoría del artículo, opcional)"
           error={form.formState.errors.filtroFamilia?.message}
         >
           <Controller
@@ -258,7 +258,7 @@ function FormBody({
                 {...field}
                 value={field.value ?? ''}
                 maxLength={50}
-                placeholder="Ej. SELLANTES, PINTURAS"
+                placeholder="Ej. SELLANTES"
               />
             )}
           />

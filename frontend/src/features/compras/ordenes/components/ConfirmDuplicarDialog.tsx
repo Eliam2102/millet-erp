@@ -89,7 +89,9 @@ export function ConfirmDuplicarDialog({
                 Información de logística (dirección, transportista, guía)
               </ItemList>
               <ItemList ok>
-                Información de importación (incoterm, contenedor, ruta)
+                Información de importación (incoterm, país de origen, contenedor, ruta,
+                semana de embarque, tipo de operación, BL, tipo de transporte, agente
+                aduanal/naviera, puerto de aduana, fecha estimada de arribo, certificado de origen)
               </ItemList>
               <ItemList ok>
                 Totales financieros (descuento global, gastos, redondeo)
@@ -111,6 +113,7 @@ export function ConfirmDuplicarDialog({
                 Motivo de rechazo/cancelación de la OC origen
               </ItemList>
               <ItemList>Cantidades ya recibidas</ItemList>
+              <ItemList>Número de pedimento (se captura post-autorización)</ItemList>
             </ul>
           </div>
         </div>

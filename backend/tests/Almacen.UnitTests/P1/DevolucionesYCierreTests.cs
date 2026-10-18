@@ -5,6 +5,7 @@ using Millet.Almacen.Application.DevolucionesProveedor;
 using Millet.Almacen.Application.Integration;
 using Millet.Almacen.Application.Vales;
 using Millet.Almacen.Domain.Cierre;
+using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.Conteos;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Movimientos;
@@ -50,12 +51,79 @@ public sealed class DevolucionesYCierreTests
         dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
         dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
         await f.Db.SaveChangesAsync();
-        await new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true))
+        await new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true), new P7Support.Conversion())
             .Handle(new(result.DevolucionId, f.SubId, P1Fixture.Fecha, [new(dev.Lineas.Single().Id, f.BinId)]), default);
         var evento = f.Events.Items.OfType<OcDevolucionRegistradaIntegrationEvent>().Single();
         evento.MontoTotalMxn.Should().Be(150);
         evento.Lineas.Single().CostoUnitarioMxn.Should().Be(25);
         evento.Lineas.Single().LineaOcId.Should().Be(f.LineaId);
+    }
+    [Fact]
+    public async Task Salida_proveedor_publica_CantidadDocumento_en_unidad_de_la_oc()
+    {
+        await using var f = new P1Fixture();
+        var recepcion = await f.MovimientoAsync(TipoMovimiento.EntradaCompra);
+        var oc = (await f.Oc.ObtenerAsync(f.DocumentoId, default))!;
+        var h = new IniciarDevolucionAProveedorHandler(f.Db, f.Context, f.Context, f.Guard, f.Oc);
+        var cmd = new IniciarDevolucionAProveedorCommand(oc.ProveedorId, "Defecto", recepcion.Id, null, null, f.SubId,
+            [new(f.ArticuloId, 6, "PZA", 999, recepcion.Lineas.Single().Id)]);
+        var result = await h.Handle(cmd, default);
+        var dev = await f.Db.Set<DevolucionAProveedor>().Include(d => d.Lineas).SingleAsync();
+        dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
+        dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
+        await f.Db.SaveChangesAsync();
+        await new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true), new P7Support.Conversion())
+            .Handle(new(result.DevolucionId, f.SubId, P1Fixture.Fecha, [new(dev.Lineas.Single().Id, f.BinId)]), default);
+        var evento = f.Events.Items.OfType<OcDevolucionRegistradaIntegrationEvent>().Single();
+        evento.Lineas.Single().CantidadDocumento.Should().Be(evento.Lineas.Single().Cantidad);
+    }
+    [Fact]
+    public async Task Salida_proveedor_desde_otra_sucursal_que_la_recepcion_lanza_DEVOLUCION_SUCURSAL_DISTINTA()
+    {
+        await using var f = new P1Fixture();
+        var recepcion = await f.MovimientoAsync(TipoMovimiento.EntradaCompra);
+        var oc = (await f.Oc.ObtenerAsync(f.DocumentoId, default))!;
+        var h = new IniciarDevolucionAProveedorHandler(f.Db, f.Context, f.Context, f.Guard, f.Oc);
+        var cmd = new IniciarDevolucionAProveedorCommand(oc.ProveedorId, "Defecto", recepcion.Id, null, null, f.SubId,
+            [new(f.ArticuloId, 6, "PZA", 999, recepcion.Lineas.Single().Id)]);
+        var result = await h.Handle(cmd, default);
+        var dev = await f.Db.Set<DevolucionAProveedor>().Include(d => d.Lineas).SingleAsync();
+        dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
+        dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
+        await f.Db.SaveChangesAsync();
+        var almacenB = new Millet.Almacen.Domain.Catalogo.Almacen(Guid.NewGuid(), "P1B", "Almacén P1B", Guid.NewGuid());
+        var subB = Guid.NewGuid();
+        f.Db.Almacenes.Add(almacenB);
+        f.Db.SubAlmacenes.Add(new SubAlmacen(subB, almacenB.Id, "P1B", "Revisión P1B", TipoSubAlmacen.MaterialEnRevision));
+        await f.Db.SaveChangesAsync();
+        var handler = new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true), new P7Support.Conversion());
+
+        await Error(() => handler.Handle(new(result.DevolucionId, subB, P1Fixture.Fecha, [new(dev.Lineas.Single().Id, f.BinId)]), default), "DEVOLUCION_SUCURSAL_DISTINTA");
+        f.Events.Items.Should().BeEmpty();
+        (await f.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimiento.SalidaPorDevolucionAProveedor)).Should().Be(0);
+    }
+    [Fact]
+    public async Task Salida_proveedor_desde_sub_de_la_misma_sucursal_que_la_recepcion_no_lanza()
+    {
+        await using var f = new P1Fixture();
+        var recepcion = await f.MovimientoAsync(TipoMovimiento.EntradaCompra);
+        var oc = (await f.Oc.ObtenerAsync(f.DocumentoId, default))!;
+        var h = new IniciarDevolucionAProveedorHandler(f.Db, f.Context, f.Context, f.Guard, f.Oc);
+        var cmd = new IniciarDevolucionAProveedorCommand(oc.ProveedorId, "Defecto", recepcion.Id, null, null, f.SubId,
+            [new(f.ArticuloId, 6, "PZA", 999, recepcion.Lineas.Single().Id)]);
+        var result = await h.Handle(cmd, default);
+        var dev = await f.Db.Set<DevolucionAProveedor>().Include(d => d.Lineas).SingleAsync();
+        dev.AgregarEvidencia(new(Guid.NewGuid(), dev.Id, "Foto", "foto.png", "foto.png"));
+        dev.SolicitarAutorizacion(); dev.Autorizar(P1Fixture.EmpresaId);
+        await f.Db.SaveChangesAsync();
+        var almacenId = (await f.Db.SubAlmacenes.SingleAsync(s => s.Id == f.SubId)).AlmacenId;
+        var subB = Guid.NewGuid();
+        f.Db.SubAlmacenes.Add(new SubAlmacen(subB, almacenId, "P1B", "Revisión P1B", TipoSubAlmacen.MaterialEnRevision));
+        await f.Db.SaveChangesAsync();
+
+        await new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true), new P7Support.Conversion())
+            .Handle(new(result.DevolucionId, subB, P1Fixture.Fecha, [new(dev.Lineas.Single().Id, f.BinId)]), default);
+        f.Events.Items.OfType<OcDevolucionRegistradaIntegrationEvent>().Should().ContainSingle();
     }
     [Theory]
     [InlineData(false, false)] [InlineData(false, true)] [InlineData(true, false)] [InlineData(true, true)]
@@ -76,7 +144,7 @@ public sealed class DevolucionesYCierreTests
         var dev = new DevolucionAProveedor(Guid.NewGuid(), P1Fixture.EmpresaId, Guid.NewGuid(), "Defecto", P1Fixture.EmpresaId);
         f.Db.Set<DevolucionAProveedor>().Add(dev);
         await Cerrar(f);
-        await Error(() => new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true))
+        await Error(() => new RegistrarSalidaDevolucionAProveedorHandler(f.Db, f.Events, f.Context, f.Context, f.Oc, new PeriodoContableStub(true), new P7Support.Conversion())
             .Handle(new(dev.Id, f.SubId, P1Fixture.Fecha), default), "PERIODO_CERRADO");
         (await f.Db.Movimientos.CountAsync()).Should().Be(0);
         f.Events.Items.Should().BeEmpty();
@@ -87,23 +155,23 @@ public sealed class DevolucionesYCierreTests
     public async Task Cierre_bloquea_todo_conteo_no_terminal(EstadoConteo estado)
     {
         await using var f = new P1Fixture();
-        var conteo = new ConteoInventario(Guid.NewGuid(), P1Fixture.EmpresaId, TipoConteo.Rotativo, P1Fixture.Fecha, Guid.NewGuid(), f.SubId);
+        var conteo = new ConteoInventario(Guid.NewGuid(), P1Fixture.EmpresaId, TipoConteo.Rotativo, new(2026, 9, 9), Guid.NewGuid(), f.SubId);
         typeof(ConteoInventario).GetProperty(nameof(ConteoInventario.Estado))!.SetValue(conteo, estado);
         f.Db.Set<ConteoInventario>().Add(conteo); await f.Db.SaveChangesAsync();
-        await Error(() => new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context).Handle(new(2026, 10), default), "CIERRE_CONTEOS_PENDIENTES");
+        await Error(() => new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context).Handle(new(2026, 9), default), "CIERRE_CONTEOS_PENDIENTES");
         (await f.Db.Set<PeriodoCerrado>().CountAsync()).Should().Be(0);
     }
     [Fact]
     public async Task Cierre_bloquea_conteo_iniciado_antes_de_su_fecha_planificada()
     {
         await using var f = new P1Fixture();
-        var conteo = new ConteoInventario(Guid.NewGuid(), P1Fixture.EmpresaId, TipoConteo.Rotativo, new(2026, 11, 2), Guid.NewGuid(), f.SubId);
+        var conteo = new ConteoInventario(Guid.NewGuid(), P1Fixture.EmpresaId, TipoConteo.Rotativo, new(2026, 10, 2), Guid.NewGuid(), f.SubId);
         typeof(ConteoInventario).GetProperty(nameof(ConteoInventario.Estado))!.SetValue(conteo, EstadoConteo.EnCurso);
-        typeof(ConteoInventario).GetProperty(nameof(ConteoInventario.FechaInicio))!.SetValue(conteo, new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero));
+        typeof(ConteoInventario).GetProperty(nameof(ConteoInventario.FechaInicio))!.SetValue(conteo, new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         f.Db.Set<ConteoInventario>().Add(conteo);
         await f.Db.SaveChangesAsync();
 
-        await Error(() => new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context).Handle(new(2026, 10), default), "CIERRE_CONTEOS_PENDIENTES");
+        await Error(() => new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context).Handle(new(2026, 9), default), "CIERRE_CONTEOS_PENDIENTES");
         (await f.Db.Set<PeriodoCerrado>().CountAsync()).Should().Be(0);
     }
     [Theory]
@@ -111,13 +179,13 @@ public sealed class DevolucionesYCierreTests
     public async Task Cierre_permite_conteos_terminales_y_planificados_del_mes_siguiente(EstadoConteo estado)
     {
         await using var f = new P1Fixture();
-        var fecha = estado == EstadoConteo.Planificado ? new DateOnly(2026, 11, 2) : P1Fixture.Fecha;
+        var fecha = estado == EstadoConteo.Planificado ? new DateOnly(2026, 10, 2) : new DateOnly(2026, 9, 9);
         var conteo = new ConteoInventario(Guid.NewGuid(), P1Fixture.EmpresaId, TipoConteo.Rotativo, fecha, Guid.NewGuid(), f.SubId);
         typeof(ConteoInventario).GetProperty(nameof(ConteoInventario.Estado))!.SetValue(conteo, estado);
         f.Db.Set<ConteoInventario>().Add(conteo);
         await f.Db.SaveChangesAsync();
 
-        await new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context).Handle(new(2026, 10), default);
+        await new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context).Handle(new(2026, 9), default);
         (await f.Db.Set<PeriodoCerrado>().CountAsync()).Should().Be(1);
     }
     [Fact]
@@ -125,10 +193,12 @@ public sealed class DevolucionesYCierreTests
     {
         await using var f = new P1Fixture();
         var vale = await f.MovimientoAsync(TipoMovimiento.SalidaPorVale);
+        typeof(MovimientoInventario).GetProperty(nameof(MovimientoInventario.FechaMovimiento))!.SetValue(vale, new DateOnly(2026, 9, 9));
+        await f.Db.SaveChangesAsync();
         var h = new EjecutarCierreMensualHandler(f.Db, f.Context, f.Context);
-        await Error(() => h.Handle(new(2026, 10), default), "CIERRE_VALES_PENDIENTES");
+        await Error(() => h.Handle(new(2026, 9), default), "CIERRE_VALES_PENDIENTES");
         await new RegularizarSalidaPorValeHandler(f.Db, f.Rq).Handle(new(vale.Id, f.DocumentoId), default);
-        await h.Handle(new(2026, 10), default);
+        await h.Handle(new(2026, 9), default);
         (await f.Db.Set<PeriodoCerrado>().CountAsync()).Should().Be(1);
     }
     [Theory]

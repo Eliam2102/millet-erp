@@ -21,7 +21,7 @@ public sealed class ADM08CentroCostoHeredadoTests
             f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conversion)
             .Handle(new(f.DocumentoId, P1Fixture.Fecha, "DEMO-ADM08.pdf", null, lineas), default);
         else await new RegistrarRecepcionConFacturaHandler(f.Db, port, new P1Fixture.Articulos(), f.Events,
-            f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conversion)
+            f.Context, f.Context, f.Guard, new PeriodoContableStub(true), conversion, CfdiFake.Valido(), new ProveedorRfcFake())
             .Handle(new(f.DocumentoId, P1Fixture.Fecha, Guid.NewGuid(), null, null, lineas), default);
         var linea = (await f.Db.Movimientos.Include(x => x.Lineas).SingleAsync()).Lineas.Single();
         Assert.Equal(ccDepartamento, linea.CentroCostoId);

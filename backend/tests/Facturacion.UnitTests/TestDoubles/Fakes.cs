@@ -178,7 +178,8 @@ public sealed class FakeCanalesVentaReadPort(
 /// </summary>
 public sealed class FakeSucursalesReadPort(
     IReadOnlyCollection<Guid>? noActivas = null,
-    string? zonaHoraria = "America/Merida") : ISucursalesReadPort
+    string? zonaHoraria = "America/Merida",
+    string? nombre = "MID — Mérida") : ISucursalesReadPort
 {
     public Task<IReadOnlyList<Guid>> FiltrarNoActivasAsync(
         IReadOnlyCollection<Guid> sucursalIds, CancellationToken cancellationToken) =>
@@ -187,6 +188,20 @@ public sealed class FakeSucursalesReadPort(
 
     public Task<string?> ObtenerZonaHorariaAsync(Guid sucursalId, CancellationToken cancellationToken) =>
         Task.FromResult(zonaHoraria);
+
+    public Task<string?> ObtenerNombreAsync(Guid sucursalId, CancellationToken cancellationToken) =>
+        Task.FromResult(nombre);
+}
+
+/// <summary>Padrón de usuarios configurable (FIX-12): id → nombre.</summary>
+public sealed class FakeUsuariosReadPort(IReadOnlyDictionary<Guid, string>? nombres = null) : IUsuariosReadPort
+{
+    public Task<IReadOnlyDictionary<Guid, string>> ObtenerNombresAsync(
+        IReadOnlyCollection<Guid> usuarioIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(
+            (nombres ?? new Dictionary<Guid, string>())
+                .Where(kv => usuarioIds.Contains(kv.Key))
+                .ToDictionary(kv => kv.Key, kv => kv.Value));
 }
 
 /// <summary>Datos fiscales del emisor configurables (null = empresa inexistente).</summary>

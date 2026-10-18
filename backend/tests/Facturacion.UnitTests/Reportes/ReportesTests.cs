@@ -45,8 +45,9 @@ public sealed class ReportesTests
         var caja = Millet.Facturacion.Domain.Cajas.Caja.Crear(empresaId, "Caja Mostrador", null);
         db.Cajas.Add(caja);
 
+        var cajero = Guid.NewGuid();
         var sesion = Millet.Facturacion.Domain.Cajas.CajaSesion.Abrir(
-            empresaId, caja.Id, Guid.NewGuid(), Guid.NewGuid(), 500m,
+            empresaId, caja.Id, Guid.NewGuid(), cajero, 500m,
             new DateOnly(2026, 5, 30), Ahora.AddHours(-8), null);
         sesion.IniciarArqueo(new Dictionary<string, decimal> { ["01"] = 900m, ["03"] = 2000m });
         sesion.Cerrar(880m, "faltante", cierreExtemporaneo: false, Ahora.AddMinutes(-5));
@@ -58,16 +59,57 @@ public sealed class ReportesTests
             new DateOnly(2026, 5, 30), Ahora.AddHours(-1), null));
         await db.SaveChangesAsync();
 
-        var r = await new LiquidacionCajaHandler(db, new FakeClock(Ahora))
+        var r = await new LiquidacionCajaHandler(db, new FakeClock(Ahora),
+                new FakeUsuariosReadPort(new Dictionary<Guid, string> { [cajero] = "Ana Cajera" }))
             .Handle(new LiquidacionCajaQuery(null, Ahora.AddHours(-1), Ahora.AddHours(1)), CancellationToken.None);
 
         var fila = r.Filas.Should().ContainSingle().Subject;
         fila.Caja.Should().Be("Caja Mostrador");
+        // FIX-12: corte por cajero (Manual de Sucursales §2.4) y enlace a su sesión.
+        fila.Cajero.Should().Be("Ana Cajera");
+        fila.SesionId.Should().Be(sesion.Id);
         fila.EfectivoTeorico.Should().Be(900m);
         fila.EfectivoDeclarado.Should().Be(880m);
         fila.Diferencia.Should().Be(-20m);
         fila.CierreExtemporaneo.Should().Be("No");
         r.Totales!["diferencia"].Should().Be(-20m);
+    }
+
+    [Fact]
+    public async Task LiquidacionCaja_filtra_por_dia_de_operacion_local_no_por_hora_UTC()
+    {
+        // FIX-12: la pantalla pide «hasta hoy» con una fecha sin hora. Un cierre
+        // a las 19:30 de Mérida (01:30 UTC del día siguiente) pertenece al día de
+        // operación local y debe aparecer; una sesión del día anterior, no.
+        var empresaId = Guid.NewGuid();
+        using var db = NewDb(empresaId);
+        var caja = Millet.Facturacion.Domain.Cajas.Caja.Crear(empresaId, "Caja Mostrador", null);
+        db.Cajas.Add(caja);
+
+        var cierreNocturno = new DateTimeOffset(2026, 5, 31, 1, 30, 0, TimeSpan.Zero);
+        var delDia = Millet.Facturacion.Domain.Cajas.CajaSesion.Abrir(
+            empresaId, caja.Id, Guid.NewGuid(), Guid.NewGuid(), 500m,
+            new DateOnly(2026, 5, 30), new DateTimeOffset(2026, 5, 30, 14, 0, 0, TimeSpan.Zero), null);
+        delDia.IniciarArqueo(new Dictionary<string, decimal> { ["01"] = 500m });
+        delDia.Cerrar(500m, null, cierreExtemporaneo: false, cierreNocturno);
+        db.CajaSesiones.Add(delDia);
+
+        var diaAnterior = Millet.Facturacion.Domain.Cajas.CajaSesion.Abrir(
+            empresaId, caja.Id, Guid.NewGuid(), Guid.NewGuid(), 500m,
+            new DateOnly(2026, 5, 29), new DateTimeOffset(2026, 5, 29, 14, 0, 0, TimeSpan.Zero), null);
+        diaAnterior.IniciarArqueo(new Dictionary<string, decimal> { ["01"] = 500m });
+        diaAnterior.Cerrar(500m, null, cierreExtemporaneo: false, new DateTimeOffset(2026, 5, 30, 1, 0, 0, TimeSpan.Zero));
+        db.CajaSesiones.Add(diaAnterior);
+        await db.SaveChangesAsync();
+
+        // Así llega «desde = hasta = 2026-05-30» al enlazar una fecha sin hora.
+        var dia = new DateTimeOffset(2026, 5, 30, 0, 0, 0, TimeSpan.Zero);
+        var r = await new LiquidacionCajaHandler(db, new FakeClock(Ahora), new FakeUsuariosReadPort())
+            .Handle(new LiquidacionCajaQuery(null, dia, dia), CancellationToken.None);
+
+        var fila = r.Filas.Should().ContainSingle().Subject;
+        fila.SesionId.Should().Be(delDia.Id);
+        fila.DiaOperacion.Should().Be("2026-05-30");
     }
 
     [Fact]

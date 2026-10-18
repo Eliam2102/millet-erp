@@ -112,8 +112,8 @@ export function DetalleOrdenCompra() {
   /**
    * Resolver de id genérico contra los 6 catálogos cargados (usuarios,
    * proveedores, sucursales, almacenes, condiciones de pago, usos
-   * principales). Si no matchea, fallback al id raw — coherente con la
-   * convención del frontend (mostrar id ≠ crash).
+   * principales). Si no matchea, muestra «—»: nunca el id crudo (un UUID
+   * no es dato para el usuario).
    */
   const resolverNombre = useMemo(
     () =>
@@ -131,7 +131,7 @@ export function DetalleOrdenCompra() {
         if (cp) return cp.nombre;
         const up = usosPrincipalesMap.get(id);
         if (up) return up.nombre;
-        return id;
+        return '—';
       },
     [
       usuariosMap,

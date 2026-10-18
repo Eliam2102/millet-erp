@@ -1,6 +1,7 @@
 using MediatR;
-using Millet.SharedKernel.Application.UnidadesMedida;
 using Microsoft.EntityFrameworkCore;
+using Millet.Compras.Application.Disponibilidad;
+using Millet.SharedKernel.Application.UnidadesMedida;
 using Millet.Compras.Domain;
 using Millet.Compras.Domain.Ports.Almacen;
 using Millet.Compras.Domain.Ports.DatosMaestros;
@@ -68,33 +69,24 @@ public sealed class PreviewCubrimientoHandler
                 Lineas: Array.Empty<PreviewCubrimientoLinea>());
         }
 
-        var lineas = new List<PreviewCubrimientoLinea>(requisicion.Lineas.Count);
-        var disponiblesEnBase = new Dictionary<Guid, decimal>();
-        foreach (var linea in requisicion.Lineas)
-        {
-            // Solo CONSULTA (lectura). El reparto lo hace la función pura.
-            var disponibilidad = await _stock.ConsultarPorSucursalAsync(
-                requisicion.SucursalId,
-                linea.ArticuloId,
-                cancellationToken);
-
-            var conversion = await _conversion.ConvertirAsync(linea.ArticuloId, linea.Cantidad, null, linea.UnidadMedida, cancellationToken);
-            var disponibleBase = disponiblesEnBase.GetValueOrDefault(linea.ArticuloId, disponibilidad.Disponible);
-            var escala = (decimal)Math.Pow(10, Math.Min(4, conversion.DecimalesDocumento));
-            var disponibleDocumento = decimal.Floor(disponibleBase / conversion.FactorDocumentoABase * escala) / escala;
-            var (deAlmacen, deCompra) = Cubrimiento.Repartir(disponibleDocumento, linea.Cantidad);
-            disponiblesEnBase[linea.ArticuloId] = disponibleBase - deAlmacen * conversion.FactorDocumentoABase;
-
-            lineas.Add(new PreviewCubrimientoLinea(
-                LineaId: linea.Id,
-                ArticuloId: linea.ArticuloId,
+        // Reparto por línea compartido con la matriz y la bandeja (solo lectura).
+        // Los servicios van completos a compra sin consultar stock.
+        var articulosReparto = await _articulos.ObtenerPorIdsAsync(
+            requisicion.Lineas.Select(l => l.ArticuloId).Distinct().ToList(), cancellationToken);
+        var repartos = await RepartoDisponibilidadService.RepartirAsync(
+            _stock, _conversion, articulosReparto, requisicion.Clasificacion, requisicion.SucursalId,
+            requisicion.Lineas, cancellationToken);
+        var lineas = repartos
+            .Select(r => new PreviewCubrimientoLinea(
+                LineaId: r.Linea.Id,
+                ArticuloId: r.Linea.ArticuloId,
                 ArticuloClave: null,
                 ArticuloNombre: null,
-                Cantidad: linea.Cantidad,
-                EstimadoDeAlmacen: deAlmacen,
-                EstimadoDeCompra: deCompra,
-                Disponible: disponibleDocumento));
-        }
+                Cantidad: r.Linea.Cantidad,
+                EstimadoDeAlmacen: r.DeAlmacen,
+                EstimadoDeCompra: r.DeCompra,
+                Disponible: r.Disponible))
+            .ToList();
 
         // Enriquecimiento de etiqueta de artículo por línea, server-side en
         // batch (ADR-0042 addendum): el panel "Disponibilidad estimada" no debe

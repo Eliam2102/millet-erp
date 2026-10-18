@@ -59,6 +59,7 @@ export {
 export { clickableRowProps } from '@/components/erp/data/clickable-row';
 export {
   EstadoBadge,
+  EnAlmacenBadge,
   type EstadoBadgeProps,
 } from '@/components/erp/display/EstadoBadge';
 export {

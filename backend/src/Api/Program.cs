@@ -652,6 +652,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Compras.Domain.Matriz.IRequiereNivelEvaluator,
     Millet.Compras.Application.Matriz.EvaluadorMultidimensional>();
+builder.Services.AddScoped<Millet.Compras.Application.Oc.EvaluadorNivelOc>();
 builder.Services.AddScoped<
     Millet.Compras.Domain.Ports.Matriz.IResolverAutorizadorPort,
     Millet.Compras.Application.Matriz.ResolverAutorizadorService>();
@@ -880,6 +881,8 @@ builder.Services.AddCuentasPorCobrarModule(builder.Configuration);
 builder.Services.AddTesoreriaModule(builder.Configuration);
 builder.Services.AddScoped<Millet.Tesoreria.Domain.Ports.IElegibleFacturaReadPort, Millet.Api.Infrastructure.Adapters.ElegibleFacturaReadPortAdapter>();
 builder.Services.AddScoped<Millet.CuentasPorPagar.Domain.Ports.Tesoreria.IPagosProveedorReadPort, Millet.Api.Infrastructure.Adapters.PagosProveedorReadPortAdapter>();
+// FIX-12: nombre del cajero en el corte y la liquidación de caja (Facturación no referencia Identidad).
+builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Millet.Api.Infrastructure.Adapters.FacturacionUsuariosReadAdapter>();
 
 // === Módulo Centros de Costo (CECO-A1) ===
 // Cimiento: catálogo jerárquico Sucursal→Departamento→Equipo + dimensiones
@@ -1398,6 +1401,8 @@ app.UseMiddleware<RequestContextLoggingMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 
 app.MapGet("/", () => "Hello World!");
+app.MapGet("/api/version", (IHostEnvironment environment) => Millet.Api.VersionInfo.Actual(environment.EnvironmentName))
+    .AllowAnonymous();
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
@@ -1413,6 +1418,7 @@ app.MapRequisicionesEndpoints();
 app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
+app.MapUmbralesAprobacionEndpoints();
 
 // === Settings genéricos /api/v1/{modulo}/settings (F-Admin-PR1.1, ADR-0034) ===
 app.MapSettingsEndpoints();

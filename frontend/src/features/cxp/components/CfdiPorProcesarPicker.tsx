@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useCfdis } from '@/features/cxp/api/useCfdis';
+import { useCfdisParaRecepcion } from '@/features/almacen/api/useRecepciones';
 import {
   EstadoCfdiRecibido,
   TipoCfdi,
@@ -53,6 +54,11 @@ export interface CfdiPorProcesarPickerProps {
   /** Tipo de comprobante SAT a filtrar. Default: Ingreso. */
   tipo?: TipoCfdi;
   facturaReppTesoreriaId?: string;
+  /**
+   * Recepción de Almacén: lista los CFDI del proveedor de esa OC resueltos en servidor
+   * (`GET /api/v1/almacen/recepciones/ordenes/{id}/cfdis`; no depende del RFC del navegador).
+   */
+  ordenCompraRecepcionId?: string;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -64,6 +70,7 @@ export function CfdiPorProcesarPicker({
   rfcEmisor,
   tipo = TipoCfdi.Ingreso,
   facturaReppTesoreriaId,
+  ordenCompraRecepcionId,
   placeholder = 'Vincular CFDI recibido…',
   disabled,
   className,
@@ -75,7 +82,11 @@ export function CfdiPorProcesarPicker({
     tipo,
     rfcEmisor,
     limit: 200,
-  }, !facturaReppTesoreriaId);
+  }, !facturaReppTesoreriaId && !ordenCompraRecepcionId);
+  const recepcion = useCfdisParaRecepcion(
+    ordenCompraRecepcionId ?? null,
+    !!ordenCompraRecepcionId,
+  );
   const tesoreria = useQuery({
     queryKey: ['tesoreria', 'cfdis-repp', facturaReppTesoreriaId],
     enabled: !!facturaReppTesoreriaId,
@@ -84,7 +95,14 @@ export function CfdiPorProcesarPicker({
       return { items: data };
     },
   });
-  const query = facturaReppTesoreriaId ? tesoreria : generales;
+  const query = facturaReppTesoreriaId
+    ? tesoreria
+    : ordenCompraRecepcionId
+      ? recepcion
+      : generales;
+  const avisoRecepcion = ordenCompraRecepcionId
+    ? recepcion.data?.aviso
+    : null;
 
   const items = query.data?.items ?? [];
   const seleccionado = value ? items.find((c) => c.id === value) : undefined;
@@ -149,7 +167,9 @@ export function CfdiPorProcesarPicker({
               <>
                 <CommandEmpty>
                   {items.length === 0
-                    ? rfcEmisor
+                    ? avisoRecepcion
+                      ? avisoRecepcion
+                      : rfcEmisor
                       ? `No hay CFDIs por procesar del RFC ${rfcEmisor}.`
                       : tipo === TipoCfdi.Egreso
                         ? 'No hay CFDIs de egreso por procesar.'

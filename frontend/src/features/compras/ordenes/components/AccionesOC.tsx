@@ -20,6 +20,7 @@ import { hoyLocalISO } from '@/lib/datetime';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-conflict';
+import { mensajeErrorTransmision } from '@/features/compras/ordenes/lib/mensajes-transmision';
 import {
   accionTransmitirAAutorizacion,
   accionAprobarNivel1,
@@ -512,7 +513,10 @@ function ConfirmDialog({
         onClose();
         return;
       }
-      const msg = mensajeErrorAccion(err);
+      const msg =
+        action === 'transmitir'
+          ? mensajeErrorTransmision(err)
+          : mensajeErrorAccion(err);
       toast.error(msg);
     }
   }

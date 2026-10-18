@@ -31,7 +31,10 @@ import { HistoricoModal } from '@/features/compras/components/HistoricoModal';
 import { DetalleErrorBoundary } from '@/features/compras/components/DetalleErrorBoundary';
 import { AccionesRequisicion } from '@/features/compras/components/AccionesRequisicion';
 import { ResumenCubrimiento } from '@/features/compras/components/ResumenCubrimiento';
-import { EstadoBadge } from '@/components/erp/display/EstadoBadge';
+import {
+  EstadoBadge,
+  EnAlmacenBadge,
+} from '@/components/erp/display/EstadoBadge';
 import {
   accionAgregarLinea,
   accionEditarLinea,
@@ -163,6 +166,7 @@ export function DetalleRequisicion() {
             estado={rq.estado}
             situacion={rq.situacionSurtido}
           />
+          <EnAlmacenBadge enAlmacen={rq.enAlmacen} />
           <CollaborationIndicator entidad="requisicion" id={rq.id} />
         </div>
 

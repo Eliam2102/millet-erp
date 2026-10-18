@@ -57,6 +57,7 @@ public class ComprasOcReadAdapterIntegrationTests : IClassFixture<StubsWebApplic
             lectura.Should().NotBeNull();
             lectura!.Id.Should().Be(oc.Id);
             lectura.Estado.Should().Be("Autorizada");
+            lectura.SucursalDestinoId.Should().Be(oc.SucursalDestinoId);
 
             // CA2.10: la línea de servicio debe haber sido excluida
             lectura.Lineas.Should().HaveCount(1);

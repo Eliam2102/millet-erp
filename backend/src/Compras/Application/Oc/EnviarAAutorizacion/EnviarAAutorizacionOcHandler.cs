@@ -1,4 +1,5 @@
 using MediatR;
+using Millet.Compras.Application.Oc;
 using Millet.Compras.Application.Proveedores;
 using Microsoft.EntityFrameworkCore;
 using Millet.Compras.Domain.Oc;
@@ -44,17 +45,20 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
     private readonly CompartidoDbContext _compartido;
     private readonly IClock _clock;
     private readonly IPublisher _publisher;
+    private readonly EvaluadorNivelOc _evaluadorNivel;
 
     public EnviarAAutorizacionOcHandler(
         ComprasDbContext db,
         CompartidoDbContext compartido,
         IClock clock,
-        IPublisher publisher)
+        IPublisher publisher,
+        EvaluadorNivelOc evaluadorNivel)
     {
         _db = db;
         _compartido = compartido;
         _clock = clock;
         _publisher = publisher;
+        _evaluadorNivel = evaluadorNivel;
     }
 
     public async Task Handle(EnviarAAutorizacionOcCommand command, CancellationToken cancellationToken)
@@ -111,6 +115,21 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
                     "OC_FICHA_TECNICA_REQUERIDA",
                     "Una OC de importación requiere adjunto tipo 'ficha_tecnica' antes de enviar a autorización.");
             }
+
+            // PLATFORM-TODO(F1-COM-06): supuesto Vilo. Incoterm y país de origen
+            // obligatorios al enviar (códigos reutilizados de InformacionImportacion.ValidarParaAutorizar).
+            if (oc.InfoImportIncotermId is null)
+            {
+                throw new BusinessRuleException(
+                    "IMPORT_INCOTERM_REQUERIDO",
+                    "Captura el Incoterm de la OC de comercio exterior antes de enviar a autorización.");
+            }
+            if (oc.InfoImportPaisOrigen is null)
+            {
+                throw new BusinessRuleException(
+                    "IMPORT_PAIS_REQUERIDO",
+                    "Captura el país de origen de la OC de comercio exterior antes de enviar a autorización.");
+            }
         }
 
         // Sin RQ previa: motivo + correo.
@@ -131,7 +150,9 @@ public sealed class EnviarAAutorizacionOcHandler : IRequestHandler<EnviarAAutori
         }
 
         // Transición + emisión de evento.
-        var evento = oc.EnviarAAutorizacion(_clock.UtcNow);
+        // Matriz de nivel (menor cuantía = solo N1). Se fija en cada ciclo de envío.
+        var requiereNivel2 = await _evaluadorNivel.RequiereNivel2Async(oc, cancellationToken);
+        var evento = oc.EnviarAAutorizacion(_clock.UtcNow, requiereNivel2);
         await _publisher.Publish(evento, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
     }

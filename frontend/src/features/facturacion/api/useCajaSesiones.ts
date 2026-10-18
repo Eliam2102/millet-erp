@@ -10,6 +10,7 @@ import type {
   CobroMostradorItem,
   CobroMostradorResponse,
   ComprobanteCobrableItem,
+  CorteCajaResponse,
   LiquidacionRutaCobroInput,
   LiquidacionRutaResponse,
   SesionActualResponse,
@@ -17,6 +18,25 @@ import type {
 
 const BASE = '/api/v1/facturacion/cajas';
 const COBROS = '/api/v1/facturacion/cobros';
+
+/**
+ * <c>useCorteCaja(sesionId)</c> — corte de caja de una sesión (FIX-12): el
+ * cajero ve el suyo; supervisar, administrar o liquidar ven cualquiera.
+ * Cuelga de la familia `sesiones`, así que cobros, arqueo y cierre lo
+ * refrescan al invalidarla.
+ */
+export function useCorteCaja(sesionId: string) {
+  return useQuery<CorteCajaResponse>({
+    queryKey: facturacionKeys.sesionCorte(sesionId),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CorteCajaResponse>(`${BASE}/sesiones/${sesionId}/corte`, {
+        signal,
+      });
+      return data;
+    },
+    enabled: sesionId !== '',
+  });
+}
 
 /**
  * <c>useSesionActual()</c> — sesión vigente del cajero (panel "Mi caja",

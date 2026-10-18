@@ -167,6 +167,78 @@ public sealed class OcRecepcionRegistradaAlmacenPayloadTests
     }
 
     [Fact]
+    public void Deserializa_campos_aditivos_tolerancia_y_acumulado_por_linea()
+    {
+        var body = """
+        {
+          "empresaId": "00000000-0000-0000-0000-000000000001",
+          "ocurridoEn": "2026-05-24T20:00:00Z",
+          "recepcionId": "00000000-0000-0000-0000-000000000010",
+          "folioRecepcion": "REC-MID2026-000010",
+          "ordenCompraId": "00000000-0000-0000-0000-000000000020",
+          "fechaMovimiento": "2026-05-24",
+          "facturaPendiente": false,
+          "cfdiRecibidoId": null,
+          "observaciones": null,
+          "lineas": [
+            {
+              "lineaRecepcionId": "00000000-0000-0000-0000-000000000041",
+              "lineaOcId": "00000000-0000-0000-0000-000000000051",
+              "articuloId": "00000000-0000-0000-0000-000000000061",
+              "unidadMedida": "PZA",
+              "cantidad": 3,
+              "costoUnitarioMxn": 100,
+              "montoTotalMxn": 300,
+              "toleranciaPorcentaje": 5,
+              "cantidadRecibidaAcumulada": 105
+            }
+          ]
+        }
+        """;
+
+        var p = JsonSerializer.Deserialize<OcRecepcionRegistradaAlmacenPayload>(body, JsonOpts);
+
+        p.Should().NotBeNull();
+        p!.Lineas[0].ToleranciaPorcentaje.Should().Be(5m);
+        p.Lineas[0].CantidadRecibidaAcumulada.Should().Be(105m);
+    }
+
+    [Fact]
+    public void Sin_campos_aditivos_tolerancia_y_acumulado_quedan_null()
+    {
+        var body = """
+        {
+          "empresaId": "00000000-0000-0000-0000-000000000001",
+          "ocurridoEn": "2026-05-24T20:00:00Z",
+          "recepcionId": "00000000-0000-0000-0000-000000000010",
+          "folioRecepcion": "REC-MID2026-000010",
+          "ordenCompraId": "00000000-0000-0000-0000-000000000020",
+          "fechaMovimiento": "2026-05-24",
+          "facturaPendiente": false,
+          "cfdiRecibidoId": null,
+          "observaciones": null,
+          "lineas": [
+            {
+              "lineaRecepcionId": "00000000-0000-0000-0000-000000000041",
+              "lineaOcId": "00000000-0000-0000-0000-000000000051",
+              "articuloId": "00000000-0000-0000-0000-000000000061",
+              "unidadMedida": "PZA",
+              "cantidad": 3,
+              "costoUnitarioMxn": 100,
+              "montoTotalMxn": 300
+            }
+          ]
+        }
+        """;
+
+        var p = JsonSerializer.Deserialize<OcRecepcionRegistradaAlmacenPayload>(body, JsonOpts);
+
+        p.Should().NotBeNull();
+        p!.Lineas[0].ToleranciaPorcentaje.Should().BeNull();
+        p.Lineas[0].CantidadRecibidaAcumulada.Should().BeNull();
+    }
+
+    [Fact]
     public void EventType_constante_match_la_convencion_del_topic_almacen()
     {
         // Defensa contra typos al renombrar; ambos lados (Almacén
