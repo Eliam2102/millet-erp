@@ -81,7 +81,10 @@ internal static class ReporteDiferenciasFiscalesAw
             columnas.Add(new("revisadaPor", "Revisada por", "texto", AnchoPx: 160));
         }
         var filas = todas.Where(f => incluirRevisadas || !f.Revisada)
-            .OrderBy(f => f.Tipo).ThenBy(f => f.Referencia, StringComparer.Ordinal).ThenBy(f => f.Campo).ToList();
+            // Las claves de A+W son numéricas: orden natural (2 antes que 10), y las no numéricas al final.
+            .OrderBy(f => f.Tipo)
+            .ThenBy(f => long.TryParse(f.Referencia, out var n) ? n : long.MaxValue)
+            .ThenBy(f => f.Referencia, StringComparer.Ordinal).ThenBy(f => f.Campo).ToList();
         var revisadas = todas.Count(f => f.Revisada);
         return new(Titulo, generadoEn, filtros, columnas, filas, null, avisos,
             new ResumenDiferenciasFiscales(clientes, productos, todas.Count - revisadas, revisadas));
