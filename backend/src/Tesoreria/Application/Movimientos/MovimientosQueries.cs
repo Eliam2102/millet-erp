@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 using Millet.Tesoreria.Application.Common;
 using Millet.Tesoreria.Domain.Movimientos;
@@ -38,12 +39,13 @@ public sealed record MovimientoBancarioResponse(
 
 internal static class MovimientoBancarioMapper
 {
-    public static MovimientoBancarioResponse ToResponse(MovimientoBancario m, string? conceptoNombre = null) =>
+    // La cuenta destino es PII: completa solo con `tesoreria.movimientos.ver-cuenta-completa`.
+    public static MovimientoBancarioResponse ToResponse(MovimientoBancario m, string? conceptoNombre = null, bool verCuentaCompleta = false) =>
         new(m.Id, m.CuentaBancariaId, m.Sentido, m.Monto, m.Moneda, m.FechaValor,
             m.ReferenciaBancaria, m.ConceptoId, conceptoNombre, m.EstadoAplicacion,
             m.EstadoConciliacion, m.BeneficiarioTipo, m.BeneficiarioRef,
             m.ContramovimientoDe, m.MotivoNoAplicado, m.CreadoPor, m.CreadoEn, m.Version, m.MotivoReversa, m.MotivoReclasificacion,
-            m.DestinoBanco, m.DestinoNumeroCuenta is null ? null : Clabe.Enmascarar(m.DestinoNumeroCuenta), m.DestinoTitular, m.FondosVerificados);
+            m.DestinoBanco, m.DestinoNumeroCuenta is null ? null : verCuentaCompleta ? m.DestinoNumeroCuenta : Clabe.Enmascarar(m.DestinoNumeroCuenta), m.DestinoTitular, m.FondosVerificados);
 }
 
 // --------------------------------------------------- Libro (bandeja paginada)
@@ -68,7 +70,8 @@ public sealed class MovimientosBancariosHandler
     : IRequestHandler<MovimientosBancariosQuery, PagedResponse<MovimientoBancarioResponse>>
 {
     private readonly TesoreriaDbContext _db;
-    public MovimientosBancariosHandler(TesoreriaDbContext db) { _db = db; }
+    private readonly ICurrentUserPermissions _permisos;
+    public MovimientosBancariosHandler(TesoreriaDbContext db, ICurrentUserPermissions permisos) { _db = db; _permisos = permisos; }
 
     public async Task<PagedResponse<MovimientoBancarioResponse>> Handle(
         MovimientosBancariosQuery query, CancellationToken cancellationToken)
@@ -101,9 +104,10 @@ public sealed class MovimientosBancariosHandler
                 .Where(c => conceptoIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.Nombre, cancellationToken);
 
+        var verCuentaCompleta = await _permisos.TieneAsync("tesoreria.movimientos.ver-cuenta-completa", cancellationToken);
         var responses = items
             .Select(m => MovimientoBancarioMapper.ToResponse(
-                m, m.ConceptoId is Guid cid && conceptos.TryGetValue(cid, out var n) ? n : null))
+                m, m.ConceptoId is Guid cid && conceptos.TryGetValue(cid, out var n) ? n : null, verCuentaCompleta))
             .ToList();
 
         return new PagedResponse<MovimientoBancarioResponse>(responses, offset, limit, total);
@@ -137,7 +141,8 @@ public sealed record MovimientoDetalleQuery(Guid Id) : IRequest<MovimientoDetall
 public sealed class MovimientoDetalleHandler : IRequestHandler<MovimientoDetalleQuery, MovimientoDetalleResponse>
 {
     private readonly TesoreriaDbContext _db;
-    public MovimientoDetalleHandler(TesoreriaDbContext db) { _db = db; }
+    private readonly ICurrentUserPermissions _permisos;
+    public MovimientoDetalleHandler(TesoreriaDbContext db, ICurrentUserPermissions permisos) { _db = db; _permisos = permisos; }
 
     public async Task<MovimientoDetalleResponse> Handle(
         MovimientoDetalleQuery query, CancellationToken cancellationToken)
@@ -169,9 +174,10 @@ public sealed class MovimientoDetalleHandler : IRequestHandler<MovimientoDetalle
             .OrderBy(x => x.CreadoEn)
             .ToListAsync(cancellationToken);
 
+        var verCuentaCompleta = await _permisos.TieneAsync("tesoreria.movimientos.ver-cuenta-completa", cancellationToken);
         return new MovimientoDetalleResponse(
-            MovimientoBancarioMapper.ToResponse(m, conceptoNombre),
+            MovimientoBancarioMapper.ToResponse(m, conceptoNombre, verCuentaCompleta),
             aplicaciones,
-            contramovimientos.Select(c => MovimientoBancarioMapper.ToResponse(c)).ToList());
+            contramovimientos.Select(c => MovimientoBancarioMapper.ToResponse(c, verCuentaCompleta: verCuentaCompleta)).ToList());
     }
 }

@@ -142,7 +142,7 @@ export function DetalleDevolucion({ id }: { id: string }) {
       )}
 
       <div data-print="hidden" className="flex flex-wrap items-center gap-2">
-        {solicitada && puedeSolicitar && !editando && (
+        {solicitada && puedeSolicitar && !editando && (soyYo || puedeAutorizar || d.solicitadaPor == null) && (
           <>
             <Button variant="outline" size="sm" onClick={() => setEditando(true)}>
               <Pencil className="mr-1 h-3 w-3" aria-hidden="true" />
