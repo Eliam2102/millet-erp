@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginaSearchShape } from '@/components/erp/data/paginacion';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -15,6 +16,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export const RevisionSearchSchema = z.object({
   dependenciaRevisoraId: z.string().regex(UUID_RE).optional(),
   motivoRevisionId: z.string().regex(UUID_RE).optional(),
+  ...PaginaSearchShape,
 });
 
 export type RevisionSearch = z.infer<typeof RevisionSearchSchema>;

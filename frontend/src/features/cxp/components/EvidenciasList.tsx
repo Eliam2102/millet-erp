@@ -8,6 +8,7 @@ import {
   type Evidencia,
 } from '@/features/cxp/api/types';
 import { cn } from '@/lib/utils';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
 /**
  * <c>&lt;EvidenciasList/&gt;</c> — lista de evidencias adjuntas a una
@@ -69,7 +70,7 @@ function EvidenciaCard({ evidencia }: { evidencia: Evidencia }) {
             </span>
             <FirmaChip estado={evidencia.estadoFirmaFisica} />
             <time className="text-xs text-muted-foreground">
-              {new Date(evidencia.fechaCaptura).toLocaleString('es-MX')}
+              <DateTimeDisplay value={evidencia.fechaCaptura} variant="media" />
             </time>
           </div>
           <p className="text-sm">{evidencia.comentario}</p>
@@ -90,9 +91,7 @@ function EvidenciaCard({ evidencia }: { evidencia: Evidencia }) {
             evidencia.fechaRecepcionFirmaFisica && (
               <p className="text-xs text-success-fg">
                 Firma física recibida el{' '}
-                {new Date(
-                  evidencia.fechaRecepcionFirmaFisica,
-                ).toLocaleDateString('es-MX')}
+                <DateTimeDisplay value={evidencia.fechaRecepcionFirmaFisica} variant="media" />
               </p>
             )}
         </div>

@@ -3,6 +3,15 @@ import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -12,6 +21,7 @@ import {
 import {
   EmptyState,
   ErrorState,
+  PaginacionTabla,
   TableSkeleton,
 } from '@/components/erp';
 import {
@@ -23,6 +33,8 @@ import { esApiError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { etiquetaAviso, tonoPlazo } from '@/features/cxp/lib/sla-revision';
 import type { RevisionSearch } from '@/features/cxp/lib/revision-search-schema';
+import { offsetLimitAPagina, paginaAOffsetLimit } from '@/components/erp/data/paginacion';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 
@@ -48,12 +60,14 @@ export function RevisionPage() {
   const query = useFacturasEnRevision(
     search.dependenciaRevisoraId,
     search.motivoRevisionId,
+    paginaAOffsetLimit(search),
   );
 
   function actualizarSearch(parcial: Partial<RevisionSearch>) {
     navigate({
       to: '/cxp/revision',
-      search: { ...search, ...parcial },
+      // Un filtro nuevo vuelve a la primera página.
+      search: { ...search, page: undefined, ...parcial },
     });
   }
 
@@ -121,7 +135,7 @@ export function RevisionPage() {
 
       {!filaConDependencia ? (
         <EmptyState
-          title="Selecciona una dependencia"
+          title="Selecciona un área revisora"
           description="Para listar facturas en revisión, selecciona el área revisora arriba."
         />
       ) : query.isError ? (
@@ -148,54 +162,53 @@ export function RevisionPage() {
           description="No hay facturas asignadas a esta dependencia con los filtros aplicados."
         />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-3 py-2 text-left">Folio</th>
-                <th className="px-3 py-2 text-left">Motivo</th>
-                <th className="px-3 py-2 text-left">En revisión desde</th>
-                <th className="px-3 py-2 text-right">Días hábiles</th>
-                <th className="px-3 py-2 text-left">Aviso</th>
-                <th className="px-3 py-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(query.data?.items ?? []).map((f) => (
-                <tr
-                  key={f.id}
-                  className="border-t hover:bg-muted/30 focus-within:bg-muted/30"
-                >
-                  <td className="px-3 py-2 font-mono text-xs">
-                    <Link
-                      to="/cxp/facturas/$id"
-                      params={{ id: f.id }}
-                      className="text-primary hover:underline"
-                    >
-                      {f.serieProveedor
-                        ? `${f.serieProveedor}-${f.folioProveedor ?? ''}`
-                        : (f.folioProveedor ?? '—')}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">
-                    {motivosMap.get(f.motivoRevisionId) ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">
-                    <DateTimeDisplay value={f.fechaEntradaRevision} variant="corta" />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <SlaBadge dias={f.diasEnRevision} slaDias={f.slaDias} />
-                  </td>
-                  <td className="px-3 py-2">
-                    {aviso(f.nivelAviso)}
-                  </td>
-                  <td className="py-2 pl-3 pr-4 text-right tabular-nums">
-                    <MoneyDisplay amount={f.total} currency={f.moneda} strong />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          <TableContainer>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Folio</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead>En revisión desde</TableHead>
+                  <TableHead className="text-right">Días hábiles</TableHead>
+                  <TableHead>Aviso</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(query.data?.items ?? []).map((f) => (
+                  <TableRow key={f.id} className="hover:bg-surface-subtle">
+                    <TableCell className="font-mono text-xs">
+                      <Link
+                        to="/cxp/facturas/$id"
+                        params={{ id: f.id }}
+                        className="text-brand hover:underline"
+                      >
+                        {folioFactura(f)}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{motivosMap.get(f.motivoRevisionId) ?? '—'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs">
+                      <DateTimeDisplay value={f.fechaEntradaRevision} variant="corta" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <SlaBadge dias={f.diasEnRevision} slaDias={f.slaDias} />
+                    </TableCell>
+                    <TableCell>{aviso(f.nivelAviso)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <MoneyDisplay amount={f.total} currency={f.moneda} strong />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <PaginacionTabla
+            total={query.data?.total ?? 0}
+            offset={query.data?.offset ?? 0}
+            limit={query.data?.limit ?? paginaAOffsetLimit(search).limit}
+            onChange={(o, l) => actualizarSearch({ ...offsetLimitAPagina(o, l) })}
+          />
         </div>
       )}
     </div>

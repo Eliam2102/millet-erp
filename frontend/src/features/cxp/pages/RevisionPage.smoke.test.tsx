@@ -59,7 +59,7 @@ describe('<RevisionPage> — smoke', () => {
       screen.getByRole('heading', { name: /Revisión por área/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Selecciona una dependencia/i),
+      screen.getByText(/Selecciona un área revisora/i),
     ).toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe('<RevisionPage> — smoke', () => {
     });
     await waitFor(() =>
       expect(
-        screen.getByText(/Selecciona una dependencia/i),
+        screen.getByText(/Selecciona un área revisora/i),
       ).toBeInTheDocument(),
     );
     const results: AxeResults = await axe.run(container, {

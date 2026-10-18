@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -96,7 +97,7 @@ export function AdjuntarEvidenciaSheet({
           <SheetTitle>Adjuntar evidencia de autorización</SheetTitle>
           <SheetDescription>
             {factura
-              ? `Folio ${factura.serieProveedor ?? ''}${factura.folioProveedor ?? '—'}. Adjunta captura/audio/email + comentario.`
+              ? `Folio ${folioFactura(factura)}. Adjunta captura/audio/email + comentario.`
               : 'Selecciona una factura.'}
           </SheetDescription>
         </SheetHeader>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -114,7 +115,7 @@ export function EnviarRevisionSheet({
           <SheetTitle>Enviar a revisión</SheetTitle>
           <SheetDescription>
             {factura
-              ? `Folio ${factura.serieProveedor ?? ''}${factura.folioProveedor ?? '—'}. La factura quedará bloqueada hasta que el área la libere.`
+              ? `Folio ${folioFactura(factura)}. La factura quedará bloqueada hasta que el área la libere.`
               : 'Selecciona una factura.'}
           </SheetDescription>
         </SheetHeader>

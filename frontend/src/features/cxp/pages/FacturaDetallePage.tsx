@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { EditarDatosP8 } from '@/features/cxp/components/EditarDatosP8';
 import { formatCantidad } from '@/lib/format-cantidad';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { Importe } from '@/features/cxp/components/DetalleCampos';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConfirmarAccionDialog } from '@/components/erp/feedback/ConfirmarAccionDialog';
@@ -103,8 +104,7 @@ export function FacturaDetallePage() {
 
   return (
     <div className="space-y-4">
-      {query.data && <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.FacturaProveedor} id={id} />}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/cxp/facturas" search={search}>
             <ArrowLeft className="mr-2 size-3.5" />
@@ -126,13 +126,13 @@ export function FacturaDetallePage() {
           <PageHeader
             titulo={
               <>
-                {query.data.serieProveedor ? `${query.data.serieProveedor}-${query.data.folioProveedor ?? ''}` : (query.data.folioProveedor ?? 'Sin folio')}
+                {folioFactura(query.data)}
               </>
             }
             estado={
               <>
                 <EstadoPasivoChip estado={query.data.estado} />
-                {query.data.enRevision && (
+                {query.data.enRevision && query.data.estado !== EstadoPasivo.EnRevision && (
                   <Badge variant="warning" data-testid="en-revision-flag">
                     En revisión por área
                   </Badge>
@@ -150,6 +150,7 @@ export function FacturaDetallePage() {
                 · Vence: <DateTimeDisplay value={query.data.fechaVencimiento} variant="media" />
               </>
             }
+            acciones={<TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.FacturaProveedor} id={id} />}
             mono
           />
 
@@ -189,7 +190,7 @@ export function FacturaDetallePage() {
                     Autorizar
                   </Button>
                   {query.data.estado === EstadoPasivo.EnRevision && (
-                    <span id="motivo-autorizar-revision" className="sr-only">
+                    <span id="motivo-autorizar-revision" className="self-center text-xs text-ink-muted">
                       {MOTIVO_AUTORIZAR_EN_REVISION}
                     </span>
                   )}
@@ -328,10 +329,12 @@ export function FacturaDetallePage() {
               }}
             />
           )}
-          <p className="text-sm">
-            <span className="text-ink-muted">Obra: </span>
-            {query.data.obra || '[OBRA POR CONFIRMAR]'}
-          </p>
+          {query.data.obra && (
+            <p className="text-sm">
+              <span className="text-ink-muted">Obra: </span>
+              {query.data.obra}
+            </p>
+          )}
           <section className="rounded-md border p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Totales

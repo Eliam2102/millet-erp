@@ -16,3 +16,8 @@ export function formatearFechaHora(iso: string): string {
     return iso;
   }
 }
+
+/** Folio de proveedor como se muestra: «SERIE-FOLIO», o solo el folio si no hay serie. */
+export function folioFactura(f: { serieProveedor?: string | null; folioProveedor?: string | null }): string {
+  return f.serieProveedor ? `${f.serieProveedor}-${f.folioProveedor ?? ''}` : (f.folioProveedor ?? 'Sin folio');
+}

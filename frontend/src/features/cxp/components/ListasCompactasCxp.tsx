@@ -11,6 +11,7 @@ import {
   EstadoNotaCreditoChip,
   EstadoSolicitudViaticosChip,
 } from '@/features/cxp/components/EstadoChips';
+import { folioFactura } from '@/features/cxp/lib/formato';
 import { EstadoPasivoChip } from '@/features/cxp/components/EstadoPasivoChip';
 import { TipoComprobacionGastosLabels } from '@/features/cxp/api/types';
 import type { FacturasSearch } from '@/features/cxp/lib/facturas-search-schema';
@@ -53,9 +54,7 @@ export function ListaFacturasCompacta({ idActivo, search }: ListaProps<FacturasS
       getId={(f) => f.id}
       vacio="No hay facturas."
       renderItem={(f) => ({
-        principal: f.serieProveedor
-          ? `${f.serieProveedor}-${f.folioProveedor ?? ''}`
-          : (f.folioProveedor ?? 'Sin folio'),
+        principal: folioFactura(f),
         badge: <EstadoPasivoChip estado={f.estado} />,
         secundario: (
           <>
