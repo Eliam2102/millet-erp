@@ -2005,6 +2005,34 @@ namespace Millet.Identidad.Infrastructure.Migrations
                         },
                         new
                         {
+                            Id = new Guid("00000004-0013-0000-0000-000000000001"),
+                            Accion = "leer",
+                            Codigo = "datos_maestros.diferencias-fiscales-aw.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar el reporte de diferencias fiscales entre A+W y el ERP (clientes y productos)",
+                            Modulo = "datos_maestros",
+                            Recurso = "diferencias-fiscales-aw",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000004-0013-0000-0000-000000000002"),
+                            Accion = "revisar",
+                            Codigo = "datos_maestros.diferencias-fiscales-aw.revisar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Marcar como revisadas las diferencias fiscales A+W vs ERP y guardar corridas del reporte",
+                            Modulo = "datos_maestros",
+                            Recurso = "diferencias-fiscales-aw",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000007-0001-0000-0000-000000000001"),
                             Accion = "leer",
                             Codigo = "cuentas_por_pagar.facturas.leer",
