@@ -39,6 +39,7 @@ export function SincronizacionAwPage() {
   const [estado, setEstado] = useState<'Pendiente' | 'Resuelto'>('Pendiente');
   const [pagina, setPagina] = useState(0);
   const [confirmar, setConfirmar] = useState<CambioMaestroAw | null>(null);
+  const [accionProducto, setAccionProducto] = useState<'AplicarAw' | 'MantenerErp'>('AplicarAw');
   const habilitada = entidad === 'clientes' ? puedeClientes : puedeProductos;
   const pendientes = useConflictosAw(entidad, 'Pendiente', habilitada);
   const resueltos = useConflictosAw(entidad, 'Resuelto', habilitada);
@@ -57,7 +58,7 @@ export function SincronizacionAwPage() {
 
   function resolverConflicto(c: CambioMaestroAw) {
     resolver.mutate(
-      { entidad, id: c.id, resolucion: c.tipo === 'EditadoEnErp' ? 'AplicarAw' : 'MantenerSeparados', version: c.version },
+      { entidad, id: c.id, resolucion: c.tipo === 'EditadoEnErp' ? accionProducto : 'MantenerSeparados', version: c.version },
       {
         onSuccess: () => { toast.success('Conflicto resuelto'); setConfirmar(null); },
         onError: (e) => toast.error(mensaje(e)),
@@ -155,10 +156,13 @@ export function SincronizacionAwPage() {
                         <Button size="sm" variant="secondary" disabled={resolver.isPending} onClick={() => setConfirmar(c)}>Mantener separados</Button>
                       )}
                       {c.estado === 'Pendiente' && c.tipo === 'EditadoEnErp' && (
-                        <Button size="sm" disabled={resolver.isPending} onClick={() => setConfirmar(c)}>Aplicar A+W</Button>
+                        <div className="flex gap-2">
+                          <Button size="sm" disabled={resolver.isPending} onClick={() => { setAccionProducto('AplicarAw'); setConfirmar(c); }}>Aplicar A+W</Button>
+                          <Button size="sm" variant="secondary" disabled={resolver.isPending} onClick={() => { setAccionProducto('MantenerErp'); setConfirmar(c); }}>Mantener ERP</Button>
+                        </div>
                       )}
                       {c.estado === 'Resuelto' && (
-                        <span className="text-ink-muted">{c.resolucion === 'AplicarAw' ? 'A+W aplicado' : 'Mantenidos separados'}</span>
+                        <span className="text-ink-muted">{c.resolucion === 'AplicarAw' ? 'A+W aplicado' : c.resolucion === 'MantenerErp' ? 'ERP mantenido' : 'Mantenidos separados'}</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -176,7 +180,9 @@ export function SincronizacionAwPage() {
           <div role="note" className="mt-3 space-y-3 rounded-md bg-warning-note-bg p-3 text-warning-note-fg">
             <p>
               {confirmar.tipo === 'EditadoEnErp'
-                ? 'Se reemplazará el valor del ERP por el de A+W. Queda en la bitácora.'
+                ? (accionProducto === 'AplicarAw'
+                  ? 'Se reemplazará el valor del ERP por el de A+W. Queda en la bitácora.'
+                  : 'Se conserva el valor del ERP y el conflicto queda resuelto. Si A+W cambia ese valor, se volverá a señalar.')
                 : 'Los dos clientes quedan separados. Esto no fusiona ni liga identidades.'}
             </p>
             <Button disabled={resolver.isPending} onClick={() => resolverConflicto(confirmar)}>Confirmar</Button>

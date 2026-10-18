@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Millet.Catalogos.Domain;
 using Millet.Compartido.Infrastructure.Persistence;
 using Millet.DatosMaestros.Application.Clientes;
 using Millet.DatosMaestros.Domain;
@@ -64,8 +65,59 @@ public sealed class BitacoraClientesAwTests(WebApplicationFactory<Program> facto
         await Aplicar(Snap(r) with { BloqueoOrigenCrudo = 1, LeidoEnUtc = DateTime.UtcNow.AddMinutes(1) }, mapeo);
         var desbloqueo = await Aplicar(Snap(r) with { BloqueoOrigenCrudo = 0, LeidoEnUtc = DateTime.UtcNow.AddMinutes(2) }, mapeo);
         Assert.Equal(alta.Cliente!.Id, desbloqueo.Cliente!.Id);
-        var estatus = (await Cambios(r)).Where(c => c.Campo == "Estatus").Select(c => c.Tipo).ToList();
-        Assert.Contains(TipoCambioMaestroAw.Baja, estatus); Assert.Contains(TipoCambioMaestroAw.Reactivacion, estatus);
+        Assert.Equal(AplicarClienteAwAccion.Actualizado, desbloqueo.Accion);
+        Assert.Equal(EstatusCatalogo.Activo, desbloqueo.Cliente.Estatus);
+        var estatus = (await Cambios(r)).Where(c => c.Campo == "Estatus").OrderBy(c => c.OcurridoEnUtc).ToList();
+        Assert.Equal([TipoCambioMaestroAw.Baja, TipoCambioMaestroAw.Reactivacion], estatus.Select(c => c.Tipo));
+        Assert.Equal(["Activo", "Inactivo"], estatus.Select(c => c.ValorAntes));
+        Assert.All(estatus, c => Assert.Equal(EstadoCambioMaestroAw.Informativo, c.Estado));
+        Assert.Equal(2, (await Cambios(r)).Count(c => c.Campo == "Bloqueo A+W")); // 0→1 y 1→0
+    }
+
+    [Fact]
+    public async Task Bloqueo_desbloqueo_bloqueo_deja_dos_bajas_y_un_reenvio_identico_no_agrega_filas()
+    {
+        var r = NuevaRef();
+        var mapeo = new MapeoEstatusClientesAwOptions { Version = "DEMO-v1", KzGesperrt = new() { [0] = false, [1] = true } };
+        await Aplicar(Snap(r) with { BloqueoOrigenCrudo = 0 }, mapeo);
+        await Aplicar(Snap(r) with { BloqueoOrigenCrudo = 1, LeidoEnUtc = DateTime.UtcNow.AddMinutes(1) }, mapeo);
+        await Aplicar(Snap(r) with { BloqueoOrigenCrudo = 0, LeidoEnUtc = DateTime.UtcNow.AddMinutes(2) }, mapeo);
+        var segundoBloqueo = Snap(r) with { BloqueoOrigenCrudo = 1, LeidoEnUtc = DateTime.UtcNow.AddMinutes(3) };
+        var res = await Aplicar(segundoBloqueo, mapeo);
+        Assert.Equal(EstatusCatalogo.Inactivo, res.Cliente!.Estatus);
+
+        var antes = await Cambios(r);
+        Assert.Equal(2, antes.Count(c => c.Campo == "Estatus" && c.Tipo == TipoCambioMaestroAw.Baja));
+        Assert.Equal(1, antes.Count(c => c.Campo == "Estatus" && c.Tipo == TipoCambioMaestroAw.Reactivacion));
+
+        await Aplicar(segundoBloqueo with { LeidoEnUtc = DateTime.UtcNow.AddMinutes(4) }, mapeo);
+        Assert.Equal(antes.Count, (await Cambios(r)).Count);
+    }
+
+    [Fact]
+    public async Task Diferencias_en_campos_de_dueno_erp_quedan_en_la_bitacora_como_informativas_sin_duplicarse()
+    {
+        var r = NuevaRef();
+        await Aplicar(Snap(r));
+        var distinta = Snap(r, "DEMO NAME1 NORTE") with { RazonSocial = "OTRA RAZON SOCIAL A+W", LeidoEnUtc = DateTime.UtcNow.AddMinutes(1) };
+        var res = await Aplicar(distinta);
+        Assert.Equal(AplicarClienteAwAccion.Actualizado, res.Accion);
+
+        var dif = Assert.Single(await Cambios(r), c => c.Tipo == TipoCambioMaestroAw.Diferencia);
+        Assert.Equal("Razón social", dif.Campo); Assert.Equal("ERP", dif.Dueno); Assert.Equal(EstadoCambioMaestroAw.Informativo, dif.Estado);
+        Assert.Equal("CLIENTE DEMO BITACORA", dif.ValorAntes); Assert.Equal("OTRA RAZON SOCIAL A+W", dif.ValorDespues);
+        var hash = await ConDbAsync(db => db.ClientesSincronizacionAw.AsNoTracking().Where(x => x.ReferenciaExterna == r).Select(x => x.HashOrigen).SingleAsync());
+        Assert.Equal(hash, dif.VersionEvento);
+        Assert.Equal("CLIENTE DEMO BITACORA", res.Cliente!.RazonSocial); // el ERP conserva
+
+        var total = (await Cambios(r)).Count;
+        await Aplicar(distinta with { LeidoEnUtc = DateTime.UtcNow.AddMinutes(2) });
+        await Aplicar(distinta with { LeidoEnUtc = DateTime.UtcNow.AddMinutes(3) });
+        Assert.Equal(total, (await Cambios(r)).Count);
+
+        var admin = await UsuariosAwHttp.SuperAdminAsync(factory);
+        var lista = await admin.GetFromJsonAsync<JsonElement>($"/api/v1/datos-maestros/clientes/{res.Cliente.Id}/cambios-aw");
+        Assert.Contains(lista.EnumerateArray(), e => e.GetProperty("tipo").GetString() == "Diferencia");
     }
 
     [Fact]
@@ -75,6 +127,9 @@ public sealed class BitacoraClientesAwTests(WebApplicationFactory<Program> facto
         using var j = JsonDocument.Parse(await http.GetStringAsync("/api/v1/datos-maestros/sincronizacion-aw/matriz"));
         Assert.Equal("0-propuesta", j.RootElement.GetProperty("version").GetString());
         Assert.Equal(17, j.RootElement.GetProperty("campos").GetArrayLength());
+
+        var sinPermiso = await UsuariosAwHttp.ConPermisosAsync(factory, PermisosCanonicos.DatosMaestrosClientesSincronizar);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermiso.GetAsync("/api/v1/datos-maestros/sincronizacion-aw/matriz")).StatusCode);
     }
 
     [Fact]

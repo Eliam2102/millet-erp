@@ -4,7 +4,7 @@ import type { EjecucionSyncAceptada } from '@/modules/datos-maestros/api/types';
 
 export interface CampoDuenoAw { entidad: string; campo: string; dueno: 'AW' | 'ERP'; siDifiere: string }
 export interface MatrizAw { version: string; campos: CampoDuenoAw[] }
-export type TipoCambioAw = 'Aplicado' | 'EditadoEnErp' | 'RfcCompartido' | 'Baja' | 'Reactivacion';
+export type TipoCambioAw = 'Aplicado' | 'EditadoEnErp' | 'RfcCompartido' | 'Baja' | 'Reactivacion' | 'Diferencia';
 export type EstadoCambioAw = 'Informativo' | 'Pendiente' | 'Resuelto';
 export interface CambioMaestroAw {
   id: string;
@@ -80,13 +80,14 @@ export function useResolverConflictoAw() {
   });
 }
 
-type Variante = 'info' | 'warning' | 'success' | 'danger';
+type Variante = 'info' | 'warning' | 'success' | 'danger' | 'neutral';
 export const TIPO_CAMBIO_AW: Record<TipoCambioAw, { texto: string; variante: Variante }> = {
   Aplicado: { texto: 'Aplicado', variante: 'info' },
   Baja: { texto: 'Baja', variante: 'warning' },
   Reactivacion: { texto: 'Reactivación', variante: 'success' },
   EditadoEnErp: { texto: 'Editado en ERP', variante: 'warning' },
   RfcCompartido: { texto: 'RFC repetido', variante: 'danger' },
+  Diferencia: { texto: 'Diferencia (ERP conserva)', variante: 'neutral' },
 };
 
 // ─── Corrida de clientes + productos y reporte de diferencias (ADM-06 R4) ──

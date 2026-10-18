@@ -53,7 +53,7 @@ public sealed class ResolverConflictoMaestroAwValidator : AbstractValidator<Reso
     {
         RuleFor(c => c.Id).NotEmpty();
         RuleFor(c => c.TipoEntidad).Must(t => t is "Cliente" or "ProductoAw");
-        RuleFor(c => c.Resolucion).Must(r => r is "MantenerSeparados" or "AplicarAw");
+        RuleFor(c => c.Resolucion).Must(r => r is "MantenerSeparados" or "AplicarAw" or "MantenerErp");
         RuleFor(c => c.Version).GreaterThan(0);
     }
 }
@@ -68,22 +68,42 @@ public sealed class ResolverConflictoMaestroAwHandler(CompartidoDbContext db, IC
             ?? throw new EntityNotFoundException("CONFLICTO_AW_NO_ENCONTRADO", "No existe ese conflicto.");
         if (c.Version != request.Version)
             throw new ConflictException("CONFLICTO_AW_CAMBIO", "El conflicto cambió. Recarga la bandeja.");
-        // Combinaciones permitidas: RFC repetido + «Mantener separados»; descripción de producto editada en el ERP + «Aplicar A+W».
+        // Combinaciones permitidas: RFC repetido + «Mantener separados»; descripción/unidad de producto editada en el ERP + «Aplicar A+W» o «Mantener ERP».
         var rfc = c.TipoEntidad == "Cliente" && c.Tipo == TipoCambioMaestroAw.RfcCompartido && request.Resolucion == "MantenerSeparados";
-        var producto = c.TipoEntidad == "ProductoAw" && c.Tipo == TipoCambioMaestroAw.EditadoEnErp && request.Resolucion == "AplicarAw";
+        var producto = c.TipoEntidad == "ProductoAw" && c.Tipo == TipoCambioMaestroAw.EditadoEnErp && request.Resolucion is "AplicarAw" or "MantenerErp";
         if (!rfc && !producto)
             throw new BusinessRuleException("CONFLICTO_AW_RESOLUCION_INVALIDA", "Esa resolución no aplica a este conflicto.");
-        if (producto)
+        var ahora = DateTimeOffset.UtcNow;
+        if (producto && request.Resolucion == "AplicarAw")
         {
-            var origen = await db.ProductosSincronizacionAw.AsNoTracking()
-                .Where(r => r.ReferenciaExterna == c.ReferenciaExterna).Select(r => r.DescripcionOrigen).SingleOrDefaultAsync(cancellationToken);
-            if (origen is null)
-                throw new BusinessRuleException("CONFLICTO_AW_SIN_VALOR_ORIGEN", "No hay valor de A+W para aplicar; vuelve a leer el producto.");
+            var origen = await db.ProductosSincronizacionAw.AsNoTracking().Where(r => r.ReferenciaExterna == c.ReferenciaExterna)
+                .Select(r => new { r.DescripcionOrigen, r.UnidadOrigenCruda }).SingleOrDefaultAsync(cancellationToken);
             var p = await db.ProductosAw.SingleOrDefaultAsync(x => x.ReferenciaExterna == c.ReferenciaExterna, cancellationToken)
                 ?? throw new EntityNotFoundException("PRODUCTO_AW_NO_ENCONTRADO", "El producto del conflicto ya no existe.");
-            p.ActualizarDatos(descripcion: origen);
+            string? antes;
+            string despues;
+            if (c.Campo == "Unidad")
+            {
+                var codigo = origen?.UnidadOrigenCruda?.Trim().ToUpperInvariant();
+                var unidad = string.IsNullOrEmpty(codigo) ? null
+                    : await db.UnidadesMedida.AsNoTracking().FirstOrDefaultAsync(u => u.Codigo == codigo && u.Estatus == Millet.Catalogos.Domain.EstatusCatalogo.Activo, cancellationToken);
+                if (unidad is null)
+                    throw new BusinessRuleException("CONFLICTO_AW_SIN_VALOR_ORIGEN", "No hay una unidad de A+W con equivalencia para aplicar; vuelve a leer el producto.");
+                antes = p.UnidadMedida; despues = unidad.Codigo;
+                p.AsignarUnidadMedida(unidad.Id, unidad.Codigo);
+            }
+            else
+            {
+                if (origen?.DescripcionOrigen is null)
+                    throw new BusinessRuleException("CONFLICTO_AW_SIN_VALOR_ORIGEN", "No hay valor de A+W para aplicar; vuelve a leer el producto.");
+                antes = p.Descripcion; despues = origen.DescripcionOrigen;
+                p.ActualizarDatos(descripcion: despues);
+            }
+            // Deja constancia del valor aplicado; la huella previa (id del conflicto) hace única esta fila por resolución.
+            db.CambiosMaestrosAw.Add(new CambioMaestroAw(Guid.CreateVersion7(), "ProductoAw", c.EntidadId, c.ReferenciaExterna, c.Campo,
+                antes, despues, MatrizCampoDuenoAw.DuenoAw, TipoCambioMaestroAw.Aplicado, EstadoCambioMaestroAw.Informativo,
+                "Se aplicó el valor de A+W al resolver el conflicto.", c.VersionEvento, MatrizCampoDuenoAw.Version, null, ahora.UtcDateTime, c.Id.ToString()));
         }
-        var ahora = DateTimeOffset.UtcNow;
         c.Resolver(request.Resolucion, usuario, ahora);
         var hermanos = await db.CambiosMaestrosAw.Where(x => x.Id != c.Id && x.TipoEntidad == c.TipoEntidad
             && x.ReferenciaExterna == c.ReferenciaExterna && x.Campo == c.Campo && x.Tipo == c.Tipo

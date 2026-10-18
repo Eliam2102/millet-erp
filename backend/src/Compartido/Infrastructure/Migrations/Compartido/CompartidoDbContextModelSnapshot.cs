@@ -4141,6 +4141,14 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         .HasColumnType("smallint")
                         .HasColumnName("estado");
 
+                    b.Property<string>("HuellaPrevia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("")
+                        .HasColumnName("huella_previa");
+
                     b.Property<DateTime>("OcurridoEnUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ocurrido_en_utc");
@@ -4218,7 +4226,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                     b.HasIndex("TipoEntidad", "Estado")
                         .HasDatabaseName("ix_cambios_maestros_aw_tipo_entidad_estado");
 
-                    b.HasIndex("TipoEntidad", "ReferenciaExterna", "Campo", "Tipo", "VersionEvento")
+                    b.HasIndex("TipoEntidad", "ReferenciaExterna", "Campo", "Tipo", "VersionEvento", "HuellaPrevia")
                         .IsUnique()
                         .HasDatabaseName("ix_cambios_maestros_aw_tipo_entidad_referencia_externa_campo_t");
 

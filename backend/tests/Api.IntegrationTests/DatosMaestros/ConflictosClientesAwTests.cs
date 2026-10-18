@@ -59,6 +59,57 @@ public sealed class ConflictosClientesAwTests(WebApplicationFactory<Program> fac
 
         await Aplicar((modoReal ? Snap(r2, null, $"X") : Snap(r2, "XAXX010101000")) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(2) });
         Assert.Single(await Conflictos(r2));
+
+        // Reenvío idéntico del segundo cliente (misma clave fiscal): no crea otro conflicto.
+        var rfc = c.ValorDespues!;
+        await Aplicar((modoReal ? Snap(r2, null, $"{rfc[..3]}-{rfc[3..9]}-{rfc[9..]}") : Snap(r2, rfc)) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(3) });
+        await Aplicar((modoReal ? Snap(r2, null, $"{rfc[..3]}-{rfc[3..9]}-{rfc[9..]}") : Snap(r2, rfc)) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(4) });
+        Assert.Single(await Conflictos(r2));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_ocupado_por_otro_aw_registra_conflicto_y_no_fusiona(bool modoReal)
+    {
+        var rfc = NuevoRfc(); var r1 = NuevaRef(); var r2 = NuevaRef();
+        string Ust() => $"{rfc[..3]}-{rfc[3..9]}-{rfc[9..]}";
+        var a = await Aplicar(modoReal ? Snap(r1, null, Ust()) : Snap(r1, rfc));
+        var b = await Aplicar(Snap(r2, null) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(1) });
+        Assert.Empty(await Conflictos(r2));
+
+        var actualizado = await Aplicar((modoReal ? Snap(r2, null, Ust()) : Snap(r2, rfc)) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(2) });
+        Assert.Equal(AplicarClienteAwAccion.Actualizado, actualizado.Accion);
+        Assert.Equal(b.Cliente!.Id, actualizado.Cliente!.Id); Assert.NotEqual(a.Cliente!.Id, actualizado.Cliente.Id);
+        Assert.Null(actualizado.Cliente.Rfc); // no se completa un RFC que ya ocupa otro cliente
+        var c = Assert.Single(await Conflictos(r2));
+        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Contains("AW-" + r1, c.Causa);
+
+        await Aplicar((modoReal ? Snap(r2, null, Ust()) : Snap(r2, rfc)) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(3), NombreComercialOrigen = "OTRO NOMBRE" });
+        Assert.Single(await Conflictos(r2));
+    }
+
+    [Fact]
+    public async Task Al_actualizar_un_cliente_aw_con_un_rfc_de_un_cliente_manual_registra_conflicto_y_no_completa_el_rfc()
+    {
+        var http = await UsuariosAwHttp.SuperAdminAsync(factory);
+        var rfc = NuevoRfc(); var r = NuevaRef();
+        var alta = await http.PostAsJsonAsync("/api/v1/datos-maestros/clientes", new
+        {
+            clave = "M" + Guid.NewGuid().ToString("N")[..10], razonSocial = "CLIENTE MANUAL CONFLICTO", rfc, regimenFiscal = "601",
+            codigoPostalFiscal = "97000", usoCfdiDefault = "G03", formaPagoDefault = "03", metodoPagoDefault = "PUE", monedaDefault = "MXN",
+            clasificacionId = "00000012-0001-0000-0000-000000000001",
+        });
+        Assert.Equal(HttpStatusCode.Created, alta.StatusCode);
+        var manualId = JsonDocument.Parse(await alta.Content.ReadAsStringAsync()).RootElement.GetProperty("id").GetGuid();
+
+        var creado = await Aplicar(Snap(r, null));
+        var res = await Aplicar(Snap(r, rfc) with { LeidoEnUtc = DateTime.UtcNow.AddSeconds(1) });
+        Assert.Equal(AplicarClienteAwAccion.Actualizado, res.Accion);
+        Assert.Equal(creado.Cliente!.Id, res.Cliente!.Id); Assert.NotEqual(manualId, res.Cliente.Id);
+        Assert.Null(res.Cliente.Rfc);
+        var c = Assert.Single(await Conflictos(r));
+        Assert.Equal(EstadoCambioMaestroAw.Pendiente, c.Estado); Assert.Equal(rfc, c.ValorDespues);
     }
 
     [Fact]

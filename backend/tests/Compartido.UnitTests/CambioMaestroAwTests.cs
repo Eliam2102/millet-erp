@@ -26,4 +26,26 @@ public sealed class CambioMaestroAwTests
         c.Resolver("MantenerSeparados", u, DateTimeOffset.UtcNow);
         Assert.Equal(EstadoCambioMaestroAw.Resuelto, c.Estado); Assert.Equal("MantenerSeparados", c.Resolucion); Assert.Equal(u, c.ResueltoPor);
     }
+
+    private static CambioMaestroAw ConHuella(string? antes, string? hashAnterior) =>
+        new(Guid.NewGuid(), "Cliente", Guid.NewGuid(), "REF-1", "Estatus", antes, "Inactivo", "AW", TipoCambioMaestroAw.Baja,
+            EstadoCambioMaestroAw.Informativo, "Baja.", "hash", "0-propuesta", null, DateTime.UtcNow, hashAnterior);
+
+    [Fact]
+    public void HuellaPrevia_es_estable_y_distingue_valor_anterior_y_hash_previo()
+    {
+        Assert.Equal(ConHuella("Activo", "h0").HuellaPrevia, ConHuella("Activo", "h0").HuellaPrevia);
+        Assert.NotEqual(ConHuella("Activo", "h0").HuellaPrevia, ConHuella("Activo", "h1").HuellaPrevia);
+        Assert.NotEqual(ConHuella("Activo", "h0").HuellaPrevia, ConHuella("Inactivo", "h0").HuellaPrevia);
+        Assert.Equal(64, ConHuella(null, null).HuellaPrevia.Length);
+    }
+
+    [Fact]
+    public void HuellaPrevia_usa_el_valor_anterior_completo_aunque_se_recorte_a_400()
+    {
+        var largo = new string('x', 400);
+        var a = ConHuella(largo + "A", null); var b = ConHuella(largo + "B", null);
+        Assert.Equal(a.ValorAntes, b.ValorAntes);
+        Assert.NotEqual(a.HuellaPrevia, b.HuellaPrevia);
+    }
 }

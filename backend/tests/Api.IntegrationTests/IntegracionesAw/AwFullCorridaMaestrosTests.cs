@@ -27,7 +27,7 @@ namespace Millet.Api.IntegrationTests.IntegracionesAw;
 /// G1.10 (ADM-06): corrida OPT-IN de clientes Y productos, dos veces seguidas, contra la copia local <c>AW_FULL</c> de A+W
 /// (SQL Server, solo lectura, usuario <c>aw_ro</c>) hacia la BD PostgreSQL desechable de las pruebas de integración.
 /// Escribe SOLO conteos agregados en <c>AW_FULL_SALIDA/resumen-corrida-maestros.{md,json}</c>: nunca RFC, nombres,
-/// domicilios ni descripciones. Sin <c>AW_FULL_CONN</c> o <c>AW_FULL_SALIDA</c> la prueba retorna temprano con «OMITIDO»
+/// domicilios ni descripciones. Sin <c>AW_FULL_CONN</c> o <c>AW_FULL_SALIDA</c> la prueba se reporta OMITIDA (skip visible)
 /// y no abre ninguna conexión. Nunca escribe en SQL Server ni llama a <c>aw-sandbox.sh</c>.
 /// Cómo correrla (la lanza el owner o la sesión principal, nunca CI): ver docs/integration/05 §4.1.
 /// La BD de destino debe estar recién creada (<c>tools/validate-integration-isolated.sh</c>).
@@ -47,15 +47,9 @@ public sealed class AwFullCorridaMaestrosTests(WebApplicationFactory<Program> fa
 
     private sealed record Corrida(AwClientesEjecucion Clientes, AwProductosResumen Productos, double Segundos);
 
-    [Fact]
+    [AwFullFact]
     public async Task Corrida_AW_FULL_clientes_y_productos_dos_veces()
     {
-        if (ConnEnv is null || SalidaEnv is null)
-        {
-            salida.WriteLine("OMITIDO: falta AW_FULL_CONN/AW_FULL_SALIDA.");
-            return;
-        }
-
         using (var scope = factory.Services.CreateScope())
         {
             using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
@@ -100,9 +94,9 @@ public sealed class AwFullCorridaMaestrosTests(WebApplicationFactory<Program> fa
             gruposDuplicadosEnBitacora = gruposDuplicados,
             clientesConMismoRfcEnErp = rfcRepetidosErp,
         };
-        Directory.CreateDirectory(SalidaEnv);
-        await File.WriteAllTextAsync(Path.Combine(SalidaEnv, "resumen-corrida-maestros.json"), JsonSerializer.Serialize(resumen, JsonIndentado));
-        await File.WriteAllTextAsync(Path.Combine(SalidaEnv, "resumen-corrida-maestros.md"), Markdown(resumen.fechaUtc, antes, despues, corrida1, corrida2,
+        Directory.CreateDirectory(SalidaEnv!);
+        await File.WriteAllTextAsync(Path.Combine(SalidaEnv!, "resumen-corrida-maestros.json"), JsonSerializer.Serialize(resumen, JsonIndentado));
+        await File.WriteAllTextAsync(Path.Combine(SalidaEnv!, "resumen-corrida-maestros.md"), Markdown(resumen.fechaUtc, antes, despues, corrida1, corrida2,
             conflictosPorTipo, cambiosPorCampo, erroresClientes, erroresProductos, gruposDuplicados, rfcRepetidosErp));
         salida.WriteLine($"clientes c1={corrida1.Clientes.Leidos}/{corrida1.Clientes.Creados} c2 creados={corrida2.Clientes.Creados}; " +
             $"productos c1={corrida1.Productos.Leidos}/{corrida1.Productos.Creados} c2 creados={corrida2.Productos.Creados}; gruposDuplicados={gruposDuplicados}");

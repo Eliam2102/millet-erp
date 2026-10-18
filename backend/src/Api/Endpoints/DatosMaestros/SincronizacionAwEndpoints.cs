@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Millet.Api.Auth;
 using Millet.Api.Web;
@@ -48,7 +49,8 @@ public static class SincronizacionAwEndpoints
     {
         app.MapGet("/api/v1/datos-maestros/sincronizacion-aw/matriz",
                 () => Results.Ok(new { version = MatrizCampoDuenoAw.Version, campos = MatrizCampoDuenoAw.Campos }))
-            .WithTags("DatosMaestros").RequireAuthorization();
+            .WithTags("DatosMaestros")
+            .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesOrigenVer);
 
         app.MapGet("/api/v1/datos-maestros/clientes/{id:guid}/cambios-aw",
                 async (Guid id, int? limit, CompartidoDbContext db, ISender sender, CancellationToken ct) =>
@@ -105,7 +107,7 @@ public static class SincronizacionAwEndpoints
         // Dos RequireAuthorization: se exigen AMBAS políticas (clientes y productos).
         app.MapPost(baseCorridas, async (
                 AwClientesSincronizador clientes, AwProductosSincronizador productos, IntegracionesAwDbContext db,
-                ICurrentUserContext user, CancellationToken ct) =>
+                ICurrentUserContext user, ILoggerFactory loggerFactory, CancellationToken ct) =>
             {
                 var actor = user.UserName ?? user.Email ?? user.UserId?.ToString() ?? "desconocido";
                 var id = await clientes.IniciarBarridoAsync(actor, ct);
@@ -113,6 +115,12 @@ public static class SincronizacionAwEndpoints
                 // ponytail: barrido de productos síncrono dentro del POST (~7k productos); moverlo al dispatcher si excede el timeout.
                 try { json = JsonSerializer.Serialize(await productos.SincronizarBarridoAsync(ct, id), JsonResumen); }
                 catch (AwProductosSyncException ex) { json = JsonSerializer.Serialize(new { error = ex.Code, mensaje = ex.Message }, JsonResumen); }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // La ejecución de clientes ya está encolada: un fallo inesperado del barrido de productos no debe dar 500, queda en el resumen.
+                    loggerFactory.CreateLogger("Millet.Api.SincronizacionAw").LogError(ex, "Falló el barrido de productos de la corrida {EjecucionId}.", id);
+                    json = JsonSerializer.Serialize(new { error = "barrido_productos_fallido", mensaje = "El barrido de productos falló; revisa los registros del servidor." }, JsonResumen);
+                }
                 // Una sola columna: no choca con el token de concurrencia que usa el dispatcher al actualizar la ejecución.
                 await db.ClientesEjecuciones.Where(e => e.Id == id)
                     .ExecuteUpdateAsync(s => s.SetProperty(e => e.ResumenProductos, json), ct);
@@ -122,15 +130,19 @@ public static class SincronizacionAwEndpoints
             .WithMetadata(new RequireIdempotencyKeyAttribute());
 
         app.MapGet(baseCorridas + "/{id:guid}/diferencias", async (
-                Guid id, IntegracionesAwDbContext awDb, CompartidoDbContext db, CancellationToken ct) =>
+                Guid id, IntegracionesAwDbContext awDb, CompartidoDbContext db, IAuthorizationService authorization,
+                HttpContext httpContext, CancellationToken ct) =>
             {
+                // La política exigida es la de clientes; lo de productos solo se incluye si el usuario también puede gestionarlos.
+                var verProductos = (await authorization.AuthorizeAsync(httpContext.User, resource: null,
+                    new PermissionRequirement(PermisosCanonicos.DatosMaestrosProductosAwGestionar))).Succeeded;
                 var e = await awDb.ClientesEjecuciones.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
                     ?? throw new AwClientesSyncException("ejecucion_no_encontrada", "Ejecución de clientes inexistente.");
-                var cambios = await db.CambiosMaestrosAw.AsNoTracking().Where(c => c.EjecucionId == id)
+                var cambios = await db.CambiosMaestrosAw.AsNoTracking().Where(c => c.EjecucionId == id && (verProductos || c.TipoEntidad != "ProductoAw"))
                     .OrderBy(c => c.OcurridoEnUtc).Take(TopeFilasReporte + 1).ToListAsync(ct);
                 var erroresClientes = await awDb.Set<Millet.Integraciones.Aw.Domain.AwClientesEjecucionError>().AsNoTracking()
                     .Where(x => x.EjecucionId == id).OrderBy(x => x.OcurridoEnUtc).Take(TopeFilasReporte + 1).ToListAsync(ct);
-                var resumen = Leer(e.ResumenProductos);
+                var resumen = verProductos ? Leer(e.ResumenProductos) : new ResumenProductosJson();
 
                 var filas = new List<IReadOnlyDictionary<string, string?>>();
                 filas.AddRange(cambios.Select(c => Fila(c.TipoEntidad, c.ReferenciaExterna, c.Campo, c.ValorAntes, c.ValorDespues,

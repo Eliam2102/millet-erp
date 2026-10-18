@@ -182,9 +182,10 @@ public sealed class CompartidoDbContext : BaseDbContext
         cambioAw.Property(c => c.Causa).HasMaxLength(500).IsRequired();
         cambioAw.Property(c => c.VersionEvento).HasMaxLength(64).IsRequired();
         cambioAw.Property(c => c.VersionMatriz).HasMaxLength(20).IsRequired();
+        cambioAw.Property(c => c.HuellaPrevia).HasMaxLength(64).IsRequired().HasDefaultValue(string.Empty);
         cambioAw.Property(c => c.Resolucion).HasMaxLength(40);
         cambioAw.Property(c => c.Version).IsConcurrencyToken();
-        cambioAw.HasIndex(c => new { c.TipoEntidad, c.ReferenciaExterna, c.Campo, c.Tipo, c.VersionEvento }).IsUnique();
+        cambioAw.HasIndex(c => new { c.TipoEntidad, c.ReferenciaExterna, c.Campo, c.Tipo, c.VersionEvento, c.HuellaPrevia }).IsUnique();
         cambioAw.HasIndex(c => c.EjecucionId); cambioAw.HasIndex(c => new { c.TipoEntidad, c.Estado });
         ConfigureClienteSincronizacionAw(modelBuilder);
         ConfigureProductoAw(modelBuilder);

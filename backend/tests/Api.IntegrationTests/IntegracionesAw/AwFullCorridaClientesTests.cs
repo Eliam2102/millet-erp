@@ -23,7 +23,7 @@ namespace Millet.Api.IntegrationTests.IntegracionesAw;
 /// Corrida OPT-IN de clientes contra la copia local <c>AW_FULL</c> de A+W (SQL Server, solo lectura, usuario <c>aw_ro</c>)
 /// hacia la BD PostgreSQL desechable de las pruebas de integración. Mide el comportamiento real del sincronizador
 /// (modo real y modo demo) y escribe SOLO conteos agregados en <c>AW_FULL_SALIDA</c>.
-/// Sin <c>AW_FULL_CONN</c> o <c>AW_FULL_SALIDA</c> cada prueba retorna temprano con «OMITIDO».
+/// Sin <c>AW_FULL_CONN</c> o <c>AW_FULL_SALIDA</c> cada prueba se reporta OMITIDA (skip visible).
 /// Nunca escribe en SQL Server, nunca llama a <c>aw-sandbox.sh</c> y nunca registra RFC, nombres ni domicilios.
 /// La BD de destino debe estar recién creada (<c>tools/validate-integration-isolated.sh</c>).
 /// </summary>
@@ -45,25 +45,16 @@ public sealed class AwFullCorridaClientesTests(WebApplicationFactory<Program> fa
     /// <summary>Checksum de una tabla de A+W; sirve para probar que la corrida no alteró la copia.</summary>
     private sealed record HuellaTabla(string Tabla, long Filas, string Checksum);
 
-    [Fact]
+    [AwFullFact]
     public async Task Corrida_AW_FULL_modo_real()
     {
-        if (!Configurado()) return;
         await CorrerAsync("real", o => o);
     }
 
-    [Fact]
+    [AwFullFact]
     public async Task Corrida_AW_FULL_modo_demo()
     {
-        if (!Configurado()) return;
         await CorrerAsync("demo", o => new OrigenConFiscales(o));
-    }
-
-    private bool Configurado()
-    {
-        if (ConnEnv is not null && SalidaEnv is not null) return true;
-        salida.WriteLine("OMITIDO: falta AW_FULL_CONN/AW_FULL_SALIDA.");
-        return false;
     }
 
     private async Task CorrerAsync(string modo, Func<IAwClientesOrigen, IAwClientesOrigen> envolver)

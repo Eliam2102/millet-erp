@@ -30,7 +30,7 @@ public static class MatrizCampoDuenoAw
         new("Cliente", "Régimen, uso de CFDI, clasificación y moneda del cliente", DuenoErp, "Se conserva el ERP; A+W solo informa."),
         new("Cliente", "RFC repetido entre clientes de A+W", DuenoAw, "No se fusionan; queda un conflicto visible con su causa."),
         new("ProductoAw", "Descripción", DuenoAw, "Se aplica A+W. Si el ERP la editó, queda conflicto pendiente hasta «Aplicar A+W»."),
-        new("ProductoAw", "Unidad", DuenoAw, "Se aplica A+W si tiene equivalencia; si no, queda pendiente."),
+        new("ProductoAw", "Unidad", DuenoAw, "Se aplica A+W si tiene equivalencia; si no, queda pendiente. Si el ERP la editó, queda conflicto pendiente hasta «Aplicar A+W»."),
         new("ProductoAw", "Medidas (variantes)", DuenoAw, "Cada medida es una variante; nunca se colapsan."),
         new("ProductoAw", "Baja A+W", DuenoAw, "Baja lógica sin borrar historia; solo se reactiva una baja que vino de A+W."),
         new("ProductoAw", "Claves SAT, objeto de impuesto, tasas y aduana", DuenoErp, "Nunca se sobrescriben desde A+W."),

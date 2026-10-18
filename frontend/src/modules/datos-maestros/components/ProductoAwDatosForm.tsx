@@ -167,9 +167,12 @@ export function ProductoAwDatosForm({ producto }: ProductoAwDatosFormProps) {
       <FormRow
         label="Unidad de medida"
         hint={
-          producto.unidadMedidaId == null
+          (producto.unidadMedidaId == null
             ? `De A+W: «${producto.unidadMedida}». Asigna una unidad del catálogo.`
-            : 'Del catálogo de unidades.'
+            : 'Del catálogo de unidades.')
+          + (producto.origen === OrigenMaster.Aw
+            ? ' Dato de A+W: si lo cambias aquí, la siguiente corrida lo marcará en conflicto.'
+            : '')
         }
         error={form.formState.errors.unidadMedidaId?.message}
       >
