@@ -63,15 +63,13 @@ function pintar(props: Partial<React.ComponentProps<typeof AdjuntosManager>> = {
 }
 
 describe('<AdjuntosManager> — servicio genérico G1.2', () => {
-  it('muestra estado con texto, vigencia resaltada, quién/cuándo y hash corto', () => {
+  it('muestra estado con texto, vigencia resaltada, quién/cuándo y hash solo en el title', () => {
     pintar();
     expect(screen.getByText('Vencido')).toBeInTheDocument();
     expect(screen.getByText(/Vigente hasta 31\/10\/2026/)).toHaveClass('text-danger-fg');
     expect(screen.getByText(/Ana Compras/)).toBeInTheDocument();
-    expect(screen.getByText('abcdef01')).toHaveAttribute(
-      'title',
-      expect.stringContaining('SHA-256'),
-    );
+    expect(screen.queryByText('abcdef01')).not.toBeInTheDocument();
+    expect(screen.getByTitle(/SHA-256: abcdef01/)).toBeInTheDocument();
   });
 
   it('pide vigencia solo para tipos con vigenciaMeses y la envía', async () => {

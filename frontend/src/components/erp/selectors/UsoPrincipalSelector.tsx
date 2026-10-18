@@ -40,7 +40,7 @@ export function UsoPrincipalSelector({
       value={value}
       onChange={onChange}
       itemToLabel={(u) => `${u.clave} ${u.nombre}`}
-      renderTrigger={(u) => `${u.clave} · ${u.nombre}`}
+      renderTrigger={(u) => u.nombre}
       renderItem={(u) => (
         <div className="min-w-0 flex-1">
           <span className="font-mono text-xs">{u.clave}</span>

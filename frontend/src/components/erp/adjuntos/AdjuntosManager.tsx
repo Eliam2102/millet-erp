@@ -659,7 +659,7 @@ function AdjuntoFila({
               href={urlEfectiva}
               download={a.nombreArchivo}
               className="truncate text-sm font-medium hover:underline"
-              title={`Descargar ${a.nombreArchivo}`}
+              title={`Descargar ${a.nombreArchivo}${a.hashSha256 ? ` · SHA-256: ${a.hashSha256}` : ''}`}
               data-action="descargar-adjunto"
             >
               {a.nombreArchivo}
@@ -667,7 +667,7 @@ function AdjuntoFila({
           ) : (
             <span
               className="truncate text-sm font-medium text-muted-foreground"
-              title={a.nombreArchivo}
+              title={`${a.nombreArchivo}${a.hashSha256 ? ` · SHA-256: ${a.hashSha256}` : ''}`}
             >
               {a.nombreArchivo}
               {isLoading ? ' (cargando…)' : ''}
@@ -687,19 +687,11 @@ function AdjuntoFila({
             </span>
           )}
           {tipoExtra}
-          {a.estado != null && <EstadoAdjuntoBadge estado={a.estado} />}
+          {a.estado != null && a.estado !== EstadoAdjunto.SinVigencia && <EstadoAdjuntoBadge estado={a.estado} />}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {formatBytes(a.tamanoBytes)} · {formatDateTime(a.fechaCarga)}
           {usuario ? ` · ${usuario}` : ''}
-          {a.hashSha256 && (
-            <>
-              {' · '}
-              <span className="font-mono text-2xs" title={`SHA-256: ${a.hashSha256}`}>
-                {a.hashSha256.slice(0, 8)}
-              </span>
-            </>
-          )}
         </p>
         {a.vigenteHasta && (
           <p

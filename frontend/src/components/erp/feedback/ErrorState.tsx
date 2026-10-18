@@ -40,7 +40,8 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   const tituloFinal = title ?? problem?.title ?? 'Algo salió mal';
-  const detalle = problem?.detail;
+  const noEncontrado = problem?.status === 404;
+  const detalle = noEncontrado ? undefined : problem?.detail;
   const traceId = problem?.traceId;
 
   return (
@@ -52,15 +53,15 @@ export function ErrorState({
         <TriangleAlert className="h-4 w-4" />
         <AlertTitle>{tituloFinal}</AlertTitle>
         <AlertDescription>
-          {detalle ?? 'Si el problema persiste, reporta el código a soporte.'}
-          {traceId != null && (
+          {detalle ?? (noEncontrado ? 'El registro no existe o ya no está disponible.' : 'Intenta de nuevo; si persiste, avisa a soporte.')}
+          {traceId != null && !noEncontrado && (
             <span className="mt-2 block font-mono text-xs opacity-80">
               Código: {traceId}
             </span>
           )}
         </AlertDescription>
       </Alert>
-      {onRetry != null && (
+      {onRetry != null && !noEncontrado && (
         <Button variant="outline" onClick={onRetry}>
           Reintentar
         </Button>
