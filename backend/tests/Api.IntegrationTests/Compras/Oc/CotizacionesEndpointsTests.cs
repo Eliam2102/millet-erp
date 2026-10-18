@@ -333,6 +333,126 @@ public partial class OrdenesCompraEndpointsTests
         Assert.True(transmitir.StatusCode == HttpStatusCode.NoContent, cuerpo);
     }
 
+    private static async Task<Guid> ElegirYCrearOcAsync(HttpClient client, Guid rqId, DateOnly hoy, Guid cotId, string motivo)
+    {
+        await SubirPdfCotizacionAsync(client, cotId);
+        var crear = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", DesdeRqCotizacion(rqId, hoy, "MXN", cotId, motivo));
+        Assert.True(crear.StatusCode == HttpStatusCode.Created, await crear.Content.ReadAsStringAsync());
+        return (await ReadJsonAsync(crear)).GetProperty("ordenCompraId").GetGuid();
+    }
+
+    private static async Task AssertComparativoReabiertoAsync(HttpClient client, Guid rqId, int elegidasEsperadas)
+    {
+        var json = await ReadJsonAsync(await client.GetAsync($"/api/v1/compras/requisiciones/{rqId}/cotizaciones"));
+        Assert.Equal(elegidasEsperadas, json.GetProperty("cotizaciones").EnumerateArray().Count(c => c.GetProperty("elegida").GetBoolean()));
+        Assert.Equal(elegidasEsperadas > 0, json.GetProperty("comparativoCerrado").GetBoolean());
+        Assert.Equal(elegidasEsperadas == 0, json.GetProperty("puedeRegistrar").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Cotizaciones_ElegirCancelarOc_LiberaYPermiteReelegir()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        var aId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        var bId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 450m);
+        var ocId = await ElegirYCrearOcAsync(client, rqId, hoy, aId, "Menor tiempo de entrega");
+        await AssertComparativoReabiertoAsync(client, rqId, elegidasEsperadas: 1);
+
+        Guid motivoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            motivoId = await scope.ServiceProvider.GetRequiredService<ComprasDbContext>().MotivosRechazo
+                .Where(m => m.Activo && (m.AplicaA & MotivoRechazoAplicaA.Cancelacion) != 0 && !m.PermiteTextoLibre)
+                .Select(m => m.Id).FirstAsync();
+        }
+        var cancelar = await client.PostAsJsonAsync($"{EndpointBase}/{ocId}/cancelar", new { MotivoCancelacionId = motivoId });
+        Assert.True(cancelar.StatusCode == HttpStatusCode.NoContent, await cancelar.Content.ReadAsStringAsync());
+
+        await AssertComparativoReabiertoAsync(client, rqId, elegidasEsperadas: 0);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+            var a = await scope.ServiceProvider.GetRequiredService<ComprasDbContext>().Cotizaciones.AsNoTracking()
+                .Include(c => c.EleccionesAnteriores).SingleAsync(c => c.Id == aId);
+            var previa = Assert.Single(a.EleccionesAnteriores);
+            Assert.Equal(ocId, previa.OrdenCompraId);
+            Assert.Equal("Menor tiempo de entrega", previa.Motivo);
+            Assert.StartsWith("OC cancelada", previa.MotivoLiberacion);
+        }
+
+        // Reelegible: la segunda cotización genera una OC nueva y solo queda una elegida.
+        await ElegirYCrearOcAsync(client, rqId, hoy, bId, "Mejor precio tras la cancelación");
+        await AssertComparativoReabiertoAsync(client, rqId, elegidasEsperadas: 1);
+    }
+
+    [Fact]
+    public async Task Cotizaciones_EliminarUltimaLineaDeOc_LiberaLaEleccion()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        var cotId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        var ocId = await ElegirYCrearOcAsync(client, rqId, hoy, cotId, "Único proveedor vigente");
+        var oc = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}/{ocId}"));
+        var ocLineaId = oc.GetProperty("lineas")[0].GetProperty("id").GetGuid();
+
+        var borrar = await client.DeleteAsync($"{EndpointBase}/{ocId}/lineas/{ocLineaId}");
+        Assert.Equal(HttpStatusCode.NoContent, borrar.StatusCode);
+
+        await AssertComparativoReabiertoAsync(client, rqId, elegidasEsperadas: 0);
+    }
+
+    [Fact]
+    public async Task Cotizaciones_RqConCotizaciones_SinCotizacionId_422_ElegirDesdeComparativo()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+
+        var directa = await client.PostAsJsonAsync($"{EndpointBase}/desde-requisicion", new
+        {
+            RequisicionId = rqId, SucursalCodigo = "MID", FolioAnio = (short)2026, ProveedorId = ProveedorActivoId,
+            CondicionesPagoId = Guid.NewGuid(), UsoPrincipalId = Guid.NewGuid(), FechaDocumento = hoy, Moneda = "MXN",
+        });
+        await AssertCodigoP2(directa, HttpStatusCode.UnprocessableEntity, "COT_ELEGIR_DESDE_COMPARATIVO");
+
+        // OC vacía + agregar línea desde la RQ: mismo bloqueo.
+        var vacia = await client.PostAsJsonAsync(EndpointBase, ValidBody());
+        vacia.EnsureSuccessStatusCode();
+        var vaciaId = (await ReadJsonAsync(vacia)).GetProperty("id").GetGuid();
+        var agregar = await client.PostAsJsonAsync($"{EndpointBase}/{vaciaId}/lineas/desde-requisicion", new { RequisicionId = rqId });
+        await AssertCodigoP2(agregar, HttpStatusCode.UnprocessableEntity, "COT_ELEGIR_DESDE_COMPARATIVO");
+
+        using var scope = _factory.Services.CreateScope();
+        using var bypass = scope.ServiceProvider.GetRequiredService<ICurrentEmpresaContext>().Bypass();
+        Assert.Null((await scope.ServiceProvider.GetRequiredService<ComprasDbContext>().Requisiciones.AsNoTracking()
+            .SingleAsync(r => r.Id == rqId)).ComprometidaEnOcId);
+    }
+
+    [Fact]
+    public async Task Cotizaciones_OcConCotizacion_NoCambiaProveedorNiMoneda()
+    {
+        var (rqId, lineaId) = await SembrarRqCotizable();
+        var hoy = await RegistrarTipoCambioHoyAsync("USD", 17.85m);
+        var client = await CreateSuperAdminClientAsync();
+        var cotId = await RegistrarCotizacionAsync(client, rqId, lineaId, hoy, "MXN", "HOJA", 1m, 500m);
+        var ocId = await ElegirYCrearOcAsync(client, rqId, hoy, cotId, "Único proveedor vigente");
+
+        async Task<HttpResponseMessage> Patch(object body)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Patch, $"{EndpointBase}/{ocId}") { Content = JsonContent.Create(body) };
+            return await client.SendAsync(request);
+        }
+
+        await AssertCodigoP2(await Patch(new { ProveedorId = Guid.NewGuid() }), HttpStatusCode.UnprocessableEntity, "OC_COTIZACION_FIJA");
+        await AssertCodigoP2(await Patch(new { Moneda = "USD", TipoCambio = 17.85m }), HttpStatusCode.UnprocessableEntity, "OC_COTIZACION_FIJA");
+        // Otros campos de cabecera siguen editables.
+        Assert.Equal(HttpStatusCode.NoContent, (await Patch(new { Observaciones = "Entregar en andén 2" })).StatusCode);
+    }
+
     private static async Task<Guid> UsuarioIdDeAsync(HttpClient client)
     {
         var sesion = await client.GetAsync("/api/auth/me");

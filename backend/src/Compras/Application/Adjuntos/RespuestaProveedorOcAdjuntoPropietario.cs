@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Administracion.Application.Abstractions;
 using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Adjuntos;
+using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Compras.Application.Adjuntos;
 
@@ -36,7 +37,16 @@ public sealed class RespuestaProveedorOcAdjuntoPropietario(Millet.Compras.Infras
         => VerificarAlcanceAsync(info, AdjuntoOperacion.Ver, cancellationToken);
 
     public Task VerificarAlcanceAsync(AdjuntoPropietarioInfo info, AdjuntoOperacion operacion, CancellationToken cancellationToken)
-        => SucursalScopeGuard.VerificarAsync(user.UserId,
+    {
+        // La evidencia de una respuesta es historial inmutable: no se da de baja.
+        if (operacion == AdjuntoOperacion.Baja)
+        {
+            throw new BusinessRuleException("RESPUESTA_EVIDENCIA_INMUTABLE",
+                "La evidencia de una respuesta del proveedor es historial y no se puede dar de baja.");
+        }
+
+        return SucursalScopeGuard.VerificarAsync(user.UserId,
             operacion == AdjuntoOperacion.Ver ? "compras.ordenes.leer-todas-sucursales" : "compras.ordenes.gestionar-todas-sucursales",
             permisos, (uid, c) => sucursales.EstaAsociadoAsync(uid, info.SucursalId!.Value, c), cancellationToken);
+    }
 }

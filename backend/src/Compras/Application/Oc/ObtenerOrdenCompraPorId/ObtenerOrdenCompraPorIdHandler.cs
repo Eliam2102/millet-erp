@@ -111,9 +111,11 @@ public sealed class ObtenerOrdenCompraPorIdHandler
                 AplicarFoliosRequisicion(response.Lineas, folios), articulos),
             centrosCosto);
 
-        var cotizacion = await _db.Cotizaciones.AsNoTracking().Where(c => c.OrdenCompraId == oc.Id)
-            .Select(c => new CotizacionElegidaOcResponse(c.Id, c.RequisicionId, c.ProveedorId, c.FolioProveedor, c.MotivoEleccion!, c.ElegidaEn!.Value))
-            .FirstOrDefaultAsync(cancellationToken);
+        var cot = await _db.Cotizaciones.AsNoTracking().Include(c => c.Lineas)
+            .FirstOrDefaultAsync(c => c.OrdenCompraId == oc.Id, cancellationToken);
+        var cotizacion = cot is null ? null : new CotizacionElegidaOcResponse(cot.Id, cot.RequisicionId, cot.ProveedorId,
+            cot.FolioProveedor, cot.MotivoEleccion!, cot.ElegidaEn!.Value,
+            cot.Lineas.Select(l => new PrecioCotizadoLineaResponse(l.LineaRequisicionId, l.PrecioPorUnidadRequisicion)).ToList());
 
         return response with
         {

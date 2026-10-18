@@ -223,4 +223,28 @@ internal static class CotizacionesComparativo
         }
         return cot;
     }
+
+    /// <summary>
+    /// Libera la elección de las cotizaciones ligadas a la OC (cancelada o sin líneas), en la misma
+    /// transacción del llamador (no hace SaveChanges). La cotización vuelve a ser elegible y conserva su historial.
+    /// </summary>
+    public static async Task LiberarPorOcAsync(
+        ComprasDbContext db, Guid ordenCompraId, Guid usuarioId, DateTimeOffset ahora, string motivo, CancellationToken ct)
+    {
+        var cots = await db.Cotizaciones.Where(c => c.OrdenCompraId == ordenCompraId).ToListAsync(ct);
+        foreach (var c in cots)
+        {
+            c.LiberarEleccion(usuarioId, ahora, motivo);
+        }
+    }
+
+    /// <summary>D1: una RQ con cotizaciones registradas solo se convierte en OC eligiendo desde el comparativo.</summary>
+    public static async Task ExigirSinCotizacionesAsync(ComprasDbContext db, Guid requisicionId, CancellationToken ct)
+    {
+        if (await db.Cotizaciones.AnyAsync(c => c.RequisicionId == requisicionId, ct))
+        {
+            throw new BusinessRuleException("COT_ELEGIR_DESDE_COMPARATIVO",
+                "La requisición tiene cotizaciones registradas; elige la cotización desde el comparativo para generar la orden de compra.");
+        }
+    }
 }

@@ -20,6 +20,7 @@ import type {
   SubEstadoRecepcion,
   SubEstadoFacturacion,
   SubEstadoPago,
+  EstadoComercialProveedorOc,
 } from '@/features/compras/ordenes/api/types';
 
 /**
@@ -39,6 +40,8 @@ export interface ListarOrdenesCompraFiltros {
   soloConPendienteRecepcion?: boolean;
   subEstadoFacturacion?: SubEstadoFacturacion;
   subEstadoPago?: SubEstadoPago;
+  /** F1-COM-11: estado comercial de la respuesta del proveedor. */
+  estadoComercialProveedor?: EstadoComercialProveedorOc;
   proveedorId?: string;
   compradorTitularId?: string;
   /** ISO 8601. */

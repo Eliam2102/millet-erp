@@ -145,7 +145,7 @@ describe('CabeceraOrdenCompra — cotización elegida (F1-COM-02)', () => {
         oc={makeOc({
           cotizacionElegida: {
             cotizacionId: 'c-1', requisicionId: 'rq-1', proveedorId: 'p-1', folioProveedor: 'COT-77',
-            motivoEleccion: 'Menor precio y entrega en 3 días', elegidaEn: '2026-10-17T10:00:00Z',
+            motivoEleccion: 'Menor precio y entrega en 3 días', elegidaEn: '2026-10-17T10:00:00Z', precios: [],
           },
         })}
         resolverNombre={resolver}

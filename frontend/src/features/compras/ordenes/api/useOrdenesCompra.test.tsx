@@ -32,6 +32,21 @@ function makeOrdenCompraResumen(
 }
 
 describe('useOrdenesCompra', () => {
+  it('envía el filtro de estado comercial del proveedor al servidor', async () => {
+    let urlCapturada = '';
+    mswServer.use(
+      http.get('*/api/v1/compras/ordenes', ({ request }) => {
+        urlCapturada = request.url;
+        return HttpResponse.json({ items: [], page: 1, pageSize: 50, totalCount: 0 });
+      }),
+    );
+    const { result } = renderHook(() => useOrdenesCompra({ estadoComercialProveedor: 3 }), {
+      wrapper: createQueryWrapper(),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(new URL(urlCapturada).searchParams.get('estadoComercialProveedor')).toBe('3');
+  });
+
   it('200 OK sin filtros: pega al endpoint base con paged response', async () => {
     let urlCapturada = '';
     mswServer.use(

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  EstadoComercialProveedorOc,
   EstadoOrdenCompra,
   SubEstadoFacturacion,
   SubEstadoPago,
@@ -59,6 +60,14 @@ export const BandejaOcSearchSchema = z.object({
       z.literal(SubEstadoPago.SinPago),
       z.literal(SubEstadoPago.Parcial),
       z.literal(SubEstadoPago.Pagada),
+    ])
+    .optional(),
+  estadoComercialProveedor: z
+    .union([
+      z.literal(EstadoComercialProveedorOc.SinRespuesta),
+      z.literal(EstadoComercialProveedorOc.Confirmada),
+      z.literal(EstadoComercialProveedorOc.ConfirmadaConDiferencias),
+      z.literal(EstadoComercialProveedorOc.Rechazada),
     ])
     .optional(),
   proveedorId: z.string().min(1).optional(),

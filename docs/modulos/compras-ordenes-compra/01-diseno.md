@@ -759,7 +759,14 @@ Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exis
 
 **Reglas de validación** (códigos `BusinessRuleException` del dominio, `OrdenCompra.RegistrarRespuestaProveedor`): `OC_RESPUESTA_ESTADO_INVALIDO` (la OC no está Autorizada), `OC_RESPUESTA_USUARIO_REQUERIDO`, `OC_RESPUESTA_TIPO_INVALIDO`, `OC_RESPUESTA_EVIDENCIA_REQUERIDA`, `OC_RESPUESTA_CONTACTO_LARGO`, `OC_RESPUESTA_MOTIVO_LARGO`, `OC_RESPUESTA_FECHA_FUTURA` (respecto de hoy en `America/Mexico_City`), `OC_RESPUESTA_FECHA_ANTERIOR_OC`, `OC_RESPUESTA_MOTIVO_REQUERIDO`, `OC_RESPUESTA_RECHAZO_SIN_COMPROMISOS`, `OC_RESPUESTA_SIN_PENDIENTE`, `OC_RESPUESTA_SIN_COMPROMISOS`, `OC_RESPUESTA_LINEA_INVALIDA`, `OC_RESPUESTA_CANTIDAD_INVALIDA` y `OC_RESPUESTA_FECHA_PROMETIDA_INVALIDA`.
 
-**API.** `POST /api/v1/compras/ordenes/{id}/respuestas-proveedor` (permiso `compras.ordenes.registrar-respuesta-proveedor`, `Idempotency-Key` obligatorio, alcance por sucursal con `OcSucursalScope`, ADR-0051). La evidencia en archivo usa las rutas genéricas bajo `/api/v1/compras/ordenes/respuestas-proveedor/{respuestaId}/adjuntos` (ver: `compras.ordenes.leer`; subir y baja: `compras.ordenes.registrar-respuesta-proveedor`; el alcance se hereda de la OC dueña). Tipo de documento `00000011-0006-0000-0000-000000000005`, código `evidencia_respuesta`.
+**API.** `POST /api/v1/compras/ordenes/{id}/respuestas-proveedor` (permiso `compras.ordenes.registrar-respuesta-proveedor`, `Idempotency-Key` obligatorio, alcance por sucursal con `OcSucursalScope`, ADR-0051). La evidencia en archivo usa las rutas genéricas bajo `/api/v1/compras/ordenes/respuestas-proveedor/{respuestaId}/adjuntos` (ver: `compras.ordenes.leer`; subir: `compras.ordenes.registrar-respuesta-proveedor`; el alcance se hereda de la OC dueña). **La baja de archivos de evidencia está denegada** (`RESPUESTA_EVIDENCIA_INMUTABLE`, 422) y la UI no la ofrece: la evidencia es historial inmutable. La bandeja `GET /api/v1/compras/ordenes` filtra en el servidor por `estadoComercialProveedor` (0–3). Tipo de documento `00000011-0006-0000-0000-000000000005`, código `evidencia_respuesta`.
+
+#### Decisiones y pendientes de F1-COM-02
+
+- **Liberación de la elección.** Al cancelar la OC (con o sin recepciones) o al quitarle su última línea, la `Cotizacion` elegida se libera en la misma transacción (`Cotizacion.LiberarEleccion`): vuelve a ser elegible y el comparativo se reabre. La elección anterior (OC, motivo, quién, cuándo, y el motivo de la liberación) se conserva en `compras.cotizacion_elecciones_anteriores`. «Comparativo cerrado» = existe una cotización elegida con OC vigente; elegir otra mientras exista una vigente falla con `COT_YA_HAY_ELEGIDA`. Consecuencia: el detalle de una OC cancelada ya no muestra el bloque «Cotización elegida» (la historia queda en la tabla de elecciones anteriores).
+- **Sin bypass de D1.** Si la RQ tiene al menos una cotización registrada, los flujos que crean OC desde ella sin `cotizacionId` (`POST /ordenes/desde-requisicion` y «agregar línea desde requisición» a una OC existente) responden 422 `COT_ELEGIR_DESDE_COMPARATIVO`; en la UI «Convertir a OC» lleva al comparativo. RQ sin cotizaciones: sin cambio (sin mínimo de cotizaciones). Duplicar una OC no se bloquea: copia precios de la OC origen, no estimados de la RQ.
+- **Proveedor y moneda fijos.** Con `CotizacionElegida`, `PATCH` de cabecera rechaza cambiar proveedor o moneda (422 `OC_COTIZACION_FIJA`).
+- **Decisión a confirmar por el owner:** editar el precio de una línea que vino de la cotización se **permite**, pero la UI muestra el aviso «Se aparta de la cotización elegida» (`AvisoEnLinea`, no bloquea). Si el owner prefiere bloquearlo o exigir motivo, se endurece en `ActualizarLineaOcHandler`.
 
 #### Decisiones y pendientes de F1-COM-11
 
@@ -772,6 +779,8 @@ Registran la respuesta del proveedor sobre una OC **Autorizada** (hasta que exis
 - Se permite registrar una respuesta tras un rechazo (la vigente es siempre la de mayor número).
 - Sin evento de integración: ningún módulo consume hoy la promesa del proveedor (Almacén la usará con F1-COM-07 y F1-COM-13 por puerto de lectura). La tríada no cambia.
 - Editar y eliminar respuestas no existen por regla (historial inmutable).
+- El compromiso vigente es por **respuesta completa**, no por línea: la respuesta de mayor número reemplaza a todas las anteriores, aunque una respuesta nueva solo cubra algunas líneas. Si Millet necesita compromisos independientes por línea, es un cambio de modelo (vigencia por línea).
+- Una OC cancelada o cerrada **conserva su último estado comercial** del proveedor (no se recalcula ni se reinicia); la bandeja la muestra con ese estado y el filtro la incluye.
 - Parámetros a validar con Millet en el Tema 10 de la Lista única 1.7.1 (`02 · Compras.md`): equivalencia de «enviada», criterio de diferencia (fecha esperada y cantidad pendiente) y fecha de respuesta no futura ni anterior a la OC.
 
 ---

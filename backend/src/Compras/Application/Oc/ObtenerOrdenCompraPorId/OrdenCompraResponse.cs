@@ -132,7 +132,12 @@ public sealed record SolicitudCancelacionOcResponse(Guid Id, Guid SolicitanteId,
     DateTimeOffset FechaSolicitud, Guid MotivoCancelacionId, string MotivoSolicitud,
     Guid? ResolutorId, DateTimeOffset? FechaResolucion, bool? Confirmada, string? MotivoResolucion);
 
-public sealed record CotizacionElegidaOcResponse(Guid CotizacionId, Guid RequisicionId, Guid ProveedorId, string? FolioProveedor, string MotivoEleccion, DateTimeOffset ElegidaEn);
+/// <summary>Precio cotizado por unidad de la requisición de una partida (para avisar si la línea de la OC se aparta de él).</summary>
+public sealed record PrecioCotizadoLineaResponse(Guid LineaRequisicionId, decimal PrecioPorUnidadRequisicion);
+
+public sealed record CotizacionElegidaOcResponse(
+    Guid CotizacionId, Guid RequisicionId, Guid ProveedorId, string? FolioProveedor, string MotivoEleccion, DateTimeOffset ElegidaEn,
+    IReadOnlyList<PrecioCotizadoLineaResponse> Precios);
 
 public sealed record CompromisoEntregaOcResponse(Guid Id, Guid LineaOrdenCompraId, decimal Cantidad, DateOnly FechaPrometida);
 

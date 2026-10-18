@@ -14,6 +14,14 @@ public sealed record LineaCotizacionDatos(
     int? DiasEntrega);
 
 /// <summary>
+/// Elección previa de una cotización que se liberó (OC cancelada o sin líneas). Historial inmutable:
+/// conserva quién, cuándo, por qué se eligió y por qué se liberó.
+/// </summary>
+public sealed record EleccionCotizacionAnterior(
+    Guid Id, Guid OrdenCompraId, string Motivo, Guid ElegidaPor, DateTimeOffset ElegidaEn,
+    string MotivoLiberacion, Guid LiberadaPor, DateTimeOffset LiberadaEn);
+
+/// <summary>
 /// Cotización de un proveedor para las partidas de una requisición (F1-COM-02).
 /// Elegirla genera la OC; a partir de entonces ya no se edita ni se elimina.
 /// </summary>
@@ -40,6 +48,9 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
 
     private readonly List<LineaCotizacion> _lineas = [];
     public IReadOnlyCollection<LineaCotizacion> Lineas => _lineas.AsReadOnly();
+
+    private readonly List<EleccionCotizacionAnterior> _eleccionesAnteriores = [];
+    public IReadOnlyCollection<EleccionCotizacionAnterior> EleccionesAnteriores => _eleccionesAnteriores.AsReadOnly();
 
     public bool Elegida => OrdenCompraId is not null;
 
@@ -140,8 +151,16 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
         _lineas.AddRange(nuevas);
     }
 
-    public void Elegir(Guid ordenCompraId, string motivo, Guid usuarioId, DateTimeOffset ahora, DateOnly hoy)
+    /// <param name="hayOtraElegidaVigente">Otra cotización de la misma RQ ya está elegida con OC vigente.</param>
+    public void Elegir(Guid ordenCompraId, string motivo, Guid usuarioId, DateTimeOffset ahora, DateOnly hoy,
+        bool hayOtraElegidaVigente = false)
     {
+        if (hayOtraElegidaVigente)
+        {
+            throw new BusinessRuleException("COT_YA_HAY_ELEGIDA",
+                "Ya hay una cotización elegida con orden de compra vigente en esta requisición.");
+        }
+
         if (Elegida)
         {
             throw new BusinessRuleException("COT_YA_ELEGIDA",
@@ -169,6 +188,28 @@ public sealed class Cotizacion : BaseEntity, IPerteneceAEmpresa, IAuditable
         MotivoEleccion = m;
         ElegidaPor = usuarioId;
         ElegidaEn = ahora;
+    }
+
+    /// <summary>
+    /// Libera la elección (la OC se canceló o se quedó sin líneas): la cotización vuelve a ser elegible y
+    /// la elección queda en <see cref="EleccionesAnteriores"/> con su motivo.
+    /// </summary>
+    public void LiberarEleccion(Guid usuarioId, DateTimeOffset ahora, string motivo)
+    {
+        if (!Elegida)
+        {
+            return;
+        }
+
+        var m = string.IsNullOrWhiteSpace(motivo) ? "Orden de compra liberada." : motivo.Trim();
+        _eleccionesAnteriores.Add(new EleccionCotizacionAnterior(
+            Guid.CreateVersion7(), OrdenCompraId!.Value, MotivoEleccion ?? string.Empty,
+            ElegidaPor ?? Guid.Empty, ElegidaEn ?? ahora,
+            m.Length > 500 ? m[..500] : m, usuarioId, ahora));
+        OrdenCompraId = null;
+        MotivoEleccion = null;
+        ElegidaPor = null;
+        ElegidaEn = null;
     }
 
     public decimal PrecioPorUnidadRequisicion(Guid lineaRequisicionId)

@@ -67,6 +67,8 @@ function buildListarPath(filtros: ListarOrdenesCompraFiltros): string {
     params.set('subEstadoFacturacion', String(filtros.subEstadoFacturacion));
   if (filtros.subEstadoPago != null)
     params.set('subEstadoPago', String(filtros.subEstadoPago));
+  if (filtros.estadoComercialProveedor != null)
+    params.set('estadoComercialProveedor', String(filtros.estadoComercialProveedor));
   if (filtros.proveedorId) params.set('proveedorId', filtros.proveedorId);
   if (filtros.compradorTitularId)
     params.set('compradorTitularId', filtros.compradorTitularId);

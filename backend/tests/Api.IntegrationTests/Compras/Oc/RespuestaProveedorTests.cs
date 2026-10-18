@@ -202,6 +202,12 @@ public partial class OrdenesCompraEndpointsTests
         var items = lista.TryGetProperty("items", out var i) ? i : lista;
         var item = items.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == ocId);
         Assert.Equal(1, item.GetProperty("estadoComercialProveedor").GetInt32());
+
+        // Filtro server-side por estado comercial.
+        var confirmadas = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}?estadoComercialProveedor=1&page=1&pageSize=200"));
+        Assert.Contains(confirmadas.GetProperty("items").EnumerateArray(), x => x.GetProperty("id").GetGuid() == ocId);
+        var rechazadas = await ReadJsonAsync(await client.GetAsync($"{EndpointBase}?estadoComercialProveedor=3&page=1&pageSize=200"));
+        Assert.DoesNotContain(rechazadas.GetProperty("items").EnumerateArray(), x => x.GetProperty("id").GetGuid() == ocId);
     }
 
     [Fact]
@@ -228,6 +234,15 @@ public partial class OrdenesCompraEndpointsTests
 
             var lista = await ReadJsonAsync(await client.GetAsync(ruta));
             Assert.Contains(lista.EnumerateArray(), a => a.GetProperty("id").GetGuid() == adjuntoId);
+
+            // La evidencia es historial inmutable: la baja se rechaza y el archivo sigue visible.
+            using var baja = new HttpRequestMessage(HttpMethod.Delete, $"{ruta}/{adjuntoId}")
+            {
+                Content = JsonContent.Create(new { Motivo = "Se subió el archivo equivocado" }),
+            };
+            await AssertCodigoP2(await client.SendAsync(baja), HttpStatusCode.UnprocessableEntity, "RESPUESTA_EVIDENCIA_INMUTABLE");
+            var trasBaja = await ReadJsonAsync(await client.GetAsync(ruta));
+            Assert.Contains(trasBaja.EnumerateArray(), a => a.GetProperty("id").GetGuid() == adjuntoId);
 
             using var noExiste = await client.GetAsync($"{EndpointBase}/respuestas-proveedor/{Guid.NewGuid()}/adjuntos");
             Assert.Equal(HttpStatusCode.NotFound, noExiste.StatusCode);

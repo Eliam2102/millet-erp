@@ -156,6 +156,11 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
             await CentroCostoLineaGuard.ValidarAsync(_dim3, id, aplicarAlcance: false, cancellationToken);
         }
 
+        if (command.CotizacionId is null)
+        {
+            await Cotizaciones.CotizacionesComparativo.ExigirSinCotizacionesAsync(_db, rq.Id, cancellationToken);
+        }
+
         // F1-COM-02 (D1): toda validación de la cotización va ANTES del folio y del compromiso de la RQ.
         Cotizacion? cot = null;
         Millet.SharedKernel.Domain.Adjuntos.Adjunto? adjuntoCot = null;
@@ -192,8 +197,12 @@ public sealed class CrearOrdenCompraDesdeRequisicionHandler
                     .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new BusinessRuleException("COT_SIN_ARCHIVO", "Adjunta el PDF de la cotización antes de elegirla.");
 
-            // Lanza COT_VENCIDA, COT_YA_ELEGIDA, COT_MOTIVO_REQUERIDO.
-            cot.Elegir(ocId, command.MotivoEleccion ?? string.Empty, userId, _clock.UtcNow, FechasInicio.Hoy(_clock));
+            var hayOtraElegida = await _db.Cotizaciones.AnyAsync(
+                c => c.RequisicionId == rq.Id && c.Id != cot.Id && c.OrdenCompraId != null, cancellationToken);
+
+            // Lanza COT_YA_HAY_ELEGIDA, COT_VENCIDA, COT_YA_ELEGIDA, COT_MOTIVO_REQUERIDO.
+            cot.Elegir(ocId, command.MotivoEleccion ?? string.Empty, userId, _clock.UtcNow, FechasInicio.Hoy(_clock),
+                hayOtraElegida);
         }
 
         // C10 — proveedor activo cross-table.

@@ -27,6 +27,7 @@ import {
   applyServerErrors,
   esApiError,
 } from '@/lib/api';
+import { AvisoEnLinea } from '@/components/erp';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { handleOcMutationError } from '@/features/compras/ordenes/lib/handle-conflict';
@@ -205,6 +206,14 @@ export function LineaInlineFormOc({
   // Fracción arancelaria: solo al EDITAR una línea de OC de comercio exterior.
   // PLATFORM-TODO(<F1-COM-06>): supuesto Vilo.
   const mostrarFraccion = esEditar && oc.esImportacion;
+
+  const precioActual = useWatch({ control: form.control, name: 'precioUnitario' });
+  // D1: aviso (no bloqueo) si el precio de una línea que vino de la cotización elegida se modifica.
+  const precioCotizado = oc.cotizacionElegida?.precios.find(
+    (p) => p.lineaRequisicionId === linea?.lineaRequisicionId,
+  )?.precioPorUnidadRequisicion;
+  const apartaDeCotizacion =
+    esEditar && precioCotizado != null && Math.abs((precioActual ?? 0) - precioCotizado) > 0.00005;
 
   const descuentoTipoActual = useWatch({
     control: form.control,
@@ -472,6 +481,12 @@ export function LineaInlineFormOc({
           {(c) => <SubtotalPreview id={c.id} control={form.control} moneda={oc.moneda} />}
         </Field>
       </div>
+
+      {apartaDeCotizacion && (
+        <AvisoEnLinea tono="advertencia">
+          Se aparta de la cotización elegida (precio cotizado: {precioCotizado}).
+        </AvisoEnLinea>
+      )}
 
       {/* ── Sub-fila (siempre visible): Centro de costo (Fase E PR3) ──────
           Heredada de RQ → display BLOQUEADO read-only (ADR-0050 "heredado,

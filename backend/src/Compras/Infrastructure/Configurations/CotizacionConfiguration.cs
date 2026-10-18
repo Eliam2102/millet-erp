@@ -43,6 +43,17 @@ public sealed class CotizacionConfiguration : IEntityTypeConfiguration<Cotizacio
             .HasFilter("orden_compra_id IS NOT NULL")
             .HasDatabaseName("ix_cotizaciones_orden_compra");
 
+        builder.OwnsMany(c => c.EleccionesAnteriores, o =>
+        {
+            o.ToTable("cotizacion_elecciones_anteriores");
+            o.WithOwner().HasForeignKey("CotizacionId");
+            o.HasKey(e => e.Id);
+            o.Property(e => e.Id).ValueGeneratedNever();
+            o.Property(e => e.Motivo).HasMaxLength(500).IsRequired();
+            o.Property(e => e.MotivoLiberacion).HasMaxLength(500).IsRequired();
+        });
+        builder.Navigation(c => c.EleccionesAnteriores).UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(c => c.Lineas)
             .WithOne()
             .HasForeignKey(l => l.CotizacionId)

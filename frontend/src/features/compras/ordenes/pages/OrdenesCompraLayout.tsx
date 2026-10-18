@@ -88,6 +88,7 @@ export function OrdenesCompraLayout({
     subEstadoRecepcion: search.subEstadoRecepcion,
     subEstadoFacturacion: search.subEstadoFacturacion,
     subEstadoPago: search.subEstadoPago,
+    estadoComercialProveedor: search.estadoComercialProveedor,
     proveedorId: search.proveedorId,
     compradorTitularId: search.compradorTitularId,
     fechaDesde: search.fechaDesde,

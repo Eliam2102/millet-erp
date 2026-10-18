@@ -120,8 +120,10 @@ public sealed class ComparativoCotizacionesHandler(
                 c.ElegidaEn, c.OrdenCompraId, c.RegistradaPor, c.RegistradaEn, c.Version, lineas);
         }).ToList();
 
+        // Cerrado = hay cotización elegida con OC vigente (al cancelar la OC la elección se libera).
+        var cerrado = cotizaciones.Any(c => c.Elegida);
         return new ComparativoCotizacionesResponse(rq.Id, rq.Folio.Valor, rq.SucursalId, rq.Estado, rq.ComprometidaEnOcId,
-            rq.Estado == EstadoRequisicion.EnSurtido && rq.ComprometidaEnOcId is null && partidas.Any(x => x.SaldoPorComprar > 0),
-            cotizaciones.Any(c => c.Elegida), hoy, partidas, tipos, respuesta);
+            !cerrado && rq.Estado == EstadoRequisicion.EnSurtido && rq.ComprometidaEnOcId is null && partidas.Any(x => x.SaldoPorComprar > 0),
+            cerrado, hoy, partidas, tipos, respuesta);
     }
 }

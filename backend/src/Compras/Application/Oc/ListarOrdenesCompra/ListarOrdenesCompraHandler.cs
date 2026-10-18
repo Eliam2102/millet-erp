@@ -59,6 +59,10 @@ public sealed class ListarOrdenesCompraHandler
         {
             query = query.Where(o => o.SubEstadoPago == sp);
         }
+        if (request.EstadoComercialProveedor is { } ec)
+        {
+            query = query.Where(o => o.EstadoComercialProveedor == ec);
+        }
         if (request.ProveedorId is Guid p)
         {
             query = query.Where(o => o.ProveedorId == p);

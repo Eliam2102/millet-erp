@@ -323,6 +323,8 @@ export interface CotizacionElegidaOc {
   folioProveedor: string | null;
   motivoEleccion: string;
   elegidaEn: string;
+  /** Precio cotizado por unidad de la RQ de cada partida (aviso si la línea se aparta de él). */
+  precios: { lineaRequisicionId: string; precioPorUnidadRequisicion: number }[];
 }
 
 export interface OrdenCompraDetalleResponse {

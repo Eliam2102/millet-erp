@@ -21,6 +21,8 @@ public sealed record ListarOrdenesCompraQuery(
     bool? SoloConPendienteRecepcion = null,
     SubEstadoFacturacion? SubEstadoFacturacion = null,
     SubEstadoPago? SubEstadoPago = null,
+    // F1-COM-11: filtro por estado comercial de la respuesta del proveedor.
+    EstadoComercialProveedorOc? EstadoComercialProveedor = null,
     Guid? ProveedorId = null,
     Guid? CompradorTitularId = null,
     DateOnly? FechaDocumentoDesde = null,

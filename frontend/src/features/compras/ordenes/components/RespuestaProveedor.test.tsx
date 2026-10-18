@@ -13,8 +13,8 @@ vi.mock('@/features/catalogos/api', () => ({
 }));
 
 vi.mock('@/components/erp/adjuntos/DocumentoAdjuntosSection', () => ({
-  DocumentoAdjuntosSection: ({ base, tipo }: { base: string; tipo: string }) => (
-    <div data-testid="adjuntos" data-base={base} data-tipo={tipo} />
+  DocumentoAdjuntosSection: ({ base, tipo, permisos }: { base: string; tipo: string; permisos?: { baja?: string } }) => (
+    <div data-testid="adjuntos" data-base={base} data-tipo={tipo} data-con-baja={String(permisos?.baja !== undefined)} />
   ),
 }));
 
@@ -117,6 +117,8 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
     const adjuntos = screen.getByTestId('adjuntos');
     expect(adjuntos).toHaveAttribute('data-base', '/api/v1/compras/ordenes/respuestas-proveedor/r-1');
     expect(adjuntos).toHaveAttribute('data-tipo', 'oc_respuesta_proveedor');
+    // La evidencia es historial inmutable: sin permiso de baja.
+    expect(adjuntos).toHaveAttribute('data-con-baja', 'false');
   });
 
   it('sin permiso no aparece el botón de registrar', () => {

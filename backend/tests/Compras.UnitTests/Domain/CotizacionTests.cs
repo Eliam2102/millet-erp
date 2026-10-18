@@ -67,4 +67,32 @@ public class CotizacionTests
     [Fact]
     public void Should_Throw_When_PartidaNoCotizada()
         => AssertCodigo("COT_PARTIDAS_INCOMPLETAS", () => Registrar().PrecioPorUnidadRequisicion(Guid.CreateVersion7()));
+
+    [Fact]
+    public void Should_ReleaseElection_KeepHistory_And_AllowReelection()
+    {
+        var c = Registrar();
+        var oc = Guid.CreateVersion7();
+        var usuario = Guid.CreateVersion7();
+        c.Elegir(oc, "mejor precio", usuario, Ahora, Hoy);
+
+        c.LiberarEleccion(usuario, Ahora.AddHours(1), "OC cancelada: error de captura");
+
+        Assert.False(c.Elegida);
+        Assert.Null(c.MotivoEleccion);
+        var previa = Assert.Single(c.EleccionesAnteriores);
+        Assert.Equal(oc, previa.OrdenCompraId);
+        Assert.Equal("mejor precio", previa.Motivo);
+        Assert.Equal("OC cancelada: error de captura", previa.MotivoLiberacion);
+
+        c.Elegir(Guid.CreateVersion7(), "segunda elección", usuario, Ahora, Hoy);
+        Assert.True(c.Elegida);
+        c.LiberarEleccion(usuario, Ahora, "otra vez");
+        Assert.Equal(2, c.EleccionesAnteriores.Count);
+    }
+
+    [Fact]
+    public void Should_Throw_When_OtraElegidaVigente()
+        => AssertCodigo("COT_YA_HAY_ELEGIDA", () => Registrar().Elegir(
+            Guid.CreateVersion7(), "mejor precio", Guid.CreateVersion7(), Ahora, Hoy, hayOtraElegidaVigente: true));
 }

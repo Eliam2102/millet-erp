@@ -45,6 +45,7 @@ import { ModalMotivo } from '@/features/compras/components/ModalMotivo';
 import { esApiError } from '@/lib/api';
 import { esConflictoConcurrencia } from '@/lib/api/error';
 import { useAuthStore } from '@/lib/auth/auth-store';
+import { useComparativoCotizaciones } from '@/features/compras/api/useCotizaciones';
 import { useAutoGenerarOcAlAutorizar } from '@/lib/auth/useComprasSettings';
 import { useConflictDialog } from '@/components/erp/collaboration/conflict-dialog-context';
 import { useNuevaOrdenCompra } from '@/features/compras/ordenes/components/nueva-orden-compra-context';
@@ -135,6 +136,12 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
     autoGenerarOcAlAutorizar,
   );
   const accVerCotizaciones = accionVerCotizaciones(rq, permisos);
+  // D1 (F1-COM-02): con cotizaciones registradas la OC se genera desde el comparativo, no con precios estimados.
+  // El backend lo exige (COT_ELEGIR_DESDE_COMPARATIVO); aquí solo se redirige la acción.
+  const comparativo = useComparativoCotizaciones(
+    accConvertirAOc.visible && accVerCotizaciones.visible ? rq.id : undefined,
+  );
+  const tieneCotizaciones = (comparativo.data?.cotizaciones.length ?? 0) > 0;
 
   // ADR-0043: "piezas en vuelo" para el aviso del cierre manual — saldo a
   // compra aún no recibido, derivado de la propia RQ (sin consultar la OC).
@@ -478,7 +485,19 @@ export function AccionesRequisicion({ rq }: AccionesRequisicionProps) {
             </Link>
           </Button>
         )}
-        {accConvertirAOc.visible && (
+        {accConvertirAOc.visible && tieneCotizaciones && (
+          <Button asChild>
+            <Link
+              to="/compras/requisiciones/$id/cotizaciones"
+              params={{ id: rq.id }}
+              data-action="elegir-cotizacion-para-oc"
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
+              Elegir cotización y generar OC
+            </Link>
+          </Button>
+        )}
+        {accConvertirAOc.visible && !tieneCotizaciones && (
           <ConMotivo motivo={accConvertirAOc.motivoDeshabilitada}>
             <Button
             type="button"

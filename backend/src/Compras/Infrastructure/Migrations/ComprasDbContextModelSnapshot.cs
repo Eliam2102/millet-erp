@@ -2530,6 +2530,63 @@ namespace Millet.Compras.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_cotizaciones_requisiciones_requisicion_id");
+
+                    b.OwnsMany("Millet.Compras.Domain.Cotizaciones.EleccionCotizacionAnterior", "EleccionesAnteriores", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<Guid>("CotizacionId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("cotizacion_id");
+
+                            b1.Property<DateTimeOffset>("ElegidaEn")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("elegida_en");
+
+                            b1.Property<Guid>("ElegidaPor")
+                                .HasColumnType("uuid")
+                                .HasColumnName("elegida_por");
+
+                            b1.Property<DateTimeOffset>("LiberadaEn")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("liberada_en");
+
+                            b1.Property<Guid>("LiberadaPor")
+                                .HasColumnType("uuid")
+                                .HasColumnName("liberada_por");
+
+                            b1.Property<string>("Motivo")
+                                .IsRequired()
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("motivo");
+
+                            b1.Property<string>("MotivoLiberacion")
+                                .IsRequired()
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("motivo_liberacion");
+
+                            b1.Property<Guid>("OrdenCompraId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("orden_compra_id");
+
+                            b1.HasKey("Id")
+                                .HasName("pk_cotizacion_elecciones_anteriores");
+
+                            b1.HasIndex("CotizacionId")
+                                .HasDatabaseName("ix_cotizacion_elecciones_anteriores_cotizacion_id");
+
+                            b1.ToTable("cotizacion_elecciones_anteriores", "compras");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CotizacionId")
+                                .HasConstraintName("fk_cotizacion_elecciones_anteriores_cotizaciones_cotizacion_id");
+                        });
+
+                    b.Navigation("EleccionesAnteriores");
                 });
 
             modelBuilder.Entity("Millet.Compras.Domain.Cotizaciones.LineaCotizacion", b =>

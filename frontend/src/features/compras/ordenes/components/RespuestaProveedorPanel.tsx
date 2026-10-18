@@ -98,7 +98,6 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
               permisos={{
                 ver: PermisosCanonicos.ComprasOrdenesLeer,
                 subir: PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
-                baja: PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor,
               }}
             />
           </details>
