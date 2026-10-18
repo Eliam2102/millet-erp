@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { useState } from 'react';
 import { HandCoins, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import type { PagoACuentaAbiertoResponse } from '@/features/tesoreria/api/types'
 import { EstadoAplicacionBadge } from '@/features/tesoreria/components/Badges';
 import { LigarPagoACuentaDialog } from '@/features/tesoreria/components/LigarPagoACuentaDialog';
 import { NuevoPagoACuentaSheet } from '@/features/tesoreria/components/NuevoPagoACuentaSheet';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError } from '@/lib/api';
@@ -101,7 +102,7 @@ export function BandejaPagosACuenta() {
                       {p.proveedorClave ?? ''}
                     </p>
                   </td>
-                  <td className="px-3 py-2 text-xs">{formatoFecha(p.fechaValor)}</td>
+                  <td className="px-3 py-2 text-xs"><DateTimeDisplay value={p.fechaValor} variant="corta" /></td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums">
                     {formatoMonto(p.monto, p.moneda)}
                   </td>

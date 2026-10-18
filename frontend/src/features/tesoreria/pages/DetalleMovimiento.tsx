@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { TrazabilidadComprasDialog } from '@/components/erp/trazabilidad/TrazabilidadComprasDialog';
 import { TipoDocumentoTrazabilidad } from '@/components/erp/trazabilidad/types';
 import { ReclasificarMovimiento } from '../components/ReclasificarMovimiento';
@@ -17,7 +18,7 @@ import {
 import { MotivoDialog } from '@/features/tesoreria/components/MotivoDialog';
 import { BENEFICIARIO_TIPO_LABELS, SentidoMovimiento } from '@/features/tesoreria/api/types';
 import { SolicitarDevolucionDialog } from '@/features/tesoreria/components/SolicitarDevolucionDialog';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
@@ -111,10 +112,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
       >
         <h1 className="flex items-center gap-2 text-xl font-semibold">
           <ArrowRightLeft className="h-5 w-5 text-primary" />
-          Movimiento{' '}
-          <span className="font-mono text-base text-muted-foreground">
-            {m.id.slice(0, 8)}
-          </span>
+          Movimiento bancario
           <SentidoBadge sentido={m.sentido} />
         </h1>
         <div className="flex items-center gap-2">
@@ -144,7 +142,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
         </div>
         <div>
           <dt className="text-xs text-muted-foreground">Fecha valor</dt>
-          <dd>{formatoFecha(m.fechaValor)}</dd>
+          <dd><DateTimeDisplay value={m.fechaValor} variant="media" /></dd>
         </div>
         <div>
           <dt className="text-xs text-muted-foreground">Referencia</dt>
@@ -160,11 +158,6 @@ export function DetalleMovimiento({ id }: { id: string }) {
             {m.beneficiarioTipo != null
               ? BENEFICIARIO_TIPO_LABELS[m.beneficiarioTipo]
               : '—'}
-            {m.beneficiarioRef != null && (
-              <span className="ml-1 font-mono text-xs text-muted-foreground">
-                {m.beneficiarioRef.slice(0, 8)}
-              </span>
-            )}
           </dd>
         </div>
         {m.destinoBanco != null && (
@@ -198,21 +191,21 @@ export function DetalleMovimiento({ id }: { id: string }) {
         )}
         {m.contramovimientoDe != null && (
           <div className="col-span-2 md:col-span-3">
-            <dt className="text-xs text-muted-foreground">Contramovimiento de</dt>
+            <dt className="text-xs text-muted-foreground">Reversa de</dt>
             <dd>
               <Link
                 to="/tesoreria/movimientos/$id"
                 params={{ id: m.contramovimientoDe }}
-                className="font-mono text-xs text-primary hover:underline"
+                className="text-sm text-primary hover:underline"
               >
-                {m.contramovimientoDe}
+                Ver movimiento original
               </Link>
             </dd>
           </div>
         )}
       </dl>
 
-      {m.motivoReversa && <p className="text-sm text-ink-secondary">Motivo de reversa: {m.motivoReversa}</p>}
+      {m.motivoReversa && <p className="text-sm text-ink-secondary">Motivo: {m.motivoReversa}</p>}
       {m.motivoReclasificacion && <p className="text-sm text-ink-secondary">Última reclasificación: {m.motivoReclasificacion}</p>}
       {puedeReclasificar && <ReclasificarMovimiento key={m.id} movimiento={m} />}
       <section className="space-y-2">
@@ -228,7 +221,6 @@ export function DetalleMovimiento({ id }: { id: string }) {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Pago (correlación CxP)</th>
                   <th className="px-3 py-2 font-medium">Factura</th>
                   <th className="px-3 py-2 text-right font-medium">Importe</th>
                   <th className="px-3 py-2 font-medium">Estado</th>
@@ -238,11 +230,14 @@ export function DetalleMovimiento({ id }: { id: string }) {
               <tbody className="divide-y">
                 {aplicaciones.map((a) => (
                   <tr key={a.pagoId} className="hover:bg-muted/30">
-                    <td className="px-3 py-2 font-mono text-xs">
-                      {a.pagoId.slice(0, 8)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
-                      {a.facturaProveedorId.slice(0, 8)}
+                    <td className="px-3 py-2 text-xs">
+                      <Link
+                        to="/cxp/facturas/$id"
+                        params={{ id: a.facturaProveedorId }}
+                        className="text-primary hover:underline"
+                      >
+                        Ver factura
+                      </Link>
                     </td>
                     <td className="px-3 py-2 text-right font-mono tabular-nums">
                       {formatoMonto(a.importeAplicado, m.moneda)}
@@ -278,7 +273,7 @@ export function DetalleMovimiento({ id }: { id: string }) {
 
       {contramovimientos.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold">Contramovimientos (reversas RN-10)</h2>
+          <h2 className="text-sm font-semibold">Movimientos ligados</h2>
           <ul className="space-y-1 text-sm">
             {contramovimientos.map((c) => (
               <li key={c.id} className="flex items-center gap-2">
@@ -287,14 +282,14 @@ export function DetalleMovimiento({ id }: { id: string }) {
                   {formatoMonto(c.monto, c.moneda)}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {formatoFecha(c.fechaValor)}
+                  <DateTimeDisplay value={c.fechaValor} variant="media" />
                 </span>
                 <Link
                   to="/tesoreria/movimientos/$id"
                   params={{ id: c.id }}
-                  className="font-mono text-xs text-primary hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
-                  {c.id.slice(0, 8)}
+                  Ver movimiento
                 </Link>
               </li>
             ))}

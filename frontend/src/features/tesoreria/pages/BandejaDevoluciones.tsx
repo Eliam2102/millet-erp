@@ -123,7 +123,7 @@ export function BandejaDevoluciones() {
       ) : query.isLoading ? (
         <TableSkeleton
           rows={6}
-          columns={[{ width: 'w-56' }, { width: 'w-32' }, { width: 'w-28' }, { width: 'w-24' }, { width: 'w-24' }]}
+          columns={[{ width: 'w-56' }, { width: 'w-32' }, { width: 'w-28' }, { width: 'w-40' }, { width: 'w-24' }, { width: 'w-24' }]}
         />
       ) : items.length === 0 ? (
         <EmptyState
@@ -144,6 +144,7 @@ export function BandejaDevoluciones() {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Origen</TableHead>
                   <TableHead className="text-right">Importe</TableHead>
+                  <TableHead>Motivo</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Solicitada</TableHead>
                 </TableRow>
@@ -166,11 +167,14 @@ export function BandejaDevoluciones() {
                     <TableCell className="text-right">
                       <MoneyDisplay amount={d.importe} currency={d.moneda} strong />
                     </TableCell>
+                    <TableCell className="max-w-48 truncate text-xs" title={d.motivo}>
+                      {d.motivo}
+                    </TableCell>
                     <TableCell>
                       <EstadoDevolucionBadge estado={d.estado} />
                     </TableCell>
                     <TableCell className="text-xs">
-                      <DateTimeDisplay value={d.solicitadaEn} />
+                      <DateTimeDisplay value={d.solicitadaEn} variant="corta" />
                     </TableCell>
                   </TableRow>
                 ))}

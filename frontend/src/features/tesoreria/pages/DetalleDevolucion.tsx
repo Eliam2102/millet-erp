@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuthStore } from '@/lib/auth/auth-store';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Pencil, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -43,6 +44,7 @@ export function DetalleDevolucion({ id }: { id: string }) {
   const rechazar = useRechazarDevolucion();
   const cancelar = useCancelarDevolucion();
 
+  const usuarioId = useAuthStore((s) => s.user?.id);
   const [editando, setEditando] = useState(false);
   const [confirmandoAutorizar, setConfirmandoAutorizar] = useState(false);
   const [rechazando, setRechazando] = useState(false);
@@ -67,7 +69,6 @@ export function DetalleDevolucion({ id }: { id: string }) {
   function alError(error: unknown, fallback: string) {
     if (esApiError(error)) {
       setAviso(error.problem.detail ?? error.problem.title);
-      toast.error(error.problem.title, { description: error.problem.detail ?? undefined });
     } else toast.error(fallback);
   }
 
@@ -108,15 +109,19 @@ export function DetalleDevolucion({ id }: { id: string }) {
 
   const solicitada = d.estado === EstadoDevolucionCliente.Solicitada;
   const destinoCompleto = d.destinoBanco != null && d.destinoClabe != null && d.destinoTitular != null;
-  const cliente = d.clienteRazonSocial ?? d.clienteId;
+  const cliente = d.clienteRazonSocial ?? d.clienteClave ?? 'Cliente sin nombre';
+  const soyYo = usuarioId != null && d.solicitadaPor === usuarioId;
 
   return (
     <div className="space-y-4">
       <PageHeader
-        mono
-        titulo={d.id.slice(0, 8)}
+        titulo="Devolución a cliente"
         estado={<EstadoDevolucionBadge estado={d.estado} />}
-        descripcion={`${ORIGEN_DEVOLUCION_LABELS[d.origen]} · ${cliente}`}
+        descripcion={
+          <>
+            {ORIGEN_DEVOLUCION_LABELS[d.origen]} · {cliente} · <MoneyDisplay amount={d.importe} currency={d.moneda} />
+          </>
+        }
         acciones={
           <Button
             variant="ghost"
@@ -148,22 +153,30 @@ export function DetalleDevolucion({ id }: { id: string }) {
             </Button>
           </>
         )}
-        {solicitada && puedeAutorizar && (
+        {solicitada && puedeAutorizar && !editando && (
           <>
-            <Button variant="outline" size="sm" onClick={() => setRechazando(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={soyYo}
+              aria-describedby={soyYo ? 'autorizar-bloqueo' : undefined}
+              onClick={() => setRechazando(true)}
+            >
               Rechazar
             </Button>
             <Button
               size="sm"
-              disabled={!destinoCompleto}
-              aria-describedby={!destinoCompleto ? 'autorizar-bloqueo' : undefined}
+              disabled={soyYo || !destinoCompleto}
+              aria-describedby={soyYo || !destinoCompleto ? 'autorizar-bloqueo' : undefined}
               onClick={() => setConfirmandoAutorizar(true)}
             >
               Autorizar
             </Button>
-            {!destinoCompleto && (
+            {(soyYo || !destinoCompleto) && (
               <span id="autorizar-bloqueo" className="text-xs text-ink-muted">
-                Captura banco, CLABE y titular antes de autorizar
+                {soyYo
+                  ? 'Quien solicita no puede autorizar; pide la autorización al Gerente o al Jefe de Tesorería'
+                  : 'Captura banco, CLABE y titular antes de autorizar'}
               </span>
             )}
           </>
@@ -208,9 +221,11 @@ export function DetalleDevolucion({ id }: { id: string }) {
         <Dato etiqueta="Máximo del origen">
           <MoneyDisplay amount={d.importeMaximoOrigen} currency={d.moneda} />
         </Dato>
-        <Dato etiqueta="Disponible (sin contar esta)">
-          <MoneyDisplay amount={d.disponibleOrigen} currency={d.moneda} />
-        </Dato>
+        {solicitada && (
+          <Dato etiqueta="Disponible (sin contar esta)">
+            <MoneyDisplay amount={d.disponibleOrigen} currency={d.moneda} />
+          </Dato>
+        )}
       </Seccion>
 
       <Seccion titulo="Cliente">

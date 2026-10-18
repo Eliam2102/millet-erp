@@ -1,3 +1,4 @@
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { ConceptoSelector } from './ConceptoSelector';
 import { hoyLocalISO } from '@/lib/datetime';
 import { useMemo, useState } from 'react';
@@ -20,7 +21,7 @@ import {
   useRegistrarPago,
 } from '@/features/tesoreria/api/useTesoreria';
 import type { CuentaProveedorPago, PasivoPendienteResponse } from '@/features/tesoreria/api/types';
-import { formatoFecha, formatoMonto } from '@/features/tesoreria/lib/formato';
+import { formatoMonto } from '@/features/tesoreria/lib/formato';
 import { esApiError, useBodyScopedIdempotencyKey } from '@/lib/api';
 
 export interface RegistrarPagoSheetProps {
@@ -203,7 +204,7 @@ export function RegistrarPagoSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4 px-6 pb-6">
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -226,7 +227,7 @@ export function RegistrarPagoSheet({
                         </p>
                       </td>
                       <td className="px-3 py-2 text-xs">
-                        {formatoFecha(p.fechaVencimiento)}
+                        <DateTimeDisplay value={p.fechaVencimiento} variant="corta" />
                       </td>
                       <td className="px-3 py-2 text-right font-mono tabular-nums">
                         {formatoMonto(p.saldoPendiente, p.moneda)}
