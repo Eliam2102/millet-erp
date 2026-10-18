@@ -25,21 +25,23 @@ await sql.OpenAsync();
 await using var pg = new NpgsqlConnection(pgCs);
 await pg.OpenAsync();
 await using var tx = await pg.BeginTransactionAsync();
-await new NpgsqlCommand("TRUNCATE aw_origen.ku_kunden, aw_origen.ka_zahlbed, aw_origen.erp_articulo", pg, tx).ExecuteNonQueryAsync();
+await new NpgsqlCommand("TRUNCATE aw_origen.ku_kunden, aw_origen.ka_zahlbed, aw_origen.ka_bonitaet, aw_origen.erp_articulo", pg, tx).ExecuteNonQueryAsync();
 
-// Condiciones de pago y clientes: copia columna a columna (mismas columnas que KA_ZAHLBED / KU_KUNDEN).
+// Condiciones de pago, régimen fiscal (KA_BONITAET.FREMD_KEY, uso de Millet) y clientes: copia columna a columna.
 var condiciones = await Copiar("SELECT BEZ, BRUTTOTAGE, NUMMER FROM SYSADM.KA_ZAHLBED",
     "INSERT INTO aw_origen.ka_zahlbed (bez, bruttotage, nummer) VALUES ($1, $2, $3)");
+await Copiar("SELECT BEZ, FREMD_KEY, KZ_GESPERRT, NUMMER FROM SYSADM.KA_BONITAET",
+    "INSERT INTO aw_origen.ka_bonitaet (bez, fremd_key, kz_gesperrt, nummer) VALUES ($1, $2, $3, $4)");
 var clientes = await Copiar("""
     SELECT ID, MANDANT, NAME1, NAME2, NAME3, STRASSE, ORT, PLZ, PROVINZ, LAND, UST_ID, STEUERNUMMER, TLF1, TLF2, MAIL,
            ZAHLBED, WAEHRUNG, KREDIT_LIMIT, KREDIT_LIMIT1, KREDIT_LIMIT_NET, KZ_STATUS, KZ_GESPERRT, CAST(DATUM AS date),
-           TRANSACTION_TIME
+           TRANSACTION_TIME, BONITAET
       FROM SYSADM.KU_KUNDEN WHERE ID > 0
     """, """
     INSERT INTO aw_origen.ku_kunden (id, mandant, name1, name2, name3, strasse, ort, plz, provinz, land, ust_id,
         steuernummer, tlf1, tlf2, mail, zahlbed, waehrung, kredit_limit, kredit_limit1, kredit_limit_net, kz_status,
-        kz_gesperrt, datum, transaction_time)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+        kz_gesperrt, datum, transaction_time, bonitaet)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
     """);
 
 // Productos: sin TiposExcluidos, el filtro lo aplica la API al leer de aw_origen.

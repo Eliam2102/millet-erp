@@ -9,6 +9,16 @@ CREATE TABLE IF NOT EXISTS aw_origen.ka_zahlbed (
     nummer     integer NOT NULL
 );
 
+-- Calificación crediticia (A+W: SYSADM.KA_BONITAET). Millet la reutiliza como régimen fiscal SAT: FREMD_KEY es la clave
+-- c_RegimenFiscal y el cliente se une por KU_KUNDEN.BONITAET = BEZ (Millet, "Documentación funcional de los sistemas
+-- satélite" §4.2). BEZ es PK, como en A+W.
+CREATE TABLE IF NOT EXISTS aw_origen.ka_bonitaet (
+    bez         text PRIMARY KEY,
+    fremd_key   text,
+    kz_gesperrt integer NOT NULL DEFAULT 0,
+    nummer      integer
+);
+
 -- Clientes (A+W: SYSADM.KU_KUNDEN; mismas columnas). El ID 0 es el registro nulo de A+W: el lector pagina con id > 0.
 CREATE TABLE IF NOT EXISTS aw_origen.ku_kunden (
     id               integer PRIMARY KEY,
@@ -36,6 +46,8 @@ CREATE TABLE IF NOT EXISTS aw_origen.ku_kunden (
     datum            date,
     transaction_time timestamp
 );
+-- U1.8b: columna agregada después; ADD COLUMN IF NOT EXISTS mantiene el script idempotente sobre BD ya creadas.
+ALTER TABLE aw_origen.ku_kunden ADD COLUMN IF NOT EXISTS bonitaet text;
 
 -- Productos con la forma de vw_erp_articulo (docs/integration/06 §3): una fila por producto; variantes y árbol de
 -- piezas ya armados en jsonb, con las llaves de AwProductoOrigenVariante / AwProductoOrigenComponente (camelCase).

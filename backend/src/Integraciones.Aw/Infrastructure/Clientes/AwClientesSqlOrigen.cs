@@ -11,7 +11,8 @@ using Millet.Integraciones.Aw.Infrastructure.Pedidos;
 namespace Millet.Integraciones.Aw.Infrastructure.Clientes;
 
 /// <summary>
-/// Lector SOLO-SELECT de clientes A+W (<c>SYSADM.KU_KUNDEN</c> + catálogo <c>SYSADM.KA_ZAHLBED</c>).
+/// Lector SOLO-SELECT de clientes A+W (<c>SYSADM.KU_KUNDEN</c> + catálogos <c>SYSADM.KA_ZAHLBED</c> y
+/// <c>SYSADM.KA_BONITAET</c>; este último da el régimen fiscal en <c>FREMD_KEY</c>, uso propio de Millet).
 /// Deshabilitado por defecto (ver <see cref="ClientesDependencyInjection"/>). Reusa la plomería
 /// (timeouts, clasificación a <c>AwReaderException</c>) de Pedidos.
 /// </summary>
@@ -21,19 +22,21 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
         k.ID, k.MANDANT, k.NAME1, k.NAME2, k.NAME3, k.STRASSE, k.ORT, k.PLZ, k.PROVINZ, k.LAND,
         k.UST_ID, k.STEUERNUMMER, k.TLF1, k.TLF2, k.MAIL, k.ZAHLBED, k.WAEHRUNG,
         k.KREDIT_LIMIT, k.KREDIT_LIMIT1, k.KREDIT_LIMIT_NET, k.KZ_STATUS, k.KZ_GESPERRT,
-        k.DATUM, k.TRANSACTION_TIME, z.BEZ, z.NUMMER, z.BRUTTOTAGE
+        k.DATUM, k.TRANSACTION_TIME, z.BEZ, z.NUMMER, z.BRUTTOTAGE, k.BONITAET, b.FREMD_KEY
         """;
 
     // El TOP va en la tabla derivada para que el lote cuente clientes y no filas del join con el catálogo.
+    // KA_BONITAET.BEZ es PK: el join del régimen no multiplica filas.
     public const string SqlPagina =
         "SELECT " + Columnas + """
 
           FROM (SELECT TOP (@n) ID, MANDANT, NAME1, NAME2, NAME3, STRASSE, ORT, PLZ, PROVINZ, LAND,
                        UST_ID, STEUERNUMMER, TLF1, TLF2, MAIL, ZAHLBED, WAEHRUNG,
                        KREDIT_LIMIT, KREDIT_LIMIT1, KREDIT_LIMIT_NET, KZ_STATUS, KZ_GESPERRT,
-                       DATUM, TRANSACTION_TIME
+                       DATUM, TRANSACTION_TIME, BONITAET
                   FROM SYSADM.KU_KUNDEN WHERE ID > @cursor ORDER BY ID) AS k
           LEFT JOIN SYSADM.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
+          LEFT JOIN SYSADM.KA_BONITAET AS b ON b.BEZ = k.BONITAET
          ORDER BY k.ID, z.NUMMER
         """;
 
@@ -43,9 +46,10 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
           FROM (SELECT TOP (1) ID, MANDANT, NAME1, NAME2, NAME3, STRASSE, ORT, PLZ, PROVINZ, LAND,
                        UST_ID, STEUERNUMMER, TLF1, TLF2, MAIL, ZAHLBED, WAEHRUNG,
                        KREDIT_LIMIT, KREDIT_LIMIT1, KREDIT_LIMIT_NET, KZ_STATUS, KZ_GESPERRT,
-                       DATUM, TRANSACTION_TIME
+                       DATUM, TRANSACTION_TIME, BONITAET
                   FROM SYSADM.KU_KUNDEN WHERE ID = @cursor ORDER BY ID) AS k
           LEFT JOIN SYSADM.KA_ZAHLBED AS z ON z.BEZ = k.ZAHLBED
+          LEFT JOIN SYSADM.KA_BONITAET AS b ON b.BEZ = k.BONITAET
          ORDER BY k.ID, z.NUMMER
         """;
 
@@ -101,7 +105,7 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
                 if (resultado.Count == 0 || resultado[^1].Id != id)
                 {
                     actual = [];
-                    resultado.Add(Fila(r, actual));
+                    resultado.Add(ConRegimen(r, Fila(r, actual)));
                 }
                 if (!r.IsDBNull(24)) // BEZ presente = hay coincidencia (NUMMER/BRUTTOTAGE pueden ser nulos)
                     actual!.Add(new(Int(r, 25), Int(r, 26)));
@@ -121,6 +125,14 @@ public sealed class AwClientesSqlOrigen : IAwClientesOrigen
         r.IsDBNull(22) ? null : DateOnly.FromDateTime(r.GetDateTime(22)),
         r.IsDBNull(23) ? null : r.GetDateTime(23),
         coincidencias);
+
+    /// <summary>Columnas 27-28 (<c>BONITAET</c>, <c>KA_BONITAET.FREMD_KEY</c>), aparte de <see cref="Fila"/> para no
+    /// alterar el mapeo de las columnas de KU_KUNDEN.</summary>
+    internal static AwClienteOrigenFila ConRegimen(DbDataReader r, AwClienteOrigenFila fila) => fila with
+    {
+        Bonitaet = SqlPlumbing.GetStringOrNull(r, 27),
+        RegimenFiscalOrigen = SqlPlumbing.GetStringOrNull(r, 28),
+    };
 
     private static int? Int(DbDataReader r, int i) => r.IsDBNull(i) ? null : r.GetInt32(i);
 }

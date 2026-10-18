@@ -152,6 +152,19 @@ public class AwOrigenPgTests(WebApplicationFactory<Program> factory)
             TimeProvider.System, NullLogger<AwProductosSincronizador>.Instance).SincronizarBarridoAsync(default));
 
     [Fact]
+    public async Task Demo_cliente_trae_regimen_de_KA_BONITAET_y_sin_catalogo_queda_nulo()
+    {
+        // U1.8b: régimen = KA_BONITAET.FREMD_KEY por KU_KUNDEN.BONITAET (seed: 2 = 601, 1 = 612, 3 = 616, 7 = <indf>, 59 = sin catálogo).
+        var o = OrigenClientes();
+        var regimenes = new Dictionary<string, string?>();
+        foreach (var id in new[] { "1", "2", "3", "7", "59" })
+            regimenes[id] = (await o.LeerPorReferenciaAsync(id, default))!.RegimenFiscalOrigen;
+        Assert.Equal(new Dictionary<string, string?> { ["1"] = "612", ["2"] = "601", ["3"] = "616", ["7"] = null, ["59"] = null }, regimenes);
+        var pagina = await o.LeerPaginaAsync(null, Clientes, default);
+        Assert.Equal(Clientes, pagina.Filas.Count); // el join del régimen no duplica clientes
+    }
+
+    [Fact]
     public async Task Demo_producto_aplica_la_misma_regla_fiscal_y_conserva_lo_capturado()
     {
         await BarridoProductos(OrigenProductos(), OptsProductos());
