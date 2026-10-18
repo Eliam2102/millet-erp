@@ -93,6 +93,9 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.clientes.origen-ver',
   'datos_maestros.clientes.fiscal-editar',
   'datos_maestros.productos-aw.gestionar',
+  // Diferencias fiscales A+W vs ERP (U1.8b).
+  'datos_maestros.diferencias-fiscales-aw.leer',
+  'datos_maestros.diferencias-fiscales-aw.revisar',
   // Administración — andamio /admin (F-Admin-PR1.2) y CRUDs (PR2.3+).
   'admin.empresas.leer',
   'admin.empresas.crear',

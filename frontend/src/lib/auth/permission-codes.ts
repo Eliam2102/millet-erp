@@ -141,6 +141,11 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
   DatosMaestrosProductosAwGestionar: 'datos_maestros.productos-aw.gestionar',
+  // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP.
+  DatosMaestrosDiferenciasFiscalesAwLeer:
+    'datos_maestros.diferencias-fiscales-aw.leer',
+  DatosMaestrosDiferenciasFiscalesAwRevisar:
+    'datos_maestros.diferencias-fiscales-aw.revisar',
 
   // Administración — andamio mínimo del área /admin (F-Admin-PR1.2) y
   // CRUD de Empresas/Sucursales/Departamentos (F-Admin-PR2.3). Si el

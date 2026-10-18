@@ -166,6 +166,7 @@ import { Route as AppAdminDatosMaestrosArticulosIndexRouteImport } from './route
 import { Route as AppAdminDatosMaestrosArticulosIdRouteImport } from './routes/_app/admin/datos-maestros/articulos/$id';
 import { Route as AppAdminDatosMaestrosClientesIndexRouteImport } from './routes/_app/admin/datos-maestros/clientes/index';
 import { Route as AppAdminDatosMaestrosClientesIdRouteImport } from './routes/_app/admin/datos-maestros/clientes/$id';
+import { Route as AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport } from './routes/_app/admin/datos-maestros/diferencias-fiscales-aw/index';
 import { Route as AppAdminDatosMaestrosProductosAwIndexRouteImport } from './routes/_app/admin/datos-maestros/productos-aw/index';
 import { Route as AppAdminDatosMaestrosProductosAwIdRouteImport } from './routes/_app/admin/datos-maestros/productos-aw/$id';
 import { Route as AppAdminDatosMaestrosProveedoresIndexRouteImport } from './routes/_app/admin/datos-maestros/proveedores/index';
@@ -1036,6 +1037,12 @@ const AppAdminDatosMaestrosClientesIdRoute =
     path: '/admin/datos-maestros/clientes/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute =
+  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport.update({
+    id: '/admin/datos-maestros/diferencias-fiscales-aw/',
+    path: '/admin/datos-maestros/diferencias-fiscales-aw/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminDatosMaestrosProductosAwIndexRoute =
   AppAdminDatosMaestrosProductosAwIndexRouteImport.update({
     id: '/admin/datos-maestros/productos-aw/',
@@ -1281,6 +1288,7 @@ export interface FileRoutesByFullPath {
   '/admin/catalogos/usos-principales/': typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   '/admin/datos-maestros/articulos/': typeof AppAdminDatosMaestrosArticulosIndexRoute;
   '/admin/datos-maestros/clientes/': typeof AppAdminDatosMaestrosClientesIndexRoute;
+  '/admin/datos-maestros/diferencias-fiscales-aw/': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/admin/datos-maestros/productos-aw/': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/admin/datos-maestros/proveedores/': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   '/admin/integraciones/fiscal/': typeof AppAdminIntegracionesFiscalIndexRoute;
@@ -1452,6 +1460,7 @@ export interface FileRoutesByTo {
   '/admin/catalogos/usos-principales': typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   '/admin/datos-maestros/articulos': typeof AppAdminDatosMaestrosArticulosIndexRoute;
   '/admin/datos-maestros/clientes': typeof AppAdminDatosMaestrosClientesIndexRoute;
+  '/admin/datos-maestros/diferencias-fiscales-aw': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/admin/datos-maestros/productos-aw': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/admin/datos-maestros/proveedores': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   '/admin/integraciones/fiscal': typeof AppAdminIntegracionesFiscalIndexRoute;
@@ -1625,6 +1634,7 @@ export interface FileRoutesById {
   '/_app/admin/catalogos/usos-principales/': typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   '/_app/admin/datos-maestros/articulos/': typeof AppAdminDatosMaestrosArticulosIndexRoute;
   '/_app/admin/datos-maestros/clientes/': typeof AppAdminDatosMaestrosClientesIndexRoute;
+  '/_app/admin/datos-maestros/diferencias-fiscales-aw/': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/_app/admin/datos-maestros/productos-aw/': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/_app/admin/datos-maestros/proveedores/': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   '/_app/admin/integraciones/fiscal/': typeof AppAdminIntegracionesFiscalIndexRoute;
@@ -1798,6 +1808,7 @@ export interface FileRouteTypes {
     | '/admin/catalogos/usos-principales/'
     | '/admin/datos-maestros/articulos/'
     | '/admin/datos-maestros/clientes/'
+    | '/admin/datos-maestros/diferencias-fiscales-aw/'
     | '/admin/datos-maestros/productos-aw/'
     | '/admin/datos-maestros/proveedores/'
     | '/admin/integraciones/fiscal/'
@@ -1969,6 +1980,7 @@ export interface FileRouteTypes {
     | '/admin/catalogos/usos-principales'
     | '/admin/datos-maestros/articulos'
     | '/admin/datos-maestros/clientes'
+    | '/admin/datos-maestros/diferencias-fiscales-aw'
     | '/admin/datos-maestros/productos-aw'
     | '/admin/datos-maestros/proveedores'
     | '/admin/integraciones/fiscal'
@@ -2141,6 +2153,7 @@ export interface FileRouteTypes {
     | '/_app/admin/catalogos/usos-principales/'
     | '/_app/admin/datos-maestros/articulos/'
     | '/_app/admin/datos-maestros/clientes/'
+    | '/_app/admin/datos-maestros/diferencias-fiscales-aw/'
     | '/_app/admin/datos-maestros/productos-aw/'
     | '/_app/admin/datos-maestros/proveedores/'
     | '/_app/admin/integraciones/fiscal/'
@@ -3253,6 +3266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminDatosMaestrosClientesIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/datos-maestros/diferencias-fiscales-aw/': {
+      id: '/_app/admin/datos-maestros/diferencias-fiscales-aw/';
+      path: '/admin/datos-maestros/diferencias-fiscales-aw';
+      fullPath: '/admin/datos-maestros/diferencias-fiscales-aw/';
+      preLoaderRoute: typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/datos-maestros/productos-aw/': {
       id: '/_app/admin/datos-maestros/productos-aw/';
       path: '/admin/datos-maestros/productos-aw';
@@ -3527,6 +3547,7 @@ interface AppRouteChildren {
   AppAdminCatalogosUsosPrincipalesIndexRoute: typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   AppAdminDatosMaestrosArticulosIndexRoute: typeof AppAdminDatosMaestrosArticulosIndexRoute;
   AppAdminDatosMaestrosClientesIndexRoute: typeof AppAdminDatosMaestrosClientesIndexRoute;
+  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute: typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   AppAdminDatosMaestrosProductosAwIndexRoute: typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   AppAdminDatosMaestrosProveedoresIndexRoute: typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   AppAdminIntegracionesFiscalIndexRoute: typeof AppAdminIntegracionesFiscalIndexRoute;
@@ -3716,6 +3737,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppAdminDatosMaestrosArticulosIndexRoute,
   AppAdminDatosMaestrosClientesIndexRoute:
     AppAdminDatosMaestrosClientesIndexRoute,
+  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute:
+    AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute,
   AppAdminDatosMaestrosProductosAwIndexRoute:
     AppAdminDatosMaestrosProductosAwIndexRoute,
   AppAdminDatosMaestrosProveedoresIndexRoute:
