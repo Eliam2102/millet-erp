@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Serie="A" Folio="F-FC834S" Fecha="2026-10-16T10:00:00" Total="104.40" SubTotal="90.00" Moneda="MXN" MetodoPago="PUE">
-  <cfdi:Emisor Rfc="SES010101AAA" Nombre="Proveedor DEMO" />
-  <cfdi:Receptor Rfc="MIL010101AAA" Nombre="Millet SA" />
-  <cfdi:Conceptos><cfdi:Concepto ClaveProdServ="01010101" Cantidad="6" ClaveUnidad="H87" Descripcion="DEMO compra a pago" ValorUnitario="15.00" Importe="90.00" /></cfdi:Conceptos>
-  <cfdi:Impuestos TotalImpuestosTrasladados="14.40" />
-  <cfdi:Complemento><tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="97F9A6C5-BC5F-49EE-AF86-82A09B100265" FechaTimbrado="2026-10-16T10:00:00" /></cfdi:Complemento>
-</cfdi:Comprobante>

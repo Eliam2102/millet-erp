@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Serie="A" Folio="F-000002" Fecha="2026-10-16T10:00:00" Total="696.00" SubTotal="600.00" Moneda="MXN" MetodoPago="PUE">
-  <cfdi:Emisor Rfc="SES010101AAA" Nombre="Suministros Estándar SA de CV" />
-  <cfdi:Receptor Rfc="MIL010101AAA" Nombre="Millet SA" />
-  <cfdi:Conceptos><cfdi:Concepto ClaveProdServ="01010101" Cantidad="6" ClaveUnidad="H87" Descripcion="Papel bond carta" ValorUnitario="100.00" Importe="600.00" /></cfdi:Conceptos>
-  <cfdi:Impuestos TotalImpuestosTrasladados="96.00" />
-  <cfdi:Complemento><tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="12B76D82-AC4B-47B2-AAB4-27108836F002" FechaTimbrado="2026-10-16T10:00:00" /></cfdi:Complemento>
-</cfdi:Comprobante>

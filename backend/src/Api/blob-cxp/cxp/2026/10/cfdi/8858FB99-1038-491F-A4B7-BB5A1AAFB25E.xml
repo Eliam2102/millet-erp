@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Serie="A" Folio="F-000005" Fecha="2026-10-16T10:00:00" Total="1740.00" SubTotal="1500.00" Moneda="MXN" MetodoPago="PUE">
-  <cfdi:Emisor Rfc="GSC040404DDD" Nombre="Global Supplies Corp" />
-  <cfdi:Receptor Rfc="MIL010101AAA" Nombre="Millet SA" />
-  <cfdi:Conceptos><cfdi:Concepto ClaveProdServ="01010101" Cantidad="10" ClaveUnidad="H87" Descripcion="ESPEJO CONVEXO DE 0.72 DIAMETRO" ValorUnitario="100.00" Importe="1000.00" /><cfdi:Concepto ClaveProdServ="01010101" Cantidad="10" ClaveUnidad="H87" Descripcion="ESPEJO CONVEXO DE 0.52 DIAMETRO" ValorUnitario="50.00" Importe="500.00" /></cfdi:Conceptos>
-  <cfdi:Impuestos TotalImpuestosTrasladados="240.00" />
-  <cfdi:Complemento><tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="8858FB99-1038-491F-A4B7-BB5A1AAFB25E" FechaTimbrado="2026-10-16T10:00:00" /></cfdi:Complemento>
-</cfdi:Comprobante>

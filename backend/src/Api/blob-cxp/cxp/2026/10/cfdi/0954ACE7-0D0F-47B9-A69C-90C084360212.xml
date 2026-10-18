@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Version="4.0" TipoDeComprobante="I" Serie="A" Folio="F-000007" Fecha="2026-10-16T10:00:00" Total="3654.00" SubTotal="3150.00" Moneda="MXN" MetodoPago="PUE">
-  <cfdi:Emisor Rfc="SES010101AAA" Nombre="Suministros Estándar SA de CV" />
-  <cfdi:Receptor Rfc="MIL010101AAA" Nombre="Millet SA" />
-  <cfdi:Conceptos><cfdi:Concepto ClaveProdServ="01010101" Cantidad="7" ClaveUnidad="H87" Descripcion="SIKAFLEX 212 FC NEGRO DE 300 ML" ValorUnitario="450.00" Importe="3150.00" /></cfdi:Conceptos>
-  <cfdi:Impuestos TotalImpuestosTrasladados="504.00" />
-  <cfdi:Complemento><tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" UUID="0954ACE7-0D0F-47B9-A69C-90C084360212" FechaTimbrado="2026-10-16T10:00:00" /></cfdi:Complemento>
-</cfdi:Comprobante>
