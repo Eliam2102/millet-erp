@@ -59,6 +59,10 @@ internal static class TestAssemblyInit
         // simulado. Esas pruebas corren el ciclo a mano.
         Environment.SetEnvironmentVariable("Entra__Provision__Disabled", "true");
 
+        // K10.4: el generador de pólizas recurrentes procesa todas las plantillas activas de la BD compartida; las pruebas lo
+        // corren a mano con «generar».
+        Environment.SetEnvironmentVariable("Contabilidad__Recurrentes__Deshabilitado", "true");
+
         // Identidad de los tests independiente de la configuración local del
         // desarrollador: quien prueba contra un tenant real guarda Graph y su
         // OID en user-secrets (que el host de tests también carga en

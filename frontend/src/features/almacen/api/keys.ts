@@ -145,6 +145,9 @@ export const almacenKeys = {
     [...almacenKeys.recepciones(), 'list', filtros] as const,
   recepcionById: (id: string) =>
     [...almacenKeys.recepciones(), 'byId', id] as const,
+  recepcionRecibibles: (ocId: string) =>
+    ['almacen', 'recepcion-recibibles', ocId] as const,
+  recepcionCfdis: (ocId: string) => ['almacen', 'recepcion-cfdis', ocId] as const,
 
   // Salidas
   salidas: () => [...almacenKeys.all, 'salidas'] as const,

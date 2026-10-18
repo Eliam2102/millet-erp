@@ -413,9 +413,50 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
   acreditadas aparecen una sola vez por cobro y son informativos (la caja
   cobra el neto, Matriz de validación I2). Ajustes de sesiones anteriores y
   reversas tienen su propia fila.
+- **Estado de las secciones Facturado y Notas de crédito (14-oct-2026):**
+  propuesta para validar con Millet, **no regla cerrada**. Mientras no haya
+  respuesta, el criterio interno es el del Manual §2.4: el corte muestra lo
+  cobrado y la conciliación facturado contra ingresado (por sucursal y día,
+  de preferencia por cajero) es F6.7. Pregunta abierta para administración
+  comercial: ¿el corte (A) muestra solo lo cobrado y lo facturado a crédito
+  se ve en la conciliación diaria, o (B) también lista, solo para informar,
+  las facturas a crédito emitidas en el punto de venta? Lo que ya está
+  definido: la cajera responde por el dinero que entra a su caja (incluida
+  la liquidación del chofer, Manual §5.2); el crédito con línea va a cartera
+  y lo concilia Cuentas por Cobrar (Matriz I3); el reparto no liquidado el
+  mismo día genera alerta a CxC (Manual §2.3, reloj pendiente en D11). Si la
+  respuesta es (A), estas secciones se mueven a F6.7 como la vista por
+  cajero junto al corte.
+- **Facturado y notas de crédito del punto de venta (M19):** Millet pidió
+  que la cajera entregue también «qué se facturó» y «notas de crédito». El
+  corte lista, además de los movimientos, los comprobantes **timbrados
+  durante la sesión** (apertura → cierre, o hasta ahora si sigue abierta;
+  nunca después del fin del día de operación, para que una sesión cerrada
+  extemporánea no tome lo del día siguiente) que pertenecen a la caja:
+  - cobrados en ella (`Comprobante.CajaId`), **o**
+  - emitidos por el cajero de la sesión (`UsuarioEmisorId`), **o**
+  - sin caja y dentro de su alcance: sucursal de la sesión
+    (`[Decisión 12-A]`) × canales de la caja (§4.1; caja sin canales = todos
+    los canales).
+
+  Sección **Facturado**: facturas y anticipos, con método (PUE/PPD), estado
+  del CFDI y estado de cobro (cobrada en esta sesión, en otra, crédito PPD o
+  por cobrar). Sección **Notas de crédito**: folio, motivo (Ranura,
+  bonificación, devolución, aplicación de anticipo) y factura relacionada.
+  Se listan también los cancelados, los que quedaron sin timbrar y los que
+  están en otra moneda, con su estado; los **totales suman solo los
+  vigentes en pesos**. Dos cajas con el mismo alcance ven los mismos
+  documentos sin caja (mismo criterio que las bandejas, `[Decisión 12-B]`).
+- **Resumen de la entrega:** facturado, NC, facturado neto, cobranzas
+  (facturas y complementos), apartados (anticipos cobrados), TPV (formas
+  04, 28 y 29) y total ingresado; cobranzas, apartados y TPV salen de los
+  movimientos, netos de reversas. Supuesto: «apartado» = anticipo
+  (pendiente de confirmar con Millet). El resumen viaja en los filtros del
+  PDF/Excel de movimientos.
 - **Fuera del corte, por diseño:** la ruta bancaria (CxC → Tesorería → REP
   automático), ventas de obra, administrativas y de exportación (Matriz
-  F-04). La conciliación facturado contra ingresado por sucursal es F6.7.
+  F-04). La conciliación facturado contra ingresado y el monitor de estatus
+  de CFDI por sucursal y día son F6.7.
 - **Nombre del cajero:** puerto `IUsuariosReadPort` (adapter en `Millet.Api`
   sobre `identidad.usuarios`); también se muestra en *Liquidación de caja*.
 - **Reglas de cobro agregadas:** las formas 04 y 28 (tarjeta) exigen la
@@ -424,8 +465,9 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
   en caja si la moneda del pago es MXN (`COBRO_MONEDA_INVALIDA`; el CFDI de
   pago lleva `Moneda = XXX`).
 - **Frontend:** `/facturacion/caja/corte/$sesionId` (cuelga de «Mi caja»):
-  encabezado, resumen por forma de pago y detalle con PDF, Excel e
-  impresión. Se abre desde «Ver corte» en *Mi caja*, al cerrar la sesión y
+  encabezado, resumen de la entrega, resumen por forma de pago y tres
+  secciones con PDF, Excel e impresión (facturado, notas de crédito y
+  movimientos). Se abre desde «Ver corte» en *Mi caja*, al cerrar la sesión y
   desde cada fila de *Liquidación de caja*.
 
 ---
@@ -437,3 +479,4 @@ comprobantes de TPV»), R18 y CA6.10; minuta del 12-oct-2026 (M19).
 | 0.5 | 2026-07-10 | Borrador inicial (chat, no versionado): concepto de caja, capas A/B, D1–D3, P1–P6 |
 | 0.6 | 2026-07-10 | Revisión contra código y docs: 12 gaps cerrados (`[Decisión 12-1..12]`), decisiones de diseño 12-A..E, P1–P6 resueltos, modelo de datos, permisos, endpoints y plan de PRs |
 | 0.7 | 2026-10-13 | §14 Corte de caja por cajero (FIX-12): endpoint, fuente única en movimientos, voucher obligatorio en tarjeta y REPP solo en pesos |
+| 0.8 | 2026-10-14 | §14: facturado y notas de crédito del punto de venta y resumen de la entrega (M19: facturado, NC, cobranzas, apartados, TPV), como propuesta a validar; relación con F6.7 |

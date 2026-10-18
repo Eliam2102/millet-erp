@@ -22,11 +22,9 @@ namespace Millet.Compartido.Infrastructure.PublicAdapters;
 /// <list>
 ///   <item><c>UnidadMedida</c> ← <see cref="Articulo.UnidadMedidaDefault"/></item>
 ///   <item><c>EsActivo</c> = <see cref="Articulo.Estatus"/> == <see cref="EstatusCatalogo.Activo"/></item>
-///   <item><c>ToleranciaCantidadPorcentaje</c> = <c>null</c>:
-///     <see cref="Articulo"/> aún no modela tolerancia por línea. Cuando
-///     entre la migración aditiva que la introduce, este mapping se
-///     actualiza. Por ahora el handler usa el default global del módulo
-///     (A5 del 01-diseño Almacén).</item>
+///   <item><c>ToleranciaCantidadPorcentaje</c> ← <see cref="Articulo.ToleranciaCantidadPorcentaje"/>
+///     (A5; <c>null</c> = 0 %).</item>
+///   <item><c>Categoria</c> ← <see cref="Articulo.Categoria"/>.</item>
 ///   <item><c>SubAlmacenDefaultId</c> = <c>null</c>: tampoco modelado en
 ///     <see cref="Articulo"/> todavía. El handler deja al usuario
 ///     seleccionar sub-almacén manualmente hasta que se introduzca.</item>
@@ -59,11 +57,12 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.Clave,
                 a.Nombre,
                 a.UnidadMedidaDefault,
-                null,
+                a.ToleranciaCantidadPorcentaje,
                 null,
                 a.Estatus == EstatusCatalogo.Activo,
                 a.PrecioReferenciaMonto,
-                a.PrecioReferenciaMoneda))
+                a.PrecioReferenciaMoneda,
+                Categoria: a.Categoria))
             .FirstOrDefaultAsync(cancellationToken);
 
         return articulo;
@@ -90,11 +89,12 @@ public sealed class ArticuloReadAdapter : IArticuloReadPort
                 a.Clave,
                 a.Nombre,
                 a.UnidadMedidaDefault,
-                null,
+                a.ToleranciaCantidadPorcentaje,
                 null,
                 a.Estatus == EstatusCatalogo.Activo,
                 a.PrecioReferenciaMonto,
-                a.PrecioReferenciaMoneda))
+                a.PrecioReferenciaMoneda,
+                Categoria: a.Categoria))
             .ToDictionaryAsync(a => a.Id, cancellationToken);
     }
 }

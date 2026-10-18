@@ -588,6 +588,7 @@ else
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
@@ -945,6 +946,8 @@ if (!string.IsNullOrWhiteSpace(awIntegracionDb)
 builder.Services.AddIntegracionesAwClientes(builder.Configuration);
 builder.Services.AddIntegracionesAwProductos(builder.Configuration);
 builder.Services.AddIntegracionesAwCambios(builder.Configuration);
+// U1.8b: reporte de diferencias fiscales A+W vs ERP (solo lee A+W; worker semanal apagado por defecto).
+Millet.Integraciones.Aw.Infrastructure.DiferenciasFiscales.DiferenciasFiscalesDependencyInjection.AddIntegracionesAwDiferenciasFiscales(builder.Services, builder.Configuration);
 Millet.Integraciones.Aw.Infrastructure.Origen.OrigenDependencyInjection.AddIntegracionesAwOrigen(builder.Services, builder.Configuration);
 
 // F2-PR2: worker de envío de CFDI por correo (drena bitacora_envio_correo,
@@ -1470,6 +1473,8 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadE
 Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
 // === Contabilidad — ejercicios y periodos contables: apertura, cierre y reapertura con bitácora (F1-CON-03) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilidadRecurrentesEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);
@@ -1578,6 +1583,7 @@ Millet.Api.Endpoints.DatosMaestros.DatosMaestrosEndpoints.MapDatosMaestrosEndpoi
 Millet.Api.Endpoints.DatosMaestros.F1AEndpoints.MapF1AEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ClientesSincronizacionEndpoints.MapClientesSincronizacionEndpoints(app);
 Millet.Api.Endpoints.DatosMaestros.ProductosAwSincronizacionEndpoints.MapProductosAwSincronizacionEndpoints(app);
+Millet.Api.Endpoints.DatosMaestros.DiferenciasFiscalesAwEndpoints.MapDiferenciasFiscalesAwEndpoints(app);
 
 // === Catálogo de tipos de documento OC (UF3-PR2 — Compras-specific) ===
 Millet.Api.Endpoints.Compras.Oc.TiposDocumentoOcEndpoint.MapTiposDocumentoOcEndpoint(app);

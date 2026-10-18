@@ -65,6 +65,9 @@ public sealed class AplicarDevolucionInternaValidator
             .Must(e => EstadosMaterialValidos.Contains(e))
             .WithMessage($"EstadoMaterial debe ser uno de: {string.Join(", ", EstadosMaterialValidos)}.");
         RuleFor(c => c.Motivo).NotEmpty().MaximumLength(500);
+        RuleFor(c => c.Observaciones!).MaximumLength(500)
+            .When(c => c.Observaciones is not null)
+            .WithMessage("Las observaciones no pueden exceder 500 caracteres.");
         RuleFor(c => c.Lineas).NotEmpty();
         RuleForEach(c => c.Lineas).ChildRules(l =>
         {
@@ -244,6 +247,7 @@ public sealed class AplicarDevolucionInternaHandler
         // 5. Folio + Registrar.
         var anio = request.FechaMovimiento.Year;
         var prefijo = TipoMovimiento.DevolucionSalida.PrefijoFolio();
+        _ = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken); // M-094: tx ya abierta (transaccion)
         var secuencia = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken);
         if (secuencia is null)
@@ -431,6 +435,8 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
 
         var anio = fechaMovimiento.Year;
         var prefijo = tipo.PrefijoFolio();
+        // M-094: lock por (prefijo, año) antes de leer la secuencia; este método no tenía transacción, la abre y la confirma tras SaveChanges.
+        await using var transaccion = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken);
         var sec = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken)
             ?? new FolioSecuenciaMovimiento(Guid.CreateVersion7(), prefijo, anio, 0);
@@ -445,6 +451,7 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
         movimiento.Registrar(folio, registradoPor);
         _db.Movimientos.Add(movimiento);
         await _db.SaveChangesAsync(cancellationToken);
+        if (transaccion is not null) await transaccion.CommitAsync(cancellationToken);
 
         return new BajaPorDanoResponse(movimientoId, folio.Valor);
     }

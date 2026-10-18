@@ -1460,10 +1460,50 @@ export interface CorteCajaFormaPago {
   montoDeclarado: number | null;
 }
 
+/** Factura o anticipo emitido en la sesión (sección «Facturado», M19). */
+export interface CorteCajaFacturaFila {
+  fecha: string;
+  comprobante: string;
+  cliente: string;
+  metodoPago: string;
+  moneda: string;
+  estadoCfdi: string;
+  cobro: string;
+  total: number;
+}
+
+/** Nota de crédito emitida en la sesión (sección «Notas de crédito», M19). */
+export interface CorteCajaNotaCreditoFila {
+  fecha: string;
+  folio: string;
+  motivo: string;
+  facturaRelacionada: string | null;
+  cliente: string;
+  moneda: string;
+  estadoCfdi: string;
+  total: number;
+}
+
+/** Lo que entrega la cajera: facturado y NC (vigentes en pesos) contra lo cobrado. */
+export interface CorteCajaResumen {
+  facturado: number;
+  facturas: number;
+  notasCredito: number;
+  notas: number;
+  facturadoNeto: number;
+  cobranzas: number;
+  apartados: number;
+  tpv: number;
+  totalIngresado: number;
+}
+
 export interface CorteCajaResponse {
   encabezado: CorteCajaEncabezado;
   porFormaPago: CorteCajaFormaPago[];
   reporte: ReporteBackend<CorteCajaFila>;
+  resumen: CorteCajaResumen;
+  facturado: ReporteBackend<CorteCajaFacturaFila>;
+  notasCredito: ReporteBackend<CorteCajaNotaCreditoFila>;
 }
 
 // ─── Liquidación de ruta + ajustes de caja (CAJAS-PR7) ────────────────

@@ -13,6 +13,7 @@ import {
   requisicionLabel,
   rqRegularizadoraLabel,
   subAlmacenLabel,
+  ubicacionLabel,
 } from './salida-display';
 
 /**
@@ -118,15 +119,17 @@ const styles = StyleSheet.create({
   cellRight: {
     textAlign: 'right',
   },
-  // Anchos relativos (suman 100%). Fase E PR5: Artículo cede 14% al Centro de costo
-  // (38→24) para que la fila de totales siga en 81% sin recalcular su span.
-  colPos: { width: '5%' },
-  colArt: { width: '24%' },
-  colCc: { width: '14%' },
-  colUm: { width: '8%' },
-  colCant: { width: '13%' },
-  colCosto: { width: '17%' },
-  colImporte: { width: '19%' },
+  // Anchos relativos (suman 100%). La columna Ubicación (bin de la línea) se
+  // toma del Artículo, CC, UM, Cantidad y Costo; la fila de totales ocupa todo
+  // menos la columna Importe (83%).
+  colPos: { width: '4%' },
+  colArt: { width: '20%' },
+  colCc: { width: '12%' },
+  colUbic: { width: '16%' },
+  colUm: { width: '6%' },
+  colCant: { width: '11%' },
+  colCosto: { width: '14%' },
+  colImporte: { width: '17%' },
   observaciones: {
     marginTop: 8,
     padding: 6,
@@ -230,6 +233,9 @@ export function ComprobanteSalidaDocument({
               <Text style={[styles.cell, styles.cellHeader, styles.colCc]}>
                 Centro de costo
               </Text>
+              <Text style={[styles.cell, styles.cellHeader, styles.colUbic]}>
+                Ubicación
+              </Text>
               <Text style={[styles.cell, styles.cellHeader, styles.colUm]}>UM</Text>
               <Text
                 style={[
@@ -280,11 +286,17 @@ export function ComprobanteSalidaDocument({
                   <Text style={[styles.cell, styles.colPos]}>
                     {l.posicion}
                   </Text>
-                  <Text style={[styles.cell, styles.colArt]}>
-                    {articuloLabel(l)}
-                  </Text>
+                  <View style={[styles.cell, styles.colArt]}>
+                    <Text>{articuloLabel(l)}</Text>
+                    {l.comentarioLinea && (
+                      <Text style={styles.meta}>{l.comentarioLinea}</Text>
+                    )}
+                  </View>
                   <Text style={[styles.cell, styles.colCc]}>
                     {ccMaquinaLabel(l)}
+                  </Text>
+                  <Text style={[styles.cell, styles.colUbic]}>
+                    {ubicacionLabel(l)}
                   </Text>
                   <Text style={[styles.cell, styles.colUm]}>
                     {l.unidadMedida}
@@ -307,7 +319,7 @@ export function ComprobanteSalidaDocument({
                 style={[
                   styles.cell,
                   styles.cellTotales,
-                  { width: '81%', textAlign: 'right' },
+                  { width: '83%', textAlign: 'right' },
                 ]}
               >
                 Total MXN

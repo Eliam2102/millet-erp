@@ -100,6 +100,23 @@ public sealed class CxpDocumentosReadAdapter : ICxpDocumentosReadPort
             .ToDictionary(n => n.Id, n => n.Folio!);
     }
 
+    public async Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(
+        Guid cfdiRecibidoId,
+        CancellationToken cancellationToken)
+    {
+        // Lectura operativa: respeta el filtro de empresa (sin Bypass()).
+        // RfcEmisor es VO con value converter: se proyecta el VO y se extrae .Valor en memoria.
+        var fila = await _db.CfdisRecibidos
+            .AsNoTracking()
+            .Where(c => c.Id == cfdiRecibidoId)
+            .Select(c => new { c.Id, c.RfcEmisor, c.Estado, c.Tipo })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return fila is null
+            ? null
+            : new CfdiRecibidoLectura(fila.Id, fila.RfcEmisor.Valor, fila.Estado.ToString(), fila.Tipo.ToString());
+    }
+
     private static string? FormatearFolio(string? serie, string? folio)
     {
         if (string.IsNullOrWhiteSpace(folio) && string.IsNullOrWhiteSpace(serie))

@@ -40,6 +40,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// millet_dev. Se siembra saldo en el rack y en la ÚNICA porque el trigger
 /// aborta la salida si no hay existencia (<c>SALDO_INEXISTENTE</c>).</para>
 /// </summary>
+[Collection(PeriodoContableSinParalelo.Nombre)]
 public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
@@ -258,6 +259,7 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
         Guid UserId,
         Guid AlmacenId,
         Guid SubAlmacenId,
+        Guid SucursalId,
         Guid UnicaId,
         Guid RackId,
         Guid ArticuloId,
@@ -285,6 +287,7 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
             UserId: Guid.NewGuid(),
             AlmacenId: Guid.NewGuid(),
             SubAlmacenId: Guid.NewGuid(),
+            SucursalId: Guid.NewGuid(),
             UnicaId: Guid.NewGuid(),
             RackId: Guid.NewGuid(),
             ArticuloId: Guid.NewGuid(),
@@ -302,9 +305,10 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
             // es sintético: sin bypass el filtro global bloquea el SaveChanges.
             using (empresaCtx.Bypass())
             {
+                // F5 (86e3pc50v): la RQ debe ser de la misma sucursal que el almacén sembrado.
                 var rq = new Requisicion(ctx.RqId, ctx.EmpresaId,
                     Folio.Parse($"FIX2027-{Random.Shared.Next(100000, 999999)}"), 2027,
-                    Clasificacion.MateriaPrima, Guid.NewGuid(), Guid.NewGuid(), ctx.AlmacenId,
+                    Clasificacion.MateriaPrima, ctx.SucursalId, Guid.NewGuid(), ctx.AlmacenId,
                     ctx.UserId, ctx.UserId, Prioridad.Normal, DateTimeOffset.UtcNow);
                 rq.AgregarLinea(ctx.LineaRqId, ctx.ArticuloId, CantidadInicial, "PZA", Money.Mxn(CostoRack));
                 rq.EnviarAAutorizacion(DateTimeOffset.UtcNow);
@@ -342,7 +346,7 @@ public class SalidaUbicacionPorLineaTests : IClassFixture<WebApplicationFactory<
     {
         await db.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO almacen.almacenes (id, clave, nombre, sucursal_id, estatus, version, created_at, updated_at)
-            VALUES ({ctx.AlmacenId}, {clave}, 'Test PR5', {Guid.NewGuid()}, 0, 0, NOW(), NOW())");
+            VALUES ({ctx.AlmacenId}, {clave}, 'Test PR5', {ctx.SucursalId}, 0, 0, NOW(), NOW())");
         await db.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO almacen.sub_almacenes (id, almacen_id, clave, nombre, tipo, estatus, version, created_at, updated_at)
             VALUES ({ctx.SubAlmacenId}, {ctx.AlmacenId}, {clave}, 'Sub test PR5', 0, 0, 0, NOW(), NOW())");

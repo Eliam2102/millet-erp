@@ -99,6 +99,66 @@ public class GlobalExceptionHandlerTests
         code.Should().Be("PROVEEDOR_RFC_DUPLICADO");
     }
 
+    [Theory]
+    [InlineData("SALDO_INSUFICIENTE: ubicacion=00000000-0000-0000-0000-000000000001 disponible=3 solicitado=10.")]
+    [InlineData("SALDO_INEXISTENTE: ubicacion=00000000-0000-0000-0000-000000000001 articulo=00000000-0000-0000-0000-000000000002.")]
+    public async Task Should_Map_Saldo_Trigger_Check_Violation_To_422_SalidaStockInsuficiente(string mensaje)
+    {
+        var postgres = new PostgresException(
+            messageText: mensaje,
+            severity: "ERROR",
+            invariantSeverity: "ERROR",
+            sqlState: PostgresErrorCodes.CheckViolation,
+            detail: "",
+            hint: "",
+            position: 0,
+            internalPosition: 0,
+            internalQuery: "",
+            where: "",
+            schemaName: "almacen",
+            tableName: "saldos",
+            columnName: "",
+            dataTypeName: "",
+            constraintName: "",
+            file: "",
+            line: "",
+            routine: "");
+
+        var (status, code, _) = await Handle(new DbUpdateException("saldo", postgres));
+
+        status.Should().Be(StatusCodes.Status422UnprocessableEntity);
+        code.Should().Be("SALIDA_STOCK_INSUFICIENTE");
+    }
+
+    [Fact]
+    public async Task Should_Map_Saldo_Trigger_PostgresException_Directo_To_422_SalidaStockInsuficiente()
+    {
+        var postgres = new PostgresException(
+            messageText: "SALDO_INSUFICIENTE: ubicacion=00000000-0000-0000-0000-000000000001 disponible=3 solicitado=10.",
+            severity: "ERROR",
+            invariantSeverity: "ERROR",
+            sqlState: PostgresErrorCodes.CheckViolation,
+            detail: "",
+            hint: "",
+            position: 0,
+            internalPosition: 0,
+            internalQuery: "",
+            where: "",
+            schemaName: "almacen",
+            tableName: "saldos",
+            columnName: "",
+            dataTypeName: "",
+            constraintName: "",
+            file: "",
+            line: "",
+            routine: "");
+
+        var (status, code, _) = await Handle(postgres);
+
+        status.Should().Be(StatusCodes.Status422UnprocessableEntity);
+        code.Should().Be("SALIDA_STOCK_INSUFICIENTE");
+    }
+
     [Fact]
     public async Task Should_Map_ForbiddenException_To_403()
     {

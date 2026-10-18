@@ -22,6 +22,7 @@ namespace Millet.Api.IntegrationTests.Almacen;
 /// Mismo molde: fixture aislado por GUIDs vía SQL crudo, cleanup en finally,
 /// no toca el seed de millet_dev.</para>
 /// </summary>
+[Collection(PeriodoContableSinParalelo.Nombre)]
 public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
@@ -188,7 +189,7 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
             using (empresaCtx.Bypass())
             {
                 await db.SaveChangesAsync();
-                await new IniciarConteoHandler(db, scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider>()).Handle(
+                await new IniciarConteoHandler(db, scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider>(), scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IArticuloReadPort>()).Handle(
                     new IniciarConteoCommand(conteoId), CancellationToken.None);
             }
 
@@ -396,7 +397,7 @@ public class TriggerBinExplicitoTests : IClassFixture<WebApplicationFactory<Prog
             using (empresaCtx.Bypass())
             {
                 await db.SaveChangesAsync();
-                await new IniciarConteoHandler(db, scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider>()).Handle(
+                await new IniciarConteoHandler(db, scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IConteoUmbralesProvider>(), scope.ServiceProvider.GetRequiredService<Millet.Almacen.Domain.Ports.IArticuloReadPort>()).Handle(
                     new IniciarConteoCommand(conteoId), CancellationToken.None);
 
                 // Snapshot: una línea, la del rack (la ÚNICA vacía no genera línea).

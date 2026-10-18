@@ -3,6 +3,7 @@
  * Las fechas de vigencia y la fecha contable viajan como `yyyy-MM-dd` (DateOnly). Los enums viajan como texto.
  */
 import type { OrigenMovimiento } from './types';
+import type { TipoPolizaSat } from './polizas-types';
 
 /** Dim1 ubicación, Dim2 área (CeCo), Dim3 equipo (Centros de Costo); el resto son dimensiones de la partida (K10.2). */
 export type Dimension = 'Dim1' | 'Dim2' | 'Dim3' | 'Proyecto' | 'Cliente' | 'Proveedor' | 'Banco';
@@ -22,6 +23,8 @@ export interface TipoDocumento {
   activo: boolean;
   esPrueba: boolean;
   version: number;
+  /** K10.9: el tipo de documento es también el tipo de operación de la póliza, con su tipo de póliza del SAT. */
+  tipoSat: TipoPolizaSat;
 }
 
 export interface Regla {

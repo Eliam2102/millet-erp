@@ -108,14 +108,15 @@ export function ReporteAlfakPage() {
 
 function primerDiaMesActualIso(): string {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  return `${anio}-${mes}-01`;
 }
 
 function ultimoDiaMesActualIso(): string {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0)
-    .toISOString()
-    .slice(0, 10);
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(new Date(anio, d.getMonth() + 1, 0).getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
 }

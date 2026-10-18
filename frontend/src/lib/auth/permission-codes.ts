@@ -129,6 +129,8 @@ export const PermisosCanonicos = {
   DatosMaestrosProveedoresValidar:
     'datos_maestros.proveedores.validar',
   DatosMaestrosArticulosGestionar: 'datos_maestros.articulos.gestionar',
+  DatosMaestrosArticulosToleranciaEditar:
+    'datos_maestros.articulos.tolerancia-editar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048). A
   // diferencia de Proveedores/Artículos, el backend usa este granular
   // también para las mutaciones (no el grueso
@@ -139,6 +141,11 @@ export const PermisosCanonicos = {
   DatosMaestrosClientesOrigenVer: 'datos_maestros.clientes.origen-ver',
   DatosMaestrosClientesFiscalEditar: 'datos_maestros.clientes.fiscal-editar',
   DatosMaestrosProductosAwGestionar: 'datos_maestros.productos-aw.gestionar',
+  // U1.8b (F1-FAC-14): reporte de diferencias fiscales A+W vs ERP.
+  DatosMaestrosDiferenciasFiscalesAwLeer:
+    'datos_maestros.diferencias-fiscales-aw.leer',
+  DatosMaestrosDiferenciasFiscalesAwRevisar:
+    'datos_maestros.diferencias-fiscales-aw.revisar',
 
   // Administración — andamio mínimo del área /admin (F-Admin-PR1.2) y
   // CRUD de Empresas/Sucursales/Departamentos (F-Admin-PR2.3). Si el
@@ -414,6 +421,16 @@ export const PermisosCanonicos = {
   ContabilidadPeriodoAdministrar: 'contabilidad.periodo.administrar',
   ContabilidadPeriodoCerrar: 'contabilidad.periodo.cerrar',
   ContabilidadPeriodoReabrir: 'contabilidad.periodo.reabrir',
+  // Pólizas (F1-CON-04): captura (analista), autorización (supervisor, distinto de quien capturó) y anulación con motivo.
+  ContabilidadPolizasLeer: 'contabilidad.polizas.leer',
+  ContabilidadPolizasCapturar: 'contabilidad.polizas.capturar',
+  ContabilidadPolizasAutorizar: 'contabilidad.polizas.autorizar',
+  ContabilidadPolizasAnular: 'contabilidad.polizas.anular',
+  // K10.4: pólizas recurrentes (0000000d-0006). `administrar` prepara, suspende, reanuda y genera; `autorizar` activa
+  // (no quien la preparó).
+  ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
+  ContabilidadRecurrentesAdministrar: 'contabilidad.recurrentes.administrar',
+  ContabilidadRecurrentesAutorizar: 'contabilidad.recurrentes.autorizar',
   ComercioExteriorContenedoresGestionar: 'comercio_exterior.expedientes.contenedores-gestionar',
   ComercioExteriorRelacionIvaLeer: 'comercio_exterior.relacion-iva.leer',
   ComercioExteriorExpedientesLeer: 'comercio_exterior.expedientes.leer',

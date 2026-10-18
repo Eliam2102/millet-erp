@@ -15,6 +15,7 @@ import {
   CreditCard,
   FileBadge,
   FileCheck2,
+  FileSpreadsheet,
   FileText,
   FlaskConical,
   Gauge,
@@ -33,6 +34,7 @@ import {
   Plane,
   Receipt,
   ReceiptText,
+  Repeat,
   RotateCcw,
   Scale,
   ShoppingCart,
@@ -222,10 +224,7 @@ const moduloAlmacen: NavModulo = {
             'Surtido de requisiciones aprobadas y vales urgentes. Comprobante PDF descargable.',
           to: '/almacen/salidas',
           icon: PackageMinus,
-          permissionsAny: [
-            PermisosCanonicos.AlmacenSalidasLeerPropias,
-            PermisosCanonicos.AlmacenSalidasLeerTodas,
-          ],
+          permission: PermisosCanonicos.AlmacenSalidasLeerTodas,
         },
         {
           label: 'Devoluciones',
@@ -933,6 +932,35 @@ const moduloContabilidad: NavModulo = {
           to: '/contabilidad/periodos',
           icon: CalendarRange,
           permission: PermisosCanonicos.ContabilidadPeriodoLeer,
+        },
+      ],
+    },
+    {
+      label: 'Pólizas',
+      cards: [
+        {
+          label: 'Pólizas',
+          description:
+            'Captura de pólizas manuales en borrador, autorización con folio por tipo de operación (TT-000123) y anulación con motivo.',
+          to: '/contabilidad/polizas',
+          icon: FileSpreadsheet,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Movimientos por cuenta',
+          description:
+            'Cargos, abonos y saldo del periodo por cuenta con las pólizas autorizadas; una anulada y su anulación se compensan.',
+          to: '/contabilidad/polizas/saldos',
+          icon: Scale,
+          permission: PermisosCanonicos.ContabilidadPolizasLeer,
+        },
+        {
+          label: 'Pólizas recurrentes',
+          description:
+            'Plantillas que generan la póliza de cada mes en su día, con reversa automática opcional; las activa otro usuario.',
+          to: '/contabilidad/polizas/recurrentes',
+          icon: Repeat,
+          permission: PermisosCanonicos.ContabilidadRecurrentesLeer,
         },
       ],
     },

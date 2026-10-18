@@ -25,7 +25,11 @@ public interface IAwArticulosReader
 /// teléfono solo dígitos — reglas heredadas del diseño JSON 2026-05.
 /// <c>Cp</c> = KU_KUNDEN.PLZ, validado con datos reales 2026-07-09; el
 /// bridge lo usa como prefill del CP fiscal (5 dígitos exactos o null).
-/// Régimen fiscal NO existe en A+W: se completa en la UI antes de timbrar.
+/// La vista NO trae el régimen fiscal, aunque A+W sí lo tiene: Millet lo guarda
+/// en <c>KA_BONITAET.FREMD_KEY</c>, unido por <c>KU_KUNDEN.BONITAET</c>
+/// ("Documentación funcional de los sistemas satélite" §4.2). Lo lee
+/// <c>IAwClientesOrigen</c> solo para el reporte de diferencias fiscales
+/// (U1.8b); en el ERP se completa en la UI antes de timbrar.
 /// </summary>
 public sealed record AwClienteMaster(
     string ClienteRef,

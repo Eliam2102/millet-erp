@@ -74,6 +74,23 @@ public class RegistrarSalidaValidatorTests
         result.IsValid.Should().BeFalse();
     }
 
+    [Fact]
+    public void Observaciones_con_tope_exacto_500_pasa()
+    {
+        var cmd = NuevoComandoValido() with { Observaciones = new string('x', 500) };
+        var result = _validator.Validate(cmd);
+        result.Errors.Should().NotContain(e => e.PropertyName == nameof(cmd.Observaciones));
+    }
+
+    [Fact]
+    public void Observaciones_con_501_caracteres_falla()
+    {
+        var cmd = NuevoComandoValido() with { Observaciones = new string('x', 501) };
+        var result = _validator.Validate(cmd);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(cmd.Observaciones));
+    }
+
     private static RegistrarSalidaConRequisicionCommand NuevoComandoValido() => new(
         RequisicionId: Guid.NewGuid(),
         FechaMovimiento: new DateOnly(2026, 5, 23),
