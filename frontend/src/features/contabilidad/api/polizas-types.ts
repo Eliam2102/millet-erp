@@ -8,6 +8,9 @@ export type EstadoPoliza = 'Borrador' | 'Autorizada' | 'Anulada';
 export type OrigenPoliza = 'Manual' | 'Automatica';
 export type TipoPolizaSat = 'Ingreso' | 'Egreso' | 'Diario';
 
+/** K10.4: relación de una póliza derivada con su original (reversa automática de recurrente o reclasificación ligada). */
+export type RelacionPoliza = 'Reversa' | 'Reclasificacion';
+
 export const ESTADOS_POLIZA: readonly EstadoPoliza[] = ['Borrador', 'Autorizada', 'Anulada'];
 export const TIPOS_SAT: readonly TipoPolizaSat[] = ['Ingreso', 'Egreso', 'Diario'];
 
@@ -29,6 +32,10 @@ export interface PolizaResumen {
   capturadaPor: string;
   autorizadaPor: string | null;
   version: number;
+  /** K10.4: la póliza es reversa o reclasificación de otra. */
+  relacion?: RelacionPoliza | null;
+  /** K10.4: generada por una plantilla recurrente. */
+  esRecurrente?: boolean;
 }
 
 export interface PaginaPolizas {
@@ -105,6 +112,24 @@ export interface Poliza {
   cuadra: boolean;
   partidas: Partida[];
   version: number;
+  /** K10.4: en la reversa o la reclasificación, la póliza original con la que se liga. */
+  polizaRelacionadaId?: string | null;
+  polizaRelacionadaFolio?: string | null;
+  relacion?: RelacionPoliza | null;
+  /** K10.4: plantilla recurrente que generó la póliza (o su reversa). */
+  plantillaRecurrenteId?: string | null;
+  plantillaRecurrenteNombre?: string | null;
+  /** K10.4: pólizas derivadas de esta (su reversa automática y sus reclasificaciones). */
+  ligadas?: PolizaLigada[];
+}
+
+export interface PolizaLigada {
+  id: string;
+  folio: string | null;
+  relacion: RelacionPoliza;
+  estado: EstadoPoliza;
+  fecha: string;
+  concepto: string;
 }
 
 export interface PartidaRequest {
@@ -133,6 +158,8 @@ export interface PolizaManualRequest {
   /** Solo para el periodo 13 de ajustes (fecha 31-dic); los demás periodos salen de la fecha. */
   periodoNumero: 13 | null;
   documentoOrigen: null;
+  /** K10.4: póliza autorizada que esta reclasifica (solo al crear; queda ligada en ambos sentidos). */
+  reclasificaPolizaId?: string | null;
 }
 
 export interface AnularPolizaRequest {

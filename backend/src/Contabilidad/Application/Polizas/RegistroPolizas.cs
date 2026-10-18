@@ -61,16 +61,16 @@ public sealed class RegistroPolizas(
     /// transacción que guarda la póliza, así que dos pólizas concurrentes del mismo tipo esperan su turno (sin duplicados) y un
     /// rollback devuelve el número (sin huecos). Un tipo nuevo crea su fila en el primer uso (K10.9-c).
     /// </summary>
-    public async Task<int> ReservarNumeroAsync(Guid tipoOperacionId, int anio, CancellationToken ct)
+    public async Task<int> ReservarNumeroAsync(Guid tipoOperacionId, int anio, CancellationToken ct, Guid? empresaId = null)
     {
         if (db.Database.CurrentTransaction is null)
             throw new InvalidOperationException("El consecutivo se reserva dentro de la transacción que guarda la póliza.");
-        var empresaId = empresa.Current ?? throw new MissingEmpresaContextException(nameof(ConsecutivoPoliza));
+        var idEmpresa = empresaId ?? empresa.Current ?? throw new MissingEmpresaContextException(nameof(ConsecutivoPoliza));
         try
         {
             var numeros = await db.Database.SqlQuery<int>($"""
                 INSERT INTO contabilidad.consecutivos_poliza (empresa_id, tipo_operacion_id, anio, ultimo_numero)
-                VALUES ({empresaId}, {tipoOperacionId}, {anio}, 1)
+                VALUES ({idEmpresa}, {tipoOperacionId}, {anio}, 1)
                 ON CONFLICT (empresa_id, tipo_operacion_id, anio)
                 DO UPDATE SET ultimo_numero = consecutivos_poliza.ultimo_numero + 1
                 RETURNING ultimo_numero AS "Value"
@@ -96,14 +96,22 @@ public sealed class RegistroPolizas(
     /// Candado de periodo (F1-CON-03) para una póliza: falla cerrada si el periodo no existe, no está abierto o está cerrado; el 13
     /// de ajustes solo admite pólizas manuales (CA10.12).
     /// </summary>
-    public async Task VerificarPeriodoAsync(int anio, int numero, OrigenPoliza origen, CancellationToken ct)
+    public async Task VerificarPeriodoAsync(int anio, int numero, OrigenPoliza origen, CancellationToken ct, Guid? empresaId = null)
     {
-        if (await RechazoPeriodoAsync(anio, numero, origen, ct) is { } rechazo) throw rechazo;
+        if (await RechazoPeriodoAsync(anio, numero, origen, ct, empresaId) is { } rechazo) throw rechazo;
     }
 
-    public async Task<BusinessRuleException?> RechazoPeriodoAsync(int anio, int numero, OrigenPoliza origen, CancellationToken ct)
+    /// <summary><paramref name="empresaId"/>: el generador de recurrentes corre sin request y consulta el periodo de la empresa de la plantilla.</summary>
+    public async Task<BusinessRuleException?> RechazoPeriodoAsync(int anio, int numero, OrigenPoliza origen, CancellationToken ct, Guid? empresaId = null)
     {
-        var estado = await periodos.ConsultarAsync(anio, numero, ct);
+        EstadoPeriodoContable estado;
+        if (empresaId is { } e)
+        {
+            var actual = await db.Periodos.AsNoTracking().Where(p => p.EmpresaId == e && p.Anio == anio && p.Numero == numero)
+                .Select(p => (EstadoPeriodo?)p.Estado).FirstOrDefaultAsync(ct);
+            estado = new(anio, numero, actual ?? EstadoPeriodo.NoAbierto, actual is not null);
+        }
+        else estado = await periodos.ConsultarAsync(anio, numero, ct);
         return VerificadorPeriodoContable.Rechazo(estado,
             origen == OrigenPoliza.Manual ? OrigenMovimiento.Manual : OrigenMovimiento.AuxiliarCxP) is { } rechazo
             ? new BusinessRuleException(rechazo.Code, rechazo.Message.Replace("movimientos", "pólizas"))
@@ -150,9 +158,19 @@ public sealed class RegistroPolizas(
     {
         var referencia = poliza.Id.ToString();
         foreach (var cuentaId in poliza.Partidas.Select(x => x.CuentaId).Distinct())
-            await mediator.Send(new RegistrarUsoCuentaCommand(cuentaId, ConsumidorPoliza, referencia), ct);
+        {
+            if (empresa.Current is not null)
+            {
+                await mediator.Send(new RegistrarUsoCuentaCommand(cuentaId, ConsumidorPoliza, referencia), ct);
+                continue;
+            }
+            // Generador de recurrentes (sin request): misma regla que RegistrarUsoCuentaCommand, con la empresa de la póliza.
+            if (!await db.Usos.AnyAsync(u => u.CuentaId == cuentaId && u.Consumidor == ConsumidorPoliza && u.Referencia == referencia, ct))
+                db.Usos.Add(new CuentaContableUso(Guid.CreateVersion7(), cuentaId, ConsumidorPoliza, poliza.AutorizadaEn ?? DateTimeOffset.UtcNow, referencia)
+                    { EmpresaId = poliza.EmpresaId });
+        }
         foreach (var reglaId in reglasAplicadas.Distinct())
-            db.ReglasDimensionUso.Add(new ReglaDimensionUso(Guid.CreateVersion7(), reglaId, ConsumidorPoliza, referencia, poliza.Fecha));
+            db.ReglasDimensionUso.Add(new ReglaDimensionUso(Guid.CreateVersion7(), reglaId, ConsumidorPoliza, referencia, poliza.Fecha) { EmpresaId = poliza.EmpresaId });
         await db.SaveChangesAsync(ct);
     }
 
@@ -165,6 +183,11 @@ public sealed class RegistroPolizas(
         Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora, CancellationToken ct)
     {
         original.ExigirAnulable(motivo);
+        // K10.4: si la reversa automática sigue vigente, anular la original la negaría dos veces.
+        if (await db.Polizas.AsNoTracking().Where(x => x.PolizaRelacionadaId == original.Id && x.Relacion == RelacionPoliza.Reversa
+                && x.Estado == EstadoPoliza.Autorizada).Select(x => new { x.TipoClave, x.Numero }).FirstOrDefaultAsync(ct) is { } reversa)
+            throw new BusinessRuleException("CONTAB_POLIZA_TIENE_REVERSA",
+                $"La póliza ya tiene su reversa automática {Poliza.FormatearFolio(reversa.TipoClave, reversa.Numero!.Value)}: anule primero la reversa.");
         var tipo = await db.TiposDocumento.AsNoTracking().FirstAsync(t => t.Id == original.TipoOperacionId, ct);
         var periodoOriginal = (original.PeriodoAnio, original.PeriodoNumero);
         var rechazoOriginal = await RechazoPeriodoAsync(original.PeriodoAnio, original.PeriodoNumero, original.Origen, ct);

@@ -22,6 +22,13 @@ public enum OrigenPoliza : short { Manual = 0, Automatica = 1 }
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum EstadoPoliza : short { Borrador = 0, Autorizada = 1, Anulada = 2 }
 
+/// <summary>
+/// Relación de una póliza con otra (K10.4): la reversa automática de una recurrente y la reclasificación ligada al origen. La
+/// anulación (K10.3) conserva su propia liga (<see cref="Poliza.PolizaAnuladaId"/>). Fijo por ABI: agregar al final.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum RelacionPoliza : short { Reversa = 1, Reclasificacion = 2 }
+
 /// <summary>Documento del módulo que originó la póliza (C1.3): módulo, tipo, id, folio y UUID del CFDI cuando aplica.</summary>
 public sealed record DocumentoOrigenPoliza(string Modulo, string Tipo, Guid Id, string? Folio, string? Uuid);
 
@@ -79,6 +86,12 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
     public string? MotivoAnulacion { get; private set; }
     public string? AnuladaPor { get; private set; }
     public DateTimeOffset? AnuladaEn { get; private set; }
+
+    /// <summary>K10.4: póliza con la que se relaciona esta (la revertida o la reclasificada) y el tipo de relación.</summary>
+    public Guid? PolizaRelacionadaId { get; private set; }
+    public RelacionPoliza? Relacion { get; private set; }
+    /// <summary>K10.4: plantilla recurrente que generó la póliza y el periodo de la recurrencia.</summary>
+    public Guid? PlantillaRecurrenteId { get; private set; }
 
     public Guid? CapturadaPorId { get; private set; }
     public string CapturadaPor { get; private set; } = string.Empty;
@@ -250,6 +263,64 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
         AnuladaPor = usuarioNombre;
         AnuladaEn = ahora;
         return anulacion;
+    }
+
+    /// <summary>K10.4: la póliza la generó una plantilla recurrente; la llave evita una segunda póliza del mismo periodo.</summary>
+    public void MarcarRecurrente(Guid plantillaId, string llave)
+    {
+        ExigirBorrador("marcar como recurrente");
+        PlantillaRecurrenteId = plantillaId;
+        LlaveIdempotencia = llave;
+    }
+
+    /// <summary>K10.4: la póliza reclasifica a otra (autorizada); queda ligada para verse en ambos sentidos.</summary>
+    public void LigarReclasificacion(Poliza original)
+    {
+        ExigirBorrador("ligar");
+        if (original.Estado != EstadoPoliza.Autorizada)
+            throw new BusinessRuleException("CONTAB_POLIZA_RECLASIFICA_NO_AUTORIZADA", "Solo se reclasifica una póliza autorizada.");
+        PolizaRelacionadaId = original.Id;
+        Relacion = RelacionPoliza.Reclasificacion;
+        if (OrigenDocumentoId is null && original.OrigenDocumentoId is not null)
+        {
+            OrigenModulo = original.OrigenModulo;
+            OrigenTipo = original.OrigenTipo;
+            OrigenDocumentoId = original.OrigenDocumentoId;
+            OrigenFolio = original.OrigenFolio;
+            OrigenUuid = original.OrigenUuid;
+        }
+    }
+
+    /// <summary>
+    /// Reversa automática de una recurrente (K10.4-b): con la misma regla que la anulación (R10: mismas partidas en negativo, mismo
+    /// lado), concepto «Reversa de TT-000123», ligada a esta. A diferencia de la anulación, la original NO cambia de estado: fue válida
+    /// en su periodo. Nace autorizada con el número ya reservado.
+    /// </summary>
+    public Poliza Revertir(Guid reversaId, TipoDocumentoContable tipo, DateOnly fecha, int periodoAnio, int periodoNumero, int numero,
+        Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
+    {
+        if (Estado != EstadoPoliza.Autorizada)
+            throw new BusinessRuleException("CONTAB_POLIZA_REVERSA_NO_AUTORIZADA", "Solo se revierte una póliza autorizada.");
+        if (EsAnulacion || Relacion == RelacionPoliza.Reversa)
+            throw new BusinessRuleException("CONTAB_POLIZA_REVERSA_INVALIDA", "Una anulación o una reversa no se revierten.");
+        if (tipo.Id != TipoOperacionId)
+            throw new BusinessRuleException("CONTAB_POLIZA_REVERSA_TIPO", "La reversa lleva el mismo tipo de operación que la póliza original.");
+        var documento = OrigenDocumentoId is { } docId ? new DocumentoOrigenPoliza(OrigenModulo!, OrigenTipo!, docId, OrigenFolio, OrigenUuid) : null;
+        var reversa = new Poliza(reversaId, tipo, fecha, periodoAnio, periodoNumero, $"Reversa de {Folio}", Origen, documento, usuarioId, usuarioNombre)
+        {
+            EmpresaId = EmpresaId,
+            PolizaRelacionadaId = Id,
+            Relacion = RelacionPoliza.Reversa,
+            PlantillaRecurrenteId = PlantillaRecurrenteId,
+            LlaveIdempotencia = $"reversa:{Id}",
+        };
+        reversa.ReemplazarPartidas(_partidas.OrderBy(x => x.Linea).Select(x => x.Negada()), admiteNegativos: true);
+        reversa.AsignarNumero(numero);
+        reversa.Estado = EstadoPoliza.Autorizada;
+        reversa.AutorizadaPorId = usuarioId;
+        reversa.AutorizadaPor = usuarioNombre;
+        reversa.AutorizadaEn = ahora;
+        return reversa;
     }
 
     public static void ValidarMotivo(string? motivo)

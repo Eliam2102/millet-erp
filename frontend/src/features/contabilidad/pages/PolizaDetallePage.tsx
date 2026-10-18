@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Ban, CheckCheck, Pencil, Printer, Trash2, X } from 'lucide-react';
+import { Ban, CheckCheck, GitBranch, Pencil, Printer, Repeat, Trash2, Undo2, X } from 'lucide-react';
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,13 +12,13 @@ import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { formatDateTime } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 import { useAutorizarPoliza, useDescartarPoliza, usePoliza, usePolizas } from '../api/polizas';
-import type { Partida, Poliza } from '../api/polizas-types';
+import type { Partida, Poliza, PolizaLigada } from '../api/polizas-types';
 import { AnularPolizaDialog } from '../components/polizas/AnularPolizaDialog';
 import { CuadrePoliza } from '../components/polizas/CuadrePoliza';
 import { EstadoPolizaBadge } from '../components/polizas/EstadoPolizaBadge';
 import { PolizaSheet } from '../components/polizas/PolizaSheet';
 import { fechaCorta } from '../lib/dimensiones';
-import { etiquetaPeriodo, folioOBorrador, importeLado, mensajePoliza, monto, type PolizasSearch } from '../lib/polizas';
+import { ETIQUETA_RELACION, etiquetaPeriodo, folioOBorrador, importeLado, mensajePoliza, monto, type PolizasSearch } from '../lib/polizas';
 
 const PERMISOS_ADJUNTOS = {
   ver: PermisosCanonicos.ContabilidadPolizasLeer,
@@ -97,6 +97,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
   const [editando, setEditando] = useState(false);
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
   const [anulando, setAnulando] = useState(false);
+  const [reclasificando, setReclasificando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [aviso, setAviso] = useState('');
 
@@ -159,7 +160,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
         data-print="hidden"
       >
         <span className={cn('text-sm font-medium', p.folio && 'font-mono')}>{folioOBorrador(p.folio)}</span>
-        <EstadoPolizaBadge estado={p.estado} esAnulacion={esAnulacion} />
+        <EstadoPolizaBadge estado={p.estado} esAnulacion={esAnulacion} relacion={p.relacion} esRecurrente={!!p.plantillaRecurrenteId} />
         <span className="ml-auto flex flex-wrap items-center gap-2">
           {esBorrador && puedeCapturar && (
             <>
@@ -170,6 +171,11 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           {esBorrador && puedeAutorizar && (
             <Button disabled={!!motivoNoAutoriza || autorizar.isPending} title={motivoNoAutoriza} onClick={() => onAutorizar(p)}>
               <CheckCheck className="mr-1 size-3.5" aria-hidden="true" />{autorizar.isPending ? 'Autorizando…' : 'Autorizar'}
+            </Button>
+          )}
+          {p.estado === 'Autorizada' && !esAnulacion && puedeCapturar && (
+            <Button variant="secondary" onClick={() => { setMensaje(''); setAviso(''); setReclasificando(true); }}>
+              <GitBranch className="mr-1 size-3.5" aria-hidden="true" />Reclasificar
             </Button>
           )}
           {p.estado === 'Autorizada' && !esAnulacion && puedeAnular && (
@@ -188,7 +194,7 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
         <header className="flex flex-col gap-1">
           <h1 className="flex flex-wrap items-center gap-2 text-3xl font-semibold">
             <span className={p.folio ? 'font-mono' : undefined}>{p.folio ?? 'Borrador'}</span>
-            <EstadoPolizaBadge estado={p.estado} esAnulacion={esAnulacion} />
+            <EstadoPolizaBadge estado={p.estado} esAnulacion={esAnulacion} relacion={p.relacion} esRecurrente={!!p.plantillaRecurrenteId} />
           </h1>
           <p className="text-sm text-ink-secondary">
             <span className="font-mono text-xs">{p.tipoClave}</span> {p.tipoNombre ?? ''} · Tipo SAT {p.tipoSat}
@@ -226,6 +232,37 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
           </section>
         )}
 
+        {p.plantillaRecurrenteId && (
+          <p role="note" aria-label="Plantilla recurrente" className="flex items-start gap-2 rounded-md bg-info-bg px-3 py-2.5 text-sm text-info-fg">
+            <Repeat className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
+            <span>
+              Generada por la plantilla{' '}
+              <Link to="/contabilidad/polizas/recurrentes/$id" params={{ id: p.plantillaRecurrenteId }} className="font-medium underline">
+                «{p.plantillaRecurrenteNombre ?? '[PLANTILLA]'}»
+              </Link>
+              .
+            </span>
+          </p>
+        )}
+        {p.polizaRelacionadaId && p.relacion && (
+          <p
+            role="note" aria-label={p.relacion === 'Reversa' ? 'Póliza revertida' : 'Póliza reclasificada'}
+            className={cn('flex items-start gap-2 rounded-md px-3 py-2.5 text-sm',
+              p.relacion === 'Reversa' ? 'bg-warning-note-bg text-warning-note-fg' : 'bg-info-bg text-info-fg')}
+          >
+            {p.relacion === 'Reversa'
+              ? <Undo2 className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />
+              : <GitBranch className="mt-0.5 size-4 shrink-0" strokeWidth={1.6} aria-hidden="true" />}
+            <span>
+              {p.relacion === 'Reversa' ? 'Reversa de' : 'Reclasifica a'}{' '}
+              <Link to="/contabilidad/polizas/$id" params={{ id: p.polizaRelacionadaId }} search={search} className="font-mono font-medium underline">
+                {p.polizaRelacionadaFolio ?? 'póliza original'}
+              </Link>
+              {p.relacion === 'Reversa' ? ': mismas partidas con importes en negativo, el día 1 del periodo siguiente.' : '.'}
+            </span>
+          </p>
+        )}
+
         <dl className="grid grid-cols-2 gap-4 rounded-lg bg-surface-card p-4 shadow-card-flat md:grid-cols-4">
           <Dato k="Tipo de operación"><span className="font-mono text-xs">{p.tipoClave}</span> {p.tipoNombre ?? ''}</Dato>
           <Dato k="Tipo SAT">{p.tipoSat}</Dato>
@@ -247,6 +284,8 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
 
         <TablaPartidas poliza={p} />
         <CuadrePoliza totalCargos={p.totalCargos} totalAbonos={p.totalAbonos} />
+
+        {(p.ligadas ?? []).length > 0 && <PolizasLigadas ligadas={p.ligadas ?? []} search={search} />}
 
         <section aria-label="Actividad" className="rounded-lg bg-surface-card p-4 shadow-card-flat">
           <h2 className="mb-2 text-md font-semibold">Actividad</h2>
@@ -285,12 +324,52 @@ function DetallePoliza({ id, search, onNavegar }: Props) {
         </DialogContent>
       </Dialog>
 
+      {p.estado === 'Autorizada' && (
+        <PolizaSheet
+          open={reclasificando} onOpenChange={setReclasificando} reclasifica={{ id: p.id, folio: p.folio }}
+          onGuardada={(nueva) => onNavegar(nueva.id)}
+        />
+      )}
+
       <AnularPolizaDialog
         poliza={anulando ? p : null}
         onClose={() => setAnulando(false)}
         onAnulada={(nueva) => { setAnulando(false); onNavegar(nueva.id); }}
       />
     </div>
+  );
+}
+
+function PolizasLigadas({ ligadas, search }: { ligadas: PolizaLigada[]; search: PolizasSearch }) {
+  return (
+    <section aria-label="Pólizas ligadas" className="overflow-hidden rounded-lg bg-surface-card shadow-card-flat">
+      <h2 className="border-b border-line-divider px-4 py-3 text-md font-semibold">Pólizas ligadas</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className="border-b border-line-divider bg-surface-subtle text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <tr><th className="h-9 px-3">Relación</th><th className="px-3">Folio</th><th className="px-3">Fecha</th><th className="px-3">Concepto</th><th className="px-3">Estado</th></tr>
+          </thead>
+          <tbody>
+            {ligadas.map((l) => (
+              <tr key={l.id} className="h-12 border-b border-line-row">
+                <td className="px-3">{ETIQUETA_RELACION[l.relacion]}</td>
+                <td className="px-3">
+                  <Link
+                    to="/contabilidad/polizas/$id" params={{ id: l.id }} search={search}
+                    className={cn('text-xs font-medium text-brand hover:underline', l.folio && 'font-mono')}
+                  >
+                    {folioOBorrador(l.folio)}
+                  </Link>
+                </td>
+                <td className="whitespace-nowrap px-3 text-ink-secondary">{fechaCorta(l.fecha)}</td>
+                <td className="max-w-[320px] truncate px-3" title={l.concepto}>{l.concepto}</td>
+                <td className="px-3"><EstadoPolizaBadge estado={l.estado} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

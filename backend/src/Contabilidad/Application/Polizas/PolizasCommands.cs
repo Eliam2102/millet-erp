@@ -13,11 +13,11 @@ public sealed record DocumentoOrigenRequest(string Modulo, string Tipo, Guid Id,
 
 /// <summary>
 /// Encabezado y partidas de una póliza manual. <c>PeriodoNumero</c> solo se indica para el 13 de ajustes (fecha 31-dic); los
-/// demás periodos salen de la fecha.
+/// demás periodos salen de la fecha. <c>ReclasificaPolizaId</c> (K10.4): la póliza autorizada que esta reclasifica; queda ligada.
 /// </summary>
 public sealed record PolizaManualRequest(
     Guid TipoOperacionId, DateOnly Fecha, string Concepto, IReadOnlyList<PartidaRequest> Partidas,
-    int? PeriodoNumero = null, DocumentoOrigenRequest? DocumentoOrigen = null);
+    int? PeriodoNumero = null, DocumentoOrigenRequest? DocumentoOrigen = null, Guid? ReclasificaPolizaId = null);
 
 public sealed class PartidaRequestValidator : AbstractValidator<PartidaRequest>
 {
@@ -74,6 +74,12 @@ public sealed class CrearPolizaHandler(
             var partidas = await registro.ValidarPartidasAsync(r.Partidas, tipo.Id, r.Fecha, OrigenMovimiento.Manual, ct);
             poliza = Poliza.CrearManual(Guid.CreateVersion7(), tipo, r.Fecha, anio, numero, r.Concepto, Documento(r.DocumentoOrigen),
                 partidas.Partidas, usuario.UserId, PoliticaPolizas.Usuario(usuario));
+            if (r.ReclasificaPolizaId is { } reclasificada)
+            {
+                var original = await db.Polizas.AsNoTracking().FirstOrDefaultAsync(x => x.Id == reclasificada, ct)
+                    ?? throw new EntityNotFoundException("CONTAB_POLIZA_NO_ENCONTRADA", $"No existe la póliza a reclasificar '{reclasificada}'.");
+                poliza.LigarReclasificacion(original);
+            }
             db.Polizas.Add(poliza);
             await db.SaveChangesAsync(ct);
         }, cancellationToken);

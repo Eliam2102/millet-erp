@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { esApiError } from '@/lib/api';
-import type { EstadoPoliza, TipoPolizaSat } from '../api/polizas-types';
+import type { EstadoPoliza, RelacionPoliza, TipoPolizaSat } from '../api/polizas-types';
 
 type VarianteBadge = 'success' | 'warning' | 'info' | 'neutral' | 'danger';
 
@@ -10,6 +10,9 @@ export const VARIANTE_ESTADO_POLIZA: Record<EstadoPoliza, VarianteBadge> = {
   Autorizada: 'success',
   Anulada: 'danger',
 };
+
+/** K10.4: texto de la relación de una póliza derivada con su original. */
+export const ETIQUETA_RELACION: Record<RelacionPoliza, string> = { Reversa: 'Reversa', Reclasificacion: 'Reclasificación' };
 
 /** K10.9: la clave de un tipo de operación real son dos letras (TT, PC, RF…); los de prueba conservan clave libre. */
 export const CLAVE_OPERACION = /^[A-Z]{2}$/;

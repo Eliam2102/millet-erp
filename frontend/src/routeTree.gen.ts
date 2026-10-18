@@ -84,6 +84,8 @@ import { Route as AppContabilidadPolizasIndexRouteImport } from './routes/_app/c
 import { Route as AppContabilidadCatalogoIdRouteImport } from './routes/_app/contabilidad/catalogo.$id';
 import { Route as AppContabilidadPolizasIdRouteImport } from './routes/_app/contabilidad/polizas.$id';
 import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/contabilidad/polizas.saldos';
+import { Route as AppContabilidadPolizasRecurrentesIndexRouteImport } from './routes/_app/contabilidad/polizas.recurrentes.index';
+import { Route as AppContabilidadPolizasRecurrentesIdRouteImport } from './routes/_app/contabilidad/polizas.recurrentes.$id';
 import { Route as AppCxcAlertasIndexRouteImport } from './routes/_app/cxc/alertas/index';
 import { Route as AppCxcAnticiposIndexRouteImport } from './routes/_app/cxc/anticipos/index';
 import { Route as AppCxcAplicacionesIndexRouteImport } from './routes/_app/cxc/aplicaciones/index';
@@ -574,6 +576,18 @@ const AppContabilidadPolizasSaldosRoute =
   AppContabilidadPolizasSaldosRouteImport.update({
     id: '/contabilidad/polizas/saldos',
     path: '/contabilidad/polizas/saldos',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasRecurrentesIndexRoute =
+  AppContabilidadPolizasRecurrentesIndexRouteImport.update({
+    id: '/contabilidad/polizas/recurrentes/',
+    path: '/contabilidad/polizas/recurrentes/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasRecurrentesIdRoute =
+  AppContabilidadPolizasRecurrentesIdRouteImport.update({
+    id: '/contabilidad/polizas/recurrentes/$id',
+    path: '/contabilidad/polizas/recurrentes/$id',
     getParentRoute: () => AppRoute,
   } as any);
 const AppCxcAlertasIndexRoute = AppCxcAlertasIndexRouteImport.update({
@@ -1154,6 +1168,7 @@ export interface FileRoutesByFullPath {
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
+  '/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -1211,6 +1226,7 @@ export interface FileRoutesByFullPath {
   '/compras/requisiciones/': typeof AppComprasRequisicionesIndexRoute;
   '/contabilidad/catalogo/': typeof AppContabilidadCatalogoIndexRoute;
   '/contabilidad/polizas/': typeof AppContabilidadPolizasIndexRoute;
+  '/contabilidad/polizas/recurrentes/': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
@@ -1323,6 +1339,7 @@ export interface FileRoutesByTo {
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
   '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
+  '/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -1380,6 +1397,7 @@ export interface FileRoutesByTo {
   '/compras/requisiciones': typeof AppComprasRequisicionesIndexRoute;
   '/contabilidad/catalogo': typeof AppContabilidadCatalogoIndexRoute;
   '/contabilidad/polizas': typeof AppContabilidadPolizasIndexRoute;
+  '/contabilidad/polizas/recurrentes': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/cxc/alertas': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones': typeof AppCxcAplicacionesIndexRoute;
@@ -1494,6 +1512,7 @@ export interface FileRoutesById {
   '/_app/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
   '/_app/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
   '/_app/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
+  '/_app/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/_app/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/_app/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/_app/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -1551,6 +1570,7 @@ export interface FileRoutesById {
   '/_app/compras/requisiciones/': typeof AppComprasRequisicionesIndexRoute;
   '/_app/contabilidad/catalogo/': typeof AppContabilidadCatalogoIndexRoute;
   '/_app/contabilidad/polizas/': typeof AppContabilidadPolizasIndexRoute;
+  '/_app/contabilidad/polizas/recurrentes/': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/_app/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/_app/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/_app/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
@@ -1665,6 +1685,7 @@ export interface FileRouteTypes {
     | '/contabilidad/catalogo/$id'
     | '/contabilidad/polizas/$id'
     | '/contabilidad/polizas/saldos'
+    | '/contabilidad/polizas/recurrentes/$id'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
     | '/cxp/admin/aprobadores'
@@ -1722,6 +1743,7 @@ export interface FileRouteTypes {
     | '/compras/requisiciones/'
     | '/contabilidad/catalogo/'
     | '/contabilidad/polizas/'
+    | '/contabilidad/polizas/recurrentes/'
     | '/cxc/alertas/'
     | '/cxc/anticipos/'
     | '/cxc/aplicaciones/'
@@ -1834,6 +1856,7 @@ export interface FileRouteTypes {
     | '/contabilidad/catalogo/$id'
     | '/contabilidad/polizas/$id'
     | '/contabilidad/polizas/saldos'
+    | '/contabilidad/polizas/recurrentes/$id'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
     | '/cxp/admin/aprobadores'
@@ -1891,6 +1914,7 @@ export interface FileRouteTypes {
     | '/compras/requisiciones'
     | '/contabilidad/catalogo'
     | '/contabilidad/polizas'
+    | '/contabilidad/polizas/recurrentes'
     | '/cxc/alertas'
     | '/cxc/anticipos'
     | '/cxc/aplicaciones'
@@ -2004,6 +2028,7 @@ export interface FileRouteTypes {
     | '/_app/contabilidad/catalogo/$id'
     | '/_app/contabilidad/polizas/$id'
     | '/_app/contabilidad/polizas/saldos'
+    | '/_app/contabilidad/polizas/recurrentes/$id'
     | '/_app/cxc/aplicaciones/$id'
     | '/_app/cxc/lineas-credito/$id'
     | '/_app/cxp/admin/aprobadores'
@@ -2061,6 +2086,7 @@ export interface FileRouteTypes {
     | '/_app/compras/requisiciones/'
     | '/_app/contabilidad/catalogo/'
     | '/_app/contabilidad/polizas/'
+    | '/_app/contabilidad/polizas/recurrentes/'
     | '/_app/cxc/alertas/'
     | '/_app/cxc/anticipos/'
     | '/_app/cxc/aplicaciones/'
@@ -2651,6 +2677,20 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/polizas/saldos';
       fullPath: '/contabilidad/polizas/saldos';
       preLoaderRoute: typeof AppContabilidadPolizasSaldosRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/polizas/recurrentes/': {
+      id: '/_app/contabilidad/polizas/recurrentes/';
+      path: '/contabilidad/polizas/recurrentes';
+      fullPath: '/contabilidad/polizas/recurrentes/';
+      preLoaderRoute: typeof AppContabilidadPolizasRecurrentesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/polizas/recurrentes/$id': {
+      id: '/_app/contabilidad/polizas/recurrentes/$id';
+      path: '/contabilidad/polizas/recurrentes/$id';
+      fullPath: '/contabilidad/polizas/recurrentes/$id';
+      preLoaderRoute: typeof AppContabilidadPolizasRecurrentesIdRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxc/alertas/': {
@@ -3376,6 +3416,8 @@ interface AppRouteChildren {
   AppContabilidadCatalogoIdRoute: typeof AppContabilidadCatalogoIdRoute;
   AppContabilidadPolizasIdRoute: typeof AppContabilidadPolizasIdRoute;
   AppContabilidadPolizasSaldosRoute: typeof AppContabilidadPolizasSaldosRoute;
+  AppContabilidadPolizasRecurrentesIndexRoute: typeof AppContabilidadPolizasRecurrentesIndexRoute;
+  AppContabilidadPolizasRecurrentesIdRoute: typeof AppContabilidadPolizasRecurrentesIdRoute;
   AppCxcAplicacionesIdRoute: typeof AppCxcAplicacionesIdRoute;
   AppCxcLineasCreditoIdRoute: typeof AppCxcLineasCreditoIdRoute;
   AppCxpAdminAprobadoresRoute: typeof AppCxpAdminAprobadoresRoute;
@@ -3545,6 +3587,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppContabilidadCatalogoIdRoute: AppContabilidadCatalogoIdRoute,
   AppContabilidadPolizasIdRoute: AppContabilidadPolizasIdRoute,
   AppContabilidadPolizasSaldosRoute: AppContabilidadPolizasSaldosRoute,
+  AppContabilidadPolizasRecurrentesIndexRoute: AppContabilidadPolizasRecurrentesIndexRoute,
+  AppContabilidadPolizasRecurrentesIdRoute: AppContabilidadPolizasRecurrentesIdRoute,
   AppCxcAplicacionesIdRoute: AppCxcAplicacionesIdRoute,
   AppCxcLineasCreditoIdRoute: AppCxcLineasCreditoIdRoute,
   AppCxpAdminAprobadoresRoute: AppCxpAdminAprobadoresRoute,
