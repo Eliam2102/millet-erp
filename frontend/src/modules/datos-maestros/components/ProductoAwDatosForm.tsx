@@ -469,20 +469,23 @@ interface FormRowProps {
 function FormRow({ label, required, hint, error, children }: FormRowProps) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1 text-sm font-medium">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="text-rose-600">
-            *
-          </span>
-        )}
+      {/* El label envuelve el control: asociación implícita, sin ids por campo. */}
+      <label className="block space-y-1.5">
+        <span className="flex items-center gap-1 text-sm font-medium">
+          {label}
+          {required && (
+            <span aria-hidden="true" className="text-danger-fg">
+              *
+            </span>
+          )}
+        </span>
+        {children}
       </label>
-      {children}
       {hint != null && error == null && (
         <p className="text-xs text-muted-foreground">{hint}</p>
       )}
       {error != null && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-danger-fg">
           {error}
         </p>
       )}
