@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { useEjecucionesSync } from '@/modules/datos-maestros/api/clientes';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { mensajeErrorSincronizacion, useEjecucionesSync } from '@/modules/datos-maestros/api/clientes';
 import { EstadoCorridaBadge } from '@/modules/datos-maestros/components/EstadoCorridaBadge';
 import {
   fechaCorridaAw,
@@ -22,6 +23,7 @@ import {
 } from '@/modules/datos-maestros/api/sincronizacion-aw';
 
 const POR_PAGINA = 10;
+const ENTIDAD_MATRIZ: Record<string, string> = { Cliente: 'Cliente', ProductoAw: 'Producto A+W' };
 
 function mensaje(error: unknown) {
   return esApiError(error) ? (error.problem.detail ?? error.problem.title) : 'No se pudo resolver el conflicto. Reintenta.';
@@ -52,7 +54,7 @@ export function SincronizacionAwPage() {
   function correr() {
     iniciarCorrida.mutate(undefined, {
       onSuccess: (r) => { void navigate({ to: '/admin/datos-maestros/sincronizacion-aw/$id', params: { id: r.id } }); },
-      onError: (e) => toast.error(esApiError(e) ? (e.problem.detail ?? e.problem.title) : 'No se pudo iniciar la corrida.'),
+      onError: (e) => toast.error(mensajeErrorSincronizacion(e)),
     });
   }
 
@@ -67,9 +69,9 @@ export function SincronizacionAwPage() {
   }
 
   return (
-    <div className="space-y-5 p-6 text-sm text-ink">
+    <div className="space-y-5 text-sm text-ink">
       <nav aria-label="Migas" className="text-xs text-ink-muted">Administración / Datos maestros / Sincronización con A+W</nav>
-      <h1 className="text-lg font-semibold">Sincronización con A+W</h1>
+      <PageHeader titulo="Sincronización con A+W" />
 
       <section className="rounded-lg bg-surface-card p-4 shadow-card-flat" aria-label="Corridas">
         <div className="flex items-center justify-between gap-3">
@@ -196,7 +198,8 @@ export function SincronizacionAwPage() {
         {matriz.isError && <p role="alert" className="text-danger-fg">No se pudo cargar la matriz.</p>}
         {matriz.data && (
           <>
-            <p className="text-ink-muted">Versión {matriz.data.version} · propuesta, pendiente de acordar con TI</p>
+            <p className="text-ink-muted">{`Versión ${matriz.data.version}`}
+              {/propuesta/i.test(matriz.data.version) ? ' · pendiente de acordar con TI' : ' · acordada con TI'}</p>
             <Table>
               <TableHeader>
                 <TableRow><TableHead>Entidad</TableHead><TableHead>Campo</TableHead><TableHead>Dueño</TableHead><TableHead>Si difiere</TableHead></TableRow>
@@ -204,7 +207,7 @@ export function SincronizacionAwPage() {
               <TableBody>
                 {matriz.data.campos.map((m) => (
                   <TableRow key={`${m.entidad}-${m.campo}`}>
-                    <TableCell>{m.entidad}</TableCell>
+                    <TableCell>{ENTIDAD_MATRIZ[m.entidad] ?? m.entidad}</TableCell>
                     <TableCell>{m.campo}</TableCell>
                     <TableCell><Badge variant={m.dueno === 'AW' ? 'info' : 'neutral'}>{m.dueno === 'AW' ? 'A+W' : 'ERP'}</Badge></TableCell>
                     <TableCell>{m.siDifiere}</TableCell>

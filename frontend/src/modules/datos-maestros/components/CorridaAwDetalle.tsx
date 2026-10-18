@@ -7,7 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { esApiError } from '@/lib/api';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
-import { useEjecucionSync } from '@/modules/datos-maestros/api/clientes';
+import { PageHeader } from '@/components/erp/PageHeader';
+import { mensajeErrorSincronizacion, useEjecucionSync, useReintentarCliente } from '@/modules/datos-maestros/api/clientes';
+import { ErroresEjecucionSync } from '@/modules/datos-maestros/components/ErroresEjecucionSync';
 import { etiquetaAwOrigen, useAwOrigen } from '@/modules/datos-maestros/api/aw-origen';
 import {
   fechaCorridaAw,
@@ -37,6 +39,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
   const clientes = useConflictosAw('clientes', 'Todos', true, id);
   const productos = useConflictosAw('productos-aw', 'Todos', puedeProductos, id);
   const iniciar = useIniciarCorridaAw();
+  const reintentar = useReintentarCliente();
   const [descargando, setDescargando] = useState(false);
 
   const e = ejecucion.data;
@@ -47,7 +50,16 @@ export function CorridaAwDetalle({ id }: { id: string }) {
   function volverACorrer() {
     iniciar.mutate(undefined, {
       onSuccess: (r) => { void navigate({ to: '/admin/datos-maestros/sincronizacion-aw/$id', params: { id: r.id } }); },
-      onError: (err) => toast.error(esApiError(err) ? (err.problem.detail ?? err.problem.title) : 'No se pudo iniciar la corrida.'),
+      onError: (err) => toast.error(mensajeErrorSincronizacion(err)),
+    });
+  }
+
+  function reintentarReferencia(referencia: string) {
+    reintentar.mutate({ referencia }, {
+      onSuccess: (r) => (r.estado === 'Completa'
+        ? toast.success(`Referencia ${referencia} reprocesada.`)
+        : toast.warning(r.errores[0]?.mensaje ?? `La lectura de ${referencia} terminó con estado ${r.estado}.`)),
+      onError: (err) => toast.error(mensajeErrorSincronizacion(err)),
     });
   }
 
@@ -66,7 +78,7 @@ export function CorridaAwDetalle({ id }: { id: string }) {
   }
 
   return (
-    <div className="space-y-5 p-6 text-sm text-ink">
+    <div className="space-y-5 text-sm text-ink">
       <nav aria-label="Migas" className="text-xs text-ink-muted">
         Administración / Datos maestros /{' '}
         <Link to="/admin/datos-maestros/sincronizacion-aw" className="text-brand">Sincronización con A+W</Link>
@@ -76,13 +88,11 @@ export function CorridaAwDetalle({ id }: { id: string }) {
       {ejecucion.isError && <p role="alert" className="text-danger-fg">No se pudo cargar la corrida.</p>}
       {e && (
         <>
-          <header className="space-y-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-lg font-semibold">{`Corrida de clientes y productos · ${fecha}`}</h1>
-              <EstadoCorridaBadge estado={e.estado} />
-            </div>
-            {origen.data && <p className="text-xs text-ink-muted">{etiquetaAwOrigen(origen.data, 'clientes')}</p>}
-          </header>
+          <PageHeader
+            titulo={`Corrida de clientes y productos · ${fecha}`}
+            estado={<EstadoCorridaBadge estado={e.estado} />}
+            descripcion={origen.data ? etiquetaAwOrigen(origen.data, 'clientes') : undefined}
+          />
 
           <div data-print="hidden" className="flex flex-wrap gap-2">
             <Button variant="secondary" disabled={descargando} onClick={() => { void descargar(); }}>
@@ -103,12 +113,22 @@ export function CorridaAwDetalle({ id }: { id: string }) {
               <Kpi etiqueta="Sin cambios" valor={e.sinCambios} />
               <Kpi etiqueta="Errores" valor={e.erroresTruncados ? `${e.errores.length}+` : e.errores.length} />
             </div>
+            {e.errores.length > 0 && (
+              <ErroresEjecucionSync
+                errores={e.errores}
+                truncados={e.erroresTruncados}
+                reintentando={reintentar.isPending ? reintentar.variables?.referencia : null}
+                onReintentar={reintentarReferencia}
+              />
+            )}
           </section>
 
           <section aria-label="Productos" className="space-y-2">
             <h2 className="text-lg font-semibold">Productos</h2>
             {resumen?.error ? (
               <p role="alert" className="text-danger-fg">{resumen.mensaje ?? resumen.error}</p>
+            ) : resumen == null ? (
+              <p className="text-ink-muted">Sin resumen de productos para esta corrida.</p>
             ) : (
               <div className="grid grid-cols-4 gap-3">
                 <Kpi etiqueta="Leídos" valor={resumen?.leidos} />

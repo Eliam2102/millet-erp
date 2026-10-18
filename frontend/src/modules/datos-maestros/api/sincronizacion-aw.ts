@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { formatDateTime } from '@/lib/datetime';
 import type { EjecucionSyncAceptada } from '@/modules/datos-maestros/api/types';
 
 export interface CampoDuenoAw { entidad: string; campo: string; dueno: 'AW' | 'ERP'; siDifiere: string }
@@ -110,7 +111,7 @@ export interface ResumenProductosAw {
 }
 
 export function fechaCorridaAw(v: string | null | undefined) {
-  return v ? new Date(v).toLocaleString('es-MX') : '—';
+  return v ? formatDateTime(v) : '—';
 }
 
 export function leerResumenProductos(json: string | null | undefined): ResumenProductosAw | null {

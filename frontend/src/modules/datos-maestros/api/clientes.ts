@@ -317,7 +317,7 @@ export function mensajeErrorSincronizacion(error: unknown): string {
     case 409:
       return 'Ya hay una sincronización en curso. Espera a que termine.';
     case 503:
-      return 'La sincronización con A+W no está disponible (lectura o aplicación deshabilitada, u origen sin configurar).';
+      return 'La sincronización con A+W no está disponible ahora. Avisa a TI.';
     case 422:
       return 'La referencia del cliente no es válida para sincronizar.';
     case 403:

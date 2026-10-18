@@ -242,7 +242,11 @@ function FilaExpediente({
               : 'Sin documento'}
           </p>
         </div>
-        <EstadoExpedienteBadge estado={doc.estado} />
+        {!doc.obligatorio && doc.estado === EstadoExpediente.Faltante ? (
+          <Badge variant="neutral">Opcional · sin archivo</Badge>
+        ) : (
+          <EstadoExpedienteBadge estado={doc.estado} />
+        )}
         <div className="col-span-2 flex items-center justify-end gap-1 sm:col-span-1">
           {actual && actual.estado !== EstadoAdjunto.Baja && (
             <Button
