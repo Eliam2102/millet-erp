@@ -18,10 +18,12 @@ const LineaCotizacionSchema = z
       .max(10, 'La unidad admite máximo 10 caracteres.'),
     factorAUnidadRq: z
       .number({ error: 'Indica el factor de conversión.' })
-      .gt(0, 'El factor de conversión debe ser mayor a cero.'),
+      .gt(0, 'El factor de conversión debe ser mayor a cero.')
+      .max(1_000_000, 'El factor de conversión no puede exceder 1,000,000.'),
     precioUnitario: z
       .number({ error: 'Indica el precio.' })
-      .gt(0, 'El precio debe ser mayor a cero.'),
+      .gt(0, 'El precio debe ser mayor a cero.')
+      .lt(100_000_000_000, 'El precio debe ser menor a 100,000,000,000.'),
     diasEntrega: z
       .number()
       .int('Los días de entrega son un número entero.')

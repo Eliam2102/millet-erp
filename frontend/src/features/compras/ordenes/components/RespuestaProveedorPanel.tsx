@@ -24,11 +24,12 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
   const puedeRegistrar = useHasPermission(PermisosCanonicos.ComprasOrdenesRegistrarRespuestaProveedor);
   const mutation = useRegistrarRespuestaProveedor();
   const [abierto, setAbierto] = useState(false);
+  const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const respuestas = oc.respuestasProveedor ?? [];
   const autorizada = oc.estado === EstadoOrdenCompra.Autorizada;
   if (!autorizada && respuestas.length === 0) return null;
   const nombre = (id: string) => nombres.get(id)?.nombre ?? id;
-  const posicion = (lineaId: string) => oc.lineas.find((l) => l.id === lineaId)?.posicion ?? '—';
+  const posicion = (lineaId: string) => oc.lineas.find((l) => l.id === lineaId)?.posicion ?? 0;
 
   return (
     <section aria-label="Respuesta del proveedor" className="space-y-3 rounded-lg bg-surface-card p-4 shadow-card-flat">
@@ -47,7 +48,10 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
           variant="secondary"
           disabled={!autorizada}
           title={autorizada ? undefined : 'Solo se registra la respuesta en una orden autorizada.'}
-          onClick={() => setAbierto(true)}
+          onClick={() => {
+            setErrorServidor(null);
+            setAbierto(true);
+          }}
         >
           Registrar respuesta del proveedor
         </Button>
@@ -79,9 +83,15 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
                 </tr>
               </thead>
               <tbody>
-                {r.compromisos.map((c) => (
+                {[...r.compromisos]
+                  .sort(
+                    (a, b) =>
+                      posicion(a.lineaOrdenCompraId) - posicion(b.lineaOrdenCompraId) ||
+                      a.fechaPrometida.localeCompare(b.fechaPrometida),
+                  )
+                  .map((c) => (
                   <tr key={c.id}>
-                    <td className="py-1">Línea {posicion(c.lineaOrdenCompraId)}</td>
+                    <td className="py-1">Línea {posicion(c.lineaOrdenCompraId) || '—'}</td>
                     <td className="py-1 text-right tabular-nums">{c.cantidad}</td>
                     <td className="py-1 pl-4"><DateTimeDisplay value={c.fechaPrometida} /></td>
                   </tr>
@@ -108,15 +118,14 @@ export function RespuestaProveedorPanel({ oc }: { oc: OrdenCompraDetalleResponse
         open={abierto}
         onOpenChange={setAbierto}
         isPending={mutation.isPending}
+        errorServidor={errorServidor}
         onSubmit={async (command) => {
           try {
             await mutation.mutateAsync({ ordenCompraId: oc.id, command, idempotencyKey: crypto.randomUUID() });
             toast.success('Respuesta del proveedor registrada.');
             setAbierto(false);
           } catch (error) {
-            toast.error('No se pudo registrar la respuesta.', {
-              description: esApiError(error) ? error.problem.detail ?? error.problem.title : 'Vuelve a intentarlo.',
-            });
+            setErrorServidor(esApiError(error) ? error.problem.detail ?? error.problem.title : 'No se pudo registrar la respuesta. Vuelve a intentarlo.');
           }
         }}
       />

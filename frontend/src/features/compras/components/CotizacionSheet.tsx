@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { DatePickerField, Field, ProveedorSelector } from '@/components/erp';
 import { mensajeErrorAdjunto } from '@/components/erp/adjuntos/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -134,13 +135,15 @@ function FormularioCotizacion({
       onClose({ force: true });
     } catch (err) {
       if (esApiError(err)) {
-        applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err);
+        const marcado = applyServerErrors(form as unknown as Parameters<typeof applyServerErrors>[0], err);
+        if (marcado === true || marcado === 'campo') return;
+        const { title, detail } = err.problem;
         toast.error(
-          err.problem.status === 409 ? 'La cotización cambió' : err.problem.title,
+          err.problem.status === 409 ? 'La cotización cambió' : title,
           err.problem.status === 409
             ? { description: 'Recarga el comparativo e inténtalo de nuevo.' }
-            : err.problem.detail
-              ? { description: err.problem.detail }
+            : detail && detail !== title
+              ? { description: detail }
               : undefined,
         );
       } else {
@@ -149,6 +152,7 @@ function FormularioCotizacion({
     }
   }
 
+  const archivoInputId = useId();
   const guardando = registrar.isPending || editar.isPending || subida.isUploading;
 
   return (
@@ -169,18 +173,26 @@ function FormularioCotizacion({
           <Field label="Folio del proveedor" optional error={errors.folioProveedor?.message}>
             <Input {...form.register('folioProveedor')} className="font-mono" />
           </Field>
-          <Field label="Moneda" required error={errors.moneda?.message}>
-            <select
-              {...form.register('moneda')}
-              className="h-ctl-xl rounded-md border border-line-control bg-surface-card px-3 text-sm text-ink"
-            >
-              {MONEDAS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <Controller
+            control={form.control}
+            name="moneda"
+            render={({ field, fieldState }) => (
+              <Field label="Moneda" required error={fieldState.error?.message}>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONEDAS.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          />
           <Controller
             control={form.control}
             name="fechaCotizacion"
@@ -279,11 +291,23 @@ function FormularioCotizacion({
                 : 'Se adjunta a la OC si esta cotización resulta elegida'
             }
           >
-            <Input
-              type="file"
-              accept="application/pdf"
-              onChange={(ev) => setArchivo(ev.target.files?.[0] ?? null)}
-            />
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor={archivoInputId}
+                className="inline-flex cursor-pointer items-center rounded-md border border-line-control bg-surface-card px-3 py-1.5 text-sm font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand hover:bg-surface-subtle"
+              >
+                Seleccionar PDF
+                <input
+                  id={archivoInputId}
+                  type="file"
+                  aria-label="Cotización del proveedor (PDF)"
+                  accept="application/pdf"
+                  className="sr-only"
+                  onChange={(ev) => setArchivo(ev.target.files?.[0] ?? null)}
+                />
+              </label>
+              <span className="min-w-0 truncate text-sm text-ink-muted">{archivo?.name ?? 'Ningún archivo seleccionado'}</span>
+            </div>
           </Field>
           {!archivo && !cotizacion?.archivoAdjuntoId && (
             <p role="status" className="rounded-md bg-warning-bg px-3 py-2 text-xs text-warning-fg">

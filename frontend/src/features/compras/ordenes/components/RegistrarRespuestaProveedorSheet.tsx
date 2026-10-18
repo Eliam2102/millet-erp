@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Field } from '@/components/erp';
 import { Textarea } from '@/components/ui/textarea';
 import { hoyLocalISO } from '@/lib/datetime';
 import { TipoRespuestaProveedorOc, type OrdenCompraDetalleResponse } from '../api/types';
@@ -23,6 +24,8 @@ export interface RegistrarRespuestaProveedorSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isPending?: boolean;
+  /** Rechazo del servidor (p. ej. fecha anterior a la OC), mostrado dentro del formulario. */
+  errorServidor?: string | null;
   onSubmit: (values: RegistrarRespuestaProveedorValues) => Promise<void>;
 }
 
@@ -32,6 +35,7 @@ export function RegistrarRespuestaProveedorSheet({
   open,
   onOpenChange,
   isPending,
+  errorServidor,
   onSubmit,
 }: RegistrarRespuestaProveedorSheetProps) {
   return (
@@ -47,6 +51,7 @@ export function RegistrarRespuestaProveedorSheet({
           <RespuestaForm
             oc={oc}
             isPending={isPending}
+            errorServidor={errorServidor}
             onSubmit={onSubmit}
             onClose={() => onOpenChange(false)}
           />
@@ -65,11 +70,13 @@ interface FilaParcialidad {
 function RespuestaForm({
   oc,
   isPending,
+  errorServidor,
   onSubmit,
   onClose,
 }: {
   oc: OrdenCompraDetalleResponse;
   isPending?: boolean;
+  errorServidor?: string | null;
   onSubmit: (values: RegistrarRespuestaProveedorValues) => Promise<void>;
   onClose: () => void;
 }) {
@@ -168,27 +175,23 @@ function RespuestaForm({
             <Label htmlFor="resp-tipo-rechaza">El proveedor rechaza</Label>
           </div>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="resp-fecha">Fecha de respuesta</Label>
-          <Input id="resp-fecha" type="date" value={fechaRespuesta} max={hoy}
+        <Field label="Fecha de respuesta" required>
+          <Input type="date" value={fechaRespuesta} max={hoy}
             onChange={(e) => setFechaRespuesta(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="resp-contacto">Contacto del proveedor (opcional)</Label>
-          <Input id="resp-contacto" value={contacto} maxLength={120}
+        </Field>
+        <Field label="Contacto del proveedor" optional>
+          <Input value={contacto} maxLength={120}
             onChange={(e) => setContacto(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="resp-evidencia">Evidencia</Label>
-          <Input id="resp-evidencia" value={evidencia} maxLength={300}
+        </Field>
+        <Field label="Evidencia" required>
+          <Input value={evidencia} maxLength={300}
             placeholder="Correo, folio o documento del proveedor"
             onChange={(e) => setEvidencia(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="resp-texto">{confirma ? 'Comentario (opcional)' : 'Motivo del rechazo'}</Label>
-          <Textarea id="resp-texto" value={texto} maxLength={500} rows={3}
+        </Field>
+        <Field label={confirma ? 'Comentario' : 'Motivo del rechazo'} optional={confirma} required={!confirma}>
+          <Textarea value={texto} maxLength={500} rows={3}
             onChange={(e) => setTexto(e.target.value)} />
-        </div>
+        </Field>
       </fieldset>
 
       {confirma && (
@@ -206,14 +209,14 @@ function RespuestaForm({
                 {lineaFilas.map((r, i) => (
                   <div key={r.key} className="flex items-end gap-2">
                     <div className="space-y-1">
-                      <Label htmlFor={`resp-cant-${r.key}`}>Cantidad (línea {linea.posicion}, parcialidad {i + 1})</Label>
-                      <Input id={`resp-cant-${r.key}`} type="number" step="any" min="0" className="tabular-nums"
+                      <Label htmlFor={`resp-cant-${r.key}`}>Cantidad</Label>
+                      <Input id={`resp-cant-${r.key}`} type="number" aria-label={`Cantidad (línea ${linea.posicion}, parcialidad ${i + 1})`} step="any" min="0" className="tabular-nums"
                         value={r.cantidad}
                         onChange={(e) => cambiarFila(linea.id, r.key, { cantidad: e.target.value })} />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor={`resp-fecha-${r.key}`}>Fecha prometida (línea {linea.posicion}, parcialidad {i + 1})</Label>
-                      <Input id={`resp-fecha-${r.key}`} type="date" value={r.fecha}
+                      <Label htmlFor={`resp-fecha-${r.key}`}>Fecha prometida</Label>
+                      <Input id={`resp-fecha-${r.key}`} type="date" aria-label={`Fecha prometida (línea ${linea.posicion}, parcialidad ${i + 1})`} value={r.fecha}
                         onChange={(e) => cambiarFila(linea.id, r.key, { fecha: e.target.value })} />
                     </div>
                     <Button type="button" variant="ghost" size="icon" aria-label="Quitar parcialidad"
@@ -238,9 +241,9 @@ function RespuestaForm({
         </fieldset>
       )}
 
-      {error && <p role="alert" className="text-sm text-danger-fg">{error}</p>}
+      {(error ?? errorServidor) && <p role="alert" className="text-sm text-danger-fg">{error ?? errorServidor}</p>}
 
-      <div className="flex justify-end gap-2">
+      <div className="sticky bottom-0 -mx-4 -mb-4 flex justify-between gap-2 border-t border-line-row bg-surface-card p-4">
         <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
         <Button type="submit" disabled={isPending}>Registrar respuesta</Button>
       </div>

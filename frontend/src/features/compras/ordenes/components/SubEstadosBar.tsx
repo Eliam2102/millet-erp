@@ -178,7 +178,7 @@ export function SubEstadosBar({
             </div>
             <span
               className={cn(
-                'truncate tabular-nums text-muted-foreground',
+                'tabular-nums text-muted-foreground',
                 b.progreso === 'completo' && 'text-success-fg',
                 b.progreso === 'parcial' && 'text-warning-fg',
               )}

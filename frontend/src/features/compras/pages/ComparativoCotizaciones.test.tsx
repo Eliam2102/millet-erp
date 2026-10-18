@@ -121,7 +121,7 @@ describe('ComparativoCotizaciones', () => {
     });
     render(<ComparativoCotizaciones />, { wrapper: createQueryWrapper() });
     expect(screen.getAllByText('Más bajo')).toHaveLength(1);
-    expect(screen.getByText(/Vencida 2026-10-10/)).toBeInTheDocument();
+    expect(screen.getByText(/^Vencida/)).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Elegir cotización de Proveedor vencido' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Elegir cotización de Proveedor MXN' })).toBeEnabled();
   });

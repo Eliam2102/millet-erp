@@ -64,7 +64,7 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
 
   it('confirmación envía un compromiso por línea pendiente con la cantidad pendiente', async () => {
     const submit = abrirSheet();
-    fireEvent.change(screen.getByLabelText('Evidencia'), { target: { value: 'Correo P-881' } });
+    fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo P-881' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     expect(submit.mock.calls[0][0]).toMatchObject({
@@ -82,7 +82,7 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
 
   it('agregar parcialidad envía dos compromisos de la misma línea', async () => {
     const submit = abrirSheet();
-    fireEvent.change(screen.getByLabelText('Evidencia'), { target: { value: 'Correo' } });
+    fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo' } });
     fireEvent.change(screen.getByLabelText(/^Cantidad \(línea 1, parcialidad 1\)/), { target: { value: '6' } });
     fireEvent.click(screen.getByRole('button', { name: /Agregar parcialidad/ }));
     fireEvent.change(screen.getByLabelText(/^Cantidad \(línea 1, parcialidad 2\)/), { target: { value: '4' } });
@@ -96,7 +96,7 @@ describe('Respuesta del proveedor (F1-COM-11)', () => {
   it('rechazo sin motivo muestra alerta y no envía', () => {
     const submit = abrirSheet();
     fireEvent.click(screen.getByLabelText('El proveedor rechaza'));
-    fireEvent.change(screen.getByLabelText('Evidencia'), { target: { value: 'Correo' } });
+    fireEvent.change(screen.getByLabelText(/^Evidencia/), { target: { value: 'Correo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar respuesta' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Indica el motivo del rechazo del proveedor.');
     expect(submit).not.toHaveBeenCalled();

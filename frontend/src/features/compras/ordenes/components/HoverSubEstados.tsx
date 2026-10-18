@@ -59,13 +59,14 @@ export function HoverSubEstados({
       aria-label={tooltip}
       data-component="hover-sub-estados"
     >
-      <Chip letra="R" progreso={progresoRecepcion(recepcion)} kind="recepcion" />
+      <Chip letra="R" progreso={progresoRecepcion(recepcion)} kind="recepcion" title={`Recepción: ${subEstadoRecepcionToString(recepcion)}`} />
       <Chip
         letra="F"
         progreso={progresoFacturacion(facturacion)}
         kind="facturacion"
+        title={`Facturación: ${subEstadoFacturacionToString(facturacion)}`}
       />
-      <Chip letra="P" progreso={progresoPago(pago)} kind="pago" />
+      <Chip letra="P" progreso={progresoPago(pago)} kind="pago" title={`Pago: ${subEstadoPagoToString(pago)}`} />
     </div>
   );
 }
@@ -74,13 +75,16 @@ function Chip({
   letra,
   progreso,
   kind,
+  title,
 }: {
   letra: 'R' | 'F' | 'P';
   progreso: Progreso;
   kind: 'recepcion' | 'facturacion' | 'pago';
+  title: string;
 }) {
   return (
     <span
+      title={title}
       data-sub-estado={kind}
       data-progreso={progreso}
       className={cn(

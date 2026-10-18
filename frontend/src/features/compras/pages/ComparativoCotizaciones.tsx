@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { MoreHorizontal, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
-import { Breadcrumbs, EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
+import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { PageHeader } from '@/components/erp/PageHeader';
+import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { MoneyDisplay } from '@/components/erp/display/MoneyDisplay';
 import { useEnlaceAdjunto } from '@/components/erp/adjuntos/api';
 import {
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
@@ -61,7 +63,9 @@ function ArchivoCotizacion({ cot }: { cot: CotizacionComparativo }) {
       onClick={() => enlace.mutateAsync({ adjuntoId: cot.archivoAdjuntoId! })}
     >
       <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
-      {cot.archivoNombre ?? 'PDF'}
+      <span className="max-w-48 truncate" title={cot.archivoNombre ?? undefined}>
+        {cot.archivoNombre ?? 'PDF'}
+      </span>
     </Button>
   );
 }
@@ -132,6 +136,11 @@ export function ComparativoCotizaciones() {
         : !seleccionada.proveedorActivo
           ? 'El proveedor no está activo'
           : null;
+  const motivoSinRegistro = !puedeGestionar
+    ? 'No tienes permiso para registrar cotizaciones'
+    : !data.puedeRegistrar
+      ? 'La requisición ya tiene orden de compra o no tiene saldo por comprar'
+      : null;
   const puedeEditar = puedeGestionar && !data.comparativoCerrado && data.puedeRegistrar;
 
   async function confirmarEliminar() {
@@ -154,14 +163,6 @@ export function ComparativoCotizaciones() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumbs
-        items={[
-          { label: 'Compras', to: '/compras' },
-          { label: 'Requisiciones', to: '/compras/requisiciones' },
-          { label: data.requisicionFolio, to: `/compras/requisiciones/${data.requisicionId}` },
-          { label: 'Cotizaciones' },
-        ]}
-      />
       <PageHeader
         titulo={
           <>
@@ -176,15 +177,7 @@ export function ComparativoCotizaciones() {
           </>
         }
         acciones={
-          <ConMotivo
-            motivo={
-              !puedeGestionar
-                ? 'No tienes permiso para registrar cotizaciones'
-                : !data.puedeRegistrar
-                  ? 'La requisición ya tiene orden de compra o no tiene saldo por comprar'
-                  : null
-            }
-          >
+          <ConMotivo motivo={motivoSinRegistro}>
             <Button
               type="button"
               disabled={!puedeGestionar || !data.puedeRegistrar}
@@ -202,29 +195,29 @@ export function ComparativoCotizaciones() {
             <label htmlFor="partida-comparada" className="text-xs font-medium text-ink-muted">
               Partida que se compara
             </label>
-            <select
-              id="partida-comparada"
-              className="max-w-xl rounded-md border border-line bg-surface-card px-2 py-1.5 text-sm text-ink"
-              value={partida.lineaRequisicionId}
-              onChange={(e) => setPartidaId(e.target.value)}
-            >
-              {data.partidas.map((p) => (
-                <option key={p.lineaRequisicionId} value={p.lineaRequisicionId}>
-                  {etiquetaPartida(p)}
-                </option>
-              ))}
-            </select>
+            <Select value={partida.lineaRequisicionId} onValueChange={setPartidaId}>
+              <SelectTrigger id="partida-comparada" className="max-w-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {data.partidas.map((p) => (
+                  <SelectItem key={p.lineaRequisicionId} value={p.lineaRequisicionId}>
+                    {etiquetaPartida(p)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <p className="text-sm text-ink">Comparar en MXN por {partida.unidad}</p>
           {data.tiposCambio.map((tc) =>
             tc.valorEnMxn === null ? (
               <p key={tc.moneda} role="status" className="rounded-md bg-warning-bg px-3 py-2 text-sm text-warning-fg">
-                Sin tipo de cambio de {tc.moneda} para {tc.fecha}: registra el tipo de cambio del día en Catálogos ›
+                Sin tipo de cambio de {tc.moneda} para <DateTimeDisplay value={tc.fecha} variant="media" />: registra el tipo de cambio del día en Catálogos ›
                 Monedas para normalizar.
               </p>
             ) : (
               <p key={tc.moneda} className="text-sm text-ink tabular-nums">
-                TC {tc.moneda} ${tc.valorEnMxn.toFixed(4)} del {tc.fecha}
+                TC {tc.moneda} ${tc.valorEnMxn.toFixed(4)} del <DateTimeDisplay value={tc.fecha} variant="media" />
               </p>
             ),
           )}
@@ -234,7 +227,7 @@ export function ComparativoCotizaciones() {
       {data.cotizaciones.length === 0 ? (
         <EmptyState
           title="Aún no hay cotizaciones registradas"
-          description="Registra la cotización de cada proveedor para comparar sus precios."
+          description={motivoSinRegistro ?? 'Registra la cotización de cada proveedor para comparar sus precios.'}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
@@ -250,8 +243,7 @@ export function ComparativoCotizaciones() {
                   <TableHead className="text-right">Normalizado MXN/{partida?.unidad}</TableHead>
                   <TableHead>Conversión</TableHead>
                   <TableHead>Vigencia</TableHead>
-                  <TableHead>Crédito</TableHead>
-                  <TableHead>Entrega</TableHead>
+                  <TableHead>Crédito y entrega</TableHead>
                   <TableHead>Documento</TableHead>
                   {puedeEditar && (
                     <TableHead className="w-10">
@@ -277,11 +269,11 @@ export function ComparativoCotizaciones() {
                           onChange={() => setSeleccionadaId(cot.id)}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-56">
                         <div className="font-medium">{proveedor}</div>
                         <div className="text-xs text-ink-muted">
                           {cot.folioProveedor && <span className="font-mono">{cot.folioProveedor} · </span>}
-                          recibida {cot.fechaCotizacion}
+                          recibida <DateTimeDisplay value={cot.fechaCotizacion} variant="corta" />
                         </div>
                         {cot.elegida && <Badge variant="success">Elegida</Badge>}
                       </TableCell>
@@ -305,14 +297,20 @@ export function ComparativoCotizaciones() {
                       </TableCell>
                       <TableCell>
                         {cot.vigente ? (
-                          `al ${cot.vigenteHasta}`
+                          <>
+                            al <DateTimeDisplay value={cot.vigenteHasta} variant="corta" />
+                          </>
                         ) : (
-                          <Badge variant="danger">Vencida {cot.vigenteHasta}</Badge>
+                          <Badge variant="danger">
+                            Vencida <DateTimeDisplay value={cot.vigenteHasta} variant="corta" />
+                          </Badge>
                         )}
                       </TableCell>
-                      <TableCell>{cot.condicionesCredito ?? '—'}</TableCell>
-                      <TableCell className="tabular-nums">
-                        {linea.diasEntrega !== null ? `${linea.diasEntrega} días` : '—'}
+                      <TableCell className="text-xs">
+                        <div>{cot.condicionesCredito ?? '—'}</div>
+                        <div className="tabular-nums text-ink-muted">
+                          {linea.diasEntrega !== null ? `Entrega ${linea.diasEntrega} días` : 'Entrega —'}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <ArchivoCotizacion cot={cot} />
@@ -364,10 +362,17 @@ export function ComparativoCotizaciones() {
           <p role="note" className="rounded-md bg-info-bg px-3 py-2 text-sm text-info-fg">
             Qué pasa al generar la OC: el precio de cada partida se toma de la cotización elegida
             {seleccionada && partida
-              ? ` (${seleccionada.moneda} ${
-                  seleccionada.lineas.find((l) => l.lineaRequisicionId === partida.lineaRequisicionId)
-                    ?.precioPorUnidadRq ?? ''
-                } por ${partida.unidad})`
+              ? <>
+                  {' ('}
+                  <MoneyDisplay
+                    amount={
+                      seleccionada.lineas.find((l) => l.lineaRequisicionId === partida.lineaRequisicionId)
+                        ?.precioPorUnidadRq
+                    }
+                    currency={seleccionada.moneda}
+                  />
+                  {` por ${partida.unidad})`}
+                </>
               : ''}{' '}
             y su PDF se adjunta a la OC. Las otras cotizaciones quedan guardadas en la requisición.
           </p>
