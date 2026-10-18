@@ -416,7 +416,8 @@ const CAMPO_POR_CODIGO: Record<string, 'clabe' | 'numeroCuenta'> = {
   CLABE_DIGITO_CONTROL: 'clabe',
   CLABE_FORMATO: 'clabe',
   PROVEEDOR_CUENTA_SIN_NUMERO: 'numeroCuenta',
-  PROVEEDOR_CUENTA_DUPLICADA: 'numeroCuenta',
+  // Nacional: se pinta en la CLABE; extranjera: onError lo pasa a numeroCuenta.
+  PROVEEDOR_CUENTA_DUPLICADA: 'clabe',
 };
 
 function AgregarCuentaSheet({
