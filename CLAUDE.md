@@ -255,6 +255,15 @@ transversales ya existentes:
   naturaleza (SAT, bancos, paqueterías, etc.). Esquema Postgres:
   `integraciones_aw`.
 
+### Adenda CE-04 · tercer flujo independiente
+
+El **flujo 3 A+W OTR** intercambia envíos de contenedores con Comercio Exterior,
+separado de cotizaciones y de pedidos para facturar. No es una compra. Contrato:
+[`docs/integration/09-aw-otr-exportacion.md`](docs/integration/09-aw-otr-exportacion.md).
+Entrada/salida apagadas por omisión; conexión real sólo tras I13.4 firmado. La escritura
+se limita a las **nuevas tablas puente definidas por el ERP** en MILLET_INTEGRACION:
+resultado de entrada e INSERT de estado ERP. Nunca modifica tablas internas A+W.
+
 ### Anti-scope (lo que el módulo NO hace)
 
 - **NO genera EDI.** El Glass Agent (PHP) es quien construye el EDI y lo

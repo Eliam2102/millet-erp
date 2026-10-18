@@ -6,12 +6,16 @@ import { PermisosCanonicos as P } from '@/lib/auth/permission-codes';
 vi.mock('@/features/comercio-exterior/pages/ExpedientesPage', () => ({
   ExpedientesPage: () => null,
 }));
+vi.mock('@/features/comercio-exterior/pages/OtrBandejaPage', () => ({
+  OtrBandejaPage: () => null,
+}));
 vi.mock('@/features/comercio-exterior/pages/ExpedienteDetallePage', () => ({
   ExpedienteDetallePage: () => null,
 }));
 
 import { Route as listado } from '@/routes/_app/comercio-exterior/expedientes/index';
 import { Route as detalle } from '@/routes/_app/comercio-exterior/expedientes/$id';
+import { Route as otr } from '@/routes/_app/comercio-exterior/otr';
 
 const permisosAnteriores = useAuthStore.getState().permisos;
 afterEach(() => useAuthStore.setState({ permisos: permisosAnteriores }));
@@ -19,6 +23,7 @@ afterEach(() => useAuthStore.setState({ permisos: permisosAnteriores }));
 describe.each([
   ['listado', listado],
   ['detalle', detalle],
+  ['OTR', otr],
 ] as const)('guarda CE de %s', (_, route) => {
   it('redirige a inicio sin permiso de lectura', () => {
     useAuthStore.setState({ permisos: [P.ComercioExteriorExpedientesCrear] });

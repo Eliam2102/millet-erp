@@ -943,6 +943,7 @@ const comercioExterior: NavModulo = {
   moduloId: 'comercio-exterior', label: 'Comercio Exterior', icon: Plane,
   secciones: [{ label: 'Operación', cards: [
     { label: 'Expedientes', description: 'Importaciones, exportaciones y documentos con versión.', to: '/comercio-exterior/expedientes', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer },
+    { label: 'Bandeja OTR', description: 'Vincular envíos y revisar salidas fallidas o sin acuse.', to: '/comercio-exterior/otr', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer },
     { label: 'Relación para IVA', description: 'Embarques e importaciones por periodo para revisión fiscal.', to: '/comercio-exterior/relacion-iva', icon: FileText, permission: PermisosCanonicos.ComercioExteriorRelacionIvaLeer },
   ] }],
 };

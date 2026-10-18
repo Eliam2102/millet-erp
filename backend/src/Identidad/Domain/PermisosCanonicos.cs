@@ -519,6 +519,7 @@ public static class PermisosCanonicos
     public const string ContabilidadPeriodoReabrir                      = "contabilidad.periodo.reabrir";
 
     // Comercio Exterior (CE-01a), namespace 0000000e.
+    public const string ComercioExteriorOtrGestionar = "comercio_exterior.otr.gestionar";
     public const string ComercioExteriorContenedoresGestionar = "comercio_exterior.expedientes.contenedores-gestionar";
     public const string ComercioExteriorRelacionIvaLeer = "comercio_exterior.relacion-iva.leer";
     public const string ComercioExteriorExpedientesLeer = "comercio_exterior.expedientes.leer";
@@ -837,6 +838,7 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0004-0000-0000-000000000004"), ContabilidadPeriodoReabrir,             "Reabrir periodos contables cerrados con motivo (autorización de mayor nivel)"),
 
         // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
+        (Guid.Parse("0000000e-0004-0000-0000-000000000001"), ComercioExteriorOtrGestionar, "Gestionar envíos OTR, conflictos y reintentos"),
         (Guid.Parse("0000000e-0001-0000-0000-00000000000b"), ComercioExteriorContenedoresGestionar, "Gestionar contenedores y partidas"),
         (Guid.Parse("0000000e-0003-0000-0000-000000000001"), ComercioExteriorRelacionIvaLeer, "Consultar relación mensual para IVA"),
         (Guid.Parse("0000000e-0001-0000-0000-000000000001"), ComercioExteriorExpedientesLeer, "Consultar expedientes"),

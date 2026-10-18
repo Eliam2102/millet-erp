@@ -152,3 +152,51 @@ SELECT producto_ref::text                                        AS producto_ref
        NULLIF(NULLIF(btrim(descripcion), ''), '<indf>')          AS descripcion,
        upper(replace(coalesce(unidad_medida, ''), '²', '2'))     AS unidad_medida
   FROM aw_origen.erp_articulo;
+
+-- Flujo 3 OTR · tablas puente definidas por el ERP; datos sintéticos en otr.sql.
+CREATE TABLE IF NOT EXISTS dbo.aw_otr_envio (
+    otr_envio_id varchar(100) NOT NULL,
+    version bigint NOT NULL CHECK (version > 0),
+    cliente_numero_aw varchar(50) NOT NULL,
+    sucursal_clave_aw varchar(50) NOT NULL,
+    cliente varchar(200) NOT NULL,
+    direccion_entrega varchar(1000) NOT NULL,
+    producto varchar(500),
+    numero_contenedor varchar(200),
+    ruta varchar(200),
+    bultos integer CHECK (bultos >= 0),
+    peso_kg numeric(18,6) CHECK (peso_kg >= 0),
+    fecha_carga_prevista date,
+    booking varchar(200),
+    bl_guia varchar(200),
+    operacion varchar(20) NOT NULL CHECK (operacion IN ('Alta','Modificacion','Cancelacion')),
+    creada_at timestamptz NOT NULL DEFAULT now(),
+    erp_resultado varchar(30),
+    erp_motivo varchar(500),
+    erp_procesada_at timestamptz,
+    PRIMARY KEY (otr_envio_id, version)
+);
+CREATE TABLE IF NOT EXISTS dbo.aw_otr_envio_linea (
+    otr_envio_id varchar(100) NOT NULL,
+    version bigint NOT NULL,
+    numero_pedido varchar(50) NOT NULL,
+    posicion integer NOT NULL CHECK (posicion > 0),
+    cantidad numeric(18,6) NOT NULL CHECK (cantidad > 0),
+    unidad varchar(20) NOT NULL,
+    PRIMARY KEY (otr_envio_id, version, numero_pedido, posicion),
+    FOREIGN KEY (otr_envio_id,version) REFERENCES dbo.aw_otr_envio(otr_envio_id,version)
+);
+CREATE INDEX IF NOT EXISTS ix_aw_otr_pendiente ON dbo.aw_otr_envio (otr_envio_id,version) WHERE erp_resultado IS NULL OR erp_resultado = 'Error';
+CREATE TABLE IF NOT EXISTS dbo.erp_otr_estado (
+    salida_id uuid PRIMARY KEY,
+    otr_envio_id varchar(100) NOT NULL,
+    tipo varchar(50) NOT NULL,
+    version_erp integer NOT NULL CHECK (version_erp > 0),
+    intento int NOT NULL DEFAULT 1 CHECK (intento > 0),
+    valor_json text NOT NULL CHECK (jsonb_typeof(valor_json::jsonb) = 'object'),
+    creada_at timestamptz NOT NULL DEFAULT now(),
+    aw_acuse_at timestamptz,
+    aw_resultado varchar(30),
+    aw_motivo varchar(500),
+    UNIQUE (otr_envio_id,tipo,version_erp,intento)
+);

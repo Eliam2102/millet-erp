@@ -5,9 +5,12 @@ using Millet.SharedKernel.Infrastructure.Persistence;
 using Millet.SharedKernel.Infrastructure.Outbox;
 
 namespace Millet.ComercioExterior.Infrastructure.Persistence;
-public sealed class ComercioExteriorDbContext(DbContextOptions<ComercioExteriorDbContext> options, ICurrentEmpresaContext empresa) : BaseDbContext(options, empresa)
+public sealed partial class ComercioExteriorDbContext(DbContextOptions<ComercioExteriorDbContext> options, ICurrentEmpresaContext empresa) : BaseDbContext(options, empresa)
 {
     public const string SchemaName = "comercio_exterior";
+    public DbSet<OtrEntradaControl> OtrEntradasControl => Set<OtrEntradaControl>();
+    public DbSet<OtrEnvio> OtrEnvios => Set<OtrEnvio>();
+    public DbSet<OtrSalida> OtrSalidas => Set<OtrSalida>();
     public DbSet<Expediente> Expedientes => Set<Expediente>();
     public DbSet<ParticipanteExpediente> Participantes => Set<ParticipanteExpediente>();
     public DbSet<DocumentoExpediente> Documentos => Set<DocumentoExpediente>();
@@ -111,6 +114,7 @@ public sealed class ComercioExteriorDbContext(DbContextOptions<ComercioExteriorD
         pe.Property(x => x.Cantidad).HasPrecision(18, 6); pe.Property(x => x.Unidad).HasMaxLength(20);
         pe.HasIndex(x => new { x.EmpresaId, x.PedidoFacturableId, x.Posicion });
         pe.HasOne<ContenedorExpediente>().WithMany().HasForeignKey(x => x.ContenedorId).OnDelete(DeleteBehavior.Restrict);
+        ConfigurarOtr(modelBuilder);
         modelBuilder.ApplyConfiguration(new IntegrationEventOutboxEntryConfiguration());
         base.OnModelCreating(modelBuilder);
     }

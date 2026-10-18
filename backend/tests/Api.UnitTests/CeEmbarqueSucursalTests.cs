@@ -41,6 +41,7 @@ public sealed class CeEmbarqueSucursalTests
     }
     private sealed class Pedidos(PedidoEmbarcable pedido) : IPedidosEmbarcablesReadPort
     {
+        public Task<IReadOnlyList<PedidoEmbarcable>> BuscarPorNumeroAsync(Guid empresaId, IReadOnlyCollection<string> numeros, CancellationToken ct) => Task.FromResult<IReadOnlyList<PedidoEmbarcable>>([pedido]);
         public Task<IReadOnlyList<PedidoEmbarcable>> ObtenerAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => Task.FromResult<IReadOnlyList<PedidoEmbarcable>>([pedido]);
         public Task<IReadOnlyList<PedidoEmbarcable>> ListarAsync(Guid cliente, Guid sucursal, CancellationToken ct) => throw new NotSupportedException();
     }

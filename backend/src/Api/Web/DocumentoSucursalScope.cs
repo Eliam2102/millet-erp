@@ -16,7 +16,7 @@ public sealed class DocumentoSucursalScope(ICurrentUserContext user, ICurrentUse
         "conteo" or "recepcion" or "salida_almacen" or "reorden" or "ubicacion_almacen" or "almacen" => almacen,
         "comprobante" or "sesion_caja" => facturacion,
         "cliente_cartera" or "factura_cartera" or "propuesta_cxc" or "seguimiento_cobranza" or "alerta_cartera" => cxc,
-        "expediente_ce" => comercioExterior,
+        "expediente_ce" or "envio_otr" => comercioExterior,
         _ => tesoreria,
     };
     public static bool Permitido(DocumentoSucursales documento, IReadOnlyList<Guid> permitidas)

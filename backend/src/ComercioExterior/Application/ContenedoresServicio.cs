@@ -76,6 +76,13 @@ public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, Expedie
             PedidoEmbarcable Pedido(Guid id) => origen.SingleOrDefault(p => p.Id == id) ?? throw new BusinessRuleException("CE_PEDIDO_NO_ASIGNABLE", "No existe el pedido.");
             bool Facturado(Guid contenedor) => e.Partidas.Where(p => p.ContenedorId == contenedor)
                 .Any(p => origen.Any(o => o.Id == p.PedidoFacturableId && o.FacturaVigente));
+            var contenedorPartidas = request.Accion == "quitar-partida" ? e.Partidas.SingleOrDefault(p => p.Id == request.PartidaId)?.ContenedorId : request.ContenedorId;
+            var enviosOtr = await db.OtrEnvios.Where(x => x.ExpedienteId == e.Id && x.ContenedorId == contenedorPartidas).ToListAsync(token);
+            Dictionary<string, string> Asignaciones() => e.Partidas.Where(p => p.ContenedorId == contenedorPartidas && p.Estado != EstadoPartida.Liberada)
+                .GroupBy(p => OtrEnvio.ClavePartida(Pedido(p.PedidoFacturableId).NumeroPedido, p.Posicion)).ToDictionary(g => g.Key, g => OtrEnvio.ValorPartida(g.Sum(p => p.Cantidad), string.Join("/", g.Select(p => p.Unidad).Distinct().Order())));
+            var antesPartidas = enviosOtr.Count > 0 && request.Accion is ("asignar" or "quitar-partida") ? Asignaciones() : null;
+            var antes = request.Accion == "guardar" && request.ContenedorId is Guid contenedorId
+                ? OtrEnvio.Datos(e.Contenedor(contenedorId)) : null;
             switch (request.Accion)
             {
                 case "guardar":
@@ -115,6 +122,12 @@ public sealed class MutarContenedorHandler(ComercioExteriorDbContext db, Expedie
                     break;
                 default: throw new BusinessRuleException("CE_ACCION_INVALIDA", "Acción desconocida.");
             }
+            if (antesPartidas is not null)
+                foreach (var envio in enviosOtr)
+                    envio.RegistrarEdicionPartidas(antesPartidas, Asignaciones(), servicio.Actor.ToString(), clock.UtcNow);
+            if (antes is not null)
+                foreach (var envio in await db.OtrEnvios.Where(x => x.ExpedienteId == e.Id && x.ContenedorId == request.ContenedorId).ToListAsync(token))
+                    envio.RegistrarEdicion(antes, OtrEnvio.Datos(e.Contenedor(request.ContenedorId!.Value)), servicio.Actor.ToString(), clock.UtcNow);
             try { await db.SaveChangesAsync(token); }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException { ConstraintName: "ux_ce_pedido_expediente_abierto" })
             { throw new ConflictException("CE_PEDIDO_CON_EXPEDIENTE", "El pedido ya pertenece a otro expediente abierto.", ex); }
