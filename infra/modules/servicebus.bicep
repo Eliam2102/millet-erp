@@ -59,6 +59,7 @@ resource rootAuthRule 'Microsoft.ServiceBus/namespaces/authorizationRules@2024-0
 //   - almacen-events          (módulo Millet.Almacen)
 //   - cuentas-por-pagar-events (módulo Millet.CuentasPorPagar)
 //   - facturacion-events       (módulo Millet.Facturacion)
+//   - comercio-exterior-events (módulo Millet.ComercioExterior)
 //   - tesoreria-events         (módulo Millet.Tesoreria; publisher en TES-PR4)
 //   - admin-events              (Administración; publisher en F1-ADM-01)
 //
@@ -649,6 +650,20 @@ resource cxcEventsTesoreriaSubscriptionFilter 'Microsoft.ServiceBus/namespaces/t
 resource tesoreriaEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
   parent: serviceBus
   name: 'tesoreria-events'
+  properties: {
+    defaultMessageTimeToLive: 'P1D'
+    enableBatchedOperations: true
+    enablePartitioning: false
+    maxSizeInMegabytes: 1024
+    requiresDuplicateDetection: false
+    supportOrdering: true
+  }
+}
+
+// CE-01a: publicación de apertura y cancelación; sin consumidores de negocio.
+resource comercioExteriorEventsTopic 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = {
+  parent: serviceBus
+  name: 'comercio-exterior-events'
   properties: {
     defaultMessageTimeToLive: 'P1D'
     enableBatchedOperations: true

@@ -45,6 +45,9 @@ public interface IAdjuntoPropietario
 
     string PermisoBaja { get; }
 
+    /// <summary>Invalida la revisión del propietario antes de persistir la baja del archivo.</summary>
+    Task AlDarDeBajaAsync(Guid entidadId, Guid adjuntoId, CancellationToken ct) => Task.CompletedTask;
+
     /// <summary>Resuelve el padre; <c>null</c> si no existe (o no es visible para la empresa actual).</summary>
     Task<AdjuntoPropietarioInfo?> ResolverAsync(Guid entidadId, CancellationToken cancellationToken);
 

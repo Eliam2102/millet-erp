@@ -297,6 +297,20 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.puestos.gestionar',
   'admin.empleados.gestionar',
   'admin.empleados.gestionar-todas-sucursales',
+  // Comercio Exterior CE-01a.
+  'comercio_exterior.expedientes.leer',
+  'comercio_exterior.expedientes.crear',
+  'comercio_exterior.expedientes.editar',
+  'comercio_exterior.expedientes.cancelar',
+  'comercio_exterior.expedientes.cerrar',
+  'comercio_exterior.expedientes.hitos-registrar',
+  'comercio_exterior.expedientes.documentos-revisar',
+  'comercio_exterior.expedientes.adjuntos-ver',
+  'comercio_exterior.expedientes.adjuntos-subir',
+  'comercio_exterior.expedientes.adjuntos-baja',
+  'comercio_exterior.documentos.leer-todas-sucursales',
+  'comercio_exterior.documentos.gestionar-todas-sucursales',
+
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {

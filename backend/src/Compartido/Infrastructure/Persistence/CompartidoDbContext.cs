@@ -220,6 +220,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureSecuenciaFolio(modelBuilder);
         ConfigureParametroGlobal(modelBuilder);
         ConfigureAdjuntoTipoDocumento(modelBuilder);
+        ComercioExteriorTiposDocumento.Configure(modelBuilder);
         ConfigureAdjunto(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }

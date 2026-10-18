@@ -431,6 +431,18 @@ export const PermisosCanonicos = {
   ContabilidadRecurrentesLeer: 'contabilidad.recurrentes.leer',
   ContabilidadRecurrentesAdministrar: 'contabilidad.recurrentes.administrar',
   ContabilidadRecurrentesAutorizar: 'contabilidad.recurrentes.autorizar',
+  ComercioExteriorExpedientesLeer: 'comercio_exterior.expedientes.leer',
+  ComercioExteriorExpedientesCrear: 'comercio_exterior.expedientes.crear',
+  ComercioExteriorExpedientesEditar: 'comercio_exterior.expedientes.editar',
+  ComercioExteriorExpedientesCancelar: 'comercio_exterior.expedientes.cancelar',
+  ComercioExteriorExpedientesCerrar: 'comercio_exterior.expedientes.cerrar',
+  ComercioExteriorExpedientesHitosRegistrar: 'comercio_exterior.expedientes.hitos-registrar',
+  ComercioExteriorExpedientesDocumentosRevisar: 'comercio_exterior.expedientes.documentos-revisar',
+  ComercioExteriorExpedientesAdjuntosVer: 'comercio_exterior.expedientes.adjuntos-ver',
+  ComercioExteriorExpedientesAdjuntosSubir: 'comercio_exterior.expedientes.adjuntos-subir',
+  ComercioExteriorExpedientesAdjuntosBaja: 'comercio_exterior.expedientes.adjuntos-baja',
+  ComercioExteriorDocumentosLeerTodasSucursales: 'comercio_exterior.documentos.leer-todas-sucursales',
+  ComercioExteriorDocumentosGestionarTodasSucursales: 'comercio_exterior.documentos.gestionar-todas-sucursales',
 } as const;
 
 /** Tipo unión de todos los códigos de permiso conocidos (autocompletado en IDE). */

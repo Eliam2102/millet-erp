@@ -967,6 +967,11 @@ const moduloContabilidad: NavModulo = {
   ],
 };
 
+const comercioExterior: NavModulo = {
+  moduloId: 'comercio-exterior', label: 'Comercio Exterior', icon: Plane,
+  secciones: [{ label: 'Operación', cards: [{ label: 'Expedientes', description: 'Importaciones, exportaciones y documentos con versión.', to: '/comercio-exterior/expedientes', icon: FileText, permission: PermisosCanonicos.ComercioExteriorExpedientesLeer }] }],
+};
+
 const modulos: readonly NavModulo[] = [
   moduloFacturacion,
   moduloCuentasPorCobrar,
@@ -978,6 +983,7 @@ const modulos: readonly NavModulo[] = [
   placeholderModulo('activos', 'Activos Fijos', Building2),
   moduloContabilidad,
   placeholderModulo('reportes', 'Reportes', LineChart),
+  comercioExterior,
 ];
 
 /**

@@ -326,7 +326,7 @@ public sealed partial class DemoSesionSeedTests
         Assert.Equal(EstadoPeriodo.Abierto, periodos.Single(p => p.Numero == 10).Estado);
         Assert.Equal(7, await contabilidad.Cuentas.CountAsync(c => c.Nombre.StartsWith("DEMO")));
         Assert.Equal(2, await tesoreria.CuentasBancarias.CountAsync(c => c.Banco.StartsWith("DEMO-")));
-        Assert.Equal(2, await compras.OrdenesCompra.CountAsync());
+        Assert.Equal(3, await compras.OrdenesCompra.CountAsync()); // + OC de importación DEMO de CE-01a
         Assert.Equal(3, await compras.OutboxEntries.CountAsync());
         Assert.Equal(2, await maestros.Series.CountAsync(s => s.Prefijo.StartsWith("DEMO-")));
         var pedidos = await facturacion.PedidosFacturables.Where(p => p.NumeroPedido!.StartsWith("DEMO-")).ToListAsync();
@@ -392,7 +392,7 @@ public sealed partial class DemoSesionSeedTests
         var ocPort = scope.ServiceProvider.GetRequiredService<Millet.CuentasPorPagar.Domain.Ports.Compras.IComprasOcReadPort>();
         var ocs = await compras.OrdenesCompra.ToListAsync();
         var folios = await ocPort.ObtenerFoliosAsync(ocs.Select(o => o.Id).Append(Guid.NewGuid()).ToArray(), CancellationToken.None);
-        Assert.Equal(2, folios.Count);
+        Assert.Equal(3, folios.Count);
         Assert.All(ocs, o => Assert.Equal(o.Folio.Valor, folios[o.Id]));
         return new Snapshot(await maestros.Proveedores.CountAsync(p => p.Clave.StartsWith("DEMO-")),
             await maestros.Articulos.CountAsync(a => a.Clave.StartsWith("DEMO-")), await maestros.Clientes.CountAsync(c => c.Clave.StartsWith("DEMO-")),
@@ -421,6 +421,7 @@ public sealed partial class DemoSesionSeedTests
                 typeof(Millet.CuentasPorPagar.Infrastructure.Persistence.CuentasPorPagarDbContext), typeof(FacturacionDbContext),
                 typeof(Millet.CuentasPorCobrar.Infrastructure.Persistence.CuentasPorCobrarDbContext), typeof(TesoreriaDbContext),
                 typeof(Millet.CentrosCosto.Infrastructure.Persistence.CentrosCostoDbContext), typeof(ContabilidadDbContext),
+                typeof(Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext),
             ];
             var instancias = contextos.Select(tipo => (DbContext)scope.ServiceProvider.GetRequiredService(tipo)).ToArray();
             // Comprobar TODOS antes de que la primera migración escriba datos.

@@ -49,6 +49,7 @@ public static class IntegrationEventSchemaRouting
             ("cuentas_por_cobrar.", "cuentas_por_cobrar"),
             ("facturacion.", "facturacion"),
             ("tesoreria.", "tesoreria"),
+            ("expediente-ce.", "comercio_exterior"),
         }
         // Prefijo más largo primero: garantiza que "integraciones.aw." gane
         // frente a cualquier prefijo más corto que pudiera introducirse.
