@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Domain.Apartados;
 using Millet.Almacen.Domain.Ports.Externos;
@@ -51,7 +52,12 @@ public sealed class ApartadosRequisicionService(AlmacenDbContext db, IAlmacenSal
             .Where(a => a.RequisicionId == rqId && a.ArticuloId == articuloId).SumAsync(a => a.Pendiente, ct);
         var clave = (sucursalId, articuloId);
         var anteriores = _salidasEnCurso.GetValueOrDefault(clave);
-        if (cantidad + anteriores > disponible.CantidadDisponible + propios)
+        var requerida = cantidad + anteriores;
+        // Existencia total (Cantidad incluye lo apartado): si no alcanza, no es un tema de apartados.
+        if (requerida > disponible.Cantidad)
+            throw new BusinessRuleException("SALIDA_STOCK_INSUFICIENTE",
+                $"La existencia de la sucursal no alcanza: se piden {requerida.ToString("0.####", CultureInfo.InvariantCulture)} y hay {disponible.Cantidad.ToString("0.####", CultureInfo.InvariantCulture)} en existencia.");
+        if (requerida > disponible.CantidadDisponible + propios)
             throw new BusinessRuleException("SALIDA_EXISTENCIA_APARTADA",
                 "La existencia disponible no alcanza; parte del material está apartado para otra requisición.");
         _salidasEnCurso[clave] = anteriores + cantidad;

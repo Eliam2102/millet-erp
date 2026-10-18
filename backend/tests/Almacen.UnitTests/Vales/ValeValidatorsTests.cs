@@ -57,6 +57,40 @@ public class ValeValidatorsTests
     }
 
     [Fact]
+    public void Vale_observaciones_500_pasa_y_501_falla()
+    {
+        var v = new RegistrarSalidaPorValeValidator();
+        var linea = new RegistrarSalidaLineaInput(
+            Guid.NewGuid(), null, 5, null, null, null, null, UbicacionId: Guid.NewGuid());
+        var ok = new RegistrarSalidaPorValeCommand(
+            new DateOnly(2026, 5, 23), "blob://vales/test.pdf", null, new string('x', 500), new[] { linea });
+        var ko = ok with { Observaciones = new string('x', 501) };
+        v.Validate(ok).Errors.Should().NotContain(e => e.PropertyName == nameof(ok.Observaciones));
+        var result = v.Validate(ko);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(ko.Observaciones));
+    }
+
+    [Fact]
+    public void DevInt_observaciones_500_pasa_y_501_falla()
+    {
+        var v = new AplicarDevolucionInternaValidator();
+        var ok = new AplicarDevolucionInternaCommand(
+            SalidaOrigenId: Guid.NewGuid(),
+            SubAlmacenDestinoId: Guid.NewGuid(),
+            FechaMovimiento: new DateOnly(2026, 5, 23),
+            EstadoMaterial: "Integro",
+            Motivo: "test",
+            Observaciones: new string('x', 500),
+            Lineas: new[] { new DevolucionInternaLineaInput(Guid.NewGuid(), 2, UbicacionId: Guid.NewGuid()) });
+        var ko = ok with { Observaciones = new string('x', 501) };
+        v.Validate(ok).Errors.Should().NotContain(e => e.PropertyName == nameof(ok.Observaciones));
+        var result = v.Validate(ko);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(ko.Observaciones));
+    }
+
+    [Fact]
     public void Regularizar_sin_movimiento_id_falla()
     {
         var v = new RegularizarSalidaPorValeValidator();

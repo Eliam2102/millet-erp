@@ -95,6 +95,34 @@ const VARIANTES_OC: Record<EstadoOrdenCompra, EstadoVariant> = {
   [EstadoOrdenCompra.Rechazada]: 'danger',
 };
 
+/**
+ * <c>&lt;EnAlmacenBadge/&gt;</c> — insignia informativa «En almacén» que se
+ * muestra junto al estado real de una RQ previa a autorizar con surtido de
+ * almacén estimado. No reemplaza al estado. Sin campo o con
+ * <c>false</c>/<c>null</c> no renderiza nada (null-safe con respuestas viejas).
+ */
+export function EnAlmacenBadge({
+  enAlmacen,
+  className,
+}: {
+  enAlmacen?: boolean | null;
+  className?: string;
+}) {
+  if (enAlmacen !== true) return null;
+  const definicion = obtenerDefinicion('EnAlmacen')?.resumen;
+  return (
+    <DomainTermTooltip term="EnAlmacen" definicion={definicion}>
+      <span
+        data-slot="badge"
+        className={cn(badgeVariants({ variant: 'info' }), className)}
+        data-en-almacen="true"
+      >
+        En almacén
+      </span>
+    </DomainTermTooltip>
+  );
+}
+
 export function EstadoBadge(props: EstadoBadgeProps) {
   if (props.tipo === 'orden-compra') {
     const label = estadoOcToString(props.estado);

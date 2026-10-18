@@ -13,3 +13,4 @@ CuentasPorCobrarDbContext|src/CuentasPorCobrar/Millet.CuentasPorCobrar.csproj
 TesoreriaDbContext|src/Tesoreria/Millet.Tesoreria.csproj
 CentrosCostoDbContext|src/CentrosCosto/Millet.CentrosCosto.csproj
 ContabilidadDbContext|src/Contabilidad/Millet.Contabilidad.csproj
+ComercioExteriorDbContext|src/ComercioExterior/Millet.ComercioExterior.csproj

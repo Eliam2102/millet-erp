@@ -216,6 +216,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         ConfigureSecuenciaFolio(modelBuilder);
         ConfigureParametroGlobal(modelBuilder);
         ConfigureAdjuntoTipoDocumento(modelBuilder);
+        ComercioExteriorTiposDocumento.Configure(modelBuilder);
         ConfigureAdjunto(modelBuilder);
         ConfigureIntegrationEventOutbox(modelBuilder);
     }
@@ -250,6 +251,8 @@ public sealed class CompartidoDbContext : BaseDbContext
         tipo.HasData(
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000001"), TipoEntidad = "requisicion", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             new { Id = Guid.Parse("00000011-0006-0000-0000-000000000002"), TipoEntidad = "factura_proveedor", Codigo = "soporte", Nombre = "Documento de soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
+            // F1-CON-04 (C1.3, R7): documento soporte de la póliza contable.
+            new { Id = Guid.Parse("00000011-0006-0000-0000-000000000003"), TipoEntidad = "poliza", Codigo = "soporte", Nombre = "Documento soporte", Orden = 1, Obligatorio = false, VigenciaMeses = (int?)null, SoloPersonaMoral = false, Activo = true, Version = 1, CreatedAt = seedTime, UpdatedAt = seedTime, CreatedBy = (string?)"seed", UpdatedBy = (string?)"seed", DeletedAt = (DateTimeOffset?)null },
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000001", "constancia_situacion_fiscal", "Constancia de situación fiscal", 1, 3, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000002", "contrato", "Contrato", 2, null, false, seedTime),
             SeedTipoAdjuntoProveedor("00000011-0001-0000-0000-000000000003", "acta_constitutiva", "Acta constitutiva", 3, null, true, seedTime),
@@ -1172,6 +1175,7 @@ public sealed class CompartidoDbContext : BaseDbContext
             t.HasCheckConstraint("ck_articulos_estatus", "estatus BETWEEN 0 AND 2");
             t.HasCheckConstraint("ck_articulos_precio_no_negativo", "precio_referencia_monto IS NULL OR precio_referencia_monto >= 0");
             t.HasCheckConstraint("ck_articulos_precio_moneda_iso", "precio_referencia_moneda IS NULL OR precio_referencia_moneda ~ '^[A-Z]{3}$'");
+            t.HasCheckConstraint("ck_articulos_tolerancia_rango", "tolerancia_cantidad_porcentaje IS NULL OR (tolerancia_cantidad_porcentaje >= 0 AND tolerancia_cantidad_porcentaje <= 100)");
         });
         articulo.HasKey(x => x.Id);
         articulo.Property(x => x.Clave).HasMaxLength(20).IsRequired();
@@ -1183,6 +1187,7 @@ public sealed class CompartidoDbContext : BaseDbContext
         articulo.Property(x => x.Categoria).HasMaxLength(100);
         articulo.Property(x => x.PrecioReferenciaMonto).HasPrecision(15, 4);
         articulo.Property(x => x.PrecioReferenciaMoneda).HasMaxLength(3);
+        articulo.Property(x => x.ToleranciaCantidadPorcentaje).HasPrecision(5, 2);
         articulo.Property(x => x.Estatus).HasConversion<short>().IsRequired();
 
         articulo.HasIndex(x => x.Clave).IsUnique();

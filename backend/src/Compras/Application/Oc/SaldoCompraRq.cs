@@ -46,6 +46,23 @@ internal static class SaldoCompraRq
             consumos.Where(c => c.LineaId == l.Id && c.Estado == EstadoOrdenCompra.Cancelada).Sum(c => c.CantidadRecibida)));
     }
 
+    /// <summary>
+    /// Cantidad comprometida en OCs no canceladas, por línea de RQ (una sola
+    /// consulta para todas las líneas). Las líneas sin OC no aparecen (→ 0).
+    /// </summary>
+    public static async Task<Dictionary<Guid, decimal>> ObtenerComprometidoAsync(ComprasDbContext db,
+        IEnumerable<Guid> lineaIds, CancellationToken ct)
+    {
+        var ids = lineaIds.Distinct().ToArray();
+        var filas = await (from l in db.LineasOrdenCompra
+            join oc in db.OrdenesCompra on l.OrdenCompraId equals oc.Id
+            where l.LineaRequisicionId.HasValue && ids.Contains(l.LineaRequisicionId.Value)
+                && oc.Estado != EstadoOrdenCompra.Cancelada
+            select new { LineaId = l.LineaRequisicionId!.Value, l.Cantidad })
+            .ToListAsync(ct);
+        return filas.GroupBy(f => f.LineaId).ToDictionary(g => g.Key, g => g.Sum(f => f.Cantidad));
+    }
+
     public static void Validar(decimal cantidad, decimal saldo)
     {
         if (cantidad > saldo)

@@ -4,6 +4,7 @@ using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.DevolucionesProveedor;
 
@@ -84,7 +85,13 @@ public sealed record ListarDevolucionesProveedorQuery(
     Guid? ProveedorId,
     bool? SoloPendientesNcFiscal,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<DevolucionProveedorListItem>>;
+    int Limit) : IRequest<AlmacenPagedResponse<DevolucionProveedorListItem>>, IDocumentoScopedQuery
+{
+    public string TipoDocumento => "devolucion_proveedor";
+    public string PermisoTodasSucursales => "almacen.devoluciones-proveedor.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+    public IReadOnlyList<Guid>? DocumentosPermitidos { get; set; }
+}
 
 public sealed class ListarDevolucionesProveedorHandler
     : IRequestHandler<ListarDevolucionesProveedorQuery, AlmacenPagedResponse<DevolucionProveedorListItem>>
@@ -106,6 +113,7 @@ public sealed class ListarDevolucionesProveedorHandler
         if (request.ProveedorId is Guid pid) query = query.Where(d => d.ProveedorId == pid);
         if (request.SoloPendientesNcFiscal is true)
             query = query.Where(d => d.Estado == EstadoDevolucionProveedor.Registrada);
+        if (request.DocumentosPermitidos is { } permitidos) query = query.Where(d => permitidos.Contains(d.Id));
 
         var total = await query.CountAsync(cancellationToken);
         var items = await query

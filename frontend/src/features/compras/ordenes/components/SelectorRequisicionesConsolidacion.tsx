@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Inbox, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +25,7 @@ import { useRequisicionesDisponibles } from '@/features/compras/ordenes/api/useR
 import type { RequisicionDisponible } from '@/features/compras/ordenes/api/useRequisicionesDisponibles';
 import { esApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { nombreUsuarioOGuion } from '@/lib/nombre-usuario';
 
 /**
  * <c>P5 — Selector de RQs para consolidación N:1</c> (FOC4 cerrado,
@@ -310,6 +311,7 @@ function RenderLista({
           <th className="px-3 py-2 text-left font-medium">Fecha</th>
           <th className="px-3 py-2 text-left font-medium">Departamento</th>
           <th className="px-3 py-2 text-left font-medium">Requisitante</th>
+          <th className="px-3 py-2 text-right font-medium">Por comprar</th>
           <th className="px-3 py-2 text-right font-medium">Líneas</th>
         </tr>
       </thead>
@@ -318,40 +320,82 @@ function RenderLista({
           const checked = seleccionados.has(rq.id);
           const depto = deptosMap.get(rq.departamentoId);
           const requisitante = usuariosMap.get(rq.requisitanteId);
+          const lineasConSaldo = rq.lineasConSaldo ?? [];
           return (
-            <tr
-              key={rq.id}
-              className={cn(
-                i % 2 === 1 ? 'bg-muted/20' : undefined,
-                checked && 'bg-primary/5',
+            <Fragment key={rq.id}>
+              <tr
+                className={cn(
+                  i % 2 === 1 ? 'bg-muted/20' : undefined,
+                  checked && 'bg-primary/5',
+                )}
+                data-rq={rq.id}
+                data-checked={checked || undefined}
+              >
+                <td className="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggleRq(rq.id)}
+                    aria-label={`Seleccionar ${rq.folio}`}
+                    className="h-4 w-4 rounded border-input"
+                    data-action="toggle-rq"
+                  />
+                </td>
+                <td className="px-3 py-2 font-mono">{rq.folio}</td>
+                <td className="px-3 py-2">
+                  <DateTimeDisplay value={rq.fechaSolicitud} />
+                </td>
+                <td className="px-3 py-2 truncate">
+                  {depto?.nombre ?? rq.departamentoId}
+                </td>
+                <td className="px-3 py-2 truncate">
+                  {nombreUsuarioOGuion(requisitante?.nombre)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums font-medium">
+                  {rq.faltantePorComprar ?? '—'}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {rq.totalLineas}
+                </td>
+              </tr>
+              {lineasConSaldo.length > 0 && (
+                <tr className={cn(i % 2 === 1 ? 'bg-muted/20' : undefined)}>
+                  <td colSpan={7} className="px-3 pb-3 pt-0">
+                    <ul
+                      className="space-y-0.5 text-xs text-muted-foreground"
+                      aria-label={`Líneas de ${rq.folio} con saldo por comprar`}
+                      data-linea-saldo-de={rq.id}
+                    >
+                      {lineasConSaldo.map((l) => {
+                        const etiqueta =
+                          [l.articuloClave, l.articuloNombre]
+                            .filter(Boolean)
+                            .join(' · ') || l.articuloId;
+                        return (
+                          <li key={l.lineaId} className="flex flex-wrap gap-x-3">
+                            <span className="min-w-0 flex-1 truncate text-foreground">
+                              {etiqueta}
+                            </span>
+                            <span>
+                              Por comprar{' '}
+                              <span className="font-mono font-medium text-foreground">
+                                {l.cantidadSaldo}
+                              </span>
+                            </span>
+                            <span>
+                              Almacén surte{' '}
+                              <span className="font-mono">
+                                {l.cantidadDeAlmacen}
+                              </span>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </td>
+                </tr>
               )}
-              data-rq={rq.id}
-              data-checked={checked || undefined}
-            >
-              <td className="px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onToggleRq(rq.id)}
-                  aria-label={`Seleccionar ${rq.folio}`}
-                  className="h-4 w-4 rounded border-input"
-                  data-action="toggle-rq"
-                />
-              </td>
-              <td className="px-3 py-2 font-mono">{rq.folio}</td>
-              <td className="px-3 py-2">
-                <DateTimeDisplay value={rq.fechaSolicitud} />
-              </td>
-              <td className="px-3 py-2 truncate">
-                {depto?.nombre ?? rq.departamentoId}
-              </td>
-              <td className="px-3 py-2 truncate">
-                {requisitante?.nombre ?? rq.requisitanteId}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {rq.totalLineas}
-              </td>
-            </tr>
+            </Fragment>
           );
         })}
       </tbody>

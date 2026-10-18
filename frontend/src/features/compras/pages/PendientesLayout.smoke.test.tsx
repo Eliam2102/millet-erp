@@ -7,7 +7,10 @@ import { PendientesLayout } from '@/features/compras/pages/PendientesLayout';
 import { useAuthStore } from '@/lib/auth/auth-store';
 import {
   Clasificacion,
+  DisponibilidadPendiente,
   EstadoRequisicion,
+  NivelAutorizacion,
+  OrigenRequisicion,
   Prioridad,
 } from '@/features/compras/api/types';
 
@@ -177,5 +180,47 @@ describe('<PendientesLayout> — smoke', () => {
     await waitFor(() =>
       expect(screen.getByText('Error de servidor')).toBeInTheDocument(),
     );
+  });
+  it('con indicadores: renderiza badges de disponibilidad, recurrente y nivel del item', async () => {
+    mswServer.use(
+      http.get('*/api/v1/compras/pendientes-autorizacion', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'rq-ind',
+              folio: 'MID2026-000077',
+              folioAnio: 2026,
+              estado: EstadoRequisicion.EnAutorizacion,
+              clasificacion: Clasificacion.Servicio,
+              prioridad: Prioridad.Normal,
+              sucursalId: 's-1',
+              departamentoId: 'd-1',
+              requisitanteId: 'u-99',
+              requisitanteNombre: 'Pepe Pérez',
+              departamentoNombre: 'Compras',
+              departamentoClave: 'COMPRAS',
+              descripcion: null,
+              fechaSolicitud: '2026-05-09T10:00:00Z',
+              fechaEntregaDeseada: null,
+              situacionSurtido: null,
+              nivelPendiente: NivelAutorizacion.Nivel2,
+              origen: OrigenRequisicion.Manual,
+              disponibilidad: DisponibilidadPendiente.Parcial,
+              esRecurrente: true,
+            },
+          ],
+          offset: 0,
+          limit: 50,
+          total: 1,
+        }),
+      ),
+    );
+    render(<PendientesLayout idActivo={null} />, {
+      wrapper: createQueryWrapper(),
+    });
+    expect(await screen.findByText('MID2026-000077')).toBeInTheDocument();
+    expect(screen.getByText('Stock parcial')).toBeInTheDocument();
+    expect(screen.getByText('Recurrente')).toBeInTheDocument();
+    expect(screen.getByText('Falta N2')).toBeInTheDocument();
   });
 });

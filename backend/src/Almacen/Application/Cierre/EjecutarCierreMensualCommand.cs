@@ -28,7 +28,7 @@ namespace Millet.Almacen.Application.Cierre;
 /// </summary>
 public sealed record EjecutarCierreMensualCommand(int Anio, int Mes) : IRequest<EjecutarCierreMensualResponse>;
 
-public sealed record EjecutarCierreMensualResponse(Guid PeriodoId, DateTimeOffset CerradoAt);
+public sealed record EjecutarCierreMensualResponse(Guid PeriodoId, int Anio, int Mes, DateTimeOffset CerradoAt);
 
 public sealed class EjecutarCierreMensualValidator : AbstractValidator<EjecutarCierreMensualCommand>
 {
@@ -61,6 +61,15 @@ public sealed class EjecutarCierreMensualHandler
             "CIERRE_SIN_EMPRESA", "Contexto de empresa requerido.");
         var cerradoPor = _currentUser.UserId ?? throw new BusinessRuleException(
             "CIERRE_SIN_USUARIO", "Se requiere usuario autenticado.");
+
+        // Solo meses ya concluidos (día local de negocio): el mes en curso o futuro bloquearía movimientos sin reapertura.
+        var hoy = FechaNegocio.Hoy(DateTimeOffset.UtcNow);
+        if (request.Anio > hoy.Year || (request.Anio == hoy.Year && request.Mes >= hoy.Month))
+        {
+            throw new BusinessRuleException(
+                "CIERRE_PERIODO_FUTURO",
+                $"Solo se pueden cerrar meses ya concluidos; el periodo {request.Anio}/{request.Mes:00} aún no termina.");
+        }
 
         // Un periodo ya cerrado se rechaza explícitamente.
         var existe = await _db.Set<PeriodoCerrado>().AsNoTracking()
@@ -122,7 +131,7 @@ public sealed class EjecutarCierreMensualHandler
         _db.Set<PeriodoCerrado>().Add(periodo);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new EjecutarCierreMensualResponse(periodo.Id, periodo.CerradoAt);
+        return new EjecutarCierreMensualResponse(periodo.Id, request.Anio, request.Mes, periodo.CerradoAt);
     }
 }
 

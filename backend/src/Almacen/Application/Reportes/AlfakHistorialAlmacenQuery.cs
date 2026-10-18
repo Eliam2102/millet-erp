@@ -1,8 +1,11 @@
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Movimientos;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.Reportes;
 
@@ -23,7 +26,21 @@ public sealed record AlfakHistorialAlmacenQuery(
     DateOnly Desde,
     DateOnly Hasta,
     Guid? SubAlmacenId,
-    Guid? ArticuloId) : IRequest<ReporteResponse<AlfakHistorialFila>>;
+    Guid? ArticuloId) : IRequest<ReporteResponse<AlfakHistorialFila>>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.reportes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
+
+public sealed class AlfakHistorialAlmacenQueryValidator : AbstractValidator<AlfakHistorialAlmacenQuery>
+{
+    public AlfakHistorialAlmacenQueryValidator()
+    {
+        RuleFor(x => x).Must(x => x.Desde <= x.Hasta)
+            .WithMessage("La fecha inicial no puede ser posterior a la final.")
+            .WithName("Desde");
+    }
+}
 
 public sealed record AlfakHistorialFila(
     Guid SubAlmacenId,
@@ -62,6 +79,9 @@ public sealed class AlfakHistorialAlmacenHandler
         // saldo inicial/final por periodo se hace en memoria sobre estas filas.
         // PR6a: el sub-almacén salió de la cabecera; se deriva vía la vista
         // v_movimiento_sub_almacen (una fila por movimiento).
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
+
         var query = from l in _db.LineasMovimiento.AsNoTracking()
                     join m in _db.Movimientos.AsNoTracking() on l.MovimientoId equals m.Id
                     join v in _db.MovimientosSubAlmacen.AsNoTracking() on m.Id equals v.MovimientoId
@@ -69,6 +89,8 @@ public sealed class AlfakHistorialAlmacenHandler
                     where m.Estado == EstadoMovimiento.Registrado
                        && (request.SubAlmacenId == null || v.SubAlmacenId == request.SubAlmacenId)
                        && (request.ArticuloId == null || l.ArticuloId == request.ArticuloId)
+                       && (request.SucursalesPermitidas == null
+                           || AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, request.SucursalesPermitidas).Contains(v.SubAlmacenId))
                     select new
                     {
                         v.SubAlmacenId,

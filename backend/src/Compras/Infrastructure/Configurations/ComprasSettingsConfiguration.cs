@@ -24,6 +24,10 @@ internal sealed class ComprasSettingsConfiguration : IEntityTypeConfiguration<Co
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(s => s.ModoNivel2)
+            .IsRequired()
+            .HasDefaultValue(ModoNivel2.SoloMonto);
+
         builder.HasIndex(s => s.EmpresaId)
             .IsUnique()
             .HasDatabaseName("ux_settings_empresa_id");

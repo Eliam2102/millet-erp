@@ -14,6 +14,8 @@ const filaIncluida = {
   cantidadSolicitada: 10,
   cantidadYaRecibida: 0,
   pendiente: 10,
+  toleranciaPorcentaje: 0,
+  maximo: 10,
   incluida: true,
   cantidad: 10,
   ubicacionId: '019e0000-0000-7000-8000-000000000003',
@@ -58,6 +60,33 @@ describe('RegistrarRecepcionFacturaSchema — vínculo fiscal obligatorio', () =
         r.error.issues.some((i) => i.path.join('.') === 'cfdiRecibidoId'),
       ).toBe(true);
     }
+  });
+
+  it('rechaza cantidad sobre el máximo del servidor con tolerancia 0 %', () => {
+    const r = RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      filas: [
+        { ...filaIncluida, pendiente: 100, maximo: 100, cantidad: 101, toleranciaPorcentaje: 0 },
+      ],
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues[0].message).toBe(
+        'Excede el pendiente (100) + 0% de tolerancia (100.0000).',
+      );
+    }
+  });
+
+  it('acepta cantidad igual al máximo del servidor con tolerancia 5 %', () => {
+    const r = RegistrarRecepcionFacturaSchema.safeParse({
+      ...base,
+      cfdiRecibidoId: '019e0000-0000-7000-8000-0000000000cc',
+      filas: [
+        { ...filaIncluida, pendiente: 100, maximo: 105, cantidad: 105, toleranciaPorcentaje: 5 },
+      ],
+    });
+    expect(r.success).toBe(true);
   });
 
   it('rechaza folio fiscal malformado', () => {

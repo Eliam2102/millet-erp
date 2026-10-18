@@ -237,6 +237,9 @@ public class DevolucionesProveedorQueriesTests
             IReadOnlyCollection<Guid> notaCreditoIds, CancellationToken cancellationToken) =>
             Filtrar(FoliosNc, notaCreditoIds);
 
+        public Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid cfdiRecibidoId, CancellationToken cancellationToken) =>
+            Task.FromResult<CfdiRecibidoLectura?>(null);
+
         private static Task<IReadOnlyDictionary<Guid, string>> Filtrar(
             Dictionary<Guid, string> fuente, IReadOnlyCollection<Guid> ids) =>
             Task.FromResult<IReadOnlyDictionary<Guid, string>>(

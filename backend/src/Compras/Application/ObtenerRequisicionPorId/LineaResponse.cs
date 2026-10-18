@@ -58,4 +58,16 @@ public sealed record LineaResponse(
     /// clamped a ≥ 0. La UI de salidas usa esto como default cantidad
     /// a entregar en el sheet "Nueva salida con RQ".
     /// </summary>
-    decimal CantPendienteEntregar);
+    decimal CantPendienteEntregar,
+    /// <summary>
+    /// Cantidad de esta línea de RQ ya comprometida en OCs no canceladas
+    /// (suma de <c>LineaOrdenCompra.Cantidad</c> ligadas a la línea). Lo
+    /// puebla el handler en lote; el map la deja en 0.
+    /// </summary>
+    decimal CantComprometidaEnOc = 0m,
+    /// <summary>
+    /// Saldo de compra pendiente de la línea (<see cref="SaldoCompraRq"/>):
+    /// <c>CantidadDeCompra − comprometido − recibido de OCs canceladas</c>,
+    /// clamped a ≥ 0. Lo puebla el handler en lote; el map la deja en 0.
+    /// </summary>
+    decimal CantSaldoPorComprar = 0m);

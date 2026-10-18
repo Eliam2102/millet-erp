@@ -1,7 +1,9 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Almacen.Application.Saldos;
@@ -52,7 +54,11 @@ public sealed record ObtenerHijosJerarquiaQuery(
     NivelNodoJerarquia NodoTipo,
     Guid? NodoId,
     Guid? ArticuloId,      // presente = modo artículo
-    bool IncluirVacios) : IRequest<IReadOnlyList<NodoJerarquiaDto>>;
+    bool IncluirVacios) : IRequest<IReadOnlyList<NodoJerarquiaDto>>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.almacenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed class ObtenerHijosJerarquiaHandler
     : IRequestHandler<ObtenerHijosJerarquiaQuery, IReadOnlyList<NodoJerarquiaDto>>
@@ -107,6 +113,8 @@ public sealed class ObtenerHijosJerarquiaHandler
         var query = _db.SaldosInventario.AsNoTracking().AsQueryable();
         if (request.ArticuloId is Guid aid) query = query.Where(s => s.ArticuloId == aid);
         if (!request.IncluirVacios) query = query.Where(s => s.Cantidad > 0);
+        if (request.SucursalesPermitidas is { } suc)
+            query = query.Where(s => AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, suc).Contains(s.SubAlmacenId));
         return query;
     }
 

@@ -86,6 +86,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.validar',
   'datos_maestros.proveedores.tolerancia-editar',
   'datos_maestros.articulos.gestionar',
+  'datos_maestros.articulos.tolerancia-editar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
   'datos_maestros.clientes.sincronizar',
@@ -277,6 +278,15 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.periodo.administrar',
   'contabilidad.periodo.cerrar',
   'contabilidad.periodo.reabrir',
+  // Pólizas (F1-CON-04)
+  'contabilidad.polizas.leer',
+  'contabilidad.polizas.capturar',
+  'contabilidad.polizas.autorizar',
+  'contabilidad.polizas.anular',
+  // Pólizas recurrentes (K10.4)
+  'contabilidad.recurrentes.leer',
+  'contabilidad.recurrentes.administrar',
+  'contabilidad.recurrentes.autorizar',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra
@@ -284,6 +294,20 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'admin.puestos.gestionar',
   'admin.empleados.gestionar',
   'admin.empleados.gestionar-todas-sucursales',
+  // Comercio Exterior CE-01a.
+  'comercio_exterior.expedientes.leer',
+  'comercio_exterior.expedientes.crear',
+  'comercio_exterior.expedientes.editar',
+  'comercio_exterior.expedientes.cancelar',
+  'comercio_exterior.expedientes.cerrar',
+  'comercio_exterior.expedientes.hitos-registrar',
+  'comercio_exterior.expedientes.documentos-revisar',
+  'comercio_exterior.expedientes.adjuntos-ver',
+  'comercio_exterior.expedientes.adjuntos-subir',
+  'comercio_exterior.expedientes.adjuntos-baja',
+  'comercio_exterior.documentos.leer-todas-sucursales',
+  'comercio_exterior.documentos.gestionar-todas-sucursales',
+
 ]);
 
 describe('PermisosCanonicos — coincidencia con backend', () => {

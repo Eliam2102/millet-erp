@@ -17,6 +17,7 @@ import { useHasPermission } from '@/lib/auth/useHasPermission';
 import { PermisosCanonicos } from '@/lib/auth/permission-codes';
 import { RegularizarValeSheet } from '@/features/almacen/components/RegularizarValeSheet';
 import { formatCcMaquinaLabel } from '@/features/centros-costo/lib/cc-maquina-label';
+import { ubicacionLabel } from '@/features/almacen/components/impresion/salida-display';
 import { cn } from '@/lib/utils';
 
 const FROM = '/_app/almacen/salidas/$id' as const;
@@ -168,6 +169,7 @@ export function SalidaDetallePage() {
                     <th className="px-3 py-2 text-left">#</th>
                     <th className="px-3 py-2 text-left">Artículo</th>
                     <th className="px-3 py-2 text-left">Centro de costo</th>
+                    <th className="px-3 py-2 text-left">Ubicación</th>
                     <th className="px-3 py-2 text-right">Cantidad</th>
                     <th className="px-3 py-2 text-left">UM</th>
                     <th className="px-3 py-2 text-right">Costo unitario</th>
@@ -186,10 +188,16 @@ export function SalidaDetallePage() {
                             </span>
                           )}
                           <div>{l.articuloDescripcion}</div>
+                          {l.comentarioLinea && (
+                            <div className="text-xs text-ink-muted">{l.comentarioLinea}</div>
+                          )}
                         </td>
                       ) : (
                         <td className="px-3 py-2 font-mono text-xs">
                           {l.articuloId}
+                          {l.comentarioLinea && (
+                            <div className="font-sans text-xs text-ink-muted">{l.comentarioLinea}</div>
+                          )}
                         </td>
                       )}
                       {/* Centro de costo resuelto por el read-port (ADR-0050):
@@ -202,6 +210,8 @@ export function SalidaDetallePage() {
                             })
                           : '—'}
                       </td>
+                      {/* Ubicación (bin) de donde salió la línea; mismo texto que el comprobante PDF. */}
+                      <td className="px-3 py-2 font-mono text-xs">{ubicacionLabel(l)}</td>
                       <td className="px-3 py-2 text-right font-mono">
                         {l.cantidad.toLocaleString('es-MX', {
                           minimumFractionDigits: 2,

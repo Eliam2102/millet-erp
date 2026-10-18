@@ -1,3 +1,6 @@
+using Millet.ComercioExterior.Application;
+using Millet.ComercioExterior.Infrastructure;
+using Millet.ComercioExterior.Infrastructure.Persistence;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using HealthChecks.NpgSql;
 using Microsoft.AspNetCore.DataProtection;
@@ -585,6 +588,7 @@ else
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
@@ -652,6 +656,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Millet.Compras.Domain.Matriz.IRequiereNivelEvaluator,
     Millet.Compras.Application.Matriz.EvaluadorMultidimensional>();
+builder.Services.AddScoped<Millet.Compras.Application.Oc.EvaluadorNivelOc>();
 builder.Services.AddScoped<
     Millet.Compras.Domain.Ports.Matriz.IResolverAutorizadorPort,
     Millet.Compras.Application.Matriz.ResolverAutorizadorService>();
@@ -685,6 +690,7 @@ builder.Services.AddMilletApplication(
     CuentasPorCobrarAssemblyMarker.Assembly,
     TesoreriaAssemblyMarker.Assembly,
     CentrosCostoAssemblyMarker.Assembly,
+    typeof(CrearExpedienteCommand).Assembly,
     ContabilidadAssemblyMarker.Assembly);
 
 // === Módulo Integraciones.Aw ===
@@ -889,6 +895,17 @@ builder.Services.AddScoped<Millet.Facturacion.Domain.Ports.IUsuariosReadPort, Mi
 // catálogo general). DbContext abajo, junto a los demás contextos. Sin
 // endpoints ni outbox todavía — CRUD/jerarquía entran en A2/A3.
 builder.Services.AddCentrosCostoModule();
+builder.Services.AddComprasReadPorts();
+builder.Services.AddComercioExteriorModule();
+builder.Services.AddOptions<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions>()
+    .Bind(builder.Configuration.GetSection(Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorkerOptions.SectionName))
+    .Validate(o => o.Interval > TimeSpan.Zero, "ComercioExterior:AvisosHitos:Interval debe ser mayor que cero.")
+    .ValidateOnStart();
+builder.Services.AddHostedService<Millet.ComercioExterior.Infrastructure.Workers.AvisosHitosWorker>();
+builder.Services.AddOptions<OutboxPublisherOptions>(nameof(ComercioExteriorDbContext))
+    .Configure(o => o.ServiceBusTopicName = "comercio-exterior-events")
+    .Bind(builder.Configuration.GetSection("ComercioExterior:Outbox"));
+builder.Services.AddHostedService<OutboxPublisherWorker<ComercioExteriorDbContext>>();
 
 // === Módulo Contabilidad (F1-CON-01): catálogo contable ===
 // Esquema `contabilidad`, ContabilidadDbContext abajo. Config de formato en Contabilidad:Catalogo (ValidateOnStart).
@@ -1314,6 +1331,12 @@ builder.Services.AddDbContext<CentrosCostoDbContext>((sp, opts) =>
 builder.Services.AddDbContext<ContabilidadDbContext>((sp, opts) =>
     ConfigureMilletDbContext(opts, sp));
 
+builder.Services.AddDbContext<ComercioExteriorDbContext>((sp, opts) =>
+{
+    ConfigureMilletDbContext(opts, sp);
+    opts.AddInterceptors(sp.GetRequiredService<OutboxSaveChangesInterceptor>());
+});
+
 // === Manejo de errores: Problem Details vía IExceptionHandler ===
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -1344,6 +1367,7 @@ builder.Services.AddSingleton(new MigrationsHealthCheckOptions
 
         typeof(CentrosCostoDbContext),
         typeof(ContabilidadDbContext),
+        typeof(ComercioExteriorDbContext),
     },
 });
 
@@ -1400,6 +1424,8 @@ app.UseMiddleware<RequestContextLoggingMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 
 app.MapGet("/", () => "Hello World!");
+app.MapGet("/api/version", (IHostEnvironment environment) => Millet.Api.VersionInfo.Actual(environment.EnvironmentName))
+    .AllowAnonymous();
 
 // === Auth endpoints (ADR-0003, ADR-0007) ===
 app.MapAuthEndpoints();
@@ -1415,6 +1441,7 @@ app.MapRequisicionesEndpoints();
 app.MapLineasEndpoints();
 app.MapAprobadoresEndpoints();
 app.MapComprasSettingsEndpoints();
+app.MapUmbralesAprobacionEndpoints();
 
 // === Settings genéricos /api/v1/{modulo}/settings (F-Admin-PR1.1, ADR-0034) ===
 app.MapSettingsEndpoints();
@@ -1444,6 +1471,8 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadE
 Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
 // === Contabilidad — ejercicios y periodos contables: apertura, cierre y reapertura con bitácora (F1-CON-03) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadRecurrentesEndpoints.MapContabilidadRecurrentesEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);
@@ -1683,6 +1712,8 @@ Millet.Api.Endpoints.CuentasPorCobrar.AlertasEndpoints.MapAlertasEndpoints(app);
 
 // === Tesorería — Cuentas con saldo + libro de movimientos (TES-PR2) ===
 Millet.Api.Endpoints.Inicio.ResumenesInicioEndpoints.MapResumenesInicioEndpoints(app);
+
+Millet.Api.Endpoints.ComercioExterior.ExpedientesEndpoints.MapExpedientesCe(app);
 
 Millet.Api.Endpoints.Tesoreria.CuentasEndpoints.MapTesoreriaCuentasEndpoints(app);
 Millet.Api.Endpoints.Tesoreria.ConceptosEndpoints.MapTesoreriaConceptosEndpoints(app);

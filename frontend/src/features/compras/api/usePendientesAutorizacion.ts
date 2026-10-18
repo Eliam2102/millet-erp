@@ -6,7 +6,7 @@ import {
 } from '@/features/compras/api/keys';
 import type {
   PagedResponse,
-  RequisicionListItemResponse,
+  PendienteAutorizacionItemResponse,
 } from '@/features/compras/api/types';
 
 /**
@@ -27,7 +27,7 @@ export function usePendientesAutorizacion(
     queryFn: async ({ signal }) => {
       const path = buildPath(filtros);
       const { data } = await apiRequest<
-        PagedResponse<RequisicionListItemResponse>
+        PagedResponse<PendienteAutorizacionItemResponse>
       >(path, { signal });
       return data;
     },

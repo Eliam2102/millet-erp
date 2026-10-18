@@ -83,9 +83,13 @@ describe('<MovimientosPruebaPage>', () => {
     expect(document.getElementById('mov-dim3Id-err')).toHaveTextContent(`Falta ${ETIQUETA_DIMENSION.Dim3}`);
     expect(screen.getByLabelText(ETIQUETA_DIMENSION.Dim3)).toHaveAttribute('aria-invalid', 'true');
     expect(body).toMatchObject({ cuentaId: 'c1', tipoDocumentoId: 't1', sucursalId: 's1', dim1Id: null, dim2Id: null, dim3Id: null, origen: 'Manual' });
+    // Con la validación rechazada no se ofrece registrar la misma combinación.
+    const registrar = screen.getByRole('button', { name: 'Registrar movimiento de prueba' });
+    expect(registrar).toBeDisabled();
+    expect(registrar).toHaveAttribute('title', expect.stringContaining('Corrige los errores'));
   });
 
-  it('registrar: 422 con errores de centro de otra sucursal se explica; 201 confirma el registro', async () => {
+  it('registrar: 422 con errores de centro de otra sucursal se explica; al corregir se habilita y 201 confirma el registro', async () => {
     let intentos = 0;
     servidor([http.post(`${API}/movimientos-prueba`, () => {
       intentos += 1;
@@ -103,8 +107,13 @@ describe('<MovimientosPruebaPage>', () => {
     await capturar();
     fireEvent.click(screen.getByRole('button', { name: 'Registrar movimiento de prueba' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('no está asignado a la sucursal FIX Mérida');
+    const registrar = screen.getByRole('button', { name: 'Registrar movimiento de prueba' });
+    expect(registrar).toBeDisabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar movimiento de prueba' }));
+    // Cualquier cambio en la captura limpia el rechazo y vuelve a permitir registrar.
+    fireEvent.change(screen.getByLabelText('Fecha contable'), { target: { value: '2026-10-04' } });
+    expect(registrar).toBeEnabled();
+    fireEvent.click(registrar);
     expect(await screen.findByRole('status')).toHaveTextContent('Movimiento de prueba registrado');
   });
 
