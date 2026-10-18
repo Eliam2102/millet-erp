@@ -866,7 +866,12 @@ function LineaInline({ index, onRemove, form, ordenCompraId }: LineaInlineProps)
               <LineaOcSelector
                 ordenCompraId={ordenCompraId}
                 value={field.value}
-                onChange={(id) => field.onChange(id)}
+                onChange={(id) => {
+                  field.onChange(id);
+                  // Sin submit previo RHF no revalida al cambiar: el error que deja
+                  // resetLineaOcIds (shouldValidate) quedaba pegado tras elegir la línea.
+                  void form.trigger(`lineas.${index}.lineaOcId` as const);
+                }}
                 disabled={!ordenCompraId}
               />
             )}
