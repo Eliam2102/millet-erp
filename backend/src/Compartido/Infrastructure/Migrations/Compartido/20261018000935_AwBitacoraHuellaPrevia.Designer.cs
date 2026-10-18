@@ -6069,7 +6069,7 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
-                            Id = new Guid("00000011-0006-0000-0000-000000000003"),
+                            Id = new Guid("00000011-0006-0000-0000-000000000006"),
                             Activo = true,
                             AplicaOrigen = (short)0,
                             Codigo = "foto_dano",

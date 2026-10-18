@@ -129,6 +129,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                     StatusCodes.Status409Conflict,
                     httpContext,
                     traceId),
+            // 86e3pc50v F4: el trigger es la autoridad del saldo; no se exponen los ids del mensaje.
+            DbUpdateException { InnerException: PostgresException pgs } when EsSaldoInsuficiente(pgs)
+                => CreateSaldoInsuficienteProblem(httpContext, traceId),
+            PostgresException pgd when EsSaldoInsuficiente(pgd)
+                => CreateSaldoInsuficienteProblem(httpContext, traceId),
             DbUpdateException { InnerException: PostgresException pg }
                 when pg.SqlState == PostgresErrorCodes.UniqueViolation
                     && pg.ConstraintName == "ux_clientes_rfc_no_generico"
@@ -138,11 +143,6 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                     StatusCodes.Status409Conflict,
                     httpContext,
                     traceId),
-            // 86e3pc50v F4: el trigger es la autoridad del saldo; no se exponen los ids del mensaje.
-            DbUpdateException { InnerException: PostgresException pgs } when EsSaldoInsuficiente(pgs)
-                => CreateSaldoInsuficienteProblem(httpContext, traceId),
-            PostgresException pgd when EsSaldoInsuficiente(pgd)
-                => CreateSaldoInsuficienteProblem(httpContext, traceId),
             ForbiddenException fe => CreateProblem(fe.Code, fe.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             CrossTenantViolationException cte => CreateProblem(cte.Code, cte.Message, StatusCodes.Status403Forbidden, httpContext, traceId),
             MissingEmpresaContextException mece => CreateProblem(mece.Code, mece.Message, StatusCodes.Status500InternalServerError, httpContext, traceId),
