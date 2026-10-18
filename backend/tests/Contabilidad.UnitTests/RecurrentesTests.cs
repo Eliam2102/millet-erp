@@ -44,7 +44,7 @@ public class RecurrentesTests
         p.Invoking(x => x.Activar(Analista, "analista", Ahora)).Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_RECURRENTE_ACTIVA_QUIEN_CREA");
         p.Activar(Supervisor, "supervisor", Ahora);
         p.Estado.Should().Be(EstadoPlantillaRecurrente.Activa);
-        p.Invoking(x => x.Editar("otra", Tipo(), "x", 2026, 1, 1, 0, false, false, [P(1m, 0m), P(0m, 1m)]))
+        p.Invoking(x => x.Editar("otra", Tipo(), "x", 2026, 1, 1, 0, false, false, [P(1m, 0m), P(0m, 1m)], Analista))
             .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_RECURRENTE_NO_EDITABLE");
         p.Suspender();
         p.Estado.Should().Be(EstadoPlantillaRecurrente.Suspendida);
@@ -98,5 +98,19 @@ public class RecurrentesTests
         Poliza.CrearManual(Guid.NewGuid(), tipo, new DateOnly(2026, 10, 31), 2026, 10, "x", null, original.Partidas.Select(x => x.Datos()), Analista, "a")
             .Invoking(x => x.LigarReclasificacion(borrador))
             .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_POLIZA_RECLASIFICA_NO_AUTORIZADA");
+    }
+
+    [Fact]
+    public void Otro_usuario_no_edita_la_plantilla_ajena_ni_se_activa_sin_usuario()
+    {
+        var p = Plantilla();
+        p.Invoking(x => x.Editar("reescrita", Tipo(), "x", 2026, 11, 120, 0, false, true, [P(90000m, 0m), P(0m, 90000m)], Supervisor))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_RECURRENTE_EDITA_SOLO_QUIEN_CREA");
+        p.Invoking(x => x.Activar(null, "system", Ahora))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_RECURRENTE_ACTIVA_QUIEN_CREA");
+
+        p.Editar("FIX renta", Tipo(), "FIX renta mensual", 2026, 11, 12, 0, false, false, [P(16000m, 0m), P(0m, 16000m)], Analista);
+        p.Activar(Supervisor, "supervisor", Ahora);
+        p.Estado.Should().Be(EstadoPlantillaRecurrente.Activa);
     }
 }

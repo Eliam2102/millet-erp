@@ -253,7 +253,7 @@ public sealed class EditarPlantillaRecurrenteValidator : AbstractValidator<Edita
 }
 
 public sealed class EditarPlantillaRecurrenteHandler(
-    ContabilidadDbContext db, RegistroPolizas registro, AlcanceSucursalContable alcance, LecturaRecurrentes lectura)
+    ContabilidadDbContext db, RegistroPolizas registro, AlcanceSucursalContable alcance, ICurrentUserContext usuario, LecturaRecurrentes lectura)
     : IRequestHandler<EditarPlantillaRecurrenteCommand, PlantillaRecurrenteResponse>
 {
     public async Task<PlantillaRecurrenteResponse> Handle(EditarPlantillaRecurrenteCommand request, CancellationToken cancellationToken)
@@ -264,7 +264,7 @@ public sealed class EditarPlantillaRecurrenteHandler(
         var tipo = await registro.TipoAsync(r.TipoOperacionId, cancellationToken);
         await PoliticaRecurrentes.ValidarPartidasAsync(registro, r, tipo.Id, cancellationToken);
         plantilla.Editar(r.Nombre, tipo, r.Concepto, r.AnioInicio, r.MesInicio, r.NumeroPeriodos, r.DiaDelMes, r.ReversaAutomatica,
-            r.NaceAutorizada, r.Partidas.Select(GeneradorRecurrentes.Partida));
+            r.NaceAutorizada, r.Partidas.Select(GeneradorRecurrentes.Partida), usuario.UserId);
         await db.SaveChangesAsync(cancellationToken);
         return await lectura.ObtenerAsync(plantilla.Id, cancellationToken);
     }

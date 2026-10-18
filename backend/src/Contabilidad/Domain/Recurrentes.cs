@@ -72,14 +72,24 @@ public sealed class PlantillaRecurrente : BaseEntity, IAuditable, IPerteneceAEmp
         CreadaPorId = usuarioId;
         CreadaPor = usuarioNombre;
         Estado = EstadoPlantillaRecurrente.Borrador;
-        Editar(nombre, tipo, concepto, anioInicio, mesInicio, numeroPeriodos, diaDelMes, reversaAutomatica, naceAutorizada, partidas);
+        Aplicar(nombre, tipo, concepto, anioInicio, mesInicio, numeroPeriodos, diaDelMes, reversaAutomatica, naceAutorizada, partidas);
     }
 
     public void Editar(string nombre, TipoDocumentoContable tipo, string concepto, int anioInicio, int mesInicio, int numeroPeriodos,
-        int diaDelMes, bool reversaAutomatica, bool naceAutorizada, IEnumerable<PartidaPlantilla> partidas)
+        int diaDelMes, bool reversaAutomatica, bool naceAutorizada, IEnumerable<PartidaPlantilla> partidas, Guid? editorId)
     {
         if (Estado != EstadoPlantillaRecurrente.Borrador)
             throw new BusinessRuleException("CONTAB_RECURRENTE_NO_EDITABLE", "Solo se edita una plantilla en borrador; suspéndala y cree otra.");
+        // Solo quien la preparó la edita: si otro la reescribiera, después podría activarla él mismo (R23).
+        if (editorId is null || editorId != CreadaPorId)
+            throw new BusinessRuleException("CONTAB_RECURRENTE_EDITA_SOLO_QUIEN_CREA",
+                "Solo quien preparó la plantilla puede editarla. Si tiene un error, regrésela a quien la preparó.");
+        Aplicar(nombre, tipo, concepto, anioInicio, mesInicio, numeroPeriodos, diaDelMes, reversaAutomatica, naceAutorizada, partidas);
+    }
+
+    private void Aplicar(string nombre, TipoDocumentoContable tipo, string concepto, int anioInicio, int mesInicio, int numeroPeriodos,
+        int diaDelMes, bool reversaAutomatica, bool naceAutorizada, IEnumerable<PartidaPlantilla> partidas)
+    {
         if (string.IsNullOrWhiteSpace(nombre) || nombre.Trim().Length > 120)
             throw new BusinessRuleException("CONTAB_RECURRENTE_NOMBRE_INVALIDO", "El nombre es requerido y admite hasta 120 caracteres.");
         if (string.IsNullOrWhiteSpace(concepto) || concepto.Trim().Length > Poliza.ConceptoMaximo)
@@ -124,7 +134,7 @@ public sealed class PlantillaRecurrente : BaseEntity, IAuditable, IPerteneceAEmp
     {
         if (Estado != EstadoPlantillaRecurrente.Borrador)
             throw new BusinessRuleException("CONTAB_RECURRENTE_NO_ACTIVABLE", "Solo se activa una plantilla en borrador.");
-        if (usuarioId is not null && usuarioId == CreadaPorId)
+        if (usuarioId is null || usuarioId == CreadaPorId)
             throw new BusinessRuleException("CONTAB_RECURRENTE_ACTIVA_QUIEN_CREA",
                 "No puede activar una plantilla que usted preparó: la activa otro usuario con permiso (prepara el Analista, aprueba el Supervisor).");
         Estado = EstadoPlantillaRecurrente.Activa;
