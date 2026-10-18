@@ -93,7 +93,7 @@ public sealed class EditarPolizaValidator : AbstractValidator<EditarPolizaComman
 }
 
 public sealed class EditarPolizaHandler(
-    ContabilidadDbContext db, RegistroPolizas registro, AlcanceSucursalContable alcance, LecturaPolizas lectura)
+    ContabilidadDbContext db, RegistroPolizas registro, AlcanceSucursalContable alcance, ICurrentUserContext usuario, LecturaPolizas lectura)
     : IRequestHandler<EditarPolizaCommand, PolizaResponse>
 {
     public async Task<PolizaResponse> Handle(EditarPolizaCommand request, CancellationToken cancellationToken)
@@ -104,13 +104,16 @@ public sealed class EditarPolizaHandler(
         {
             var poliza = await PoliticaPolizas.CargarAsync(db, request.Id, request.VersionEsperada, ct);
             poliza.ExigirBorrador("editar");
+            if (usuario.UserId is null || usuario.UserId != poliza.CapturadaPorId)
+                throw new BusinessRuleException("CONTAB_POLIZA_EDITA_SOLO_QUIEN_CAPTURA",
+                    "Solo quien capturó el borrador puede editarlo. Si tiene un error, regréselo a quien lo capturó o descártelo y capture otro.");
             if (r.TipoOperacionId != poliza.TipoOperacionId)
                 throw new BusinessRuleException("CONTAB_POLIZA_TIPO_INMUTABLE", "El tipo de operación no se cambia: descarte el borrador y capture otro.");
             var (anio, numero) = RegistroPolizas.Periodo(r.Fecha, r.PeriodoNumero);
             await registro.VerificarPeriodoAsync(anio, numero, OrigenPoliza.Manual, ct);
             var partidas = await registro.ValidarPartidasAsync(r.Partidas, poliza.TipoOperacionId, r.Fecha, OrigenMovimiento.Manual, ct);
             db.PolizasPartidas.RemoveRange(poliza.Partidas);
-            poliza.Editar(r.Fecha, anio, numero, r.Concepto, partidas.Partidas);
+            poliza.Editar(r.Fecha, anio, numero, r.Concepto, partidas.Partidas, usuario.UserId);
             db.PolizasPartidas.AddRange(poliza.Partidas);
             await db.SaveChangesAsync(ct);
         }, cancellationToken);

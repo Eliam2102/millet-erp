@@ -158,10 +158,16 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
         return p;
     }
 
-    /// <summary>Solo el borrador se edita (C1.3-b: la autorizada solo se anula).</summary>
-    public void Editar(DateOnly fecha, int periodoAnio, int periodoNumero, string concepto, IEnumerable<DatosPartida> partidas)
+    /// <summary>
+    /// Solo el borrador se edita (C1.3-b: la autorizada solo se anula), y solo lo edita quien lo capturó: si otro usuario
+    /// pudiera reescribirlo, después podría autorizarlo él mismo y se rompería «prepara el Analista, aprueba el Supervisor».
+    /// </summary>
+    public void Editar(DateOnly fecha, int periodoAnio, int periodoNumero, string concepto, IEnumerable<DatosPartida> partidas, Guid? editorId)
     {
         ExigirBorrador("editar");
+        if (editorId is null || editorId != CapturadaPorId)
+            throw new BusinessRuleException("CONTAB_POLIZA_EDITA_SOLO_QUIEN_CAPTURA",
+                "Solo quien capturó el borrador puede editarlo. Si tiene un error, regréselo a quien lo capturó o descártelo y capture otro.");
         Encabezado(fecha, periodoAnio, periodoNumero, concepto);
         ReemplazarPartidas(partidas, admiteNegativos: false);
     }
@@ -181,7 +187,7 @@ public sealed class Poliza : BaseEntity, IAuditable, IPerteneceAEmpresa
     public void Autorizar(int numero, Guid? usuarioId, string usuarioNombre, DateTimeOffset ahora)
     {
         ExigirBorrador("autorizar");
-        if (usuarioId is not null && usuarioId == CapturadaPorId)
+        if (usuarioId is null || usuarioId == CapturadaPorId)
             throw new BusinessRuleException("CONTAB_POLIZA_AUTORIZA_QUIEN_CAPTURA",
                 "No puede autorizar una póliza que usted capturó: la autoriza otro usuario con permiso (prepara el Analista, aprueba el Supervisor).");
         ValidarCuadre();
