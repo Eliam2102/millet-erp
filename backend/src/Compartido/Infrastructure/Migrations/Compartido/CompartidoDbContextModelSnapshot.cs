@@ -5635,6 +5635,22 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                         },
                         new
                         {
+                            Id = new Guid("00000011-0006-0000-0000-000000000003"),
+                            Activo = true,
+                            Codigo = "soporte",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Documento soporte",
+                            Obligatorio = false,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "poliza",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
                             Id = new Guid("00000011-0001-0000-0000-000000000001"),
                             Activo = true,
                             Codigo = "constancia_situacion_fiscal",

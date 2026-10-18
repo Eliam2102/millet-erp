@@ -585,6 +585,7 @@ else
 builder.Services.AddScoped<Millet.Compartido.Application.Adjuntos.AdjuntoAcceso>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Compras.Application.Adjuntos.RequisicionAdjuntoPropietario>();
 builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.CuentasPorPagar.Application.Adjuntos.FacturaProveedorAdjuntoPropietario>();
+builder.Services.AddScoped<Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario, Millet.Contabilidad.Application.Polizas.PolizaAdjuntoPropietario>();
 builder.Services.AddScoped<
     Millet.SharedKernel.Application.Adjuntos.IAdjuntoPropietario,
     Millet.Compartido.Application.Adjuntos.ProveedorAdjuntoPropietario>();
@@ -1448,6 +1449,7 @@ Millet.Api.Endpoints.Contabilidad.ContabilidadCatalogoEndpoints.MapContabilidadE
 Millet.Api.Endpoints.Contabilidad.ContabilidadDimensionesEndpoints.MapContabilidadDimensionesEndpoints(app);
 // === Contabilidad — ejercicios y periodos contables: apertura, cierre y reapertura con bitácora (F1-CON-03) ===
 Millet.Api.Endpoints.Contabilidad.ContabilidadPeriodosEndpoints.MapContabilidadPeriodosEndpoints(app);
+Millet.Api.Endpoints.Contabilidad.ContabilidadPolizasEndpoints.MapContabilidadPolizasEndpoints(app);
 
 // === Almacén — CRUD asignación artículo→ubicación (OITW, ADR-0047 PR3) ===
 Millet.Api.Endpoints.Almacen.Asignaciones.AlmacenAsignacionesEndpoints.MapAlmacenAsignacionesEndpoints(app);

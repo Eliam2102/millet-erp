@@ -4298,6 +4298,62 @@ namespace Millet.Identidad.Infrastructure.Migrations
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UpdatedBy = "seed",
                             Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0005-0000-0000-000000000001"),
+                            Accion = "leer",
+                            Codigo = "contabilidad.polizas.leer",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Consultar pólizas contables, sus partidas, documentos soporte y los movimientos del periodo por cuenta",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0005-0000-0000-000000000002"),
+                            Accion = "capturar",
+                            Codigo = "contabilidad.polizas.capturar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Capturar, editar y descartar pólizas manuales en borrador y adjuntar su documento soporte",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0005-0000-0000-000000000003"),
+                            Accion = "autorizar",
+                            Codigo = "contabilidad.polizas.autorizar",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Autorizar pólizas manuales capturadas por otro usuario (asigna su número)",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000d-0005-0000-0000-000000000004"),
+                            Accion = "anular",
+                            Codigo = "contabilidad.polizas.anular",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Descripcion = "Anular pólizas autorizadas con motivo (genera la póliza con las mismas partidas en negativo)",
+                            Modulo = "contabilidad",
+                            Recurso = "polizas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 

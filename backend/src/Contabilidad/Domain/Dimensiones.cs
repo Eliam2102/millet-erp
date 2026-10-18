@@ -17,8 +17,10 @@ public enum DimensionContable : short { Dim1 = 1, Dim2 = 2, Dim3 = 3, Proyecto =
 public enum RequerimientoDimension : short { Obligatorio = 1, Opcional = 2, NoAplica = 3 }
 
 /// <summary>
-/// Tipo de documento contable (D2): catálogo propio de Contabilidad. No reutiliza <c>TipoDocumentoSerie</c> (folios).
-/// Mientras Millet no entregue su lista, solo hay tipos de prueba (<see cref="EsPrueba"/>, clave <c>FIX-*</c>).
+/// Tipo de documento contable (D2) y, desde K10.9, tipo de operación de la póliza: un solo catálogo (ficha K10.2: «que sea uno
+/// solo»). Los tipos reales son los códigos de dos letras de SAP (Cuestionario 08, C-02/R5: TT, PC, RF…) con su tipo de póliza del
+/// SAT; cada uno lleva su propio consecutivo de 6 dígitos (<see cref="ConsecutivoPoliza"/>). Los de prueba (<see cref="EsPrueba"/>,
+/// clave <c>FIX-*</c>) conservan la clave libre de hasta 20 caracteres. No reutiliza <c>TipoDocumentoSerie</c> (folios).
 /// </summary>
 public sealed class TipoDocumentoContable : BaseEntity, IAuditable, IPerteneceAEmpresa
 {
@@ -27,25 +29,37 @@ public sealed class TipoDocumentoContable : BaseEntity, IAuditable, IPerteneceAE
     public string Nombre { get; private set; } = string.Empty;
     public EstatusCatalogo Estatus { get; private set; } = EstatusCatalogo.Activo;
     public bool EsPrueba { get; private set; }
+    public TipoPolizaSat TipoSat { get; private set; } = TipoPolizaSat.Diario;
 
     public bool Activo => Estatus == EstatusCatalogo.Activo;
 
     private TipoDocumentoContable() { }
 
-    public TipoDocumentoContable(Guid id, string clave, string nombre, bool esPrueba) : base(id)
+    public TipoDocumentoContable(Guid id, string clave, string nombre, bool esPrueba, TipoPolizaSat tipoSat = TipoPolizaSat.Diario) : base(id)
     {
         if (string.IsNullOrWhiteSpace(clave) || clave.Length > 20)
             throw new BusinessRuleException("CONTAB_TIPO_DOC_CLAVE_INVALIDA", "La clave del tipo de documento es requerida y admite hasta 20 caracteres.");
+        if (!esPrueba && !EsClaveDeOperacion(clave))
+            throw new BusinessRuleException("CONTAB_TIPO_DOC_CLAVE_INVALIDA",
+                "La clave del tipo de operación son dos letras mayúsculas, como en SAP (TT, PC, RF…).");
         Clave = clave;
         EsPrueba = esPrueba;
-        Editar(nombre);
+        Editar(nombre, tipoSat);
     }
 
-    public void Editar(string nombre)
+    /// <summary>K10.9: dos letras A–Z.</summary>
+    public static bool EsClaveDeOperacion(string clave) => clave.Length == 2 && clave.All(char.IsAsciiLetterUpper);
+
+    public void Editar(string nombre) => Editar(nombre, TipoSat);
+
+    public void Editar(string nombre, TipoPolizaSat tipoSat)
     {
         if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 120)
             throw new BusinessRuleException("CONTAB_TIPO_DOC_NOMBRE_INVALIDO", "El nombre del tipo de documento es requerido y admite hasta 120 caracteres.");
+        if (!Enum.IsDefined(tipoSat))
+            throw new BusinessRuleException("CONTAB_TIPO_DOC_TIPO_SAT_INVALIDO", "El tipo de póliza del SAT debe ser ingreso, egreso o diario.");
         Nombre = nombre;
+        TipoSat = tipoSat;
     }
 
     public void CambiarEstatus(bool activo) => Estatus = activo ? EstatusCatalogo.Activo : EstatusCatalogo.Inactivo;
