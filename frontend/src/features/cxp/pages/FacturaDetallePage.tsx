@@ -132,11 +132,6 @@ export function FacturaDetallePage() {
             estado={
               <>
                 <EstadoPasivoChip estado={query.data.estado} />
-                {query.data.enRevision && query.data.estado !== EstadoPasivo.EnRevision && (
-                  <Badge variant="warning" data-testid="en-revision-flag">
-                    En revisión por área
-                  </Badge>
-                )}
                 <ToleranciaIndicator
                   diferencia={query.data.diferenciaContraOc}
                   cancelada={query.data.estado === EstadoPasivo.Cancelada}
