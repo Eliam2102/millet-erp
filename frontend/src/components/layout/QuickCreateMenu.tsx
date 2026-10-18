@@ -1,3 +1,4 @@
+import { useNuevoExpediente } from '@/features/comercio-exterior/components/nuevo-expediente-context';
 import {
   BookOpen,
   Building2,
@@ -70,6 +71,7 @@ export function QuickCreateMenu() {
   const nuevaLineaCredito = useNuevaLineaCredito();
   const registrarGestion = useRegistrarGestion();
   const nuevaPropuesta = useNuevaPropuesta();
+  const nuevoExpediente = useNuevoExpediente();
 
   // Catálogo de acciones, definido dentro del componente para poder
   // capturar handlers de hooks. Cuando otros módulos del back-office
@@ -164,6 +166,17 @@ export function QuickCreateMenu() {
       label: 'Contabilidad',
       icon: BookOpen,
       actions: [],
+    },
+    {
+      label: 'Comercio Exterior',
+      icon: Receipt,
+      actions: [
+        {
+          label: 'Expediente',
+          permission: PermisosCanonicos.ComercioExteriorExpedientesCrear,
+          onClick: nuevoExpediente.abrir,
+        },
+      ],
     },
   ];
 

@@ -35,3 +35,10 @@ internal sealed class DesignTimeEmpresa : ICurrentEmpresaContext
     public IDisposable Bypass() => new Noop();
     private sealed class Noop : IDisposable { public void Dispose() { } }
 }
+
+public sealed class ComercioExteriorDesignTimeFactory : IDesignTimeDbContextFactory<Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext>
+{
+    public Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext CreateDbContext(string[] args) => new(
+        new DbContextOptionsBuilder<Millet.ComercioExterior.Infrastructure.Persistence.ComercioExteriorDbContext>()
+            .UseNpgsql(DesignTimeConexion.Valor).UseSnakeCaseNamingConvention().Options, new DesignTimeEmpresa());
+}

@@ -5730,6 +5730,230 @@ namespace Millet.Compartido.Infrastructure.Migrations.Compartido
                             UpdatedBy = "seed",
                             Version = 1,
                             VigenciaMeses = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000001"),
+                            Activo = true,
+                            Codigo = "IMP_FACTURA",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Factura comercial",
+                            Obligatorio = true,
+                            Orden = 1,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000002"),
+                            Activo = true,
+                            Codigo = "IMP_PACKING",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Packing list",
+                            Obligatorio = true,
+                            Orden = 2,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000003"),
+                            Activo = true,
+                            Codigo = "IMP_TRANSPORTE",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "BL o AWB",
+                            Obligatorio = true,
+                            Orden = 3,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000004"),
+                            Activo = true,
+                            Codigo = "IMP_PEDIMENTO",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Pedimento",
+                            Obligatorio = true,
+                            Orden = 4,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000005"),
+                            Activo = true,
+                            Codigo = "IMP_OC",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Orden de compra",
+                            Obligatorio = true,
+                            Orden = 5,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000006"),
+                            Activo = true,
+                            Codigo = "IMP_REGULATORIOS",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Regulatorios",
+                            Obligatorio = false,
+                            Orden = 6,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000007"),
+                            Activo = true,
+                            Codigo = "EXP_PACKING",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Packing list",
+                            Obligatorio = true,
+                            Orden = 7,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000008"),
+                            Activo = true,
+                            Codigo = "EXP_FACTURA",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Factura comercial",
+                            Obligatorio = true,
+                            Orden = 8,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-000000000009"),
+                            Activo = true,
+                            Codigo = "EXP_BL",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "BL",
+                            Obligatorio = true,
+                            Orden = 9,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-00000000000a"),
+                            Activo = true,
+                            Codigo = "EXP_PEDIMENTO",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Pedimento",
+                            Obligatorio = true,
+                            Orden = 10,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-00000000000b"),
+                            Activo = true,
+                            Codigo = "EXP_ORIGEN",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Certificado de origen",
+                            Obligatorio = false,
+                            Orden = 11,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-00000000000c"),
+                            Activo = true,
+                            Codigo = "EXP_ISF",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "ISF",
+                            Obligatorio = false,
+                            Orden = 12,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-00000000000d"),
+                            Activo = true,
+                            Codigo = "EXP_CARTA_PORTE",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "Carta Porte",
+                            Obligatorio = false,
+                            Orden = 13,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("0000000e-0003-0000-0000-00000000000e"),
+                            Activo = true,
+                            Codigo = "EXP_POD",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = "seed",
+                            Nombre = "POD",
+                            Obligatorio = false,
+                            Orden = 14,
+                            SoloPersonaMoral = false,
+                            TipoEntidad = "expediente_ce",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedBy = "seed",
+                            Version = 1
                         });
                 });
 

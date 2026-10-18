@@ -4,7 +4,7 @@ using Millet.SharedKernel.Application.Exceptions;
 namespace Millet.Api.Web;
 public sealed class DocumentoSucursalScope(ICurrentUserContext user, ICurrentUserPermissions permisos,
     IUsuarioSucursalReadPort sucursales, IFacturacionSucursalReadPort facturacion,
-    ICxpSucursalReadPort cxp, ICxcSucursalReadPort cxc, ITesoreriaSucursalReadPort tesoreria, IComprasSucursalReadPort compras, IAlmacenSucursalReadPort almacen)
+    ICxpSucursalReadPort cxp, ICxcSucursalReadPort cxc, ITesoreriaSucursalReadPort tesoreria, IComprasSucursalReadPort compras, IAlmacenSucursalReadPort almacen, IComercioExteriorSucursalReadPort comercioExterior)
 {
     public Task VerificarSucursalAsync(Guid? sucursalId, string permisoTodas, CancellationToken ct)
         => SucursalScopeGuard.VerificarAsync(user.UserId, permisoTodas, permisos,
@@ -16,6 +16,7 @@ public sealed class DocumentoSucursalScope(ICurrentUserContext user, ICurrentUse
         "conteo" or "recepcion" or "salida_almacen" or "reorden" or "ubicacion_almacen" or "almacen" or "sub_almacen" or "devolucion_proveedor" => almacen,
         "comprobante" or "sesion_caja" => facturacion,
         "cliente_cartera" or "factura_cartera" or "propuesta_cxc" or "seguimiento_cobranza" or "alerta_cartera" => cxc,
+        "expediente_ce" => comercioExterior,
         _ => tesoreria,
     };
     public static bool Permitido(DocumentoSucursales documento, IReadOnlyList<Guid> permitidas)
@@ -23,7 +24,7 @@ public sealed class DocumentoSucursalScope(ICurrentUserContext user, ICurrentUse
     public async Task VerificarAsync(string tipo, Guid id, string permisoTodas, CancellationToken ct)
     {
         if (await permisos.TieneAsync(permisoTodas, ct)) return;
-        var documento = (await Puerto(tipo).ListarAsync(tipo, ct)).FirstOrDefault(x => x.Id == id);
+        var documento = await Puerto(tipo).ObtenerAsync(tipo, id, ct);
         if (documento is null || documento.Sucursales.Count == 0)
             throw new ForbiddenException("SUCURSAL_NO_DETERMINADA",
                 "Este documento no tiene una sucursal verificable. Requiere un usuario con alcance corporativo.");

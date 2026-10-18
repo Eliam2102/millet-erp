@@ -539,6 +539,20 @@ public static class PermisosCanonicos
     public const string ContabilidadRecurrentesAdministrar              = "contabilidad.recurrentes.administrar";
     public const string ContabilidadRecurrentesAutorizar                = "contabilidad.recurrentes.autorizar";
 
+    // Comercio Exterior (CE-01a), namespace 0000000e.
+    public const string ComercioExteriorExpedientesLeer = "comercio_exterior.expedientes.leer";
+    public const string ComercioExteriorExpedientesCrear = "comercio_exterior.expedientes.crear";
+    public const string ComercioExteriorExpedientesEditar = "comercio_exterior.expedientes.editar";
+    public const string ComercioExteriorExpedientesCancelar = "comercio_exterior.expedientes.cancelar";
+    public const string ComercioExteriorExpedientesCerrar = "comercio_exterior.expedientes.cerrar";
+    public const string ComercioExteriorExpedientesHitosRegistrar = "comercio_exterior.expedientes.hitos-registrar";
+    public const string ComercioExteriorExpedientesDocumentosRevisar = "comercio_exterior.expedientes.documentos-revisar";
+    public const string ComercioExteriorExpedientesAdjuntosVer = "comercio_exterior.expedientes.adjuntos-ver";
+    public const string ComercioExteriorExpedientesAdjuntosSubir = "comercio_exterior.expedientes.adjuntos-subir";
+    public const string ComercioExteriorExpedientesAdjuntosBaja = "comercio_exterior.expedientes.adjuntos-baja";
+    public const string ComercioExteriorDocumentosLeerTodasSucursales = "comercio_exterior.documentos.leer-todas-sucursales";
+    public const string ComercioExteriorDocumentosGestionarTodasSucursales = "comercio_exterior.documentos.gestionar-todas-sucursales";
+
     /// <summary>
     /// Catálogo completo: <c>(Id determinista, Codigo, Descripcion)</c>.
     /// Usado por la migration de seed y por el bootstrap del SuperAdmin
@@ -856,5 +870,19 @@ public static class PermisosCanonicos
         (Guid.Parse("0000000d-0006-0000-0000-000000000001"), ContabilidadRecurrentesLeer,            "Consultar plantillas de pólizas recurrentes y su calendario de aplicaciones"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000002"), ContabilidadRecurrentesAdministrar,     "Preparar, editar, suspender y reanudar plantillas recurrentes y generar sus pólizas pendientes"),
         (Guid.Parse("0000000d-0006-0000-0000-000000000003"), ContabilidadRecurrentesAutorizar,       "Activar plantillas recurrentes preparadas por otro usuario"),
+
+        // CE-01a. Namespace 0000000e, agregado al final para integrar otros PR.
+        (Guid.Parse("0000000e-0001-0000-0000-000000000001"), ComercioExteriorExpedientesLeer, "Consultar expedientes"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000002"), ComercioExteriorExpedientesCrear, "Abrir expedientes"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000003"), ComercioExteriorExpedientesEditar, "Editar expedientes y participantes"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000004"), ComercioExteriorExpedientesCancelar, "Cancelar con motivo"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000005"), ComercioExteriorExpedientesCerrar, "Reservado para CE-01b"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000006"), ComercioExteriorExpedientesHitosRegistrar, "Reservado para CE-01b"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000007"), ComercioExteriorExpedientesDocumentosRevisar, "Revisar requisitos documentales"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000008"), ComercioExteriorExpedientesAdjuntosVer, "Consultar archivos"),
+        (Guid.Parse("0000000e-0001-0000-0000-000000000009"), ComercioExteriorExpedientesAdjuntosSubir, "Subir archivos y registrar versiones"),
+        (Guid.Parse("0000000e-0001-0000-0000-00000000000a"), ComercioExteriorExpedientesAdjuntosBaja, "Baja lógica con motivo"),
+        (Guid.Parse("0000000e-0002-0000-0000-000000000001"), ComercioExteriorDocumentosLeerTodasSucursales, "Consultar todas las sucursales"),
+        (Guid.Parse("0000000e-0002-0000-0000-000000000002"), ComercioExteriorDocumentosGestionarTodasSucursales, "Operar todas las sucursales"),
     };
 }
