@@ -7,6 +7,7 @@ public interface ICatalogosCeReadPort
     Task<IReadOnlyList<ReferenciaCe>> ReferenciasAsync(string tipo, string q, CancellationToken ct);
     Task<Guid> IncotermDdpAsync(CancellationToken ct);
     Task ValidarAsync(Guid incoterm, string moneda, Guid sucursal, Guid responsable, CancellationToken ct);
+    Task ValidarResponsableAsync(Guid sucursal, Guid responsable, CancellationToken ct);
     Task ValidarParticipanteAsync(Guid? proveedor, Guid? cliente, CancellationToken ct);
     Task<IReadOnlyList<RequisitoDocumento>> RequisitosAsync(TipoExpediente tipo, CancellationToken ct);
     Task<IReadOnlyList<Guid>> AdjuntosVigentesAsync(Guid expediente, CancellationToken ct);

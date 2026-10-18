@@ -43,12 +43,15 @@ public sealed class ExpedienteTests
     public void Participante_libre_con_contacto_y_papel()
     {
         var e = Crear();
-        e.AgregarParticipante(Guid.NewGuid(), "Agente DEMO", "Agente aduanal", "contacto DEMO", PapelParticipante.Revisa, null, null);
-        e.Participantes.Should().Contain(p => p.Tipo == "Agente aduanal");
+        e.AgregarParticipante(Guid.NewGuid(), "Agente DEMO", TipoParticipante.AgenteAduanal, "contacto DEMO", PapelParticipante.Revisa, null, null);
+        e.Participantes.Should().Contain(p => p.Tipo == TipoParticipante.AgenteAduanal);
     }
 
     [Fact]
-    public void Participante_rechaza_nombre_vacio() => Codigo(() => Crear().AgregarParticipante(Guid.NewGuid(), "", "Otro", null, PapelParticipante.Captura, null, null), "CE_PARTICIPANTE_INVALIDO");
+    public void Participante_rechaza_tipo_fuera_del_catalogo() => Codigo(() => Crear().AgregarParticipante(Guid.NewGuid(), "DEMO participante", (TipoParticipante)99, null, PapelParticipante.Captura, null, null), "CE_PARTICIPANTE_INVALIDO");
+
+    [Fact]
+    public void Participante_rechaza_nombre_vacio() => Codigo(() => Crear().AgregarParticipante(Guid.NewGuid(), "", TipoParticipante.Otro, null, PapelParticipante.Captura, null, null), "CE_PARTICIPANTE_INVALIDO");
     [Fact]
     public void Faltantes_rechazan_revision_con_lista()
     {
