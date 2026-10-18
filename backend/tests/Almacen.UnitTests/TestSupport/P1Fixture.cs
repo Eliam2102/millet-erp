@@ -70,6 +70,15 @@ internal sealed class P1Fixture : IAsyncDisposable
         public List<object> Items { get; } = [];
         public Task PublishAsync(object integrationEvent, CancellationToken ct) { Items.Add(integrationEvent); return Task.CompletedTask; }
     }
+    /// <summary>Puerto de artículos mínimo: toda clave existe con la unidad indicada.</summary>
+    public sealed class ArticulosConUnidad(string unidad = "PZA") : IArticuloReadPort
+    {
+        public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", unidad, null, null, true));
+        public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
+                ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, null, true)));
+    }
     public sealed class Decimales : IDecimalesUnidadGuard
     {
         public Task ValidarAsync(IEnumerable<CantidadAValidar> cantidades, CancellationToken ct) => Task.CompletedTask;

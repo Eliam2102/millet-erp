@@ -334,19 +334,22 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
 
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IPeriodoContableReadPort _periodoContable;
+    private readonly IArticuloReadPort _articulos;
 
     public BajaPorDanoHandler(
         AlmacenDbContext db,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable)
+        IPeriodoContableReadPort periodoContable,
+        IArticuloReadPort articulos)
     {
         _db = db;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
         _periodoContable = periodoContable;
+        _articulos = articulos;
     }
 
     public async Task<BajaPorDanoResponse> Handle(
@@ -367,6 +370,10 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
             request.SubAlmacenMatRevId, request.FechaMovimiento, request.Motivo,
             request.Lineas, TipoMovimiento.BajaPorDano, cancellationToken);
     }
+
+    internal static string UnidadBase(IReadOnlyDictionary<Guid, ArticuloLectura> unidades, Guid articuloId) =>
+        unidades.TryGetValue(articuloId, out var art) ? art.UnidadMedida
+            : throw new EntityNotFoundException("ARTICULO_NO_ENCONTRADO", $"No existe el artículo '{articuloId}'.");
 
     internal async Task<BajaPorDanoResponse> CrearMovimientoMatRevAsync(
         Guid subAlmacenId,
@@ -406,6 +413,24 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
             .Select(u => (Guid?)u.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+        var unidades = await _articulos.ObtenerPorIdsAsync(
+            lineas.Select(l => l.ArticuloId).Distinct().ToArray(), cancellationToken);
+
+        // El folio ya no se reserva aquí: se abre antes la transacción y con ella el lock por bin del
+        // chequeo de reserva (más abajo), para que reserva, saldo y movimiento sean atómicos.
+        var anio = fechaMovimiento.Year;
+        var prefijo = tipo.PrefijoFolio();
+        // M-094: lock por (prefijo, año) antes de leer la secuencia; este método no tenía transacción, la abre y la confirma tras SaveChanges.
+        await using var transaccion = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken);
+
+        // ALM-04: la baja de 8.A no puede consumir lo reservado para el dictamen de una recepción en revisión.
+        if (!esEntrada)
+        {
+            await ReservaDictamen.ValidarAsync(_db,
+                lineas.Select(l => (l.UbicacionId ?? ubicacionDefaultId ?? Guid.Empty, l.ArticuloId, l.Cantidad)).ToList(),
+                cancellationToken);
+        }
+
         var posicion = 1;
         foreach (var l in lineas)
         {
@@ -428,16 +453,12 @@ public sealed class BajaPorDanoHandler : IRequestHandler<BajaPorDanoCommand, Baj
                 posicion: posicion++,
                 articuloId: l.ArticuloId,
                 cantidad: l.Cantidad,
-                unidadMedida: "PZA",
+                unidadMedida: UnidadBase(unidades, l.ArticuloId),
                 costoUnitarioMxn: costo,
                 ubicacionId: l.UbicacionId);
             movimiento.AgregarLinea(linea);
         }
 
-        var anio = fechaMovimiento.Year;
-        var prefijo = tipo.PrefijoFolio();
-        // M-094: lock por (prefijo, año) antes de leer la secuencia; este método no tenía transacción, la abre y la confirma tras SaveChanges.
-        await using var transaccion = await Catalogo.FolioMovimientoLock.AbrirAsync(_db, prefijo, anio, cancellationToken);
         var sec = await _db.FolioSecuenciasMovimiento
             .FirstOrDefaultAsync(s => s.Prefijo == prefijo && s.Anio == anio, cancellationToken)
             ?? new FolioSecuenciaMovimiento(Guid.CreateVersion7(), prefijo, anio, 0);
@@ -500,19 +521,22 @@ public sealed class ReincorporacionTrasRevisionHandler
 
     private readonly IDecimalesUnidadGuard _decimalesGuard;
     private readonly IPeriodoContableReadPort _periodoContable;
+    private readonly IArticuloReadPort _articulos;
 
     public ReincorporacionTrasRevisionHandler(
         AlmacenDbContext db,
         ICurrentUserContext currentUser,
         ICurrentEmpresaContext currentEmpresa,
         IDecimalesUnidadGuard decimalesGuard,
-        IPeriodoContableReadPort periodoContable)
+        IPeriodoContableReadPort periodoContable,
+        IArticuloReadPort articulos)
     {
         _db = db;
         _currentUser = currentUser;
         _currentEmpresa = currentEmpresa;
         _decimalesGuard = decimalesGuard;
         _periodoContable = periodoContable;
+        _articulos = articulos;
     }
 
     public async Task<BajaPorDanoResponse> Handle(
@@ -541,36 +565,67 @@ public sealed class ReincorporacionTrasRevisionHandler
         await using var transaccion = await FolioMovimientoLock.AbrirAsync(
             _db, TipoMovimiento.SalidaPorLiberacionRevision.PrefijoFolio(), request.FechaMovimiento.Year, cancellationToken);
 
+        var unidades = await _articulos.ObtenerPorIdsAsync(
+            request.Lineas.Select(l => l.ArticuloId).Distinct().ToArray(), cancellationToken);
+        var binesMatRev = await (
+            from u in _db.Ubicaciones.AsNoTracking()
+            join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
+            where sa.AlmacenId == almacenId && sa.Tipo == TipoSubAlmacen.MaterialEnRevision
+            select new { u.Id, u.EsDefault }).ToListAsync(cancellationToken);
+        if (binesMatRev.Count == 0)
+            throw new BusinessRuleException("REINCORPORACION_SIN_MAT_REV",
+                "El almacén no tiene sub-almacén de material en revisión de donde reincorporar.");
+        var binIds = binesMatRev.Select(b => b.Id).ToArray();
+        // ALM-04: lo reservado para dictamen de una recepción en revisión no se reincorpora por 8.A.
+        // Lock por bin (en orden) y pendiente por (bin, artículo) bajo la misma transacción.
+        foreach (var bin in binIds.Order())
+            await DevolucionesProveedor.DevolucionOrigenLock.AbrirAsync(_db, bin, cancellationToken);
+        var reservado = await ReservaDictamen.PendientePorBinAsync(_db, binIds, cancellationToken);
+        var saldosMatRev = await _db.SaldosInventario.AsNoTracking()
+            .Where(s => binIds.Contains(s.UbicacionId) && s.Cantidad > 0).ToListAsync(cancellationToken);
+        var consumidoEnEstaSolicitud = new Dictionary<(Guid, Guid), decimal>();
+
         var pares = new List<ParLiberacionLinea>(request.Lineas.Count);
         foreach (var l in request.Lineas)
         {
             await UbicacionEntradaGuard.ValidarUbicacionEntradaAsync(
                 _db, l.UbicacionId!.Value, request.SubAlmacenDestinoId, l.ArticuloId, cancellationToken);
 
-            // El request no trae el bin de MAT-REV de origen: se toma el del mismo almacén con más saldo del
-            // artículo (ponytail: un solo bin por línea; si no alcanza, el trigger lanza SALDO_INSUFICIENTE).
-            // Sin saldo en ningún bin se usa el bin default de MAT-REV para que el trigger lance SALDO_INEXISTENTE.
-            var origen = await (
-                from s in _db.SaldosInventario.AsNoTracking()
-                join u in _db.Ubicaciones.AsNoTracking() on s.UbicacionId equals u.Id
-                join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
-                where sa.AlmacenId == almacenId && sa.Tipo == TipoSubAlmacen.MaterialEnRevision
-                    && s.ArticuloId == l.ArticuloId && s.Cantidad > 0
-                orderby s.Cantidad descending
-                select new { s.UbicacionId, s.CostoPromedioMxn }).FirstOrDefaultAsync(cancellationToken);
-            if (origen is null)
+            // El request no trae el bin de MAT-REV de origen: se toma el del mismo almacén con más saldo LIBRE
+            // (saldo − reservado para dictamen − ya tomado por otra línea de esta solicitud) del artículo
+            // (ponytail: un solo bin por línea). Sin saldo en ningún bin se usa el bin default de MAT-REV para
+            // que el trigger lance SALDO_INEXISTENTE.
+            var candidatos = saldosMatRev.Where(s => s.ArticuloId == l.ArticuloId)
+                .Select(s => new
+                {
+                    s.UbicacionId,
+                    s.CostoPromedioMxn,
+                    Saldo = s.Cantidad,
+                    Reservado = reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId)),
+                    Libre = s.Cantidad - reservado.GetValueOrDefault((s.UbicacionId, s.ArticuloId))
+                        - consumidoEnEstaSolicitud.GetValueOrDefault((s.UbicacionId, s.ArticuloId)),
+                }).OrderByDescending(c => c.Libre).ToList();
+            Guid origenBin;
+            decimal origenCosto;
+            if (candidatos.Count == 0)
             {
-                var binDefault = await (
-                    from u in _db.Ubicaciones.AsNoTracking()
-                    join sa in _db.SubAlmacenes.AsNoTracking() on u.SubAlmacenId equals sa.Id
-                    where sa.AlmacenId == almacenId && sa.Tipo == TipoSubAlmacen.MaterialEnRevision && u.EsDefault
-                    select (Guid?)u.Id).FirstOrDefaultAsync(cancellationToken)
-                    ?? throw new BusinessRuleException("REINCORPORACION_SIN_MAT_REV",
-                        "El almacén no tiene sub-almacén de material en revisión de donde reincorporar.");
-                origen = new { UbicacionId = binDefault, CostoPromedioMxn = 0m };
+                origenBin = binesMatRev.FirstOrDefault(b => b.EsDefault)?.Id ?? binesMatRev[0].Id;
+                origenCosto = 0m;
+            }
+            else
+            {
+                var mejor = candidatos[0];
+                if (mejor.Libre < l.Cantidad && candidatos.Any(c => c.Reservado > 0 && c.Saldo >= l.Cantidad))
+                    throw new BusinessRuleException("MATREV_RESERVADO_PARA_DICTAMEN",
+                        $"El material en revisión de este artículo está reservado para el dictamen de una recepción " +
+                        $"(libre: {Math.Max(0m, mejor.Libre):0.####}). Dictamina primero la recepción (permiso dictaminar).");
+                origenBin = mejor.UbicacionId;
+                origenCosto = mejor.CostoPromedioMxn;
+                var k = (mejor.UbicacionId, l.ArticuloId);
+                consumidoEnEstaSolicitud[k] = consumidoEnEstaSolicitud.GetValueOrDefault(k) + l.Cantidad;
             }
             pares.Add(new ParLiberacionLinea(
-                new LineaRevisionMov(l.ArticuloId, "PZA", l.Cantidad, origen.CostoPromedioMxn, origen.UbicacionId),
+                new LineaRevisionMov(l.ArticuloId, BajaPorDanoHandler.UnidadBase(unidades, l.ArticuloId), l.Cantidad, origenCosto, origenBin),
                 l.UbicacionId!.Value));
         }
 

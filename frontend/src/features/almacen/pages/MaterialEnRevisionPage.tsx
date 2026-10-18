@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/erp/PageHeader';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/erp';
 import { BusquedaFolio } from '@/components/erp/data/BusquedaFolio';
 import { DocumentoAdjuntosSection } from '@/components/erp/adjuntos/DocumentoAdjuntosSection';
+import { AvisoEnLinea } from '@/components/erp/feedback/AvisoEnLinea';
 import { DateTimeDisplay } from '@/components/erp/display/DateTimeDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ import { esApiError } from '@/lib/api';
 function PlazoBadge({ item }: { item: MaterialEnRevisionItem }) {
   if (item.vencida) return <Badge variant="danger">Vencido</Badge>;
   if (item.cantidadPendiente === 0) return <Badge variant="success">Dictaminado</Badge>;
-  if (item.fechaLimite === null) return <Badge variant="neutral">Sin calendario</Badge>;
+  if (item.plazoNoCalculable) return <Badge variant="neutral">Sin calendario</Badge>;
   return <Badge variant="warning">En plazo</Badge>;
 }
 
@@ -113,6 +114,12 @@ export function MaterialEnRevisionPage() {
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-line-row bg-surface-card">
+          {items.some((i) => i.plazoNoCalculable) && (
+            <AvisoEnLinea tono="advertencia">
+              Plazo no calculable: falta el calendario de días hábiles. Configúralo para ver la fecha
+              límite y los vencimientos del dictamen.
+            </AvisoEnLinea>
+          )}
           <TableContainer>
             <Table>
               <TableHeader>

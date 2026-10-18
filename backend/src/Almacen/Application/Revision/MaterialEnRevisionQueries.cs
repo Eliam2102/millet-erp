@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Catalogo;
 using Millet.Almacen.Domain.DevolucionesProveedor;
@@ -25,6 +26,8 @@ public sealed record MaterialEnRevisionItem(
     string UnidadMedida, decimal CantidadEnRevision, decimal CantidadDictaminada, decimal CantidadEnDevolucion,
     decimal CantidadPendiente, string? MotivoDano, Guid UbicacionRevisionId, Guid SubAlmacenRevisionId,
     Guid? UbicacionDisponibleSugeridaId, DateTimeOffset? FechaLimite, bool Vencida,
+    // true = sin calendario de días hábiles configurado: no se pudo calcular FechaLimite (la UI lo avisa).
+    bool PlazoNoCalculable,
     IReadOnlyList<DictamenRevisionItem> Dictamenes);
 
 public sealed record DictamenRevisionItem(
@@ -48,7 +51,8 @@ public sealed record LineaRevisionInfo(
 public sealed record ObtenerLineaRevisionQuery(Guid LineaRevisionId) : IRequest<LineaRevisionInfo?>;
 
 public sealed class ListarMaterialEnRevisionHandler(
-    AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort ordenesCompra, ICalendarioHabil calendario)
+    AlmacenDbContext db, IArticuloReadPort articulos, IComprasOcReadPort ordenesCompra, ICalendarioHabil calendario,
+    ILogger<ListarMaterialEnRevisionHandler> logger)
     : IRequestHandler<ListarMaterialEnRevisionQuery, IReadOnlyList<MaterialEnRevisionItem>>
 {
     // ponytail: V45 (5 días hábiles = 120 h hábiles), sin ratificar por Millet; parametrizar en AlmacenSettings cuando se valide.
@@ -85,14 +89,7 @@ public sealed class ListarMaterialEnRevisionHandler(
         var principalPorId = principales.ToDictionary(p => p.Id);
 
         var lineaIds = origen.Select(o => o.Linea.Id).ToArray();
-        var enDevolucion = (await (
-            from ld in db.LineasDevolucionProveedor.AsNoTracking()
-            join d in db.DevolucionesProveedor.AsNoTracking() on ld.DevolucionId equals d.Id
-            where ld.LineaRecepcionOrigenId != null && lineaIds.Contains(ld.LineaRecepcionOrigenId.Value)
-                && d.Estado != EstadoDevolucionProveedor.Rechazada
-            select new { ld.LineaRecepcionOrigenId, ld.Cantidad }).ToListAsync(cancellationToken))
-            .GroupBy(x => x.LineaRecepcionOrigenId!.Value)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.Cantidad));
+        var enDevolucion = await ReservaDictamen.EnDevolucionPorLineaAsync(db, lineaIds, cancellationToken);
 
         var dictamenes = (await db.DictamenesRevision.AsNoTracking()
             .Where(d => lineaIds.Contains(d.LineaRevisionId))
@@ -110,7 +107,11 @@ public sealed class ListarMaterialEnRevisionHandler(
         foreach (var fecha in origen.Select(o => principalPorId.GetValueOrDefault(o.RecepcionOrigenId ?? o.MovimientoId)?.FechaMovimiento ?? o.FechaMovimiento).Distinct())
         {
             try { limites[fecha] = await calendario.SumarHorasAsync(fecha, PlazoDictamenHorasHabiles, cancellationToken); }
-            catch (BusinessRuleException ex) when (ex.Code == "CALENDARIO_NO_CONFIGURADO") { limites[fecha] = null; }
+            catch (BusinessRuleException ex) when (ex.Code == "CALENDARIO_NO_CONFIGURADO")
+            {
+                limites[fecha] = null;
+                logger.LogWarning("Material en revisión: no se pudo calcular el plazo de dictamen de la recepción del {Fecha}; falta el calendario de días hábiles.", fecha);
+            }
         }
 
         var ahora = DateTimeOffset.UtcNow;
@@ -128,7 +129,7 @@ public sealed class ListarMaterialEnRevisionHandler(
             var enRevision = o.Linea.Cantidad;
             var historial = dictamenes.GetValueOrDefault(o.Linea.Id) ?? [];
             var dictaminada = historial
-                .Where(d => d.Resultado is ResultadoDictamen.Liberar or ResultadoDictamen.Baja)
+                .Where(d => ReservaDictamen.CuentaComoDictaminada(d.Resultado))
                 .Sum(d => d.Cantidad);
             var devolucion = enDevolucion.GetValueOrDefault(o.Linea.Id);
             var pendiente = enRevision - dictaminada - devolucion;
@@ -152,6 +153,7 @@ public sealed class ListarMaterialEnRevisionHandler(
                 enRevision, dictaminada, devolucion, pendiente, o.Linea.ComentarioLinea,
                 o.UbicacionId, o.SubAlmacenId, sugerida, limite,
                 limite is { } f && f < ahora && pendiente > 0,
+                limite is null,
                 historial.Select(d => new DictamenRevisionItem(
                     d.Id, d.Resultado, d.Cantidad, d.Motivo, d.DictaminadoPor, d.DictaminadoAt,
                     d.DevolucionAProveedorId)).ToList()));

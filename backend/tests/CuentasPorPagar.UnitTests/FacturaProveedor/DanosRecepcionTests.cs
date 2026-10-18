@@ -94,5 +94,25 @@ public sealed class DanosRecepcionTests
 
         DebeEstarDetenida(f);
         a.Eventos.Integraciones.OfType<PasivoAutorizadoParaPagoIntegrationEvent>().Should().BeEmpty();
+        // Tesorería debe retirar el pasivo de la cola de pago: el contexto publica el retiro con el id de la factura.
+        a.Eventos.Integraciones.OfType<PasivoRetiradoDePagoIntegrationEvent>().Should().ContainSingle()
+            .Which.FacturaProveedorId.Should().Be(r.Id);
+    }
+
+    [Fact]
+    public async Task Factura_nueva_se_detiene_aun_si_el_dano_ya_se_dictamino_Q5()
+    {
+        // Q5: el daño sigue contando aunque Almacén ya lo haya dictaminado (la recepción conserva la línea en
+        // MAT-REV). El pasivo se libera a mano por el área (G1.4 traerá la elegibilidad parcial por línea).
+        await using var a = await AmbienteAsync();
+        var rev = Guid.NewGuid();
+        a.Almacen.EnRevision.Add(rev);
+        await a.Recepciones.Handle(RecepcionConDano(a, rev), default);
+        // El dictamen no cambia la recepción registrada en CxP: no hay evento que la "limpie".
+
+        var r = await a.Handler.Handle(a.Command(10, 20), default);
+
+        r.Estado.Should().Be(EstadoPasivo.EnRevision);
+        DebeEstarDetenida(await a.Db.FacturasProveedor.SingleAsync(f => f.Id == r.Id));
     }
 }

@@ -1132,6 +1132,8 @@ export interface MaterialEnRevisionItem {
   ubicacionDisponibleSugeridaId: string | null;
   fechaLimite: string | null;
   vencida: boolean;
+  /** true = falta el calendario de días hábiles: no se pudo calcular `fechaLimite`. */
+  plazoNoCalculable: boolean;
   dictamenes: DictamenRevisionItem[];
 }
 

@@ -188,6 +188,7 @@ export function DevolucionProveedorDetallePage() {
           <EvidenciasManager
             devolucionId={query.data.id}
             evidencias={query.data.evidencias}
+            lineaRevisionId={query.data.lineas.find((l) => l.lineaRecepcionOrigenId)?.lineaRecepcionOrigenId}
             canAdd={
               puedeIniciar &&
               (query.data.estado === EstadoDevolucionProveedor.Borrador ||

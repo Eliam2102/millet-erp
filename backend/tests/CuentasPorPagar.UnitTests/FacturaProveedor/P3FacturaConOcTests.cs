@@ -259,7 +259,8 @@ public sealed class P3FacturaConOcTests
 #else
             options.UseInMemoryDatabase($"p3-{Guid.NewGuid()}");
 #endif
-            Db = new(options.Options, this, new PeriodoPruebaAbierto(), this);
+            // Publisher real del contexto (no null): CxP publica ahí PasivoRetiradoDePago al sacar una Autorizada de la cola de pago.
+            Db = new(options.Options, this, new PeriodoPruebaAbierto(), this, Eventos);
             _oc = new(Guid.NewGuid(), "OC-P3-FICTICIA", Guid.NewGuid(), Current!.Value, Guid.NewGuid(), cantidadOc * precioOc * 1.16m,
                 "Autorizada", [new(LineaId, Guid.NewGuid(), cantidadOc, precioOc, 0, recibido)]);
             if (compartir is not null) _oc = compartir._oc;

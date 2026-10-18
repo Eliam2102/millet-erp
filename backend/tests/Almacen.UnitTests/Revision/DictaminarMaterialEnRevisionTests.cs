@@ -138,22 +138,94 @@ public class DictaminarMaterialEnRevisionTests
         (await s.Db.DictamenesRevision.SingleAsync()).MovimientoEntradaId.Should().BeNull();
     }
 
+    // Saldo 8.A ajeno a recepciones: 3 unidades en un segundo bin de MAT-REV, sin línea de recepción en revisión.
+    private static async Task<Guid> AgregarSaldo8AAsync(Ctx s, decimal cantidad)
+    {
+        var bin = new Ubicacion(Guid.NewGuid(), s.RevSubId, "REV-02", "Revisión 2");
+        s.Db.Ubicaciones.Add(bin);
+        s.Db.SaldosInventario.Add(new SaldoInventario(bin.Id, s.RevSubId, ArticuloId, cantidad, 10));
+        await s.Db.SaveChangesAsync();
+        return bin.Id;
+    }
+
+    private static ReincorporacionTrasRevisionHandler Reincorporador(Ctx s, string unidad = "PZA")
+    {
+        var ctx = new P1Fixture.Contexto();
+        return new(s.Db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad(unidad));
+    }
+
+    private static BajaPorDanoHandler Bajador(Ctx s)
+    {
+        var ctx = new P1Fixture.Contexto();
+        return new(s.Db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad());
+    }
+
     [Fact]
     public async Task Reincorporar_8A_descuenta_mat_rev_y_suma_al_destino_con_el_mismo_par()
     {
         var s = await SembrarAsync();
-        var ctx = new P1Fixture.Contexto();
-        var h = new ReincorporacionTrasRevisionHandler(s.Db, ctx, ctx, new P1Fixture.Decimales(), new PeriodoContableStub(true));
+        var bin8A = await AgregarSaldo8AAsync(s, 3m);
         var insumosSub = await s.Db.Ubicaciones.Where(u => u.Id == s.RackId).Select(u => u.SubAlmacenId).SingleAsync();
 
-        await h.Handle(new(insumosSub, Fecha, "Revisión", [new(ArticuloId, 1m, s.RackId)]), default);
+        await Reincorporador(s).Handle(new(insumosSub, Fecha, "Revisión", [new(ArticuloId, 1m, s.RackId)]), default);
 
         var salida = await s.Db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Tipo == TipoMovimiento.SalidaPorLiberacionRevision);
         var entrada = await s.Db.Movimientos.Include(m => m.Lineas).SingleAsync(m => m.Tipo == TipoMovimiento.ReincorporacionTrasRevision);
-        salida.Lineas.Single().UbicacionId.Should().Be(s.RevBinId);
+        salida.Lineas.Single().UbicacionId.Should().Be(bin8A); // toma el saldo libre, no el reservado de la recepción
         salida.Lineas.Single().Cantidad.Should().Be(1m);
         entrada.Lineas.Single().UbicacionId.Should().Be(s.RackId);
         entrada.Lineas.Single().Cantidad.Should().Be(1m);
+    }
+
+    [Fact]
+    public async Task Reincorporar_8A_usa_la_unidad_base_del_articulo_no_PZA()
+    {
+        var s = await SembrarAsync();
+        await AgregarSaldo8AAsync(s, 3m);
+        var insumosSub = await s.Db.Ubicaciones.Where(u => u.Id == s.RackId).Select(u => u.SubAlmacenId).SingleAsync();
+
+        await Reincorporador(s, "M2").Handle(new(insumosSub, Fecha, "Revisión", [new(ArticuloId, 1.5m, s.RackId)]), default);
+
+        var lineas = await s.Db.LineasMovimiento
+            .Where(l => l.Cantidad == 1.5m).ToListAsync();
+        lineas.Should().HaveCount(2).And.OnlyContain(l => l.UnidadMedida == "M2");
+    }
+
+    [Fact]
+    public async Task Reincorporar_8A_no_consume_lo_reservado_para_dictamen()
+    {
+        var s = await SembrarAsync(); // MAT-REV solo tiene los 2 de la recepción, sin dictaminar
+        var insumosSub = await s.Db.Ubicaciones.Where(u => u.Id == s.RackId).Select(u => u.SubAlmacenId).SingleAsync();
+
+        await Error(() => Reincorporador(s).Handle(
+            new(insumosSub, Fecha, "Revisión", [new(ArticuloId, 1m, s.RackId)]), default), "MATREV_RESERVADO_PARA_DICTAMEN");
+        (await s.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimiento.SalidaPorLiberacionRevision)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Baja_8A_no_consume_lo_reservado_para_dictamen_pero_si_el_saldo_ajeno()
+    {
+        var s = await SembrarAsync();
+        var bin8A = await AgregarSaldo8AAsync(s, 3m);
+
+        await Error(() => Bajador(s).Handle(
+            new(s.RevSubId, Fecha, "Daño", [new(ArticuloId, 1m, s.RevBinId)]), default), "MATREV_RESERVADO_PARA_DICTAMEN");
+
+        await Bajador(s).Handle(new(s.RevSubId, Fecha, "Daño", [new(ArticuloId, 3m, bin8A)]), default);
+        (await s.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimiento.BajaPorDano)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Baja_8A_libera_la_reserva_conforme_se_dictamina()
+    {
+        var s = await SembrarAsync();
+        s.Db.DictamenesRevision.Add(new DictamenRevision(Guid.NewGuid(), EmpresaId, s.LineaRevisionId, Guid.NewGuid(),
+            ResultadoDictamen.Baja, 2m, "Destruido", Guid.NewGuid(), movimientoSalidaRevisionId: Guid.NewGuid()));
+        await s.Db.SaveChangesAsync();
+
+        // Todo dictaminado: ya no hay reserva y el saldo (2 sembrado) queda para el consumo normal.
+        await Bajador(s).Handle(new(s.RevSubId, Fecha, "Daño", [new(ArticuloId, 1m, s.RevBinId)]), default);
+        (await s.Db.Movimientos.CountAsync(m => m.Tipo == TipoMovimiento.BajaPorDano)).Should().Be(1);
     }
 
     [Fact]

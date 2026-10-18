@@ -57,7 +57,8 @@ public class MaterialEnRevisionQueriesTests
     }
 
     private static ListarMaterialEnRevisionHandler Handler(InMemoryAlmacenDbContext db, ICalendarioHabil? cal = null) =>
-        new(db, new FakeArticulos(), new FakeOc(), cal ?? new FakeCalendario());
+        new(db, new FakeArticulos(), new FakeOc(), cal ?? new FakeCalendario(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ListarMaterialEnRevisionHandler>.Instance);
 
     [Fact]
     public async Task Principal_y_hermano_dan_un_item_pendiente_2_con_sugerida_R1()
@@ -122,6 +123,7 @@ public class MaterialEnRevisionQueriesTests
         var items = await Handler(s.Db, new FakeCalendario(sinCalendario: true)).Handle(new ListarMaterialEnRevisionQuery(), default);
         items.Single().FechaLimite.Should().BeNull();
         items.Single().Vencida.Should().BeFalse();
+        items.Single().PlazoNoCalculable.Should().BeTrue();
     }
 
     [Fact]

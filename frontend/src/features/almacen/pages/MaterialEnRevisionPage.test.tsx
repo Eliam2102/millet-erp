@@ -46,6 +46,7 @@ const item: MaterialEnRevisionItem = {
   ubicacionDisponibleSugeridaId: null,
   fechaLimite: '2026-10-08T00:00:00Z',
   vencida: true,
+  plazoNoCalculable: false,
   dictamenes: [],
 };
 
@@ -70,6 +71,21 @@ describe('MaterialEnRevisionPage', () => {
     expect(screen.getByText('M-ENT2026-000001')).toBeInTheDocument();
     expect(screen.getByText('Vencido')).toBeInTheDocument();
     expect(screen.getByText('Hojas rotas')).toBeInTheDocument();
+  });
+
+  it('sin calendario muestra el aviso «Plazo no calculable» y no «Vencido»', () => {
+    datos([{ ...item, fechaLimite: null, vencida: false, plazoNoCalculable: true }]);
+    render(<MaterialEnRevisionPage />, { wrapper: createQueryWrapper() });
+    expect(
+      screen.getByText(/Plazo no calculable: falta el calendario de días hábiles/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Vencido')).not.toBeInTheDocument();
+  });
+
+  it('con calendario no muestra el aviso de plazo', () => {
+    datos([item]);
+    render(<MaterialEnRevisionPage />, { wrapper: createQueryWrapper() });
+    expect(screen.queryByText(/Plazo no calculable/)).not.toBeInTheDocument();
   });
 
   it('«Todos» consulta con soloPendientes false', () => {

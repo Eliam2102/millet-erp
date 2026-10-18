@@ -207,25 +207,61 @@ public class DictamenRevisionTests : IClassFixture<WebApplicationFactory<Program
         }, ContabTestKit.EmpresaBootstrapId);
     }
 
-    private static ReincorporacionTrasRevisionHandler HandlerReincorporar(AlmacenDbContext db, Ctx ctx) =>
-        new(db, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(), ctx.Periodos);
+    private static ReincorporacionTrasRevisionHandler HandlerReincorporar(AlmacenDbContext db, Ctx ctx, string unidad = "PZA") =>
+        new(db, new UserFake(ctx.UserId), new EmpresaFake(ctx.EmpresaId), new DecimalesNulo(), ctx.Periodos, new ArticulosUnidad(unidad));
+
+    /// <summary>Saldo 8.A ajeno a recepciones: un segundo bin de MAT-REV con existencia sin línea de recepción en revisión.</summary>
+    internal static async Task<Guid> SembrarSaldo8AEnMatRevAsync(AlmacenDbContext db, Ctx ctx, decimal cantidad)
+    {
+        var bin = Guid.NewGuid();
+        await db.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO almacen.ubicaciones (id, sub_almacen_id, clave, nombre, estatus, es_default, version, created_at, updated_at)
+            VALUES ({bin}, {ctx.SubRevisionId}, 'REV-02', 'Revisión 2 (8.A)', 0, false, 0, NOW(), NOW())");
+        await db.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO almacen.saldos_inventario (ubicacion_id, sub_almacen_id, articulo_id, cantidad, costo_promedio_mxn, ultima_actualizacion_at)
+            VALUES ({bin}, {ctx.SubRevisionId}, {ctx.ArticuloId}, {cantidad}, 10, NOW())");
+        return bin;
+    }
 
     [Fact]
-    public async Task Reincorporacion_8A_descuenta_MAT_REV_y_suma_al_destino_en_la_misma_cantidad()
+    public async Task Reincorporacion_8A_descuenta_MAT_REV_ajeno_a_recepciones_y_suma_al_destino_sin_tocar_lo_reservado()
     {
         await new CuarentenaRecepcionTests(_factory).EjecutarConFixtureAsync(async (db, ctx) =>
         {
-            await RecibirConDanoAsync(db, ctx, 10m, 2m); // R-1 = 8, REV-01 = 2
+            await RecibirConDanoAsync(db, ctx, 10m, 2m); // R-1 = 8, REV-01 = 2 (reservado para dictamen)
+            var bin8A = await SembrarSaldo8AEnMatRevAsync(db, ctx, 3m);
 
             await HandlerReincorporar(db, ctx).Handle(
                 new ReincorporacionTrasRevisionCommand(ctx.SubDisponibleId, Fecha, "Revisión ok",
                     [new MatRevLineaInput(ctx.ArticuloId, 1m, ctx.RackId)]),
                 CancellationToken.None);
 
-            Assert.Equal(1m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId));
+            Assert.Equal(2m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId)); // reservado intacto
+            Assert.Equal(2m, await LeerSaldoAsync(db, bin8A, ctx.ArticuloId));
             Assert.Equal(9m, await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId));
             Assert.Equal(1, await db.Movimientos.CountAsync(m => m.Tipo == TipoMovimiento.SalidaPorLiberacionRevision
-                && m.Lineas.Any(l => l.UbicacionId == ctx.RackRevisionId)));
+                && m.Lineas.Any(l => l.UbicacionId == bin8A)));
+        });
+    }
+
+    [Fact]
+    public async Task Reincorporacion_8A_usa_la_unidad_base_del_articulo_no_PZA()
+    {
+        await new CuarentenaRecepcionTests(_factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            await SembrarSaldo8AEnMatRevAsync(db, ctx, 3m);
+
+            await HandlerReincorporar(db, ctx, "M2").Handle(
+                new ReincorporacionTrasRevisionCommand(ctx.SubDisponibleId, Fecha, "Revisión ok",
+                    [new MatRevLineaInput(ctx.ArticuloId, 1.5m, ctx.RackId)]),
+                CancellationToken.None);
+
+            db.ChangeTracker.Clear();
+            var unidades = await db.Movimientos
+                .Where(m => m.Tipo == TipoMovimiento.SalidaPorLiberacionRevision || m.Tipo == TipoMovimiento.ReincorporacionTrasRevision)
+                .SelectMany(m => m.Lineas.Where(l => l.ArticuloId == ctx.ArticuloId).Select(l => l.UnidadMedida)).ToListAsync();
+            Assert.Equal(2, unidades.Count);
+            Assert.All(unidades, u => Assert.Equal("M2", u));
         });
     }
 
@@ -246,5 +282,93 @@ public class DictamenRevisionTests : IClassFixture<WebApplicationFactory<Program
             Assert.Equal(2m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId));
             Assert.Equal(8m, await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId));
         });
+    }
+
+    [Fact]
+    public async Task Reincorporacion_8A_no_puede_consumir_lo_reservado_para_dictamen()
+    {
+        await new CuarentenaRecepcionTests(_factory).EjecutarConFixtureAsync(async (db, ctx) =>
+        {
+            await RecibirConDanoAsync(db, ctx, 10m, 2m); // REV-01 = 2 sin dictaminar
+
+            var ex = await Assert.ThrowsAsync<Millet.SharedKernel.Application.Exceptions.BusinessRuleException>(() =>
+                HandlerReincorporar(db, ctx).Handle(
+                    new ReincorporacionTrasRevisionCommand(ctx.SubDisponibleId, Fecha, "Revisión",
+                        [new MatRevLineaInput(ctx.ArticuloId, 1m, ctx.RackId)]),
+                    CancellationToken.None));
+            Assert.Equal("MATREV_RESERVADO_PARA_DICTAMEN", ex.Code);
+            Assert.Equal(2m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId));
+            Assert.Equal(8m, await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId));
+        });
+    }
+
+    [Fact]
+    public async Task G13b_ciclo_completo_rechazo_autoriza_direccion_registra_salida_deja_MAT_REV_en_cero_y_publica_evento()
+    {
+        var admin = await ContabTestKit.LoginAsync(_factory);
+        var lineaId = Guid.Empty;
+        var devolucionId = Guid.Empty;
+        try
+        {
+            await new CuarentenaRecepcionTests(_factory).EjecutarConFixtureAsync(async (db, ctx) =>
+            {
+                lineaId = await RecibirConDanoAsync(db, ctx, 10m, 2m);
+                using var contenido = new MultipartFormDataContent();
+                var archivo = new ByteArrayContent(Png);
+                archivo.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                contenido.Add(archivo, "archivo", "dano.png");
+                contenido.Add(new StringContent(TipoFotoDano.ToString()), "tipoDocumentoId");
+                using var subida = await admin.PostAsync($"/api/v1/almacen/revision/lineas/{lineaId}/adjuntos", contenido);
+                Assert.True(subida.IsSuccessStatusCode, await subida.Content.ReadAsStringAsync());
+
+                // Rechazo de las 2 unidades en revisión: abre la devolución a proveedor en autorización.
+                using var rechazo = await admin.PostAsJsonAsync(Ruta(lineaId), new
+                {
+                    resultado = 1, cantidad = 2m, motivo = "No sirve", fechaMovimiento = Fecha.ToString("yyyy-MM-dd"),
+                });
+                Assert.True(rechazo.StatusCode == HttpStatusCode.Created, await rechazo.Content.ReadAsStringAsync());
+                devolucionId = (await ContabTestKit.Json(rechazo)).GetProperty("devolucionAProveedorId").GetGuid();
+                Assert.Equal(2m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId)); // el físico no se mueve aún
+
+                // Dirección autoriza y el almacenista registra la salida física desde el bin de MAT-REV.
+                using var autoriza = await admin.PostAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}/autorizar", null);
+                Assert.True(autoriza.StatusCode == HttpStatusCode.NoContent, await autoriza.Content.ReadAsStringAsync());
+                var dev = await ContabTestKit.Json(await admin.GetAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}"));
+                var lineaDevolucionId = dev.GetProperty("lineas").EnumerateArray().Single().GetProperty("id").GetGuid();
+                using var salida = await admin.PostAsJsonAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}/registrar-salida", new
+                {
+                    subAlmacenId = ctx.SubRevisionId,
+                    fechaMovimiento = Fecha.ToString("yyyy-MM-dd"),
+                    bins = new[] { new { lineaDevolucionId, ubicacionId = ctx.RackRevisionId } },
+                });
+                Assert.True(salida.StatusCode == HttpStatusCode.OK, await salida.Content.ReadAsStringAsync());
+
+                Assert.Equal(0m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId));
+                Assert.Equal(8m, await LeerSaldoAsync(db, ctx.RackId, ctx.ArticuloId));
+                var entradas = await db.OutboxEntries.AsNoTracking()
+                    .Where(e => e.EventType == "almacen.oc_devolucion.registrada.v1").ToListAsync();
+                var entrada = Assert.Single(entradas, e => e.Payload.Contains(devolucionId.ToString(), StringComparison.OrdinalIgnoreCase));
+                using var payload = System.Text.Json.JsonDocument.Parse(entrada.Payload);
+                var movimientoRevisionId = await db.LineasMovimiento.Where(l => l.Id == lineaId).Select(l => l.MovimientoId).SingleAsync();
+                Assert.Equal(movimientoRevisionId, payload.RootElement.GetProperty("RecepcionOrigenId").GetGuid());
+                Assert.Equal(2m, payload.RootElement.GetProperty("Lineas").EnumerateArray().Single().GetProperty("Cantidad").GetDecimal());
+            }, ContabTestKit.EmpresaBootstrapId);
+        }
+        finally
+        {
+            using var scope = _factory.Services.CreateScope();
+            var almacen = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+            if (lineaId != Guid.Empty)
+                await almacen.Database.ExecuteSqlInterpolatedAsync(
+                    $"DELETE FROM compartido.adjuntos WHERE tipo_entidad = 'linea_revision' AND entidad_id = {lineaId}");
+            if (devolucionId != Guid.Empty)
+            {
+                var ids = (await almacen.OutboxEntries.AsNoTracking()
+                    .Where(e => e.EventType == "almacen.oc_devolucion.registrada.v1").ToListAsync())
+                    .Where(e => e.Payload.Contains(devolucionId.ToString(), StringComparison.OrdinalIgnoreCase))
+                    .Select(e => e.Id).ToArray();
+                await almacen.OutboxEntries.Where(e => ids.Contains(e.Id)).ExecuteDeleteAsync();
+            }
+        }
     }
 }

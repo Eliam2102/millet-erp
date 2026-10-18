@@ -132,8 +132,8 @@ public sealed class DevolucionesYCierreTests
         await using var f = new P1Fixture(TipoSubAlmacen.MaterialEnRevision);
         if (cerrado) await Cerrar(f);
         Task Ejecutar() => reincorporar
-            ? new ReincorporacionTrasRevisionHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true)).Handle(new(f.SubId, P1Fixture.Fecha, "Revisión", [new(f.ArticuloId, 1, f.BinId)]), default)
-            : new BajaPorDanoHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true)).Handle(new(f.SubId, P1Fixture.Fecha, "Daño", [new(f.ArticuloId, 1, f.BinId)]), default);
+            ? new ReincorporacionTrasRevisionHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad()).Handle(new(f.SubId, P1Fixture.Fecha, "Revisión", [new(f.ArticuloId, 1, f.BinId)]), default)
+            : new BajaPorDanoHandler(f.Db, f.Context, f.Context, f.Guard, new PeriodoContableStub(true), new P1Fixture.ArticulosConUnidad()).Handle(new(f.SubId, P1Fixture.Fecha, "Daño", [new(f.ArticuloId, 1, f.BinId)]), default);
         if (cerrado) await Error(Ejecutar, "PERIODO_CERRADO"); else await Ejecutar();
         // Reincorporar crea el par LIB (sale de MAT-REV) + REI (entra al destino); baja es un solo movimiento.
         (await f.Db.Movimientos.CountAsync()).Should().Be(cerrado ? 0 : reincorporar ? 2 : 1);

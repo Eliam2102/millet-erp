@@ -111,7 +111,14 @@ public sealed class ListarSaldosHandler
             ? await _articulos.ObtenerPorIdsAsync(articuloIds, cancellationToken)
             : new Dictionary<Guid, ArticuloLectura>();
 
+        // ALM-04: el material en revisión (MAT-REV) existe físicamente pero no es surtible: disponible = 0.
+        var subIds = items.Select(i => i.SubAlmacenId).Distinct().ToArray();
+        var subsEnRevision = (await _db.SubAlmacenes.AsNoTracking()
+            .Where(sa => subIds.Contains(sa.Id) && sa.Tipo == TipoSubAlmacen.MaterialEnRevision)
+            .Select(sa => sa.Id).ToListAsync(cancellationToken)).ToHashSet();
+
         var enriquecidos = items
+            .Select(i => i with { CantidadDisponible = subsEnRevision.Contains(i.SubAlmacenId) ? 0m : i.CantidadDisponible })
             .Select(i => articulos.TryGetValue(i.ArticuloId, out var art)
                 ? i with { ArticuloClave = art.Clave, ArticuloDescripcion = art.Descripcion }
                 : i)
@@ -258,7 +265,7 @@ public sealed class SaldosPorUbicacionHandler
             orderby u.EsDefault, u.Clave
             select new SaldoUbicacionItem(
                 u.Id, u.Clave, u.Nombre, sa.Clave, al.Clave, u.EsDefault,
-                s.Cantidad, s.CantidadDisponible, s.CostoPromedioMxn))
+                s.Cantidad, sa.Tipo == TipoSubAlmacen.MaterialEnRevision ? 0m : s.CantidadDisponible, s.CostoPromedioMxn))
             .ToListAsync(cancellationToken);
     }
 }

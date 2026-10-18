@@ -46,6 +46,7 @@ const item: MaterialEnRevisionItem = {
   ubicacionDisponibleSugeridaId: null,
   fechaLimite: null,
   vencida: false,
+  plazoNoCalculable: false,
   dictamenes: [],
 };
 

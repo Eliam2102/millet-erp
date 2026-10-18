@@ -194,6 +194,16 @@ public class CuarentenaRecepcionTests : IClassFixture<WebApplicationFactory<Prog
             Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(new Dictionary<Guid, ArticuloLectura>());
     }
 
+    /// <summary>Puerto de artículos donde todo id existe con la unidad base indicada (handlers 8.A, ALM-04).</summary>
+    internal sealed class ArticulosUnidad(string unidad = "PZA") : IArticuloReadPort
+    {
+        public Task<ArticuloLectura?> ObtenerAsync(Guid articuloId, CancellationToken ct) =>
+            Task.FromResult<ArticuloLectura?>(new ArticuloLectura(articuloId, "ART", "Artículo", unidad, null, null, true));
+        public Task<IReadOnlyDictionary<Guid, ArticuloLectura>> ObtenerPorIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, ArticuloLectura>>(
+                ids.ToDictionary(i => i, i => new ArticuloLectura(i, "ART", "Artículo", unidad, null, null, true)));
+    }
+
     private sealed class CxpFake : ICxpDocumentosReadPort
     {
         public Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid id, CancellationToken ct) => Task.FromResult<CfdiRecibidoLectura?>(null);
