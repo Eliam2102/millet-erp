@@ -102,7 +102,7 @@ public class PolizasTests
     public void La_autorizada_no_se_edita_solo_se_anula_C13b()
     {
         var p = Autorizada();
-        p.Invoking(x => x.Editar(p.Fecha, 2026, 10, "FIX otro concepto", [Cargo(5m), Abono(5m)]))
+        p.Invoking(x => x.Editar(p.Fecha, 2026, 10, "FIX otro concepto", [Cargo(5m), Abono(5m)], Analista))
             .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_POLIZA_NO_EDITABLE");
     }
 
@@ -234,6 +234,27 @@ public class PolizasTests
     }
 
     /// <summary>Tipo con el mismo id que la póliza (la anulación exige el mismo tipo).</summary>
+    [Fact]
+    public void Otro_usuario_no_edita_el_borrador_ajeno_y_por_eso_no_puede_autorizar_lo_que_reescribio()
+    {
+        var p = Borrador();
+        p.Invoking(x => x.Editar(p.Fecha, 2026, 10, "FIX reescrita por el supervisor", [Cargo(9000m), Abono(9000m)], Supervisor))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_POLIZA_EDITA_SOLO_QUIEN_CAPTURA");
+        p.Partidas.Sum(x => x.Cargo).Should().Be(1000m);
+
+        p.Editar(p.Fecha, 2026, 10, "FIX corregida por quien capturó", [Cargo(1200m), Abono(1200m)], Analista);
+        p.Autorizar(1, Supervisor, "supervisor", Ahora);
+        p.Estado.Should().Be(EstadoPoliza.Autorizada);
+    }
+
+    [Fact]
+    public void Sin_usuario_identificado_no_se_autoriza()
+    {
+        var p = Borrador();
+        p.Invoking(x => x.Autorizar(1, null, "system", Ahora))
+            .Should().Throw<BusinessRuleException>().Which.Code.Should().Be("CONTAB_POLIZA_AUTORIZA_QUIEN_CAPTURA");
+    }
+
     private static TipoDocumentoContable TipoDe(Poliza p)
     {
         var t = Tipo(p.TipoClave);
