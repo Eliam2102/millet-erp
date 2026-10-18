@@ -90,7 +90,11 @@ export function ListaDevolucionesCompacta({ idActivo }: { idActivo: string }) {
       getId={(d) => d.id}
       vacio="No hay devoluciones a proveedor."
       renderItem={(d) => ({
-        principal: d.folioMovimientoSalida ?? d.proveedorNombre ?? `${d.id.slice(0, 8)}…`,
+        principal: d.folioMovimientoSalida ?? (
+          <span className="font-sans">
+            Solicitada · <DateTimeDisplay value={d.solicitadaAt} variant="corta" />
+          </span>
+        ),
         badge: <EstadoAlmacenBadge tipo="devolucion-proveedor" estado={d.estado} />,
         secundario: (
           <>

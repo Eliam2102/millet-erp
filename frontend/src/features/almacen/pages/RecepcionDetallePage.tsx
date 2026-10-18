@@ -49,8 +49,7 @@ export function RecepcionDetallePage() {
 
   return (
     <div className="space-y-4">
-      {query.data && <TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/recepciones" search={{}}>
             <ArrowLeft className="mr-2 size-3.5" />
@@ -78,16 +77,18 @@ export function RecepcionDetallePage() {
             }
             descripcion={
               <>
-                Fecha de movimiento: {query.data.fechaMovimiento}
+                Fecha de movimiento:{' '}
+                <DateTimeDisplay value={query.data.fechaMovimiento} variant="media" />
                 {query.data.registradoAt && (
                   <>
                     {' '}
                     · Registrado:{' '}
-                    <DateTimeDisplay value={query.data.registradoAt} variant="datetime" />
+                    <DateTimeDisplay value={query.data.registradoAt} variant="media" />
                   </>
                 )}
               </>
             }
+            acciones={<TrazabilidadComprasDialog tipo={TipoDocumentoTrazabilidad.Recepcion} id={id} />}
             mono
           />
 

@@ -107,7 +107,9 @@ export function MaterialEnRevisionPage() {
         <EmptyState
           title="No hay material en revisión"
           description={
-            soloPendientes
+            q
+              ? `Ningún material coincide con “${q}”.`
+              : soloPendientes
               ? 'No hay líneas pendientes de dictamen.'
               : 'Aún no se ha registrado material dañado en recepciones.'
           }
@@ -127,7 +129,7 @@ export function MaterialEnRevisionPage() {
                   <TableHead>Recepción</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Artículo</TableHead>
-                  <TableHead className="text-right">En revisión</TableHead>
+                  <TableHead className="whitespace-nowrap text-right">En revisión</TableHead>
                   <TableHead className="text-right">Pendiente</TableHead>
                   <TableHead>Plazo</TableHead>
                   <TableHead>Acciones</TableHead>
@@ -136,7 +138,7 @@ export function MaterialEnRevisionPage() {
               <TableBody>
                 {items.map((i) => (
                   <TableRow key={i.lineaRevisionId} className="hover:bg-surface-subtle">
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="whitespace-nowrap font-mono text-xs">
                       <Link
                         to="/almacen/recepciones/$id"
                         params={{ id: i.recepcionId }}
@@ -178,14 +180,16 @@ export function MaterialEnRevisionPage() {
                       {i.cantidadEnRevision} {i.unidadMedida}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{i.cantidadPendiente}</TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <DateTimeDisplay
-                          value={i.fechaLimite}
-                          variant="corta"
-                          vencida={i.vencida}
-                          empty="—"
-                        />
+                        {i.cantidadPendiente > 0 && (
+                          <DateTimeDisplay
+                            value={i.fechaLimite}
+                            variant="corta"
+                            vencida={i.vencida}
+                            empty="—"
+                          />
+                        )}
                         <PlazoBadge item={i} />
                       </div>
                     </TableCell>

@@ -1,10 +1,11 @@
 import { PageHeader } from '@/components/erp/PageHeader';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, Check, Send, Truck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, DetalleSkeleton } from '@/components/erp';
 import { useDevolucionProveedor } from '@/features/almacen/api/useDevolucionesProveedor';
+import { useSubAlmacenes } from '@/features/almacen/api/useAlmacenes';
 import {
   EstadoDevolucionProveedor,
 } from '@/features/almacen/api/types';
@@ -45,6 +46,10 @@ export function DevolucionProveedorDetallePage() {
   const { id } = useParams({ from: FROM });
   const query = useDevolucionProveedor(id);
   const decimalesUnidad = useDecimalesUnidad();
+  const subAlmacenes = useSubAlmacenes({ limit: 200 });
+  const subAlmacenOrigen = subAlmacenes.data?.items?.find(
+    (s) => s.id === query.data?.subAlmacenOrigenId,
+  );
 
   const puedeIniciar = useHasPermission(
     PermisosCanonicos.AlmacenDevolucionesProveedorIniciar,
@@ -63,7 +68,7 @@ export function DevolucionProveedorDetallePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link to="/almacen/devoluciones" search={{}}>
             <ArrowLeft className="mr-2 size-3.5" />
@@ -139,23 +144,59 @@ export function DevolucionProveedorDetallePage() {
             />
             <Campo
               label="Recepción origen"
-              valor={query.data.recepcionOrigenId ?? '—'}
-              mono
+              valor={
+                query.data.recepcionOrigenId ? (
+                  <Link
+                    to="/almacen/recepciones/$id"
+                    params={{ id: query.data.recepcionOrigenId }}
+                    className="text-brand hover:underline"
+                  >
+                    Ver recepción
+                  </Link>
+                ) : (
+                  '—'
+                )
+              }
             />
             <Campo
               label="OC origen"
-              valor={query.data.ordenCompraOrigenId ?? '—'}
-              mono
+              valor={
+                query.data.ordenCompraOrigenId ? (
+                  <Link
+                    to="/compras/ordenes/$id"
+                    params={{ id: query.data.ordenCompraOrigenId }}
+                    className="text-brand hover:underline"
+                  >
+                    Ver orden de compra
+                  </Link>
+                ) : (
+                  '—'
+                )
+              }
             />
             <Campo
               label="Factura proveedor origen"
-              valor={query.data.facturaProveedorOrigenId ?? '—'}
-              mono
+              valor={
+                query.data.facturaProveedorOrigenId ? (
+                  <Link
+                    to="/cxp/facturas/$id"
+                    params={{ id: query.data.facturaProveedorOrigenId }}
+                    className="text-brand hover:underline"
+                  >
+                    Ver factura
+                  </Link>
+                ) : (
+                  '—'
+                )
+              }
             />
             <Campo
               label="Sub-almacén origen"
-              valor={query.data.subAlmacenOrigenId ?? '—'}
-              mono
+              valor={
+                subAlmacenOrigen
+                  ? `${subAlmacenOrigen.clave} · ${subAlmacenOrigen.nombre}`
+                  : '—'
+              }
             />
             <Campo
               label="Folio movimiento salida"
@@ -326,7 +367,7 @@ function Acciones({
           <Check className="mr-2 size-3.5" />
           Autorizar
         </Button>
-        <Button variant="destructive" onClick={onRechazar}>
+        <Button variant="secondary-danger" onClick={onRechazar}>
           <X className="mr-2 size-3.5" />
           Rechazar
         </Button>
@@ -359,7 +400,7 @@ function Campo({
   mono,
 }: {
   label: string;
-  valor: string;
+  valor: ReactNode;
   mono?: boolean;
 }) {
   return (

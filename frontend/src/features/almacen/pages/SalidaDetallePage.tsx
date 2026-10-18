@@ -74,12 +74,13 @@ export function SalidaDetallePage() {
             }
             descripcion={
               <>
-                Fecha de movimiento: {query.data.fechaMovimiento}
+                Fecha de movimiento:{' '}
+                <DateTimeDisplay value={query.data.fechaMovimiento} variant="media" />
                 {query.data.registradoAt && (
                   <>
                     {' '}
                     · Registrado:{' '}
-                    <DateTimeDisplay value={query.data.registradoAt} variant="datetime" />
+                    <DateTimeDisplay value={query.data.registradoAt} variant="media" />
                   </>
                 )}
               </>
