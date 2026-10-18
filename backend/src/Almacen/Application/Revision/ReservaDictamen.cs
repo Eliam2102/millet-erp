@@ -12,20 +12,27 @@ namespace Millet.Almacen.Application.Revision;
 /// <summary>
 /// ALM-04: lo que está en MAT-REV por una recepción sin dictaminar está reservado para el dictamen
 /// (Liberar/Baja/Rechazar con permiso <c>dictaminar</c>). Fórmula única del pendiente por línea de
-/// revisión: en revisión − dictaminado (Liberar/Baja) − en devolución (no rechazada). La usan la
-/// bandeja y los consumos de MAT-REV del flujo 8.A (baja por daño / reincorporar), que no deben
-/// saltarse el dictamen.
+/// revisión: en revisión − dictaminado (Liberar/Baja) − en devolución. La bandeja descuenta toda
+/// devolución no rechazada (ya no está pendiente de dictaminar). Los consumos de MAT-REV del flujo 8.A
+/// (baja por daño / reincorporar), que no deben saltarse el dictamen, descuentan solo las devoluciones
+/// con salida física (Registrada / ConciliadaConNcFiscal): mientras la devolución está en Borrador,
+/// EnAutorizacion o Autorizada la mercancía sigue en MAT-REV y su cantidad sigue reservada para esa salida.
 /// </summary>
 internal static class ReservaDictamen
 {
-    /// <summary>Cantidad en devolución a proveedor (no rechazada) por línea de recepción origen.</summary>
+    /// <summary>
+    /// Cantidad en devolución a proveedor (no rechazada) por línea de recepción origen; con
+    /// <paramref name="soloConSalidaFisica"/> solo las que ya sacaron la mercancía de MAT-REV.
+    /// </summary>
     public static async Task<Dictionary<Guid, decimal>> EnDevolucionPorLineaAsync(
-        AlmacenDbContext db, Guid[] lineaIds, CancellationToken ct)
+        AlmacenDbContext db, Guid[] lineaIds, CancellationToken ct, bool soloConSalidaFisica = false)
         => (await (
             from ld in db.LineasDevolucionProveedor.AsNoTracking()
             join d in db.DevolucionesProveedor.AsNoTracking() on ld.DevolucionId equals d.Id
             where ld.LineaRecepcionOrigenId != null && lineaIds.Contains(ld.LineaRecepcionOrigenId.Value)
-                && d.Estado != EstadoDevolucionProveedor.Rechazada
+                && (soloConSalidaFisica
+                    ? d.Estado == EstadoDevolucionProveedor.Registrada || d.Estado == EstadoDevolucionProveedor.ConciliadaConNcFiscal
+                    : d.Estado != EstadoDevolucionProveedor.Rechazada)
             select new { ld.LineaRecepcionOrigenId, ld.Cantidad }).ToListAsync(ct))
             .GroupBy(x => x.LineaRecepcionOrigenId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.Cantidad));
@@ -45,7 +52,7 @@ internal static class ReservaDictamen
         if (lineas.Count == 0) return [];
 
         var ids = lineas.Select(l => l.Id).ToArray();
-        var devolucion = await EnDevolucionPorLineaAsync(db, ids, ct);
+        var devolucion = await EnDevolucionPorLineaAsync(db, ids, ct, soloConSalidaFisica: true);
         var dictaminado = (await db.DictamenesRevision.AsNoTracking()
             .Where(d => ids.Contains(d.LineaRevisionId)).ToListAsync(ct))
             .Where(d => CuentaComoDictaminada(d.Resultado))

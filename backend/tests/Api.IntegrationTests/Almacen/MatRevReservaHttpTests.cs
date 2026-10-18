@@ -6,9 +6,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
 using Millet.Api.IntegrationTests.Contabilidad;
+using Millet.Api.IntegrationTests.DatosMaestros.Adjuntos;
 using Millet.Identidad.Domain;
 using Millet.Identidad.Infrastructure;
 using Millet.SharedKernel.Application;
+using Millet.SharedKernel.Application.Blob;
 using Millet.SharedKernel.Application.UnidadesMedida;
 using static Millet.Api.IntegrationTests.Almacen.CuarentenaRecepcionTests;
 
@@ -34,6 +36,7 @@ public class MatRevReservaHttpTests : IClassFixture<WebApplicationFactory<Progra
         _factory = factory.WithWebHostBuilder(b => b.ConfigureServices(s =>
         {
             // El fixture no existe en datos maestros ni en compras: se sustituyen los puertos de lectura.
+            s.AddSingleton<IBlobStoragePort>(new BlobGrabador()); // adjunto de evidencia del rechazo
             s.AddScoped<IArticuloReadPort, ArticulosUnidad>(_ => new ArticulosUnidad());
             s.AddScoped<IComprasOcReadPort, OcDelFixture>();
             s.AddScoped<IConversionUnidadPort, ConversionIdentidad>();
@@ -43,10 +46,11 @@ public class MatRevReservaHttpTests : IClassFixture<WebApplicationFactory<Progra
 
     private sealed class OcDelFixture : IComprasOcReadPort
     {
+        private static readonly Guid ProveedorFijoId = Guid.NewGuid(); // el rechazo exige el proveedor de la OC
         public Task<OcLectura?> ObtenerAsync(Guid ocId, CancellationToken ct)
         {
             var c = _ctxActual!;
-            return Task.FromResult<OcLectura?>(new(ocId, "OC-ALM04", Guid.NewGuid(), c.EmpresaId, "Autorizada",
+            return Task.FromResult<OcLectura?>(new(ocId, "OC-ALM04", ProveedorFijoId, c.EmpresaId, "Autorizada",
                 [new OcLineaLectura(c.LineaOcId, c.ArticuloId, "PZA", 10m, 0m, 100m)]));
         }
         public Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(IReadOnlyCollection<Guid> ocIds, CancellationToken ct) =>
@@ -173,6 +177,85 @@ public class MatRevReservaHttpTests : IClassFixture<WebApplicationFactory<Progra
             }, ContabTestKit.EmpresaBootstrapId);
         }
         finally { await LimpiarAsync(operativo); }
+    }
+
+    private static readonly Guid TipoFotoDano = Guid.Parse("00000011-0006-0000-0000-000000000003");
+    private static readonly byte[] Png = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
+
+    [Fact]
+    public async Task Baja_8A_no_consume_hoja_comprometida_en_devolucion_a_proveedor_abierta_hasta_su_salida_fisica()
+    {
+        Operativo? operativo = null;
+        var admin = await ContabTestKit.LoginAsync(_factory);
+        var lineaId = Guid.Empty;
+        var devolucionId = Guid.Empty;
+        try
+        {
+            operativo = await CrearOperativoAsync(SucursalMid, PermisosCanonicos.AlmacenDevolucionesInternasCapturar);
+            await new CuarentenaRecepcionTests(_factory).EjecutarConFixtureAsync(async (db, ctx) =>
+            {
+                _ctxActual = ctx;
+                await PonerAlmacenEnSucursalAsync(db, ctx.AlmacenId, SucursalMid);
+                lineaId = await RecibirConDanoAsync(db, ctx); // REV-01 = 2
+                using var contenido = new MultipartFormDataContent();
+                var archivo = new ByteArrayContent(Png);
+                archivo.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+                contenido.Add(archivo, "archivo", "dano.png");
+                contenido.Add(new StringContent(TipoFotoDano.ToString()), "tipoDocumentoId");
+                using var subida = await admin.PostAsync($"/api/v1/almacen/revision/lineas/{lineaId}/adjuntos", contenido);
+                Assert.True(subida.IsSuccessStatusCode, await subida.Content.ReadAsStringAsync());
+
+                // Rechazo al proveedor: la devolución queda EnAutorizacion y el físico sigue en MAT-REV.
+                using var rechazo = await admin.PostAsJsonAsync($"/api/v1/almacen/revision/lineas/{lineaId}/dictamen", new
+                {
+                    resultado = 1, cantidad = 2m, motivo = "No sirve", fechaMovimiento = Fecha.ToString("yyyy-MM-dd"),
+                });
+                Assert.True(rechazo.StatusCode == HttpStatusCode.Created, await rechazo.Content.ReadAsStringAsync());
+                devolucionId = (await ContabTestKit.Json(rechazo)).GetProperty("devolucionAProveedorId").GetGuid();
+
+                using var baja = await operativo.Client.PostAsJsonAsync("/api/v1/almacen/mat-rev/baja-por-dano", Baja(ctx, ctx.RackRevisionId, 1m));
+                Assert.Equal(HttpStatusCode.UnprocessableEntity, baja.StatusCode);
+                Assert.Equal("MATREV_RESERVADO_PARA_DICTAMEN", await ContabTestKit.Code(baja));
+                Assert.Equal(2m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId));
+
+                // Autorizada y con salida física registrada: otra hoja libre de MAT-REV sí se da de baja.
+                using var autoriza = await admin.PostAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}/autorizar", null);
+                Assert.True(autoriza.StatusCode == HttpStatusCode.NoContent, await autoriza.Content.ReadAsStringAsync());
+                var dev = await ContabTestKit.Json(await admin.GetAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}"));
+                var lineaDevolucionId = dev.GetProperty("lineas").EnumerateArray().Single().GetProperty("id").GetGuid();
+                using var salida = await admin.PostAsJsonAsync($"/api/v1/almacen/devoluciones-proveedor/{devolucionId}/registrar-salida", new
+                {
+                    subAlmacenId = ctx.SubRevisionId,
+                    fechaMovimiento = Fecha.ToString("yyyy-MM-dd"),
+                    bins = new[] { new { lineaDevolucionId, ubicacionId = ctx.RackRevisionId } },
+                });
+                Assert.True(salida.StatusCode == HttpStatusCode.OK, await salida.Content.ReadAsStringAsync());
+                Assert.Equal(0m, await LeerSaldoAsync(db, ctx.RackRevisionId, ctx.ArticuloId));
+
+                var bin8A = await DictamenRevisionTests.SembrarSaldo8AEnMatRevAsync(db, ctx, 3m);
+                using var bajaOk = await operativo.Client.PostAsJsonAsync("/api/v1/almacen/mat-rev/baja-por-dano", Baja(ctx, bin8A, 2m));
+                Assert.True(bajaOk.StatusCode == HttpStatusCode.Created, await bajaOk.Content.ReadAsStringAsync());
+                Assert.Equal(1m, await LeerSaldoAsync(db, bin8A, ctx.ArticuloId));
+            }, ContabTestKit.EmpresaBootstrapId);
+        }
+        finally
+        {
+            using var scope = _factory.Services.CreateScope();
+            var almacen = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+            if (lineaId != Guid.Empty)
+                await almacen.Database.ExecuteSqlInterpolatedAsync(
+                    $"DELETE FROM compartido.adjuntos WHERE tipo_entidad = 'linea_revision' AND entidad_id = {lineaId}");
+            if (devolucionId != Guid.Empty)
+            {
+                var ids = (await almacen.OutboxEntries.AsNoTracking()
+                    .Where(e => e.EventType == "almacen.oc_devolucion.registrada.v1").ToListAsync())
+                    .Where(e => e.Payload.Contains(devolucionId.ToString(), StringComparison.OrdinalIgnoreCase))
+                    .Select(e => e.Id).ToArray();
+                await almacen.OutboxEntries.Where(e => ids.Contains(e.Id)).ExecuteDeleteAsync();
+            }
+            await LimpiarAsync(operativo);
+        }
     }
 
     [Fact]
