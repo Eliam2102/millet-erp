@@ -70,6 +70,7 @@ Política: **aplica** = se escribe en el maestro ERP; **solo registra** = se gua
 | `PLZ` (como CP fiscal) | nvarchar | candidato `CodigoPostalFiscal` | Candidato fiscal | Fiscal | Ninguna | Nulo posible | Facturación | Solo registra; **nunca pisa** CP fiscal local | PENDIENTE |
 | `UST_ID` | nvarchar | `CandidatoFiscalUstId` (registro) | Candidato fiscal | Fiscal | Trim, sin normalizar a RFC | Nulo posible | Facturación | Solo registra; **nunca pisa** `Rfc` | PENDIENTE (equivalencia RFC/TaxId) |
 | `STEUERNUMMER` | nvarchar | `CandidatoFiscalSteuernummer` (registro) | Candidato fiscal | Fiscal | Trim | Nulo posible | Facturación | Solo registra; **nunca pisa** `Rfc` | PENDIENTE (equivalencia RFC) |
+| `KU_KUNDEN.BONITAET` → `KA_BONITAET.FREMD_KEY` | nvarchar(40) NOT NULL → nvarchar(6) | ninguno (solo se lee para el reporte U1.8b, §14) | Candidato fiscal | Fiscal | Join `BONITAET = KA_BONITAET.BEZ` (BEZ es PK); `FREMD_KEY` es la clave SAT de régimen fiscal por decisión de Millet | Nulo posible (sin catálogo o `<indf>`) | Reporte de diferencias fiscales | **No se aplica ni se registra**; **nunca pisa** `RegimenFiscal` | documentado por Millet ("Documentación funcional de los sistemas satélite" §4.2) |
 
 | `TLF1`, `TLF2` | nvarchar | `Cliente.Telefono` (TLF1) / registro (TLF2) | Comercial recibido | A+W | Trim; validar longitud | Nulo posible | UI, CxC | Aplica solo si `Telefono` local vacío; si no, **nunca pisa** y registra | PENDIENTE (campos acordados) |
 | `MAIL` | nvarchar | `Cliente.Email` | Comercial recibido | A+W | Trim; validar formato | Nulo posible | UI, CxC | Aplica solo si `Email` local vacío; si no, **nunca pisa** | PENDIENTE |
@@ -359,4 +360,95 @@ Cada registro de origen guarda ambas versiones; con V52 configurado, `VersionMap
 - **Moneda sin equivalencia (resuelto, observación de Eliam 2026-09-30):** el barrido **ya no crea** un cliente nuevo si la moneda de origen no tiene equivalencia validada (mapeo vacío o `<indf>`); no se asume MXN. La fila se registra como error por referencia con código `moneda_sin_equivalencia` (la ejecución termina `Parcial`, cuenta en `Pendientes`) y se crea al reintentar una vez configurado el mapeo. Un cliente ya existente no cambia de moneda. Excepción: la auto-provisión por pedido (`SoloCrear`, sin moneda de origen) conserva su default porque el pedido no puede esperar.
 - **Recibido vs. aplicado (resuelto):** en cada aplicación sobre un cliente existente el registro guarda `Diferencias` (campo, recibido, se conserva, motivo) para razón social, moneda, teléfono y correo cuando A+W trae un valor distinto al local. Se ve en el detalle de origen ("Recibido de A+W y no aplicado al cliente"); una lectura posterior sin diferencias las limpia. Los fiscales locales siguen protegidos.
 - **`KREDIT_LIMIT1_NET` no se lee a propósito:** el crédito es solo referencia y no alimenta ninguna política. Se agrega (DTO + columna + migración) solo si CxC lo pide.
-- **Recibido vs aplicado:** hoy el detalle muestra el snapshot de origen y el cliente ERP por separado; una vista de diferencias campo a campo queda fuera de esta entrega (mejora posterior).
+- **Recibido vs aplicado:** hoy el detalle muestra el snapshot de origen y el cliente ERP por separado; una vista de diferencias campo a campo quedó fuera de esta entrega. **Entregada para los datos fiscales por U1.8b** (§14): reporte de diferencias fiscales A+W vs ERP de clientes y productos. Los comerciales (teléfono, correo, moneda) siguen en `Diferencias` del registro de origen.
+
+## 14. Reporte de diferencias fiscales A+W vs ERP (U1.8b, F1-FAC-14)
+
+El ERP es dueño de los datos fiscales de clientes y artículos y A+W de los operativos (regla P160). El reporte
+lista los clientes y productos A+W cuyo dato fiscal del ERP no coincide con A+W (o, en productos, con su regla
+fiscal), con dos acciones: **Marcar revisado** y **Corregir en el ERP** (abre el detalle del cliente o producto;
+nunca escribe en A+W). Se ejecuta a demanda y, si se activa, cada semana.
+
+**Coordinación con F1-ADM-06:** usa la misma identidad (`Cliente.ReferenciaExterna` = `KU_KUNDEN.ID`) y el mismo
+puerto `IAwClientesOrigen` (respeta el origen Real/Demo y `IntegracionesAw:Clientes:LecturaHabilitada`). No crea
+otra sincronización ni ejecución, no duplica la bandeja de errores, los conflictos de ligado por RFC ni la sección
+"Datos de origen A+W". No usa las `Diferencias` guardadas en `cliente_sincronizacion_aw` /
+`producto_sincronizacion_aw` (pueden estar viejas y en Real no traen RFC/CP): compara en vivo.
+
+### 14.1 Reglas de comparación
+
+| Tipo | Campo ERP | Se compara contra | Normalización para decidir igualdad |
+|---|---|---|---|
+| Cliente | `RazonSocial` | A+W `NAME1 + NAME2` (Millet §4.2) | Mayúsculas, sin acentos, espacios colapsados, sin puntos ni comas. **No** se quita el régimen societario (SA DE CV): lo decide una persona. |
+| Cliente | `Rfc` | A+W `UST_ID` | Sin guiones, puntos ni espacios, en mayúsculas (Millet §4.2). |
+| Cliente | `RegimenFiscal` | A+W `KA_BONITAET.FREMD_KEY` por `BONITAET` | Recorte y mayúsculas. |
+| Cliente | `CodigoPostalFiscal` | A+W `PLZ` | Recorte. |
+| Producto A+W | `ClaveProdServSat`, `ObjetoImp` | Regla fiscal (`reglas_fiscales_aw`, Wgr > Grupo > Tipo; luego `IntegracionesAw:Productos:ReglasFiscales` por Tipo) | Recorte y mayúsculas. |
+| Producto A+W | `ClaveUnidadSat` | Unidad de la regla; si la regla no la trae, `IntegracionesAw:Pedidos:MapeoUnidadSat` con la unidad A+W ya normalizada | Recorte y mayúsculas. |
+
+- `<indf>` (indefinido de A+W), vacío y nulo son "sin dato". Estados: **Diferente** (ambos con valor distinto),
+  **Faltante** (el ERP no tiene valor) y **Sin dato en A+W** (solo clientes: el ERP tiene valor y A+W no).
+- **Productos:** A+W no tiene datos SAT, así que la columna "Comparado contra" dice la regla o el mapeo usado
+  (p. ej. `Regla Tipo = VTE`, `Mapeo de unidad M2`), nunca "A+W". Un campo vacío en el ERP es **Faltante** aunque
+  no haya regla (U1.8b-c). Un valor distinto del esperado no se reporta si el producto es **excepción de producto**
+  o su ficha está **confirmada** por Fiscal: la diferencia es deliberada. Sin regla ni mapeo, lo capturado no se compara.
+- La clasificación (Tipo/Grupo/Wgr) y la unidad del producto son las que ya sincronizó ADM-07 (dueño A+W); el reporte
+  no relee A+W para productos.
+- Alcance: clientes **activos** con clave A+W y productos A+W **activos**. Master cross-sucursal: sin alcance por
+  sucursal (ADR-0051 no aplica, igual que clientes y productos).
+- Lectura de A+W: hasta `MaxLecturasPorReferencia` clientes (200) se leen por referencia; con más, se recorre A+W por
+  páginas de 500. Si la lectura está apagada, A+W no responde o el origen real no está configurado, el reporte
+  sale con un **aviso** y sin clientes (los productos sí se comparan). Un cliente del ERP que no aparece en A+W se
+  cuenta en un aviso y no se compara (la ausencia nunca es baja, §8).
+
+### 14.2 Revisión (U1.8b-b)
+
+"Marcar revisado" guarda una revisión por (tipo, entidad, campo) con la **huella** (SHA-256 del tipo, campo y los dos
+valores normalizados), los valores vistos, quién y cuándo (`compartido.diferencias_fiscales_aw_revisiones`, auditada,
+con `Version`). El reporte la oculta mientras la huella actual sea la misma; si cambia el valor de A+W, de la regla o
+del ERP, reaparece. El POST recalcula la diferencia: si ya no existe o la huella no es la que vio el usuario responde
+409 `DIFERENCIA_FISCAL_CAMBIO`. Marcar revisado **no** corrige nada.
+
+### 14.3 API y permisos
+
+Base `/api/v1/datos-maestros/diferencias-fiscales-aw` (Problem Details en errores):
+
+| Método y ruta | Permiso | Efecto |
+|---|---|---|
+| `GET /?tipo&campo&estado&incluirRevisadas` | `datos_maestros.diferencias-fiscales-aw.leer` | Calcula en vivo; shape ADR-0036 + `avisos` + `resumen`. |
+| `POST /revisiones` `{tipo, entidadId, campo, huella, nota?}` | `datos_maestros.diferencias-fiscales-aw.revisar` | Marca revisado. Requiere `Idempotency-Key`. |
+| `GET /corridas/ultima?incluirRevisadas` | `...leer` | Última corrida guardada (con sus filas, ocultando lo revisado después) y resumen de la última programada. |
+| `POST /corridas` | `...revisar` | Calcula todo y guarda una corrida manual. Requiere `Idempotency-Key`. |
+
+Los permisos se siembran con la migración `SeedPermisosDiferenciasFiscalesAw` (Identidad, GUID `00000004-0013-*`).
+Corregir un cliente `Origen=Aw` sigue requiriendo `datos_maestros.clientes.fiscal-editar`; un producto,
+`datos_maestros.productos-aw.gestionar`.
+
+UI: `/admin/datos-maestros/diferencias-fiscales-aw` (tarjeta "Diferencias fiscales A+W" en Administración › Datos
+maestros), con vistas "En vivo" y "Última corrida guardada", filtros por tipo, campo, estado e "Incluir revisadas", y
+exportación PDF/Excel del `ReporteShell`.
+
+### 14.4 Corrida semanal
+
+Sección `IntegracionesAw:DiferenciasFiscales` (`DiferenciasFiscalesAwOptions`):
+
+| Clave | Default | Significado |
+|---|---|---|
+| `ProgramacionHabilitada` | `false` | Registra `DiferenciasFiscalesAwWorker`. |
+| `DiaSemana` | `Monday` | Día de la corrida (`DayOfWeek` en inglés). |
+| `HoraLocal` | `06:00` | Hora local `HH:mm`. |
+| `ZonaHoraria` | `America/Mexico_City` | Zona IANA de `HoraLocal`. |
+| `MaxLecturasPorReferencia` | `200` | Umbral entre leer por referencia o recorrer A+W por páginas. |
+
+El worker espera al siguiente día/hora, calcula y guarda la corrida (`Origen=Programada`, actor
+`system:aw-diferencias-fiscales`) en `compartido.diferencias_fiscales_aw_corridas` +
+`diferencias_fiscales_aw_corrida_filas` (`INotAudited`, solo lo pendiente). Una corrida que falla queda guardada
+como fallida. Una corrida perdida (API apagada a esa hora) no se recupera: queda para la semana siguiente. Las
+corridas se conservan 180 días. Corre con un solo host, como el resto de los workers de A+W.
+
+### 14.5 Copia de demo
+
+`tools/aw-origen-demo` agrega `aw_origen.ka_bonitaet` y la columna `ku_kunden.bonitaet` (scripts idempotentes; correr
+`aw-origen-demo.sh up` en BD existentes). El seed sintético usa 601 en pares, 612 en nones, 616 en RFC genéricos,
+`<indf>` en múltiplos de 7 y una calificación sin catálogo (id 59). La sincronización de demo **no** aplica el
+régimen: en un ERP recién sincronizado los clientes salen como "Faltante" de régimen hasta que Fiscal lo capture.

@@ -195,8 +195,11 @@ ORDER BY POS_NR: `numero_pedido`, `numero_posicion`, `producto_ref`
 
 De KU_KUNDEN: `cliente_ref` (ID), `razon_social` (NAME1+NAME2), `rfc`
 (UST_ID limpio), `calle`/`colonia`/`cp`/`ciudad`/`estado`/`pais`, `telefono`
-(solo dígitos). Régimen fiscal y CP **fiscal** probablemente no existen en
-A+W (gap G12) → se completan en la UI del ERP antes de timbrar.
+(solo dígitos). La vista no trae régimen fiscal ni CP **fiscal** (gap G12) → se
+completan en la UI del ERP antes de timbrar. Actualización (U1.8b): Millet documentó
+que el régimen sí existe en A+W como `KA_BONITAET.FREMD_KEY` (unido por
+`KU_KUNDEN.BONITAET`); hoy solo se lee para el reporte de diferencias fiscales
+(doc 05 §14), no para la auto-provisión.
 
 ### 3.5 `vw_erp_articulo` (auto-provisión)
 
