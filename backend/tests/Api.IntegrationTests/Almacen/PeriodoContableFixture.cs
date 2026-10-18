@@ -8,6 +8,10 @@ using Millet.SharedKernel.Application;
 
 namespace Millet.Api.IntegrationTests.Almacen;
 
+/// <summary>Las clases que usan <see cref="PeriodoContableFixture"/> comparten calendario/DB: se serializan entre sí.</summary>
+[CollectionDefinition(PeriodoContableSinParalelo.Nombre)]
+public sealed class PeriodoContableSinParalelo { public const string Nombre = "Almacen periodo contable"; }
+
 /// <summary>Calendario FIX propio con limpieza por ID. Nunca abre ni cierra ejercicios ajenos.</summary>
 internal sealed class PeriodoContableFixture(string connectionString, Guid empresaId, int anio) : IAsyncDisposable
 {

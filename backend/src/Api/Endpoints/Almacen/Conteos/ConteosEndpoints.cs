@@ -45,8 +45,9 @@ public static class ConteosEndpoints
         .Produces<AlmacenPagedResponse<ConteoListItem>>(StatusCodes.Status200OK);
 
         // GET /{id} (detalle).
-        group.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async (Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosLeerTodasSucursales, ct);
             var detalle = await mediator.Send(new ObtenerConteoPorIdQuery(id), ct);
             return detalle is null ? Results.NotFound() : Results.Ok(detalle);
         })
@@ -58,9 +59,14 @@ public static class ConteosEndpoints
         // POST / (Crear conteo).
         group.MapPost("/", async (
             CrearConteoCommand command,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            if (command.SubAlmacenId is Guid sub)
+                await documentos.VerificarAsync("sub_almacen", sub, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
+            else
+                await documentos.VerificarSucursalAsync(null, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             var response = await mediator.Send(command, ct);
             return Results.Created($"/api/v1/almacen/conteos/{response.ConteoId}", response);
         })
@@ -71,8 +77,9 @@ public static class ConteosEndpoints
 
         // POST /{id}/iniciar (toma snapshot).
         group.MapPost("/{id:guid}/iniciar", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             await mediator.Send(new IniciarConteoCommand(id), ct);
             return Results.NoContent();
         })
@@ -87,8 +94,9 @@ public static class ConteosEndpoints
         // — el rol del contador NO tiene `almacen.inventarios.aprobar-*`.
 
         group.MapGet("/{id:guid}/lineas-para-capturar", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosLeerTodasSucursales, ct);
             return Results.Ok(await mediator.Send(new ListarLineasParaCapturarQuery(id), ct));
         })
         .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.AlmacenInventariosCapturar)
@@ -99,9 +107,11 @@ public static class ConteosEndpoints
         group.MapPost("/{id:guid}/lineas/{lineaId:guid}/capturar", async (
             Guid id, Guid lineaId,
             CapturarLineaRequest req,
+            DocumentoSucursalScope documentos,
             IMediator mediator,
             CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             await mediator.Send(new CapturarLineaConteoCommand(id, lineaId, req.CantidadReal), ct);
             return Results.NoContent();
         })
@@ -114,13 +124,14 @@ public static class ConteosEndpoints
         // Permiso distinto: aprobar-nivel1+ requerido. El contador NO puede
         // acceder a este endpoint.
         group.MapGet("/{id:guid}/comparacion", async (
-            Guid id, IMediator mediator, Millet.SharedKernel.Application.ICurrentUserPermissions permisos, CancellationToken ct) =>
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, Millet.SharedKernel.Application.ICurrentUserPermissions permisos, CancellationToken ct) =>
         {
             if (!await permisos.TieneAsync(PermisosCanonicos.AlmacenInventariosAprobarNivel1, ct)
                 && !await permisos.TieneAsync(PermisosCanonicos.AlmacenInventariosAprobarNivel2, ct)
                 && !await permisos.TieneAsync(PermisosCanonicos.AlmacenInventariosAprobarNivel3, ct))
                 throw new Millet.SharedKernel.Application.Exceptions.ForbiddenException(
                     "CONTEO_COMPARACION_NO_AUTORIZADA", "Se requiere permiso de aprobación para consultar las diferencias del conteo.");
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosLeerTodasSucursales, ct);
             return Results.Ok(await mediator.Send(new ListarLineasComparacionQuery(id), ct));
         })
         .RequireAuthorization()
@@ -130,8 +141,9 @@ public static class ConteosEndpoints
 
         // POST /{id}/enviar-a-conciliacion.
         group.MapPost("/{id:guid}/enviar-a-conciliacion", async (
-            Guid id, IMediator mediator, CancellationToken ct) =>
+            Guid id, DocumentoSucursalScope documentos, IMediator mediator, CancellationToken ct) =>
         {
+            await documentos.VerificarAsync("conteo", id, PermisosCanonicos.AlmacenInventariosGestionarTodasSucursales, ct);
             await mediator.Send(new EnviarConteoAConciliacionCommand(id), ct);
             return Results.NoContent();
         })

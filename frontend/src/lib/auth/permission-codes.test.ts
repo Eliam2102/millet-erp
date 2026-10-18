@@ -86,6 +86,7 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'datos_maestros.proveedores.validar',
   'datos_maestros.proveedores.tolerancia-editar',
   'datos_maestros.articulos.gestionar',
+  'datos_maestros.articulos.tolerancia-editar',
   // Masters auto-provisionables de la ingesta A+W (ADR-0048).
   'datos_maestros.clientes.gestionar',
   'datos_maestros.clientes.sincronizar',
@@ -277,6 +278,15 @@ const CODIGOS_BACKEND_ESPERADOS = new Set<string>([
   'contabilidad.periodo.administrar',
   'contabilidad.periodo.cerrar',
   'contabilidad.periodo.reabrir',
+  // Pólizas (F1-CON-04)
+  'contabilidad.polizas.leer',
+  'contabilidad.polizas.capturar',
+  'contabilidad.polizas.autorizar',
+  'contabilidad.polizas.anular',
+  // Pólizas recurrentes (K10.4)
+  'contabilidad.recurrentes.leer',
+  'contabilidad.recurrentes.administrar',
+  'contabilidad.recurrentes.autorizar',
   // Administración — Puestos/Empleados. El #629 (ADM-FE-PR1) los agregó a
   // PermisosCanonicos pero olvidó este set → el test quedó rojo en main
   // (CI no corre vitest de FE, así que nadie lo vio). Verificados contra

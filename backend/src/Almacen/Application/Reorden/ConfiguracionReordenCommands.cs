@@ -22,6 +22,13 @@ namespace Millet.Almacen.Application.Reorden;
 // re-corre exclusión ni asignación. Desactivar es idempotente.
 // ============================================================================
 
+// Tope de cantidades de reorden: columnas numeric(14,4) (10 dígitos enteros + 4
+// decimales). Un valor mayor desborda la columna y produce 500 en vez de 400.
+internal static class ConfiguracionReordenTopes
+{
+    public const decimal CantidadMaxima = 9_999_999_999.9999m;
+}
+
 public sealed record ConfiguracionReordenResponse(
     Guid Id,
     Guid ArticuloId,
@@ -63,9 +70,15 @@ public sealed class CrearConfiguracionReordenValidator
         RuleFor(c => c.Nivel).IsInEnum();
         RuleFor(c => c.Objetivo).IsInEnum();
         RuleFor(c => c.CantidadFija).GreaterThan(0).When(c => c.CantidadFija.HasValue);
-        RuleFor(c => c.Minimo).GreaterThanOrEqualTo(0);
-        RuleFor(c => c.Maximo).GreaterThanOrEqualTo(0);
-        RuleFor(c => c.PuntoReorden).GreaterThanOrEqualTo(0);
+        RuleFor(c => c.CantidadFija)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima)
+            .When(c => c.CantidadFija.HasValue);
+        RuleFor(c => c.Minimo).GreaterThanOrEqualTo(0)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima);
+        RuleFor(c => c.Maximo).GreaterThanOrEqualTo(0)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima);
+        RuleFor(c => c.PuntoReorden).GreaterThanOrEqualTo(0)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima);
         RuleFor(c => c.Maximo).GreaterThanOrEqualTo(c => c.Minimo)
             .WithMessage("El máximo no puede ser menor que el mínimo.");
     }
@@ -253,9 +266,15 @@ public sealed class EditarConfiguracionReordenValidator
         RuleFor(c => c.Id).NotEqual(Guid.Empty);
         RuleFor(c => c.Objetivo).IsInEnum();
         RuleFor(c => c.CantidadFija).GreaterThan(0).When(c => c.CantidadFija.HasValue);
-        RuleFor(c => c.Minimo).GreaterThanOrEqualTo(0);
-        RuleFor(c => c.Maximo).GreaterThanOrEqualTo(0);
-        RuleFor(c => c.PuntoReorden).GreaterThanOrEqualTo(0);
+        RuleFor(c => c.CantidadFija)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima)
+            .When(c => c.CantidadFija.HasValue);
+        RuleFor(c => c.Minimo).GreaterThanOrEqualTo(0)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima);
+        RuleFor(c => c.Maximo).GreaterThanOrEqualTo(0)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima);
+        RuleFor(c => c.PuntoReorden).GreaterThanOrEqualTo(0)
+            .LessThanOrEqualTo(ConfiguracionReordenTopes.CantidadMaxima);
         RuleFor(c => c.Maximo).GreaterThanOrEqualTo(c => c.Minimo)
             .WithMessage("El máximo no puede ser menor que el mínimo.");
     }

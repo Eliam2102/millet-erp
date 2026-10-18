@@ -52,8 +52,8 @@ type SortKey =
  * filtros (folio, estado, sub-almacén, RQ, rango de fechas, vales
  * únicamente). Botón "Nueva salida" abre el sheet con switch
  * Variante A (con RQ) / B (vale urgente). Gateada a nivel ruta por
- * <c>almacen.salidas.leer-todas</c> (o leer-propias — el backend
- * filtra por usuario en ese caso).
+ * <c>almacen.salidas.leer-todas</c>. El backend no filtra "propias"
+ * para salidas.
  */
 export function SalidasPage() {
   const search = useSearch({ from: FROM });

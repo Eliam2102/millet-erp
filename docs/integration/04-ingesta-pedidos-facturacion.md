@@ -27,13 +27,13 @@ flujo equivocado.
 ```
 A+W (Gupta, on-prem)                        SER-DATA                        Azure (Millet.Api)
 ────────────────────                        ────────                        ──────────────────
-Pedido pasa a "en firme"
+Pedido pasa a "en firme" (15/42)
   └─ customización A+W ──INSERT──►  MILLET_INTEGRACION.dbo.aw_solicitud_pedido
                                        (operacion, version, …)
                                             ▲          │
                                             │          │  Hybrid Connection hc-aw-business-sql
                              write-back     │          ▼  (SER-DATA:1433, ya en producción)
-                             (claim,        │   AwSolicitudesWorker (Facturación, cada N min)
+                             (claim,        │   AwSolicitudesWorker (Facturación, cada 15 s)
                               resultado,    │     ├─ IAwSolicitudesReader (Integraciones.Aw)
                               uuid,         │     │    ├─ barre solicitudes pendientes en orden
                               estado)       │     │    └─ lee vistas vw_erp_pedido_* (cabecera/líneas/BOM)
@@ -55,7 +55,7 @@ Este flujo solo implementa los puertos reales y el master de datos.
 
 ### 1.bis Nudge de baja latencia (PR7)
 
-El polling (IntervalSeconds, default 120s) es el transporte garantizado. Para
+El polling (IntervalSeconds, default 15s) es el transporte garantizado. Para
 latencia de segundos, la customización A+W llama **tras su INSERT** al exe
 `MilletAwPedidoNotify` (`on-prem/aw-pedido-notify/`), que hace
 `POST /api/v1/integraciones/aw/pedidos/nudge` con la API key
@@ -65,6 +65,18 @@ endpoint solo dispara `AwSolicitudesTickSignal` — el worker despierta y
 barre. **Best-effort por diseño**: nudge perdido = la solicitud espera al
 siguiente tick; la tabla-puente sigue siendo la única fuente de verdad.
 Múltiples nudges colapsan en un tick (el barrido drena todo lo pendiente).
+
+### 1.ter Job de respaldo del disparo (U1.4)
+
+Mientras A+W no tenga la customización, el INSERT lo hace un job de SQL
+Server Agent cada 15 s en `MILLET_INTEGRACION`
+([`07_job_aviso_pedidos.sql`](../operacion/aw-integracion-scripts/07_job_aviso_pedidos.sql)):
+lee en solo lectura `BW_AUFTR_KOPF.STATUS` (15/42 en firme, 900/999
+cancelado) y `BW_AUFTR_HIST`, y escribe Alta/Modificación/Cancelación con
+`version` creciente y sin duplicados. Job (15 s) + polling (15 s) ⇒ peor
+caso ~30 s, dentro del «menos de 1 minuto» (Módulo 13 R14). Medición en
+[`08_latencia_avisos.sql`](../operacion/aw-integracion-scripts/08_latencia_avisos.sql).
+Detalle y desactivación al llegar el customizing: runbook de customizing §3.ter.
 
 ## 2. Tabla-puente `aw_solicitud_pedido`
 

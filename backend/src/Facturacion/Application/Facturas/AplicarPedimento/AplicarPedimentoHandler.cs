@@ -51,8 +51,13 @@ public sealed class AplicarPedimentoHandler : IRequestHandler<AplicarPedimentoCo
 
     public async Task<AplicarPedimentoResponse> Handle(AplicarPedimentoCommand command, CancellationToken cancellationToken)
     {
+        // Mismo grafo que ReintentarTimbrado: sin las líneas del CCE, el
+        // complemento viaja sin mercancías y el PAC rechaza (U1.7, 15-oct).
         var factura = await _db.FacturasVenta
             .Include(f => f.Lineas)
+            .Include(f => f.Relaciones)
+            .Include(f => f.ComplementoCce!)
+                .ThenInclude(c => c.Lineas)
             .FirstOrDefaultAsync(f => f.Id == command.FacturaVentaId, cancellationToken)
             ?? throw new EntityNotFoundException("FACTURA_NO_ENCONTRADA", $"No existe la factura {command.FacturaVentaId}.");
 

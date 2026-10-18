@@ -326,8 +326,7 @@ function NuevaSalidaFormBody({
       if (error.code === 'SALIDA_STOCK_INSUFICIENTE') {
         toast.error('Stock insuficiente para alguna línea.', {
           description:
-            error.problem.detail ??
-            'Revisa la cantidad solicitada vs disponible en el sub-almacén.',
+            error.problem.detail ?? error.problem.title,
         });
         return;
       }
@@ -335,6 +334,14 @@ function NuevaSalidaFormBody({
         form.setError('requisicionId', {
           type: error.code,
           message: 'La RQ no está autorizada o ya fue surtida.',
+        });
+        return;
+      }
+      if (error.code === 'SALIDA_SUCURSAL_DISTINTA') {
+        form.setError('requisicionId', {
+          type: error.code,
+          message:
+            error.problem.detail ?? 'La requisición es de otra sucursal.',
         });
         return;
       }

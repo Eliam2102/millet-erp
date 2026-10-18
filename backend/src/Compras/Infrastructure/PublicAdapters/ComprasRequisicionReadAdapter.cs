@@ -48,7 +48,8 @@ public sealed class ComprasRequisicionReadAdapter : IComprasRequisicionReadPort
             AlmacenDestinoId: rq.AlmacenDestinoId,
             PersonaDestinatariaId: rq.RequisitanteId,
             Estado: rq.Estado.ToString(),
-            Lineas: lineas);
+            Lineas: lineas,
+            SucursalId: rq.SucursalId);
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosAsync(

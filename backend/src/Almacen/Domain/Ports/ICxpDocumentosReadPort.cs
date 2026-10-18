@@ -45,4 +45,10 @@ public interface ICxpDocumentosReadPort
     Task<IReadOnlyDictionary<Guid, string>> ObtenerFoliosNotaCreditoAsync(
         IReadOnlyCollection<Guid> notaCreditoIds,
         CancellationToken cancellationToken);
+
+    /// <summary>Lectura operativa de un CFDI recibido para validar su vínculo a una recepción (F3). Null = no existe.</summary>
+    Task<CfdiRecibidoLectura?> ObtenerCfdiAsync(Guid cfdiRecibidoId, CancellationToken cancellationToken);
 }
+
+/// <summary>Proyección mínima de un <c>CfdiRecibido</c> de CxP para validación en Almacén. <c>Estado</c> y <c>Tipo</c> = <c>ToString()</c> de los enums de CxP.</summary>
+public sealed record CfdiRecibidoLectura(Guid Id, string RfcEmisor, string Estado, string Tipo);

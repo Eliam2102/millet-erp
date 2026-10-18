@@ -1,9 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Millet.Almacen.Application.Saldos;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 using Millet.SharedKernel.Application.Exceptions;
 
 namespace Millet.Api.IntegrationTests.Almacen;
@@ -36,7 +39,8 @@ public class ConsultaJerarquicaTests : IClassFixture<WebApplicationFactory<Progr
     [Fact]
     public async Task Rollup_cuadra_por_nivel_desde_la_raiz()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var app = ConUsuarioCorporativo();
+        using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var fx = await SembrarJerarquiaAsync(db);
@@ -102,7 +106,8 @@ public class ConsultaJerarquicaTests : IClassFixture<WebApplicationFactory<Progr
     [Fact]
     public async Task Modo_articulo_filtra_todas_las_ramas_y_la_ubicacion_es_hoja()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var app = ConUsuarioCorporativo();
+        using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var fx = await SembrarJerarquiaAsync(db);
@@ -136,7 +141,8 @@ public class ConsultaJerarquicaTests : IClassFixture<WebApplicationFactory<Progr
     [Fact]
     public async Task Rack_expande_a_articulos_y_la_fila_en_0_solo_con_el_toggle()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var app = ConUsuarioCorporativo();
+        using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var fx = await SembrarJerarquiaAsync(db);
@@ -202,6 +208,24 @@ public class ConsultaJerarquicaTests : IClassFixture<WebApplicationFactory<Progr
             mediator.Send(new ObtenerHijosJerarquiaQuery(
                 NivelNodoJerarquia.Ubicacion, Guid.NewGuid(), Guid.NewGuid(), false)));
         Assert.Equal("JERARQUIA_ARTICULO_EN_HOJA", exHoja.Code);
+    }
+
+    /// <summary>
+    /// Host con permisos de bypass por sucursal (usuario "corporativo"). Las
+    /// queries ISucursalScopedQuery sin usuario reciben lista vacía (sin acceso),
+    /// así que estas pruebas de rollup necesitan ver todas las sucursales.
+    /// </summary>
+    private WebApplicationFactory<Program> ConUsuarioCorporativo() =>
+        _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ICurrentUserPermissions>();
+            services.AddScoped<ICurrentUserPermissions, PermisosCorporativosFake>();
+        }));
+
+    private sealed class PermisosCorporativosFake : ICurrentUserPermissions
+    {
+        public ValueTask<bool> TieneAsync(string permiso, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(true);
     }
 
     // ─── Fixture (molde TriggerBinExplicitoTests) ────────────────────────────

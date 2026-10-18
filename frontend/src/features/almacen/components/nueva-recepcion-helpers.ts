@@ -1,5 +1,6 @@
 import type { FilaRecepcionValues } from '@/features/almacen/schemas/recepcion';
 import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/types';
+import type { LineaRecibible } from '@/features/almacen/api/types';
 
 /**
  * Mapea las líneas del detalle de OC a filas del form de recepción.
@@ -7,16 +8,26 @@ import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/ty
  * más recepción. El default <c>cantidad</c> es el pendiente; el
  * almacenista solo lo ajusta si lo que llegó difiere de lo solicitado.
  *
+ * <para><paramref name="recibibles"/> es la respuesta del servidor
+ * (<c>useLineasRecibibles</c>): de ahí salen el pendiente, la tolerancia y el
+ * máximo recibible. Si una línea no aparece en ese índice (defensivo), se
+ * calcula local con tolerancia 0 %.</para>
+ *
  * <para>Vive en archivo aparte para satisfacer
  * <c>react-refresh/only-export-components</c> en el sheet.</para>
  */
 export function construirFilas(
   lineasOc: LineaOrdenCompraResponse[],
+  recibibles: readonly LineaRecibible[],
 ): FilaRecepcionValues[] {
+  const porLinea = new Map(recibibles.map((r) => [r.lineaOcId, r]));
   return lineasOc
     .filter((l) => !l.esServicio) // CA2.10: los servicios no se reciben en Almacén
     .map((l) => {
-      const pendiente = Math.max(0, l.cantidad - l.cantidadRecibida);
+      const r = porLinea.get(l.id);
+      const pendiente = r
+        ? r.pendiente
+        : Math.max(0, l.cantidad - l.cantidadRecibida);
       return {
         lineaOcId: l.id,
         articuloId: l.articuloId,
@@ -25,8 +36,10 @@ export function construirFilas(
         posicion: l.posicion,
         unidadMedida: l.unidadMedida,
         cantidadSolicitada: l.cantidad,
-        cantidadYaRecibida: l.cantidadRecibida,
+        cantidadYaRecibida: r ? r.cantidadRecibida : l.cantidadRecibida,
         pendiente,
+        toleranciaPorcentaje: r ? r.toleranciaPorcentaje : 0,
+        maximo: r ? r.maximoRecibible : pendiente,
         incluida: false,
         cantidad: pendiente,
         ubicacionReferencia: null,

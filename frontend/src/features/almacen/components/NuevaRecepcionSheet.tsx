@@ -1,5 +1,5 @@
 import { hoyLocalISO } from '@/lib/datetime';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Controller,
   useForm,
@@ -8,6 +8,7 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Sheet,
@@ -38,7 +39,6 @@ import {
 import {
   RegistrarRecepcionFacturaSchema,
   RegistrarRecepcionPackingListSchema,
-  TOLERANCIA_RECEPCION_DEFAULT,
   type FilaRecepcionValues,
   type RegistrarRecepcionFacturaValues,
   type RegistrarRecepcionPackingListValues,
@@ -47,6 +47,10 @@ import {
   useRegistrarRecepcionFactura,
   useRegistrarRecepcionPackingList,
 } from '@/features/almacen/api';
+import {
+  useCfdisParaRecepcion,
+  useLineasRecibibles,
+} from '@/features/almacen/api/useRecepciones';
 import { PackingListUpload } from '@/features/almacen/components/PackingListUpload';
 import { UbicacionBinSelector } from '@/components/erp/selectors/UbicacionBinSelector';
 import { UbicacionSelector } from '@/components/erp/selectors/UbicacionSelector';
@@ -56,7 +60,6 @@ import {
   indicesParaAutoAsignar,
 } from '@/features/almacen/components/nueva-recepcion-helpers';
 import { useOrdenCompra } from '@/features/compras/ordenes/api/useOrdenCompra';
-import { useProveedor } from '@/features/catalogos/api';
 import { CfdiPorProcesarPicker } from '@/features/cxp/components/CfdiPorProcesarPicker';
 import { CargarCfdiSheet } from '@/features/cxp/components/CargarCfdiSheet';
 import { useHasPermission } from '@/lib/auth/useHasPermission';
@@ -95,8 +98,33 @@ export function NuevaRecepcionSheet({
   open,
   onOpenChange,
 }: NuevaRecepcionSheetProps) {
+  // Patrón P4 (igual que NuevaRequisicionProvider / SheetNuevoCliente): el
+  // form reporta isDirty; los gestos de cerrar (Esc, clic fuera, X y
+  // Cancelar) piden confirmación si hay cambios. El registro exitoso cierra
+  // sin confirmar. Ref + setter estable: el form lo llama en cada cambio.
+  const dirtyRef = useRef(false);
+  const setDirty = useCallback((dirty: boolean) => {
+    dirtyRef.current = dirty;
+  }, []);
+
+  function solicitarCierre() {
+    if (dirtyRef.current && !window.confirm(MENSAJE_DESCARTAR_RECEPCION)) {
+      return;
+    }
+    dirtyRef.current = false;
+    onOpenChange(false);
+  }
+
+  function cerrarTrasRegistro() {
+    dirtyRef.current = false;
+    onOpenChange(false);
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(next) : solicitarCierre())}
+    >
       <SheetContent side="right" className="sm:max-w-3xl">
         <SheetHeader>
           <SheetTitle>Nueva recepción</SheetTitle>
@@ -109,8 +137,9 @@ export function NuevaRecepcionSheet({
 
         {open && (
           <NuevaRecepcionFormBody
-            onSuccess={() => onOpenChange(false)}
-            onCancel={() => onOpenChange(false)}
+            onSuccess={cerrarTrasRegistro}
+            onCancel={solicitarCierre}
+            onDirtyChange={setDirty}
           />
         )}
       </SheetContent>
@@ -118,12 +147,17 @@ export function NuevaRecepcionSheet({
   );
 }
 
+const MENSAJE_DESCARTAR_RECEPCION =
+  'Tienes cambios sin guardar en la nueva recepción. ¿Descartarlos y cerrar?';
+
 function NuevaRecepcionFormBody({
   onSuccess,
   onCancel,
+  onDirtyChange,
 }: {
   onSuccess: () => void;
   onCancel: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const navigate = useNavigate();
   const idempotencyKey = useFormIdempotencyKey();
@@ -152,6 +186,14 @@ function NuevaRecepcionFormBody({
     resolver,
     defaultValues: defaultValuesParaVariante('A', hoyIso),
   });
+
+  // El packing list adjunto vive fuera de RHF: cuenta como cambio sin guardar.
+  const isDirty = form.formState.isDirty || packingListAdjunto != null;
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+  // Al desmontar (cierre o cambio de visibilidad) ya no hay cambios pendientes.
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
 
   function cambiarVariante(siguiente: Variante) {
     if (siguiente === variante) return;
@@ -189,15 +231,18 @@ function NuevaRecepcionFormBody({
     control: form.control,
     name: 'ordenCompraId',
   });
-  const ocQuery = useOrdenCompra(ordenCompraId || null);
-  const proveedorQuery = useProveedor(ocQuery.data?.proveedorId ?? null);
-  const rfcProveedor = proveedorQuery.data?.rfc;
+  const queryClient = useQueryClient();
   const puedeLeerCfdis = useHasPermission(
     PermisosCanonicos.CuentasPorPagarCfdisLeer,
   );
   const puedeCargarCfdi = useHasPermission(
     PermisosCanonicos.CuentasPorPagarCfdisCargarManual,
   );
+  const cfdisRecepcion = useCfdisParaRecepcion(
+    ordenCompraId || null,
+    puedeLeerCfdis && !!ordenCompraId,
+  );
+  const rfcProveedor = cfdisRecepcion.data?.rfcEmisor ?? undefined;
 
   // Al cambiar de OC, el CFDI seleccionado deja de corresponder al
   // proveedor — se descarta (no aplica al primer render).
@@ -313,9 +358,24 @@ function NuevaRecepcionFormBody({
     if (esApiError(error)) {
       if (error.code === 'RECEPCION_EXCEDE_TOLERANCIA') {
         toast.error('Cantidad excede tolerancia de la línea de OC.', {
-          description:
-            error.problem.detail ??
-            'Ajusta la cantidad o solicita autorización a tu supervisor.',
+          description: error.problem.detail ?? error.problem.title,
+        });
+        return;
+      }
+      if (error.code === 'RECEPCION_SUCURSAL_DISTINTA') {
+        toast.error('La orden de compra es de otra sucursal.', {
+          description: error.problem.detail ?? error.problem.title,
+        });
+        return;
+      }
+      if (
+        error.code === 'RECEPCION_CFDI_NO_ENCONTRADO' ||
+        error.code === 'RECEPCION_CFDI_NO_VINCULABLE' ||
+        error.code === 'RECEPCION_CFDI_PROVEEDOR_DISTINTO'
+      ) {
+        form.setError('cfdiRecibidoId', {
+          type: error.code,
+          message: error.problem.detail ?? error.problem.title ?? 'CFDI no válido.',
         });
         return;
       }
@@ -477,6 +537,7 @@ function NuevaRecepcionFormBody({
                               }
                             }}
                             rfcEmisor={rfcProveedor}
+                            ordenCompraRecepcionId={ordenCompraId}
                             placeholder={
                               rfcProveedor
                                 ? `CFDIs por procesar de ${rfcProveedor}…`
@@ -496,6 +557,11 @@ function NuevaRecepcionFormBody({
                         </Button>
                       )}
                     </div>
+                  )}
+                  {puedeLeerCfdis && !capturaUuidManual && cfdisRecepcion.data?.aviso && (
+                    <p className="text-xs text-ink-muted" role="status">
+                      {cfdisRecepcion.data.aviso}
+                    </p>
                   )}
 
                   {capturaUuidManual || !puedeLeerCfdis ? (
@@ -644,6 +710,7 @@ function NuevaRecepcionFormBody({
           form.setValue('cfdiRecibidoId', resp.id, { shouldValidate: true });
           form.setValue('cfdiUuidFiscal', null);
           setCapturaUuidManual(false);
+          queryClient.invalidateQueries({ queryKey: ['almacen', 'recepcion-cfdis'] });
         }}
       />
     </>
@@ -662,6 +729,7 @@ function LineasDesdeOc({
     name: 'ordenCompraId',
   });
   const ocQuery = useOrdenCompra(ordenCompraId || null);
+  const recibiblesQuery = useLineasRecibibles(ordenCompraId || null);
   const ocId = ordenCompraId || null;
   const ultimaOcCargada = useRef<string | null>(null);
 
@@ -673,11 +741,14 @@ function LineasDesdeOc({
       }
       return;
     }
-    if (ocQuery.data == null) return;
+    if (ocQuery.data == null || recibiblesQuery.data == null) return;
     if (ultimaOcCargada.current === ocId) return;
     ultimaOcCargada.current = ocId;
-    form.setValue('filas', construirFilas(ocQuery.data.lineas));
-  }, [ocId, ocQuery.data, form]);
+    form.setValue(
+      'filas',
+      construirFilas(ocQuery.data.lineas, recibiblesQuery.data),
+    );
+  }, [ocId, ocQuery.data, recibiblesQuery.data, form]);
 
   const filas = useWatch({ control: form.control, name: 'filas' }) ?? [];
   const ubicacionHelperId = useWatch({
@@ -694,7 +765,7 @@ function LineasDesdeOc({
     );
   }
 
-  if (ocQuery.isLoading) {
+  if (ocQuery.isLoading || recibiblesQuery.isLoading) {
     return (
       <section className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
         Cargando líneas de la OC…
@@ -702,7 +773,7 @@ function LineasDesdeOc({
     );
   }
 
-  if (ocQuery.isError) {
+  if (ocQuery.isError || recibiblesQuery.isError) {
     return (
       <section
         role="alert"
@@ -814,7 +885,6 @@ function FilaLineaOc({
     control,
     name: `filas.${index}.incluida` as const,
   });
-  const maxConTolerancia = fila.pendiente * (1 + TOLERANCIA_RECEPCION_DEFAULT);
   const lookupFila = useDecimalesUnidad();
   const decResuelto = decimalesDeFila(lookupFila, {
     unidadMedida: fila.unidadMedida,
@@ -894,7 +964,7 @@ function FilaLineaOc({
                       inputMode="decimal"
                       step={stepParaDecimales(decimalesFila)}
                       min="0"
-                      max={maxConTolerancia}
+                      max={fila.maximo}
                       value={field.value ?? ''}
                       onChange={(e) =>
                         field.onChange(
@@ -911,7 +981,8 @@ function FilaLineaOc({
                   id={`fila-${index}-max`}
                   className="mt-1 text-[11px] text-muted-foreground"
                 >
-                  Máximo con 5% tolerancia: {formatCantidad(maxConTolerancia)}
+                  Máximo con {fila.toleranciaPorcentaje}% tolerancia:{' '}
+                  {formatCantidad(fila.maximo)}
                 </p>
                 <AvisoUnidadNoResoluble visible={unidadNoResoluble} />
               </Field>

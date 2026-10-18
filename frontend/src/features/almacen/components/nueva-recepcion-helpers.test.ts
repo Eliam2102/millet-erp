@@ -6,6 +6,7 @@ import {
 } from './nueva-recepcion-helpers';
 import type { LineaOrdenCompraResponse } from '@/features/compras/ordenes/api/types';
 import type { FilaRecepcionValues } from '@/features/almacen/schemas/recepcion';
+import type { LineaRecibible } from '@/features/almacen/api/types';
 
 function lineaOc(
   partial: Partial<LineaOrdenCompraResponse>,
@@ -42,7 +43,7 @@ describe('construirFilas', () => {
   it('mapea líneas pendientes con pendiente = cantidad - cantidadRecibida', () => {
     const filas = construirFilas([
       lineaOc({ cantidad: 10, cantidadRecibida: 3 }),
-    ]);
+    ], []);
     expect(filas).toHaveLength(1);
     expect(filas[0]).toMatchObject({
       pendiente: 7,
@@ -57,7 +58,7 @@ describe('construirFilas', () => {
     const filas = construirFilas([
       lineaOc({ id: 'a', articuloClave: 'ART-FIS' }),
       lineaOc({ id: 'b', articuloClave: 'SER95000', esServicio: true }),
-    ]);
+    ], []);
     expect(filas.map((f) => f.lineaOcId)).toEqual(['a']);
   });
 
@@ -65,7 +66,7 @@ describe('construirFilas', () => {
     const filas = construirFilas([
       lineaOc({ cantidad: 10, cantidadRecibida: 10 }),
       lineaOc({ id: 'l-2', cantidad: 5, cantidadRecibida: 2 }),
-    ]);
+    ], []);
     expect(filas).toHaveLength(1);
     expect(filas[0].lineaOcId).toBe('l-2');
   });
@@ -73,7 +74,7 @@ describe('construirFilas', () => {
   it('clamp pendiente a ≥ 0 si cantidadRecibida > cantidad (defensivo)', () => {
     const filas = construirFilas([
       lineaOc({ cantidad: 5, cantidadRecibida: 7 }),
-    ]);
+    ], []);
     // Math.max(0, 5 - 7) = 0 → la línea queda filtrada fuera porque
     // pendiente == 0.
     expect(filas).toHaveLength(0);
@@ -82,7 +83,7 @@ describe('construirFilas', () => {
   it('default cantidad = pendiente (almacenista solo edita si difiere)', () => {
     const filas = construirFilas([
       lineaOc({ cantidad: 100, cantidadRecibida: 25 }),
-    ]);
+    ], []);
     expect(filas[0].cantidad).toBe(75);
     expect(filas[0].pendiente).toBe(75);
   });
@@ -95,7 +96,7 @@ describe('construirFilas', () => {
         articuloId: 'art-x',
         unidadMedida: 'KG',
       }),
-    ]);
+    ], []);
     expect(filas[0]).toMatchObject({
       lineaOcId: 'l-x',
       posicion: 3,
@@ -108,7 +109,7 @@ describe('construirFilas', () => {
     const filas = construirFilas([
       lineaOc({ articuloClave: 'ACC86024', articuloNombre: 'PVB acústico' }),
       lineaOc({ id: 'l-2', articuloClave: null, articuloNombre: null }),
-    ]);
+    ], []);
     // Con etiqueta: el sheet muestra clave + nombre, no el UUID.
     expect(filas[0]).toMatchObject({
       articuloClave: 'ACC86024',
@@ -116,6 +117,30 @@ describe('construirFilas', () => {
     });
     // Sin etiqueta (puerto no resolvió): null → el sheet cae al id truncado.
     expect(filas[1]).toMatchObject({ articuloClave: null, articuloNombre: null });
+  });
+
+  it('usa pendiente, tolerancia y máximo del servidor (recibibles)', () => {
+    const recibible: LineaRecibible = {
+      lineaOcId: 'l-r',
+      articuloId: '00000000-0000-0000-0000-000000000002',
+      unidadMedida: 'PZA',
+      cantidadSolicitada: 100,
+      cantidadRecibida: 80,
+      toleranciaPorcentaje: 25,
+      pendiente: 20,
+      maximoRecibible: 25,
+    };
+    const filas = construirFilas(
+      [lineaOc({ id: 'l-r', cantidad: 100, cantidadRecibida: 80 })],
+      [recibible],
+    );
+    expect(filas[0]).toMatchObject({
+      pendiente: 20,
+      cantidadYaRecibida: 80,
+      toleranciaPorcentaje: 25,
+      maximo: 25,
+      cantidad: 20,
+    });
   });
 });
 
