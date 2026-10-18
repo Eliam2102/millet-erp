@@ -24,7 +24,8 @@ public sealed record OcLectura(
     Guid ProveedorId,
     Guid EmpresaId,
     string Estado,
-    IReadOnlyList<OcLineaLectura> Lineas);
+    IReadOnlyList<OcLineaLectura> Lineas,
+    Guid? SucursalDestinoId = null);
 
 public sealed record OcLineaLectura(
     Guid LineaId,
@@ -33,7 +34,8 @@ public sealed record OcLineaLectura(
     decimal CantidadSolicitada,
     decimal CantidadRecibida,
     decimal PrecioUnitarioMxn,
-    Guid? CentroCostoId = null);
+    Guid? CentroCostoId = null,
+    decimal CantidadFacturada = 0m);
 
 public sealed record RecepcionesPendientesLectura(int Total, int Parciales);
 

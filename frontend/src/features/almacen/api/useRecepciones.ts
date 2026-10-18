@@ -7,6 +7,8 @@ import {
 import { ordenesKeys } from '@/features/compras/ordenes/api/keys';
 import type {
   PagedResponse,
+  CfdisParaRecepcion,
+  LineaRecibible,
   RecepcionDetalle,
   RecepcionListItem,
   RegistrarRecepcionConFacturaCommand,
@@ -67,6 +69,40 @@ export function useRecepcion(id: string | undefined) {
   });
 }
 
+/** Líneas de la OC que admiten recepción, con máximo y tolerancia del servidor. */
+export function useLineasRecibibles(ordenCompraId: string | null) {
+  return useQuery({
+    queryKey: almacenKeys.recepcionRecibibles(ordenCompraId ?? ''),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<LineaRecibible[]>(
+        `/api/v1/almacen/recepciones/ordenes/${ordenCompraId}/lineas-recibibles`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: !!ordenCompraId,
+    staleTime: 0,
+  });
+}
+
+/** CFDIs candidatos para la recepción de la OC (RFC resuelto en backend). */
+export function useCfdisParaRecepcion(
+  ordenCompraId: string | null,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: almacenKeys.recepcionCfdis(ordenCompraId ?? ''),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiRequest<CfdisParaRecepcion>(
+        `/api/v1/almacen/recepciones/ordenes/${ordenCompraId}/cfdis`,
+        { signal },
+      );
+      return data;
+    },
+    enabled: enabled && !!ordenCompraId,
+  });
+}
+
 export function useRegistrarRecepcionFactura() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -86,6 +122,8 @@ export function useRegistrarRecepcionFactura() {
     },
     onSuccess: (_data, args) => {
       queryClient.invalidateQueries({ queryKey: almacenKeys.recepciones() });
+      queryClient.invalidateQueries({ queryKey: ['almacen', 'recepcion-recibibles'] });
+      queryClient.invalidateQueries({ queryKey: ['almacen', 'recepcion-cfdis'] });
       // Invalida el detalle de la OC para que el sheet "Nueva recepción"
       // refleje el nuevo `cantidadRecibida` por línea (no quede el sheet
       // mostrando pendiente viejo al reabrir sobre la misma OC).
@@ -115,6 +153,8 @@ export function useRegistrarRecepcionPackingList() {
     },
     onSuccess: (_data, args) => {
       queryClient.invalidateQueries({ queryKey: almacenKeys.recepciones() });
+      queryClient.invalidateQueries({ queryKey: ['almacen', 'recepcion-recibibles'] });
+      queryClient.invalidateQueries({ queryKey: ['almacen', 'recepcion-cfdis'] });
       // Invalida el detalle de la OC para que el sheet "Nueva recepción"
       // refleje el nuevo `cantidadRecibida` por línea (no quede el sheet
       // mostrando pendiente viejo al reabrir sobre la misma OC).

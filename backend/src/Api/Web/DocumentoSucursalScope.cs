@@ -13,7 +13,7 @@ public sealed class DocumentoSucursalScope(ICurrentUserContext user, ICurrentUse
     {
         "cfdi_recibido" or "movimiento_tc" or "estado_cuenta_tc" or "anticipo_proveedor" or "nota_credito_proveedor" or "factura_proveedor" or "nota_cargo" or "comprobacion" or "reposicion_caja" => cxp,
         "requisicion" or "orden_compra" => compras,
-        "conteo" or "recepcion" or "salida_almacen" or "reorden" or "ubicacion_almacen" or "almacen" => almacen,
+        "conteo" or "recepcion" or "salida_almacen" or "reorden" or "ubicacion_almacen" or "almacen" or "sub_almacen" or "devolucion_proveedor" => almacen,
         "comprobante" or "sesion_caja" => facturacion,
         "cliente_cartera" or "factura_cartera" or "propuesta_cxc" or "seguimiento_cobranza" or "alerta_cartera" => cxc,
         "expediente_ce" => comercioExterior,

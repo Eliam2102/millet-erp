@@ -1,3 +1,4 @@
+using System.Globalization;
 using Millet.Almacen.Domain.Ports;
 using Millet.SharedKernel.Application.Exceptions;
 
@@ -22,7 +23,7 @@ internal static class SalidaRqGuard
         {
             var disponible = rq.Lineas.Single(l => l.LineaId == grupo.Key).CantidadDisponibleEntregar;
             if (grupo.Sum(l => l.Cantidad) > disponible)
-                throw new BusinessRuleException("SALIDA_EXCEDE_AUTORIZADO", $"La cantidad total a entregar supera lo disponible autorizado ({disponible}) en la línea de requisición.");
+                throw new BusinessRuleException("SALIDA_EXCEDE_AUTORIZADO", $"La cantidad total a entregar supera lo disponible autorizado ({disponible.ToString("0.####", CultureInfo.InvariantCulture)}) en la línea de requisición.");
         }
     }
 }

@@ -33,7 +33,7 @@ export function DimensionesPage() {
         <TabsList className="self-start">
           <TabsTrigger value="reglas">Reglas</TabsTrigger>
           <TabsTrigger value="centros">Ubicaciones y sucursales</TabsTrigger>
-          <TabsTrigger value="tipos">Tipos de documento</TabsTrigger>
+          <TabsTrigger value="tipos">Tipos de documento y operación</TabsTrigger>
         </TabsList>
         <TabsContent value="reglas"><ReglasTab puedeAdministrar={puedeAdministrar} /></TabsContent>
         <TabsContent value="centros"><UbicacionesTab puedeAdministrar={puedeAdministrar} /></TabsContent>

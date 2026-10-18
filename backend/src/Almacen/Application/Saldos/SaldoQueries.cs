@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Millet.Almacen.Application.Catalogo;
 using Millet.Almacen.Domain.Ports;
 using Millet.Almacen.Infrastructure.Persistence;
+using Millet.SharedKernel.Application;
 
 namespace Millet.Almacen.Application.Saldos;
 
@@ -29,7 +30,11 @@ public sealed record ListarSaldosQuery(
     Guid? ArticuloId,
     bool SoloConStock,
     int Offset,
-    int Limit) : IRequest<AlmacenPagedResponse<SaldoListItem>>;
+    int Limit) : IRequest<AlmacenPagedResponse<SaldoListItem>>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.almacenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed class ListarSaldosHandler
     : IRequestHandler<ListarSaldosQuery, AlmacenPagedResponse<SaldoListItem>>
@@ -46,10 +51,14 @@ public sealed class ListarSaldosHandler
     public async Task<AlmacenPagedResponse<SaldoListItem>> Handle(
         ListarSaldosQuery request, CancellationToken cancellationToken)
     {
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
         var query = _db.SaldosInventario.AsNoTracking().AsQueryable();
         if (request.SubAlmacenId is Guid sid) query = query.Where(s => s.SubAlmacenId == sid);
         if (request.ArticuloId is Guid aid) query = query.Where(s => s.ArticuloId == aid);
         if (request.SoloConStock) query = query.Where(s => s.Cantidad > 0);
+        if (request.SucursalesPermitidas is { } suc)
+            query = query.Where(s => AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, suc).Contains(s.SubAlmacenId));
 
         // C7.2a: agregado por (sub-almacén, artículo) — con N bins habría
         // filas duplicadas indistinguibles (el listado no expone ubicación).
@@ -127,7 +136,11 @@ public sealed record SaldosPorUbicacionQuery(
     // artículo en cualquier sub (la salida-con-RQ ya no tiene sub de cabecera;
     // el pick cruzado se rechaza en submit vía SALIDA_MULTI_SUBALMACEN). Con
     // valor = acotado a ese sub (vale, devolución a proveedor).
-    Guid? SubAlmacenId) : IRequest<IReadOnlyList<SaldoUbicacionItem>>;
+    Guid? SubAlmacenId) : IRequest<IReadOnlyList<SaldoUbicacionItem>>, ISucursalScopedQuery
+{
+    public string PermisoTodasSucursales => "almacen.almacenes.leer-todas-sucursales";
+    public IReadOnlyList<Guid>? SucursalesPermitidas { get; set; }
+}
 
 public sealed class SaldosPorUbicacionHandler
     : IRequestHandler<SaldosPorUbicacionQuery, IReadOnlyList<SaldoUbicacionItem>>
@@ -139,6 +152,12 @@ public sealed class SaldosPorUbicacionHandler
     public async Task<IReadOnlyList<SaldoUbicacionItem>> Handle(
         SaldosPorUbicacionQuery request, CancellationToken cancellationToken)
     {
+        await AlcanceSucursalAlmacen.VerificarSubAlmacenAsync(_db, request.SubAlmacenId,
+            request.SucursalesPermitidas, cancellationToken);
+        // Materializado antes del join: evita pasar una lista nula a EF dentro del where.
+        var subsPermitidos = request.SucursalesPermitidas is { } suc
+            ? await AlcanceSucursalAlmacen.SubAlmacenesPermitidos(_db, suc).ToListAsync(cancellationToken)
+            : null;
         return await (
             from s in _db.SaldosInventario.AsNoTracking()
             join u in _db.Ubicaciones.AsNoTracking() on s.UbicacionId equals u.Id
@@ -147,6 +166,7 @@ public sealed class SaldosPorUbicacionHandler
             where s.ArticuloId == request.ArticuloId
                && (request.SubAlmacenId == null || s.SubAlmacenId == request.SubAlmacenId)
                && s.Cantidad > 0
+               && (subsPermitidos == null || subsPermitidos.Contains(s.SubAlmacenId))
             orderby u.EsDefault, u.Clave
             select new SaldoUbicacionItem(
                 u.Id, u.Clave, u.Nombre, sa.Clave, al.Clave, u.EsDefault,

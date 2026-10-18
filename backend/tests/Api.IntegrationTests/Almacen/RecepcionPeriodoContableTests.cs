@@ -13,6 +13,7 @@ using static Millet.Api.IntegrationTests.Contabilidad.ContabTestKit;
 namespace Millet.Api.IntegrationTests.Almacen;
 
 /// <summary>C1.2: HTTP, DI y consulta PostgreSQL reales; año FIX propio, sin modificar 2026 ni catálogos compartidos.</summary>
+[Collection(PeriodoContableSinParalelo.Nombre)]
 public sealed class RecepcionPeriodoContableTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
 {
