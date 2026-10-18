@@ -70,6 +70,8 @@ import { Route as AppAlmacenReportesAlfakHistorialRouteImport } from './routes/_
 import { Route as AppAlmacenReportesMpCnkRouteImport } from './routes/_app/almacen/reportes/mp-cnk';
 import { Route as AppAlmacenSalidasIndexRouteImport } from './routes/_app/almacen/salidas/index';
 import { Route as AppAlmacenSalidasIdRouteImport } from './routes/_app/almacen/salidas/$id';
+import { Route as AppComercioExteriorExpedientesIndexRouteImport } from './routes/_app/comercio-exterior/expedientes/index';
+import { Route as AppComercioExteriorExpedientesIdRouteImport } from './routes/_app/comercio-exterior/expedientes/$id';
 import { Route as AppComprasAdminAprobadoresRouteImport } from './routes/_app/compras/admin/aprobadores';
 import { Route as AppComprasOrdenesIndexRouteImport } from './routes/_app/compras/ordenes/index';
 import { Route as AppComprasOrdenesIdRouteImport } from './routes/_app/compras/ordenes/$id';
@@ -81,6 +83,9 @@ import { Route as AppComprasRequisicionesIndexRouteImport } from './routes/_app/
 import { Route as AppComprasRequisicionesIdRouteImport } from './routes/_app/compras/requisiciones/$id';
 import { Route as AppContabilidadCatalogoIndexRouteImport } from './routes/_app/contabilidad/catalogo.index';
 import { Route as AppContabilidadCatalogoIdRouteImport } from './routes/_app/contabilidad/catalogo.$id';
+import { Route as AppContabilidadPolizasIndexRouteImport } from './routes/_app/contabilidad/polizas.index';
+import { Route as AppContabilidadPolizasIdRouteImport } from './routes/_app/contabilidad/polizas.$id';
+import { Route as AppContabilidadPolizasSaldosRouteImport } from './routes/_app/contabilidad/polizas.saldos';
 import { Route as AppCxcAlertasIndexRouteImport } from './routes/_app/cxc/alertas/index';
 import { Route as AppCxcAnticiposIndexRouteImport } from './routes/_app/cxc/anticipos/index';
 import { Route as AppCxcAplicacionesIndexRouteImport } from './routes/_app/cxc/aplicaciones/index';
@@ -161,6 +166,7 @@ import { Route as AppAdminDatosMaestrosArticulosIndexRouteImport } from './route
 import { Route as AppAdminDatosMaestrosArticulosIdRouteImport } from './routes/_app/admin/datos-maestros/articulos/$id';
 import { Route as AppAdminDatosMaestrosClientesIndexRouteImport } from './routes/_app/admin/datos-maestros/clientes/index';
 import { Route as AppAdminDatosMaestrosClientesIdRouteImport } from './routes/_app/admin/datos-maestros/clientes/$id';
+import { Route as AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport } from './routes/_app/admin/datos-maestros/diferencias-fiscales-aw/index';
 import { Route as AppAdminDatosMaestrosProductosAwIndexRouteImport } from './routes/_app/admin/datos-maestros/productos-aw/index';
 import { Route as AppAdminDatosMaestrosProductosAwIdRouteImport } from './routes/_app/admin/datos-maestros/productos-aw/$id';
 import { Route as AppAdminDatosMaestrosProveedoresIndexRouteImport } from './routes/_app/admin/datos-maestros/proveedores/index';
@@ -172,6 +178,8 @@ import { Route as AppAlmacenInventariosIdAprobacionRouteImport } from './routes/
 import { Route as AppAlmacenInventariosIdCapturaRouteImport } from './routes/_app/almacen/inventarios/$id.captura';
 import { Route as AppComprasArticulosIdHistorialComprasRouteImport } from './routes/_app/compras/articulos/$id/historial-compras';
 import { Route as AppComprasTrazabilidadOcIdRouteImport } from './routes/_app/compras/trazabilidad/oc/$id';
+import { Route as AppContabilidadPolizasRecurrentesIndexRouteImport } from './routes/_app/contabilidad/polizas.recurrentes.index';
+import { Route as AppContabilidadPolizasRecurrentesIdRouteImport } from './routes/_app/contabilidad/polizas.recurrentes.$id';
 import { Route as AppFacturacionAnticiposFacturasIndexRouteImport } from './routes/_app/facturacion/anticipos/facturas/index';
 import { Route as AppFacturacionAnticiposFacturasIdRouteImport } from './routes/_app/facturacion/anticipos/facturas/$id';
 import { Route as AppFacturacionCajaCorteSesionIdRouteImport } from './routes/_app/facturacion/caja_.corte.$sesionId';
@@ -493,6 +501,18 @@ const AppAlmacenSalidasIdRoute = AppAlmacenSalidasIdRouteImport.update({
   path: '/almacen/salidas/$id',
   getParentRoute: () => AppRoute,
 } as any);
+const AppComercioExteriorExpedientesIndexRoute =
+  AppComercioExteriorExpedientesIndexRouteImport.update({
+    id: '/comercio-exterior/expedientes/',
+    path: '/comercio-exterior/expedientes/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppComercioExteriorExpedientesIdRoute =
+  AppComercioExteriorExpedientesIdRouteImport.update({
+    id: '/comercio-exterior/expedientes/$id',
+    path: '/comercio-exterior/expedientes/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppComprasAdminAprobadoresRoute =
   AppComprasAdminAprobadoresRouteImport.update({
     id: '/compras/admin/aprobadores',
@@ -554,6 +574,24 @@ const AppContabilidadCatalogoIdRoute =
   AppContabilidadCatalogoIdRouteImport.update({
     id: '/contabilidad/catalogo/$id',
     path: '/contabilidad/catalogo/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasIndexRoute =
+  AppContabilidadPolizasIndexRouteImport.update({
+    id: '/contabilidad/polizas/',
+    path: '/contabilidad/polizas/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasIdRoute =
+  AppContabilidadPolizasIdRouteImport.update({
+    id: '/contabilidad/polizas/$id',
+    path: '/contabilidad/polizas/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasSaldosRoute =
+  AppContabilidadPolizasSaldosRouteImport.update({
+    id: '/contabilidad/polizas/saldos',
+    path: '/contabilidad/polizas/saldos',
     getParentRoute: () => AppRoute,
   } as any);
 const AppCxcAlertasIndexRoute = AppCxcAlertasIndexRouteImport.update({
@@ -1002,6 +1040,12 @@ const AppAdminDatosMaestrosClientesIdRoute =
     path: '/admin/datos-maestros/clientes/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute =
+  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport.update({
+    id: '/admin/datos-maestros/diferencias-fiscales-aw/',
+    path: '/admin/datos-maestros/diferencias-fiscales-aw/',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppAdminDatosMaestrosProductosAwIndexRoute =
   AppAdminDatosMaestrosProductosAwIndexRouteImport.update({
     id: '/admin/datos-maestros/productos-aw/',
@@ -1068,6 +1112,18 @@ const AppComprasTrazabilidadOcIdRoute =
     path: '/compras/trazabilidad/oc/$id',
     getParentRoute: () => AppRoute,
   } as any);
+const AppContabilidadPolizasRecurrentesIndexRoute =
+  AppContabilidadPolizasRecurrentesIndexRouteImport.update({
+    id: '/contabilidad/polizas/recurrentes/',
+    path: '/contabilidad/polizas/recurrentes/',
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppContabilidadPolizasRecurrentesIdRoute =
+  AppContabilidadPolizasRecurrentesIdRouteImport.update({
+    id: '/contabilidad/polizas/recurrentes/$id',
+    path: '/contabilidad/polizas/recurrentes/$id',
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppFacturacionAnticiposFacturasIndexRoute =
   AppFacturacionAnticiposFacturasIndexRouteImport.update({
     id: '/facturacion/anticipos/facturas/',
@@ -1131,6 +1187,7 @@ export interface FileRoutesByFullPath {
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
+  '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
   '/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -1138,6 +1195,8 @@ export interface FileRoutesByFullPath {
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
+  '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -1190,10 +1249,12 @@ export interface FileRoutesByFullPath {
   '/almacen/recepciones/': typeof AppAlmacenRecepcionesIndexRoute;
   '/almacen/reportes/': typeof AppAlmacenReportesIndexRoute;
   '/almacen/salidas/': typeof AppAlmacenSalidasIndexRoute;
+  '/comercio-exterior/expedientes/': typeof AppComercioExteriorExpedientesIndexRoute;
   '/compras/ordenes/': typeof AppComprasOrdenesIndexRoute;
   '/compras/pendientes/': typeof AppComprasPendientesIndexRoute;
   '/compras/requisiciones/': typeof AppComprasRequisicionesIndexRoute;
   '/contabilidad/catalogo/': typeof AppContabilidadCatalogoIndexRoute;
+  '/contabilidad/polizas/': typeof AppContabilidadPolizasIndexRoute;
   '/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
@@ -1234,6 +1295,7 @@ export interface FileRoutesByFullPath {
   '/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
   '/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
   '/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
+  '/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
   '/facturacion/caja/corte/$sesionId': typeof AppFacturacionCajaCorteSesionIdRoute;
   '/admin/catalogos/categorias-articulo/': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
@@ -1249,9 +1311,11 @@ export interface FileRoutesByFullPath {
   '/admin/catalogos/usos-principales/': typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   '/admin/datos-maestros/articulos/': typeof AppAdminDatosMaestrosArticulosIndexRoute;
   '/admin/datos-maestros/clientes/': typeof AppAdminDatosMaestrosClientesIndexRoute;
+  '/admin/datos-maestros/diferencias-fiscales-aw/': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/admin/datos-maestros/productos-aw/': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/admin/datos-maestros/proveedores/': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   '/admin/integraciones/fiscal/': typeof AppAdminIntegracionesFiscalIndexRoute;
+  '/contabilidad/polizas/recurrentes/': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/facturacion/anticipos/facturas/': typeof AppFacturacionAnticiposFacturasIndexRoute;
 }
 export interface FileRoutesByTo {
@@ -1298,6 +1362,7 @@ export interface FileRoutesByTo {
   '/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
+  '/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
   '/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -1305,6 +1370,8 @@ export interface FileRoutesByTo {
   '/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
   '/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
+  '/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -1357,10 +1424,12 @@ export interface FileRoutesByTo {
   '/almacen/recepciones': typeof AppAlmacenRecepcionesIndexRoute;
   '/almacen/reportes': typeof AppAlmacenReportesIndexRoute;
   '/almacen/salidas': typeof AppAlmacenSalidasIndexRoute;
+  '/comercio-exterior/expedientes': typeof AppComercioExteriorExpedientesIndexRoute;
   '/compras/ordenes': typeof AppComprasOrdenesIndexRoute;
   '/compras/pendientes': typeof AppComprasPendientesIndexRoute;
   '/compras/requisiciones': typeof AppComprasRequisicionesIndexRoute;
   '/contabilidad/catalogo': typeof AppContabilidadCatalogoIndexRoute;
+  '/contabilidad/polizas': typeof AppContabilidadPolizasIndexRoute;
   '/cxc/alertas': typeof AppCxcAlertasIndexRoute;
   '/cxc/anticipos': typeof AppCxcAnticiposIndexRoute;
   '/cxc/aplicaciones': typeof AppCxcAplicacionesIndexRoute;
@@ -1401,6 +1470,7 @@ export interface FileRoutesByTo {
   '/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
   '/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
   '/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
+  '/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
   '/facturacion/caja/corte/$sesionId': typeof AppFacturacionCajaCorteSesionIdRoute;
   '/admin/catalogos/categorias-articulo': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
@@ -1416,9 +1486,11 @@ export interface FileRoutesByTo {
   '/admin/catalogos/usos-principales': typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   '/admin/datos-maestros/articulos': typeof AppAdminDatosMaestrosArticulosIndexRoute;
   '/admin/datos-maestros/clientes': typeof AppAdminDatosMaestrosClientesIndexRoute;
+  '/admin/datos-maestros/diferencias-fiscales-aw': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/admin/datos-maestros/productos-aw': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/admin/datos-maestros/proveedores': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   '/admin/integraciones/fiscal': typeof AppAdminIntegracionesFiscalIndexRoute;
+  '/contabilidad/polizas/recurrentes': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/facturacion/anticipos/facturas': typeof AppFacturacionAnticiposFacturasIndexRoute;
 }
 export interface FileRoutesById {
@@ -1467,6 +1539,7 @@ export interface FileRoutesById {
   '/_app/almacen/reportes/alfak-historial': typeof AppAlmacenReportesAlfakHistorialRoute;
   '/_app/almacen/reportes/mp-cnk': typeof AppAlmacenReportesMpCnkRoute;
   '/_app/almacen/salidas/$id': typeof AppAlmacenSalidasIdRoute;
+  '/_app/comercio-exterior/expedientes/$id': typeof AppComercioExteriorExpedientesIdRoute;
   '/_app/compras/admin/aprobadores': typeof AppComprasAdminAprobadoresRoute;
   '/_app/compras/ordenes/$id': typeof AppComprasOrdenesIdRoute;
   '/_app/compras/ordenes/partidas-abiertas': typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -1474,6 +1547,8 @@ export interface FileRoutesById {
   '/_app/compras/pendientes/$id': typeof AppComprasPendientesIdRoute;
   '/_app/compras/requisiciones/$id': typeof AppComprasRequisicionesIdRoute;
   '/_app/contabilidad/catalogo/$id': typeof AppContabilidadCatalogoIdRoute;
+  '/_app/contabilidad/polizas/$id': typeof AppContabilidadPolizasIdRoute;
+  '/_app/contabilidad/polizas/saldos': typeof AppContabilidadPolizasSaldosRoute;
   '/_app/cxc/aplicaciones/$id': typeof AppCxcAplicacionesIdRoute;
   '/_app/cxc/lineas-credito/$id': typeof AppCxcLineasCreditoIdRoute;
   '/_app/cxp/admin/aprobadores': typeof AppCxpAdminAprobadoresRoute;
@@ -1526,10 +1601,12 @@ export interface FileRoutesById {
   '/_app/almacen/recepciones/': typeof AppAlmacenRecepcionesIndexRoute;
   '/_app/almacen/reportes/': typeof AppAlmacenReportesIndexRoute;
   '/_app/almacen/salidas/': typeof AppAlmacenSalidasIndexRoute;
+  '/_app/comercio-exterior/expedientes/': typeof AppComercioExteriorExpedientesIndexRoute;
   '/_app/compras/ordenes/': typeof AppComprasOrdenesIndexRoute;
   '/_app/compras/pendientes/': typeof AppComprasPendientesIndexRoute;
   '/_app/compras/requisiciones/': typeof AppComprasRequisicionesIndexRoute;
   '/_app/contabilidad/catalogo/': typeof AppContabilidadCatalogoIndexRoute;
+  '/_app/contabilidad/polizas/': typeof AppContabilidadPolizasIndexRoute;
   '/_app/cxc/alertas/': typeof AppCxcAlertasIndexRoute;
   '/_app/cxc/anticipos/': typeof AppCxcAnticiposIndexRoute;
   '/_app/cxc/aplicaciones/': typeof AppCxcAplicacionesIndexRoute;
@@ -1570,6 +1647,7 @@ export interface FileRoutesById {
   '/_app/almacen/inventarios/$id/captura': typeof AppAlmacenInventariosIdCapturaRoute;
   '/_app/compras/articulos/$id/historial-compras': typeof AppComprasArticulosIdHistorialComprasRoute;
   '/_app/compras/trazabilidad/oc/$id': typeof AppComprasTrazabilidadOcIdRoute;
+  '/_app/contabilidad/polizas/recurrentes/$id': typeof AppContabilidadPolizasRecurrentesIdRoute;
   '/_app/facturacion/anticipos/facturas/$id': typeof AppFacturacionAnticiposFacturasIdRoute;
   '/_app/facturacion/caja_/corte/$sesionId': typeof AppFacturacionCajaCorteSesionIdRoute;
   '/_app/admin/catalogos/categorias-articulo/': typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
@@ -1585,9 +1663,11 @@ export interface FileRoutesById {
   '/_app/admin/catalogos/usos-principales/': typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   '/_app/admin/datos-maestros/articulos/': typeof AppAdminDatosMaestrosArticulosIndexRoute;
   '/_app/admin/datos-maestros/clientes/': typeof AppAdminDatosMaestrosClientesIndexRoute;
+  '/_app/admin/datos-maestros/diferencias-fiscales-aw/': typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   '/_app/admin/datos-maestros/productos-aw/': typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   '/_app/admin/datos-maestros/proveedores/': typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   '/_app/admin/integraciones/fiscal/': typeof AppAdminIntegracionesFiscalIndexRoute;
+  '/_app/contabilidad/polizas/recurrentes/': typeof AppContabilidadPolizasRecurrentesIndexRoute;
   '/_app/facturacion/anticipos/facturas/': typeof AppFacturacionAnticiposFacturasIndexRoute;
 }
 export interface FileRouteTypes {
@@ -1636,6 +1716,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/alfak-historial'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/salidas/$id'
+    | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
     | '/compras/ordenes/$id'
     | '/compras/ordenes/partidas-abiertas'
@@ -1643,6 +1724,8 @@ export interface FileRouteTypes {
     | '/compras/pendientes/$id'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
+    | '/contabilidad/polizas/$id'
+    | '/contabilidad/polizas/saldos'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
     | '/cxp/admin/aprobadores'
@@ -1695,10 +1778,12 @@ export interface FileRouteTypes {
     | '/almacen/recepciones/'
     | '/almacen/reportes/'
     | '/almacen/salidas/'
+    | '/comercio-exterior/expedientes/'
     | '/compras/ordenes/'
     | '/compras/pendientes/'
     | '/compras/requisiciones/'
     | '/contabilidad/catalogo/'
+    | '/contabilidad/polizas/'
     | '/cxc/alertas/'
     | '/cxc/anticipos/'
     | '/cxc/aplicaciones/'
@@ -1739,6 +1824,7 @@ export interface FileRouteTypes {
     | '/almacen/inventarios/$id/captura'
     | '/compras/articulos/$id/historial-compras'
     | '/compras/trazabilidad/oc/$id'
+    | '/contabilidad/polizas/recurrentes/$id'
     | '/facturacion/anticipos/facturas/$id'
     | '/facturacion/caja/corte/$sesionId'
     | '/admin/catalogos/categorias-articulo/'
@@ -1754,9 +1840,11 @@ export interface FileRouteTypes {
     | '/admin/catalogos/usos-principales/'
     | '/admin/datos-maestros/articulos/'
     | '/admin/datos-maestros/clientes/'
+    | '/admin/datos-maestros/diferencias-fiscales-aw/'
     | '/admin/datos-maestros/productos-aw/'
     | '/admin/datos-maestros/proveedores/'
     | '/admin/integraciones/fiscal/'
+    | '/contabilidad/polizas/recurrentes/'
     | '/facturacion/anticipos/facturas/';
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -1803,6 +1891,7 @@ export interface FileRouteTypes {
     | '/almacen/reportes/alfak-historial'
     | '/almacen/reportes/mp-cnk'
     | '/almacen/salidas/$id'
+    | '/comercio-exterior/expedientes/$id'
     | '/compras/admin/aprobadores'
     | '/compras/ordenes/$id'
     | '/compras/ordenes/partidas-abiertas'
@@ -1810,6 +1899,8 @@ export interface FileRouteTypes {
     | '/compras/pendientes/$id'
     | '/compras/requisiciones/$id'
     | '/contabilidad/catalogo/$id'
+    | '/contabilidad/polizas/$id'
+    | '/contabilidad/polizas/saldos'
     | '/cxc/aplicaciones/$id'
     | '/cxc/lineas-credito/$id'
     | '/cxp/admin/aprobadores'
@@ -1862,10 +1953,12 @@ export interface FileRouteTypes {
     | '/almacen/recepciones'
     | '/almacen/reportes'
     | '/almacen/salidas'
+    | '/comercio-exterior/expedientes'
     | '/compras/ordenes'
     | '/compras/pendientes'
     | '/compras/requisiciones'
     | '/contabilidad/catalogo'
+    | '/contabilidad/polizas'
     | '/cxc/alertas'
     | '/cxc/anticipos'
     | '/cxc/aplicaciones'
@@ -1906,6 +1999,7 @@ export interface FileRouteTypes {
     | '/almacen/inventarios/$id/captura'
     | '/compras/articulos/$id/historial-compras'
     | '/compras/trazabilidad/oc/$id'
+    | '/contabilidad/polizas/recurrentes/$id'
     | '/facturacion/anticipos/facturas/$id'
     | '/facturacion/caja/corte/$sesionId'
     | '/admin/catalogos/categorias-articulo'
@@ -1921,9 +2015,11 @@ export interface FileRouteTypes {
     | '/admin/catalogos/usos-principales'
     | '/admin/datos-maestros/articulos'
     | '/admin/datos-maestros/clientes'
+    | '/admin/datos-maestros/diferencias-fiscales-aw'
     | '/admin/datos-maestros/productos-aw'
     | '/admin/datos-maestros/proveedores'
     | '/admin/integraciones/fiscal'
+    | '/contabilidad/polizas/recurrentes'
     | '/facturacion/anticipos/facturas';
   id:
     | '__root__'
@@ -1971,6 +2067,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/reportes/alfak-historial'
     | '/_app/almacen/reportes/mp-cnk'
     | '/_app/almacen/salidas/$id'
+    | '/_app/comercio-exterior/expedientes/$id'
     | '/_app/compras/admin/aprobadores'
     | '/_app/compras/ordenes/$id'
     | '/_app/compras/ordenes/partidas-abiertas'
@@ -1978,6 +2075,8 @@ export interface FileRouteTypes {
     | '/_app/compras/pendientes/$id'
     | '/_app/compras/requisiciones/$id'
     | '/_app/contabilidad/catalogo/$id'
+    | '/_app/contabilidad/polizas/$id'
+    | '/_app/contabilidad/polizas/saldos'
     | '/_app/cxc/aplicaciones/$id'
     | '/_app/cxc/lineas-credito/$id'
     | '/_app/cxp/admin/aprobadores'
@@ -2030,10 +2129,12 @@ export interface FileRouteTypes {
     | '/_app/almacen/recepciones/'
     | '/_app/almacen/reportes/'
     | '/_app/almacen/salidas/'
+    | '/_app/comercio-exterior/expedientes/'
     | '/_app/compras/ordenes/'
     | '/_app/compras/pendientes/'
     | '/_app/compras/requisiciones/'
     | '/_app/contabilidad/catalogo/'
+    | '/_app/contabilidad/polizas/'
     | '/_app/cxc/alertas/'
     | '/_app/cxc/anticipos/'
     | '/_app/cxc/aplicaciones/'
@@ -2074,6 +2175,7 @@ export interface FileRouteTypes {
     | '/_app/almacen/inventarios/$id/captura'
     | '/_app/compras/articulos/$id/historial-compras'
     | '/_app/compras/trazabilidad/oc/$id'
+    | '/_app/contabilidad/polizas/recurrentes/$id'
     | '/_app/facturacion/anticipos/facturas/$id'
     | '/_app/facturacion/caja_/corte/$sesionId'
     | '/_app/admin/catalogos/categorias-articulo/'
@@ -2089,9 +2191,11 @@ export interface FileRouteTypes {
     | '/_app/admin/catalogos/usos-principales/'
     | '/_app/admin/datos-maestros/articulos/'
     | '/_app/admin/datos-maestros/clientes/'
+    | '/_app/admin/datos-maestros/diferencias-fiscales-aw/'
     | '/_app/admin/datos-maestros/productos-aw/'
     | '/_app/admin/datos-maestros/proveedores/'
     | '/_app/admin/integraciones/fiscal/'
+    | '/_app/contabilidad/polizas/recurrentes/'
     | '/_app/facturacion/anticipos/facturas/';
   fileRoutesById: FileRoutesById;
 }
@@ -2529,6 +2633,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlmacenSalidasIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/comercio-exterior/expedientes/': {
+      id: '/_app/comercio-exterior/expedientes/';
+      path: '/comercio-exterior/expedientes';
+      fullPath: '/comercio-exterior/expedientes/';
+      preLoaderRoute: typeof AppComercioExteriorExpedientesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/comercio-exterior/expedientes/$id': {
+      id: '/_app/comercio-exterior/expedientes/$id';
+      path: '/comercio-exterior/expedientes/$id';
+      fullPath: '/comercio-exterior/expedientes/$id';
+      preLoaderRoute: typeof AppComercioExteriorExpedientesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/compras/admin/aprobadores': {
       id: '/_app/compras/admin/aprobadores';
       path: '/compras/admin/aprobadores';
@@ -2604,6 +2722,27 @@ declare module '@tanstack/react-router' {
       path: '/contabilidad/catalogo/$id';
       fullPath: '/contabilidad/catalogo/$id';
       preLoaderRoute: typeof AppContabilidadCatalogoIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/polizas/': {
+      id: '/_app/contabilidad/polizas/';
+      path: '/contabilidad/polizas';
+      fullPath: '/contabilidad/polizas/';
+      preLoaderRoute: typeof AppContabilidadPolizasIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/polizas/$id': {
+      id: '/_app/contabilidad/polizas/$id';
+      path: '/contabilidad/polizas/$id';
+      fullPath: '/contabilidad/polizas/$id';
+      preLoaderRoute: typeof AppContabilidadPolizasIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/polizas/saldos': {
+      id: '/_app/contabilidad/polizas/saldos';
+      path: '/contabilidad/polizas/saldos';
+      fullPath: '/contabilidad/polizas/saldos';
+      preLoaderRoute: typeof AppContabilidadPolizasSaldosRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/cxc/alertas/': {
@@ -3166,6 +3305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminDatosMaestrosClientesIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/admin/datos-maestros/diferencias-fiscales-aw/': {
+      id: '/_app/admin/datos-maestros/diferencias-fiscales-aw/';
+      path: '/admin/datos-maestros/diferencias-fiscales-aw';
+      fullPath: '/admin/datos-maestros/diferencias-fiscales-aw/';
+      preLoaderRoute: typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/admin/datos-maestros/productos-aw/': {
       id: '/_app/admin/datos-maestros/productos-aw/';
       path: '/admin/datos-maestros/productos-aw';
@@ -3241,6 +3387,20 @@ declare module '@tanstack/react-router' {
       path: '/compras/trazabilidad/oc/$id';
       fullPath: '/compras/trazabilidad/oc/$id';
       preLoaderRoute: typeof AppComprasTrazabilidadOcIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/polizas/recurrentes/': {
+      id: '/_app/contabilidad/polizas/recurrentes/';
+      path: '/contabilidad/polizas/recurrentes';
+      fullPath: '/contabilidad/polizas/recurrentes/';
+      preLoaderRoute: typeof AppContabilidadPolizasRecurrentesIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/contabilidad/polizas/recurrentes/$id': {
+      id: '/_app/contabilidad/polizas/recurrentes/$id';
+      path: '/contabilidad/polizas/recurrentes/$id';
+      fullPath: '/contabilidad/polizas/recurrentes/$id';
+      preLoaderRoute: typeof AppContabilidadPolizasRecurrentesIdRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/facturacion/anticipos/facturas/': {
@@ -3327,6 +3487,7 @@ interface AppRouteChildren {
   AppAlmacenReportesAlfakHistorialRoute: typeof AppAlmacenReportesAlfakHistorialRoute;
   AppAlmacenReportesMpCnkRoute: typeof AppAlmacenReportesMpCnkRoute;
   AppAlmacenSalidasIdRoute: typeof AppAlmacenSalidasIdRoute;
+  AppComercioExteriorExpedientesIdRoute: typeof AppComercioExteriorExpedientesIdRoute;
   AppComprasAdminAprobadoresRoute: typeof AppComprasAdminAprobadoresRoute;
   AppComprasOrdenesIdRoute: typeof AppComprasOrdenesIdRoute;
   AppComprasOrdenesPartidasAbiertasRoute: typeof AppComprasOrdenesPartidasAbiertasRoute;
@@ -3334,6 +3495,8 @@ interface AppRouteChildren {
   AppComprasPendientesIdRoute: typeof AppComprasPendientesIdRoute;
   AppComprasRequisicionesIdRoute: typeof AppComprasRequisicionesIdRoute;
   AppContabilidadCatalogoIdRoute: typeof AppContabilidadCatalogoIdRoute;
+  AppContabilidadPolizasIdRoute: typeof AppContabilidadPolizasIdRoute;
+  AppContabilidadPolizasSaldosRoute: typeof AppContabilidadPolizasSaldosRoute;
   AppCxcAplicacionesIdRoute: typeof AppCxcAplicacionesIdRoute;
   AppCxcLineasCreditoIdRoute: typeof AppCxcLineasCreditoIdRoute;
   AppCxpAdminAprobadoresRoute: typeof AppCxpAdminAprobadoresRoute;
@@ -3386,10 +3549,12 @@ interface AppRouteChildren {
   AppAlmacenRecepcionesIndexRoute: typeof AppAlmacenRecepcionesIndexRoute;
   AppAlmacenReportesIndexRoute: typeof AppAlmacenReportesIndexRoute;
   AppAlmacenSalidasIndexRoute: typeof AppAlmacenSalidasIndexRoute;
+  AppComercioExteriorExpedientesIndexRoute: typeof AppComercioExteriorExpedientesIndexRoute;
   AppComprasOrdenesIndexRoute: typeof AppComprasOrdenesIndexRoute;
   AppComprasPendientesIndexRoute: typeof AppComprasPendientesIndexRoute;
   AppComprasRequisicionesIndexRoute: typeof AppComprasRequisicionesIndexRoute;
   AppContabilidadCatalogoIndexRoute: typeof AppContabilidadCatalogoIndexRoute;
+  AppContabilidadPolizasIndexRoute: typeof AppContabilidadPolizasIndexRoute;
   AppCxcAlertasIndexRoute: typeof AppCxcAlertasIndexRoute;
   AppCxcAnticiposIndexRoute: typeof AppCxcAnticiposIndexRoute;
   AppCxcAplicacionesIndexRoute: typeof AppCxcAplicacionesIndexRoute;
@@ -3428,6 +3593,7 @@ interface AppRouteChildren {
   AppAlmacenDevolucionesProveedorIdRoute: typeof AppAlmacenDevolucionesProveedorIdRoute;
   AppComprasArticulosIdHistorialComprasRoute: typeof AppComprasArticulosIdHistorialComprasRoute;
   AppComprasTrazabilidadOcIdRoute: typeof AppComprasTrazabilidadOcIdRoute;
+  AppContabilidadPolizasRecurrentesIdRoute: typeof AppContabilidadPolizasRecurrentesIdRoute;
   AppFacturacionAnticiposFacturasIdRoute: typeof AppFacturacionAnticiposFacturasIdRoute;
   AppFacturacionCajaCorteSesionIdRoute: typeof AppFacturacionCajaCorteSesionIdRoute;
   AppAdminCatalogosCategoriasArticuloIndexRoute: typeof AppAdminCatalogosCategoriasArticuloIndexRoute;
@@ -3443,9 +3609,11 @@ interface AppRouteChildren {
   AppAdminCatalogosUsosPrincipalesIndexRoute: typeof AppAdminCatalogosUsosPrincipalesIndexRoute;
   AppAdminDatosMaestrosArticulosIndexRoute: typeof AppAdminDatosMaestrosArticulosIndexRoute;
   AppAdminDatosMaestrosClientesIndexRoute: typeof AppAdminDatosMaestrosClientesIndexRoute;
+  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute: typeof AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute;
   AppAdminDatosMaestrosProductosAwIndexRoute: typeof AppAdminDatosMaestrosProductosAwIndexRoute;
   AppAdminDatosMaestrosProveedoresIndexRoute: typeof AppAdminDatosMaestrosProveedoresIndexRoute;
   AppAdminIntegracionesFiscalIndexRoute: typeof AppAdminIntegracionesFiscalIndexRoute;
+  AppContabilidadPolizasRecurrentesIndexRoute: typeof AppContabilidadPolizasRecurrentesIndexRoute;
   AppFacturacionAnticiposFacturasIndexRoute: typeof AppFacturacionAnticiposFacturasIndexRoute;
 }
 
@@ -3492,6 +3660,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenReportesAlfakHistorialRoute: AppAlmacenReportesAlfakHistorialRoute,
   AppAlmacenReportesMpCnkRoute: AppAlmacenReportesMpCnkRoute,
   AppAlmacenSalidasIdRoute: AppAlmacenSalidasIdRoute,
+  AppComercioExteriorExpedientesIdRoute: AppComercioExteriorExpedientesIdRoute,
   AppComprasAdminAprobadoresRoute: AppComprasAdminAprobadoresRoute,
   AppComprasOrdenesIdRoute: AppComprasOrdenesIdRoute,
   AppComprasOrdenesPartidasAbiertasRoute:
@@ -3501,6 +3670,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasPendientesIdRoute: AppComprasPendientesIdRoute,
   AppComprasRequisicionesIdRoute: AppComprasRequisicionesIdRoute,
   AppContabilidadCatalogoIdRoute: AppContabilidadCatalogoIdRoute,
+  AppContabilidadPolizasIdRoute: AppContabilidadPolizasIdRoute,
+  AppContabilidadPolizasSaldosRoute: AppContabilidadPolizasSaldosRoute,
   AppCxcAplicacionesIdRoute: AppCxcAplicacionesIdRoute,
   AppCxcLineasCreditoIdRoute: AppCxcLineasCreditoIdRoute,
   AppCxpAdminAprobadoresRoute: AppCxpAdminAprobadoresRoute,
@@ -3558,10 +3729,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppAlmacenRecepcionesIndexRoute: AppAlmacenRecepcionesIndexRoute,
   AppAlmacenReportesIndexRoute: AppAlmacenReportesIndexRoute,
   AppAlmacenSalidasIndexRoute: AppAlmacenSalidasIndexRoute,
+  AppComercioExteriorExpedientesIndexRoute:
+    AppComercioExteriorExpedientesIndexRoute,
   AppComprasOrdenesIndexRoute: AppComprasOrdenesIndexRoute,
   AppComprasPendientesIndexRoute: AppComprasPendientesIndexRoute,
   AppComprasRequisicionesIndexRoute: AppComprasRequisicionesIndexRoute,
   AppContabilidadCatalogoIndexRoute: AppContabilidadCatalogoIndexRoute,
+  AppContabilidadPolizasIndexRoute: AppContabilidadPolizasIndexRoute,
   AppCxcAlertasIndexRoute: AppCxcAlertasIndexRoute,
   AppCxcAnticiposIndexRoute: AppCxcAnticiposIndexRoute,
   AppCxcAplicacionesIndexRoute: AppCxcAplicacionesIndexRoute,
@@ -3605,6 +3779,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppComprasArticulosIdHistorialComprasRoute:
     AppComprasArticulosIdHistorialComprasRoute,
   AppComprasTrazabilidadOcIdRoute: AppComprasTrazabilidadOcIdRoute,
+  AppContabilidadPolizasRecurrentesIdRoute:
+    AppContabilidadPolizasRecurrentesIdRoute,
   AppFacturacionAnticiposFacturasIdRoute:
     AppFacturacionAnticiposFacturasIdRoute,
   AppFacturacionCajaCorteSesionIdRoute: AppFacturacionCajaCorteSesionIdRoute,
@@ -3629,11 +3805,15 @@ const AppRouteChildren: AppRouteChildren = {
     AppAdminDatosMaestrosArticulosIndexRoute,
   AppAdminDatosMaestrosClientesIndexRoute:
     AppAdminDatosMaestrosClientesIndexRoute,
+  AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute:
+    AppAdminDatosMaestrosDiferenciasFiscalesAwIndexRoute,
   AppAdminDatosMaestrosProductosAwIndexRoute:
     AppAdminDatosMaestrosProductosAwIndexRoute,
   AppAdminDatosMaestrosProveedoresIndexRoute:
     AppAdminDatosMaestrosProveedoresIndexRoute,
   AppAdminIntegracionesFiscalIndexRoute: AppAdminIntegracionesFiscalIndexRoute,
+  AppContabilidadPolizasRecurrentesIndexRoute:
+    AppContabilidadPolizasRecurrentesIndexRoute,
   AppFacturacionAnticiposFacturasIndexRoute:
     AppFacturacionAnticiposFacturasIndexRoute,
 };
