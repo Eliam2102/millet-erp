@@ -241,9 +241,10 @@ public sealed class FakeAwWriteBackPort : IAwWriteBackPort
 }
 
 /// <summary>Auto-provisión de master configurable (null = no provisiona → excepción).</summary>
-public sealed class FakeMasterProvisioningPort(ClienteFiscalLectura? cliente = null, ProductoFiscalLectura? producto = null) : IMasterProvisioningPort
+public sealed class FakeMasterProvisioningPort(ClienteFiscalLectura? cliente = null, ProductoFiscalLectura? producto = null, Exception? errorCliente = null) : IMasterProvisioningPort
 {
-    public Task<ClienteFiscalLectura?> EnsureClienteDesdeAwAsync(string clienteRef, CancellationToken cancellationToken) => Task.FromResult(cliente);
+    public Task<ClienteFiscalLectura?> EnsureClienteDesdeAwAsync(string clienteRef, CancellationToken cancellationToken) =>
+        errorCliente is not null ? Task.FromException<ClienteFiscalLectura?>(errorCliente) : Task.FromResult(cliente);
     public Task<ProductoFiscalLectura?> EnsureArticuloDesdeAwAsync(string articuloRef, CancellationToken cancellationToken) => Task.FromResult(producto);
 }
 

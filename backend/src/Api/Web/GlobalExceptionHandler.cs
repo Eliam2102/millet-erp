@@ -129,6 +129,15 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                     StatusCodes.Status409Conflict,
                     httpContext,
                     traceId),
+            DbUpdateException { InnerException: PostgresException pg }
+                when pg.SqlState == PostgresErrorCodes.UniqueViolation
+                    && pg.ConstraintName == "ux_clientes_rfc_no_generico"
+                => CreateProblem(
+                    "CLIENTE_RFC_DUPLICADO",
+                    "Ya existe un cliente con ese RFC. Usa el cliente existente.",
+                    StatusCodes.Status409Conflict,
+                    httpContext,
+                    traceId),
             // 86e3pc50v F4: el trigger es la autoridad del saldo; no se exponen los ids del mensaje.
             DbUpdateException { InnerException: PostgresException pgs } when EsSaldoInsuficiente(pgs)
                 => CreateSaldoInsuficienteProblem(httpContext, traceId),

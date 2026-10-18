@@ -65,6 +65,18 @@ public class ClientesProteccionFiscalTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task Aw_limpiar_regimen_ya_vacio_solo_con_gestionar_es_ok()
+    {
+        var id = await SembrarAwAsync(NuevaRef());
+        var op = await ClienteConPermisosAsync(PermisosCanonicos.DatosMaestrosClientesGestionar);
+
+        var r = await op.PatchAsJsonAsync(Url(id), new { ClasificacionId = Guid.Parse("00000012-0001-0000-0000-000000000001"), RazonSocial = "CLIENTE DEMO LECTURA", LimpiarRegimenFiscal = true });
+
+        Assert.True(r.IsSuccessStatusCode, await r.Content.ReadAsStringAsync());
+        Assert.Equal("00000012-0001-0000-0000-000000000001", (await Json(await op.GetAsync(Url(id)))).GetProperty("clasificacionId").GetString());
+    }
+
+    [Fact]
     public async Task Aw_completar_regimen_vacio_y_mismo_valor_con_gestionar_es_ok()
     {
         var id = await SembrarAwAsync(NuevaRef());

@@ -39,7 +39,7 @@ La aprobación de este contrato **no** acepta el retiro de SAP.
 |---|---|
 | Referencia externa | `KU_KUNDEN.ID` como **texto canónico** -> `Cliente.ReferenciaExterna` (máx. 50, único cuando no es null). |
 | `MANDANT` | Solo contexto (`MandantOrigen`). No equiparar con `EmpresaId` ni con sucursal sin evidencia. **PENDIENTE** de validar. |
-| RFC | **Nunca** es llave de correlación ni de fusión. Dos referencias distintas pueden compartir RFC genérico y siguen siendo dos clientes. |
+| RFC / clave de ligado | Un RFC no genérico identifica a una sola persona (decisión del owner, 2026-10-13; V38). **Clave de ligado** = RFC del ERP o, si no hay, `UST_ID` en mayúsculas sin espacios, guiones ni puntos con forma de RFC. Si A+W trae una clave que ya tiene un cliente manual, no se crea otro cliente: la referencia queda en «Ligados pendientes de revisión» y, al aprobar, se liga. El `UST_ID` sin forma de RFC o genérico nunca liga. RFC genéricos `XAXX010101000`/`XEXX010101000` nunca ligan. En modo real el `UST_ID` se usa solo como clave de ligado y no se copia al RFC del ERP (decisión de implementación de VILO, pendiente de validar por Fiscal o Guadalupe Polanco). El ligado entre dos clientes de A+W con el mismo RFC está diferido hasta aclarar con Millet: de momento ambos se crean, y el segundo se crea sin RFC si el campo ya está ocupado. |
 | Cliente manual con la misma referencia | No se apropia automáticamente: se abre conflicto de correlación. |
 
 Código existente que se reutiliza (no se modifica en A1):
@@ -287,11 +287,12 @@ Los mensajes de error persistidos no incluyen texto de excepción ni payload.
 
 - **Conexión y lectura real contra A+W no probadas.** Depende de O1A-AW-INT (ruta privada, TLS, cuenta de lectura, instancia efectiva). Todo lo verificado usa origen simulado y fixtures.
 - **Mapeos PENDIENTES**: moneda (`PESOSMX`->`MXN`, catálogo), estado (`KZ_STATUS`/`KZ_GESPERRT`) y condición (cardinalidad de `KA_ZAHLBED`). Sin mapeo validado, el resultado queda pendiente y no hay cambios de moneda/estatus. `VersionMapeo` sigue en `0-borrador`.
-- **Conflicto con cliente manual**: la resolución (p. ej. clave `AW-{ref}` que choca con una clave manual, o mismo cliente dado de alta a mano) queda fuera de ADM-06; se registra el conflicto y no se fusiona.
+- **Conflicto con cliente manual**: si A+W trae una clave de ligado (RFC, o `UST_ID` con forma de RFC) que ya tiene un cliente manual, no se crea otro cliente; la referencia queda en «Ligados pendientes de revisión» y, al aprobar, se liga. Un conflicto sin candidatos vigentes (p. ej. el manual cambió su RFC) no se muestra y se resuelve en la siguiente aplicación de esa referencia. La coincidencia de clave entre dos clientes de A+W está diferida hasta aclarar con Millet.
 - **Gate de emisión fiscal sin dueño**: `Cliente.DatosFiscalesCompletos` no lo usa ningún gate de servidor; la emisión en Facturación recibe el receptor en el body y no lo coteja con el master, así que un cliente A+W incompleto sigue siendo timbrable. Corresponde a Facturación; ADM-06 solo garantiza que la sincronización no inventa fiscales. Por asignar (Eliam).
 - **Bajas explícitas**: la ausencia de una fila nunca es baja. Sin mapeo aprobado, no se cambia `Estatus`; V52 se activa únicamente con la configuración versionada de §10.1.1.
 - **Cancelación a mitad de lote** no persiste los contadores de ese lote (`Leidos` exacto; al reanudar, esas filas cuentan como `SinCambios`).
 - **Dispatcher single-host**: el índice único evita dos barridos vivos, pero no hay elección de líder; con varias instancias ambas podrían tomar la misma ejecución. Operar con una instancia o revisar antes de escalar.
+- **Primera corrida real**: medido en la copia `AW_FULL` (solo lectura), 1,404 claves repetidas entre clientes de A+W con 1,634 referencias adicionales, casi todas históricas (solo 3 con pedidos en 24 meses); no se envían a revisión; se informan en el reporte de G1.10 y quedan pendientes de la aclaración con Millet.
 
 ## 10.9 Propuestas de flujo pendientes de confirmación (cierre ADM-06)
 
@@ -301,7 +302,7 @@ Todas son **PROPUESTA — cambiable**: se construyeron así para no inventar pol
 |---|---|---|---|
 | 1 | **Cliente inactivo e ingesta de pedidos.** `ResolverPorReferenciaAsync` (ingesta) y `ObtenerAsync` (cartera, reportes, detalle de pedido) siguen devolviendo al cliente inactivo; el bloqueo de uso nuevo está donde el usuario elige cliente (`BuscarAsync`, solo Activos). Un pedido A+W de un cliente inactivo se importa. | Rechazar o dejar en revisión ese pedido. | `ResolverPorReferenciaAsync` + `ProcesarSolicitudAwHandler` + su prueba. |
 | 2 | **Baja explícita en ERP** (`DesactivarClienteCommand`, permiso y auditoría). Sin mapeo aprobado la sincronización no da de baja ni reactiva; la ausencia de una fila nunca es baja. | Mapear `KZ_STATUS`/`KZ_GESPERRT` a `Estatus` cuando Millet apruebe el mapeo. | `IntegracionesAw:Clientes:MapeoEstatus`, ya implementado y vacío por omisión (§10.1.1). |
-| 3 | **Conflicto con cliente manual** (misma referencia o clave `AW-{ref}`): se registra `Conflicto` con causa, sin fusionar; lo resuelve una persona y se reprocesa. | Asistente de vinculación manual. | Nuevo comando de vinculación. |
+| 3 | **Conflicto con cliente manual**: si A+W trae una clave de ligado que ya tiene un cliente manual, la referencia queda en «Ligados pendientes de revisión»; al aprobar, se liga. No hay fusión automática ni acción «mantener separados». | Asistente de vinculación manual. | Nuevo comando de vinculación. |
 | 4 | **Fuera de orden:** orden por `LeidoEnUtc` + relectura; una lectura más vieja se ignora. | Campo de versión/fecha monotónico de A+W (Jorge). | Reemplazar la comparación en `AplicarClienteAwService`. |
 | 5 | **Mapeos** de moneda, estado, condición y RFC: quedan `Pendiente` con valor crudo (`VersionMapeo=0-borrador`). | Mapeo aprobado por Millet. | Tablas de mapeo + `VersionMapeo`. |
 | 6 | **Bandeja de conflictos:** filtro "Resultado de sincronización" (un valor a la vez) en la lista de clientes, y botón Reintentar por referencia en el detalle de la ejecución y en el detalle del cliente; sin pantalla nueva. | Filtro compuesto "Por revisar" (Pendiente+Conflicto+Error) o bandeja dedicada si el volumen lo pide (ver D1: ~14 mil pendientes por `<indf>`). | Backend (filtro multivalor) y frontend. |

@@ -497,6 +497,22 @@ public static class DatosMaestrosEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        clientes.MapPost("/{id:guid}/reactivar", async (
+            Guid id, IMediator mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new ReactivarClienteCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithMetadata(new RequireIdempotencyKeyAttribute())
+        .RequireAuthorization(PermissionPolicyProvider.Prefix + PermisosCanonicos.DatosMaestrosClientesGestionar)
+        .WithName("ReactivarCliente")
+        .WithSummary("Reactivar cliente (ADR-0048)")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         // ===== PRODUCTOS A+W (ADR-0048 D5) =====
         var productosAw = app.MapGroup("/api/v1/datos-maestros/productos-aw")
             .WithTags("DatosMaestros");
