@@ -75,7 +75,7 @@ export function TabPosiciones({
   return (
     <section className="space-y-2">
       <header className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Conceptos ({fields.length})</h3>
+        <h3 className="text-sm font-medium">Partidas ({fields.length})</h3>
         <Button
           type="button"
           variant="ghost"
@@ -83,15 +83,15 @@ export function TabPosiciones({
           onClick={() => append(defaultLinea(tasaIvaDefault))}
         >
           <Plus className="mr-1 h-3 w-3" />
-          Agregar concepto
+          Agregar partida
         </Button>
       </header>
 
       {desdePedido && (
         <p className="text-xs text-muted-foreground">
-          Líneas del pedido — cantidades y precios vienen del pedido y los
-          datos fiscales del master del artículo. Editar solo expone lo
-          comercial; lo fiscal se corrige en Datos Maestros → Productos A+W.
+          Partidas del pedido — cantidades y precios vienen del pedido y los datos fiscales del
+          master del artículo. Editar solo expone lo comercial; lo fiscal se corrige en Datos
+          Maestros → Productos A+W.
         </p>
       )}
 
@@ -114,9 +114,7 @@ export function TabPosiciones({
       </div>
 
       {form.formState.errors.lineas?.message && (
-        <p className="text-xs text-destructive">
-          {form.formState.errors.lineas.message}
-        </p>
+        <p className="text-xs text-destructive">{form.formState.errors.lineas.message}</p>
       )}
     </section>
   );
@@ -137,10 +135,7 @@ interface ConceptoInlineProps {
 
 /** Clave o unidad SAT vacías = artículo incompleto en el catálogo. */
 function fiscalIncompleta(linea: EmitirFacturaValues['lineas'][number]): boolean {
-  return (
-    (linea.claveProdServSat ?? '').trim() === '' ||
-    (linea.claveUnidadSat ?? '').trim() === ''
-  );
+  return (linea.claveProdServSat ?? '').trim() === '' || (linea.claveUnidadSat ?? '').trim() === '';
 }
 
 function ConceptoInline({
@@ -177,13 +172,19 @@ function ConceptoInline({
   useEffect(() => {
     if (!esCce) return;
     const cantAduana =
-      pesoUnitario != null && pesoUnitario > 0
-        ? pesoUnitario * cantidad
-        : cantidad;
+      pesoUnitario != null && pesoUnitario > 0 ? pesoUnitario * cantidad : cantidad;
     const opts = { shouldDirty: true, shouldValidate: false } as const;
     form.setValue(`lineas.${index}.cantidadAduana` as const, redondear(cantAduana, 6), opts);
-    form.setValue(`lineas.${index}.valorUnitarioAduana` as const, redondear(valorUnitario, 6), opts);
-    form.setValue(`lineas.${index}.valorDolares` as const, redondear(valorUnitario * cantidad, 2), opts);
+    form.setValue(
+      `lineas.${index}.valorUnitarioAduana` as const,
+      redondear(valorUnitario, 6),
+      opts,
+    );
+    form.setValue(
+      `lineas.${index}.valorDolares` as const,
+      redondear(valorUnitario * cantidad, 2),
+      opts,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esCce, cantidad, valorUnitario, pesoUnitario, index]);
 
@@ -204,7 +205,7 @@ function ConceptoInline({
       className={cn(
         'space-y-2 rounded-md border p-3',
         desdePedido
-          ? 'border-amber-400/60 bg-amber-50/40 dark:bg-amber-950/10'
+          ? 'border-line bg-warning-note-bg'
           : 'border-dashed border-primary/40 bg-primary/5',
         errs && 'border-destructive/50',
       )}
@@ -220,24 +221,56 @@ function ConceptoInline({
                 form.setValue(`lineas.${index}.productoId` as const, item?.id ?? null, opts);
                 if (item == null) return;
                 form.setValue(`lineas.${index}.descripcion` as const, item.descripcion, opts);
-                form.setValue(`lineas.${index}.claveProdServSat` as const, item.claveProdServSat ?? '', opts);
-                form.setValue(`lineas.${index}.claveUnidadSat` as const, item.claveUnidadSat ?? '', opts);
+                form.setValue(
+                  `lineas.${index}.claveProdServSat` as const,
+                  item.claveProdServSat ?? '',
+                  opts,
+                );
+                form.setValue(
+                  `lineas.${index}.claveUnidadSat` as const,
+                  item.claveUnidadSat ?? '',
+                  opts,
+                );
                 form.setValue(`lineas.${index}.objetoImp` as const, item.objetoImp ?? '02', opts);
                 // Precedencia FAC-DET-PR3: artículo > IVA default empresa > 0.16.
-                form.setValue(`lineas.${index}.tasaIvaTraslado` as const, item.tasaIvaTraslado ?? tasaIvaDefault ?? 0.16, opts);
-                form.setValue(`lineas.${index}.tasaRetencionIva` as const, item.tasaRetencionIva, opts);
-                form.setValue(`lineas.${index}.tasaRetencionIsr` as const, item.tasaRetencionIsr, opts);
+                form.setValue(
+                  `lineas.${index}.tasaIvaTraslado` as const,
+                  item.tasaIvaTraslado ?? tasaIvaDefault ?? 0.16,
+                  opts,
+                );
+                form.setValue(
+                  `lineas.${index}.tasaRetencionIva` as const,
+                  item.tasaRetencionIva,
+                  opts,
+                );
+                form.setValue(
+                  `lineas.${index}.tasaRetencionIsr` as const,
+                  item.tasaRetencionIsr,
+                  opts,
+                );
                 // Datos de aduana (CCE, Fase 1b): la línea hereda la fracción y
                 // la unidad aduanera del artículo. Siguen editables (fallback al
                 // picker de #689 si el artículo no las tiene). Cantidad/valores
                 // aduaneros se derivan aparte (Fase 1c).
                 if (esCce) {
                   const aduanaOpts = { shouldDirty: true, shouldValidate: true } as const;
-                  form.setValue(`lineas.${index}.fraccionArancelaria` as const, item.fraccionArancelaria, aduanaOpts);
-                  form.setValue(`lineas.${index}.unidadAduana` as const, item.unidadAduana, aduanaOpts);
+                  form.setValue(
+                    `lineas.${index}.fraccionArancelaria` as const,
+                    item.fraccionArancelaria,
+                    aduanaOpts,
+                  );
+                  form.setValue(
+                    `lineas.${index}.unidadAduana` as const,
+                    item.unidadAduana,
+                    aduanaOpts,
+                  );
                   // Peso del artículo → carrier para derivar la cantidad aduanera
                   // (la derivación reactiva la recalcula, Fase 1c).
-                  form.setValue(`lineas.${index}.pesoUnitarioKg` as const, item.pesoUnitarioKg, aduanaOpts);
+                  form.setValue(
+                    `lineas.${index}.pesoUnitarioKg` as const,
+                    item.pesoUnitarioKg,
+                    aduanaOpts,
+                  );
                 }
               }}
             />
@@ -245,10 +278,7 @@ function ConceptoInline({
         )}
         {fiscalFija && (
           <div className="sm:col-span-12">
-            <ArticuloFiscalResumen
-              linea={linea}
-              puedeCorregirArticulo={puedeCorregirArticulo}
-            />
+            <ArticuloFiscalResumen linea={linea} puedeCorregirArticulo={puedeCorregirArticulo} />
           </div>
         )}
         <div className={cn(fiscalFija ? 'sm:col-span-7' : 'sm:col-span-5')}>
@@ -267,21 +297,14 @@ function ConceptoInline({
                 {...form.register(`lineas.${index}.claveProdServSat` as const)}
               />
               {errs?.claveProdServSat && (
-                <p className="text-xs text-destructive">
-                  {errs.claveProdServSat.message}
-                </p>
+                <p className="text-xs text-destructive">{errs.claveProdServSat.message}</p>
               )}
             </div>
             <div className="sm:col-span-2">
               <Label className="text-xs">Unidad SAT *</Label>
-              <Input
-                maxLength={10}
-                {...form.register(`lineas.${index}.claveUnidadSat` as const)}
-              />
+              <Input maxLength={10} {...form.register(`lineas.${index}.claveUnidadSat` as const)} />
               {errs?.claveUnidadSat && (
-                <p className="text-xs text-destructive">
-                  {errs.claveUnidadSat.message}
-                </p>
+                <p className="text-xs text-destructive">{errs.claveUnidadSat.message}</p>
               )}
             </div>
           </>
@@ -384,12 +407,7 @@ function ConceptoInline({
           </label>
         </div>
         <div className="flex items-end justify-end gap-1 sm:col-span-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onColapsar(true)}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => onColapsar(true)}>
             <Check className="mr-1 h-3 w-3" />
             Listo
           </Button>
@@ -439,11 +457,10 @@ function ConceptoInline({
               initialLabel={linea.unidadAduana}
               placeholder="Buscar unidad…"
               onChange={(item) =>
-                form.setValue(
-                  `lineas.${index}.unidadAduana` as const,
-                  item?.codigo ?? null,
-                  { shouldDirty: true, shouldValidate: true },
-                )
+                form.setValue(`lineas.${index}.unidadAduana` as const, item?.codigo ?? null, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
               }
             />
             {errs?.unidadAduana && (
@@ -456,7 +473,9 @@ function ConceptoInline({
               type="number"
               step="0.0001"
               min="0"
-              {...form.register(`lineas.${index}.cantidadAduana` as const, { setValueAs: numeroONull })}
+              {...form.register(`lineas.${index}.cantidadAduana` as const, {
+                setValueAs: numeroONull,
+              })}
             />
             {errs?.cantidadAduana && (
               <p className="text-xs text-destructive">{errs.cantidadAduana.message}</p>
@@ -468,7 +487,9 @@ function ConceptoInline({
               type="number"
               step="0.01"
               min="0"
-              {...form.register(`lineas.${index}.valorUnitarioAduana` as const, { setValueAs: numeroONull })}
+              {...form.register(`lineas.${index}.valorUnitarioAduana` as const, {
+                setValueAs: numeroONull,
+              })}
             />
             {errs?.valorUnitarioAduana && (
               <p className="text-xs text-destructive">{errs.valorUnitarioAduana.message}</p>
@@ -480,7 +501,9 @@ function ConceptoInline({
               type="number"
               step="0.01"
               min="0"
-              {...form.register(`lineas.${index}.valorDolares` as const, { setValueAs: numeroONull })}
+              {...form.register(`lineas.${index}.valorDolares` as const, {
+                setValueAs: numeroONull,
+              })}
             />
             {errs?.valorDolares && (
               <p className="text-xs text-destructive">{errs.valorDolares.message}</p>
@@ -514,8 +537,7 @@ function ArticuloFiscalResumen({
   linea: EmitirFacturaValues['lineas'][number];
   puedeCorregirArticulo: boolean;
 }) {
-  const pct = (v: number | null) =>
-    v == null ? '—' : `${Math.round(v * 1000) / 10}%`;
+  const pct = (v: number | null) => (v == null ? '—' : `${Math.round(v * 1000) / 10}%`);
   return (
     <div className="flex items-start justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
       <dl className="grid flex-1 grid-cols-3 gap-x-4 gap-y-1.5 sm:grid-cols-6">
@@ -555,16 +577,12 @@ function DatoArticulo({
   const vacio = (valor ?? '').trim() === '';
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        {etiqueta}
-      </dt>
+      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{etiqueta}</dt>
       <dd
         className={cn(
           'truncate text-xs',
           mono && 'font-mono',
-          vacio && requerido
-            ? 'font-medium text-destructive'
-            : 'text-foreground/80',
+          vacio && requerido ? 'font-medium text-destructive' : 'text-foreground/80',
         )}
       >
         {vacio ? (requerido ? 'Falta en el catálogo' : '—') : valor}
@@ -613,10 +631,7 @@ function ConceptoFilaCompacta({
       )}
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-        <span
-          className="min-w-0 flex-1 basis-48 truncate"
-          title={linea.descripcion}
-        >
+        <span className="min-w-0 flex-1 basis-48 truncate" title={linea.descripcion}>
           {linea.descripcion || <span className="text-muted-foreground">(sin descripción)</span>}
         </span>
         <span
@@ -662,8 +677,7 @@ function ConceptoFilaCompacta({
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
           {faltaFiscal ? (
             <>
-              Faltan datos fiscales del artículo (clave/unidad SAT) — no se
-              puede emitir.
+              Faltan datos fiscales del artículo (clave/unidad SAT) — no se puede emitir.
               {puedeCorregirArticulo && linea.productoId != null && (
                 <Link
                   to="/admin/datos-maestros/productos-aw/$id"
@@ -676,7 +690,7 @@ function ConceptoFilaCompacta({
               )}
             </>
           ) : (
-            <>La línea tiene errores — revísala con Editar.</>
+            <>La partida tiene errores — revísala con Editar.</>
           )}
         </p>
       )}

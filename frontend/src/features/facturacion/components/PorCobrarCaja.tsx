@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import {
   Sheet,
   SheetContent,
+  SheetBody,
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -141,7 +142,7 @@ export function PorCobrarCaja() {
       )}
 
       <Sheet open={cobrando != null} onOpenChange={(abierto) => !abierto && setCobrando(null)}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="right" size="md">
           {cobrando && (
             <>
               <SheetHeader>
@@ -151,7 +152,7 @@ export function PorCobrarCaja() {
                   {formatearMxn(cobrando.total)}
                 </SheetDescription>
               </SheetHeader>
-              <div className="px-4 pb-4">
+              <SheetBody>
                 <RegistrarCobroCard
                   key={cobrando.comprobanteId}
                   comprobanteId={cobrando.comprobanteId}
@@ -162,7 +163,7 @@ export function PorCobrarCaja() {
                   onCerrar={() => setCobrando(null)}
                   onRegistrado={() => setCobrando(null)}
                 />
-              </div>
+              </SheetBody>
             </>
           )}
         </SheetContent>

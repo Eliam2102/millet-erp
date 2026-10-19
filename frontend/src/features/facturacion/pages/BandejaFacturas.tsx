@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/erp/PageHeader';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ import { esApiError } from '@/lib/api';
 import { EstadoTimbrado } from '@/features/facturacion/api/types';
 import { ETIQUETA_ESTADO_TIMBRADO } from '@/features/facturacion/lib/glosario';
 import type { FacturasSearch } from '@/features/facturacion/lib/facturas-search-schema';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const FROM = '/_app/facturacion/facturas/' as const;
 const SENTINEL_ALL = '__all__';
@@ -53,9 +54,7 @@ const NOMBRE_ESTADO: Record<number, string> = {
 export function BandejaFacturas() {
   const search = useSearch({ from: FROM });
   const navigate = useNavigate();
-  const puedeEmitir = useHasPermission(
-    PermisosCanonicos.FacturacionFacturasEmitir,
-  );
+  const puedeEmitir = useHasPermission(PermisosCanonicos.FacturacionFacturasEmitir);
 
   const query = useListarFacturas({
     estado: search.estado,
@@ -79,23 +78,24 @@ export function BandejaFacturas() {
   });
 
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Facturas</h1>
-          <p className="text-sm text-muted-foreground">
-            Comprobantes de venta emitidos y su estado de timbrado.
-          </p>
-        </div>
-        {puedeEmitir && (
-          <Button asChild>
-            <Link to="/facturacion/facturas/nueva">
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva factura
-            </Link>
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        titulo="Facturas"
+        descripcion="Comprobantes de venta emitidos y su estado de timbrado."
+        acciones={
+          <>
+            {' '}
+            {puedeEmitir && (
+              <Button asChild>
+                <Link to="/facturacion/facturas/nueva">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva factura
+                </Link>
+              </Button>
+            )}{' '}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
@@ -104,10 +104,7 @@ export function BandejaFacturas() {
             value={search.estado != null ? String(search.estado) : SENTINEL_ALL}
             onValueChange={(v) =>
               actualizarSearch({
-                estado:
-                  v === SENTINEL_ALL
-                    ? undefined
-                    : (Number(v) as EstadoTimbrado),
+                estado: v === SENTINEL_ALL ? undefined : (Number(v) as EstadoTimbrado),
               })
             }
           >
@@ -186,9 +183,7 @@ export function BandejaFacturas() {
                   <td className="px-3 py-2 font-mono text-xs">{f.folio}</td>
                   <td className="px-3 py-2">
                     <div>{f.receptorNombre}</div>
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {f.receptorRfc}
-                    </div>
+                    <div className="font-mono text-xs text-muted-foreground">{f.receptorRfc}</div>
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">
                     {f.uuid ? `${f.uuid.slice(0, 8)}…${f.uuid.slice(-4)}` : '—'}
@@ -219,26 +214,17 @@ export function BandejaFacturas() {
 }
 
 export function ChipTimbrado({ estado }: { estado: string }) {
-  const tono =
+  const variant =
     estado === 'Timbrado'
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'success'
       : estado === 'TimbradoFallido'
-        ? 'bg-rose-100 text-rose-800'
+        ? 'danger'
         : estado === 'Cancelado' || estado === 'Descartada'
-          ? 'bg-zinc-200 text-zinc-700'
+          ? 'neutral'
           : estado === 'TimbradoEnProceso' || estado === 'CancelacionPendiente'
-            ? 'bg-amber-100 text-amber-800'
-            : 'bg-sky-100 text-sky-800';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        tono,
-      )}
-    >
-      {ETIQUETA_ESTADO_TIMBRADO[estado] ?? estado}
-    </span>
-  );
+            ? 'warning'
+            : 'info';
+  return <Badge variant={variant}>{ETIQUETA_ESTADO_TIMBRADO[estado] ?? estado}</Badge>;
 }
 
 function formatearMonto(v: number, moneda: string): string {

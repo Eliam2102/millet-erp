@@ -51,3 +51,11 @@ describe('ResumenImportes', () => {
     expect(screen.queryByLabelText('Estado de pago')).not.toBeInTheDocument();
   });
 });
+
+it('permite el resumen mínimo sin inventar un subtotal', () => {
+  render(<ResumenImportes moneda="MXN" total={116} acciones={<button>Pagar</button>} />);
+  expect(screen.queryByText('Subtotal')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Resumen de importes').querySelectorAll('dt')).toHaveLength(1);
+  expect(screen.getByText('$116.00')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Pagar' })).toBeInTheDocument();
+});

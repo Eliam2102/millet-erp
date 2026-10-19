@@ -8,7 +8,7 @@ interface Importe {
 }
 export interface ResumenImportesProps {
   moneda: string;
-  subtotal: number;
+  subtotal?: number;
   descuento?: number;
   ivaTrasladado?: number;
   otrosTrasladados?: Importe[];

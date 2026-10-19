@@ -369,7 +369,7 @@ function FormInner({
       <ErrorTimbradoAviso error={emitir.error} />
       {prefill?.pedidoFacturableId && (
         <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-          Facturando un pedido — líneas, datos comerciales y fiscales vienen precargados desde el
+          Facturando un pedido — partidas, datos comerciales y fiscales vienen precargados desde el
           pedido y los catálogos. Revisa y completa lo que falte. Al timbrar, el pedido pasa a{' '}
           <span className="font-medium">Facturado</span>.
         </div>
@@ -382,7 +382,7 @@ function FormInner({
             <BadgeErrores cuenta={erroresEncabezado} />
           </TabsTrigger>
           <TabsTrigger value="posiciones">
-            Posiciones
+            Partidas
             <BadgeErrores cuenta={erroresPosiciones} />
           </TabsTrigger>
           <TabsTrigger value="totales">Totales</TabsTrigger>
@@ -437,24 +437,26 @@ function FormInner({
         ivaTrasladado={totales.iva}
         otrasRetenciones={[{ etiqueta: 'Retenciones', monto: totales.ret }]}
         total={total}
-        acciones={<>
-          <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={emitir.isPending || receptorBloqueado || ceBloqueado}
-            title={
-              ceBloqueado
-                ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
-                : receptorBloqueado
-                  ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
-                  : undefined
-            }
-          >
-            {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
-          </Button>
-        </>}
+        acciones={
+          <>
+            <Button type="button" variant="ghost" onClick={cancelar} disabled={emitir.isPending}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={emitir.isPending || receptorBloqueado || ceBloqueado}
+              title={
+                ceBloqueado
+                  ? (motivoCe ?? 'Complete el embarque en Comercio Exterior.')
+                  : receptorBloqueado
+                    ? 'Receptor incompleto: complétalo en Datos Maestros → Clientes'
+                    : undefined
+              }
+            >
+              {emitir.isPending ? 'Emitiendo…' : 'Emitir y timbrar'}
+            </Button>
+          </>
+        }
       />
     </form>
   );
